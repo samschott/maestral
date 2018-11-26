@@ -14,8 +14,8 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              DirCreatedEvent, FileCreatedEvent,
                              DirDeletedEvent, FileDeletedEvent)
 
-from config.main import CONF, SUBFOLDER
-from config.base import get_conf_path
+from sisyphosdbx.config.main import CONF, SUBFOLDER
+from sisyphosdbx.config.base import get_conf_path
 
 
 logger = logging.getLogger(__name__)
@@ -139,7 +139,7 @@ class SisyphosClient:
 
         rel_list = [osp.pardir] * (len(start_list)-i) + path_list[i:]
         if not rel_list:
-            raise ValueError("Specified 'path' is not in Dropbox directory.")
+            raise ValueError("Specified path '%s' is not in Dropbox directory." % local_path)
 
         return '/' + '/'.join(rel_list)
 
@@ -433,7 +433,7 @@ class SisyphosClient:
 
         # get paths of modified or added files / folders
         for path in snapshot.paths:
-            dbx_path = self.to_dbxd_path(path)
+            dbx_path = self.to_dbx_path(path)
             if snapshot.mtime(path) > CONF.get('internal', 'lastsync'):
                 if path in self._rev_dict:  # file is already tracked
                     if osp.isdir(path):

@@ -8,8 +8,8 @@
 import os
 import os.path as osp
 from dropbox import files
-from config.main import CONF
-from config.base import get_home_dir
+from sisyphosdbx.config.main import CONF
+from sisyphosdbx.config.base import get_home_dir
 
 
 class Configure():

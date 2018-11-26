@@ -7,8 +7,8 @@ from dropbox import files
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from config.main import CONF, SUBFOLDER
-from config.base import get_conf_path
+from sisyphosdbx.config.main import CONF, SUBFOLDER
+from sisyphosdbx.config.base import get_conf_path
 
 configurationDirectory = get_conf_path(SUBFOLDER)
 dropbox_path = CONF.get('main', 'path')

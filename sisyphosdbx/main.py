@@ -2,8 +2,10 @@
 
 import os.path as osp
 import shutil
-from sysiphusdbx import SisyphusClient, LocalMonitor, RemoteMonitor, Configure
-from config.main import CONF
+from sisyphosdbx.client import SisyphosClient
+from sisyphosdbx.monitor import LocalMonitor, RemoteMonitor
+from sisyphosdbx.configure import Configure
+from sisyphosdbx.config.main import CONF
 
 import logging
 
@@ -16,15 +18,17 @@ class SisyphosDBX(object):
 
     FIRST_SYNC = (not CONF.get('internal', 'lastsync') or
                   CONF.get('internal', 'cursor') == '' or
-                  not osp.isdir(CONF.get('sysiphusdbx', 'path')))
+                  not osp.isdir(CONF.get('main', 'path')))
 
     def __init__(self):
 
-        self.client = SisyphusClient()
+        self.client = SisyphosClient()
+        self.start_sync()
 
     def on_firstsync(self):
 
         self.configure = Configure(self.client)
+        self.configure.set_dropbox_directory()
         self.configure.ask_for_excluded_folders()
         CONF.set('internal', 'cursor', '')
         CONF.set('internal', 'lastsync', None)
