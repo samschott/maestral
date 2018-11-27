@@ -6,7 +6,7 @@ SisyphosDBX is an open-source Dropbox client written in Python. The project's ma
 
 *Usage:*
 
-After installtion, in a Python command prompt, run
+After installation, in a Python command prompt, run
 ```Python
 >>> from sisyphosdbx import SisyphosDBX
 >>> sdbx = SisyphosDBX()
