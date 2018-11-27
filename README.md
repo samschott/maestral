@@ -20,7 +20,7 @@ SisyphosDBX remembers its last settings and resumes syncing after a restart. Use
 >>> sdbx.start_sync()  # resume syncing
 ```
 
-to start and resume syncing.
+to start and resume syncing while SisyphosDBX is running.
 
 *IMPORTANT:*
 - SisyphosDBX doesn't have production status yet, so only 500 accounts can use the API keys.
