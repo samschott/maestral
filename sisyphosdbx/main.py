@@ -78,7 +78,7 @@ class SisyphosDBX(object):
         # remove folder's Dropbox path from excluded list
         folders = CONF.get('main', 'excluded_folders')
         if dbx_path in folders:
-            new_folders = [x for x in folders if osp.normpath(x) == dbx_path]
+            new_folders = [x for x in folders if osp.normpath(x) != dbx_path]
         else:
             new_folders = folders
 

@@ -207,10 +207,10 @@ class GetRemoteChangesThread(threading.Thread):
     def run(self):
         while not self.stop_event.is_set():
             while self.pause_event.is_set():
-                time.sleep(0.1)
+                time.sleep(1)
             changes = self.client.wait_for_remote_changes()
             while self.pause_event.is_set():
-                time.sleep(0.1)
+                time.sleep(1)
 
             if changes:
                 with lock:
@@ -241,54 +241,56 @@ class ProcessLocalChangesThread(threading.Thread):
         while not self.stop_event.is_set():
             # pause if instructed
             while self.pause_event.is_set():
-                time.sleep(0.1)
+                time.sleep(1)
 
-            # any events to process?
-            if not self.event_q.empty():
-                # wait for self.delay after last event has been registered
+            events = []
+
+            events.append(self.event_q.get())  # blocks until something is in queue
+
+            # wait for self.delay after last event has been registered
+            t0 = time.time()
+            while t0 - self.event_q.update_time < self.delay:
+                time.sleep(self.delay)
                 t0 = time.time()
-                while t0 - self.event_q.update_time < self.delay:
-                    time.sleep(self.delay)
-                    t0 = time.time()
 
-                # get all events after folder has been idle for self.delay
-                events = []
-                while self.event_q.qsize() > 0:
-                    events.append(self.event_q.get())
+            # get all events after folder has been idle for self.delay
+            events = []
+            while self.event_q.qsize() > 0:
+                events.append(self.event_q.get())
 
-                # check for folder move events
-                def is_moved_folder(x):
-                    is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
-                    return is_moved_event and x.is_directory
+            # check for folder move events
+            def is_moved_folder(x):
+                is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
+                return is_moved_event and x.is_directory
 
-                moved_fodler_events = [x for x in events if is_moved_folder(x)]
+            moved_fodler_events = [x for x in events if is_moved_folder(x)]
 
-                # check for children of moved folders
-                def is_moved_child(x, parent_event):
-                    is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
-                    is_child = (x.src_path.startswith(parent_event.src_path) and
-                                x is not parent_event)
-                    return is_moved_event and is_child
+            # check for children of moved folders
+            def is_moved_child(x, parent_event):
+                is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
+                is_child = (x.src_path.startswith(parent_event.src_path) and
+                            x is not parent_event)
+                return is_moved_event and is_child
 
-                child_move_events = []
-                for parent_event in moved_fodler_events:
-                    children = [x for x in events if is_moved_child(x, parent_event)]
-                    child_move_events += children
+            child_move_events = []
+            for parent_event in moved_fodler_events:
+                children = [x for x in events if is_moved_child(x, parent_event)]
+                child_move_events += children
 
-                # remove all child_move_events from events
-                events = set(events) - set(child_move_events)
+            # remove all child_move_events from events
+            events = set(events) - set(child_move_events)
 
-                # process all events:
-                with lock:
-                    for event in events:
-                        if event.event_type is EVENT_TYPE_CREATED:
-                            self.dbx_handler.on_created(event)
-                        elif event.event_type is EVENT_TYPE_MOVED:
-                            self.dbx_handler.on_moved(event)
-                        elif event.event_type is EVENT_TYPE_DELETED:
-                            self.dbx_handler.on_deleted(event)
-                        elif event.event_type is EVENT_TYPE_MODIFIED:
-                            self.dbx_handler.on_modified(event)
+            # process all events:
+            with lock:
+                for event in events:
+                    if event.event_type is EVENT_TYPE_CREATED:
+                        self.dbx_handler.on_created(event)
+                    elif event.event_type is EVENT_TYPE_MOVED:
+                        self.dbx_handler.on_moved(event)
+                    elif event.event_type is EVENT_TYPE_DELETED:
+                        self.dbx_handler.on_deleted(event)
+                    elif event.event_type is EVENT_TYPE_MODIFIED:
+                        self.dbx_handler.on_modified(event)
 
     def pause(self):
         self.pause_event.set()

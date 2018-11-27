@@ -7,12 +7,17 @@ class SupportedImplementation(Enum):
     osascript = 'osascript'
 
 
-class Notipy:
+class Notipy(object):
+    """Send native OS notifications to user.
+
+    Relies on AppleScript on macOS and notify-send on linux, otherwise
+    falls back to stdout."""
+
     def __init__(self):
         self.implementation = self.__get_available_implementation()
 
-    def send(self, message):
-        self.__send_message(message)
+    def send(self, message, title=""):
+        self.__send_message(message, title)
 
     def __send_message(self, message, title=""):
         if self.implementation == SupportedImplementation.osascript:
@@ -35,3 +40,12 @@ class Notipy:
         elif self.__command_exists('notify-send'):
             return SupportedImplementation.notifySend
         return None
+
+
+class SisyphosNotiy(Notipy):
+    """Send native SisyphosDBX notifications to user.
+
+    Notifications with the same title grouped if they arrive successively.
+    """
+
+    pass
