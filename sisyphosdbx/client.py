@@ -16,6 +16,7 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
 
 from sisyphosdbx.config.main import CONF, SUBFOLDER
 from sisyphosdbx.config.base import get_conf_path
+from sisyphosdbx.notify import Notipy
 
 
 logger = logging.getLogger(__name__)
@@ -101,6 +102,8 @@ class SisyphosClient:
 
     dropbox = None
     session = None
+
+    notipy = Notipy()
 
     def __init__(self):
         # check if I specified app_key and app_secret
@@ -446,11 +449,21 @@ class SisyphosClient:
         while results[-1].has_more:  # check if there is any more
             idx += len(results[-1].entries)
             logger.info("Indexing %s" % idx)
+            self.notipy.send("Indexing %s" % idx)
             more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
             results.append(more_results)
 
+        # count remote changes
+        total = 0
+        for result in results:
+            total += len(result.entries)
+
+        # apply remote changes
+        idx = 0
         for result in results:
             for entry in result.entries:
+                idx += 1
+                self.notipynotipy.send("Downloading %s/%s" % (idx, total))
                 self._create_local_entry(entry)
 
             self.last_cursor = result.cursor
@@ -550,6 +563,22 @@ class SisyphosClient:
             result = self.dbx.files_list_folder_continue(results[-1].cursor)
             results.append(result)
 
+        # count remote changes
+        total = 0
+        for result in results:
+            total += len(result.entries)
+
+        # notify user
+        if total > 1:
+            self.notipy.send("%s files changed" % total)
+        else:
+            md = results[0].entries[0]
+            if isinstance(md, files.DeletedMetadata):
+                self.notipy.send("%s removed" % md.path_display)
+            else:
+                self.notipy.send("%s added" % md.path_display)
+
+        # apply remote changes
         for result in results:
             for entry in result.entries:
                 self._create_local_entry(entry)

@@ -1,5 +1,10 @@
 import os
+import time
 from enum import Enum
+from queue import Queue
+import threading
+
+MESSAGE_TYPES = ('file changed', 'other')
 
 
 class SupportedImplementation(Enum):
@@ -16,7 +21,7 @@ class Notipy(object):
     def __init__(self):
         self.implementation = self.__get_available_implementation()
 
-    def send(self, message, title=""):
+    def send(self, message, title="SisyphosDBX"):
         self.__send_message(message, title)
 
     def __send_message(self, message, title=""):
@@ -40,12 +45,3 @@ class Notipy(object):
         elif self.__command_exists('notify-send'):
             return SupportedImplementation.notifySend
         return None
-
-
-class SisyphosNotiy(Notipy):
-    """Send native SisyphosDBX notifications to user.
-
-    Notifications with the same title grouped if they arrive successively.
-    """
-
-    pass

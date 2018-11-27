@@ -19,31 +19,6 @@ logger = logging.getLogger(__name__)
 lock = threading.Lock()
 
 
-def local_sync(func):
-    """Wrapper for methods and detect and sync local file changes.
-
-    - Aborts if file or folder has been excluded by user, or if file temporary
-      and created only during a save event.
-    - Pauses the remote monitor for the duration of the local sync / upload.
-    - Updates the lastsync time in the config file.
-    """
-
-    def wrapper(*args, **kwargs):
-
-        args[0].remote_monitor.stop()
-        try:
-            with lock:
-                func(*args, **kwargs)
-        except Exception as err:
-            logger.error(err)
-
-        args[0].remote_monitor.start()
-
-        CONF.set('internal', 'lastsync', time.time())
-
-    return wrapper
-
-
 class TimedQueue(Queue):
 
     def __init__(self):
@@ -292,6 +267,8 @@ class ProcessLocalChangesThread(threading.Thread):
                     elif event.event_type is EVENT_TYPE_MODIFIED:
                         self.dbx_handler.on_modified(event)
 
+            CONF.set('internal', 'lastsync', time.time())
+
     def pause(self):
         self.pause_event.set()
 
@@ -300,15 +277,6 @@ class ProcessLocalChangesThread(threading.Thread):
 
     def stop(self):
         self.stop_event.set()
-
-
-class RemoteDummy(object):
-
-    def start(self):
-        pass
-
-    def stop(self):
-        pass
 
 
 class RemoteMonitor(object):
