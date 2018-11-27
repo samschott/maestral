@@ -40,7 +40,10 @@ class Configure():
 
             return dropbox_path
 
-        CONF.set('main', 'path', ask_for_path())
+        path = ask_for_path()
+
+        self.client.dropbox_path = path
+        CONF.set('main', 'path', path)
         CONF.set('main', 'lastsync', False)
 
     def ask_for_excluded_folders(self):
@@ -55,6 +58,7 @@ class Configure():
                 if yes:
                     folders.append(entry.path_display)
 
+        self.client.excluded_folders = folders
         CONF.set('main', 'excluded_folders', folders)
 
 

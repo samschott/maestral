@@ -14,7 +14,6 @@ from sisyphosdbx.config.main import CONF, SUBFOLDER
 from sisyphosdbx.config.base import get_conf_path
 
 configurationDirectory = get_conf_path(SUBFOLDER)
-dropbox_path = CONF.get('main', 'path')
 
 logger = logging.getLogger(__name__)
 lock = threading.Lock()
@@ -115,9 +114,6 @@ class DropboxEventHandler(object):
             return
 
         # has event just been triggere by remote_monitor?
-        print(self.client.flagged)
-        print(dbx_path)
-        print(dbx_path in self.client.flagged)
         if dbx_path in self.client.flagged:
             logging.info("'%s' has just been synced. Nothing to do.", dbx_path)
             self.client.flagged.remove(dbx_path)
@@ -270,16 +266,17 @@ class ProcessLocalChangesThread(threading.Thread):
                 # check for children of moved folders
                 def is_moved_child(x, parent_event):
                     is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
-                    is_child = x.src_path.startswith(parent_event.src_path)
+                    is_child = (x.src_path.startswith(parent_event.src_path) and
+                                x is not parent_event)
                     return is_moved_event and is_child
 
                 child_move_events = []
                 for parent_event in moved_fodler_events:
-                    event = [x for x in events if is_moved_child(x, parent_event)]
-                    child_move_events.append(event)
+                    children = [x for x in events if is_moved_child(x, parent_event)]
+                    child_move_events += children
 
                 # remove all child_move_events from events
-                events = list(set(events) - set(child_move_events))
+                events = set(events) - set(child_move_events)
 
                 # process all events:
                 with lock:
@@ -345,7 +342,7 @@ class LocalMonitor(object):
 
         self.file_handler = FileEventHandler()
         self.observer = Observer()
-        self.observer.schedule(self.file_handler, dropbox_path, recursive=True)
+        self.observer.schedule(self.file_handler, self.client.dropbox_path, recursive=True)
         self.observer.start()
 
         self.dbx_handler = DropboxEventHandler(self.client)

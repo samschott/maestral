@@ -183,10 +183,17 @@ class SisyphosClient:
         :param dbx_path: Dropbox file path
         :param rev: revision str
         """
-        if rev is None:
-            self._rev_dict.pop(dbx_path, None)
+        if rev is None:  # remove entry for dbx_path and all children
+            for path in dict(self._rev_dict):
+                if path.startswith(dbx_path):
+                    self._rev_dict.pop(path, None)
         else:
             self._rev_dict[dbx_path] = rev
+            # set all parent revs to 'folder'
+            dirname = osp.dirname(dbx_path)
+            while dirname is not '/':
+                self._rev_dict[dirname] = 'folder'
+                dirname = osp.dirname(dirname)
 
         with open(self.rev_file, 'wb+') as f:
             pickle.dump(self._rev_dict, f, pickle.HIGHEST_PROTOCOL)
@@ -209,16 +216,24 @@ class SisyphosClient:
         """
         path = osp.normpath(folder)
 
+        results = []
+
         try:
-            res = self.dbx.files_list_folder(path, **kwargs)
+            results.append(self.dbx.files_list_folder(path, **kwargs))
         except dropbox.exceptions.ApiError as err:
             logging.info("Folder listing failed for '%s': %s", path, err)
             return None
-        else:
-            rv = {}
+
+        while results[-1].has_more:
+            more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
+            results.append(more_results)
+
+        rv = {}
+        for res in results:
             for entry in res.entries:
                 rv[entry.name] = entry
-            return rv
+
+        return rv
 
     def download(self, dbx_path, **kwargs):
         """ Downloads file from Dropbox to our local folder.
@@ -262,6 +277,7 @@ class SisyphosClient:
             return False
 
         self.set_local_rev(md.path_display, md.rev)  # save revision metadata
+        self.flagged.append(md.path_display)
 
         msg = ("File '{0}' (rev {1}) from '{2}' was successfully downloaded as '{3}'.\n".format(
                 md.name, md.rev, md.path_display, dst_path))
@@ -356,8 +372,9 @@ class SisyphosClient:
         """
         try:
             # try to move file
-            md = self.dbx.files_move(dbx_path, new_path, allow_shared_folder=True,
-                                     allow_ownership_transfer=True)
+            metadata = self.dbx.files_move(dbx_path, new_path,
+                                           allow_shared_folder=True,
+                                           allow_ownership_transfer=True)
         except dropbox.exceptions.HttpError as err:
             logger.warning(' x HTTP error', err)
             return False
@@ -368,14 +385,22 @@ class SisyphosClient:
         # update local revs
         self.set_local_rev(dbx_path, None)
 
-        if isinstance(md, files.FileMetadata):
-            self.set_local_rev(new_path, md.rev)
-        elif isinstance(md, files.FolderMetadata):
+        if isinstance(metadata, files.FileMetadata):
+            self.set_local_rev(new_path, metadata.rev)
+
+        elif isinstance(metadata, files.FolderMetadata):  # set rev of children
             self.set_local_rev(new_path, 'folder')
+            results = self.list_folder(new_path, recursive=True)
+            for md in results.values():
+                if isinstance(md, files.FileMetadata):
+                    self.set_local_rev(md.path_display, md.rev)
+                elif isinstance(md, files.FolderMetadata):
+                    self.set_local_rev(md.path_display, 'folder')
 
-        logger.info("File moved from '%s' to '%s' on Dropbox.", dbx_path, md.path_display)
+        logger.info("File moved from '%s' to '%s' on Dropbox.",
+                    dbx_path, metadata.path_display)
 
-        return md
+        return metadata
 
     def make_dir(self, path, **kwargs):
         """
@@ -405,11 +430,12 @@ class SisyphosClient:
         :param path: path to folder on Dropbox, defaults to root
         :returns: True on success, False otherwise
         """
-        results = [0]  # list to store all results
+        results = []  # list to store all results
 
         try:  # get metadata of all remote folders and files
-            results[0] = self.dbx.files_list_folder(path, recursive=True,
-                                                    include_deleted=False)
+            results.append(self.dbx.files_list_folder(path, recursive=True,
+                                                      include_deleted=False,
+                                                      limit=500))
         except dropbox.exceptions.ApiError as exc:
             msg = "Cannot access '{0}': {1}".format(path, exc.error.get_path())
             logger.warning(msg)
@@ -545,8 +571,6 @@ class SisyphosClient:
         if self.is_excluded(entry.path_display):
             return
 
-        self.flagged.append(entry.path_display)
-
         if isinstance(entry, files.FileMetadata):
             # Store the new entry at the given path in your local state.
             # If the required parent folders don’t exist yet, create them.
@@ -564,6 +588,7 @@ class SisyphosClient:
             dst_path = self.to_local_path(entry.path_display)
 
             if not osp.isdir(dst_path):
+                self.flagged.append(entry.path_display)
                 os.makedirs(dst_path)
 
             self.set_local_rev(entry.path_display, 'folder')
@@ -576,8 +601,10 @@ class SisyphosClient:
             dst_path = self.to_local_path(entry.path_display)
 
             if osp.isdir(dst_path):
+                self.flagged.append(entry.path_display)
                 shutil.rmtree(dst_path)
             elif osp.isfile(dst_path):
+                self.flagged.append(entry.path_display)
                 os.remove(dst_path)
 
             self.set_local_rev(entry.path_display, None)

@@ -30,7 +30,6 @@ class SisyphosDBX(object):
         self.configure = Configure(self.client)
         self.configure.set_dropbox_directory()
         self.configure.ask_for_excluded_folders()
-        self.client.excluded_folders = CONF.get('main', 'excluded_folders')
         CONF.set('internal', 'cursor', '')
         CONF.set('internal', 'lastsync', None)
 
