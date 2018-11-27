@@ -6,6 +6,7 @@ SisyphosDBX is an open-source Dropbox client written in Python. The project's ma
 
 *IMPORTANT:*
 SisyphosDBX doesn't have production status yet, so only 500 accounts can use the API keys.
+SisyphosDBX is still in beta status and may potentially result in loss of data. Only sync folders with non-essential files.
 
 ## Installation
 Download and install the package by running
@@ -13,3 +14,12 @@ Download and install the package by running
 $ pip git+https://github.com/SamSchott/sisyphosdbx
 ```
 in the command line.
+
+## Dependencies
+*System:*
+- Python >= 3.7
+- macOS or Linux
+
+*Python:*
+- dropbox
+- watchdog
