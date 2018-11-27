@@ -2,10 +2,13 @@ import os.path as osp
 import logging
 import time
 import threading
+from queue import Queue
 from dropbox import files
 
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+from watchdog.events import (FileSystemEventHandler, EVENT_TYPE_CREATED,
+                             EVENT_TYPE_DELETED, EVENT_TYPE_MODIFIED,
+                             EVENT_TYPE_MOVED)
 
 from sisyphosdbx.config.main import CONF, SUBFOLDER
 from sisyphosdbx.config.base import get_conf_path
@@ -14,32 +17,7 @@ configurationDirectory = get_conf_path(SUBFOLDER)
 dropbox_path = CONF.get('main', 'path')
 
 logger = logging.getLogger(__name__)
-lock = threading.RLock()
-
-EXCLUDED_FILES = CONF.get('main', 'exlcuded_files')
-EXCLUDED_FOLDERS = CONF.get('main', 'excluded_folders')
-
-
-def is_excluded(dbx_path):
-    """Check if file is excluded from sync
-
-    Checks if a file or folder has been excluded by the user, or if it  is
-    temporary and created only during a save event.
-    :param dbx_path: string containing Dropbox path
-    :returns: True if file excluded, False otherwise.
-    """
-    excluded = False
-    if osp.basename(dbx_path) in EXCLUDED_FILES:
-        excluded = True
-
-    for excluded_folder in EXCLUDED_FOLDERS:
-        if not osp.commonpath([dbx_path, excluded_folder]) in [osp.sep, ""]:
-            excluded = True
-
-    if dbx_path.count('.') > 1:  # ignore ephemeral files on macOS
-        excluded = True
-
-    return excluded
+lock = threading.Lock()
 
 
 def local_sync(func):
@@ -52,61 +30,74 @@ def local_sync(func):
     """
 
     def wrapper(*args, **kwargs):
-        if is_excluded(args[1].src_path):
-            return
 
-        if hasattr(args[1], 'dst_path'):
-            if is_excluded(args[1].dst_path):
-                return
-
-        print('syncing...')
         args[0].remote_monitor.stop()
-        with lock:
-            result = func(*args, **kwargs)
+        try:
+            with lock:
+                func(*args, **kwargs)
+        except Exception as err:
+            logger.error(err)
+
         args[0].remote_monitor.start()
+
         CONF.set('internal', 'lastsync', time.time())
-        print('done')
-        return result
+
     return wrapper
 
 
-class LoggingEventHandler(FileSystemEventHandler):
+class TimedQueue(Queue):
+
+    def __init__(self):
+        super(self.__class__, self).__init__()
+
+        self.update_time = 0
+
+    # Put a new item in the queue, remember time
+    def _put(self, item):
+        self.queue.append(item)
+        self.update_time = time.time()
+
+
+class FileEventHandler(FileSystemEventHandler):
     """Logs all the events captured."""
 
+    event_q = TimedQueue()
+
     def on_moved(self, event):
-        super(LoggingEventHandler, self).on_moved(event)
         logger.info("Move detected: from '%s' to '%s'", event.src_path, event.dest_path)
+        self.event_q.put(event)
 
     def on_created(self, event):
-        super(LoggingEventHandler, self).on_created(event)
         logger.info("Creation detected: '%s'", event.src_path)
+        self.event_q.put(event)
 
     def on_deleted(self, event):
-        super(LoggingEventHandler, self).on_deleted(event)
         logger.info("Deletion detected: '%s'", event.src_path)
+        self.event_q.put(event)
 
     def on_modified(self, event):
-        super(LoggingEventHandler, self).on_modified(event)
         logger.info("Modification detected: '%s'", event.src_path)
+        self.event_q.put(event)
 
 
-class DropboxEventHandler(LoggingEventHandler):
+class DropboxEventHandler(object):
     """Logs all the events captured."""
 
-    def __init__(self, client, remote_monitor):
+    def __init__(self, client):
 
         self.client = client
-        self.remote_monitor = remote_monitor
 
-    @local_sync
     def on_moved(self, event):
-        super(LoggingEventHandler, self).on_moved(event)
 
         path = event.src_path
         path2 = event.dest_path
 
         dbx_path = self.client.to_dbx_path(path)
         dbx_path2 = self.client.to_dbx_path(path2)
+
+        # is file excluded?
+        if self.client.is_excluded(dbx_path2):
+            return
 
         # If the file name contains multiple periods it is likely a temporary
         # file created during a saving event on macOS. Irgnore such files.
@@ -115,19 +106,24 @@ class DropboxEventHandler(LoggingEventHandler):
 
         self.client.move(dbx_path, dbx_path2)
 
-        what = 'directory' if event.is_directory else 'file'
-        logger.info("Moved %s: from %s to %s", what, dbx_path, dbx_path2)
-
-    @local_sync
     def on_created(self, event):
-        super(LoggingEventHandler, self).on_created(event)
-
-        what = 'directory' if event.is_directory else 'file'
-
         path = event.src_path
         dbx_path = self.client.to_dbx_path(path)
 
-        if what == 'file':
+        # is file excluded?
+        if self.client.is_excluded(dbx_path):
+            return
+
+        # has event just been triggere by remote_monitor?
+        print(self.client.flagged)
+        print(dbx_path)
+        print(dbx_path in self.client.flagged)
+        if dbx_path in self.client.flagged:
+            logging.info("'%s' has just been synced. Nothing to do.", dbx_path)
+            self.client.flagged.remove(dbx_path)
+            return
+
+        if not event.is_directory:
 
             if osp.isfile(path):
                 while True:  # wait until file is fully created
@@ -141,40 +137,52 @@ class DropboxEventHandler(LoggingEventHandler):
                 # if truly a new file
                 if rev is None:
                     mode = files.WriteMode('add')
-                # or a 'flase' new file event triggered by modification
+                # or a 'false' new file event triggered by saving the file
                 # e.g., some programms create backup files and then swap them
                 # in to replace the files you are editing on the disk
                 else:
                     mode = files.WriteMode('update', rev)
-                md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
+                self.client.upload(path, dbx_path, autorename=True, mode=mode)
 
-                logger.info("Created %s: %s (rev %s)", what, md.path_display, md.rev)
+        elif event.is_directory:
+            result = self.client.list_folder(dbx_path)
+            if result is not None:
+                # directory is already on Dropbox
+                return
+            else:
+                self.client.make_dir(dbx_path)
 
-        else:
-            what = 'directory' if event.is_directory else 'file'
-            if what == 'directory':
-                md = self.client.make_dir(dbx_path, autorename=True)
-                logger.info("Created %s: %s", what, md.path_display)
-
-    @local_sync
     def on_deleted(self, event):
-        super(LoggingEventHandler, self).on_deleted(event)
-
         path = event.src_path
         dbx_path = self.client.to_dbx_path(path)
-        what = 'directory' if event.is_directory else 'file'
-        md = self.client.remove(dbx_path)
-        logger.info("Deleted %s.", what)
 
-    @local_sync
+        # is file excluded?
+        if self.client.is_excluded(dbx_path):
+            return
+
+        # has event just been triggere by remote_monitor?
+        if dbx_path in self.client.flagged:
+            self.client.flagged.remove(dbx_path)
+            return
+
+        rev = self.client.get_local_rev(dbx_path)
+        if rev is not None:
+            self.client.remove(dbx_path)
+
     def on_modified(self, event):
-        super(LoggingEventHandler, self).on_modified(event)
-
-        what = 'directory' if event.is_directory else 'file'
         path = event.src_path
         dbx_path = self.client.to_dbx_path(path)
 
-        if what == "file":
+        # is file excluded?
+        if self.client.is_excluded(dbx_path):
+            return
+
+        # has event just been triggere by remote_monitor?
+        if dbx_path in self.client.flagged:
+            self.client.flagged.remove(dbx_path)
+            return
+
+        if not event.is_directory:  # ignore directory modified events
             if osp.isfile(path):
 
                 while True:  # wait until file is fully created
@@ -187,7 +195,7 @@ class DropboxEventHandler(LoggingEventHandler):
                 rev = self.client.get_local_rev(dbx_path)
                 mode = files.WriteMode('update', rev)
                 md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
-                logger.info("Modified %s: %s (old rev: %s, new rev %s)", what,
+                logger.info("Modified file: %s (old rev: %s, new rev %s)",
                             md.path_display, rev, md.rev)
 
 
@@ -211,6 +219,79 @@ class GetRemoteChangesThread(threading.Thread):
             if changes:
                 with lock:
                     self.client.get_remote_changes()
+
+    def pause(self):
+        self.pause_event.set()
+
+    def resume(self):
+        self.pause_event.clear()
+
+    def stop(self):
+        self.stop_event.set()
+
+
+class ProcessLocalChangesThread(threading.Thread):
+
+    pause_event = threading.Event()
+    stop_event = threading.Event()
+
+    def __init__(self, dbx_handler, event_q):
+        super(self.__class__, self).__init__()
+        self.dbx_handler = dbx_handler
+        self.event_q = event_q
+        self.delay = 0.5
+
+    def run(self):
+        while not self.stop_event.is_set():
+            # pause if instructed
+            while self.pause_event.is_set():
+                time.sleep(0.1)
+
+            # any events to process?
+            if not self.event_q.empty():
+                # wait for self.delay after last event has been registered
+                t0 = time.time()
+                while t0 - self.event_q.update_time < self.delay:
+                    time.sleep(self.delay)
+                    t0 = time.time()
+
+                # get all events after folder has been idle for self.delay
+                events = []
+                while self.event_q.qsize() > 0:
+                    events.append(self.event_q.get())
+
+                # check for folder move events
+                def is_moved_folder(x):
+                    is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
+                    return is_moved_event and x.is_directory
+
+                moved_fodler_events = [x for x in events if is_moved_folder(x)]
+
+                # check for children of moved folders
+                def is_moved_child(x, parent_event):
+                    is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
+                    is_child = x.src_path.startswith(parent_event.src_path)
+                    return is_moved_event and is_child
+
+                child_move_events = []
+                for parent_event in moved_fodler_events:
+                    event = [x for x in events if is_moved_child(x, parent_event)]
+                    child_move_events.append(event)
+
+                # remove all child_move_events from events
+                events = list(set(events) - set(child_move_events))
+
+                # process all events:
+                with lock:
+                    for event in events:
+                        if event.event_type is EVENT_TYPE_CREATED:
+                            self.dbx_handler.on_created(event)
+                        elif event.event_type is EVENT_TYPE_MOVED:
+                            self.dbx_handler.on_moved(event)
+                        elif event.event_type is EVENT_TYPE_DELETED:
+                            self.dbx_handler.on_deleted(event)
+                        elif event.event_type is EVENT_TYPE_MODIFIED:
+                            self.dbx_handler.on_modified(event)
 
     def pause(self):
         self.pause_event.set()
@@ -258,12 +339,19 @@ class RemoteMonitor(object):
 
 class LocalMonitor(object):
 
-    def __init__(self, client, remote_monitor=RemoteDummy()):
+    def __init__(self, client):
 
         self.client = client
-        self.remote_monitor = remote_monitor
 
-        self.event_handler = DropboxEventHandler(self.client, self.remote_monitor)
+        self.file_handler = FileEventHandler()
+        self.observer = Observer()
+        self.observer.schedule(self.file_handler, dropbox_path, recursive=True)
+        self.observer.start()
+
+        self.dbx_handler = DropboxEventHandler(self.client)
+        self.thread = ProcessLocalChangesThread(self.dbx_handler, self.file_handler.event_q)
+        self.thread.pause()
+        self.thread.start()
 
     def upload_local_changes_after_inactive(self):
         """Push changes while client has not been running to Dropbox."""
@@ -271,20 +359,34 @@ class LocalMonitor(object):
         events = self.client.get_local_changes()
 
         for event in events:
-            if event.event_type is 'created':
-                self.event_handler.on_created(event)
-            elif event.event_type is 'deleted':
-                self.event_handler.on_deleted(event)
-            elif event.event_type is 'modified':
-                self.event_handler.on_modified(event)
+            if event.event_type is EVENT_TYPE_CREATED:
+                self.dbx_handler.on_created(event)
+            elif event.event_type is EVENT_TYPE_DELETED:
+                self.dbx_handler.on_deleted(event)
+            elif event.event_type is EVENT_TYPE_MODIFIED:
+                self.dbx_handler.on_modified(event)
 
     def start(self):
-        """Start observation of local Dropbox folder."""
-        self.observer = Observer()
-        self.observer.schedule(self.event_handler, dropbox_path, recursive=True)
-        self.observer.start()
+        """Start processing of local Dropbox file events."""
+
+        self.thread.resume()
 
     def stop(self):
-        """Stop observation of local Dropbox folder."""
-        self.observer.stop()
-        self.observer.join()
+        """Stop processing of local Dropbox file events."""
+        self.thread.pause()
+
+    def __del__(self):
+        try:
+            self.observer.stop()
+        except AttributeError:
+            pass
+
+        try:
+            self.observer.join()
+        except AttributeError:
+            pass
+
+        try:
+            self.thread.stop()
+        except AttributeError:
+            pass

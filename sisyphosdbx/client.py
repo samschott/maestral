@@ -97,6 +97,7 @@ class SisyphosClient:
     exlcuded_files = CONF.get('main', 'exlcuded_files')
     excluded_folders = CONF.get('main', 'excluded_folders')
     last_cursor = CONF.get('internal', 'cursor')
+    flagged = []
 
     dropbox = None
     session = None
@@ -131,17 +132,18 @@ class SisyphosClient:
         if not local_path:
             raise ValueError("No path specified.")
 
-        start_list = osp.normpath(self.dropbox_path).split(osp.sep)
+        dbx_root_list = osp.normpath(self.dropbox_path).split(osp.sep)
         path_list = osp.normpath(local_path).split(osp.sep)
 
-        # Work out how much of the filepath is shared by start and path.
-        i = len(osp.commonprefix([start_list, path_list]))
+        # Work out how much of the filepath is shared by dropbox_path and path.
+        i = len(osp.commonprefix([dbx_root_list, path_list]))
 
-        rel_list = [osp.pardir] * (len(start_list)-i) + path_list[i:]
-        if not rel_list:
+        if i == len(path_list):  # path corresponds to dropbox_path
+            return "/"
+        elif not i == len(dbx_root_list):  # path is outside of to dropbox_path
             raise ValueError("Specified path '%s' is not in Dropbox directory." % local_path)
 
-        return '/' + '/'.join(rel_list)
+        return '/' + '/'.join(path_list[i:])
 
     def to_local_path(self, dbx_path):
         """Converts a Dropbox folder path the correspoding local path."""
@@ -210,8 +212,8 @@ class SisyphosClient:
         try:
             res = self.dbx.files_list_folder(path, **kwargs)
         except dropbox.exceptions.ApiError as err:
-            print('Folder listing failed for', path, '-- assumed empty:', err)
-            return {}
+            logging.info("Folder listing failed for '%s': %s", path, err)
+            return None
         else:
             rv = {}
             for entry in res.entries:
@@ -238,7 +240,7 @@ class SisyphosClient:
             conflict = self._is_local_conflict(dbx_path)
         except dropbox.exceptions.ApiError as exc:
             msg = ("An error occurred while getting metadata of file '{0}': "
-                   "{2}.".format(dbx_path, exc.error if hasattr(exc, 'error') else exc))
+                   "{1}.".format(dbx_path, exc.error if hasattr(exc, 'error') else exc))
             logger.warning(msg)
             return False
 
@@ -254,17 +256,15 @@ class SisyphosClient:
         try:
             md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
         except (dropbox.exceptions.ApiError, IOError, OSError) as exc:
-            msg = ("An error occurred while downloading '{0}' file as '{1}': "
-                   "{2}.".format(
-                           dbx_path, dst_path,
-                           exc.error if hasattr(exc, 'error') else exc))
+            msg = ("An error occurred while downloading '{0}' file as '{1}': {2}.".format(
+                    dbx_path, dst_path, exc.error if hasattr(exc, 'error') else exc))
             logger.warning(msg)
             return False
 
-        msg = ("File '{0}' (rev={1}) from '{2}' was successfully downloaded as '{3}'.\n".format(
-                md.name, md.rev, md.path_display, dst_path))
-
         self.set_local_rev(md.path_display, md.rev)  # save revision metadata
+
+        msg = ("File '{0}' (rev {1}) from '{2}' was successfully downloaded as '{3}'.\n".format(
+                md.name, md.rev, md.path_display, dst_path))
         logger.info(msg)
 
         return md
@@ -312,7 +312,7 @@ class SisyphosClient:
                                 f.read(chunk_size), cursor)
                             cursor.offset = f.tell()
         except dropbox.exceptions.ApiError as exc:
-            msg = "An error occurred while uploading '{0}': {1}.".format(
+            msg = "An error occurred while uploading file '{0}': {1}.".format(
                 file_src, exc.error.get_path().reason)
             logger.warning(msg)
             return False
@@ -320,19 +320,19 @@ class SisyphosClient:
             pb.close()
 
         self.set_local_rev(md.path_display, md.rev)  # save revision metadata
-        logger.info("File uploaded properly.")
+        logger.info("File '%s' (rev %s) uploaded to Dropbox.", md.path_display, md.rev)
         return md
 
-    def remove(self, path, **kwargs):
+    def remove(self, dbx_path, **kwargs):
         """
         Removes file from Dropbox.
-        :param path: path to file on Dropbox
+        :dbx_path path: path to file on Dropbox
         :param kwargs: keyword arguments for Dropbox SDK files_delete
         :returns: metadata or False
         """
         try:
             # try to move file (response will be metadata, probably)
-            md = self.dbx.files_delete(path, **kwargs)
+            md = self.dbx.files_delete(dbx_path, **kwargs)
         except dropbox.exceptions.HttpError as err:
             logger.warning(' x HTTP error', err)
             return False
@@ -343,19 +343,21 @@ class SisyphosClient:
         # remove revision metadata
         self.set_local_rev(md.path_display, None)
 
+        logger.info("File / folder '%s' removed from Dropbox.", dbx_path)
+
         return md
 
-    def move(self, path, new_path):
+    def move(self, dbx_path, new_path):
         """
         Moves/renames files or folders on Dropbox
-        :param path: path to file /folder on Dropbox
+        :dbx_path path: path to file /folder on Dropbox
         :param new_path: new name/path
         :returns: metadata or False
         """
         try:
-            # try to move file (response will be metadata, probably)
-            md = self.dbx.files_move(path, new_path, allow_shared_folder=True,
-                                     autorename=True, allow_ownership_transfer=True)
+            # try to move file
+            md = self.dbx.files_move(dbx_path, new_path, allow_shared_folder=True,
+                                     allow_ownership_transfer=True)
         except dropbox.exceptions.HttpError as err:
             logger.warning(' x HTTP error', err)
             return False
@@ -364,8 +366,15 @@ class SisyphosClient:
             return False
 
         # update local revs
-        self.set_local_rev(path, None)
-        self.set_local_rev(new_path, md.rev)
+        self.set_local_rev(dbx_path, None)
+
+        if isinstance(md, files.FileMetadata):
+            self.set_local_rev(new_path, md.rev)
+        elif isinstance(md, files.FolderMetadata):
+            self.set_local_rev(new_path, 'folder')
+
+        logger.info("File moved from '%s' to '%s' on Dropbox.", dbx_path, md.path_display)
+
         return md
 
     def make_dir(self, path, **kwargs):
@@ -382,6 +391,9 @@ class SisyphosClient:
             return False
 
         self.set_local_rev(path, 'folder')
+
+        logger.info("Created folder '%s' on Dropbox.", md.path_display)
+
         return md
 
     def get_remote_dropbox(self, path=""):
@@ -403,8 +415,11 @@ class SisyphosClient:
             logger.warning(msg)
             return False
 
+        idx = 0
+
         while results[-1].has_more:  # check if there is any more
-            logger.info("Indexing %s" % len(results[-1].entries))
+            idx += len(results[-1].entries)
+            logger.info("Indexing %s" % idx)
             more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
             results.append(more_results)
 
@@ -428,20 +443,24 @@ class SisyphosClient:
             local Dropbox folder, entries are file changed event types
             corresponding to watchdog.
         """
+        logging.info("Uploading local changes.")
         changes = []
         snapshot = DirectorySnapshot(self.dropbox_path)
+        # remote root entry from snapshot
+        del snapshot._inode_to_path[snapshot.inode(self.dropbox_path)]
+        del snapshot._stat_info[self.dropbox_path]
 
         # get paths of modified or added files / folders
         for path in snapshot.paths:
-            dbx_path = self.to_dbx_path(path)
             if snapshot.mtime(path) > CONF.get('internal', 'lastsync'):
-                if path in self._rev_dict:  # file is already tracked
+                # check if file/folder is already tracked or new
+                if self.to_dbx_path(path) in self._rev_dict:  # already tracked file
                     if osp.isdir(path):
                         event = DirModifiedEvent(path)
                     else:
                         event = FileModifiedEvent(path)
                     changes.append(event)
-                elif not self._is_excluded(dbx_path):
+                else:  # new file, not excluded
                     if osp.isdir(path):
                         event = DirCreatedEvent(path)
                     else:
@@ -449,12 +468,12 @@ class SisyphosClient:
                     changes.append(event)
 
         # get deleted files / folders
-        for path in self._rev_dict.keys():
-            if path not in snapshot.paths:
-                if path.endswith('/'):
-                    event = DirDeletedEvent(path)
+        for dbx_path in self._rev_dict.keys():
+            if self.to_local_path(dbx_path) not in snapshot.paths:
+                if self._rev_dict[dbx_path] == 'folder':
+                    event = DirDeletedEvent(self.to_local_path(dbx_path))
                 else:
-                    event = FileDeletedEvent(path)
+                    event = FileDeletedEvent(self.to_local_path(dbx_path))
                 changes.append(event)
 
         return changes
@@ -491,8 +510,8 @@ class SisyphosClient:
         return result.changes
 
     def get_remote_changes(self):
-        """
-        Applies remote changes since self.last_cursor.
+        """Applies remote changes since self.last_cursor.
+
         :param timeout: seconds to wait untill timeout
         :returns: True on success, False otherwise
         """
@@ -516,16 +535,19 @@ class SisyphosClient:
         return True
 
     def _create_local_entry(self, entry):
-        """Creates local file / folder for remote entry
+        """Creates local file / folder for remote entry.
+
         :param entry:
         """
 
         self.excluded_folders = CONF.get('main', 'excluded_folders')
 
-        if self._is_excluded(entry.path_display):
+        if self.is_excluded(entry.path_display):
             return
 
-        elif isinstance(entry, files.FileMetadata):
+        self.flagged.append(entry.path_display)
+
+        if isinstance(entry, files.FileMetadata):
             # Store the new entry at the given path in your local state.
             # If the required parent folders don’t exist yet, create them.
             # If there’s already something else at the given path,
@@ -560,18 +582,30 @@ class SisyphosClient:
 
             self.set_local_rev(entry.path_display, None)
 
-    def _is_excluded(self, path):
-        """Check if file is excluded from sync
+    def is_excluded(self, dbx_path):
+        """Check if file is excluded from sync.
+
         :param path: Path of folder on Dropbox.
         :returns: True or False (bool)
         """
         excluded = False
-        if os.path.basename(path) in self.exlcuded_files:
+        # in excluded files?
+        if os.path.basename(dbx_path) in self.exlcuded_files:
             excluded = True
 
+        # in excluded folders?
         for excluded_folder in self.excluded_folders:
-            if not os.path.commonpath([path, excluded_folder]) in ["/", ""]:
+            if not os.path.commonpath([dbx_path, excluded_folder]) in ["/", ""]:
                 excluded = True
+
+        # is root folder?
+        if dbx_path in ["/", ""]:
+            excluded = True
+
+        # If the file name contains multiple periods it is likely a temporary
+        # file created during a saving event on macOS. Irgnore such files.
+        if osp.basename(dbx_path).count('.') > 1:
+            excluded = True
 
         return excluded
 

@@ -30,6 +30,7 @@ class SisyphosDBX(object):
         self.configure = Configure(self.client)
         self.configure.set_dropbox_directory()
         self.configure.ask_for_excluded_folders()
+        self.client.excluded_folders = CONF.get('main', 'excluded_folders')
         CONF.set('internal', 'cursor', '')
         CONF.set('internal', 'lastsync', None)
 
@@ -43,9 +44,10 @@ class SisyphosDBX(object):
             self.on_firstsync()
 
         self.remote = RemoteMonitor(self.client)
-        self.local = LocalMonitor(self.client, self.remote)
+        self.local = LocalMonitor(self.client)
 
-        self.local.upload_local_changes_after_inactive()
+        if not self.FIRST_SYNC:
+            self.local.upload_local_changes_after_inactive()
 
         self.remote.start()
         self.local.start()
@@ -78,6 +80,8 @@ class SisyphosDBX(object):
         folders = CONF.get('main', 'excluded_folders')
         if dbx_path in folders:
             new_folders = [x for x in folders if osp.normpath(x) == dbx_path]
+        else:
+            new_folders = folders
 
         self.client.excluded_folders = new_folders
         CONF.set('main', 'excluded_folders', new_folders)
