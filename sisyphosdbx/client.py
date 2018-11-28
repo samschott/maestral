@@ -510,7 +510,7 @@ class SisyphosClient(object):
 
         idx = 0
 
-        while results[-1].has_more:  # check if there is any more
+        while results[-1].has_more:  # check if there is more
             idx += len(results[-1].entries)
             logger.info("Indexing %s" % idx)
             more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
@@ -529,9 +529,10 @@ class SisyphosClient(object):
                 logger.info("Downloading %s/%s" % (idx, total))
                 self._create_local_entry(entry)
 
-            self.last_cursor = result.cursor
-            CONF.set('internal', 'cursor', result.cursor)
-            CONF.set('internal', 'lastsync', time.time())
+            if path == "":  # save cursor only if synced for whole dropbox
+                self.last_cursor = result.cursor
+                CONF.set('internal', 'cursor', result.cursor)
+                CONF.set('internal', 'lastsync', time.time())
 
         return True
 
@@ -569,7 +570,7 @@ class SisyphosClient(object):
                     changes.append(event)
 
         # get deleted files / folders
-        for dbx_path in self._rev_dict.keys():
+        for dbx_path in self._rev_dict:
             if self.to_local_path(dbx_path) not in snapshot.paths:
                 if self._rev_dict[dbx_path] == 'folder':
                     event = DirDeletedEvent(self.to_local_path(dbx_path))
