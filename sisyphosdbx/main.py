@@ -93,8 +93,8 @@ class SisyphosDBX(object):
 
         self.local.upload_local_changes_after_inactive()
 
-        self.remote.stop()
-        self.local.stop()
+        self.remote.start()
+        self.local.start()
 
         self.syncing = True
 

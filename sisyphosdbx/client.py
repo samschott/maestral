@@ -549,10 +549,11 @@ class SisyphosClient(object):
         """
         changes = []
         snapshot = DirectorySnapshot(self.dropbox_path)
-        lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
-        # remote root entry from snapshot
+        # remove root entry from snapshot
         del snapshot._inode_to_path[snapshot.inode(self.dropbox_path)]
         del snapshot._stat_info[self.dropbox_path]
+        # get lowercase paths
+        lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
 
         # get paths of modified or added files / folders
         for path in snapshot.paths:
@@ -573,7 +574,7 @@ class SisyphosClient(object):
 
         # get deleted files / folders
         for path in self._rev_dict:
-            if self.to_local_path(path) not in lowercase_snapshot_paths:
+            if self.to_local_path(path).lower() not in lowercase_snapshot_paths:
                 if self._rev_dict[path] == 'folder':
                     event = DirDeletedEvent(self.to_local_path(path))
                 else:
