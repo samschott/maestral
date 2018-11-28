@@ -114,7 +114,7 @@ class SisyphosDBX(object):
         if osp.isdir(local_path):
             shutil.rmtree(local_path)
 
-        self.set_local_rev(dbx_path, None)
+        self.client.set_local_rev(dbx_path, None)
 
     @pause_syncing
     def include_folder(self, dbx_path):
