@@ -570,14 +570,14 @@ class SisyphosClient(object):
             total += len(result.entries)
 
         # notify user
-        if total > 1:
-            self.notipy.send("%s files changed" % total)
-        else:
+        if total == 1:
             md = results[0].entries[0]
             if isinstance(md, files.DeletedMetadata):
                 self.notipy.send("%s removed" % md.path_display)
             else:
                 self.notipy.send("%s added" % md.path_display)
+        elif total > 1:
+            self.notipy.send("%s files changed" % total)
 
         # apply remote changes
         for result in results:
