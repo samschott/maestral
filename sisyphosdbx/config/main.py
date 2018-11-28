@@ -26,7 +26,7 @@ DEFAULTS = [
              {
               'path': '',
               'excluded_folders': [],
-              'exlcuded_files': ["desktop.ini",  "thumbs.db", ".DS_Store",
+              'exlcuded_files': ["desktop.ini",  "thumbs.db", ".ds_store",
                                  "icon\r", ".dropbox", ".dropbox.attr"],
               }),
             ('internal',

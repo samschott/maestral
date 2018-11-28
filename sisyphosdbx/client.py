@@ -711,6 +711,8 @@ class SisyphosClient(object):
         :return: `True` or `False`.
         :rtype: bool
         """
+        dbx_path = dbx_path.lower()
+
         excluded = False
         # in excluded files?
         if os.path.basename(dbx_path) in self.exlcuded_files:
