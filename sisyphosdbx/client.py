@@ -14,8 +14,9 @@ from sisyphosdbx.config.main import CONF, SUBFOLDER
 from sisyphosdbx.config.base import get_conf_path
 from sisyphosdbx.notify.main import Notipy
 
-
 logger = logging.getLogger(__name__)
+# create single requests session for all clients
+SESSION = dropbox.dropbox.create_session()
 
 
 def megabytes_to_bytes(size_mb):
@@ -104,8 +105,7 @@ class SisyphosClient(object):
     remote Dropbox. Detecting local changes is handled by :class:`LocalMonitor`
     instead.
 
-    All Dropbox API errors are caught and handled here. HTTP errors indicate
-    a problem with the connection to Dropbox servers and are raised. They will
+    All Dropbox API errors are caught and handled here. ConnectionErrors will
     be cought and handled by :class:`RemoteMonitor` instead.
 
     :ivar flagged: List keeping track of recently updated file/folder paths.
@@ -155,12 +155,12 @@ class SisyphosClient(object):
             exit(' x You need to set your APP_KEY and APP_SECRET!')
 
         # get Dropbox session
-        self.session = OAuth2Session(self.APP_KEY, self.APP_SECRET)
+        self.auth = OAuth2Session(self.APP_KEY, self.APP_SECRET)
         self.last_longpoll = None
         self.backoff = 0
 
         # initialize API client
-        self.dbx = dropbox.Dropbox(self.session.access_token)
+        self.dbx = dropbox.Dropbox(self.auth.access_token, session=SESSION)
         print(' > SisyphusClient is ready.')
 
         # get correct directories
@@ -274,7 +274,7 @@ class SisyphosClient(object):
         """
         self.dbx.unlink()
 
-    def list_folder(self, folder, **kwargs):
+    def list_folder(self, path, **kwargs):
         """
         Lists contents of a folder on Dropbox as dictionary mapping unicode
         filenames to FileMetadata|FolderMetadata entries.
@@ -285,7 +285,6 @@ class SisyphosClient(object):
             FileMetadata|FolderMetadata entries or `None` if failed.
         :rtype: dict
         """
-        path = osp.normpath(folder)
 
         results = []
 

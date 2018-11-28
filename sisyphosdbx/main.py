@@ -5,6 +5,7 @@ __author__ = "Sam Schott"
 
 import os
 import os.path as osp
+import time
 import shutil
 import functools
 from dropbox import files
@@ -21,20 +22,42 @@ logger.addHandler(logging.StreamHandler())
 logger.setLevel(logging.INFO)
 
 
-def pause_syncing(f):
-        @functools.wraps(f)
-        def wrapper(self, *args, **kwargs):
-            # pause syncing
-            resume = False
-            if self.syncing:
-                self.pause_sync()
-                resume = True
-            ret = f(self, *args, **kwargs)
-            # resume syncing if previously paused
-            if resume:
-                self.resume_sync()
-            return ret
-        return wrapper
+def with_sync_paused(f):
+    """
+    Function decorator which pauses syncing before call, resumes afterwards.
+    """
+    @functools.wraps(f)
+    def wrapper(self, *args, **kwargs):
+        # pause syncing
+        resume = False
+        if self.syncing:
+            self.pause_sync()
+            resume = True
+        ret = f(self, *args, **kwargs)
+        # resume syncing if previously paused
+        if resume:
+            self.resume_sync()
+        return ret
+    return wrapper
+
+
+def repeat_on_connection_error(f):
+    """
+    Function decorator which repeats function call in case of ConnectionError.
+    Only use this if reapeated function calls do not leave SisyphosDBX in an
+    inconsistent state.
+    """
+    @functools.wraps(f)
+    def wrapper(self, *args, **kwargs):
+        while True:
+            try:
+                ret = f(self, *args, **kwargs)
+                break
+            except ConnectionError:
+                logger.info("Connecting...")
+                time.sleep(1)
+        return ret
+    return wrapper
 
 
 class SisyphosDBX(object):
@@ -47,34 +70,24 @@ class SisyphosDBX(object):
     def __init__(self):
 
         self.client = SisyphosClient()
-        self.start_sync()
-
-    def on_firstsync(self):
-
-        self.set_dropbox_directory()
-        self.select_excluded_folders()
-        CONF.set('internal', 'cursor', '')
-        CONF.set('internal', 'lastsync', None)
-
-        result = False
-        while not result:
-            result = self.client.get_remote_dropbox()
-
-    def start_sync(self):
 
         if self.FIRST_SYNC:
-            self.on_firstsync()
+            self.set_dropbox_directory()
+            self.select_excluded_folders()
+
+            CONF.set('internal', 'cursor', '')
+            CONF.set('internal', 'lastsync', None)
+
+            self.get_remote_dropbox()
 
         self.remote = RemoteMonitor(self.client)
         self.local = LocalMonitor(self.client)
 
-        if not self.FIRST_SYNC:
-            self.local.upload_local_changes_after_inactive()
+        self.resume_sync()
 
-        self.remote.start()
-        self.local.start()
-
-        self.syncing = True
+    @repeat_on_connection_error
+    def get_remote_dropbox(self):
+        self.client.get_remote_dropbox()
 
     def pause_sync(self):
 
@@ -86,20 +99,27 @@ class SisyphosDBX(object):
 
         self.syncing = False
 
+    @repeat_on_connection_error
     def resume_sync(self):
 
         if self.syncing:
             return
 
-        self.local.upload_local_changes_after_inactive()
+        self.local.upload_local_changes_after_inactive()  # may raise ConnectionError
 
         self.remote.start()
         self.local.start()
 
         self.syncing = True
 
-    @pause_syncing
+    @with_sync_paused
     def exclude_folder(self, dbx_path):
+        """
+        Excludes folder from sync and deletes local files. It is safe to call
+        this method with folders which have alerady been excluded.
+
+        :param str dbx_path: Dropbox folder to exclude.
+        """
 
         dbx_path = dbx_path.lower()
 
@@ -118,8 +138,16 @@ class SisyphosDBX(object):
 
         self.client.set_local_rev(dbx_path, None)
 
-    @pause_syncing
+    @with_sync_paused
+    @repeat_on_connection_error
     def include_folder(self, dbx_path):
+        """
+        Includes folder in sync and downloads it. It is safe to call
+        this method with folders which have alerady been included, they will
+        not be downloaded again.
+
+        :param str dbx_path: Dropbox folder to include.
+        """
 
         dbx_path = dbx_path.lower()
 
@@ -128,15 +156,17 @@ class SisyphosDBX(object):
         if dbx_path in folders:
             new_folders = [x for x in folders if osp.normpath(x) != dbx_path]
         else:
-            new_folders = folders  # no change in folders to sync
+            logger.debug("Folder was already inlcuded, nothing to do.")
             return
 
         self.client.excluded_folders = new_folders
         CONF.set('main', 'excluded_folders', new_folders)
 
         # download folder and contents from Dropbox
-        self.client.get_remote_dropbox(path=dbx_path)
+        logger.debug("Downloading folder.")
+        self.client.get_remote_dropbox(path=dbx_path)  # may raise ConnectionError
 
+    @repeat_on_connection_error
     def select_excluded_folders(self):
         """
         Gets all top level folder paths from Dropbox and asks user to inlcude
@@ -149,28 +179,30 @@ class SisyphosDBX(object):
         old_folders = CONF.get('main', 'excluded_folders')
         new_folders = []
 
-        result = self.client.dbx.files_list_folder("", recursive=False)
+        # get all top-level Dropbox folders
+        result = self.client.list_folder("", recursive=False)  # may raise ConnectionError
 
-        for entry in result.entries:
+        # paginate through top-level folders, ask to exclude
+        for entry in result.values():
             if isinstance(entry, files.FolderMetadata):
                 yes = yesno("Exclude '%s' from sync?" % entry.path_display, False)
                 if yes:
                     new_folders.append(entry.path_lower)
 
-        added_folders = set(new_folders) - set(old_folders)
+        # detect and apply changes
         removed_folders = set(old_folders) - set(new_folders)
 
         if not self.FIRST_SYNC:
-            for folder in added_folders:
+            for folder in new_folders:
                 self.exclude_folder(folder)
 
             for folder in removed_folders:
-                self.include_folder(folder)
+                self.include_folder(folder)  # may raise ConnectionError
 
         self.client.excluded_folders = new_folders
         CONF.set('main', 'excluded_folders', new_folders)
 
-    @pause_syncing
+    @with_sync_paused
     def set_dropbox_directory(self, new_path=None):
         """
         Change or set local dropbox directory. This moves all local files to

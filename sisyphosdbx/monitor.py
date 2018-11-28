@@ -14,7 +14,7 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              DirDeletedEvent, FileDeletedEvent)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 
-
+from sisyphosdbx.client import SESSION
 from sisyphosdbx.config.main import CONF, SUBFOLDER
 from sisyphosdbx.config.base import get_conf_path
 
@@ -243,8 +243,10 @@ class GetRemoteChangesThread(threading.Thread):
                 else:
                     logger.info("Up to date")
 
-            except dropbox.exceptions.HttpError:
+            except ConnectionError:  # TODO: determine correct exc to catch
+                logger.debug("Connection lost")
                 logger.info("Connecting...")  # TODO: handle lost connection
+                # block until reconnect
 
     def pause(self):
         self.pause_event.set()
@@ -333,8 +335,12 @@ class ProcessLocalChangesThread(threading.Thread):
                         elif event.event_type is EVENT_TYPE_MODIFIED:
                             self.dbx_handler.on_modified(event)
                     logger.info("Up to date")
-            except dropbox.exceptions.HttpError:
-                logger.info("Connecting...")  # TODO: handle lost connection
+            except ConnectionError:  # TODO: determine correct exc to catch
+                logger.debug("Connection lost")
+                logger.info("Connecting...")
+                # TODO: handle lost connection
+                # block until reconnect
+                # upon reconnect, call upload_local_changes_after_inactive
 
     def pause(self):
         self.pause_event.set()
@@ -397,21 +403,6 @@ class LocalMonitor(object):
         self.thread.pause()
         self.thread.start()
 
-    def upload_local_changes_after_inactive(self):
-        """Push changes while client has not been running to Dropbox."""
-
-        events = self.get_local_changes()
-
-        logging.info("Uploading local changes.")
-
-        for event in events:
-            if event.event_type is EVENT_TYPE_CREATED:
-                self.dbx_handler.on_created(event)
-            elif event.event_type is EVENT_TYPE_DELETED:
-                self.dbx_handler.on_deleted(event)
-            elif event.event_type is EVENT_TYPE_MODIFIED:
-                self.dbx_handler.on_modified(event)
-
     def start(self):
         """Start file system observer and Dropbox event handler."""
         self.observer = Observer()
@@ -472,6 +463,21 @@ class LocalMonitor(object):
                 changes.append(event)
 
         return changes
+
+    def upload_local_changes_after_inactive(self):
+        """Push changes while client has not been running to Dropbox."""
+
+        events = self.get_local_changes()
+
+        logging.info("Uploading local changes.")
+
+        for event in events:
+            if event.event_type is EVENT_TYPE_CREATED:
+                self.dbx_handler.on_created(event)
+            elif event.event_type is EVENT_TYPE_DELETED:
+                self.dbx_handler.on_deleted(event)
+            elif event.event_type is EVENT_TYPE_MODIFIED:
+                self.dbx_handler.on_modified(event)
 
     def __del__(self):
         try:
