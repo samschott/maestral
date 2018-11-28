@@ -527,6 +527,7 @@ class SisyphosClient(object):
 
             self.last_cursor = result.cursor
             CONF.set('internal', 'cursor', result.cursor)
+            CONF.set('internal', 'lastsync', time.time())
 
         return True
 
@@ -645,6 +646,7 @@ class SisyphosClient(object):
 
             self.last_cursor = result.cursor
             CONF.set('internal', 'cursor', result.cursor)
+            CONF.set('internal', 'lastsync', time.time())
 
         return True
 
