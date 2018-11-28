@@ -6,6 +6,7 @@ __author__ = "Sam Schott"
 import os
 import os.path as osp
 import shutil
+import functools
 from dropbox import files
 
 from sisyphosdbx.client import SisyphosClient
@@ -20,22 +21,19 @@ logger.addHandler(logging.StreamHandler())
 logger.setLevel(logging.INFO)
 
 
-def pause_sync(func):
-    def wrapper(*args, **kwargs):
-        # pause syncing
-        if args[0].syncing:
-            args[0].pause_sync()
-            resume = True
-
-        result = func(*args, **kwargs)
-
-        # resume syncing if previously paused
-        if resume:
-            args[0].resume_sync()
-
-        return result
-
-    return wrapper
+def pause_sync(f):
+        @functools.wraps(f)
+        def wrapper(self, *args, **kwargs):
+            # pause syncing
+            if self.syncing:
+                self.pause_sync()
+                resume = True
+            ret = f(self, *args, **kwargs)
+            # resume syncing if previously paused
+            if resume:
+                self.resume_sync()
+            return ret
+        return wrapper
 
 
 class SisyphosDBX(object):
