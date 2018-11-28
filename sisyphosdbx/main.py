@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+__version__ = "0.1.0"
+__author__ = "Sam Schott"
+
 import os.path as osp
 import shutil
 from sisyphosdbx.client import SisyphosClient
