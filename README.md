@@ -20,7 +20,7 @@ SisyphosDBX remembers its last settings and resumes syncing after a restart. You
 >>> sdbx.resume_sync()  # resume syncing
 >>> path = '/FolderOnDropbox'  # path relative to Dropbox folder
 >>> sdbx.exclude_fodler(path)  # exclude path from sync, delete locally
->>> sdbx.include_folder(path)  # inlcude path from sync
+>>> sdbx.include_folder(path)  # inlcude path in sync, download its contents
 ```
 
 
