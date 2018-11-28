@@ -186,7 +186,9 @@ class SisyphosClient(object):
         elif not i == len(dbx_root_list):  # path is outside of to dropbox_path
             raise ValueError("Specified path '%s' is not in Dropbox directory." % local_path)
 
-        return '/' + '/'.join(path_list[i:])
+        relative_path = '/' + '/'.join(path_list[i:])
+
+        return relative_path
 
     def to_local_path(self, dbx_path):
         """
@@ -545,9 +547,9 @@ class SisyphosClient(object):
             local Dropbox folder, entries are watchdog file changed events.
         :rtype: dict
         """
-        logging.info("Uploading local changes.")
         changes = []
         snapshot = DirectorySnapshot(self.dropbox_path)
+        lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
         # remote root entry from snapshot
         del snapshot._inode_to_path[snapshot.inode(self.dropbox_path)]
         del snapshot._stat_info[self.dropbox_path]
@@ -556,7 +558,7 @@ class SisyphosClient(object):
         for path in snapshot.paths:
             if snapshot.mtime(path) > CONF.get('internal', 'lastsync'):
                 # check if file/folder is already tracked or new
-                if self.to_dbx_path(path) in self._rev_dict:  # already tracked file
+                if self.to_dbx_path(path).lower() in self._rev_dict:  # already tracking file
                     if osp.isdir(path):
                         event = DirModifiedEvent(path)
                     else:
@@ -570,12 +572,12 @@ class SisyphosClient(object):
                     changes.append(event)
 
         # get deleted files / folders
-        for dbx_path in self._rev_dict:
-            if self.to_local_path(dbx_path) not in snapshot.paths:
-                if self._rev_dict[dbx_path] == 'folder':
-                    event = DirDeletedEvent(self.to_local_path(dbx_path))
+        for path in self._rev_dict:
+            if self.to_local_path(path) not in lowercase_snapshot_paths:
+                if self._rev_dict[path] == 'folder':
+                    event = DirDeletedEvent(self.to_local_path(path))
                 else:
-                    event = FileDeletedEvent(self.to_local_path(dbx_path))
+                    event = FileDeletedEvent(self.to_local_path(path))
                 changes.append(event)
 
         return changes

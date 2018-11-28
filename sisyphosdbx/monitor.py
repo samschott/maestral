@@ -224,11 +224,11 @@ class GetRemoteChangesThread(threading.Thread):
 
     def run(self):
         while not self.stop_event.is_set():
+
             while self.pause_event.is_set():
                 time.sleep(1)
+
             changes = self.client.wait_for_remote_changes()
-            while self.pause_event.is_set():
-                time.sleep(1)
 
             if changes:
                 logger.info('Syncing remote changes')
@@ -388,6 +388,8 @@ class LocalMonitor(object):
         """Push changes while client has not been running to Dropbox."""
 
         events = self.client.get_local_changes()
+
+        logging.info("Uploading local changes.")
 
         for event in events:
             if event.event_type is EVENT_TYPE_CREATED:
