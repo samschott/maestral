@@ -9,10 +9,6 @@ import shutil
 import dropbox
 from dropbox import DropboxOAuth2FlowNoRedirect
 from dropbox import files
-from watchdog.utils.dirsnapshot import DirectorySnapshot
-from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
-                             DirCreatedEvent, FileCreatedEvent,
-                             DirDeletedEvent, FileDeletedEvent)
 
 from sisyphosdbx.config.main import CONF, SUBFOLDER
 from sisyphosdbx.config.base import get_conf_path
@@ -96,6 +92,22 @@ class OAuth2Session(object):
 class SisyphosClient(object):
     """Client for Dropbox SDK.
 
+    This client defines basic methods to edit the remote Dropbox folder: it
+    supports creating, moving, modifying and deleting files and folders on
+    Dropbox. It also provides a method to download a file from Dropbox to a
+    given local path.
+
+    Higher level methods provide ways to list the contents of and download
+    entire folder from Dropbox.
+
+    SisyphosClient also provides methods to wait for and apply changes from the
+    remote Dropbox. Detecting local changes is handled by :class:`LocalMonitor`
+    instead.
+
+    All Dropbox API errors are caught and handled here. HTTP errors indicate
+    a problem with the connection to Dropbox servers and are raised. They will
+    be cought and handled by :class:`RemoteMonitor` instead.
+
     :ivar flagged: List keeping track of recently updated file/folder paths.
         Entries will be removed by :class:`LocalMonitor` once it delects the
         corresponding file change.
@@ -107,14 +119,14 @@ class SisyphosClient(object):
     :ivar excluded_folders: List containing all files excluded from sync.
         When adding and removing entries, make sure to update the config file
         as well so that changes persist accross sessions.
-    :ivar _rev_dict: Dictionary with paths to all synced local files/folders
+    :ivar rev_dict: Dictionary with paths to all synced local files/folders
         as keys. Values are the revision number of a file or 'folder' for a
         folder. Do not change entries manually, the dict is updated
-        automatically with every sync. :ivar:`_rev_dict` is used to determine
+        automatically with every sync. :ivar:`rev_dict` is used to determine
         sync conflicts and detect deleted files while SisyphosDBX has not been
-        running. :ivar:`_rev_dict` is periodically saved to :ivar:`rev_file`.
+        running. :ivar:`rev_dict` is periodically saved to :ivar:`rev_file`.
         All keys are stored in lower case.
-    :ivar rev_file: Path of local file to save :ivar:`_rev_dict`. This defaults
+    :ivar rev_file: Path of local file to save :ivar:`rev_dict`. This defaults
         to '/dropbox_path/.dropbox'
     :ivar dropbox_path: Path to local Dropbox folder, as loaded from config
         file. Before changing :ivar`dropbox_path`, make sure that all syncing
@@ -157,9 +169,9 @@ class SisyphosClient(object):
         # try to load revisions dictionary
         try:
             with open(self.rev_file, 'rb') as f:
-                self._rev_dict = pickle.load(f)
+                self.rev_dict = pickle.load(f)
         except FileNotFoundError:
-            self._rev_dict = {}
+            self.rev_dict = {}
 
     def to_dbx_path(self, local_path):
         """
@@ -210,7 +222,7 @@ class SisyphosClient(object):
 
     def get_local_rev(self, dbx_path):
         """
-        Gets revision number of local file, as saved in :ivar:`_rev_dict`.
+        Gets revision number of local file, as saved in :ivar:`rev_dict`.
 
         :param str dbx_path: Dropbox file path.
         :return: Revision number as str or `None` if no local revision number
@@ -220,12 +232,12 @@ class SisyphosClient(object):
         dbx_path = dbx_path.lower()
         try:
             with open(self.rev_file, 'rb') as f:
-                self._rev_dict = pickle.load(f)
+                self.rev_dict = pickle.load(f)
         except FileNotFoundError:
-            self._rev_dict = {}
+            self.rev_dict = {}
 
         try:
-            rev = self._rev_dict[dbx_path]
+            rev = self.rev_dict[dbx_path]
         except KeyError:
             rev = None
 
@@ -242,19 +254,19 @@ class SisyphosClient(object):
         dbx_path = dbx_path.lower()
 
         if rev is None:  # remove entries for dbx_path and its children
-            for path in dict(self._rev_dict):
+            for path in dict(self.rev_dict):
                 if path.startswith(dbx_path):
-                    self._rev_dict.pop(path, None)
+                    self.rev_dict.pop(path, None)
         else:
-            self._rev_dict[dbx_path] = rev
+            self.rev_dict[dbx_path] = rev
             # set all parent revs to 'folder'
             dirname = osp.dirname(dbx_path)
             while dirname is not '/':
-                self._rev_dict[dirname] = 'folder'
+                self.rev_dict[dirname] = 'folder'
                 dirname = osp.dirname(dirname)
 
         with open(self.rev_file, 'wb+') as f:
-            pickle.dump(self._rev_dict, f, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(self.rev_dict, f, pickle.HIGHEST_PROTOCOL)
 
     def unlink(self):
         """
@@ -543,51 +555,6 @@ class SisyphosClient(object):
 
         return True
 
-    def get_local_changes(self):
-        """
-        Gets all local changes while app has not been running. Call this method
-        on startup of client to upload all local changes.
-
-        :return: Dictionary with all changes, keys are file paths relative to
-            local Dropbox folder, entries are watchdog file changed events.
-        :rtype: dict
-        """
-        changes = []
-        snapshot = DirectorySnapshot(self.dropbox_path)
-        # remove root entry from snapshot
-        del snapshot._inode_to_path[snapshot.inode(self.dropbox_path)]
-        del snapshot._stat_info[self.dropbox_path]
-        # get lowercase paths
-        lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
-
-        # get paths of modified or added files / folders
-        for path in snapshot.paths:
-            if snapshot.mtime(path) > CONF.get('internal', 'lastsync'):
-                # check if file/folder is already tracked or new
-                if self.to_dbx_path(path).lower() in self._rev_dict:  # already tracking file
-                    if osp.isdir(path):
-                        event = DirModifiedEvent(path)
-                    else:
-                        event = FileModifiedEvent(path)
-                    changes.append(event)
-                else:  # new file, not excluded
-                    if osp.isdir(path):
-                        event = DirCreatedEvent(path)
-                    else:
-                        event = FileCreatedEvent(path)
-                    changes.append(event)
-
-        # get deleted files / folders
-        for path in self._rev_dict:
-            if self.to_local_path(path).lower() not in lowercase_snapshot_paths:
-                if self._rev_dict[path] == 'folder':
-                    event = DirDeletedEvent(self.to_local_path(path))
-                else:
-                    event = FileDeletedEvent(self.to_local_path(path))
-                changes.append(event)
-
-        return changes
-
     def wait_for_remote_changes(self, timeout=120):
         """
         Waits for remote changes since :ivar:`last_cursor`. Call this method
@@ -777,10 +744,10 @@ class SisyphosClient(object):
         # check if Dropbox rev is in local dict
         local_rev = self.get_local_rev(dbx_path)
         if local_rev is None:
-            # If no, we have a conflict: files with the same name have been
-            # created on Dropbox and locally inpedent from each other
-            # If is file has been modified while the client was not running,
-            # its entry from files_rev_dict is removed.
+            # We have a conflict: files with the same name have been
+            # created on Dropbox and locally inpedent from each other.
+            # If a file has been modified while the client was not running,
+            # its entry from rev_dict is removed.
             logger.debug("Conflicting local file without rev.")
             return 1
         # check if remote and local versions have same rev

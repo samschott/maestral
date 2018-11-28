@@ -6,9 +6,14 @@ from queue import Queue
 import dropbox
 
 from watchdog.observers import Observer
-from watchdog.events import (FileSystemEventHandler, EVENT_TYPE_CREATED,
-                             EVENT_TYPE_DELETED, EVENT_TYPE_MODIFIED,
-                             EVENT_TYPE_MOVED)
+from watchdog.events import FileSystemEventHandler
+from watchdog.events import (EVENT_TYPE_CREATED, EVENT_TYPE_DELETED,
+                             EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED)
+from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
+                             DirCreatedEvent, FileCreatedEvent,
+                             DirDeletedEvent, FileDeletedEvent)
+from watchdog.utils.dirsnapshot import DirectorySnapshot
+
 
 from sisyphosdbx.config.main import CONF, SUBFOLDER
 from sisyphosdbx.config.base import get_conf_path
@@ -230,14 +235,16 @@ class GetRemoteChangesThread(threading.Thread):
 
             try:
                 changes = self.client.wait_for_remote_changes()
-            except dropbox.exceptions.HttpError:
-                logger.error("  x HTTP Error")  # TODO: handle
+                if changes:
+                    logger.info("Syncing remote changes")
+                    with lock:
+                        self.client.get_remote_changes()
+                    logger.info("Up to date")
+                else:
+                    logger.info("Up to date")
 
-            if changes:
-                logger.info("Syncing remote changes")
-                with lock:
-                    self.client.get_remote_changes()
-                logger.info("Up to date")
+            except dropbox.exceptions.HttpError:
+                logger.error("  x HTTP Error")  # TODO: handle lost connection
 
     def pause(self):
         self.pause_event.set()
@@ -313,18 +320,21 @@ class ProcessLocalChangesThread(threading.Thread):
             events = set(events) - set(child_move_events)
 
             # process all events:
-            with lock:
-                logger.info("Syncing local changes")
-                for event in events:
-                    if event.event_type is EVENT_TYPE_CREATED:
-                        self.dbx_handler.on_created(event)
-                    elif event.event_type is EVENT_TYPE_MOVED:
-                        self.dbx_handler.on_moved(event)
-                    elif event.event_type is EVENT_TYPE_DELETED:
-                        self.dbx_handler.on_deleted(event)
-                    elif event.event_type is EVENT_TYPE_MODIFIED:
-                        self.dbx_handler.on_modified(event)
-                logger.info("Up to date")
+            try:
+                with lock:
+                    logger.info("Syncing local changes")
+                    for event in events:
+                        if event.event_type is EVENT_TYPE_CREATED:
+                            self.dbx_handler.on_created(event)
+                        elif event.event_type is EVENT_TYPE_MOVED:
+                            self.dbx_handler.on_moved(event)
+                        elif event.event_type is EVENT_TYPE_DELETED:
+                            self.dbx_handler.on_deleted(event)
+                        elif event.event_type is EVENT_TYPE_MODIFIED:
+                            self.dbx_handler.on_modified(event)
+                    logger.info("Up to date")
+            except dropbox.exceptions.HttpError:
+                logger.error("  x HTTP Error")  # TODO: handle lost connection
 
     def pause(self):
         self.pause_event.set()
@@ -390,7 +400,7 @@ class LocalMonitor(object):
     def upload_local_changes_after_inactive(self):
         """Push changes while client has not been running to Dropbox."""
 
-        events = self.client.get_local_changes()
+        events = self.get_local_changes()
 
         logging.info("Uploading local changes.")
 
@@ -415,6 +425,53 @@ class LocalMonitor(object):
         self.observer.stop()
         self.observer.join()
         self.thread.pause()
+
+    def get_local_changes(self):
+        """
+        Gets all local changes while app has not been running. Call this method
+        on startup of `LocalMonitor` to upload all local changes.
+
+        :return: Dictionary with all changes, keys are file paths relative to
+            local Dropbox folder, entries are watchdog file changed events.
+        :rtype: dict
+        """
+        changes = []
+        snapshot = DirectorySnapshot(self.client.dropbox_path)
+        # remove root entry from snapshot
+        del snapshot._inode_to_path[snapshot.inode(self.client.dropbox_path)]
+        del snapshot._stat_info[self.client.dropbox_path]
+        # get lowercase paths
+        lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
+
+        # get paths of modified or added files / folders
+        for path in snapshot.paths:
+            if snapshot.mtime(path) > CONF.get('internal', 'lastsync'):
+                # check if file/folder is already tracked or new
+                if self.client.to_dbx_path(path).lower() in self.client.rev_dict:
+                    # already tracking file
+                    if osp.isdir(path):
+                        event = DirModifiedEvent(path)
+                    else:
+                        event = FileModifiedEvent(path)
+                    changes.append(event)
+                else:
+                    # new file, not excluded
+                    if osp.isdir(path):
+                        event = DirCreatedEvent(path)
+                    else:
+                        event = FileCreatedEvent(path)
+                    changes.append(event)
+
+        # get deleted files / folders
+        for path in self.client.rev_dict:
+            if self.client.to_local_path(path).lower() not in lowercase_snapshot_paths:
+                if self.client.rev_dict[path] == 'folder':
+                    event = DirDeletedEvent(self.client.to_local_path(path))
+                else:
+                    event = FileDeletedEvent(self.client.to_local_path(path))
+                changes.append(event)
+
+        return changes
 
     def __del__(self):
         try:
