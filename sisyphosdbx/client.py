@@ -431,7 +431,7 @@ class SisyphosClient(object):
             # try to move file (response will be metadata, probably)
             md = self.dbx.files_delete(dbx_path, **kwargs)
         except dropbox.exceptions.ApiError as err:
-            logger.info("An error occured when deleting '%s': %s", dbx_path, err)
+            logger.debug("An error occured when deleting '%s': %s", dbx_path, err)
             return False
 
         # remove revision metadata
@@ -455,7 +455,7 @@ class SisyphosClient(object):
                                            allow_shared_folder=True,
                                            allow_ownership_transfer=True)
         except dropbox.exceptions.ApiError as err:
-            logger.info(
+            logger.debug(
                     "An error occured when moving '%s' to '%s': %s",
                     dbx_path, new_path, err)
             return False
@@ -491,7 +491,7 @@ class SisyphosClient(object):
         try:
             md = self.dbx.files_create_folder(dbx_path, **kwargs)
         except dropbox.exceptions.ApiError as err:
-            logger.info("An error occured creating dir '%s': %s", dbx_path, err)
+            logger.debug("An error occured creating dir '%s': %s", dbx_path, err)
             return False
 
         self.set_local_rev(dbx_path, 'folder')
@@ -519,7 +519,7 @@ class SisyphosClient(object):
                                                       limit=500))
         except dropbox.exceptions.ApiError as exc:
             msg = "Cannot access '{0}': {1}".format(path, exc.error.get_path())
-            logger.error(msg)
+            logger.debug(msg)
             return False
 
         idx = 0
@@ -532,7 +532,7 @@ class SisyphosClient(object):
                 results.append(more_results)
             except dropbox.exceptions.ApiError as exc:
                 msg = "Cannot access '{0}': {1}".format(path, exc.error.get_path())
-                logger.error(msg)
+                logger.debug(msg)
                 return False
 
         # count remote changes
@@ -572,7 +572,7 @@ class SisyphosClient(object):
             result = self.dbx.files_list_folder_longpoll(self.last_cursor, timeout=timeout)
         except dropbox.exceptions.ApiError:
             msg = "Cannot access Dropbox folder."
-            logger.error(msg)
+            logger.debug(msg)
             return False
 
         # keep track of last long poll, back off if requested by SDK

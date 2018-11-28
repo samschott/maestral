@@ -244,7 +244,7 @@ class GetRemoteChangesThread(threading.Thread):
                     logger.info("Up to date")
 
             except dropbox.exceptions.HttpError:
-                logger.error("  x HTTP Error")  # TODO: handle lost connection
+                logger.info("Connecting...")  # TODO: handle lost connection
 
     def pause(self):
         self.pause_event.set()
@@ -334,7 +334,7 @@ class ProcessLocalChangesThread(threading.Thread):
                             self.dbx_handler.on_modified(event)
                     logger.info("Up to date")
             except dropbox.exceptions.HttpError:
-                logger.error("  x HTTP Error")  # TODO: handle lost connection
+                logger.info("Connecting...")  # TODO: handle lost connection
 
     def pause(self):
         self.pause_event.set()
