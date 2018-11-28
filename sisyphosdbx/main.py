@@ -21,7 +21,7 @@ logger.addHandler(logging.StreamHandler())
 logger.setLevel(logging.INFO)
 
 
-def pause_sync(f):
+def pause_syncing(f):
         @functools.wraps(f)
         def wrapper(self, *args, **kwargs):
             # pause syncing
@@ -97,7 +97,7 @@ class SisyphosDBX(object):
 
         self.syncing = True
 
-    @pause_sync
+    @pause_syncing
     def exclude_folder(self, dbx_path):
 
         # add folder's Dropbox path to excluded list
@@ -115,7 +115,7 @@ class SisyphosDBX(object):
 
         self.set_local_rev(dbx_path, None)
 
-    @pause_sync
+    @pause_syncing
     def include_folder(self, dbx_path):
 
         # remove folder's Dropbox path from excluded list
@@ -132,7 +132,6 @@ class SisyphosDBX(object):
         # download folder and contents from Dropbox
         self.client.get_remote_dropbox(path=dbx_path)
 
-    @pause_sync
     def select_excluded_folders(self):
         """
         Gets all top level folder paths from Dropbox and asks user to inlcude
@@ -166,7 +165,7 @@ class SisyphosDBX(object):
         self.client.excluded_folders = new_folders
         CONF.set('main', 'excluded_folders', new_folders)
 
-    @pause_sync
+    @pause_syncing
     def set_dropbox_directory(self, new_path=None):
         """
         Change or set local dropbox directory. This moves all local files to
