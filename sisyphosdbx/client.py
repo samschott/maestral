@@ -16,7 +16,7 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
 
 from sisyphosdbx.config.main import CONF, SUBFOLDER
 from sisyphosdbx.config.base import get_conf_path
-from sisyphosdbx.notify import Notipy
+from sisyphosdbx.notify.main import Notipy
 
 
 logger = logging.getLogger(__name__)
