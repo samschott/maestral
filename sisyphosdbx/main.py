@@ -25,6 +25,7 @@ def pause_syncing(f):
         @functools.wraps(f)
         def wrapper(self, *args, **kwargs):
             # pause syncing
+            resume = False
             if self.syncing:
                 self.pause_sync()
                 resume = True
