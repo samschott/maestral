@@ -38,19 +38,19 @@ class FileEventHandler(FileSystemEventHandler):
     event_q = TimedQueue()
 
     def on_moved(self, event):
-        logger.info("Move detected: from '%s' to '%s'", event.src_path, event.dest_path)
+        logger.debug("Move detected: from '%s' to '%s'", event.src_path, event.dest_path)
         self.event_q.put(event)
 
     def on_created(self, event):
-        logger.info("Creation detected: '%s'", event.src_path)
+        logger.debug("Creation detected: '%s'", event.src_path)
         self.event_q.put(event)
 
     def on_deleted(self, event):
-        logger.info("Deletion detected: '%s'", event.src_path)
+        logger.debug("Deletion detected: '%s'", event.src_path)
         self.event_q.put(event)
 
     def on_modified(self, event):
-        logger.info("Modification detected: '%s'", event.src_path)
+        logger.debug("Modification detected: '%s'", event.src_path)
         self.event_q.put(event)
 
 
@@ -79,6 +79,8 @@ class DropboxEventHandler(object):
             return
 
         self.client.move(dbx_path, dbx_path2)
+
+        CONF.set('internal', 'lastsync', time.time())
 
     def on_created(self, event):
         path = event.src_path
@@ -123,6 +125,8 @@ class DropboxEventHandler(object):
             else:
                 self.client.make_dir(dbx_path)
 
+        CONF.set('internal', 'lastsync', time.time())
+
     def on_deleted(self, event):
         path = event.src_path
         dbx_path = self.client.to_dbx_path(path)
@@ -139,6 +143,8 @@ class DropboxEventHandler(object):
         rev = self.client.get_local_rev(dbx_path)
         if rev is not None:
             self.client.remove(dbx_path)
+
+        CONF.set('internal', 'lastsync', time.time())
 
     def on_modified(self, event):
         path = event.src_path
@@ -166,8 +172,10 @@ class DropboxEventHandler(object):
                 rev = self.client.get_local_rev(dbx_path)
                 mode = files.WriteMode('update', rev)
                 md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
-                logger.info("Modified file: %s (old rev: %s, new rev %s)",
-                            md.path_display, rev, md.rev)
+                logger.debug("Modified file: %s (old rev: %s, new rev %s)",
+                             md.path_display, rev, md.rev)
+
+        CONF.set('internal', 'lastsync', time.time())
 
 
 class GetRemoteChangesThread(threading.Thread):
@@ -188,8 +196,10 @@ class GetRemoteChangesThread(threading.Thread):
                 time.sleep(1)
 
             if changes:
+                logger.info('Syncing remote changes')
                 with lock:
                     self.client.get_remote_changes()
+                logger.info('Up to date')
 
     def pause(self):
         self.pause_event.set()
@@ -252,11 +262,13 @@ class ProcessLocalChangesThread(threading.Thread):
                 children = [x for x in events if is_moved_child(x, parent_event)]
                 child_move_events += children
 
-            # remove all child_move_events from events
+            # Remove all child_move_events from events, move the full folder at
+            # once on Dropbox instead.
             events = set(events) - set(child_move_events)
 
             # process all events:
             with lock:
+                logger.info('Syncing local changes')
                 for event in events:
                     if event.event_type is EVENT_TYPE_CREATED:
                         self.dbx_handler.on_created(event)
@@ -266,8 +278,7 @@ class ProcessLocalChangesThread(threading.Thread):
                         self.dbx_handler.on_deleted(event)
                     elif event.event_type is EVENT_TYPE_MODIFIED:
                         self.dbx_handler.on_modified(event)
-
-            CONF.set('internal', 'lastsync', time.time())
+                logger.info('Up to date')
 
     def pause(self):
         self.pause_event.set()

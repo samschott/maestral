@@ -90,3 +90,12 @@ class SisyphosDBX(object):
 
         # download folder and contents from Dropbox
         self.client.get_remote_dropbox(path=dbx_path)
+
+
+def main():
+    sdbx = SisyphosDBX()
+    sdbx.start_sync()
+
+
+if __name__ == '__main__':
+    main()

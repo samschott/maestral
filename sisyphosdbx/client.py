@@ -29,10 +29,13 @@ def megabytes_to_bytes(size_mb):
     return size_mb * 1024 * 1024
 
 
-class OAuth2Session:
+class OAuth2Session(object):
+    """Provides OAuth2 login and token store.
+
+    :param app_key: string containing app key provided by Dropbox
+    :param app_secret: string containing app secret provided by Dropbox
     """
-    Provides OAuth2 login and token store.
-    """
+
     TOKEN_FILE = osp.join(get_conf_path(SUBFOLDER), "o2_store.txt")
     auth_flow = None
     oAuth2FlowResult = None
@@ -90,7 +93,8 @@ class OAuth2Session:
         # I can't unlink the app yet properly (API limitation), so let's just remove the token
 
 
-class SisyphosClient:
+class SisyphosClient(object):
+
     APP_KEY = '2jmbq42w7vof78h'
     APP_SECRET = 'lrsxo47dvuulex5'
     SDK_VERSION = "2.0"
@@ -117,7 +121,7 @@ class SisyphosClient:
 
         # initialize API client
         self.dbx = dropbox.Dropbox(self.session.access_token)
-        logger.info(' > SisyphusClient is ready.')
+        print(' > SisyphusClient is ready.')
 
         # get correct directories
         self.dropbox_path = CONF.get('main', 'path')
@@ -284,7 +288,7 @@ class SisyphosClient:
 
         msg = ("File '{0}' (rev {1}) from '{2}' was successfully downloaded as '{3}'.\n".format(
                 md.name, md.rev, md.path_display, dst_path))
-        logger.info(msg)
+        logger.debug(msg)
 
         return md
 
@@ -339,7 +343,7 @@ class SisyphosClient:
             pb.close()
 
         self.set_local_rev(md.path_display, md.rev)  # save revision metadata
-        logger.info("File '%s' (rev %s) uploaded to Dropbox.", md.path_display, md.rev)
+        logger.debug("File '%s' (rev %s) uploaded to Dropbox.", md.path_display, md.rev)
         return md
 
     def remove(self, dbx_path, **kwargs):
@@ -362,7 +366,7 @@ class SisyphosClient:
         # remove revision metadata
         self.set_local_rev(md.path_display, None)
 
-        logger.info("File / folder '%s' removed from Dropbox.", dbx_path)
+        logger.debug("File / folder '%s' removed from Dropbox.", dbx_path)
 
         return md
 
@@ -400,8 +404,8 @@ class SisyphosClient:
                 elif isinstance(md, files.FolderMetadata):
                     self.set_local_rev(md.path_display, 'folder')
 
-        logger.info("File moved from '%s' to '%s' on Dropbox.",
-                    dbx_path, metadata.path_display)
+        logger.debug("File moved from '%s' to '%s' on Dropbox.",
+                     dbx_path, metadata.path_display)
 
         return metadata
 
@@ -420,7 +424,7 @@ class SisyphosClient:
 
         self.set_local_rev(path, 'folder')
 
-        logger.info("Created folder '%s' on Dropbox.", md.path_display)
+        logger.debug("Created folder '%s' on Dropbox.", md.path_display)
 
         return md
 
@@ -449,7 +453,6 @@ class SisyphosClient:
         while results[-1].has_more:  # check if there is any more
             idx += len(results[-1].entries)
             logger.info("Indexing %s" % idx)
-            self.notipy.send("Indexing %s" % idx)
             more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
             results.append(more_results)
 
@@ -463,13 +466,11 @@ class SisyphosClient:
         for result in results:
             for entry in result.entries:
                 idx += 1
-                self.notipynotipy.send("Downloading %s/%s" % (idx, total))
+                logger.info("Downloading %s/%s" % (idx, total))
                 self._create_local_entry(entry)
 
             self.last_cursor = result.cursor
-            CONF.set('internal', 'cursor', self.last_cursor)
-
-        CONF.set('internal', 'lastsync', time.time())
+            CONF.set('internal', 'cursor', result.cursor)
 
         return True
 
@@ -584,8 +585,7 @@ class SisyphosClient:
                 self._create_local_entry(entry)
 
             self.last_cursor = result.cursor
-            CONF.set('internal', 'cursor', self.last_cursor)
-            CONF.set('internal', 'lastsync', time.time())
+            CONF.set('internal', 'cursor', result.cursor)
 
         return True
 
@@ -676,7 +676,7 @@ class SisyphosClient:
 
         # no conflict if local file does not exist yet
         if not osp.exists(dst_path):
-            logger.info("Local file '%s' does not exist. No conflict.", dbx_path)
+            logger.debug("Local file '%s' does not exist. No conflict.", dbx_path)
             return 0
 
         # get metadata otherwise
@@ -689,18 +689,18 @@ class SisyphosClient:
             # created on Dropbox and locally inpedent from each other
             # If is file has been modified while the client was not running,
             # its entry from files_rev_dict is removed.
-            logger.info("Conflicting local file without rev.")
+            logger.debug("Conflicting local file without rev.")
             return 1
         # check if remote and local versions have same rev
         elif md.rev == local_rev:
-            logger.info(
+            logger.debug(
                     "Local file is the same as on Dropbox (rev %s). No download necessary.",
                     local_rev)
             return 2  # files are already the same
 
         elif not md.rev == local_rev:
             # we are dealing with different revisions, trust the Dropbox server version
-            logger.info(
+            logger.debug(
                     "Local file has rev %s, file on Dropbox has rev %s. Getting file from Dropbox.",
                     local_rev, md.rev)
             return 0
