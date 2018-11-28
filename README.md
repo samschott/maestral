@@ -13,11 +13,11 @@ After installation, in a Python command prompt, run
 ```
 On initial use, SisyphosDBX will ask you to link your dropbox account, give the location of your Dropbox folder on the local drive, and to specify excluded folders. It will then start syncing.
 
-SisyphosDBX remembers its last settings and resumes syncing after a restart. You can also pause and resume syncing while SisyphosDBX is running, as well as add and remove exluded folders: 
+SisyphosDBX remembers its last settings and resumes syncing after a restart. You can also pause and resume syncing while SisyphosDBX is running, as well as add and remove exluded folders:
 
 ```Python
->>> sdbx.stop_sync()  # pause syncing
->>> sdbx.start_sync()  # resume syncing
+>>> sdbx.pause_sync()  # pause syncing
+>>> sdbx.resume_sync()  # resume syncing
 >>> path = '/FolderOnDropbox'  # path relative to Dropbox folder
 >>> sdbx.exclude_fodler(path)  # exclude path from sync, delete locally
 >>> sdbx.include_folder(path)  # inlcude path from sync

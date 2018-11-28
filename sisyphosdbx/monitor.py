@@ -322,9 +322,6 @@ class LocalMonitor(object):
         self.client = client
 
         self.file_handler = FileEventHandler()
-        self.observer = Observer()
-        self.observer.schedule(self.file_handler, self.client.dropbox_path, recursive=True)
-        self.observer.start()
 
         self.dbx_handler = DropboxEventHandler(self.client)
         self.thread = ProcessLocalChangesThread(self.dbx_handler, self.file_handler.event_q)
@@ -345,12 +342,17 @@ class LocalMonitor(object):
                 self.dbx_handler.on_modified(event)
 
     def start(self):
-        """Start processing of local Dropbox file events."""
+        """Start file system observer and Dropbox event handler."""
+        self.observer = Observer()
+        self.observer.schedule(self.file_handler, self.client.dropbox_path, recursive=True)
+        self.observer.start()
 
         self.thread.resume()
 
     def stop(self):
-        """Stop processing of local Dropbox file events."""
+        """Stop file system observer and Dropbox event handler."""
+        self.observer.stop()
+        self.observer.join()
         self.thread.pause()
 
     def __del__(self):

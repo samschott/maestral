@@ -54,7 +54,14 @@ class SisyphosDBX(object):
         self.remote.start()
         self.local.start()
 
-    def stop_sync(self):
+    def pause_sync(self):
+
+        self.remote.stop()
+        self.local.stop()
+
+    def resume_sync(self):
+
+        self.local.upload_local_changes_after_inactive()
 
         self.remote.stop()
         self.local.stop()
