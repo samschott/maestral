@@ -270,7 +270,7 @@ class SisyphosClient(object):
         :param str path: Path of folder on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_list_folder.
         :return: A dict mapping unicode filenames to
-            FileMetadata|FolderMetadata entries.
+            FileMetadata|FolderMetadata entries or `None` if failed.
         :rtype: dict
         """
         path = osp.normpath(folder)
@@ -284,8 +284,12 @@ class SisyphosClient(object):
             return None
 
         while results[-1].has_more:
-            more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
-            results.append(more_results)
+            try:
+                more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
+                results.append(more_results)
+            except dropbox.exceptions.ApiError as err:
+                logging.info("Folder listing failed for '%s': %s", path, err)
+                return None
 
         rv = {}
         for res in results:
@@ -347,7 +351,7 @@ class SisyphosClient(object):
 
         return md
 
-    def upload(self, local_path, dbx_path, chunk_size=2, **kwargs):
+    def upload(self, local_path, dbx_path, chunk_size=10, **kwargs):
         """
         Uploads local file to Dropbox.
 
@@ -414,11 +418,8 @@ class SisyphosClient(object):
         try:
             # try to move file (response will be metadata, probably)
             md = self.dbx.files_delete(dbx_path, **kwargs)
-        except dropbox.exceptions.HttpError:
-            logger.error(' x HTTP error')
-            return False
-        except dropbox.exceptions.ApiError:
-            logger.error(' x API error')
+        except dropbox.exceptions.ApiError as err:
+            logger.info("An error occured when deleting '%s': %s", dbx_path, err)
             return False
 
         # remove revision metadata
@@ -441,11 +442,10 @@ class SisyphosClient(object):
             metadata = self.dbx.files_move(dbx_path, new_path,
                                            allow_shared_folder=True,
                                            allow_ownership_transfer=True)
-        except dropbox.exceptions.HttpError:
-            logger.error(' x HTTP error')
-            return False
-        except dropbox.exceptions.ApiError:
-            logger.error(' x API error')
+        except dropbox.exceptions.ApiError as err:
+            logger.info(
+                    "An error occured when moving '%s' to '%s': %s",
+                    dbx_path, new_path, err)
             return False
 
         # update local revs
@@ -478,8 +478,8 @@ class SisyphosClient(object):
         """
         try:
             md = self.dbx.files_create_folder(dbx_path, **kwargs)
-        except dropbox.exceptions.ApiError:
-            logger.error(' x API error')
+        except dropbox.exceptions.ApiError as err:
+            logger.info("An error occured creating dir '%s': %s", dbx_path, err)
             return False
 
         self.set_local_rev(dbx_path, 'folder')
@@ -515,8 +515,13 @@ class SisyphosClient(object):
         while results[-1].has_more:  # check if there is more
             idx += len(results[-1].entries)
             logger.info("Indexing %s" % idx)
-            more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
-            results.append(more_results)
+            try:
+                more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
+                results.append(more_results)
+            except dropbox.exceptions.ApiError as exc:
+                msg = "Cannot access '{0}': {1}".format(path, exc.error.get_path())
+                logger.error(msg)
+                return False
 
         # count remote changes
         total = 0
@@ -598,7 +603,6 @@ class SisyphosClient(object):
 
         try:  # get metadata of all remote folders and files
             result = self.dbx.files_list_folder_longpoll(self.last_cursor, timeout=timeout)
-
         except dropbox.exceptions.ApiError:
             msg = "Cannot access Dropbox folder."
             logger.error(msg)
@@ -626,11 +630,19 @@ class SisyphosClient(object):
 
         results = [0]
 
-        results[0] = self.dbx.files_list_folder_continue(self.last_cursor)
+        try:
+            results[0] = self.dbx.files_list_folder_continue(self.last_cursor)
+        except dropbox.exceptions.ApiError as err:
+            logging.info("Folder listing failed: %s", err)
+            return False
 
         while results[-1].has_more:
-            result = self.dbx.files_list_folder_continue(results[-1].cursor)
-            results.append(result)
+            try:
+                result = self.dbx.files_list_folder_continue(results[-1].cursor)
+                results.append(result)
+            except dropbox.exceptions.ApiError as err:
+                logging.info("Folder listing failed: %s", err)
+                return False
 
         # count remote changes
         total = 0
@@ -744,6 +756,7 @@ class SisyphosClient(object):
 
         :param str dbx_path: Path of folder on Dropbox.
         :return: 0 for conflict, 1 for no conflict, 2 if files are identical.
+            Returns -1 if metadata request to Dropbox API fails.
         :rtype: int
         """
         # get corresponding local path
@@ -755,7 +768,11 @@ class SisyphosClient(object):
             return 0
 
         # get metadata otherwise
-        md = self.dbx.files_get_metadata(dbx_path)
+        try:
+            md = self.dbx.files_get_metadata(dbx_path)
+        except dropbox.exceptions.ApiError as err:
+            logging.info("Could not get metadata for '%s': %s", dbx_path, err)
+            return -1
 
         # check if Dropbox rev is in local dict
         local_rev = self.get_local_rev(dbx_path)

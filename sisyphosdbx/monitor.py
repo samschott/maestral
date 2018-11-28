@@ -3,7 +3,7 @@ import logging
 import time
 import threading
 from queue import Queue
-from dropbox import files
+import dropbox
 
 from watchdog.observers import Observer
 from watchdog.events import (FileSystemEventHandler, EVENT_TYPE_CREATED,
@@ -89,12 +89,12 @@ class DropboxEventHandler(object):
 
         # If the file name contains multiple periods it is likely a temporary
         # file created during a saving event on macOS. Irgnore such files.
-        if osp.basename(path2).count('.') > 1:
+        if osp.basename(path2).count(".") > 1:
             return
 
         self.client.move(dbx_path, dbx_path2)
 
-        CONF.set('internal', 'lastsync', time.time())
+        CONF.set("internal", "lastsync", time.time())
 
     def on_created(self, event):
         """
@@ -128,12 +128,12 @@ class DropboxEventHandler(object):
                 rev = self.client.get_local_rev(dbx_path)
                 # if truly a new file
                 if rev is None:
-                    mode = files.WriteMode('add')
+                    mode = dropbox.files.WriteMode("add")
                 # or a 'false' new file event triggered by saving the file
                 # e.g., some programms create backup files and then swap them
                 # in to replace the files you are editing on the disk
                 else:
-                    mode = files.WriteMode('update', rev)
+                    mode = dropbox.files.WriteMode("update", rev)
                 self.client.upload(path, dbx_path, autorename=True, mode=mode)
 
         elif event.is_directory:
@@ -144,7 +144,7 @@ class DropboxEventHandler(object):
             else:
                 self.client.make_dir(dbx_path)
 
-        CONF.set('internal', 'lastsync', time.time())
+        CONF.set("internal", "lastsync", time.time())
 
     def on_deleted(self, event):
         """
@@ -168,7 +168,7 @@ class DropboxEventHandler(object):
         if rev is not None:
             self.client.remove(dbx_path)
 
-        CONF.set('internal', 'lastsync', time.time())
+        CONF.set("internal", "lastsync", time.time())
 
     def on_modified(self, event):
         """
@@ -199,12 +199,12 @@ class DropboxEventHandler(object):
                         break
 
                 rev = self.client.get_local_rev(dbx_path)
-                mode = files.WriteMode('update', rev)
+                mode = dropbox.files.WriteMode("update", rev)
                 md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
                 logger.debug("Modified file: %s (old rev: %s, new rev %s)",
                              md.path_display, rev, md.rev)
 
-        CONF.set('internal', 'lastsync', time.time())
+        CONF.set("internal", "lastsync", time.time())
 
 
 class GetRemoteChangesThread(threading.Thread):
@@ -228,13 +228,16 @@ class GetRemoteChangesThread(threading.Thread):
             while self.pause_event.is_set():
                 time.sleep(1)
 
-            changes = self.client.wait_for_remote_changes()
+            try:
+                changes = self.client.wait_for_remote_changes()
+            except dropbox.exceptions.HttpError:
+                logger.error("  x HTTP Error")  # TODO: handle
 
             if changes:
-                logger.info('Syncing remote changes')
+                logger.info("Syncing remote changes")
                 with lock:
                     self.client.get_remote_changes()
-                logger.info('Up to date')
+                logger.info("Up to date")
 
     def pause(self):
         self.pause_event.set()
@@ -311,7 +314,7 @@ class ProcessLocalChangesThread(threading.Thread):
 
             # process all events:
             with lock:
-                logger.info('Syncing local changes')
+                logger.info("Syncing local changes")
                 for event in events:
                     if event.event_type is EVENT_TYPE_CREATED:
                         self.dbx_handler.on_created(event)
@@ -321,7 +324,7 @@ class ProcessLocalChangesThread(threading.Thread):
                         self.dbx_handler.on_deleted(event)
                     elif event.event_type is EVENT_TYPE_MODIFIED:
                         self.dbx_handler.on_modified(event)
-                logger.info('Up to date')
+                logger.info("Up to date")
 
     def pause(self):
         self.pause_event.set()
