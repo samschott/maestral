@@ -113,6 +113,7 @@ class SisyphosClient(object):
         automatically with every sync. :ivar:`_rev_dict` is used to determine
         sync conflicts and detect deleted files while SisyphosDBX has not been
         running. :ivar:`_rev_dict` is periodically saved to :ivar:`rev_file`.
+        All keys are stored in lower case.
     :ivar rev_file: Path of local file to save :ivar:`_rev_dict`. This defaults
         to '/dropbox_path/.dropbox'
     :ivar dropbox_path: Path to local Dropbox folder, as loaded from config
@@ -214,6 +215,7 @@ class SisyphosClient(object):
             has been saved.
         :rtype: str
         """
+        dbx_path = dbx_path.lower()
         try:
             with open(self.rev_file, 'rb') as f:
                 self._rev_dict = pickle.load(f)
@@ -235,7 +237,9 @@ class SisyphosClient(object):
         :param str dbx_path: Relative Dropbox file path.
         :param str rev: Revision number as string.
         """
-        if rev is None:  # remove entry for dbx_path and all children
+        dbx_path = dbx_path.lower()
+
+        if rev is None:  # remove entries for dbx_path and its children
             for path in dict(self._rev_dict):
                 if path.startswith(dbx_path):
                     self._rev_dict.pop(path, None)
@@ -312,7 +316,7 @@ class SisyphosClient(object):
         except dropbox.exceptions.ApiError as exc:
             msg = ("An error occurred while getting metadata of file '{0}': "
                    "{1}.".format(dbx_path, exc.error if hasattr(exc, 'error') else exc))
-            logger.warning(msg)
+            logger.error(msg)
             return False
 
         if conflict == 0:  # no conflict
@@ -329,7 +333,7 @@ class SisyphosClient(object):
         except (dropbox.exceptions.ApiError, IOError, OSError) as exc:
             msg = ("An error occurred while downloading '{0}' file as '{1}': {2}.".format(
                     dbx_path, dst_path, exc.error if hasattr(exc, 'error') else exc))
-            logger.warning(msg)
+            logger.error(msg)
             return False
 
         self.set_local_rev(md.path_display, md.rev)  # save revision metadata
@@ -388,7 +392,7 @@ class SisyphosClient(object):
         except dropbox.exceptions.ApiError as exc:
             msg = "An error occurred while uploading file '{0}': {1}.".format(
                 local_path, exc.error.get_path().reason)
-            logger.warning(msg)
+            logger.error(msg)
             return False
         finally:
             pb.close()
@@ -408,11 +412,11 @@ class SisyphosClient(object):
         try:
             # try to move file (response will be metadata, probably)
             md = self.dbx.files_delete(dbx_path, **kwargs)
-        except dropbox.exceptions.HttpError as err:
-            logger.warning(' x HTTP error', err)
+        except dropbox.exceptions.HttpError:
+            logger.error(' x HTTP error')
             return False
-        except dropbox.exceptions.ApiError as err:
-            logger.warning(' x API error', err)
+        except dropbox.exceptions.ApiError:
+            logger.error(' x API error')
             return False
 
         # remove revision metadata
@@ -435,11 +439,11 @@ class SisyphosClient(object):
             metadata = self.dbx.files_move(dbx_path, new_path,
                                            allow_shared_folder=True,
                                            allow_ownership_transfer=True)
-        except dropbox.exceptions.HttpError as err:
-            logger.warning(' x HTTP error', err)
+        except dropbox.exceptions.HttpError:
+            logger.error(' x HTTP error')
             return False
-        except dropbox.exceptions.ApiError as err:
-            logger.warning(' x API error', err)
+        except dropbox.exceptions.ApiError:
+            logger.error(' x API error')
             return False
 
         # update local revs
@@ -472,8 +476,8 @@ class SisyphosClient(object):
         """
         try:
             md = self.dbx.files_create_folder(dbx_path, **kwargs)
-        except dropbox.exceptions.ApiError as err:
-            logger.warning(' x API error', err)
+        except dropbox.exceptions.ApiError:
+            logger.error(' x API error')
             return False
 
         self.set_local_rev(dbx_path, 'folder')
@@ -501,7 +505,7 @@ class SisyphosClient(object):
                                                       limit=500))
         except dropbox.exceptions.ApiError as exc:
             msg = "Cannot access '{0}': {1}".format(path, exc.error.get_path())
-            logger.warning(msg)
+            logger.error(msg)
             return False
 
         idx = 0
@@ -593,7 +597,7 @@ class SisyphosClient(object):
 
         except dropbox.exceptions.ApiError:
             msg = "Cannot access Dropbox folder."
-            logger.warning(msg)
+            logger.error(msg)
             return False
 
         # keep track of last long poll, back off if requested by SDK
