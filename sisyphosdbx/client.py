@@ -131,8 +131,8 @@ class SisyphosClient(object):
     :ivar dropbox_path: Path to local Dropbox folder, as loaded from config
         file. Before changing :ivar`dropbox_path`, make sure that all syncing
         is paused. Make sure to move the local Dropbox directory before
-         resuming the sync and to save the new :ivar`dropbox_path` to the
-         config file.
+        resuming the sync and to save the new :ivar`dropbox_path` to the
+        config file.
     """
 
     APP_KEY = '2jmbq42w7vof78h'
