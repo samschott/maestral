@@ -101,6 +101,8 @@ class SisyphosDBX(object):
     @pause_syncing
     def exclude_folder(self, dbx_path):
 
+        dbx_path = dbx_path.lower()
+
         # add folder's Dropbox path to excluded list
         folders = CONF.get('main', 'excluded_folders')
         if dbx_path not in folders:
@@ -118,6 +120,8 @@ class SisyphosDBX(object):
 
     @pause_syncing
     def include_folder(self, dbx_path):
+
+        dbx_path = dbx_path.lower()
 
         # remove folder's Dropbox path from excluded list
         folders = CONF.get('main', 'excluded_folders')
@@ -151,7 +155,7 @@ class SisyphosDBX(object):
             if isinstance(entry, files.FolderMetadata):
                 yes = yesno("Exclude '%s' from sync?" % entry.path_display, False)
                 if yes:
-                    new_folders.append(entry.path_display)
+                    new_folders.append(entry.path_lower)
 
         added_folders = set(new_folders) - set(old_folders)
         removed_folders = set(old_folders) - set(new_folders)
