@@ -33,7 +33,11 @@ class TimedQueue(Queue):
 
 
 class FileEventHandler(FileSystemEventHandler):
-    """Logs all the events captured."""
+    """
+    Logs captured file events and adds them to :ivar:`event_q`.
+
+    :ivar event_q: Qeueue with unprocessed local file events.
+    """
 
     event_q = TimedQueue()
 
@@ -55,13 +59,23 @@ class FileEventHandler(FileSystemEventHandler):
 
 
 class DropboxEventHandler(object):
-    """Logs all the events captured."""
+    """
+    Class that contains methods to sync local file events with Dropbox.
+    The 'last_sync' entry in the config file is updated with the current time
+    after every successfull sync. 'last_sync' is used to check for unsynced
+    changes when SisyphosDBX is started or resumed.
+    """
 
     def __init__(self, client):
 
         self.client = client
 
     def on_moved(self, event):
+        """
+        Call when local file is moved.
+
+        :param class event: Watchdog file event.
+        """
 
         path = event.src_path
         path2 = event.dest_path
@@ -83,6 +97,11 @@ class DropboxEventHandler(object):
         CONF.set('internal', 'lastsync', time.time())
 
     def on_created(self, event):
+        """
+        Call when local file is created.
+
+        :param class event: Watchdog file event.
+        """
         path = event.src_path
         dbx_path = self.client.to_dbx_path(path)
 
@@ -128,6 +147,11 @@ class DropboxEventHandler(object):
         CONF.set('internal', 'lastsync', time.time())
 
     def on_deleted(self, event):
+        """
+        Call when local file is deleted.
+
+        :param class event: Watchdog file event.
+        """
         path = event.src_path
         dbx_path = self.client.to_dbx_path(path)
 
@@ -147,6 +171,11 @@ class DropboxEventHandler(object):
         CONF.set('internal', 'lastsync', time.time())
 
     def on_modified(self, event):
+        """
+        Call when local file is modified.
+
+        :param class event: Watchdog file event.
+        """
         path = event.src_path
         dbx_path = self.client.to_dbx_path(path)
 
@@ -179,6 +208,12 @@ class DropboxEventHandler(object):
 
 
 class GetRemoteChangesThread(threading.Thread):
+    """
+    Thread to sync changes of remote Dropbox with local folder.
+
+    :ivar pause_event: If `pause_event.is_set()` all syncing is paused.
+    :ivar stop_event: If `stop_event.is_set()`, the thread is stopped.
+    """
 
     pause_event = threading.Event()
     stop_event = threading.Event()
@@ -212,7 +247,15 @@ class GetRemoteChangesThread(threading.Thread):
 
 
 class ProcessLocalChangesThread(threading.Thread):
+    """
+    Thread to sync local changes to remote Dropbox.
 
+    :ivar pause_event: If `pause_event.is_set()` all syncing is paused.
+    :ivar stop_event: If `stop_event.is_set()`, the thread is stopped.
+    :ivar delay: Delay time to collect local changes and merge moved avents as
+        appropriate.
+    :ivar event_q: Queue containing all local file events to sync.
+    """
     pause_event = threading.Event()
     stop_event = threading.Event()
 
@@ -291,7 +334,11 @@ class ProcessLocalChangesThread(threading.Thread):
 
 
 class RemoteMonitor(object):
+    """
+    Class to sync changes of remote Dropbox with local folder.
 
+    :ivar thread: Thread to query and process remote changes.
+    """
     def __init__(self, client):
 
         self.client = client
@@ -301,11 +348,11 @@ class RemoteMonitor(object):
         self.thread.start()
 
     def start(self):
-        """Start observation of remote Dropbox folder."""
+        """Starts observation of remote Dropbox folder."""
         self.thread.resume()
 
     def stop(self):
-        """Stop observation of remote Dropbox folder."""
+        """Stops observation of remote Dropbox folder."""
         self.thread.pause()
 
     def __del__(self):
@@ -316,7 +363,16 @@ class RemoteMonitor(object):
 
 
 class LocalMonitor(object):
+    """
+    Class to sync local changes toDropbox folder to remote Dropbox.
 
+    :ivar observer: Watchdog obersver thread that detects local file system
+        events and calls `file_handler`.
+    :ivar file_handler: Handler to register file events and put in queue.
+    :ivar dbx_handler: Handler to upload changes to Dropbox.
+    :ivar thread: Thread that calls `dbx_handler` methods when file events have
+        been queued.
+    """
     def __init__(self, client):
 
         self.client = client

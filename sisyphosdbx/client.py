@@ -32,8 +32,8 @@ def megabytes_to_bytes(size_mb):
 class OAuth2Session(object):
     """Provides OAuth2 login and token store.
 
-    :param app_key: string containing app key provided by Dropbox
-    :param app_secret: string containing app secret provided by Dropbox
+    :ivar app_key: String containing app key provided by Dropbox.
+    :ivar app_secret: String containing app secret provided by Dropbox.
     """
 
     TOKEN_FILE = osp.join(get_conf_path(SUBFOLDER), "o2_store.txt")
@@ -94,6 +94,33 @@ class OAuth2Session(object):
 
 
 class SisyphosClient(object):
+    """Client for Dropbox SDK.
+
+    :ivar flagged: List keeping track of recently updated file/folder paths.
+        Entries will be removed by :class:`LocalMonitor` once it delects the
+        corresponding file change.
+    :ivar last_cursor: Last cursor from Dropbox which was synced. The value
+        is updated and saved to config file on every successful sync.
+    :ivar exlcuded_files: List containing all files excluded from sync.
+        This only contains system files such as '.DS_STore' and internal files
+        such as '.dropbox' and should not be changed.
+    :ivar excluded_folders: List containing all files excluded from sync.
+        When adding and removing entries, make sure to update the config file
+        as well so that changes persist accross sessions.
+    :ivar _rev_dict: Dictionary with paths to all synced local files/folders
+        as keys. Values are the revision number of a file or 'folder' for a
+        folder. Do not change entries manually, the dict is updated
+        automatically with every sync. :ivar:`_rev_dict` is used to determine
+        sync conflicts and detect deleted files while SisyphosDBX has not been
+        running. :ivar:`_rev_dict` is periodically saved to :ivar:`rev_file`.
+    :ivar rev_file: Path of local file to save :ivar:`_rev_dict`. This defaults
+        to '/dropbox_path/.dropbox'
+    :ivar dropbox_path: Path to local Dropbox folder, as loaded from config
+        file. Before changing :ivar`dropbox_path`, make sure that all syncing
+        is paused. Make sure to move the local Dropbox directory before
+         resuming the sync and to save the new :ivar`dropbox_path` to the
+         config file.
+    """
 
     APP_KEY = '2jmbq42w7vof78h'
     APP_SECRET = 'lrsxo47dvuulex5'
@@ -134,7 +161,15 @@ class SisyphosClient(object):
             self._rev_dict = {}
 
     def to_dbx_path(self, local_path):
-        """Returns a relative version of a path, relative to Dropbox folder."""
+        """
+        Converts a local path to a path relative to the Dropbox folder.
+
+        :param str local_path: Full path to file in local Dropbox folder.
+        :return: Relative path with respect to Dropbox folder.
+        :rtype: str
+        :raises ValueError: If no path is specfied or path is outide of local
+            Dropbox folder.
+        """
 
         if not local_path:
             raise ValueError("No path specified.")
@@ -153,7 +188,17 @@ class SisyphosClient(object):
         return '/' + '/'.join(path_list[i:])
 
     def to_local_path(self, dbx_path):
-        """Converts a Dropbox folder path the correspoding local path."""
+        """
+        Converts a Dropbox folder path the correspoding local path.
+
+        :param str dbx_path: Path to file relative to Dropbox folder.
+        :return: Corresponding local path on drive.
+        :rtype: str
+        :raises ValueError: If no path is specfied.
+        """
+
+        if not dbx_path:
+            raise ValueError("No path specified.")
 
         path = dbx_path.replace('/', osp.sep)
         path = osp.normpath(path)
@@ -161,12 +206,13 @@ class SisyphosClient(object):
         return osp.join(self.dropbox_path, path.lstrip(osp.sep))
 
     def get_local_rev(self, dbx_path):
-        """Gets local rev
+        """
+        Gets revision number of local file, as saved in :ivar:`_rev_dict`.
 
-        Gets revision number for local file.
-
-        :param dbx_path: Dropbox file path
-        :returns: revision str or None if no local revision number saved
+        :param str dbx_path: Dropbox file path.
+        :return: Revision number as str or `None` if no local revision number
+            has been saved.
+        :rtype: str
         """
         try:
             with open(self.rev_file, 'rb') as f:
@@ -182,13 +228,12 @@ class SisyphosClient(object):
         return rev
 
     def set_local_rev(self, dbx_path, rev):
-        """Sets local rev
+        """
+        Saves revision number `rev` for local file. If `rev` is `None`, the
+        entry for the file is removed.
 
-        Saves revision number for local file. If rev == None, the entry for the
-        file is removed.
-
-        :param dbx_path: Dropbox file path
-        :param rev: revision str
+        :param str dbx_path: Relative Dropbox file path.
+        :param str rev: Revision number as string.
         """
         if rev is None:  # remove entry for dbx_path and all children
             for path in dict(self._rev_dict):
@@ -207,19 +252,20 @@ class SisyphosClient(object):
 
     def unlink(self):
         """
-        Kills current Dropbox session. Returns nothing.
+        Unlinks the Dropbox account.
         """
         self.dbx.unlink()
 
     def list_folder(self, folder, **kwargs):
-        """List a folder.
+        """
+        Lists contents of a folder on Dropbox as dictionary mapping unicode
+        filenames to FileMetadata|FolderMetadata entries.
 
-        Return a dict mapping unicode filenames to
-        FileMetadata|FolderMetadata entries.
-        :param path: Path of folder on Dropbox.
-        :param kwargs: keyword arguments for Dropbox SDK files_list_folder
-        :returns: a dict mapping unicode filenames to
-        FileMetadata|FolderMetadata entries.
+        :param str path: Path of folder on Dropbox.
+        :param kwargs: Keyword arguments for Dropbox SDK files_list_folder.
+        :return: A dict mapping unicode filenames to
+            FileMetadata|FolderMetadata entries.
+        :rtype: dict
         """
         path = osp.normpath(folder)
 
@@ -243,13 +289,16 @@ class SisyphosClient(object):
         return rv
 
     def download(self, dbx_path, **kwargs):
-        """ Downloads file from Dropbox to our local folder.
+        """
+        Downloads file from Dropbox to our local folder. Checks for sync
+        conflicts. Downloads file or folder to the local Dropbox folder.
 
-        Checks for sync conflicts. Downloads file or folder to local Dropbox.
-
-        :param path: path to file on Dropbox
-        :param kwargs: keyword arguments for Dropbox SDK files_download_to_file
-        :returns: metadata or False or None
+        :param str path: Path to file on Dropbox.
+        :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
+        :return: :class:`dropbox.files.FileMetadata` or
+            :class:`dropbox.files.FolderMetadata` of downloaded file/folder,
+            `False` if request fails or `None` if local copy is already in
+            sync.
         """
         # generate local path from dropbox_path and given path parameter
         dst_path = self.to_local_path(dbx_path)
@@ -292,38 +341,40 @@ class SisyphosClient(object):
 
         return md
 
-    def upload(self, file_src, path, chunk_size=2, **kwargs):
+    def upload(self, local_path, dbx_path, chunk_size=2, **kwargs):
         """
         Uploads local file to Dropbox.
-        :param file: file to upload, bytes
-        :param path: path to file on Dropbox
-        :param kwargs: keyword arguments for Dropbox SDK files_upload
-        :param chunk_size: Maximum size for individual uploads in MB. If the
-            file size exceeds the chunk_size, an upload-session is created instead.
-        :returns: metadata or False
+
+        :param str local_path: Path of local file to upload.
+        :param str dbx_path: Path to save file on Dropbox.
+        :param kwargs: Keyword arguments for Dropbox SDK files_upload.
+        :param int chunk_size: Maximum size for individual uploads in MB. If
+            the file size exceeds the chunk_size, an upload-session is created
+            instead.
+        :return: Metadata of uploaded file or `False` if upload failed.
         """
 
-        file_size = osp.getsize(file_src)
+        file_size = osp.getsize(local_path)
         chunk_size = megabytes_to_bytes(chunk_size)
 
         pb = tqdm(total=file_size, unit="B", unit_scale=True,
-                  desc=osp.basename(file_src), miniters=1,
+                  desc=osp.basename(local_path), miniters=1,
                   ncols=80, mininterval=1)
-        mtime = os.path.getmtime(file_src)
+        mtime = os.path.getmtime(local_path)
         mtime_dt = datetime.datetime(*time.gmtime(mtime)[:6])
 
         try:
-            with open(file_src, 'rb') as f:
+            with open(local_path, 'rb') as f:
                 if file_size <= chunk_size:
                     md = self.dbx.files_upload(
-                            f.read(), path, client_modified=mtime_dt, **kwargs)
+                            f.read(), dbx_path, client_modified=mtime_dt, **kwargs)
                 else:
                     session_start = self.dbx.files_upload_session_start(
                         f.read(chunk_size))
                     cursor = files.UploadSessionCursor(
                         session_id=session_start.session_id, offset=f.tell())
                     commit = files.CommitInfo(
-                            path=path, client_modified=mtime, **kwargs)
+                            path=dbx_path, client_modified=mtime, **kwargs)
                     while f.tell() < file_size:
                         pb.update(chunk_size)
                         if file_size - f.tell() <= chunk_size:
@@ -336,7 +387,7 @@ class SisyphosClient(object):
                             cursor.offset = f.tell()
         except dropbox.exceptions.ApiError as exc:
             msg = "An error occurred while uploading file '{0}': {1}.".format(
-                file_src, exc.error.get_path().reason)
+                local_path, exc.error.get_path().reason)
             logger.warning(msg)
             return False
         finally:
@@ -349,9 +400,10 @@ class SisyphosClient(object):
     def remove(self, dbx_path, **kwargs):
         """
         Removes file from Dropbox.
-        :dbx_path path: path to file on Dropbox
-        :param kwargs: keyword arguments for Dropbox SDK files_delete
-        :returns: metadata or False
+
+        :param str dbx_path: Path to file on Dropbox.
+        :param kwargs: Keyword arguments for Dropbox SDK files_delete.
+        :return: Metadata of deleted file or `False` if deletion failed.
         """
         try:
             # try to move file (response will be metadata, probably)
@@ -372,10 +424,11 @@ class SisyphosClient(object):
 
     def move(self, dbx_path, new_path):
         """
-        Moves/renames files or folders on Dropbox
-        :dbx_path path: path to file /folder on Dropbox
-        :param new_path: new name/path
-        :returns: metadata or False
+        Moves/renames files or folders on Dropbox.
+
+        :param str dbx_path: Path to file/folder on Dropbox.
+        :param str new_path: New path on Dropbox to move to.
+        :return: Metadata of moved file/folder or `False` if move failed.
         """
         try:
             # try to move file
@@ -409,20 +462,21 @@ class SisyphosClient(object):
 
         return metadata
 
-    def make_dir(self, path, **kwargs):
+    def make_dir(self, dbx_path, **kwargs):
         """
-        Creates folder on Dropbox
-        :param path: path to file /folder on Dropbox
-        :param kwargs: keyword arguments for Dropbox SDK files_create_folder
-        :returns: metadata or False
+        Creates folder on Dropbox.
+
+        :param str dbx_path: Path o fDropbox folder.
+        :param kwargs: Keyword arguments for Dropbox SDK files_create_folder.
+        :return: Metadata of created folder or `False` if failed.
         """
         try:
-            md = self.dbx.files_create_folder(path, **kwargs)
+            md = self.dbx.files_create_folder(dbx_path, **kwargs)
         except dropbox.exceptions.ApiError as err:
             logger.warning(' x API error', err)
             return False
 
-        self.set_local_rev(path, 'folder')
+        self.set_local_rev(dbx_path, 'folder')
 
         logger.debug("Created folder '%s' on Dropbox.", md.path_display)
 
@@ -430,12 +484,14 @@ class SisyphosClient(object):
 
     def get_remote_dropbox(self, path=""):
         """
-        Gets all files/folders from dropbox and writes them to local folder.
-        Call this method on first run of client. Indexing and downloading may
-        take some time, depdning on the size of the users Dropbox folder.
+        Gets all files/folders from Dropbox and writes them to local folder
+        :ivar:`dropbox_path`. Call this method on first run of client. Indexing
+        and downloading may take some time, depending on the size of the users
+        Dropbox folder.
 
-        :param path: path to folder on Dropbox, defaults to root
-        :returns: True on success, False otherwise
+        :param str path: Path to folder on Dropbox, defaults to root.
+        :return: `True` on success, `False` otherwise.
+        :rtype: bool
         """
         results = []  # list to store all results
 
@@ -475,13 +531,13 @@ class SisyphosClient(object):
         return True
 
     def get_local_changes(self):
-        """Gets all local changes while app has not been running.
+        """
+        Gets all local changes while app has not been running. Call this method
+        on startup of client to upload all local changes.
 
-        Call this method on startup of client to upload all local changes.
-
-        :returns: dictionary with all changes, keys are file paths relative to
-            local Dropbox folder, entries are file changed event types
-            corresponding to watchdog.
+        :return: Dictionary with all changes, keys are file paths relative to
+            local Dropbox folder, entries are watchdog file changed events.
+        :rtype: dict
         """
         logging.info("Uploading local changes.")
         changes = []
@@ -519,12 +575,12 @@ class SisyphosClient(object):
         return changes
 
     def wait_for_remote_changes(self, timeout=120):
-        """Waits for remote changes since self.last_cursor.
+        """
+        Waits for remote changes since :ivar:`last_cursor`. Call this method
+        after starting the Dropbox client and periodically to get the latest
+        updates.
 
-        Waits for remote changes since self.last_cursor. Call this method after
-        starting the Dropbox client and periodically to get the latest updates.
-
-        :param timeout: seconds to wait untill timeout
+        :param int timeout: Seconds to wait until timeout.
         """
         # honour last request to back off
         if self.last_longpoll is not None:
@@ -550,10 +606,13 @@ class SisyphosClient(object):
         return result.changes
 
     def get_remote_changes(self):
-        """Applies remote changes since self.last_cursor.
+        """
+        Downloads / applies remote changes to local folder since
+        :ivar:`last_cursor`.
 
-        :param timeout: seconds to wait untill timeout
-        :returns: True on success, False otherwise
+        :param int timeout: Seconds to wait untill timeout.
+        :return: `True` on success, `False` otherwise.
+        :rtype: bool
         """
 
         results = [0]
@@ -592,7 +651,7 @@ class SisyphosClient(object):
     def _create_local_entry(self, entry):
         """Creates local file / folder for remote entry.
 
-        :param entry:
+        :param class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
         """
 
         self.excluded_folders = CONF.get('main', 'excluded_folders')
@@ -639,10 +698,12 @@ class SisyphosClient(object):
             self.set_local_rev(entry.path_display, None)
 
     def is_excluded(self, dbx_path):
-        """Check if file is excluded from sync.
+        """
+        Check if file is excluded from sync.
 
-        :param path: Path of folder on Dropbox.
-        :returns: True or False (bool)
+        :param str dbx_path: Path of folder on Dropbox.
+        :return: `True` or `False`.
+        :rtype: bool
         """
         excluded = False
         # in excluded files?
@@ -666,10 +727,12 @@ class SisyphosClient(object):
         return excluded
 
     def _is_local_conflict(self, dbx_path):
-        """Check if local copy is conflicting with remote.
+        """
+        Check if local copy is conflicting with remote.
 
-        :param dbx_path: Path of folder on Dropbox.
-        :returns: 0 for conflict, 1 for no conflict, 2 for files are identical
+        :param str dbx_path: Path of folder on Dropbox.
+        :return: 0 for conflict, 1 for no conflict, 2 if files are identical.
+        :rtype: int
         """
         # get corresponding local path
         dst_path = self.to_local_path(dbx_path)

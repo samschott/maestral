@@ -64,6 +64,7 @@ class Configure():
 
 def yesno(message, default):
     """Handy helper function to ask a yes/no question.
+
     A blank line returns the default, and answering
     y/yes or n/no returns True or False.
     Retry on unrecognized answer.
