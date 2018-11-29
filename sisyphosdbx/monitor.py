@@ -3,7 +3,7 @@ import logging
 import time
 from threading import Thread, Event, Lock
 import requests
-from queue import Queue
+import queue
 from blinker import signal
 import dropbox
 
@@ -23,11 +23,9 @@ configurationDirectory = get_conf_path(SUBFOLDER)
 
 logger = logging.getLogger(__name__)
 lock = Lock()  # lock to prevent simultaneous calls to Dropbox
-connected_signal = signal('connected_signal')
-disconnected_signal = signal('disconnected_signal')
 
 
-class TimedQueue(Queue):
+class TimedQueue(queue.Queue):
 
     def __init__(self):
         super(self.__class__, self).__init__()
@@ -217,18 +215,21 @@ class DropboxEventHandler(object):
 
 def connection_helper(client, connected, running):
 
+    disconnected_signal = signal("disconnected_signal")
+    connected_signal = signal("connected_signal")
+
     while True:
         try:
             with lock:
                 # use an inexpensive call to get_space_usage to test connection
                 client.get_space_usage()
             connected.set()
-            connected_signal.emit()
+            connected_signal.send()
             time.sleep(1)
         except requests.exceptions.RequestException:
             running.clear()
             connected.clear()
-            disconnected_signal.emit()
+            disconnected_signal.send()
             logger.info("Connecting...")
             time.sleep(1)
 
@@ -241,11 +242,18 @@ def remote_changes_worker(client, running):
     :param class running: If not `running.is_set()` the thread is stopped.
     """
 
-    while running.is_set():
+    disconnected_signal = signal("disconnected_signal")
+
+    while True:
+
+        running.wait()  # if not running, wait until resumed
 
         try:
             # wait for remote changes (times out after 120 secs)
-            changes = client.wait_for_remote_changes()
+            changes = client.wait_for_remote_changes(timeout=120)
+
+            running.wait()  # if not running, wait until resumed
+
             # apply remote changes
             if changes:
                 logger.info("Syncing remote changes")
@@ -257,8 +265,8 @@ def remote_changes_worker(client, running):
 
         except requests.exceptions.RequestException:
             logger.debug("Connection lost")
-            disconnected_signal.emit()
-            return
+            disconnected_signal.send()
+            running.clear()  # must be started again from outside
 
 
 def local_changes_worker(dbx_handler, event_q, running):
@@ -270,9 +278,12 @@ def local_changes_worker(dbx_handler, event_q, running):
     :param class running: If not `running.is_set()` the thread is stopped.
     """
 
+    disconnected_signal = signal("disconnected_signal")
     delay = 0.1
 
-    while running.is_set():
+    while True:
+
+        running.wait()  # if not running, wait until resumed
 
         events = []
         events.append(event_q.get())  # blocks until something is in queue
@@ -284,7 +295,6 @@ def local_changes_worker(dbx_handler, event_q, running):
             t0 = time.time()
 
         # get all events after folder has been idle for self.delay
-        events = []
         while event_q.qsize() > 0:
             events.append(event_q.get())
 
@@ -324,11 +334,12 @@ def local_changes_worker(dbx_handler, event_q, running):
                         dbx_handler.on_deleted(event)
                     elif event.event_type is EVENT_TYPE_MODIFIED:
                         dbx_handler.on_modified(event)
+                CONF.set("internal", "lastsync", time.time())
                 logger.info("Up to date")
         except requests.exceptions.RequestException:
             logger.debug("Connection lost")
-            disconnected_signal.emit()
-            return
+            disconnected_signal.send()
+            running.clear()   # must be started again from outside
 
 
 class Monitor(object):
@@ -352,7 +363,11 @@ class Monitor(object):
 
     connected = Event()
     running = Event()
-    stopped_by_user = False
+
+    connected_signal = signal("connected_signal")
+    disconnected_signal = signal("disconnected_signal")
+
+    stopped_by_user = True
 
     def __init__(self, client):
 
@@ -364,40 +379,45 @@ class Monitor(object):
         self.connection_thread = Thread(
                 target=connection_helper,
                 args=(self.client, self.connected, self.running),
-                name='SisyphosConnectionHelper')
+                name="SisyphosConnectionHelper")
 
-        self.thread.start()
+        self.remote_thread = Thread(
+                target=remote_changes_worker,
+                args=(self.client, self.running),
+                name="SisyphosRemoteSync")
 
-    @connected_signal.connect
-    def start(self):
+        self.local_thread = Thread(
+                target=local_changes_worker,
+                args=(self.dbx_handler, self.event_q, self.running),
+                name="SisyphosLocalSync")
+
+        self.connection_thread.start()
+        self.remote_thread.start()
+        self.local_thread.start()
+
+        self.connected_signal.connect(self.start)
+        self.disconnected_signal.connect(self.stop)
+
+    def start(self, data=None):
         """Creates worker threads and starts syncing."""
 
         if self.running.is_set() or self.stopped_by_user:
             # do nothing if already running or stopped by user
             return
 
+        res = self.upload_local_changes_after_inactive()
+
+        if not res:
+            return
+
         self.running.set()
 
         self.observer = Observer()
-        self.observer.schedule(
-                self.file_handler, self.client.dropbox_path, recursive=True)
-
-        self.remote_thread = Thread(
-                target=remote_changes_worker,
-                args=(self.client, self.running),
-                name='SisyphosRemoteSync')
-
-        self.local_thread = Thread(
-                target=local_changes_worker,
-                args=(self.dbx_handler, self.event_q, self.running),
-                name='SisyphosLocalSync')
-
+        self.observer.schedule(self.file_handler, self.client.dropbox_path,
+                               recursive=True)
         self.observer.start()
-        self.remote_thread.start()
-        self.local_thread.start()
 
-    @disconnected_signal.connect
-    def stop(self):
+    def stop(self, data=None):
         """Stops syncing and destroys worker threads."""
 
         if not self.running.is_set():
@@ -409,27 +429,34 @@ class Monitor(object):
         self.observer.stop()  # stop observer
         self.observer.join()  # wait to finish
 
-        self.remote_thread.join()  # wait to finish
-        self.local_thread.join()  # wait to finish
-
-        del self.observer
-        del self.remote_thread
-        del self.local_thread
-
     def upload_local_changes_after_inactive(self):
-        """Push changes while client has not been running to Dropbox."""
+        """
+        Push changes while client has not been running to Dropbox.
+
+        :return: `True` on success, `False` if connection error has been caught.
+        :rtype: bool
+        """
 
         logger.info("Checking for changes...")
 
         events = self._get_local_changes()
 
-        for event in events:
-            if event.event_type is EVENT_TYPE_CREATED:
-                self.dbx_handler.on_created(event)
-            elif event.event_type is EVENT_TYPE_DELETED:
-                self.dbx_handler.on_deleted(event)
-            elif event.event_type is EVENT_TYPE_MODIFIED:
-                self.dbx_handler.on_modified(event)
+        try:
+            for event in events:
+                if event.event_type is EVENT_TYPE_CREATED:
+                    self.dbx_handler.on_created(event)
+                elif event.event_type is EVENT_TYPE_DELETED:
+                    self.dbx_handler.on_deleted(event)
+                elif event.event_type is EVENT_TYPE_MODIFIED:
+                    self.dbx_handler.on_modified(event)
+
+            CONF.set("internal", "lastsync", time.time())
+            return True
+        except requests.exceptions.RequestException:
+            logger.debug("Connection lost")
+            self.disconnected_signal.send()
+            self.running.clear()   # must be started again from outside
+            return False
 
     def _get_local_changes(self):
         """
@@ -448,29 +475,32 @@ class Monitor(object):
         # get lowercase paths
         lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
 
-        # get paths of modified or added files / folders
+        # get modified or added items
         for path in snapshot.paths:
-            if snapshot.mtime(path) > CONF.get('internal', 'lastsync'):
-                # check if file/folder is already tracked or new
+            stats = snapshot.stat_info(path)
+            last_sync = CONF.get("internal", "lastsync")
+            # check item was created or modified since last sync
+            if max(stats.st_ctime, stats.st_mtime) > last_sync:
+                # check if item is already tracked or new
                 if self.client.to_dbx_path(path).lower() in self.client.rev_dict:
-                    # already tracking file
+                    # already tracking item
                     if osp.isdir(path):
                         event = DirModifiedEvent(path)
                     else:
                         event = FileModifiedEvent(path)
                     changes.append(event)
                 else:
-                    # new file, not excluded
+                    # new item, not excluded
                     if osp.isdir(path):
                         event = DirCreatedEvent(path)
                     else:
                         event = FileCreatedEvent(path)
                     changes.append(event)
 
-        # get deleted files / folders
+        # get deleted items
         for path in self.client.rev_dict:
             if self.client.to_local_path(path).lower() not in lowercase_snapshot_paths:
-                if self.client.rev_dict[path] == 'folder':
+                if self.client.rev_dict[path] == "folder":
                     event = DirDeletedEvent(self.client.to_local_path(path))
                 else:
                     event = FileDeletedEvent(self.client.to_local_path(path))

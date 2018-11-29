@@ -599,17 +599,14 @@ class SisyphosClient(object):
             total += len(result.entries)
 
         # apply remote changes
-        idx = 0
+        logger.info("Downloading %s items..." % (total))
         for result in results:
             for entry in result.entries:
-                idx += 1
-                logger.info("Downloading %s/%s" % (idx, total))
                 self._create_local_entry(entry)
 
             if path == "":  # save cursor only if synced for whole dropbox
                 self.last_cursor = result.cursor
                 CONF.set('internal', 'cursor', result.cursor)
-                CONF.set('internal', 'lastsync', time.time())
 
         return True
 
@@ -691,7 +688,6 @@ class SisyphosClient(object):
 
             self.last_cursor = result.cursor
             CONF.set('internal', 'cursor', result.cursor)
-            CONF.set('internal', 'lastsync', time.time())
 
         return True
 

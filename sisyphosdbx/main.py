@@ -5,6 +5,7 @@ __author__ = "Sam Schott"
 
 import os
 import os.path as osp
+import time
 import requests
 import shutil
 import functools
@@ -19,9 +20,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-sbx_loggers = logging.getLogger('sisyphosdbx')
-sbx_loggers.addHandler(logging.StreamHandler())
-sbx_loggers.setLevel(logging.INFO)
+for logger_name in ('sisyphosdbx.client', 'sisyphosdbx.monitor'):
+    sdbx_logger = logging.getLogger(logger_name)
+    sdbx_logger.addHandler(logging.StreamHandler())
+    sdbx_logger.setLevel(logging.INFO)
 
 
 class SDBXConnectionError(Exception):
@@ -80,6 +82,9 @@ class SisyphosDBX(object):
     def __init__(self):
 
         self.client = SisyphosClient()
+        # monitor needs to be created before any decorators are called
+        self.monitor = Monitor(self.client)
+        self.monitor.stopped_by_user = True  # hold off on syncing anything
 
         if self.FIRST_SYNC:
             self.set_dropbox_directory()
@@ -89,8 +94,7 @@ class SisyphosDBX(object):
             CONF.set('internal', 'lastsync', None)
 
             self.get_remote_dropbox()
-
-        self.monitor = Monitor(self.client)
+            CONF.set('internal', 'lastsync', time.time())
 
         self.resume_sync()
 
@@ -235,6 +239,7 @@ class SisyphosDBX(object):
 
         # update config file and client
         self.client.dropbox_path = new_path
+        self.client.rev_file = osp.join(new_path, '.dropbox')
         CONF.set('main', 'path', new_path)
 
     def _ask_for_path(self):
