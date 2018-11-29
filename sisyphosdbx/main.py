@@ -5,7 +5,6 @@ __author__ = "Sam Schott"
 
 import os
 import os.path as osp
-import time
 import requests
 import shutil
 import functools
@@ -18,9 +17,11 @@ from sisyphosdbx.config.base import get_home_dir
 
 import logging
 
-logger = logging.getLogger()
-logger.addHandler(logging.StreamHandler())
-logger.setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
+
+sbx_loggers = logging.getLogger('sisyphosdbx')
+sbx_loggers.addHandler(logging.StreamHandler())
+sbx_loggers.setLevel(logging.INFO)
 
 
 def with_sync_paused(f):
@@ -62,10 +63,13 @@ def repeat_on_connection_error(f):
 
 class SisyphosDBX(object):
 
+    # TODO: connect to connection lost signal, try to reconnect
+
     FIRST_SYNC = (not CONF.get('internal', 'lastsync') or
                   CONF.get('internal', 'cursor') == '' or
                   not osp.isdir(CONF.get('main', 'path')))
     syncing = False
+    paused_by_user = False
 
     def __init__(self):
 
@@ -85,11 +89,12 @@ class SisyphosDBX(object):
 
         self.resume_sync()
 
-    @repeat_on_connection_error
     def get_remote_dropbox(self):
         self.client.get_remote_dropbox()
 
     def pause_sync(self):
+
+        self.paused_by_user = True
 
         if not self.syncing:
             return
@@ -99,8 +104,9 @@ class SisyphosDBX(object):
 
         self.syncing = False
 
-    @repeat_on_connection_error
     def resume_sync(self):
+
+        self.paused_by_user = False
 
         if self.syncing:
             return
@@ -139,7 +145,6 @@ class SisyphosDBX(object):
         self.client.set_local_rev(dbx_path, None)
 
     @with_sync_paused
-    @repeat_on_connection_error
     def include_folder(self, dbx_path):
         """
         Includes folder in sync and downloads it. It is safe to call
@@ -166,7 +171,6 @@ class SisyphosDBX(object):
         logger.debug("Downloading folder.")
         self.client.get_remote_dropbox(path=dbx_path)  # may raise ConnectionError
 
-    @repeat_on_connection_error
     def select_excluded_folders(self):
         """
         Gets all top level folder paths from Dropbox and asks user to inlcude

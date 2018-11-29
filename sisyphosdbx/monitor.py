@@ -269,7 +269,7 @@ class GetRemoteChangesThread(threading.Thread):
 
             except requests.exceptions.ConnectionError:
                 logger.debug("Connection lost")
-                wait_for_connection()
+                # TODO: emit connection lost signal
 
     def pause(self):
         self.pause_event.set()
@@ -360,9 +360,7 @@ class ProcessLocalChangesThread(threading.Thread):
                     logger.info("Up to date")
             except requests.exceptions.ConnectionError:
                 logger.debug("Connection lost")
-                # TODO: handle lost connection, stop Observer?
-                wait_for_connection()
-                # TODO: upon reconnect, call upload_local_changes_after_inactive
+                # TODO: emit connection lost signal
 
     def pause(self):
         self.pause_event.set()
