@@ -11,7 +11,7 @@ import functools
 from dropbox import files
 
 from sisyphosdbx.client import SisyphosClient
-from sisyphosdbx.monitor import Monitor, wait_for_connection
+from sisyphosdbx.monitor import Monitor
 from sisyphosdbx.config.main import CONF
 from sisyphosdbx.config.base import get_home_dir
 
@@ -24,9 +24,14 @@ sbx_loggers.addHandler(logging.StreamHandler())
 sbx_loggers.setLevel(logging.INFO)
 
 
+class SDBXConnectionError(Exception):
+    """Raised on requests.exceptions.RequestException."""
+    pass
+
+
 def with_sync_paused(f):
     """
-    Function decorator which pauses syncing before call, resumes afterwards.
+    Decorator which pauses syncing before a method call, resumes afterwards.
     """
     @functools.wraps(f)
     def wrapper(self, *args, **kwargs):
@@ -43,21 +48,25 @@ def with_sync_paused(f):
     return wrapper
 
 
-def repeat_on_connection_error(f):
+def if_connected(f):
     """
-    Function decorator which repeats function call in case of ConnectionError.
-    Only use this if reapeated function calls do not leave SisyphosDBX in an
-    inconsistent state.
+    Decorator which checks for connection to Dropbox API before a method call.
     """
+
+    error_msg = ("Cannot connect to Dropbox servers. Please  check" +
+                 "your internet connection and try again later.")
+
     @functools.wraps(f)
     def wrapper(self, *args, **kwargs):
-        while True:
-            try:
-                ret = f(self, *args, **kwargs)
-                return ret
-            except requests.exceptions.ConnectionError:
-                wait_for_connection()
-
+        # pause syncing
+        if not self.connected:
+            raise SDBXConnectionError(error_msg)
+        try:
+            ret = f(self, *args, **kwargs)
+            return ret
+        except requests.exceptions.RequestException:
+            raise SDBXConnectionError(error_msg)
+        return
     return wrapper
 
 
@@ -89,6 +98,11 @@ class SisyphosDBX(object):
     def syncing(self):
         return self.monitor.running.is_set()
 
+    @property
+    def connected(self):
+        return self.monitor.connected.is_set()
+
+    @if_connected
     def get_remote_dropbox(self):
         self.client.get_remote_dropbox()
 
@@ -126,6 +140,7 @@ class SisyphosDBX(object):
 
         self.client.set_local_rev(dbx_path, None)
 
+    @if_connected
     @with_sync_paused
     def include_folder(self, dbx_path):
         """
@@ -153,6 +168,7 @@ class SisyphosDBX(object):
         logger.debug("Downloading folder.")
         self.client.get_remote_dropbox(path=dbx_path)  # may raise ConnectionError
 
+    @if_connected
     def select_excluded_folders(self):
         """
         Gets all top level folder paths from Dropbox and asks user to inlcude
@@ -166,7 +182,7 @@ class SisyphosDBX(object):
         new_folders = []
 
         # get all top-level Dropbox folders
-        result = self.client.list_folder("", recursive=False)  # may raise ConnectionError
+        result = self.client.list_folder("", recursive=False)
 
         # paginate through top-level folders, ask to exclude
         for entry in result.values():

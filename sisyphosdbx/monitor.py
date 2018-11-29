@@ -27,27 +27,6 @@ connected_signal = signal('connected_signal')
 disconnected_signal = signal('disconnected_signal')
 
 
-def wait_for_connection(client, timeout=None):
-    """
-    Helper function which blocks until Dropbox can be reached.
-    :param timeout: Timeout in sec before function raises TimeoutError. Default
-        is `None`.
-    :raises TimeoutError: If connection could not be established within timeout.
-    """
-    t0 = time.time()
-
-    while not timeout or (time.time() - t0 < timeout):
-        try:
-            # use an inexpensive call to space usage to test connection
-            client.get_space_usage()
-            return  # return if successful
-        except requests.exceptions.RequestException:
-            logger.info("Connecting...")
-            time.sleep(1)
-
-    raise TimeoutError("Timeout of %s sec exceeded." % timeout)
-
-
 class TimedQueue(Queue):
 
     def __init__(self):
