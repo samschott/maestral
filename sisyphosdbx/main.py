@@ -6,12 +6,13 @@ __author__ = "Sam Schott"
 import os
 import os.path as osp
 import time
+import requests
 import shutil
 import functools
 from dropbox import files
 
 from sisyphosdbx.client import SisyphosClient
-from sisyphosdbx.monitor import LocalMonitor, RemoteMonitor
+from sisyphosdbx.monitor import LocalMonitor, RemoteMonitor, wait_for_connection
 from sisyphosdbx.config.main import CONF
 from sisyphosdbx.config.base import get_home_dir
 
@@ -52,11 +53,10 @@ def repeat_on_connection_error(f):
         while True:
             try:
                 ret = f(self, *args, **kwargs)
-                break
-            except ConnectionError:
-                logger.info("Connecting...")
-                time.sleep(1)
-        return ret
+                return ret
+            except requests.exceptions.ConnectionError:
+                wait_for_connection()
+
     return wrapper
 
 

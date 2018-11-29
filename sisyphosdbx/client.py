@@ -19,11 +19,34 @@ logger = logging.getLogger(__name__)
 SESSION = dropbox.dropbox.create_session()
 
 
-def megabytes_to_bytes(size_mb):
+def tobytes(value, unit, bsize=1024):
     """
-    Convert size in bytes to megabytes
+    Convert size from megabytes to bytes.
+
+    :param int b: Value in bytes.
+    :param str unit: Unit to convert to. 'KB' to 'EB' are supported.
+    :param int bsize: Conversion between bytes and next higher unit.
+    :return: Coverted value in units of `to`.
+    :rtype: float
     """
-    return size_mb * 1024 * 1024
+    a = {'KB': 1, 'MB': 2, 'GB': 3, 'TB': 4, 'PB': 5, 'EB': 6}
+
+    return float(value) * bsize**a[unit.upper()]
+
+
+def bytesto(value, unit, bsize=1024):
+    """
+    Convert size from megabytes to bytes.
+
+    :param int b: Value in bytes.
+    :param str unit: Unit to convert to. 'KB' to 'EB' are supported.
+    :param int bsize: Conversion between bytes and next higher unit.
+    :return: Coverted value in units of `to`.
+    :rtype: float
+    """
+    a = {'KB': 1, 'MB': 2, 'GB': 3, 'TB': 4, 'PB': 5, 'EB': 6}
+
+    return float(value) / bsize**a[unit.upper()]
 
 
 class OAuth2Session(object):
@@ -268,6 +291,42 @@ class SisyphosClient(object):
         with open(self.rev_file, 'wb+') as f:
             pickle.dump(self.rev_dict, f, pickle.HIGHEST_PROTOCOL)
 
+    def get_account_info(self):
+        """
+        Gets current account information.
+
+        :return: :class:`dropbox.users.FullAccount` instance or `None` if failed.
+        """
+        try:
+            res = self.dbx.users_get_current_account()
+        except dropbox.exceptions.ApiError as err:
+            logging.info("Failed to get account info: %s", err)
+            res = None
+        return res
+
+    def get_space_usage(self):
+        """
+        Gets current account space usage.
+
+        :return: :class:`dropbox.users.SpaceUsage` instance or `None` if failed.
+        """
+        try:
+            res = self.dbx.users_get_space_usage()
+        except dropbox.exceptions.ApiError as err:
+            logging.debug("Failed to get account info: %s", err)
+            return None
+
+        if res.allocation.is_team():
+            allocation = res.allocation.get_team()
+        elif res.allocation.is_individual():
+            allocation = res.allocation.get_individual()
+
+        percent = allocation.used / allocation.allocated * 100
+        alloc_gb = bytesto(allocation.allocated, 'GB')
+        logging.info("{:.1f}% of {:,}GB used".format(percent, alloc_gb))
+
+        return res
+
     def unlink(self):
         """
         Unlinks the Dropbox account.
@@ -376,7 +435,7 @@ class SisyphosClient(object):
         """
 
         file_size = osp.getsize(local_path)
-        chunk_size = megabytes_to_bytes(chunk_size)
+        chunk_size = tobytes(chunk_size, 'MB')
 
         pb = tqdm(total=file_size, unit="B", unit_scale=True,
                   desc=osp.basename(local_path), miniters=1,

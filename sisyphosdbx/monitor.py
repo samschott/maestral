@@ -2,6 +2,7 @@ import os.path as osp
 import logging
 import time
 import threading
+import requests
 from queue import Queue
 import dropbox
 
@@ -14,14 +15,37 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              DirDeletedEvent, FileDeletedEvent)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 
-from sisyphosdbx.client import SESSION
+from sisyphosdbx.client import SisyphosClient
 from sisyphosdbx.config.main import CONF, SUBFOLDER
 from sisyphosdbx.config.base import get_conf_path
 
 configurationDirectory = get_conf_path(SUBFOLDER)
 
 logger = logging.getLogger(__name__)
-lock = threading.Lock()
+lock = threading.Lock()  # lock to prevent simultaneous calls to Dropbox
+
+client = SisyphosClient()  # global client for connection checking etc
+
+
+def wait_for_connection(timeout=None):
+    """
+    Helper function which blocks until Dropbox can be reached.
+    :param timeout: Timeout in sec before function raises TimeoutError. Default
+        is `None`.
+    :raises TimeoutError: If connection could not be established within timeout.
+    """
+    t0 = time.time()
+
+    while not timeout or (time.time() - t0 < timeout):
+        try:
+            # use an inexpensive call to space usage to test connection
+            client.get_space_usage()
+            return  # return if successful
+        except requests.exceptions.ConnectionError:
+            logger.info("Connecting...")
+            time.sleep(1)
+
+    raise TimeoutError("Timeout of %s sec exceeded." % timeout)
 
 
 class TimedQueue(Queue):
@@ -243,10 +267,9 @@ class GetRemoteChangesThread(threading.Thread):
                 else:
                     logger.info("Up to date")
 
-            except ConnectionError:  # TODO: determine correct exc to catch
+            except requests.exceptions.ConnectionError:
                 logger.debug("Connection lost")
-                logger.info("Connecting...")  # TODO: handle lost connection
-                # block until reconnect
+                wait_for_connection()
 
     def pause(self):
         self.pause_event.set()
@@ -275,7 +298,7 @@ class ProcessLocalChangesThread(threading.Thread):
         super(self.__class__, self).__init__()
         self.dbx_handler = dbx_handler
         self.event_q = event_q
-        self.delay = 0.5
+        self.delay = 0.1
 
     def run(self):
         while not self.stop_event.is_set():
@@ -335,12 +358,11 @@ class ProcessLocalChangesThread(threading.Thread):
                         elif event.event_type is EVENT_TYPE_MODIFIED:
                             self.dbx_handler.on_modified(event)
                     logger.info("Up to date")
-            except ConnectionError:  # TODO: determine correct exc to catch
+            except requests.exceptions.ConnectionError:
                 logger.debug("Connection lost")
-                logger.info("Connecting...")
-                # TODO: handle lost connection
-                # block until reconnect
-                # upon reconnect, call upload_local_changes_after_inactive
+                # TODO: handle lost connection, stop Observer?
+                wait_for_connection()
+                # TODO: upon reconnect, call upload_local_changes_after_inactive
 
     def pause(self):
         self.pause_event.set()
