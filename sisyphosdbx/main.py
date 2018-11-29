@@ -11,7 +11,7 @@ import functools
 from dropbox import files
 
 from sisyphosdbx.client import SisyphosClient
-from sisyphosdbx.monitor import LocalMonitor, RemoteMonitor, wait_for_connection
+from sisyphosdbx.monitor import Monitor, wait_for_connection
 from sisyphosdbx.config.main import CONF
 from sisyphosdbx.config.base import get_home_dir
 
@@ -63,12 +63,9 @@ def repeat_on_connection_error(f):
 
 class SisyphosDBX(object):
 
-    # TODO: connect to connection lost signal, try to reconnect
-
     FIRST_SYNC = (not CONF.get('internal', 'lastsync') or
                   CONF.get('internal', 'cursor') == '' or
                   not osp.isdir(CONF.get('main', 'path')))
-    syncing = False
     paused_by_user = False
 
     def __init__(self):
@@ -84,39 +81,24 @@ class SisyphosDBX(object):
 
             self.get_remote_dropbox()
 
-        self.remote = RemoteMonitor(self.client)
-        self.local = LocalMonitor(self.client)
+        self.monitor = Monitor(self.client)
 
         self.resume_sync()
+
+    @property
+    def syncing(self):
+        return self.monitor.running.is_set()
 
     def get_remote_dropbox(self):
         self.client.get_remote_dropbox()
 
     def pause_sync(self):
-
-        self.paused_by_user = True
-
-        if not self.syncing:
-            return
-
-        self.remote.stop()
-        self.local.stop()
-
-        self.syncing = False
+        self.monitor.stopped_by_user = True
+        self.monitor.stop()
 
     def resume_sync(self):
-
-        self.paused_by_user = False
-
-        if self.syncing:
-            return
-
-        self.local.upload_local_changes_after_inactive()  # may raise ConnectionError
-
-        self.remote.start()
-        self.local.start()
-
-        self.syncing = True
+        self.monitor.stopped_by_user = False
+        self.monitor.start()
 
     @with_sync_paused
     def exclude_folder(self, dbx_path):

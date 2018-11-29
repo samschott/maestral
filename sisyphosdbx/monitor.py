@@ -1,9 +1,10 @@
 import os.path as osp
 import logging
 import time
-import threading
+from threading import Thread, Event, Lock
 import requests
 from queue import Queue
+from blinker import signal
 import dropbox
 
 from watchdog.observers import Observer
@@ -15,19 +16,18 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              DirDeletedEvent, FileDeletedEvent)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 
-from sisyphosdbx.client import SisyphosClient
 from sisyphosdbx.config.main import CONF, SUBFOLDER
 from sisyphosdbx.config.base import get_conf_path
 
 configurationDirectory = get_conf_path(SUBFOLDER)
 
 logger = logging.getLogger(__name__)
-lock = threading.Lock()  # lock to prevent simultaneous calls to Dropbox
+lock = Lock()  # lock to prevent simultaneous calls to Dropbox
+connected_signal = signal('connected_signal')
+disconnected_signal = signal('disconnected_signal')
 
-client = SisyphosClient()  # global client for connection checking etc
 
-
-def wait_for_connection(timeout=None):
+def wait_for_connection(client, timeout=None):
     """
     Helper function which blocks until Dropbox can be reached.
     :param timeout: Timeout in sec before function raises TimeoutError. Default
@@ -41,7 +41,7 @@ def wait_for_connection(timeout=None):
             # use an inexpensive call to space usage to test connection
             client.get_space_usage()
             return  # return if successful
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.RequestException:
             logger.info("Connecting...")
             time.sleep(1)
 
@@ -236,208 +236,223 @@ class DropboxEventHandler(object):
         CONF.set("internal", "lastsync", time.time())
 
 
-class GetRemoteChangesThread(threading.Thread):
+def connection_helper(client, connected, running):
+
+    while True:
+        try:
+            with lock:
+                # use an inexpensive call to get_space_usage to test connection
+                client.get_space_usage()
+            connected.set()
+            connected_signal.emit()
+            time.sleep(1)
+        except requests.exceptions.RequestException:
+            running.clear()
+            connected.clear()
+            disconnected_signal.emit()
+            logger.info("Connecting...")
+            time.sleep(1)
+
+
+def remote_changes_worker(client, running):
     """
     Thread to sync changes of remote Dropbox with local folder.
 
-    :ivar pause_event: If `pause_event.is_set()` all syncing is paused.
-    :ivar stop_event: If `stop_event.is_set()`, the thread is stopped.
+    :param class client: :class:`SisyphosClient` instance.
+    :param class running: If not `running.is_set()` the thread is stopped.
     """
 
-    pause_event = threading.Event()
-    stop_event = threading.Event()
+    while running.is_set():
 
-    def __init__(self, client):
-        super(self.__class__, self).__init__()
-        self.client = client
-
-    def run(self):
-        while not self.stop_event.is_set():
-
-            while self.pause_event.is_set():
-                time.sleep(1)
-
-            try:
-                changes = self.client.wait_for_remote_changes()
-                if changes:
-                    logger.info("Syncing remote changes")
-                    with lock:
-                        self.client.get_remote_changes()
-                    logger.info("Up to date")
-                else:
-                    logger.info("Up to date")
-
-            except requests.exceptions.ConnectionError:
-                logger.debug("Connection lost")
-                # TODO: emit connection lost signal
-
-    def pause(self):
-        self.pause_event.set()
-
-    def resume(self):
-        self.pause_event.clear()
-
-    def stop(self):
-        self.stop_event.set()
-
-
-class ProcessLocalChangesThread(threading.Thread):
-    """
-    Thread to sync local changes to remote Dropbox.
-
-    :ivar pause_event: If `pause_event.is_set()` all syncing is paused.
-    :ivar stop_event: If `stop_event.is_set()`, the thread is stopped.
-    :ivar delay: Delay time to collect local changes and merge moved avents as
-        appropriate.
-    :ivar event_q: Queue containing all local file events to sync.
-    """
-    pause_event = threading.Event()
-    stop_event = threading.Event()
-
-    def __init__(self, dbx_handler, event_q):
-        super(self.__class__, self).__init__()
-        self.dbx_handler = dbx_handler
-        self.event_q = event_q
-        self.delay = 0.1
-
-    def run(self):
-        while not self.stop_event.is_set():
-            # pause if instructed
-            while self.pause_event.is_set():
-                time.sleep(1)
-
-            events = []
-
-            events.append(self.event_q.get())  # blocks until something is in queue
-
-            # wait for self.delay after last event has been registered
-            t0 = time.time()
-            while t0 - self.event_q.update_time < self.delay:
-                time.sleep(self.delay)
-                t0 = time.time()
-
-            # get all events after folder has been idle for self.delay
-            events = []
-            while self.event_q.qsize() > 0:
-                events.append(self.event_q.get())
-
-            # check for folder move events
-            def is_moved_folder(x):
-                is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
-                return is_moved_event and x.is_directory
-
-            moved_fodler_events = [x for x in events if is_moved_folder(x)]
-
-            # check for children of moved folders
-            def is_moved_child(x, parent_event):
-                is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
-                is_child = (x.src_path.startswith(parent_event.src_path) and
-                            x is not parent_event)
-                return is_moved_event and is_child
-
-            child_move_events = []
-            for parent_event in moved_fodler_events:
-                children = [x for x in events if is_moved_child(x, parent_event)]
-                child_move_events += children
-
-            # Remove all child_move_events from events, move the full folder at
-            # once on Dropbox instead.
-            events = set(events) - set(child_move_events)
-
-            # process all events:
-            try:
-                with lock:
-                    logger.info("Syncing local changes")
-                    for event in events:
-                        if event.event_type is EVENT_TYPE_CREATED:
-                            self.dbx_handler.on_created(event)
-                        elif event.event_type is EVENT_TYPE_MOVED:
-                            self.dbx_handler.on_moved(event)
-                        elif event.event_type is EVENT_TYPE_DELETED:
-                            self.dbx_handler.on_deleted(event)
-                        elif event.event_type is EVENT_TYPE_MODIFIED:
-                            self.dbx_handler.on_modified(event)
-                    logger.info("Up to date")
-            except requests.exceptions.ConnectionError:
-                logger.debug("Connection lost")
-                # TODO: emit connection lost signal
-
-    def pause(self):
-        self.pause_event.set()
-
-    def resume(self):
-        self.pause_event.clear()
-
-    def stop(self):
-        self.stop_event.set()
-
-
-class RemoteMonitor(object):
-    """
-    Class to sync changes of remote Dropbox with local folder.
-
-    :ivar thread: Thread to query and process remote changes.
-    """
-    def __init__(self, client):
-
-        self.client = client
-
-        self.thread = GetRemoteChangesThread(self.client)
-        self.thread.pause()
-        self.thread.start()
-
-    def start(self):
-        """Starts observation of remote Dropbox folder."""
-        self.thread.resume()
-
-    def stop(self):
-        """Stops observation of remote Dropbox folder."""
-        self.thread.pause()
-
-    def __del__(self):
         try:
-            self.thread.stop()
-        except AttributeError:
-            pass
+            # wait for remote changes (times out after 120 secs)
+            changes = client.wait_for_remote_changes()
+            # apply remote changes
+            if changes:
+                logger.info("Syncing remote changes")
+                with lock:
+                    client.get_remote_changes()
+                logger.info("Up to date")
+            else:
+                logger.info("Up to date")
+
+        except requests.exceptions.RequestException:
+            logger.debug("Connection lost")
+            disconnected_signal.emit()
+            return
 
 
-class LocalMonitor(object):
+def local_changes_worker(dbx_handler, event_q, running):
     """
-    Class to sync local changes toDropbox folder to remote Dropbox.
+    Worker to sync local changes to remote Dropbox.
+
+    :param class dbx_handler: Instance of :class:`DropboxEventHandler`.
+    :param class event_q: Queue containing all local file events to sync.
+    :param class running: If not `running.is_set()` the thread is stopped.
+    """
+
+    delay = 0.1
+
+    while running.is_set():
+
+        events = []
+        events.append(event_q.get())  # blocks until something is in queue
+
+        # wait for delay after last event has been registered
+        t0 = time.time()
+        while t0 - event_q.update_time < delay:
+            time.sleep(delay)
+            t0 = time.time()
+
+        # get all events after folder has been idle for self.delay
+        events = []
+        while event_q.qsize() > 0:
+            events.append(event_q.get())
+
+        # check for folder move events
+        def is_moved_folder(x):
+            is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
+            return is_moved_event and x.is_directory
+
+        moved_fodler_events = [x for x in events if is_moved_folder(x)]
+
+        # check for children of moved folders
+        def is_moved_child(x, parent_event):
+            is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
+            is_child = (x.src_path.startswith(parent_event.src_path) and
+                        x is not parent_event)
+            return is_moved_event and is_child
+
+        child_move_events = []
+        for parent_event in moved_fodler_events:
+            children = [x for x in events if is_moved_child(x, parent_event)]
+            child_move_events += children
+
+        # Remove all child_move_events from events, move the full folder at
+        # once on Dropbox instead.
+        events = set(events) - set(child_move_events)
+
+        # process all events:
+        try:
+            with lock:
+                logger.info("Syncing local changes")
+                for event in events:
+                    if event.event_type is EVENT_TYPE_CREATED:
+                        dbx_handler.on_created(event)
+                    elif event.event_type is EVENT_TYPE_MOVED:
+                        dbx_handler.on_moved(event)
+                    elif event.event_type is EVENT_TYPE_DELETED:
+                        dbx_handler.on_deleted(event)
+                    elif event.event_type is EVENT_TYPE_MODIFIED:
+                        dbx_handler.on_modified(event)
+                logger.info("Up to date")
+        except requests.exceptions.RequestException:
+            logger.debug("Connection lost")
+            disconnected_signal.emit()
+            return
+
+
+class Monitor(object):
+    """
+    Class to sync changes between Dropbox and local folder.
 
     :ivar observer: Watchdog obersver thread that detects local file system
         events and calls `file_handler`.
     :ivar file_handler: Handler to register file events and put in queue.
     :ivar dbx_handler: Handler to upload changes to Dropbox.
-    :ivar thread: Thread that calls `dbx_handler` methods when file events have
-        been queued.
+    :ivar local_thread: Thread that calls `dbx_handler` methods when file
+        events have been queued.
+    :ivar remote_thread: Thread to query and process remote changes.
+    :ivar connected: Event that is set if connection to Dropbox API
+        servers can be established.
+    :ivar running: Event that controls worker theads.
+    :ivar stopped_by_user: `True` if worker has been stopped by user, `False`.
+        If `stopped_by_user` is `True`, syncing will not automatically resume
+        once a connection is restablished.
     """
+
+    connected = Event()
+    running = Event()
+    stopped_by_user = False
+
     def __init__(self, client):
 
         self.client = client
-
         self.file_handler = FileEventHandler()
-
         self.dbx_handler = DropboxEventHandler(self.client)
-        self.thread = ProcessLocalChangesThread(self.dbx_handler, self.file_handler.event_q)
-        self.thread.pause()
+        self.event_q = self.file_handler.event_q
+
+        self.connection_thread = Thread(
+                target=connection_helper,
+                args=(self.client, self.connected, self.running),
+                name='SisyphosConnectionHelper')
+
         self.thread.start()
 
+    @connected_signal.connect
     def start(self):
-        """Start file system observer and Dropbox event handler."""
+        """Creates worker threads and starts syncing."""
+
+        if self.running.is_set() or self.stopped_by_user:
+            # do nothing if already running or stopped by user
+            return
+
+        self.running.set()
+
         self.observer = Observer()
-        self.observer.schedule(self.file_handler, self.client.dropbox_path, recursive=True)
+        self.observer.schedule(
+                self.file_handler, self.client.dropbox_path, recursive=True)
+
+        self.remote_thread = Thread(
+                target=remote_changes_worker,
+                args=(self.client, self.running),
+                name='SisyphosRemoteSync')
+
+        self.local_thread = Thread(
+                target=local_changes_worker,
+                args=(self.dbx_handler, self.event_q, self.running),
+                name='SisyphosLocalSync')
+
         self.observer.start()
+        self.remote_thread.start()
+        self.local_thread.start()
 
-        self.thread.resume()
-
+    @disconnected_signal.connect
     def stop(self):
-        """Stop file system observer and Dropbox event handler."""
-        self.observer.stop()
-        self.observer.join()
-        self.thread.pause()
+        """Stops syncing and destroys worker threads."""
 
-    def get_local_changes(self):
+        if not self.running.is_set():
+            # already stopped, nothing to do
+            return
+
+        self.running.clear()  # stops workers if running
+
+        self.observer.stop()  # stop observer
+        self.observer.join()  # wait to finish
+
+        self.remote_thread.join()  # wait to finish
+        self.local_thread.join()  # wait to finish
+
+        del self.observer
+        del self.remote_thread
+        del self.local_thread
+
+    def upload_local_changes_after_inactive(self):
+        """Push changes while client has not been running to Dropbox."""
+
+        logger.info("Checking for changes...")
+
+        events = self._get_local_changes()
+
+        for event in events:
+            if event.event_type is EVENT_TYPE_CREATED:
+                self.dbx_handler.on_created(event)
+            elif event.event_type is EVENT_TYPE_DELETED:
+                self.dbx_handler.on_deleted(event)
+            elif event.event_type is EVENT_TYPE_MODIFIED:
+                self.dbx_handler.on_modified(event)
+
+    def _get_local_changes(self):
         """
         Gets all local changes while app has not been running. Call this method
         on startup of `LocalMonitor` to upload all local changes.
@@ -483,34 +498,3 @@ class LocalMonitor(object):
                 changes.append(event)
 
         return changes
-
-    def upload_local_changes_after_inactive(self):
-        """Push changes while client has not been running to Dropbox."""
-
-        events = self.get_local_changes()
-
-        logging.info("Uploading local changes.")
-
-        for event in events:
-            if event.event_type is EVENT_TYPE_CREATED:
-                self.dbx_handler.on_created(event)
-            elif event.event_type is EVENT_TYPE_DELETED:
-                self.dbx_handler.on_deleted(event)
-            elif event.event_type is EVENT_TYPE_MODIFIED:
-                self.dbx_handler.on_modified(event)
-
-    def __del__(self):
-        try:
-            self.observer.stop()
-        except AttributeError:
-            pass
-
-        try:
-            self.observer.join()
-        except AttributeError:
-            pass
-
-        try:
-            self.thread.stop()
-        except AttributeError:
-            pass
