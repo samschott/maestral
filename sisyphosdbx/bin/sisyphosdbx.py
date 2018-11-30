@@ -42,7 +42,7 @@ made with Dropbox SDK from https://www.dropbox.com/developers/reference/sdk \n""
 
 elif wtd == "--help":
     print("""
-Syntax: orphilia [OPTION] [PARAMETERS]
+Syntax: sisyphosdbx [OPTION] [PARAMETERS]
 
  --help          - displays this text
  --sync          - keeps local folder in sync with Dropbox
@@ -69,4 +69,4 @@ elif wtd == "--sync":
     sdbx = SisyphosDBX()
 
 else:
-    print("Invalid syntax. Type orphilia --help for more informations")
+    print("Invalid syntax. Type sisyphosdbx --help for more informations")

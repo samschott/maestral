@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name="sisyphosdbx",
-      version="0.1.0",
+      version="v0.1.0",
       description="Open-source Dropbox client for macOS and Linux.",
       url="https://github.com/SamSchott/sisyphosdbx",
       author="Sam Schott",
@@ -12,6 +12,7 @@ setup(name="sisyphosdbx",
       install_requires=[
           "dropbox",
           "watchdog",
-      ],
+          ],
       zip_safe=False,
+      scripts=['bin/sisyphosdbx'],
       )
