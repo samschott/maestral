@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = "0.1.0"
+__version__ = "v0.1.0"
 __author__ = "Sam Schott"
 
 import os
@@ -14,7 +14,6 @@ from dropbox import files
 from sisyphosdbx.client import SisyphosClient
 from sisyphosdbx.monitor import Monitor
 from sisyphosdbx.config.main import CONF
-from sisyphosdbx.config.base import get_home_dir
 
 import logging
 

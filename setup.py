@@ -15,7 +15,6 @@ setup(name="sisyphosdbx",
           ],
       zip_safe=False,
       entry_points={
-        'console_scripts': [
-                'bin/command_line:main'],
-                }
+        'console_scripts': ['sisyphosdbx=sisyphosdbx.bin.command_line:main'],
+        }
       )
