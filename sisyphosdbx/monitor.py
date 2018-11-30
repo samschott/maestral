@@ -64,7 +64,7 @@ class FileEventHandler(FileSystemEventHandler):
         self.event_q.put(event)
 
 
-class DropboxEventHandler(object):
+class DropboxUploadSync(object):
     """
     Class that contains methods to sync local file events with Dropbox.
     The 'last_sync' entry in the config file is updated with the current time
@@ -218,13 +218,16 @@ def connection_helper(client, connected, running):
     disconnected_signal = signal("disconnected_signal")
     connected_signal = signal("connected_signal")
 
+    account_usage = signal("account_usage")
+
     while True:
         try:
             with lock:
                 # use an inexpensive call to get_space_usage to test connection
-                client.get_space_usage()
+                res = client.get_space_usage()
             connected.set()
             connected_signal.send()
+            account_usage.send(res)
             time.sleep(1)
         except requests.exceptions.RequestException:
             running.clear()
@@ -236,10 +239,10 @@ def connection_helper(client, connected, running):
 
 def remote_changes_worker(client, running):
     """
-    Thread to sync changes of remote Dropbox with local folder.
+    Wroker to sync changes of remote Dropbox with local folder.
 
     :param class client: :class:`SisyphosClient` instance.
-    :param class running: If not `running.is_set()` the thread is stopped.
+    :param class running: If not `running.is_set()` the worker is paused.
     """
 
     disconnected_signal = signal("disconnected_signal")
@@ -269,13 +272,13 @@ def remote_changes_worker(client, running):
             running.clear()  # must be started again from outside
 
 
-def local_changes_worker(dbx_handler, event_q, running):
+def local_changes_worker(dbx_uploader, event_q, running):
     """
     Worker to sync local changes to remote Dropbox.
 
-    :param class dbx_handler: Instance of :class:`DropboxEventHandler`.
+    :param class dbx_uploader: Instance of :class:`DropboxUploadSync`.
     :param class event_q: Queue containing all local file events to sync.
-    :param class running: If not `running.is_set()` the thread is stopped.
+    :param class running: If not `running.is_set()` the worker is paused.
     """
 
     disconnected_signal = signal("disconnected_signal")
@@ -327,13 +330,13 @@ def local_changes_worker(dbx_handler, event_q, running):
                 logger.info("Syncing local changes")
                 for event in events:
                     if event.event_type is EVENT_TYPE_CREATED:
-                        dbx_handler.on_created(event)
+                        dbx_uploader.on_created(event)
                     elif event.event_type is EVENT_TYPE_MOVED:
-                        dbx_handler.on_moved(event)
+                        dbx_uploader.on_moved(event)
                     elif event.event_type is EVENT_TYPE_DELETED:
-                        dbx_handler.on_deleted(event)
+                        dbx_uploader.on_deleted(event)
                     elif event.event_type is EVENT_TYPE_MODIFIED:
-                        dbx_handler.on_modified(event)
+                        dbx_uploader.on_modified(event)
                 CONF.set("internal", "lastsync", time.time())
                 logger.info("Up to date")
         except requests.exceptions.RequestException:
@@ -349,8 +352,8 @@ class Monitor(object):
     :ivar observer: Watchdog obersver thread that detects local file system
         events and calls `file_handler`.
     :ivar file_handler: Handler to register file events and put in queue.
-    :ivar dbx_handler: Handler to upload changes to Dropbox.
-    :ivar local_thread: Thread that calls `dbx_handler` methods when file
+    :ivar dbx_uploader: Handler to upload changes to Dropbox.
+    :ivar local_thread: Thread that calls `dbx_uploader` methods when file
         events have been queued.
     :ivar remote_thread: Thread to query and process remote changes.
     :ivar connected: Event that is set if connection to Dropbox API
@@ -367,13 +370,15 @@ class Monitor(object):
     connected_signal = signal("connected_signal")
     disconnected_signal = signal("disconnected_signal")
 
+    account_usage = signal("account_usage")
+
     stopped_by_user = True
 
     def __init__(self, client):
 
         self.client = client
         self.file_handler = FileEventHandler()
-        self.dbx_handler = DropboxEventHandler(self.client)
+        self.dbx_uploader = DropboxUploadSync(self.client)
         self.event_q = self.file_handler.event_q
 
         self.connection_thread = Thread(
@@ -388,7 +393,7 @@ class Monitor(object):
 
         self.local_thread = Thread(
                 target=local_changes_worker,
-                args=(self.dbx_handler, self.event_q, self.running),
+                args=(self.dbx_uploader, self.event_q, self.running),
                 name="SisyphosLocalSync")
 
         self.connection_thread.start()
@@ -444,11 +449,11 @@ class Monitor(object):
         try:
             for event in events:
                 if event.event_type is EVENT_TYPE_CREATED:
-                    self.dbx_handler.on_created(event)
+                    self.dbx_uploader.on_created(event)
                 elif event.event_type is EVENT_TYPE_DELETED:
-                    self.dbx_handler.on_deleted(event)
+                    self.dbx_uploader.on_deleted(event)
                 elif event.event_type is EVENT_TYPE_MODIFIED:
-                    self.dbx_handler.on_modified(event)
+                    self.dbx_uploader.on_modified(event)
 
             CONF.set("internal", "lastsync", time.time())
             return True

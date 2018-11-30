@@ -29,7 +29,7 @@ def tobytes(value, unit, bsize=1024):
     :return: Coverted value in units of `to`.
     :rtype: float
     """
-    a = {'KB': 1, 'MB': 2, 'GB': 3, 'TB': 4, 'PB': 5, 'EB': 6}
+    a = {"KB": 1, "MB": 2, "GB": 3, "TB": 4, "PB": 5, "EB": 6}
 
     return float(value) * bsize**a[unit.upper()]
 
@@ -44,9 +44,23 @@ def bytesto(value, unit, bsize=1024):
     :return: Coverted value in units of `to`.
     :rtype: float
     """
-    a = {'KB': 1, 'MB': 2, 'GB': 3, 'TB': 4, 'PB': 5, 'EB': 6}
+    a = {"KB": 1, "MB": 2, "GB": 3, "TB": 4, "PB": 5, "EB": 6}
 
     return float(value) / bsize**a[unit.upper()]
+
+
+class SpaceUsage(dropbox.users.SpaceUsage):
+
+    def __str__(self):
+        if self.allocation.is_team():
+            allocation = self.allocation.get_team()
+        elif self.allocation.is_individual():
+            allocation = self.allocation.get_individual()
+
+        percent = allocation.used / allocation.allocated * 100
+        alloc_gb = bytesto(allocation.allocated, "GB")
+        str_rep = "{:.1f}% of {:,}GB used".format(percent, alloc_gb)
+        return str_rep
 
 
 class OAuth2Session(object):
@@ -91,7 +105,7 @@ class OAuth2Session(object):
         try:
             with open(self.TOKEN_FILE) as f:
                 stored_creds = f.read()
-            self.access_token, self.account_id, self.user_id = stored_creds.split('|')
+            self.access_token, self.account_id, self.user_id = stored_creds.split("|")
             print(" [OK]")
         except IOError:
             print(" [FAILED]")
@@ -99,7 +113,7 @@ class OAuth2Session(object):
             self.link()
 
     def write_creds(self):
-        with open(self.TOKEN_FILE, 'w+') as f:
+        with open(self.TOKEN_FILE, "w+") as f:
             f.write("|".join([self.access_token, self.account_id, self.user_id]))
 
         print(" > Credentials written.")
@@ -158,24 +172,24 @@ class SisyphosClient(object):
         config file.
     """
 
-    APP_KEY = '2jmbq42w7vof78h'
-    APP_SECRET = 'lrsxo47dvuulex5'
+    APP_KEY = "2jmbq42w7vof78h"
+    APP_SECRET = "lrsxo47dvuulex5"
     SDK_VERSION = "2.0"
 
-    exlcuded_files = CONF.get('main', 'exlcuded_files')
-    excluded_folders = CONF.get('main', 'excluded_folders')
-    last_cursor = CONF.get('internal', 'cursor')
+    exlcuded_files = CONF.get("main", "exlcuded_files")
+    excluded_folders = CONF.get("main", "excluded_folders")
+    last_cursor = CONF.get("internal", "cursor")
     flagged = []
 
-    dropbox = None
-    session = None
+    dbx = None
+    auth = None
 
     notipy = Notipy()
 
     def __init__(self):
         # check if I specified app_key and app_secret
-        if self.APP_KEY == '' or self.APP_SECRET == '':
-            exit(' x You need to set your APP_KEY and APP_SECRET!')
+        if self.APP_KEY == "" or self.APP_SECRET == "":
+            exit(" x You need to set your APP_KEY and APP_SECRET!")
 
         # get Dropbox session
         self.auth = OAuth2Session(self.APP_KEY, self.APP_SECRET)
@@ -184,14 +198,14 @@ class SisyphosClient(object):
 
         # initialize API client
         self.dbx = dropbox.Dropbox(self.auth.access_token, session=SESSION)
-        print(' > SisyphusClient is ready.')
+        print(" > SisyphusClient is ready.")
 
         # get correct directories
-        self.dropbox_path = CONF.get('main', 'path')
-        self.rev_file = osp.join(self.dropbox_path, '.dropbox')
+        self.dropbox_path = CONF.get("main", "path")
+        self.rev_file = osp.join(self.dropbox_path, ".dropbox")
         # try to load revisions dictionary
         try:
-            with open(self.rev_file, 'rb') as f:
+            with open(self.rev_file, "rb") as f:
                 self.rev_dict = pickle.load(f)
         except FileNotFoundError:
             self.rev_dict = {}
@@ -221,7 +235,7 @@ class SisyphosClient(object):
         elif not i == len(dbx_root_list):  # path is outside of to dropbox_path
             raise ValueError("Specified path '%s' is not in Dropbox directory." % local_path)
 
-        relative_path = '/' + '/'.join(path_list[i:])
+        relative_path = "/" + "/".join(path_list[i:])
 
         return relative_path
 
@@ -238,7 +252,7 @@ class SisyphosClient(object):
         if not dbx_path:
             raise ValueError("No path specified.")
 
-        path = dbx_path.replace('/', osp.sep)
+        path = dbx_path.replace("/", osp.sep)
         path = osp.normpath(path)
 
         return osp.join(self.dropbox_path, path.lstrip(osp.sep))
@@ -254,7 +268,7 @@ class SisyphosClient(object):
         """
         dbx_path = dbx_path.lower()
         try:
-            with open(self.rev_file, 'rb') as f:
+            with open(self.rev_file, "rb") as f:
                 self.rev_dict = pickle.load(f)
         except FileNotFoundError:
             self.rev_dict = {}
@@ -284,11 +298,11 @@ class SisyphosClient(object):
             self.rev_dict[dbx_path] = rev
             # set all parent revs to 'folder'
             dirname = osp.dirname(dbx_path)
-            while dirname is not '/':
-                self.rev_dict[dirname] = 'folder'
+            while dirname is not "/":
+                self.rev_dict[dirname] = "folder"
                 dirname = osp.dirname(dirname)
 
-        with open(self.rev_file, 'wb+') as f:
+        with open(self.rev_file, "wb+") as f:
             pickle.dump(self.rev_dict, f, pickle.HIGHEST_PROTOCOL)
 
     def get_account_info(self):
@@ -296,42 +310,82 @@ class SisyphosClient(object):
         Gets current account information.
 
         :return: :class:`dropbox.users.FullAccount` instance or `None` if failed.
+        :rtype: dropbox.users.FullAccount
         """
         try:
             res = self.dbx.users_get_current_account()
         except dropbox.exceptions.ApiError as err:
-            logging.info("Failed to get account info: %s", err)
+            logging.debug("Failed to get account info: %s", err)
             res = None
+
+        if res.account_type.is_basic():
+            account_type = 'Basic'
+        elif res.account_type.is_business():
+            account_type = 'Business'
+        elif res.account_type.is_pro():
+            account_type = 'Pro'
+
+        CONF.set("account", "email", res.email)
+        CONF.set("account", "type", account_type)
+
         return res
 
     def get_space_usage(self):
         """
         Gets current account space usage.
 
-        :return: :class:`dropbox.users.SpaceUsage` instance or `None` if failed.
+        :return: :class:`SpaceUsage` instance or `None` if failed.
+        :rtype: SpaceUsage
         """
         try:
             res = self.dbx.users_get_space_usage()
         except dropbox.exceptions.ApiError as err:
-            logging.debug("Failed to get account info: %s", err)
+            logging.debug("Failed to get space usage: %s", err)
             return None
 
-        if res.allocation.is_team():
-            allocation = res.allocation.get_team()
-        elif res.allocation.is_individual():
-            allocation = res.allocation.get_individual()
+        # convert from dropbox.users.SpaceUsage to SpaceUsage with nice string
+        # representation
+        res.__class__ = SpaceUsage
 
-        percent = allocation.used / allocation.allocated * 100
-        alloc_gb = bytesto(allocation.allocated, 'GB')
-        logging.info("{:.1f}% of {:,}GB used".format(percent, alloc_gb))
+        CONF.set("account", "usage", str(res))
 
         return res
 
     def unlink(self):
         """
-        Unlinks the Dropbox account.
+        Unlinks the Dropbox account and deletes local sync information.
         """
         self.dbx.unlink()
+
+        self.rev_dict = {}
+        os.remove(self.rev_file)
+
+        self.excluded_folders = []
+        CONF.set("main", "excluded_folders", [])
+
+        CONF.set("account", "email", "")
+        CONF.set("account", "usage", "")
+
+        CONF.set("internal", "cursor", "")
+        CONF.set("internal", "lastsync", None)
+
+    def get_metadata(self, dbx_path, **wkargs):
+        """
+        Get metadata for Dropbox entry (file or folder). Returns `None` if no
+        metadata is available.
+
+        :param str dbx_path: Path of folder on Dropbox.
+        :param kwargs: Keyword arguments for Dropbox SDK files_get_metadata.
+        :return: FileMetadata|FolderMetadata entries or `None` if failed.
+        """
+
+        try:
+            md = self.dbx.files_get_metadata(dbx_path)
+        except dropbox.exceptions.ApiError as err:
+            logging.debug("Could not get metadata for '%s': %s", dbx_path, err)
+            md = None
+
+        return md
 
     def list_folder(self, path, **kwargs):
         """
@@ -373,7 +427,8 @@ class SisyphosClient(object):
         Downloads file from Dropbox to our local folder. Checks for sync
         conflicts. Downloads file or folder to the local Dropbox folder.
 
-        :param str path: Path to file on Dropbox.
+        :param str dbx_path: Path to file on Dropbox.
+        :param str local_path: Path to download destination.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
         :return: :class:`dropbox.files.FileMetadata` or
             :class:`dropbox.files.FolderMetadata` of downloaded file/folder,
@@ -391,7 +446,7 @@ class SisyphosClient(object):
             conflict = self._is_local_conflict(dbx_path)
         except dropbox.exceptions.ApiError as exc:
             msg = ("An error occurred while getting metadata of file '{0}': "
-                   "{1}.".format(dbx_path, exc.error if hasattr(exc, 'error') else exc))
+                   "{1}.".format(dbx_path, exc.error if hasattr(exc, "error") else exc))
             logger.error(msg)
             return False
 
@@ -399,7 +454,7 @@ class SisyphosClient(object):
             pass
         elif conflict == 1:  # conflict! rename local file
             parts = osp.splitext(dst_path)
-            new_local_file = parts[0] + ' (Dropbox conflicting copy)' + parts[1]
+            new_local_file = parts[0] + " (Dropbox conflicting copy)" + parts[1]
             os.rename(dst_path, new_local_file)
         elif conflict == 2:  # Dropbox files corresponds to local file, nothing to do
             return None
@@ -408,7 +463,7 @@ class SisyphosClient(object):
             md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
         except (dropbox.exceptions.ApiError, IOError, OSError) as exc:
             msg = ("An error occurred while downloading '{0}' file as '{1}': {2}.".format(
-                    dbx_path, dst_path, exc.error if hasattr(exc, 'error') else exc))
+                    dbx_path, dst_path, exc.error if hasattr(exc, "error") else exc))
             logger.error(msg)
             return False
 
@@ -435,7 +490,7 @@ class SisyphosClient(object):
         """
 
         file_size = osp.getsize(local_path)
-        chunk_size = tobytes(chunk_size, 'MB')
+        chunk_size = tobytes(chunk_size, "MB")
 
         pb = tqdm(total=file_size, unit="B", unit_scale=True,
                   desc=osp.basename(local_path), miniters=1,
@@ -444,7 +499,7 @@ class SisyphosClient(object):
         mtime_dt = datetime.datetime(*time.gmtime(mtime)[:6])
 
         try:
-            with open(local_path, 'rb') as f:
+            with open(local_path, "rb") as f:
                 if file_size <= chunk_size:
                     md = self.dbx.files_upload(
                             f.read(), dbx_path, client_modified=mtime_dt, **kwargs)
@@ -525,13 +580,13 @@ class SisyphosClient(object):
             self.set_local_rev(new_path, metadata.rev)
 
         elif isinstance(metadata, files.FolderMetadata):  # set rev of children
-            self.set_local_rev(new_path, 'folder')
+            self.set_local_rev(new_path, "folder")
             results = self.list_folder(new_path, recursive=True)
             for md in results.values():
                 if isinstance(md, files.FileMetadata):
                     self.set_local_rev(md.path_display, md.rev)
                 elif isinstance(md, files.FolderMetadata):
-                    self.set_local_rev(md.path_display, 'folder')
+                    self.set_local_rev(md.path_display, "folder")
 
         logger.debug("File moved from '%s' to '%s' on Dropbox.",
                      dbx_path, metadata.path_display)
@@ -552,7 +607,7 @@ class SisyphosClient(object):
             logger.debug("An error occured creating dir '%s': %s", dbx_path, err)
             return False
 
-        self.set_local_rev(dbx_path, 'folder')
+        self.set_local_rev(dbx_path, "folder")
 
         logger.debug("Created folder '%s' on Dropbox.", md.path_display)
 
@@ -606,7 +661,7 @@ class SisyphosClient(object):
 
             if path == "":  # save cursor only if synced for whole dropbox
                 self.last_cursor = result.cursor
-                CONF.set('internal', 'cursor', result.cursor)
+                CONF.set("internal", "cursor", result.cursor)
 
         return True
 
@@ -617,6 +672,8 @@ class SisyphosClient(object):
         updates.
 
         :param int timeout: Seconds to wait until timeout.
+        :return: `True` if changes are available, `False` otherwise.
+        :rtype: bool
         """
         # honour last request to back off
         if self.last_longpoll is not None:
@@ -645,7 +702,6 @@ class SisyphosClient(object):
         Downloads / applies remote changes to local folder since
         :ivar:`last_cursor`.
 
-        :param int timeout: Seconds to wait untill timeout.
         :return: `True` on success, `False` otherwise.
         :rtype: bool
         """
@@ -687,7 +743,7 @@ class SisyphosClient(object):
                 self._create_local_entry(entry)
 
             self.last_cursor = result.cursor
-            CONF.set('internal', 'cursor', result.cursor)
+            CONF.set("internal", "cursor", result.cursor)
 
         return True
 
@@ -697,7 +753,7 @@ class SisyphosClient(object):
         :param class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
         """
 
-        self.excluded_folders = CONF.get('main', 'excluded_folders')
+        self.excluded_folders = CONF.get("main", "excluded_folders")
 
         if self.is_excluded(entry.path_display):
             return
@@ -722,7 +778,7 @@ class SisyphosClient(object):
                 self.flagged.append(entry.path_display)
                 os.makedirs(dst_path)
 
-            self.set_local_rev(entry.path_display, 'folder')
+            self.set_local_rev(entry.path_display, "folder")
 
         elif isinstance(entry, files.DeletedMetadata):
             # If your local state has something at the given path,
@@ -766,7 +822,7 @@ class SisyphosClient(object):
 
         # If the file name contains multiple periods it is likely a temporary
         # file created during a saving event on macOS. Irgnore such files.
-        if osp.basename(dbx_path).count('.') > 1:
+        if osp.basename(dbx_path).count(".") > 1:
             excluded = True
 
         return excluded

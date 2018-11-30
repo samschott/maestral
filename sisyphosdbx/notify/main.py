@@ -1,8 +1,5 @@
 import os
-import time
 from enum import Enum
-from queue import Queue
-import threading
 
 MESSAGE_TYPES = ('file changed', 'other')
 
@@ -18,11 +15,16 @@ class Notipy(object):
     Relies on AppleScript on macOS and notify-send on linux, otherwise
     falls back to stdout."""
 
+    ON = True
+
     def __init__(self):
         self.implementation = self.__get_available_implementation()
 
     def send(self, message, title="SisyphosDBX"):
-        self.__send_message(message, title)
+        if self.ON:
+            self.__send_message(message, title)
+        else:
+            pass
 
     def __send_message(self, message, title=""):
         if self.implementation == SupportedImplementation.osascript:
