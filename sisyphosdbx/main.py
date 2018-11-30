@@ -20,7 +20,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-for logger_name in ('sisyphosdbx.client', 'sisyphosdbx.monitor'):
+for logger_name in ("sisyphosdbx.monitor"):
     sdbx_logger = logging.getLogger(logger_name)
     sdbx_logger.addHandler(logging.StreamHandler())
     sdbx_logger.setLevel(logging.INFO)
@@ -74,12 +74,12 @@ def if_connected(f):
 
 class SisyphosDBX(object):
 
-    FIRST_SYNC = (not CONF.get('internal', 'lastsync') or
-                  CONF.get('internal', 'cursor') == '' or
-                  not osp.isdir(CONF.get('main', 'path')))
+    FIRST_SYNC = (not CONF.get("internal", "lastsync") or
+                  CONF.get("internal", "cursor") == "" or
+                  not osp.isdir(CONF.get("main", "path")))
     paused_by_user = False
 
-    def __init__(self):
+    def __init__(self, run=True):
 
         self.client = SisyphosClient()
         # monitor needs to be created before any decorators are called
@@ -90,13 +90,14 @@ class SisyphosDBX(object):
             self.set_dropbox_directory()
             self.select_excluded_folders()
 
-            CONF.set('internal', 'cursor', '')
-            CONF.set('internal', 'lastsync', None)
+            CONF.set("internal", "cursor", "")
+            CONF.set("internal", "lastsync", None)
 
             self.get_remote_dropbox()
-            CONF.set('internal', 'lastsync', time.time())
+            CONF.set("internal", "lastsync", time.time())
 
-        self.resume_sync()
+        if run:
+            self.resume_sync()
 
     @property
     def syncing(self):
@@ -130,12 +131,12 @@ class SisyphosDBX(object):
         dbx_path = dbx_path.lower()
 
         # add folder's Dropbox path to excluded list
-        folders = CONF.get('main', 'excluded_folders')
+        folders = CONF.get("main", "excluded_folders")
         if dbx_path not in folders:
             folders.append(dbx_path)
 
         self.client.excluded_folders = folders
-        CONF.set('main', 'excluded_folders', folders)
+        CONF.set("main", "excluded_folders", folders)
 
         # remove folder from local drive
         local_path = self.client.to_local_path(dbx_path)
@@ -158,7 +159,7 @@ class SisyphosDBX(object):
         dbx_path = dbx_path.lower()
 
         # remove folder's Dropbox path from excluded list
-        folders = CONF.get('main', 'excluded_folders')
+        folders = CONF.get("main", "excluded_folders")
         if dbx_path in folders:
             new_folders = [x for x in folders if osp.normpath(x) != dbx_path]
         else:
@@ -166,7 +167,7 @@ class SisyphosDBX(object):
             return
 
         self.client.excluded_folders = new_folders
-        CONF.set('main', 'excluded_folders', new_folders)
+        CONF.set("main", "excluded_folders", new_folders)
 
         # download folder and contents from Dropbox
         logger.debug("Downloading folder.")
@@ -182,7 +183,7 @@ class SisyphosDBX(object):
         :rtype: list
         """
 
-        old_folders = CONF.get('main', 'excluded_folders')
+        old_folders = CONF.get("main", "excluded_folders")
         new_folders = []
 
         # get all top-level Dropbox folders
@@ -206,7 +207,7 @@ class SisyphosDBX(object):
                 self.include_folder(folder)  # may raise ConnectionError
 
         self.client.excluded_folders = new_folders
-        CONF.set('main', 'excluded_folders', new_folders)
+        CONF.set("main", "excluded_folders", new_folders)
 
     @with_sync_paused
     def set_dropbox_directory(self, new_path=None):
@@ -220,7 +221,7 @@ class SisyphosDBX(object):
         """
 
         # get old and new paths
-        old_path = CONF.get('main', 'path')
+        old_path = CONF.get("main", "path")
         if new_path is None:
             new_path = self._ask_for_path()
 
@@ -239,8 +240,8 @@ class SisyphosDBX(object):
 
         # update config file and client
         self.client.dropbox_path = new_path
-        self.client.rev_file = osp.join(new_path, '.dropbox')
-        CONF.set('main', 'path', new_path)
+        self.client.rev_file = osp.join(new_path, ".dropbox")
+        CONF.set("main", "path", new_path)
 
     def _ask_for_path(self):
         """
@@ -251,7 +252,7 @@ class SisyphosDBX(object):
         dropbox_path = osp.abspath(osp.expanduser(dropbox_path))
 
         if dropbox_path == "":
-            dropbox_path = osp.join(get_home_dir(), 'Dropbox')
+            dropbox_path = osp.join(get_home_dir(), "Dropbox")
         elif osp.exists(dropbox_path):
             msg = "Directory '%s' alredy exist. Should we overwrite?" % dropbox_path
             yes = yesno(msg, True)
@@ -261,6 +262,20 @@ class SisyphosDBX(object):
                 dropbox_path = self._ask_for_path()
         else:
             return dropbox_path
+
+    def __repr__(self):
+        return "SisyphosDBX(account_id={0}, user_id={1})".format(
+                self.client.auth.account_id, self.client.auth.user_id)
+
+    def __str__(self):
+        if self.connected:
+            email = CONF.get("account", "mail")
+            account_type = CONF.get("account", "type")
+            inner = "{0}, {1})".format(email, account_type)
+        else:
+            inner = "Connecting..."
+
+        return "SisyphosDBX({0})".format(inner)
 
 
 def yesno(message, default):
@@ -274,24 +289,24 @@ def yesno(message, default):
     - p or pdb invokes the debugger
     """
     if default:
-        message += ' [Y/n] '
+        message += " [Y/n] "
     else:
-        message += ' [N/y] '
+        message += " [N/y] "
     while True:
         answer = input(message).strip().lower()
         if not answer:
             return default
-        if answer in ('y', 'yes'):
+        if answer in ("y", "yes"):
             return True
-        if answer in ('n', 'no'):
+        if answer in ("n", "no"):
             return False
-        if answer in ('q', 'quit'):
-            print('Exit')
+        if answer in ("q", "quit"):
+            print("Exit")
             raise SystemExit(0)
-        if answer in ('p', 'pdb'):
+        if answer in ("p", "pdb"):
             import pdb
             pdb.set_trace()
-        print('Please answer YES or NO.')
+        print("Please answer YES or NO.")
 
 
 def main():
@@ -299,5 +314,5 @@ def main():
     sdbx.start_sync()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

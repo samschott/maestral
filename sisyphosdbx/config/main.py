@@ -29,6 +29,12 @@ DEFAULTS = [
               'exlcuded_files': ["desktop.ini",  "thumbs.db", ".ds_store",
                                  "icon\r", ".dropbox", ".dropbox.attr"],
               }),
+            ('account',
+             {
+              'email': '',
+              'type': '',
+              'usage': '',
+              }),
             ('internal',
              {
               'cursor': '',
