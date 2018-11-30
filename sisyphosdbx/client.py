@@ -334,14 +334,14 @@ class SisyphosClient(object):
         """
         Gets current account space usage.
 
-        :return: :class:`SpaceUsage` instance or `None` if failed.
+        :return: :class:`SpaceUsage` instance or `False` if failed.
         :rtype: SpaceUsage
         """
         try:
             res = self.dbx.users_get_space_usage()
         except dropbox.exceptions.ApiError as err:
             logging.debug("Failed to get space usage: %s", err)
-            return None
+            return False
 
         # convert from dropbox.users.SpaceUsage to SpaceUsage with nice string
         # representation
@@ -376,88 +376,33 @@ class SisyphosClient(object):
 
         :param str dbx_path: Path of folder on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_get_metadata.
-        :return: FileMetadata|FolderMetadata entries or `None` if failed.
+        :return: FileMetadata|FolderMetadata entries or `False` if failed.
         """
 
         try:
             md = self.dbx.files_get_metadata(dbx_path)
         except dropbox.exceptions.ApiError as err:
             logging.debug("Could not get metadata for '%s': %s", dbx_path, err)
-            md = None
+            md = False
 
         return md
 
-    def list_folder(self, path, **kwargs):
+    def download(self, dbx_path, dst_path, **kwargs):
         """
-        Lists contents of a folder on Dropbox as dictionary mapping unicode
-        filenames to FileMetadata|FolderMetadata entries.
-
-        :param str path: Path of folder on Dropbox.
-        :param kwargs: Keyword arguments for Dropbox SDK files_list_folder.
-        :return: A dict mapping unicode filenames to
-            FileMetadata|FolderMetadata entries or `None` if failed.
-        :rtype: dict
-        """
-
-        results = []
-
-        try:
-            results.append(self.dbx.files_list_folder(path, **kwargs))
-        except dropbox.exceptions.ApiError as err:
-            logging.info("Folder listing failed for '%s': %s", path, err)
-            return None
-
-        while results[-1].has_more:
-            try:
-                more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
-                results.append(more_results)
-            except dropbox.exceptions.ApiError as err:
-                logging.info("Folder listing failed for '%s': %s", path, err)
-                return None
-
-        rv = {}
-        for res in results:
-            for entry in res.entries:
-                rv[entry.name] = entry
-
-        return rv
-
-    def download(self, dbx_path, **kwargs):
-        """
-        Downloads file from Dropbox to our local folder. Checks for sync
-        conflicts. Downloads file or folder to the local Dropbox folder.
+        Downloads file from Dropbox to our local folder.
 
         :param str dbx_path: Path to file on Dropbox.
-        :param str local_path: Path to download destination.
+        :param str dst_path: Path to download destination.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
         :return: :class:`dropbox.files.FileMetadata` or
-            :class:`dropbox.files.FolderMetadata` of downloaded file/folder,
-            `False` if request fails or `None` if local copy is already in
-            sync.
+            :class:`dropbox.files.FolderMetadata` of downloaded tiem, `False`
+            if request fails or `None` if local copy is already in sync.
         """
         # generate local path from dropbox_path and given path parameter
-        dst_path = self.to_local_path(dbx_path)
         dst_path_directory = osp.dirname(dst_path)
 
         if not osp.exists(dst_path_directory):
             os.makedirs(dst_path_directory)
-
-        try:
-            conflict = self._is_local_conflict(dbx_path)
-        except dropbox.exceptions.ApiError as exc:
-            msg = ("An error occurred while getting metadata of file '{0}': "
-                   "{1}.".format(dbx_path, exc.error if hasattr(exc, "error") else exc))
-            logger.error(msg)
-            return False
-
-        if conflict == 0:  # no conflict
-            pass
-        elif conflict == 1:  # conflict! rename local file
-            parts = osp.splitext(dst_path)
-            new_local_file = parts[0] + " (Dropbox conflicting copy)" + parts[1]
-            os.rename(dst_path, new_local_file)
-        elif conflict == 2:  # Dropbox files corresponds to local file, nothing to do
-            return None
 
         try:
             md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
@@ -466,9 +411,6 @@ class SisyphosClient(object):
                     dbx_path, dst_path, exc.error if hasattr(exc, "error") else exc))
             logger.error(msg)
             return False
-
-        self.set_local_rev(md.path_display, md.rev)  # save revision metadata
-        self.flagged.append(md.path_display)
 
         msg = ("File '{0}' (rev {1}) from '{2}' was successfully downloaded as '{3}'.\n".format(
                 md.name, md.rev, md.path_display, dst_path))
@@ -528,7 +470,6 @@ class SisyphosClient(object):
         finally:
             pb.close()
 
-        self.set_local_rev(md.path_display, md.rev)  # save revision metadata
         logger.debug("File '%s' (rev %s) uploaded to Dropbox.", md.path_display, md.rev)
         return md
 
@@ -546,9 +487,6 @@ class SisyphosClient(object):
         except dropbox.exceptions.ApiError as err:
             logger.debug("An error occured when deleting '%s': %s", dbx_path, err)
             return False
-
-        # remove revision metadata
-        self.set_local_rev(md.path_display, None)
 
         logger.debug("File / folder '%s' removed from Dropbox.", dbx_path)
 
@@ -573,21 +511,6 @@ class SisyphosClient(object):
                     dbx_path, new_path, err)
             return False
 
-        # update local revs
-        self.set_local_rev(dbx_path, None)
-
-        if isinstance(metadata, files.FileMetadata):
-            self.set_local_rev(new_path, metadata.rev)
-
-        elif isinstance(metadata, files.FolderMetadata):  # set rev of children
-            self.set_local_rev(new_path, "folder")
-            results = self.list_folder(new_path, recursive=True)
-            for md in results.values():
-                if isinstance(md, files.FileMetadata):
-                    self.set_local_rev(md.path_display, md.rev)
-                elif isinstance(md, files.FolderMetadata):
-                    self.set_local_rev(md.path_display, "folder")
-
         logger.debug("File moved from '%s' to '%s' on Dropbox.",
                      dbx_path, metadata.path_display)
 
@@ -607,46 +530,81 @@ class SisyphosClient(object):
             logger.debug("An error occured creating dir '%s': %s", dbx_path, err)
             return False
 
-        self.set_local_rev(dbx_path, "folder")
-
         logger.debug("Created folder '%s' on Dropbox.", md.path_display)
 
         return md
 
-    def get_remote_dropbox(self, path=""):
+    def list_folder(self, path, **kwargs):
+        """
+        Lists contents of a folder on Dropbox as dictionary mapping unicode
+        filenames to FileMetadata|FolderMetadata entries.
+
+        :param str path: Path of folder on Dropbox.
+        :param kwargs: Keyword arguments for Dropbox SDK files_list_folder.
+        :return: A list of :class:`dropbox.files.ListFolderResult` instances or
+            `False` if failed.
+        :rtype: list
+        """
+
+        logger.info("Indexing...")
+
+        results = []
+
+        try:
+            results.append(self.dbx.files_list_folder(path, **kwargs))
+        except dropbox.exceptions.ApiError as err:
+            logging.debug("Folder listing failed for '%s': %s", path, err)
+            return False
+
+        idx = 0
+
+        while results[-1].has_more:
+            idx += len(results[-1].entries)
+            logger.info("Indexing %s..." % idx)
+            try:
+                more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
+                results.append(more_results)
+            except dropbox.exceptions.ApiError as err:
+                logging.debug("Folder listing failed for '%s': %s", path, err)
+                return False
+
+        return results
+
+    def flatten_results_list(self, results):
+        """
+        Flattens a list of :class:`dropbox.files.ListFolderResult` instances
+        and returns their entries only. Any cursors will be lost.
+
+        :param list results: List of :class:`dropbox.files.ListFolderResult`
+            instances.
+        :return: Dictionary mapping dropbox paths to their
+            Dropbox API file/folder/deleted metadata.
+        :rtype: dict
+
+        """
+        results_dict = {}
+        for res in results:
+            for entry in res.entries:
+                results_dict[entry.name] = entry
+
+        return results_dict
+
+    def get_remote_dropbox(self, dbx_path=""):
         """
         Gets all files/folders from Dropbox and writes them to local folder
         :ivar:`dropbox_path`. Call this method on first run of client. Indexing
         and downloading may take some time, depending on the size of the users
         Dropbox folder.
 
-        :param str path: Path to folder on Dropbox, defaults to root.
+        :param str dbx_path: Path to Dropbox folder. Defaults to root ("").
         :return: `True` on success, `False` otherwise.
         :rtype: bool
         """
-        results = []  # list to store all results
+        results = self.list_folder(dbx_path, recursive=True,
+                                   include_deleted=False, limit=500)
 
-        try:  # get metadata of all remote folders and files
-            results.append(self.dbx.files_list_folder(path, recursive=True,
-                                                      include_deleted=False,
-                                                      limit=500))
-        except dropbox.exceptions.ApiError as exc:
-            msg = "Cannot access '{0}': {1}".format(path, exc.error.get_path())
-            logger.debug(msg)
+        if not results:
             return False
-
-        idx = 0
-
-        while results[-1].has_more:  # check if there is more
-            idx += len(results[-1].entries)
-            logger.info("Indexing %s" % idx)
-            try:
-                more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
-                results.append(more_results)
-            except dropbox.exceptions.ApiError as exc:
-                msg = "Cannot access '{0}': {1}".format(path, exc.error.get_path())
-                logger.debug(msg)
-                return False
 
         # count remote changes
         total = 0
@@ -659,7 +617,7 @@ class SisyphosClient(object):
             for entry in result.entries:
                 self._create_local_entry(entry)
 
-            if path == "":  # save cursor only if synced for whole dropbox
+            if dbx_path == "":  # save cursor only if synced for whole dropbox
                 self.last_cursor = result.cursor
                 CONF.set("internal", "cursor", result.cursor)
 
@@ -764,7 +722,27 @@ class SisyphosClient(object):
             # If there’s already something else at the given path,
             # replace it and remove all its children.
 
-            self.download(entry.path_display)
+            dst_path = self.to_local_path(entry.path_display)
+
+            # check for sync conflicts
+            conflict = self._is_local_conflict(entry.path_display)
+            if conflict == -1:  # could not get metadata
+                return False
+            if conflict == 0:  # no conflict
+                pass
+            elif conflict == 1:  # conflict! rename local file
+                parts = osp.splitext(dst_path)
+                new_local_file = parts[0] + " (Dropbox conflicting copy)" + parts[1]
+                os.rename(dst_path, new_local_file)
+            elif conflict == 2:  # Dropbox files corresponds to local file, nothing to do
+                return None
+
+            md = self.download(entry.path_display, dst_path)
+
+            # save revision metadata
+            self.set_local_rev(md.path_display, md.rev)
+            # flag file as just downloaded
+            self.flagged.append(md.path_display)
 
         elif isinstance(entry, files.FolderMetadata):
             # Store the new entry at the given path in your local state.
