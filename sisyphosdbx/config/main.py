@@ -12,7 +12,7 @@ quickly load a user config file
 """
 
 # Local import
-from config.user import UserConfig
+from sisyphosdbx.config.user import UserConfig
 
 PACKAGE_NAME = 'sysiphosdbx'
 SUBFOLDER = '.%s' % PACKAGE_NAME
