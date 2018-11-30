@@ -224,7 +224,7 @@ class SisyphosDBX(object):
         # get old and new paths
         old_path = CONF.get("main", "path")
         if new_path is None:
-            new_path = self._ask_for_path()
+            new_path = self._ask_for_path(default=old_path)
 
         if osp.exists(old_path) and osp.exists(new_path):
             if osp.samefile(old_path, new_path):
@@ -244,16 +244,17 @@ class SisyphosDBX(object):
         self.client.rev_file = osp.join(new_path, ".dropbox")
         CONF.set("main", "path", new_path)
 
-    def _ask_for_path(self):
+    def _ask_for_path(self, default="~/Dropbox"):
         """
         Asks for Dropbox path.
         """
-        msg = "Please give Dropbox folder location or press enter for default [~/Dropbox]:"
+        default = os.path.expanduser(default)
+        msg = "Please give Dropbox folder location or press enter for default [%s]:" % default
         dropbox_path = input(msg).strip().strip("'")
         dropbox_path = osp.abspath(osp.expanduser(dropbox_path))
 
         if dropbox_path == "":
-            dropbox_path = osp.join(get_home_dir(), "Dropbox")
+            dropbox_path = default
         elif osp.exists(dropbox_path):
             msg = "Directory '%s' alredy exist. Should we overwrite?" % dropbox_path
             yes = yesno(msg, True)

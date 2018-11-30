@@ -13,54 +13,60 @@ if len(sys.argv) > 1:
     parameters = sys.argv[2:]
     wtd = sys.argv[1]
 else:
-    wtd = "brick"
+    wtd = "--sync"
 
 if wtd == "--client":
-    from sisyphosdbx import client
+    from sisyphosdbx.client import SisyphosClient
 
-    print("""Orphilia
-Maciej Janiszewski, 2010-2013
+    print("""Sisyphos DBX
+(c) Sam Schott, 2018
 made with Dropbox SDK from https://www.dropbox.com/developers/reference/sdk \n""")
-    client.client(parameters)
+    client = SisyphosClient()
+
+    if parameters[0] == 'get':
+        client.download(parameters[1], parameters[2])
+    elif parameters[0] == 'put':
+        client.upload(parameters[1], parameters[2])
+    elif parameters[0] == 'mv':
+        client.move(parameters[1], parameters[2])
+    elif parameters[0] == 'rm':
+        client.remove(parameters[1])
+    elif parameters[0] == 'ls':
+        res = client.list_folder(parameters[1], recursive=False)
+        print('\t'.join(res.keys()))
+    elif parameters[0] == 'mkdir':
+        client.make_dir(parameters[1])
+    elif parameters[0] == 'uid':
+        res = client.get_account_info()
+        print("%s, %s" % (res.email, res.account_type))
 
 elif wtd == "--help":
     print("""
 Syntax: orphilia [OPTION] [PARAMETERS]
 
  --help          - displays this text
- --monitor       - monitors Dropbox folder activity
- --delta         - monitors server-side activity
+ --sync          - keeps local folder in sync with Dropbox
  --configuration - runs configuration wizard
- --public        - generates public links
- --client        - runs Orphilia API Client
+ --client        - runs SisyphosDBX API Client
    syntax: orphilia --client [parameter1] [parameter2] [parameter3]
     get   [from path] [to path] - downloads file
     put   [from path] [to path] - uploads file
     mv    [from path] [to path] - moves and renames file
     rm    [path]                - removes a file
-    ls    [path]      [to file] - creates a list of files in directory
+    ls    [path]                - creates a list of files in directory
     mkdir [path]                - creates a directory
     uid   [path]                - gets current accounts Dropbox UID""")
 
 elif wtd == "--configuration":
-    from orphilia import config
+    from sisyphosdbx import SisyphosDBX
 
-    config.config()
+    sdbx = SisyphosDBX(run=False)
+    sdbx.set_dropbox_directory()
+    sdbx.select_excluded_folders()
 
-elif wtd == "--monitor":
-    from orphiliaclient import monitor
-
-    monitor.monitor()
-
-elif wtd == "--delta":
-    from orphiliaclient import delta
-
-    delta.monitor()
-
-elif wtd == "--public":
-    from orphiliaclient import client
-
-    client.getPublicLink(parameters)
+elif wtd == "--sync":
+    from sisyphosdbx import SisyphosDBX
+    sdbx = SisyphosDBX()
 
 else:
     print("Invalid syntax. Type orphilia --help for more informations")
