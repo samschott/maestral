@@ -14,5 +14,8 @@ setup(name="sisyphosdbx",
           "watchdog",
           ],
       zip_safe=False,
-      scripts=['bin/sisyphosdbx'],
+      entry_points={
+        'console_scripts': [
+                'bin/command_line:main'],
+                }
       )
