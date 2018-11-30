@@ -187,10 +187,11 @@ class SisyphosDBX(object):
         new_folders = []
 
         # get all top-level Dropbox folders
-        result = self.client.list_folder("", recursive=False)
+        results = self.client.list_folder("", recursive=False)
+        results_dict = self.client.flatten_results_list(results)
 
         # paginate through top-level folders, ask to exclude
-        for entry in result.values():
+        for entry in results_dict.values():
             if isinstance(entry, files.FolderMetadata):
                 yes = yesno("Exclude '%s' from sync?" % entry.path_display, False)
                 if yes:
