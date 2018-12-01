@@ -249,12 +249,12 @@ class SisyphosDBX(object):
         """
         default = os.path.expanduser(default)
         msg = "Please give Dropbox folder location or press enter for default [%s]:" % default
-        dropbox_path = input(msg).strip().strip("'")
-        dropbox_path = osp.abspath(osp.expanduser(dropbox_path))
+        res = input(msg).strip().strip("'")
 
-        if dropbox_path == "":
+        if res == "":
             dropbox_path = default
-        elif osp.exists(dropbox_path):
+        elif osp.exists(osp.expanduser(res)):
+            dropbox_path = osp.expanduser(res)
             msg = "Directory '%s' alredy exist. Should we overwrite?" % dropbox_path
             yes = yesno(msg, True)
             if yes:
