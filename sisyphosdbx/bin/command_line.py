@@ -45,20 +45,21 @@ def main():
 
     elif wtd == "--help":
         print("""
-    Syntax: sisyphosdbx [OPTION] [PARAMETERS]
+    Syntax: sisyphosdbx [<OPTION>] [<PARAMETERS>]
 
      --help          - displays this text
      --sync          - keeps local folder in sync with Dropbox
      --configuration - runs configuration wizard
      --client        - runs SisyphosDBX API Client
        syntax: orphilia --client [parameter1] [parameter2] [parameter3]
-        get   [from path] [to path] - downloads file
-        put   [from path] [to path] - uploads file
-        mv    [from path] [to path] - moves and renames file
-        rm    [path]                - removes a file
-        ls    [path]                - creates a list of files in directory
-        mkdir [path]                - creates a directory
-        uid   [path]                - gets current accounts Dropbox UID""")
+        get    [from_path] [to_path]   - downloads file
+        put    [from_path] [to_path]   - uploads file
+        mv     [from_path] [to_path]   - moves and renames file
+        rm     [path]                  - removes a file
+        ls     [<path>]                - creates a list of files in (root) directory
+        mkdir  [path]                  - creates a directory
+        uid                            - gets current accounts Dropbox UID
+        """)
 
     elif wtd == "--configuration":
         from sisyphosdbx import SisyphosDBX
