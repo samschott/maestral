@@ -101,22 +101,22 @@ class DropboxUploadSync(object):
         metadata = self.client.move(dbx_path, dbx_path2)
 
         # remove old revs
-        self.set_local_rev(dbx_path, None)
+        self.client.set_local_rev(dbx_path, None)
 
         # add new revs
         if isinstance(metadata, dropbox.files.FileMetadata):
-            self.set_local_rev(dbx_path2, metadata.rev)
+            self.client.set_local_rev(dbx_path2, metadata.rev)
 
         # and revs of children if folder
         elif isinstance(metadata, dropbox.files.FolderMetadata):
-            self.set_local_rev(dbx_path2, "folder")
-            results = self.list_folder(dbx_path2, recursive=True)
-            results_dict = self.flatten_results_list(results)
+            self.client.set_local_rev(dbx_path2, "folder")
+            results = self.client.list_folder(dbx_path2, recursive=True)
+            results_dict = self.client.flatten_results_list(results)
             for md in results_dict.values():
                 if isinstance(md, dropbox.files.FileMetadata):
-                    self.set_local_rev(md.path_display, md.rev)
+                    self.client.set_local_rev(md.path_display, md.rev)
                 elif isinstance(md, dropbox.files.FolderMetadata):
-                    self.set_local_rev(md.path_display, "folder")
+                    self.client.set_local_rev(md.path_display, "folder")
 
         CONF.set("internal", "lastsync", time.time())
 
@@ -160,16 +160,16 @@ class DropboxUploadSync(object):
                     mode = dropbox.files.WriteMode("update", rev)
                 md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
                 # save or update revision metadata
-                self.set_local_rev(md.path_display, md.rev)
+                self.client.set_local_rev(md.path_display, md.rev)
 
         elif event.is_directory:
             # check if directory is not yet on Dropbox, else leave alone
-            md = self.client.files_get_metadata(dbx_path)
+            md = self.client.get_metadata(dbx_path)
             if not md:
                 md = self.client.make_dir(dbx_path)
 
             # save or update revision metadata
-            self.set_local_rev(dbx_path, "folder")
+            self.client.set_local_rev(dbx_path, "folder")
 
         CONF.set("internal", "lastsync", time.time())
 
@@ -195,7 +195,8 @@ class DropboxUploadSync(object):
         if rev is not None:
             md = self.client.remove(dbx_path)
             # remove revision metadata
-            self.set_local_rev(md.path_display, None)
+            if md:
+                self.client.set_local_rev(md.path_display, None)
 
         CONF.set("internal", "lastsync", time.time())
 
