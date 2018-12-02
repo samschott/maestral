@@ -19,15 +19,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-for logger_name in ("sisyphosdbx.monitor"):
+for logger_name in ["sisyphosdbx.monitor", "sisyphosdbx.client"]:
     sdbx_logger = logging.getLogger(logger_name)
     sdbx_logger.addHandler(logging.StreamHandler())
-    sdbx_logger.setLevel(logging.INFO)
-
-
-class SDBXConnectionError(Exception):
-    """Raised on requests.exceptions.RequestException."""
-    pass
+    sdbx_logger.setLevel(logging.DEBUG)
 
 
 def with_sync_paused(f):
@@ -61,17 +56,28 @@ def if_connected(f):
     def wrapper(self, *args, **kwargs):
         # pause syncing
         if not self.connected:
-            raise SDBXConnectionError(error_msg)
+            print(error_msg)
         try:
             ret = f(self, *args, **kwargs)
             return ret
         except requests.exceptions.RequestException:
-            raise SDBXConnectionError(error_msg)
+            print(error_msg)
         return
     return wrapper
 
 
 class SisyphosDBX(object):
+    """
+    An open source Dropbox client for macOS and Linux to syncing a local folder
+    with your Dropbox account. It currently only supports excluding top-level
+    folders from the sync.
+
+    SisyphosDBX gracefully handles lost internet connections and will detect
+    changes in between sessions or while SisyphosDBX has been idle.
+
+    :ivar bool syncing: Bool indicating if syncing is running or paused.
+    :ivar connected: Bool indicating if Dropbox servers can be reached.
+    """
 
     FIRST_SYNC = (not CONF.get("internal", "lastsync") or
                   CONF.get("internal", "cursor") == "" or
@@ -108,15 +114,34 @@ class SisyphosDBX(object):
 
     @if_connected
     def get_remote_dropbox(self):
+        """
+        Downloads the full Dropbox, apart form excluded folders, to the
+        configured local Dropbox folder. Is run on first sync.
+        """
         self.client.get_remote_dropbox()
 
     def pause_sync(self):
+        """
+        Pauses the syncing threads if running.
+        """
         self.monitor.stopped_by_user = True
         self.monitor.stop()
 
     def resume_sync(self):
+        """
+        Resumes the syncing threads if paused.
+        """
         self.monitor.stopped_by_user = False
         self.monitor.start()
+
+    def unlink(self):
+        """
+        Unlinks the configured Dropbox account but leaves all downloaded files
+        in place. All syncing metadata will be removed as well.
+        """
+        self.monitor.stopped_by_user = True
+        self.monitor.stop()
+        self.client.unlink()
 
     @with_sync_paused
     def exclude_folder(self, dbx_path):
@@ -243,6 +268,12 @@ class SisyphosDBX(object):
         self.client.rev_file = osp.join(new_path, ".dropbox")
         CONF.set("main", "path", new_path)
 
+    def get_dropbox_directory(self):
+        """
+        Returns the path to the local Dropbox directory.
+        """
+        return self.client.dropbox_path
+
     def _ask_for_path(self, default="~/Dropbox"):
         """
         Asks for Dropbox path.
@@ -261,8 +292,8 @@ class SisyphosDBX(object):
                 return dropbox_path
             else:
                 dropbox_path = self._ask_for_path()
-        else:
-            return dropbox_path
+
+        return dropbox_path
 
     def __repr__(self):
         return "SisyphosDBX(account_id={0}, user_id={1})".format(
