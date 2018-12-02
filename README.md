@@ -19,7 +19,7 @@ On initial use, SisyphosDBX will ask you to link your dropbox account, give the 
 >>> sdbx.pause_sync()  # pause syncing
 >>> sdbx.resume_sync()  # resume syncing
 
->>> path = '/FolderOnDropbox'  # path relative to Dropbox folder
+>>> path = '/Folder/On/Dropbox'  # path relative to Dropbox folder
 >>> sdbx.exclude_folder(path)  # exclude Dropbox folder from sync, delete locally
 >>> sdbx.include_folder(path)  # inlcude Dropbox folder in sync, download its contents
 
@@ -32,6 +32,7 @@ You can get information about your Dropbox account and direct access uploading, 
 ```Python
 >>> from sisyphosdbx.client import SisyphosClient
 >>> client = SisyphosClient()
+
 >>> client.upload(local_path, dropbox_path)  # uploads file form local_path to Dropbox
 >>> client.download(dropbox_path, local_path)  # downloads file from Dropbox to local_path
 >>> client.move(old_path, new_path)  # moved file or folder from old_path to new_path on Dropbox
