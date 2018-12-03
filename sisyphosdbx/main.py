@@ -96,6 +96,7 @@ class SisyphosDBX(object):
         if self.FIRST_SYNC:
             self.set_dropbox_directory()
             self.select_excluded_folders()
+            self.client.get_account_info()
 
             CONF.set("internal", "cursor", "")
             CONF.set("internal", "lastsync", None)
@@ -129,7 +130,12 @@ class SisyphosDBX(object):
         Downloads the full Dropbox, apart form excluded folders, to the
         configured local Dropbox folder. Is run on first sync.
         """
-        self.client.get_remote_dropbox()
+        content_list = self.client.list_folder(dbx_path="", recursive=True,
+                                               include_deleted=False, limit=500)
+        if not content_list:
+            return
+        else:
+            self.monitor.remote_q.put(content_list)  # queue for download
 
     def pause_sync(self):
         """
@@ -137,6 +143,7 @@ class SisyphosDBX(object):
         """
         self.monitor.stopped_by_user = True
         self.monitor.stop()
+        logger.info("Syncing paused")
 
     def resume_sync(self):
         """
@@ -184,7 +191,7 @@ class SisyphosDBX(object):
     @with_sync_paused
     def include_folder(self, dbx_path):
         """
-        Includes folder in sync and downloads it. It is safe to call
+        Includes folder in sync and queues it for downloads. It is safe to call
         this method with folders which have alerady been included, they will
         not be downloaded again.
 
@@ -204,9 +211,14 @@ class SisyphosDBX(object):
         self.client.excluded_folders = new_folders
         CONF.set("main", "excluded_folders", new_folders)
 
-        # download folder and contents from Dropbox
-        logger.debug("Downloading folder.")
-        self.client.get_remote_dropbox(path=dbx_path)  # may raise ConnectionError
+        # download folder contents from Dropbox
+        logger.debug("Downloading added folder.")
+        content_list = self.client.list_folder(dbx_path, recursive=True,
+                                               include_deleted=False, limit=500)
+        if not content_list:
+            return
+        else:
+            self.monitor.remote_q.put(content_list)  # queue for download
 
     @if_connected
     def select_excluded_folders(self):
@@ -218,8 +230,8 @@ class SisyphosDBX(object):
         :rtype: list
         """
 
-        old_folders = CONF.get("main", "excluded_folders")
-        new_folders = []
+        excluded_folders = []
+        included_folders = []
 
         # get all top-level Dropbox folders
         results = self.client.list_folder("", recursive=False)
@@ -230,20 +242,19 @@ class SisyphosDBX(object):
             if isinstance(entry, files.FolderMetadata):
                 yes = yesno("Exclude '%s' from sync?" % entry.path_display, False)
                 if yes:
-                    new_folders.append(entry.path_lower)
+                    excluded_folders.append(entry.path_lower)
+                else:
+                    included_folders.append(entry.path_lower)
 
         # detect and apply changes
-        removed_folders = set(old_folders) - set(new_folders)
-
         if not self.FIRST_SYNC:
-            for folder in new_folders:
-                self.exclude_folder(folder)
+            for path in excluded_folders:
+                self.exclude_folder(path)
+            for path in included_folders:
+                self.include_folder(path)  # may raise ConnectionError
 
-            for folder in removed_folders:
-                self.include_folder(folder)  # may raise ConnectionError
-
-        self.client.excluded_folders = new_folders
-        CONF.set("main", "excluded_folders", new_folders)
+        self.client.excluded_folders = excluded_folders
+        CONF.set("main", "excluded_folders", excluded_folders)
 
     @with_sync_paused
     def set_dropbox_directory(self, new_path=None):

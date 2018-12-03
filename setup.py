@@ -5,9 +5,9 @@ def get_version(relpath):
     """Read version info from a file without importing it"""
     from os.path import dirname, join
 
-    if '__file__' not in globals():
+    if "__file__" not in globals():
         # Allow to use function interactively
-        root = '.'
+        root = "."
     else:
         root = dirname(__file__)
 
@@ -20,9 +20,9 @@ def get_version(relpath):
     # cp437 is the encoding without missing points, safe against:
     #   UnicodeDecodeError: 'charmap' codec can't decode byte...
 
-    for line in open(join(root, relpath), 'rb'):
-        line = line.decode('cp437')
-        if '__version__' in line:
+    for line in open(join(root, relpath), "rb"):
+        line = line.decode("cp437")
+        if "__version__" in line:
             if '"' in line:
                 return line.split('"')[1]
             elif "'" in line:
@@ -40,18 +40,19 @@ setup(
     long_description=open("README.md").read(),
     packages=find_packages(),
     package_data={
-            'sisyphosdbx': [
-                    'gui/*.ui',
-                    'gui/resources/*.icns',
-                    'gui/resources/*.png'
+            "sisyphosdbx": [
+                    "gui/*.ui",
+                    "gui/resources/*.icns",
+                    "gui/resources/*.png"
                     ],
             },
     install_requires=[
         "dropbox",
         "watchdog",
+        "blinker",
         ],
     zip_safe=False,
     entry_points={
-      'console_scripts': ['sisyphosdbx=sisyphosdbx.bin.command_line:main'],
+      "console_scripts": ["sisyphosdbx=sisyphosdbx.bin.command_line:main"],
       }
     )
