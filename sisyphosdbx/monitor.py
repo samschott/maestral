@@ -241,7 +241,6 @@ def connection_helper(client, connected, running):
 
     disconnected_signal = signal("disconnected_signal")
     connected_signal = signal("connected_signal")
-
     account_usage = signal("account_usage")
 
     while True:

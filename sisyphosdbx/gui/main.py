@@ -72,7 +72,7 @@ def get_qt_app(*args, **kwargs):
     return app, created
 
 
-if __name__ == "__main__":
+if __name__ == "__main__!":
     app, created = get_qt_app()
 
     w = QtWidgets.QWidget()

@@ -1,5 +1,6 @@
 import os
 from enum import Enum
+from sisyphosdbx.config.main import CONF
 
 MESSAGE_TYPES = ('file changed', 'other')
 
@@ -15,7 +16,7 @@ class Notipy(object):
     Relies on AppleScript on macOS and notify-send on linux, otherwise
     falls back to stdout."""
 
-    ON = True
+    ON = CONF.get("app", "notifications")
 
     def __init__(self):
         self.implementation = self.__get_available_implementation()

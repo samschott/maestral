@@ -5,10 +5,13 @@
 # (see spyder/__init__.py for details)
 
 """
-CustomXepr configuration options
+Sisyphos DBX configuration options
 
-Note: Leave this file free of Qt related imports, so that it can be used to
-quickly load a user config file
+Note: The 'account' section is used for internal purposes only to store some
+basic information on the user account between connections. The 'internal'
+section saves cursors and time-stamps for the last synced Dropbox state and
+local state, respectively. Resetting those to the default values will trigger
+a full download on the next startup.
 """
 
 # Local import
@@ -34,6 +37,12 @@ DEFAULTS = [
               'email': '',
               'type': '',
               'usage': '',
+              'usage_type': '',
+              }),
+            ('app',
+             {
+              'system_startup': False,
+              'notifications': True,
               }),
             ('internal',
              {
