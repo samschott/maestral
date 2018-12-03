@@ -183,8 +183,9 @@ class SisyphosClient(object):
 
     dbx = None
     auth = None
+    dropbox_path = ''
 
-    notipy = Notipy()
+    notify = Notipy()
 
     def __init__(self):
         # check if I specified app_key and app_secret
@@ -224,20 +225,11 @@ class SisyphosClient(object):
         if not local_path:
             raise ValueError("No path specified.")
 
-        dbx_root_list = osp.normpath(self.dropbox_path).split(osp.sep)
-        path_list = osp.normpath(local_path).split(osp.sep)
-
-        # Work out how much of the filepath is shared by dropbox_path and path.
-        i = len(osp.commonprefix([dbx_root_list, path_list]))
-
-        if i == len(path_list):  # path corresponds to dropbox_path
-            return "/"
-        elif not i == len(dbx_root_list):  # path is outside of to dropbox_path
+        if osp.commonprefix([local_path, self.dropbox_path]) == self.dropbox_path:
+            relative_path = osp.sep + osp.relpath(local_path, self.dropbox_path)
+            return relative_path.replace(osp.sep, "/")
+        else:
             raise ValueError("Specified path '%s' is not in Dropbox directory." % local_path)
-
-        relative_path = "/" + "/".join(path_list[i:])
-
-        return relative_path
 
     def to_local_path(self, dbx_path):
         """
@@ -319,11 +311,11 @@ class SisyphosClient(object):
             res = None
 
         if res.account_type.is_basic():
-            account_type = 'Basic'
+            account_type = 'basic'
         elif res.account_type.is_business():
-            account_type = 'Business'
+            account_type = 'business'
         elif res.account_type.is_pro():
-            account_type = 'Pro'
+            account_type = 'pro'
 
         CONF.set("account", "email", res.email)
         CONF.set("account", "type", account_type)
@@ -346,6 +338,11 @@ class SisyphosClient(object):
         # convert from dropbox.users.SpaceUsage to SpaceUsage with nice string
         # representation
         res.__class__ = SpaceUsage
+
+        if res.allocation.is_team():
+            CONF.set("account", "usage_type", "team")
+        elif res.allocation.is_individual():
+            CONF.set("account", "usage_type", "individual")
 
         CONF.set("account", "usage", str(res))
 
@@ -689,11 +686,11 @@ class SisyphosClient(object):
         if total == 1:
             md = results[0].entries[0]
             if isinstance(md, files.DeletedMetadata):
-                self.notipy.send("%s removed" % md.path_display)
+                self.notify.send("%s removed" % md.path_display)
             else:
-                self.notipy.send("%s added" % md.path_display)
+                self.notify.send("%s added" % md.path_display)
         elif total > 1:
-            self.notipy.send("%s files changed" % total)
+            self.notify.send("%s files changed" % total)
 
         # apply remote changes
         for result in results:

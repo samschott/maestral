@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = "v0.1.0"
+__version__ = "0.1.0"
 __author__ = "Sam Schott"
 
 import os
@@ -57,12 +57,14 @@ def if_connected(f):
         # pause syncing
         if not self.connected:
             print(error_msg)
+            return False
         try:
-            ret = f(self, *args, **kwargs)
-            return ret
+            res = f(self, *args, **kwargs)
+            return res
         except requests.exceptions.RequestException:
             print(error_msg)
-        return
+            return False
+
     return wrapper
 
 
@@ -98,8 +100,9 @@ class SisyphosDBX(object):
             CONF.set("internal", "cursor", "")
             CONF.set("internal", "lastsync", None)
 
-            self.get_remote_dropbox()
-            CONF.set("internal", "lastsync", time.time())
+            success = self.get_remote_dropbox()
+            if success:
+                CONF.set("internal", "lastsync", time.time())
 
         if run:
             self.resume_sync()
@@ -111,6 +114,14 @@ class SisyphosDBX(object):
     @property
     def connected(self):
         return self.monitor.connected.is_set()
+
+    @property
+    def notify(self):
+        return self.client.notify.ON
+
+    @notify.setter
+    def notify(self, boolean):
+        self.client.notify.ON = boolean
 
     @if_connected
     def get_remote_dropbox(self):

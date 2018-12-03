@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="folder_icons">
+    <file>GenericFolderIcon.icns</file>
+    <file>HomeFolderIcon.icns</file>
+  </qresource>
+</RCC>
