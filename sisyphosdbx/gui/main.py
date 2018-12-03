@@ -1,59 +1,224 @@
 # -*- coding: utf-8 -*-
 
-
-import sys
 import os
 import logging
-from PyQt5 import QtCore, QtWidgets, QtGui, uic
+import subprocess
+import platform
+import webbrowser
+from blinker import signal
+from PyQt5 import QtCore, QtWidgets, QtGui
 
-direct = os.path.dirname(os.path.realpath(__file__))
+from sisyphosdbx.main import SisyphosDBX
+from sisyphosdbx.gui.settings import SettingsWindow
+from sisyphosdbx.config.main import CONF
+
+_root = QtCore.QFileInfo(__file__).absolutePath()
 
 
-class EmitInfoHanlder(logging.Handler, QtCore.QObject):
+class TestSDBX(object):
+
+    class TestClient(object):
+
+        dropbox_path = os.path.expanduser('~/Dropbox')
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def is_excluded(self, *args, **kwargs):
+            return False
+
+        def list_folder(self, *args, **kwargs):
+            return None
+
+        def flatten_result_list(self, *args, **kwargs):
+            return {'Test Folder 1': None, 'Test Folder 2': None}
+
+        def include_folder(self):
+            pass
+
+        def exclude_folder(self):
+            pass
+
+    client = TestClient()
+    notify = True
+
+    def unlink(self):
+        pass
+
+    def pause_sync(self):
+        pass
+
+    def resume_sync(self):
+        pass
+
+
+class InfoHanlder(logging.Handler, QtCore.QObject):
     """
     Handler which emits a signal containing the logging message for every
     logged event. The signal will be connected to "Status" field of the GUI.
     """
     info_signal = QtCore.pyqtSignal(str)
+    usage_signal = QtCore.pyqtSignal(str)
+
+    disconnected_signal = QtCore.pyqtSignal()
+    idle_signal = QtCore.pyqtSignal()
+    paused_signal = QtCore.pyqtSignal()
+    syncing_signal = QtCore.pyqtSignal()
+
+    monitor_usage_signal = signal("account_usage_signal")
 
     def __init__(self):
         logging.Handler.__init__(self)
         QtCore.QObject.__init__(self)
+        self.monitor_usage_signal.connect(self.on_usage_available)
 
     def emit(self, record):
         self.format(record)
         self.info_signal.emit(record.message)
+        if record.message == "Connecting...":
+            self.disconnected_signal.emit()
+        elif record.message == "Up to date":
+            self.idle_signal.emit()
+        elif record.message == "Syncing paused":
+            self.paused_signal.emit()
+        else:
+            self.syncing_signal.emit()
+
+    def on_usage_available(self, space_usage):
+        self.usage_signal.emit(str(space_usage))
 
 
-info_handler = EmitInfoHanlder()
+info_handler = InfoHanlder()
 info_handler.setLevel(logging.INFO)
-sdbx_logger = logging.getLogger('sisyphosdbx')
+sdbx_logger = logging.getLogger("sisyphosdbx")
 sdbx_logger.addHandler(info_handler)
 
 
-class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
+class SisyphosApp(QtWidgets.QSystemTrayIcon):
 
-    def __init__(self, icon, parent=None):
-        QtWidgets.QSystemTrayIcon.__init__(self, icon, parent)
+    DARK = os.popen("defaults read -g AppleInterfaceStyle").read() == "Dark"
+
+    def __init__(self, parent=None):
+        self.icon_idle = QtGui.QIcon(_root + "/resources/menubar_icon_idle.png")
+        self.icon_syncing = QtGui.QIcon(_root + "/resources/menubar_icon_syncing.png")
+        self.icon_paused = QtGui.QIcon(_root + "/resources/menubar_icon_paused.png")
+        self.icon_disconnected = QtGui.QIcon(_root + "/resources/menubar_icon_disconnected.png")
+
+        self.icons = [self.icon_idle, self.icon_syncing, self.icon_paused, self.icon_disconnected]
+#        self.icon_idle_dark = QtGui.QIcon(_root + "/resources/menubar_icon_idle_dark.png")
+#        self.icon_syncing_dark = QtGui.QIcon(_root + "/resources/menubar_icon_syncing_dark.png")
+#        self.icon_paused_dark = QtGui.QIcon(_root + "/resources/menubar_icon_paused_dark.png")
+#        self.icon_disconnected_dark = QtGui.QIcon(_root + "/resources/menubar_icon_disconnected_dark.png")
+
+        if self.DARK:
+            for icon in self.icons:
+                icon = self.invert_icon_color(icon)
+
+        QtWidgets.QSystemTrayIcon.__init__(self, self.icon_disconnected, parent)
+
+        self.sdbx = SisyphosDBX(run=False)
+        self.settings = SettingsWindow(self.sdbx, parent=None)
+
+        # create context menu
         self.menu = QtWidgets.QMenu(parent)
         self.openFolderAction = self.menu.addAction("Open Dropbox Folder")
         self.openWebsiteAction = self.menu.addAction("Launch Dropbox Website")
-        self.separatorAction1 = self.menu.addSeparator()
-        self.accountInfoAction = self.menu.addAction("No Account Linked")
-        self.accountInfoAction.setEnabled(False)
-        self.separatorAction2 = self.menu.addSeparator()
-        self.statusAction = self.menu.addAction("Connecting...")
+        self.separator1 = self.menu.addSeparator()
+        self.accountUsageAction = self.menu.addAction(CONF.get("account", "usage"))
+        self.accountUsageAction.setEnabled(False)
+        self.separator2 = self.menu.addSeparator()
+        if self.sdbx.connected and self.sdbx.syncing:
+            self.statusAction = self.menu.addAction("Up to date")
+        elif self.sdbx.connected:
+            self.statusAction = self.menu.addAction("Syncing paused")
+        elif not self.sdbx.connected:
+            self.statusAction = self.menu.addAction("Connecting...")
         self.statusAction.setEnabled(False)
-        self.exitAction = self.menu.addAction("Pause Syncing")
-        self.separatorAction3 = self.menu.addSeparator()
-        self.pauseAction = self.menu.addAction("Preferences...")
+        if self.sdbx.syncing:
+            self.startstopAction = self.menu.addAction("Pause Syncing")
+        else:
+            self.startstopAction = self.menu.addAction("Resume Syncing")
+        self.separator3 = self.menu.addSeparator()
+        self.preferencesAction = self.menu.addAction("Preferences...")
         self.helpAction = self.menu.addAction("Help Center")
-        self.separatorAction4 = self.menu.addSeparator()
+        self.separator4 = self.menu.addSeparator()
         self.quitAction = self.menu.addAction("Quit SisyphosDBX")
         self.setContextMenu(self.menu)
 
+        # connect UI to signals
         info_handler.info_signal.connect(self.statusAction.setText)
+        info_handler.usage_signal.connect(self.accountUsageAction.setText)
+        info_handler.usage_signal.connect(self.settings.labelSpaceUsage2.setText)
+        info_handler.disconnected_signal.connect(self.on_disconnected)
+        info_handler.idle_signal.connect(self.on_idle)
+        info_handler.paused_signal.connect(self.on_paused)
+        info_handler.syncing_signal.connect(self.on_syncing)
+
+        # connect actions
+        self.openFolderAction.triggered.connect(self.on_open_folder_cliked)
+        self.openWebsiteAction.triggered.connect(self.on_website_clicked)
+        self.startstopAction.triggered.connect(self.on_start_stop_clicked)
+        self.preferencesAction.triggered.connect(self.settings.show)
+        self.preferencesAction.triggered.connect(self.settings.raise_)
+        self.preferencesAction.triggered.connect(self.settings.activateWindow)
+        self.helpAction.triggered.connect(self.on_help_clicked)
         self.quitAction.triggered.connect(QtCore.QCoreApplication.quit)
+
+    def on_open_folder_cliked(self):
+        """
+        Opens Dropbox directory in systems file explorer.
+        """
+        if platform.system() == "Windows":
+            os.startfile(self.sdbx.client.dropbox_path)
+        elif platform.system() == "Darwin":
+            subprocess.Popen(["open", self.sdbx.client.dropbox_path])
+        else:
+            subprocess.Popen(["xdg-open", self.sdbx.client.dropbox_path])
+
+    def on_website_clicked(self):
+        webbrowser.open_new("https://www.dropbox.com/")
+
+    def on_help_clicked(self):
+        webbrowser.open_new("https://dropbox.com/help")
+
+    def on_start_stop_clicked(self):
+        if self.startstopAction.text() == "Pause Syncing":
+            self.sdbx.pause_sync()
+            self.startstopAction.setText("Resume Syncing")
+        elif self.startstopAction.text() == "Resume Syncing":
+            self.sdbx.resume_sync()
+            self.startstopAction.setText("Pause Syncing")
+
+    def on_disconnected(self):
+        self.setIcon(self.icon_disconnected)
+
+    def on_idle(self):
+        self.setIcon(self.icon_idle)
+
+    def on_syncing(self):
+        self.setIcon(self.icon_syncing)
+
+    def on_paused(self):
+        self.setIcon(self.icon_paused)
+
+    def switch_appearance(self):
+        self.DARK = os.popen("defaults read -g AppleInterfaceStyle").read() == "Dark"
+        new_icon = self.invert_icon_color(self.icon())
+        self.setIcon(new_icon)
+        for icon in self.icons:
+            icon = self.invert_icon_color(icon)
+
+    def invert_icon_color(self, icon):
+        invertedIcon = QtGui.QIcon()
+        for mode in (QtGui.QIcon.Normal, QtGui.QIcon.Disabled,
+                     QtGui.QIcon.Active, QtGui.QIcon.Selected):
+            for state in (QtGui.QIcon.On, QtGui.QIcon.Off):
+                avalSize = icon.availableSizes(mode, state)
+                for size in avalSize:
+                    tempImage = QtGui.QImage(icon.pixmap(size, mode, state).toImage())
+                    tempImage.invertPixels()
+                    invertedIcon.addPixmap(QtGui.QPixmap.fromImage(tempImage), mode, state)
+        return invertedIcon
 
 
 def get_qt_app(*args, **kwargs):
@@ -65,21 +230,19 @@ def get_qt_app(*args, **kwargs):
 
     if not app:
         if not args:
-            args = ([''],)
+            args = ([""],)
         app = QtWidgets.QApplication(*args, **kwargs)
         created = True
 
     return app, created
 
 
-if __name__ == "__main__!":
+if __name__ == "__main__":
     app, created = get_qt_app()
+    app.setQuitOnLastWindowClosed(False)
 
-    w = QtWidgets.QWidget()
-    pixmap = QtGui.QPixmap(os.path.join(direct, "resources/menubar_icon_active.png"))
-    trayIcon = SystemTrayIcon(QtGui.QIcon(pixmap), w)
-
-    trayIcon.show()
+    sisyphos_gui = SisyphosApp()
+    sisyphos_gui.show()
 
     if created:
-        sys.exit(app.exec_())
+        app.exec_()

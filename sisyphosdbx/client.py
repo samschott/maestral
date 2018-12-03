@@ -225,11 +225,20 @@ class SisyphosClient(object):
         if not local_path:
             raise ValueError("No path specified.")
 
-        if osp.commonprefix([local_path, self.dropbox_path]) == self.dropbox_path:
-            relative_path = osp.sep + osp.relpath(local_path, self.dropbox_path)
-            return relative_path.replace(osp.sep, "/")
-        else:
+        dbx_root_list = osp.normpath(self.dropbox_path).split(osp.sep)
+        path_list = osp.normpath(local_path).split(osp.sep)
+
+        # Work out how much of the filepath is shared by dropbox_path and path.
+        i = len(osp.commonprefix([dbx_root_list, path_list]))
+
+        if i == len(path_list):  # path corresponds to dropbox_path
+            return "/"
+        elif not i == len(dbx_root_list):  # path is outside of to dropbox_path
             raise ValueError("Specified path '%s' is not in Dropbox directory." % local_path)
+
+        relative_path = "/" + "/".join(path_list[i:])
+
+        return relative_path
 
     def to_local_path(self, dbx_path):
         """
@@ -610,15 +619,7 @@ class SisyphosClient(object):
 
         # apply remote changes
         logger.info("Downloading %s items..." % (total))
-        for result in results:
-            for entry in result.entries:
-                self._create_local_entry(entry)
-
-            if dbx_path == "":  # save cursor only if synced for whole dropbox
-                self.last_cursor = result.cursor
-                CONF.set("internal", "cursor", result.cursor)
-
-        return True
+        self.apply_remote_changes(results)
 
     def wait_for_remote_changes(self, timeout=120):
         """
@@ -652,13 +653,14 @@ class SisyphosClient(object):
 
         return result.changes
 
-    def get_remote_changes(self):
+    def list_remote_changes(self):
         """
-        Downloads / applies remote changes to local folder since
-        :ivar:`last_cursor`.
+        Lists changes to remote Dropbox since :ivar:`last_cursor`. Call this
+        after :method:`wait_for_remote_changes` returns `True`.
 
-        :return: `True` on success, `False` otherwise.
-        :rtype: bool
+        :return: List of :class:`dropbox.files.ListFolderResult`
+            instances or `False` if requests failed.
+        :rtype: list
         """
 
         results = [0]
@@ -692,26 +694,32 @@ class SisyphosClient(object):
         elif total > 1:
             self.notify.send("%s files changed" % total)
 
+    def apply_remote_changes(self, results, save_curor=True):
+        """
+        Applies remote changes to local folder since :ivar:`last_cursor`.
+        Call this on the result of :method:`list_remote_changes`. The saved
+        cursor is updated after a set of changes has been sucessfully applied.
+        """
         # apply remote changes
         for result in results:
             for entry in result.entries:
                 self._create_local_entry(entry)
 
-            self.last_cursor = result.cursor
-            CONF.set("internal", "cursor", result.cursor)
-
-        return True
+            if save_curor:
+                self.last_cursor = result.cursor
+                CONF.set("internal", "cursor", result.cursor)
 
     def _create_local_entry(self, entry):
         """Creates local file / folder for remote entry.
 
         :param class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
+        :return: `True` on sucess, `False` otherwise.
         """
 
         self.excluded_folders = CONF.get("main", "excluded_folders")
 
         if self.is_excluded(entry.path_display):
-            return
+            return True
 
         if isinstance(entry, files.FileMetadata):
             # Store the new entry at the given path in your local state.
@@ -729,12 +737,14 @@ class SisyphosClient(object):
                 pass
             elif conflict == 1:  # conflict! rename local file
                 parts = osp.splitext(dst_path)
-                new_local_file = parts[0] + " (Dropbox conflicting copy)" + parts[1]
+                new_local_file = parts[0] + " (conflicting copy)" + parts[1]
                 os.rename(dst_path, new_local_file)
             elif conflict == 2:  # Dropbox files corresponds to local file, nothing to do
-                return None
+                return True
 
             md = self.download(entry.path_display, dst_path)
+            if md is False:
+                return False
 
             # save revision metadata
             self.set_local_rev(md.path_display, md.rev)
@@ -755,6 +765,8 @@ class SisyphosClient(object):
 
             self.set_local_rev(entry.path_display, "folder")
 
+            return True
+
         elif isinstance(entry, files.DeletedMetadata):
             # If your local state has something at the given path,
             # remove it and all its children. If there’s nothing at the
@@ -770,6 +782,8 @@ class SisyphosClient(object):
                 os.remove(dst_path)
 
             self.set_local_rev(entry.path_display, None)
+
+            return True
 
     def is_excluded(self, dbx_path):
         """

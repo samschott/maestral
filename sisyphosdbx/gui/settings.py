@@ -15,18 +15,9 @@ from qtpy import QtGui, QtCore, QtWidgets, uic
 from sisyphosdbx.main import __version__, __author__
 from sisyphosdbx.config.main import CONF
 from sisyphosdbx.config.base import get_home_dir
-from sisyphosdbx.gui.folders_dialog import FoldersDialog, TestClient
+from sisyphosdbx.gui.folders_dialog import FoldersDialog
 
 _root = QtCore.QFileInfo(__file__).absolutePath()
-
-
-class TestSDBX(object):
-
-    client = TestClient()
-    notify = True
-
-    def unlink(self):
-        pass
 
 
 class UnlinkDialog(QtWidgets.QDialog):
@@ -35,22 +26,23 @@ class UnlinkDialog(QtWidgets.QDialog):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(osp.join(_root, "unlink_dialog.ui"), self)
+        self.setFixedSize(460, 145)
         self.buttonBox.buttons()[0].setText('Unlink')
         self.labelIcon.setPixmap(QtGui.QPixmap(_root + "/resources/app_icon.png"))
 
 
 class SettingsWindow(QtWidgets.QWidget):
 
-    generic_folder_icon = QtGui.QIcon(_root + "/resources/GenericFolderIcon.png")
-    home_folder_icon = QtGui.QIcon(_root + "/resources/HomeFolderIcon.png")
-
-    def __init__(self, parent=None, sdbx=TestSDBX()):
+    def __init__(self, sdbx, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(osp.join(_root, "settings.ui"), self)
+        self.setFixedSize(580, 380)
+        self.generic_folder_icon = QtGui.QIcon(_root + "/resources/GenericFolderIcon.icns")
+        self.home_folder_icon = QtGui.QIcon(_root + "/resources/HomeFolderIcon.icns")
 
         self.sdbx = sdbx
-        self.folders_dialog = FoldersDialog(self, self.sdbx.client)
+        self.folders_dialog = FoldersDialog(self.sdbx, parent=self)
         self.unlink_dialog = UnlinkDialog(self)
 
         # populate app section
@@ -102,7 +94,6 @@ class SettingsWindow(QtWidgets.QWidget):
                 lambda: self.comboBoxDropboxPath.setCurrentIndex(0))
 
     def on_comboBox(self, idx):
-        print(idx)
         if idx == 2:
             self.dropbox_folder_dialog.open()
 
