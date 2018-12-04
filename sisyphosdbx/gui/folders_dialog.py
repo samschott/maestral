@@ -17,10 +17,10 @@ _root = QtCore.QFileInfo(__file__).absolutePath()
 
 class FolderItem(QtWidgets.QListWidgetItem):
 
-    def __init__(self, icon, text, is_included, parent=None):
-        super(self.__class__, self).__init__(icon, text, parent=parent)
+    def __init__(self, icon, name, is_included, parent=None):
+        super(self.__class__, self).__init__(icon, name, parent=parent)
 
-        self.path = text
+        self.name = name
 
         checked_state = 2 if is_included else 0
         self.setCheckState(checked_state)
@@ -58,22 +58,21 @@ class FoldersDialog(QtWidgets.QDialog):
         self.listWidgetFolders.clear()
 
         # add new entries
-        root_folders = self.sdbx.client.list_folder("")
+        root_folders = self.sdbx.client.list_folder("", recursive=False)
         if root_folders is False:
             self.listWidgetFolders.addItem("Unable to connect")
             self.accept_button.setEnabled(False)
         else:
             self.accept_button.setEnabled(True)
+            self.folder_list = self.sdbx.client.flatten_results_list(root_folders)
 
-            self.folder_dict = self.sdbx.client.flatten_results_list(root_folders)
+            self.path_items = []
+            for entry in self.folder_list:
+                is_included = not self.sdbx.client.is_excluded(entry.path_lower)
+                item = FolderItem(self.folder_icon, entry.name, is_included)
+                self.path_items.append(item)
 
-            self.folder_items = []
-            for path in self.folder_dict:
-                is_included = not self.sdbx.client.is_excluded(path)
-                item = FolderItem(self.folder_icon, path, is_included)
-                self.folder_items.append(item)
-
-            for item in self.folder_items:
+            for item in self.path_items:
                 self.listWidgetFolders.addItem(item)
 
     def on_accepted(self):
@@ -84,11 +83,11 @@ class FoldersDialog(QtWidgets.QDialog):
         excluded_folders = []
         included_folders = []
 
-        for item in self.folder_items:
+        for item in self.path_items:
             if not item.isIncluded():
-                excluded_folders.append(item.path.lower())
+                excluded_folders.append("/" + item.name.lower())
             elif item.isIncluded():
-                included_folders.append(item.path.lower())
+                included_folders.append("/" + item.name.lower())
 
         for path in excluded_folders:
             self.sdbx.exclude_folder(path)

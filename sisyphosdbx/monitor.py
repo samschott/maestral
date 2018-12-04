@@ -116,8 +116,8 @@ class DropboxUploadSync(object):
         elif isinstance(metadata, dropbox.files.FolderMetadata):
             self.client.set_local_rev(dbx_path2, "folder")
             results = self.client.list_folder(dbx_path2, recursive=True)
-            results_dict = self.client.flatten_results_list(results)
-            for md in results_dict.values():
+            results_list = self.client.flatten_results_list(results)
+            for md in results_list:
                 if isinstance(md, dropbox.files.FileMetadata):
                     self.client.set_local_rev(md.path_display, md.rev)
                 elif isinstance(md, dropbox.files.FolderMetadata):
@@ -253,8 +253,9 @@ def connection_helper(client, connected, running):
             with lock:
                 # use an inexpensive call to get_space_usage to test connection
                 res = client.get_space_usage()
-            connected.set()
-            connected_signal.send()
+            if not connected.is_set():
+                connected.set()
+                connected_signal.send()
             account_usage_signal.send(res)
             time.sleep(1)
         except requests.exceptions.RequestException:
@@ -465,6 +466,8 @@ class Monitor(object):
         self.connected_signal.connect(self.start)
         self.disconnected_signal.connect(self.stop)
 
+        self.start()
+
     def start(self, data=None):
         """Creates or starts observer threads and starts syncing."""
 
@@ -477,7 +480,7 @@ class Monitor(object):
         if not res:
             return
 
-        self.running.set()
+        self.running.set()  # starts remote observer if not running
 
         self.local_observer_thread = Observer()
         self.local_observer_thread.schedule(
@@ -491,7 +494,7 @@ class Monitor(object):
             # already stopped, nothing to do
             return
 
-        self.running.clear()  # stops workers if running
+        self.running.clear()  # stops remote observer if running
 
         self.local_observer_thread.stop()  # stop observer
         self.local_observer_thread.join()  # wait to finish
@@ -501,7 +504,7 @@ class Monitor(object):
         Push changes while client has not been running to Dropbox.
         """
 
-        logger.info("Indexing...")
+        logger.info("Indexing local changes...")
 
         events = self._get_local_changes()
 
