@@ -18,6 +18,8 @@ from sisyphosdbx.config.main import CONF
 import logging
 
 logger = logging.getLogger(__name__)
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.DEBUG)
 
 for logger_name in ["sisyphosdbx.monitor", "sisyphosdbx.client"]:
     sdbx_logger = logging.getLogger(logger_name)
@@ -235,10 +237,10 @@ class SisyphosDBX(object):
 
         # get all top-level Dropbox folders
         results = self.client.list_folder("", recursive=False)
-        results_dict = self.client.flatten_results_list(results)
+        results_list = self.client.flatten_results_list(results)
 
         # paginate through top-level folders, ask to exclude
-        for entry in results_dict.values():
+        for entry in results_list:
             if isinstance(entry, files.FolderMetadata):
                 yes = yesno("Exclude '%s' from sync?" % entry.path_display, False)
                 if yes:

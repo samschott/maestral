@@ -540,38 +540,40 @@ class SisyphosClient(object):
 
         return md
 
-    def list_folder(self, path, **kwargs):
+    def list_folder(self, dbx_path, **kwargs):
         """
         Lists contents of a folder on Dropbox as dictionary mapping unicode
         filenames to FileMetadata|FolderMetadata entries.
 
-        :param str path: Path of folder on Dropbox.
+        :param str dbx_path: Path of folder on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_list_folder.
         :return: A list of :class:`dropbox.files.ListFolderResult` instances or
             `False` if failed.
         :rtype: list
         """
 
-        logger.info("Indexing...")
+        if dbx_path == "":
+            logger.info("Indexing...")
 
         results = []
 
         try:
-            results.append(self.dbx.files_list_folder(path, **kwargs))
+            results.append(self.dbx.files_list_folder(dbx_path, **kwargs))
         except dropbox.exceptions.ApiError as err:
-            logging.debug("Folder listing failed for '%s': %s", path, err)
+            logging.debug("Folder listing failed for '%s': %s", dbx_path, err)
             return False
 
         idx = 0
 
         while results[-1].has_more:
             idx += len(results[-1].entries)
-            logger.info("Indexing %s..." % idx)
+            if dbx_path == "":
+                logger.info("Indexing %s..." % idx)
             try:
                 more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
                 results.append(more_results)
             except dropbox.exceptions.ApiError as err:
-                logging.debug("Folder listing failed for '%s': %s", path, err)
+                logging.debug("Folder listing failed for '%s': %s", dbx_path, err)
                 return False
 
         return results
@@ -583,17 +585,16 @@ class SisyphosClient(object):
 
         :param list results: List of :class:`dropbox.files.ListFolderResult`
             instances.
-        :return: Dictionary mapping dropbox paths to their
-            Dropbox API file/folder/deleted metadata.
-        :rtype: dict
+        :return: List of Dropbox API file/folder/deleted metadata.
+        :rtype: list
 
         """
-        results_dict = {}
+        results_list = []
         for res in results:
             for entry in res.entries:
-                results_dict[entry.name] = entry
+                results_list.append(entry)
 
-        return results_dict
+        return results_list
 
     def get_remote_dropbox(self, dbx_path=""):
         """
@@ -619,7 +620,9 @@ class SisyphosClient(object):
 
         # apply remote changes
         logger.info("Downloading %s items..." % (total))
-        self.apply_remote_changes(results)
+        success = self.apply_remote_changes(results)
+
+        return success
 
     def wait_for_remote_changes(self, timeout=120):
         """
@@ -699,21 +702,29 @@ class SisyphosClient(object):
         Applies remote changes to local folder since :ivar:`last_cursor`.
         Call this on the result of :method:`list_remote_changes`. The saved
         cursor is updated after a set of changes has been sucessfully applied.
+
+        :return: `True` on sucess, `False` otherwise.
+        :rtype: bool
         """
         # apply remote changes
         for result in results:
             for entry in result.entries:
-                self._create_local_entry(entry)
+                success = self._create_local_entry(entry)
 
-            if save_curor:
+            if save_curor and success:
                 self.last_cursor = result.cursor
                 CONF.set("internal", "cursor", result.cursor)
+            if not success:
+                return False
+
+        return True
 
     def _create_local_entry(self, entry):
         """Creates local file / folder for remote entry.
 
         :param class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
         :return: `True` on sucess, `False` otherwise.
+        :rtype: bool
         """
 
         self.excluded_folders = CONF.get("main", "excluded_folders")
