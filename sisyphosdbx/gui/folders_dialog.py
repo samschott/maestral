@@ -40,14 +40,11 @@ class FoldersDialog(QtWidgets.QDialog):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(osp.join(_root, "folders_dialog.ui"), self)
+        self.folder_icon = QtGui.QIcon(_root + "/resources/GenericFolderIcon.icns")
 
         self.sdbx = sdbx
         self.accept_button = self.buttonBox.buttons()[0]
         self.accept_button.setText('Update')
-
-        # populate UI
-        self.folder_icon = QtGui.QIcon(_root + "/resources/GenericFolderIcon.icns")
-        self.populate_folders_list()
 
         # connect callbacks
         self.buttonBox.accepted.connect(self.on_accepted)

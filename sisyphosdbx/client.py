@@ -375,6 +375,8 @@ class SisyphosClient(object):
         CONF.set("internal", "cursor", "")
         CONF.set("internal", "lastsync", None)
 
+        logger.debug("Unliked Dropbox account")
+
     def get_metadata(self, dbx_path, **wkargs):
         """
         Get metadata for Dropbox entry (file or folder). Returns `None` if no
@@ -390,6 +392,8 @@ class SisyphosClient(object):
         except dropbox.exceptions.ApiError as err:
             logging.debug("Could not get metadata for '%s': %s", dbx_path, err)
             md = False
+
+        logger.debug("Retrieved metadata for '{0}'".format(md.path_display))
 
         return md
 
@@ -552,29 +556,27 @@ class SisyphosClient(object):
         :rtype: list
         """
 
-        if dbx_path == "":
-            logger.info("Indexing...")
-
         results = []
 
         try:
             results.append(self.dbx.files_list_folder(dbx_path, **kwargs))
         except dropbox.exceptions.ApiError as err:
-            logging.debug("Folder listing failed for '%s': %s", dbx_path, err)
+            logger.debug("Folder listing failed for '%s': %s", dbx_path, err)
             return False
 
         idx = 0
 
         while results[-1].has_more:
             idx += len(results[-1].entries)
-            if dbx_path == "":
-                logger.info("Indexing %s..." % idx)
+            logger.info("Indexing %s..." % idx)
             try:
                 more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
                 results.append(more_results)
             except dropbox.exceptions.ApiError as err:
-                logging.debug("Folder listing failed for '%s': %s", dbx_path, err)
+                logger.debug("Folder listing failed for '{0}': {1}".format(dbx_path, err))
                 return False
+
+        logger.debug("Listed contents of folder '{0}'".format(dbx_path))
 
         return results
 
@@ -634,6 +636,9 @@ class SisyphosClient(object):
         :return: `True` if changes are available, `False` otherwise.
         :rtype: bool
         """
+
+        logger.debug("Waiting for remote changes since cursor:\n{0}".format(self.last_cursor))
+
         # honour last request to back off
         if self.last_longpoll is not None:
             while time.time() - self.last_longpoll < self.backoff:
@@ -662,7 +667,7 @@ class SisyphosClient(object):
         after :method:`wait_for_remote_changes` returns `True`.
 
         :return: List of :class:`dropbox.files.ListFolderResult`
-            instances or `False` if requests failed.
+            instances or empty list if requests failed.
         :rtype: list
         """
 
@@ -672,7 +677,7 @@ class SisyphosClient(object):
             results[0] = self.dbx.files_list_folder_continue(self.last_cursor)
         except dropbox.exceptions.ApiError as err:
             logging.info("Folder listing failed: %s", err)
-            return False
+            return []
 
         while results[-1].has_more:
             try:
@@ -680,7 +685,7 @@ class SisyphosClient(object):
                 results.append(result)
             except dropbox.exceptions.ApiError as err:
                 logging.info("Folder listing failed: %s", err)
-                return False
+                return []
 
         # count remote changes
         total = 0
@@ -697,7 +702,11 @@ class SisyphosClient(object):
         elif total > 1:
             self.notify.send("%s files changed" % total)
 
-    def apply_remote_changes(self, results, save_curor=True):
+        logger.debug("Listed remote changes")
+
+        return results
+
+    def apply_remote_changes(self, results, check_excluded=True):
         """
         Applies remote changes to local folder since :ivar:`last_cursor`.
         Call this on the result of :method:`list_remote_changes`. The saved
@@ -709,17 +718,16 @@ class SisyphosClient(object):
         # apply remote changes
         for result in results:
             for entry in result.entries:
-                success = self._create_local_entry(entry)
+                success = self._create_local_entry(entry, check_excluded)
+                if success is False:
+                    return False
 
-            if save_curor and success:
-                self.last_cursor = result.cursor
-                CONF.set("internal", "cursor", result.cursor)
-            if not success:
-                return False
+            self.last_cursor = result.cursor
+            CONF.set("internal", "cursor", result.cursor)
 
         return True
 
-    def _create_local_entry(self, entry):
+    def _create_local_entry(self, entry, check_exluded=True):
         """Creates local file / folder for remote entry.
 
         :param class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
@@ -729,7 +737,7 @@ class SisyphosClient(object):
 
         self.excluded_folders = CONF.get("main", "excluded_folders")
 
-        if self.is_excluded(entry.path_display):
+        if check_exluded and self.is_excluded(entry.path_display):
             return True
 
         if isinstance(entry, files.FileMetadata):
@@ -762,6 +770,8 @@ class SisyphosClient(object):
             # flag file as just downloaded
             self.flagged.append(md.path_display)
 
+            return True
+
         elif isinstance(entry, files.FolderMetadata):
             # Store the new entry at the given path in your local state.
             # If the required parent folders don’t exist yet, create them.
@@ -775,6 +785,8 @@ class SisyphosClient(object):
                 os.makedirs(dst_path)
 
             self.set_local_rev(entry.path_display, "folder")
+
+            logger.debug("Created local directory '{0}'".format(entry.path_display))
 
             return True
 
@@ -793,6 +805,8 @@ class SisyphosClient(object):
                 os.remove(dst_path)
 
             self.set_local_rev(entry.path_display, None)
+
+            logger.debug("Deleted local item '{0}'".format(entry.path_display))
 
             return True
 

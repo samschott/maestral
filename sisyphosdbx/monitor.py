@@ -45,7 +45,9 @@ class TimedQueue(queue.Queue):
 
 class FileEventHandler(FileSystemEventHandler):
     """
-    Logs captured file events and adds them to :ivar:`local_q`.
+    Logs captured file events and adds them to :ivar:`local_q` to be processed
+    by :class:`upload_worker`. This acts as a translation layer between between
+    watchdog.Obersever and :class:`upload_worker`.
 
     :ivar local_q: Qeueue with unprocessed local file events.
     """
@@ -53,7 +55,8 @@ class FileEventHandler(FileSystemEventHandler):
     local_q = TimedQueue()
 
     def on_moved(self, event):
-        logger.debug("Move detected: from '%s' to '%s'", event.src_path, event.dest_path)
+        logger.debug("Move detected: from '%s' to '%s'", event.src_path,
+                     event.dest_path)
         self.local_q.put(event)
 
     def on_created(self, event):
@@ -71,7 +74,10 @@ class FileEventHandler(FileSystemEventHandler):
 
 class DropboxUploadSync(object):
     """
-    Class that contains methods to sync local file events with Dropbox.
+    Class that contains methods to sync local file events with Dropbox. It acts
+    as a translation layer, converting watchdog file events to actions of the
+    Sisyphos Dropbox API client.
+
     The 'last_sync' entry in the config file is updated with the current time
     after every successfull sync. 'last_sync' is used to check for unsynced
     changes when SisyphosDBX is started or resumed.
@@ -140,7 +146,7 @@ class DropboxUploadSync(object):
 
         # has event just been triggere by remote_monitor?
         if dbx_path in self.client.flagged:
-            logger.debug("'%s' has just been synced. Nothing to do.", dbx_path)
+            logger.debug("'%s' has just been downloaded. Nothing to do.", dbx_path)
             self.client.flagged.remove(dbx_path)
             return
 
@@ -257,7 +263,7 @@ def connection_helper(client, connected, running):
                 connected.set()
                 connected_signal.send()
             account_usage_signal.send(res)
-            time.sleep(1)
+            time.sleep(5)
         except requests.exceptions.RequestException:
             running.clear()
             connected.clear()
@@ -266,7 +272,7 @@ def connection_helper(client, connected, running):
             time.sleep(1)
 
 
-def remote_observer_worker(client, remote_q, running):
+def remote_worker(client, running):
     """
     Wroker to sync changes of remote Dropbox with local folder.
 
@@ -289,42 +295,16 @@ def remote_observer_worker(client, remote_q, running):
 
             # apply remote changes
             if has_changes:
-                logger.info("Syncing remote changes")
+                logger.info("Syncing...")
                 with lock:
                     changes = client.list_remote_changes()
-                remote_q.put(changes)
+                    client.apply_remote_changes(changes)
+                logger.info("Up to date")
 
         except requests.exceptions.RequestException:
             logger.debug("Connection lost")
             disconnected_signal.send()
             running.clear()  # must be started again from outside
-
-
-def download_worker(client, remote_q, running):
-    """
-    Wroker to sync changes of remote Dropbox with local folder.
-
-    :param class client: :class:`SisyphosClient` instance.
-    :param class remote_q: Queue with changes to downlaod.
-    :param class running: If not `running.is_set()` the worker is paused.
-    """
-
-    disconnected_signal = signal("disconnected_signal")
-
-    while True:
-
-        changes = remote_q.get()  # wait until there are changes to download
-
-        logger.info("Syncing remote changes")
-        try:
-            with lock:
-                client.apply_remote_changes(changes)
-            logger.info("Up to date")
-
-        except requests.exceptions.RequestException:
-            logger.info("Connecting...")
-            disconnected_signal.send()
-            running.clear()
 
 
 def upload_worker(dbx_uploader, local_q, running):
@@ -380,9 +360,9 @@ def upload_worker(dbx_uploader, local_q, running):
         events = set(events) - set(child_move_events)
 
         # process all events:
-        try:
-            with lock:
-                logger.info("Syncing local changes")
+        with lock:
+            try:
+                logger.info("Syncing...")
                 for event in events:
                     if event.event_type is EVENT_TYPE_CREATED:
                         dbx_uploader.on_created(event)
@@ -394,10 +374,10 @@ def upload_worker(dbx_uploader, local_q, running):
                         dbx_uploader.on_modified(event)
                 CONF.set("internal", "lastsync", time.time())
                 logger.info("Up to date")
-        except requests.exceptions.RequestException:
-            logger.info("Connecting...")
-            disconnected_signal.send()
-            running.clear()   # must be started again from outside
+            except requests.exceptions.RequestException:
+                logger.info("Connecting...")
+                disconnected_signal.send()
+                running.clear()   # must be started again from outside
 
 
 class Monitor(object):
@@ -410,7 +390,7 @@ class Monitor(object):
     :ivar dbx_uploader: Handler to upload changes to Dropbox.
     :ivar upload_thread: Thread that calls `dbx_uploader` methods when file
         events have been queued.
-    :ivar remote_observer_thread: Thread to query and process remote changes.
+    :ivar download_thread: Thread to query and process remote changes.
     :ivar connected: Event that is set if connection to Dropbox API
         servers can be established.
     :ivar running: Event that controls worker theads.
@@ -443,42 +423,37 @@ class Monitor(object):
                 args=(self.client, self.connected, self.running),
                 name="SisyphosConnectionHelper")
 
-        self.remote_observer_thread = Thread(
-                target=remote_observer_worker,
-                args=(self.client, self.remote_q, self.running),
-                name="SisyphosRemoteObserver")
+        self.download_thread = Thread(
+                target=remote_worker,
+                args=(self.client, self.running),
+                name="SisyphosDownloader")
 
         self.upload_thread = Thread(
                 target=upload_worker,
                 args=(self.dbx_uploader, self.local_q, self.running),
                 name="SisyphosUploader")
 
-        self.download_thread = Thread(
-                target=download_worker,
-                args=(self.client, self.remote_q, self.running),
-                name="SisyphosDownloader")
+        self.connection_thread.setDaemon(True)
+        self.download_thread.setDaemon(True)
+        self.upload_thread.setDaemon(True)
 
         self.connection_thread.start()
-        self.remote_observer_thread.start()
-        self.upload_thread.start()
         self.download_thread.start()
+        self.upload_thread.start()
 
         self.connected_signal.connect(self.start)
         self.disconnected_signal.connect(self.stop)
 
         self.start()
 
-    def start(self, data=None):
+    def start(self, overload=None):
         """Creates or starts observer threads and starts syncing."""
 
         if self.running.is_set() or self.stopped_by_user:
             # do nothing if already running or stopped by user
             return
 
-        res = self.upload_local_changes_after_inactive()
-
-        if not res:
-            return
+        self.upload_local_changes_after_inactive()
 
         self.running.set()  # starts remote observer if not running
 
@@ -487,7 +462,7 @@ class Monitor(object):
                 self.file_handler, self.client.dropbox_path, recursive=True)
         self.local_observer_thread.start()
 
-    def stop(self, data=None):
+    def stop(self, overload=None):
         """Stops syncing and destroys worker threads."""
 
         if not self.running.is_set():
@@ -504,13 +479,15 @@ class Monitor(object):
         Push changes while client has not been running to Dropbox.
         """
 
-        logger.info("Indexing local changes...")
+        logger.info("Indexing...")
 
         events = self._get_local_changes()
 
         # queue changes for upload
         for event in events:
             self.local_q.put(event)
+
+        logger.info("Up to date")
 
     def _get_local_changes(self):
         """
