@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+import sys
 import os
 import logging
 import subprocess
@@ -30,7 +30,7 @@ class TestSDBX(object):
         def list_folder(self, *args, **kwargs):
             return None
 
-        def flatten_result_list(self, *args, **kwargs):
+        def flatten_results_list(self, *args, **kwargs):
             return {'Test Folder 1': None, 'Test Folder 2': None}
 
         def include_folder(self):
@@ -40,7 +40,12 @@ class TestSDBX(object):
             pass
 
     client = TestClient()
+    connected = True
+    syncing = True
     notify = True
+
+    def __init__(self, *args, **kwargs):
+        pass
 
     def unlink(self):
         pass
@@ -99,24 +104,24 @@ class SisyphosApp(QtWidgets.QSystemTrayIcon):
     DARK = os.popen("defaults read -g AppleInterfaceStyle").read() == "Dark"
 
     def __init__(self, parent=None):
-        self.icon_idle = QtGui.QIcon(_root + "/resources/menubar_icon_idle.png")
-        self.icon_syncing = QtGui.QIcon(_root + "/resources/menubar_icon_syncing.png")
-        self.icon_paused = QtGui.QIcon(_root + "/resources/menubar_icon_paused.png")
-        self.icon_disconnected = QtGui.QIcon(_root + "/resources/menubar_icon_disconnected.png")
+        # load menu bar icons
+        self.icon_idle = QtGui.QIcon(_root + "/resources/menubar_icon_idle.svg")
+        self.icon_syncing = QtGui.QIcon(_root + "/resources/menubar_icon_syncing.svg")
+        self.icon_paused = QtGui.QIcon(_root + "/resources/menubar_icon_paused.svg")
+        self.icon_disconnected = QtGui.QIcon(_root + "/resources/menubar_icon_disconnected.svg")
 
-        self.icons = [self.icon_idle, self.icon_syncing, self.icon_paused, self.icon_disconnected]
-#        self.icon_idle_dark = QtGui.QIcon(_root + "/resources/menubar_icon_idle_dark.png")
-#        self.icon_syncing_dark = QtGui.QIcon(_root + "/resources/menubar_icon_syncing_dark.png")
-#        self.icon_paused_dark = QtGui.QIcon(_root + "/resources/menubar_icon_paused_dark.png")
-#        self.icon_disconnected_dark = QtGui.QIcon(_root + "/resources/menubar_icon_disconnected_dark.png")
+        self.icon_idle.setIsMask(True)
+        self.icon_syncing.setIsMask(True)
+        self.icon_disconnected.setIsMask(True)
+        self.icon_paused.setIsMask(True)
 
-        if self.DARK:
-            for icon in self.icons:
-                icon = self.invert_icon_color(icon)
-
+        # initialize tray widget
         QtWidgets.QSystemTrayIcon.__init__(self, self.icon_disconnected, parent)
 
+        # start SisyphosDBX
         self.sdbx = SisyphosDBX(run=False)
+
+        # create settings window
         self.settings = SettingsWindow(self.sdbx, parent=None)
 
         # create context menu
@@ -142,7 +147,7 @@ class SisyphosApp(QtWidgets.QSystemTrayIcon):
         self.preferencesAction = self.menu.addAction("Preferences...")
         self.helpAction = self.menu.addAction("Help Center")
         self.separator4 = self.menu.addSeparator()
-        self.quitAction = self.menu.addAction("Quit SisyphosDBX")
+        self.quitAction = self.menu.addAction("Quit Sisyphos DBX")
         self.setContextMenu(self.menu)
 
         # connect UI to signals
@@ -162,7 +167,7 @@ class SisyphosApp(QtWidgets.QSystemTrayIcon):
         self.preferencesAction.triggered.connect(self.settings.raise_)
         self.preferencesAction.triggered.connect(self.settings.activateWindow)
         self.helpAction.triggered.connect(self.on_help_clicked)
-        self.quitAction.triggered.connect(QtCore.QCoreApplication.quit)
+        self.quitAction.triggered.connect(self.quit_)
 
     def on_open_folder_cliked(self):
         """
@@ -189,6 +194,11 @@ class SisyphosApp(QtWidgets.QSystemTrayIcon):
             self.sdbx.resume_sync()
             self.startstopAction.setText("Pause Syncing")
 
+    def quit_(self):
+        self.sdbx.pause_sync()
+        self.deleteLater()
+        QtCore.QCoreApplication.quit()
+
     def on_disconnected(self):
         self.setIcon(self.icon_disconnected)
 
@@ -203,22 +213,6 @@ class SisyphosApp(QtWidgets.QSystemTrayIcon):
 
     def switch_appearance(self):
         self.DARK = os.popen("defaults read -g AppleInterfaceStyle").read() == "Dark"
-        new_icon = self.invert_icon_color(self.icon())
-        self.setIcon(new_icon)
-        for icon in self.icons:
-            icon = self.invert_icon_color(icon)
-
-    def invert_icon_color(self, icon):
-        invertedIcon = QtGui.QIcon()
-        for mode in (QtGui.QIcon.Normal, QtGui.QIcon.Disabled,
-                     QtGui.QIcon.Active, QtGui.QIcon.Selected):
-            for state in (QtGui.QIcon.On, QtGui.QIcon.Off):
-                avalSize = icon.availableSizes(mode, state)
-                for size in avalSize:
-                    tempImage = QtGui.QImage(icon.pixmap(size, mode, state).toImage())
-                    tempImage.invertPixels()
-                    invertedIcon.addPixmap(QtGui.QPixmap.fromImage(tempImage), mode, state)
-        return invertedIcon
 
 
 def get_qt_app(*args, **kwargs):
@@ -245,4 +239,4 @@ if __name__ == "__main__":
     sisyphos_gui.show()
 
     if created:
-        app.exec_()
+        sys.exit(app.exec_())

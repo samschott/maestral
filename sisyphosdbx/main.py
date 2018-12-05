@@ -9,22 +9,45 @@ import time
 import requests
 import shutil
 import functools
+from blinker import signal
+from threading import Thread
 from dropbox import files
 
 from sisyphosdbx.client import SisyphosClient
-from sisyphosdbx.monitor import Monitor
+from sisyphosdbx.monitor import Monitor, lock
 from sisyphosdbx.config.main import CONF
 
 import logging
 
 logger = logging.getLogger(__name__)
-root_logger = logging.getLogger()
-root_logger.setLevel(logging.DEBUG)
 
-for logger_name in ["sisyphosdbx.monitor", "sisyphosdbx.client"]:
+#root_logger = logger = logging.getLogger()
+#root_logger.addHandler(logging.StreamHandler())
+#root_logger.setLevel(logging.DEBUG)
+
+for logger_name in ["sisyphosdbx.client"]:
     sdbx_logger = logging.getLogger(logger_name)
     sdbx_logger.addHandler(logging.StreamHandler())
     sdbx_logger.setLevel(logging.DEBUG)
+
+
+ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check" +
+             "your internet connection and try again later.")
+
+
+def folder_download_worker(client, dbx_path):
+    """
+    Wroker to to download a whole Dropbox directory in the background.
+
+    :param class client: :class:`SisyphosClient` instance.
+    :param str dbx_path: Path to directory on Dropbox.
+    """
+
+    with lock:
+        try:
+            client.get_remote_dropbox(dbx_path)
+        except requests.exceptions.RequestException:
+            print(ERROR_MSG)
 
 
 def with_sync_paused(f):
@@ -51,20 +74,17 @@ def if_connected(f):
     Decorator which checks for connection to Dropbox API before a method call.
     """
 
-    error_msg = ("Cannot connect to Dropbox servers. Please  check" +
-                 "your internet connection and try again later.")
-
     @functools.wraps(f)
     def wrapper(self, *args, **kwargs):
         # pause syncing
         if not self.connected:
-            print(error_msg)
+            print(ERROR_MSG)
             return False
         try:
             res = f(self, *args, **kwargs)
             return res
         except requests.exceptions.RequestException:
-            print(error_msg)
+            print(ERROR_MSG)
             return False
 
     return wrapper
@@ -87,6 +107,7 @@ class SisyphosDBX(object):
                   CONF.get("internal", "cursor") == "" or
                   not osp.isdir(CONF.get("main", "path")))
     paused_by_user = False
+    download_complete_signal = signal("download_complete_signal")
 
     def __init__(self, run=True):
 
@@ -103,7 +124,7 @@ class SisyphosDBX(object):
             CONF.set("internal", "cursor", "")
             CONF.set("internal", "lastsync", None)
 
-            success = self.get_remote_dropbox()
+            success = self.client.get_remote_dropbox()
             if success:
                 CONF.set("internal", "lastsync", time.time())
 
@@ -127,19 +148,20 @@ class SisyphosDBX(object):
         self.client.notify.ON = boolean
 
     @if_connected
-    def get_remote_dropbox(self):
+    def get_remote_dropbox_async(self, dbx_path):
         """
-        Downloads the full Dropbox, apart form excluded folders, to the
-        configured local Dropbox folder. Is run on first sync.
-        """
-        content_list = self.client.list_folder(dbx_path="", recursive=True,
-                                               include_deleted=False, limit=500)
-        if not content_list:
-            return
-        else:
-            self.monitor.remote_q.put(content_list)  # queue for download
+        Runs `client.get_remote_dropbox` in the background, downloads the full
+        Dropbox folder to the local drive.
 
-    def pause_sync(self):
+        :param str dbx_path: Path to folder on Dropbox.
+        """
+
+        self.download_thread = Thread(target=folder_download_worker,
+                                      args=(self.client, dbx_path),
+                                      name="SisyphosFolderDownloader")
+        self.download_thread.start()
+
+    def pause_sync(self, overload=None):
         """
         Pauses the syncing threads if running.
         """
@@ -147,7 +169,7 @@ class SisyphosDBX(object):
         self.monitor.stop()
         logger.info("Syncing paused")
 
-    def resume_sync(self):
+    def resume_sync(self, overload=None):
         """
         Resumes the syncing threads if paused.
         """
@@ -179,18 +201,16 @@ class SisyphosDBX(object):
         if dbx_path not in folders:
             folders.append(dbx_path)
 
-        self.client.excluded_folders = folders
-        CONF.set("main", "excluded_folders", folders)
-
         # remove folder from local drive
         local_path = self.client.to_local_path(dbx_path)
         if osp.isdir(local_path):
             shutil.rmtree(local_path)
 
+        self.client.excluded_folders = folders
+        CONF.set("main", "excluded_folders", folders)
         self.client.set_local_rev(dbx_path, None)
 
     @if_connected
-    @with_sync_paused
     def include_folder(self, dbx_path):
         """
         Includes folder in sync and queues it for downloads. It is safe to call
@@ -198,6 +218,8 @@ class SisyphosDBX(object):
         not be downloaded again.
 
         :param str dbx_path: Dropbox folder to include.
+        :return: `True` or `False` on success or failure, respectively.
+        :rtype: bool
         """
 
         dbx_path = dbx_path.lower()
@@ -215,12 +237,7 @@ class SisyphosDBX(object):
 
         # download folder contents from Dropbox
         logger.debug("Downloading added folder.")
-        content_list = self.client.list_folder(dbx_path, recursive=True,
-                                               include_deleted=False, limit=500)
-        if not content_list:
-            return
-        else:
-            self.monitor.remote_q.put(content_list)  # queue for download
+        self.get_remote_dropbox_async(dbx_path)
 
     @if_connected
     def select_excluded_folders(self):
@@ -365,10 +382,5 @@ def yesno(message, default):
         print("Please answer YES or NO.")
 
 
-def main():
-    sdbx = SisyphosDBX()
-    sdbx.start_sync()
-
-
 if __name__ == "__main__":
-    main()
+    sdbx = SisyphosDBX()
