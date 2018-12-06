@@ -289,6 +289,7 @@ def remote_worker(client, running):
 
         try:
             # wait for remote changes (times out after 120 secs)
+            logger.info("Up to date")
             has_changes = client.wait_for_remote_changes(timeout=120)
 
             running.wait()  # if not running, wait until resumed
@@ -299,7 +300,7 @@ def remote_worker(client, running):
                 with lock:
                     changes = client.list_remote_changes()
                     client.apply_remote_changes(changes)
-                logger.info("Up to date")
+            logger.info("Up to date")
 
         except requests.exceptions.RequestException:
             logger.debug("Connection lost")
@@ -321,10 +322,14 @@ def upload_worker(dbx_uploader, local_q, running):
 
     while True:
 
-        # running.wait()  # if not running, wait until resumed
+        with lock:
+            pass  # wait until potential downloads are complete
 
         events = []
         events.append(local_q.get())  # blocks until something is in queue
+
+        with lock:
+            pass  # wait until potential downloads are complete
 
         # wait for delay after last event has been registered
         t0 = time.time()
@@ -339,25 +344,42 @@ def upload_worker(dbx_uploader, local_q, running):
         # check for folder move events
         def is_moved_folder(x):
             is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
-            return is_moved_event and x.is_directory
+            return (is_moved_event and x.is_directory)
 
-        moved_fodler_events = [x for x in events if is_moved_folder(x)]
+        moved_folder_events = [x for x in events if is_moved_folder(x)]
 
         # check for children of moved folders
         def is_moved_child(x, parent_event):
             is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
             is_child = (x.src_path.startswith(parent_event.src_path) and
                         x is not parent_event)
-            return is_moved_event and is_child
+            return (is_moved_event and is_child)
 
         child_move_events = []
-        for parent_event in moved_fodler_events:
+        for parent_event in moved_folder_events:
             children = [x for x in events if is_moved_child(x, parent_event)]
             child_move_events += children
 
-        # Remove all child_move_events from events, move the full folder at
-        # once on Dropbox instead.
+        # Remove all child_move_events, move the full folder at once on Dropbox
         events = set(events) - set(child_move_events)
+
+        # Combine created and modified events of the same file
+        def is_created(x):
+            return (x.event_type is EVENT_TYPE_CREATED)
+
+        created_file_events = [x for x in events if is_created(x)]
+
+        def is_modified_duplicate(x, original):
+            is_modified_event = (x.event_type is EVENT_TYPE_MODIFIED)
+            is_duplicate = (x.src_path == original.src_path)
+            return (is_modified_event and is_duplicate)
+
+        duplicate_modified_events = []
+        for event in created_file_events:
+            duplicates = [x for x in events if is_modified_duplicate(x, event)]
+            duplicate_modified_events += duplicates
+
+        events = set(events) - set(duplicate_modified_events)
 
         # process all events:
         with lock:
