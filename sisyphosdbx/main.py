@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 #root_logger.addHandler(logging.StreamHandler())
 #root_logger.setLevel(logging.DEBUG)
 
-for logger_name in ["sisyphosdbx.client"]:
+for logger_name in ["sisyphosdbx.client", "sisyphosdbx.main"]:
     sdbx_logger = logging.getLogger(logger_name)
     sdbx_logger.addHandler(logging.StreamHandler())
     sdbx_logger.setLevel(logging.DEBUG)
@@ -46,6 +46,7 @@ def folder_download_worker(client, dbx_path):
     with lock:
         try:
             client.get_remote_dropbox(dbx_path)
+            logger.info("Up to date")
         except requests.exceptions.RequestException:
             print(ERROR_MSG)
 
@@ -185,7 +186,6 @@ class SisyphosDBX(object):
         self.monitor.stop()
         self.client.unlink()
 
-    @with_sync_paused
     def exclude_folder(self, dbx_path):
         """
         Excludes folder from sync and deletes local files. It is safe to call
@@ -201,14 +201,14 @@ class SisyphosDBX(object):
         if dbx_path not in folders:
             folders.append(dbx_path)
 
+        self.client.excluded_folders = folders
+        CONF.set("main", "excluded_folders", folders)
+        self.client.set_local_rev(dbx_path, None)
+
         # remove folder from local drive
         local_path = self.client.to_local_path(dbx_path)
         if osp.isdir(local_path):
             shutil.rmtree(local_path)
-
-        self.client.excluded_folders = folders
-        CONF.set("main", "excluded_folders", folders)
-        self.client.set_local_rev(dbx_path, None)
 
     @if_connected
     def include_folder(self, dbx_path):
@@ -342,7 +342,7 @@ class SisyphosDBX(object):
 
     def __str__(self):
         if self.connected:
-            email = CONF.get("account", "mail")
+            email = CONF.get("account", "email")
             account_type = CONF.get("account", "type")
             inner = "{0}, {1})".format(email, account_type)
         else:

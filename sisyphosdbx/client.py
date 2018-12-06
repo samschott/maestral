@@ -3,6 +3,8 @@ import os.path as osp
 import time
 import datetime
 import logging
+from concurrent.futures import ThreadPoolExecutor
+import threading
 import pickle
 from tqdm import tqdm
 import shutil
@@ -187,6 +189,8 @@ class SisyphosClient(object):
 
     notify = Notipy()
 
+    _rev_lock = threading.Lock()
+
     def __init__(self):
         # check if I specified app_key and app_secret
         if self.APP_KEY == "" or self.APP_SECRET == "":
@@ -292,9 +296,10 @@ class SisyphosClient(object):
         dbx_path = dbx_path.lower()
 
         if rev is None:  # remove entries for dbx_path and its children
-            for path in dict(self.rev_dict):
-                if path.startswith(dbx_path):
-                    self.rev_dict.pop(path, None)
+            with self._rev_lock:
+                for path in dict(self.rev_dict):
+                    if path.startswith(dbx_path):
+                        self.rev_dict.pop(path, None)
         else:
             self.rev_dict[dbx_path] = rev
             # set all parent revs to 'folder'
@@ -302,9 +307,9 @@ class SisyphosClient(object):
             while dirname is not "/":
                 self.rev_dict[dirname] = "folder"
                 dirname = osp.dirname(dirname)
-
-        with open(self.rev_file, "wb+") as f:
-            pickle.dump(self.rev_dict, f, pickle.HIGHEST_PROTOCOL)
+        with self._rev_lock:
+            with open(self.rev_file, "wb+") as f:
+                pickle.dump(self.rev_dict, f, pickle.HIGHEST_PROTOCOL)
 
     def get_account_info(self):
         """
@@ -706,7 +711,7 @@ class SisyphosClient(object):
 
         return results
 
-    def apply_remote_changes(self, results, check_excluded=True):
+    def apply_remote_changes(self, results):
         """
         Applies remote changes to local folder since :ivar:`last_cursor`.
         Call this on the result of :method:`list_remote_changes`. The saved
@@ -717,10 +722,10 @@ class SisyphosClient(object):
         """
         # apply remote changes
         for result in results:
-            for entry in result.entries:
-                success = self._create_local_entry(entry, check_excluded)
-                if success is False:
-                    return False
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                success = executor.map(self._create_local_entry, result.entries)
+            if all(success) is False:
+                return False
 
             self.last_cursor = result.cursor
             CONF.set("internal", "cursor", result.cursor)

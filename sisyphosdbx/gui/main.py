@@ -95,8 +95,9 @@ class InfoHanlder(logging.Handler, QtCore.QObject):
 
 info_handler = InfoHanlder()
 info_handler.setLevel(logging.INFO)
-sdbx_logger = logging.getLogger("sisyphosdbx")
-sdbx_logger.addHandler(info_handler)
+for sdbx_logger in ["sisyphosdbx.monitor", "sisyphosdbx.main", "sisyphosdbx.client"]:
+    sdbx_logger = logging.getLogger("sisyphosdbx")
+    sdbx_logger.addHandler(info_handler)
 
 
 class SisyphosApp(QtWidgets.QSystemTrayIcon):

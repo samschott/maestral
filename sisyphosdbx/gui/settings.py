@@ -38,8 +38,8 @@ class SettingsWindow(QtWidgets.QWidget):
         # load user interface layout from .ui file
         uic.loadUi(osp.join(_root, "settings.ui"), self)
         self.setFixedSize(580, 380)
-        self.generic_folder_icon = QtGui.QIcon(_root + "/resources/GenericFolderIcon.png")
-        self.home_folder_icon = QtGui.QIcon(_root + "/resources/HomeFolderIcon.png")
+        self.generic_folder_icon = QtGui.QIcon(_root + "/resources/GenericFolderIcon.icns")
+        self.home_folder_icon = QtGui.QIcon(_root + "/resources/HomeFolderIcon.icns")
 
         self.sdbx = sdbx
         self.folders_dialog = FoldersDialog(self.sdbx, parent=self)
