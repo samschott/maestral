@@ -95,8 +95,8 @@ class InfoHanlder(logging.Handler, QtCore.QObject):
 
 info_handler = InfoHanlder()
 info_handler.setLevel(logging.INFO)
-for sdbx_logger in ["sisyphosdbx.monitor", "sisyphosdbx.main", "sisyphosdbx.client"]:
-    sdbx_logger = logging.getLogger("sisyphosdbx")
+for logger_name in ["sisyphosdbx.monitor", "sisyphosdbx.main", "sisyphosdbx.client"]:
+    sdbx_logger = logging.getLogger(logger_name)
     sdbx_logger.addHandler(info_handler)
 
 
@@ -232,8 +232,9 @@ def get_qt_app(*args, **kwargs):
     return app, created
 
 
-if __name__ == "__main__!":
+if __name__ == "__main__":
     app, created = get_qt_app()
+    app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
     app.setQuitOnLastWindowClosed(False)
 
     sisyphos_gui = SisyphosApp()
