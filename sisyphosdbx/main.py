@@ -6,7 +6,7 @@ __author__ = "Sam Schott"
 import os
 import os.path as osp
 import time
-import requests
+# import requests
 import shutil
 import functools
 from blinker import signal
@@ -14,41 +14,42 @@ from threading import Thread
 from dropbox import files
 
 from sisyphosdbx.client import SisyphosClient
-from sisyphosdbx.monitor import Monitor, lock
+from sisyphosdbx.monitor import Monitor
 from sisyphosdbx.config.main import CONF
 
 import logging
 
 logger = logging.getLogger(__name__)
 
-#root_logger = logger = logging.getLogger()
-#root_logger.addHandler(logging.StreamHandler())
-#root_logger.setLevel(logging.DEBUG)
-
-for logger_name in ["sisyphosdbx.client", "sisyphosdbx.main"]:
+for logger_name in ["sisyphosdbx.main", "sisyphosdbx.client", "sisyphosdbx.monitor"]:
     sdbx_logger = logging.getLogger(logger_name)
     sdbx_logger.addHandler(logging.StreamHandler())
-    sdbx_logger.setLevel(logging.DEBUG)
+    sdbx_logger.setLevel(logging.INFO)
 
 
-ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check" +
+ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
              "your internet connection and try again later.")
 
 
-def folder_download_worker(client, dbx_path):
+def folder_download_worker(client, dbx_path, lock):
     """
     Wroker to to download a whole Dropbox directory in the background.
 
     :param class client: :class:`SisyphosClient` instance.
     :param str dbx_path: Path to directory on Dropbox.
     """
+    download_complete_signal = signal("download_complete_signal")
 
     with lock:
         try:
             client.get_remote_dropbox(dbx_path)
             logger.info("Up to date")
-        except requests.exceptions.RequestException:
-            print(ERROR_MSG)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as e:  # requests.exceptions.RequestException
+            logger.debug("{0}: {1}".format(ERROR_MSG, e))
+
+        download_complete_signal.send()
 
 
 def with_sync_paused(f):
@@ -84,8 +85,10 @@ def if_connected(f):
         try:
             res = f(self, *args, **kwargs)
             return res
-        except requests.exceptions.RequestException:
-            print(ERROR_MSG)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as e:  # requests.exceptions.RequestException
+            logger.debug("{0}: {1}".format(ERROR_MSG, e))
             return False
 
     return wrapper
@@ -115,7 +118,6 @@ class SisyphosDBX(object):
         self.client = SisyphosClient()
         # monitor needs to be created before any decorators are called
         self.monitor = Monitor(self.client)
-        self.monitor.stopped_by_user = True  # hold off on syncing anything
 
         if self.FIRST_SYNC:
             self.set_dropbox_directory()
@@ -130,7 +132,7 @@ class SisyphosDBX(object):
                 CONF.set("internal", "lastsync", time.time())
 
         if run:
-            self.resume_sync()
+            self.start_sync()
 
     @property
     def syncing(self):
@@ -156,34 +158,52 @@ class SisyphosDBX(object):
 
         :param str dbx_path: Path to folder on Dropbox.
         """
+        self.monitor.pause()
 
-        self.download_thread = Thread(target=folder_download_worker,
-                                      args=(self.client, dbx_path),
-                                      name="SisyphosFolderDownloader")
+        self.download_thread = Thread(
+                target=folder_download_worker,
+                args=(self.client, dbx_path, self.monitor.lock),
+                name="SisyphosFolderDownloader")
         self.download_thread.start()
+        self.download_complete_signal.connect(self.resume_sync)
 
-    def pause_sync(self, overload=None):
+    def start_sync(self, overload=None):
         """
-        Pauses the syncing threads if running.
+        Creates syncing threads and starts syncing.
         """
-        self.monitor.stopped_by_user = True
-        self.monitor.stop()
-        logger.info("Syncing paused")
+        self.monitor.paused_by_user = False
+        self.monitor.start()
+        logger.info("Up to date")
 
     def resume_sync(self, overload=None):
         """
         Resumes the syncing threads if paused.
         """
-        self.monitor.stopped_by_user = False
-        self.monitor.start()
+        self.monitor.paused_by_user = False
+        self.monitor.resume()
+        logger.info("Up to date")
+
+    def pause_sync(self, overload=None):
+        """
+        Pauses the syncing threads if running.
+        """
+        self.monitor.paused_by_user = True
+        self.monitor.pause()
+        logger.info("Syncing paused")
+
+    def stop_sync(self, overload=None):
+        """
+        Stops the syncing threads if running, destroys observer thread.
+        """
+        self.monitor.paused_by_user = True
+        self.monitor.stop()
 
     def unlink(self):
         """
         Unlinks the configured Dropbox account but leaves all downloaded files
         in place. All syncing metadata will be removed as well.
         """
-        self.monitor.stopped_by_user = True
-        self.monitor.stop()
+        self.stop_sync()
         self.client.unlink()
 
     def exclude_folder(self, dbx_path):
