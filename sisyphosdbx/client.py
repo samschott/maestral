@@ -147,9 +147,6 @@ class SisyphosClient(object):
     All Dropbox API errors are caught and handled here. ConnectionErrors will
     be cought and handled by :class:`RemoteMonitor` instead.
 
-    :ivar flagged: List keeping track of recently updated file/folder paths.
-        Entries will be removed by :class:`LocalMonitor` once it delects the
-        corresponding file change.
     :ivar last_cursor: Last cursor from Dropbox which was synced. The value
         is updated and saved to config file on every successful sync.
     :ivar exlcuded_files: List containing all files excluded from sync.
@@ -181,7 +178,6 @@ class SisyphosClient(object):
     exlcuded_files = CONF.get("main", "exlcuded_files")
     excluded_folders = CONF.get("main", "excluded_folders")
     last_cursor = CONF.get("internal", "cursor")
-    flagged = []
 
     dbx = None
     auth = None
@@ -294,20 +290,18 @@ class SisyphosClient(object):
         :param str rev: Revision number as string.
         """
         dbx_path = dbx_path.lower()
-
-        if rev is None:  # remove entries for dbx_path and its children
-            with self._rev_lock:
+        with self._rev_lock:
+            if rev is None:  # remove entries for dbx_path and its children
                 for path in dict(self.rev_dict):
                     if path.startswith(dbx_path):
                         self.rev_dict.pop(path, None)
-        else:
-            self.rev_dict[dbx_path] = rev
-            # set all parent revs to 'folder'
-            dirname = osp.dirname(dbx_path)
-            while dirname is not "/":
-                self.rev_dict[dirname] = "folder"
-                dirname = osp.dirname(dirname)
-        with self._rev_lock:
+            else:
+                self.rev_dict[dbx_path] = rev
+                # set all parent revs to 'folder'
+                dirname = osp.dirname(dbx_path)
+                while dirname is not "/":
+                    self.rev_dict[dirname] = "folder"
+                    dirname = osp.dirname(dirname)
             with open(self.rev_file, "wb+") as f:
                 pickle.dump(self.rev_dict, f, pickle.HIGHEST_PROTOCOL)
 
@@ -417,7 +411,10 @@ class SisyphosClient(object):
         dst_path_directory = osp.dirname(dst_path)
 
         if not osp.exists(dst_path_directory):
-            os.makedirs(dst_path_directory)
+            try:
+                os.makedirs(dst_path_directory)
+            except FileExistsError:
+                pass
 
         try:
             md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
@@ -722,7 +719,7 @@ class SisyphosClient(object):
         """
         # apply remote changes
         for result in results:
-            with ThreadPoolExecutor(max_workers=10) as executor:
+            with ThreadPoolExecutor() as executor:  # defaults to 5x CPU core number of workers
                 success = executor.map(self._create_local_entry, result.entries)
             if all(success) is False:
                 return False
@@ -772,8 +769,6 @@ class SisyphosClient(object):
 
             # save revision metadata
             self.set_local_rev(md.path_display, md.rev)
-            # flag file as just downloaded
-            self.flagged.append(md.path_display)
 
             return True
 
@@ -786,8 +781,10 @@ class SisyphosClient(object):
             dst_path = self.to_local_path(entry.path_display)
 
             if not osp.isdir(dst_path):
-                self.flagged.append(entry.path_display)
-                os.makedirs(dst_path)
+                try:
+                    os.makedirs(dst_path)
+                except FileExistsError:
+                    pass
 
             self.set_local_rev(entry.path_display, "folder")
 
@@ -803,10 +800,8 @@ class SisyphosClient(object):
             dst_path = self.to_local_path(entry.path_display)
 
             if osp.isdir(dst_path):
-                self.flagged.append(entry.path_display)
                 shutil.rmtree(dst_path)
             elif osp.isfile(dst_path):
-                self.flagged.append(entry.path_display)
                 os.remove(dst_path)
 
             self.set_local_rev(entry.path_display, None)

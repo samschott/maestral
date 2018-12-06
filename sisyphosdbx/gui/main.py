@@ -196,7 +196,7 @@ class SisyphosApp(QtWidgets.QSystemTrayIcon):
             self.startstopAction.setText("Pause Syncing")
 
     def quit_(self):
-        self.sdbx.pause_sync()
+        self.sdbx.stop_sync()
         self.deleteLater()
         QtCore.QCoreApplication.quit()
 
@@ -232,7 +232,7 @@ def get_qt_app(*args, **kwargs):
     return app, created
 
 
-if __name__ == "__main__":
+if __name__ == "__main__!":
     app, created = get_qt_app()
     app.setQuitOnLastWindowClosed(False)
 
