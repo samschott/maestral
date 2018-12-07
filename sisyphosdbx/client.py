@@ -71,6 +71,8 @@ class OAuth2Session(object):
     :ivar app_key: String containing app key provided by Dropbox.
     :ivar app_secret: String containing app secret provided by Dropbox.
     """
+    APP_KEY = os.environ["DROPBOX_API_KEY"]
+    APP_SECRET = os.environ["DROPBOX_API_SECRET"]
 
     TOKEN_FILE = osp.join(get_conf_path(SUBFOLDER), "o2_store.txt")
     auth_flow = None
@@ -80,8 +82,12 @@ class OAuth2Session(object):
     user_id = ""
 
     def __init__(self, app_key="", app_secret=""):
+        # check if I specified app_key and app_secret
+        if self.APP_KEY == "" or self.APP_SECRET == "":
+            exit(" x You need to set your APP_KEY and APP_SECRET!")
+
         # prepare auth flow
-        self.auth_flow = DropboxOAuth2FlowNoRedirect(app_key, app_secret)
+        self.auth_flow = DropboxOAuth2FlowNoRedirect(self.APP_KEY, self.APP_SECRET)
         self.load_creds()
 
     def link(self):
@@ -171,8 +177,6 @@ class SisyphosClient(object):
         config file.
     """
 
-    APP_KEY = os.environ["DROPBOX_API_KEY"]
-    APP_SECRET = os.environ["DROPBOX_API_SECRET"]
     SDK_VERSION = "2.0"
 
     exlcuded_files = CONF.get("main", "exlcuded_files")
@@ -188,12 +192,9 @@ class SisyphosClient(object):
     _rev_lock = threading.Lock()
 
     def __init__(self):
-        # check if I specified app_key and app_secret
-        if self.APP_KEY == "" or self.APP_SECRET == "":
-            exit(" x You need to set your APP_KEY and APP_SECRET!")
 
         # get Dropbox session
-        self.auth = OAuth2Session(self.APP_KEY, self.APP_SECRET)
+        self.auth = OAuth2Session()
         self.last_longpoll = None
         self.backoff = 0
 
