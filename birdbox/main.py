@@ -39,6 +39,8 @@ def folder_download_worker(client, dbx_path, lock):
     """
     download_complete_signal = signal("download_complete_signal")
 
+    time.sleep(2)  # wait for pausing to take effect
+
     with lock:
         try:
             client.get_remote_dropbox(dbx_path)
@@ -50,6 +52,7 @@ def folder_download_worker(client, dbx_path, lock):
         except CONNECTION_ERRORS as e:
             logger.debug("{0}: {1}".format(ERROR_MSG, e))
 
+        time.sleep(2)
         download_complete_signal.send()
 
 
@@ -159,14 +162,14 @@ class BirdBox(object):
 
         :param str dbx_path: Path to folder on Dropbox.
         """
-        self.monitor.pause()
+        self.monitor.fh_running.clear()
 
         self.download_thread = Thread(
                 target=folder_download_worker,
                 args=(self.client, dbx_path, self.monitor.lock),
                 name="BirdBoxFolderDownloader")
         self.download_thread.start()
-        self.download_complete_signal.connect(self.monitor.resume)
+        self.download_complete_signal.connect(self.monitor.fh_running.set)
 
     def start_sync(self, overload=None):
         """
