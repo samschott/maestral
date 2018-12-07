@@ -13,18 +13,18 @@ from blinker import signal
 from threading import Thread
 from dropbox import files
 
-from sisyphosdbx.client import SisyphosClient
-from sisyphosdbx.monitor import Monitor
-from sisyphosdbx.config.main import CONF
+from birdbox.client import BirdBoxClient
+from birdbox.monitor import BirdBoxMonitor
+from birdbox.config.main import CONF
 
 import logging
 
 logger = logging.getLogger(__name__)
 
-for logger_name in ["sisyphosdbx.main", "sisyphosdbx.client", "sisyphosdbx.monitor"]:
-    sdbx_logger = logging.getLogger(logger_name)
-    sdbx_logger.addHandler(logging.StreamHandler())
-    sdbx_logger.setLevel(logging.INFO)
+for logger_name in ["birdbox.main", "birdbox.client", "birdbox.monitor"]:
+    bb_logger = logging.getLogger(logger_name)
+    bb_logger.addHandler(logging.StreamHandler())
+    bb_logger.setLevel(logging.INFO)
 
 
 ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
@@ -35,7 +35,7 @@ def folder_download_worker(client, dbx_path, lock):
     """
     Wroker to to download a whole Dropbox directory in the background.
 
-    :param class client: :class:`SisyphosClient` instance.
+    :param class client: :class:`BirdBoxClient` instance.
     :param str dbx_path: Path to directory on Dropbox.
     """
     download_complete_signal = signal("download_complete_signal")
@@ -94,14 +94,14 @@ def if_connected(f):
     return wrapper
 
 
-class SisyphosDBX(object):
+class BirdBox(object):
     """
     An open source Dropbox client for macOS and Linux to syncing a local folder
     with your Dropbox account. It currently only supports excluding top-level
     folders from the sync.
 
-    SisyphosDBX gracefully handles lost internet connections and will detect
-    changes in between sessions or while SisyphosDBX has been idle.
+    BirdBox gracefully handles lost internet connections and will detect
+    changes in between sessions or while BirdBox has been idle.
 
     :ivar bool syncing: Bool indicating if syncing is running or paused.
     :ivar connected: Bool indicating if Dropbox servers can be reached.
@@ -115,9 +115,9 @@ class SisyphosDBX(object):
 
     def __init__(self, run=True):
 
-        self.client = SisyphosClient()
+        self.client = BirdBoxClient()
         # monitor needs to be created before any decorators are called
-        self.monitor = Monitor(self.client)
+        self.monitor = BirdBoxMonitor(self.client)
 
         if self.FIRST_SYNC:
             self.set_dropbox_directory()
@@ -163,7 +163,7 @@ class SisyphosDBX(object):
         self.download_thread = Thread(
                 target=folder_download_worker,
                 args=(self.client, dbx_path, self.monitor.lock),
-                name="SisyphosFolderDownloader")
+                name="BirdBoxFolderDownloader")
         self.download_thread.start()
         self.download_complete_signal.connect(self.resume_sync)
 
@@ -357,7 +357,7 @@ class SisyphosDBX(object):
         return dropbox_path
 
     def __repr__(self):
-        return "SisyphosDBX(account_id={0}, user_id={1})".format(
+        return "BirdBox(account_id={0}, user_id={1})".format(
                 self.client.auth.account_id, self.client.auth.user_id)
 
     def __str__(self):
@@ -368,7 +368,7 @@ class SisyphosDBX(object):
         else:
             inner = "Connecting..."
 
-        return "SisyphosDBX({0})".format(inner)
+        return "BirdBox({0})".format(inner)
 
 
 def yesno(message, default):
@@ -403,4 +403,4 @@ def yesno(message, default):
 
 
 if __name__ == "__main__":
-    sdbx = SisyphosDBX()
+    bb = BirdBox()

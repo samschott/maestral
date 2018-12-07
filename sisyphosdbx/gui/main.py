@@ -8,14 +8,14 @@ import webbrowser
 from blinker import signal
 from PyQt5 import QtCore, QtWidgets, QtGui
 
-from sisyphosdbx.main import SisyphosDBX
-from sisyphosdbx.gui.settings import SettingsWindow
-from sisyphosdbx.config.main import CONF
+from birdbox.main import BirdBox
+from birdbox.gui.settings import SettingsWindow
+from birdbox.config.main import CONF
 
 _root = QtCore.QFileInfo(__file__).absolutePath()
 
 
-class TestSDBX(object):
+class TestBB(object):
 
     class TestClient(object):
 
@@ -95,12 +95,12 @@ class InfoHanlder(logging.Handler, QtCore.QObject):
 
 info_handler = InfoHanlder()
 info_handler.setLevel(logging.INFO)
-for logger_name in ["sisyphosdbx.monitor", "sisyphosdbx.main", "sisyphosdbx.client"]:
-    sdbx_logger = logging.getLogger(logger_name)
-    sdbx_logger.addHandler(info_handler)
+for logger_name in ["birdbox.monitor", "birdbox.main", "birdbox.client"]:
+    bb_logger = logging.getLogger(logger_name)
+    bb_logger.addHandler(info_handler)
 
 
-class SisyphosApp(QtWidgets.QSystemTrayIcon):
+class BirdBoxApp(QtWidgets.QSystemTrayIcon):
 
     DARK = os.popen("defaults read -g AppleInterfaceStyle").read() == "Dark"
 
@@ -119,11 +119,11 @@ class SisyphosApp(QtWidgets.QSystemTrayIcon):
         # initialize tray widget
         QtWidgets.QSystemTrayIcon.__init__(self, self.icon_disconnected, parent)
 
-        # start SisyphosDBX
-        self.sdbx = SisyphosDBX(run=False)
+        # start BirdBox
+        self.bb = BirdBox(run=False)
 
         # create settings window
-        self.settings = SettingsWindow(self.sdbx, parent=None)
+        self.settings = SettingsWindow(self.bb, parent=None)
 
         # create context menu
         self.menu = QtWidgets.QMenu(parent)
@@ -133,14 +133,14 @@ class SisyphosApp(QtWidgets.QSystemTrayIcon):
         self.accountUsageAction = self.menu.addAction(CONF.get("account", "usage"))
         self.accountUsageAction.setEnabled(False)
         self.separator2 = self.menu.addSeparator()
-        if self.sdbx.connected and self.sdbx.syncing:
+        if self.bb.connected and self.bb.syncing:
             self.statusAction = self.menu.addAction("Up to date")
-        elif self.sdbx.connected:
+        elif self.bb.connected:
             self.statusAction = self.menu.addAction("Syncing paused")
-        elif not self.sdbx.connected:
+        elif not self.bb.connected:
             self.statusAction = self.menu.addAction("Connecting...")
         self.statusAction.setEnabled(False)
-        if self.sdbx.syncing:
+        if self.bb.syncing:
             self.startstopAction = self.menu.addAction("Pause Syncing")
         else:
             self.startstopAction = self.menu.addAction("Resume Syncing")
@@ -148,7 +148,7 @@ class SisyphosApp(QtWidgets.QSystemTrayIcon):
         self.preferencesAction = self.menu.addAction("Preferences...")
         self.helpAction = self.menu.addAction("Help Center")
         self.separator4 = self.menu.addSeparator()
-        self.quitAction = self.menu.addAction("Quit Sisyphos DBX")
+        self.quitAction = self.menu.addAction("Quit BirdBox DBX")
         self.setContextMenu(self.menu)
 
         # connect UI to signals
@@ -175,11 +175,11 @@ class SisyphosApp(QtWidgets.QSystemTrayIcon):
         Opens Dropbox directory in systems file explorer.
         """
         if platform.system() == "Windows":
-            os.startfile(self.sdbx.client.dropbox_path)
+            os.startfile(self.bb.client.dropbox_path)
         elif platform.system() == "Darwin":
-            subprocess.Popen(["open", self.sdbx.client.dropbox_path])
+            subprocess.Popen(["open", self.bb.client.dropbox_path])
         else:
-            subprocess.Popen(["xdg-open", self.sdbx.client.dropbox_path])
+            subprocess.Popen(["xdg-open", self.bb.client.dropbox_path])
 
     def on_website_clicked(self):
         webbrowser.open_new("https://www.dropbox.com/")
@@ -189,14 +189,14 @@ class SisyphosApp(QtWidgets.QSystemTrayIcon):
 
     def on_start_stop_clicked(self):
         if self.startstopAction.text() == "Pause Syncing":
-            self.sdbx.pause_sync()
+            self.bb.pause_sync()
             self.startstopAction.setText("Resume Syncing")
         elif self.startstopAction.text() == "Resume Syncing":
-            self.sdbx.resume_sync()
+            self.bb.resume_sync()
             self.startstopAction.setText("Pause Syncing")
 
     def quit_(self):
-        self.sdbx.stop_sync()
+        self.bb.stop_sync()
         self.deleteLater()
         QtCore.QCoreApplication.quit()
 
@@ -237,8 +237,8 @@ if __name__ == "__main__":
     app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
     app.setQuitOnLastWindowClosed(False)
 
-    sisyphos_gui = SisyphosApp()
-    sisyphos_gui.show()
+    birdbox_gui = BirdBoxApp()
+    birdbox_gui.show()
 
     if created:
         sys.exit(app.exec_())

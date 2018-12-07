@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>SisyphosDBXSettings</class>
- <widget class="QWidget" name="SisyphosDBXSettings">
+ <class>BirdBoxSettings</class>
+ <widget class="QWidget" name="BirdBoxSettings">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Sisyphos DBX Settings</string>
+   <string>BirdBox Settings</string>
   </property>
   <layout class="QGridLayout" name="gridLayout" columnstretch="1,2">
    <property name="topMargin">
@@ -140,7 +140,7 @@
    <item row="21" column="1">
     <widget class="QLabel" name="labelLink">
      <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://github.com/SamSchott/sisyphosdbx&quot;&gt;&lt;span style=&quot; font-size:12pt; text-decoration: underline; color:#2874e1;&quot;&gt;https://github.com/SamSchott/sisyphosdbx&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://github.com/SamSchott/birdbox&quot;&gt;&lt;span style=&quot; font-size:12pt; text-decoration: underline; color:#2874e1;&quot;&gt;https://github.com/SamSchott/birdbox&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="openExternalLinks">
       <bool>true</bool>
@@ -199,7 +199,7 @@
    <item row="0" column="1">
     <widget class="QCheckBox" name="checkBoxStartup">
      <property name="text">
-      <string>Start Sisyphos DBX on system startup</string>
+      <string>Start BirdBox on system startup</string>
      </property>
      <property name="checked">
       <bool>true</bool>

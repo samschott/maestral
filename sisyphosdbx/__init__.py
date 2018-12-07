@@ -1,4 +1,4 @@
 from __future__ import absolute_import
-from sisyphosdbx.client import SisyphosClient
-from sisyphosdbx.monitor import Monitor
-from sisyphosdbx.main import SisyphosDBX
+from birdbox.client import BirdBoxClient
+from birdbox.main import BirdBox
+from birdbox.gui import BirdBoxApp

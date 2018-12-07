@@ -12,10 +12,10 @@ import os.path as osp
 import time
 from qtpy import QtGui, QtCore, QtWidgets, uic
 
-from sisyphosdbx.main import __version__, __author__
-from sisyphosdbx.config.main import CONF
-from sisyphosdbx.config.base import get_home_dir
-from sisyphosdbx.gui.folders_dialog import FoldersDialog
+from birdbox.main import __version__, __author__
+from birdbox.config.main import CONF
+from birdbox.config.base import get_home_dir
+from birdbox.gui.folders_dialog import FoldersDialog
 
 _root = QtCore.QFileInfo(__file__).absolutePath()
 
@@ -33,7 +33,7 @@ class UnlinkDialog(QtWidgets.QDialog):
 
 class SettingsWindow(QtWidgets.QWidget):
 
-    def __init__(self, sdbx, parent=None):
+    def __init__(self, bb, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(osp.join(_root, "settings.ui"), self)
@@ -41,13 +41,13 @@ class SettingsWindow(QtWidgets.QWidget):
         self.generic_folder_icon = QtGui.QIcon(_root + "/resources/GenericFolderIcon.icns")
         self.home_folder_icon = QtGui.QIcon(_root + "/resources/HomeFolderIcon.icns")
 
-        self.sdbx = sdbx
-        self.folders_dialog = FoldersDialog(self.sdbx, parent=self)
+        self.bb = bb
+        self.folders_dialog = FoldersDialog(self.bb, parent=self)
         self.unlink_dialog = UnlinkDialog(self)
 
         # populate app section
         self.checkBoxStartup.setChecked(CONF.get("app", "system_startup"))
-        self.checkBoxNotifications.setChecked(self.sdbx.notify)
+        self.checkBoxNotifications.setChecked(self.bb.notify)
 
         # populate sync section
         self.setup_combobox()
@@ -63,7 +63,7 @@ class SettingsWindow(QtWidgets.QWidget):
             self.labelSpaceUsage1.setText("Your space:")
         self.labelSpaceUsage2.setText(CONF.get("account", "usage"))
         self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
-        self.unlink_dialog.accepted.connect(self.sdbx.unlink)
+        self.unlink_dialog.accepted.connect(self.bb.unlink)
 
         # populate about section
         self.labelVersion.setText("v" + __version__)
@@ -75,7 +75,7 @@ class SettingsWindow(QtWidgets.QWidget):
 
     def setup_combobox(self):
 
-        parent_dir = osp.split(self.sdbx.client.dropbox_path)[0]
+        parent_dir = osp.split(self.bb.client.dropbox_path)[0]
         short_path = self.rel_path(parent_dir)
 
         if parent_dir == get_home_dir():
@@ -110,7 +110,7 @@ class SettingsWindow(QtWidgets.QWidget):
                 self.comboBoxDropboxPath.setItemIcon(0, self.generic_folder_icon)
 
             new_path = osp.join(new_location, 'Dropbox')
-            self.sdbx.set_dropbox_directory(new_path)
+            self.bb.set_dropbox_directory(new_path)
 
     def rel_path(self, path):
         """

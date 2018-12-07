@@ -153,7 +153,7 @@
        <item row="1" column="0">
         <widget class="QLabel" name="labelAuthLink">
          <property name="text">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;To link Sisyphos DBX to your Dropbox, please click &lt;a href=&quot;http://faz.net&quot;&gt;here&lt;/a&gt; to retrieve an authorization code from Dropbox and enter it below:&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;To link BirdBox to your Dropbox account, please click &lt;a href=&quot;http://faz.net&quot;&gt;here&lt;/a&gt; to retrieve an authorization code from Dropbox and enter it below:&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
@@ -222,7 +222,7 @@
           </sizepolicy>
          </property>
          <property name="text">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Sisyphus DBX has been succcesfully linked with your Dropbox account.&lt;/p&gt;&lt;p align=&quot;center&quot;&gt;Please select the location of your Dropbox folder below. In the next step, you will be asked to choose which folders to sync.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;BirdBox has been succcesfully linked with your Dropbox account.&lt;/p&gt;&lt;p align=&quot;center&quot;&gt;Please select the location of your Dropbox folder below. In the next step, you will be asked to choose which folders to sync.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
