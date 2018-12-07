@@ -6,7 +6,7 @@ __author__ = "Sam Schott"
 import os
 import os.path as osp
 import time
-# import requests
+import requests
 import shutil
 import functools
 from blinker import signal
@@ -14,7 +14,7 @@ from threading import Thread
 from dropbox import files
 
 from birdbox.client import BirdBoxClient
-from birdbox.monitor import BirdBoxMonitor
+from birdbox.monitor import BirdBoxMonitor, CONNECTION_ERRORS
 from birdbox.config.main import CONF
 
 import logging
@@ -46,7 +46,7 @@ def folder_download_worker(client, dbx_path, lock):
             logger.info("Up to date")
         except (KeyboardInterrupt, SystemExit):
             raise
-        except Exception as e:  # requests.exceptions.RequestException
+        except CONNECTION_ERRORS as e:
             logger.debug("{0}: {1}".format(ERROR_MSG, e))
 
         download_complete_signal.send()
@@ -87,7 +87,7 @@ def if_connected(f):
             return res
         except (KeyboardInterrupt, SystemExit):
             raise
-        except Exception as e:  # requests.exceptions.RequestException
+        except CONNECTION_ERRORS as e:
             logger.debug("{0}: {1}".format(ERROR_MSG, e))
             return False
 
@@ -165,7 +165,7 @@ class BirdBox(object):
                 args=(self.client, dbx_path, self.monitor.lock),
                 name="BirdBoxFolderDownloader")
         self.download_thread.start()
-        self.download_complete_signal.connect(self.resume_sync)
+        self.download_complete_signal.connect(self.monitor.resume)
 
     def start_sync(self, overload=None):
         """

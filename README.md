@@ -1,36 +1,36 @@
-# Sisyphos DBX
+# BirdBox
 Open-source Dropbox command line client for macOS and Linux.
 
 ## About
-Sisyphos DBX is an open-source Dropbox client written in Python. The project's main goal is to provide an open-source desktop Dropbox client for platforms that aren't supported. SisyphosDBX is script-based which makes it platform-independent. It's written using the Python SDK for Dropbox API v2.
+BirdBox is an open-source Dropbox client written in Python. The project's main goal is to provide an open-source desktop Dropbox client for platforms that aren't supported. It's written using the Python SDK for Dropbox API v2.
 
-Sisyphos DBX remembers its last settings and resumes syncing after a restart. You can also pause and resume syncing while SisyphosDBX is running, add and remove exluded folders, and change the Dropbox location on the local drive.
+BirdBox remembers its last settings and resumes syncing after a restart. You can also pause and resume syncing while BirdBox is running, add and remove exluded folders, and change the Dropbox location on the local drive.
 
 ## Interactive usage (Python shell)
 
 After installation, in a Python command prompt, run
 ```Python
->>> from sisyphosdbx import SisyphosDBX
->>> sdbx = SisyphosDBX()
+>>> from birdbox import BirdBox
+>>> bb = BirdBox()
 ```
-On initial use, SisyphosDBX will ask you to link your dropbox account, give the location of your Dropbox folder on the local drive, and to specify excluded folders. It will then start syncing. Supported commands are:
+On initial use, BirdBox will ask you to link your dropbox account, give the location of your Dropbox folder on the local drive, and to specify excluded folders. It will then start syncing. Supported commands are:
 
 ```Python
->>> sdbx.pause_sync()  # pause syncing
->>> sdbx.resume_sync()  # resume syncing
+>>> bb.pause_sync()  # pause syncing
+>>> bb.resume_sync()  # resume syncing
 
 >>> path = '/Folder/On/Dropbox'  # path relative to Dropbox folder
->>> sdbx.exclude_folder(path)  # exclude Dropbox folder from sync, delete locally
->>> sdbx.include_folder(path)  # inlcude Dropbox folder in sync, download its contents
+>>> bb.exclude_folder(path)  # exclude Dropbox folder from sync, delete locally
+>>> bb.include_folder(path)  # inlcude Dropbox folder in sync, download its contents
 
->>> sdbx.set_dropbox_directory('~/Dropbox')  # give path for local dropbox folder
->>> sdbx.unlink()  # unlinks your Dropbox account but keeps are your files
+>>> bb.set_dropbox_directory('~/Dropbox')  # give path for local dropbox folder
+>>> bb.unlink()  # unlinks your Dropbox account but keeps are your files
 ```
 
 You can get information about your Dropbox account and direct access uploading, downloading and moving files / folders on your Dropbox through the SisyphosDBX API client. Some example commands include:
 
 ```Python
->>> from sisyphosdbx.client import SisyphosClient
+>>> from birdbox.client import BirdBoxClient
 >>> client = SisyphosClient()
 
 >>> client.upload(local_path, dropbox_path)  # uploads file form local_path to Dropbox
@@ -45,16 +45,16 @@ You can get information about your Dropbox account and direct access uploading, 
 ```
 
 ## Command line usage
-After installation, Sisyphos DBX will be available as a command line script by typing `sisyphosdbx` in the command prompt. Command line functionality resembles that of the interactive client. Type `sisyphosdbx --help` to get a full list of available commmands. Invoking `sisyphosdbx` by itself will configure Sisyphos DBX on first run and then automatically start syncing.
+After installation, BirdBox will be available as a command line script by typing `birdbox` in the command prompt. Command line functionality resembles that of the interactive client. Type `birdbox --help` to get a full list of available commmands. Invoking `birdbox` by itself will configure BirdBox on first run and then automatically start syncing.
 
 ## Warning:
-- SisyphosDBX doesn't have production status yet, so only 500 accounts can use the API keys.
-- SisyphosDBX is still in beta status and may potentially result in loss of data. Only sync folders with non-essential files.
+- BirdBox doesn't have production status yet, so only 500 accounts can use the API keys.
+- BirdBox is still in beta status and may potentially result in loss of data. Only sync folders with non-essential files.
 
 ## Installation
 Download and install the package by running
 ```console
-$ pip git+https://github.com/SamSchott/sisyphosdbx
+$ pip git+https://github.com/SamSchott/birdbox
 ```
 in the command line.
 

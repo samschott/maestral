@@ -243,7 +243,7 @@ class FirstSyncDialog(QtWidgets.QWidget):
 
     # static method to create the dialog and return BirdBox instance on success
     @staticmethod
-    def runUserSetup(parent=None):
+    def configureBirdBox(parent=None):
         dialog = FirstSyncDialog(parent)
         dialog.exec_()
         return dialog.bb
