@@ -79,8 +79,6 @@ class FoldersDialog(QtWidgets.QDialog):
         Apply changes to local Dropbox folder.
         """
 
-        self.listWidgetFolders.clear()
-
         excluded_folders = []
         included_folders = []
 
@@ -96,6 +94,8 @@ class FoldersDialog(QtWidgets.QDialog):
             self.bb.include_folder(path)
 
         CONF.set("main", "excluded_folders", excluded_folders)
+
+        self.listWidgetFolders.clear()
 
     def on_rejected(self):
         self.listWidgetFolders.clear()
