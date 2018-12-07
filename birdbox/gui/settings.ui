@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>580</width>
-    <height>381</height>
+    <width>577</width>
+    <height>376</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -157,7 +157,7 @@
    <item row="20" column="0">
     <widget class="QLabel" name="label">
      <property name="text">
-      <string>About Sisyphos DBX:</string>
+      <string>About BirdBox:</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>

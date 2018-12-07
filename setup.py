@@ -43,7 +43,8 @@ setup(
             "birdbox": [
                     "gui/*.ui",
                     "gui/resources/*.icns",
-                    "gui/resources/*.png"
+                    "gui/resources/*.png",
+                    "gui/resources/*.svg",
                     ],
             },
     install_requires=[

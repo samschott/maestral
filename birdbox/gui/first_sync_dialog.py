@@ -15,6 +15,7 @@ from qtpy import QtGui, QtCore, QtWidgets, uic
 
 from birdbox.main import BirdBox
 from birdbox.client import OAuth2Session
+from birdbox.monitor import CONNECTION_ERRORS
 from birdbox.config.main import CONF
 from birdbox.config.base import get_home_dir
 from birdbox.gui.folders_dialog import FolderItem
@@ -56,7 +57,7 @@ class OAuth2SessionGUI(OAuth2Session):
         return True
 
 
-class FirstSyncDialog(QtWidgets.QWidget):
+class FirstSyncDialog(QtWidgets.QDialog):
 
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
@@ -77,28 +78,38 @@ class FirstSyncDialog(QtWidgets.QWidget):
         self.setup_combobox()
 
         # connect buttons to callbacks
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.pushButtonLink.clicked.connect(self.on_link)
-        self.buttonBoxAuthCode.rejected.connect(self.close)
+        self.buttonBoxAuthCode.rejected.connect(self.on_reject)
         self.buttonBoxAuthCode.accepted.connect(self.on_auth)
-        self.buttonBoxDropboxPath.rejected.connect(self.close)
+        self.buttonBoxDropboxPath.rejected.connect(self.on_reject)
         self.buttonBoxDropboxPath.accepted.connect(self.on_dropbox_path)
         self.buttonBoxFolderSelection.rejected.connect(
                 lambda: self.stackedWidget.setCurrentIndex(2))
         self.buttonBoxFolderSelection.accepted.connect(self.on_folder_select)
-        self.pushButtonClose.clicked.connect(self.close)
+        self.pushButtonClose.clicked.connect(self.on_accept)
 
 # =============================================================================
 # Main callbacks
 # =============================================================================
 
+    def closeEvent(self, event):
+        if self.stackedWidget.currentIndex == 4:
+            self.on_accept()
+        else:
+            self.on_reject()
+
+    def on_accept(self):
+        self.reject()
+
+    def on_reject(self):
+        self.bb = None
+        self.accept()
+
     def on_link(self):
         self.auth_session = OAuth2SessionGUI()
         self.auth_url = self.auth_session.get_url()
-        prompt = """
-        <html><head/><body><p align="center">To link BirdBox to your Dropbox,
-        lease click <a href="{0}">here</a> to retrieve an authorization code
-        from Dropbox and enter it below:</p></body></html>
-        """.format(self.auth_url)
+        prompt = self.labelAuthLink.text().format(self.auth_url)
         self.labelAuthLink.setText(prompt)
 
         self.stackedWidget.setCurrentIndex(1)
@@ -123,7 +134,7 @@ class FirstSyncDialog(QtWidgets.QWidget):
             msg_box = ErrorDialog(self, "Not approved error.", msg)
             msg_box.open()
             return
-        except Exception as e:
+        except CONNECTION_ERRORS as e:
             print(e)
             msg = "Please make sure that you are connected to the internet and try again."
             msg_box = ErrorDialog(self, "Connection failed.", msg)
@@ -133,7 +144,9 @@ class FirstSyncDialog(QtWidgets.QWidget):
         self.stackedWidget.setCurrentIndex(2)
 
         # start BirdBox after linking to Dropbox account
+        BirdBox.FIRST_SYNC = False
         self.bb = BirdBox(run=False)
+        self.bb.client.get_account_info()
 
     def on_dropbox_path(self):
         # switch to next page
@@ -158,12 +171,9 @@ class FirstSyncDialog(QtWidgets.QWidget):
             elif item.isIncluded():
                 included_folders.append("/" + item.name.lower())
 
-        for path in excluded_folders:
-            self.bb.exclude_folder(path)
-        for path in included_folders:
-            self.bb.include_folder(path)
-
         CONF.set("main", "excluded_folders", excluded_folders)
+
+        self.bb.get_remote_dropbox_async("")
 
 # =============================================================================
 # Helper functions
@@ -268,7 +278,6 @@ def get_qt_app(*args, **kwargs):
 if __name__ == "__main__":
     app, created = get_qt_app()
     app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
-    app.setQuitOnLastWindowClosed(False)
 
     dialog = FirstSyncDialog()
     dialog.show()
