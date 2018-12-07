@@ -19,12 +19,12 @@ def main():
         wtd = "--sync"
 
     if wtd == "--client":
-        from sisyphosdbx.client import SisyphosClient
+        from birdbox.client import BirdBoxClient
 
-        print("""Sisyphos DBX
+        print("""BirdBox
     (c) Sam Schott, 2018
     made with Dropbox SDK from https://www.dropbox.com/developers/reference/sdk \n""")
-        client = SisyphosClient()
+        client = BirdBoxClient()
 
         if parameters[0] == "get":
             client.download(parameters[1], parameters[2])
@@ -45,14 +45,14 @@ def main():
 
     elif wtd == "--help":
         print("""
-    Syntax: sisyphosdbx [<OPTION>] [<PARAMETERS>]
+    Syntax: birdbox [<OPTION>] [<PARAMETERS>]
 
      --help          - displays this text
      --sync          - keeps local folder in sync with Dropbox
      --configuration - runs configuration wizard
-     --unlink        - unlinks SisyphosDBX from your Dropbox account but keeps
+     --unlink        - unlinks BirdBox from your Dropbox account but keeps
                        your downloaded files in place
-     --client        - runs SisyphosDBX API Client
+     --client        - runs BirdBox API Client
        syntax: orphilia --client [parameter1] [parameter2] [parameter3]
         get    [from_path] [to_path]   - downloads file
         put    [from_path] [to_path]   - uploads file
@@ -64,20 +64,20 @@ def main():
         """)
 
     elif wtd == "--configuration":
-        from sisyphosdbx import SisyphosDBX
+        from birdbox import BirdBox
 
-        sdbx = SisyphosDBX(run=False)
+        sdbx = BirdBox(run=False)
         sdbx.set_dropbox_directory()
         sdbx.select_excluded_folders()
 
     elif wtd == "--sync":
-        from sisyphosdbx import SisyphosDBX
-        sdbx = SisyphosDBX()
+        from birdbox import BirdBox
+        sdbx = BirdBox()
 
     elif wtd == "--unlink":
-        from sisyphosdbx import SisyphosDBX
-        sdbx = SisyphosDBX(run=False)
+        from birdbox import BirdBox
+        sdbx = BirdBox(run=False)
         sdbx.unlink()
 
     else:
-        print("Invalid syntax. Type sisyphosdbx --help for more informations")
+        print("Invalid syntax. Type birdbox --help for more informations")

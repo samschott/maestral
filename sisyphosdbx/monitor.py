@@ -18,8 +18,8 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              DirDeletedEvent, FileDeletedEvent)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 
-from sisyphosdbx.config.main import CONF, SUBFOLDER
-from sisyphosdbx.config.base import get_conf_path
+from birdbox.config.main import CONF, SUBFOLDER
+from birdbox.config.base import get_conf_path
 
 configurationDirectory = get_conf_path(SUBFOLDER)
 
@@ -82,11 +82,11 @@ class DropboxUploadSync(object):
     """
     Class that contains methods to sync local file events with Dropbox. It acts
     as a translation layer, converting watchdog file events to actions of the
-    Sisyphos Dropbox API client.
+    BirdBox Dropbox API client.
 
     The 'last_sync' entry in the config file is updated with the current time
     after every successfull sync. 'last_sync' is used to check for unsynced
-    changes when SisyphosDBX is started or resumed.
+    changes when BirdBox is started or resumed.
     """
 
     def __init__(self, client):
@@ -268,7 +268,7 @@ def remote_worker(client, running, fh_running, lock):
     """
     Wroker to sync changes of remote Dropbox with local folder.
 
-    :param client: :class:`SisyphosClient` instance.
+    :param client: :class:`BirdBoxClient` instance.
     :param running: If not `running.is_set()` the worker is paused.  Will be
         set if the connection to the Dropbox server fails, or if syncing is
         paused by the user.
@@ -430,7 +430,7 @@ def upload_worker(dbx_uploader, local_q, running, lock):
                 running.clear()   # must be started again from outside
 
 
-class Monitor(object):
+class BirdBoxMonitor(object):
     """
     Class to sync changes between Dropbox and local folder.
 
@@ -469,7 +469,7 @@ class Monitor(object):
         self.connection_thread = Thread(
                 target=connection_helper,
                 args=(self.client, self.connected, self.running),
-                name="SisyphosConnectionHelper")
+                name="BirdBoxConnectionHelper")
         self.connection_thread.setDaemon(True)
         self.connection_thread.start()
 
@@ -487,12 +487,12 @@ class Monitor(object):
         self.download_thread = Thread(
                 target=remote_worker,
                 args=(self.client, self.running, self.file_handler.running, self.lock),
-                name="SisyphosDownloader")
+                name="BirdBoxDownloader")
 
         self.upload_thread = Thread(
                 target=upload_worker,
                 args=(self.dbx_uploader, self.local_q, self.running, self.lock),
-                name="SisyphosUploader")
+                name="BirdBoxUploader")
 
         self.download_thread.setDaemon(True)
         self.upload_thread.setDaemon(True)
@@ -554,7 +554,7 @@ class Monitor(object):
     def _get_local_changes(self):
         """
         Gets all local changes while app has not been running. Call this method
-        on startup of `LocalMonitor` to upload all local changes.
+        on startup of `BirdBoxMonitor` to upload all local changes.
 
         :return: Dictionary with all changes, keys are file paths relative to
             local Dropbox folder, entries are watchdog file changed events.

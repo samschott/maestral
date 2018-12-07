@@ -9,14 +9,15 @@ Created on Wed Oct 31 16:23:13 2018
 """
 import sys
 import os.path as osp
-from dropbox.oauth import BadRequestException, BadStateException, CsrfException
+import requests
+from dropbox.oauth import BadStateException, NotApprovedException
 from qtpy import QtGui, QtCore, QtWidgets, uic
 
-from sisyphosdbx.main import SisyphosDBX
-from sisyphosdbx.client import OAuth2Session
-from sisyphosdbx.config.main import CONF
-from sisyphosdbx.config.base import get_home_dir
-from sisyphosdbx.gui.folders_dialog import FolderItem
+from birdbox.main import BirdBox
+from birdbox.client import OAuth2Session
+from birdbox.config.main import CONF
+from birdbox.config.base import get_home_dir
+from birdbox.gui.folders_dialog import FolderItem
 
 _root = QtCore.QFileInfo(__file__).absolutePath()
 
@@ -65,7 +66,7 @@ class FirstSyncDialog(QtWidgets.QWidget):
         self.folder_icon = QtGui.QIcon(_root + "/resources/GenericFolderIcon.icns")
         self.home_folder_icon = QtGui.QIcon(_root + "/resources/HomeFolderIcon.icns")
 
-        self.sdbx = None
+        self.bb = None
 
         # rename dialog buttons
         self.labelIcon.setPixmap(self.app_icon)
@@ -81,8 +82,9 @@ class FirstSyncDialog(QtWidgets.QWidget):
         self.buttonBoxAuthCode.accepted.connect(self.on_auth)
         self.buttonBoxDropboxPath.rejected.connect(self.close)
         self.buttonBoxDropboxPath.accepted.connect(self.on_dropbox_path)
-        self.buttonBoxFolderSelection.rejected.connect(lambda: self.stackedWidget.setCurrentIndex(2))
-        self.buttonBoxFolderSelection.accepted.connect(self.on_exclude)
+        self.buttonBoxFolderSelection.rejected.connect(
+                lambda: self.stackedWidget.setCurrentIndex(2))
+        self.buttonBoxFolderSelection.accepted.connect(self.on_folder_select)
         self.pushButtonClose.clicked.connect(self.close)
 
 # =============================================================================
@@ -93,9 +95,9 @@ class FirstSyncDialog(QtWidgets.QWidget):
         self.auth_session = OAuth2SessionGUI()
         self.auth_url = self.auth_session.get_url()
         prompt = """
-        <html><head/><body><p align="center">To link Sisyphos DBX to your
-        Dropbox, please click <a href="{0}">here</a> to retrieve an
-        authorization code from Dropbox and enter it below:</p></body></html>
+        <html><head/><body><p align="center">To link BirdBox to your Dropbox,
+        lease click <a href="{0}">here</a> to retrieve an authorization code
+        from Dropbox and enter it below:</p></body></html>
         """.format(self.auth_url)
         self.labelAuthLink.setText(prompt)
 
@@ -103,25 +105,35 @@ class FirstSyncDialog(QtWidgets.QWidget):
 
     def on_auth(self):
         auth_code = self.lineEditAuthCode.text()
-        # some logic to link SisyphosDBX client
         try:
             self.auth_session.verify_auth_key(auth_code)
-        except (BadRequestException, BadStateException, CsrfException):  # TODO: fix
+        except requests.HTTPError:
             msg = "Please make sure that you entered the correct authentification code."
             msg_box = ErrorDialog(self, "Authentification failed.", msg)
             msg_box.open()
             return
+        except BadStateException:
+            msg = "The authentification session expired. Please try again."
+            msg_box = ErrorDialog(self, "Session expired.", msg)
+            msg_box.open()
+            self.stackedWidget.setCurrentIndex(0)
+            return
+        except NotApprovedException:
+            msg = "Please grant BirdBox access to your Dropbox to start syncing."
+            msg_box = ErrorDialog(self, "Not approved error.", msg)
+            msg_box.open()
+            return
         except Exception as e:
             print(e)
-            msg = "Please make sure that you are connected to the internet."
+            msg = "Please make sure that you are connected to the internet and try again."
             msg_box = ErrorDialog(self, "Connection failed.", msg)
             msg_box.open()
             return
 
         self.stackedWidget.setCurrentIndex(2)
 
-        # start SisyphosDBX after linking to Dropbox account
-        self.sdbx = SisyphosDBX(run=False)
+        # start BirdBox after linking to Dropbox account
+        self.bb = BirdBox(run=False)
 
     def on_dropbox_path(self):
         # switch to next page
@@ -130,9 +142,9 @@ class FirstSyncDialog(QtWidgets.QWidget):
         self.populate_folders_list()
         # apply dropbox path
         dropbox_path = osp.join(self.dropbox_location, 'Dropbox')
-        self.sdbx.set_dropbox_directory(dropbox_path)
+        self.bb.set_dropbox_directory(dropbox_path)
 
-    def on_exclude(self):
+    def on_folder_select(self):
         # switch to next page
         self.stackedWidget.setCurrentIndex(4)
 
@@ -147,9 +159,9 @@ class FirstSyncDialog(QtWidgets.QWidget):
                 included_folders.append("/" + item.name.lower())
 
         for path in excluded_folders:
-            self.sdbx.exclude_folder(path)
+            self.bb.exclude_folder(path)
         for path in included_folders:
-            self.sdbx.include_folder(path)
+            self.bb.include_folder(path)
 
         CONF.set("main", "excluded_folders", excluded_folders)
 
@@ -199,7 +211,7 @@ class FirstSyncDialog(QtWidgets.QWidget):
         self.listWidgetFolders.addItem("Loading your folders...")
 
         # add new entries
-        root_folders = self.sdbx.client.list_folder("", recursive=False)
+        root_folders = self.bb.client.list_folder("", recursive=False)
         self.listWidgetFolders.clear()
 
         if root_folders is False:
@@ -207,11 +219,11 @@ class FirstSyncDialog(QtWidgets.QWidget):
             self.self.buttonBoxFolderSelection.buttons()[0].setEnabled(False)
         else:
             self.buttonBoxFolderSelection.buttons()[0].setEnabled(True)
-            self.folder_list = self.sdbx.client.flatten_results_list(root_folders)
+            self.folder_list = self.bb.client.flatten_results_list(root_folders)
 
             self.path_items = []
             for entry in self.folder_list:
-                is_included = not self.sdbx.client.is_excluded(entry.path_lower)
+                is_included = not self.bb.client.is_excluded(entry.path_lower)
                 item = FolderItem(self.folder_icon, entry.name, is_included)
                 self.path_items.append(item)
 
@@ -229,12 +241,12 @@ class FirstSyncDialog(QtWidgets.QWidget):
         else:
             return path
 
-    # static method to create the dialog and return SisyphosDBX instance on success
+    # static method to create the dialog and return BirdBox instance on success
     @staticmethod
     def runUserSetup(parent=None):
         dialog = FirstSyncDialog(parent)
         dialog.exec_()
-        return dialog.sdbx
+        return dialog.bb
 
 
 def get_qt_app(*args, **kwargs):

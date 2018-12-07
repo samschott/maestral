@@ -18,7 +18,7 @@ import configparser as cp
 from distutils.version import LooseVersion
 
 # Local imports
-from sisyphosdbx.config.base import get_conf_path, get_home_dir
+from birdbox.config.base import get_conf_path, get_home_dir
 
 PY2 = sys.version[0] == '2'
 

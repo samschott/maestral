@@ -12,9 +12,9 @@ import dropbox
 from dropbox import DropboxOAuth2FlowNoRedirect
 from dropbox import files
 
-from sisyphosdbx.config.main import CONF, SUBFOLDER
-from sisyphosdbx.config.base import get_conf_path
-from sisyphosdbx.notify.main import Notipy
+from birdbox.config.main import CONF, SUBFOLDER
+from birdbox.config.base import get_conf_path
+from birdbox.notify.main import Notipy
 
 logger = logging.getLogger(__name__)
 # create single requests session for all clients
@@ -135,7 +135,7 @@ class OAuth2Session(object):
         # I can't unlink the app yet properly (API limitation), so let's just remove the token
 
 
-class SisyphosClient(object):
+class BirdBoxClient(object):
     """Client for Dropbox SDK.
 
     This client defines basic methods to edit the remote Dropbox folder: it
@@ -146,12 +146,12 @@ class SisyphosClient(object):
     Higher level methods provide ways to list the contents of and download
     entire folder from Dropbox.
 
-    SisyphosClient also provides methods to wait for and apply changes from the
-    remote Dropbox. Detecting local changes is handled by :class:`LocalMonitor`
+    BirdBoxClient also provides methods to wait for and apply changes from the
+    remote Dropbox. Detecting local changes is handled by :class:`BirdBoxBirdBoxMonitor`
     instead.
 
     All Dropbox API errors are caught and handled here. ConnectionErrors will
-    be cought and handled by :class:`RemoteMonitor` instead.
+    be cought and handled by :class:`BirdBoxBirdBoxMonitor` instead.
 
     :ivar last_cursor: Last cursor from Dropbox which was synced. The value
         is updated and saved to config file on every successful sync.
@@ -165,7 +165,7 @@ class SisyphosClient(object):
         as keys. Values are the revision number of a file or 'folder' for a
         folder. Do not change entries manually, the dict is updated
         automatically with every sync. :ivar:`rev_dict` is used to determine
-        sync conflicts and detect deleted files while SisyphosDBX has not been
+        sync conflicts and detect deleted files while BirdBox has not been
         running. :ivar:`rev_dict` is periodically saved to :ivar:`rev_file`.
         All keys are stored in lower case.
     :ivar rev_file: Path of local file to save :ivar:`rev_dict`. This defaults
