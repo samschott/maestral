@@ -30,17 +30,17 @@ def get_version(relpath):
 
 
 setup(
-    name="sisyphosdbx",
-    version=get_version("sisyphosdbx/main.py"),
+    name="birdbox",
+    version=get_version("birdbox/main.py"),
     description="Open-source Dropbox client for macOS and Linux.",
-    url="https://github.com/SamSchott/sisyphosdbx",
+    url="https://github.com/SamSchott/birdbox",
     author="Sam Schott",
     author_email="ss2151@cam.ac.uk",
     licence="MIT",
     long_description=open("README.md").read(),
     packages=find_packages(),
     package_data={
-            "sisyphosdbx": [
+            "birdbox": [
                     "gui/*.ui",
                     "gui/resources/*.icns",
                     "gui/resources/*.png"
@@ -53,6 +53,6 @@ setup(
         ],
     zip_safe=False,
     entry_points={
-      "console_scripts": ["sisyphosdbx=sisyphosdbx.bin.command_line:main"],
+      "console_scripts": ["birdbox=birdbox.bin.command_line:main"],
       }
     )
