@@ -1,6 +1,6 @@
 import os
 from enum import Enum
-from sisyphosdbx.config.main import CONF
+from birdbox.config.main import CONF
 
 MESSAGE_TYPES = ('file changed', 'other')
 
@@ -21,7 +21,7 @@ class Notipy(object):
     def __init__(self):
         self.implementation = self.__get_available_implementation()
 
-    def send(self, message, title="SisyphosDBX"):
+    def send(self, message, title="BirdBox"):
         if self.ON:
             self.__send_message(message, title)
         else:
