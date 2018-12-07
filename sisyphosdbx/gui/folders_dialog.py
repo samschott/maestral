@@ -48,14 +48,16 @@ class FoldersDialog(QtWidgets.QDialog):
 
         # connect callbacks
         self.buttonBox.accepted.connect(self.on_accepted)
+        self.buttonBox.rejected.connect(self.on_rejected)
 
     def populate_folders_list(self):
 
-        # remove old entries
-        self.listWidgetFolders.clear()
+        self.listWidgetFolders.addItem("Loading your folders...")
 
         # add new entries
         root_folders = self.sdbx.client.list_folder("", recursive=False)
+        self.listWidgetFolders.clear()
+
         if root_folders is False:
             self.listWidgetFolders.addItem("Unable to connect")
             self.accept_button.setEnabled(False)
@@ -77,6 +79,8 @@ class FoldersDialog(QtWidgets.QDialog):
         Apply changes to local Dropbox folder.
         """
 
+        self.listWidgetFolders.clear()
+
         excluded_folders = []
         included_folders = []
 
@@ -92,3 +96,6 @@ class FoldersDialog(QtWidgets.QDialog):
             self.sdbx.include_folder(path)
 
         CONF.set("main", "excluded_folders", excluded_folders)
+
+    def on_rejected(self):
+        self.listWidgetFolders.clear()

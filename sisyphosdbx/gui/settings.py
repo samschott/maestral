@@ -51,8 +51,8 @@ class SettingsWindow(QtWidgets.QWidget):
 
         # populate sync section
         self.setup_combobox()
-        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.populate_folders_list)
         self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.open)
+        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.populate_folders_list)
 
         # populate account section
         self.labelAccountEmail.setText(CONF.get("account", "email"))
@@ -85,7 +85,9 @@ class SettingsWindow(QtWidgets.QWidget):
         self.comboBoxDropboxPath.insertSeparator(1)
         self.comboBoxDropboxPath.addItem(QtGui.QIcon(), "Other...")
         self.comboBoxDropboxPath.currentIndexChanged.connect(self.on_comboBox)
-        self.dropbox_folder_dialog = QtWidgets.QFileDialog(self)
+        msg = ('Choose a location for your Dropbox. A folder named "Dropbox"' +
+               ' will be created inside the folder you select.')
+        self.dropbox_folder_dialog = QtWidgets.QFileDialog(self, caption=msg)
         self.dropbox_folder_dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptOpen)
         self.dropbox_folder_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
         self.dropbox_folder_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly, True)
@@ -97,14 +99,18 @@ class SettingsWindow(QtWidgets.QWidget):
         if idx == 2:
             self.dropbox_folder_dialog.open()
 
-    def on_new_dbx_folder(self, new_path):
+    def on_new_dbx_folder(self, new_location):
+
         self.comboBoxDropboxPath.setCurrentIndex(0)
-        if not new_path == '':
-            self.comboBoxDropboxPath.setItemText(0, self.rel_path(new_path))
-            if new_path == get_home_dir():
+        if not new_location == '':
+            self.comboBoxDropboxPath.setItemText(0, self.rel_path(new_location))
+            if new_location == get_home_dir():
                 self.comboBoxDropboxPath.setItemIcon(0, self.home_folder_icon)
             else:
                 self.comboBoxDropboxPath.setItemIcon(0, self.generic_folder_icon)
+
+            new_path = osp.join(new_location, 'Dropbox')
+            self.sdbx.set_dropbox_directory(new_path)
 
     def rel_path(self, path):
         """
