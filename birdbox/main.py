@@ -162,14 +162,14 @@ class BirdBox(object):
 
         :param str dbx_path: Path to folder on Dropbox.
         """
-        self.monitor.fh_running.clear()
+        self.monitor.file_handler.running.clear()
 
         self.download_thread = Thread(
                 target=folder_download_worker,
                 args=(self.client, dbx_path, self.monitor.lock),
                 name="BirdBoxFolderDownloader")
         self.download_thread.start()
-        self.download_complete_signal.connect(self.monitor.fh_running.set)
+        self.download_complete_signal.connect(self.monitor.file_handler.running.set)
 
     def start_sync(self, overload=None):
         """
