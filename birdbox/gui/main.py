@@ -10,6 +10,7 @@ from PyQt5 import QtCore, QtWidgets, QtGui
 
 from birdbox.main import BirdBox
 from birdbox.gui.settings import SettingsWindow
+from bridbox.gui.first_sync_dialog import FirstSyncDialog
 from birdbox.config.main import CONF
 
 _root = QtCore.QFileInfo(__file__).absolutePath()
@@ -103,9 +104,13 @@ for logger_name in ["birdbox.monitor", "birdbox.main", "birdbox.client"]:
 class BirdBoxApp(QtWidgets.QSystemTrayIcon):
 
     DARK = os.popen("defaults read -g AppleInterfaceStyle").read() == "Dark"
+    FIRST_SYNC = (not CONF.get("internal", "lastsync") or
+                  CONF.get("internal", "cursor") == "" or
+                  not os.path.isdir(CONF.get("main", "path")))
 
     def __init__(self, parent=None):
-        # load menu bar icons
+        # Load menu bar icons as instance attributes and not as class
+        # attributes since QApplication may not be running.
         self.icon_idle = QtGui.QIcon(_root + "/resources/menubar_icon_idle.svg")
         self.icon_syncing = QtGui.QIcon(_root + "/resources/menubar_icon_syncing.svg")
         self.icon_paused = QtGui.QIcon(_root + "/resources/menubar_icon_paused.svg")
@@ -116,17 +121,30 @@ class BirdBoxApp(QtWidgets.QSystemTrayIcon):
         self.icon_disconnected.setIsMask(True)
         self.icon_paused.setIsMask(True)
 
-        # initialize tray widget
+        # initialize system tray widget
         QtWidgets.QSystemTrayIcon.__init__(self, self.icon_disconnected, parent)
 
         # start BirdBox
-        self.bb = BirdBox(run=False)
+        if self.FIRST_SYNC:  # run configuration wizard on first startup
+            self.bb = FirstSyncDialog.configureBirdBox(self)
+            self.bb.download_complete_signal.connect(self.bb.start_sync)
 
+            if self.bb is None:
+                self.deleteLater()
+                QtCore.QCoreApplication.quit()
+            else:
+                self.setup_ui()
+
+        else:  # start BirdBox normally otherwise
+            self.bb = BirdBox()
+            self.setup_ui()
+
+    def setup_ui(self):
         # create settings window
         self.settings = SettingsWindow(self.bb, parent=None)
 
         # create context menu
-        self.menu = QtWidgets.QMenu(parent)
+        self.menu = QtWidgets.QMenu(self)
         self.openFolderAction = self.menu.addAction("Open Dropbox Folder")
         self.openWebsiteAction = self.menu.addAction("Launch Dropbox Website")
         self.separator1 = self.menu.addSeparator()

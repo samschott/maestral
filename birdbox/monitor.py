@@ -4,11 +4,10 @@ import logging
 import time
 from threading import Thread, Event, Lock
 from concurrent.futures import ThreadPoolExecutor
-# import requests
+import requests
 import queue
 from blinker import signal
 import dropbox
-
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from watchdog.events import (EVENT_TYPE_CREATED, EVENT_TYPE_DELETED,
@@ -18,12 +17,16 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              DirDeletedEvent, FileDeletedEvent)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 
-from birdbox.config.main import CONF, SUBFOLDER
-from birdbox.config.base import get_conf_path
-
-configurationDirectory = get_conf_path(SUBFOLDER)
+from birdbox.config.main import CONF
 
 logger = logging.getLogger(__name__)
+
+
+CONNECTION_ERRORS = (
+         requests.exceptions.Timeout,
+         requests.exceptions.ConnectionError,
+         requests.exceptions.HTTPError
+    )
 
 
 class TimedQueue(queue.Queue):
@@ -255,7 +258,7 @@ def connection_helper(client, connected, running):
             time.sleep(5)
         except (KeyboardInterrupt, SystemExit):
             raise
-        except Exception as e:  # requests.exceptions.RequestException
+        except CONNECTION_ERRORS as e:
             logger.debug(e)
             running.clear()
             connected.clear()
@@ -300,7 +303,7 @@ def remote_worker(client, running, fh_running, lock):
             logger.info("Up to date")
         except (KeyboardInterrupt, SystemExit):
             raise
-        except Exception as e:  # requests.exceptions.RequestException
+        except CONNECTION_ERRORS as e:
             logger.debug(e)
             logger.info("Connecting...")
             disconnected_signal.send()
@@ -423,7 +426,7 @@ def upload_worker(dbx_uploader, local_q, running, lock):
                 logger.info("Up to date")
             except (KeyboardInterrupt, SystemExit):
                 raise
-            except Exception as e:  # requests.exceptions.RequestException
+            except CONNECTION_ERRORS as e:
                 logger.debug(e)
                 logger.info("Connecting...")
                 disconnected_signal.send()
