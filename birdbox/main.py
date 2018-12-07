@@ -6,7 +6,6 @@ __author__ = "Sam Schott"
 import os
 import os.path as osp
 import time
-import requests
 import shutil
 import functools
 from blinker import signal
@@ -24,7 +23,7 @@ logger = logging.getLogger(__name__)
 for logger_name in ["birdbox.main", "birdbox.client", "birdbox.monitor"]:
     bb_logger = logging.getLogger(logger_name)
     bb_logger.addHandler(logging.StreamHandler())
-    bb_logger.setLevel(logging.INFO)
+    bb_logger.setLevel(logging.DEBUG)
 
 
 ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
@@ -44,6 +43,8 @@ def folder_download_worker(client, dbx_path, lock):
         try:
             client.get_remote_dropbox(dbx_path)
             logger.info("Up to date")
+            if dbx_path == "":
+                CONF.set("internal", "lastsync", time.time())
         except (KeyboardInterrupt, SystemExit):
             raise
         except CONNECTION_ERRORS as e:
@@ -233,9 +234,9 @@ class BirdBox(object):
     @if_connected
     def include_folder(self, dbx_path):
         """
-        Includes folder in sync and queues it for downloads. It is safe to call
-        this method with folders which have alerady been included, they will
-        not be downloaded again.
+        Includes folder in sync and downloads in the background. It is safe to
+        call this method with folders which have alerady been included, they
+        will not be downloaded again.
 
         :param str dbx_path: Dropbox folder to include.
         :return: `True` or `False` on success or failure, respectively.
@@ -263,7 +264,8 @@ class BirdBox(object):
     def select_excluded_folders(self):
         """
         Gets all top level folder paths from Dropbox and asks user to inlcude
-        or exclude.
+        or exclude. On inital sync, this does not trigger any syncing. Call
+        `get_remote_dropbox` or `get_remote_dropbox_async` instead.
 
         :return: List of excluded folders.
         :rtype: list
@@ -294,6 +296,8 @@ class BirdBox(object):
 
         self.client.excluded_folders = excluded_folders
         CONF.set("main", "excluded_folders", excluded_folders)
+
+        return excluded_folders
 
     @with_sync_paused
     def set_dropbox_directory(self, new_path=None):

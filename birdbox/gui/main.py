@@ -10,7 +10,7 @@ from PyQt5 import QtCore, QtWidgets, QtGui
 
 from birdbox.main import BirdBox
 from birdbox.gui.settings import SettingsWindow
-from bridbox.gui.first_sync_dialog import FirstSyncDialog
+from birdbox.gui.first_sync_dialog import FirstSyncDialog
 from birdbox.config.main import CONF
 
 _root = QtCore.QFileInfo(__file__).absolutePath()
@@ -96,6 +96,7 @@ class InfoHanlder(logging.Handler, QtCore.QObject):
 
 info_handler = InfoHanlder()
 info_handler.setLevel(logging.INFO)
+
 for logger_name in ["birdbox.monitor", "birdbox.main", "birdbox.client"]:
     bb_logger = logging.getLogger(logger_name)
     bb_logger.addHandler(info_handler)
@@ -103,7 +104,7 @@ for logger_name in ["birdbox.monitor", "birdbox.main", "birdbox.client"]:
 
 class BirdBoxApp(QtWidgets.QSystemTrayIcon):
 
-    DARK = os.popen("defaults read -g AppleInterfaceStyle").read() == "Dark"
+    # DARK = os.popen("defaults read -g AppleInterfaceStyle &> /dev/null").read() == "Dark"
     FIRST_SYNC = (not CONF.get("internal", "lastsync") or
                   CONF.get("internal", "cursor") == "" or
                   not os.path.isdir(CONF.get("main", "path")))
@@ -123,17 +124,24 @@ class BirdBoxApp(QtWidgets.QSystemTrayIcon):
 
         # initialize system tray widget
         QtWidgets.QSystemTrayIcon.__init__(self, self.icon_disconnected, parent)
+        self.menu = QtWidgets.QMenu()
+        self.show()
 
+        self.start_birdbox()
+
+    def start_birdbox(self):
         # start BirdBox
         if self.FIRST_SYNC:  # run configuration wizard on first startup
-            self.bb = FirstSyncDialog.configureBirdBox(self)
-            self.bb.download_complete_signal.connect(self.bb.start_sync)
+            self.bb = FirstSyncDialog.configureBirdBox(parent=None)
 
             if self.bb is None:
                 self.deleteLater()
                 QtCore.QCoreApplication.quit()
             else:
+                self.bb.download_complete_signal.connect(self.bb.start_sync)
+                self.startstopAction = self.menu.addAction("Pause Syncing")
                 self.setup_ui()
+                self.on_syncing()
 
         else:  # start BirdBox normally otherwise
             self.bb = BirdBox()
@@ -142,9 +150,7 @@ class BirdBoxApp(QtWidgets.QSystemTrayIcon):
     def setup_ui(self):
         # create settings window
         self.settings = SettingsWindow(self.bb, parent=None)
-
-        # create context menu
-        self.menu = QtWidgets.QMenu(self)
+        # populate context menu
         self.openFolderAction = self.menu.addAction("Open Dropbox Folder")
         self.openWebsiteAction = self.menu.addAction("Launch Dropbox Website")
         self.separator1 = self.menu.addSeparator()
@@ -166,7 +172,7 @@ class BirdBoxApp(QtWidgets.QSystemTrayIcon):
         self.preferencesAction = self.menu.addAction("Preferences...")
         self.helpAction = self.menu.addAction("Help Center")
         self.separator4 = self.menu.addSeparator()
-        self.quitAction = self.menu.addAction("Quit BirdBox DBX")
+        self.quitAction = self.menu.addAction("Quit BirdBox")
         self.setContextMenu(self.menu)
 
         # connect UI to signals
@@ -229,9 +235,6 @@ class BirdBoxApp(QtWidgets.QSystemTrayIcon):
 
     def on_paused(self):
         self.setIcon(self.icon_paused)
-
-    def switch_appearance(self):
-        self.DARK = os.popen("defaults read -g AppleInterfaceStyle").read() == "Dark"
 
 
 def get_qt_app(*args, **kwargs):

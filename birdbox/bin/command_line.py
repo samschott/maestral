@@ -53,14 +53,14 @@ def main():
      --unlink        - unlinks BirdBox from your Dropbox account but keeps
                        your downloaded files in place
      --client        - runs BirdBox API Client
-       syntax: orphilia --client [parameter1] [parameter2] [parameter3]
+       syntax: birdbox --client [parameter1] [parameter2] [parameter3]
         get    [from_path] [to_path]   - downloads file
         put    [from_path] [to_path]   - uploads file
         mv     [from_path] [to_path]   - moves and renames file
         rm     [path]                  - removes a file
         ls     [<path>]                - creates a list of files in (root) directory
         mkdir  [path]                  - creates a directory
-        account-info                    - gets Dropbox account info
+        account-info                   - gets Dropbox account info
         """)
 
     elif wtd == "--configuration":

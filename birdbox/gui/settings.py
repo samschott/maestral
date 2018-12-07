@@ -28,7 +28,6 @@ class UnlinkDialog(QtWidgets.QDialog):
         uic.loadUi(osp.join(_root, "unlink_dialog.ui"), self)
         self.setFixedSize(460, 145)
         self.buttonBox.buttons()[0].setText('Unlink')
-        self.labelIcon.setPixmap(QtGui.QPixmap(_root + "/resources/app_icon.png"))
 
 
 class SettingsWindow(QtWidgets.QWidget):
