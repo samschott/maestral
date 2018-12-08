@@ -95,11 +95,11 @@ class DropboxUploadSync(object):
     """
     Class that contains methods to sync local file events with Dropbox. It acts
     as a translation layer, converting watchdog file events to actions of the
-    Meastral Dropbox API client.
+    Maestral Dropbox API client.
 
     The 'last_sync' entry in the config file is updated with the current time
     after every successfull sync. 'last_sync' is used to check for unsynced
-    changes when Meastral is started or resumed.
+    changes when Maestral is started or resumed.
     """
 
     def __init__(self, client):
@@ -279,7 +279,7 @@ def download_worker(client, running, flagged):
     """
     Wroker to sync changes of remote Dropbox with local folder.
 
-    :param client: :class:`MeastralClient` instance.
+    :param client: :class:`MaestralClient` instance.
     :param running: If not `running.is_set()` the worker is paused.  Will be
         set if the connection to the Dropbox server fails, or if syncing is
         paused by the user.
@@ -449,7 +449,7 @@ def upload_worker(dbx_uploader, local_q, running):
                 running.clear()   # must be started again from outside
 
 
-class MeastralMonitor(object):
+class MaestralMonitor(object):
     """
     Class to sync changes between Dropbox and local folder.
 
@@ -489,7 +489,7 @@ class MeastralMonitor(object):
         self.connection_thread = Thread(
                 target=connection_helper,
                 args=(self.client, self.connected, self.running),
-                name="MeastralConnectionHelper")
+                name="MaestralConnectionHelper")
         self.connection_thread.setDaemon(True)
         self.connection_thread.start()
 
@@ -507,12 +507,12 @@ class MeastralMonitor(object):
         self.download_thread = Thread(
                 target=download_worker,
                 args=(self.client, self.running, self.flagged),
-                name="MeastralDownloader")
+                name="MaestralDownloader")
 
         self.upload_thread = Thread(
                 target=upload_worker,
                 args=(self.dbx_uploader, self.local_q, self.running),
-                name="MeastralUploader")
+                name="MaestralUploader")
 
         self.download_thread.setDaemon(True)
         self.upload_thread.setDaemon(True)
@@ -574,7 +574,7 @@ class MeastralMonitor(object):
     def _get_local_changes(self):
         """
         Gets all local changes while app has not been running. Call this method
-        on startup of `MeastralMonitor` to upload all local changes.
+        on startup of `MaestralMonitor` to upload all local changes.
 
         :return: Dictionary with all changes, keys are file paths relative to
             local Dropbox folder, entries are watchdog file changed events.

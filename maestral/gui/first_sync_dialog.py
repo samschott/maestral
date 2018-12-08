@@ -13,12 +13,12 @@ import requests
 from dropbox.oauth import BadStateException, NotApprovedException
 from qtpy import QtGui, QtCore, QtWidgets, uic
 
-from .main import Maestral
-from .client import OAuth2Session
-from .monitor import CONNECTION_ERRORS
-from .config.main import CONF
-from .config.base import get_home_dir
-from .gui.folders_dialog import FolderItem
+from ..main import Maestral
+from ..client import OAuth2Session
+from ..monitor import CONNECTION_ERRORS
+from ..config.main import CONF
+from ..config.base import get_home_dir
+from .folders_dialog import FolderItem
 
 _root = QtCore.QFileInfo(__file__).absolutePath()
 
@@ -171,8 +171,10 @@ class FirstSyncDialog(QtWidgets.QDialog):
             elif item.isIncluded():
                 included_folders.append("/" + item.name.lower())
 
+        self.mdbx.client.excluded_folders = excluded_folders
         CONF.set("main", "excluded_folders", excluded_folders)
 
+        print("Starting indexing.")
         self.mdbx.get_remote_dropbox_async("")
 
 # =============================================================================

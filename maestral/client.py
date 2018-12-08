@@ -209,7 +209,7 @@ class MaestralClient(object):
         try:
             with open(self.rev_file, "rb") as f:
                 self.rev_dict = pickle.load(f)
-        except FileNotFoundError:
+        except (FileNotFoundError, IsADirectoryError):
             self.rev_dict = {}
 
     @property
