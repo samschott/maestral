@@ -30,7 +30,7 @@ ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
              "your internet connection and try again later.")
 
 
-def folder_download_worker(client, dbx_path, lock):
+def folder_download_worker(client, dbx_path):
     """
     Wroker to to download a whole Dropbox directory in the background.
 
@@ -41,18 +41,15 @@ def folder_download_worker(client, dbx_path, lock):
 
     time.sleep(2)  # wait for pausing to take effect
 
-    with lock:
+    with client.lock:
         try:
             client.get_remote_dropbox(dbx_path)
+            CONF.set("internal", "lastsync", time.time())
             logger.info("Up to date")
-            if dbx_path == "":
-                CONF.set("internal", "lastsync", time.time())
-        except (KeyboardInterrupt, SystemExit):
-            raise
         except CONNECTION_ERRORS as e:
             logger.debug("{0}: {1}".format(ERROR_MSG, e))
 
-        time.sleep(2)
+        time.sleep(1)
         download_complete_signal.send()
 
 
@@ -158,18 +155,29 @@ class BirdBox(object):
     def get_remote_dropbox_async(self, dbx_path):
         """
         Runs `client.get_remote_dropbox` in the background, downloads the full
-        Dropbox folder to the local drive.
+        Dropbox folder `dbx_path` to the local drive. The folder is temporarily
+        excluded from the local observer to prevent duplicate uploads.
 
         :param str dbx_path: Path to folder on Dropbox.
         """
-        self.monitor.pause()
+        if dbx_path is "":  # pause all syncing while downloading root folder
+            self.monitor.pause()
+        else:  # exclude only specific folder otherwise
+            self.monitor.flagged.append(self.client.to_local_path(dbx_path))
 
         self.download_thread = Thread(
                 target=folder_download_worker,
-                args=(self.client, dbx_path, self.monitor.lock),
+                args=(self.client, dbx_path),
                 name="BirdBoxFolderDownloader")
         self.download_thread.start()
-        self.download_complete_signal.connect(self.monitor.resume)
+
+        def callback(x, y):
+            if dbx_path is "":  # resume all syncing
+                self.monitor.resume()
+            else:
+                self.monitor.flagged.clear()  # clear excluded list
+
+        self.download_complete_signal.connect(callback)
 
     def start_sync(self, overload=None):
         """

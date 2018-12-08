@@ -188,6 +188,7 @@ class BirdBoxClient(object):
     dropbox_path = ''
 
     notify = Notipy()
+    lock = threading.RLock()
 
     _rev_lock = threading.Lock()
 
@@ -623,9 +624,12 @@ class BirdBoxClient(object):
         for result in results:
             total += len(result.entries)
 
-        # apply remote changes
         logger.info("Downloading %s items..." % (total))
-        success = self.apply_remote_changes(results)
+
+        # apply remote changes, don't update the global cursor when downloading
+        # a single folder only
+        save_cursor = (dbx_path == "")
+        success = self.apply_remote_changes(results, save_cursor)
 
         return success
 
@@ -647,7 +651,7 @@ class BirdBoxClient(object):
             while time.time() - self.last_longpoll < self.backoff:
                 time.sleep(1)
 
-        try:  # get metadata of all remote folders and files
+        try:
             result = self.dbx.files_list_folder_longpoll(self.last_cursor, timeout=timeout)
         except dropbox.exceptions.ApiError:
             msg = "Cannot access Dropbox folder."
@@ -709,12 +713,14 @@ class BirdBoxClient(object):
 
         return results
 
-    def apply_remote_changes(self, results):
+    def apply_remote_changes(self, results, save_cursor=True):
         """
-        Applies remote changes to local folder since :ivar:`last_cursor`.
-        Call this on the result of :method:`list_remote_changes`. The saved
-        cursor is updated after a set of changes has been sucessfully applied.
+        Applies remote changes to local folder. Call this on the result of
+        :method:`list_remote_changes`. The saved cursor is updated after a set
+        of changes has been sucessfully applied.
 
+        :param bool save_cursor: If True, :ivar:`last_cursor` will be updated
+            from the last applied changes.
         :return: `True` on sucess, `False` otherwise.
         :rtype: bool
         """
@@ -725,8 +731,9 @@ class BirdBoxClient(object):
             if all(success) is False:
                 return False
 
-            self.last_cursor = result.cursor
-            CONF.set("internal", "cursor", result.cursor)
+            if save_cursor:
+                self.last_cursor = result.cursor
+                CONF.set("internal", "cursor", result.cursor)
 
         return True
 
