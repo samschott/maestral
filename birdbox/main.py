@@ -341,7 +341,6 @@ class BirdBox(object):
 
         # update config file and client
         self.client.dropbox_path = new_path
-        self.client.rev_file = osp.join(new_path, ".dropbox")
         CONF.set("main", "path", new_path)
 
     def get_dropbox_directory(self):

@@ -205,13 +205,16 @@ class BirdBoxClient(object):
 
         # get correct directories
         self.dropbox_path = CONF.get("main", "path")
-        self.rev_file = osp.join(self.dropbox_path, ".dropbox")
         # try to load revisions dictionary
         try:
             with open(self.rev_file, "rb") as f:
                 self.rev_dict = pickle.load(f)
         except FileNotFoundError:
             self.rev_dict = {}
+
+    @property
+    def rev_file(self):
+        return osp.join(self.dropbox_path, ".dropbox")
 
     def to_dbx_path(self, local_path):
         """
