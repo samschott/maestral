@@ -2,11 +2,11 @@
 An open-source Dropbox client for macOS and Linux. 
 
 ## About
-BirdBox is an open-source Dropbox client written in Python. The project's main goal is to provide an open-source desktop Dropbox client for platforms that aren't supported. It's written using the Python SDK for Dropbox API v2.
+BirdBox is an open-source Dropbox client written in Python. The project's main goal is to provide an client for platforms and file systems that are not supported by the proprietary Dopbox client. BirdBox uses the Python SDK for the Dropbox API v2.
 
-BirdBox remembers its last settings and resumes syncing after a restart. You can also pause and resume syncing while BirdBox is running, add and remove exluded folders, and change the Dropbox location on the local drive.
+BirdBox remembers its last settings and resumes syncing after a restart. You can also pause and resume syncing while BirdBox is running, inlcude and exclude folders in the sync, and change the Dropbox location on your local drive. External storage devices are however not supported as Dropbox locations. 
 
-## User interface
+## Usage
 Run `birdbox --gui` in the command line to start BirdBox with a graphical user interface. On first sync, Birdbox will run you through linking and configuring your Dropbox and then start syncing. The user interface is based on a status bar (menu bar) icon showing the current syncing status and a preference pane for configuration.
 
 <p align="centred">
@@ -36,11 +36,11 @@ On initial use, BirdBox will ask you to link your dropbox account, give the loca
 >>> bb.unlink()  # unlinks your Dropbox account but keeps are your files
 ```
 
-You can get information about your Dropbox account and direct access uploading, downloading and moving files / folders on your Dropbox through the SisyphosDBX API client. Some example commands include:
+You can get information about your Dropbox account and direct access to uploading, downloading and moving items on your Dropbox through the BirdBox API client `BidBoxClient`. Some example commands include:
 
 ```Python
->>> from birdbox.client import BirdBoxClient
->>> client = SisyphosClient()
+>>> from birdbox import BirdBoxClient
+>>> client = BirdBoxClient()
 
 >>> client.upload(local_path, dropbox_path)  # uploads file form local_path to Dropbox
 >>> client.download(dropbox_path, local_path)  # downloads file from Dropbox to local_path
@@ -53,15 +53,17 @@ You can get information about your Dropbox account and direct access uploading, 
 >>> client.get_account_info()  # returns your Dropbox account info
 ```
 
+BirdBoxClient does not inlcude any syncing functionality.
+
 ## Command line usage
 After installation, BirdBox will be available as a command line script by typing `birdbox` in the command prompt. Command line functionality resembles that of the interactive client. Type `birdbox --help` to get a full list of available commmands. Invoking `birdbox` by itself will configure BirdBox on first run and then automatically start syncing.
 
 ## Warning:
-- BirdBox doesn't have production status yet, so only 500 accounts can use the API keys.
+- BirdBox does not have production status yet, so only 500 accounts can use the API keys.
 - BirdBox is still in beta status and may potentially result in loss of data. Only sync folders with non-essential files.
 
 ## Installation
-Download and install the package by running
+Download and install the Python package by running
 ```console
 $ pip git+https://github.com/SamSchott/birdbox
 ```
