@@ -9,9 +9,7 @@ Meastral remembers its last settings and resumes syncing after a restart. You ca
 ## Usage
 Run `meastral --gui` in the command line to start Meastral with a graphical user interface. On first sync, Birdbox will run you through linking and configuring your Dropbox and then start syncing. The user interface is based on a status bar (menu bar) icon showing the current syncing status and a preference pane for configuration.
 
-<p align="centred">
-    <img src="/screenshots/full.png.png" height="400" title="Menu bar icon">
-</p>
+![Screenshot macOS](/screenshots/full.png)
 
 
 ## Interactive usage (Python shell)
@@ -21,7 +19,7 @@ After installation, in a Python command prompt, run
 >>> from meastral import Meastral
 >>> m = Meastral()
 ```
-On initial use, Meastral will ask you to link your dropbox account, give the location of your Dropbox folder on the local drive, and to specify excluded folders. It will then start syncing. Supported commands are:
+On initial use, Meastral will ask you to link your Dropbox account, give the location of your Dropbox folder on the local drive, and to specify excluded folders. It will then start syncing. Supported commands are:
 
 ```Python
 >>> m.pause_sync()  # pause syncing
