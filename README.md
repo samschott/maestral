@@ -10,12 +10,8 @@ BirdBox remembers its last settings and resumes syncing after a restart. You can
 Run `birdbox -gui` in the command line to start the BirdBox with a graphical user interface. On first sync, Birdbox will run you through linking and configuring your Dropbox and then start syncing. The user interface is based on a status bar (menu bar) icon showing the current syncing status and a preference pane for configuration.
 
 <p align="center">
-  <div class="column">
-    <img src="/screenshots/menu_bar.png" height="350" title="Menu bar icon">
-  </div>
-  <div class="column">
-    <img src="/screenshots/settings.png height="350" title="Preference pane">
-  </div>
+    <img src="/screenshots/menu_bar.png" height="300" title="Menu bar icon">
+    <img src="/screenshots/settings.png" height="300" title="Preference pane">
 </p>
 
 
