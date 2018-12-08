@@ -1,6 +1,6 @@
 import os
 from enum import Enum
-from .config.main import CONF
+from ..config.main import CONF
 
 MESSAGE_TYPES = ('file changed', 'other')
 

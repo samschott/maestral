@@ -15,7 +15,7 @@ a full download on the next startup.
 """
 
 # Local import
-from .config.user import UserConfig
+from .user import UserConfig
 
 PACKAGE_NAME = 'maestral'
 SUBFOLDER = '.%s' % PACKAGE_NAME

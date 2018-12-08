@@ -12,10 +12,10 @@ import os.path as osp
 import time
 from qtpy import QtGui, QtCore, QtWidgets, uic
 
-from .main import __version__, __author__
-from .config.main import CONF
-from .config.base import get_home_dir
-from .gui.folders_dialog import FoldersDialog
+from ..main import __version__, __author__
+from ..config.main import CONF
+from ..config.base import get_home_dir
+from .folders_dialog import FoldersDialog
 
 _root = QtCore.QFileInfo(__file__).absolutePath()
 

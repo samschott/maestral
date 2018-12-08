@@ -18,7 +18,7 @@ import configparser as cp
 from distutils.version import LooseVersion
 
 # Local imports
-from .config.base import get_conf_path, get_home_dir
+from .base import get_conf_path, get_home_dir
 
 PY2 = sys.version[0] == '2'
 

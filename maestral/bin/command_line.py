@@ -19,7 +19,7 @@ def main():
         wtd = "--sync"
 
     if wtd == "--client":
-        from .client import MaestralClient
+        from ..client import MaestralClient
 
         print("""Maestral
     (c) Sam Schott, 2018
@@ -65,22 +65,22 @@ def main():
         """)
 
     elif wtd == "--configuration":
-        from .main import Maestral
+        from ..main import Maestral
 
         sdbx = Maestral(run=False)
         sdbx.set_dropbox_directory()
         sdbx.select_excluded_folders()
 
     elif wtd == "--sync":
-        from .main import Maestral
+        from ..main import Maestral
         sdbx = Maestral()
 
-    elif wtd == "--sync":
-        from .gui.main import run
+    elif wtd == "--gui":
+        from ..gui.main import run
         run()
 
     elif wtd == "--unlink":
-        from .main import Maestral
+        from ..main import Maestral
         sdbx = Maestral(run=False)
         sdbx.unlink()
 

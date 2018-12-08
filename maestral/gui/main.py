@@ -8,10 +8,10 @@ import webbrowser
 from blinker import signal
 from PyQt5 import QtCore, QtWidgets, QtGui
 
-from .main import Maestral
-from .gui.settings import SettingsWindow
-from .gui.first_sync_dialog import FirstSyncDialog
-from .config.main import CONF
+from ..main import Maestral
+from ..config.main import CONF
+from .settings import SettingsWindow
+from .first_sync_dialog import FirstSyncDialog
 
 _root = QtCore.QFileInfo(__file__).absolutePath()
 
@@ -139,7 +139,6 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
                 QtCore.QCoreApplication.quit()
             else:
                 self.mdbx.download_complete_signal.connect(self.mdbx.start_sync)
-                self.startstopAction = self.menu.addAction("Pause Syncing")
                 self.setup_ui()
                 self.on_syncing()
 
@@ -263,7 +262,3 @@ def run():
 
     if created:
         sys.exit(app.exec_())
-
-
-if __name__ == "__main__":
-    run()

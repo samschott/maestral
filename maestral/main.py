@@ -12,15 +12,15 @@ from blinker import signal
 from threading import Thread
 from dropbox import files
 
-from .client import MeastralClient
-from .monitor import MeastralMonitor, CONNECTION_ERRORS
+from .client import MaestralClient
+from .monitor import MaestralMonitor, CONNECTION_ERRORS
 from .config.main import CONF
 
 import logging
 
 logger = logging.getLogger(__name__)
 
-for logger_name in ["meastral.main", "meastral.client", "meastral.monitor"]:
+for logger_name in ["maestral.main", "maestral.client", "maestral.monitor"]:
     mdbx_logger = logging.getLogger(logger_name)
     mdbx_logger.addHandler(logging.StreamHandler())
     mdbx_logger.setLevel(logging.DEBUG)
@@ -34,7 +34,7 @@ def folder_download_worker(client, dbx_path):
     """
     Wroker to to download a whole Dropbox directory in the background.
 
-    :param class client: :class:`MeastralClient` instance.
+    :param class client: :class:`MaestralClient` instance.
     :param str dbx_path: Path to directory on Dropbox.
     """
     download_complete_signal = signal("download_complete_signal")
@@ -95,14 +95,14 @@ def if_connected(f):
     return wrapper
 
 
-class Meastral(object):
+class Maestral(object):
     """
     An open source Dropbox client for macOS and Linux to syncing a local folder
     with your Dropbox account. It currently only supports excluding top-level
     folders from the sync.
 
-    Meastral gracefully handles lost internet connections and will detect
-    changes in between sessions or while Meastral has been idle.
+    Maestral gracefully handles lost internet connections and will detect
+    changes in between sessions or while Maestral has been idle.
 
     :ivar bool syncing: Bool indicating if syncing is running or paused.
     :ivar connected: Bool indicating if Dropbox servers can be reached.
@@ -116,9 +116,9 @@ class Meastral(object):
 
     def __init__(self, run=True):
 
-        self.client = MeastralClient()
+        self.client = MaestralClient()
         # monitor needs to be created before any decorators are called
-        self.monitor = MeastralMonitor(self.client)
+        self.monitor = MaestralMonitor(self.client)
 
         if self.FIRST_SYNC:
             self.set_dropbox_directory()
@@ -168,7 +168,7 @@ class Meastral(object):
         self.download_thread = Thread(
                 target=folder_download_worker,
                 args=(self.client, dbx_path),
-                name="MeastralFolderDownloader")
+                name="MaestralFolderDownloader")
         self.download_thread.start()
 
         def callback(x, y):
@@ -372,7 +372,7 @@ class Meastral(object):
 
     def __repr__(self):
         return "{0}(account_id={1}, user_id={2})".format(
-                self.__name__, self.client.auth.account_id,
+                self.__class__.__name__, self.client.auth.account_id,
                 self.client.auth.user_id)
 
     def __str__(self):
@@ -383,7 +383,7 @@ class Meastral(object):
         else:
             inner = "Connecting..."
 
-        return "{0}({1})".format(self.__name__, inner)
+        return "{0}({1})".format(self.__class__.__name__, inner)
 
 
 def yesno(message, default):
@@ -418,4 +418,4 @@ def yesno(message, default):
 
 
 if __name__ == "__main__":
-    mdbx = Meastral()
+    mdbx = Maestral()
