@@ -253,7 +253,7 @@ def get_qt_app(*args, **kwargs):
     return app, created
 
 
-if __name__ == "__main__":
+def run():
     app, created = get_qt_app()
     app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
     app.setQuitOnLastWindowClosed(False)
@@ -263,3 +263,7 @@ if __name__ == "__main__":
 
     if created:
         sys.exit(app.exec_())
+
+
+if __name__ == "__main__":
+    run()

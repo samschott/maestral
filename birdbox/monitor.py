@@ -2,7 +2,8 @@ import os
 import os.path as osp
 import logging
 import time
-from threading import Thread, Event, Lock
+from threading import Thread, Event
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 import requests
 import queue
@@ -56,8 +57,17 @@ class FileEventHandler(FileSystemEventHandler):
     :ivar local_q: Qeueue with unprocessed local file events.
     """
 
-    local_q = TimedQueue()
-    running = Event()
+    def __init__(self, flagged):
+        self.local_q = TimedQueue()
+        self.running = Event()
+        self.flagged = flagged
+
+    def is_flagged(self, local_path):
+        for path in self.flagged:
+            if local_path.lower().startswith(path.lower()):
+                logger.debug("'{0}' is flagged, no upload.".format(local_path))
+                return True
+        return False
 
     def on_moved(self, event):
         if self.running.is_set():
@@ -66,17 +76,17 @@ class FileEventHandler(FileSystemEventHandler):
             self.local_q.put(event)
 
     def on_created(self, event):
-        if self.running.is_set():
+        if self.running.is_set() and not self.is_flagged(event.src_path):
             logger.debug("Creation detected: '%s'", event.src_path)
             self.local_q.put(event)
 
     def on_deleted(self, event):
-        if self.running.is_set():
+        if self.running.is_set() and not self.is_flagged(event.src_path):
             logger.debug("Deletion detected: '%s'", event.src_path)
             self.local_q.put(event)
 
     def on_modified(self, event):
-        if self.running.is_set():
+        if self.running.is_set() and not self.is_flagged(event.src_path):
             logger.debug("Modification detected: '%s'", event.src_path)
             self.local_q.put(event)
 
@@ -256,8 +266,6 @@ def connection_helper(client, connected, running):
                 connected_signal.send()
             account_usage_signal.send(res)
             time.sleep(5)
-        except (KeyboardInterrupt, SystemExit):
-            raise
         except CONNECTION_ERRORS as e:
             logger.debug(e)
             running.clear()
@@ -267,7 +275,7 @@ def connection_helper(client, connected, running):
             time.sleep(1)
 
 
-def remote_worker(client, running, fh_running, lock):
+def download_worker(client, running, flagged):
     """
     Wroker to sync changes of remote Dropbox with local folder.
 
@@ -275,6 +283,7 @@ def remote_worker(client, running, fh_running, lock):
     :param running: If not `running.is_set()` the worker is paused.  Will be
         set if the connection to the Dropbox server fails, or if syncing is
         paused by the user.
+    :param list flagged: Flagg paths for local observer to ignore.
     """
 
     disconnected_signal = signal("disconnected_signal")
@@ -293,16 +302,23 @@ def remote_worker(client, running, fh_running, lock):
             # apply remote changes
             if has_changes:
                 logger.info("Syncing...")
-                fh_running.clear()
-                with lock:
+                with client.lock:
+                    # get changes
                     changes = client.list_remote_changes()
+                    print(changes)
+                    # flag changes to be ignored by local monitor
+                    flat_changes = client.flatten_results_list(changes)
+                    for item in flat_changes:
+                        local_path = client.to_local_path(item.path_lower)
+                        flagged.append(local_path)
+                    time.sleep(1)
+                    # apply remote changes to local Dropbox folder
                     client.apply_remote_changes(changes)
                     time.sleep(2)
-                fh_running.set()
+                    # clear flagged list
+                    flagged.clear()
 
             logger.info("Up to date")
-        except (KeyboardInterrupt, SystemExit):
-            raise
         except CONNECTION_ERRORS as e:
             logger.debug(e)
             logger.info("Connecting...")
@@ -310,7 +326,7 @@ def remote_worker(client, running, fh_running, lock):
             running.clear()  # must be started again from outside
 
 
-def upload_worker(dbx_uploader, local_q, running, lock):
+def upload_worker(dbx_uploader, local_q, running):
     """
     Worker to sync local changes to remote Dropbox.
 
@@ -414,7 +430,7 @@ def upload_worker(dbx_uploader, local_q, running, lock):
                 dbx_uploader.on_modified(event)
 
         # process all events:
-        with lock:
+        with dbx_uploader.client.lock:
             try:
                 logger.info("Syncing...")
 
@@ -454,7 +470,7 @@ class BirdBoxMonitor(object):
 
     connected = Event()
     running = Event()
-    lock = Lock()
+    flagged = deque()
 
     connected_signal = signal("connected_signal")
     disconnected_signal = signal("disconnected_signal")
@@ -465,8 +481,9 @@ class BirdBoxMonitor(object):
     def __init__(self, client):
 
         self.client = client
-        self.file_handler = FileEventHandler()
         self.dbx_uploader = DropboxUploadSync(self.client)
+
+        self.file_handler = FileEventHandler(self.flagged)
         self.local_q = self.file_handler.local_q
 
         self.connection_thread = Thread(
@@ -485,16 +502,16 @@ class BirdBoxMonitor(object):
 
         self.local_observer_thread = Observer()
         self.local_observer_thread.schedule(
-                self.file_handler, self.client.dropbox_path, recursive=True,)
+                self.file_handler, self.client.dropbox_path, recursive=True)
 
         self.download_thread = Thread(
-                target=remote_worker,
-                args=(self.client, self.running, self.file_handler.running, self.lock),
+                target=download_worker,
+                args=(self.client, self.running, self.flagged),
                 name="BirdBoxDownloader")
 
         self.upload_thread = Thread(
                 target=upload_worker,
-                args=(self.dbx_uploader, self.local_q, self.running, self.lock),
+                args=(self.dbx_uploader, self.local_q, self.running),
                 name="BirdBoxUploader")
 
         self.download_thread.setDaemon(True)

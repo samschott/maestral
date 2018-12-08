@@ -48,7 +48,8 @@ def main():
     Syntax: birdbox [<OPTION>] [<PARAMETERS>]
 
      --help          - displays this text
-     --sync          - keeps local folder in sync with Dropbox
+     --gui           - runs BirdBox with status bar based GUI
+     --sync          - runs BirdBox as command line client
      --configuration - runs configuration wizard
      --unlink        - unlinks BirdBox from your Dropbox account but keeps
                        your downloaded files in place
@@ -73,6 +74,10 @@ def main():
     elif wtd == "--sync":
         from birdbox import BirdBox
         sdbx = BirdBox()
+
+    elif wtd == "--sync":
+        from birdbox.gui.main import run
+        run()
 
     elif wtd == "--unlink":
         from birdbox import BirdBox
