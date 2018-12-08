@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Sisyphos DBX Setup</string>
+   <string>Maestral Setup</string>
   </property>
   <layout class="QGridLayout" name="gridLayout_2">
    <item row="0" column="0">
@@ -43,7 +43,7 @@
           </size>
          </property>
          <property name="text">
-          <string>Welcome to BirdBox, an open source Dropbox client for Linux and macOS.</string>
+          <string>Welcome to Maestral, an open source Dropbox client for Linux and macOS.</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
@@ -150,7 +150,7 @@
        <item row="1" column="0">
         <widget class="QLabel" name="labelAuthLink">
          <property name="text">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;To link BirdBox to your Dropbox account, please click &lt;a href=&quot;{0}&quot;&gt;here&lt;/a&gt; to retrieve an authorization code from Dropbox and enter it below:&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;To link Maestral to your Dropbox account, please click &lt;a href=&quot;{0}&quot;&gt;here&lt;/a&gt; to retrieve an authorization code from Dropbox and enter it below:&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
@@ -219,7 +219,7 @@
           </sizepolicy>
          </property>
          <property name="text">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;BirdBox has been succcesfully linked with your Dropbox account.&lt;/p&gt;&lt;p align=&quot;center&quot;&gt;Please select the location of your Dropbox folder below. In the next step, you will be asked to choose which folders to sync.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Maestral has been succcesfully linked with your Dropbox account.&lt;/p&gt;&lt;p align=&quot;center&quot;&gt;Please select the location of your Dropbox folder below. In the next step, you will be asked to choose which folders to sync.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
@@ -311,7 +311,7 @@
        <item row="1" column="0">
         <widget class="QLabel" name="labelFolderSelection_2">
          <property name="text">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;You have successfully set up BirdBox. &lt;/p&gt;&lt;p align=&quot;center&quot;&gt;Please allow some time for the initial indexing and download of your Dropbox before BirdBox will commence syncing.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;You have successfully set up Maestral. &lt;/p&gt;&lt;p align=&quot;center&quot;&gt;Please allow some time for the initial indexing and download of your Dropbox before Maestral will commence syncing.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
@@ -360,8 +360,6 @@
    </item>
   </layout>
  </widget>
- <resources>
-  <include location="resources/start_dialog_resources.qrc"/>
- </resources>
+ <resources/>
  <connections/>
 </ui>

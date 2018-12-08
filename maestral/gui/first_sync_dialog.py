@@ -13,7 +13,7 @@ import requests
 from dropbox.oauth import BadStateException, NotApprovedException
 from qtpy import QtGui, QtCore, QtWidgets, uic
 
-from .main import BirdBox
+from .main import Maestral
 from .client import OAuth2Session
 from .monitor import CONNECTION_ERRORS
 from .config.main import CONF
@@ -67,7 +67,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
         self.folder_icon = QtGui.QIcon(_root + "/resources/GenericFolderIcon.icns")
         self.home_folder_icon = QtGui.QIcon(_root + "/resources/HomeFolderIcon.icns")
 
-        self.bb = None
+        self.mdbx = None
 
         # rename dialog buttons
         self.labelIcon.setPixmap(self.app_icon)
@@ -103,7 +103,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
         self.accept()
 
     def on_reject(self):
-        self.bb = None
+        self.mdbx = None
         self.reject()
 
     def on_link(self):
@@ -130,7 +130,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
             self.stackedWidget.setCurrentIndex(0)
             return
         except NotApprovedException:
-            msg = "Please grant BirdBox access to your Dropbox to start syncing."
+            msg = "Please grant Maestral access to your Dropbox to start syncing."
             msg_box = ErrorDialog(self, "Not approved error.", msg)
             msg_box.open()
             return
@@ -143,10 +143,10 @@ class FirstSyncDialog(QtWidgets.QDialog):
 
         self.stackedWidget.setCurrentIndex(2)
 
-        # start BirdBox after linking to Dropbox account
-        BirdBox.FIRST_SYNC = False
-        self.bb = BirdBox(run=False)
-        self.bb.client.get_account_info()
+        # start Maestral after linking to Dropbox account
+        Maestral.FIRST_SYNC = False
+        self.mdbx = Maestral(run=False)
+        self.mdbx.client.get_account_info()
 
     def on_dropbox_path(self):
         # switch to next page
@@ -155,7 +155,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
         self.populate_folders_list()
         # apply dropbox path
         dropbox_path = osp.join(self.dropbox_location, 'Dropbox')
-        self.bb.set_dropbox_directory(dropbox_path)
+        self.mdbx.set_dropbox_directory(dropbox_path)
 
     def on_folder_select(self):
         # switch to next page
@@ -173,7 +173,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
 
         CONF.set("main", "excluded_folders", excluded_folders)
 
-        self.bb.get_remote_dropbox_async("")
+        self.mdbx.get_remote_dropbox_async("")
 
 # =============================================================================
 # Helper functions
@@ -219,7 +219,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
         self.listWidgetFolders.addItem("Loading your folders...")
 
         # add new entries
-        root_folders = self.bb.client.list_folder("", recursive=False)
+        root_folders = self.mdbx.client.list_folder("", recursive=False)
         self.listWidgetFolders.clear()
 
         if root_folders is False:
@@ -227,11 +227,11 @@ class FirstSyncDialog(QtWidgets.QDialog):
             self.self.buttonBoxFolderSelection.buttons()[0].setEnabled(False)
         else:
             self.buttonBoxFolderSelection.buttons()[0].setEnabled(True)
-            self.folder_list = self.bb.client.flatten_results_list(root_folders)
+            self.folder_list = self.mdbx.client.flatten_results_list(root_folders)
 
             self.path_items = []
             for entry in self.folder_list:
-                is_included = not self.bb.client.is_excluded(entry.path_lower)
+                is_included = not self.mdbx.client.is_excluded(entry.path_lower)
                 item = FolderItem(self.folder_icon, entry.name, is_included)
                 self.path_items.append(item)
 
@@ -249,12 +249,12 @@ class FirstSyncDialog(QtWidgets.QDialog):
         else:
             return path
 
-    # static method to create the dialog and return BirdBox instance on success
+    # static method to create the dialog and return Maestral instance on success
     @staticmethod
-    def configureBirdBox(parent=None):
+    def configureMaestral(parent=None):
         dialog = FirstSyncDialog(parent)
         dialog.exec_()
-        return dialog.bb
+        return dialog.mdbx
 
 
 def get_qt_app(*args, **kwargs):

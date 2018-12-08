@@ -12,18 +12,18 @@ from blinker import signal
 from threading import Thread
 from dropbox import files
 
-from birdbox.client import BirdBoxClient
-from birdbox.monitor import BirdBoxMonitor, CONNECTION_ERRORS
-from birdbox.config.main import CONF
+from .client import MeastralClient
+from .monitor import MeastralMonitor, CONNECTION_ERRORS
+from .config.main import CONF
 
 import logging
 
 logger = logging.getLogger(__name__)
 
-for logger_name in ["birdbox.main", "birdbox.client", "birdbox.monitor"]:
-    bb_logger = logging.getLogger(logger_name)
-    bb_logger.addHandler(logging.StreamHandler())
-    bb_logger.setLevel(logging.DEBUG)
+for logger_name in ["meastral.main", "meastral.client", "meastral.monitor"]:
+    mdbx_logger = logging.getLogger(logger_name)
+    mdbx_logger.addHandler(logging.StreamHandler())
+    mdbx_logger.setLevel(logging.DEBUG)
 
 
 ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
@@ -34,7 +34,7 @@ def folder_download_worker(client, dbx_path):
     """
     Wroker to to download a whole Dropbox directory in the background.
 
-    :param class client: :class:`BirdBoxClient` instance.
+    :param class client: :class:`MeastralClient` instance.
     :param str dbx_path: Path to directory on Dropbox.
     """
     download_complete_signal = signal("download_complete_signal")
@@ -95,14 +95,14 @@ def if_connected(f):
     return wrapper
 
 
-class BirdBox(object):
+class Meastral(object):
     """
     An open source Dropbox client for macOS and Linux to syncing a local folder
     with your Dropbox account. It currently only supports excluding top-level
     folders from the sync.
 
-    BirdBox gracefully handles lost internet connections and will detect
-    changes in between sessions or while BirdBox has been idle.
+    Meastral gracefully handles lost internet connections and will detect
+    changes in between sessions or while Meastral has been idle.
 
     :ivar bool syncing: Bool indicating if syncing is running or paused.
     :ivar connected: Bool indicating if Dropbox servers can be reached.
@@ -116,9 +116,9 @@ class BirdBox(object):
 
     def __init__(self, run=True):
 
-        self.client = BirdBoxClient()
+        self.client = MeastralClient()
         # monitor needs to be created before any decorators are called
-        self.monitor = BirdBoxMonitor(self.client)
+        self.monitor = MeastralMonitor(self.client)
 
         if self.FIRST_SYNC:
             self.set_dropbox_directory()
@@ -168,7 +168,7 @@ class BirdBox(object):
         self.download_thread = Thread(
                 target=folder_download_worker,
                 args=(self.client, dbx_path),
-                name="BirdBoxFolderDownloader")
+                name="MeastralFolderDownloader")
         self.download_thread.start()
 
         def callback(x, y):
@@ -371,8 +371,9 @@ class BirdBox(object):
         return dropbox_path
 
     def __repr__(self):
-        return "BirdBox(account_id={0}, user_id={1})".format(
-                self.client.auth.account_id, self.client.auth.user_id)
+        return "{0}(account_id={1}, user_id={2})".format(
+                self.__name__, self.client.auth.account_id,
+                self.client.auth.user_id)
 
     def __str__(self):
         if self.connected:
@@ -382,7 +383,7 @@ class BirdBox(object):
         else:
             inner = "Connecting..."
 
-        return "BirdBox({0})".format(inner)
+        return "{0}({1})".format(self.__name__, inner)
 
 
 def yesno(message, default):
@@ -417,4 +418,4 @@ def yesno(message, default):
 
 
 if __name__ == "__main__":
-    bb = BirdBox()
+    mdbx = Meastral()

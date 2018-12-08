@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>BirdBoxSettings</class>
- <widget class="QWidget" name="BirdBoxSettings">
+ <class>MaestralSettings</class>
+ <widget class="QWidget" name="MaestralSettings">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>BirdBox Settings</string>
+   <string>Maestral Settings</string>
   </property>
   <layout class="QGridLayout" name="gridLayout" columnstretch="1,2">
    <property name="topMargin">
@@ -113,7 +113,7 @@
    <item row="8" column="1">
     <widget class="QLabel" name="labelAccountEmail">
      <property name="text">
-      <string>ss2151@cam.ac.uk</string>
+      <string>sherlock.holmes@gmail.com</string>
      </property>
     </widget>
    </item>
@@ -140,7 +140,7 @@
    <item row="21" column="1">
     <widget class="QLabel" name="labelLink">
      <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://github.com/SamSchott/birdbox&quot;&gt;&lt;span style=&quot; font-size:12pt; text-decoration: underline; color:#2874e1;&quot;&gt;https://github.com/SamSchott/birdbox&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://github.com/SamSchott/birdbox&quot;&gt;&lt;span style=&quot; font-size:12pt; text-decoration: underline; color:#2874e1;&quot;&gt;https://github.com/SamSchott/maestral&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="openExternalLinks">
       <bool>true</bool>
@@ -157,7 +157,7 @@
    <item row="20" column="0">
     <widget class="QLabel" name="label">
      <property name="text">
-      <string>About BirdBox:</string>
+      <string>About Maestral:</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
@@ -199,7 +199,7 @@
    <item row="0" column="1">
     <widget class="QCheckBox" name="checkBoxStartup">
      <property name="text">
-      <string>Start BirdBox on system startup</string>
+      <string>Start Maestral on system startup</string>
      </property>
      <property name="checked">
       <bool>true</bool>
@@ -242,7 +242,7 @@
    <item row="9" column="1">
     <widget class="QLabel" name="labelSpaceUsage2">
      <property name="text">
-      <string>20.3% out of 1,000,000GB used</string>
+      <string>30.3% out of 1,000,000GB used</string>
      </property>
     </widget>
    </item>
@@ -255,8 +255,6 @@
   <tabstop>pushButtonExcludedFolders</tabstop>
   <tabstop>pushButtonUnlink</tabstop>
  </tabstops>
- <resources>
-  <include location="resources/settings_resources.qrc"/>
- </resources>
+ <resources/>
  <connections/>
 </ui>

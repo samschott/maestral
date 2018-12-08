@@ -19,12 +19,12 @@ def main():
         wtd = "--sync"
 
     if wtd == "--client":
-        from .client import BirdBoxClient
+        from .client import MaestralClient
 
-        print("""BirdBox
+        print("""Maestral
     (c) Sam Schott, 2018
     made with Dropbox SDK from https://www.dropbox.com/developers/reference/sdk \n""")
-        client = BirdBoxClient()
+        client = MaestralClient()
 
         if parameters[0] == "get":
             client.download(parameters[1], parameters[2])
@@ -45,16 +45,16 @@ def main():
 
     elif wtd == "--help":
         print("""
-    Syntax: birdbox [<OPTION>] [<PARAMETERS>]
+    Syntax: maestral [<OPTION>] [<PARAMETERS>]
 
      --help          - displays this text
-     --gui           - runs BirdBox with status bar based GUI
-     --sync          - runs BirdBox as command line client
+     --gui           - runs Maestral with status bar based GUI
+     --sync          - runs Maestral as command line client
      --configuration - runs configuration wizard
-     --unlink        - unlinks BirdBox from your Dropbox account but keeps
+     --unlink        - unlinks Maestral from your Dropbox account but keeps
                        your downloaded files in place
-     --client        - runs BirdBox API Client
-       syntax: birdbox --client [parameter1] [parameter2] [parameter3]
+     --client        - runs Maestral API Client
+       syntax: maestral --client [parameter1] [parameter2] [parameter3]
         get    [from_path] [to_path]   - downloads file
         put    [from_path] [to_path]   - uploads file
         mv     [from_path] [to_path]   - moves and renames file
@@ -65,24 +65,24 @@ def main():
         """)
 
     elif wtd == "--configuration":
-        from .main import BirdBox
+        from .main import Maestral
 
-        sdbx = BirdBox(run=False)
+        sdbx = Maestral(run=False)
         sdbx.set_dropbox_directory()
         sdbx.select_excluded_folders()
 
     elif wtd == "--sync":
-        from .main import BirdBox
-        sdbx = BirdBox()
+        from .main import Maestral
+        sdbx = Maestral()
 
     elif wtd == "--sync":
         from .gui.main import run
         run()
 
     elif wtd == "--unlink":
-        from .main import BirdBox
-        sdbx = BirdBox(run=False)
+        from .main import Maestral
+        sdbx = Maestral(run=False)
         sdbx.unlink()
 
     else:
-        print("Invalid syntax. Type birdbox --help for more informations")
+        print("Invalid syntax. Type maestral --help for more informations")

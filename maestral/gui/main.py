@@ -8,7 +8,7 @@ import webbrowser
 from blinker import signal
 from PyQt5 import QtCore, QtWidgets, QtGui
 
-from .main import BirdBox
+from .main import Maestral
 from .gui.settings import SettingsWindow
 from .gui.first_sync_dialog import FirstSyncDialog
 from .config.main import CONF
@@ -97,12 +97,12 @@ class InfoHanlder(logging.Handler, QtCore.QObject):
 info_handler = InfoHanlder()
 info_handler.setLevel(logging.INFO)
 
-for logger_name in ["birdbox.monitor", "birdbox.main", "birdbox.client"]:
-    bb_logger = logging.getLogger(logger_name)
-    bb_logger.addHandler(info_handler)
+for logger_name in ["maestral.monitor", "maestral.main", "maestral.client"]:
+    mdbx_logger = logging.getLogger(logger_name)
+    mdbx_logger.addHandler(info_handler)
 
 
-class BirdBoxApp(QtWidgets.QSystemTrayIcon):
+class MaestralApp(QtWidgets.QSystemTrayIcon):
 
     # DARK = os.popen("defaults read -g AppleInterfaceStyle &> /dev/null").read() == "Dark"
     FIRST_SYNC = (not CONF.get("internal", "lastsync") or
@@ -127,29 +127,29 @@ class BirdBoxApp(QtWidgets.QSystemTrayIcon):
         self.menu = QtWidgets.QMenu()
         self.show()
 
-        self.start_birdbox()
+        self.start_maestral()
 
-    def start_birdbox(self):
-        # start BirdBox
+    def start_maestral(self):
+        # start Maestral
         if self.FIRST_SYNC:  # run configuration wizard on first startup
-            self.bb = FirstSyncDialog.configureBirdBox(parent=None)
+            self.mdbx = FirstSyncDialog.configureMaestral(parent=None)
 
-            if self.bb is None:
+            if self.mdbx is None:
                 self.deleteLater()
                 QtCore.QCoreApplication.quit()
             else:
-                self.bb.download_complete_signal.connect(self.bb.start_sync)
+                self.mdbx.download_complete_signal.connect(self.mdbx.start_sync)
                 self.startstopAction = self.menu.addAction("Pause Syncing")
                 self.setup_ui()
                 self.on_syncing()
 
-        else:  # start BirdBox normally otherwise
-            self.bb = BirdBox()
+        else:  # start Maestral normally otherwise
+            self.mdbx = Maestral()
             self.setup_ui()
 
     def setup_ui(self):
         # create settings window
-        self.settings = SettingsWindow(self.bb, parent=None)
+        self.settings = SettingsWindow(self.mdbx, parent=None)
         # populate context menu
         self.openFolderAction = self.menu.addAction("Open Dropbox Folder")
         self.openWebsiteAction = self.menu.addAction("Launch Dropbox Website")
@@ -157,14 +157,14 @@ class BirdBoxApp(QtWidgets.QSystemTrayIcon):
         self.accountUsageAction = self.menu.addAction(CONF.get("account", "usage"))
         self.accountUsageAction.setEnabled(False)
         self.separator2 = self.menu.addSeparator()
-        if self.bb.connected and self.bb.syncing:
+        if self.mdbx.connected and self.mdbx.syncing:
             self.statusAction = self.menu.addAction("Up to date")
-        elif self.bb.connected:
+        elif self.mdbx.connected:
             self.statusAction = self.menu.addAction("Syncing paused")
-        elif not self.bb.connected:
+        elif not self.mdbx.connected:
             self.statusAction = self.menu.addAction("Connecting...")
         self.statusAction.setEnabled(False)
-        if self.bb.syncing:
+        if self.mdbx.syncing:
             self.startstopAction = self.menu.addAction("Pause Syncing")
         else:
             self.startstopAction = self.menu.addAction("Resume Syncing")
@@ -172,7 +172,7 @@ class BirdBoxApp(QtWidgets.QSystemTrayIcon):
         self.preferencesAction = self.menu.addAction("Preferences...")
         self.helpAction = self.menu.addAction("Help Center")
         self.separator4 = self.menu.addSeparator()
-        self.quitAction = self.menu.addAction("Quit BirdBox")
+        self.quitAction = self.menu.addAction("Quit Maestral")
         self.setContextMenu(self.menu)
 
         # connect UI to signals
@@ -199,11 +199,11 @@ class BirdBoxApp(QtWidgets.QSystemTrayIcon):
         Opens Dropbox directory in systems file explorer.
         """
         if platform.system() == "Windows":
-            os.startfile(self.bb.client.dropbox_path)
+            os.startfile(self.mdbx.client.dropbox_path)
         elif platform.system() == "Darwin":
-            subprocess.Popen(["open", self.bb.client.dropbox_path])
+            subprocess.Popen(["open", self.mdbx.client.dropbox_path])
         else:
-            subprocess.Popen(["xdg-open", self.bb.client.dropbox_path])
+            subprocess.Popen(["xdg-open", self.mdbx.client.dropbox_path])
 
     def on_website_clicked(self):
         webbrowser.open_new("https://www.dropbox.com/")
@@ -213,14 +213,14 @@ class BirdBoxApp(QtWidgets.QSystemTrayIcon):
 
     def on_start_stop_clicked(self):
         if self.startstopAction.text() == "Pause Syncing":
-            self.bb.pause_sync()
+            self.mdbx.pause_sync()
             self.startstopAction.setText("Resume Syncing")
         elif self.startstopAction.text() == "Resume Syncing":
-            self.bb.resume_sync()
+            self.mdbx.resume_sync()
             self.startstopAction.setText("Pause Syncing")
 
     def quit_(self):
-        self.bb.stop_sync()
+        self.mdbx.stop_sync()
         self.deleteLater()
         QtCore.QCoreApplication.quit()
 
@@ -258,8 +258,8 @@ def run():
     app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
     app.setQuitOnLastWindowClosed(False)
 
-    birdbox_gui = BirdBoxApp()
-    birdbox_gui.show()
+    maestral_gui = MaestralApp()
+    maestral_gui.show()
 
     if created:
         sys.exit(app.exec_())
