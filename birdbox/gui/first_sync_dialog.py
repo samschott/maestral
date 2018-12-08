@@ -100,11 +100,11 @@ class FirstSyncDialog(QtWidgets.QDialog):
             self.on_reject()
 
     def on_accept(self):
-        self.reject()
+        self.accept()
 
     def on_reject(self):
         self.bb = None
-        self.accept()
+        self.reject()
 
     def on_link(self):
         self.auth_session = OAuth2SessionGUI()
@@ -181,12 +181,10 @@ class FirstSyncDialog(QtWidgets.QDialog):
 
     def setup_combobox(self):
 
-        self.dropbox_location = osp.expanduser('~/Dropbox')
+        self.dropbox_location = osp.expanduser('~')
+        short_path = self.rel_path(self.dropbox_location)
 
-        parent_dir = osp.split(self.dropbox_location)[0]
-        short_path = self.rel_path(parent_dir)
-
-        if parent_dir == get_home_dir():
+        if self.dropbox_location == get_home_dir():
             self.comboBoxDropboxPath.addItem(self.home_folder_icon, short_path)
         else:
             self.comboBoxDropboxPath.addItem(self.folder_icon, short_path)
