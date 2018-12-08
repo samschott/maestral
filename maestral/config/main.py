@@ -5,7 +5,7 @@
 # (see spyder/__init__.py for details)
 
 """
-Sisyphos DBX configuration options
+Maestral configuration options
 
 Note: The 'account' section is used for internal purposes only to store some
 basic information on the user account between connections. The 'internal'
@@ -17,7 +17,7 @@ a full download on the next startup.
 # Local import
 from .config.user import UserConfig
 
-PACKAGE_NAME = 'birdbox'
+PACKAGE_NAME = 'maestral'
 SUBFOLDER = '.%s' % PACKAGE_NAME
 
 

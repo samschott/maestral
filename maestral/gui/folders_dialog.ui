@@ -154,9 +154,7 @@
    </item>
   </layout>
  </widget>
- <resources>
-  <include location="resources/folder_dialog_resources.qrc"/>
- </resources>
+ <resources/>
  <connections>
   <connection>
    <sender>buttonBox</sender>

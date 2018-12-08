@@ -36,13 +36,13 @@ class FolderItem(QtWidgets.QListWidgetItem):
 
 class FoldersDialog(QtWidgets.QDialog):
 
-    def __init__(self, bb,  parent=None):
+    def __init__(self, mdbx,  parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(osp.join(_root, "folders_dialog.ui"), self)
         self.folder_icon = QtGui.QIcon(_root + "/resources/GenericFolderIcon.icns")
 
-        self.bb = bb
+        self.mdbx = mdbx
         self.accept_button = self.buttonBox.buttons()[0]
         self.accept_button.setText('Update')
 
@@ -55,7 +55,7 @@ class FoldersDialog(QtWidgets.QDialog):
         self.listWidgetFolders.addItem("Loading your folders...")
 
         # add new entries
-        root_folders = self.bb.client.list_folder("", recursive=False)
+        root_folders = self.mdbx.client.list_folder("", recursive=False)
         self.listWidgetFolders.clear()
 
         if root_folders is False:
@@ -63,11 +63,11 @@ class FoldersDialog(QtWidgets.QDialog):
             self.accept_button.setEnabled(False)
         else:
             self.accept_button.setEnabled(True)
-            self.folder_list = self.bb.client.flatten_results_list(root_folders)
+            self.folder_list = self.mdbx.client.flatten_results_list(root_folders)
 
             self.path_items = []
             for entry in self.folder_list:
-                is_included = not self.bb.client.is_excluded(entry.path_lower)
+                is_included = not self.mdbx.client.is_excluded(entry.path_lower)
                 item = FolderItem(self.folder_icon, entry.name, is_included)
                 self.path_items.append(item)
 
@@ -89,9 +89,9 @@ class FoldersDialog(QtWidgets.QDialog):
                 included_folders.append("/" + item.name.lower())
 
         for path in excluded_folders:
-            self.bb.exclude_folder(path)
+            self.mdbx.exclude_folder(path)
         for path in included_folders:
-            self.bb.include_folder(path)
+            self.mdbx.include_folder(path)
 
         CONF.set("main", "excluded_folders", excluded_folders)
 

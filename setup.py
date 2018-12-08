@@ -30,17 +30,17 @@ def get_version(relpath):
 
 
 setup(
-    name="birdbox",
-    version=get_version("birdbox/main.py"),
+    name="maestral",
+    version=get_version("maestral/main.py"),
     description="Open-source Dropbox client for macOS and Linux.",
-    url="https://github.com/SamSchott/birdbox",
+    url="https://github.com/SamSchott/maestral",
     author="Sam Schott",
     author_email="ss2151@cam.ac.uk",
     licence="MIT",
     long_description=open("README.md").read(),
     packages=find_packages(),
     package_data={
-            "birdbox": [
+            "maestral": [
                     "gui/*.ui",
                     "gui/resources/*.icns",
                     "gui/resources/*.png",
@@ -54,6 +54,6 @@ setup(
         ],
     zip_safe=False,
     entry_points={
-      "console_scripts": ["birdbox=birdbox.bin.command_line:main"],
+      "console_scripts": ["maestral=maestral.bin.command_line:main"],
       }
     )
