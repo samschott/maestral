@@ -171,9 +171,9 @@ class Maestral(object):
                 name="MaestralFolderDownloader")
         self.download_thread.start()
 
-        def callback(x, y):
-            if dbx_path is "":  # resume all syncing
-                self.monitor.resume()
+        def callback(*args):  # blinker signal will carry the sender as arument
+            if dbx_path is "":
+                self.monitor.resume()  # resume all syncing
             else:
                 self.monitor.flagged.clear()  # clear excluded list
 

@@ -52,9 +52,13 @@ class FileEventHandler(FileSystemEventHandler):
     """
     Logs captured file events and adds them to :ivar:`local_q` to be processed
     by :class:`upload_worker`. This acts as a translation layer between between
-    watchdog.Obersever and :class:`upload_worker`.
+    `watchdog.Obersever` and :class:`upload_worker`.
 
     :ivar local_q: Qeueue with unprocessed local file events.
+    :ivar flagged: Deque with paths to be temporarily ignored. This is mostly
+        used to exclude files and folders which are currently beeing downloaded
+        from monitoring.
+    :ivar running: Threading Event which turns off any qeueing of uploads.
     """
 
     def __init__(self, flagged):
@@ -93,13 +97,13 @@ class FileEventHandler(FileSystemEventHandler):
 
 class DropboxUploadSync(object):
     """
-    Class that contains methods to sync local file events with Dropbox. It acts
-    as a translation layer, converting watchdog file events to actions of the
-    Maestral Dropbox API client.
+    Class that contains methods to sync local file events with Dropbox. It
+    takes watchdog file events and tranlates them to uploads, deletions or
+    moves of Dropbox files, performed by the Maestral Dropbox API client.
 
-    The 'last_sync' entry in the config file is updated with the current time
-    after every successfull sync. 'last_sync' is used to check for unsynced
-    changes when Maestral is started or resumed.
+    The 'last_sync' entry in the config file and `client.last_sync` are updated
+    with the current time after every successfull sync. 'last_sync' is used to
+    detect changes while :class:`MaestralMonitor` was not running.
     """
 
     def __init__(self, client):
@@ -252,6 +256,19 @@ class DropboxUploadSync(object):
 
 
 def connection_helper(client, connected, running):
+    """
+    A worker which periodically checks the connection to Dropbox servers.
+    This is done through inexpensive calls to :method:`client.get_space_usage`.
+    If the connection is lost, `connection_helper` pauses all syncing until a
+    connection can be reestablished.
+
+    :ivar disconnected_signal: Blinker signal which is emitted on a failed
+        connection attempt.
+    :ivar connected_signal: Blinker signal which is emitted when a lost
+        connection is reestablished.
+    :ivar account_usage_signal: Blinker signal carrying the current account
+        usage stats.
+    """
 
     disconnected_signal = signal("disconnected_signal")
     connected_signal = signal("connected_signal")
@@ -277,13 +294,15 @@ def connection_helper(client, connected, running):
 
 def download_worker(client, running, flagged):
     """
-    Wroker to sync changes of remote Dropbox with local folder.
+    Wroker to sync changes of remote Dropbox with local folder. All files about
+    to change are temporarily excluded from the local file monitor by adding
+    their paths to the `flagged` deque.
 
     :param client: :class:`MaestralClient` instance.
-    :param running: If not `running.is_set()` the worker is paused.  Will be
-        set if the connection to the Dropbox server fails, or if syncing is
-        paused by the user.
-    :param list flagged: Flagg paths for local observer to ignore.
+    :param running: If not `running.is_set()` the worker is paused.  This event
+        will be set if the connection to the Dropbox server fails, or if
+        syncing is paused by the user.
+    :param deque flagged: Flagged paths for local observer to ignore.
     """
 
     disconnected_signal = signal("disconnected_signal")
@@ -328,7 +347,11 @@ def download_worker(client, running, flagged):
 
 def upload_worker(dbx_uploader, local_q, running):
     """
-    Worker to sync local changes to remote Dropbox.
+    Worker to sync local changes to remote Dropbox. It collects the most recent
+    local file events from `local_q`, prunes them from duplicates, and
+    processes the remaining events by calling methods of
+    :class:`DropboxUploadSync`.
+
 
     :param dbx_uploader: Instance of :class:`DropboxUploadSync`.
     :param local_q: Queue containing all local file events to sync.
@@ -451,21 +474,26 @@ def upload_worker(dbx_uploader, local_q, running):
 
 class MaestralMonitor(object):
     """
-    Class to sync changes between Dropbox and local folder.
+    Class to sync changes between Dropbox and local folder. It creates four
+    threads: `observer` to catch local file events, `upload_thread` to upload
+    caught changes to Dropbox, `download_thread` to query for and download
+    remote changes, and `connection_thread` which periodically checks the
+    connection to Dropbox servers.
 
     :ivar observer: Watchdog obersver thread that detects local file system
-        events and calls `file_handler`.
-    :ivar file_handler: Handler to register file events and put in queue.
-    :ivar dbx_uploader: Handler to upload changes to Dropbox.
-    :ivar upload_thread: Thread that calls `dbx_uploader` methods when file
-        events have been queued.
-    :ivar download_thread: Thread to query and process remote changes.
-    :ivar connected: Event that is set if connection to Dropbox API
-        servers can be established.
-    :ivar running: Event that controls worker theads.
+        events.
+    :ivar file_handler: Handler to queue file events from `observer` for upload.
+    :ivar dbx_uploader: Class instance to convert file events to
+        `MaestralClient` calls.
+    :ivar upload_thread: Thread that sorts file events and uploads them with
+        `dbx_uploader`.
+    :ivar download_thread: Thread to query for and download remote changes.
+    :ivar connected: Event that is set if connection to Dropbox API servers can
+        be established.
+    :ivar running: Event is set if worker threads are running.
     :ivar paused_by_user: `True` if worker has been stopped by user, `False`.
         If `paused_by_user` is `True`, syncing will not automatically resume
-        once a connection is restablished.
+        once a connection is established.
     """
 
     connected = Event()
