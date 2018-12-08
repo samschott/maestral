@@ -15,7 +15,7 @@ a full download on the next startup.
 """
 
 # Local import
-from birdbox.config.user import UserConfig
+from .config.user import UserConfig
 
 PACKAGE_NAME = 'birdbox'
 SUBFOLDER = '.%s' % PACKAGE_NAME

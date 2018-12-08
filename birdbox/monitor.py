@@ -18,7 +18,7 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              DirDeletedEvent, FileDeletedEvent)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 
-from birdbox.config.main import CONF
+from .config.main import CONF
 
 logger = logging.getLogger(__name__)
 

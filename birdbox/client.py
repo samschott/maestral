@@ -12,9 +12,9 @@ import dropbox
 from dropbox import DropboxOAuth2FlowNoRedirect
 from dropbox import files
 
-from birdbox.config.main import CONF, SUBFOLDER
-from birdbox.config.base import get_conf_path
-from birdbox.notify.main import Notipy
+from .config.main import CONF, SUBFOLDER
+from .config.base import get_conf_path
+from .utils.notify import Notipy
 
 logger = logging.getLogger(__name__)
 # create single requests session for all clients

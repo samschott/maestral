@@ -19,7 +19,7 @@ def main():
         wtd = "--sync"
 
     if wtd == "--client":
-        from birdbox.client import BirdBoxClient
+        from .client import BirdBoxClient
 
         print("""BirdBox
     (c) Sam Schott, 2018
@@ -65,22 +65,22 @@ def main():
         """)
 
     elif wtd == "--configuration":
-        from birdbox import BirdBox
+        from .main import BirdBox
 
         sdbx = BirdBox(run=False)
         sdbx.set_dropbox_directory()
         sdbx.select_excluded_folders()
 
     elif wtd == "--sync":
-        from birdbox import BirdBox
+        from .main import BirdBox
         sdbx = BirdBox()
 
     elif wtd == "--sync":
-        from birdbox.gui.main import run
+        from .gui.main import run
         run()
 
     elif wtd == "--unlink":
-        from birdbox import BirdBox
+        from .main import BirdBox
         sdbx = BirdBox(run=False)
         sdbx.unlink()
 
