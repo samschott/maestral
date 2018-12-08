@@ -854,7 +854,7 @@ class MaestralClient(object):
 
     def _is_local_conflict(self, dbx_path):
         """
-        Check if local copy is conflicting with remote.
+        Check if local file is conflicting with remote file.
 
         :param str dbx_path: Path of folder on Dropbox.
         :return: 0 for conflict, 1 for no conflict, 2 if files are identical.
@@ -880,12 +880,13 @@ class MaestralClient(object):
         local_rev = self.get_local_rev(dbx_path)
         if local_rev is None:
             # We have a conflict: files with the same name have been
-            # created on Dropbox and locally inpedent from each other.
+            # created on Dropbox and locally inpedent of each other.
             # If a file has been modified while the client was not running,
             # its entry from rev_dict is removed.
-            logger.debug("Conflicting local file without rev.")
+            logger.debug("Conflicting copy without rev.")
             return 1
         # check if remote and local versions have same rev
+        # TODO: check hashkeys instead
         elif md.rev == local_rev:
             logger.debug(
                     "Local file is the same as on Dropbox (rev %s). No download necessary.",
