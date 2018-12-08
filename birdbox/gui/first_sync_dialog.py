@@ -13,12 +13,12 @@ import requests
 from dropbox.oauth import BadStateException, NotApprovedException
 from qtpy import QtGui, QtCore, QtWidgets, uic
 
-from birdbox.main import BirdBox
-from birdbox.client import OAuth2Session
-from birdbox.monitor import CONNECTION_ERRORS
-from birdbox.config.main import CONF
-from birdbox.config.base import get_home_dir
-from birdbox.gui.folders_dialog import FolderItem
+from .main import BirdBox
+from .client import OAuth2Session
+from .monitor import CONNECTION_ERRORS
+from .config.main import CONF
+from .config.base import get_home_dir
+from .gui.folders_dialog import FolderItem
 
 _root = QtCore.QFileInfo(__file__).absolutePath()
 

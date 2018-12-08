@@ -8,10 +8,10 @@ import webbrowser
 from blinker import signal
 from PyQt5 import QtCore, QtWidgets, QtGui
 
-from birdbox.main import BirdBox
-from birdbox.gui.settings import SettingsWindow
-from birdbox.gui.first_sync_dialog import FirstSyncDialog
-from birdbox.config.main import CONF
+from .main import BirdBox
+from .gui.settings import SettingsWindow
+from .gui.first_sync_dialog import FirstSyncDialog
+from .config.main import CONF
 
 _root = QtCore.QFileInfo(__file__).absolutePath()
 
