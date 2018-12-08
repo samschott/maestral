@@ -7,7 +7,7 @@ BirdBox is an open-source Dropbox client written in Python. The project's main g
 BirdBox remembers its last settings and resumes syncing after a restart. You can also pause and resume syncing while BirdBox is running, add and remove exluded folders, and change the Dropbox location on the local drive.
 
 ## User interface
-Run `birdbox -gui` in the command line to start the BirdBox with a graphical user interface. On first sync, Birdbox will run you through linking and configuring your Dropbox and then start syncing. The user interface is based on a status bar (menu bar) icon showing the current syncing status and a preference pane for configuration.
+Run `birdbox --gui` in the command line to start BirdBox with a graphical user interface. On first sync, Birdbox will run you through linking and configuring your Dropbox and then start syncing. The user interface is based on a status bar (menu bar) icon showing the current syncing status and a preference pane for configuration.
 
 <p align="center">
     <img src="/screenshots/menu_bar.png" height="300" title="Menu bar icon">
