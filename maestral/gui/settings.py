@@ -12,7 +12,7 @@ import os.path as osp
 import time
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
-from ..main import __version__, __author__
+from ..main import __version__, __author__, __url__
 from ..config.main import CONF
 from ..config.base import get_home_dir
 from .folders_dialog import FoldersDialog
@@ -65,12 +65,10 @@ class SettingsWindow(QtWidgets.QWidget):
         self.unlink_dialog.accepted.connect(self.mdbx.unlink)
 
         # populate about section
-        self.labelVersion.setText("v" + __version__)
-        copyright_html = """
-        <span style=" font-size:11pt; color:#838383;">(c) {0}, {1}.
-        All Rights reserved.</span>
-        """.format(time.localtime().tm_year, __author__)
-        self.labelCopyright.setText(copyright_html)
+        placeholder = self.labelAbout.text()
+        year = time.localtime().tm_year
+        about_text = placeholder.format(__version__, __url__, year, __author__)
+        self.labelAbout.setText(about_text)
 
     def setup_combobox(self):
 

@@ -2,6 +2,7 @@
 
 __version__ = "0.1.0"
 __author__ = "Sam Schott"
+__url__ = "https://github.com/SamSchott/maestral"
 
 import os
 import os.path as osp
