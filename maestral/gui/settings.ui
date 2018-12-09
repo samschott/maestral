@@ -140,7 +140,7 @@
    <item row="21" column="1">
     <widget class="QLabel" name="labelLink">
      <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://github.com/SamSchott/birdbox&quot;&gt;&lt;span style=&quot; font-size:12pt; text-decoration: underline; color:#2874e1;&quot;&gt;https://github.com/SamSchott/maestral&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://github.com/SamSchott/birdbox&quot;&gt;&lt;span style=&quot; font-size:1em; text-decoration: underline; color:#2874e1;&quot;&gt;https://github.com/SamSchott/maestral&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="openExternalLinks">
       <bool>true</bool>
@@ -150,7 +150,7 @@
    <item row="22" column="1">
     <widget class="QLabel" name="labelCopyright">
      <property name="text">
-      <string>&lt;span style=&quot; font-size:11pt; color:#838383;&quot;&gt;(c) 2018, Sam Schott. All Rights reserved.&lt;/span&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:1em; color:#838383;&quot;&gt;(c) 2018, Sam Schott. All Rights reserved.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
     </widget>
    </item>
