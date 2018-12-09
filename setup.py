@@ -51,6 +51,8 @@ setup(
         "dropbox",
         "watchdog",
         "blinker",
+        "requests",
+        "tqdm",
         ],
     zip_safe=False,
     entry_points={

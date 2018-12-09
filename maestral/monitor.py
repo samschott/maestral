@@ -52,13 +52,13 @@ class FileEventHandler(FileSystemEventHandler):
     """
     Logs captured file events and adds them to :ivar:`local_q` to be processed
     by :class:`upload_worker`. This acts as a translation layer between between
-    `watchdog.Obersever` and :class:`upload_worker`.
+    `watchdog.Observer` and :class:`upload_worker`.
 
-    :ivar local_q: Qeueue with unprocessed local file events.
+    :ivar local_q: Queue with unprocessed local file events.
     :ivar flagged: Deque with paths to be temporarily ignored. This is mostly
-        used to exclude files and folders which are currently beeing downloaded
+        used to exclude files and folders which are currently being downloaded
         from monitoring.
-    :ivar running: Threading Event which turns off any qeueing of uploads.
+    :ivar running: Threading Event which turns off any queuing of uploads.
     """
 
     def __init__(self, flagged):
@@ -182,7 +182,7 @@ class DropboxUploadSync(object):
                 if rev is None:
                     mode = dropbox.files.WriteMode("add")
                 # or a 'false' new file event triggered by saving the file
-                # e.g., some programms create backup files and then swap them
+                # e.g., some programs create backup files and then swap them
                 # in to replace the files you are editing on the disk
                 else:
                     mode = dropbox.files.WriteMode("update", rev)
@@ -294,7 +294,7 @@ def connection_helper(client, connected, running):
 
 def download_worker(client, running, flagged):
     """
-    Wroker to sync changes of remote Dropbox with local folder. All files about
+    Worker to sync changes of remote Dropbox with local folder. All files about
     to change are temporarily excluded from the local file monitor by adding
     their paths to the `flagged` deque.
 
@@ -480,7 +480,7 @@ class MaestralMonitor(object):
     remote changes, and `connection_thread` which periodically checks the
     connection to Dropbox servers.
 
-    :ivar observer: Watchdog obersver thread that detects local file system
+    :ivar observer: Watchdog observer thread that detects local file system
         events.
     :ivar file_handler: Handler to queue file events from `observer` for upload.
     :ivar dbx_uploader: Class instance to convert file events to

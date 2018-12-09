@@ -7,7 +7,7 @@ Created on Wed Oct 31 16:23:13 2018
 """
 
 import os.path as osp
-from qtpy import QtGui, QtCore, QtWidgets, uic
+from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 from ..config.main import CONF
 
@@ -36,6 +36,8 @@ class FolderItem(QtWidgets.QListWidgetItem):
 
 class FoldersDialog(QtWidgets.QDialog):
 
+    path_items = []
+
     def __init__(self, mdbx,  parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
@@ -63,10 +65,9 @@ class FoldersDialog(QtWidgets.QDialog):
             self.accept_button.setEnabled(False)
         else:
             self.accept_button.setEnabled(True)
-            self.folder_list = self.mdbx.client.flatten_results_list(root_folders)
+            folder_list = self.mdbx.client.flatten_results_list(root_folders)
 
-            self.path_items = []
-            for entry in self.folder_list:
+            for entry in folder_list:
                 is_included = not self.mdbx.client.is_excluded(entry.path_lower)
                 item = FolderItem(self.folder_icon, entry.name, is_included)
                 self.path_items.append(item)

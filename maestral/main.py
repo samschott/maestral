@@ -104,7 +104,7 @@ class Maestral(object):
     Maestral gracefully handles lost internet connections and will detect
     changes in between sessions or while Maestral has been idle.
 
-    :ivar bool syncing: Bool indicating if syncing is running or paused.
+    :ivar syncing: Bool indicating if syncing is running or paused.
     :ivar connected: Bool indicating if Dropbox servers can be reached.
     """
 

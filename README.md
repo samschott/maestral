@@ -2,12 +2,12 @@
 An open-source Dropbox client for macOS and Linux.
 
 ## About
-Meastral is an open-source Dropbox client written in Python. The project's main goal is to provide a client for platforms and file systems that are not directly supported by Dopbox. Meastral uses the Python SDK for the Dropbox API v2.
+Meastral is an open-source Dropbox client written in Python. The project's main goal is to provide a client for platforms and file systems that are not directly supported by Dropbox. Meastral uses the Python SDK for the Dropbox API v2.
 
-Meastral remembers its last settings and resumes syncing after a restart. You can also pause and resume syncing while Meastral is running, inlcude and exclude folders in the sync, and change the Dropbox location on your local drive. External storage devices are however not supported as Dropbox locations.
+Meastral remembers its last settings and resumes syncing after a restart. You can also pause and resume syncing while Meastral is running, include and exclude folders in the sync, and change the Dropbox location on your local drive. External storage devices are however not supported as Dropbox locations.
 
 ## Usage
-Run `meastral --gui` in the command line to start Meastral with a graphical user interface. On first sync, Birdbox will run you through linking and configuring your Dropbox and then start syncing. The user interface is based on a status bar (menu bar) icon showing the current syncing status and a preference pane for configuration.
+Run `meastral --gui` in the command line to start Meastral with a graphical user interface. On first sync, Meastral will run you through linking and configuring your Dropbox and then start syncing. The user interface is based on a status bar (menu bar) icon showing the current syncing status and a preference pane for configuration.
 
 ![Screenshot macOS](/screenshots/full.png)
 
@@ -27,9 +27,9 @@ On initial use, Meastral will ask you to link your Dropbox account, give the loc
 
 >>> path = '/Folder/On/Dropbox'  # path relative to Dropbox folder
 >>> m.exclude_folder(path)  # exclude Dropbox folder from sync, delete locally
->>> m.include_folder(path)  # inlcude Dropbox folder in sync, download its contents
+>>> m.include_folder(path)  # include Dropbox folder in sync, download its contents
 
->>> m.set_dropbox_directory('~/Dropbox')  # give path for local dropbox folder
+>>> m.set_dropbox_directory('~/Dropbox')  # give path for local Dropbox folder
 >>> m.unlink()  # unlinks your Dropbox account but keeps are your files
 ```
 
@@ -53,7 +53,7 @@ You can get information about your Dropbox account and direct access to uploadin
 MeastralClient does not inlcude any syncing functionality.
 
 ## Command line usage
-After installation, Meastral will be available as a command line script by typing `meastral` in the command prompt. Command line functionality resembles that of the interactive client. Type `meastral --help` to get a full list of available commmands. Invoking `meastral` by itself will configure Meastral on first run and then automatically start syncing.
+After installation, Meastral will be available as a command line script by typing `meastral` in the command prompt. Command line functionality resembles that of the interactive client. Type `meastral --help` to get a full list of available commands. Invoking `meastral` by itself will configure Meastral on first run and then automatically start syncing.
 
 ## Warning:
 - Meastral does not have production status yet, so only 500 accounts can use the API keys.
