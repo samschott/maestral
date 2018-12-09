@@ -16,48 +16,6 @@ from .first_sync_dialog import FirstSyncDialog
 _root = QtCore.QFileInfo(__file__).absolutePath()
 
 
-class TestBB(object):
-
-    class TestClient(object):
-
-        dropbox_path = os.path.expanduser('~/Dropbox')
-
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def is_excluded(self, *args, **kwargs):
-            return False
-
-        def list_folder(self, *args, **kwargs):
-            return None
-
-        def flatten_results_list(self, *args, **kwargs):
-            return {'Test Folder 1': None, 'Test Folder 2': None}
-
-        def include_folder(self):
-            pass
-
-        def exclude_folder(self):
-            pass
-
-    client = TestClient()
-    connected = True
-    syncing = True
-    notify = True
-
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def unlink(self):
-        pass
-
-    def pause_sync(self):
-        pass
-
-    def resume_sync(self):
-        pass
-
-
 class InfoHanlder(logging.Handler, QtCore.QObject):
     """
     Handler which emits a signal containing the logging message for every

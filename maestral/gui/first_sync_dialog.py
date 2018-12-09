@@ -11,7 +11,7 @@ import sys
 import os.path as osp
 import requests
 from dropbox.oauth import BadStateException, NotApprovedException
-from qtpy import QtGui, QtCore, QtWidgets, uic
+from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 from ..main import Maestral
 from ..client import OAuth2Session
@@ -40,12 +40,12 @@ class OAuth2SessionGUI(OAuth2Session):
         super(self.__class__, self).__init__()
 
     def load_creds(self):
-        """Pass instead of loading credentials from file."""
+        """Do not load credentials from file."""
         pass
 
     def get_url(self):
-        self.authorize_url = self.auth_flow.start()
-        return self.authorize_url
+        authorize_url = self.auth_flow.start()
+        return authorize_url
 
     def verify_auth_key(self, auth_code):
         self.oAuth2FlowResult = self.auth_flow.finish(auth_code)
@@ -58,6 +58,11 @@ class OAuth2SessionGUI(OAuth2Session):
 
 
 class FirstSyncDialog(QtWidgets.QDialog):
+
+    auth_session = ""
+    auth_url = ""
+
+    path_items = []
 
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
@@ -75,7 +80,25 @@ class FirstSyncDialog(QtWidgets.QDialog):
         self.buttonBoxDropboxPath.buttons()[0].setText('Confirm')
         self.buttonBoxFolderSelection.buttons()[0].setText('Select')
         self.buttonBoxFolderSelection.buttons()[1].setText('Back')
-        self.setup_combobox()
+
+        # set up combobox
+        self.dropbox_location = osp.expanduser('~')
+        short_path = self.rel_path(self.dropbox_location)
+
+        if self.dropbox_location == get_home_dir():
+            self.comboBoxDropboxPath.addItem(self.home_folder_icon, short_path)
+        else:
+            self.comboBoxDropboxPath.addItem(self.folder_icon, short_path)
+        self.comboBoxDropboxPath.insertSeparator(1)
+        self.comboBoxDropboxPath.addItem(QtGui.QIcon(), "Other...")
+        self.comboBoxDropboxPath.currentIndexChanged.connect(self.on_combobox)
+        self.dropbox_folder_dialog = QtWidgets.QFileDialog(self)
+        self.dropbox_folder_dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptOpen)
+        self.dropbox_folder_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
+        self.dropbox_folder_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly, True)
+        self.dropbox_folder_dialog.fileSelected.connect(self.on_new_dbx_folder)
+        self.dropbox_folder_dialog.rejected.connect(
+                lambda: self.comboBoxDropboxPath.setCurrentIndex(0))
 
         # connect buttons to callbacks
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
@@ -119,12 +142,12 @@ class FirstSyncDialog(QtWidgets.QDialog):
         try:
             self.auth_session.verify_auth_key(auth_code)
         except requests.HTTPError:
-            msg = "Please make sure that you entered the correct authentification code."
-            msg_box = ErrorDialog(self, "Authentification failed.", msg)
+            msg = "Please make sure that you entered the correct authentication code."
+            msg_box = ErrorDialog(self, "Authentication failed.", msg)
             msg_box.open()
             return
         except BadStateException:
-            msg = "The authentification session expired. Please try again."
+            msg = "The authentication session expired. Please try again."
             msg_box = ErrorDialog(self, "Session expired.", msg)
             msg_box.open()
             self.stackedWidget.setCurrentIndex(0)
@@ -181,27 +204,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
 # Helper functions
 # =============================================================================
 
-    def setup_combobox(self):
-
-        self.dropbox_location = osp.expanduser('~')
-        short_path = self.rel_path(self.dropbox_location)
-
-        if self.dropbox_location == get_home_dir():
-            self.comboBoxDropboxPath.addItem(self.home_folder_icon, short_path)
-        else:
-            self.comboBoxDropboxPath.addItem(self.folder_icon, short_path)
-        self.comboBoxDropboxPath.insertSeparator(1)
-        self.comboBoxDropboxPath.addItem(QtGui.QIcon(), "Other...")
-        self.comboBoxDropboxPath.currentIndexChanged.connect(self.on_comboBox)
-        self.dropbox_folder_dialog = QtWidgets.QFileDialog(self)
-        self.dropbox_folder_dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptOpen)
-        self.dropbox_folder_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
-        self.dropbox_folder_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly, True)
-        self.dropbox_folder_dialog.fileSelected.connect(self.on_new_dbx_folder)
-        self.dropbox_folder_dialog.rejected.connect(
-                lambda: self.comboBoxDropboxPath.setCurrentIndex(0))
-
-    def on_comboBox(self, idx):
+    def on_combobox(self, idx):
         if idx == 2:
             self.dropbox_folder_dialog.open()
 
@@ -229,10 +232,9 @@ class FirstSyncDialog(QtWidgets.QDialog):
             self.self.buttonBoxFolderSelection.buttons()[0].setEnabled(False)
         else:
             self.buttonBoxFolderSelection.buttons()[0].setEnabled(True)
-            self.folder_list = self.mdbx.client.flatten_results_list(root_folders)
+            folder_list = self.mdbx.client.flatten_results_list(root_folders)
 
-            self.path_items = []
-            for entry in self.folder_list:
+            for entry in folder_list:
                 is_included = not self.mdbx.client.is_excluded(entry.path_lower)
                 item = FolderItem(self.folder_icon, entry.name, is_included)
                 self.path_items.append(item)
@@ -254,9 +256,9 @@ class FirstSyncDialog(QtWidgets.QDialog):
     # static method to create the dialog and return Maestral instance on success
     @staticmethod
     def configureMaestral(parent=None):
-        dialog = FirstSyncDialog(parent)
-        dialog.exec_()
-        return dialog.mdbx
+        fsd = FirstSyncDialog(parent)
+        fsd.exec_()
+        return fsd.mdbx
 
 
 def get_qt_app(*args, **kwargs):

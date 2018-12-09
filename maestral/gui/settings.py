@@ -10,7 +10,7 @@ Created on Wed Oct 31 16:23:13 2018
 
 import os.path as osp
 import time
-from qtpy import QtGui, QtCore, QtWidgets, uic
+from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 from ..main import __version__, __author__
 from ..config.main import CONF
@@ -83,7 +83,7 @@ class SettingsWindow(QtWidgets.QWidget):
             self.comboBoxDropboxPath.addItem(self.generic_folder_icon, short_path)
         self.comboBoxDropboxPath.insertSeparator(1)
         self.comboBoxDropboxPath.addItem(QtGui.QIcon(), "Other...")
-        self.comboBoxDropboxPath.currentIndexChanged.connect(self.on_comboBox)
+        self.comboBoxDropboxPath.currentIndexChanged.connect(self.on_combobox)
         msg = ('Choose a location for your Dropbox. A folder named "Dropbox"' +
                ' will be created inside the folder you select.')
         self.dropbox_folder_dialog = QtWidgets.QFileDialog(self, caption=msg)
@@ -94,7 +94,7 @@ class SettingsWindow(QtWidgets.QWidget):
         self.dropbox_folder_dialog.rejected.connect(
                 lambda: self.comboBoxDropboxPath.setCurrentIndex(0))
 
-    def on_comboBox(self, idx):
+    def on_combobox(self, idx):
         if idx == 2:
             self.dropbox_folder_dialog.open()
 

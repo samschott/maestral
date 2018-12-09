@@ -20,15 +20,18 @@ logger = logging.getLogger(__name__)
 # create single requests session for all clients
 SESSION = dropbox.dropbox.create_session()
 
+APP_KEY = "2jmbq42w7vof78h"
+APP_SECRET = "lrsxo47dvuulex5"
+
 
 def tobytes(value, unit, bsize=1024):
     """
     Convert size from megabytes to bytes.
 
-    :param int b: Value in bytes.
+    :param int value: Value in bytes.
     :param str unit: Unit to convert to. 'KB' to 'EB' are supported.
     :param int bsize: Conversion between bytes and next higher unit.
-    :return: Coverted value in units of `to`.
+    :return: Converted value in units of `to`.
     :rtype: float
     """
     a = {"KB": 1, "MB": 2, "GB": 3, "TB": 4, "PB": 5, "EB": 6}
@@ -40,10 +43,10 @@ def bytesto(value, unit, bsize=1024):
     """
     Convert size from megabytes to bytes.
 
-    :param int b: Value in bytes.
+    :param int value: Value in bytes.
     :param str unit: Unit to convert to. 'KB' to 'EB' are supported.
     :param int bsize: Conversion between bytes and next higher unit.
-    :return: Coverted value in units of `to`.
+    :return: Converted value in units of `to`.
     :rtype: float
     """
     a = {"KB": 1, "MB": 2, "GB": 3, "TB": 4, "PB": 5, "EB": 6}
@@ -54,25 +57,30 @@ def bytesto(value, unit, bsize=1024):
 class SpaceUsage(dropbox.users.SpaceUsage):
 
     def __str__(self):
-        if self.allocation.is_team():
-            allocation = self.allocation.get_team()
-        elif self.allocation.is_individual():
-            allocation = self.allocation.get_individual()
 
-        percent = allocation.used / allocation.allocated * 100
-        alloc_gb = bytesto(allocation.allocated, "GB")
+        if self.allocation.is_individual():
+            used = self.used
+            allocated = self.allocation.get_individual().allocated
+        elif self.allocation.is_team():
+            used = self.allocation.get_team().used
+            allocated = self.allocation.get_team().allocated
+        else:
+            used_gb = bytesto(self.used, "GB")
+            return "{:,}GB used".format(used_gb)
+
+        percent = used / allocated * 100
+        alloc_gb = bytesto(allocated, "GB")
         str_rep = "{:.1f}% of {:,}GB used".format(percent, alloc_gb)
         return str_rep
 
 
 class OAuth2Session(object):
-    """Provides OAuth2 login and token store.
+    """
+    OAuth2Session provides OAuth2 login and token store.
 
     :ivar app_key: String containing app key provided by Dropbox.
     :ivar app_secret: String containing app secret provided by Dropbox.
     """
-    APP_KEY = "2jmbq42w7vof78h"
-    APP_SECRET = "lrsxo47dvuulex5"
 
     TOKEN_FILE = osp.join(get_conf_path(SUBFOLDER), "o2_store.txt")
     auth_flow = None
@@ -81,13 +89,12 @@ class OAuth2Session(object):
     account_id = ""
     user_id = ""
 
-    def __init__(self, app_key="", app_secret=""):
-        # check if I specified app_key and app_secret
-        if self.APP_KEY == "" or self.APP_SECRET == "":
-            exit(" x You need to set your APP_KEY and APP_SECRET!")
+    def __init__(self, app_key=APP_KEY, app_secret=APP_SECRET):
+        self.app_key = app_key
+        self.app_secret = app_secret
 
         # prepare auth flow
-        self.auth_flow = DropboxOAuth2FlowNoRedirect(self.APP_KEY, self.APP_SECRET)
+        self.auth_flow = DropboxOAuth2FlowNoRedirect(self.app_key, self.app_secret)
         self.load_creds()
 
     def link(self):
@@ -155,12 +162,12 @@ class MaestralClient(object):
 
     :ivar last_cursor: Last cursor from Dropbox which was synced. The value
         is updated and saved to config file on every successful sync.
-    :ivar exlcuded_files: List containing all files excluded from sync.
+    :ivar excluded_files: List containing all files excluded from sync.
         This only contains system files such as '.DS_STore' and internal files
         such as '.dropbox' and should not be changed.
     :ivar excluded_folders: List containing all files excluded from sync.
         When adding and removing entries, make sure to update the config file
-        as well so that changes persist accross sessions.
+        as well so that changes persist across sessions.
     :ivar rev_dict: Dictionary with paths to all synced local files/folders
         as keys. Values are the revision number of a file or 'folder' for a
         folder. Do not change entries manually, the dict is updated
@@ -179,7 +186,7 @@ class MaestralClient(object):
 
     SDK_VERSION = "2.0"
 
-    exlcuded_files = CONF.get("main", "exlcuded_files")
+    excluded_files = CONF.get("main", "excluded_files")
     excluded_folders = CONF.get("main", "excluded_folders")
     last_cursor = CONF.get("internal", "cursor")
 
@@ -223,7 +230,7 @@ class MaestralClient(object):
         :param str local_path: Full path to file in local Dropbox folder.
         :return: Relative path with respect to Dropbox folder.
         :rtype: str
-        :raises ValueError: If no path is specfied or path is outide of local
+        :raises ValueError: If no path is specified or path is outside of local
             Dropbox folder.
         """
 
@@ -247,12 +254,12 @@ class MaestralClient(object):
 
     def to_local_path(self, dbx_path):
         """
-        Converts a Dropbox folder path the correspoding local path.
+        Converts a Dropbox folder path the corresponding local path.
 
         :param str dbx_path: Path to file relative to Dropbox folder.
         :return: Corresponding local path on drive.
         :rtype: str
-        :raises ValueError: If no path is specfied.
+        :raises ValueError: If no path is specified.
         """
 
         if not dbx_path:
@@ -292,7 +299,7 @@ class MaestralClient(object):
         entry for the file is removed.
 
         :param str dbx_path: Relative Dropbox file path.
-        :param str rev: Revision number as string.
+        :param rev: Revision number as string or `None`.
         """
         dbx_path = dbx_path.lower()
         with self._rev_lock:
@@ -329,6 +336,8 @@ class MaestralClient(object):
             account_type = 'business'
         elif res.account_type.is_pro():
             account_type = 'pro'
+        else:
+            account_type = ''
 
         CONF.set("account", "email", res.email)
         CONF.set("account", "type", account_type)
@@ -365,7 +374,7 @@ class MaestralClient(object):
         """
         Unlinks the Dropbox account and deletes local sync information.
         """
-        self.dbx.unlink()
+        self.auth.unlink()
 
         self.rev_dict = {}
         os.remove(self.rev_file)
@@ -381,18 +390,19 @@ class MaestralClient(object):
 
         logger.debug("Unliked Dropbox account")
 
-    def get_metadata(self, dbx_path, **wkargs):
+    def get_metadata(self, dbx_path, **kwargs):
         """
         Get metadata for Dropbox entry (file or folder). Returns `None` if no
-        metadata is available.
+        metadata is available. Keyword arguments are passef on to Dropbox SDK
+        files_get_metadata call.
 
         :param str dbx_path: Path of folder on Dropbox.
-        :param kwargs: Keyword arguments for Dropbox SDK files_get_metadata.
+        :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
         :return: FileMetadata|FolderMetadata entries or `False` if failed.
         """
 
         try:
-            md = self.dbx.files_get_metadata(dbx_path)
+            md = self.dbx.files_get_metadata(dbx_path, **kwargs)
         except dropbox.exceptions.ApiError as err:
             logging.debug("Could not get metadata for '%s': %s", dbx_path, err)
             md = False
@@ -409,7 +419,7 @@ class MaestralClient(object):
         :param str dst_path: Path to download destination.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
         :return: :class:`dropbox.files.FileMetadata` or
-            :class:`dropbox.files.FolderMetadata` of downloaded tiem, `False`
+            :class:`dropbox.files.FolderMetadata` of downloaded item, `False`
             if request fails or `None` if local copy is already in sync.
         """
         # generate local path from dropbox_path and given path parameter
@@ -449,7 +459,7 @@ class MaestralClient(object):
         """
 
         file_size = osp.getsize(local_path)
-        chunk_size = tobytes(chunk_size, "MB")
+        chunk_size = int(tobytes(chunk_size, "MB"))
 
         pb = tqdm(total=file_size, unit="B", unit_scale=True,
                   desc=osp.basename(local_path), miniters=1,
@@ -502,7 +512,7 @@ class MaestralClient(object):
             # try to move file (response will be metadata, probably)
             md = self.dbx.files_delete(dbx_path, **kwargs)
         except dropbox.exceptions.ApiError as err:
-            logger.debug("An error occured when deleting '%s': %s", dbx_path, err)
+            logger.debug("An error occurred when deleting '%s': %s", dbx_path, err)
             return False
 
         logger.debug("File / folder '%s' removed from Dropbox.", dbx_path)
@@ -524,7 +534,7 @@ class MaestralClient(object):
                                            allow_ownership_transfer=True)
         except dropbox.exceptions.ApiError as err:
             logger.debug(
-                    "An error occured when moving '%s' to '%s': %s",
+                    "An error occurred when moving '%s' to '%s': %s",
                     dbx_path, new_path, err)
             return False
 
@@ -544,7 +554,7 @@ class MaestralClient(object):
         try:
             md = self.dbx.files_create_folder(dbx_path, **kwargs)
         except dropbox.exceptions.ApiError as err:
-            logger.debug("An error occured creating dir '%s': %s", dbx_path, err)
+            logger.debug("An error occurred creating dir '%s': %s", dbx_path, err)
             return False
 
         logger.debug("Created folder '%s' on Dropbox.", md.path_display)
@@ -554,7 +564,7 @@ class MaestralClient(object):
     def list_folder(self, dbx_path, **kwargs):
         """
         Lists contents of a folder on Dropbox as dictionary mapping unicode
-        filenames to FileMetadata|FolderMetadata entries.
+        file names to FileMetadata|FolderMetadata entries.
 
         :param str dbx_path: Path of folder on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_list_folder.
@@ -627,7 +637,7 @@ class MaestralClient(object):
         for result in results:
             total += len(result.entries)
 
-        logger.info("Downloading %s items..." % (total))
+        logger.info("Downloading {0} items...".format(total))
 
         # apply remote changes, don't update the global cursor when downloading
         # a single folder only
@@ -720,11 +730,15 @@ class MaestralClient(object):
         """
         Applies remote changes to local folder. Call this on the result of
         :method:`list_remote_changes`. The saved cursor is updated after a set
-        of changes has been sucessfully applied.
+        of changes has been successfully applied.
 
+        :param list results: List of :class:`dropbox.files.ListFolderResult`
+            instances or empty list if requests failed.
+        :return: List of :class:`dropbox.files.ListFolderResult`
+            instances or empty list if requests failed.
         :param bool save_cursor: If True, :ivar:`last_cursor` will be updated
             from the last applied changes.
-        :return: `True` on sucess, `False` otherwise.
+        :return: `True` on success, `False` otherwise.
         :rtype: bool
         """
         # apply remote changes
@@ -744,7 +758,7 @@ class MaestralClient(object):
         """Creates local file / folder for remote entry.
 
         :param class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
-        :return: `True` on sucess, `False` otherwise.
+        :return: `True` on success, `False` otherwise.
         :rtype: bool
         """
 
@@ -833,7 +847,7 @@ class MaestralClient(object):
 
         excluded = False
         # in excluded files?
-        if os.path.basename(dbx_path) in self.exlcuded_files:
+        if os.path.basename(dbx_path) in self.excluded_files:
             excluded = True
 
         # in excluded folders?
@@ -846,7 +860,7 @@ class MaestralClient(object):
             excluded = True
 
         # If the file name contains multiple periods it is likely a temporary
-        # file created during a saving event on macOS. Irgnore such files.
+        # file created during a saving event on macOS. Ignore such files.
         if osp.basename(dbx_path).count(".") > 1:
             excluded = True
 
@@ -880,13 +894,13 @@ class MaestralClient(object):
         local_rev = self.get_local_rev(dbx_path)
         if local_rev is None:
             # We have a conflict: files with the same name have been
-            # created on Dropbox and locally inpedent of each other.
+            # created on Dropbox and locally independent of each other.
             # If a file has been modified while the client was not running,
             # its entry from rev_dict is removed.
             logger.debug("Conflicting copy without rev.")
             return 1
         # check if remote and local versions have same rev
-        # TODO: check hashkeys instead
+        # TODO: check hash keys as well
         elif md.rev == local_rev:
             logger.debug(
                     "Local file is the same as on Dropbox (rev %s). No download necessary.",

@@ -1,3 +1,5 @@
 dropbox
 watchdog
 blinker
+requests
+tqdm
