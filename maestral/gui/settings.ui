@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>577</width>
-    <height>376</height>
+    <height>379</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -20,16 +20,6 @@
    <property name="bottomMargin">
     <number>30</number>
    </property>
-   <item row="4" column="0">
-    <widget class="QLabel" name="label_10">
-     <property name="text">
-      <string>Select folders to sync:</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-     </property>
-    </widget>
-   </item>
    <item row="7" column="0" colspan="2" alignment="Qt::AlignHCenter">
     <widget class="Line" name="line">
      <property name="minimumSize">
@@ -49,6 +39,16 @@
      </property>
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="0">
+    <widget class="QLabel" name="label_10">
+     <property name="text">
+      <string>Select folders to sync:</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
      </property>
     </widget>
    </item>
@@ -137,23 +137,6 @@
      </property>
     </widget>
    </item>
-   <item row="21" column="1">
-    <widget class="QLabel" name="labelLink">
-     <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://github.com/SamSchott/birdbox&quot;&gt;&lt;span style=&quot; font-size:1em; text-decoration: underline; color:#2874e1;&quot;&gt;https://github.com/SamSchott/maestral&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-     </property>
-     <property name="openExternalLinks">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="22" column="1">
-    <widget class="QLabel" name="labelCopyright">
-     <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:1em; color:#838383;&quot;&gt;(c) 2018, Sam Schott. All Rights reserved.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-     </property>
-    </widget>
-   </item>
    <item row="20" column="0">
     <widget class="QLabel" name="label">
      <property name="text">
@@ -217,15 +200,15 @@
     </widget>
    </item>
    <item row="20" column="1">
-    <widget class="QLabel" name="labelVersion">
+    <widget class="QLabel" name="labelAbout">
      <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;v0.1.0&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;v{0}&lt;br/&gt;&lt;a href=&quot;{1}&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#2874e1;&quot;&gt;{1}&lt;/span&gt;&lt;/a&gt;&lt;br/&gt;&lt;span style=&quot; color:#838383;&quot;&gt;(c) {2}, {3}. All Rights reserved.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="textFormat">
       <enum>Qt::RichText</enum>
      </property>
      <property name="alignment">
-      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
      </property>
     </widget>
    </item>
