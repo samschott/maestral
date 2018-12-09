@@ -332,9 +332,10 @@ class Maestral(object):
                 return
 
         # move old directory or create new directory
+        if osp.exists(new_path):
+            shutil.rmtree(new_path)
+
         if osp.isdir(old_path):
-            if osp.exists(new_path):
-                shutil.rmtree(new_path)
             shutil.move(old_path, new_path)
         else:
             os.makedirs(new_path)
