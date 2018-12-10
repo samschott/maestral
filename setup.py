@@ -47,6 +47,7 @@ setup(
                     "gui/resources/*.svg",
                     "utils/maestral.desktop",
                     "utils/com.maestral.loginscript.plist",
+                    "bin/*.sh",
                     ],
             },
     install_requires=[
@@ -58,8 +59,8 @@ setup(
         ],
     zip_safe=False,
     entry_points={
-      "console_scripts": ["maestral=maestral.bin.console_script:run"],
+      "console_scripts": ["maestral=maestral.console_script:run"],
       },
-    scripts=['bin/maestral-gui.sh'],
+    scripts=['bin/maestral-gui'],
     python_requires='>3.5.2',
     )

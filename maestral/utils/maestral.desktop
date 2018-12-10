@@ -2,7 +2,7 @@
 Name=Maestral
 GenericName=File Synchronizer
 Comment=Sync your files with Dropbox
-Exec=maestral --gui
+Exec=maestral-gui
 Hidden=false
 Terminal=false
 Type=Application
