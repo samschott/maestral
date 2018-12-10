@@ -35,7 +35,7 @@ class SettingsWindow(QtWidgets.QWidget):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(osp.join(_root, "settings.ui"), self)
-        self.setFixedSize(580, 380)
+        self.setFixedSize(560, 320)
         self.generic_folder_icon = QtGui.QIcon(_root + "/resources/GenericFolderIcon.icns")
         self.home_folder_icon = QtGui.QIcon(_root + "/resources/HomeFolderIcon.icns")
 
