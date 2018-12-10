@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+BASEDIR=$(cd `dirname $0` && pwd)
+cd "$BASEDIR"
+
+source activate python3
+
+python3 console_script.py --gui
+
+source deactivate

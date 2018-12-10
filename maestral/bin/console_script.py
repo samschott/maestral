@@ -7,7 +7,7 @@ Created on Fri Nov 30 13:51:32 2018
 """
 
 
-def main():
+def run():
 
     import sys
 
@@ -47,9 +47,11 @@ def main():
         print("""
     Syntax: maestral [<OPTION>] [<PARAMETERS>]
 
+    Starts the Maestral synicing app in the command line.
+
      --help          - displays this text
      --gui           - runs Maestral with status bar based GUI
-     --sync          - runs Maestral as command line client
+     --sync          - runs Maestral as command line tool
      --configuration - runs configuration wizard
      --unlink        - unlinks Maestral from your Dropbox account but keeps
                        your downloaded files in place
@@ -86,3 +88,7 @@ def main():
 
     else:
         print("Invalid syntax. Type maestral --help for more informations")
+
+
+if __name__ == "__main__":
+    run()
