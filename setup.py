@@ -45,6 +45,8 @@ setup(
                     "gui/resources/*.icns",
                     "gui/resources/*.png",
                     "gui/resources/*.svg",
+                    "utils/maestral.desktop",
+                    "utils/com.maestral.loginscript.plist",
                     ],
             },
     install_requires=[
