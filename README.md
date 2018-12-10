@@ -62,7 +62,7 @@ After installation, Meastral will be available as a command line script by typin
 ## Installation
 Download and install the Python package by running
 ```console
-$ pip git+https://github.com/SamSchott/meastral
+$ pip install git+https://github.com/SamSchott/maestral
 ```
 in the command line.
 
