@@ -6,20 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>577</width>
-    <height>379</height>
+    <width>560</width>
+    <height>320</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Maestral Settings</string>
   </property>
   <layout class="QGridLayout" name="gridLayout" columnstretch="1,2">
-   <property name="topMargin">
-    <number>40</number>
-   </property>
-   <property name="bottomMargin">
-    <number>30</number>
-   </property>
    <item row="7" column="0" colspan="2" alignment="Qt::AlignHCenter">
     <widget class="Line" name="line">
      <property name="minimumSize">
