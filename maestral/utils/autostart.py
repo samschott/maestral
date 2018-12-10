@@ -27,6 +27,9 @@ class AutoStart(object):
         self.destination = os.path.join(self.distnation_dir, self.filename)
 
     def enable(self):
+        if not os.path.isdir(self.distnation_dir):
+            os.makedirs(self.distnation_dir)
+
         shutil.copyfile(self.source, self.destination)
 
     def disable(self):
