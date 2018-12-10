@@ -9,7 +9,7 @@ Created on Wed Oct 31 16:23:13 2018
 import os.path as osp
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
-from ..config.main import CONF
+from maestral.config.main import CONF
 
 
 _root = QtCore.QFileInfo(__file__).absolutePath()

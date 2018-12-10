@@ -26,7 +26,7 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              DirDeletedEvent, FileDeletedEvent)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 
-from .config.main import CONF
+from maestral.config.main import CONF
 
 logger = logging.getLogger(__name__)
 

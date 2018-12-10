@@ -19,9 +19,9 @@ from blinker import signal
 from threading import Thread
 from dropbox import files
 
-from .client import MaestralClient
-from .monitor import MaestralMonitor, CONNECTION_ERRORS
-from .config.main import CONF
+from maestral.client import MaestralClient
+from maestral.monitor import MaestralMonitor, CONNECTION_ERRORS
+from maestral.config.main import CONF
 
 import logging
 

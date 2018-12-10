@@ -10,11 +10,11 @@ import os.path as osp
 import time
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
-from ..main import __version__, __author__, __url__
-from ..utils.autostart import AutoStart
-from ..config.main import CONF
-from ..config.base import get_home_dir
-from .folders_dialog import FoldersDialog
+from maestral.main import __version__, __author__, __url__
+from maestral.utils.autostart import AutoStart
+from maestral.config.main import CONF
+from maestral.config.base import get_home_dir
+from maestral.gui.folders_dialog import FoldersDialog
 
 _root = QtCore.QFileInfo(__file__).absolutePath()
 

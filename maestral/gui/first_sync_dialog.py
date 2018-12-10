@@ -12,12 +12,12 @@ import requests
 from dropbox.oauth import BadStateException, NotApprovedException
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
-from ..main import Maestral
-from ..client import OAuth2Session
-from ..monitor import CONNECTION_ERRORS
-from ..config.main import CONF
-from ..config.base import get_home_dir
-from .folders_dialog import FolderItem
+from maestral.main import Maestral
+from maestral.client import OAuth2Session
+from maestral.monitor import CONNECTION_ERRORS
+from maestral.config.main import CONF
+from maestral.config.base import get_home_dir
+from maestral.gui.folders_dialog import FolderItem
 
 _root = QtCore.QFileInfo(__file__).absolutePath()
 

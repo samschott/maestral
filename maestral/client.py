@@ -20,9 +20,9 @@ import dropbox
 from dropbox import DropboxOAuth2FlowNoRedirect
 from dropbox import files
 
-from .config.main import CONF, SUBFOLDER
-from .config.base import get_conf_path
-from .utils.notify import Notipy
+from maestral.config.main import CONF, SUBFOLDER
+from maestral.config.base import get_conf_path
+from maestral.utils.notify import Notipy
 
 logger = logging.getLogger(__name__)
 # create single requests session for all clients
