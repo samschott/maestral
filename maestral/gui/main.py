@@ -8,7 +8,6 @@ Created on Wed Oct 31 16:23:13 2018
 
 import sys
 import os
-import time
 import logging
 import subprocess
 import platform
@@ -91,9 +90,20 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         # initialize system tray widget
         QtWidgets.QSystemTrayIcon.__init__(self, self.icon_disconnected, parent)
         self.menu = QtWidgets.QMenu()
-        self.show()
+        self._show_when_systray_available()
 
         self.start_maestral()
+
+    def _show_when_systray_available(self):
+        """Show status icon when system tray is available
+
+        If available, show icon, otherwise, set a timer to check back later.
+        This is a workaround for https://bugreports.qt.io/browse/QTBUG-61898
+        """
+        if self.isSystemTrayAvailable():
+            self.show()
+        else:
+            QtCore.QTimer.singleShot(1000, self._show_when_systray_available)
 
     def start_maestral(self):
         # start Maestral
@@ -223,12 +233,7 @@ def run():
     app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
     app.setQuitOnLastWindowClosed(False)
 
-    maestral_gui = MaestralApp()
-
-    while not maestral_gui.isSystemTrayAvailable():
-        time.sleep(1)
-
-    maestral_gui.show()
+    MaestralApp()
 
     if created:
         sys.exit(app.exec_())
