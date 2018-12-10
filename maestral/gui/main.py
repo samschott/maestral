@@ -8,6 +8,7 @@ Created on Wed Oct 31 16:23:13 2018
 
 import sys
 import os
+import time
 import logging
 import subprocess
 import platform
@@ -223,11 +224,15 @@ def run():
     app.setQuitOnLastWindowClosed(False)
 
     maestral_gui = MaestralApp()
+
+    while not maestral_gui.isSystemTrayAvailable():
+        time.sleep(1)
+
     maestral_gui.show()
 
     if created:
         sys.exit(app.exec_())
-        
+
+
 if __name__ == "__main__":
     run()
-
