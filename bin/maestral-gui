@@ -5,6 +5,6 @@ cd "$BASEDIR"
 
 source activate python3
 
-python3 console_script.py --gui
+maestral --gui
 
 source deactivate

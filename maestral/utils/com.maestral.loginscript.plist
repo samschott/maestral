@@ -5,7 +5,7 @@
    <key>Label</key>
    <string>com.maestral.loginscript</string>
    <key>ProgramArguments</key>
-   <array><string>maestral --gui</string></array>
+   <array><string>maestral-gui</string></array>
    <key>RunAtLoad</key>
    <true/>
 </dict>
