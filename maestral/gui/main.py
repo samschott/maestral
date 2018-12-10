@@ -233,7 +233,7 @@ def run():
     app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
     app.setQuitOnLastWindowClosed(False)
 
-    MaestralApp()
+    maestral = MaestralApp()
 
     if created:
         sys.exit(app.exec_())
