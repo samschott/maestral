@@ -1,3 +1,11 @@
+# !/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Oct 31 16:23:13 2018
+
+@author: samschott
+"""
+
 import os
 from enum import Enum
 from ..config.main import CONF
@@ -16,13 +24,19 @@ class Notipy(object):
     Relies on AppleScript on macOS and notify-send on linux, otherwise
     falls back to stdout."""
 
-    ON = CONF.get("app", "notifications")
-
     def __init__(self):
         self.implementation = self.__get_available_implementation()
 
+    @property
+    def enabled(self):
+        return CONF.get("app", "notifications")
+
+    @enabled.setter
+    def enabled(self, boolean):
+        CONF.set("app", "notifications", boolean)
+
     def send(self, message, title="BirdBox"):
-        if self.ON:
+        if self.enabled:
             self.__send_message(message, title)
         else:
             pass

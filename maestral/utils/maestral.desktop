@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Maestral
+GenericName=File Synchronizer
+Comment=Sync your files across computers and to the web
+Exec=maestral --gui
+Hidden=false
+Terminal=false
+Type=Application
+Categories=Network;FileTransfer;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true

@@ -143,3 +143,4 @@ Temporary Items
 .idea/modules.xml
 .idea/vcs.xml
 .idea/workspace.xml
+maestral/utils/notify_mac.py

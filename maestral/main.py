@@ -1,4 +1,10 @@
+# !/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Created on Wed Oct 31 16:23:13 2018
+
+@author: samschott
+"""
 
 __version__ = "0.1.0"
 __author__ = "Sam Schott"
@@ -146,11 +152,11 @@ class Maestral(object):
 
     @property
     def notify(self):
-        return self.client.notify.ON
+        return self.client.notify.enabled
 
     @notify.setter
     def notify(self, boolean):
-        self.client.notify.ON = boolean
+        self.client.notify.enabled = boolean
 
     @if_connected
     def get_remote_dropbox_async(self, dbx_path):
