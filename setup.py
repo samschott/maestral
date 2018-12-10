@@ -58,6 +58,8 @@ setup(
         ],
     zip_safe=False,
     entry_points={
-      "console_scripts": ["maestral=maestral.bin.command_line:main"],
-      }
+      "console_scripts": ["maestral=maestral.bin.console_script:run"],
+      },
+    scripts=['bin/maestral-gui.sh'],
+    python_requires='>3.5.2',
     )
