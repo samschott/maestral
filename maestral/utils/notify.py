@@ -35,7 +35,7 @@ class Notipy(object):
     def enabled(self, boolean):
         CONF.set("app", "notifications", boolean)
 
-    def send(self, message, title="BirdBox"):
+    def send(self, message, title="Maestral"):
         if self.enabled:
             self.__send_message(message, title)
         else:
