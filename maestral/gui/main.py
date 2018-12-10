@@ -15,10 +15,10 @@ import webbrowser
 from blinker import signal
 from PyQt5 import QtCore, QtWidgets, QtGui
 
-from ..main import Maestral
-from ..config.main import CONF
-from .settings import SettingsWindow
-from .first_sync_dialog import FirstSyncDialog
+from maestral.main import Maestral
+from maestral.config.main import CONF
+from maestral.gui.settings import SettingsWindow
+from maestral.gui.first_sync_dialog import FirstSyncDialog
 
 _root = QtCore.QFileInfo(__file__).absolutePath()
 
@@ -227,3 +227,7 @@ def run():
 
     if created:
         sys.exit(app.exec_())
+        
+if __name__ == "__main__":
+    run()
+

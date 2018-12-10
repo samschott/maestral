@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Maestral
 GenericName=File Synchronizer
-Comment=Sync your files across computers and to the web
+Comment=Sync your files with Dropbox
 Exec=maestral --gui
 Hidden=false
 Terminal=false
