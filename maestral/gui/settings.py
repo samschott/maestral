@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # !/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -13,6 +11,7 @@ import time
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 from ..main import __version__, __author__, __url__
+from ..utils.autostart import AutoStart
 from ..config.main import CONF
 from ..config.base import get_home_dir
 from .folders_dialog import FoldersDialog
@@ -45,8 +44,11 @@ class SettingsWindow(QtWidgets.QWidget):
         self.unlink_dialog = UnlinkDialog(self)
 
         # populate app section
-        self.checkBoxStartup.setChecked(CONF.get("app", "system_startup"))
+        self.autostart = AutoStart()
+        self.checkBoxStartup.setChecked(self.autostart.enabled)
+        self.checkBoxStartup.stateChanged.connect(self.on_startup_clicked)
         self.checkBoxNotifications.setChecked(self.mdbx.notify)
+        self.checkBoxNotifications.stateChanged.connect(self.on_notify_clicked)
 
         # populate sync section
         self.setup_combobox()
@@ -119,3 +121,15 @@ class SettingsWindow(QtWidgets.QWidget):
             return osp.relpath(path, usr)
         else:
             return path
+
+    def on_startup_clicked(self, state):
+        if state == 0:
+            self.autostart.disable()
+        elif state == 2:
+            self.autostart.enable()
+
+    def on_notify_clicked(self, state):
+        if state == 0:
+            self.mdbx.notify = False
+        elif state == 2:
+            self.mdbx.notify = True
