@@ -19,7 +19,7 @@ class AutoStart(object):
         if sys.platform == "darwin":
             self.filename = "com.maestral.loginscript.plist"
             self.distnation_dir = os.path.expanduser("~/Library/LaunchAgents")
-        elif sys.platform in ["linux1", "linux2"]:
+        elif sys.platform in ["linux", "linux1", "linux2"]:
             self.filename = "maestral.desktop"
             self.distnation_dir = os.path.expanduser("~/.config/autostart")
 
