@@ -9,3 +9,4 @@ Type=Application
 Categories=Network;FileTransfer;
 StartupNotify=false
 X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=10
