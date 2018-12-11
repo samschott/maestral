@@ -67,7 +67,7 @@ def path_exists_case_insensitive(path, root="/"):
     Checks if a `path` exists in given `root` directory, similar to
     `os.path.exsists` but case-insensitive. If there are multiple
     case-insensitive matches, the first one is returned. If there is no match,
-    `cased_path` is an empty string.
+    an empty string is returned.
 
     :param str path: Relative path of file/folder to find in the `root`
         directory.
@@ -78,6 +78,9 @@ def path_exists_case_insensitive(path, root="/"):
 
     if not osp.isdir(root):
         raise ValueError("'{0}' is not a directory.".format(root))
+
+    if path in ["", "/"]:
+        return root
 
     path_list = path.lstrip(osp.sep).split(osp.sep)
     path_list_lower = [x.lower() for x in path_list]
@@ -322,9 +325,6 @@ class MaestralClient(object):
         :raises ValueError: If no path is specified.
         """
 
-        def lower(iterable):
-            return [x.lower() for x in iterable]
-
         if not dbx_path:
             raise ValueError("No path specified.")
 
@@ -495,7 +495,7 @@ class MaestralClient(object):
 
         if not osp.exists(dst_path_directory):
             try:
-                os.makedirs(dst_path_directory)
+                os.mkdir(dst_path_directory)
             except FileExistsError:
                 pass
 
@@ -532,7 +532,7 @@ class MaestralClient(object):
         pb = tqdm(total=file_size, unit="B", unit_scale=True,
                   desc=osp.basename(local_path), miniters=1,
                   ncols=80, mininterval=1)
-        mtime = os.path.getmtime(local_path)
+        mtime = osp.getmtime(local_path)
         mtime_dt = datetime.datetime(*time.gmtime(mtime)[:6])
 
         try:
@@ -802,55 +802,61 @@ class MaestralClient(object):
         :return: `True` on success, `False` otherwise.
         :rtype: bool
         """
+        all_folders = []
+        all_files = []
+        all_deleted = []
+
         # apply remote changes
         for result in results:
 
-            logger.info("Downloading {0} items...".format(len(result.entries)))
+            # sort changes into folders, files and deleted
+            folders, files, deleted = self._sort_entries(result)
 
-            # sort changes: deleted first, folders second, files last
-            deleted, folders, files = self._sort_entries(result)
+            all_folders += folders
+            all_files += files
+            all_deleted += deleted
 
-            # apply deleted items
-            with ThreadPoolExecutor(max_workers=10) as executor:
-                success = executor.map(self._create_local_entry, deleted)
-            if all(success) is False:
+        # apply created folders (not in parallel!)
+        for folder in all_folders:
+            success = self._create_local_entry(folder)
+            if success is False:
                 return False
 
-            # apply created folders
-            with ThreadPoolExecutor(max_workers=10) as executor:
-                success = executor.map(self._create_local_entry, folders)
-            if all(success) is False:
-                return False
+        # apply created files
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            success = executor.map(self._create_local_entry, all_files)
+        if all(success) is False:
+            return False
 
-            # apply created files
-            with ThreadPoolExecutor(max_workers=10) as executor:
-                success = executor.map(self._create_local_entry, files)
-            if all(success) is False:
-                return False
+        # apply deleted items
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            success = executor.map(self._create_local_entry, all_deleted)
+        if all(success) is False:
+            return False
 
-            # save cursor
-            if save_cursor:
-                self.last_cursor = result.cursor
-                CONF.set("internal", "cursor", result.cursor)
+        # save cursor
+        if save_cursor:
+            self.last_cursor = results[-1].cursor
+            CONF.set("internal", "cursor", result.cursor)
 
         return True
 
     def _sort_entries(self, result):
         """
-        Sorts entries in :class:`dropbox.files.ListFolderResult` according to
-        type: DeletedMetadata < FolderMetadata < FileMetadata.
+        Sorts entries in :class:`dropbox.files.ListFolderResult` into
+        FolderMetadata, FileMetadata and DeletedMetadata.
 
-        :return: Tuple of (deleted, folders, files) containing instances of
+        :return: Tuple of (folders, files, deleted) containing instances of
             :class:`DeletedMetadata`, `:class:FolderMetadata`,
             and :class:`FileMetadata` respectively.
         :rtype: tuple
         """
 
-        deleted = [x for x in result.entries if isinstance(x, DeletedMetadata)]
         folders = [x for x in result.entries if isinstance(x, FolderMetadata)]
         files = [x for x in result.entries if isinstance(x, FileMetadata)]
+        deleted = [x for x in result.entries if isinstance(x, DeletedMetadata)]
 
-        return deleted, folders, files
+        return folders, files, deleted
 
     def _create_local_entry(self, entry, check_exluded=True):
         """
@@ -906,7 +912,7 @@ class MaestralClient(object):
 
             if not osp.isdir(dst_path):
                 try:
-                    os.makedirs(dst_path)
+                    os.mkdir(dst_path)
                 except FileExistsError:
                     pass
 
@@ -946,12 +952,12 @@ class MaestralClient(object):
 
         excluded = False
         # in excluded files?
-        if os.path.basename(dbx_path) in self.excluded_files:
+        if osp.basename(dbx_path) in self.excluded_files:
             excluded = True
 
         # in excluded folders?
         for excluded_folder in self.excluded_folders:
-            if not os.path.commonpath([dbx_path, excluded_folder]) in ["/", ""]:
+            if not osp.commonpath([dbx_path, excluded_folder]) in ["/", ""]:
                 excluded = True
 
         # is root folder?

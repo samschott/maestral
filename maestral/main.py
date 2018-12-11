@@ -19,7 +19,7 @@ from blinker import signal
 from threading import Thread
 from dropbox import files
 
-from maestral.client import MaestralClient
+from maestral.client import MaestralClient, path_exists_case_insensitive
 from maestral.monitor import MaestralMonitor, CONNECTION_ERRORS
 from maestral.config.main import CONF
 
@@ -39,7 +39,7 @@ ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
 
 def folder_download_worker(client, dbx_path):
     """
-    Wroker to to download a whole Dropbox directory in the background.
+    Worker to to download a whole Dropbox directory in the background.
 
     :param class client: :class:`MaestralClient` instance.
     :param str dbx_path: Path to directory on Dropbox.
@@ -246,8 +246,10 @@ class Maestral(object):
 
         # remove folder from local drive
         local_path = self.client.to_local_path(dbx_path)
-        if osp.isdir(local_path):
-            shutil.rmtree(local_path)
+        local_path_cased = path_exists_case_insensitive(local_path)
+        logger.debug("Deleting folder {0}.".format(local_path_cased))
+        if osp.isdir(local_path_cased):
+            shutil.rmtree(local_path_cased)
 
     @if_connected
     def include_folder(self, dbx_path):
@@ -361,7 +363,7 @@ class Maestral(object):
         """
         Asks for Dropbox path.
         """
-        default = os.path.expanduser(default)
+        default = osp.expanduser(default)
         msg = "Please give Dropbox folder location or press enter for default [%s]:" % default
         res = input(msg).strip().strip("'")
 
