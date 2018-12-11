@@ -303,11 +303,18 @@ class MaestralClient(object):
 
     def to_local_path(self, dbx_path):
         """
-        Converts a Dropbox folder to the corresponding local path. If the path
-        is already present the local folder, it's casing is used. Otherwise,
-        the casing given by the Dropbox API metadata is used. This is to
-        prevent duplicate folders from incorrect cases of `path_display`
-        returned by the Dropbox API.
+        Converts a Dropbox folder to the corresponding local path.
+
+        The `path_display` attribute returned by the Dropbox API only
+        guarantees correct casing of the basename (file name or folder name)
+        and not of the full path. This is because Dropbox itself is not case
+        sensitive and stores all paths in lowercase internally.
+
+        Therefore, if the parent directory is already present on the local
+        drive, it's casing is used. Otherwise, the casing given by the Dropbox
+        API metadata is used. This aims to preserve the correct casing as
+        uploaded to Dropbox and prevents the creation of duplicate folders
+        with different casing on the local drive.
 
         :param str dbx_path: Path to file relative to Dropbox folder.
         :return: Corresponding local path on drive.
@@ -322,13 +329,14 @@ class MaestralClient(object):
             raise ValueError("No path specified.")
 
         dbx_path = dbx_path.replace("/", osp.sep)
+        dbx_path_parent, dbx_path_basename,  = osp.split(dbx_path)
 
-        local_path = path_exists_case_insensitive(dbx_path, self.dropbox_path)
+        local_parent = path_exists_case_insensitive(dbx_path_parent, self.dropbox_path)
 
-        if local_path == "":
+        if local_parent == "":
             return osp.join(self.dropbox_path, dbx_path.lstrip(osp.sep))
         else:
-            return local_path
+            return osp.join(local_parent, dbx_path_basename)
 
     def get_local_rev(self, dbx_path):
         """
