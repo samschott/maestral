@@ -59,6 +59,7 @@ class FoldersDialog(QtWidgets.QDialog):
         # add new entries
         root_folders = self.mdbx.client.list_folder("", recursive=False)
         self.listWidgetFolders.clear()
+        self.path_items = []
 
         if root_folders is False:
             self.listWidgetFolders.addItem("Unable to connect")
@@ -96,7 +97,5 @@ class FoldersDialog(QtWidgets.QDialog):
 
         CONF.set("main", "excluded_folders", excluded_folders)
 
-        self.listWidgetFolders.clear()
-
     def on_rejected(self):
-        self.listWidgetFolders.clear()
+        pass

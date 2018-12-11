@@ -17,6 +17,7 @@ import pickle
 from tqdm import tqdm
 import shutil
 import dropbox
+from dropbox.files import DeletedMetadata, FileMetadata, FolderMetadata
 from dropbox import DropboxOAuth2FlowNoRedirect
 
 from maestral.config.main import CONF, SUBFOLDER
@@ -303,10 +304,10 @@ class MaestralClient(object):
     def to_local_path(self, dbx_path):
         """
         Converts a Dropbox folder to the corresponding local path. If the path
-        already present the local folder, it's casing is used. Otherwise, the
-        casing given by the Dropbox API metadata is used. This is to prevent
-        duplicate folders from incorrect cases of `path_display` returned by
-        the Dropbox API.
+        is already present the local folder, it's casing is used. Otherwise,
+        the casing given by the Dropbox API metadata is used. This is to
+        prevent duplicate folders from incorrect cases of `path_display`
+        returned by the Dropbox API.
 
         :param str dbx_path: Path to file relative to Dropbox folder.
         :return: Corresponding local path on drive.
@@ -477,8 +478,8 @@ class MaestralClient(object):
         :param str dbx_path: Path to file on Dropbox.
         :param str dst_path: Path to download destination.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
-        :return: :class:`dropbox.files.FileMetadata` or
-            :class:`dropbox.files.FolderMetadata` of downloaded item, `False`
+        :return: :class:`FileMetadata` or
+            :class:`FolderMetadata` of downloaded item, `False`
             if request fails or `None` if local copy is already in sync.
         """
         # generate local path from dropbox_path and given path parameter
@@ -774,7 +775,7 @@ class MaestralClient(object):
         # notify user
         if total == 1:
             md = results[0].entries[0]
-            if isinstance(md, dropbox.files.DeletedMetadata):
+            if isinstance(md, DeletedMetadata):
                 self.notify.send("%s removed" % md.path_display)
             else:
                 self.notify.send("%s added" % md.path_display)
@@ -802,19 +803,55 @@ class MaestralClient(object):
         """
         # apply remote changes
         for result in results:
+
+            # sort changes: deleted first, folders second, files last
+            deleted, folders, files = self._sort_entries(result)
+
+            # apply deleted items
             with ThreadPoolExecutor(max_workers=10) as executor:
-                success = executor.map(self._create_local_entry, result.entries)
+                success = executor.map(self._create_local_entry, deleted)
             if all(success) is False:
                 return False
 
+            # apply created folders
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                success = executor.map(self._create_local_entry, folders)
+            if all(success) is False:
+                return False
+
+            # apply created files
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                success = executor.map(self._create_local_entry, files)
+            if all(success) is False:
+                return False
+
+            # save cursor
             if save_cursor:
                 self.last_cursor = result.cursor
                 CONF.set("internal", "cursor", result.cursor)
 
         return True
 
+    def _sort_entries(self, result):
+        """
+        Sorts entries in :class:`dropbox.files.ListFolderResult` according to
+        type: DeletedMetadata < FolderMetadata < FileMetadata.
+
+        :return: Tuple of (deleted, folders, files) containing instances of
+            :class:`DeletedMetadata`, `:class:FolderMetadata`,
+            and :class:`FileMetadata` respectively.
+        :rtype: tuple
+        """
+
+        deleted = [x for x in result.entries if isinstance(x, DeletedMetadata)]
+        folders = [x for x in result.entries if isinstance(x, FolderMetadata)]
+        files = [x for x in result.entries if isinstance(x, FileMetadata)]
+
+        return deleted, folders, files
+
     def _create_local_entry(self, entry, check_exluded=True):
-        """Creates local file / folder for remote entry.
+        """
+        Creates local file / folder for remote entry.
 
         :param class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
         :return: `True` on success, `False` otherwise.
@@ -826,7 +863,7 @@ class MaestralClient(object):
         if check_exluded and self.is_excluded(entry.path_display):
             return True
 
-        if isinstance(entry, dropbox.files.FileMetadata):
+        if isinstance(entry, FileMetadata):
             # Store the new entry at the given path in your local state.
             # If the required parent folders don’t exist yet, create them.
             # If there’s already something else at the given path,
@@ -856,7 +893,7 @@ class MaestralClient(object):
 
             return True
 
-        elif isinstance(entry, dropbox.files.FolderMetadata):
+        elif isinstance(entry, FolderMetadata):
             # Store the new entry at the given path in your local state.
             # If the required parent folders don’t exist yet, create them.
             # If there’s already something else at the given path,
@@ -876,7 +913,7 @@ class MaestralClient(object):
 
             return True
 
-        elif isinstance(entry, dropbox.files.DeletedMetadata):
+        elif isinstance(entry, DeletedMetadata):
             # If your local state has something at the given path,
             # remove it and all its children. If there’s nothing at the
             # given path, ignore this entry.
