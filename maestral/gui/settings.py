@@ -25,7 +25,6 @@ class UnlinkDialog(QtWidgets.QDialog):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(osp.join(_root, "unlink_dialog.ui"), self)
-        self.setFixedSize(460, 145)
         self.buttonBox.buttons()[0].setText('Unlink')
 
 

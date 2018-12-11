@@ -6,14 +6,26 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>560</width>
-    <height>320</height>
+    <width>542</width>
+    <height>331</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
   <property name="windowTitle">
    <string>Maestral Settings</string>
   </property>
   <layout class="QGridLayout" name="gridLayout" columnstretch="1,2">
+   <property name="topMargin">
+    <number>20</number>
+   </property>
+   <property name="bottomMargin">
+    <number>20</number>
+   </property>
    <item row="7" column="0" colspan="2" alignment="Qt::AlignHCenter">
     <widget class="Line" name="line">
      <property name="minimumSize">
@@ -89,6 +101,12 @@
        <height>0</height>
       </size>
      </property>
+     <property name="maximumSize">
+      <size>
+       <width>200</width>
+       <height>16777215</height>
+      </size>
+     </property>
     </widget>
    </item>
    <item row="4" column="1" alignment="Qt::AlignLeft">
@@ -97,6 +115,12 @@
       <size>
        <width>200</width>
        <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>200</width>
+       <height>16777215</height>
       </size>
      </property>
      <property name="text">

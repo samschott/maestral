@@ -18,7 +18,6 @@ from tqdm import tqdm
 import shutil
 import dropbox
 from dropbox import DropboxOAuth2FlowNoRedirect
-from dropbox import files
 
 from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
@@ -60,6 +59,47 @@ def bytesto(value, unit, bsize=1024):
     a = {"KB": 1, "MB": 2, "GB": 3, "TB": 4, "PB": 5, "EB": 6}
 
     return float(value) / bsize**a[unit.upper()]
+
+
+def path_exists_case_insensitive(path, root="/"):
+    """
+    Checks if a `path` exists in given `root` directory, similar to
+    `os.path.exsists` but case-insensitive. If there are multiple
+    case-insensitive matches, the first one is returned. If there is no match,
+    `cased_path` is an empty string.
+
+    :param str path: Relative path of file/folder to find in the `root`
+        directory.
+    :param str root: Directory where we will look for `path`.
+    :return: Absolute and case-sensitive path to search result on harddrive.
+    :rtype: str
+    """
+
+    if not osp.isdir(root):
+        raise ValueError("'{0}' is not a directory.".format(root))
+
+    path_list = path.lstrip(osp.sep).split(osp.sep)
+    path_list_lower = [x.lower() for x in path_list]
+
+    i = 0
+    for root, dirs, files in os.walk(root):
+        for d in list(dirs):
+            if not d.lower() == path_list_lower[i]:
+                dirs.remove(d)
+        for f in list(files):
+            if not f.lower() == path_list_lower[i]:
+                files.remove(f)
+
+        local_paths = [osp.join(root, name) for name in dirs + files]
+
+        i += 1
+        if i == len(path_list_lower):
+            break
+
+    if len(local_paths) == 0:
+        return ''
+    else:
+        return local_paths[0]
 
 
 class SpaceUsage(dropbox.users.SpaceUsage):
@@ -262,7 +302,11 @@ class MaestralClient(object):
 
     def to_local_path(self, dbx_path):
         """
-        Converts a Dropbox folder path the corresponding local path.
+        Converts a Dropbox folder to the corresponding local path. If the path
+        already present the local folder, it's casing is used. Otherwise, the
+        casing given by the Dropbox API metadata is used. This is to prevent
+        duplicate folders from incorrect cases of `path_display` returned by
+        the Dropbox API.
 
         :param str dbx_path: Path to file relative to Dropbox folder.
         :return: Corresponding local path on drive.
@@ -270,13 +314,20 @@ class MaestralClient(object):
         :raises ValueError: If no path is specified.
         """
 
+        def lower(iterable):
+            return [x.lower() for x in iterable]
+
         if not dbx_path:
             raise ValueError("No path specified.")
 
-        path = dbx_path.replace("/", osp.sep)
-        path = osp.normpath(path)
+        dbx_path = dbx_path.replace("/", osp.sep)
 
-        return osp.join(self.dropbox_path, path.lstrip(osp.sep))
+        local_path = path_exists_case_insensitive(dbx_path, self.dropbox_path)
+
+        if local_path == "":
+            return osp.join(self.dropbox_path, dbx_path.lstrip(osp.sep))
+        else:
+            return local_path
 
     def get_local_rev(self, dbx_path):
         """
@@ -483,9 +534,9 @@ class MaestralClient(object):
                 else:
                     session_start = self.dbx.files_upload_session_start(
                         f.read(chunk_size))
-                    cursor = files.UploadSessionCursor(
+                    cursor = dropbox.files.UploadSessionCursor(
                         session_id=session_start.session_id, offset=f.tell())
-                    commit = files.CommitInfo(
+                    commit = dropbox.files.CommitInfo(
                             path=dbx_path, client_modified=mtime, **kwargs)
                     while f.tell() < file_size:
                         pb.update(chunk_size)
@@ -723,7 +774,7 @@ class MaestralClient(object):
         # notify user
         if total == 1:
             md = results[0].entries[0]
-            if isinstance(md, files.DeletedMetadata):
+            if isinstance(md, dropbox.files.DeletedMetadata):
                 self.notify.send("%s removed" % md.path_display)
             else:
                 self.notify.send("%s added" % md.path_display)
@@ -751,7 +802,7 @@ class MaestralClient(object):
         """
         # apply remote changes
         for result in results:
-            with ThreadPoolExecutor() as executor:  # defaults to 5x CPU core number of workers
+            with ThreadPoolExecutor(max_workers=10) as executor:
                 success = executor.map(self._create_local_entry, result.entries)
             if all(success) is False:
                 return False
@@ -775,7 +826,7 @@ class MaestralClient(object):
         if check_exluded and self.is_excluded(entry.path_display):
             return True
 
-        if isinstance(entry, files.FileMetadata):
+        if isinstance(entry, dropbox.files.FileMetadata):
             # Store the new entry at the given path in your local state.
             # If the required parent folders don’t exist yet, create them.
             # If there’s already something else at the given path,
@@ -805,7 +856,7 @@ class MaestralClient(object):
 
             return True
 
-        elif isinstance(entry, files.FolderMetadata):
+        elif isinstance(entry, dropbox.files.FolderMetadata):
             # Store the new entry at the given path in your local state.
             # If the required parent folders don’t exist yet, create them.
             # If there’s already something else at the given path,
@@ -825,7 +876,7 @@ class MaestralClient(object):
 
             return True
 
-        elif isinstance(entry, files.DeletedMetadata):
+        elif isinstance(entry, dropbox.files.DeletedMetadata):
             # If your local state has something at the given path,
             # remove it and all its children. If there’s nothing at the
             # given path, ignore this entry.
