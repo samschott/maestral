@@ -700,13 +700,6 @@ class MaestralClient(object):
         if not results:
             return False
 
-        # count remote changes
-        total = 0
-        for result in results:
-            total += len(result.entries)
-
-        logger.info("Downloading {0} items...".format(total))
-
         # apply remote changes, don't update the global cursor when downloading
         # a single folder only
         save_cursor = (dbx_path == "")
@@ -811,6 +804,8 @@ class MaestralClient(object):
         """
         # apply remote changes
         for result in results:
+
+            logger.info("Downloading {0} items...".format(len(result.entries)))
 
             # sort changes: deleted first, folders second, files last
             deleted, folders, files = self._sort_entries(result)
