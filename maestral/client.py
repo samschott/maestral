@@ -13,9 +13,9 @@ import datetime
 import logging
 from concurrent.futures import ThreadPoolExecutor
 import threading
-import pickle
 from tqdm import tqdm
 import shutil
+import xattr
 import dropbox
 from dropbox.files import DeletedMetadata, FileMetadata, FolderMetadata
 from dropbox import DropboxOAuth2FlowNoRedirect
@@ -220,15 +220,6 @@ class MaestralClient(object):
     :ivar excluded_folders: List containing all files excluded from sync.
         When adding and removing entries, make sure to update the config file
         as well so that changes persist across sessions.
-    :ivar rev_dict: Dictionary with paths to all synced local files/folders
-        as keys. Values are the revision number of a file or 'folder' for a
-        folder. Do not change entries manually, the dict is updated
-        automatically with every sync. :ivar:`rev_dict` is used to determine
-        sync conflicts and detect deleted files while Maestral has not been
-        running. :ivar:`rev_dict` is periodically saved to :ivar:`rev_file`.
-        All keys are stored in lower case.
-    :ivar rev_file: Path of local file to save :ivar:`rev_dict`. This defaults
-        to '/dropbox_path/.dropbox'
     :ivar dropbox_path: Path to local Dropbox folder, as loaded from config
         file. Before changing :ivar`dropbox_path`, make sure that all syncing
         is paused. Make sure to move the local Dropbox directory before
@@ -237,6 +228,7 @@ class MaestralClient(object):
     """
 
     SDK_VERSION = "2.0"
+    REV_ATTR = "dropbox_rev"
 
     excluded_files = CONF.get("main", "excluded_files")
     excluded_folders = CONF.get("main", "excluded_folders")
@@ -264,16 +256,6 @@ class MaestralClient(object):
 
         # get correct directories
         self.dropbox_path = CONF.get("main", "path")
-        # try to load revisions dictionary
-        try:
-            with open(self.rev_file, "rb") as f:
-                self.rev_dict = pickle.load(f)
-        except (FileNotFoundError, IsADirectoryError):
-            self.rev_dict = {}
-
-    @property
-    def rev_file(self):
-        return osp.join(self.dropbox_path, ".dropbox")
 
     def to_dbx_path(self, local_path):
         """
@@ -325,9 +307,6 @@ class MaestralClient(object):
         :raises ValueError: If no path is specified.
         """
 
-        if not dbx_path:
-            raise ValueError("No path specified.")
-
         dbx_path = dbx_path.replace("/", osp.sep)
         dbx_path_parent, dbx_path_basename,  = osp.split(dbx_path)
 
@@ -340,24 +319,22 @@ class MaestralClient(object):
 
     def get_local_rev(self, dbx_path):
         """
-        Gets revision number of local file, as saved in :ivar:`rev_dict`.
+        Gets revision number of local file, as saved an extended attribute of
+        the file. If the file is not present, or no "dropbox_rev" attribute
+        has been set, `None` is returned.
 
         :param str dbx_path: Dropbox file path.
         :return: Revision number as str or `None` if no local revision number
             has been saved.
         :rtype: str
         """
-        dbx_path = dbx_path.lower()
-        try:
-            with open(self.rev_file, "rb") as f:
-                self.rev_dict = pickle.load(f)
-        except FileNotFoundError:
-            self.rev_dict = {}
+        local_path = self.to_local_path(dbx_path)
+        rev = None
 
-        try:
-            rev = self.rev_dict[dbx_path]
-        except KeyError:
-            rev = None
+        if not local_path == "":
+            file_attr = xattr.xattr(local_path)
+            if self.REV_ATTR in file_attr:
+                rev = file_attr.get(self.REV_ATTR).decode()
 
         return rev
 
@@ -369,21 +346,27 @@ class MaestralClient(object):
         :param str dbx_path: Relative Dropbox file path.
         :param rev: Revision number as string or `None`.
         """
-        dbx_path = dbx_path.lower()
-        with self._rev_lock:
-            if rev is None:  # remove entries for dbx_path and its children
-                for path in dict(self.rev_dict):
-                    if path.startswith(dbx_path):
-                        self.rev_dict.pop(path, None)
-            else:
-                self.rev_dict[dbx_path] = rev
-                # set all parent revs to 'folder'
-                dirname = osp.dirname(dbx_path)
-                while dirname is not "/":
-                    self.rev_dict[dirname] = "folder"
-                    dirname = osp.dirname(dirname)
-            with open(self.rev_file, "wb+") as f:
-                pickle.dump(self.rev_dict, f, pickle.HIGHEST_PROTOCOL)
+        local_path = self.to_local_path(dbx_path)
+
+        if rev is None and local_path == "":
+            # no rev and file does not exist, all ok
+            pass
+
+        elif rev is None and local_path != "":
+            # remove rev from existing file
+            file_attr = xattr.xattr(local_path)
+            if self.REV_ATTR in file_attr:
+                file_attr.remove(self.REV_ATTR)
+
+        elif rev is not None and local_path == "":
+            # cannot set rev because file does not exist, raise error
+            raise OSError("Could not set revision number. No such " +
+                          "file or directory: '{0}'".format(local_path))
+
+        elif rev is not None and local_path != "":
+            # set rev on existing file does
+            file_attr = xattr.xattr(local_path)
+            file_attr.set(self.REV_ATTR, bytes(rev, encoding="utf-8"))
 
     def get_account_info(self):
         """
@@ -443,9 +426,6 @@ class MaestralClient(object):
         Unlinks the Dropbox account and deletes local sync information.
         """
         self.auth.unlink()
-
-        self.rev_dict = {}
-        os.remove(self.rev_file)
 
         self.excluded_folders = []
         CONF.set("main", "excluded_folders", [])
@@ -1001,7 +981,7 @@ class MaestralClient(object):
             # We have a conflict: files with the same name have been
             # created on Dropbox and locally independent of each other.
             # If a file has been modified while the client was not running,
-            # its entry from rev_dict is removed.
+            # its revision number is removed.
             logger.debug("Conflicting copy without rev.")
             return 1
         # check if remote and local versions have same rev
