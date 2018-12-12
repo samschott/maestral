@@ -3,3 +3,4 @@ watchdog
 blinker
 requests
 tqdm
+xattr
