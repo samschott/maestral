@@ -7,6 +7,7 @@ Created on Wed Oct 31 16:23:13 2018
 """
 
 import os
+import sys
 import os.path as osp
 import logging
 import time
@@ -14,8 +15,10 @@ from threading import Thread, Event
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 import requests
+import pickle
 import queue
-from blinker import signal
+import signal
+from blinker import signal as b_signal
 import dropbox
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -23,7 +26,8 @@ from watchdog.events import (EVENT_TYPE_CREATED, EVENT_TYPE_DELETED,
                              EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED)
 from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              DirCreatedEvent, FileCreatedEvent,
-                             DirDeletedEvent, FileDeletedEvent)
+                             DirDeletedEvent, FileDeletedEvent,
+                             DirMovedEvent, FileMovedEvent)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 from maestral.config.main import CONF
@@ -278,9 +282,9 @@ def connection_helper(client, connected, running):
         usage stats.
     """
 
-    disconnected_signal = signal("disconnected_signal")
-    connected_signal = signal("connected_signal")
-    account_usage_signal = signal("account_usage_signal")
+    disconnected_signal = b_signal("disconnected_signal")
+    connected_signal = b_signal("connected_signal")
+    account_usage_signal = b_signal("account_usage_signal")
 
     while True:
         try:
@@ -313,7 +317,7 @@ def download_worker(client, running, flagged):
     :param deque flagged: Flagged paths for local observer to ignore.
     """
 
-    disconnected_signal = signal("disconnected_signal")
+    disconnected_signal = b_signal("disconnected_signal")
 
     while True:
 
@@ -368,7 +372,7 @@ def upload_worker(dbx_uploader, local_q, running):
         syncing is paused by the user.
     """
 
-    disconnected_signal = signal("disconnected_signal")
+    disconnected_signal = b_signal("disconnected_signal")
     delay = 0.5
 
     # check for moved folders
@@ -508,9 +512,9 @@ class MaestralMonitor(object):
     running = Event()
     flagged = deque()
 
-    connected_signal = signal("connected_signal")
-    disconnected_signal = signal("disconnected_signal")
-    account_usage_signal = signal("account_usage_signal")
+    connected_signal = b_signal("connected_signal")
+    disconnected_signal = b_signal("disconnected_signal")
+    account_usage_signal = b_signal("account_usage_signal")
 
     paused_by_user = True
 
@@ -528,6 +532,8 @@ class MaestralMonitor(object):
                 name="MaestralConnectionHelper")
         self.connection_thread.setDaemon(True)
         self.connection_thread.start()
+
+        signal.signal(signal.SIGTERM, self.stop)
 
     def start(self, overload=None):
         """Creates observer threads and starts syncing."""
@@ -583,14 +589,29 @@ class MaestralMonitor(object):
         self.running.clear()  # stops download_thread
         self.file_handler.running.clear()  # stops local file event handler
 
+        self._save_snapshot()  # save snapshot of directory structure
+
     def stop(self, overload=None):
-        """Stops syncing and destroys worker threads."""
+        """
+        Stops syncing and destroys worker threads. Saves current snapshot
+        of Dropbox folder to drive.
+        """
 
         self.running.clear()  # stops download_thread
         self.file_handler.running.clear()  # stops local file event handler
 
+        # self.download_thread.join()
+        # self.upload_thread.join()
+
         self.local_observer_thread.stop()  # stop observer
         self.local_observer_thread.join()  # wait to finish
+
+        self._save_snapshot()  # save snapshot of directory structure
+
+    def on_term(self):
+        print('Shutting down MaestralMonitor...')
+        self.stop()
+        sys.exit(0)
 
     def upload_local_changes_after_inactive(self):
         """
@@ -612,47 +633,54 @@ class MaestralMonitor(object):
         Gets all local changes while app has not been running. Call this method
         on startup of `MaestralMonitor` to upload all local changes.
 
-        :return: Dictionary with all changes, keys are file paths relative to
-            local Dropbox folder, entries are watchdog file changed events.
-        :rtype: dict
+        :return: List with all changes, entries are watchdog file events.
+        :rtype: list
         """
         changes = []
-        snapshot = DirectorySnapshot(self.client.dropbox_path)
-        # remove root entry from snapshot
-        del snapshot._inode_to_path[snapshot.inode(self.client.dropbox_path)]
-        del snapshot._stat_info[self.client.dropbox_path]
-        # get lowercase paths
-        lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
+        snapshot_old = self._load_snapshot()
 
-        # get modified or added items
-        for path in snapshot.paths:
-            stats = snapshot.stat_info(path)
-            last_sync = CONF.get("internal", "lastsync")
-            # check item was created or modified since last sync
-            if max(stats.st_ctime, stats.st_mtime) > last_sync:
-                # check if item is already tracked or new
-                if self.client.to_dbx_path(path).lower() in self.client.rev_dict:
-                    # already tracking item
-                    if osp.isdir(path):
-                        event = DirModifiedEvent(path)
-                    else:
-                        event = FileModifiedEvent(path)
-                    changes.append(event)
-                else:
-                    # new item, not excluded
-                    if osp.isdir(path):
-                        event = DirCreatedEvent(path)
-                    else:
-                        event = FileCreatedEvent(path)
-                    changes.append(event)
+        if snapshot_old is None:
+            return changes
 
-        # get deleted items
-        for path in self.client.rev_dict:
-            if self.client.to_local_path(path).lower() not in lowercase_snapshot_paths:
-                if self.client.rev_dict[path] == "folder":
-                    event = DirDeletedEvent(self.client.to_local_path(path))
-                else:
-                    event = FileDeletedEvent(self.client.to_local_path(path))
+        snapshot_new = DirectorySnapshot(self.client.dropbox_path)
+        snapshot_diff = snapshot_new - snapshot_old
+
+        path_lists = ("files_created", "files_deleted", "files_modified",
+                      "files_moved", "dirs_created", "dirs_deleted",
+                      "dirs_modified", "dirs_moved")
+        event_types = (FileCreatedEvent, FileDeletedEvent, FileModifiedEvent,
+                       FileMovedEvent, DirCreatedEvent, DirDeletedEvent,
+                       DirModifiedEvent, DirMovedEvent)
+
+        for path_list, event_type in zip(path_lists, event_types):
+            paths = getattr(snapshot_diff, path_list)
+            for path in paths:
+                event = event_type(path)
                 changes.append(event)
 
         return changes
+
+    def _save_snapshot(self):
+        """
+        Saves a snapshot of the current directory structure to a temporary file
+        '.dropbox' in the local Dropbox directory.
+        """
+        snapshot = DirectorySnapshot(self.client.dropbox_path)
+        snapshot_file = osp.join(self.client.dropbox_path, ".dropbox")
+        with open(snapshot_file, "wb+") as f:
+            pickle.dump(snapshot, f, pickle.HIGHEST_PROTOCOL)
+
+    def _load_snapshot(self):
+        """
+        Loads a snapshot of the current directory structure from a temporary
+        file '.dropbox' in the local Dropbox directory. Returns `None` if no
+        snapshot can be found.
+        """
+        snapshot_file = osp.join(self.client.dropbox_path, ".dropbox")
+        try:
+            with open(snapshot_file, "rb") as f:
+                snapshot = pickle.load(f)
+        except (FileNotFoundError, IsADirectoryError):
+            snapshot = None
+
+        return snapshot
