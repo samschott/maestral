@@ -336,7 +336,6 @@ def download_worker(client, running, flagged):
                 with client.lock:
                     # get changes
                     changes = client.list_remote_changes()
-                    print(changes)
                     # flag changes to be ignored by local monitor
                     flat_changes = client.flatten_results_list(changes)
                     for item in flat_changes:
@@ -681,6 +680,9 @@ class MaestralMonitor(object):
             with open(snapshot_file, "rb") as f:
                 snapshot = pickle.load(f)
         except (FileNotFoundError, IsADirectoryError):
+            snapshot = None
+
+        if not isinstance(snapshot, DirectorySnapshot):
             snapshot = None
 
         return snapshot
