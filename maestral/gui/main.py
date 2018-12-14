@@ -196,7 +196,6 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
     def quit_(self):
         self.mdbx.stop_sync()
-        self.mdbx.monitor.on_term()
         self.deleteLater()
         QtCore.QCoreApplication.quit()
 
