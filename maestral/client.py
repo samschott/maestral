@@ -570,7 +570,7 @@ class MaestralClient(object):
 
     def remove(self, dbx_path, **kwargs):
         """
-        Removes a file / folder from Dropbox.
+        Removes file from Dropbox.
 
         :param str dbx_path: Path to file on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_delete.
