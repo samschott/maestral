@@ -56,7 +56,6 @@ setup(
         "blinker",
         "requests",
         "tqdm",
-        "xattr",
         ],
     zip_safe=False,
     entry_points={
