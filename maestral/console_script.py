@@ -69,13 +69,13 @@ def run():
     elif wtd == "--configuration":
         from maestral.main import Maestral
 
-        sdbx = Maestral(run=False)
-        sdbx.set_dropbox_directory()
-        sdbx.select_excluded_folders()
+        m = Maestral(run=False)
+        m.set_dropbox_directory()
+        m.select_excluded_folders()
 
     elif wtd == "--sync":
         from maestral.main import Maestral
-        sdbx = Maestral()
+        m = Maestral()
 
     elif wtd == "--gui":
         from maestral.gui.main import run
@@ -83,8 +83,8 @@ def run():
 
     elif wtd == "--unlink":
         from maestral.main import Maestral
-        sdbx = Maestral(run=False)
-        sdbx.unlink()
+        m = Maestral(run=False)
+        m.unlink()
 
     else:
         print("Invalid syntax. Type maestral --help for more informations")
