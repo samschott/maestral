@@ -56,6 +56,7 @@ setup(
         "blinker",
         "requests",
         "tqdm",
+        "umsgpack,"
         ],
     zip_safe=False,
     entry_points={
