@@ -332,7 +332,6 @@ def download_worker(client, running, flagged):
                 with client.lock:
                     # get changes
                     changes = client.list_remote_changes()
-                    print(changes)
                     # flag changes to be ignored by local monitor
                     flat_changes = client.flatten_results_list(changes)
                     for item in flat_changes:

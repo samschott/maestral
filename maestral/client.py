@@ -13,7 +13,7 @@ import datetime
 import logging
 from concurrent.futures import ThreadPoolExecutor
 import threading
-import pickle
+import umsgpack
 from tqdm import tqdm
 import shutil
 import dropbox
@@ -267,7 +267,7 @@ class MaestralClient(object):
         # try to load revisions dictionary
         try:
             with open(self.rev_file, "rb") as f:
-                self.rev_dict = pickle.load(f)
+                self.rev_dict = umsgpack.unpack(f)
         except (FileNotFoundError, IsADirectoryError):
             self.rev_dict = {}
 
@@ -350,7 +350,7 @@ class MaestralClient(object):
         dbx_path = dbx_path.lower()
         try:
             with open(self.rev_file, "rb") as f:
-                self.rev_dict = pickle.load(f)
+                self.rev_dict = umsgpack.unpack(f)
         except FileNotFoundError:
             self.rev_dict = {}
 
@@ -383,7 +383,7 @@ class MaestralClient(object):
                     self.rev_dict[dirname] = "folder"
                     dirname = osp.dirname(dirname)
             with open(self.rev_file, "wb+") as f:
-                pickle.dump(self.rev_dict, f, pickle.HIGHEST_PROTOCOL)
+                umsgpack.pack(self.rev_dict, f)
 
     def get_account_info(self):
         """
@@ -570,7 +570,7 @@ class MaestralClient(object):
 
     def remove(self, dbx_path, **kwargs):
         """
-        Removes file from Dropbox.
+        Removes file / folder from Dropbox.
 
         :param str dbx_path: Path to file on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_delete.
