@@ -36,7 +36,7 @@ setup(
     url="https://github.com/SamSchott/maestral",
     author="Sam Schott",
     author_email="ss2151@cam.ac.uk",
-    licence="MIT",
+    license="MIT",
     long_description=open("README.md").read(),
     packages=find_packages(),
     package_data={
@@ -56,7 +56,7 @@ setup(
         "blinker",
         "requests",
         "tqdm",
-        "umsgpack,"
+        "u-msgpack-python,"
         ],
     zip_safe=False,
     entry_points={

@@ -3,4 +3,4 @@ watchdog
 blinker
 requests
 tqdm
-umsgpack
+u-msgpack-python
