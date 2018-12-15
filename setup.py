@@ -56,7 +56,7 @@ setup(
         "blinker",
         "requests",
         "tqdm",
-        "u-msgpack-python,"
+        "u-msgpack-python",
         ],
     zip_safe=False,
     entry_points={
