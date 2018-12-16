@@ -6,7 +6,7 @@ Created on Sun Dec  9 23:08:47 2018
 @author: samschott
 """
 
-import sys
+import platform
 import os
 import shutil
 
@@ -16,12 +16,15 @@ _root = os.path.abspath(os.path.dirname(__file__))
 class AutoStart(object):
 
     def __init__(self):
-        if sys.platform == "darwin":
+        system = platform.system()
+        if system == 'Darwin':
             self.filename = "com.maestral.loginscript.plist"
             self.distnation_dir = os.path.expanduser("~/Library/LaunchAgents")
-        elif sys.platform in ["linux", "linux1", "linux2"]:
+        elif system == 'Linux':
             self.filename = "maestral.desktop"
             self.distnation_dir = os.path.expanduser("~/.config/autostart")
+        else:
+            raise OSError("Windods is not currently supported.")
 
         self.source = os.path.join(_root, self.filename)
         self.destination = os.path.join(self.distnation_dir, self.filename)
