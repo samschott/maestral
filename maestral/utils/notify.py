@@ -8,9 +8,7 @@ Created on Wed Oct 31 16:23:13 2018
 
 import os
 from enum import Enum
-from ..config.main import CONF
-
-MESSAGE_TYPES = ('file changed', 'other')
+from maestral.config.main import CONF
 
 
 class SupportedImplementation(Enum):
