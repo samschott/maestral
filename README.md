@@ -33,7 +33,7 @@ On initial use, Meastral will ask you to link your Dropbox account, give the loc
 >>> m.unlink()  # unlinks your Dropbox account but keeps are your files
 ```
 
-You can get information about your Dropbox account and direct access to uploading, downloading and moving items on your Dropbox through the Meastral API client `BidBoxClient`. Some example commands include:
+You can get information about your Dropbox account and direct access to uploading, downloading and moving items on your Dropbox through the Meastral API client `MaestralClient`. Some example commands include:
 
 ```Python
 >>> from meastral import MeastralClient
