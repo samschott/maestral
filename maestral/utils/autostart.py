@@ -19,19 +19,19 @@ class AutoStart(object):
         system = platform.system()
         if system == 'Darwin':
             self.filename = "com.maestral.loginscript.plist"
-            self.distnation_dir = os.path.expanduser("~/Library/LaunchAgents")
+            self.destination_dir = os.path.expanduser("~/Library/LaunchAgents")
         elif system == 'Linux':
             self.filename = "maestral.desktop"
-            self.distnation_dir = os.path.expanduser("~/.config/autostart")
+            self.destination_dir = os.path.expanduser("~/.config/autostart")
         else:
-            raise OSError("Windods is not currently supported.")
+            raise OSError("Windows is not currently supported.")
 
         self.source = os.path.join(_root, self.filename)
-        self.destination = os.path.join(self.distnation_dir, self.filename)
+        self.destination = os.path.join(self.destination_dir, self.filename)
 
     def enable(self):
-        if not os.path.isdir(self.distnation_dir):
-            os.makedirs(self.distnation_dir)
+        if not os.path.isdir(self.destination_dir):
+            os.makedirs(self.destination_dir)
 
         shutil.copyfile(self.source, self.destination)
 
