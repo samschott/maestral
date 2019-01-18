@@ -7,7 +7,7 @@ Meastral is an open-source Dropbox client written in Python. The project's main 
 Meastral remembers its last settings and resumes syncing after a restart. You can also pause and resume syncing while Meastral is running, include and exclude folders in the sync, and change the Dropbox location on your local drive. External storage devices are however not supported as Dropbox locations.
 
 ## Usage
-Run `meastral --gui` in the command line to start Meastral with a graphical user interface. On first sync, Meastral will run you through linking and configuring your Dropbox and then start syncing. The user interface is based on a status bar (menu bar) icon showing the current syncing status and a preference pane for configuration.
+Run `meastral-gui` in the command line to start Meastral with a graphical user interface. On first sync, Meastral will run you through linking and configuring your Dropbox and then start syncing. The user interface is based on a status bar (menu bar) icon showing the current syncing status and a preference pane for configuration.
 
 ![Screenshot macOS](/screenshots/full.png)
 
