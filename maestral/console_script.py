@@ -47,7 +47,7 @@ def run():
         print("""
     Syntax: maestral [<OPTION>] [<PARAMETERS>]
 
-    Starts the Maestral synicing app in the command line.
+    Starts the Maestral syncing app in the command line.
 
      --help          - displays this text
      --gui           - runs Maestral with status bar based GUI
@@ -87,7 +87,7 @@ def run():
         m.unlink()
 
     else:
-        print("Invalid syntax. Type maestral --help for more informations")
+        print("Invalid syntax. Type maestral --help for more information.")
 
 
 if __name__ == "__main__":
