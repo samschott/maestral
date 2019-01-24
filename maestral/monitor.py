@@ -106,11 +106,11 @@ class FileEventHandler(FileSystemEventHandler):
 class DropboxUploadSync(object):
     """
     Class that contains methods to sync local file events with Dropbox. It
-    takes watchdog file events and tranlates them to uploads, deletions or
+    takes watchdog file events and translates them to uploads, deletions or
     moves of Dropbox files, performed by the Maestral Dropbox API client.
 
     The 'last_sync' entry in the config file and `client.last_sync` are updated
-    with the current time after every successfull sync. 'last_sync' is used to
+    with the current time after every successful sync. 'last_sync' is used to
     detect changes while :class:`MaestralMonitor` was not running.
     """
 
@@ -136,7 +136,7 @@ class DropboxUploadSync(object):
             return
 
         # If the file name contains multiple periods it is likely a temporary
-        # file created during a saving event on macOS. Irgnore such files.
+        # file created during a saving event on macOS. Ignore such files.
         if osp.basename(path2).count(".") > 1:
             return
 
@@ -376,10 +376,10 @@ def upload_worker(dbx_uploader, local_q, running):
         return (is_moved_event and x.is_directory)
 
     # check for children of moved folders
-    def is_moved_child(x, parent_event):
+    def is_moved_child(x, parent):
         is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
-        is_child = (x.src_path.startswith(parent_event.src_path) and
-                    x is not parent_event)
+        is_child = (x.src_path.startswith(parent.src_path) and
+                    x is not parent)
         return (is_moved_event and is_child)
 
     # check for deleted folders
@@ -406,8 +406,7 @@ def upload_worker(dbx_uploader, local_q, running):
 
     while True:
 
-        events = []
-        events.append(local_q.get())  # blocks until something is in queue
+        events = [local_q.get()]  # blocks until event is in queue
 
         # wait for delay after last event has been registered
         t0 = time.time()
@@ -449,15 +448,15 @@ def upload_worker(dbx_uploader, local_q, running):
 
         events = set(events) - set(duplicate_modified_events)
 
-        def dispatch_event(event):
-            if event.event_type is EVENT_TYPE_CREATED:
-                dbx_uploader.on_created(event)
-            elif event.event_type is EVENT_TYPE_MOVED:
-                dbx_uploader.on_moved(event)
-            elif event.event_type is EVENT_TYPE_DELETED:
-                dbx_uploader.on_deleted(event)
-            elif event.event_type is EVENT_TYPE_MODIFIED:
-                dbx_uploader.on_modified(event)
+        def dispatch_event(evnt):
+            if evnt.event_type is EVENT_TYPE_CREATED:
+                dbx_uploader.on_created(evnt)
+            elif evnt.event_type is EVENT_TYPE_MOVED:
+                dbx_uploader.on_moved(evnt)
+            elif evnt.event_type is EVENT_TYPE_DELETED:
+                dbx_uploader.on_deleted(evnt)
+            elif evnt.event_type is EVENT_TYPE_MODIFIED:
+                dbx_uploader.on_modified(evnt)
 
         # process all events:
         with dbx_uploader.client.lock:

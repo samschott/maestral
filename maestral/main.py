@@ -178,7 +178,7 @@ class Maestral(object):
                 name="MaestralFolderDownloader")
         self.download_thread.start()
 
-        def callback(*args):  # blinker signal will carry the sender as arument
+        def callback(*args):  # blinker signal will carry the sender as argument
             if dbx_path is "":
                 self.monitor.resume()  # resume all syncing
             else:
@@ -228,7 +228,7 @@ class Maestral(object):
     def exclude_folder(self, dbx_path):
         """
         Excludes folder from sync and deletes local files. It is safe to call
-        this method with folders which have alerady been excluded.
+        this method with folders which have already been excluded.
 
         :param str dbx_path: Dropbox folder to exclude.
         """
@@ -255,7 +255,7 @@ class Maestral(object):
     def include_folder(self, dbx_path):
         """
         Includes folder in sync and downloads in the background. It is safe to
-        call this method with folders which have alerady been included, they
+        call this method with folders which have already been included, they
         will not be downloaded again.
 
         :param str dbx_path: Dropbox folder to include.
@@ -270,7 +270,7 @@ class Maestral(object):
         if dbx_path in folders:
             new_folders = [x for x in folders if osp.normpath(x) != dbx_path]
         else:
-            logger.debug("Folder was already inlcuded, nothing to do.")
+            logger.debug("Folder was already included, nothing to do.")
             return
 
         self.client.excluded_folders = new_folders
@@ -283,8 +283,8 @@ class Maestral(object):
     @if_connected
     def select_excluded_folders(self):
         """
-        Gets all top level folder paths from Dropbox and asks user to inlcude
-        or exclude. On inital sync, this does not trigger any syncing. Call
+        Gets all top level folder paths from Dropbox and asks user to include
+        or exclude. On initial sync, this does not trigger any syncing. Call
         `get_remote_dropbox` or `get_remote_dropbox_async` instead.
 
         :return: List of excluded folders.
@@ -323,7 +323,7 @@ class Maestral(object):
     def set_dropbox_directory(self, new_path=None):
         """
         Change or set local dropbox directory. This moves all local files to
-        the new location. If a file or directory alreay exists at this location,
+        the new location. If a file or directory already exists at this location,
         it will be overwritten.
 
         :param str new_path: Path to local Dropbox folder. If not given, the
@@ -369,9 +369,11 @@ class Maestral(object):
 
         if res == "":
             dropbox_path = default
-        elif osp.exists(osp.expanduser(res)):
+        else:
             dropbox_path = osp.expanduser(res)
-            msg = "Directory '%s' alredy exist. Should we overwrite?" % dropbox_path
+
+        if osp.exists(dropbox_path):
+            msg = "Directory '%s' already exist. Do you want to overwrite it?" % dropbox_path
             yes = yesno(msg, True)
             if yes:
                 return dropbox_path
