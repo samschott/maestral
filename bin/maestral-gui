@@ -7,4 +7,4 @@ source activate python3
 
 maestral --gui
 
-source deactivate
+conda deactivate
