@@ -64,6 +64,6 @@ setup(
       },
     data_files=[
         ('/usr/local/bin', ['bin/maestral-gui'])
-        ]
-    python_requires='>3.5.2',
+        ],
+    python_requires='>=3.6',
     )
