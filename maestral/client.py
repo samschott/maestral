@@ -65,14 +65,14 @@ def bytesto(value, unit, bsize=1024):
 def path_exists_case_insensitive(path, root="/"):
     """
     Checks if a `path` exists in given `root` directory, similar to
-    `os.path.exsists` but case-insensitive. If there are multiple
+    `os.path.exists` but case-insensitive. If there are multiple
     case-insensitive matches, the first one is returned. If there is no match,
     an empty string is returned.
 
     :param str path: Relative path of file/folder to find in the `root`
         directory.
     :param str root: Directory where we will look for `path`.
-    :return: Absolute and case-sensitive path to search result on harddrive.
+    :return: Absolute and case-sensitive path to search result on hard drive.
     :rtype: str
     """
 
@@ -210,7 +210,7 @@ class MaestralClient(object):
     instead.
 
     All Dropbox API errors are caught and handled here. ConnectionErrors will
-    be cought and handled by :class:`MaestralMonitor` instead.
+    be caught and handled by :class:`MaestralMonitor` instead.
 
     :ivar last_cursor: Last cursor from Dropbox which was synced. The value
         is updated and saved to config file on every successful sync.
@@ -292,7 +292,7 @@ class MaestralClient(object):
         dbx_root_list = osp.normpath(self.dropbox_path).split(osp.sep)
         path_list = osp.normpath(local_path).split(osp.sep)
 
-        # Work out how much of the filepath is shared by dropbox_path and path.
+        # Work out how much of the file path is shared by dropbox_path and path.
         i = len(osp.commonprefix([dbx_root_list, path_list]))
 
         if i == len(path_list):  # path corresponds to dropbox_path
@@ -456,12 +456,12 @@ class MaestralClient(object):
         CONF.set("internal", "cursor", "")
         CONF.set("internal", "lastsync", None)
 
-        logger.debug("Unliked Dropbox account")
+        logger.debug("Unlinked Dropbox account")
 
     def get_metadata(self, dbx_path, **kwargs):
         """
         Get metadata for Dropbox entry (file or folder). Returns `None` if no
-        metadata is available. Keyword arguments are passef on to Dropbox SDK
+        metadata is available. Keyword arguments are passed on to Dropbox SDK
         files_get_metadata call.
 
         :param str dbx_path: Path of folder on Dropbox.
@@ -816,10 +816,11 @@ class MaestralClient(object):
             all_files += files
             all_deleted += deleted
 
-            # sort alphabetically according to path
-            all_folders.sort(key=lambda x: x.path_display)
-            all_files.sort(key=lambda x: x.path_display)
-            all_deleted.sort(key=lambda x: x.path_display)
+        # sort according to path hierarchy
+        # # do not create sub-folder / file before parent exists
+        all_folders.sort(key=lambda x: len(x.path_display.split('/')))
+        all_files.sort(key=lambda x: len(x.path_display.split('/')))
+        all_deleted.sort(key=lambda x: len(x.path_display.split('/')))
 
         # apply created folders (not in parallel!)
         for folder in all_folders:
