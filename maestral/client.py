@@ -816,6 +816,11 @@ class MaestralClient(object):
             all_files += files
             all_deleted += deleted
 
+            # sort alphabetically according to path
+            all_folders.sort(key=lambda x: x.path_display)
+            all_files.sort(key=lambda x: x.path_display)
+            all_deleted.sort(key=lambda x: x.path_display)
+
         # apply created folders (not in parallel!)
         for folder in all_folders:
             success = self._create_local_entry(folder)
@@ -852,9 +857,9 @@ class MaestralClient(object):
         :rtype: tuple
         """
 
-        folders = [x for x in result.entries if isinstance(x, FolderMetadata)].sort()
-        files = [x for x in result.entries if isinstance(x, FileMetadata)].sort()
-        deleted = [x for x in result.entries if isinstance(x, DeletedMetadata)].sort()
+        folders = [x for x in result.entries if isinstance(x, FolderMetadata)]
+        files = [x for x in result.entries if isinstance(x, FileMetadata)]
+        deleted = [x for x in result.entries if isinstance(x, DeletedMetadata)]
 
         return folders, files, deleted
 
