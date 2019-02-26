@@ -821,8 +821,6 @@ class MaestralClient(object):
             all_files.sort(key=lambda x: x.path_display)
             all_deleted.sort(key=lambda x: x.path_display)
 
-            print(all_folders)
-
         # apply created folders (not in parallel!)
         for folder in all_folders:
             success = self._create_local_entry(folder)
@@ -919,7 +917,7 @@ class MaestralClient(object):
 
             if not osp.isdir(dst_path):
                 try:
-                    os.mkdir(dst_path)
+                    os.makedirs(dst_path)
                 except FileExistsError:
                     pass
 
