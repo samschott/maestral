@@ -260,7 +260,7 @@ class MaestralClient(object):
 
         # initialize API client
         self.dbx = dropbox.Dropbox(self.auth.access_token, session=SESSION)
-        print(" > SisyphusClient is ready.")
+        print(" > MaestralClient is ready.")
 
         # get correct directories
         self.dropbox_path = CONF.get("main", "path")
