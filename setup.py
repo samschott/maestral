@@ -62,8 +62,6 @@ setup(
     entry_points={
       "console_scripts": ["maestral=maestral.console_script:run"],
       },
-    data_files=[
-        ('/usr/local/bin', ['bin/maestral-gui'])
-        ],
+    scripts=['bin/maestral-gui'],
     python_requires='>=3.6',
     )
