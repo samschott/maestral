@@ -852,9 +852,9 @@ class MaestralClient(object):
         :rtype: tuple
         """
 
-        folders = [x for x in result.entries if isinstance(x, FolderMetadata)]
-        files = [x for x in result.entries if isinstance(x, FileMetadata)]
-        deleted = [x for x in result.entries if isinstance(x, DeletedMetadata)]
+        folders = [x for x in result.entries if isinstance(x, FolderMetadata)].sort()
+        files = [x for x in result.entries if isinstance(x, FileMetadata)].sort()
+        deleted = [x for x in result.entries if isinstance(x, DeletedMetadata)].sort()
 
         return folders, files, deleted
 
