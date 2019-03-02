@@ -51,6 +51,7 @@ setup(
                     ],
             },
     install_requires=[
+        "click",
         "dropbox",
         "watchdog",
         "blinker",
@@ -60,7 +61,7 @@ setup(
         ],
     zip_safe=False,
     entry_points={
-      "console_scripts": ["maestral=maestral.console_script:run"],
+      "console_scripts": ["maestral=maestral.console_script:main"],
       },
     scripts=['bin/maestral-gui'],
     python_requires='>=3.6',
