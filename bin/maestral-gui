@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
 source activate python3
-maestral --gui
+maestral gui
 conda deactivate
