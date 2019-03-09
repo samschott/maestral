@@ -817,16 +817,28 @@ class MaestralClient(object):
             all_deleted += deleted
 
         # sort according to path hierarchy
-        # # do not create sub-folder / file before parent exists
+        # do not create sub-folder / file before parent exists
         all_folders.sort(key=lambda x: len(x.path_display.split('/')))
         all_files.sort(key=lambda x: len(x.path_display.split('/')))
         all_deleted.sort(key=lambda x: len(x.path_display.split('/')))
 
-        # apply created folders (not in parallel!)
-        for folder in all_folders:
-            success = self._create_local_entry(folder)
-            if success is False:
-                return False
+        all_folders_binned = []
+        for depth in itertools.count(start=2, step=1):
+            depth_folders = []
+            for folder in all_folders:
+                if len(folder.path_display.split('/')) == depth:
+                    depth_folders.append(folder)
+            if depth_folders:
+                all_folders_binned.append(depth_folders)
+            else:
+                break
+
+        # create local folders, start with top-level and work your way down
+        for folders in all_folders_binned:
+            for folder in folders:
+                success = self._create_local_entry(folder)
+                if success is False:
+                    return False
 
         # apply created files
         with ThreadPoolExecutor(max_workers=10) as executor:
