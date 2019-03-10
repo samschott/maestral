@@ -824,23 +824,22 @@ class MaestralClient(object):
         all_files.sort(key=lambda x: len(x.path_display.split('/')))
         all_deleted.sort(key=lambda x: len(x.path_display.split('/')))
 
-        all_folders_binned = []
-        for depth in itertools.count(start=2, step=1):
-            depth_folders = []
-            for folder in all_folders:
-                if len(folder.path_display.split('/')) == depth:
-                    depth_folders.append(folder)
-            if depth_folders:
-                all_folders_binned.append(depth_folders)
-            else:
-                break
+        # all_folders_binned = []
+        # for depth in itertools.count(start=2, step=1):
+        #     depth_folders = []
+        #     for folder in all_folders:
+        #         if len(folder.path_display.split('/')) == depth:
+        #             depth_folders.append(folder)
+        #     if depth_folders:
+        #         all_folders_binned.append(depth_folders)
+        #     else:
+        #         break
 
         # create local folders, start with top-level and work your way down
-        for folders in all_folders_binned:
-            for folder in folders:
-                success = self._create_local_entry(folder)
-                if success is False:
-                    return False
+        for folder in all_folders:
+            success = self._create_local_entry(folder)
+            if success is False:
+                return False
 
         # apply created files
         with ThreadPoolExecutor(max_workers=15) as executor:
@@ -878,7 +877,7 @@ class MaestralClient(object):
 
         return folders, files, deleted
 
-    def _create_local_entry(self, entry, check_exluded=True):
+    def _create_local_entry(self, entry, check_excluded=True):
         """
         Creates local file / folder for remote entry.
 
@@ -889,7 +888,7 @@ class MaestralClient(object):
 
         self.excluded_folders = CONF.get("main", "excluded_folders")
 
-        if check_exluded and self.is_excluded(entry.path_display):
+        if check_excluded and self.is_excluded(entry.path_display):
             return True
 
         if isinstance(entry, FileMetadata):
@@ -929,12 +928,7 @@ class MaestralClient(object):
             # replace it but leave the children as they are.
 
             dst_path = self.to_local_path(entry.path_display)
-
-            if not osp.isdir(dst_path):
-                try:
-                    os.makedirs(dst_path)
-                except FileExistsError:
-                    pass
+            os.makedirs(dst_path, exist_ok=True)
 
             self.set_local_rev(entry.path_display, "folder")
 
