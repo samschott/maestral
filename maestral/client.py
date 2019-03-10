@@ -10,12 +10,14 @@ import os
 import os.path as osp
 import time
 import datetime
+import itertools
 import logging
 from concurrent.futures import ThreadPoolExecutor
 import threading
+import shutil
+
 import umsgpack
 from tqdm import tqdm
-import shutil
 import dropbox
 from dropbox.files import DeletedMetadata, FileMetadata, FolderMetadata
 from dropbox import DropboxOAuth2FlowNoRedirect
