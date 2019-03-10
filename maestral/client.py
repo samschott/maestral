@@ -843,13 +843,13 @@ class MaestralClient(object):
                     return False
 
         # apply created files
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=15) as executor:
             success = executor.map(self._create_local_entry, all_files)
         if all(success) is False:
             return False
 
         # apply deleted items
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=15) as executor:
             success = executor.map(self._create_local_entry, all_deleted)
         if all(success) is False:
             return False
