@@ -53,11 +53,15 @@ You can get information about your Dropbox account and direct access to uploadin
 MeastralClient does not inlcude any syncing functionality.
 
 ## Command line usage
-After installation, Meastral will be available as a command line script by typing `meastral` in the command prompt. Command line functionality resembles that of the interactive client. Type `meastral --help` to get a full list of available commands. Invoking `meastral` by itself will configure Meastral on first run and then automatically start syncing.
+After installation, Meastral will be available as a command line script by typing `meastral` in the command prompt. Command line functionality resembles that of the interactive client. Type `meastral --help` to get a full list of available commands. Invoking `meastral sync` will configure Meastral on first run and then automatically start syncing.
 
 ## Warning:
 - Meastral does not have production status yet, so only 500 accounts can use the API keys.
 - Meastral is still in beta status and may potentially result in loss of data. Only sync folders with non-essential files.
+- Known issues:
+  - File and folder names with two periods are currently not supported. This prevents syncing of temperary files which are created during the save process on some file systems.
+  - Rare falsly detected sync conflicts may occur on startup.
+  - Network drives and some external hard drives are not supported as locations for the Dropbox folder.
 
 ## Installation
 Download and install the Python package by running
