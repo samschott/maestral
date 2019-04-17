@@ -19,7 +19,8 @@ def main():
 def sync():
     """Runs Maestral as a command line tool."""
     from maestral.main import Maestral
-    Maestral()
+    m = Maestral()
+    return m
 
 
 @main.command()
