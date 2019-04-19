@@ -710,7 +710,7 @@ class MaestralClient(object):
 
         return success
 
-    def wait_for_remote_changes(self, timeout=120):
+    def wait_for_remote_changes(self, timeout=20):
         """
         Waits for remote changes since :ivar:`last_cursor`. Call this method
         after starting the Dropbox client and periodically to get the latest
