@@ -263,7 +263,7 @@ class DropboxUploadSync(object):
         CONF.set("internal", "lastsync", time.time())
 
 
-def connection_helper(client, connected, running, stop):
+def connection_helper(client, connected, running, shutdown):
     """
     A worker which periodically checks the connection to Dropbox servers.
     This is done through inexpensive calls to :method:`client.get_space_usage`.
@@ -273,14 +273,14 @@ def connection_helper(client, connected, running, stop):
     :param client: Maestral client instance.
     :param connected: Event that indicates if connection to Dropbox is established.
     :param running: Event that indicates if workers are running or paused.
-    :param stop: Event to stop local event handler and workers.
+    :param shutdown: Event to shutdown local event handler and workers.
     """
 
     disconnected_signal = signal("disconnected_signal")
     connected_signal = signal("connected_signal")
     account_usage_signal = signal("account_usage_signal")
 
-    while not stop.is_set():
+    while not shutdown.is_set():
         try:
             # use an inexpensive call to get_space_usage to test connection
             res = client.get_space_usage()
@@ -298,7 +298,7 @@ def connection_helper(client, connected, running, stop):
             time.sleep(1)
 
 
-def download_worker(client, running, stop, flagged):
+def download_worker(client, running, shutdown, flagged):
     """
     Worker to sync changes of remote Dropbox with local folder. All files about
     to change are temporarily excluded from the local file monitor by adding
@@ -308,13 +308,13 @@ def download_worker(client, running, stop, flagged):
     :param running: If not `running.is_set()` the worker is paused. This event
         will be set if the connection to the Dropbox server fails, or if
         syncing is paused by the user.
-    :param stop: Event to stop local event handler and workers.
+    :param shutdown: Event to shutdown local event handler and workers.
     :param deque flagged: Flagged paths for local observer to ignore.
     """
 
     disconnected_signal = signal("disconnected_signal")
 
-    while not stop.is_set():
+    while not shutdown.is_set():
 
         running.wait()  # if not running, wait until resumed
 
@@ -351,7 +351,7 @@ def download_worker(client, running, stop, flagged):
             running.clear()  # must be started again from outside
 
 
-def upload_worker(dbx_uploader, local_q, running, stop):
+def upload_worker(dbx_uploader, local_q, running, shutdown):
     """
     Worker to sync local changes to remote Dropbox. It collects the most recent
     local file events from `local_q`, prunes them from duplicates, and
@@ -364,7 +364,7 @@ def upload_worker(dbx_uploader, local_q, running, stop):
     :param running: Event to pause local event handler and download worker.
         Will be set if the connection to the Dropbox server fails, or if
         syncing is paused by the user.
-    :param stop: Event to stop local event handler and workers.
+    :param shutdown: Event to shutdown local event handler and workers.
     """
 
     disconnected_signal = signal("disconnected_signal")
@@ -404,7 +404,7 @@ def upload_worker(dbx_uploader, local_q, running, stop):
         is_duplicate = (x.src_path == original.src_path)
         return (is_modified_event and is_duplicate)
 
-    while not stop.is_set():
+    while not shutdown.is_set():
 
         events = [local_q.get()]  # blocks until event is in queue
 
@@ -498,7 +498,7 @@ class MaestralMonitor(object):
     :ivar connected: Event that is set if connection to Dropbox API servers can
         be established.
     :ivar running: Event is set if worker threads are running.
-    :ivar stop: Event to stop worker threads.
+    :ivar shutdown: Event to shutdown worker threads.
     :ivar paused_by_user: `True` if worker has been stopped by user, `False`.
         If `paused_by_user` is `True`, syncing will not automatically resume
         once a connection is established.
@@ -506,7 +506,7 @@ class MaestralMonitor(object):
 
     connected = Event()
     running = Event()
-    stop = Event()
+    shutdown = Event()
     flagged = deque()
 
     connected_signal = signal("connected_signal")
@@ -525,7 +525,7 @@ class MaestralMonitor(object):
 
         self.connection_thread = Thread(
                 target=connection_helper,
-                args=(self.client, self.connected, self.running, self.stop),
+                args=(self.client, self.connected, self.running, self.shutdown),
                 name="MaestralConnectionHelper")
         self.connection_thread.setDaemon(True)
         self.connection_thread.start()
@@ -543,12 +543,12 @@ class MaestralMonitor(object):
 
         self.download_thread = Thread(
                 target=download_worker,
-                args=(self.client, self.running, self.stop, self.flagged),
+                args=(self.client, self.running, self.shutdown, self.flagged),
                 name="MaestralDownloader")
 
         self.upload_thread = Thread(
                 target=upload_worker,
-                args=(self.dbx_uploader, self.local_q, self.running, self.stop),
+                args=(self.dbx_uploader, self.local_q, self.running, self.shutdown),
                 name="MaestralUploader")
 
         self.local_observer_thread.start()
@@ -585,7 +585,7 @@ class MaestralMonitor(object):
         """Stops syncing and destroys worker threads."""
 
         self.running.clear()  # pauses threads
-        self.stop.set()  # stops threads
+        self.shutdown.set()  # stops threads
         self.file_handler.running.clear()  # stops local file event handler
 
         self.local_observer_thread.stop()  # stop observer
