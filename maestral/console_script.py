@@ -20,7 +20,7 @@ def sync():
     """Runs Maestral as a command line tool."""
     from maestral.main import Maestral
     m = Maestral()
-    m.monitor.local_observer_thread.join()  # join until quit by user
+    m.monitor.connection_thread.join()  # join until quit by user
     return m
 
 
