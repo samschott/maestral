@@ -196,6 +196,7 @@ class OAuth2Session(object):
         # I can't unlink the app yet properly (API limitation), so let's just remove the token
 
 
+# noinspection PyDeprecation
 class MaestralClient(object):
     """Client for Dropbox SDK.
 
@@ -990,7 +991,7 @@ class MaestralClient(object):
         Check if local file is conflicting with remote file.
 
         :param str dbx_path: Path of folder on Dropbox.
-        :return: 0 for conflict, 1 for no conflict, 2 if files are identical.
+        :return: 0 for no conflict, 1 for conflict, 2 if files are identical.
             Returns -1 if metadata request to Dropbox API fails.
         :rtype: int
         """
