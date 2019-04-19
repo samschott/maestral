@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 for logger_name in ["maestral.main", "maestral.client", "maestral.monitor"]:
     mdbx_logger = logging.getLogger(logger_name)
     mdbx_logger.addHandler(logging.StreamHandler())
-    mdbx_logger.setLevel(logging.DEBUG)
+    mdbx_logger.setLevel(logging.INFO)
 
 
 ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
