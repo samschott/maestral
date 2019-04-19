@@ -446,8 +446,10 @@ def upload_worker(dbx_uploader, local_q, running):
             duplicates = [x for x in events if is_modified_duplicate(x, event)]
             duplicate_modified_events += duplicates
 
+        # remove all events with duplicate effects
         events = set(events) - set(duplicate_modified_events)
 
+        # process all events
         def dispatch_event(evnt):
             if evnt.event_type is EVENT_TYPE_CREATED:
                 dbx_uploader.on_created(evnt)
@@ -458,7 +460,6 @@ def upload_worker(dbx_uploader, local_q, running):
             elif evnt.event_type is EVENT_TYPE_MODIFIED:
                 dbx_uploader.on_modified(evnt)
 
-        # process all events:
         with dbx_uploader.client.lock:
             try:
                 logger.info("Syncing...")
@@ -626,7 +627,7 @@ class MaestralMonitor(object):
         for path in snapshot.paths:
             stats = snapshot.stat_info(path)
             last_sync = CONF.get("internal", "lastsync")
-            # check item was created or modified since last sync
+            # check if item was created or modified since last sync
             if max(stats.st_ctime, stats.st_mtime) > last_sync:
                 # check if item is already tracked or new
                 if self.client.to_dbx_path(path).lower() in self.client.rev_dict:
