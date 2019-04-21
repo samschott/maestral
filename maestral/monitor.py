@@ -224,10 +224,10 @@ class DropboxUploadSync(object):
 
         rev = self.client.get_local_rev(dbx_path)
         if rev is not None:
-            md = self.client.remove(dbx_path)
+            md = self.client.remove(dbx_path)  # returns false if file did not exist
             # remove revision metadata
-            if md:
-                self.client.set_local_rev(md.path_display, None)
+            # don't check if remove was successful
+            self.client.set_local_rev(md.path_display, None)
 
         CONF.set("internal", "lastsync", time.time())
 
