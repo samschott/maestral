@@ -632,9 +632,10 @@ class MaestralMonitor(object):
             stats = snapshot.stat_info(path)
             last_sync = CONF.get("internal", "lastsync")
             # check if item was created or modified since last sync
+            dbx_path = self.client.to_dbx_path(path).lower()
             if max(stats.st_ctime, stats.st_mtime) > last_sync:
                 # check if item is already tracked or new
-                if self.client.to_dbx_path(path).lower() in self.client.rev_dict:
+                if self.client.get_local_rev(dbx_path) is not None:
                     # already tracking item
                     if osp.isdir(path):
                         event = DirModifiedEvent(path)
@@ -650,9 +651,10 @@ class MaestralMonitor(object):
                     changes.append(event)
 
         # get deleted items
-        for path in self.client.rev_dict:
+        rev_dict_copy = self.client.get_rev_dict()
+        for path in rev_dict_copy:
             if self.client.to_local_path(path).lower() not in lowercase_snapshot_paths:
-                if self.client.rev_dict[path] == "folder":
+                if rev_dict_copy[path] == "folder":
                     event = DirDeletedEvent(self.client.to_local_path(path))
                 else:
                     event = FileDeletedEvent(self.client.to_local_path(path))

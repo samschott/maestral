@@ -223,14 +223,7 @@ class MaestralClient(object):
     :ivar excluded_folders: List containing all files excluded from sync.
         When adding and removing entries, make sure to update the config file
         as well so that changes persist across sessions.
-    :ivar rev_dict: Dictionary with paths to all synced local files/folders
-        as keys. Values are the revision number of a file or 'folder' for a
-        folder. Do not change entries manually, the dict is updated
-        automatically with every sync. :ivar:`rev_dict` is used to determine
-        sync conflicts and detect deleted files while Maestral has not been
-        running. :ivar:`rev_dict` is periodically saved to :ivar:`rev_file`.
-        All keys are stored in lower case.
-    :ivar rev_file: Path of local file to save :ivar:`rev_dict`. This defaults
+    :ivar rev_file: Path of local file with rev number. This defaults
         to '/dropbox_path/.dropbox'
     :ivar dropbox_path: Path to local Dropbox folder, as loaded from config
         file. Before changing :ivar`dropbox_path`, make sure that all syncing
@@ -267,12 +260,6 @@ class MaestralClient(object):
 
         # get correct directories
         self.dropbox_path = CONF.get("main", "path")
-        # try to load revisions dictionary
-        try:
-            with open(self.rev_file, "rb") as f:
-                self.rev_dict = umsgpack.unpack(f)
-        except (FileNotFoundError, IsADirectoryError):
-            self.rev_dict = {}
 
     @property
     def rev_file(self):
@@ -341,28 +328,46 @@ class MaestralClient(object):
         else:
             return osp.join(local_parent, dbx_path_basename)
 
+    def get_rev_dict(self):
+        """
+        Returns dictionary of file / folder paths with rev numbers.
+
+        :return: Revision number dictionary.
+        :rtype: dict
+        """
+        with self._rev_lock:
+            try:
+                with open(self.rev_file, "rb") as f:
+                    rev_dict = umsgpack.unpack(f)
+            except FileNotFoundError:
+                rev_dict = {}
+
+            return rev_dict
+
     def get_local_rev(self, dbx_path):
         """
-        Gets revision number of local file, as saved in :ivar:`rev_dict`.
+        Gets revision number of local file.
 
         :param str dbx_path: Dropbox file path.
         :return: Revision number as str or `None` if no local revision number
             has been saved.
         :rtype: str
         """
-        dbx_path = dbx_path.lower()
-        try:
-            with open(self.rev_file, "rb") as f:
-                self.rev_dict = umsgpack.unpack(f)
-        except FileNotFoundError:
-            self.rev_dict = {}
+        with self._rev_lock:
+            dbx_path = dbx_path.lower()
 
-        try:
-            rev = self.rev_dict[dbx_path]
-        except KeyError:
-            rev = None
+            try:
+                with open(self.rev_file, "rb") as f:
+                    rev_dict = umsgpack.unpack(f)
+            except FileNotFoundError:
+                rev_dict = {}
 
-        return rev
+            try:
+                rev = rev_dict[dbx_path]
+            except KeyError:
+                rev = None
+
+            return rev
 
     def set_local_rev(self, dbx_path, rev):
         """
@@ -372,21 +377,28 @@ class MaestralClient(object):
         :param str dbx_path: Relative Dropbox file path.
         :param rev: Revision number as string or `None`.
         """
-        dbx_path = dbx_path.lower()
         with self._rev_lock:
+            dbx_path = dbx_path.lower()
+            try:
+                with open(self.rev_file, "rb") as f:
+                    rev_dict = umsgpack.unpack(f)
+            except FileNotFoundError:
+                rev_dict = {}
+
             if rev is None:  # remove entries for dbx_path and its children
-                for path in dict(self.rev_dict):
+                for path in dict(rev_dict):
                     if path.startswith(dbx_path):
-                        self.rev_dict.pop(path, None)
+                        rev_dict.pop(path, None)
             else:
-                self.rev_dict[dbx_path] = rev
+                rev_dict[dbx_path] = rev
                 # set all parent revs to 'folder'
                 dirname = osp.dirname(dbx_path)
                 while dirname is not "/":
-                    self.rev_dict[dirname] = "folder"
+                    rev_dict[dirname] = "folder"
                     dirname = osp.dirname(dirname)
+
             with open(self.rev_file, "wb+") as f:
-                umsgpack.pack(self.rev_dict, f)
+                umsgpack.pack(rev_dict, f)
 
     def get_account_info(self):
         """
@@ -447,7 +459,6 @@ class MaestralClient(object):
         """
         self.auth.unlink()
 
-        self.rev_dict = {}
         os.remove(self.rev_file)
 
         self.excluded_folders = []
