@@ -25,6 +25,7 @@ from dropbox import DropboxOAuth2FlowNoRedirect
 from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
 from maestral.utils.notify import Notipy
+from maestral.utils.content_hasher import DropboxContentHasher
 
 logger = logging.getLogger(__name__)
 # create single requests session for all clients
@@ -106,6 +107,27 @@ def path_exists_case_insensitive(path, root="/"):
         return ''
     else:
         return local_paths[0]
+
+
+def get_local_hash(dst_path):
+    """
+    Computes content hash of local file.
+
+    :param str dst_path: Path to local file.
+    :return: content hash to compare with ``content_hash`` attribute of
+        :class:`dropbox.files.FileMetadata` object.
+    """
+
+    hasher = DropboxContentHasher()
+
+    with open(dst_path, 'rb') as f:
+        while True:
+            chunk = f.read(1024)
+            if len(chunk) == 0:
+                break
+            hasher.update(chunk)
+
+    return hasher.hexdigest()
 
 
 class SpaceUsage(dropbox.users.SpaceUsage):
@@ -872,7 +894,8 @@ class MaestralClient(object):
 
         return True
 
-    def _sort_entries(self, result):
+    @staticmethod
+    def _sort_entries(result):
         """
         Sorts entries in :class:`dropbox.files.ListFolderResult` into
         FolderMetadata, FileMetadata and DeletedMetadata.
@@ -1009,38 +1032,48 @@ class MaestralClient(object):
         # get corresponding local path
         dst_path = self.to_local_path(dbx_path)
 
-        # no conflict if local file does not exist yet
-        if not osp.exists(dst_path):
-            logger.debug("Local file '%s' does not exist. No conflict.", dbx_path)
-            return 0
-
-        # get metadata otherwise
+        # get metadata of remote file
         try:
             md = self.dbx.files_get_metadata(dbx_path)
         except dropbox.exceptions.ApiError as err:
             logging.info("Could not get metadata for '%s': %s", dbx_path, err)
             return -1
 
-        # check if Dropbox rev is in local dict
-        local_rev = self.get_local_rev(dbx_path)
-        if local_rev is None:
-            # We have a conflict: files with the same name have been
-            # created on Dropbox and locally independent of each other.
-            # If a file has been modified while the client was not running,
-            # its entry from rev_dict is removed.
-            logger.debug("Conflicting copy without rev.")
-            return 1
-        # check if remote and local versions have same rev
-        # TODO: check hash keys as well
-        elif md.rev == local_rev:
-            logger.debug(
-                    "Local file is the same as on Dropbox (rev %s). No download necessary.",
-                    local_rev)
-            return 2  # files are already the same
+        # no conflict if local file does not exist yet
+        if not osp.exists(dst_path):
+            logger.debug("Local file '%s' does not exist. No conflict.", dbx_path)
+            return 0
 
-        elif not md.rev == local_rev:
-            # we are dealing with different revisions, trust the Dropbox server version
+        local_rev = self.get_local_rev(dbx_path)
+
+        # check if remote and local versions have same rev
+        if not md.rev == local_rev:
+            # Dropbox server version has a different rev, must be newer
             logger.debug(
                     "Local file has rev %s, file on Dropbox has rev %s. Getting file from Dropbox.",
                     local_rev, md.rev)
             return 0
+
+        if local_rev is None:
+            # We likely have a conflict: files with the same name have been
+            # created on Dropbox and locally independent of each other.
+            # If a file has been modified while the client was not running,
+            # its entry from rev_dict is removed. Check actual content first before
+            # declaring conflict!
+
+            local_hash = get_local_hash(dst_path)
+
+            if not md.content_hash == local_hash:
+                logger.debug("Conflicting copy without rev.")
+                return 1  # files are conflicting
+            else:
+                logger.debug("Contents are equal. No conflict. Updated local rev.")
+                self.set_local_rev(dbx_path, md.rev)
+                return 2  # files are already the same
+
+        if md.rev == local_rev:
+            # files have the same revision, trust that they are equal
+            logger.debug(
+                    "Local file is the same as on Dropbox (rev %s). No download necessary.",
+                    local_rev)
+            return 2  # files are already the same
