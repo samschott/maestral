@@ -575,24 +575,35 @@ class MaestralMonitor(object):
         self.running.set()  # resumes download_thread
         self.file_handler.running.set()  # starts local file event handler
 
+        logger.debug('Resumed.')
+
     def pause(self, overload=None):
         """Pauses syncing."""
 
         self.running.clear()  # pauses download_thread
         self.file_handler.running.clear()  # stops local file event handler
 
+        logger.debug('Paused.')
+
     def stop(self, overload=None):
         """Stops syncing and destroys worker threads."""
 
+        logger.debug('Shutting down threads.')
+
         self.shutdown.set()  # stops threads
-        self.file_handler.running.clear()  # stops local file event handler
 
         self.local_observer_thread.stop()  # stop observer
         self.local_observer_thread.join()  # wait to finish
+        logger.debug('Observer thread stopped.')
 
         self.upload_thread.join()
+        logger.debug('Upload thread stopped.')
+
         self.download_thread.join()
+        logger.debug('Download thread stopped.')
+
         self.connection_thread.join()
+        logger.debug('Connection thread stopped.')
 
     def upload_local_changes_after_inactive(self):
         """
