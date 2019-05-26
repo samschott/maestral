@@ -560,7 +560,7 @@ class MaestralMonitor(object):
 
         self.upload_local_changes_after_inactive()
 
-        self.running.set()  # starts download_thread
+        self.running.set()  # resumes download_thread
         self.file_handler.running.set()  # starts local file event handler
 
     def resume(self, overload=None):
@@ -572,19 +572,18 @@ class MaestralMonitor(object):
 
         self.upload_local_changes_after_inactive()
 
-        self.running.set()  # starts download_thread
+        self.running.set()  # resumes download_thread
         self.file_handler.running.set()  # starts local file event handler
 
     def pause(self, overload=None):
         """Pauses syncing."""
 
-        self.running.clear()  # stops download_thread
+        self.running.clear()  # pauses download_thread
         self.file_handler.running.clear()  # stops local file event handler
 
     def stop(self, overload=None):
         """Stops syncing and destroys worker threads."""
 
-        self.running.clear()  # pauses threads
         self.shutdown.set()  # stops threads
         self.file_handler.running.clear()  # stops local file event handler
 
