@@ -406,77 +406,80 @@ def upload_worker(dbx_uploader, local_q, running, shutdown):
 
     while not shutdown.is_set():
 
-        events = [local_q.get()]  # blocks until event is in queue
-
-        # wait for delay after last event has been registered
-        t0 = time.time()
-        while t0 - local_q.update_time < delay:
-            time.sleep(delay)
+        try:
+            events = [local_q.get(timeout=10)]  # blocks until event is in queue
+        except queue.Empty:
+            pass
+        else:
+            # wait for delay after last event has been registered
             t0 = time.time()
+            while t0 - local_q.update_time < delay:
+                time.sleep(delay)
+                t0 = time.time()
 
-        # get all events after folder has been idle for self.delay
-        while local_q.qsize() > 0:
-            events.append(local_q.get())
+            # get all events after folder has been idle for self.delay
+            while local_q.qsize() > 0:
+                events.append(local_q.get())
 
-        # COMBINE MOVED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
-        moved_folder_events = [x for x in events if is_moved_folder(x)]
-        child_move_events = []
+            # COMBINE MOVED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
+            moved_folder_events = [x for x in events if is_moved_folder(x)]
+            child_move_events = []
 
-        for parent_event in moved_folder_events:
-            children = [x for x in events if is_moved_child(x, parent_event)]
-            child_move_events += children
+            for parent_event in moved_folder_events:
+                children = [x for x in events if is_moved_child(x, parent_event)]
+                child_move_events += children
 
-        events = set(events) - set(child_move_events)
+            events = set(events) - set(child_move_events)
 
-        # COMBINE DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
-        deleted_folder_events = [x for x in events if is_deleted_folder(x)]
-        child_deleted_events = []
+            # COMBINE DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
+            deleted_folder_events = [x for x in events if is_deleted_folder(x)]
+            child_deleted_events = []
 
-        for parent_event in deleted_folder_events:
-            children = [x for x in events if is_deleted_child(x, parent_event)]
-            child_deleted_events += children
+            for parent_event in deleted_folder_events:
+                children = [x for x in events if is_deleted_child(x, parent_event)]
+                child_deleted_events += children
 
-        events = set(events) - set(child_deleted_events)
+            events = set(events) - set(child_deleted_events)
 
-        # COMBINE CREATED AND MODIFIED EVENTS OF THE SAME FILE
-        created_file_events = [x for x in events if is_created(x)]
-        duplicate_modified_events = []
+            # COMBINE CREATED AND MODIFIED EVENTS OF THE SAME FILE
+            created_file_events = [x for x in events if is_created(x)]
+            duplicate_modified_events = []
 
-        for event in created_file_events:
-            duplicates = [x for x in events if is_modified_duplicate(x, event)]
-            duplicate_modified_events += duplicates
+            for event in created_file_events:
+                duplicates = [x for x in events if is_modified_duplicate(x, event)]
+                duplicate_modified_events += duplicates
 
-        # remove all events with duplicate effects
-        events = set(events) - set(duplicate_modified_events)
+            # remove all events with duplicate effects
+            events = set(events) - set(duplicate_modified_events)
 
-        # process all events
-        def dispatch_event(evnt):
-            if evnt.event_type is EVENT_TYPE_CREATED:
-                dbx_uploader.on_created(evnt)
-            elif evnt.event_type is EVENT_TYPE_MOVED:
-                dbx_uploader.on_moved(evnt)
-            elif evnt.event_type is EVENT_TYPE_DELETED:
-                dbx_uploader.on_deleted(evnt)
-            elif evnt.event_type is EVENT_TYPE_MODIFIED:
-                dbx_uploader.on_modified(evnt)
+            # process all events
+            def dispatch_event(evnt):
+                if evnt.event_type is EVENT_TYPE_CREATED:
+                    dbx_uploader.on_created(evnt)
+                elif evnt.event_type is EVENT_TYPE_MOVED:
+                    dbx_uploader.on_moved(evnt)
+                elif evnt.event_type is EVENT_TYPE_DELETED:
+                    dbx_uploader.on_deleted(evnt)
+                elif evnt.event_type is EVENT_TYPE_MODIFIED:
+                    dbx_uploader.on_modified(evnt)
 
-        with dbx_uploader.client.lock:
-            try:
-                logger.info("Syncing...")
+            with dbx_uploader.client.lock:
+                try:
+                    logger.info("Syncing...")
 
-                num_threads = os.cpu_count()*2
+                    num_threads = os.cpu_count()*2
 
-                with ThreadPoolExecutor(max_workers=num_threads) as executor:
-                    executor.map(dispatch_event, events)
-                CONF.set("internal", "lastsync", time.time())
-                logger.info("Up to date")
-            except (KeyboardInterrupt, SystemExit):
-                raise
-            except CONNECTION_ERRORS as e:
-                logger.debug(e)
-                logger.info("Connecting...")
-                disconnected_signal.send()
-                running.clear()   # must be started again from outside
+                    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+                        executor.map(dispatch_event, events)
+                    CONF.set("internal", "lastsync", time.time())
+                    logger.info("Up to date")
+                except (KeyboardInterrupt, SystemExit):
+                    raise
+                except CONNECTION_ERRORS as e:
+                    logger.debug(e)
+                    logger.info("Connecting...")
+                    disconnected_signal.send()
+                    running.clear()   # must be started again from outside
 
 
 class MaestralMonitor(object):
