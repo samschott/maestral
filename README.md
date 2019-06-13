@@ -79,4 +79,4 @@ in the command line.
 - dropbox
 - watchdog
 - blinker
-- PyQt5 (for GUI only)
+- PyQt 5.9 or higher (for GUI only)
