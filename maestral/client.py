@@ -1030,6 +1030,10 @@ class MaestralClient(object):
         if dbx_path in ["/", ""]:
             excluded = True
 
+        # is local rev dict?
+        if dbx_path is [".dropbox", "/.dropbox"]:
+            excluded = True
+
         # If the file name contains multiple periods it is likely a temporary
         # file created during a saving event on macOS. Ignore such files.
         if osp.basename(dbx_path).count(".") > 1:
