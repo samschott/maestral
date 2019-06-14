@@ -135,11 +135,6 @@ class DropboxUploadSync(object):
         if self.client.is_excluded(dbx_path2):
             return
 
-        # If the file name contains multiple periods it is likely a temporary
-        # file created during a saving event on macOS. Ignore such files.
-        if osp.basename(path2).count(".") > 1:
-            return
-
         metadata = self.client.move(dbx_path, dbx_path2)
 
         # remove old revs
@@ -218,16 +213,10 @@ class DropboxUploadSync(object):
         path = event.src_path
         dbx_path = self.client.to_dbx_path(path)
 
-        # is file excluded?
-        if self.client.is_excluded(dbx_path):
-            return
-
-        rev = self.client.get_local_rev(dbx_path)
-        if rev is not None:
-            md = self.client.remove(dbx_path)  # returns false if file did not exist
-            # remove revision metadata
-            # don't check if remove was successful
-            self.client.set_local_rev(md.path_display, None)
+        md = self.client.remove(dbx_path)  # returns false if file did not exist
+        # remove revision metadata
+        # don't check if remove was successful
+        self.client.set_local_rev(md.path_display, None)
 
         CONF.set("internal", "lastsync", time.time())
 
