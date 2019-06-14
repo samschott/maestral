@@ -16,7 +16,6 @@ a full download on the next startup.
 
 # Local import
 from maestral.config.user import UserConfig
-from maestral.client import REV_FILE
 
 PACKAGE_NAME = 'maestral'
 SUBFOLDER = '.%s' % PACKAGE_NAME
@@ -31,7 +30,7 @@ DEFAULTS = [
               'path': '',
               'excluded_folders': [],
               'excluded_files': ["desktop.ini",  "thumbs.db", ".ds_store",
-                                 "icon\r", ".dropbox.attr", REV_FILE],
+                                 "icon\r", ".dropbox.attr", ".dropbox"],
               }),
             ('account',
              {
