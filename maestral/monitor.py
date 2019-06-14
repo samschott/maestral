@@ -82,28 +82,11 @@ class FileEventHandler(FileSystemEventHandler):
                 return True
         return False
 
-    def on_moved(self, event):
-        if self.running.is_set():
-            logger.debug("Move detected: from '%s' to '%s'",
-                         event.src_path, event.dest_path)
-            self.local_q.put(event)
-
-    def on_created(self, event):
-        if self.running.is_set() and not self.is_flagged(event.src_path):
-            logger.debug("Creation detected: '%s'", event.src_path)
-            self.local_q.put(event)
-
-    def on_deleted(self, event):
-        if self.running.is_set() and not self.is_flagged(event.src_path):
-            logger.debug("Deletion detected: '%s'", event.src_path)
-            self.local_q.put(event)
-
-    def on_modified(self, event):
+    def on_any_event(self, event):
         if os.path.basename(event.src_path) == REV_FILE:  # TODO: find a better place
             return
 
         if self.running.is_set() and not self.is_flagged(event.src_path):
-            logger.debug("Modification detected: '%s'", event.src_path)
             self.local_q.put(event)
 
 
@@ -128,6 +111,9 @@ class DropboxUploadSync(object):
 
         :param class event: Watchdog file event.
         """
+
+        logger.debug("Move detected: from '%s' to '%s'",
+                     event.src_path, event.dest_path)
 
         path = event.src_path
         path2 = event.dest_path
@@ -167,6 +153,9 @@ class DropboxUploadSync(object):
 
         :param class event: Watchdog file event.
         """
+
+        logger.debug("Creation detected: '%s'", event.src_path)
+
         path = event.src_path
         dbx_path = self.client.to_dbx_path(path)
 
@@ -197,7 +186,7 @@ class DropboxUploadSync(object):
                 # save or update revision metadata
                 self.client.set_local_rev(md.path_display, md.rev)
 
-        else:
+        elif event.is_directory:
             # check if directory is not yet on Dropbox, else leave alone
             md = self.client.get_metadata(dbx_path)
             if not md:
@@ -214,6 +203,9 @@ class DropboxUploadSync(object):
 
         :param class event: Watchdog file event.
         """
+
+        logger.debug("Deletion detected: '%s'", event.src_path)
+
         path = event.src_path
         dbx_path = self.client.to_dbx_path(path)
 
@@ -230,6 +222,9 @@ class DropboxUploadSync(object):
 
         :param class event: Watchdog file event.
         """
+
+        logger.debug("Modification detected: '%s'", event.src_path)
+
         path = event.src_path
         dbx_path = self.client.to_dbx_path(path)
 
