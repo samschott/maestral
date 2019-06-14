@@ -1003,9 +1003,6 @@ class MaestralClient(object):
         dbx_path = dbx_path.lower()
 
         excluded = False
-        # in excluded files?
-        if osp.basename(dbx_path) in self.excluded_files:
-            excluded = True
 
         # in excluded folders?
         for excluded_folder in self.excluded_folders:
@@ -1030,8 +1027,8 @@ class MaestralClient(object):
         if dbx_path in ["/", ""]:
             excluded = True
 
-        # is local rev dict?
-        if dbx_path is [".dropbox", "/.dropbox"]:
+        # in excluded files?
+        if osp.basename(dbx_path) in self.excluded_files:
             excluded = True
 
         # If the file name contains multiple periods it is likely a temporary
