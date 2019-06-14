@@ -27,6 +27,7 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 from maestral.config.main import CONF
+from maestral.client import REV_FILE
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,7 @@ class FileEventHandler(FileSystemEventHandler):
             self.local_q.put(event)
 
     def on_modified(self, event):
-        if os.path.basename(event.src_path) == '.dropbox':  # TODO: find a better place
+        if os.path.basename(event.src_path) == REV_FILE:  # TODO: find a better place
             return
 
         if self.running.is_set() and not self.is_flagged(event.src_path):
