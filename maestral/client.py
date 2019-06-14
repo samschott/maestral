@@ -34,6 +34,8 @@ SESSION = dropbox.dropbox.create_session()
 APP_KEY = "2jmbq42w7vof78h"
 APP_SECRET = "lrsxo47dvuulex5"
 
+REV_FILE = ".dropbox"
+
 
 def tobytes(value, unit, bsize=1024):
     """
@@ -285,7 +287,7 @@ class MaestralClient(object):
 
     @property
     def rev_file(self):
-        return osp.join(self.dropbox_path, ".dropbox")
+        return osp.join(self.dropbox_path, REV_FILE)
 
     def to_dbx_path(self, local_path):
         """
