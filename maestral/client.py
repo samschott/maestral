@@ -509,11 +509,10 @@ class MaestralClient(object):
 
         try:
             md = self.dbx.files_get_metadata(dbx_path, **kwargs)
+            logger.debug("Retrieved metadata for '{0}'".format(md.path_display))
         except dropbox.exceptions.ApiError as err:
             logging.debug("Could not get metadata for '%s': %s", dbx_path, err)
             md = False
-
-        logger.debug("Retrieved metadata for '{0}'".format(md.path_display))
 
         return md
 
