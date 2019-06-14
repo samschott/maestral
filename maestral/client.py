@@ -923,7 +923,10 @@ class MaestralClient(object):
 
         self.excluded_folders = CONF.get("main", "excluded_folders")
 
-        if check_excluded and self.is_excluded(entry.path_display):
+        if self.is_excluded(entry.path_display):
+            return True
+
+        if check_excluded and self.is_excluded_by_user(entry.path_display):
             return True
 
         if isinstance(entry, FileMetadata):
@@ -989,7 +992,7 @@ class MaestralClient(object):
 
             return True
 
-    def is_excluded(self, dbx_path):
+    def is_excluded_by_user(self, dbx_path):
         """
         Check if file is excluded from sync.
 
@@ -1008,6 +1011,20 @@ class MaestralClient(object):
         for excluded_folder in self.excluded_folders:
             if not osp.commonpath([dbx_path, excluded_folder]) in ["/", ""]:
                 excluded = True
+
+        return excluded
+
+    def is_excluded(self, dbx_path):
+        """
+        Check if file is excluded from sync.
+
+        :param str dbx_path: Path of folder on Dropbox.
+        :return: `True` or `False`.
+        :rtype: bool
+        """
+        dbx_path = dbx_path.lower()
+
+        excluded = False
 
         # is root folder?
         if dbx_path in ["/", ""]:
