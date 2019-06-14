@@ -98,6 +98,9 @@ class FileEventHandler(FileSystemEventHandler):
             self.local_q.put(event)
 
     def on_modified(self, event):
+        if os.path.basename(event.src_path) == '.dropbox':  # TODO: find a better place
+            return
+
         if self.running.is_set() and not self.is_flagged(event.src_path):
             logger.debug("Modification detected: '%s'", event.src_path)
             self.local_q.put(event)
@@ -193,11 +196,11 @@ class DropboxUploadSync(object):
                 # save or update revision metadata
                 self.client.set_local_rev(md.path_display, md.rev)
 
-        elif event.is_directory:
+        else:
             # check if directory is not yet on Dropbox, else leave alone
             md = self.client.get_metadata(dbx_path)
             if not md:
-                md = self.client.make_dir(dbx_path)
+                self.client.make_dir(dbx_path)
 
             # save or update revision metadata
             self.client.set_local_rev(dbx_path, "folder")
