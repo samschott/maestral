@@ -9,7 +9,7 @@ Dropbox. Meastral uses the Python SDK for the Dropbox API v2.
 ## Installation
 Download and install the Python package by running
 ```console
-$ pip install git+https://github.com/SamSchott/maestral
+$ pip install --upgrade git+https://github.com/SamSchott/maestral
 ```
 in the command line.
 
