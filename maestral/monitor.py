@@ -209,6 +209,10 @@ class DropboxUploadSync(object):
         path = event.src_path
         dbx_path = self.client.to_dbx_path(path)
 
+        # do not propagate deletions that result from excluding a folder!
+        if self.client.is_excluded_by_user(dbx_path):
+            return
+
         md = self.client.remove(dbx_path)  # returns false if file did not exist
         # remove revision metadata
         # don't check if remove was successful
