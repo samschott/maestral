@@ -519,10 +519,9 @@ class MaestralMonitor(object):
         self.local_q = self.file_handler.local_q
 
         self.connection_thread = Thread(
-                target=connection_helper,
+                target=connection_helper, daemon=True,
                 args=(self.client, self.connected, self.running, self.shutdown),
                 name="MaestralConnectionHelper")
-        self.connection_thread.setDaemon(True)
         self.connection_thread.start()
 
     def start(self, overload=None):
@@ -537,12 +536,12 @@ class MaestralMonitor(object):
                 self.file_handler, self.client.dropbox_path, recursive=True)
 
         self.download_thread = Thread(
-                target=download_worker,
+                target=download_worker, daemon=True,
                 args=(self.client, self.running, self.shutdown, self.flagged),
                 name="MaestralDownloader")
 
         self.upload_thread = Thread(
-                target=upload_worker,
+                target=upload_worker, daemon=True,
                 args=(self.dbx_uploader, self.local_q, self.running, self.shutdown),
                 name="MaestralUploader")
 
@@ -583,22 +582,14 @@ class MaestralMonitor(object):
     def stop(self, overload=None):
         """Stops syncing and destroys worker threads."""
 
-        logger.debug('Shutting down threads.')
-
-        self.shutdown.set()  # stops threads
+        logger.debug('Shutting down threads...')
 
         self.local_observer_thread.stop()  # stop observer
         self.local_observer_thread.join()  # wait to finish
-        logger.debug('Observer thread stopped.')
 
-        self.upload_thread.join()
-        logger.debug('Upload thread stopped.')
+        self.shutdown.set()  # stops our own threads
 
-        self.download_thread.join()
-        logger.debug('Download thread stopped.')
-
-        self.connection_thread.join()
-        logger.debug('Connection thread stopped.')
+        logger.debug('Stopped.')
 
     def upload_local_changes_after_inactive(self):
         """
