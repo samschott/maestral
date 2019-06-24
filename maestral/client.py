@@ -939,7 +939,7 @@ class MaestralClient(object):
             dst_path = self.to_local_path(entry.path_display)
 
             # check for sync conflicts
-            conflict = self._is_local_conflict(entry.path_display)
+            conflict = self.check_conflict(entry.path_display)
             if conflict == -1:  # could not get metadata
                 return False
             if conflict == 0:  # no conflict
@@ -1039,7 +1039,7 @@ class MaestralClient(object):
 
         return excluded
 
-    def _is_local_conflict(self, dbx_path):
+    def check_conflict(self, dbx_path):
         """
         Check if local file is conflicting with remote file.
 
@@ -1069,7 +1069,7 @@ class MaestralClient(object):
         if not md.rev == local_rev:
             # Dropbox server version has a different rev, must be newer
             logger.debug(
-                    "Local file has rev %s, file on Dropbox has rev %s. Getting file from Dropbox.",
+                    "Local file has rev %s, file on Dropbox has rev %s. Get Dropbox file.",
                     local_rev, md.rev)
             return 0
 
