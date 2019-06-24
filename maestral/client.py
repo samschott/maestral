@@ -217,7 +217,7 @@ class OAuth2Session(object):
 
     def unlink(self):
         self.delete_creds()
-        # I can't unlink the app yet properly (API limitation), so let's just remove the token
+        # can't unlink the app properly (API limitation), so let's just remove the token
 
 
 # noinspection PyDeprecation
