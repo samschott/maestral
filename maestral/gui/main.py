@@ -22,6 +22,12 @@ from maestral.gui.first_sync_dialog import FirstSyncDialog
 
 _root = QtCore.QFileInfo(__file__).absolutePath()
 
+FIRST_SYNC = (not CONF.get("internal", "lastsync") or
+              CONF.get("internal", "cursor") == "" or
+              not os.path.isdir(CONF.get("main", "path")))
+
+logger = logging.getLogger(__name__)
+
 
 class InfoHanlder(logging.Handler, QtCore.QObject):
     """
@@ -69,12 +75,7 @@ for logger_name in ["maestral.monitor", "maestral.main", "maestral.client"]:
 
 class MaestralApp(QtWidgets.QSystemTrayIcon):
 
-    # DARK = os.popen("defaults read -g AppleInterfaceStyle &> /dev/null").read() == "Dark"
-    FIRST_SYNC = (not CONF.get("internal", "lastsync") or
-                  CONF.get("internal", "cursor") == "" or
-                  not os.path.isdir(CONF.get("main", "path")))
-
-    def __init__(self, parent=None):
+    def __init__(self, mdbx, parent=None):
         # Load menu bar icons as instance attributes and not as class
         # attributes since QApplication may not be running.
         self.icon_idle = QtGui.QIcon(_root + "/resources/menubar_icon_idle.svg")
@@ -92,10 +93,11 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.menu = QtWidgets.QMenu()
         self._show_when_systray_available()
 
-        self.start_maestral()
+        self.mdbx = mdbx
+        self.setup_ui()
 
     def _show_when_systray_available(self):
-        """Show status icon when system tray is available
+        """Shows status icon when system tray is available
 
         If available, show icon, otherwise, set a timer to check back later.
         This is a workaround for https://bugreports.qt.io/browse/QTBUG-61898
@@ -104,23 +106,6 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
             self.show()
         else:
             QtCore.QTimer.singleShot(1000, self._show_when_systray_available)
-
-    def start_maestral(self):
-        # start Maestral
-        if self.FIRST_SYNC:  # run configuration wizard on first startup
-            self.mdbx = FirstSyncDialog.configureMaestral(parent=None)
-
-            if self.mdbx is None:
-                self.deleteLater()
-                QtCore.QCoreApplication.quit()
-            else:
-                self.mdbx.download_complete_signal.connect(self.mdbx.start_sync)
-                self.setup_ui()
-                self.on_syncing()
-
-        else:  # start Maestral normally otherwise
-            self.mdbx = Maestral()
-            self.setup_ui()
 
     def setup_ui(self):
         # create settings window
@@ -212,31 +197,22 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.setIcon(self.icon_paused)
 
 
-def get_qt_app(*args, **kwargs):
-    """
-    Create a new Qt app or return an existing one.
-    """
-    created = False
-    app = QtCore.QCoreApplication.instance()
-
-    if not app:
-        if not args:
-            args = ([""],)
-        app = QtWidgets.QApplication(*args, **kwargs)
-        created = True
-
-    return app, created
-
-
 def run():
-    app, created = get_qt_app()
+    app = QtWidgets.QApplication([""])
     app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
     app.setQuitOnLastWindowClosed(False)
 
-    maestral = MaestralApp()
+    if FIRST_SYNC:
+        maestral = FirstSyncDialog.configureMaestral()  # returns None if aborted
+    else:
+        maestral = Maestral()
 
-    if created:
+    if maestral:
+        maestral.download_complete_signal.connect(maestral.start_sync)
+        maestral_gui = MaestralApp(maestral)
         sys.exit(app.exec_())
+    else:
+        logger.info('Setup aborted. Quitting.')
 
 
 if __name__ == "__main__":

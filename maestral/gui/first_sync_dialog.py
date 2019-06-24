@@ -61,8 +61,6 @@ class FirstSyncDialog(QtWidgets.QDialog):
     auth_session = ""
     auth_url = ""
 
-    path_items = []
-
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
@@ -72,6 +70,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
         self.home_folder_icon = QtGui.QIcon(_root + "/resources/HomeFolderIcon.icns")
 
         self.mdbx = None
+        self.folder_items = []
 
         # rename dialog buttons
         self.labelIcon.setPixmap(self.app_icon)
@@ -163,6 +162,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
             msg_box.open()
             return
 
+        # switch to next page
         self.stackedWidget.setCurrentIndex(2)
 
         # start Maestral after linking to Dropbox account
@@ -173,11 +173,12 @@ class FirstSyncDialog(QtWidgets.QDialog):
     def on_dropbox_path(self):
         # switch to next page
         self.stackedWidget.setCurrentIndex(3)
-        # populate folder list of next page
-        self.populate_folders_list()
         # apply dropbox path
         dropbox_path = osp.join(self.dropbox_location, 'Dropbox')
         self.mdbx.set_dropbox_directory(dropbox_path)
+        # populate folder list
+        if self.folder_items == []:
+            self.populate_folders_list()
 
     def on_folder_select(self):
         # switch to next page
@@ -187,7 +188,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
         excluded_folders = []
         included_folders = []
 
-        for item in self.path_items:
+        for item in self.folder_items:
             if not item.isIncluded():
                 excluded_folders.append("/" + item.name.lower())
             elif item.isIncluded():
@@ -236,9 +237,9 @@ class FirstSyncDialog(QtWidgets.QDialog):
             for entry in folder_list:
                 is_included = not self.mdbx.client.is_excluded_by_user(entry.path_lower)
                 item = FolderItem(self.folder_icon, entry.name, is_included)
-                self.path_items.append(item)
+                self.folder_items.append(item)
 
-            for item in self.path_items:
+            for item in self.folder_items:
                 self.listWidgetFolders.addItem(item)
 
     def rel_path(self, path):
@@ -257,6 +258,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
     def configureMaestral(parent=None):
         fsd = FirstSyncDialog(parent)
         fsd.exec_()
+
         return fsd.mdbx
 
 
