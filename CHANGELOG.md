@@ -4,6 +4,8 @@ _Changes:_
 
 - Added new command line option 'autostart'.
 - Shut down immediately and kill threads instead of waiting for timeout.
+- Do not upload files that have identical content on Dropbox. Previously: files were 
+  always uploaded and conflict checking was left to do by the Dropbox server.
 
 _Fixes:_
 

@@ -173,6 +173,14 @@ class DropboxUploadSync(object):
                     if size1 == size2:
                         break
 
+                # check if file already exists with identical content
+                chk = self.client.check_conflict(dbx_path)
+
+                if chk == 2:
+                    # file hashes are identical, do not upload
+                    CONF.set("internal", "lastsync", time.time())
+                    return
+
                 rev = self.client.get_local_rev(dbx_path)
                 # if truly a new file
                 if rev is None:
