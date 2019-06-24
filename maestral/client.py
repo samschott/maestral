@@ -583,7 +583,7 @@ class MaestralClient(object):
                     cursor = dropbox.files.UploadSessionCursor(
                         session_id=session_start.session_id, offset=f.tell())
                     commit = dropbox.files.CommitInfo(
-                            path=dbx_path, client_modified=mtime, **kwargs)
+                            path=dbx_path, client_modified=mtime_dt, **kwargs)
                     while f.tell() < file_size:
                         pb.update(chunk_size)
                         if file_size - f.tell() <= chunk_size:
