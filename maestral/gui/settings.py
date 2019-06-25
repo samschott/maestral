@@ -66,10 +66,10 @@ class SettingsWindow(QtWidgets.QWidget):
         self.unlink_dialog.accepted.connect(self.mdbx.unlink)
 
         # populate about section
-        placeholder = self.labelAbout.text()
         year = time.localtime().tm_year
-        about_text = placeholder.format(__version__, __url__, year, __author__)
-        self.labelAbout.setText(about_text)
+        self.labelVersion.setText(self.labelVersion.text().format(__version__))
+        self.labelUrl.setText(self.labelUrl.text().format(__url__))
+        self.labelCopyright.setText(self.labelCopyright.text().format(year, __author__))
 
     def setup_combobox(self):
 
@@ -110,7 +110,8 @@ class SettingsWindow(QtWidgets.QWidget):
             new_path = osp.join(new_location, 'Dropbox')
             self.mdbx.set_dropbox_directory(new_path)
 
-    def rel_path(self, path):
+    @staticmethod
+    def rel_path(path):
         """
         Returns the path relative to the users directory, or the absolute
         path if not in a user directory.
