@@ -10,7 +10,6 @@ import os
 import os.path as osp
 import time
 import datetime
-import itertools
 import logging
 from concurrent.futures import ThreadPoolExecutor
 import threading
@@ -91,6 +90,7 @@ def path_exists_case_insensitive(path, root="/"):
     path_list_lower = [x.lower() for x in path_list]
 
     i = 0
+    local_paths = []
     for root, dirs, files in os.walk(root):
         for d in list(dirs):
             if not d.lower() == path_list_lower[i]:
@@ -239,16 +239,14 @@ class MaestralClient(object):
     All Dropbox API errors are caught and handled here. ConnectionErrors will
     be caught and handled by :class:`MaestralMonitor` instead.
 
-    :ivar last_cursor: Last cursor from Dropbox which was synced. The value
+    :cvar last_cursor: Last cursor from Dropbox which was synced. The value
         is updated and saved to config file on every successful sync.
-    :ivar excluded_files: List containing all files excluded from sync.
+    :cvar excluded_files: List containing all files excluded from sync.
         This only contains system files such as '.DS_STore' and internal files
         such as '.dropbox' and should not be changed.
     :ivar excluded_folders: List containing all files excluded from sync.
         When adding and removing entries, make sure to update the config file
         as well so that changes persist across sessions.
-    :ivar rev_file: Path of local file with rev number. This defaults
-        to '/dropbox_path/.dropbox'
     :ivar dropbox_path: Path to local Dropbox folder, as loaded from config
         file. Before changing :ivar`dropbox_path`, make sure that all syncing
         is paused. Make sure to move the local Dropbox directory before
@@ -307,6 +305,7 @@ class MaestralClient(object):
         path_list = osp.normpath(local_path).split(osp.sep)
 
         # Work out how much of the file path is shared by dropbox_path and path.
+        # noinspection PyTypeChecker
         i = len(osp.commonprefix([dbx_root_list, path_list]))
 
         if i == len(path_list):  # path corresponds to dropbox_path
@@ -566,9 +565,6 @@ class MaestralClient(object):
         file_size = osp.getsize(local_path)
         chunk_size = int(tobytes(chunk_size, "MB"))
 
-        pb = tqdm(total=file_size, unit="B", unit_scale=True,
-                  desc=osp.basename(local_path), miniters=1,
-                  ncols=80, mininterval=1)
         mtime = osp.getmtime(local_path)
         mtime_dt = datetime.datetime(*time.gmtime(mtime)[:6])
 
@@ -584,6 +580,11 @@ class MaestralClient(object):
                         session_id=session_start.session_id, offset=f.tell())
                     commit = dropbox.files.CommitInfo(
                             path=dbx_path, client_modified=mtime_dt, **kwargs)
+
+                    pb = tqdm(total=file_size, unit="B", unit_scale=True,
+                              desc=osp.basename(local_path), miniters=1,
+                              ncols=80, mininterval=1)
+
                     while f.tell() < file_size:
                         pb.update(chunk_size)
                         if file_size - f.tell() <= chunk_size:
@@ -702,7 +703,8 @@ class MaestralClient(object):
 
         return results
 
-    def flatten_results_list(self, results):
+    @staticmethod
+    def flatten_results_list(results):
         """
         Flattens a list of :class:`dropbox.files.ListFolderResult` instances
         and returns their entries only. Any cursors will be lost.
@@ -859,17 +861,6 @@ class MaestralClient(object):
         all_files.sort(key=lambda x: len(x.path_display.split('/')))
         all_deleted.sort(key=lambda x: len(x.path_display.split('/')))
 
-        # all_folders_binned = []
-        # for depth in itertools.count(start=2, step=1):
-        #     depth_folders = []
-        #     for folder in all_folders:
-        #         if len(folder.path_display.split('/')) == depth:
-        #             depth_folders.append(folder)
-        #     if depth_folders:
-        #         all_folders_binned.append(depth_folders)
-        #     else:
-        #         break
-
         # create local folders, start with top-level and work your way down
         for folder in all_folders:
             success = self._create_local_entry(folder)
@@ -891,7 +882,7 @@ class MaestralClient(object):
         # save cursor
         if save_cursor:
             self.last_cursor = results[-1].cursor
-            CONF.set("internal", "cursor", result.cursor)
+            CONF.set("internal", "cursor", results[-1].cursor)
 
         return True
 
