@@ -6,15 +6,9 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>553</width>
-    <height>332</height>
+    <width>575</width>
+    <height>360</height>
    </rect>
-  </property>
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
   </property>
   <property name="windowTitle">
    <string>Maestral Settings</string>
@@ -26,8 +20,8 @@
    <property name="bottomMargin">
     <number>20</number>
    </property>
-   <item row="7" column="0" colspan="2" alignment="Qt::AlignHCenter">
-    <widget class="Line" name="line">
+   <item row="19" column="0" colspan="2" alignment="Qt::AlignHCenter">
+    <widget class="Line" name="line_2">
      <property name="minimumSize">
       <size>
        <width>350</width>
@@ -40,21 +34,33 @@
        <height>16777215</height>
       </size>
      </property>
+     <property name="styleSheet">
+      <string notr="true">color: rgb(205, 203, 205)</string>
+     </property>
      <property name="frameShadow">
-      <enum>QFrame::Raised</enum>
+      <enum>QFrame::Plain</enum>
      </property>
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
     </widget>
    </item>
-   <item row="4" column="0">
-    <widget class="QLabel" name="label_10">
-     <property name="text">
-      <string>Select folders to sync:</string>
+   <item row="4" column="1" alignment="Qt::AlignLeft">
+    <widget class="QPushButton" name="pushButtonExcludedFolders">
+     <property name="minimumSize">
+      <size>
+       <width>200</width>
+       <height>0</height>
+      </size>
      </property>
-     <property name="alignment">
-      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     <property name="maximumSize">
+      <size>
+       <width>200</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <property name="text">
+      <string>Choose folders to sync...</string>
      </property>
     </widget>
    </item>
@@ -71,8 +77,8 @@
      </property>
     </widget>
    </item>
-   <item row="19" column="0" colspan="2" alignment="Qt::AlignHCenter">
-    <widget class="Line" name="line_3">
+   <item row="7" column="0" colspan="2" alignment="Qt::AlignHCenter">
+    <widget class="Line" name="line_1">
      <property name="minimumSize">
       <size>
        <width>350</width>
@@ -85,8 +91,11 @@
        <height>16777215</height>
       </size>
      </property>
+     <property name="styleSheet">
+      <string notr="true">color: rgb(205, 203, 205)</string>
+     </property>
      <property name="frameShadow">
-      <enum>QFrame::Raised</enum>
+      <enum>QFrame::Plain</enum>
      </property>
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -109,22 +118,13 @@
      </property>
     </widget>
    </item>
-   <item row="4" column="1" alignment="Qt::AlignLeft">
-    <widget class="QPushButton" name="pushButtonExcludedFolders">
-     <property name="minimumSize">
-      <size>
-       <width>200</width>
-       <height>0</height>
-      </size>
-     </property>
-     <property name="maximumSize">
-      <size>
-       <width>200</width>
-       <height>16777215</height>
-      </size>
-     </property>
+   <item row="4" column="0">
+    <widget class="QLabel" name="label_10">
      <property name="text">
-      <string>Choose folders to sync...</string>
+      <string>Select folders to sync:</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
      </property>
     </widget>
    </item>
@@ -176,7 +176,7 @@
     </widget>
    </item>
    <item row="2" column="0" colspan="2" alignment="Qt::AlignHCenter">
-    <widget class="Line" name="line_2">
+    <widget class="Line" name="line_0">
      <property name="minimumSize">
       <size>
        <width>350</width>
@@ -189,8 +189,11 @@
        <height>16777215</height>
       </size>
      </property>
+     <property name="styleSheet">
+      <string notr="true">color: rgb(205, 203, 205)</string>
+     </property>
      <property name="frameShadow">
-      <enum>QFrame::Raised</enum>
+      <enum>QFrame::Plain</enum>
      </property>
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -246,6 +249,19 @@
       <string>30.3% out of 1,000,000GB used</string>
      </property>
     </widget>
+   </item>
+   <item row="21" column="0" colspan="2">
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>0</height>
+      </size>
+     </property>
+    </spacer>
    </item>
   </layout>
  </widget>
