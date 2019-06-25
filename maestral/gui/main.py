@@ -98,7 +98,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
                 self.icons[state].setIsMask(True)
 
         # initialize system tray widget
-        QtWidgets.QSystemTrayIcon.__init__(self, self.icons['disconnected'], parent)
+        QtWidgets.QSystemTrayIcon.__init__(self, self.icons['idle'], parent)
         self.menu = QtWidgets.QMenu()
         self._show_when_systray_available()
 
