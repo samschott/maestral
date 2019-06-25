@@ -30,11 +30,11 @@ logger = logging.getLogger(__name__)
 for logger_name in ["maestral.main", "maestral.client", "maestral.monitor"]:
     mdbx_logger = logging.getLogger(logger_name)
     mdbx_logger.addHandler(logging.StreamHandler())
-    mdbx_logger.setLevel(logging.DEBUG)
+    mdbx_logger.setLevel(logging.INFO)
 
 
-ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
-             "your internet connection and try again later.")
+CONNECTION_ERROR = ("Cannot connect to Dropbox servers. Please  check " +
+                    "your internet connection and try again later.")
 
 
 def folder_download_worker(client, dbx_path):
@@ -54,7 +54,7 @@ def folder_download_worker(client, dbx_path):
             CONF.set("internal", "lastsync", time.time())
             logger.info("Up to date")
         except CONNECTION_ERRORS as e:
-            logger.debug("{0}: {1}".format(ERROR_MSG, e))
+            logger.info("{0}: {1}".format(CONNECTION_ERROR, e))
 
         time.sleep(1)
         download_complete_signal.send()
@@ -88,7 +88,7 @@ def if_connected(f):
     def wrapper(self, *args, **kwargs):
         # pause syncing
         if not self.connected:
-            print(ERROR_MSG)
+            logger.info(CONNECTION_ERROR)
             return False
         try:
             res = f(self, *args, **kwargs)
@@ -96,7 +96,7 @@ def if_connected(f):
         except (KeyboardInterrupt, SystemExit):
             raise
         except CONNECTION_ERRORS as e:
-            logger.debug("{0}: {1}".format(ERROR_MSG, e))
+            logger.info("{0}: {1}".format(CONNECTION_ERROR, e))
             return False
 
     return wrapper
