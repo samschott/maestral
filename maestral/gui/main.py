@@ -14,6 +14,7 @@ import platform
 import webbrowser
 from blinker import signal
 from PyQt5 import QtCore, QtWidgets, QtGui
+from PyQt5.QtGui import QIcon
 
 from maestral.main import Maestral
 from maestral.config.main import CONF
@@ -29,7 +30,22 @@ FIRST_SYNC = (not CONF.get("internal", "lastsync") or
 logger = logging.getLogger(__name__)
 
 
-class InfoHanlder(logging.Handler, QtCore.QObject):
+def _invert_icon_color(icon):
+    """Inverts all icon pixmaps."""
+
+    inverted_icon = QIcon()
+
+    for mode in [QIcon.Normal, QIcon.Disabled, QIcon.Active, QIcon.Selected]:
+        for state in [QIcon.On, QIcon.Off]:
+            for size in icon.availableSizes(mode, state):
+                temp_image = icon.pixmap(size, mode, state).toImage()
+                temp_image.invertPixels()
+                inverted_icon.addPixmap(QtGui.QPixmap.fromImage(temp_image), mode, state)
+
+    return inverted_icon
+
+
+class InfoHandler(logging.Handler, QtCore.QObject):
     """
     Handler which emits a signal containing the logging message for every
     logged event. The signal will be connected to "Status" field of the GUI.
@@ -65,7 +81,7 @@ class InfoHanlder(logging.Handler, QtCore.QObject):
         self.usage_signal.emit(str(space_usage))
 
 
-info_handler = InfoHanlder()
+info_handler = InfoHandler()
 info_handler.setLevel(logging.INFO)
 
 for logger_name in ["maestral.monitor", "maestral.main", "maestral.client"]:
@@ -73,23 +89,33 @@ for logger_name in ["maestral.monitor", "maestral.main", "maestral.client"]:
     mdbx_logger.addHandler(info_handler)
 
 
+# noinspection PyTypeChecker
 class MaestralApp(QtWidgets.QSystemTrayIcon):
 
     def __init__(self, mdbx, parent=None):
         # Load menu bar icons as instance attributes and not as class
         # attributes since QApplication may not be running.
-        self.icon_idle = QtGui.QIcon(_root + "/resources/menubar_icon_idle.svg")
-        self.icon_syncing = QtGui.QIcon(_root + "/resources/menubar_icon_syncing.svg")
-        self.icon_paused = QtGui.QIcon(_root + "/resources/menubar_icon_paused.svg")
-        self.icon_disconnected = QtGui.QIcon(_root + "/resources/menubar_icon_disconnected.svg")
+        self.icons = {
+            'idle': QIcon(_root + "/resources/menubar_icon_idle.svg"),
+            'syncing': QIcon(_root + "/resources/menubar_icon_syncing.svg"),
+            'paused': QIcon(_root + "/resources/menubar_icon_paused.svg"),
+            'disconnected': QIcon(_root + "/resources/menubar_icon_disconnected.svg")
+        }
 
-        self.icon_idle.setIsMask(True)
-        self.icon_syncing.setIsMask(True)
-        self.icon_disconnected.setIsMask(True)
-        self.icon_paused.setIsMask(True)
+        if platform.system() == "Darwin":
+            # macOS will take care of adapting the icon color to the system theme if
+            # the icons are given as "masks"
+            for state in self.icons:
+                self.icons[state].setIsMask(True)
+        else:
+            # invert color of icons manually for dark system bar
+            from maestral.gui.ui import THEME
+            if THEME is "dark":
+                for state in self.icons:
+                    self.icons[state] = _invert_icon_color(self.icons[state])
 
         # initialize system tray widget
-        QtWidgets.QSystemTrayIcon.__init__(self, self.icon_disconnected, parent)
+        QtWidgets.QSystemTrayIcon.__init__(self, self.icons['disconnected'], parent)
         self.menu = QtWidgets.QMenu()
         self._show_when_systray_available()
 
@@ -145,7 +171,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         info_handler.syncing_signal.connect(self.on_syncing)
 
         # connect actions
-        self.openFolderAction.triggered.connect(self.on_open_folder_cliked)
+        self.openFolderAction.triggered.connect(self.on_open_folder_clicked)
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.startstopAction.triggered.connect(self.on_start_stop_clicked)
         self.preferencesAction.triggered.connect(self.settings.show)
@@ -154,7 +180,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.helpAction.triggered.connect(self.on_help_clicked)
         self.quitAction.triggered.connect(self.quit_)
 
-    def on_open_folder_cliked(self):
+    def on_open_folder_clicked(self):
         """
         Opens Dropbox directory in systems file explorer.
         """
@@ -165,10 +191,12 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         else:
             subprocess.Popen(["xdg-open", self.mdbx.client.dropbox_path])
 
-    def on_website_clicked(self):
+    @staticmethod
+    def on_website_clicked():
         webbrowser.open_new("https://www.dropbox.com/")
 
-    def on_help_clicked(self):
+    @staticmethod
+    def on_help_clicked():
         webbrowser.open_new("https://dropbox.com/help")
 
     def on_start_stop_clicked(self):
@@ -185,16 +213,16 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         QtCore.QCoreApplication.quit()
 
     def on_disconnected(self):
-        self.setIcon(self.icon_disconnected)
+        self.setIcon(self.icons['disconnected'])
 
     def on_idle(self):
-        self.setIcon(self.icon_idle)
+        self.setIcon(self.icons['idle'])
 
     def on_syncing(self):
-        self.setIcon(self.icon_syncing)
+        self.setIcon(self.icons['syncing'])
 
     def on_paused(self):
-        self.setIcon(self.icon_paused)
+        self.setIcon(self.icons['paused'])
 
 
 def run():

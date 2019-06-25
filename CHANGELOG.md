@@ -2,6 +2,7 @@
 
 _Changes:_
 
+- Detect color of system tray and invert icon color automatically if not on macoS.
 - Added new command line option 'autostart'.
 - Shut down immediately and kill threads instead of waiting for timeout.
 - Do not upload files that have identical content on Dropbox. Previously: files were 
