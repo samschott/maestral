@@ -26,23 +26,8 @@ _root = QtCore.QFileInfo(__file__).absolutePath()
 FIRST_SYNC = (not CONF.get("internal", "lastsync") or
               CONF.get("internal", "cursor") == "" or
               not os.path.isdir(CONF.get("main", "path")))
-
+ICON_PATH = _root + "/resources/menubar_icon_"
 logger = logging.getLogger(__name__)
-
-
-def _invert_icon_color(icon):
-    """Inverts all icon pixmaps."""
-
-    inverted_icon = QIcon()
-
-    for mode in [QIcon.Normal, QIcon.Disabled, QIcon.Active, QIcon.Selected]:
-        for state in [QIcon.On, QIcon.Off]:
-            for size in icon.availableSizes(mode, state):
-                temp_image = icon.pixmap(size, mode, state).toImage()
-                temp_image.invertPixels()
-                inverted_icon.addPixmap(QtGui.QPixmap.fromImage(temp_image), mode, state)
-
-    return inverted_icon
 
 
 class InfoHandler(logging.Handler, QtCore.QObject):
@@ -95,24 +80,22 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
     def __init__(self, mdbx, parent=None):
         # Load menu bar icons as instance attributes and not as class
         # attributes since QApplication may not be running.
-        self.icons = {
-            'idle': QIcon(_root + "/resources/menubar_icon_idle.svg"),
-            'syncing': QIcon(_root + "/resources/menubar_icon_syncing.svg"),
-            'paused': QIcon(_root + "/resources/menubar_icon_paused.svg"),
-            'disconnected': QIcon(_root + "/resources/menubar_icon_disconnected.svg")
-        }
+        self.icons = dict()
+        icon_color = ""
+
+        if not platform.system() == "Darwin":
+            from maestral.gui.ui import THEME
+            if THEME is "dark":
+                icon_color = "_white"
+
+        for status in ('idle', 'syncing', 'paused', 'disconnected'):
+            self.icons[status] = QIcon(ICON_PATH + status + icon_color + ".svg")
 
         if platform.system() == "Darwin":
             # macOS will take care of adapting the icon color to the system theme if
             # the icons are given as "masks"
             for state in self.icons:
                 self.icons[state].setIsMask(True)
-        else:
-            # invert color of icons manually for dark system bar
-            from maestral.gui.ui import THEME
-            if THEME is "dark":
-                for state in self.icons:
-                    self.icons[state] = _invert_icon_color(self.icons[state])
 
         # initialize system tray widget
         QtWidgets.QSystemTrayIcon.__init__(self, self.icons['disconnected'], parent)
