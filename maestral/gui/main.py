@@ -97,12 +97,12 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         # initialize system tray widget
         QtWidgets.QSystemTrayIcon.__init__(self, self.icons["disconnected"], parent)
         self.menu = QtWidgets.QMenu()
-        self._show_when_systray_available()
+        self.show_when_systray_available()
 
         self.mdbx = mdbx
         self.setup_ui()
 
-    def _show_when_systray_available(self):
+    def show_when_systray_available(self):
         """Shows status icon when system tray is available
 
         If available, show icon, otherwise, set a timer to check back later.
@@ -111,7 +111,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         if self.isSystemTrayAvailable():
             self.show()
         else:
-            QtCore.QTimer.singleShot(1000, self._show_when_systray_available)
+            QtCore.QTimer.singleShot(1000, self.show_when_systray_available)
 
     def setup_ui(self):
         # create settings window

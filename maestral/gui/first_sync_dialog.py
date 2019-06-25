@@ -39,8 +39,24 @@ class OAuth2SessionGUI(OAuth2Session):
         super(self.__class__, self).__init__()
 
     def load_creds(self):
-        """Do not load credentials from file."""
+        """Do not automatically load credentials."""
         pass
+
+    def has_creds(self):
+        """
+        Check if existing credentials exist.
+        :return:
+        """
+        print(" > Loading access token..."),
+        try:
+            with open(self.TOKEN_FILE) as f:
+                stored_creds = f.read()
+            self.access_token, self.account_id, self.user_id = stored_creds.split("|")
+            print(" [OK]")
+            return True
+        except IOError:
+            print(" [FAILED]")
+            return False
 
     def get_url(self):
         authorize_url = self.auth_flow.start()
@@ -110,6 +126,14 @@ class FirstSyncDialog(QtWidgets.QDialog):
         self.buttonBoxFolderSelection.accepted.connect(self.on_folder_select)
         self.pushButtonClose.clicked.connect(self.on_accept)
 
+        # check if we are already authenticated, skip authentication if yes
+        self.auth_session = OAuth2SessionGUI()
+        if self.auth_session.has_creds():
+            self.stackedWidget.setCurrentIndex(2)
+            Maestral.FIRST_SYNC = False
+            self.mdbx = Maestral(run=False)
+            self.mdbx.client.get_account_info()
+
 # =============================================================================
 # Main callbacks
 # =============================================================================
@@ -128,7 +152,6 @@ class FirstSyncDialog(QtWidgets.QDialog):
         self.reject()
 
     def on_link(self):
-        self.auth_session = OAuth2SessionGUI()
         self.auth_url = self.auth_session.get_url()
         prompt = self.labelAuthLink.text().format(self.auth_url)
         self.labelAuthLink.setText(prompt)
