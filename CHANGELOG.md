@@ -2,7 +2,7 @@
 
 _Changes:_
 
-- Detect color of system tray and invert icon color automatically if not on macoS.
+- Detect color of system tray and invert icon color automatically if not on macOS.
 - Added new command line option 'autostart'.
 - Shut down immediately and kill threads instead of waiting for timeout.
 - Do not upload files that have identical content on Dropbox. Previously: files were 
@@ -11,7 +11,7 @@ _Changes:_
 _Fixes:_
 
 - Fixed a bug that would prevent Maestral from quitting if the setup dialog is aborted.
-- Fixed a bug that would cause Maestral to crash during the setup dialog when swtiching
+- Fixed a bug that would cause Maestral to crash during the setup dialog when switching
   multiple times between the "Select Folders to Sync" and "Select Dropbox location" panes.
 - Fixed a bug which would cause uploads that are split into multiple chunks to fail.
 
@@ -19,5 +19,5 @@ _Fixes:_
 
 _Fixes:_
 
-- Fixes an issue which would prevent newly created empty folders from beeing synced.
+- Fixes an issue which would prevent newly created empty folders from being synced.
 - Remove references to conda in startup script.
