@@ -97,6 +97,8 @@ The follwing tasks could need your help:
 *System:*
 - Python 3.6 or higher
 - macOS or Linux
+- [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
+  on Gnome 3.26 and higher 
 
 *Python:*
 - dropbox
