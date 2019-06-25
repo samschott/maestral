@@ -11,12 +11,16 @@ Download and install the Python package by running
 ```console
 $ pip install --upgrade git+https://github.com/SamSchott/maestral
 ```
-in the command line.
+in the command line. If you intend to use the graphical user interface, you also need to 
+install PyQt5:
+```console
+$ pip install --upgrade PyQt5
+```
 
 ## Usage
-Run `meastral-gui` in the command line to start Meastral with a graphical user interface.
-On first sync, Meastral will run you through linking and configuring your Dropbox and then
-start syncing. The user interface is based on a status bar (menu bar) icon showing the
+Run `meastral gui` in the command line to start Meastral with a graphical user interface.
+On its first run, Meastral will guide you through linking and configuring your Dropbox and
+will then start syncing. The user interface is based on a status bar icon which shows the
 current syncing status and a preference pane for configuration.
 
 ![Screenshot macOS](/screenshots/full.png)
@@ -73,18 +77,19 @@ The follwing tasks could need your help:
 
 - [ ] Native Cocoa and GTK interfaces. Maestral currently uses PyQt.
 - [ ] Better handling of network errors and API errors.
-- [ ] More efficient and robust tracking of local revisions. Possibly using xattr, even
-      though this would limit file system compatibility.
-- [ ] Detect and warn in case of unsupported Dropbox folders locations (network drives,
-      external hard drives, etc).
-- [ ] Speed up initial sync: Download whole folders as zip files if possible.
 - [ ] Test robustness if internet connection is slow or lost, maestral process is killed
       during sync, user is logged out during sync, etc.
+- [ ] More efficient and robust tracking of local revisions. Possibly using xattr, even
+      though this would limit file system compatibility.
+- [ ] Detect and warn in case of unsupported Dropbox folder locations (network drives,
+      external hard drives, etc) and when the Dropbox folder is deleted by the user.
+- [ ] Speed up download of large folders and initial sync: Download zip files if possible.
+
 
 ## Warning:
 - Meastral does not have production status yet, so only 500 accounts can use the API keys.
-- Meastral is still in beta status and may potentially result in loss of data. Only sync
-  folders with non-essential files.
+- Meastral is still in beta status and using it may potentially result in loss of data. 
+  Only sync folders with non-essential files.
 - Known issues:
   - File and folder names with two periods are currently not supported. This prevents
     syncing of temporary files which are created during the save process on some file
