@@ -49,15 +49,19 @@ def folder_download_worker(client, dbx_path):
     time.sleep(2)  # wait for pausing to take effect
 
     with client.lock:
-        try:
-            client.get_remote_dropbox(dbx_path)
-            CONF.set("internal", "lastsync", time.time())
-            logger.info("Up to date")
-        except CONNECTION_ERRORS as e:
-            logger.info("{0}: {1}".format(CONNECTION_ERROR, e))
+        completed = False
+        while not completed:
+            try:
+                client.get_remote_dropbox(dbx_path)
+                CONF.set("internal", "lastsync", time.time())
+                logger.info("Up to date")
 
-        time.sleep(1)
-        download_complete_signal.send()
+                time.sleep(1)
+                completed = True
+                download_complete_signal.send()
+
+            except CONNECTION_ERRORS as e:
+                logger.warning("{0}: {1}".format(CONNECTION_ERROR, e))
 
 
 def with_sync_paused(f):
@@ -96,7 +100,7 @@ def if_connected(f):
         except (KeyboardInterrupt, SystemExit):
             raise
         except CONNECTION_ERRORS as e:
-            logger.info("{0}: {1}".format(CONNECTION_ERROR, e))
+            logger.warning("{0}: {1}".format(CONNECTION_ERROR, e))
             return False
 
     return wrapper
