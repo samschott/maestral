@@ -490,19 +490,19 @@ class MaestralMonitor(object):
     remote changes, and `connection_thread` which periodically checks the
     connection to Dropbox servers.
 
-    :ivar observer: Watchdog observer thread that detects local file system
-        events.
-    :ivar file_handler: Handler to queue file events from `observer` for upload.
-    :ivar dbx_uploader: Class instance to convert file events to
-        `MaestralClient` calls.
+    :ivar local_observer_thread: Watchdog observer thread that detects local file
+        system events.
     :ivar upload_thread: Thread that sorts file events and uploads them with
         `dbx_uploader`.
     :ivar download_thread: Thread to query for and download remote changes.
-    :ivar connected: Event that is set if connection to Dropbox API servers can
+    :ivar file_handler: Handler to queue file events from `observer` for upload.
+    :ivar dbx_uploader: Class instance to convert file events to
+        `MaestralClient` calls.
+    :cvar connected: Event that is set if connection to Dropbox API servers can
         be established.
-    :ivar running: Event is set if worker threads are running.
-    :ivar shutdown: Event to shutdown worker threads.
-    :ivar paused_by_user: `True` if worker has been stopped by user, `False`.
+    :cvar running: Event is set if worker threads are running.
+    :cvar shutdown: Event to shutdown worker threads.
+    :cvar paused_by_user: `True` if worker has been stopped by user, `False`.
         If `paused_by_user` is `True`, syncing will not automatically resume
         once a connection is established.
     """
@@ -519,6 +519,8 @@ class MaestralMonitor(object):
     paused_by_user = True
 
     def __init__(self, client):
+
+        logger.info("Up to date")
 
         self.client = client
         self.dbx_uploader = DropboxUploadSync(self.client)
