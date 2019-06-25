@@ -215,10 +215,6 @@ class OAuth2Session(object):
         os.unlink(self.TOKEN_FILE)
         print(" > Credentials removed.")
 
-    def unlink(self):
-        self.delete_creds()
-        # can't unlink the app properly (API limitation), so let's just remove the token
-
 
 # noinspection PyDeprecation
 class MaestralClient(object):
@@ -480,7 +476,8 @@ class MaestralClient(object):
         """
         Unlinks the Dropbox account and deletes local sync information.
         """
-        self.auth.unlink()
+        self.auth.delete_creds()
+        self.dbx.auth_token_revoke()
 
         os.remove(self.rev_file)
 
