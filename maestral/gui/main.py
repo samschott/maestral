@@ -13,7 +13,7 @@ import subprocess
 import platform
 import webbrowser
 from blinker import signal
-from PyQt5 import QtCore, QtWidgets, QtGui
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtGui import QIcon
 
 from maestral.main import Maestral
@@ -35,15 +35,12 @@ class InfoHandler(logging.Handler, QtCore.QObject):
     Handler which emits a signal containing the logging message for every
     logged event. The signal will be connected to "Status" field of the GUI.
     """
-    info_signal = QtCore.pyqtSignal(str)
-    usage_signal = QtCore.pyqtSignal(str)
-
-    disconnected_signal = QtCore.pyqtSignal()
-    idle_signal = QtCore.pyqtSignal()
-    paused_signal = QtCore.pyqtSignal()
-    syncing_signal = QtCore.pyqtSignal()
 
     monitor_usage_signal = signal("account_usage_signal")
+
+    info_signal = QtCore.pyqtSignal(str)
+    usage_signal = QtCore.pyqtSignal(str)
+    status_signal = QtCore.pyqtSignal(str)
 
     def __init__(self):
         logging.Handler.__init__(self)
@@ -54,13 +51,13 @@ class InfoHandler(logging.Handler, QtCore.QObject):
         self.format(record)
         self.info_signal.emit(record.message)
         if record.message == "Connecting...":
-            self.disconnected_signal.emit()
+            self.status_signal.emit("disconnected")
         elif record.message == "Up to date":
-            self.idle_signal.emit()
+            self.status_signal.emit("idle")
         elif record.message == "Syncing paused":
-            self.paused_signal.emit()
+            self.status_signal.emit("paused")
         else:
-            self.syncing_signal.emit()
+            self.status_signal.emit("syncing")
 
     def on_usage_available(self, space_usage):
         self.usage_signal.emit(str(space_usage))
@@ -88,7 +85,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
             if THEME is "dark":
                 icon_color = "_white"
 
-        for status in ('idle', 'syncing', 'paused', 'disconnected'):
+        for status in ("idle", "syncing", "paused", "disconnected"):
             self.icons[status] = QIcon(ICON_PATH + status + icon_color + ".svg")
 
         if platform.system() == "Darwin":
@@ -98,7 +95,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
                 self.icons[state].setIsMask(True)
 
         # initialize system tray widget
-        QtWidgets.QSystemTrayIcon.__init__(self, self.icons['idle'], parent)
+        QtWidgets.QSystemTrayIcon.__init__(self, self.icons["disconnected"], parent)
         self.menu = QtWidgets.QMenu()
         self._show_when_systray_available()
 
@@ -148,10 +145,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         info_handler.info_signal.connect(self.statusAction.setText)
         info_handler.usage_signal.connect(self.accountUsageAction.setText)
         info_handler.usage_signal.connect(self.settings.labelSpaceUsage2.setText)
-        info_handler.disconnected_signal.connect(self.on_disconnected)
-        info_handler.idle_signal.connect(self.on_idle)
-        info_handler.paused_signal.connect(self.on_paused)
-        info_handler.syncing_signal.connect(self.on_syncing)
+        info_handler.status_signal.connect(self.on_status_changed)
 
         # connect actions
         self.openFolderAction.triggered.connect(self.on_open_folder_clicked)
@@ -195,17 +189,8 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.deleteLater()
         QtCore.QCoreApplication.quit()
 
-    def on_disconnected(self):
-        self.setIcon(self.icons['disconnected'])
-
-    def on_idle(self):
-        self.setIcon(self.icons['idle'])
-
-    def on_syncing(self):
-        self.setIcon(self.icons['syncing'])
-
-    def on_paused(self):
-        self.setIcon(self.icons['paused'])
+    def on_status_changed(self, status):
+        self.setIcon(self.icons[status])
 
 
 def run():
@@ -223,7 +208,7 @@ def run():
         maestral_gui = MaestralApp(maestral)
         sys.exit(app.exec_())
     else:
-        logger.info('Setup aborted. Quitting.')
+        logger.info("Setup aborted. Quitting.")
 
 
 if __name__ == "__main__":
