@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>640</width>
-    <height>359</height>
+    <width>622</width>
+    <height>387</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -20,34 +20,7 @@
    <property name="bottomMargin">
     <number>20</number>
    </property>
-   <item row="11" column="0">
-    <widget class="QLabel" name="label_4">
-     <property name="text">
-      <string/>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="0">
-    <widget class="QLabel" name="label_9">
-     <property name="text">
-      <string>Dropbox folder location:</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-     </property>
-    </widget>
-   </item>
-   <item row="8" column="1">
-    <widget class="QLabel" name="labelAccountEmail">
-     <property name="text">
-      <string>sherlock.holmes@gmail.com</string>
-     </property>
-    </widget>
-   </item>
-   <item row="4" column="0">
+   <item row="5" column="0">
     <widget class="QLabel" name="label_10">
      <property name="text">
       <string>Select folders to sync:</string>
@@ -57,7 +30,7 @@
      </property>
     </widget>
    </item>
-   <item row="3" column="1" alignment="Qt::AlignLeft">
+   <item row="4" column="1" alignment="Qt::AlignLeft">
     <widget class="QComboBox" name="comboBoxDropboxPath">
      <property name="minimumSize">
       <size>
@@ -73,7 +46,44 @@
      </property>
     </widget>
    </item>
-   <item row="7" column="0" colspan="2" alignment="Qt::AlignHCenter">
+   <item row="12" column="0">
+    <widget class="QLabel" name="label_4">
+     <property name="text">
+      <string/>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="0">
+    <widget class="QLabel" name="label_9">
+     <property name="text">
+      <string>Dropbox folder location:</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="1">
+    <widget class="QLabel" name="labelAccountEmail">
+     <property name="text">
+      <string>sherlock.holmes@gmail.com</string>
+     </property>
+    </widget>
+   </item>
+   <item row="10" column="0">
+    <widget class="QLabel" name="labelSpaceUsage1">
+     <property name="text">
+      <string>Your space:</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="8" column="0" colspan="2" alignment="Qt::AlignHCenter">
     <widget class="Line" name="line_1">
      <property name="minimumSize">
       <size>
@@ -98,26 +108,7 @@
      </property>
     </widget>
    </item>
-   <item row="4" column="1" alignment="Qt::AlignLeft">
-    <widget class="QPushButton" name="pushButtonExcludedFolders">
-     <property name="minimumSize">
-      <size>
-       <width>200</width>
-       <height>0</height>
-      </size>
-     </property>
-     <property name="maximumSize">
-      <size>
-       <width>200</width>
-       <height>16777215</height>
-      </size>
-     </property>
-     <property name="text">
-      <string>Choose folders to sync...</string>
-     </property>
-    </widget>
-   </item>
-   <item row="19" column="0" colspan="2" alignment="Qt::AlignHCenter">
+   <item row="20" column="0" colspan="2" alignment="Qt::AlignHCenter">
     <widget class="Line" name="line_2">
      <property name="minimumSize">
       <size>
@@ -142,7 +133,26 @@
      </property>
     </widget>
    </item>
-   <item row="11" column="1" alignment="Qt::AlignLeft">
+   <item row="5" column="1" alignment="Qt::AlignLeft">
+    <widget class="QPushButton" name="pushButtonExcludedFolders">
+     <property name="minimumSize">
+      <size>
+       <width>200</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>200</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <property name="text">
+      <string>Choose folders to sync...</string>
+     </property>
+    </widget>
+   </item>
+   <item row="12" column="1" alignment="Qt::AlignLeft">
     <widget class="QPushButton" name="pushButtonUnlink">
      <property name="minimumSize">
       <size>
@@ -155,7 +165,7 @@
      </property>
     </widget>
    </item>
-   <item row="20" column="0">
+   <item row="21" column="0">
     <widget class="QLabel" name="label">
      <property name="text">
       <string>About Maestral:</string>
@@ -165,17 +175,7 @@
      </property>
     </widget>
    </item>
-   <item row="9" column="0">
-    <widget class="QLabel" name="labelSpaceUsage1">
-     <property name="text">
-      <string>Your space:</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="0" colspan="2" alignment="Qt::AlignHCenter">
+   <item row="3" column="0" colspan="2" alignment="Qt::AlignHCenter">
     <widget class="Line" name="line_0">
      <property name="minimumSize">
       <size>
@@ -200,7 +200,7 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="1">
+   <item row="1" column="1">
     <widget class="QCheckBox" name="checkBoxStartup">
      <property name="text">
       <string>Start Maestral on login</string>
@@ -210,14 +210,14 @@
      </property>
     </widget>
    </item>
-   <item row="9" column="1">
+   <item row="10" column="1">
     <widget class="QLabel" name="labelSpaceUsage2">
      <property name="text">
       <string>30.3% out of 1,000,000GB used</string>
      </property>
     </widget>
    </item>
-   <item row="20" column="1">
+   <item row="21" column="1">
     <widget class="QLabel" name="labelVersion">
      <property name="text">
       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;v{0}&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -230,7 +230,7 @@
      </property>
     </widget>
    </item>
-   <item row="8" column="0">
+   <item row="9" column="0">
     <widget class="QLabel" name="label_3">
      <property name="text">
       <string>Account:</string>
@@ -240,7 +240,7 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="1">
+   <item row="2" column="1">
     <widget class="QCheckBox" name="checkBoxNotifications">
      <property name="text">
       <string>Enable system notifications</string>
@@ -250,7 +250,7 @@
      </property>
     </widget>
    </item>
-   <item row="23" column="0" colspan="2">
+   <item row="24" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
@@ -263,7 +263,7 @@
      </property>
     </spacer>
    </item>
-   <item row="21" column="1">
+   <item row="22" column="1">
     <widget class="QLabel" name="labelUrl">
      <property name="text">
       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;{0}&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#2874e1;&quot;&gt;{0}&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -273,12 +273,25 @@
      </property>
     </widget>
    </item>
-   <item row="22" column="1">
+   <item row="23" column="1">
     <widget class="QLabel" name="labelCopyright">
      <property name="text">
       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#838383;&quot;&gt;© {0}, {1}. All Rights reserved.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
     </widget>
+   </item>
+   <item row="0" column="0" colspan="2">
+    <spacer name="verticalSpacer_2">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>0</height>
+      </size>
+     </property>
+    </spacer>
    </item>
   </layout>
  </widget>
