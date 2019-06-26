@@ -66,9 +66,8 @@ class FoldersDialog(QtWidgets.QDialog):
             self.accept_button.setEnabled(False)
         else:
             self.accept_button.setEnabled(True)
-            folder_list = self.mdbx.client.flatten_results_list(root_folders)
 
-            for entry in folder_list:
+            for entry in root_folders.entries:
                 is_included = not self.mdbx.client.is_excluded_by_user(entry.path_lower)
                 item = FolderItem(self.folder_icon, entry.name, is_included)
                 self.path_items.append(item)

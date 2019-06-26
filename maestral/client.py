@@ -456,7 +456,7 @@ class MaestralClient(object):
         try:
             res = self.dbx.users_get_space_usage()
         except dropbox.exceptions.ApiError as err:
-            logging.debug("Failed to get space usage: %s", err)
+            logging.warning("Failed to get space usage: %s", err)
             return False
 
         # convert from dropbox.users.SpaceUsage to SpaceUsage with nice string
@@ -616,7 +616,7 @@ class MaestralClient(object):
             # try to move file (response will be metadata, probably)
             md = self.dbx.files_delete(dbx_path, **kwargs)
         except dropbox.exceptions.ApiError as err:
-            logger.debug("An error occurred when deleting '%s': %s", dbx_path, err)
+            logger.warning("An error occurred when deleting '%s': %s", dbx_path, err)
             return False
 
         logger.debug("File / folder '%s' removed from Dropbox.", dbx_path)
@@ -672,9 +672,8 @@ class MaestralClient(object):
 
         :param str dbx_path: Path of folder on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_list_folder.
-        :return: A list of :class:`dropbox.files.ListFolderResult` instances or
-            `False` if failed.
-        :rtype: list
+        :return: :class:`dropbox.files.ListFolderResult` instance or `False` if failed.
+        :rtype: :class:`dropbox.files.ListFolderResult`
         """
 
         results = []
@@ -699,26 +698,27 @@ class MaestralClient(object):
 
         logger.debug("Listed contents of folder '{0}'".format(dbx_path))
 
-        return results
+        return self.flatten_results(results)
 
     @staticmethod
-    def flatten_results_list(results):
+    def flatten_results(results):
         """
         Flattens a list of :class:`dropbox.files.ListFolderResult` instances
-        and returns their entries only. Any cursors will be lost.
+        and returns their entries only. Only the last cursor will be kept.
 
         :param list results: List of :class:`dropbox.files.ListFolderResult`
             instances.
-        :return: List of Dropbox API file/folder/deleted metadata.
-        :rtype: list
+        :return: Single :class:`dropbox.files.ListFolderResult` instance.
+        :rtype: :class:`dropbox.files.ListFolderResult`
 
         """
-        results_list = []
-        for res in results:
-            for entry in res.entries:
-                results_list.append(entry)
+        entries_all = []
+        for result in results:
+            entries_all += result.entries
+        results_flattened = dropbox.files.ListFolderResult(
+            entries=entries_all, cursor=results[-1].cursor, has_more=False)
 
-        return results_list
+        return results_flattened
 
     def get_remote_dropbox(self, dbx_path=""):
         """
@@ -731,16 +731,16 @@ class MaestralClient(object):
         :return: `True` on success, `False` otherwise.
         :rtype: bool
         """
-        results = self.list_folder(dbx_path, recursive=True,
-                                   include_deleted=False, limit=500)
+        result = self.list_folder(dbx_path, recursive=True,
+                                  include_deleted=False, limit=1000)
 
-        if not results:
+        if not result:
             return False
 
         # apply remote changes, don't update the global cursor when downloading
         # a single folder only
         save_cursor = (dbx_path == "")
-        success = self.apply_remote_changes(results, save_cursor)
+        success = self.apply_remote_changes(result, save_cursor)
 
         return success
 
@@ -784,74 +784,88 @@ class MaestralClient(object):
         Lists changes to remote Dropbox since :ivar:`last_cursor`. Call this
         after :method:`wait_for_remote_changes` returns `True`.
 
-        :return: List of :class:`dropbox.files.ListFolderResult`
-            instances or empty list if requests failed.
-        :rtype: list
+        :return: :class:`dropbox.files.ListFolderResult` instance or False if
+            requests failed.
+        :rtype: :class:`dropbox.files.ListFolderResult`
         """
 
-        results = [0]
+        results = []
 
         try:
-            results[0] = self.dbx.files_list_folder_continue(self.last_cursor)
+            results.append(self.dbx.files_list_folder_continue(self.last_cursor))
         except dropbox.exceptions.ApiError as err:
-            logging.info("Folder listing failed: %s", err)
-            return []
+            logging.warning("Folder listing failed: %s", err)
+            return False
 
         while results[-1].has_more:
             try:
-                result = self.dbx.files_list_folder_continue(results[-1].cursor)
-                results.append(result)
+                more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
+                results.append(more_results)
             except dropbox.exceptions.ApiError as err:
-                logging.info("Folder listing failed: %s", err)
-                return []
+                logging.warning("Folder listing failed: %s", err)
+                return False
+
+        # combine all results into one
+        result_all = self.flatten_results(results)
+
+        # filter changes from non-excluded folders
+        entries_inc = [e for e in result_all.entries if not self.is_excluded_by_user(
+            e.path_lower)]
+        result_inc = dropbox.files.ListFolderResult(
+            entries=entries_inc, cursor=result_all.cursor, has_more=False)
 
         # count remote changes
-        total = 0
-        for result in results:
-            total += len(result.entries)
+        n_changed_total = len(result_all.entries)
+        n_changed_included = len(result_inc.entries)
 
         # notify user
-        if total == 1:
-            md = results[0].entries[0]
-            if isinstance(md, DeletedMetadata):
+        if n_changed_included == 1:
+            md = result_inc.entries[0]
+            if isinstance(md, DeletedMetadata):  # file has been deleted
                 self.notify.send("%s removed" % md.path_display)
-            else:
+            elif self.get_local_rev(md.path_display):  # file already existed
+                self.notify.send("%s modified" % md.path_display)
+            else:  # file is new to us
                 self.notify.send("%s added" % md.path_display)
-        elif total > 1:
-            self.notify.send("%s files changed" % total)
+        elif n_changed_included > 1:
+            self.notify.send("%s files changed" % n_changed_included)
+
+        n_changed_outside = n_changed_total - n_changed_included
+        if n_changed_outside > 49:
+            # always notify for changes of 50 files and more
+            self.notify.send("%s files changed" % n_changed_outside)
 
         logger.debug("Listed remote changes")
 
-        return results
+        return result_inc
 
-    def apply_remote_changes(self, results, save_cursor=True):
+    def apply_remote_changes(self, result, save_cursor=True):
         """
         Applies remote changes to local folder. Call this on the result of
         :method:`list_remote_changes`. The saved cursor is updated after a set
         of changes has been successfully applied.
 
-        :param list results: List of :class:`dropbox.files.ListFolderResult`
-            instances or empty list if requests failed.
-        :return: List of :class:`dropbox.files.ListFolderResult`
-            instances or empty list if requests failed.
+        :param result: :class:`dropbox.files.ListFolderResult` instance
+            or `False` if requests failed.
         :param bool save_cursor: If True, :ivar:`last_cursor` will be updated
             from the last applied changes.
         :return: `True` on success, `False` otherwise.
         :rtype: bool
         """
+
+        if not result:
+            return
+
         all_folders = []
         all_files = []
         all_deleted = []
 
-        # apply remote changes
-        for result in results:
+        # sort changes into folders, files and deleted
+        folders, files, deleted = self._sort_entries(result)
 
-            # sort changes into folders, files and deleted
-            folders, files, deleted = self._sort_entries(result)
-
-            all_folders += folders
-            all_files += files
-            all_deleted += deleted
+        all_folders += folders
+        all_files += files
+        all_deleted += deleted
 
         # sort according to path hierarchy
         # do not create sub-folder / file before parent exists
@@ -879,8 +893,8 @@ class MaestralClient(object):
 
         # save cursor
         if save_cursor:
-            self.last_cursor = results[-1].cursor
-            CONF.set("internal", "cursor", results[-1].cursor)
+            self.last_cursor = result.cursor
+            CONF.set("internal", "cursor", result.cursor)
 
         return True
 
