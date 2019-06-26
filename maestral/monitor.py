@@ -142,9 +142,8 @@ class DropboxUploadSync(object):
         # and revs of children if folder
         elif isinstance(metadata, dropbox.files.FolderMetadata):
             self.client.set_local_rev(dbx_path2, "folder")
-            results = self.client.list_folder(dbx_path2, recursive=True)
-            results_list = self.client.flatten_results_list(results)
-            for md in results_list:
+            result = self.client.list_folder(dbx_path2, recursive=True)
+            for md in result.entries:
                 if isinstance(md, dropbox.files.FileMetadata):
                     self.client.set_local_rev(md.path_display, md.rev)
                 elif isinstance(md, dropbox.files.FolderMetadata):
@@ -335,15 +334,13 @@ def download_worker(client, running, shutdown, flagged):
                 logger.info(SYNCING)
                 with client.lock:
                     # get changes
-                    changes = client.list_remote_changes()
-                    # flag changes to be ignored by local monitor
-                    flat_changes = client.flatten_results_list(changes)
-                    for item in flat_changes:
+                    result = client.list_remote_changes()
+                    for item in result.entries:
                         local_path = client.to_local_path(item.path_lower)
                         flagged.append(local_path)
                     time.sleep(1)
                     # apply remote changes to local Dropbox folder
-                    client.apply_remote_changes(changes)
+                    client.apply_remote_changes(result)
                     time.sleep(2)
                     # clear flagged list
                     flagged.clear()

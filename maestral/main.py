@@ -225,7 +225,7 @@ class Maestral(object):
 
     def unlink(self):
         """
-        Unlinks the configured Dropbox account but leaves all downloaded files
+        Unlink the configured Dropbox account but leave all downloaded files
         in place. All syncing metadata will be removed as well.
         """
         self.stop_sync()
@@ -301,11 +301,10 @@ class Maestral(object):
         included_folders = []
 
         # get all top-level Dropbox folders
-        results = self.client.list_folder("", recursive=False)
-        results_list = self.client.flatten_results_list(results)
+        result = self.client.list_folder("", recursive=False)
 
         # paginate through top-level folders, ask to exclude
-        for entry in results_list:
+        for entry in result.entries:
             if isinstance(entry, files.FolderMetadata):
                 yes = yesno("Exclude '%s' from sync?" % entry.path_display, False)
                 if yes:

@@ -255,9 +255,8 @@ class FirstSyncDialog(QtWidgets.QDialog):
             self.self.buttonBoxFolderSelection.buttons()[0].setEnabled(False)
         else:
             self.buttonBoxFolderSelection.buttons()[0].setEnabled(True)
-            folder_list = self.mdbx.client.flatten_results_list(root_folders)
 
-            for entry in folder_list:
+            for entry in root_folders.entries:
                 is_included = not self.mdbx.client.is_excluded_by_user(entry.path_lower)
                 item = FolderItem(self.folder_icon, entry.name, is_included)
                 self.folder_items.append(item)
