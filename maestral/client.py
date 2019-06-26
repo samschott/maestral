@@ -279,6 +279,13 @@ class MaestralClient(object):
         # get correct directories
         self.dropbox_path = CONF.get("main", "path")
 
+        # get cache of revision number from file
+        try:
+            with open(self.rev_file, "rb") as f:
+                self._rev_dict_cache = umsgpack.unpack(f)
+        except FileNotFoundError:
+            self._rev_dict_cache = dict()
+
     @property
     def rev_file(self):
         return osp.join(self.dropbox_path, REV_FILE)
@@ -351,17 +358,11 @@ class MaestralClient(object):
         """
         Returns dictionary of file / folder paths with rev numbers.
 
-        :return: Revision number dictionary.
+        :return: Copy of revision number dictionary.
         :rtype: dict
         """
         with self._rev_lock:
-            try:
-                with open(self.rev_file, "rb") as f:
-                    rev_dict = umsgpack.unpack(f)
-            except FileNotFoundError:
-                rev_dict = {}
-
-            return rev_dict
+            return dict(self._rev_dict_cache)
 
     def get_local_rev(self, dbx_path):
         """
@@ -374,17 +375,7 @@ class MaestralClient(object):
         """
         with self._rev_lock:
             dbx_path = dbx_path.lower()
-
-            try:
-                with open(self.rev_file, "rb") as f:
-                    rev_dict = umsgpack.unpack(f)
-            except FileNotFoundError:
-                rev_dict = {}
-
-            try:
-                rev = rev_dict[dbx_path]
-            except KeyError:
-                rev = None
+            rev = self._rev_dict_cache.get(dbx_path, None)
 
             return rev
 
@@ -398,26 +389,24 @@ class MaestralClient(object):
         """
         with self._rev_lock:
             dbx_path = dbx_path.lower()
-            try:
-                with open(self.rev_file, "rb") as f:
-                    rev_dict = umsgpack.unpack(f)
-            except FileNotFoundError:
-                rev_dict = {}
 
-            if rev is None:  # remove entries for dbx_path and its children
-                for path in dict(rev_dict):
+            if rev is None:
+                # remove entry and all its children revs
+                for path in dict(self._rev_dict_cache):
                     if path.startswith(dbx_path):
-                        rev_dict.pop(path, None)
+                        self._rev_dict_cache.pop(path, None)
             else:
-                rev_dict[dbx_path] = rev
+                # add entry
+                self._rev_dict_cache[dbx_path] = rev
                 # set all parent revs to 'folder'
                 dirname = osp.dirname(dbx_path)
                 while dirname is not "/":
-                    rev_dict[dirname] = "folder"
+                    self._rev_dict_cache[dirname] = "folder"
                     dirname = osp.dirname(dirname)
 
+            # save changes to file
             with open(self.rev_file, "wb+") as f:
-                umsgpack.pack(rev_dict, f)
+                umsgpack.pack(self._rev_dict_cache, f)
 
     def get_account_info(self):
         """
