@@ -17,6 +17,7 @@ from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtGui import QIcon
 
 from maestral.main import Maestral
+from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED
 from maestral.config.main import CONF
 from maestral.gui.settings import SettingsWindow
 from maestral.gui.first_sync_dialog import FirstSyncDialog
@@ -50,14 +51,6 @@ class InfoHandler(logging.Handler, QtCore.QObject):
     def emit(self, record):
         self.format(record)
         self.info_signal.emit(record.message)
-        if record.message == "Connecting...":
-            self.status_signal.emit("disconnected")
-        elif record.message == "Up to date":
-            self.status_signal.emit("idle")
-        elif record.message == "Syncing paused":
-            self.status_signal.emit("paused")
-        else:
-            self.status_signal.emit("syncing")
 
     def on_usage_available(self, space_usage):
         self.usage_signal.emit(str(space_usage))
@@ -84,18 +77,18 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
             from maestral.gui.ui import THEME
             if THEME is "dark":
                 icon_color = "_white"
-
-        for status in ("idle", "syncing", "paused", "disconnected"):
-            self.icons[status] = QIcon(ICON_PATH + status + icon_color + ".svg")
+        short_status = ("idle", "syncing", "paused", "disconnected")
+        for long, short in zip((IDLE, SYNCING, PAUSED, DISCONNECTED), short_status):
+            self.icons[long] = QIcon(ICON_PATH + short + icon_color + ".svg")
 
         if platform.system() == "Darwin":
             # macOS will take care of adapting the icon color to the system theme if
             # the icons are given as "masks"
-            for state in self.icons:
-                self.icons[state].setIsMask(True)
+            for status in self.icons:
+                self.icons[status].setIsMask(True)
 
         # initialize system tray widget
-        QtWidgets.QSystemTrayIcon.__init__(self, self.icons["disconnected"], parent)
+        QtWidgets.QSystemTrayIcon.__init__(self, self.icons[DISCONNECTED], parent)
         self.menu = QtWidgets.QMenu()
         self.show_when_systray_available()
 
@@ -124,16 +117,16 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.accountUsageAction.setEnabled(False)
         self.separator2 = self.menu.addSeparator()
         if self.mdbx.connected and self.mdbx.syncing:
-            self.statusAction = self.menu.addAction("Up to date")
-        elif self.mdbx.connected:
-            self.statusAction = self.menu.addAction("Syncing paused")
+            self.statusAction = self.menu.addAction(IDLE)
+        elif self.mdbx.connected and not self.mdbx.syncing:
+            self.statusAction = self.menu.addAction(PAUSED)
         elif not self.mdbx.connected:
-            self.statusAction = self.menu.addAction("Connecting...")
+            self.statusAction = self.menu.addAction(DISCONNECTED)
         self.statusAction.setEnabled(False)
         if self.mdbx.syncing:
-            self.startstopAction = self.menu.addAction("Pause Syncing")
+            self.pauseAction = self.menu.addAction("Pause Syncing")
         else:
-            self.startstopAction = self.menu.addAction("Resume Syncing")
+            self.pauseAction = self.menu.addAction("Resume Syncing")
         self.separator3 = self.menu.addSeparator()
         self.preferencesAction = self.menu.addAction("Preferences...")
         self.helpAction = self.menu.addAction("Help Center")
@@ -143,14 +136,14 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
         # connect UI to signals
         info_handler.info_signal.connect(self.statusAction.setText)
+        info_handler.info_signal.connect(self.change_icon)
         info_handler.usage_signal.connect(self.accountUsageAction.setText)
         info_handler.usage_signal.connect(self.settings.labelSpaceUsage2.setText)
-        info_handler.status_signal.connect(self.on_status_changed)
 
         # connect actions
         self.openFolderAction.triggered.connect(self.on_open_folder_clicked)
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
-        self.startstopAction.triggered.connect(self.on_start_stop_clicked)
+        self.pauseAction.triggered.connect(self.on_start_stop_clicked)
         self.preferencesAction.triggered.connect(self.settings.show)
         self.preferencesAction.triggered.connect(self.settings.raise_)
         self.preferencesAction.triggered.connect(self.settings.activateWindow)
@@ -177,20 +170,22 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         webbrowser.open_new("https://dropbox.com/help")
 
     def on_start_stop_clicked(self):
-        if self.startstopAction.text() == "Pause Syncing":
+        if self.pauseAction.text() == "Pause Syncing":
             self.mdbx.pause_sync()
-            self.startstopAction.setText("Resume Syncing")
-        elif self.startstopAction.text() == "Resume Syncing":
+            self.pauseAction.setText("Resume Syncing")
+        elif self.pauseAction.text() == "Resume Syncing":
             self.mdbx.resume_sync()
-            self.startstopAction.setText("Pause Syncing")
+            self.pauseAction.setText("Pause Syncing")
 
     def quit_(self):
         self.mdbx.stop_sync()
         self.deleteLater()
         QtCore.QCoreApplication.quit()
 
-    def on_status_changed(self, status):
-        self.setIcon(self.icons[status])
+    def change_icon(self, status):
+        # get icon that matches the message or default to SYNCING
+        new_icon = self.icons.get(status, self.icons[SYNCING])
+        self.setIcon(new_icon)
 
 
 def run():

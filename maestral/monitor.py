@@ -38,6 +38,11 @@ CONNECTION_ERRORS = (
          requests.exceptions.HTTPError
     )
 
+IDLE = "Up to date"
+SYNCING = "Syncing..."
+PAUSED = "Syncing paused"
+DISCONNECTED = "Connecting..."
+
 
 class TimedQueue(queue.Queue):
     """
@@ -294,7 +299,7 @@ def connection_helper(client, connected, running, shutdown):
             running.clear()
             connected.clear()
             disconnected_signal.send()
-            logger.info("Connecting...")
+            logger.info(DISCONNECTED)
             time.sleep(1)
 
 
@@ -320,14 +325,14 @@ def download_worker(client, running, shutdown, flagged):
 
         try:
             # wait for remote changes (times out after 120 secs)
-            logger.info("Up to date")
+            logger.info(IDLE)
             has_changes = client.wait_for_remote_changes(timeout=120)
 
             running.wait()  # if not running, wait until resumed
 
             # apply remote changes
             if has_changes:
-                logger.info("Syncing...")
+                logger.info(SYNCING)
                 with client.lock:
                     # get changes
                     changes = client.list_remote_changes()
@@ -343,10 +348,10 @@ def download_worker(client, running, shutdown, flagged):
                     # clear flagged list
                     flagged.clear()
 
-            logger.info("Up to date")
+            logger.info(IDLE)
         except CONNECTION_ERRORS as e:
             logger.debug(e)
-            logger.info("Connecting...")
+            logger.info(DISCONNECTED)
             disconnected_signal.send()
             running.clear()  # must be started again from outside
 
@@ -373,36 +378,36 @@ def upload_worker(dbx_uploader, local_q, running, shutdown):
     # check for moved folders
     def is_moved_folder(x):
         is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
-        return (is_moved_event and x.is_directory)
+        return is_moved_event and x.is_directory
 
     # check for children of moved folders
     def is_moved_child(x, parent):
         is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
         is_child = (x.src_path.startswith(parent.src_path) and
                     x is not parent)
-        return (is_moved_event and is_child)
+        return is_moved_event and is_child
 
     # check for deleted folders
     def is_deleted_folder(x):
         is_deleted_event = (x.event_type is EVENT_TYPE_DELETED)
-        return (is_deleted_event and x.is_directory)
+        return is_deleted_event and x.is_directory
 
     # check for children of deleted folders
-    def is_deleted_child(x, parent_event):
+    def is_deleted_child(x, parent):
         is_deleted_event = (x.event_type is EVENT_TYPE_DELETED)
-        is_child = (x.src_path.startswith(parent_event.src_path) and
-                    x is not parent_event)
-        return (is_deleted_event and is_child)
+        is_child = (x.src_path.startswith(parent.src_path) and
+                    x is not parent)
+        return is_deleted_event and is_child
 
     # check for created items
     def is_created(x):
-        return (x.event_type is EVENT_TYPE_CREATED)
+        return x.event_type is EVENT_TYPE_CREATED
 
     # check modified items that have just been created
     def is_modified_duplicate(x, original):
         is_modified_event = (x.event_type is EVENT_TYPE_MODIFIED)
         is_duplicate = (x.src_path == original.src_path)
-        return (is_modified_event and is_duplicate)
+        return is_modified_event and is_duplicate
 
     while not shutdown.is_set():
 
@@ -465,19 +470,19 @@ def upload_worker(dbx_uploader, local_q, running, shutdown):
 
             with dbx_uploader.client.lock:
                 try:
-                    logger.info("Syncing...")
+                    logger.info(SYNCING)
 
                     num_threads = os.cpu_count()*2
 
                     with ThreadPoolExecutor(max_workers=num_threads) as executor:
                         executor.map(dispatch_event, events)
                     CONF.set("internal", "lastsync", time.time())
-                    logger.info("Up to date")
+                    logger.info(IDLE)
                 except (KeyboardInterrupt, SystemExit):
                     raise
                 except CONNECTION_ERRORS as e:
                     logger.debug(e)
-                    logger.info("Connecting...")
+                    logger.info(DISCONNECTED)
                     disconnected_signal.send()
                     running.clear()   # must be started again from outside
 
@@ -520,7 +525,7 @@ class MaestralMonitor(object):
 
     def __init__(self, client):
 
-        logger.info("Up to date")
+        logger.info(IDLE)
 
         self.client = client
         self.dbx_uploader = DropboxUploadSync(self.client)
@@ -614,7 +619,7 @@ class MaestralMonitor(object):
         for event in events:
             self.local_q.put(event)
 
-        logger.info("Up to date")
+        logger.info(IDLE)
 
     def _get_local_changes(self):
         """

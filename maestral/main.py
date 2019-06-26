@@ -20,7 +20,7 @@ from threading import Thread
 from dropbox import files
 
 from maestral.client import MaestralClient, path_exists_case_insensitive
-from maestral.monitor import MaestralMonitor, CONNECTION_ERRORS
+from maestral.monitor import MaestralMonitor, CONNECTION_ERRORS, IDLE, PAUSED, DISCONNECTED
 from maestral.config.main import CONF
 
 import logging
@@ -54,7 +54,7 @@ def folder_download_worker(client, dbx_path):
             try:
                 client.get_remote_dropbox(dbx_path)
                 CONF.set("internal", "lastsync", time.time())
-                logger.info("Up to date")
+                logger.info(IDLE)
 
                 time.sleep(1)
                 completed = True
@@ -62,6 +62,7 @@ def folder_download_worker(client, dbx_path):
 
             except CONNECTION_ERRORS as e:
                 logger.warning("{0}: {1}".format(CONNECTION_ERROR, e))
+                logger.info(DISCONNECTED)
 
 
 def with_sync_paused(f):
@@ -114,9 +115,6 @@ class Maestral(object):
 
     Maestral gracefully handles lost internet connections and will detect
     changes in between sessions or while Maestral has been idle.
-
-    :ivar syncing: Bool indicating if syncing is running or paused.
-    :ivar connected: Bool indicating if Dropbox servers can be reached.
     """
 
     FIRST_SYNC = (not CONF.get("internal", "lastsync") or
@@ -148,18 +146,22 @@ class Maestral(object):
 
     @property
     def syncing(self):
+        """Bool indicating if syncing is running or paused."""
         return self.monitor.running.is_set()
 
     @property
     def connected(self):
+        """Bool indicating if Dropbox servers can be reached."""
         return self.monitor.connected.is_set()
 
     @property
     def notify(self):
+        """Bool indicating if notifications are enabled."""
         return self.client.notify.enabled
 
     @notify.setter
     def notify(self, boolean):
+        """Setter: Bool indicating if notifications are enabled."""
         self.client.notify.enabled = boolean
 
     @if_connected
@@ -196,7 +198,7 @@ class Maestral(object):
         """
         self.monitor.paused_by_user = False
         self.monitor.start()
-        logger.info("Up to date")
+        logger.info(IDLE)
 
     def resume_sync(self, overload=None):
         """
@@ -204,7 +206,7 @@ class Maestral(object):
         """
         self.monitor.paused_by_user = False
         self.monitor.resume()
-        logger.info("Up to date")
+        logger.info(IDLE)
 
     def pause_sync(self, overload=None):
         """
@@ -212,7 +214,7 @@ class Maestral(object):
         """
         self.monitor.paused_by_user = True
         self.monitor.pause()
-        logger.info("Syncing paused")
+        logger.info(PAUSED)
 
     def stop_sync(self, overload=None):
         """
@@ -397,7 +399,7 @@ class Maestral(object):
             account_type = CONF.get("account", "type")
             inner = "{0}, {1})".format(email, account_type)
         else:
-            inner = "Connecting..."
+            inner = DISCONNECTED
 
         return "{0}({1})".format(self.__class__.__name__, inner)
 
