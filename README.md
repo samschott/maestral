@@ -73,7 +73,7 @@ resume syncing.
 `gui` contains all user interfaces for `Maestral`.
 
 ## Contribute
-The follwing tasks could need your help:
+The following tasks could need your help:
 
 - [ ] Native Cocoa and GTK interfaces. Maestral currently uses PyQt.
 - [ ] Better handling of network errors and API errors.
