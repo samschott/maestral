@@ -16,7 +16,7 @@ import threading
 import shutil
 
 import umsgpack
-from tqdm import tqdm
+# from tqdm import tqdm
 import dropbox
 from dropbox.files import DeletedMetadata, FileMetadata, FolderMetadata
 from dropbox import DropboxOAuth2FlowNoRedirect
@@ -578,14 +578,14 @@ class MaestralClient(object):
                     commit = dropbox.files.CommitInfo(
                             path=dbx_path, client_modified=mtime_dt, **kwargs)
 
-                    pb = tqdm(total=file_size, unit="B", unit_scale=True,
-                              desc=osp.basename(local_path), miniters=1,
-                              ncols=80, mininterval=1)
+                    # pb = tqdm(total=file_size, unit="B", unit_scale=True,
+                    #           desc=osp.basename(local_path), miniters=1,
+                    #           ncols=80, mininterval=1)
 
                     while f.tell() < file_size:
-                        pb.update(chunk_size)
+                        # pb.update(chunk_size)
                         if file_size - f.tell() <= chunk_size:
-                            pb.update(file_size - f.tell())
+                            # pb.update(file_size - f.tell())
                             md = self.dbx.files_upload_session_finish(
                                 f.read(chunk_size), cursor, commit)
                         else:
@@ -598,7 +598,8 @@ class MaestralClient(object):
             logger.error(msg)
             return False
         finally:
-            pb.close()
+            # pb.close()
+            pass
 
         logger.debug("File '%s' (rev %s) uploaded to Dropbox.", md.path_display, md.rev)
         return md

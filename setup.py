@@ -56,7 +56,6 @@ setup(
         "watchdog",
         "blinker",
         "requests",
-        "tqdm",
         "u-msgpack-python",
         ],
     zip_safe=False,
