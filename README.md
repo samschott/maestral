@@ -23,7 +23,8 @@ On its first run, Meastral will guide you through linking and configuring your D
 will then start syncing. The user interface is based on a status bar icon which shows the
 current syncing status and a preference pane for configuration.
 
-![Screenshot macOS](/screenshots/full.png)
+<img src="/screenshots/macOS.png" height="500" />
+<img src="/screenshots/Fedora.png" height="500" />
 
 ## Command line usage
 After installation, Meastral will be available as a command line script by typing
