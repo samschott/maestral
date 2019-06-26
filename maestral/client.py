@@ -810,18 +810,20 @@ class MaestralClient(object):
         # notify user
         if n_changed_included == 1:
             md = result_inc.entries[0]
-            if isinstance(md, DeletedMetadata):  # file has been deleted
-                self.notify.send("%s removed" % md.path_display)
-            elif self.get_local_rev(md.path_display):  # file already existed
-                self.notify.send("%s modified" % md.path_display)
-            else:  # file is new to us
-                self.notify.send("%s added" % md.path_display)
+            file_name = md.path_display.strip("/")
+            if isinstance(md, DeletedMetadata):
+                self.notify.send("%s removed" % file_name)
+            elif self.get_local_rev(md.path_display) is None:
+                self.notify.send("%s added" % file_name)
+            elif not self.get_local_rev(md.path_display) == md.rev:
+                self.notify.send("%s modified" % file_name)
+
         elif n_changed_included > 1:
             self.notify.send("%s files changed" % n_changed_included)
 
         n_changed_outside = n_changed_total - n_changed_included
-        if n_changed_outside > 49:
-            # always notify for changes of 50 files and more
+        if n_changed_outside > 99:
+            # always notify for changes of 100 files and more
             self.notify.send("%s files changed" % n_changed_outside)
 
         logger.debug("Listed remote changes")
