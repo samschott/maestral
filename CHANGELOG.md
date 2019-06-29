@@ -2,6 +2,8 @@
 
 _Changes:_
 
+- Limit notifications to remote changes only and only notify for changes in folders that
+  currently beeing synced, unless more than 100 files have changed.
 - Detect color of system tray and invert icon color automatically if not on macOS.
 - Added new command line option 'autostart'.
 - Shut down immediately and kill threads instead of waiting for timeout.
