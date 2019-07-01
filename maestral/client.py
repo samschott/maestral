@@ -797,11 +797,14 @@ class MaestralClient(object):
         # combine all results into one
         result_all = self.flatten_results(results)
 
-        # filter changes from non-excluded folders
-        entries_inc = [e for e in result_all.entries if not self.is_excluded_by_user(
-            e.path_lower)]
-        result_inc = dropbox.files.ListFolderResult(
-            entries=entries_inc, cursor=result_all.cursor, has_more=False)
+        # filter changes from non-excluded folders if requested
+        if synced_only:
+            entries_inc = [e for e in result_all.entries if not self.is_excluded_by_user(
+                e.path_lower)]
+            result_inc = dropbox.files.ListFolderResult(
+                entries=entries_inc, cursor=result_all.cursor, has_more=False)
+        else:
+            result_inc = result_all
 
         # count remote changes
         n_changed_total = len(result_all.entries)
@@ -1063,7 +1066,7 @@ class MaestralClient(object):
         if not md.rev == local_rev:
             # Dropbox server version has a different rev, must be newer
             logger.debug(
-                    "Local file has rev %s, file on Dropbox has rev %s. Get Dropbox file.",
+                    "Local file has rev %s, newer file on Dropbox has rev %s.",
                     local_rev, md.rev)
             return 0
 
@@ -1080,13 +1083,13 @@ class MaestralClient(object):
                 logger.debug("Conflicting copy without rev.")
                 return 1  # files are conflicting
             else:
-                logger.debug("Contents are equal. No conflict. Updated local rev.")
-                self.set_local_rev(dbx_path, md.rev)
+                logger.debug("Contents are equal. No conflict.")
+                self.set_local_rev(dbx_path, md.rev)  # update local rev
                 return 2  # files are already the same
 
         if md.rev == local_rev:
             # files have the same revision, trust that they are equal
             logger.debug(
-                    "Local file is the same as on Dropbox (rev %s). No download necessary.",
+                    "Local file is the same as on Dropbox (rev %s).",
                     local_rev)
             return 2  # files are already the same
