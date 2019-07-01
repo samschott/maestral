@@ -104,7 +104,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.settings = SettingsWindow(self.mdbx, parent=None)
 
         # ------------- populate context menu -------------------
-        self.openDbxFolderAction = self.menu.addAction("Open Dropbox Folder")
+        self.openDropboxFolderAction = self.menu.addAction("Open Dropbox Folder")
         self.openWebsiteAction = self.menu.addAction("Launch Dropbox Website")
 
         self.separator1 = self.menu.addSeparator()
@@ -125,7 +125,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
             self.pauseAction = self.menu.addAction("Pause Syncing")
         else:
             self.pauseAction = self.menu.addAction("Resume Syncing")
-        self.recentFilesMenu = self.menu.addMenu("Recently Changed Files")
+        self.recentFilesMenu = self.menu.addMenu("Recently Changed")
 
         self.separator3 = self.menu.addSeparator()
 
@@ -136,7 +136,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.setContextMenu(self.menu)
 
         # ------------- connect callbacks for menu items -------------------
-        self.openDbxFolderAction.triggered.connect(
+        self.openDropboxFolderAction.triggered.connect(
             lambda x: self.goto_file(self.mdbx.client.dropbox_path))
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.pauseAction.triggered.connect(self.on_start_stop_clicked)
@@ -145,10 +145,21 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.preferencesAction.triggered.connect(self.settings.activateWindow)
         self.helpAction.triggered.connect(self.on_help_clicked)
         self.quitAction.triggered.connect(self.quit_)
-        # on linux, submenu.aboutToShow is not emitted
-        # (see https://bugreports.qt.io/browse/QTBUG-55911)
-        # therefore, we update the recent files list when the tray icon is activated
-        self.menu.aboutToShow.connect(self.update_recent_files)
+
+        if platform.system() == "Linux":
+            # on linux, submenu.aboutToShow may not be emitted
+            # (see https://bugreports.qt.io/browse/QTBUG-55911)
+            # therefore, we update the recent files list when the tray icon menu is loaded
+            self.menu.aboutToShow.connect(self.update_recent_files)
+        else:
+            self.recentFilesMenu.aboutToShow.connect(self.update_recent_files)
+
+        def callback(action):
+            dbx_path = action.data()
+            local_path = self.mdbx.client.to_local_path(dbx_path)
+            self.goto_file(local_path)
+
+        self.recentFilesMenu.triggered.connect(callback)
 
         # ------------- connect UI to signals -------------------
         info_handler.info_signal.connect(self.statusAction.setText)
@@ -194,10 +205,10 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
     def update_recent_files(self):
         self.recentFilesMenu.clear()
-        for local_path in CONF.get("internal", "recent_changes"):
-            file_name = os.path.basename(local_path)
+        for dbx_path in reversed(CONF.get("internal", "recent_changes")):
+            file_name = os.path.basename(dbx_path)
             action = self.recentFilesMenu.addAction(file_name)
-            action.triggered.connect(lambda x: self.goto_file(local_path))
+            action.setData(dbx_path)
 
     def change_icon(self, status):
         new_icon = self.icons.get(status, self.icons[SYNCING])

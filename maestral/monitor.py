@@ -11,7 +11,7 @@ import os.path as osp
 import logging
 import time
 from threading import Thread, Event
-from collections import deque, OrderedDict
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 import requests
 import queue
@@ -345,12 +345,6 @@ def download_worker(client, running, shutdown, flagged):
                     # apply remote changes to local Dropbox folder
                     client.apply_remote_changes(result)
                     time.sleep(2)
-
-                    # save recently changed files
-                    recent_changes = CONF.get("internal", "recent_changes")
-                    recent_changes += list(flagged)
-                    recent_changes = list(OrderedDict.fromkeys(recent_changes))
-                    CONF.set("internal", "recent_changes", recent_changes[-30:])
 
                     # clear flagged list
                     flagged.clear()
