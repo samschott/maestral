@@ -768,10 +768,15 @@ class MaestralClient(object):
 
         return result.changes
 
-    def list_remote_changes(self):
+    def list_remote_changes(self, synced_only=True):
         """
         Lists changes to remote Dropbox since :ivar:`last_cursor`. Call this
-        after :method:`wait_for_remote_changes` returns `True`.
+        after :method:`wait_for_remote_changes` returns `True`. Only remote changes
+        in currently synced folders will be returned by default.
+
+        :param bool synced_only: If `True`, list only changed from folders that have
+            not been excluded from syncing. If `False`, all remote changes will be
+            listed (defaults to `True`).
 
         :return: :class:`dropbox.files.ListFolderResult` instance or False if
             requests failed.
