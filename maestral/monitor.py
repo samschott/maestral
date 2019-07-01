@@ -69,10 +69,10 @@ class FileEventHandler(FileSystemEventHandler):
     `watchdog.Observer` and :class:`upload_worker`.
 
     :ivar local_q: Queue with unprocessed local file events.
-    :ivar flagged: Deque with paths to be temporarily ignored. This is mostly
-        used to exclude files and folders which are currently being downloaded
-        from monitoring.
-    :ivar running: Threading Event which turns off any queuing of uploads.
+    :ivar flagged: Deque with files to be ignored. This is primarily used to
+         exclude files and folders from monitoring if they are currently being
+         downloaded. All entries in `flagged` should be temporary only.s
+    :ivar running: Event to turn the queueing of uploads on / off.
     """
 
     def __init__(self, flagged):
@@ -89,6 +89,7 @@ class FileEventHandler(FileSystemEventHandler):
 
     def on_any_event(self, event):
         if os.path.basename(event.src_path) == REV_FILE:  # TODO: find a better place
+            # do not upload file with rev index
             return
 
         if self.running.is_set() and not self.is_flagged(event.src_path):
@@ -104,6 +105,8 @@ class DropboxUploadSync(object):
     The 'last_sync' entry in the config file and `client.last_sync` are updated
     with the current time after every successful sync. 'last_sync' is used to
     detect changes while :class:`MaestralMonitor` was not running.
+
+    :param client: Maestral client instance.
     """
 
     def __init__(self, client):
@@ -276,7 +279,7 @@ def connection_helper(client, connected, running, shutdown):
 
     :param client: Maestral client instance.
     :param connected: Event that indicates if connection to Dropbox is established.
-    :param running: Event that indicates if workers are running or paused.
+    :param running: Event that indicates if workers should be running or paused.
     :param shutdown: Event to shutdown local event handler and workers.
     """
 
@@ -406,6 +409,17 @@ def upload_worker(dbx_uploader, local_q, running, shutdown):
         is_duplicate = (x.src_path == original.src_path)
         return is_modified_event and is_duplicate
 
+    # process all events
+    def dispatch_event(evnt):
+        if evnt.event_type is EVENT_TYPE_CREATED:
+            dbx_uploader.on_created(evnt)
+        elif evnt.event_type is EVENT_TYPE_MOVED:
+            dbx_uploader.on_moved(evnt)
+        elif evnt.event_type is EVENT_TYPE_DELETED:
+            dbx_uploader.on_deleted(evnt)
+        elif evnt.event_type is EVENT_TYPE_MODIFIED:
+            dbx_uploader.on_modified(evnt)
+
     while not shutdown.is_set():
 
         try:
@@ -454,23 +468,11 @@ def upload_worker(dbx_uploader, local_q, running, shutdown):
             # remove all events with duplicate effects
             events = set(events) - set(duplicate_modified_events)
 
-            # process all events
-            def dispatch_event(evnt):
-                if evnt.event_type is EVENT_TYPE_CREATED:
-                    dbx_uploader.on_created(evnt)
-                elif evnt.event_type is EVENT_TYPE_MOVED:
-                    dbx_uploader.on_moved(evnt)
-                elif evnt.event_type is EVENT_TYPE_DELETED:
-                    dbx_uploader.on_deleted(evnt)
-                elif evnt.event_type is EVENT_TYPE_MODIFIED:
-                    dbx_uploader.on_modified(evnt)
-
             with dbx_uploader.client.lock:
                 try:
                     logger.info(SYNCING)
 
                     num_threads = os.cpu_count()*2
-
                     with ThreadPoolExecutor(max_workers=num_threads) as executor:
                         executor.map(dispatch_event, events)
                     CONF.set("internal", "lastsync", time.time())
