@@ -10,6 +10,7 @@ import sys
 import os
 import logging
 import platform
+import subprocess
 import webbrowser
 from blinker import signal
 from PyQt5 import QtCore, QtWidgets
@@ -156,7 +157,13 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
     @staticmethod
     def goto_file(path):
         path = os.path.abspath(os.path.normpath(path))
-        webbrowser.open('file://{0}'.format(path))
+        if platform.system() == "Darwin":
+            subprocess.run(["open", "-R", path])
+        elif platform.system() == "Linux":
+            file_man = os.popen("xdg-mime query default inode/directory").read().strip()
+            subprocess.run(["gtk-launch", file_man, path])
+        else:
+            pass
 
     @staticmethod
     def on_website_clicked():
