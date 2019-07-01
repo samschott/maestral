@@ -1,11 +1,22 @@
+### v0.1.3-dev0 (2019-07-01)
+
+_Added:_
+
+- Added "Recently Changed Files" submenu to the system tray menu. This menu shows 
+  entries for the 30 last-changed files (synced folder only) and navigates to the 
+  respective file when clicked.
+
 ### v0.1.2 (2019-06-25)
+
+_Added:_
+
+- Added new command line option 'autostart' to automatically start Maestral on login.
 
 _Changes:_
 
 - Limit notifications to remote changes only and only notify for changes in folders that
-  currently beeing synced, unless more than 100 files have changed.
+  currently being synced, unless more than 100 files have changed.
 - Detect color of system tray and invert icon color automatically if not on macOS.
-- Added new command line option 'autostart'.
 - Shut down immediately and kill threads instead of waiting for timeout.
 - Improve appearance of Settings window in GTK 3 style.
 
