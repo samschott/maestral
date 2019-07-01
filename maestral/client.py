@@ -722,7 +722,7 @@ class MaestralClient(object):
         :rtype: bool
         """
         result = self.list_folder(dbx_path, recursive=True,
-                                  include_deleted=False, limit=1000)
+                                  include_deleted=False, limit=500)
 
         if not result:
             return False
