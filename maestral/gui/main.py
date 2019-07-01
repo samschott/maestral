@@ -145,7 +145,10 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.preferencesAction.triggered.connect(self.settings.activateWindow)
         self.helpAction.triggered.connect(self.on_help_clicked)
         self.quitAction.triggered.connect(self.quit_)
-        self.recentFilesMenu.aboutToShow.connect(self.show_recent_files)
+        # on linux, submenu.aboutToShow is not emitted
+        # (see https://bugreports.qt.io/browse/QTBUG-55911)
+        # therefore, we update the recent files list when the tray icon is activated
+        self.menu.aboutToShow.connect(self.update_recent_files)
 
         # ------------- connect UI to signals -------------------
         info_handler.info_signal.connect(self.statusAction.setText)
@@ -161,6 +164,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
             subprocess.run(["open", "-R", path])
         elif platform.system() == "Linux":
             file_man = os.popen("xdg-mime query default inode/directory").read().strip()
+            print(path)
             subprocess.run(["gtk-launch", file_man, path])
         else:
             pass
@@ -188,15 +192,12 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
     # callbacks to update GUI
 
-    def show_recent_files(self):
-        print('Loading recently changed files...')
+    def update_recent_files(self):
         self.recentFilesMenu.clear()
-        self.recentFilesMenuActions = []
         for local_path in CONF.get("internal", "recent_changes"):
             file_name = os.path.basename(local_path)
             action = self.recentFilesMenu.addAction(file_name)
             action.triggered.connect(lambda x: self.goto_file(local_path))
-            self.recentFilesMenuActions.append(action)
 
     def change_icon(self, status):
         new_icon = self.icons.get(status, self.icons[SYNCING])
