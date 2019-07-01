@@ -478,6 +478,7 @@ class MaestralClient(object):
 
         CONF.set("internal", "cursor", "")
         CONF.set("internal", "lastsync", None)
+        CONF.set("internal", "recent_changes", [])
 
         logger.debug("Unlinked Dropbox account")
 

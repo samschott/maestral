@@ -9,7 +9,6 @@ Created on Wed Oct 31 16:23:13 2018
 import sys
 import os
 import logging
-import subprocess
 import platform
 import webbrowser
 from blinker import signal
@@ -37,23 +36,16 @@ class InfoHandler(logging.Handler, QtCore.QObject):
     logged event. The signal will be connected to "Status" field of the GUI.
     """
 
-    monitor_usage_signal = signal("account_usage_signal")
-
     info_signal = QtCore.pyqtSignal(str)
-    usage_signal = QtCore.pyqtSignal(str)
     status_signal = QtCore.pyqtSignal(str)
 
     def __init__(self):
         logging.Handler.__init__(self)
         QtCore.QObject.__init__(self)
-        self.monitor_usage_signal.connect(self.on_usage_available)
 
     def emit(self, record):
         self.format(record)
         self.info_signal.emit(record.message)
-
-    def on_usage_available(self, space_usage):
-        self.usage_signal.emit(str(space_usage))
 
 
 info_handler = InfoHandler()
@@ -67,9 +59,10 @@ for logger_name in ["maestral.monitor", "maestral.main", "maestral.client"]:
 # noinspection PyTypeChecker
 class MaestralApp(QtWidgets.QSystemTrayIcon):
 
+    usage_signal = signal("account_usage_signal")
+
     def __init__(self, mdbx, parent=None):
-        # Load menu bar icons as instance attributes and not as class
-        # attributes since QApplication may not be running.
+        # ------------- load try icons -------------------
         self.icons = dict()
         icon_color = ""
 
@@ -87,35 +80,39 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
             for status in self.icons:
                 self.icons[status].setIsMask(True)
 
-        # initialize system tray widget
+        # ------------- initialize tray icon -------------------
         QtWidgets.QSystemTrayIcon.__init__(self, self.icons[DISCONNECTED], parent)
-        self.menu = QtWidgets.QMenu()
         self.show_when_systray_available()
 
+        # ------------- set up remaining ui -------------------
+        self.menu = QtWidgets.QMenu()
         self.mdbx = mdbx
         self.setup_ui()
 
     def show_when_systray_available(self):
-        """Shows status icon when system tray is available
-
-        If available, show icon, otherwise, set a timer to check back later.
-        This is a workaround for https://bugreports.qt.io/browse/QTBUG-61898
-        """
+        # If available, show icon, otherwise, set a timer to check back later.
+        # This is a workaround for https://bugreports.qt.io/browse/QTBUG-61898
         if self.isSystemTrayAvailable():
             self.show()
         else:
             QtCore.QTimer.singleShot(1000, self.show_when_systray_available)
 
     def setup_ui(self):
-        # create settings window
+
+        # ------------- create settings window -------------------
         self.settings = SettingsWindow(self.mdbx, parent=None)
-        # populate context menu
-        self.openFolderAction = self.menu.addAction("Open Dropbox Folder")
+
+        # ------------- populate context menu -------------------
+        self.openDbxFolderAction = self.menu.addAction("Open Dropbox Folder")
         self.openWebsiteAction = self.menu.addAction("Launch Dropbox Website")
+
         self.separator1 = self.menu.addSeparator()
+
         self.accountUsageAction = self.menu.addAction(CONF.get("account", "usage"))
         self.accountUsageAction.setEnabled(False)
+
         self.separator2 = self.menu.addSeparator()
+
         if self.mdbx.connected and self.mdbx.syncing:
             self.statusAction = self.menu.addAction(IDLE)
         elif self.mdbx.connected and not self.mdbx.syncing:
@@ -127,21 +124,19 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
             self.pauseAction = self.menu.addAction("Pause Syncing")
         else:
             self.pauseAction = self.menu.addAction("Resume Syncing")
+        self.recentFilesMenu = self.menu.addMenu("Recently Changed Files")
+
         self.separator3 = self.menu.addSeparator()
+
         self.preferencesAction = self.menu.addAction("Preferences...")
         self.helpAction = self.menu.addAction("Help Center")
         self.separator4 = self.menu.addSeparator()
         self.quitAction = self.menu.addAction("Quit Maestral")
         self.setContextMenu(self.menu)
 
-        # connect UI to signals
-        info_handler.info_signal.connect(self.statusAction.setText)
-        info_handler.info_signal.connect(self.change_icon)
-        info_handler.usage_signal.connect(self.accountUsageAction.setText)
-        info_handler.usage_signal.connect(self.settings.labelSpaceUsage2.setText)
-
-        # connect actions
-        self.openFolderAction.triggered.connect(self.on_open_folder_clicked)
+        # ------------- connect callbacks for menu items -------------------
+        self.openDbxFolderAction.triggered.connect(
+            lambda x: self.goto_file(self.mdbx.client.dropbox_path))
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.pauseAction.triggered.connect(self.on_start_stop_clicked)
         self.preferencesAction.triggered.connect(self.settings.show)
@@ -149,17 +144,19 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.preferencesAction.triggered.connect(self.settings.activateWindow)
         self.helpAction.triggered.connect(self.on_help_clicked)
         self.quitAction.triggered.connect(self.quit_)
+        self.recentFilesMenu.aboutToShow.connect(self.show_recent_files)
 
-    def on_open_folder_clicked(self):
-        """
-        Opens Dropbox directory in systems file explorer.
-        """
-        if platform.system() == "Windows":
-            os.startfile(self.mdbx.client.dropbox_path)
-        elif platform.system() == "Darwin":
-            subprocess.Popen(["open", self.mdbx.client.dropbox_path])
-        else:
-            subprocess.Popen(["xdg-open", self.mdbx.client.dropbox_path])
+        # ------------- connect UI to signals -------------------
+        info_handler.info_signal.connect(self.statusAction.setText)
+        info_handler.info_signal.connect(self.change_icon)
+        self.usage_signal.connect(self.on_usage_available)
+
+    # callbacks for user interaction
+
+    @staticmethod
+    def goto_file(path):
+        path = os.path.abspath(os.path.normpath(path))
+        webbrowser.open('file://{0}'.format(path))
 
     @staticmethod
     def on_website_clicked():
@@ -177,15 +174,31 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
             self.mdbx.resume_sync()
             self.pauseAction.setText("Pause Syncing")
 
+    def on_usage_available(self, space_usage):
+        usage_string = str(space_usage)
+        self.accountUsageAction.setText(usage_string)
+        self.settings.labelSpaceUsage2.setText(usage_string)
+
+    # callbacks to update GUI
+
+    def show_recent_files(self):
+        print('Loading recently changed files...')
+        self.recentFilesMenu.clear()
+        self.recentFilesMenuActions = []
+        for local_path in CONF.get("internal", "recent_changes"):
+            file_name = os.path.basename(local_path)
+            action = self.recentFilesMenu.addAction(file_name)
+            action.triggered.connect(lambda x: self.goto_file(local_path))
+            self.recentFilesMenuActions.append(action)
+
+    def change_icon(self, status):
+        new_icon = self.icons.get(status, self.icons[SYNCING])
+        self.setIcon(new_icon)
+
     def quit_(self):
         self.mdbx.stop_sync()
         self.deleteLater()
         QtCore.QCoreApplication.quit()
-
-    def change_icon(self, status):
-        # get icon that matches the message or default to SYNCING
-        new_icon = self.icons.get(status, self.icons[SYNCING])
-        self.setIcon(new_icon)
 
 
 def run():
@@ -194,7 +207,7 @@ def run():
     app.setQuitOnLastWindowClosed(False)
 
     if FIRST_SYNC:
-        maestral = FirstSyncDialog.configureMaestral()  # returns None if aborted
+        maestral = FirstSyncDialog.configureMaestral()  # returns None if aborted by user
     else:
         maestral = Maestral()
 
