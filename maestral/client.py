@@ -11,6 +11,7 @@ import os.path as osp
 import time
 import datetime
 import logging
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import shutil
@@ -820,11 +821,14 @@ class MaestralClient(object):
         if n_changed_included == 1:
             md = result_inc.entries[0]
             file_name = md.path_display.strip("/")
-            if isinstance(md, DeletedMetadata):
+            if isinstance(md, DeletedMetadata) and self.get_local_rev(md.path_display):
+                # file has been deleted from remote
                 self.notify.send("%s removed" % file_name)
             elif self.get_local_rev(md.path_display) is None:
+                # file has been added to remote
                 self.notify.send("%s added" % file_name)
             elif not self.get_local_rev(md.path_display) == md.rev:
+                # file has been modified on remote
                 self.notify.send("%s modified" % file_name)
 
         elif n_changed_included > 1:
@@ -897,104 +901,6 @@ class MaestralClient(object):
             CONF.set("internal", "cursor", result.cursor)
 
         return True
-
-    @staticmethod
-    def _sort_entries(result):
-        """
-        Sorts entries in :class:`dropbox.files.ListFolderResult` into
-        FolderMetadata, FileMetadata and DeletedMetadata.
-
-        :return: Tuple of (folders, files, deleted) containing instances of
-            :class:`DeletedMetadata`, `:class:FolderMetadata`,
-            and :class:`FileMetadata` respectively.
-        :rtype: tuple
-        """
-
-        folders = [x for x in result.entries if isinstance(x, FolderMetadata)]
-        files = [x for x in result.entries if isinstance(x, FileMetadata)]
-        deleted = [x for x in result.entries if isinstance(x, DeletedMetadata)]
-
-        return folders, files, deleted
-
-    def _create_local_entry(self, entry, check_excluded=True):
-        """
-        Creates local file / folder for remote entry.
-
-        :param class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
-        :return: `True` on success, `False` otherwise.
-        :rtype: bool
-        """
-
-        self.excluded_folders = CONF.get("main", "excluded_folders")
-
-        if self.is_excluded(entry.path_display):
-            return True
-
-        if check_excluded and self.is_excluded_by_user(entry.path_display):
-            return True
-
-        if isinstance(entry, FileMetadata):
-            # Store the new entry at the given path in your local state.
-            # If the required parent folders don’t exist yet, create them.
-            # If there’s already something else at the given path,
-            # replace it and remove all its children.
-
-            dst_path = self.to_local_path(entry.path_display)
-
-            # check for sync conflicts
-            conflict = self.check_conflict(entry.path_display)
-            if conflict == -1:  # could not get metadata
-                return False
-            if conflict == 0:  # no conflict
-                pass
-            elif conflict == 1:  # conflict! rename local file
-                parts = osp.splitext(dst_path)
-                new_local_file = parts[0] + " (conflicting copy)" + parts[1]
-                os.rename(dst_path, new_local_file)
-            elif conflict == 2:  # Dropbox files corresponds to local file, nothing to do
-                return True
-
-            md = self.download(entry.path_display, dst_path)
-            if md is False:
-                return False
-
-            # save revision metadata
-            self.set_local_rev(md.path_display, md.rev)
-
-            return True
-
-        elif isinstance(entry, FolderMetadata):
-            # Store the new entry at the given path in your local state.
-            # If the required parent folders don’t exist yet, create them.
-            # If there’s already something else at the given path,
-            # replace it but leave the children as they are.
-
-            dst_path = self.to_local_path(entry.path_display)
-            os.makedirs(dst_path, exist_ok=True)
-
-            self.set_local_rev(entry.path_display, "folder")
-
-            logger.debug("Created local directory '{0}'".format(entry.path_display))
-
-            return True
-
-        elif isinstance(entry, DeletedMetadata):
-            # If your local state has something at the given path,
-            # remove it and all its children. If there’s nothing at the
-            # given path, ignore this entry.
-
-            dst_path = self.to_local_path(entry.path_display)
-
-            if osp.isdir(dst_path):
-                shutil.rmtree(dst_path)
-            elif osp.isfile(dst_path):
-                os.remove(dst_path)
-
-            self.set_local_rev(entry.path_display, None)
-
-            logger.debug("Deleted local item '{0}'".format(entry.path_display))
-
-            return True
 
     def is_excluded_by_user(self, dbx_path):
         """
@@ -1099,3 +1005,111 @@ class MaestralClient(object):
                     "Local file is the same as on Dropbox (rev %s).",
                     local_rev)
             return 2  # files are already the same
+
+    @staticmethod
+    def _sort_entries(result):
+        """
+        Sorts entries in :class:`dropbox.files.ListFolderResult` into
+        FolderMetadata, FileMetadata and DeletedMetadata.
+
+        :return: Tuple of (folders, files, deleted) containing instances of
+            :class:`DeletedMetadata`, `:class:FolderMetadata`,
+            and :class:`FileMetadata` respectively.
+        :rtype: tuple
+        """
+
+        folders = [x for x in result.entries if isinstance(x, FolderMetadata)]
+        files = [x for x in result.entries if isinstance(x, FileMetadata)]
+        deleted = [x for x in result.entries if isinstance(x, DeletedMetadata)]
+
+        return folders, files, deleted
+
+    def _create_local_entry(self, entry, check_excluded=True):
+        """
+        Creates local file / folder for remote entry.
+
+        :param class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
+        :return: `True` on success, `False` otherwise.
+        :rtype: bool
+        """
+
+        self.excluded_folders = CONF.get("main", "excluded_folders")
+
+        if self.is_excluded(entry.path_display):
+            return True
+
+        if check_excluded and self.is_excluded_by_user(entry.path_display):
+            return True
+
+        if isinstance(entry, FileMetadata):
+            # Store the new entry at the given path in your local state.
+            # If the required parent folders don’t exist yet, create them.
+            # If there’s already something else at the given path,
+            # replace it and remove all its children.
+
+            dst_path = self.to_local_path(entry.path_display)
+
+            # check for sync conflicts
+            conflict = self.check_conflict(entry.path_display)
+            if conflict == -1:  # could not get metadata
+                return False
+            if conflict == 0:  # no conflict
+                pass
+            elif conflict == 1:  # conflict! rename local file
+                parts = osp.splitext(dst_path)
+                new_local_file = parts[0] + " (conflicting copy)" + parts[1]
+                os.rename(dst_path, new_local_file)
+            elif conflict == 2:  # Dropbox files corresponds to local file, nothing to do
+                return True
+
+            md = self.download(entry.path_display, dst_path)
+            if md is False:
+                return False
+
+            # save revision metadata
+            self.set_local_rev(md.path_display, md.rev)
+
+            return True
+
+        elif isinstance(entry, FolderMetadata):
+            # Store the new entry at the given path in your local state.
+            # If the required parent folders don’t exist yet, create them.
+            # If there’s already something else at the given path,
+            # replace it but leave the children as they are.
+
+            dst_path = self.to_local_path(entry.path_display)
+            os.makedirs(dst_path, exist_ok=True)
+
+            self.set_local_rev(entry.path_display, "folder")
+
+            logger.debug("Created local directory '{0}'".format(entry.path_display))
+
+            return True
+
+        elif isinstance(entry, DeletedMetadata):
+            # If your local state has something at the given path,
+            # remove it and all its children. If there’s nothing at the
+            # given path, ignore this entry.
+
+            dst_path = self.to_local_path(entry.path_display)
+
+            if osp.isdir(dst_path):
+                shutil.rmtree(dst_path)
+            elif osp.isfile(dst_path):
+                os.remove(dst_path)
+
+            self.set_local_rev(entry.path_display, None)
+
+            logger.debug("Deleted local item '{0}'".format(entry.path_display))
+
+            return True
+
+    @staticmethod
+    def _save_to_history(dbx_path):
+        # add new file to recent_changes
+        recent_changes = CONF.get("internal", "recent_changes")
+        recent_changes.append(dbx_path)
+        # eliminate duplicates
+        recent_changes = list(OrderedDict.fromkeys(recent_changes))
+        # save last 30 changes
+        CONF.set("internal", "recent_changes", recent_changes[-30:])
