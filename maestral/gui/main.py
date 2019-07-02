@@ -184,7 +184,9 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
                 subprocess.run(["gtk-launch", file_manager.strip(), path])
             else:
                 # otherwise open containing directory
-                subprocess.run(["xdg-open", os.path.dirname(path)])
+                if not os.path.isdir(path):
+                    path = os.path.dirname(path)
+                subprocess.run(["xdg-open", path])
         else:
             pass
 
