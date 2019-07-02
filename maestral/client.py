@@ -720,6 +720,7 @@ class MaestralClient(object):
         :return: `True` on success, `False` otherwise.
         :rtype: bool
         """
+        logger.info("Indexing...")
         result = self.list_folder(dbx_path, recursive=True,
                                   include_deleted=False, limit=500)
         if not result:
@@ -728,8 +729,9 @@ class MaestralClient(object):
         # apply remote changes, don't update the global cursor when downloading
         # a single folder only
         save_cursor = (dbx_path == "")
+        logger.info("Syncing...")
         success = self.apply_remote_changes(result, save_cursor)
-
+        logger.info("Up to date")
         return success
 
     def wait_for_remote_changes(self, timeout=20):

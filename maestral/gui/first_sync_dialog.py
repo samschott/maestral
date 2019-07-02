@@ -220,7 +220,6 @@ class FirstSyncDialog(QtWidgets.QDialog):
         self.mdbx.client.excluded_folders = excluded_folders
         CONF.set("main", "excluded_folders", excluded_folders)
 
-        print("Starting indexing.")
         self.mdbx.get_remote_dropbox_async("")
 
 # =============================================================================
@@ -264,7 +263,8 @@ class FirstSyncDialog(QtWidgets.QDialog):
             for item in self.folder_items:
                 self.listWidgetFolders.addItem(item)
 
-    def rel_path(self, path):
+    @staticmethod
+    def rel_path(path):
         """
         Returns the path relative to the users directory, or the absolute
         path if not in a user directory.
