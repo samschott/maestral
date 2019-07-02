@@ -17,7 +17,6 @@ import threading
 import shutil
 
 import umsgpack
-# from tqdm import tqdm
 import dropbox
 from dropbox.files import DeletedMetadata, FileMetadata, FolderMetadata
 from dropbox import DropboxOAuth2FlowNoRedirect
@@ -355,6 +354,7 @@ class MaestralClient(object):
         else:
             return osp.join(local_parent, dbx_path_basename)
 
+    # TODO: move to separate class DownloadSync?
     def get_rev_dict(self):
         """
         Returns dictionary of file / folder paths with rev numbers.
@@ -365,6 +365,7 @@ class MaestralClient(object):
         with self._rev_lock:
             return dict(self._rev_dict_cache)
 
+    # TODO: move to separate class DownloadSync?
     def get_local_rev(self, dbx_path):
         """
         Gets revision number of local file.
@@ -380,6 +381,7 @@ class MaestralClient(object):
 
             return rev
 
+    # TODO: move to separate class DownloadSync?
     def set_local_rev(self, dbx_path, rev):
         """
         Saves revision number `rev` for local file. If `rev` is `None`, the
@@ -569,14 +571,8 @@ class MaestralClient(object):
                     commit = dropbox.files.CommitInfo(
                             path=dbx_path, client_modified=mtime_dt, **kwargs)
 
-                    # pb = tqdm(total=file_size, unit="B", unit_scale=True,
-                    #           desc=osp.basename(local_path), miniters=1,
-                    #           ncols=80, mininterval=1)
-
                     while f.tell() < file_size:
-                        # pb.update(chunk_size)
                         if file_size - f.tell() <= chunk_size:
-                            # pb.update(file_size - f.tell())
                             md = self.dbx.files_upload_session_finish(
                                 f.read(chunk_size), cursor, commit)
                         else:
@@ -711,6 +707,8 @@ class MaestralClient(object):
 
         return results_flattened
 
+    # TODO: move to separate class DownloadSync?
+    # TODO: speed up by neglecting excluded folders
     def get_remote_dropbox(self, dbx_path=""):
         """
         Gets all files/folders from Dropbox and writes them to local folder
@@ -724,7 +722,6 @@ class MaestralClient(object):
         """
         result = self.list_folder(dbx_path, recursive=True,
                                   include_deleted=False, limit=500)
-
         if not result:
             return False
 
@@ -849,6 +846,7 @@ class MaestralClient(object):
 
         return result_inc
 
+    # TODO: move to separate class DownloadSync?
     def apply_remote_changes(self, result, save_cursor=True):
         """
         Applies remote changes to local folder. Call this on the result of
@@ -946,6 +944,7 @@ class MaestralClient(object):
 
         return excluded
 
+    # TODO: move to separate class DownloadSync?
     def check_conflict(self, dbx_path):
         """
         Check if local file is conflicting with remote file.
@@ -1099,8 +1098,7 @@ class MaestralClient(object):
                 elif osp.isfile(local_path):
                     os.remove(local_path)
             except FileNotFoundError as e:
-                print(e)
-                pass
+                logger.debug("FileNotFoundError: {0}".format(e))
             else:
                 logger.debug("Deleted local item '{0}'".format(entry.path_display))
 
