@@ -12,6 +12,7 @@ import logging
 import platform
 import subprocess
 import webbrowser
+import shutil
 from blinker import signal
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtGui import QIcon
@@ -29,6 +30,8 @@ FIRST_SYNC = (not CONF.get("internal", "lastsync") or
               not os.path.isdir(CONF.get("main", "path")))
 ICON_PATH = _root + "/resources/menubar_icon_"
 logger = logging.getLogger(__name__)
+
+HAS_GTK_LAUNCH = shutil.which("gtk-launch") is not None
 
 
 class InfoHandler(logging.Handler, QtCore.QObject):
@@ -172,11 +175,16 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
     def goto_file(path):
         path = os.path.abspath(os.path.normpath(path))
         if platform.system() == "Darwin":
-            subprocess.run(["open", "-R", path])
+            subprocess.run(["open", "--reveal", path])
         elif platform.system() == "Linux":
-            file_man = os.popen("xdg-mime query default inode/directory").read().strip()
-            print(path)
-            subprocess.run(["gtk-launch", file_man, path])
+            if HAS_GTK_LAUNCH:
+                # if gtk-launch is available, query for the default file manager and
+                # reveal file in the latter
+                file_manager = os.popen("xdg-mime query default inode/directory").read()
+                subprocess.run(["gtk-launch", file_manager.strip(), path])
+            else:
+                # otherwise open containing directory
+                subprocess.run(["xdg-open", os.path.dirname(path)])
         else:
             pass
 
