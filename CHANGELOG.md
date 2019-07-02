@@ -5,6 +5,11 @@ _Added:_
 - Added "Recently Changed Files" submenu to the system tray menu. This menu shows 
   entries for the 30 last-changed files (synced folder only) and navigates to the 
   respective file when clicked.
+  
+_Fixed:_
+
+- Fixed a bug which may result in a removed folder not being deleted locally if it 
+  contains subfolders.
 
 ### v0.1.2 (2019-06-25)
 
@@ -12,7 +17,7 @@ _Added:_
 
 - Added new command line option 'autostart' to automatically start Maestral on login.
 
-_Changes:_
+_Changed:_
 
 - Limit notifications to remote changes only and only notify for changes in folders that
   currently being synced, unless more than 100 files have changed.
@@ -20,7 +25,7 @@ _Changes:_
 - Shut down immediately and kill threads instead of waiting for timeout.
 - Improve appearance of Settings window in GTK 3 style.
 
-_Fixes:_
+_Fixed:_
 
 - Fixed a bug which would cause uploads to fail if they are split into multiple chunks.
 - Fixed a bug that would prevent Maestral from quitting if the setup dialog is aborted.
@@ -31,7 +36,7 @@ _Fixes:_
 
 ### v0.1.1 (2019-06-23)
 
-_Fixes:_
+_Fixed:_
 
 - Fixes an issue which would prevent newly created empty folders from being synced.
 - Remove references to conda in startup script.

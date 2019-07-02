@@ -821,15 +821,21 @@ class MaestralClient(object):
         if n_changed_included == 1:
             md = result_inc.entries[0]
             file_name = md.path_display.strip("/")
-            if isinstance(md, DeletedMetadata) and self.get_local_rev(md.path_display):
-                # file has been deleted from remote
-                self.notify.send("%s removed" % file_name)
-            elif self.get_local_rev(md.path_display) is None:
-                # file has been added to remote
-                self.notify.send("%s added" % file_name)
-            elif not self.get_local_rev(md.path_display) == md.rev:
-                # file has been modified on remote
-                self.notify.send("%s modified" % file_name)
+            if isinstance(md, DeletedMetadata):
+                if self.get_local_rev(md.path_display):
+                    # file has been deleted from remote
+                    self.notify.send("%s removed" % file_name)
+            elif isinstance(md, FileMetadata):
+                if self.get_local_rev(md.path_display) is None:
+                    # file has been added to remote
+                    self.notify.send("%s added" % file_name)
+                elif not self.get_local_rev(md.path_display) == md.rev:
+                    # file has been modified on remote
+                    self.notify.send("%s modified" % file_name)
+            elif isinstance(md, FolderMetadata):
+                if self.get_local_rev(md.path_display) is None:
+                    # folder has been deleted from remote
+                    self.notify.send("%s added" % file_name)
 
         elif n_changed_included > 1:
             self.notify.send("%s files changed" % n_changed_included)
@@ -860,38 +866,30 @@ class MaestralClient(object):
         if not result:
             return
 
-        all_folders = []
-        all_files = []
-        all_deleted = []
-
         # sort changes into folders, files and deleted
         folders, files, deleted = self._sort_entries(result)
 
-        all_folders += folders
-        all_files += files
-        all_deleted += deleted
-
         # sort according to path hierarchy
         # do not create sub-folder / file before parent exists
-        all_folders.sort(key=lambda x: len(x.path_display.split('/')))
-        all_files.sort(key=lambda x: len(x.path_display.split('/')))
-        all_deleted.sort(key=lambda x: len(x.path_display.split('/')))
+        folders.sort(key=lambda x: len(x.path_display.split('/')))
+        files.sort(key=lambda x: len(x.path_display.split('/')))
+        deleted.sort(key=lambda x: len(x.path_display.split('/')))
 
         # create local folders, start with top-level and work your way down
-        for folder in all_folders:
+        for folder in folders:
             success = self._create_local_entry(folder)
+            if success is False:
+                return False
+
+        # apply deleted items
+        for item in deleted:
+            success = self._create_local_entry(item)
             if success is False:
                 return False
 
         # apply created files
         with ThreadPoolExecutor(max_workers=15) as executor:
-            success = executor.map(self._create_local_entry, all_files)
-        if all(success) is False:
-            return False
-
-        # apply deleted items
-        with ThreadPoolExecutor(max_workers=15) as executor:
-            success = executor.map(self._create_local_entry, all_deleted)
+            success = executor.map(self._create_local_entry, files)
         if all(success) is False:
             return False
 
@@ -1041,13 +1039,15 @@ class MaestralClient(object):
         if check_excluded and self.is_excluded_by_user(entry.path_display):
             return True
 
+        local_path = self.to_local_path(entry.path_display)
+
         if isinstance(entry, FileMetadata):
             # Store the new entry at the given path in your local state.
             # If the required parent folders don’t exist yet, create them.
             # If there’s already something else at the given path,
             # replace it and remove all its children.
 
-            dst_path = self.to_local_path(entry.path_display)
+            self._save_to_history(entry.path_display)
 
             # check for sync conflicts
             conflict = self.check_conflict(entry.path_display)
@@ -1056,18 +1056,20 @@ class MaestralClient(object):
             if conflict == 0:  # no conflict
                 pass
             elif conflict == 1:  # conflict! rename local file
-                parts = osp.splitext(dst_path)
+                parts = osp.splitext(local_path)
                 new_local_file = parts[0] + " (conflicting copy)" + parts[1]
-                os.rename(dst_path, new_local_file)
+                os.rename(local_path, new_local_file)
             elif conflict == 2:  # Dropbox files corresponds to local file, nothing to do
                 return True
 
-            md = self.download(entry.path_display, dst_path)
+            md = self.download(entry.path_display, local_path)
             if md is False:
                 return False
 
             # save revision metadata
             self.set_local_rev(md.path_display, md.rev)
+
+            logger.debug("Created local file '{0}'".format(entry.path_display))
 
             return True
 
@@ -1077,9 +1079,9 @@ class MaestralClient(object):
             # If there’s already something else at the given path,
             # replace it but leave the children as they are.
 
-            dst_path = self.to_local_path(entry.path_display)
-            os.makedirs(dst_path, exist_ok=True)
+            os.makedirs(local_path, exist_ok=True)
 
+            # save revision metadata
             self.set_local_rev(entry.path_display, "folder")
 
             logger.debug("Created local directory '{0}'".format(entry.path_display))
@@ -1091,16 +1093,18 @@ class MaestralClient(object):
             # remove it and all its children. If there’s nothing at the
             # given path, ignore this entry.
 
-            dst_path = self.to_local_path(entry.path_display)
-
-            if osp.isdir(dst_path):
-                shutil.rmtree(dst_path)
-            elif osp.isfile(dst_path):
-                os.remove(dst_path)
+            try:
+                if osp.isdir(local_path):
+                    shutil.rmtree(local_path)
+                elif osp.isfile(local_path):
+                    os.remove(local_path)
+            except FileNotFoundError as e:
+                print(e)
+                pass
+            else:
+                logger.debug("Deleted local item '{0}'".format(entry.path_display))
 
             self.set_local_rev(entry.path_display, None)
-
-            logger.debug("Deleted local item '{0}'".format(entry.path_display))
 
             return True
 

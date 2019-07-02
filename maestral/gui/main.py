@@ -82,7 +82,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
                 self.icons[status].setIsMask(True)
 
         # ------------- initialize tray icon -------------------
-        QtWidgets.QSystemTrayIcon.__init__(self, self.icons[DISCONNECTED], parent)
+        QtWidgets.QSystemTrayIcon.__init__(self, self.icons[IDLE], parent)
         self.show_when_systray_available()
 
         # ------------- set up remaining ui -------------------
@@ -125,7 +125,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
             self.pauseAction = self.menu.addAction("Pause Syncing")
         else:
             self.pauseAction = self.menu.addAction("Resume Syncing")
-        self.recentFilesMenu = self.menu.addMenu("Recently Changed")
+        self.recentFilesMenu = self.menu.addMenu("Recently Changed Files")
 
         self.separator3 = self.menu.addSeparator()
 
