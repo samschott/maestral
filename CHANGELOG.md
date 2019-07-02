@@ -1,11 +1,14 @@
-### v0.1.3-dev1 (2019-07-01)
+### v0.1.3-dev2 (2019-07-02)
 
 _Added:_
 
-- Added "Recently Changed Files" submenu to the system tray menu. This menu shows 
-  entries for the 30 last-changed files (synced folder only) and navigates to the 
-  respective file when clicked.
-  
+- Added progress messages for downloads, e.g., "Downloading 3/98...". These are output as
+  info messages and shown in the status field of the system tray menu.
+- Added "Recently Changed Files" submenu to the system tray menu. "Recently Changed Files"
+  shows entries for the 30 last-changed files (synced folders only) and navigates to the
+  respective file in the default file manager when an entry is clicked.
+
+
 _Fixed:_
 
 - Fixed a bug which may result in a removed folder not being deleted locally if it 

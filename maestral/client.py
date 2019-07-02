@@ -12,7 +12,7 @@ import time
 import datetime
 import logging
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 import shutil
 
@@ -888,8 +888,14 @@ class MaestralClient(object):
                 return False
 
         # apply created files
+        n_files = len(files)
+        success = []
         with ThreadPoolExecutor(max_workers=15) as executor:
-            success = executor.map(self._create_local_entry, files)
+            fs = [executor.submit(self._create_local_entry, file) for file in files]
+            for (f, n) in zip(as_completed(fs), range(n_files)):
+                logger.info("Downloading {0}/{1}...".format(n, n_files))
+                success += [f.result()]
+
         if all(success) is False:
             return False
 
