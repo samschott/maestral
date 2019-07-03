@@ -246,7 +246,6 @@ class Maestral(object):
         if dbx_path not in folders:
             folders.append(dbx_path)
 
-        self.client.excluded_folders = folders
         CONF.set("main", "excluded_folders", folders)
         self.client.set_local_rev(dbx_path, None)
 
@@ -319,7 +318,6 @@ class Maestral(object):
             for path in included_folders:
                 self.include_folder(path)  # may raise ConnectionError
 
-        self.client.excluded_folders = excluded_folders
         CONF.set("main", "excluded_folders", excluded_folders)
 
         return excluded_folders

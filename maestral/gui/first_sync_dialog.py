@@ -217,7 +217,6 @@ class FirstSyncDialog(QtWidgets.QDialog):
             elif item.isIncluded():
                 included_folders.append("/" + item.name.lower())
 
-        self.mdbx.client.excluded_folders = excluded_folders
         CONF.set("main", "excluded_folders", excluded_folders)
 
         self.mdbx.get_remote_dropbox_async("")
