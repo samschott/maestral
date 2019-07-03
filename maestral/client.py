@@ -235,14 +235,7 @@ class MaestralClient(object):
     All Dropbox API errors are caught and handled here. ConnectionErrors will
     be caught and handled by :class:`MaestralMonitor` instead.
 
-    :cvar last_cursor: Last cursor from Dropbox which was synced. The value
-        is updated and saved to config file on every successful sync.
-    :cvar excluded_files: List containing all files excluded from sync.
-        This only contains system files such as '.DS_STore' and internal files
-        such as '.dropbox' and should not be changed.
-    :ivar excluded_folders: List containing all files excluded from sync.
-        When adding and removing entries, make sure to update the config file
-        as well so that changes persist across sessions.
+
     :ivar dropbox_path: Path to local Dropbox folder, as loaded from config
         file. Before changing :ivar`dropbox_path`, make sure that all syncing
         is paused. Make sure to move the local Dropbox directory before
@@ -252,13 +245,7 @@ class MaestralClient(object):
 
     SDK_VERSION = "2.0"
 
-    excluded_files = CONF.get("main", "excluded_files")
-    excluded_folders = CONF.get("main", "excluded_folders")
-    last_cursor = CONF.get("internal", "cursor")
-
-    dbx = None
-    auth = None
-    dropbox_path = ''
+    _dropbox_path = CONF.get("main", "path")
 
     notify = Notipy()
     lock = threading.RLock()
@@ -288,7 +275,50 @@ class MaestralClient(object):
 
     @property
     def rev_file(self):
+        """Path to file with revision index (read only)."""
         return osp.join(self.dropbox_path, REV_FILE)
+
+    @property
+    def dropbox_path(self):
+        """Path to local Dropbox folder, as loaded from config file. Before changing
+        :ivar`dropbox_path`, make sure that all syncing is paused. Make sure to move
+        the local Dropbox directory before resuming the sync. Changes are saved to the
+        config file."""
+        return self._dropbox_path
+
+    @dropbox_path.setter
+    def dropbox_path(self, path):
+        """Setter: dropbox_path"""
+        self._dropbox_path = path
+        CONF.set("main", "path", path)
+
+    @property
+    def last_cursor(self):
+        """Cursor from last sync with remote Dropbox. The value is updated and saved to
+        config file on every successful sync. This should not be modified manually."""
+        return CONF.get("internal", "cursor")
+
+    @last_cursor.setter
+    def last_cursor(self, cursor):
+        """Setter: last_cursor"""
+        CONF.set("internal", "cursor", cursor)
+
+    @property
+    def excluded_files(self):
+        """List containing all files excluded from sync (read only). This only contains
+        system files such as '.DS_STore' and internal files such as '.dropbox'."""
+        return CONF.get("main", "excluded_files")
+
+    @property
+    def excluded_folders(self):
+        """List containing all files excluded from sync. Changes are saved to the
+        config file."""
+        return CONF.get("main", "excluded_folders")
+
+    @excluded_folders.setter
+    def excluded_folders(self, folders_list):
+        """Setter: excluded_folders"""
+        CONF.set("main", "excluded_folders", folders_list)
 
     def to_dbx_path(self, local_path):
         """

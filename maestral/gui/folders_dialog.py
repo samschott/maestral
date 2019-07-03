@@ -31,7 +31,7 @@ class FolderItem(QtWidgets.QListWidgetItem):
 
     def isIncluded(self):
         checked_state = self.checkState()
-        return (True if checked_state == 2 else False)
+        return True if checked_state == 2 else False
 
 
 class FoldersDialog(QtWidgets.QDialog):
