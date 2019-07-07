@@ -14,7 +14,7 @@ import subprocess
 import webbrowser
 import shutil
 from blinker import signal
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtGui import QIcon
 
 from maestral.main import Maestral
@@ -173,6 +173,9 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
     @staticmethod
     def open_destination(path, reveal=False):
+        """Open the item at the given path. If the item is a file, attempt to open it
+        in the systems default program. If ``reveal == True``, reveal the file in the
+        systems default file manager instead."""
         path = os.path.abspath(os.path.normpath(path))
         if platform.system() == "Darwin":
             if reveal:
@@ -198,13 +201,16 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
     @staticmethod
     def on_website_clicked():
+        """Open the Dropbox website."""
         webbrowser.open_new("https://www.dropbox.com/")
 
     @staticmethod
     def on_help_clicked():
+        """Open the Dropbox help website."""
         webbrowser.open_new("https://dropbox.com/help")
 
     def on_start_stop_clicked(self):
+        """Pause / resume syncing on menu item clicked."""
         if self.pauseAction.text() == "Pause Syncing":
             self.mdbx.pause_sync()
             self.pauseAction.setText("Resume Syncing")
@@ -213,6 +219,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
             self.pauseAction.setText("Pause Syncing")
 
     def on_usage_available(self, space_usage):
+        """Update account usage info in UI."""
         usage_string = str(space_usage)
         self.accountUsageAction.setText(usage_string)
         self.settings.labelSpaceUsage2.setText(usage_string)
@@ -220,20 +227,59 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
     # callbacks to update GUI
 
     def update_recent_files(self):
+        """Update menu with list of recently changed files."""
         self.recentFilesMenu.clear()
         for dbx_path in reversed(CONF.get("internal", "recent_changes")):
             file_name = os.path.basename(dbx_path)
-            action = self.recentFilesMenu.addAction(file_name)
+            truncated_name = self._truncate_string(file_name, self.menu.font())
+            action = self.recentFilesMenu.addAction(truncated_name)
             action.setData(dbx_path)
 
     def change_icon(self, status):
+        """Change icon according to status."""
         new_icon = self.icons.get(status, self.icons[SYNCING])
         self.setIcon(new_icon)
 
     def quit_(self):
+        """Quit Maestral"""
         self.mdbx.stop_sync()
         self.deleteLater()
         QtCore.QCoreApplication.quit()
+
+    @staticmethod
+    def _truncate_string(string, font, pixels=200):
+        """
+        Truncates strings so that it is short than `pixels` in the given `font`.
+
+        :param str string: String to truncate.
+        :param font: QFont used to determine the pixel width of the text.
+        :param int pixels: Maximum allowed width in pixels.
+
+        :return: Truncated string.
+        :rtype: str
+        """
+        metrics = QtGui.QFontMetrics(font)
+
+        truncated = False
+        new_string = string
+
+        # truncate string using the average width per character
+        if metrics.width(string) > pixels:
+            pixel_per_char = metrics.width(string) / len(string)
+            cutoff = int(pixels / pixel_per_char)
+            new_string = string[0:cutoff]
+            truncated = True
+
+            # truncate further if necessary
+            while metrics.width(new_string) > pixels:
+                new_string = new_string[0:-1]
+
+            # expand if truncated too far
+            while metrics.width(new_string) < pixels:
+                cutoff = len(new_string)
+                new_string = new_string + string[cutoff:cutoff+1]
+
+        return new_string + ('...' if truncated else '')
 
 
 def run():
