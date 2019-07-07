@@ -140,7 +140,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
         # ------------- connect callbacks for menu items -------------------
         self.openDropboxFolderAction.triggered.connect(
-            lambda x: self.goto_file(self.mdbx.client.dropbox_path))
+            lambda: self.open_destination(self.mdbx.client.dropbox_path))
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.pauseAction.triggered.connect(self.on_start_stop_clicked)
         self.preferencesAction.triggered.connect(self.settings.show)
@@ -160,7 +160,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         def callback(action):
             dbx_path = action.data()
             local_path = self.mdbx.client.to_local_path(dbx_path)
-            self.goto_file(local_path)
+            self.open_destination(local_path, reveal=True)
 
         self.recentFilesMenu.triggered.connect(callback)
 
@@ -172,20 +172,26 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
     # callbacks for user interaction
 
     @staticmethod
-    def goto_file(path):
+    def open_destination(path, reveal=False):
         path = os.path.abspath(os.path.normpath(path))
         if platform.system() == "Darwin":
-            subprocess.run(["open", "--reveal", path])
-        elif platform.system() == "Linux":
-            if HAS_GTK_LAUNCH:
-                # if gtk-launch is available, query for the default file manager and
-                # reveal file in the latter
-                file_manager = os.popen("xdg-mime query default inode/directory").read()
-                subprocess.run(["gtk-launch", file_manager.strip(), path])
+            if reveal:
+                subprocess.run(["open", "--reveal", path])
             else:
-                # otherwise open containing directory
-                if not os.path.isdir(path):
-                    path = os.path.dirname(path)
+                subprocess.run(["open", path])
+        elif platform.system() == "Linux":
+            if reveal:
+                if HAS_GTK_LAUNCH:
+                    # if gtk-launch is available, query for the default file manager and
+                    # reveal file in the latter
+                    file_manager = os.popen("xdg-mime query default inode/directory").read()
+                    subprocess.run(["gtk-launch", file_manager.strip(), path])
+                else:
+                    # otherwise open the containing directory
+                    if not os.path.isdir(path):
+                        path = os.path.dirname(path)
+                    subprocess.run(["xdg-open", path])
+            else:
                 subprocess.run(["xdg-open", path])
         else:
             pass
