@@ -120,7 +120,7 @@ class Maestral(object):
     FIRST_SYNC = (not CONF.get("internal", "lastsync") or
                   CONF.get("internal", "cursor") == "" or
                   not osp.isdir(CONF.get("main", "path")))
-    paused_by_user = False
+                  
     download_complete_signal = signal("download_complete_signal")
 
     def __init__(self, run=True):
@@ -188,7 +188,8 @@ class Maestral(object):
             if dbx_path is "":
                 self.monitor.resume()  # resume all syncing
             else:
-                self.monitor.flagged.clear()  # clear excluded list
+                # remove folder from excluded list
+                self.monitor.flagged.remove(self.client.to_local_path(dbx_path))
 
         self.download_complete_signal.connect(callback)
 
@@ -196,7 +197,6 @@ class Maestral(object):
         """
         Creates syncing threads and starts syncing.
         """
-        self.monitor.paused_by_user = False
         self.monitor.start()
         logger.info(IDLE)
 
@@ -204,23 +204,18 @@ class Maestral(object):
         """
         Resumes the syncing threads if paused.
         """
-        self.monitor.paused_by_user = False
         self.monitor.resume()
-        logger.info(IDLE)
 
     def pause_sync(self, overload=None):
         """
         Pauses the syncing threads if running.
         """
-        self.monitor.paused_by_user = True
         self.monitor.pause()
-        logger.info(PAUSED)
 
     def stop_sync(self, overload=None):
         """
         Stops the syncing threads if running, destroys observer thread.
         """
-        self.monitor.paused_by_user = True
         self.monitor.stop()
 
     def unlink(self):
@@ -231,6 +226,7 @@ class Maestral(object):
         self.stop_sync()
         self.client.unlink()
 
+    #TODO: Move to Monitor?
     def exclude_folder(self, dbx_path):
         """
         Excludes folder from sync and deletes local files. It is safe to call
@@ -256,6 +252,7 @@ class Maestral(object):
         if osp.isdir(local_path_cased):
             shutil.rmtree(local_path_cased)
 
+    #TODO: Move to Monitor?
     @if_connected
     def include_folder(self, dbx_path):
         """

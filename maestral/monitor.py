@@ -27,7 +27,7 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 from maestral.config.main import CONF
-from maestral.client import REV_FILE
+from maestral.client import REV_FILE, CorruptedRevFileError
 
 logger = logging.getLogger(__name__)
 
@@ -424,7 +424,7 @@ def upload_worker(dbx_uploader, local_q, running, shutdown):
     while not shutdown.is_set():
 
         try:
-            events = [local_q.get(timeout=10)]  # blocks until event is in queue
+            events = [local_q.get(timeout=2)]  # blocks until event is in queue
         except queue.Empty:
             pass
         else:
@@ -511,9 +511,6 @@ class MaestralMonitor(object):
         be established.
     :cvar running: Event is set if worker threads are running.
     :cvar shutdown: Event to shutdown worker threads.
-    :cvar paused_by_user: `True` if worker has been stopped by user, `False`.
-        If `paused_by_user` is `True`, syncing will not automatically resume
-        once a connection is established.
     """
 
     connected = Event()
@@ -525,7 +522,7 @@ class MaestralMonitor(object):
     disconnected_signal = signal("disconnected_signal")
     account_usage_signal = signal("account_usage_signal")
 
-    paused_by_user = True
+    _auto_resume_on_connect = False
 
     def __init__(self, client):
 
@@ -546,8 +543,10 @@ class MaestralMonitor(object):
     def start(self, overload=None):
         """Creates observer threads and starts syncing."""
 
-        if self.running.is_set() or self.paused_by_user:
-            # do nothing if already running or stopped by user
+        self._auto_resume_on_connect = True
+
+        if self.running.is_set():
+            # do nothing if already running
             return
 
         self.local_observer_thread = Observer()
@@ -568,19 +567,41 @@ class MaestralMonitor(object):
         self.download_thread.start()
         self.upload_thread.start()
 
-        self.connected_signal.connect(self.resume)
-        self.disconnected_signal.connect(self.pause)
+        self.connected_signal.connect(self._resume_on_connect)
+        self.disconnected_signal.connect(self._pause_on_disconnect)
 
         self.upload_local_changes_after_inactive()
 
         self.running.set()  # resumes download_thread
         self.file_handler.running.set()  # starts local file event handler
 
+    def pause(self, overload=None):
+        """Pauses syncing."""
+
+        self._auto_resume_on_connect = False
+        self._pause_on_disconnect()
+
+        logger.info(PAUSED)
+
     def resume(self, overload=None):
         """Checks for changes while idle and starts syncing."""
 
-        if self.running.is_set() or self.paused_by_user:
-            # do nothing if already running or stopped by user
+        self._auto_resume_on_connect = True
+        self._resume_on_connect()
+
+        logger.info(IDLE)
+
+    def _pause_on_disconnect(self, overload=None):
+        """Pauses syncing."""
+
+        self.running.clear()  # pauses download_thread
+        self.file_handler.running.clear()  # stops local file event handler
+
+    def _resume_on_connect(self, overload=None):
+        """Checks for changes while idle and starts syncing."""
+
+        if self.running.is_set() or not self._auto_resume_on_connect:
+            # do nothing if already running or paused by user
             return
 
         self.upload_local_changes_after_inactive()
@@ -588,23 +609,18 @@ class MaestralMonitor(object):
         self.running.set()  # resumes download_thread
         self.file_handler.running.set()  # starts local file event handler
 
-        logger.debug('Resumed.')
-
-    def pause(self, overload=None):
-        """Pauses syncing."""
-
-        self.running.clear()  # pauses download_thread
-        self.file_handler.running.clear()  # stops local file event handler
-
-        logger.debug('Paused.')
-
-    def stop(self, overload=None):
+    def stop(self, overload=None, blocking=False):
         """Stops syncing and destroys worker threads."""
+
+        self._auto_resume_on_connect = False
 
         logger.debug('Shutting down threads...')
 
         self.local_observer_thread.stop()  # stop observer
         self.local_observer_thread.join()  # wait to finish
+
+        if blocking:
+            self.upload_thread.join()  # wait to finish (up to 2 sec)
 
         self.shutdown.set()  # stops our own threads
 
@@ -658,7 +674,7 @@ class MaestralMonitor(object):
                         event = FileModifiedEvent(path)
                     changes.append(event)
                 else:
-                    # new item, not excluded
+                    # new item
                     if osp.isdir(path):
                         event = DirCreatedEvent(path)
                     else:
