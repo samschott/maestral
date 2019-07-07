@@ -152,6 +152,11 @@ class SpaceUsage(dropbox.users.SpaceUsage):
         return str_rep
 
 
+class CorruptedRevFileError(Exception):
+    """Raised when the rev file exists but cannot be read."""
+    pass
+
+
 class OAuth2Session(object):
     """
     OAuth2Session provides OAuth2 login and token store.
@@ -267,11 +272,7 @@ class MaestralClient(object):
         self.dropbox_path = CONF.get("main", "path")
 
         # get cache of revision number from file
-        try:
-            with open(self.rev_file, "rb") as f:
-                self._rev_dict_cache = umsgpack.unpack(f)
-        except FileNotFoundError:
-            self._rev_dict_cache = dict()
+        self._rev_dict_cache = self._load_rev_dict_from_file()
 
     @property
     def rev_file(self):
@@ -384,12 +385,43 @@ class MaestralClient(object):
         else:
             return osp.join(local_parent, dbx_path_basename)
 
+    def _load_rev_dict_from_file(self, path=None, raise_exception=False):
+        path = self.rev_file if not path else path
+        with self._rev_lock:
+            try:
+                with open(path, "rb") as f:
+                    rev_dict_cache = umsgpack.unpack(f)
+                assert isinstance(rev_dict_cache, dict)
+                assert all(isinstance(key, str) for key in rev_dict_cache.keys())
+                assert all(isinstance(val, str) for val in rev_dict_cache.values())
+            except FileNotFoundError:
+                rev_dict_cache = dict()
+                logger.warning("Maestral index could not be found. Rebuild if necessary.")
+            except (AssertionError, IsADirectoryError):
+                msg = "Maestral index has become corrupted. Please rebuild."
+                if raise_exception:
+                    raise CorruptedRevFileError(msg)
+                else:
+                    rev_dict_cache = dict()
+                    logger.error(msg)
+            except PermissionError:
+                msg = ("Insufficient permissions for Dropbox folder. Please " +
+                       "make sure that you have read and write permissions.")
+                if raise_exception:
+                    raise CorruptedRevFileError(msg)
+                else:
+                    rev_dict_cache = dict()
+                    logger.error(msg)
+
+            return rev_dict_cache
+
     # TODO: move to separate class DownloadSync?
     def get_rev_dict(self):
         """
-        Returns dictionary of file / folder paths with rev numbers.
+        Returns a copy of the revision index containing the revision
+        numbers for all synced files and folders.
 
-        :return: Copy of revision number dictionary.
+        :return: Copy of revision index.
         :rtype: dict
         """
         with self._rev_lock:
