@@ -7,9 +7,13 @@ sip API incompatibility issue in spyder's non-gui modules)
 """
 
 from __future__ import division, absolute_import
-import os.path as osp
+import sys
 import os
+import os.path as osp
 import shutil
+
+
+STDERR = sys.stderr
 
 
 # =============================================================================
@@ -44,8 +48,7 @@ def get_home_dir():
 
         if not path:
             raise RuntimeError('Please set the environment variable HOME to '
-                               'your user/home directory path so CustomXepr '
-                               'can start properly.')
+                               'your user/home directory.')
 
 
 def get_conf_path(subfolder=None, filename=None):
@@ -68,7 +71,7 @@ def get_conf_path(subfolder=None, filename=None):
 
 def reset_config_files(subfolder, saved_config_files):
     """Remove all config files"""
-    print("*** Reset CustomXepr settings to defaults ***")
+    print("*** Reset settings to defaults ***", file=STDERR)
     for fname in saved_config_files:
         cfg_fname = get_conf_path(subfolder, fname)
         if osp.isfile(cfg_fname) or osp.islink(cfg_fname):
@@ -77,4 +80,4 @@ def reset_config_files(subfolder, saved_config_files):
             shutil.rmtree(cfg_fname)
         else:
             continue
-        print("removing:", cfg_fname)
+        print("removing:", cfg_fname, file=STDERR)
