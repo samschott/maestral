@@ -1,13 +1,17 @@
-### v0.1.3-dev2 (2019-07-02)
+### v0.1.3-dev2 (2019-07-07)
 
 _Added:_
 
-- Added progress messages for downloads, e.g., "Downloading 3/98...". These are output as
-  info messages and shown in the status field of the system tray menu.
+- Added progress messages for uploads and downloads, e.g., "Downloading 3/98...". These
+  are output as info messages and shown in the status field of the system tray menu.
 - Added "Recently Changed Files" submenu to the system tray menu. "Recently Changed Files"
   shows entries for the 30 last-changed files (synced folders only) and navigates to the
   respective file in the default file manager when an entry is clicked.
 
+_Changed:_
+
+- Cleaned up some of the config module code: removed Spyder specific functions and 
+  obsolete Python 2 compatibility.
 
 _Fixed:_
 
