@@ -470,6 +470,7 @@ class MaestralClient(object):
                     dirname = osp.dirname(dirname)
 
             # save changes to file
+            # don't wrap in try statement but raise all errors
             with open(self.rev_file, "wb+") as f:
                 umsgpack.pack(self._rev_dict_cache, f)
 
@@ -954,7 +955,7 @@ class MaestralClient(object):
         success = []
         with ThreadPoolExecutor(max_workers=15) as executor:
             fs = [executor.submit(self._create_local_entry, file) for file in files]
-            for (f, n) in zip(as_completed(fs), range(n_files)):
+            for (f, n) in zip(as_completed(fs), range(1, n_files+1)):
                 logger.info("Downloading {0}/{1}...".format(n, n_files))
                 success += [f.result()]
 
@@ -1041,20 +1042,10 @@ class MaestralClient(object):
 
         local_rev = self.get_local_rev(dbx_path)
 
-        # check if remote and local versions have same rev
-        if not md.rev == local_rev:
-            # Dropbox server version has a different rev, must be newer
-            logger.debug(
-                    "Local file has rev %s, newer file on Dropbox has rev %s.",
-                    local_rev, md.rev)
-            return 0
-
         if local_rev is None:
             # We likely have a conflict: files with the same name have been
             # created on Dropbox and locally independent of each other.
-            # If a file has been modified while the client was not running,
-            # its entry from rev_dict is removed. Check actual content first before
-            # declaring conflict!
+            # Check actual content first before declaring conflict!
 
             local_hash = get_local_hash(dst_path)
 
@@ -1066,12 +1057,32 @@ class MaestralClient(object):
                 self.set_local_rev(dbx_path, md.rev)  # update local rev
                 return 2  # files are already the same
 
-        if md.rev == local_rev:
+        elif md.rev == local_rev:
             # files have the same revision, trust that they are equal
             logger.debug(
                     "Local file is the same as on Dropbox (rev %s).",
                     local_rev)
             return 2  # files are already the same
+
+        elif md.rev != local_rev:
+            # Dropbox server version has a different rev, must be newer.
+            # If the local version has been modified while sync was stopped,
+            # those changes will be uploaded before any downloads can begin.
+            # If the local version has been modified while sync was running
+            # but changes were not uploaded before the remote version was
+            # changed as well, either:
+            # (a) The upload of the changed file has already started. The
+            #     the remote version will be downloaded and saved and
+            #     the Dropbox server will create a conflicting copy once the
+            #     upload comes through.
+            # (b) The upload has not started yet. In this case, the local
+            #     changes may be overrwritten by the remote version if the
+            #     download completes before the upload starts. This is a bug.
+
+            logger.debug(
+                    "Local file has rev %s, newer file on Dropbox has rev %s.",
+                    local_rev, md.rev)
+            return 0
 
     @staticmethod
     def _sort_entries(result):
