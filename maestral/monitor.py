@@ -12,7 +12,7 @@ import logging
 import time
 from threading import Thread, Event
 from collections import deque
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 import queue
 from blinker import signal
@@ -475,7 +475,11 @@ def upload_worker(dbx_uploader, local_q, running, shutdown):
 
                     num_threads = os.cpu_count()*2
                     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-                        executor.map(dispatch_event, events)
+                        fs = [executor.submit(dispatch_event, e) for e in events]
+                        n_files = len(events)
+                        for (f, n) in zip(as_completed(fs), range(1, n_files+1)):
+                            logger.info("Uploading {0}/{1}...".format(n, n_files))
+
                     CONF.set("internal", "lastsync", time.time())
                     logger.info(IDLE)
                 except (KeyboardInterrupt, SystemExit):
