@@ -47,7 +47,7 @@ DEFAULTS = [
              {
               'cursor': '',
               'lastsync': None,
-              'recent_changes': None,
+              'recent_changes': [],
               }),
             ]
 
