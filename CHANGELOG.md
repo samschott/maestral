@@ -11,18 +11,18 @@ _Added:_
 - Added "Recently Changed Files" submenu to the system tray menu. "Recently Changed Files"
   shows entries for the 30 last-changed files (synced folders only) and navigates to the
   respective file in the default file manager when an entry is clicked.
-- When unlinking your Dropbox account through the GUI, restart Maestral to enter the 
+- When unlinking your Dropbox account through the GUI, Maestral is restarted to enter the 
   setup dialog.
 
 _Changed:_
 
-- Some programs save changes by deleting the old file and creating a new file. This is 
-  now correctly combined to a single `FileModified` event.
+- Some programs save file changes by deleting the old file and creating a new file. This 
+  is now correctly combined to a single `FileModified` event.
 - Some programs create temporary files when saving changes. Those temporary files are 
   deleted again after the save is completed. Those `FileCreated` and `FileDeleted` 
   events, which occur in quick succession, are now ignored by Maestral.
-- The following files have been added to the exclusion list:
-    - Files that start with "~$" or ".~"
+- The following file names have been added to the exclusion list:
+    - Files that start with "\~$" or ".~"
     - Files that start with "~" and end with ".tmp"
 - Cleaned up some of the config module code: removed Spyder specific functions and
   obsolete Python 2 compatibility.
@@ -35,10 +35,10 @@ _Fixed:_
 - Fixed a bug which may result in a removed folder not being deleted locally if it 
   contains subfolders.
 - Fixed a bug which may result in file modifications not being uploaded, depending on 
-  the program used to edit the file.
-- Fixed a bug which would incorrectly list top level files as folders in the folder
-  selection dialogs.
-- Truncate entries in the "Recently Changed Files" menu if their width exceeds 50 pixels.
+  how the changes were saved by the program which was used to edit the file.
+- Fixed a bug which would incorrectly list top level files as folders in the "Exclude
+  folders" dialog.
+- Truncate entries in the "Recently Changed Files" menu if their width exceeds 200 pixels.
 
 ### v0.1.2 (2019-06-25)
 
