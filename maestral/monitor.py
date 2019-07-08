@@ -979,12 +979,13 @@ class UpDownSync(object):
             return 0
 
     def notify_user(self, changes):
+        """Sends system notifications for files changed."""
+
         # count remote changes
-        n_changed_total = len(changes.entries)
-        n_changed_included = len(changes.entries)
+        n_changed = len(changes.entries)
 
         # notify user
-        if n_changed_included == 1:
+        if n_changed == 1:
             md = changes.entries[0]
             file_name = md.path_display.strip("/")
             if isinstance(md, DeletedMetadata):
@@ -1003,13 +1004,8 @@ class UpDownSync(object):
                     # folder has been deleted from remote
                     self.notify.send("%s added" % file_name)
 
-        elif n_changed_included > 1:
-            self.notify.send("%s files changed" % n_changed_included)
-
-        n_changed_outside = n_changed_total - n_changed_included
-        if n_changed_outside > 99:
-            # always notify for changes of 100 files and more
-            self.notify.send("%s files changed" % n_changed_outside)
+        elif n_changed > 1:
+            self.notify.send("%s files changed" % n_changed)
 
     @staticmethod
     def _sort_entries(result):
