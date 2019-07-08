@@ -116,7 +116,7 @@ class OAuth2Session(object):
 
     def load_creds(self):
         print(" > Loading access token...")
-        self.access_token = keyring.get_credential("Maestral", "MaestralUser")
+        self.access_token = keyring.get_password("Maestral", "MaestralUser")
 
         if self.access_token is None:
             try:
