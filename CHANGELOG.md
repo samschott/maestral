@@ -26,6 +26,8 @@ _Fixed:_
 
 - Fixed a bug which may result in a removed folder not being deleted locally if it 
   contains subfolders.
+- Fixed a bug which may result in file modifications not being uploaded, depending on 
+  the program used to edit the file.
 - Fixed a bug which would incorrectly list top level files as folders in the folder
   selection dialogs.
 - Truncate entries in the "Recently Changed Files" menu if their width exceeds 50 pixels.
