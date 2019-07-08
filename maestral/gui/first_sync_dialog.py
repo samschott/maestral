@@ -12,6 +12,8 @@ import requests
 from dropbox.oauth import BadStateException, NotApprovedException
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
+from dropbox import files
+
 from maestral.main import Maestral
 from maestral.client import OAuth2Session
 from maestral.monitor import CONNECTION_ERRORS
@@ -255,9 +257,10 @@ class FirstSyncDialog(QtWidgets.QDialog):
             self.buttonBoxFolderSelection.buttons()[0].setEnabled(True)
 
             for entry in root_folders.entries:
-                is_included = not self.mdbx.client.is_excluded_by_user(entry.path_lower)
-                item = FolderItem(self.folder_icon, entry.name, is_included)
-                self.folder_items.append(item)
+                if isinstance(entry, files.FolderMetadata):
+                    inc = not self.mdbx.dbx_sync.is_excluded_by_user(entry.path_lower)
+                    item = FolderItem(self.folder_icon, entry.name, inc)
+                    self.folder_items.append(item)
 
             for item in self.folder_items:
                 self.listWidgetFolders.addItem(item)
