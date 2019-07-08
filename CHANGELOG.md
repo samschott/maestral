@@ -1,5 +1,9 @@
 ### v0.1.3-dev2 (2019-07-07)
 
+This version includes some GUI improvements: A more informative setup dialog, a new menu
+item which lists recently changed files and an improved unlinking flow. More notably, 
+the upload syncing of local changes has been refactored.
+
 _Added:_
 
 - Added progress messages for uploads and downloads, e.g., "Downloading 3/98...". These
@@ -7,15 +11,20 @@ _Added:_
 - Added "Recently Changed Files" submenu to the system tray menu. "Recently Changed Files"
   shows entries for the 30 last-changed files (synced folders only) and navigates to the
   respective file in the default file manager when an entry is clicked.
+- When unlinking your Dropbox account through the GUI, restart Maestral to enter the 
+  setup dialog.
 
 _Changed:_
 
 - Cleaned up some of the config module code: removed Spyder specific functions and
   obsolete Python 2 compatibility.
+- Refactored sync code: Moved all download sync functionality from `client` to `monitor`.
+  Upload and download syncing are now both handled by the new class `monitor.UpDownSync`
+  and `MaestralClient` only handles access to the Dropbox API.
 
 _Fixed:_
 
-- Fixed a bug which may result in a removed folder not being deleted locally if it
+- Fixed a bug which may result in a removed folder not being deleted locally if it 
   contains subfolders.
 - Fixed a bug which would incorrectly list top level files as folders in the folder
   selection dialogs.

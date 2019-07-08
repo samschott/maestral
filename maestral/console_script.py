@@ -53,8 +53,8 @@ def unlink():
 @click.argument('local_path', type=click.Path())
 def download(dropbox_path: str, local_path: str):
     """Downloads a file from Dropbox."""
-    from maestral.client import MaestralClient
-    client = MaestralClient()
+    from maestral.client import MaestralApiClient
+    client = MaestralApiClient()
     client.download(dropbox_path, local_path)
 
 
@@ -63,8 +63,8 @@ def download(dropbox_path: str, local_path: str):
 @click.argument('dropbox_path', type=click.Path())
 def upload(local_path: str, dropbox_path: str):
     """Uploads a file to Dropbox."""
-    from maestral.client import MaestralClient
-    client = MaestralClient()
+    from maestral.client import MaestralApiClient
+    client = MaestralApiClient()
     client.upload(local_path, dropbox_path)
 
 
@@ -73,8 +73,8 @@ def upload(local_path: str, dropbox_path: str):
 @click.argument('new_path', type=click.Path())
 def move(old_path: str, new_path: str):
     """Moves or renames a file or folder on Dropbox."""
-    from maestral.client import MaestralClient
-    client = MaestralClient()
+    from maestral.client import MaestralApiClient
+    client = MaestralApiClient()
     client.move(old_path, new_path)
 
 
@@ -82,8 +82,8 @@ def move(old_path: str, new_path: str):
 @click.argument('dropbox_path', type=click.Path())
 def ls(dropbox_path: str):
     """Lists contents of a folder on Dropbox."""
-    from maestral.client import MaestralClient
-    client = MaestralClient()
+    from maestral.client import MaestralApiClient
+    client = MaestralApiClient()
     res = client.list_folder(dropbox_path, recursive=False)
     print("\t".join(res.keys()))
 
@@ -92,16 +92,16 @@ def ls(dropbox_path: str):
 @click.argument('dropbox_path', type=click.Path())
 def mkdir(dropbox_path: str):
     """Creates a new directory on Dropbox."""
-    from maestral.client import MaestralClient
-    client = MaestralClient()
+    from maestral.client import MaestralApiClient
+    client = MaestralApiClient()
     client.make_dir(dropbox_path)
 
 
 @main.command()
 def account_info():
     """Prints Dropbox account info."""
-    from maestral.client import MaestralClient
-    client = MaestralClient()
+    from maestral.client import MaestralApiClient
+    client = MaestralApiClient()
     res = client.get_account_info()
     print("%s, %s" % (res.email, res.account_type))
 

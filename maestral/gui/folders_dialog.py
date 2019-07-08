@@ -71,7 +71,7 @@ class FoldersDialog(QtWidgets.QDialog):
 
             for entry in result.entries:
                 if isinstance(entry, files.FolderMetadata):
-                    inc = not self.mdbx.dbx_sync.is_excluded_by_user(entry.path_lower)
+                    inc = not self.mdbx.sync.is_excluded_by_user(entry.path_lower)
                     item = FolderItem(self.folder_icon, entry.name, inc)
                     self.path_items.append(item)
 

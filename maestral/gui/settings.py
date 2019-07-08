@@ -73,7 +73,7 @@ class SettingsWindow(QtWidgets.QWidget):
 
     def setup_combobox(self):
 
-        parent_dir = osp.split(self.mdbx.client.dropbox_path)[0]
+        parent_dir = osp.split(self.mdbx.sync.dropbox_path)[0]
         short_path = self.rel_path(parent_dir)
 
         if parent_dir == get_home_dir():

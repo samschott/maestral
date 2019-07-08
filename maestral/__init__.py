@@ -6,7 +6,7 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 
-from maestral.client import MaestralClient
+from maestral.client import MaestralApiClient
 from maestral.main import Maestral
 try:
     import PyQt5
