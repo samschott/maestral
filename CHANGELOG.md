@@ -10,13 +10,16 @@ _Added:_
 
 _Changed:_
 
-- Cleaned up some of the config module code: removed Spyder specific functions and 
+- Cleaned up some of the config module code: removed Spyder specific functions and
   obsolete Python 2 compatibility.
 
 _Fixed:_
 
-- Fixed a bug which may result in a removed folder not being deleted locally if it 
+- Fixed a bug which may result in a removed folder not being deleted locally if it
   contains subfolders.
+- Fixed a bug which would incorrectly list top level files as folders in the folder
+  selection dialogs.
+- Truncate entries in the "Recently Changed Files" menu if their width exceeds 50 pixels.
 
 ### v0.1.2 (2019-06-25)
 
@@ -38,7 +41,7 @@ _Fixed:_
 - Fixed a bug that would prevent Maestral from quitting if the setup dialog is aborted.
 - Fixed a bug that would cause Maestral to crash during the setup dialog when switching
   multiple times between the "Select Folders to Sync" and "Select Dropbox location" panels.
-- Do not upload files that have identical content on Dropbox. Previously: files were 
+- Do not upload files that have identical content on Dropbox. Previously: files were
   always uploaded and conflict checking was left to do by the Dropbox server.
 
 ### v0.1.1 (2019-06-23)
