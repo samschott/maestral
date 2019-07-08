@@ -846,7 +846,7 @@ class UpDownSync(object):
 
         return excluded
 
-    def check_conflict(self, dbx_path):
+    def check_download_conflict(self, dbx_path):
         """
         Check if local file is conflicting with remote file.
 
@@ -905,7 +905,7 @@ class UpDownSync(object):
             #     the Dropbox server will create a conflicting copy once the
             #     upload comes through.
             # (b) The upload has not started yet. In this case, the local
-            #     changes may be overrwritten by the remote version if the
+            #     changes may be overwritten by the remote version if the
             #     download completes before the upload starts. This is a bug.
 
             logger.debug(
@@ -992,7 +992,7 @@ class UpDownSync(object):
             self._save_to_history(entry.path_display)
 
             # check for sync conflicts
-            conflict = self.check_conflict(entry.path_display)
+            conflict = self.check_download_conflict(entry.path_display)
             if conflict == -1:  # could not get metadata
                 return False
             if conflict == 0:  # no conflict
