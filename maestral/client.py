@@ -13,6 +13,7 @@ import datetime
 import logging
 import requests
 
+import keyring
 import dropbox
 from dropbox import DropboxOAuth2FlowNoRedirect
 
@@ -89,8 +90,6 @@ class OAuth2Session(object):
     auth_flow = None
     oAuth2FlowResult = None
     access_token = ""
-    account_id = ""
-    user_id = ""
 
     def __init__(self, app_key=APP_KEY, app_secret=APP_SECRET):
         self.app_key = app_key
@@ -110,33 +109,37 @@ class OAuth2Session(object):
         try:
             self.oAuth2FlowResult = self.auth_flow.finish(auth_code)
             self.access_token = self.oAuth2FlowResult.access_token
-            self.account_id = self.oAuth2FlowResult.account_id
-            self.user_id = self.oAuth2FlowResult.user_id
         except Exception as exc:
             raise _to_maestral_error(exc) from exc
 
         self.write_creds()
 
     def load_creds(self):
-        print(" > Loading access token..."),
-        try:
-            with open(self.TOKEN_FILE) as f:
-                stored_creds = f.read()
-            self.access_token, self.account_id, self.user_id = stored_creds.split("|")
-            print(" [OK]")
-        except OSError:
-            print(" [FAILED]")
-            print(" x Access token not found. Beginning new session.")
-            self.link()
+        print(" > Loading access token...")
+        self.access_token = keyring.get_credential("Maestral", "MaestralUser")
+
+        if self.access_token is None:
+            try:
+                with open(self.TOKEN_FILE) as f:
+                    stored_creds = f.read()
+                self.access_token, *_ = stored_creds.split("|")
+                print(" [OK]")
+
+                # migrate old token to keyring
+                self.write_creds()
+                os.unlink(self.TOKEN_FILE)
+
+            except IOError:
+                print(" [FAILED]")
+                print(" x Access token not found. Beginning new session.")
+                self.link()
 
     def write_creds(self):
-        with open(self.TOKEN_FILE, "w+") as f:
-            f.write("|".join([self.access_token, self.account_id, self.user_id]))
-
+        keyring.set_password("Maestral", "MaestralUser", self.access_token)
         print(" > Credentials written.")
 
     def delete_creds(self):
-        os.unlink(self.TOKEN_FILE)
+        keyring.delete_password("Maestral", "MaestralUser")
         print(" > Credentials removed.")
 
 
