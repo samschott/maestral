@@ -95,9 +95,30 @@ class OAuth2Session(object):
         self.app_key = app_key
         self.app_secret = app_secret
 
+        self.migrate_to_keyring()
+
         # prepare auth flow
         self.auth_flow = DropboxOAuth2FlowNoRedirect(self.app_key, self.app_secret)
         self.load_creds()
+
+    def migrate_to_keyring(self):
+
+        if os.path.isfile(self.TOKEN_FILE):
+            print(" > Migrating access token to keyring...")
+
+            try:
+                # load old token
+                with open(self.TOKEN_FILE) as f:
+                    stored_creds = f.read()
+                self.access_token, *_ = stored_creds.split("|")
+
+                # migrate old token to keyring
+                self.write_creds()
+                os.unlink(self.TOKEN_FILE)
+                print(" [DONE]")
+
+            except IOError:
+                print(" x Could not load old token. Beginning new session.")
 
     def link(self):
         authorize_url = self.auth_flow.start()
@@ -118,21 +139,10 @@ class OAuth2Session(object):
         print(" > Loading access token...")
         self.access_token = keyring.get_password("Maestral", "MaestralUser")
 
-        if self.access_token is None:
-            try:
-                with open(self.TOKEN_FILE) as f:
-                    stored_creds = f.read()
-                self.access_token, *_ = stored_creds.split("|")
-                print(" [OK]")
-
-                # migrate old token to keyring
-                self.write_creds()
-                os.unlink(self.TOKEN_FILE)
-
-            except IOError:
-                print(" [FAILED]")
-                print(" x Access token not found. Beginning new session.")
-                self.link()
+        if not self.access_token:
+            print(" [FAILED]")
+            print(" x Access token not found. Beginning new session.")
+            self.link()
 
     def write_creds(self):
         keyring.set_password("Maestral", "MaestralUser", self.access_token)
