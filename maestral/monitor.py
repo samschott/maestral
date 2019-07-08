@@ -614,12 +614,13 @@ class UpDownSync(object):
                         break
 
                 # check if file already exists with identical content
-                chk = self.check_conflict(dbx_path)
-
-                if chk == 2:
-                    # file hashes are identical, do not upload
-                    self.last_sync = time.time()
-                    return
+                md = self.client.get_metadata(dbx_path)
+                if md:
+                    local_hash = get_local_hash(path)
+                    if local_hash == md.content_hash:
+                        # file hashes are identical, do not upload
+                        self.last_sync = time.time()
+                        return
 
                 rev = self.get_local_rev(dbx_path)
                 # if truly a new file
