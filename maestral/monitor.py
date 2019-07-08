@@ -452,7 +452,7 @@ class UpDownSync(object):
             while self.local_q.qsize() > 0:
                 events.append(self.local_q.get())
 
-            # COMBINE MOVED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
+            # COMBINE "MOVED" EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
             moved_folder_events = [x for x in events if self._is_moved_folder(x)]
             child_move_events = []
 
@@ -460,9 +460,9 @@ class UpDownSync(object):
                 children = [x for x in events if self._is_moved_child(x, parent_event)]
                 child_move_events += children
 
-            events = set(events) - set(child_move_events)
+            events = self._list_diff(events, child_move_events)
 
-            # COMBINE DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
+            # COMBINE "DELETED" EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
             deleted_folder_events = [x for x in events if self._is_deleted_folder(x)]
             child_deleted_events = []
 
@@ -470,9 +470,9 @@ class UpDownSync(object):
                 children = [x for x in events if self._is_deleted_child(x, parent_event)]
                 child_deleted_events += children
 
-            events = set(events) - set(child_deleted_events)
+            events = self._list_diff(events, child_deleted_events)
 
-            # COMBINE CREATED AND MODIFIED EVENTS OF THE SAME FILE
+            # COMBINE "CREATED" AND "MODIFIED" EVENTS OF THE SAME FILE TO "CREATED"
             created_file_events = [x for x in events if self._is_created(x)]
             duplicate_modified_events = []
 
@@ -481,19 +481,55 @@ class UpDownSync(object):
                 duplicate_modified_events += duplicates
 
             # remove all events with duplicate effects
-            events = set(events) - set(duplicate_modified_events)
+            events = self._list_diff(events, duplicate_modified_events)
+
+            # REMOVE SUBSEQUENT "CREATED" AND "DELETED" EVENTS OF THE SAME FILE
+            to_remove = []
+
+            for event in created_file_events:
+                subsequent_delete = self._get_subsequent_deleted_event(event, events)
+                if subsequent_delete is not None:
+                    to_remove.append(event)
+                    to_remove.append(subsequent_delete)
+
+                    print("Removed tmp file events for: ", event.src_path)
+
+            events = self._list_diff(events, to_remove)
+
+            # COMBINE SUBSEQUENT "DELETED" AND "CREATED" EVENTS TO "MODIFIED"
+            deleted_file_events = [x for x in events if isinstance(x, FileDeletedEvent)]
+            to_remove = []
+            to_add = []
+
+            for event in deleted_file_events:
+                subsequent_create = self._get_subsequent_created_event(event, events)
+                if subsequent_create is not None:
+                    to_remove.append(event)
+                    to_remove.append(subsequent_create)
+
+                    modified_event = FileModifiedEvent(event.src_path)
+                    to_add.append(modified_event)
+
+                    print("Created modified event for: ", modified_event.src_path)
+
+            events = self._list_diff(events, to_remove)
+            events += to_add
 
             return events
 
     @staticmethod
+    def _list_diff(list1, list2):
+        return [l for l in list1 if l not in list2]
+
+    @staticmethod
     def _is_moved_folder(x):
-        """check for moved folders"""
+        """Check for moved folders"""
         is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
         return is_moved_event and x.is_directory
 
     @staticmethod
     def _is_moved_child(x, parent):
-        """check for children of moved folders"""
+        """Check for children of moved folders"""
         is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
         is_child = (x.src_path.startswith(parent.src_path) and
                     x is not parent)
@@ -501,29 +537,48 @@ class UpDownSync(object):
 
     @staticmethod
     def _is_deleted_folder(x):
-        """check for deleted folders"""
+        """Check for deleted folders"""
         is_deleted_event = (x.event_type is EVENT_TYPE_DELETED)
         return is_deleted_event and x.is_directory
 
     @staticmethod
     def _is_deleted_child(x, parent):
-        """check for children of deleted folders"""
+        """Check for children of deleted folders"""
         is_deleted_event = (x.event_type is EVENT_TYPE_DELETED)
         is_child = (x.src_path.startswith(parent.src_path) and
                     x is not parent)
         return is_deleted_event and is_child
 
     @staticmethod
+    def _is_tmp_file(x, events):
+        """Check if file has already been deleted."""
+        is_created_event = (x.event_type is EVENT_TYPE_CREATED)
+        has_subsequent_deleted_event = (e.src_path == x.src_path for e in events)
+        return is_created_event and has_subsequent_deleted_event
+
+    @staticmethod
     def _is_created(x):
-        """check for created items"""
+        """Check for created items."""
         return x.event_type is EVENT_TYPE_CREATED
 
     @staticmethod
     def _is_modified_duplicate(x, original):
-        """check modified items that have just been created"""
+        """Check modified items that have just been created"""
         is_modified_event = (x.event_type is EVENT_TYPE_MODIFIED)
         is_duplicate = (x.src_path == original.src_path)
         return is_modified_event and is_duplicate
+
+    @staticmethod
+    def _get_subsequent_deleted_event(event, all_events):
+        return next((x for x in all_events if x.src_path == event.src_path and
+                     all_events.index(x) > all_events.index(event) and
+                     isinstance(x, FileDeletedEvent)), None)
+
+    @staticmethod
+    def _get_subsequent_created_event(event, all_events):
+        return next((x for x in all_events if x.src_path == event.src_path and
+                     all_events.index(x) > all_events.index(event) and
+                     isinstance(x, FileCreatedEvent)), None)
 
     def apply_local_changes(self, events):
         """Applies locally detected events to remote Dropbox."""
@@ -658,6 +713,10 @@ class UpDownSync(object):
         path = event.src_path
         dbx_path = self.to_dbx_path(path)
 
+        # is file excluded?
+        if self.is_excluded(dbx_path):
+            return
+
         # do not propagate deletions that result from excluding a folder!
         if self.is_excluded_by_user(dbx_path):
             return
@@ -700,6 +759,8 @@ class UpDownSync(object):
                 md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
                 logger.debug("Modified file: %s (old rev: %s, new rev %s)",
                              md.path_display, rev, md.rev)
+                # save or update revision metadata
+                self.set_local_rev(md.path_display, md.rev)
 
         self.last_sync = time.time()
 
@@ -819,7 +880,8 @@ class UpDownSync(object):
 
         return excluded
 
-    def is_excluded(self, dbx_path):
+    @staticmethod
+    def is_excluded(dbx_path):
         """
         Check if file is excluded from sync.
 
@@ -829,22 +891,25 @@ class UpDownSync(object):
         """
         dbx_path = dbx_path.lower()
 
-        excluded = False
-
         # is root folder?
         if dbx_path in ["/", ""]:
-            excluded = True
+            return True
+
+        # information about excluded files:
+        # https://help.dropbox.com/installs-integrations/sync-uploads/files-not-syncing
+
+        basename = osp.basename(dbx_path)
 
         # in excluded files?
-        if osp.basename(dbx_path) in self.excluded_files:
-            excluded = True
+        test0 = basename in ["desktop.ini",  "thumbs.db", ".ds_store", "icon\r",
+                             ".dropbox.attr", ".dropbox"]
+        # temporary file?
+        test1 = basename.count(".") > 1
+        test2 = basename.startswith("~$")
+        test3 = basename.startswith(".~")
+        test4 = basename.startswith("~") and basename.endswith(".tmp")
 
-        # If the file name contains multiple periods it is likely a temporary
-        # file created during a saving event on macOS. Ignore such files.
-        if osp.basename(dbx_path).count(".") > 1:
-            excluded = True
-
-        return excluded
+        return any((test0, test1, test2, test3, test4))
 
     def check_download_conflict(self, dbx_path):
         """
