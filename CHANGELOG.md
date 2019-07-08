@@ -16,6 +16,14 @@ _Added:_
 
 _Changed:_
 
+- Some programs save changes by deleting the old file and creating a new file. This is 
+  now correctly combined to a single `FileModified` event.
+- Some programs create temporary files when saving changes. Those temporary files are 
+  deleted again after the save is completed. Those `FileCreated` and `FileDeleted` 
+  events, which occur in quick succession, are now ignored by Maestral.
+- The following files have been added to the exclusion list:
+    - Files that start with "~$" or ".~"
+    - Files that start with "~" and end with ".tmp"
 - Cleaned up some of the config module code: removed Spyder specific functions and
   obsolete Python 2 compatibility.
 - Refactored sync code: Moved all download sync functionality from `client` to `monitor`.
