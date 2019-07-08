@@ -5,8 +5,10 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
-
+import os
 import os.path as osp
+from subprocess import Popen
+import platform
 import time
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
@@ -45,9 +47,9 @@ class SettingsWindow(QtWidgets.QWidget):
         # populate app section
         self.autostart = AutoStart()
         self.checkBoxStartup.setChecked(self.autostart.enabled)
-        self.checkBoxStartup.stateChanged.connect(self.on_startup_clicked)
+        self.checkBoxStartup.stateChanged.connect(self.on_start_on_login_clicked)
         self.checkBoxNotifications.setChecked(self.mdbx.notify)
-        self.checkBoxNotifications.stateChanged.connect(self.on_notify_clicked)
+        self.checkBoxNotifications.stateChanged.connect(self.on_notifications_clicked)
 
         # populate sync section
         self.setup_combobox()
@@ -63,7 +65,7 @@ class SettingsWindow(QtWidgets.QWidget):
             self.labelSpaceUsage1.setText("Your space:")
         self.labelSpaceUsage2.setText(CONF.get("account", "usage"))
         self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
-        self.unlink_dialog.accepted.connect(self.mdbx.unlink)
+        self.unlink_dialog.accepted.connect(self.on_unlink)
 
         # populate about section
         year = time.localtime().tm_year
@@ -110,6 +112,32 @@ class SettingsWindow(QtWidgets.QWidget):
             new_path = osp.join(new_location, 'Dropbox')
             self.mdbx.set_dropbox_directory(new_path)
 
+    def on_unlink(self):
+        """Unlinks the user's account and restarts the setup dialog."""
+
+        self.mdbx.unlink()  # unlink
+        pid = os.getpid()  # get ID of current process
+
+        # wait for current process to quit and then restart Maestral
+        if platform.system() == "Darwin":
+            Popen("lsof -p {0} +r 1 &>/dev/null; maestral-gui".format(pid), shell=True)
+        elif platform.system() == "Linux":
+            Popen("tail --pid={0} -f /dev/null; maestral-gui".format(pid), shell=True)
+
+        QtCore.QCoreApplication.quit()
+
+    def on_start_on_login_clicked(self, state):
+        if state == 0:
+            self.autostart.disable()
+        elif state == 2:
+            self.autostart.enable()
+
+    def on_notifications_clicked(self, state):
+        if state == 0:
+            self.mdbx.notify = False
+        elif state == 2:
+            self.mdbx.notify = True
+
     @staticmethod
     def rel_path(path):
         """
@@ -121,15 +149,3 @@ class SettingsWindow(QtWidgets.QWidget):
             return osp.relpath(path, usr)
         else:
             return path
-
-    def on_startup_clicked(self, state):
-        if state == 0:
-            self.autostart.disable()
-        elif state == 2:
-            self.autostart.enable()
-
-    def on_notify_clicked(self, state):
-        if state == 0:
-            self.mdbx.notify = False
-        elif state == 2:
-            self.mdbx.notify = True

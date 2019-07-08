@@ -66,7 +66,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
     usage_signal = signal("account_usage_signal")
 
     def __init__(self, mdbx, parent=None):
-        # ------------- load try icons -------------------
+        # ------------- load tray icons -------------------
         self.icons = dict()
         icon_color = ""
 
