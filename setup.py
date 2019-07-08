@@ -57,6 +57,8 @@ setup(
         "blinker",
         "requests",
         "u-msgpack-python",
+        "keyring",
+        "keyrings.alt"
         ],
     zip_safe=False,
     entry_points={
