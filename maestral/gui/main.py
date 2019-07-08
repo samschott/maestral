@@ -140,7 +140,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
         # ------------- connect callbacks for menu items -------------------
         self.openDropboxFolderAction.triggered.connect(
-            lambda: self.open_destination(self.mdbx.client.dropbox_path))
+            lambda: self.open_destination(self.mdbx.sync.dropbox_path))
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.pauseAction.triggered.connect(self.on_start_stop_clicked)
         self.preferencesAction.triggered.connect(self.settings.show)
@@ -159,7 +159,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
         def callback(action):
             dbx_path = action.data()
-            local_path = self.mdbx.client.to_local_path(dbx_path)
+            local_path = self.mdbx.sync.to_local_path(dbx_path)
             self.open_destination(local_path, reveal=True)
 
         self.recentFilesMenu.triggered.connect(callback)

@@ -36,7 +36,8 @@ def _get_theme():
     """
     Returns one of THEME_LIGHT or THEME_DARK, corresponding to current user's UI theme
     """
-    # getting color of a pixel on a top bar, and identifying best-fitting color theme based on its luminance
+    # getting color of a pixel on a top bar, and identifying best-fitting color
+    # theme based on its luminance
     pixel_rgb = __pixel_at(2, 2)
     luminance = _luminance(*pixel_rgb)
     return THEME_LIGHT if luminance >= 0.5 else THEME_DARK

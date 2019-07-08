@@ -19,8 +19,9 @@ from blinker import signal
 from threading import Thread
 from dropbox import files
 
-from maestral.client import MaestralClient, path_exists_case_insensitive
-from maestral.monitor import MaestralMonitor, CONNECTION_ERRORS, IDLE, PAUSED, DISCONNECTED
+from maestral.client import MaestralApiClient
+from maestral.monitor import (MaestralMonitor, CONNECTION_ERRORS, IDLE,
+                              DISCONNECTED, path_exists_case_insensitive)
 from maestral.config.main import CONF
 
 import logging
@@ -37,23 +38,23 @@ CONNECTION_ERROR = ("Cannot connect to Dropbox servers. Please  check " +
                     "your internet connection and try again later.")
 
 
-def folder_download_worker(client, dbx_path):
+def folder_download_worker(sync, dbx_path):
     """
     Worker to to download a whole Dropbox directory in the background.
 
-    :param class client: :class:`MaestralClient` instance.
+    :param class sync: :class:`UpDownSync` instance.
     :param str dbx_path: Path to directory on Dropbox.
     """
     download_complete_signal = signal("download_complete_signal")
 
     time.sleep(2)  # wait for pausing to take effect
 
-    with client.lock:
+    with sync.lock:
         completed = False
         while not completed:
             try:
-                client.get_remote_dropbox(dbx_path)
-                CONF.set("internal", "lastsync", time.time())
+                sync.get_remote_dropbox(dbx_path)
+                sync.last_sync = time.time()
                 logger.info(IDLE)
 
                 time.sleep(1)
@@ -120,14 +121,16 @@ class Maestral(object):
     FIRST_SYNC = (not CONF.get("internal", "lastsync") or
                   CONF.get("internal", "cursor") == "" or
                   not osp.isdir(CONF.get("main", "path")))
-                  
+
     download_complete_signal = signal("download_complete_signal")
 
     def __init__(self, run=True):
 
-        self.client = MaestralClient()
+        self.client = MaestralApiClient()
+
         # monitor needs to be created before any decorators are called
         self.monitor = MaestralMonitor(self.client)
+        self.sync = self.monitor.sync
 
         if self.FIRST_SYNC:
             self.set_dropbox_directory()
@@ -137,7 +140,7 @@ class Maestral(object):
             CONF.set("internal", "cursor", "")
             CONF.set("internal", "lastsync", None)
 
-            success = self.client.get_remote_dropbox()
+            success = self.sync.get_remote_dropbox()
             if success:
                 CONF.set("internal", "lastsync", time.time())
 
@@ -157,17 +160,17 @@ class Maestral(object):
     @property
     def notify(self):
         """Bool indicating if notifications are enabled."""
-        return self.client.notify.enabled
+        return self.sync.notify.enabled
 
     @notify.setter
     def notify(self, boolean):
         """Setter: Bool indicating if notifications are enabled."""
-        self.client.notify.enabled = boolean
+        self.sync.notify.enabled = boolean
 
     @if_connected
     def get_remote_dropbox_async(self, dbx_path):
         """
-        Runs `client.get_remote_dropbox` in the background, downloads the full
+        Runs `sync.get_remote_dropbox` in the background, downloads the full
         Dropbox folder `dbx_path` to the local drive. The folder is temporarily
         excluded from the local observer to prevent duplicate uploads.
 
@@ -176,11 +179,11 @@ class Maestral(object):
         if dbx_path is "":  # pause all syncing while downloading root folder
             self.monitor.pause()
         else:  # exclude only specific folder otherwise
-            self.monitor.flagged.append(self.client.to_local_path(dbx_path))
+            self.monitor.flagged.append(self.sync.to_local_path(dbx_path))
 
         self.download_thread = Thread(
                 target=folder_download_worker,
-                args=(self.client, dbx_path),
+                args=(self.sync, dbx_path),
                 name="MaestralFolderDownloader")
         self.download_thread.start()
 
@@ -189,7 +192,7 @@ class Maestral(object):
                 self.monitor.resume()  # resume all syncing
             else:
                 # remove folder from excluded list
-                self.monitor.flagged.remove(self.client.to_local_path(dbx_path))
+                self.monitor.flagged.remove(self.sync.to_local_path(dbx_path))
 
         self.download_complete_signal.connect(callback)
 
@@ -226,7 +229,12 @@ class Maestral(object):
         self.stop_sync()
         self.client.unlink()
 
-    #TODO: Move to Monitor?
+        os.remove(self.sync.rev_file_path)
+
+        CONF.reset_to_defaults()
+
+        logger.info("Unlinked Dropbox account.")
+
     def exclude_folder(self, dbx_path):
         """
         Excludes folder from sync and deletes local files. It is safe to call
@@ -243,16 +251,15 @@ class Maestral(object):
             folders.append(dbx_path)
 
         CONF.set("main", "excluded_folders", folders)
-        self.client.set_local_rev(dbx_path, None)
+        self.sync.set_local_rev(dbx_path, None)
 
         # remove folder from local drive
-        local_path = self.client.to_local_path(dbx_path)
+        local_path = self.sync.to_local_path(dbx_path)
         local_path_cased = path_exists_case_insensitive(local_path)
         logger.debug("Deleting folder {0}.".format(local_path_cased))
         if osp.isdir(local_path_cased):
             shutil.rmtree(local_path_cased)
 
-    #TODO: Move to Monitor?
     @if_connected
     def include_folder(self, dbx_path):
         """
@@ -275,7 +282,7 @@ class Maestral(object):
             logger.debug("Folder was already included, nothing to do.")
             return
 
-        self.client.excluded_folders = new_folders
+        self.sync.excluded_folders = new_folders
         CONF.set("main", "excluded_folders", new_folders)
 
         # download folder contents from Dropbox
@@ -350,14 +357,14 @@ class Maestral(object):
             os.makedirs(new_path)
 
         # update config file and client
-        self.client.dropbox_path = new_path
+        self.sync.dropbox_path = new_path
         CONF.set("main", "path", new_path)
 
     def get_dropbox_directory(self):
         """
         Returns the path to the local Dropbox directory.
         """
-        return self.client.dropbox_path
+        return self.sync.dropbox_path
 
     def _ask_for_path(self, default="~/Dropbox"):
         """

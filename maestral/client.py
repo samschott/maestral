@@ -11,20 +11,12 @@ import os.path as osp
 import time
 import datetime
 import logging
-from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
-import shutil
 
-import umsgpack
 import dropbox
-from dropbox.files import DeletedMetadata, FileMetadata, FolderMetadata
 from dropbox import DropboxOAuth2FlowNoRedirect
 
 from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
-from maestral.utils.notify import Notipy
-from maestral.utils.content_hasher import DropboxContentHasher
 
 logger = logging.getLogger(__name__)
 # create single requests session for all clients
@@ -32,8 +24,6 @@ SESSION = dropbox.dropbox.create_session()
 
 APP_KEY = os.environ["DROPBOX_API_KEY"]
 APP_SECRET = os.environ["DROPBOX_API_SECRET"]
-
-REV_FILE = ".dropbox"
 
 
 def tobytes(value, unit, bsize=1024):
@@ -66,72 +56,6 @@ def bytesto(value, unit, bsize=1024):
     return float(value) / bsize**a[unit.upper()]
 
 
-def path_exists_case_insensitive(path, root="/"):
-    """
-    Checks if a `path` exists in given `root` directory, similar to
-    `os.path.exists` but case-insensitive. If there are multiple
-    case-insensitive matches, the first one is returned. If there is no match,
-    an empty string is returned.
-
-    :param str path: Relative path of file/folder to find in the `root`
-        directory.
-    :param str root: Directory where we will look for `path`.
-    :return: Absolute and case-sensitive path to search result on hard drive.
-    :rtype: str
-    """
-
-    if not osp.isdir(root):
-        raise ValueError("'{0}' is not a directory.".format(root))
-
-    if path in ["", "/"]:
-        return root
-
-    path_list = path.lstrip(osp.sep).split(osp.sep)
-    path_list_lower = [x.lower() for x in path_list]
-
-    i = 0
-    local_paths = []
-    for root, dirs, files in os.walk(root):
-        for d in list(dirs):
-            if not d.lower() == path_list_lower[i]:
-                dirs.remove(d)
-        for f in list(files):
-            if not f.lower() == path_list_lower[i]:
-                files.remove(f)
-
-        local_paths = [osp.join(root, name) for name in dirs + files]
-
-        i += 1
-        if i == len(path_list_lower):
-            break
-
-    if len(local_paths) == 0:
-        return ''
-    else:
-        return local_paths[0]
-
-
-def get_local_hash(dst_path):
-    """
-    Computes content hash of local file.
-
-    :param str dst_path: Path to local file.
-    :return: content hash to compare with ``content_hash`` attribute of
-        :class:`dropbox.files.FileMetadata` object.
-    """
-
-    hasher = DropboxContentHasher()
-
-    with open(dst_path, 'rb') as f:
-        while True:
-            chunk = f.read(1024)
-            if len(chunk) == 0:
-                break
-            hasher.update(chunk)
-
-    return hasher.hexdigest()
-
-
 class SpaceUsage(dropbox.users.SpaceUsage):
 
     def __str__(self):
@@ -150,11 +74,6 @@ class SpaceUsage(dropbox.users.SpaceUsage):
         alloc_gb = bytesto(allocated, "GB")
         str_rep = "{:.1f}% of {:,}GB used".format(percent, alloc_gb)
         return str_rep
-
-
-class CorruptedRevFileError(Exception):
-    """Raised when the rev file exists but cannot be read."""
-    pass
 
 
 class OAuth2Session(object):
@@ -222,40 +141,20 @@ class OAuth2Session(object):
 
 
 # noinspection PyDeprecation
-class MaestralClient(object):
+class MaestralApiClient(object):
     """Client for Dropbox SDK.
 
-    This client defines basic methods to edit the remote Dropbox folder: it
-    supports creating, moving, modifying and deleting files and folders on
-    Dropbox. It also provides a method to download a file from Dropbox to a
-    given local path.
-
-    Higher level methods provide ways to list the contents of and download
-    entire folder from Dropbox.
-
-    MaestralClient also provides methods to wait for and apply changes from the
-    remote Dropbox. Detecting local changes is handled by :class:`MaestralMonitor`
-    instead.
+    This client defines basic methods to wrap Dropbox Python SDK calls, such as creating,
+    moving, modifying and deleting files and folders on Dropbox and downloading files from
+    Dropbox. MaestralClient also provides methods to wait for and list changes from the
+    remote Dropbox.
 
     All Dropbox API errors are caught and handled here. ConnectionErrors will
     be caught and handled by :class:`MaestralMonitor` instead.
 
-
-    :ivar dropbox_path: Path to local Dropbox folder, as loaded from config
-        file. Before changing :ivar`dropbox_path`, make sure that all syncing
-        is paused. Make sure to move the local Dropbox directory before
-        resuming the sync and to save the new :ivar`dropbox_path` to the
-        config file.
     """
 
     SDK_VERSION = "2.0"
-
-    _dropbox_path = CONF.get("main", "path")
-
-    notify = Notipy()
-    lock = threading.RLock()
-
-    _rev_lock = threading.Lock()
 
     def __init__(self):
 
@@ -267,212 +166,6 @@ class MaestralClient(object):
         # initialize API client
         self.dbx = dropbox.Dropbox(self.auth.access_token, session=SESSION)
         print(" > MaestralClient is ready.")
-
-        # get correct directories
-        self.dropbox_path = CONF.get("main", "path")
-
-        # get cache of revision number from file
-        self._rev_dict_cache = self._load_rev_dict_from_file()
-
-    @property
-    def rev_file(self):
-        """Path to file with revision index (read only)."""
-        return osp.join(self.dropbox_path, REV_FILE)
-
-    @property
-    def dropbox_path(self):
-        """Path to local Dropbox folder, as loaded from config file. Before changing
-        :ivar`dropbox_path`, make sure that all syncing is paused. Make sure to move
-        the local Dropbox directory before resuming the sync. Changes are saved to the
-        config file."""
-        return self._dropbox_path
-
-    @dropbox_path.setter
-    def dropbox_path(self, path):
-        """Setter: dropbox_path"""
-        self._dropbox_path = path
-        CONF.set("main", "path", path)
-
-    @property
-    def last_cursor(self):
-        """Cursor from last sync with remote Dropbox. The value is updated and saved to
-        config file on every successful sync. This should not be modified manually."""
-        return CONF.get("internal", "cursor")
-
-    @last_cursor.setter
-    def last_cursor(self, cursor):
-        """Setter: last_cursor"""
-        CONF.set("internal", "cursor", cursor)
-
-    @property
-    def excluded_files(self):
-        """List containing all files excluded from sync (read only). This only contains
-        system files such as '.DS_STore' and internal files such as '.dropbox'."""
-        return CONF.get("main", "excluded_files")
-
-    @property
-    def excluded_folders(self):
-        """List containing all files excluded from sync. Changes are saved to the
-        config file."""
-        return CONF.get("main", "excluded_folders")
-
-    @excluded_folders.setter
-    def excluded_folders(self, folders_list):
-        """Setter: excluded_folders"""
-        CONF.set("main", "excluded_folders", folders_list)
-
-    def to_dbx_path(self, local_path):
-        """
-        Converts a local path to a path relative to the Dropbox folder.
-
-        :param str local_path: Full path to file in local Dropbox folder.
-        :return: Relative path with respect to Dropbox folder.
-        :rtype: str
-        :raises ValueError: If no path is specified or path is outside of local
-            Dropbox folder.
-        """
-
-        if not local_path:
-            raise ValueError("No path specified.")
-
-        dbx_root_list = osp.normpath(self.dropbox_path).split(osp.sep)
-        path_list = osp.normpath(local_path).split(osp.sep)
-
-        # Work out how much of the file path is shared by dropbox_path and path.
-        # noinspection PyTypeChecker
-        i = len(osp.commonprefix([dbx_root_list, path_list]))
-
-        if i == len(path_list):  # path corresponds to dropbox_path
-            return "/"
-        elif not i == len(dbx_root_list):  # path is outside of to dropbox_path
-            raise ValueError("Specified path '%s' is not in Dropbox directory." % local_path)
-
-        relative_path = "/" + "/".join(path_list[i:])
-
-        return relative_path
-
-    def to_local_path(self, dbx_path):
-        """
-        Converts a Dropbox folder to the corresponding local path.
-
-        The `path_display` attribute returned by the Dropbox API only
-        guarantees correct casing of the basename (file name or folder name)
-        and not of the full path. This is because Dropbox itself is not case
-        sensitive and stores all paths in lowercase internally.
-
-        Therefore, if the parent directory is already present on the local
-        drive, it's casing is used. Otherwise, the casing given by the Dropbox
-        API metadata is used. This aims to preserve the correct casing as
-        uploaded to Dropbox and prevents the creation of duplicate folders
-        with different casing on the local drive.
-
-        :param str dbx_path: Path to file relative to Dropbox folder.
-        :return: Corresponding local path on drive.
-        :rtype: str
-        :raises ValueError: If no path is specified.
-        """
-
-        if not dbx_path:
-            raise ValueError("No path specified.")
-
-        dbx_path = dbx_path.replace("/", osp.sep)
-        dbx_path_parent, dbx_path_basename,  = osp.split(dbx_path)
-
-        local_parent = path_exists_case_insensitive(dbx_path_parent, self.dropbox_path)
-
-        if local_parent == "":
-            return osp.join(self.dropbox_path, dbx_path.lstrip(osp.sep))
-        else:
-            return osp.join(local_parent, dbx_path_basename)
-
-    def _load_rev_dict_from_file(self, path=None, raise_exception=False):
-        path = self.rev_file if not path else path
-        with self._rev_lock:
-            try:
-                with open(path, "rb") as f:
-                    rev_dict_cache = umsgpack.unpack(f)
-                assert isinstance(rev_dict_cache, dict)
-                assert all(isinstance(key, str) for key in rev_dict_cache.keys())
-                assert all(isinstance(val, str) for val in rev_dict_cache.values())
-            except FileNotFoundError:
-                rev_dict_cache = dict()
-                logger.warning("Maestral index could not be found. Rebuild if necessary.")
-            except (AssertionError, IsADirectoryError):
-                msg = "Maestral index has become corrupted. Please rebuild."
-                if raise_exception:
-                    raise CorruptedRevFileError(msg)
-                else:
-                    rev_dict_cache = dict()
-                    logger.error(msg)
-            except PermissionError:
-                msg = ("Insufficient permissions for Dropbox folder. Please " +
-                       "make sure that you have read and write permissions.")
-                if raise_exception:
-                    raise CorruptedRevFileError(msg)
-                else:
-                    rev_dict_cache = dict()
-                    logger.error(msg)
-
-            return rev_dict_cache
-
-    # TODO: move to separate class DownloadSync?
-    def get_rev_dict(self):
-        """
-        Returns a copy of the revision index containing the revision
-        numbers for all synced files and folders.
-
-        :return: Copy of revision index.
-        :rtype: dict
-        """
-        with self._rev_lock:
-            return dict(self._rev_dict_cache)
-
-    # TODO: move to separate class DownloadSync?
-    def get_local_rev(self, dbx_path):
-        """
-        Gets revision number of local file.
-
-        :param str dbx_path: Dropbox file path.
-        :return: Revision number as str or `None` if no local revision number
-            has been saved.
-        :rtype: str
-        """
-        with self._rev_lock:
-            dbx_path = dbx_path.lower()
-            rev = self._rev_dict_cache.get(dbx_path, None)
-
-            return rev
-
-    # TODO: move to separate class DownloadSync?
-    def set_local_rev(self, dbx_path, rev):
-        """
-        Saves revision number `rev` for local file. If `rev` is `None`, the
-        entry for the file is removed.
-
-        :param str dbx_path: Relative Dropbox file path.
-        :param rev: Revision number as string or `None`.
-        """
-        with self._rev_lock:
-            dbx_path = dbx_path.lower()
-
-            if rev is None:
-                # remove entry and all its children revs
-                for path in dict(self._rev_dict_cache):
-                    if path.startswith(dbx_path):
-                        self._rev_dict_cache.pop(path, None)
-            else:
-                # add entry
-                self._rev_dict_cache[dbx_path] = rev
-                # set all parent revs to 'folder'
-                dirname = osp.dirname(dbx_path)
-                while dirname is not "/":
-                    self._rev_dict_cache[dirname] = "folder"
-                    dirname = osp.dirname(dirname)
-
-            # save changes to file
-            # don't wrap in try statement but raise all errors
-            with open(self.rev_file, "wb+") as f:
-                umsgpack.pack(self._rev_dict_cache, f)
 
     def get_account_info(self):
         """
@@ -533,20 +226,6 @@ class MaestralClient(object):
         """
         self.auth.delete_creds()
         self.dbx.auth_token_revoke()
-
-        os.remove(self.rev_file)
-
-        self.excluded_folders = []
-        CONF.set("main", "excluded_folders", [])
-
-        CONF.set("account", "email", "")
-        CONF.set("account", "usage", "")
-
-        CONF.set("internal", "cursor", "")
-        CONF.set("internal", "lastsync", None)
-        CONF.set("internal", "recent_changes", [])
-
-        logger.debug("Unlinked Dropbox account")
 
     def get_metadata(self, dbx_path, **kwargs):
         """
@@ -770,45 +449,19 @@ class MaestralClient(object):
 
         return results_flattened
 
-    # TODO: move to separate class DownloadSync?
-    # TODO: speed up by neglecting excluded folders
-    def get_remote_dropbox(self, dbx_path=""):
+    def wait_for_remote_changes(self, last_cursor, timeout=20):
         """
-        Gets all files/folders from Dropbox and writes them to local folder
-        :ivar:`dropbox_path`. Call this method on first run of client. Indexing
-        and downloading may take some time, depending on the size of the users
-        Dropbox folder.
-
-        :param str dbx_path: Path to Dropbox folder. Defaults to root ("").
-        :return: `True` on success, `False` otherwise.
-        :rtype: bool
-        """
-        logger.info("Indexing...")
-        result = self.list_folder(dbx_path, recursive=True,
-                                  include_deleted=False, limit=500)
-        if not result:
-            return False
-
-        # apply remote changes, don't update the global cursor when downloading
-        # a single folder only
-        save_cursor = (dbx_path == "")
-        logger.info("Syncing...")
-        success = self.apply_remote_changes(result, save_cursor)
-        logger.info("Up to date")
-        return success
-
-    def wait_for_remote_changes(self, timeout=20):
-        """
-        Waits for remote changes since :ivar:`last_cursor`. Call this method
+        Waits for remote changes since :param:`last_cursor`. Call this method
         after starting the Dropbox client and periodically to get the latest
         updates.
 
+        :param str last_cursor: Last to cursor to compare for changes.
         :param int timeout: Seconds to wait until timeout.
         :return: `True` if changes are available, `False` otherwise.
         :rtype: bool
         """
 
-        logger.debug("Waiting for remote changes since cursor:\n{0}".format(self.last_cursor))
+        logger.debug("Waiting for remote changes since cursor:\n{0}".format(last_cursor))
 
         # honour last request to back off
         if self.last_longpoll is not None:
@@ -816,7 +469,7 @@ class MaestralClient(object):
                 time.sleep(1)
 
         try:
-            result = self.dbx.files_list_folder_longpoll(self.last_cursor, timeout=timeout)
+            result = self.dbx.files_list_folder_longpoll(last_cursor, timeout=timeout)
         except dropbox.exceptions.ApiError:
             msg = "Cannot access Dropbox folder."
             logger.debug(msg)
@@ -832,15 +485,13 @@ class MaestralClient(object):
 
         return result.changes
 
-    def list_remote_changes(self, synced_only=True):
+    def list_remote_changes(self, last_cursor):
         """
-        Lists changes to remote Dropbox since :ivar:`last_cursor`. Call this
+        Lists changes to remote Dropbox since :param:`last_cursor`. Call this
         after :method:`wait_for_remote_changes` returns `True`. Only remote changes
         in currently synced folders will be returned by default.
 
-        :param bool synced_only: If `True`, list only changed from folders that have
-            not been excluded from syncing. If `False`, all remote changes will be
-            listed (defaults to `True`).
+        :param str last_cursor: Last to cursor to compare for changes.
 
         :return: :class:`dropbox.files.ListFolderResult` instance or False if
             requests failed.
@@ -850,7 +501,7 @@ class MaestralClient(object):
         results = []
 
         try:
-            results.append(self.dbx.files_list_folder_continue(self.last_cursor))
+            results.append(self.dbx.files_list_folder_continue(last_cursor))
         except dropbox.exceptions.ApiError as err:
             logging.warning("Folder listing failed: %s", err)
             return False
@@ -864,335 +515,8 @@ class MaestralClient(object):
                 return False
 
         # combine all results into one
-        result_all = self.flatten_results(results)
-
-        # filter changes from non-excluded folders if requested
-        if synced_only:
-            entries_inc = [e for e in result_all.entries if not self.is_excluded_by_user(
-                e.path_lower)]
-            result_inc = dropbox.files.ListFolderResult(
-                entries=entries_inc, cursor=result_all.cursor, has_more=False)
-        else:
-            result_inc = result_all
-
-        # count remote changes
-        n_changed_total = len(result_all.entries)
-        n_changed_included = len(result_inc.entries)
-
-        # notify user
-        if n_changed_included == 1:
-            md = result_inc.entries[0]
-            file_name = md.path_display.strip("/")
-            if isinstance(md, DeletedMetadata):
-                if self.get_local_rev(md.path_display):
-                    # file has been deleted from remote
-                    self.notify.send("%s removed" % file_name)
-            elif isinstance(md, FileMetadata):
-                if self.get_local_rev(md.path_display) is None:
-                    # file has been added to remote
-                    self.notify.send("%s added" % file_name)
-                elif not self.get_local_rev(md.path_display) == md.rev:
-                    # file has been modified on remote
-                    self.notify.send("%s modified" % file_name)
-            elif isinstance(md, FolderMetadata):
-                if self.get_local_rev(md.path_display) is None:
-                    # folder has been deleted from remote
-                    self.notify.send("%s added" % file_name)
-
-        elif n_changed_included > 1:
-            self.notify.send("%s files changed" % n_changed_included)
-
-        n_changed_outside = n_changed_total - n_changed_included
-        if n_changed_outside > 99:
-            # always notify for changes of 100 files and more
-            self.notify.send("%s files changed" % n_changed_outside)
+        results = self.flatten_results(results)
 
         logger.debug("Listed remote changes")
 
-        return result_inc
-
-    # TODO: move to separate class DownloadSync?
-    def apply_remote_changes(self, result, save_cursor=True):
-        """
-        Applies remote changes to local folder. Call this on the result of
-        :method:`list_remote_changes`. The saved cursor is updated after a set
-        of changes has been successfully applied.
-
-        :param result: :class:`dropbox.files.ListFolderResult` instance
-            or `False` if requests failed.
-        :param bool save_cursor: If True, :ivar:`last_cursor` will be updated
-            from the last applied changes.
-        :return: `True` on success, `False` otherwise.
-        :rtype: bool
-        """
-
-        if not result:
-            return
-
-        # sort changes into folders, files and deleted
-        folders, files, deleted = self._sort_entries(result)
-
-        # sort according to path hierarchy
-        # do not create sub-folder / file before parent exists
-        folders.sort(key=lambda x: len(x.path_display.split('/')))
-        files.sort(key=lambda x: len(x.path_display.split('/')))
-        deleted.sort(key=lambda x: len(x.path_display.split('/')))
-
-        # create local folders, start with top-level and work your way down
-        for folder in folders:
-            success = self._create_local_entry(folder)
-            if success is False:
-                return False
-
-        # apply deleted items
-        for item in deleted:
-            success = self._create_local_entry(item)
-            if success is False:
-                return False
-
-        # apply created files
-        n_files = len(files)
-        success = []
-        with ThreadPoolExecutor(max_workers=15) as executor:
-            fs = [executor.submit(self._create_local_entry, file) for file in files]
-            for (f, n) in zip(as_completed(fs), range(1, n_files+1)):
-                logger.info("Downloading {0}/{1}...".format(n, n_files))
-                success += [f.result()]
-
-        if all(success) is False:
-            return False
-
-        # save cursor
-        if save_cursor:
-            self.last_cursor = result.cursor
-            CONF.set("internal", "cursor", result.cursor)
-
-        return True
-
-    def is_excluded_by_user(self, dbx_path):
-        """
-        Check if file is excluded from sync.
-
-        :param str dbx_path: Path of folder on Dropbox.
-        :return: `True` or `False`.
-        :rtype: bool
-        """
-        dbx_path = dbx_path.lower()
-
-        excluded = False
-
-        # in excluded folders?
-        for excluded_folder in self.excluded_folders:
-            if not osp.commonpath([dbx_path, excluded_folder]) in ["/", ""]:
-                excluded = True
-
-        return excluded
-
-    def is_excluded(self, dbx_path):
-        """
-        Check if file is excluded from sync.
-
-        :param str dbx_path: Path of folder on Dropbox.
-        :return: `True` or `False`.
-        :rtype: bool
-        """
-        dbx_path = dbx_path.lower()
-
-        excluded = False
-
-        # is root folder?
-        if dbx_path in ["/", ""]:
-            excluded = True
-
-        # in excluded files?
-        if osp.basename(dbx_path) in self.excluded_files:
-            excluded = True
-
-        # If the file name contains multiple periods it is likely a temporary
-        # file created during a saving event on macOS. Ignore such files.
-        if osp.basename(dbx_path).count(".") > 1:
-            excluded = True
-
-        return excluded
-
-    # TODO: move to separate class DownloadSync?
-    def check_conflict(self, dbx_path):
-        """
-        Check if local file is conflicting with remote file.
-
-        :param str dbx_path: Path of folder on Dropbox.
-        :return: 0 for no conflict, 1 for conflict, 2 if files are identical.
-            Returns -1 if metadata request to Dropbox API fails.
-        :rtype: int
-        """
-        # get corresponding local path
-        dst_path = self.to_local_path(dbx_path)
-
-        # get metadata of remote file
-        try:
-            md = self.dbx.files_get_metadata(dbx_path)
-        except dropbox.exceptions.ApiError as err:
-            logging.info("Could not get metadata for '%s': %s", dbx_path, err)
-            return -1
-
-        # no conflict if local file does not exist yet
-        if not osp.exists(dst_path):
-            logger.debug("Local file '%s' does not exist. No conflict.", dbx_path)
-            return 0
-
-        local_rev = self.get_local_rev(dbx_path)
-
-        if local_rev is None:
-            # We likely have a conflict: files with the same name have been
-            # created on Dropbox and locally independent of each other.
-            # Check actual content first before declaring conflict!
-
-            local_hash = get_local_hash(dst_path)
-
-            if not md.content_hash == local_hash:
-                logger.debug("Conflicting copy without rev.")
-                return 1  # files are conflicting
-            else:
-                logger.debug("Contents are equal. No conflict.")
-                self.set_local_rev(dbx_path, md.rev)  # update local rev
-                return 2  # files are already the same
-
-        elif md.rev == local_rev:
-            # files have the same revision, trust that they are equal
-            logger.debug(
-                    "Local file is the same as on Dropbox (rev %s).",
-                    local_rev)
-            return 2  # files are already the same
-
-        elif md.rev != local_rev:
-            # Dropbox server version has a different rev, must be newer.
-            # If the local version has been modified while sync was stopped,
-            # those changes will be uploaded before any downloads can begin.
-            # If the local version has been modified while sync was running
-            # but changes were not uploaded before the remote version was
-            # changed as well, either:
-            # (a) The upload of the changed file has already started. The
-            #     the remote version will be downloaded and saved and
-            #     the Dropbox server will create a conflicting copy once the
-            #     upload comes through.
-            # (b) The upload has not started yet. In this case, the local
-            #     changes may be overrwritten by the remote version if the
-            #     download completes before the upload starts. This is a bug.
-
-            logger.debug(
-                    "Local file has rev %s, newer file on Dropbox has rev %s.",
-                    local_rev, md.rev)
-            return 0
-
-    @staticmethod
-    def _sort_entries(result):
-        """
-        Sorts entries in :class:`dropbox.files.ListFolderResult` into
-        FolderMetadata, FileMetadata and DeletedMetadata.
-
-        :return: Tuple of (folders, files, deleted) containing instances of
-            :class:`DeletedMetadata`, `:class:FolderMetadata`,
-            and :class:`FileMetadata` respectively.
-        :rtype: tuple
-        """
-
-        folders = [x for x in result.entries if isinstance(x, FolderMetadata)]
-        files = [x for x in result.entries if isinstance(x, FileMetadata)]
-        deleted = [x for x in result.entries if isinstance(x, DeletedMetadata)]
-
-        return folders, files, deleted
-
-    def _create_local_entry(self, entry, check_excluded=True):
-        """
-        Creates local file / folder for remote entry.
-
-        :param class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
-        :return: `True` on success, `False` otherwise.
-        :rtype: bool
-        """
-
-        self.excluded_folders = CONF.get("main", "excluded_folders")
-
-        if self.is_excluded(entry.path_display):
-            return True
-
-        if check_excluded and self.is_excluded_by_user(entry.path_display):
-            return True
-
-        local_path = self.to_local_path(entry.path_display)
-
-        if isinstance(entry, FileMetadata):
-            # Store the new entry at the given path in your local state.
-            # If the required parent folders don’t exist yet, create them.
-            # If there’s already something else at the given path,
-            # replace it and remove all its children.
-
-            self._save_to_history(entry.path_display)
-
-            # check for sync conflicts
-            conflict = self.check_conflict(entry.path_display)
-            if conflict == -1:  # could not get metadata
-                return False
-            if conflict == 0:  # no conflict
-                pass
-            elif conflict == 1:  # conflict! rename local file
-                parts = osp.splitext(local_path)
-                new_local_file = parts[0] + " (conflicting copy)" + parts[1]
-                os.rename(local_path, new_local_file)
-            elif conflict == 2:  # Dropbox files corresponds to local file, nothing to do
-                return True
-
-            md = self.download(entry.path_display, local_path)
-            if md is False:
-                return False
-
-            # save revision metadata
-            self.set_local_rev(md.path_display, md.rev)
-
-            logger.debug("Created local file '{0}'".format(entry.path_display))
-
-            return True
-
-        elif isinstance(entry, FolderMetadata):
-            # Store the new entry at the given path in your local state.
-            # If the required parent folders don’t exist yet, create them.
-            # If there’s already something else at the given path,
-            # replace it but leave the children as they are.
-
-            os.makedirs(local_path, exist_ok=True)
-
-            # save revision metadata
-            self.set_local_rev(entry.path_display, "folder")
-
-            logger.debug("Created local directory '{0}'".format(entry.path_display))
-
-            return True
-
-        elif isinstance(entry, DeletedMetadata):
-            # If your local state has something at the given path,
-            # remove it and all its children. If there’s nothing at the
-            # given path, ignore this entry.
-
-            try:
-                if osp.isdir(local_path):
-                    shutil.rmtree(local_path)
-                elif osp.isfile(local_path):
-                    os.remove(local_path)
-            except FileNotFoundError as e:
-                logger.debug("FileNotFoundError: {0}".format(e))
-            else:
-                logger.debug("Deleted local item '{0}'".format(entry.path_display))
-
-            self.set_local_rev(entry.path_display, None)
-
-            return True
-
-    @staticmethod
-    def _save_to_history(dbx_path):
-        # add new file to recent_changes
-        recent_changes = CONF.get("internal", "recent_changes")
-        recent_changes.append(dbx_path)
-        # eliminate duplicates
-        recent_changes = list(OrderedDict.fromkeys(recent_changes))
-        # save last 30 changes
-        CONF.set("internal", "recent_changes", recent_changes[-30:])
+        return results
