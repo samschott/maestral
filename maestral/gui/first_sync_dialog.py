@@ -12,6 +12,7 @@ import requests
 from dropbox.oauth import BadStateException, NotApprovedException
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
+import keyring
 from dropbox import files
 
 from maestral.main import Maestral
@@ -50,16 +51,8 @@ class OAuth2SessionGUI(OAuth2Session):
         Check if existing credentials exist.
         :return:
         """
-        print(" > Loading access token..."),
-        try:
-            with open(self.TOKEN_FILE) as f:
-                stored_creds = f.read()
-            self.access_token, self.account_id, self.user_id = stored_creds.split("|")
-            print(" [OK]")
-            return True
-        except IOError:
-            print(" [FAILED]")
-            return False
+        self.access_token = keyring.get_password("Maestral", "MaestralUser")
+        return self.access_token is not None
 
     def get_url(self):
         authorize_url = self.auth_flow.start()
