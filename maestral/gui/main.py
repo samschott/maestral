@@ -22,13 +22,12 @@ from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED
 from maestral.config.main import CONF
 from maestral.gui.settings import SettingsWindow
 from maestral.gui.first_sync_dialog import FirstSyncDialog
+from maestral.gui.resources import ICON_PATH
 
-_root = QtCore.QFileInfo(__file__).absolutePath()
 
 FIRST_SYNC = (not CONF.get("internal", "lastsync") or
               CONF.get("internal", "cursor") == "" or
               not os.path.isdir(CONF.get("main", "path")))
-ICON_PATH = _root + "/resources/menubar_icon_"
 logger = logging.getLogger(__name__)
 
 HAS_GTK_LAUNCH = shutil.which("gtk-launch") is not None
@@ -68,15 +67,15 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
     def __init__(self, mdbx, parent=None):
         # ------------- load tray icons -------------------
         self.icons = dict()
-        icon_color = ""
+        icon_color = "dark"
 
         if not platform.system() == "Darwin":
             from maestral.gui.ui import THEME
             if THEME is "dark":
-                icon_color = "_white"
+                icon_color = "light"
         short_status = ("idle", "syncing", "paused", "disconnected")
-        for long, short in zip((IDLE, SYNCING, PAUSED, DISCONNECTED), short_status):
-            self.icons[long] = QIcon(ICON_PATH + short + icon_color + ".svg")
+        for long, status in zip((IDLE, SYNCING, PAUSED, DISCONNECTED), short_status):
+            self.icons[long] = QIcon(ICON_PATH.format(status, icon_color))
 
         if platform.system() == "Darwin":
             # macOS will take care of adapting the icon color to the system theme if

@@ -41,7 +41,7 @@ setup(
     packages=find_packages(),
     package_data={
             "maestral": [
-                    "gui/*.ui",
+                    "gui/resources/*.ui",
                     "gui/resources/*.icns",
                     "gui/resources/*.png",
                     "gui/resources/*.svg",

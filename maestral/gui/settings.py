@@ -17,8 +17,8 @@ from maestral.utils.autostart import AutoStart
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog
-
-_root = QtCore.QFileInfo(__file__).absolutePath()
+from maestral.gui.resources import (GENERIC_FOLDER_ICON, HOME_FOLDER_ICON,
+                                    UNLINK_DIALOG, SETTINGS_WINDOW)
 
 
 class UnlinkDialog(QtWidgets.QDialog):
@@ -26,7 +26,7 @@ class UnlinkDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
-        uic.loadUi(osp.join(_root, "unlink_dialog.ui"), self)
+        uic.loadUi(UNLINK_DIALOG, self)
         self.buttonBox.buttons()[0].setText('Unlink')
 
 
@@ -35,10 +35,10 @@ class SettingsWindow(QtWidgets.QWidget):
     def __init__(self, mdbx, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
-        uic.loadUi(osp.join(_root, "settings.ui"), self)
+        uic.loadUi(SETTINGS_WINDOW, self)
         # self.setFixedSize(560, 320)
-        self.generic_folder_icon = QtGui.QIcon(_root + "/resources/GenericFolderIcon.icns")
-        self.home_folder_icon = QtGui.QIcon(_root + "/resources/HomeFolderIcon.icns")
+        self.generic_folder_icon = QtGui.QIcon(GENERIC_FOLDER_ICON)
+        self.home_folder_icon = QtGui.QIcon(HOME_FOLDER_ICON)
 
         self.mdbx = mdbx
         self.folders_dialog = FoldersDialog(self.mdbx, parent=self)
