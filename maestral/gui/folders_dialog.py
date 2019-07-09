@@ -6,15 +6,12 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 
-import os.path as osp
-from PyQt5 import QtGui, QtCore, QtWidgets, uic
+from PyQt5 import QtGui, QtWidgets, uic
 
 from dropbox import files
 
 from maestral.config.main import CONF
-
-
-_root = QtCore.QFileInfo(__file__).absolutePath()
+from maestral.gui.resources import GENERIC_FOLDER_ICON, FOLDERS_DIALOG
 
 
 class FolderItem(QtWidgets.QListWidgetItem):
@@ -43,8 +40,8 @@ class FoldersDialog(QtWidgets.QDialog):
     def __init__(self, mdbx,  parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
-        uic.loadUi(osp.join(_root, "folders_dialog.ui"), self)
-        self.folder_icon = QtGui.QIcon(_root + "/resources/GenericFolderIcon.icns")
+        uic.loadUi(FOLDERS_DIALOG, self)
+        self.folder_icon = QtGui.QIcon(GENERIC_FOLDER_ICON)
 
         self.mdbx = mdbx
         self.accept_button = self.buttonBox.buttons()[0]

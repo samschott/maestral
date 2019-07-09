@@ -20,8 +20,8 @@ from maestral.monitor import CONNECTION_ERRORS
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FolderItem
-
-_root = QtCore.QFileInfo(__file__).absolutePath()
+from maestral.gui.resources import (GENERIC_FOLDER_ICON, HOME_FOLDER_ICON, APP_ICON,
+                                    FIRST_SYNC_DIALOG, ERROR_DIALOG)
 
 
 class ErrorDialog(QtWidgets.QDialog):
@@ -29,7 +29,7 @@ class ErrorDialog(QtWidgets.QDialog):
     def __init__(self, parent, title, message):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
-        uic.loadUi(osp.join(_root, "error_dialog.ui"), self)
+        uic.loadUi(ERROR_DIALOG, self)
         self.setFixedSize(460, 145)
         self.labelTitle.setText(title)
         self.labelMessage.setText(message)
@@ -82,10 +82,10 @@ class FirstSyncDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
-        uic.loadUi(osp.join(_root, "first_sync_dialog.ui"), self)
-        self.app_icon = QtGui.QPixmap(_root + "/resources/app_icon.svg")
-        self.folder_icon = QtGui.QIcon(_root + "/resources/GenericFolderIcon.icns")
-        self.home_folder_icon = QtGui.QIcon(_root + "/resources/HomeFolderIcon.icns")
+        uic.loadUi(FIRST_SYNC_DIALOG, self)
+        self.app_icon = QtGui.QPixmap(APP_ICON)
+        self.folder_icon = QtGui.QIcon(GENERIC_FOLDER_ICON)
+        self.home_folder_icon = QtGui.QIcon(HOME_FOLDER_ICON)
 
         self.mdbx = None
         self.folder_items = []
