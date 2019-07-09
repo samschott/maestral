@@ -14,6 +14,7 @@ import logging
 import requests
 
 import keyring
+from keyring.errors import KeyringLocked
 import dropbox
 from dropbox import DropboxOAuth2FlowNoRedirect
 
@@ -21,11 +22,12 @@ from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
 
 logger = logging.getLogger(__name__)
+
 # create single requests session for all clients
 SESSION = dropbox.dropbox.create_session()
 
-APP_KEY = "2jmbq42w7vof78h"
-APP_SECRET = "lrsxo47dvuulex5"
+APP_KEY = "2jmbq42w7vof78h"  # noinspection PySpellChecker
+APP_SECRET = "lrsxo47dvuulex5"  # noinspection PySpellChecker
 
 
 def tobytes(value, unit, bsize=1024):
@@ -137,7 +139,12 @@ class OAuth2Session(object):
 
     def load_creds(self):
         print(" > Loading access token...")
-        self.access_token = keyring.get_password("Maestral", "MaestralUser")
+        try:
+            self.access_token = keyring.get_password("Maestral", "MaestralUser")
+        except KeyringLocked:
+            raise KeyringLocked(
+                "Could not access the user keyring to load your authentication token. "
+                "Please make sure that the keyring is unlocked.")
 
         if not self.access_token:
             print(" [FAILED]")
@@ -145,12 +152,21 @@ class OAuth2Session(object):
             self.link()
 
     def write_creds(self):
-        keyring.set_password("Maestral", "MaestralUser", self.access_token)
-        print(" > Credentials written.")
+        try:
+            keyring.set_password("Maestral", "MaestralUser", self.access_token)
+            print(" > Credentials written.")
+        except KeyringLocked:
+            logger.error("Could not access the user keyring to save your authentication "
+                         "token. Please make sure that the keyring is unlocked.")
 
-    def delete_creds(self):
-        keyring.delete_password("Maestral", "MaestralUser")
-        print(" > Credentials removed.")
+    @staticmethod
+    def delete_creds():
+        try:
+            keyring.delete_password("Maestral", "MaestralUser")
+            print(" > Credentials removed.")
+        except KeyringLocked:
+            logger.error("Could not access the user keyring to delete your authentication"
+                         " token. Please make sure that the keyring is unlocked.")
 
 
 # noinspection PyDeprecation
