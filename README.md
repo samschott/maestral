@@ -15,10 +15,17 @@ Download and install the Python package by running
 $ pip install --upgrade git+https://github.com/SamSchott/maestral
 ```
 in the command line. If you intend to use the graphical user interface, you also need to
-install PyQt5:
+install PyQt5. It is recommended to install PyQt5 through your distribution's package manager
+(e.g, yum, dnf, apt-get, homebrew), for instance:
+```console
+$ sudo apt-get install python3-pyqt5
+```
+Otherwise, you can also install it from PyPI:
 ```console
 $ pip install --upgrade PyQt5
 ```
+However, in the latter case the interface style may not follow your selected system appearance
+(e.g., "dark mode" on macOS or "Adwaita-dark" on Gnome). 
 
 ## Usage
 
@@ -62,47 +69,44 @@ start syncing. Supported commands are:
 ```
 
 ## Structure
-`client.MaestralClient` handles all the interaction with the Dropbox API such as
+`maestral.client` handles all the interaction with the Dropbox API such as
 authentication, uploading and downloading files and folders, getting metadata and listing
-folder contents. It also includes utilities to convert between local and Dropbox file
-paths, to keep track of local revisions and to check for sync conflicts between local and
-remote files.
+folder contents.
 
-`monitor.MaestralMonitor` handles the actual syncing. It monitors the local Dropbox
+`maestral.monitor` handles the actual syncing. It monitors the local Dropbox
 folders and the remote Dropbox for changes and applies them using the interface provided
-by `MaestralClient`.
+by `maestral.client`.
 
-`main.Maestral` provides the main programmatic user interface. It links your Dropbox
+`maestral.main` provides the main programmatic user interface. It links your Dropbox
 account and sets up your local, lets you select which folders to sync and can pause and
 resume syncing.
 
-`gui` contains all user interfaces for `Maestral`.
+`maestral.gui` contains all graphical user interfaces for `Maestral`.
 
 ## Contribute
 
 The following tasks could need your help:
 
-- [ ] Native Cocoa and GTK interfaces. Maestral currently uses PyQt.
-- [ ] Better handling of network errors and API errors.
-- [ ] Test robustness if internet connection is slow or lost, maestral process is killed
+- [x] Test robustness if internet connection is slow or lost, maestral process is killed
       during sync, user is logged out during sync, etc.
-- [ ] More efficient and robust tracking of local revisions. Possibly using xattr, even
+- [x] More efficient and robust tracking of local revisions. Possibly using xattr, even
       though this would limit file system compatibility.
+- [x] Better handling of network errors.
+- [ ] Better handling of certain API errors.
 - [ ] Detect and warn in case of unsupported Dropbox folder locations (network drives,
       external hard drives, etc) and when the Dropbox folder is deleted by the user.
 - [ ] Speed up download of large folders and initial sync: Download zip files if possible.
-
+- [ ] Native Cocoa and GTK interfaces. Maestral currently uses PyQt5.
 
 ## Warning:
 
 - Meastral does not have production status yet, so only 500 accounts can use the API keys.
-- Meastral is still in beta status and using it may potentially result in loss of data.
-  Only sync folders with non-essential files.
+- Meastral is still in beta status. Even through highly unlikely, using it may potentially
+  result in loss of data.
 - Known issues:
   - File and folder names with two periods are currently not supported. This prevents
     syncing of temporary files which are created during the save process on some file
     systems.
-  - Rare falsely detected sync conflicts may occur on startup.
   - Network drives and some external hard drives are not supported as locations for the
     Dropbox folder.
 
@@ -113,10 +117,7 @@ The following tasks could need your help:
 - Python 3.6 or higher
 - [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
   on Gnome 3.26 and higher
-- PyQt 5.9 or higher (for GUI only). It is recommended to install PyQt5 from your
-  distribution's package manager instead of PyPI. Otherwise, the interface style may not
-  follow your selected system appearance (e.g., "dark mode" on macOS or "Adwaita-dark" on
-  Gnome).
+- PyQt 5.9 or higher (for GUI only).
 
 *Python:*
 - click
