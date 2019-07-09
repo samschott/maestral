@@ -1,23 +1,27 @@
 # Meastral
+
 A light-weight and open-source Dropbox client for macOS and Linux.
 
 ## About
+
 Meastral is an open-source Dropbox client written in Python. The project's main goal is to
 provide a client for platforms and file systems that are not directly supported by
 Dropbox. Meastral uses the Python SDK for the Dropbox API v2.
 
 ## Installation
+
 Download and install the Python package by running
 ```console
 $ pip install --upgrade git+https://github.com/SamSchott/maestral
 ```
-in the command line. If you intend to use the graphical user interface, you also need to 
+in the command line. If you intend to use the graphical user interface, you also need to
 install PyQt5:
 ```console
 $ pip install --upgrade PyQt5
 ```
 
 ## Usage
+
 Run `meastral gui` in the command line to start Meastral with a graphical user interface.
 On its first run, Meastral will guide you through linking and configuring your Dropbox and
 will then start syncing. The user interface is based on a status bar icon which shows the
@@ -27,6 +31,7 @@ current syncing status and a preference pane for configuration.
 <img src="/screenshots/Fedora.png" height="500" />
 
 ## Command line usage
+
 After installation, Meastral will be available as a command line script by typing
 `meastral` in the command prompt. Command line functionality resembles that of the
 interactive client. Type `meastral --help` to get a full list of available commands.
@@ -74,6 +79,7 @@ resume syncing.
 `gui` contains all user interfaces for `Maestral`.
 
 ## Contribute
+
 The following tasks could need your help:
 
 - [ ] Native Cocoa and GTK interfaces. Maestral currently uses PyQt.
@@ -88,8 +94,9 @@ The following tasks could need your help:
 
 
 ## Warning:
+
 - Meastral does not have production status yet, so only 500 accounts can use the API keys.
-- Meastral is still in beta status and using it may potentially result in loss of data. 
+- Meastral is still in beta status and using it may potentially result in loss of data.
   Only sync folders with non-essential files.
 - Known issues:
   - File and folder names with two periods are currently not supported. This prevents
@@ -100,14 +107,22 @@ The following tasks could need your help:
     Dropbox folder.
 
 ## Dependencies
+
 *System:*
-- Python 3.6 or higher
 - macOS or Linux
+- Python 3.6 or higher
 - [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
-  on Gnome 3.26 and higher 
+  on Gnome 3.26 and higher
+- PyQt 5.9 or higher (for GUI only). It is recommended to install PyQt5 from your
+  distribution's package manager instead of PyPI. Otherwise, the interface style may not
+  follow your selected system appearance (e.g., "dark mode" on macOS or "Adwaita-dark" on
+  Gnome).
 
 *Python:*
+- click
 - dropbox
 - watchdog
 - blinker
-- PyQt 5.9 or higher (for GUI only)
+- requests
+- u-msgpack-python
+
