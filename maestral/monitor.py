@@ -1393,54 +1393,6 @@ class MaestralMonitor(object):
 
         logger.debug('Stopped.')
 
-    def check_rev_file(self):
-        """
-        Pauses syncing and checks if rev file contains up-to-date entries for all files
-        and folders. If the check passes, the rev file is guaranteed to be ok. If it
-        fails, the rev file may be corrupted.
-
-        :return: ``True`` if rev file is up-to-date, ``False`` otherwise.
-        :rtype: bool
-        """
-
-        # check that rev file can be loaded and has the expected format
-        try:
-            self.sync._rev_dict_cache = self.sync._load_rev_dict_from_file(
-                raise_exception=True)
-        except CorruptedRevFileError:
-            self.sync._rev_dict_cache = dict()
-            return False
-
-        self.stop(blocking=True)  # stop all sync threads
-
-        # restart syncing
-        # this may detect changes which are not yet synced
-        self.start()
-
-        self.stop(blocking=True)  # stop all sync threads
-
-        # verify that all local files have a rev number
-
-        ok = True
-
-        changes = self._get_local_changes()
-        if any(isinstance(c, (DirCreatedEvent, FileCreatedEvent)) for c in changes):
-            print("Rev file contains entries which do not correspond to synced items.")
-            ok = False
-        if any(isinstance(c, (DirDeletedEvent, FileDeletedEvent)) for c in changes):
-            print("Dropbox folder contains items which are not tracked.")
-            ok = False
-        if any(isinstance(c, (DirModifiedEvent, FileModifiedEvent)) for c in changes):
-            print("Dropbox folder contains un-synced changes.")
-            ok = False
-
-        if ok:
-            self.start()
-        else:
-            print("Rev file may be corrupted.")
-
-        return ok
-
     def rebuild_rev_file(self):
         """Rebuilds the rev file by comparing local with remote files and updating rev
         numbers from the Dropbox server. Files are compared by their content hashes and
@@ -1451,6 +1403,8 @@ class MaestralMonitor(object):
 
         """
 
+        logger.info("Rebuilding index...")
+
         print("""Rebuilding the revision index. This process may
         take several minutes, depending on the size of your Dropbox.
         Any changes to local files during this process may be
@@ -1458,12 +1412,12 @@ class MaestralMonitor(object):
         (if the modified or deleted file has not yet been re-indexed). """)
 
         self.stop(blocking=True)  # stop all sync threads
+        self.download_thread.join()  # may take up to 120 sec
         os.unlink(self.sync.rev_file_path)  # delete rev file
 
-        # Rebuild dropbox from server. If local file already exists,
-        # content hashes are compared. If files are identical, the
-        # local rev will be set accordingly, otherwise a conflicting copy
-        # will be created.
+        # Re-download Dropbox from server. If a local file already exists, content hashes
+        # are compared. If files are identical, the local rev will be set accordingly,
+        # otherwise a conflicting copy will be created.
         self.sync.get_remote_dropbox()
 
         # Resume syncing. This will upload all changes which occurred
@@ -1509,22 +1463,24 @@ class MaestralMonitor(object):
             last_sync = CONF.get("internal", "lastsync")
             # check if item was created or modified since last sync
             dbx_path = self.sync.to_dbx_path(path).lower()
-            if max(stats.st_ctime, stats.st_mtime) > last_sync:
-                # check if item is already tracked or new
-                if self.sync.get_local_rev(dbx_path) is not None:
-                    # already tracking item
-                    if osp.isdir(path):
-                        event = DirModifiedEvent(path)
-                    else:
-                        event = FileModifiedEvent(path)
-                    changes.append(event)
+
+            is_new = (self.sync.get_local_rev(dbx_path) is None and
+                      not self.sync.is_excluded(dbx_path))
+            is_modified = (self.sync.get_local_rev(dbx_path) and
+                           max(stats.st_ctime, stats.st_mtime) > last_sync)
+
+            if is_new:
+                if osp.isdir(path):
+                    event = DirCreatedEvent(path)
                 else:
-                    # new item
-                    if osp.isdir(path):
-                        event = DirCreatedEvent(path)
-                    else:
-                        event = FileCreatedEvent(path)
-                    changes.append(event)
+                    event = FileCreatedEvent(path)
+                changes.append(event)
+            elif is_modified:
+                if osp.isdir(path):
+                    event = DirModifiedEvent(path)
+                else:
+                    event = FileModifiedEvent(path)
+                changes.append(event)
 
         # get deleted items
         rev_dict_copy = self.sync.get_rev_dict()
