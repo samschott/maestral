@@ -174,11 +174,7 @@ class MaestralApiClient(object):
         :return: :class:`dropbox.users.FullAccount` instance or `None` if failed.
         :rtype: dropbox.users.FullAccount
         """
-        try:
-            res = self.dbx.users_get_current_account()
-        except dropbox.exceptions.ApiError as err:
-            logging.debug("Failed to get account info: %s", err)
-            res = None
+        res = self.dbx.users_get_current_account()  # this does not raise any API errors
 
         if res.account_type.is_basic():
             account_type = 'basic'
@@ -201,11 +197,7 @@ class MaestralApiClient(object):
         :return: :class:`SpaceUsage` instance or `False` if failed.
         :rtype: SpaceUsage
         """
-        try:
-            res = self.dbx.users_get_space_usage()
-        except dropbox.exceptions.ApiError as err:
-            logging.warning("Failed to get space usage: %s", err)
-            return False
+        res = self.dbx.users_get_space_usage()  # this does not raise any API errors
 
         # convert from dropbox.users.SpaceUsage to SpaceUsage with nice string
         # representation
@@ -225,7 +217,7 @@ class MaestralApiClient(object):
         Unlinks the Dropbox account and deletes local sync information.
         """
         self.auth.delete_creds()
-        self.dbx.auth_token_revoke()
+        self.dbx.auth_token_revoke()  # this does not raise any API errors
 
     def get_metadata(self, dbx_path, **kwargs):
         """
@@ -242,6 +234,9 @@ class MaestralApiClient(object):
             md = self.dbx.files_get_metadata(dbx_path, **kwargs)
             logger.debug("Retrieved metadata for '{0}'".format(md.path_display))
         except dropbox.exceptions.ApiError as err:
+            # API error is only raised when the path does not exist on Dropbox
+            # this is handled on a DEBUG level since we use call `get_metadata` to check
+            # if a file exists
             logging.debug("Could not get metadata for '%s': %s", dbx_path, err)
             md = False
 
@@ -269,15 +264,16 @@ class MaestralApiClient(object):
 
         try:
             md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
-        except (dropbox.exceptions.ApiError, IOError, OSError) as exc:
-            msg = ("An error occurred while downloading '{0}' file as '{1}': {2}.".format(
-                    dbx_path, dst_path, exc.error if hasattr(exc, "error") else exc))
-            logger.error(msg)
+        except dropbox.exceptions.ApiError as err:
+            logger.error("An error occurred while downloading '{0}' file to '{1}': "
+                         "{2}.".format(dbx_path, dst_path, err))
+            return False
+        except (IOError, OSError) as err:
+            logger.error("File could not be saved to local drive: {0}".format(err))
             return False
 
-        msg = ("File '{0}' (rev {1}) from '{2}' was successfully downloaded as '{3}'.\n".format(
-                md.name, md.rev, md.path_display, dst_path))
-        logger.debug(msg)
+        logger.debug("File '{0}' (rev {1}) from '{2}' was successfully downloaded "
+                     "as '{3}'.\n".format(md.name, md.rev, md.path_display, dst_path))
 
         return md
 
@@ -321,16 +317,17 @@ class MaestralApiClient(object):
                             self.dbx.files_upload_session_append_v2(
                                 f.read(chunk_size), cursor)
                             cursor.offset = f.tell()
-        except dropbox.exceptions.ApiError as exc:
-            msg = "An error occurred while uploading file '{0}': {1}.".format(
-                local_path, exc.error.get_path().reason)
-            logger.error(msg)
+        except dropbox.exceptions.ApiError as err:
+            logger.error("An error occurred while uploading file '{0}': {1}.".format(
+                local_path, err))
             return False
-        finally:
-            # pb.close()
-            pass
+        except (IOError, OSError) as err:
+            logger.error("File could read local file: {0}".format(err))
+            return False
 
-        logger.debug("File '%s' (rev %s) uploaded to Dropbox.", md.path_display, md.rev)
+        logger.debug("File '{0}' (rev {1}) uploaded to Dropbox.".format(
+            md.path_display, md.rev))
+
         return md
 
     def remove(self, dbx_path, **kwargs):
@@ -339,16 +336,26 @@ class MaestralApiClient(object):
 
         :param str dbx_path: Path to file on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_delete.
-        :return: Metadata of deleted file or `False` if deletion failed.
+        :return: Metadata of deleted file or `False` if the file does not exist on Dropbox.
+
+        :raises: Raises :class:`dropbox.exceptions.ApiError` if deletion fails for any
+            other reason than a non-existing file.
         """
         try:
             # try to move file (response will be metadata, probably)
             md = self.dbx.files_delete(dbx_path, **kwargs)
         except dropbox.exceptions.ApiError as err:
-            logger.warning("An error occurred when deleting '%s': %s", dbx_path, err)
-            return False
+            if err.error.is_path_lookup():
+                # don't log as ERROR if file did not exist
+                logger.warning("An error occurred when deleting '{0}': the file does "
+                               "not exist on Dropbox".format(dbx_path))
+                return False
+            else:
+                logger.error("An error occurred when deleting '{0}': {1}".format(
+                    dbx_path, err))
+                return False
 
-        logger.debug("File / folder '%s' removed from Dropbox.", dbx_path)
+        logger.debug("File / folder '{0}' removed from Dropbox.".format(dbx_path))
 
         return md
 
@@ -361,20 +368,17 @@ class MaestralApiClient(object):
         :return: Metadata of moved file/folder or `False` if move failed.
         """
         try:
-            # try to move file
-            metadata = self.dbx.files_move(dbx_path, new_path,
-                                           allow_shared_folder=True,
-                                           allow_ownership_transfer=True)
+            md = self.dbx.files_move(dbx_path, new_path, allow_shared_folder=True,
+                                     allow_ownership_transfer=True)
         except dropbox.exceptions.ApiError as err:
-            logger.debug(
-                    "An error occurred when moving '%s' to '%s': %s",
-                    dbx_path, new_path, err)
+            logger.error("An error occurred when moving '{0}' to '{1}': {2}".format(
+                    dbx_path, new_path, err))
             return False
 
-        logger.debug("File moved from '%s' to '%s' on Dropbox.",
-                     dbx_path, metadata.path_display)
+        logger.debug("File moved from '{0}' to '{1}' on Dropbox.".format(
+                     dbx_path, md.path_display))
 
-        return metadata
+        return md
 
     def make_dir(self, dbx_path, **kwargs):
         """
@@ -387,7 +391,7 @@ class MaestralApiClient(object):
         try:
             md = self.dbx.files_create_folder(dbx_path, **kwargs)
         except dropbox.exceptions.ApiError as err:
-            logger.debug("An error occurred creating dir '%s': %s", dbx_path, err)
+            logger.error("An error occurred creating dir '{0}': {1}".format(dbx_path, err))
             return False
 
         logger.debug("Created folder '%s' on Dropbox.", md.path_display)
@@ -422,7 +426,7 @@ class MaestralApiClient(object):
                 more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
                 results.append(more_results)
             except dropbox.exceptions.ApiError as err:
-                logger.debug("Folder listing failed for '{0}': {1}".format(dbx_path, err))
+                logger.error("Folder listing failed for '{0}': {1}".format(dbx_path, err))
                 return False
 
         logger.debug("Listed contents of folder '{0}'".format(dbx_path))
@@ -470,9 +474,11 @@ class MaestralApiClient(object):
 
         try:
             result = self.dbx.files_list_folder_longpoll(last_cursor, timeout=timeout)
-        except dropbox.exceptions.ApiError:
-            msg = "Cannot access Dropbox folder."
-            logger.debug(msg)
+        except dropbox.exceptions.ApiError as e:
+            if e.error.is_reset():
+                logger.warning("Cursor has been invalidated. Please try again.")
+            else:
+                logger.error("Could not get remote changes: {0}".format(e))
             return False
 
         # keep track of last long poll, back off if requested by SDK

@@ -721,9 +721,8 @@ class UpDownSync(object):
         if self.is_excluded_by_user(dbx_path):
             return
 
-        md = self.client.remove(dbx_path)  # returns false if file did not exist
+        md = self.client.remove(dbx_path)
         # remove revision metadata
-        # don't check if remove was successful
         self.set_local_rev(md.path_display, None)
 
         self.last_sync = time.time()
@@ -908,6 +907,8 @@ class UpDownSync(object):
         test2 = basename.startswith("~$")
         test3 = basename.startswith(".~")
         test4 = basename.startswith("~") and basename.endswith(".tmp")
+
+        # forbidden file path: Don't do any thing. Handle the Dropbox API error instead.
 
         return any((test0, test1, test2, test3, test4))
 
