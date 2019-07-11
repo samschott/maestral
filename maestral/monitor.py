@@ -207,6 +207,12 @@ class UpDownSync(object):
         # cache of revision dictionary
         self._rev_dict_cache = self._load_rev_dict_from_file()
 
+        # local changes cache
+        # this is to remember sets of changes which could not be applied
+        # between sessions, all local files will be checked for changes since last_sync
+        # anyways, those _local_changes_cache does not need to be persistent
+        self._failed_uploads_cache = []
+
     @property
     def rev_file_path(self):
         """Path to file with revision index (read only)."""
@@ -248,6 +254,8 @@ class UpDownSync(object):
     def last_sync(self, last_sync):
         """Setter: last_cursor"""
         CONF.set("internal", "lastsync", last_sync)
+        # clear local changes cache
+        self._failed_uploads_cache = []
 
     @property
     def excluded_files(self):
@@ -520,6 +528,9 @@ class UpDownSync(object):
             events = self._list_diff(events, to_remove)
             events += to_add
 
+            # add previous un-synced changes
+            events = self._failed_uploads_cache + events
+
             return events, local_cursor
 
     def apply_local_changes(self, events, local_cursor):
@@ -543,9 +554,10 @@ class UpDownSync(object):
                 success += [f.result()]
 
         if not all(success):
+            self._failed_uploads_cache += events
             return False
 
-        # save cursor
+        # save cursor and clear un-synced changes cache
         self.last_sync = local_cursor
 
         return True
@@ -614,20 +626,26 @@ class UpDownSync(object):
                      isinstance(x, FileCreatedEvent)), None)
 
     def _apply_event(self, evnt):
+
+        result = True
+
         if evnt.event_type is EVENT_TYPE_CREATED:
-            self._on_created(evnt)
+            result = self._on_created(evnt)
         elif evnt.event_type is EVENT_TYPE_MOVED:
-            self._on_moved(evnt)
+            result = self._on_moved(evnt)
         elif evnt.event_type is EVENT_TYPE_DELETED:
-            self._on_deleted(evnt)
+            result = self._on_deleted(evnt)
         elif evnt.event_type is EVENT_TYPE_MODIFIED:
-            self._on_modified(evnt)
+            result = self._on_modified(evnt)
+
+        return result
 
     def _on_moved(self, event):
         """
         Call when local file is moved.
 
-        :param class event: Watchdog file event.
+        :param event: Watchdog file event.
+        :return: ``True`` if successful, :param:`event` otherwise.
         """
 
         logger.debug("Move detected: from '%s' to '%s'",
@@ -641,32 +659,37 @@ class UpDownSync(object):
 
         # is file excluded?
         if self.is_excluded(dbx_path2):
-            return
+            return True
 
-        metadata = self.client.move(dbx_path, dbx_path2)
+        md = self.client.move(dbx_path, dbx_path2)
 
         # remove old revs
         self.set_local_rev(dbx_path, None)
 
         # add new revs
-        if isinstance(metadata, dropbox.files.FileMetadata):
-            self.set_local_rev(dbx_path2, metadata.rev)
-
+        if isinstance(md, dropbox.files.FileMetadata):
+            self.set_local_rev(dbx_path2, md.rev)
         # and revs of children if folder
-        elif isinstance(metadata, dropbox.files.FolderMetadata):
+        elif isinstance(md, dropbox.files.FolderMetadata):
             self.set_local_rev(dbx_path2, "folder")
             result = self.client.list_folder(dbx_path2, recursive=True)
             for md in result.entries:
                 if isinstance(md, dropbox.files.FileMetadata):
-                    self.set_local_rev(md.path_display, md.rev)
+                    self.set_local_rev(dbx_path, md.rev)
                 elif isinstance(md, dropbox.files.FolderMetadata):
-                    self.set_local_rev(md.path_display, "folder")
+                    self.set_local_rev(dbx_path, "folder")
+
+        if md:
+            return True
+        else:
+            return event
 
     def _on_created(self, event):
         """
         Call when local file is created.
 
         :param class event: Watchdog file event.
+        :return: ``True`` if successful, :param:`event` otherwise.
         """
 
         logger.debug("Creation detected: '%s'", event.src_path)
@@ -676,54 +699,59 @@ class UpDownSync(object):
 
         # is file excluded?
         if self.is_excluded(dbx_path):
-            return
+            return True
 
-        if not event.is_directory:
-
-            if osp.isfile(path):
-                while True:  # wait until file is fully created
-                    size1 = osp.getsize(path)
-                    time.sleep(0.5)
-                    size2 = osp.getsize(path)
-                    if size1 == size2:
-                        break
-
-                # check if file already exists with identical content
-                md = self.client.get_metadata(dbx_path)
-                if md:
-                    local_hash = get_local_hash(path)
-                    if local_hash == md.content_hash:
-                        # file hashes are identical, do not upload
-                        self.last_sync = time.time()
-                        return
-
-                rev = self.get_local_rev(dbx_path)
-                # if truly a new file
-                if rev is None:
-                    mode = dropbox.files.WriteMode("add")
-                # or a 'false' new file event triggered by saving the file
-                # e.g., some programs create backup files and then swap them
-                # in to replace the files you are editing on the disk
-                else:
-                    mode = dropbox.files.WriteMode("update", rev)
-                md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
-                # save or update revision metadata
-                self.set_local_rev(md.path_display, md.rev)
-
-        elif event.is_directory:
+        if event.is_directory:
             # check if directory is not yet on Dropbox, else leave alone
             md = self.client.get_metadata(dbx_path)
             if not md:
-                self.client.make_dir(dbx_path)
+                md = self.client.make_dir(dbx_path)
 
-            # save or update revision metadata
-            self.set_local_rev(dbx_path, "folder")
+            if md:  # save or update revision metadata
+                self.set_local_rev(dbx_path, "folder")
+
+        else:
+            assert osp.isfile(path)
+
+            while True:  # wait until file is fully created
+                size1 = osp.getsize(path)
+                time.sleep(0.5)
+                size2 = osp.getsize(path)
+                if size1 == size2:
+                    break
+
+            # check if file already exists with identical content
+            md = self.client.get_metadata(dbx_path)
+            if md:
+                local_hash = get_local_hash(path)
+                if local_hash == md.content_hash:
+                    # file hashes are identical, do not upload
+                    return True
+
+            rev = self.get_local_rev(dbx_path)
+            # if truly a new file
+            if rev is None:
+                mode = dropbox.files.WriteMode("add")
+            # or a 'false' new file event triggered by saving the file
+            # e.g., some programs create backup files and then swap them
+            # in to replace the files you are editing on the disk
+            else:
+                mode = dropbox.files.WriteMode("update", rev)
+            md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
+            if md:  # save or update revision metadata
+                self.set_local_rev(dbx_path, md.rev)
+
+        if md:
+            return True
+        else:
+            return event
 
     def _on_deleted(self, event):
         """
         Call when local file is deleted.
 
         :param class event: Watchdog file event.
+        :return: ``True`` if successful, :param:`event` otherwise.
         """
 
         logger.debug("Deletion detected: '%s'", event.src_path)
@@ -733,21 +761,27 @@ class UpDownSync(object):
 
         # is file excluded?
         if self.is_excluded(dbx_path):
-            return
+            return True
 
         # do not propagate deletions that result from excluding a folder!
         if self.is_excluded_by_user(dbx_path):
-            return
+            return True
 
         md = self.client.remove(dbx_path)
-        # remove revision metadata
-        self.set_local_rev(md.path_display, None)
+        if md:  # remove revision metadata
+            self.set_local_rev(dbx_path, None)
+
+        if md:
+            return True
+        else:
+            return event
 
     def _on_modified(self, event):
         """
         Call when local file is modified.
 
         :param class event: Watchdog file event.
+        :return: ``True`` if successful, :param:`event` otherwise.
         """
 
         logger.debug("Modification detected: '%s'", event.src_path)
@@ -757,25 +791,31 @@ class UpDownSync(object):
 
         # is file excluded?
         if self.is_excluded(dbx_path):
-            return
+            return True
 
         if not event.is_directory:  # ignore directory modified events
-            if osp.isfile(path):
+            assert osp.isfile(path)
 
-                while True:  # wait until file is fully created
-                    size1 = osp.getsize(path)
-                    time.sleep(0.2)
-                    size2 = osp.getsize(path)
-                    if size1 == size2:
-                        break
+            while True:  # wait until file is fully created
+                size1 = osp.getsize(path)
+                time.sleep(0.2)
+                size2 = osp.getsize(path)
+                if size1 == size2:
+                    break
 
-                rev = self.get_local_rev(dbx_path)
-                mode = dropbox.files.WriteMode("update", rev)
-                md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
-                logger.debug("Modified file: %s (old rev: %s, new rev %s)",
-                             md.path_display, rev, md.rev)
-                # save or update revision metadata
-                self.set_local_rev(md.path_display, md.rev)
+            rev = self.get_local_rev(dbx_path)
+            mode = dropbox.files.WriteMode("update", rev)
+            md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
+            logger.debug("Modified file: %s (old rev: %s, new rev %s)",
+                         md.path_display, rev, md.rev)
+            if md:  # save or update revision metadata
+                self.set_local_rev(dbx_path, md.rev)
+                return True
+            else:
+                return event
+
+        else:
+            return True
 
     # ====================================================================================
     #  Download sync
@@ -790,7 +830,7 @@ class UpDownSync(object):
         Dropbox folder.
 
         :param str dbx_path: Path to Dropbox folder. Defaults to root ("").
-        :return: `True` on success, `False` otherwise.
+        :return: ``True`` on success, ``False`` otherwise.
         :rtype: bool
         """
         logger.info("Indexing...")
@@ -825,10 +865,10 @@ class UpDownSync(object):
         of changes has been successfully applied.
 
         :param changes: :class:`dropbox.files.ListFolderResult` instance
-            or `False` if requests failed.
+            or ``False`` if requests failed.
         :param bool save_cursor: If True, :ivar:`last_cursor` will be updated
             from the last applied changes.
-        :return: `True` on success, `False` otherwise.
+        :return: ``True`` on success, ``False`` otherwise.
         :rtype: bool
         """
 
@@ -879,7 +919,7 @@ class UpDownSync(object):
         Check if file is excluded from sync.
 
         :param str dbx_path: Path of folder on Dropbox.
-        :return: `True` or `False`.
+        :return: ``True`` or `False`.
         :rtype: bool
         """
         dbx_path = dbx_path.lower()
@@ -899,7 +939,7 @@ class UpDownSync(object):
         Check if file is excluded from sync.
 
         :param str dbx_path: Path of folder on Dropbox.
-        :return: `True` or `False`.
+        :return: ``True`` or `False`.
         :rtype: bool
         """
         dbx_path = dbx_path.lower()
@@ -1045,7 +1085,7 @@ class UpDownSync(object):
         Creates local file / folder for remote entry.
 
         :param class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
-        :return: `True` on success, `False` otherwise.
+        :return: ``True`` on success, ``False`` otherwise.
         :rtype: bool
         """
 
