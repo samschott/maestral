@@ -522,6 +522,34 @@ class UpDownSync(object):
 
             return events, local_cursor
 
+    def apply_local_changes(self, events, local_cursor):
+        """
+        Applies locally detected events to remote Dropbox.
+
+        :param list events: List of local file changes.
+        :param float local_cursor: Time stamp of last event in `events`.
+
+        :return: ``True`` if all changes have been uploaded successfully, ``False``
+            otherwise.
+        :rtype: bool
+        """
+        num_threads = os.cpu_count() * 2
+        success = []
+        with ThreadPoolExecutor(max_workers=num_threads) as executor:
+            fs = [executor.submit(self._apply_event, e) for e in events]
+            n_files = len(events)
+            for (f, n) in zip(as_completed(fs), range(1, n_files + 1)):
+                logger.info("Uploading {0}/{1}...".format(n, n_files))
+                success += [f.result()]
+
+        if not all(success):
+            return False
+
+        # save cursor
+        self.last_sync = local_cursor
+
+        return True
+
     @staticmethod
     def _list_diff(list1, list2):
         return [l for l in list1 if l not in list2]
@@ -584,34 +612,6 @@ class UpDownSync(object):
         return next((x for x in all_events if x.src_path == event.src_path and
                      all_events.index(x) > all_events.index(event) and
                      isinstance(x, FileCreatedEvent)), None)
-
-    def apply_local_changes(self, events, local_cursor):
-        """
-        Applies locally detected events to remote Dropbox.
-
-        :param list events: List of local file changes.
-        :param float local_cursor: Time stamp of last event in `events`.
-
-        :return: ``True`` if all changes have been uploaded successfully, ``False``
-            otherwise.
-        :rtype: bool
-        """
-        num_threads = os.cpu_count() * 2
-        success = []
-        with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            fs = [executor.submit(self._apply_event, e) for e in events]
-            n_files = len(events)
-            for (f, n) in zip(as_completed(fs), range(1, n_files + 1)):
-                logger.info("Uploading {0}/{1}...".format(n, n_files))
-                success += [f.result()]
-
-        if not all(success):
-            return False
-
-        # save cursor
-        self.last_sync = local_cursor
-
-        return True
 
     def _apply_event(self, evnt):
         if evnt.event_type is EVENT_TYPE_CREATED:
