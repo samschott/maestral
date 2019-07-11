@@ -438,23 +438,24 @@ class UpDownSync(object):
             list is returned.
         :param delay: Delay in sec to wait for subsequent changes that may be duplicates.
 
-        :return: List of watchdog file events.
-        :rtype: list
+        :return: (list of file events, time_stamp)
+        :rtype: (list, float)
         """
         try:
             events = [self.local_q.get(timeout)]  # blocks until event is in queue
         except queue.Empty:
             return []
         else:
-            # wait for delay after last event has been registered
+            # keep collecting events until no more changes happen for at least 0.5 sec
             t0 = time.time()
             while t0 - self.local_q.update_time < delay:
+                while self.local_q.qsize() > 0:
+                    events.append(self.local_q.get())
                 time.sleep(delay)
                 t0 = time.time()
 
-            # get all events after folder has been idle for self.delay
-            while self.local_q.qsize() > 0:
-                events.append(self.local_q.get())
+            # save timestamp
+            local_cursor = self.local_q.update_time
 
             # COMBINE "MOVED" EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
             moved_folder_events = [x for x in events if self._is_moved_folder(x)]
@@ -519,7 +520,7 @@ class UpDownSync(object):
             events = self._list_diff(events, to_remove)
             events += to_add
 
-            return events
+            return events, local_cursor
 
     @staticmethod
     def _list_diff(list1, list2):
@@ -584,16 +585,33 @@ class UpDownSync(object):
                      all_events.index(x) > all_events.index(event) and
                      isinstance(x, FileCreatedEvent)), None)
 
-    def apply_local_changes(self, events):
-        """Applies locally detected events to remote Dropbox."""
+    def apply_local_changes(self, events, local_cursor):
+        """
+        Applies locally detected events to remote Dropbox.
+
+        :param list events: List of local file changes.
+        :param float local_cursor: Time stamp of last event in `events`.
+
+        :return: ``True`` if all changes have been uploaded successfully, ``False``
+            otherwise.
+        :rtype: bool
+        """
         num_threads = os.cpu_count() * 2
+        success = []
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
             fs = [executor.submit(self._apply_event, e) for e in events]
             n_files = len(events)
             for (f, n) in zip(as_completed(fs), range(1, n_files + 1)):
                 logger.info("Uploading {0}/{1}...".format(n, n_files))
+                success += [f.result()]
 
-        self.last_sync = time.time()
+        if not all(success):
+            return False
+
+        # save cursor
+        self.last_sync = local_cursor
+
+        return True
 
     def _apply_event(self, evnt):
         if evnt.event_type is EVENT_TYPE_CREATED:
@@ -643,8 +661,6 @@ class UpDownSync(object):
                     self.set_local_rev(md.path_display, md.rev)
                 elif isinstance(md, dropbox.files.FolderMetadata):
                     self.set_local_rev(md.path_display, "folder")
-
-        self.last_sync = time.time()
 
     def _on_created(self, event):
         """
@@ -703,8 +719,6 @@ class UpDownSync(object):
             # save or update revision metadata
             self.set_local_rev(dbx_path, "folder")
 
-        self.last_sync = time.time()
-
     def _on_deleted(self, event):
         """
         Call when local file is deleted.
@@ -728,8 +742,6 @@ class UpDownSync(object):
         md = self.client.remove(dbx_path)
         # remove revision metadata
         self.set_local_rev(md.path_display, None)
-
-        self.last_sync = time.time()
 
     def _on_modified(self, event):
         """
@@ -764,8 +776,6 @@ class UpDownSync(object):
                              md.path_display, rev, md.rev)
                 # save or update revision metadata
                 self.set_local_rev(md.path_display, md.rev)
-
-        self.last_sync = time.time()
 
     # ====================================================================================
     #  Download sync
@@ -855,7 +865,7 @@ class UpDownSync(object):
                 logger.info("Downloading {0}/{1}...".format(n, n_files))
                 success += [f.result()]
 
-        if all(success) is False:
+        if not all(success):
             return False
 
         # save cursor
@@ -1068,6 +1078,7 @@ class UpDownSync(object):
                 new_local_file = parts[0] + " (conflicting copy)" + parts[1]
                 os.rename(local_path, new_local_file)
             elif conflict == 2:  # Dropbox files corresponds to local file, nothing to do
+                # rev number has been update by `check_download_conflict` if necessary
                 return True
 
             md = self.client.download(entry.path_display, local_path)
@@ -1106,10 +1117,9 @@ class UpDownSync(object):
                     shutil.rmtree(local_path)
                 elif osp.isfile(local_path):
                     os.remove(local_path)
+                logger.debug("Deleted local item '{0}'".format(entry.path_display))
             except FileNotFoundError as e:
                 logger.debug("FileNotFoundError: {0}".format(e))
-            else:
-                logger.debug("Deleted local item '{0}'".format(entry.path_display))
 
             self.set_local_rev(entry.path_display, None)
 
@@ -1244,13 +1254,13 @@ def upload_worker(sync, running, shutdown):
 
     while not shutdown.is_set():
 
-        events = sync.wait_for_local_changes(timeout=2)
+        events, local_cursor = sync.wait_for_local_changes(timeout=2)
 
         if len(events) > 0:
             with sync.lock:
                 try:
                     logger.info(SYNCING)
-                    sync.apply_local_changes(events)
+                    sync.apply_local_changes(events, local_cursor)
                     logger.info(IDLE)
                 except CONNECTION_ERRORS as e:
                     logger.info(DISCONNECTED)
