@@ -545,16 +545,18 @@ class UpDownSync(object):
         :rtype: bool
         """
         num_threads = os.cpu_count() * 2
-        success = []
+        results = []
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
             fs = [executor.submit(self._apply_event, e) for e in events]
             n_files = len(events)
             for (f, n) in zip(as_completed(fs), range(1, n_files + 1)):
                 logger.info("Uploading {0}/{1}...".format(n, n_files))
-                success += [f.result()]
+                results += [f.result()]
 
-        if not all(success):
-            self._failed_uploads_cache += events
+        failed_uploads = [r for r in results if r is not True]
+
+        if len(failed_uploads) > 0:
+            self._failed_uploads_cache = failed_uploads
             return False
 
         # save cursor and clear un-synced changes cache
