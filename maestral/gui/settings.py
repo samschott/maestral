@@ -17,8 +17,8 @@ from maestral.utils.autostart import AutoStart
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog
-from maestral.gui.resources import (GENERIC_FOLDER_ICON, HOME_FOLDER_ICON,
-                                    UNLINK_DIALOG, SETTINGS_WINDOW)
+from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
+                                    SETTINGS_WINDOW_PATH)
 
 
 class UnlinkDialog(QtWidgets.QDialog):
@@ -26,7 +26,7 @@ class UnlinkDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
-        uic.loadUi(UNLINK_DIALOG, self)
+        uic.loadUi(UNLINK_DIALOG_PATH, self)
         self.buttonBox.buttons()[0].setText('Unlink')
 
 
@@ -35,10 +35,8 @@ class SettingsWindow(QtWidgets.QWidget):
     def __init__(self, mdbx, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
-        uic.loadUi(SETTINGS_WINDOW, self)
+        uic.loadUi(SETTINGS_WINDOW_PATH, self)
         # self.setFixedSize(560, 320)
-        self.generic_folder_icon = QtGui.QIcon(GENERIC_FOLDER_ICON)
-        self.home_folder_icon = QtGui.QIcon(HOME_FOLDER_ICON)
 
         self.mdbx = mdbx
         self.folders_dialog = FoldersDialog(self.mdbx, parent=self)
@@ -76,12 +74,11 @@ class SettingsWindow(QtWidgets.QWidget):
     def setup_combobox(self):
 
         parent_dir = osp.split(self.mdbx.sync.dropbox_path)[0]
-        short_path = self.rel_path(parent_dir)
+        relative_path = self.rel_path(parent_dir)
 
-        if parent_dir == get_home_dir():
-            self.comboBoxDropboxPath.addItem(self.home_folder_icon, short_path)
-        else:
-            self.comboBoxDropboxPath.addItem(self.generic_folder_icon, short_path)
+        folder_icon = get_native_item_icon(parent_dir)
+        self.comboBoxDropboxPath.addItem(folder_icon, relative_path)
+
         self.comboBoxDropboxPath.insertSeparator(1)
         self.comboBoxDropboxPath.addItem(QtGui.QIcon(), "Other...")
         self.comboBoxDropboxPath.currentIndexChanged.connect(self.on_combobox)
@@ -104,10 +101,7 @@ class SettingsWindow(QtWidgets.QWidget):
         self.comboBoxDropboxPath.setCurrentIndex(0)
         if not new_location == '':
             self.comboBoxDropboxPath.setItemText(0, self.rel_path(new_location))
-            if new_location == get_home_dir():
-                self.comboBoxDropboxPath.setItemIcon(0, self.home_folder_icon)
-            else:
-                self.comboBoxDropboxPath.setItemIcon(0, self.generic_folder_icon)
+            self.comboBoxDropboxPath.setItemIcon(0, get_native_item_icon(new_location))
 
             new_path = osp.join(new_location, 'Dropbox')
             self.mdbx.set_dropbox_directory(new_path)

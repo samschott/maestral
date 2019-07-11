@@ -20,8 +20,9 @@ from maestral.monitor import CONNECTION_ERRORS
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FolderItem
-from maestral.gui.resources import (GENERIC_FOLDER_ICON, HOME_FOLDER_ICON, APP_ICON,
-                                    FIRST_SYNC_DIALOG, ERROR_DIALOG)
+from maestral.gui.resources import (APP_ICON_PATH, FIRST_SYNC_DIALOG_PATH,
+                                    ERROR_DIALOG_PATH, get_native_item_icon,
+                                    get_native_folder_icon)
 
 
 class ErrorDialog(QtWidgets.QDialog):
@@ -29,7 +30,7 @@ class ErrorDialog(QtWidgets.QDialog):
     def __init__(self, parent, title, message):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
-        uic.loadUi(ERROR_DIALOG, self)
+        uic.loadUi(ERROR_DIALOG_PATH, self)
         self.setFixedSize(460, 145)
         self.labelTitle.setText(title)
         self.labelMessage.setText(message)
@@ -82,10 +83,8 @@ class FirstSyncDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
-        uic.loadUi(FIRST_SYNC_DIALOG, self)
-        self.app_icon = QtGui.QPixmap(APP_ICON)
-        self.folder_icon = QtGui.QIcon(GENERIC_FOLDER_ICON)
-        self.home_folder_icon = QtGui.QIcon(HOME_FOLDER_ICON)
+        uic.loadUi(FIRST_SYNC_DIALOG_PATH, self)
+        self.app_icon = QtGui.QPixmap(APP_ICON_PATH)
 
         self.mdbx = None
         self.folder_items = []
@@ -99,12 +98,11 @@ class FirstSyncDialog(QtWidgets.QDialog):
 
         # set up combobox
         self.dropbox_location = osp.expanduser('~')
-        short_path = self.rel_path(self.dropbox_location)
+        relative_path = self.rel_path(self.dropbox_location)
 
-        if self.dropbox_location == get_home_dir():
-            self.comboBoxDropboxPath.addItem(self.home_folder_icon, short_path)
-        else:
-            self.comboBoxDropboxPath.addItem(self.folder_icon, short_path)
+        folder_icon = get_native_item_icon(self.dropbox_location)
+        self.comboBoxDropboxPath.addItem(folder_icon, relative_path)
+
         self.comboBoxDropboxPath.insertSeparator(1)
         self.comboBoxDropboxPath.addItem(QtGui.QIcon(), "Other...")
         self.comboBoxDropboxPath.currentIndexChanged.connect(self.on_combobox)
@@ -235,10 +233,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
         self.comboBoxDropboxPath.setCurrentIndex(0)
         if not new_location == '':
             self.comboBoxDropboxPath.setItemText(0, self.rel_path(new_location))
-            if new_location == get_home_dir():
-                self.comboBoxDropboxPath.setItemIcon(0, self.home_folder_icon)
-            else:
-                self.comboBoxDropboxPath.setItemIcon(0, self.folder_icon)
+            self.comboBoxDropboxPath.setItemIcon(0, get_native_item_icon(new_location))
 
         self.dropbox_location = new_location
 
@@ -259,7 +254,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
             for entry in root_folders.entries:
                 if isinstance(entry, files.FolderMetadata):
                     inc = not self.mdbx.sync.is_excluded_by_user(entry.path_lower)
-                    item = FolderItem(self.folder_icon, entry.name, inc)
+                    item = FolderItem(get_native_folder_icon(), entry.name, inc)
                     self.folder_items.append(item)
 
             for item in self.folder_items:
