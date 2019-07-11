@@ -22,7 +22,7 @@ from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED
 from maestral.config.main import CONF
 from maestral.gui.settings import SettingsWindow
 from maestral.gui.first_sync_dialog import FirstSyncDialog
-from maestral.gui.resources import ICON_PATH
+from maestral.gui.resources import TRAY_ICON_PATH
 
 
 FIRST_SYNC = (not CONF.get("internal", "lastsync") or
@@ -75,7 +75,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
                 icon_color = "light"
         short_status = ("idle", "syncing", "paused", "disconnected")
         for long, status in zip((IDLE, SYNCING, PAUSED, DISCONNECTED), short_status):
-            self.icons[long] = QIcon(ICON_PATH.format(status, icon_color))
+            self.icons[long] = QIcon(TRAY_ICON_PATH.format(status, icon_color))
 
         if platform.system() == "Darwin":
             # macOS will take care of adapting the icon color to the system theme if

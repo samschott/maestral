@@ -6,12 +6,12 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 
-from PyQt5 import QtGui, QtWidgets, uic
+from PyQt5 import QtWidgets, uic
 
 from dropbox import files
 
 from maestral.config.main import CONF
-from maestral.gui.resources import GENERIC_FOLDER_ICON, FOLDERS_DIALOG
+from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
 
 
 class FolderItem(QtWidgets.QListWidgetItem):
@@ -40,8 +40,7 @@ class FoldersDialog(QtWidgets.QDialog):
     def __init__(self, mdbx,  parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
-        uic.loadUi(FOLDERS_DIALOG, self)
-        self.folder_icon = QtGui.QIcon(GENERIC_FOLDER_ICON)
+        uic.loadUi(FOLDERS_DIALOG_PATH, self)
 
         self.mdbx = mdbx
         self.accept_button = self.buttonBox.buttons()[0]
@@ -69,7 +68,7 @@ class FoldersDialog(QtWidgets.QDialog):
             for entry in result.entries:
                 if isinstance(entry, files.FolderMetadata):
                     inc = not self.mdbx.sync.is_excluded_by_user(entry.path_lower)
-                    item = FolderItem(self.folder_icon, entry.name, inc)
+                    item = FolderItem(get_native_folder_icon(), entry.name, inc)
                     self.path_items.append(item)
 
             for item in self.path_items:
