@@ -402,6 +402,10 @@ class UpDownSync(object):
         with self._rev_lock:
             dbx_path = dbx_path.lower()
 
+            if rev == self.get_local_rev(dbx_path):
+                # nothing to do
+                return
+
             if rev is None:
                 # remove entry and all its children revs
                 for path in dict(self._rev_dict_cache):
