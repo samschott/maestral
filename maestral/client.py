@@ -336,7 +336,8 @@ class MaestralApiClient(object):
 
         :param str dbx_path: Path to file on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_delete.
-        :return: Metadata of deleted file or `False` if the file does not exist on Dropbox.
+        :return: Metadata of deleted file or ``False`` if the file does not exist on
+            Dropbox.
 
         :raises: Raises :class:`dropbox.exceptions.ApiError` if deletion fails for any
             other reason than a non-existing file.
@@ -346,10 +347,10 @@ class MaestralApiClient(object):
             md = self.dbx.files_delete(dbx_path, **kwargs)
         except dropbox.exceptions.ApiError as err:
             if err.error.is_path_lookup():
-                # don't log as ERROR if file did not exist
-                logger.warning("An error occurred when deleting '{0}': the file does "
-                               "not exist on Dropbox".format(dbx_path))
-                return False
+                # don't log as error if file did not exist
+                logger.debug("An error occurred when deleting '{0}': the file does "
+                             "not exist on Dropbox".format(dbx_path))
+                return True
             else:
                 logger.error("An error occurred when deleting '{0}': {1}".format(
                     dbx_path, err))
@@ -365,7 +366,7 @@ class MaestralApiClient(object):
 
         :param str dbx_path: Path to file/folder on Dropbox.
         :param str new_path: New path on Dropbox to move to.
-        :return: Metadata of moved file/folder or `False` if move failed.
+        :return: Metadata of moved file/folder or ``False`` if move failed.
         """
         try:
             md = self.dbx.files_move(dbx_path, new_path, allow_shared_folder=True,
@@ -386,7 +387,7 @@ class MaestralApiClient(object):
 
         :param str dbx_path: Path o fDropbox folder.
         :param kwargs: Keyword arguments for Dropbox SDK files_create_folder.
-        :return: Metadata of created folder or `False` if failed.
+        :return: Metadata of created folder or ``False`` if failed.
         """
         try:
             md = self.dbx.files_create_folder(dbx_path, **kwargs)
@@ -405,7 +406,7 @@ class MaestralApiClient(object):
 
         :param str dbx_path: Path of folder on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_list_folder.
-        :return: :class:`dropbox.files.ListFolderResult` instance or `False` if failed.
+        :return: :class:`dropbox.files.ListFolderResult` instance or ``False`` if failed.
         :rtype: :class:`dropbox.files.ListFolderResult`
         """
 
@@ -461,7 +462,7 @@ class MaestralApiClient(object):
 
         :param str last_cursor: Last to cursor to compare for changes.
         :param int timeout: Seconds to wait until timeout.
-        :return: `True` if changes are available, `False` otherwise.
+        :return: ``True`` if changes are available, ``False`` otherwise.
         :rtype: bool
         """
 
