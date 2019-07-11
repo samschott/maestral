@@ -8,6 +8,10 @@ Meastral is an open-source Dropbox client written in Python. The project's main 
 provide a client for platforms and file systems that are not directly supported by
 Dropbox. Meastral uses the Python SDK for the Dropbox API v2.
 
+Currently, Maestral does not support Dropbox Paper, the management of shared folder / file
+settings or the management of Dropbox teams. If you need any of this functionality, you
+must use the Dropbox website.
+
 ## Installation
 
 Download and install the Python package by running
