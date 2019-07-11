@@ -402,7 +402,7 @@ class UpDownSync(object):
         with self._rev_lock:
             dbx_path = dbx_path.lower()
 
-            if rev == self.get_local_rev(dbx_path):
+            if rev == self._rev_dict_cache.get(dbx_path, None):
                 # nothing to do
                 return
 
