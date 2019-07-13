@@ -203,6 +203,8 @@ def catch_sync_issues(sync_errors=None, failed_items=None):
                     res = True
             except MaestralApiError as exc:
                 logger.exception(SYNC_ERROR)
+                file_name = os.path.basename(exc.dbx_path)
+                self.notify.send("Could not sync {0}".format(file_name))
                 if not exc.local_path:
                     exc.local_path = self.to_local_path(exc.dbx_path)
                 if sync_errors:
@@ -1064,25 +1066,25 @@ class UpDownSync(object):
         # notify user
         if n_changed == 1:
             md = changes.entries[0]
-            file_name = md.path_display.strip("/")
+            file_name = os.path.basename(md.path_display)
             if isinstance(md, DeletedMetadata):
                 if self.get_local_rev(md.path_display):
                     # file has been deleted from remote
-                    self.notify.send("%s removed" % file_name)
+                    self.notify.send("{0} removed".format(file_name))
             elif isinstance(md, FileMetadata):
                 if self.get_local_rev(md.path_display) is None:
                     # file has been added to remote
-                    self.notify.send("%s added" % file_name)
+                    self.notify.send("{0} added".format(file_name))
                 elif not self.get_local_rev(md.path_display) == md.rev:
                     # file has been modified on remote
-                    self.notify.send("%s modified" % file_name)
+                    self.notify.send("{0} modified".format(file_name))
             elif isinstance(md, FolderMetadata):
                 if self.get_local_rev(md.path_display) is None:
                     # folder has been deleted from remote
-                    self.notify.send("%s added" % file_name)
+                    self.notify.send("{0} added".format(file_name))
 
         elif n_changed > 1:
-            self.notify.send("%s files changed" % n_changed)
+            self.notify.send("{0} files changed".format(n_changed))
 
     @staticmethod
     def _sort_entries(result):
