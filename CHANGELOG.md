@@ -1,4 +1,4 @@
-### v0.2.0 (2019-07-13)
+### v0.2.0-beta (2019-07-13)
 
 This version introduces proper exception handling of sync errors.
 This version includes some GUI improvements: A more informative setup dialog, a new menu
