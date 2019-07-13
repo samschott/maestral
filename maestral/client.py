@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 # create single requests session for all clients
 SESSION = dropbox.dropbox.create_session()
 
-APP_KEY = os.environ["DROPBOX_API_KEY"]  # noinspection PySpellChecker
-APP_SECRET = os.environ["DROPBOX_API_SECRET"]  # noinspection PySpellChecker
+APP_KEY = os.environ["DROPBOX_API_KEY"]
+APP_SECRET = os.environ["DROPBOX_API_SECRET"]
 
 
 def tobytes(value, unit, bsize=1024):
