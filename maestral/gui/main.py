@@ -14,15 +14,18 @@ import subprocess
 import webbrowser
 import shutil
 from blinker import signal
+from traceback import format_exception
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtGui import QIcon
 
 from maestral.main import Maestral
-from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED
+from maestral.monitor import (IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR,
+                              CorruptedRevFileError)
+from maestral.client import MaestralApiError
 from maestral.config.main import CONF
-from maestral.gui.settings import SettingsWindow
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.first_sync_dialog import FirstSyncDialog
+from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import TRAY_ICON_PATH
 
@@ -42,7 +45,6 @@ class InfoHandler(logging.Handler, QtCore.QObject):
     """
 
     info_signal = QtCore.pyqtSignal(str)
-    status_signal = QtCore.pyqtSignal(str)
 
     def __init__(self):
         logging.Handler.__init__(self)
@@ -53,12 +55,62 @@ class InfoHandler(logging.Handler, QtCore.QObject):
         self.info_signal.emit(record.message)
 
 
+class ErrorHandler(logging.Handler, QtCore.QObject):
+    """
+    Handler which emits a signal containing the error message.
+    """
+
+    error_signal = QtCore.pyqtSignal(tuple)
+
+    def __init__(self):
+        logging.Handler.__init__(self)
+        QtCore.QObject.__init__(self)
+
+    def emit(self, record):
+        self.format(record)
+        self.error_signal.emit(record.exc_info)
+
+
 info_handler = InfoHandler()
 info_handler.setLevel(logging.INFO)
+error_handler = ErrorHandler()
+error_handler.setLevel(logging.ERROR)
 
 for logger_name in ["maestral.monitor", "maestral.main", "maestral.client"]:
     mdbx_logger = logging.getLogger(logger_name)
     mdbx_logger.addHandler(info_handler)
+    mdbx_logger.addHandler(error_handler)
+
+
+class ErrorDialog(QtWidgets.QDialog):
+    def __init__(self, title, message, exc_info=None, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+        self.setWindowTitle("Maestral Error")
+        self.setFixedWidth(450)
+
+        self.gridLayout = QtWidgets.QGridLayout()
+        self.setLayout(self.gridLayout)
+
+        self.title = QtWidgets.QLabel(self)
+        self.title.setStyleSheet('font-weight: bold;')
+        self.title.setText(title)
+
+        self.message = QtWidgets.QLabel(self)
+        self.message.setWordWrap(True)
+        self.message.setText(message)
+
+        if exc_info:
+            self.details = QtWidgets.QTextEdit(self)
+            self.details.setHtml(format_exception(*exc_info))
+
+        self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
+        self.buttonBox.accepted.connect(self.accept)
+
+        self.gridLayout.addWidget(self.title)
+        self.gridLayout.addWidget(self.message)
+        if exc_info:
+            self.gridLayout.addWidget(self.details)
+        self.gridLayout.addWidget(self.buttonBox)
 
 
 # noinspection PyTypeChecker
@@ -75,9 +127,9 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
             from maestral.gui.ui import THEME
             if THEME is "dark":
                 icon_color = "light"
-        short_status = ("idle", "syncing", "paused", "disconnected")
-        for long, status in zip((IDLE, SYNCING, PAUSED, DISCONNECTED), short_status):
-            self.icons[long] = QIcon(TRAY_ICON_PATH.format(status, icon_color))
+        short = ("idle", "syncing", "paused", "disconnected", "error")
+        for l, s in zip((IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR), short):
+            self.icons[l] = QIcon(TRAY_ICON_PATH.format(s, icon_color))
 
         if platform.system() == "Darwin":
             # macOS will take care of adapting the icon color to the system theme if
@@ -89,7 +141,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         QtWidgets.QSystemTrayIcon.__init__(self, self.icons[IDLE], parent)
         self.show_when_systray_available()
 
-        # ------------- set up remaining ui -------------------
+        # ------------- set up remaining ui --------------------
         self.menu = QtWidgets.QMenu()
         self.mdbx = mdbx
         self.setup_ui()
@@ -104,8 +156,9 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
     def setup_ui(self):
 
-        # ------------- create settings window -------------------
+        # ----------------- create windows ----------------------
         self.settings = SettingsWindow(self.mdbx, parent=None)
+        self.sync_issues_window = SyncIssueWindow(self.mdbx.monitor.sync.sync_errors)
 
         # ------------- populate context menu -------------------
         self.openDropboxFolderAction = self.menu.addAction("Open Dropbox Folder")
@@ -135,8 +188,14 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
         self.preferencesAction = self.menu.addAction("Preferences...")
         self.helpAction = self.menu.addAction("Help Center")
+
         self.separator4 = self.menu.addSeparator()
+
+        self.syncIssuesAction = self.menu.addAction("Show Sync Issues...")
         self.rebuiltAction = self.menu.addAction("Rebuild index...")
+
+        self.separator5 = self.menu.addSeparator()
+
         self.quitAction = self.menu.addAction("Quit Maestral")
         self.setContextMenu(self.menu)
 
@@ -148,6 +207,10 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.preferencesAction.triggered.connect(self.settings.show)
         self.preferencesAction.triggered.connect(self.settings.raise_)
         self.preferencesAction.triggered.connect(self.settings.activateWindow)
+        self.syncIssuesAction.triggered.connect(self.sync_issues_window.reload)
+        self.syncIssuesAction.triggered.connect(self.sync_issues_window.show)
+        self.syncIssuesAction.triggered.connect(self.sync_issues_window.raise_)
+        self.syncIssuesAction.triggered.connect(self.sync_issues_window.activateWindow)
         self.rebuiltAction.triggered.connect(self.on_rebuild)
         self.helpAction.triggered.connect(self.on_help_clicked)
         self.quitAction.triggered.connect(self.quit_)
@@ -169,7 +232,8 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
         # ------------- connect UI to signals -------------------
         info_handler.info_signal.connect(self.statusAction.setText)
-        info_handler.info_signal.connect(self.change_icon)
+        info_handler.info_signal.connect(self.on_info_signal)
+        error_handler.error_signal.connect(self.on_error)
         self.usage_signal.connect(self.on_usage_available)
 
     # callbacks for user interaction
@@ -227,6 +291,22 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.accountUsageAction.setText(usage_string)
         self.settings.labelSpaceUsage2.setText(usage_string)
 
+    def on_error(self, exc_info):
+        exc_type, exc, tb = exc_info
+
+        if isinstance(exc, CorruptedRevFileError):
+            # show error dialog to user
+            title = "Maestral Error"
+            message = exc.args[0]
+            error_dialog = ErrorDialog(title, message)
+            error_dialog.open()
+        elif isinstance(exc, MaestralApiError):
+            pass
+        else:
+            title = "An unexpected error occurred."
+            message = "Please contact the Maestral developer with the information below."
+            error_dialog = ErrorDialog(title, message, exc_info)
+            error_dialog.open()
 
     def on_rebuild(self):
 
@@ -240,13 +320,22 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.recentFilesMenu.clear()
         for dbx_path in reversed(CONF.get("internal", "recent_changes")):
             file_name = os.path.basename(dbx_path)
-            truncated_name = self._truncate_string(file_name, self.menu.font())
+            truncated_name = self._truncate_string_right(file_name, self.menu.font())
             action = self.recentFilesMenu.addAction(truncated_name)
             action.setData(dbx_path)
 
-    def change_icon(self, status):
+    def on_info_signal(self, status):
         """Change icon according to status."""
-        new_icon = self.icons.get(status, self.icons[SYNCING])
+        n_errors = self.mdbx.monitor.sync.sync_errors.qsize()
+        if n_errors > 0:
+            self.syncIssuesAction.setText("Show Sync Issues ({0})...".format(n_errors))
+        else:
+            self.syncIssuesAction.setText("Show Sync Issues...")
+
+        if n_errors > 0 and status != PAUSED:
+            new_icon = self.icons[SYNC_ERROR]
+        else:
+            new_icon = self.icons.get(status, self.icons[SYNCING])
         self.setIcon(new_icon)
 
     def quit_(self):
@@ -256,7 +345,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         QtCore.QCoreApplication.quit()
 
     @staticmethod
-    def _truncate_string(string, font, pixels=200):
+    def _truncate_string_right(string, font, pixels=200):
         """
         Truncates strings so that it is short than `pixels` in the given `font`.
 
