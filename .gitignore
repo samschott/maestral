@@ -146,3 +146,4 @@ Temporary Items
 maestral/utils/notify_mac.py
 .idea/encodings.xml
 *.iml
+*.xml
