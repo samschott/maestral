@@ -66,18 +66,19 @@ def folder_download_worker(sync, dbx_path):
                 logger.info(DISCONNECTED)
 
 
-def with_sync_paused(f):
+def with_sync_paused(func):
     """
-    Decorator which pauses syncing before a method call, resumes afterwards.
+    Decorator which pauses syncing before a method call, resumes afterwards. This
+    should only be used to decorate Maestral methods.
     """
-    @functools.wraps(f)
+    @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         # pause syncing
         resume = False
         if self.syncing:
             self.pause_sync()
             resume = True
-        ret = f(self, *args, **kwargs)
+        ret = func(self, *args, **kwargs)
         # resume syncing if previously paused
         if resume:
             self.resume_sync()
@@ -85,22 +86,20 @@ def with_sync_paused(f):
     return wrapper
 
 
-def if_connected(f):
+def if_connected(func):
     """
-    Decorator which checks for connection to Dropbox API before a method call.
+    Decorator which checks for connection to Dropbox API before a method call. This can be
+    used to decorate any function.
     """
 
-    @functools.wraps(f)
-    def wrapper(self, *args, **kwargs):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        print(args)
+        print(len(kwargs))
         # pause syncing
-        if not self.connected:
-            logger.info(CONNECTION_ERROR)
-            return False
         try:
-            res = f(self, *args, **kwargs)
+            res = func(*args, **kwargs)
             return res
-        except (KeyboardInterrupt, SystemExit):
-            raise
         except CONNECTION_ERRORS as e:
             logger.warning("{0}: {1}".format(CONNECTION_ERROR, e))
             return False
@@ -304,6 +303,7 @@ class Maestral(object):
         included_folders = []
 
         # get all top-level Dropbox folders
+        # if this raises an error, we have a serious problem => crash
         result = self.client.list_folder("", recursive=False)
 
         # paginate through top-level folders, ask to exclude
