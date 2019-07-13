@@ -10,6 +10,7 @@ from PyQt5 import QtWidgets, uic
 
 from dropbox import files
 
+from maestral.main import if_connected
 from maestral.config.main import CONF
 from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
 
@@ -46,17 +47,22 @@ class FoldersDialog(QtWidgets.QDialog):
         self.accept_button = self.buttonBox.buttons()[0]
         self.accept_button.setText('Update')
 
+        self.listWidgetFolders.addItem("Loading your folders...")
+
         # connect callbacks
         self.buttonBox.accepted.connect(self.on_accepted)
-        self.buttonBox.rejected.connect(self.on_rejected)
 
-    def populate_folders_list(self):
+    @if_connected
+    def populate_folders_list(self, overload=None):
 
-        self.listWidgetFolders.addItem("Loading your folders...")
+        self.listWidgetFolders.clear()
+
+        if not self.mdbx.connected:
+            self.listWidgetFolders.addItem("Cannot connect to Dropbox.")
+            return
 
         # add new entries
         result = self.mdbx.client.list_folder("", recursive=False)
-        self.listWidgetFolders.clear()
         self.path_items = []
 
         if result is False:
@@ -74,10 +80,14 @@ class FoldersDialog(QtWidgets.QDialog):
             for item in self.path_items:
                 self.listWidgetFolders.addItem(item)
 
-    def on_accepted(self):
+    @if_connected
+    def on_accepted(self, overload=None):
         """
         Apply changes to local Dropbox folder.
         """
+
+        if not self.mdbx.connected:
+            return
 
         excluded_folders = []
         included_folders = []
@@ -95,5 +105,3 @@ class FoldersDialog(QtWidgets.QDialog):
 
         CONF.set("main", "excluded_folders", excluded_folders)
 
-    def on_rejected(self):
-        pass
