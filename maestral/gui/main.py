@@ -23,6 +23,7 @@ from maestral.config.main import CONF
 from maestral.gui.settings import SettingsWindow
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.first_sync_dialog import FirstSyncDialog
+from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import TRAY_ICON_PATH
 
 
@@ -135,6 +136,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.preferencesAction = self.menu.addAction("Preferences...")
         self.helpAction = self.menu.addAction("Help Center")
         self.separator4 = self.menu.addSeparator()
+        self.rebuiltAction = self.menu.addAction("Rebuild index...")
         self.quitAction = self.menu.addAction("Quit Maestral")
         self.setContextMenu(self.menu)
 
@@ -146,6 +148,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.preferencesAction.triggered.connect(self.settings.show)
         self.preferencesAction.triggered.connect(self.settings.raise_)
         self.preferencesAction.triggered.connect(self.settings.activateWindow)
+        self.rebuiltAction.triggered.connect(self.on_rebuild)
         self.helpAction.triggered.connect(self.on_help_clicked)
         self.quitAction.triggered.connect(self.quit_)
 
@@ -223,6 +226,12 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         usage_string = str(space_usage)
         self.accountUsageAction.setText(usage_string)
         self.settings.labelSpaceUsage2.setText(usage_string)
+
+
+    def on_rebuild(self):
+
+        rebuild_dialog = RebuildIndexDialog(self.mdbx.monitor)
+        rebuild_dialog.exec_()
 
     # callbacks to update GUI
 
