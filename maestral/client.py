@@ -13,6 +13,8 @@ import datetime
 import logging
 import requests
 
+import keyring
+from keyring.errors import KeyringLocked
 import dropbox
 from dropbox import DropboxOAuth2FlowNoRedirect
 
@@ -20,6 +22,7 @@ from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
 
 logger = logging.getLogger(__name__)
+
 # create single requests session for all clients
 SESSION = dropbox.dropbox.create_session()
 
@@ -89,16 +92,35 @@ class OAuth2Session(object):
     auth_flow = None
     oAuth2FlowResult = None
     access_token = ""
-    account_id = ""
-    user_id = ""
 
     def __init__(self, app_key=APP_KEY, app_secret=APP_SECRET):
         self.app_key = app_key
         self.app_secret = app_secret
 
+        self.migrate_to_keyring()
+
         # prepare auth flow
         self.auth_flow = DropboxOAuth2FlowNoRedirect(self.app_key, self.app_secret)
         self.load_creds()
+
+    def migrate_to_keyring(self):
+
+        if os.path.isfile(self.TOKEN_FILE):
+            print(" > Migrating access token to keyring...")
+
+            try:
+                # load old token
+                with open(self.TOKEN_FILE) as f:
+                    stored_creds = f.read()
+                self.access_token, *_ = stored_creds.split("|")
+
+                # migrate old token to keyring
+                self.write_creds()
+                os.unlink(self.TOKEN_FILE)
+                print(" [DONE]")
+
+            except IOError:
+                print(" x Could not load old token. Beginning new session.")
 
     def link(self):
         authorize_url = self.auth_flow.start()
@@ -110,34 +132,41 @@ class OAuth2Session(object):
         try:
             self.oAuth2FlowResult = self.auth_flow.finish(auth_code)
             self.access_token = self.oAuth2FlowResult.access_token
-            self.account_id = self.oAuth2FlowResult.account_id
-            self.user_id = self.oAuth2FlowResult.user_id
         except Exception as exc:
             raise _to_maestral_error(exc) from exc
 
         self.write_creds()
 
     def load_creds(self):
-        print(" > Loading access token..."),
+        print(" > Loading access token...")
         try:
-            with open(self.TOKEN_FILE) as f:
-                stored_creds = f.read()
-            self.access_token, self.account_id, self.user_id = stored_creds.split("|")
-            print(" [OK]")
-        except OSError:
+            self.access_token = keyring.get_password("Maestral", "MaestralUser")
+        except KeyringLocked:
+            raise KeyringLocked(
+                "Could not access the user keyring to load your authentication token. "
+                "Please make sure that the keyring is unlocked.")
+
+        if not self.access_token:
             print(" [FAILED]")
             print(" x Access token not found. Beginning new session.")
             self.link()
 
     def write_creds(self):
-        with open(self.TOKEN_FILE, "w+") as f:
-            f.write("|".join([self.access_token, self.account_id, self.user_id]))
+        try:
+            keyring.set_password("Maestral", "MaestralUser", self.access_token)
+            print(" > Credentials written.")
+        except KeyringLocked:
+            logger.error("Could not access the user keyring to save your authentication "
+                         "token. Please make sure that the keyring is unlocked.")
 
-        print(" > Credentials written.")
-
-    def delete_creds(self):
-        os.unlink(self.TOKEN_FILE)
-        print(" > Credentials removed.")
+    @staticmethod
+    def delete_creds():
+        try:
+            keyring.delete_password("Maestral", "MaestralUser")
+            print(" > Credentials removed.")
+        except KeyringLocked:
+            logger.error("Could not access the user keyring to delete your authentication"
+                         " token. Please make sure that the keyring is unlocked.")
 
 
 # noinspection PyDeprecation

@@ -5,3 +5,4 @@ blinker
 requests
 tqdm
 u-msgpack-python
+keyring

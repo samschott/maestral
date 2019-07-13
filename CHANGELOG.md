@@ -1,10 +1,5 @@
 ### v0.2.0-beta (2019-07-13)
 
-This version introduces proper exception handling of sync errors.
-This version includes some GUI improvements: A more informative setup dialog, a new menu
-item which lists recently changed files and an improved unlinking flow. More notably,
-the upload syncing of local changes has been refactored.
-
 #### Major changes
 
 _Added_:
@@ -32,6 +27,12 @@ _Changed_:
   but is no longer concerned with version tracking, etc. `MaestralClient` no longer
   catches Dropbox API errors but raises them, augmented with useful information, as
   `MaestralApiError`.
+- Moved storage of user authentication tokens from a text file to the system keyring. As a
+  result, authentication tokens will be encryptet on the hard drive and only decrypted
+  when the user logs in. On some systems, this may cause problems in headless mode, when
+  the Gnome keyring is not loaded. The
+  [keyring documentation](https://keyring.readthedocs.io/en/latest/#using-keyring-on-headless-linux-systems)
+  provides help for such cases.
 
 #### Minor changes
 
