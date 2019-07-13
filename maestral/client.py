@@ -11,6 +11,7 @@ import os.path as osp
 import time
 import datetime
 import logging
+import requests
 
 import dropbox
 from dropbox import DropboxOAuth2FlowNoRedirect
@@ -33,7 +34,7 @@ def tobytes(value, unit, bsize=1024):
     :param int value: Value in bytes.
     :param str unit: Unit to convert to. 'KB' to 'EB' are supported.
     :param int bsize: Conversion between bytes and next higher unit.
-    :return: Converted value in units of `to`.
+    :returns: Converted value in units of `to`.
     :rtype: float
     """
     a = {"KB": 1, "MB": 2, "GB": 3, "TB": 4, "PB": 5, "EB": 6}
@@ -48,7 +49,7 @@ def bytesto(value, unit, bsize=1024):
     :param int value: Value in bytes.
     :param str unit: Unit to convert to. 'KB' to 'EB' are supported.
     :param int bsize: Conversion between bytes and next higher unit.
-    :return: Converted value in units of `to`.
+    :returns: Converted value in units of `to`.
     :rtype: float
     """
     a = {"KB": 1, "MB": 2, "GB": 3, "TB": 4, "PB": 5, "EB": 6}
@@ -111,9 +112,8 @@ class OAuth2Session(object):
             self.access_token = self.oAuth2FlowResult.access_token
             self.account_id = self.oAuth2FlowResult.account_id
             self.user_id = self.oAuth2FlowResult.user_id
-        except Exception as e:
-            logger.error(e)
-            return
+        except Exception as exc:
+            raise _to_maestral_error(exc) from exc
 
         self.write_creds()
 
@@ -124,7 +124,7 @@ class OAuth2Session(object):
                 stored_creds = f.read()
             self.access_token, self.account_id, self.user_id = stored_creds.split("|")
             print(" [OK]")
-        except IOError:
+        except OSError:
             print(" [FAILED]")
             print(" x Access token not found. Beginning new session.")
             self.link()
@@ -171,7 +171,7 @@ class MaestralApiClient(object):
         """
         Gets current account information.
 
-        :return: :class:`dropbox.users.FullAccount` instance or `None` if failed.
+        :returns: :class:`dropbox.users.FullAccount` instance or `None` if failed.
         :rtype: dropbox.users.FullAccount
         """
         res = self.dbx.users_get_current_account()  # this does not raise any API errors
@@ -194,7 +194,7 @@ class MaestralApiClient(object):
         """
         Gets current account space usage.
 
-        :return: :class:`SpaceUsage` instance or `False` if failed.
+        :returns: :class:`SpaceUsage` instance or `False` if failed.
         :rtype: SpaceUsage
         """
         res = self.dbx.users_get_space_usage()  # this does not raise any API errors
@@ -227,17 +227,17 @@ class MaestralApiClient(object):
 
         :param str dbx_path: Path of folder on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
-        :return: FileMetadata|FolderMetadata entries or `False` if failed.
+        :returns: FileMetadata|FolderMetadata entries or `False` if failed.
         """
 
         try:
             md = self.dbx.files_get_metadata(dbx_path, **kwargs)
             logger.debug("Retrieved metadata for '{0}'".format(md.path_display))
-        except dropbox.exceptions.ApiError as err:
-            # API error is only raised when the path does not exist on Dropbox
+        except dropbox.exceptions.ApiError as exc:
+            # DropboxAPI error is only raised when the item does not exist on Dropbox
             # this is handled on a DEBUG level since we use call `get_metadata` to check
             # if a file exists
-            logging.debug("Could not get metadata for '%s': %s", dbx_path, err)
+            logger.debug("Could not get metadata for '%s': %s", dbx_path, exc)
             md = False
 
         return md
@@ -249,7 +249,7 @@ class MaestralApiClient(object):
         :param str dbx_path: Path to file on Dropbox.
         :param str dst_path: Path to download destination.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
-        :return: :class:`FileMetadata` or
+        :returns: :class:`FileMetadata` or
             :class:`FolderMetadata` of downloaded item, `False`
             if request fails or `None` if local copy is already in sync.
         """
@@ -264,16 +264,17 @@ class MaestralApiClient(object):
 
         try:
             md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
-        except dropbox.exceptions.ApiError as err:
-            logger.error("An error occurred while downloading '{0}' file to '{1}': "
-                         "{2}.".format(dbx_path, dst_path, err))
-            return False
-        except (IOError, OSError) as err:
-            logger.error("File could not be saved to local drive: {0}".format(err))
+        except dropbox.exceptions.ApiError as exc:
+            raise _to_maestral_error(exc, dbx_path) from exc
+        except OSError as exc:
+            exc = _construct_local_error_msg(exc, dbx_path)
+            exc.user_message_title = "Could not save file"
+            logger.error("File could not be saved to local drive: {0}".format(exc),
+                         exc_info=exc)
             return False
 
         logger.debug("File '{0}' (rev {1}) from '{2}' was successfully downloaded "
-                     "as '{3}'.\n".format(md.name, md.rev, md.path_display, dst_path))
+                     "as '{3}'.".format(md.name, md.rev, md.path_display, dst_path))
 
         return md
 
@@ -287,7 +288,7 @@ class MaestralApiClient(object):
         :param int chunk_size: Maximum size for individual uploads in MB. If
             the file size exceeds the chunk_size, an upload-session is created
             instead.
-        :return: Metadata of uploaded file or `False` if upload failed.
+        :returns: Metadata of uploaded file or `False` if upload failed.
         """
 
         file_size = osp.getsize(local_path)
@@ -317,13 +318,8 @@ class MaestralApiClient(object):
                             self.dbx.files_upload_session_append_v2(
                                 f.read(chunk_size), cursor)
                             cursor.offset = f.tell()
-        except dropbox.exceptions.ApiError as err:
-            logger.error("An error occurred while uploading file '{0}': {1}.".format(
-                local_path, err))
-            return False
-        except (IOError, OSError) as err:
-            logger.error("File could read local file: {0}".format(err))
-            return False
+        except (dropbox.exceptions.ApiError, OSError) as exc:
+            raise _to_maestral_error(exc, dbx_path) from exc
 
         logger.debug("File '{0}' (rev {1}) uploaded to Dropbox.".format(
             md.path_display, md.rev))
@@ -336,25 +332,22 @@ class MaestralApiClient(object):
 
         :param str dbx_path: Path to file on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_delete.
-        :return: Metadata of deleted file or ``False`` if the file does not exist on
+        :returns: Metadata of deleted file or ``False`` if the file does not exist on
             Dropbox.
-
-        :raises: Raises :class:`dropbox.exceptions.ApiError` if deletion fails for any
-            other reason than a non-existing file.
+        :raises: :class:`MaestralApiError` if deletion fails for any other reason than
+            a non-existing file.
         """
         try:
             # try to move file (response will be metadata, probably)
             md = self.dbx.files_delete(dbx_path, **kwargs)
-        except dropbox.exceptions.ApiError as err:
-            if err.error.is_path_lookup():
+        except dropbox.exceptions.ApiError as exc:
+            if exc.error.is_path_lookup():
                 # don't log as error if file did not exist
                 logger.debug("An error occurred when deleting '{0}': the file does "
                              "not exist on Dropbox".format(dbx_path))
                 return True
             else:
-                logger.error("An error occurred when deleting '{0}': {1}".format(
-                    dbx_path, err))
-                return False
+                raise _to_maestral_error(exc, dbx_path) from exc
 
         logger.debug("File / folder '{0}' removed from Dropbox.".format(dbx_path))
 
@@ -366,15 +359,14 @@ class MaestralApiClient(object):
 
         :param str dbx_path: Path to file/folder on Dropbox.
         :param str new_path: New path on Dropbox to move to.
-        :return: Metadata of moved file/folder or ``False`` if move failed.
+        :returns: Metadata of moved file/folder.
+        :raises: :class:`MaestralApiError`
         """
         try:
             md = self.dbx.files_move(dbx_path, new_path, allow_shared_folder=True,
                                      allow_ownership_transfer=True)
-        except dropbox.exceptions.ApiError as err:
-            logger.error("An error occurred when moving '{0}' to '{1}': {2}".format(
-                    dbx_path, new_path, err))
-            return False
+        except dropbox.exceptions.ApiError as exc:
+            raise _to_maestral_error(exc, new_path) from exc
 
         logger.debug("File moved from '{0}' to '{1}' on Dropbox.".format(
                      dbx_path, md.path_display))
@@ -387,13 +379,13 @@ class MaestralApiClient(object):
 
         :param str dbx_path: Path o fDropbox folder.
         :param kwargs: Keyword arguments for Dropbox SDK files_create_folder.
-        :return: Metadata of created folder or ``False`` if failed.
+        :returns: Metadata of created folder.
+        :raises: :class:`MaestralApiError`
         """
         try:
             md = self.dbx.files_create_folder(dbx_path, **kwargs)
-        except dropbox.exceptions.ApiError as err:
-            logger.error("An error occurred creating dir '{0}': {1}".format(dbx_path, err))
-            return False
+        except dropbox.exceptions.ApiError as exc:
+            raise _to_maestral_error(exc, dbx_path) from exc
 
         logger.debug("Created folder '%s' on Dropbox.", md.path_display)
 
@@ -406,17 +398,17 @@ class MaestralApiClient(object):
 
         :param str dbx_path: Path of folder on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_list_folder.
-        :return: :class:`dropbox.files.ListFolderResult` instance or ``False`` if failed.
+        :returns: :class:`dropbox.files.ListFolderResult` instance.
         :rtype: :class:`dropbox.files.ListFolderResult`
+        :raises: :class:`MaestralApiError`
         """
 
         results = []
 
         try:
             results.append(self.dbx.files_list_folder(dbx_path, **kwargs))
-        except dropbox.exceptions.ApiError as err:
-            logger.debug("Folder listing failed for '%s': %s", dbx_path, err)
-            return False
+        except dropbox.exceptions.ApiError as exc:
+            raise _to_maestral_error(exc, dbx_path) from exc
 
         idx = 0
 
@@ -426,9 +418,8 @@ class MaestralApiClient(object):
             try:
                 more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
                 results.append(more_results)
-            except dropbox.exceptions.ApiError as err:
-                logger.error("Folder listing failed for '{0}': {1}".format(dbx_path, err))
-                return False
+            except dropbox.exceptions.ApiError as exc:
+                raise _to_maestral_error(exc, dbx_path) from exc
 
         logger.debug("Listed contents of folder '{0}'".format(dbx_path))
 
@@ -442,9 +433,8 @@ class MaestralApiClient(object):
 
         :param list results: List of :class:`dropbox.files.ListFolderResult`
             instances.
-        :return: Single :class:`dropbox.files.ListFolderResult` instance.
+        :returns: Single :class:`dropbox.files.ListFolderResult` instance.
         :rtype: :class:`dropbox.files.ListFolderResult`
-
         """
         entries_all = []
         for result in results:
@@ -454,17 +444,21 @@ class MaestralApiClient(object):
 
         return results_flattened
 
-    def wait_for_remote_changes(self, last_cursor, timeout=20):
+    def wait_for_remote_changes(self, last_cursor, timeout=40):
         """
         Waits for remote changes since :param:`last_cursor`. Call this method
         after starting the Dropbox client and periodically to get the latest
         updates.
 
         :param str last_cursor: Last to cursor to compare for changes.
-        :param int timeout: Seconds to wait until timeout.
-        :return: ``True`` if changes are available, ``False`` otherwise.
+        :param int timeout: Seconds to wait until timeout. Must be between 30 and 480.
+        :returns: ``True`` if changes are available, ``False`` otherwise.
         :rtype: bool
+        :raises: :class:`MaestralApiError`
         """
+
+        if not 30 <= timeout <= 480:
+            raise ValueError("Timeout must be in range [30, 480]")
 
         logger.debug("Waiting for remote changes since cursor:\n{0}".format(last_cursor))
 
@@ -475,12 +469,8 @@ class MaestralApiClient(object):
 
         try:
             result = self.dbx.files_list_folder_longpoll(last_cursor, timeout=timeout)
-        except dropbox.exceptions.ApiError as e:
-            if e.error.is_reset():
-                logger.warning("Cursor has been invalidated. Please try again.")
-            else:
-                logger.error("Could not get remote changes: {0}".format(e))
-            return False
+        except dropbox.exceptions.ApiError as exc:
+            raise _to_maestral_error(exc) from exc
 
         # keep track of last long poll, back off if requested by SDK
         if result.backoff:
@@ -490,7 +480,7 @@ class MaestralApiClient(object):
 
         self.last_longpoll = time.time()
 
-        return result.changes
+        return result.changes  # will be True or False
 
     def list_remote_changes(self, last_cursor):
         """
@@ -499,27 +489,24 @@ class MaestralApiClient(object):
         in currently synced folders will be returned by default.
 
         :param str last_cursor: Last to cursor to compare for changes.
-
-        :return: :class:`dropbox.files.ListFolderResult` instance or False if
-            requests failed.
+        :returns: :class:`dropbox.files.ListFolderResult` instance.
         :rtype: :class:`dropbox.files.ListFolderResult`
+        :raises:
         """
 
         results = []
 
         try:
             results.append(self.dbx.files_list_folder_continue(last_cursor))
-        except dropbox.exceptions.ApiError as err:
-            logging.warning("Folder listing failed: %s", err)
-            return False
+        except dropbox.exceptions.ApiError as exc:
+            raise _to_maestral_error(exc) from exc
 
         while results[-1].has_more:
             try:
                 more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
                 results.append(more_results)
-            except dropbox.exceptions.ApiError as err:
-                logging.warning("Folder listing failed: %s", err)
-                return False
+            except dropbox.exceptions.ApiError as exc:
+                raise _to_maestral_error(exc) from exc
 
         # combine all results into one
         results = self.flatten_results(results)
@@ -527,3 +514,236 @@ class MaestralApiClient(object):
         logger.debug("Listed remote changes")
 
         return results
+
+
+class MaestralApiError(Exception):
+
+    def __init__(self, title, message, dbx_path=None, dbx_path_dst=None,
+                 local_path=None, local_path_dst=None):
+        super().__init__(title)
+        self.title = title
+        self.message = message
+        self.dbx_path = dbx_path
+        self.dbx_path_dst = dbx_path_dst
+        self.local_path = local_path
+        self.local_path_dst = local_path_dst
+
+
+class InsufficientPermissionsError(MaestralApiError):
+    pass
+
+
+class InsufficientSpaceError(MaestralApiError):
+    pass
+
+
+class PathError(MaestralApiError):
+    pass
+
+
+class DropboxServerError(MaestralApiError):
+    pass
+
+
+class DropboxAuthError(MaestralApiError):
+    pass
+
+
+def _construct_local_error_msg(exc, dbx_path=None):
+    """
+    Gets the OSError and tries to add a reasonably informative error message.
+
+    :param exc: Python Exception.
+    :returns: :class:`MaestralApiError` instance.
+    :rtype: :class:`MaestralApiError`
+    """
+    title = exc.args[0]
+    if isinstance(exc, PermissionError):
+        text = "Insufficient read or write permissions for this location."
+    elif isinstance(exc, FileNotFoundError):
+        text = "The given path does not exist."
+    else:
+        text = None
+
+    err = MaestralApiError(title, text, dbx_path)
+
+    return err
+
+
+# TODO: handle OAuth errors, differentiate error types
+def _to_maestral_error(exc, dbx_path=None, local_path=None):
+    """
+    Gets the Dropbox API Error and tries to add a reasonably informative error
+    message from the mess which is the Python Dropbox SDK exception handling.
+
+    :param exc: :class:`dropbox.exceptions.ApiError` instance.
+    :returns: :class:`MaestralApiError` instance.
+    :rtype: :class:`MaestralApiError`
+    """
+
+    # ----------------------- Dropbox API Errors -----------------------------------------
+    if isinstance(exc, dropbox.exceptions.ApiError):
+
+        title = "Dropbox Error"
+        text = None
+
+        if hasattr(exc, "user_message_text") and exc.user_message_text is not None:
+            # if the error contains a user message, pass it on (this rarely happens)
+            text = exc.user_message_text
+        else:
+            # otherwise, analyze the error ourselves and select title and message
+            error = exc.error
+            if isinstance(error, dropbox.files.RelocationError):
+                title = "Could not move folder"
+                if error.is_cant_copy_shared_folder():
+                    text = "Shared folders can’t be copied."
+                elif error.is_cant_move_folder_into_itself():
+                    text = "You cannot move a folder into itself."
+                elif error.is_cant_nest_shared_folder():
+                    text = ("Your move operation would result in nested shared folders. "
+                            "This is not allowed.")
+                elif error.is_cant_transfer_ownership():
+                    text = ("Your move operation would result in an ownership transfer. "
+                            "Maestral does not currently support this. Please carry out "
+                            "the move on the Dropbox website instead.")
+                elif error.is_duplicated_or_nested_paths():
+                    text = ("There are duplicated/nested paths among the target and "
+                            "destination folders.")
+                elif error.is_from_lookup():
+                    lookup_error = error.get_from_lookup()
+                    text = _get_lookup_error_msg(lookup_error)
+                elif error.is_from_write():
+                    write_error = error.get_from_write()
+                    text = _get_write_error_msg(write_error)
+                elif error.is_insufficient_quota():
+                    text = ("You do not have enough space on Dropbox to move "
+                            "or copy the files.")
+                elif error.is_internal_error():
+                    text = ("Something went wrong with the job on Dropbox’s end. Please "
+                            "verify on the Dropbox website if the move succeeded and try "
+                            "again if it failed. This should happen very rarely.")
+
+            if isinstance(error, dropbox.files.CreateFolderError):
+                title = "Could not create folder"
+                if error.is_path():
+                    write_error = error.get_path()
+                    text = _get_write_error_msg(write_error)
+
+            if isinstance(error, dropbox.files.DeleteError):
+                title = "Could not delete item"
+                if error.is_path_lookup():
+                    lookup_error = error.get_from_lookup()
+                    text = _get_lookup_error_msg(lookup_error)
+                elif error.is_path_write():
+                    write_error = error.get_from_write()
+                    text = _get_write_error_msg(write_error)
+                elif error.is_too_many_files():
+                    text = ("There are too many files in one request. Please "
+                            "try to delete fewer files at once.")
+                elif error.is_too_many_write_operations():
+                    text = ("There are too many write operations your "
+                            "Dropbox. Please try again later.")
+
+            if isinstance(error, dropbox.files.UploadError):
+                title = "Could not upload file"
+                if error.is_path():
+                    write_error = error.get_path().reason  # returns UploadWriteFailed
+                    text = _get_write_error_msg(write_error)
+                elif error.is_properties_error():
+                    pass
+
+            if isinstance(error, dropbox.files.UploadSessionFinishError):
+                title = "Could not upload file"
+                if error.is_path():
+                    write_error = error.get_path()
+                    text = _get_write_error_msg(write_error)
+                elif error.is_lookup_failed():
+                    pass
+
+            if isinstance(error, dropbox.files.DownloadError):
+                title = "Could not download file"
+                if error.is_path():
+                    lookup_error = error.get_path()
+                    text = _get_lookup_error_msg(lookup_error)
+
+        if text is None:
+            text = ("An unexpected error occurred. Please contact the Maestral "
+                    "developer with the information shown below.")
+
+    # ----------------------- Local read / write errors ----------------------------------
+    elif isinstance(exc, PermissionError):
+        title = "Could not download file"
+        text = "Insufficient read or write permissions for the download location."
+    elif isinstance(exc, FileNotFoundError):
+        title = "Could not download file"
+        text = "The given download path is invalid."
+
+    # ----------------------- Authentication errors --------------------------------------
+    elif isinstance(exc, requests.HTTPError):
+        title = "Authentication failed"
+        text = "Please make sure that you entered the correct authentication code."
+    elif isinstance(exc, dropbox.oauth.BadStateException):
+        title = "Authentication session expired."
+        text = "The authentication session expired. Please try again."
+    elif isinstance(exc, dropbox.oauth.NotApprovedException):
+        title = "Not approved error"
+        text = "Please grant Maestral access to your Dropbox to start syncing."
+
+    # -------------------------- Everything else -----------------------------------------
+    else:
+        title = exc.arg[0]
+        text = None
+
+    err = MaestralApiError(title, text, dbx_path=dbx_path, local_path=local_path)
+
+    return err
+
+
+def _get_write_error_msg(write_error):
+    assert isinstance(write_error, dropbox.files.WriteError)
+
+    text = None
+
+    if write_error.is_conflict():
+        text = ("Could not write to the target path because another file or "
+                "folder was in the way.")
+    elif write_error.is_disallowed_name():
+        text = "Dropbox will not save the file or folder because of its name."
+    elif write_error.is_insufficient_space():
+        text = "You do not have enough space on Dropbox to move or copy the files."
+    elif write_error.is_malformed_path():
+        text = ("The destination path is invalid. Paths may not end with a slash or "
+                "whitespace.")
+    elif write_error.is_no_write_permission():
+        text = "You do not have permissions to write to the target location."
+    elif write_error.is_team_folder():
+        text = "You cannot move or delete team folders through Maestral."
+    elif write_error.is_too_many_write_operations():
+        text = ("There are too many write operations in your Dropbox. Please "
+                "try again later.")
+
+    return text
+
+
+def _get_lookup_error_msg(lookup_error):
+    assert isinstance(lookup_error, dropbox.files.LookupError)
+
+    text = None
+
+    if lookup_error.is_malformed_path():
+        text = ("The destination path is invalid. Paths may not end with a slash or "
+                "whitespace.")
+    elif lookup_error.is_not_file():
+        text = "We were expecting a file, but the given path refers to a folder."
+    elif lookup_error.is_not_folder():
+        text = "We were expecting a folder, but the given path refers to a file."
+    elif lookup_error.is_not_found():
+        text = "There is nothing at the given path."
+    elif lookup_error.is_restricted_content():
+        text = ("The file cannot be transferred because the content is restricted. For "
+                "example, sometimes there are legal restrictions due to copyright "
+                "claims.")
+    elif lookup_error.is_unsupported_content_type():
+        pass
+
+    return text
