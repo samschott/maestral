@@ -17,10 +17,16 @@ UNLINK_DIALOG_PATH = _root + "/unlink_dialog.ui"
 def get_native_item_icon(item_path):
 
     if not os.path.exists(item_path):
-        raise IOError("Given path does not correspond to an existing item.")
-
-    return _icon_provider.icon(QtCore.QFileInfo(item_path))
+        # fall back to default file icon
+        return get_native_file_icon()
+    else:
+        # get system icon for file type
+        return _icon_provider.icon(QtCore.QFileInfo(item_path))
 
 
 def get_native_folder_icon():
     return _icon_provider.icon(_icon_provider.Folder)
+
+
+def get_native_file_icon():
+    return _icon_provider.icon(_icon_provider.File)
