@@ -40,7 +40,10 @@ class SyncIssueWidget(QtWidgets.QWidget):
 
         self.errorLabel = QtWidgets.QLabel(self)
         self.errorLabel.setWordWrap(True)
-        self.errorLabel.setStyleSheet("color: rgba(213, 0, 24, 162); font: 11pt")
+        font = self.errorLabel.font()
+        font.setPointSize(font.pointSize()*0.9)
+        self.errorLabel.setFont(font)
+        self.errorLabel.setStyleSheet("color: rgba(213, 0, 24, 162)")
 
         self.actionButton = QtWidgets.QPushButton(self)
         self.actionButton.setText("•••")
@@ -83,7 +86,7 @@ class SyncIssueWidget(QtWidgets.QWidget):
         self.actionButtonContextMenu = QtWidgets.QMenu()
         a1 = self.actionButtonContextMenu.addAction("Show Item in Folder")
 
-        a1.triggered.connect(lambda: self.open_destination(self.sync_issue.local_path, reveal=True))
+        a1.triggered.connect(lambda: self.open_destination(self.sync_issue.local_path))
         self.actionButtonContextMenu.exec_(self.mapToGlobal(pos))
 
     def to_display_path(self, local_path):
@@ -92,7 +95,7 @@ class SyncIssueWidget(QtWidgets.QWidget):
                                pixels=300, side="left")
 
     @staticmethod
-    def open_destination(path, reveal=False):
+    def open_destination(path, reveal=True):
         """Open the item at the given path. If the item is a file, attempt to open it
         in the systems default program. If ``reveal == True``, reveal the file in the
         systems default file manager instead."""
