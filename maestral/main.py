@@ -390,11 +390,6 @@ class Maestral(object):
         return dropbox_path
 
     def __repr__(self):
-        return "{0}(account_id={1}, user_id={2})".format(
-                self.__class__.__name__, self.client.auth.account_id,
-                self.client.auth.user_id)
-
-    def __str__(self):
         if self.connected:
             email = CONF.get("account", "email")
             account_type = CONF.get("account", "type")
