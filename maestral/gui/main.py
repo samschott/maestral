@@ -21,6 +21,7 @@ from maestral.main import Maestral
 from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED
 from maestral.config.main import CONF
 from maestral.gui.settings import SettingsWindow
+from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.first_sync_dialog import FirstSyncDialog
 from maestral.gui.resources import TRAY_ICON_PATH
 

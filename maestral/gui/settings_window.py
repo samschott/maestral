@@ -12,7 +12,7 @@ import platform
 import time
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
-from maestral.main import __version__, __author__, __url__
+from maestral.main import if_connected, __version__, __author__, __url__
 from maestral.utils.autostart import AutoStart
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
@@ -34,7 +34,6 @@ class SettingsWindow(QtWidgets.QWidget):
 
     def __init__(self, mdbx, parent=None):
         super(self.__class__, self).__init__(parent=parent)
-        # load user interface layout from .ui file
         uic.loadUi(SETTINGS_WINDOW_PATH, self)
         # self.setFixedSize(560, 320)
 
@@ -106,6 +105,7 @@ class SettingsWindow(QtWidgets.QWidget):
             new_path = osp.join(new_location, 'Dropbox')
             self.mdbx.set_dropbox_directory(new_path)
 
+    @if_connected
     def on_unlink(self):
         """Unlinks the user's account and restarts the setup dialog."""
 
