@@ -1442,10 +1442,10 @@ class MaestralMonitor(object):
         self.local_observer_thread.stop()  # stop observer
         self.local_observer_thread.join()  # wait to finish
 
+        self.shutdown.set()  # stops our own threads
+
         if blocking:
             self.upload_thread.join()  # wait to finish (up to 2 sec)
-
-        self.shutdown.set()  # stops our own threads
 
         logger.debug('Stopped.')
 
