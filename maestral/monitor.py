@@ -476,10 +476,13 @@ class UpDownSync(object):
         if self.has_sync_errors():
             if not dbx_path:
                 dbx_path = self.to_dbx_path(local_path)
-            for error in self.sync_errors.queue:
+            for error in list(self.sync_errors.queue):
                 if error.dbx_path.lower() == dbx_path.lower():
                     with self.sync_errors.mutex:
-                        self.sync_errors.queue.remove(error)
+                        try:
+                            self.sync_errors.queue.remove(error)
+                        except ValueError:
+                            pass
 
     def clear_all_sync_errors(self):
         if self.has_sync_errors():
