@@ -6,12 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>690</width>
-    <height>288</height>
+    <width>691</width>
+    <height>250</height>
    </rect>
   </property>
   <property name="sizePolicy">
-   <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+   <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
     <horstretch>0</horstretch>
     <verstretch>0</verstretch>
    </sizepolicy>
@@ -31,9 +31,12 @@
      <property name="orientation">
       <enum>Qt::Vertical</enum>
      </property>
+     <property name="sizeType">
+      <enum>QSizePolicy::MinimumExpanding</enum>
+     </property>
      <property name="sizeHint" stdset="0">
       <size>
-       <width>20</width>
+       <width>0</width>
        <height>0</height>
       </size>
      </property>
@@ -55,7 +58,7 @@
    <item row="0" column="0" colspan="2">
     <widget class="QLabel" name="infoLabel">
      <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Rebuilt the Maestral index?&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-size:11pt;&quot;&gt;If you encounter sync issues, please go to &amp;quot;View sync issues...&amp;quot; to check for incompatible file names, insufficient permissions or other issues which should be resolved manually. After resolving them, please pause and resume syncing. Only rebuild the index if you continue to have problems after taking those steps.&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-size:11pt;&quot;&gt;Rebuilding the index may take several minutes, depending on the size of your Dropbox. Please do not modify any items in your local Dropbox folder during this process. Any changes to local files may appear as sync conflicts and local deletions may be reversed. &lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Rebuilt the Maestral index?&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-size:11pt;&quot;&gt;If you encounter sync issues, please open &amp;quot;View Sync Issues...&amp;quot; to check for incompatible file names, insufficient permissions or other issues which should be resolved manually. After resolving them, please pause and resume syncing. Only rebuild the index if you continue to have problems after taking those steps.&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-size:11pt;&quot;&gt;Rebuilding the index may take several minutes, depending on the size of your Dropbox. Please do not modify any items in your local Dropbox folder during this process. Any changes to local files while rebuilding may be lost. &lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="wordWrap">
       <bool>true</bool>
@@ -80,9 +83,12 @@
      <property name="orientation">
       <enum>Qt::Vertical</enum>
      </property>
+     <property name="sizeType">
+      <enum>QSizePolicy::MinimumExpanding</enum>
+     </property>
      <property name="sizeHint" stdset="0">
       <size>
-       <width>20</width>
+       <width>0</width>
        <height>0</height>
       </size>
      </property>

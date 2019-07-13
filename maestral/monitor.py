@@ -465,7 +465,7 @@ class UpDownSync(object):
 
             # save changes to file
             # don't wrap in try statement but raise all errors
-            with open(self.rev_file_path, "wb+") as f:
+            with open(self.rev_file_path, "w+b") as f:
                 umsgpack.pack(self._rev_dict_cache, f)
 
     def has_sync_errors(self):
@@ -1143,7 +1143,7 @@ class UpDownSync(object):
                 new_local_file = parts[0] + " (conflicting copy)" + parts[1]
                 os.rename(local_path, new_local_file)
             elif conflict == 2:  # Dropbox files corresponds to local file, nothing to do
-                # rev number has been update by `check_download_conflict` if necessary
+                # rev number has been updated by `check_download_conflict` if necessary
                 return
 
             md = self.client.download(entry.path_display, local_path)
@@ -1472,7 +1472,7 @@ class MaestralMonitor(object):
 
         logger.debug('Stopped.')
 
-    def rebuild_rev_file(self):
+    def rebuild_rev_file(self, restart=True):
         """Rebuilds the rev file by comparing local with remote files and updating rev
         numbers from the Dropbox server. Files are compared by their content hashes and
         reindexing may take several minutes, depending on the size of your Dropbox. If
@@ -1485,24 +1485,28 @@ class MaestralMonitor(object):
         logger.info("Rebuilding index...")
 
         print("""Rebuilding the revision index. This process may
-        take several minutes, depending on the size of your Dropbox.
-        Any changes to local files during this process may be
-        flagged as sync conflicts and local deletions may be reversed
-        (if the modified or deleted file has not yet been re-indexed). """)
+take several minutes, depending on the size of your Dropbox.
+Any changes to local files during this process may be lost. """)
 
         self.stop(blocking=True)  # stop all sync threads
-        self.download_thread.join()  # may take up to 120 sec
-        os.unlink(self.sync.rev_file_path)  # delete rev file
+        try:
+            os.unlink(self.sync.rev_file_path)  # delete rev file
+        except OSError:
+            pass
+        self.sync._rev_dict_cache = dict()
 
         # Re-download Dropbox from server. If a local file already exists, content hashes
         # are compared. If files are identical, the local rev will be set accordingly,
         # otherwise a conflicting copy will be created.
         self.sync.get_remote_dropbox()
+        self.sync.last_sync = time.time()
 
         # Resume syncing. This will upload all changes which occurred
         # while rebuilding, including conflicting copies. Files that were
-        # deleted before re-indexing will be downloaded again.
-        self.start()
+        # deleted before re-indexing will be downloaded again. If restart==False,
+        # this should be done manually.
+        if restart:
+            self.start()
 
     def upload_local_changes_after_inactive(self):
         """

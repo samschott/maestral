@@ -5,7 +5,7 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
-import re
+import time
 from threading import Thread
 import logging
 from PyQt5 import QtCore, QtWidgets, uic
@@ -24,10 +24,13 @@ class InfoHandler(logging.Handler, QtCore.QObject):
     def __init__(self):
         logging.Handler.__init__(self)
         QtCore.QObject.__init__(self)
+        self._last_emit = time.time()
 
     def emit(self, record):
         self.format(record)
-        self.info_signal.emit(record.message)
+        if time.time() - self._last_emit > 1:
+            self.info_signal.emit(record.message)
+            self._last_emit = time.time()
 
 
 info_handler = InfoHandler()
@@ -67,20 +70,15 @@ class RebuildIndexDialog(QtWidgets.QDialog):
 
         self.cancelButton = self.buttonBox.buttons()[1]
         self.rebuildButton = self.buttonBox.buttons()[0]
+        self.rebuildButton.setText("Rebuild")
 
         self.progressBar.hide()
         self.statusLabel.hide()
 
-        self.buttonBox.clicked.connect(self.on_clicked)
-
     def accept(self):
-        pass
-
-    def on_clicked(self, button):
-
-        if button == self.rebuildButton:
+        if self.rebuildButton.text() == "Rebuild":
             self.start_rebuild()
-        elif button == self.cancelButton or button == self.doneButton:
+        else:
             self.close()
             self.deleteLater()
 
@@ -98,32 +96,23 @@ class RebuildIndexDialog(QtWidgets.QDialog):
 
         info_handler.info_signal.connect(self.update_progress)
 
-        self.repaint()
-
         self.rebuild_rev_file_async()
 
     def update_progress(self, info_text):
 
         self.statusLabel.setText(info_text)
 
-        p1 = re.compile(r"Downloading (?P<n>\d+)/(?P<n_total>\d+)...")
-        m1 = p1.search(info_text)
-
-        p2 = re.compile(r"Uploading (?P<n>\d+)/(?P<n_total>\d+)...")
-        m2 = p2.search(info_text)
-
-        m = m1 or m2
-
-        if m:
-            n = int(m1.group("n"))
-            n_total = int(m1.group("n_total"))
-            self.progressBar.setMaximum(n_total)
+        try:
+            n, n_tot = _filter_text(info_text)
             self.progressBar.setValue(n)
-        else:
+            self.progressBar.setMaximum(n_tot)
+        except ValueError:
             self.progressBar.setMaximum(0)
             self.progressBar.setValue(0)
 
     def rebuild_rev_file_async(self):
+
+        self.statusLabel.setText("Indexing...")
 
         self.rebuild_thread = BaseThread(
                 target=self.monitor.rebuild_rev_file,
@@ -134,13 +123,23 @@ class RebuildIndexDialog(QtWidgets.QDialog):
 
     def on_rebuild_done(self):
 
-        info_handler.info_signal.disconnect(self.statusLabel.setText)
+        info_handler.info_signal.disconnect(self.update_progress)
 
         self.progressBar.setMaximum(100)
         self.progressBar.setValue(100)
         self.statusLabel.setText("Rebuilding complete")
-        self.buttonBox.removeButton(self.rebuildButton)
-        self.doneButton = self.buttonBox.addButton(
-            "Done", QtWidgets.QDialogButtonBox.AcceptRole)
+        self.rebuildButton.setText("Close")
+        self.rebuildButton.setEnabled(True)
 
-        self.repaint()
+        self.update()
+
+        self.monitor.start()
+
+
+def _filter_text(text):
+    s = text[12:-3]
+    s_list = s.split("/")
+    n = int(s_list[0])
+    n_tot = int(s_list[1])
+
+    return n, n_tot

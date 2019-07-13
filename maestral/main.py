@@ -94,8 +94,6 @@ def if_connected(func):
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        print(args)
-        print(len(kwargs))
         # pause syncing
         try:
             res = func(*args, **kwargs)
