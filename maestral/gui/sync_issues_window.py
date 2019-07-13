@@ -9,9 +9,10 @@ import os
 import platform
 import subprocess
 import shutil
-from PyQt5 import QtCore, QtWidgets, QtGui, uic
+from PyQt5 import QtCore, QtWidgets, uic
 
 from maestral.gui.resources import SYNC_ISSUES_WINDOW_PATH, get_native_item_icon
+from maestral.gui.utils import truncate_string
 
 HAS_GTK_LAUNCH = shutil.which("gtk-launch") is not None
 
@@ -87,41 +88,8 @@ class SyncIssueWidget(QtWidgets.QWidget):
 
     def to_display_path(self, local_path):
 
-        return self._truncate_string_left(os.path.basename(local_path))
-
-    def _truncate_string_left(self, string, pixels=300):
-        """
-        Truncates strings so that it is short than `pixels` in the given `font`.
-
-        :param str string: String to truncate.
-        :param int pixels: Maximum allowed width in pixels.
-
-        :return: Truncated string.
-        :rtype: str
-        """
-        font = self.pathLabel.font()
-        metrics = QtGui.QFontMetrics(font)
-
-        truncated = False
-        new_string = string
-
-        # truncate string using the average width per character
-        if metrics.width(string) > pixels:
-            pixel_per_char = metrics.width(string) / len(string)
-            cutoff = int(pixels / pixel_per_char)
-            new_string = string[cutoff:]
-            truncated = True
-
-            # truncate further if necessary
-            while metrics.width(new_string) > pixels:
-                new_string = new_string[1:]
-
-            # expand if truncated too far
-            while metrics.width(new_string) < pixels:
-                cutoff = len(new_string)
-                new_string = string[-cutoff:-cutoff+1] + new_string
-
-        return ('...' if truncated else '') + new_string
+        return truncate_string(os.path.basename(local_path), font=self.pathLabel.font(),
+                               pixels=300, side="left")
 
     @staticmethod
     def open_destination(path, reveal=False):

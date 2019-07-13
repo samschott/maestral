@@ -28,6 +28,7 @@ from maestral.gui.first_sync_dialog import FirstSyncDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import TRAY_ICON_PATH
+from maestral.gui.utils import truncate_string
 
 
 FIRST_SYNC = (not CONF.get("internal", "lastsync") or
@@ -320,7 +321,8 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.recentFilesMenu.clear()
         for dbx_path in reversed(CONF.get("internal", "recent_changes")):
             file_name = os.path.basename(dbx_path)
-            truncated_name = self._truncate_string_right(file_name, self.menu.font())
+            truncated_name = truncate_string(file_name, font=self.menu.font(),
+                                             side="left")
             action = self.recentFilesMenu.addAction(truncated_name)
             action.setData(dbx_path)
 
@@ -343,41 +345,6 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.mdbx.stop_sync()
         self.deleteLater()
         QtCore.QCoreApplication.quit()
-
-    @staticmethod
-    def _truncate_string_right(string, font, pixels=200):
-        """
-        Truncates strings so that it is short than `pixels` in the given `font`.
-
-        :param str string: String to truncate.
-        :param font: QFont used to determine the pixel width of the text.
-        :param int pixels: Maximum allowed width in pixels.
-
-        :return: Truncated string.
-        :rtype: str
-        """
-        metrics = QtGui.QFontMetrics(font)
-
-        truncated = False
-        new_string = string
-
-        # truncate string using the average width per character
-        if metrics.width(string) > pixels:
-            pixel_per_char = metrics.width(string) / len(string)
-            cutoff = int(pixels / pixel_per_char)
-            new_string = string[0:cutoff]
-            truncated = True
-
-            # truncate further if necessary
-            while metrics.width(new_string) > pixels:
-                new_string = new_string[0:-1]
-
-            # expand if truncated too far
-            while metrics.width(new_string) < pixels:
-                cutoff = len(new_string)
-                new_string = new_string + string[cutoff:cutoff+1]
-
-        return new_string + ('...' if truncated else '')
 
 
 def run():
