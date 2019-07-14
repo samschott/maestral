@@ -20,15 +20,11 @@ $ pip install --upgrade git+https://github.com/SamSchott/maestral
 ```
 in the command line. If you intend to use the graphical user interface, you also need to
 install PyQt5. It is recommended to install PyQt5 through your distribution's package manager
-(e.g, yum, dnf, apt-get, homebrew), for instance:
-```console
-$ sudo apt-get install python3-pyqt5
-```
-Otherwise, you can also install it from PyPI:
+(e.g, yum, dnf, apt-get, homebrew). Alternatively, you can also install PyQt5 from PyPI:
 ```console
 $ pip install --upgrade PyQt5
 ```
-However, in the latter case the interface style may not follow your selected system appearance
+However, in this case the interface style may not follow your selected system appearance
 (e.g., "dark mode" on macOS or "Adwaita-dark" on Gnome). 
 
 ## Usage
