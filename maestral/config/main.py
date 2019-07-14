@@ -34,6 +34,7 @@ DEFAULTS = [
               }),
             ('account',
              {
+              'account_id': '',
               'email': '',
               'type': '',
               'usage': '',

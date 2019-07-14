@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 # create single requests session for all clients
 SESSION = dropbox.dropbox.create_session()
+USER_AGENT = "Maestral/v0.2"
 
 APP_KEY = os.environ["DROPBOX_API_KEY"]
 APP_SECRET = os.environ["DROPBOX_API_SECRET"]
@@ -92,6 +93,7 @@ class OAuth2Session(object):
     auth_flow = None
     oAuth2FlowResult = None
     access_token = ""
+    account_id = CONF.get("account", "account_id")
 
     def __init__(self, app_key=APP_KEY, app_secret=APP_SECRET):
         self.app_key = app_key
@@ -112,7 +114,7 @@ class OAuth2Session(object):
                 # load old token
                 with open(self.TOKEN_FILE) as f:
                     stored_creds = f.read()
-                self.access_token, *_ = stored_creds.split("|")
+                self.access_token, self.account_id, _ = stored_creds.split("|")
 
                 # migrate old token to keyring
                 self.write_creds()
@@ -121,6 +123,18 @@ class OAuth2Session(object):
 
             except IOError:
                 print(" x Could not load old token. Beginning new session.")
+
+        elif keyring.get_password("Maestral", "MaestralUser") and self.account_id:
+            print(" > Migrating access token to account_id...")
+            self.access_token = keyring.get_password("Maestral", "MaestralUser")
+            try:
+                keyring.set_password("Maestral", self.account_id, self.access_token)
+                keyring.delete_password("Maestral", "MaestralUser")
+                print(" [DONE]")
+            except KeyringLocked:
+                raise KeyringLocked(
+                    "Could not access the user keyring to load your authentication "
+                    "token. Please make sure that the keyring is unlocked.")
 
     def link(self):
         authorize_url = self.auth_flow.start()
@@ -132,6 +146,7 @@ class OAuth2Session(object):
         try:
             self.oAuth2FlowResult = self.auth_flow.finish(auth_code)
             self.access_token = self.oAuth2FlowResult.access_token
+            self.account_id = self.oAuth2FlowResult.account_id
         except Exception as exc:
             raise _to_maestral_error(exc) from exc
 
@@ -140,7 +155,9 @@ class OAuth2Session(object):
     def load_creds(self):
         print(" > Loading access token...")
         try:
-            self.access_token = keyring.get_password("Maestral", "MaestralUser")
+            t1 = keyring.get_password("Maestral", self.account_id)
+            t2 = keyring.get_password("Maestral", "MaestralUser")
+            self.access_token = t1 or t2
         except KeyringLocked:
             raise KeyringLocked(
                 "Could not access the user keyring to load your authentication token. "
@@ -152,17 +169,18 @@ class OAuth2Session(object):
             self.link()
 
     def write_creds(self):
+        CONF.set("account", "account_id", self.account_id)
         try:
-            keyring.set_password("Maestral", "MaestralUser", self.access_token)
+            keyring.set_password("Maestral", self.account_id, self.access_token)
             print(" > Credentials written.")
         except KeyringLocked:
             logger.error("Could not access the user keyring to save your authentication "
                          "token. Please make sure that the keyring is unlocked.")
 
-    @staticmethod
-    def delete_creds():
+    def delete_creds(self):
+        CONF.set("account", "account_id", "")
         try:
-            keyring.delete_password("Maestral", "MaestralUser")
+            keyring.delete_password("Maestral", self.account_id)
             print(" > Credentials removed.")
         except KeyringLocked:
             logger.error("Could not access the user keyring to delete your authentication"
@@ -193,7 +211,8 @@ class MaestralApiClient(object):
         self.backoff = 0
 
         # initialize API client
-        self.dbx = dropbox.Dropbox(self.auth.access_token, session=SESSION)
+        self.dbx = dropbox.Dropbox(self.auth.access_token, session=SESSION,
+                                   user_agent=USER_AGENT)
         print(" > MaestralClient is ready.")
 
     def get_account_info(self):
@@ -214,6 +233,7 @@ class MaestralApiClient(object):
         else:
             account_type = ''
 
+        CONF.set("account", "account_id", res.account_id)
         CONF.set("account", "email", res.email)
         CONF.set("account", "type", account_type)
 
