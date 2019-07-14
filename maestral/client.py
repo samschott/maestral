@@ -661,12 +661,15 @@ def _to_maestral_error(exc, dbx_path=None, local_path=None):
                 elif error.is_from_lookup():
                     lookup_error = error.get_from_lookup()
                     text = _get_lookup_error_msg(lookup_error)
-                elif error.is_from_write():
-                    write_error = error.get_from_write()
-                    text = _get_write_error_msg(write_error)
                 elif error.is_insufficient_quota():
                     text = ("You do not have enough space on Dropbox to move "
                             "or copy the files.")
+                elif error.is_to():
+                    to_error = error.get_to()
+                    text = _get_write_error_msg(to_error)
+                elif error.is_from_write():
+                    write_error = error.get_from_write()
+                    text = _get_write_error_msg(write_error)
                 elif error.is_internal_error():
                     text = ("Something went wrong with the job on Dropbox’s end. Please "
                             "verify on the Dropbox website if the move succeeded and try "
