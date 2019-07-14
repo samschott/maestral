@@ -37,13 +37,14 @@ class SyncIssueWidget(QtWidgets.QWidget):
         frame_bg_color = [min([c + 20, 255]) for c in bg_color_rgb]
         self.frame.setStyleSheet("""
         .QFrame {{
+            border: 1px solid rgb(205, 203, 205);
             background-color: rgb({0},{1},{2});
             border-radius: 7px;
         }}""".format(*frame_bg_color))
 
         # fill with content
         icon = get_native_item_icon(self.sync_issue.local_path)
-        pixmap = icon.pixmap(self.iconLabel.width(), self.iconLabel.height())
+        pixmap = icon.pixmap(2*self.iconLabel.width(), 2*self.iconLabel.height())
         pixmap.setDevicePixelRatio(2.0)
         self.iconLabel.setPixmap(pixmap)
 
@@ -124,7 +125,7 @@ class SyncIssueWindow(QtWidgets.QWidget):
         for issue in sync_issues_list:
             self.addIssue(issue)
 
-        self.verticalLayout.addStretch()
+        # self.verticalLayout.insertStretch(-1)
 
     def addIssue(self, sync_issue):
 
@@ -140,3 +141,31 @@ class SyncIssueWindow(QtWidgets.QWidget):
             if w: w.deleteLater()
 
         self.sync_issue_widgets = []
+
+
+if __name__ == "__main__":
+    from maestral.client import MaestralApiError
+    import queue
+
+    app = QtWidgets.QApplication([])
+    text1 = ("Something went wrong with the job on Dropbox’s end. Please "
+             "verify on the Dropbox website if the move succeeded and try "
+             "again if it failed. This should happen very rarely.")
+
+    text2 = ("There are too many write operations your "
+             "Dropbox. Please try again later.")
+
+    err1 = MaestralApiError("Could not download", text1, local_path="/MyLargeFile")
+    err2 = MaestralApiError("Could not delete folder", text2, local_path="/test_folder")
+
+    err_queue = queue.Queue()
+    err_queue.put(err1)
+    err_queue.put(err2)
+    err_queue.put(err2)
+    err_queue.put(err2)
+    err_queue.put(err2)
+
+    w = SyncIssueWindow(err_queue)
+    w.show()
+
+    app.exec_()
