@@ -14,6 +14,7 @@ ERROR_DIALOG_PATH = _root + "/error_dialog.ui"
 UNLINK_DIALOG_PATH = _root + "/unlink_dialog.ui"
 REBUILD_INDEX_DIALOG_PATH = _root + "/rebuild_index_dialog.ui"
 SYNC_ISSUES_WINDOW_PATH = _root + "/sync_issues_window.ui"
+SYNC_ISSUE_WIDGET_PATH = _root + "/sync_issue_widget.ui"
 
 
 def get_native_item_icon(item_path):

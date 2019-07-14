@@ -25,6 +25,7 @@ from maestral.gui.folders_dialog import FolderItem
 from maestral.gui.resources import (APP_ICON_PATH, FIRST_SYNC_DIALOG_PATH,
                                     ERROR_DIALOG_PATH, get_native_item_icon,
                                     get_native_folder_icon)
+from maestral.gui.utils import get_scaled_font
 
 
 class ErrorDialog(QtWidgets.QDialog):
@@ -34,8 +35,12 @@ class ErrorDialog(QtWidgets.QDialog):
         # load user interface layout from .ui file
         uic.loadUi(ERROR_DIALOG_PATH, self)
         self.setFixedSize(460, 145)
-        self.labelTitle.setText(title)
-        self.labelMessage.setText(message)
+
+        self.titleLabel.setFont(get_scaled_font(bold=True))
+        self.infoLabel.setFont(get_scaled_font(scaling=0.9))
+
+        self.titleLabel.setText(title)
+        self.infoLabel.setText(message)
 
 
 class OAuth2SessionGUI(OAuth2Session):

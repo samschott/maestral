@@ -11,6 +11,7 @@ import logging
 from PyQt5 import QtCore, QtWidgets, uic
 
 from maestral.gui.resources import REBUILD_INDEX_DIALOG_PATH
+from maestral.gui.utils import get_scaled_font
 
 
 class InfoHandler(logging.Handler, QtCore.QObject):
@@ -67,6 +68,9 @@ class RebuildIndexDialog(QtWidgets.QDialog):
         uic.loadUi(REBUILD_INDEX_DIALOG_PATH, self)
 
         self.monitor = monitor
+
+        self.titleLabel.setFont(get_scaled_font(bold=True))
+        self.infoLabel.setFont(get_scaled_font(scaling=0.9))
 
         self.cancelButton = self.buttonBox.buttons()[1]
         self.rebuildButton = self.buttonBox.buttons()[0]

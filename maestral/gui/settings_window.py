@@ -19,6 +19,7 @@ from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
                                     SETTINGS_WINDOW_PATH)
+from maestral.gui.utils import get_scaled_font
 
 
 class UnlinkDialog(QtWidgets.QDialog):
@@ -27,7 +28,10 @@ class UnlinkDialog(QtWidgets.QDialog):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(UNLINK_DIALOG_PATH, self)
+
         self.buttonBox.buttons()[0].setText('Unlink')
+        self.titleLabel.setFont(get_scaled_font(bold=True))
+        self.infoLabel.setFont(get_scaled_font(scaling=0.9))
 
 
 class SettingsWindow(QtWidgets.QWidget):

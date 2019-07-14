@@ -9,10 +9,11 @@ import os
 import platform
 import subprocess
 import shutil
-from PyQt5 import QtCore, QtWidgets, uic
+from PyQt5 import QtCore, QtGui, QtWidgets, uic
 
-from maestral.gui.resources import SYNC_ISSUES_WINDOW_PATH, get_native_item_icon
-from maestral.gui.utils import truncate_string
+from maestral.gui.resources import (SYNC_ISSUES_WINDOW_PATH, SYNC_ISSUE_WIDGET_PATH,
+                                    get_native_item_icon)
+from maestral.gui.utils import truncate_string, get_scaled_font
 
 HAS_GTK_LAUNCH = shutil.which("gtk-launch") is not None
 
@@ -24,46 +25,21 @@ class SyncIssueWidget(QtWidgets.QWidget):
 
     def __init__(self, sync_issue, parent=None):
         super(self.__class__, self).__init__(parent=parent)
-        # self.setFixedWidth(500)
+        uic.loadUi(SYNC_ISSUE_WIDGET_PATH, self)
+
         self.sync_issue = sync_issue
 
-        # set widgets
-        self.gridLayout = QtWidgets.QGridLayout()
-        self.gridLayout.setHorizontalSpacing(20)
-        self.setLayout(self.gridLayout)
+        self.errorLabel.setFont(get_scaled_font(scaling=0.85))
 
-        self.iconLabel = QtWidgets.QLabel(self)
-        self.iconLabel.setMinimumSize(50, 50)
-        self.iconLabel.setMaximumSize(50, 50)
-
-        self.pathLabel = QtWidgets.QLabel(self)
-
-        self.errorLabel = QtWidgets.QLabel(self)
-        self.errorLabel.setWordWrap(True)
-        font = self.errorLabel.font()
-        font.setPointSize(font.pointSize()*0.9)
-        self.errorLabel.setFont(font)
-        self.errorLabel.setStyleSheet("color: rgba(213, 0, 24, 162)")
-
-        self.actionButton = QtWidgets.QPushButton(self)
-        self.actionButton.setText("•••")
-        self.actionButton.setStyleSheet("""
-            QPushButton {
-                border: none;
-                background-color: none;
-                font: Arial;
-                font-size: 17pt
-            }
-            QPushButton:hover {
-                color: rgb(11,95,255);
-            }""")
-        self.actionButton.setMinimumWidth(30)
-        self.actionButton.setMaximumWidth(30)
-
-        self.gridLayout.addWidget(self.iconLabel, 0, 0, 2, 1)
-        self.gridLayout.addWidget(self.pathLabel, 0, 1, 1, 1)
-        self.gridLayout.addWidget(self.errorLabel, 1, 1, 1, 1)
-        self.gridLayout.addWidget(self.actionButton, 0, 2, 2, 1)
+        # set appropriate background color
+        bg_color = self.palette().color(QtGui.QPalette.Background)
+        bg_color_rgb = [bg_color.red(), bg_color.green(), bg_color.blue()]
+        frame_bg_color = [min([c + 20, 255]) for c in bg_color_rgb]
+        self.frame.setStyleSheet("""
+        .QFrame {{
+            background-color: rgb({0},{1},{2});
+            border-radius: 7px;
+        }}""".format(*frame_bg_color))
 
         # fill with content
         icon = get_native_item_icon(self.sync_issue.local_path)
@@ -152,9 +128,6 @@ class SyncIssueWindow(QtWidgets.QWidget):
 
     def addIssue(self, sync_issue):
 
-        if len(self.sync_issue_widgets) > 0:
-            self._addLine()
-
         issue_widget = SyncIssueWidget(sync_issue)
         self.sync_issue_widgets.append(issue_widget)
         self.verticalLayout.addWidget(issue_widget)
@@ -167,20 +140,3 @@ class SyncIssueWindow(QtWidgets.QWidget):
             if w: w.deleteLater()
 
         self.sync_issue_widgets = []
-
-    def _addLine(self, width=350):
-        """
-        Adds a horizontal line to separate sections.
-
-        :param int width: Width in pixels.
-        :return: Instance of :class:`PyQt5.QtWidgets.QFrame`.
-        """
-
-        h_line = QtWidgets.QFrame(self)
-        h_line.setFrameShape(QtWidgets.QFrame.HLine)
-        h_line.setFixedWidth(width)
-        h_line.setStyleSheet("color: rgb(205, 203, 205)")
-
-        self.verticalLayout.addWidget(h_line, alignment=QtCore.Qt.AlignHCenter)
-
-        return h_line

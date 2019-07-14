@@ -15,7 +15,7 @@ import webbrowser
 import shutil
 from blinker import signal
 from traceback import format_exception
-from PyQt5 import QtCore, QtWidgets, QtGui
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtGui import QIcon
 
 from maestral.main import Maestral
@@ -28,7 +28,7 @@ from maestral.gui.first_sync_dialog import FirstSyncDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import TRAY_ICON_PATH
-from maestral.gui.utils import truncate_string
+from maestral.gui.utils import truncate_string, get_scaled_font, get_theme
 
 
 FIRST_SYNC = (not CONF.get("internal", "lastsync") or
@@ -92,13 +92,15 @@ class ErrorDialog(QtWidgets.QDialog):
         self.gridLayout = QtWidgets.QGridLayout()
         self.setLayout(self.gridLayout)
 
-        self.title = QtWidgets.QLabel(self)
-        self.title.setStyleSheet('font-weight: bold;')
-        self.title.setText(title)
+        self.titleLabel = QtWidgets.QLabel(self)
+        self.infoLabel = QtWidgets.QLabel(self)
 
-        self.message = QtWidgets.QLabel(self)
-        self.message.setWordWrap(True)
-        self.message.setText(message)
+        self.titleLabel.setFont(get_scaled_font(bold=True))
+        self.infoLabel.setFont(get_scaled_font(scaling=0.9))
+        self.infoLabel.setWordWrap(True)
+
+        self.titleLabel.setText(title)
+        self.infoLabel.setText(message)
 
         if exc_info:
             self.details = QtWidgets.QTextEdit(self)
@@ -107,8 +109,8 @@ class ErrorDialog(QtWidgets.QDialog):
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
         self.buttonBox.accepted.connect(self.accept)
 
-        self.gridLayout.addWidget(self.title)
-        self.gridLayout.addWidget(self.message)
+        self.gridLayout.addWidget(self.titleLabel)
+        self.gridLayout.addWidget(self.infoLabel)
         if exc_info:
             self.gridLayout.addWidget(self.details)
         self.gridLayout.addWidget(self.buttonBox)
@@ -125,7 +127,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         icon_color = "dark"
 
         if not platform.system() == "Darwin":
-            from maestral.gui.ui import THEME
+            THEME = get_theme()
             if THEME is "dark":
                 icon_color = "light"
         short = ("idle", "syncing", "paused", "disconnected", "error")

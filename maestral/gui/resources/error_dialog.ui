@@ -28,7 +28,7 @@
     </widget>
    </item>
    <item row="1" column="0" colspan="2">
-    <widget class="QLabel" name="labelMessage">
+    <widget class="QLabel" name="infoLabel">
      <property name="styleSheet">
       <string notr="true">QLabel {font-size: 11pt; };</string>
      </property>
@@ -41,7 +41,7 @@
     </widget>
    </item>
    <item row="0" column="0" colspan="2">
-    <widget class="QLabel" name="labelTitle">
+    <widget class="QLabel" name="titleLabel">
      <property name="styleSheet">
       <string notr="true">QLabel {font-weight: bold; };</string>
      </property>

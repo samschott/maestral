@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>371</width>
-    <height>148</height>
+    <width>376</width>
+    <height>138</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -21,6 +21,16 @@
     <number>20</number>
    </property>
    <item row="1" column="0" colspan="2">
+    <widget class="QLabel" name="infoLabel">
+     <property name="text">
+      <string>You'll still keep your Dropbox folder on this computer, but your files will stop syncing.</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0" colspan="2">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -30,13 +40,16 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="0" colspan="2">
-    <widget class="QLabel" name="label">
-     <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Unlink your Dropbox account?&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-size:11pt;&quot;&gt;You'll still keep your Dropbox folder on this computer, but your files will stop syncing.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+   <item row="0" column="0">
+    <widget class="QLabel" name="titleLabel">
+     <property name="font">
+      <font>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
      </property>
-     <property name="wordWrap">
-      <bool>true</bool>
+     <property name="text">
+      <string>Unlink your Dropbox account?</string>
      </property>
     </widget>
    </item>
