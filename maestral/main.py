@@ -124,6 +124,7 @@ class Maestral(object):
     def __init__(self, run=True):
 
         self.client = MaestralApiClient()
+        self.get_account_info()
 
         # monitor needs to be created before any decorators are called
         self.monitor = MaestralMonitor(self.client)
@@ -132,7 +133,6 @@ class Maestral(object):
         if self.FIRST_SYNC:
             self.set_dropbox_directory()
             self.select_excluded_folders()
-            self.client.get_account_info()
 
             CONF.set("internal", "cursor", "")
             CONF.set("internal", "lastsync", None)
@@ -163,6 +163,11 @@ class Maestral(object):
     def notify(self, boolean):
         """Setter: Bool indicating if notifications are enabled."""
         self.sync.notify.enabled = boolean
+
+    @if_connected
+    def get_account_info(self):
+        res = self.client.get_account_info()
+        return res
 
     @if_connected
     def get_remote_dropbox_async(self, dbx_path):
