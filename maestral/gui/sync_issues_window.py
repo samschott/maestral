@@ -13,7 +13,8 @@ from PyQt5 import QtCore, QtGui, QtWidgets, uic
 
 from maestral.gui.resources import (SYNC_ISSUES_WINDOW_PATH, SYNC_ISSUE_WIDGET_PATH,
                                     get_native_item_icon)
-from maestral.gui.utils import truncate_string, get_scaled_font
+from maestral.gui.utils import (truncate_string, get_scaled_font, isDarkWindow,
+                                LINE_COLOR_DARK, LINE_COLOR_LIGHT)
 
 HAS_GTK_LAUNCH = shutil.which("gtk-launch") is not None
 
@@ -32,20 +33,11 @@ class SyncIssueWidget(QtWidgets.QWidget):
         self.errorLabel.setFont(get_scaled_font(scaling=0.85))
 
         # set appropriate background color
-        bg_color = self.palette().color(QtGui.QPalette.Background)
-        bg_color_rgb = [bg_color.red(), bg_color.green(), bg_color.blue()]
-        frame_bg_color = [min([c + 20, 255]) for c in bg_color_rgb]
-        self.frame.setStyleSheet("""
-        .QFrame {{
-            border: 1px solid rgb(205, 203, 205);
-            background-color: rgb({0},{1},{2});
-            border-radius: 7px;
-        }}""".format(*frame_bg_color))
+        self.update_dark_mode()
 
         # fill with content
         icon = get_native_item_icon(self.sync_issue.local_path)
-        pixmap = icon.pixmap(2*self.iconLabel.width(), 2*self.iconLabel.height())
-        pixmap.setDevicePixelRatio(2.0)
+        pixmap = icon.pixmap(self.iconLabel.width(), self.iconLabel.height())
         self.iconLabel.setPixmap(pixmap)
 
         self.pathLabel.setText(self.to_display_path(self.sync_issue.local_path))
@@ -97,6 +89,22 @@ class SyncIssueWidget(QtWidgets.QWidget):
             else:
                 subprocess.run(["xdg-open", path])
 
+    def changeEvent(self, QEvent):
+        if QEvent.type() == QtCore.QEvent.PaletteChange:
+            self.update_dark_mode()
+
+    def update_dark_mode(self):
+        line_rgb = LINE_COLOR_DARK if isDarkWindow() else LINE_COLOR_LIGHT
+        bg_color = self.palette().color(QtGui.QPalette.Background)
+        bg_color_rgb = [bg_color.red(), bg_color.green(), bg_color.blue()]
+        frame_bg_color = [min([c + 16, 255]) for c in bg_color_rgb]
+        self.frame.setStyleSheet("""
+        .QFrame {{
+            border: 1px solid rgb({0},{1},{2});
+            background-color: rgb({3},{4},{5});
+            border-radius: 7px;
+        }}""".format(*line_rgb, *frame_bg_color))
+
 
 class SyncIssueWindow(QtWidgets.QWidget):
     """
@@ -147,7 +155,9 @@ if __name__ == "__main__":
     from maestral.client import MaestralApiError
     import queue
 
-    app = QtWidgets.QApplication([])
+    app = QtWidgets.QApplication([""])
+    app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
+
     text1 = ("Something went wrong with the job on Dropbox’s end. Please "
              "verify on the Dropbox website if the move succeeded and try "
              "again if it failed. This should happen very rarely.")
@@ -155,7 +165,9 @@ if __name__ == "__main__":
     text2 = ("There are too many write operations your "
              "Dropbox. Please try again later.")
 
-    err1 = MaestralApiError("Could not download", text1, local_path="/MyLargeFile")
+    path = "/Users/samschott/Dropbox/MATLAB_scripts/CuSCN2 fitting/CuSCN2_5K_HFI_fit.mat"
+
+    err1 = MaestralApiError("Could not download", text1, local_path=path)
     err2 = MaestralApiError("Could not delete folder", text2, local_path="/test_folder")
 
     err_queue = queue.Queue()

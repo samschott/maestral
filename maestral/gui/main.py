@@ -28,7 +28,7 @@ from maestral.gui.first_sync_dialog import FirstSyncDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import TRAY_ICON_PATH
-from maestral.gui.utils import truncate_string, get_scaled_font, get_theme
+from maestral.gui.utils import truncate_string, get_scaled_font, isDarkStatusBar
 
 
 FIRST_SYNC = (not CONF.get("internal", "lastsync") or
@@ -127,8 +127,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         icon_color = "dark"
 
         if not platform.system() == "Darwin":
-            THEME = get_theme()
-            if THEME is "dark":
+            if isDarkStatusBar():
                 icon_color = "light"
         short = ("idle", "syncing", "paused", "disconnected", "error")
         for l, s in zip((IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR), short):
@@ -292,9 +291,10 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         """Update account usage info in UI."""
         usage_string = str(space_usage)
         self.accountUsageAction.setText(usage_string)
-        self.settings.labelSpaceUsage2.setText(usage_string)
+        self.settings.labelSpaceUsage.setText(usage_string)
 
-    def on_error(self, exc_info):
+    @staticmethod
+    def on_error(exc_info):
         exc_type, exc, tb = exc_info
 
         if isinstance(exc, CorruptedRevFileError):

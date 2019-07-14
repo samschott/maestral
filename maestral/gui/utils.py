@@ -11,6 +11,9 @@ from PyQt5 import QtGui, QtWidgets
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
 
+LINE_COLOR_DARK = (95, 104, 104)
+LINE_COLOR_LIGHT = (205, 203, 205)
+
 
 def truncate_string(string, font=None, pixels=200, side="right"):
 
@@ -128,12 +131,41 @@ def __pixel_at(x, y):
     return ((color >> 16) & 0xff), ((color >> 8) & 0xff), (color & 0xff)
 
 
-def get_theme():
+def statusBarTheme():
     """
-    Returns one of THEME_LIGHT or THEME_DARK, corresponding to current user's UI theme
+    Returns one of THEME_LIGHT or THEME_DARK, corresponding to current status bar theme
     """
     # getting color of a pixel on a top bar, and identifying best-fitting color
     # theme based on its luminance
     pixel_rgb = __pixel_at(2, 2)
     luminance = _luminance(*pixel_rgb)
-    return THEME_LIGHT if luminance >= 0.5 else THEME_DARK
+    return THEME_LIGHT if luminance >= 0.4 else THEME_DARK
+
+
+def windowTheme():
+    """
+    Returns one of THEME_LIGHT or THEME_DARK, corresponding to current user's UI theme
+    """
+    # getting color of a pixel on a top bar, and identifying best-fitting color
+    # theme based on its luminance
+    w = QtWidgets.QWidget()
+    bg_color = w.palette().color(QtGui.QPalette.Background)
+    bg_color_rgb = [bg_color.red(), bg_color.green(), bg_color.blue()]
+    luminance = _luminance(*bg_color_rgb)
+    return THEME_LIGHT if luminance >= 0.4 else THEME_DARK
+
+
+def isDarkWindow():
+    return windowTheme() == THEME_DARK
+
+
+def isLightWindow():
+    return windowTheme() == THEME_LIGHT
+
+
+def isDarkStatusBar():
+    return statusBarTheme() == THEME_DARK
+
+
+def isLightStatusBar():
+    return statusBarTheme() == THEME_LIGHT

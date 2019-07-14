@@ -19,7 +19,8 @@ from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
                                     SETTINGS_WINDOW_PATH)
-from maestral.gui.utils import get_scaled_font
+from maestral.gui.utils import (get_scaled_font, isDarkWindow, LINE_COLOR_DARK,
+                                LINE_COLOR_LIGHT)
 
 
 class UnlinkDialog(QtWidgets.QDialog):
@@ -39,6 +40,7 @@ class SettingsWindow(QtWidgets.QWidget):
     def __init__(self, mdbx, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         uic.loadUi(SETTINGS_WINDOW_PATH, self)
+        self.update_dark_mode()
         # self.setFixedSize(560, 320)
 
         self.mdbx = mdbx
@@ -61,10 +63,10 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelAccountEmail.setText(CONF.get("account", "email"))
         usage_type = CONF.get("account", "usage_type")
         if usage_type == "team":
-            self.labelSpaceUsage1.setText("Your team's space:")
+            self.labelSpaceUsageTitle.setText("Your team's space:")
         elif usage_type == "individual":
-            self.labelSpaceUsage1.setText("Your space:")
-        self.labelSpaceUsage2.setText(CONF.get("account", "usage"))
+            self.labelSpaceUsageTitle.setText("Your space:")
+        self.labelSpaceUsage.setText(CONF.get("account", "usage"))
         self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
         self.unlink_dialog.accepted.connect(self.on_unlink)
 
@@ -147,3 +149,16 @@ class SettingsWindow(QtWidgets.QWidget):
             return osp.relpath(path, usr)
         else:
             return path
+
+    def changeEvent(self, QEvent):
+
+        if QEvent.type() == QtCore.QEvent.PaletteChange:
+            self.update_dark_mode()
+
+    def update_dark_mode(self):
+        rgb = LINE_COLOR_DARK if isDarkWindow() else LINE_COLOR_LIGHT
+        line_style = "color: rgb({0}, {1}, {2})".format(*rgb)
+
+        self.line0.setStyleSheet(line_style)
+        self.line1.setStyleSheet(line_style)
+        self.line2.setStyleSheet(line_style)

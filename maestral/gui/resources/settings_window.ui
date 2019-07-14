@@ -21,7 +21,7 @@
     <number>20</number>
    </property>
    <item row="5" column="0">
-    <widget class="QLabel" name="label_10">
+    <widget class="QLabel" name="labelExcludedFoldersTitle">
      <property name="text">
       <string>Select folders to sync:</string>
      </property>
@@ -46,18 +46,8 @@
      </property>
     </widget>
    </item>
-   <item row="12" column="0">
-    <widget class="QLabel" name="label_4">
-     <property name="text">
-      <string/>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-     </property>
-    </widget>
-   </item>
    <item row="4" column="0">
-    <widget class="QLabel" name="label_9">
+    <widget class="QLabel" name="labelDropboxPathTitle">
      <property name="text">
       <string>Dropbox folder location:</string>
      </property>
@@ -74,7 +64,7 @@
     </widget>
    </item>
    <item row="10" column="0">
-    <widget class="QLabel" name="labelSpaceUsage1">
+    <widget class="QLabel" name="labelSpaceUsageTitle">
      <property name="text">
       <string>Your space:</string>
      </property>
@@ -84,7 +74,7 @@
     </widget>
    </item>
    <item row="8" column="0" colspan="2" alignment="Qt::AlignHCenter">
-    <widget class="Line" name="line_1">
+    <widget class="Line" name="line1">
      <property name="minimumSize">
       <size>
        <width>350</width>
@@ -109,7 +99,7 @@
     </widget>
    </item>
    <item row="20" column="0" colspan="2" alignment="Qt::AlignHCenter">
-    <widget class="Line" name="line_2">
+    <widget class="Line" name="line2">
      <property name="minimumSize">
       <size>
        <width>350</width>
@@ -166,7 +156,7 @@
     </widget>
    </item>
    <item row="21" column="0">
-    <widget class="QLabel" name="label">
+    <widget class="QLabel" name="labelAboutTitle">
      <property name="text">
       <string>About Maestral:</string>
      </property>
@@ -176,7 +166,7 @@
     </widget>
    </item>
    <item row="3" column="0" colspan="2" alignment="Qt::AlignHCenter">
-    <widget class="Line" name="line_0">
+    <widget class="Line" name="line0">
      <property name="minimumSize">
       <size>
        <width>350</width>
@@ -211,7 +201,7 @@
     </widget>
    </item>
    <item row="10" column="1">
-    <widget class="QLabel" name="labelSpaceUsage2">
+    <widget class="QLabel" name="labelSpaceUsage">
      <property name="text">
       <string>30.3% out of 1,000,000GB used</string>
      </property>
@@ -231,7 +221,7 @@
     </widget>
    </item>
    <item row="9" column="0">
-    <widget class="QLabel" name="label_3">
+    <widget class="QLabel" name="labelAccountEmailTitle">
      <property name="text">
       <string>Account:</string>
      </property>

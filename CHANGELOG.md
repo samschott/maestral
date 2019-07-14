@@ -40,9 +40,9 @@ _Added:_
 
 - Added progress messages for uploads and downloads, e.g., "Downloading 3/98...". These
   are output as info messages and shown in the status field of the system tray menu.
-
 - When unlinking your Dropbox account through the GUI, Maestral is restarted to enter the
   setup dialog.
+- Refinements for dark interface themes such as Dark Mode in macOS Mojave
 
 _Changed:_
 
