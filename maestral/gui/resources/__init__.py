@@ -1,7 +1,13 @@
+import sys
 import os
 from PyQt5 import QtWidgets, QtCore
 
-_root = os.path.dirname(os.path.realpath(__file__))
+if getattr(sys, "frozen", False):
+    # running in a bundle
+    _root = os.path.dirname(os.path.join(sys._MEIPASS)) + "/Resources"
+else:
+    # running from python
+    _root = os.path.dirname(os.path.realpath(__file__))
 _icon_provider = QtWidgets.QFileIconProvider()
 
 APP_ICON_PATH = _root + "/app_icon.svg"

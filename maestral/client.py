@@ -5,9 +5,10 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
-
+import sys
 import os
 import os.path as osp
+import platform
 import time
 import datetime
 import logging
@@ -20,6 +21,11 @@ from dropbox import DropboxOAuth2FlowNoRedirect
 
 from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
+
+if getattr(sys, "frozen", False) and platform.system() == "Darwin":
+    # running in a bundle in macOS
+    import keyring.backends.OS_X
+    keyring.set_keyring(keyring.backends.OS_X.Keyring())
 
 logger = logging.getLogger(__name__)
 
