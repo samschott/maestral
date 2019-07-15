@@ -326,7 +326,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         for dbx_path in reversed(CONF.get("internal", "recent_changes")):
             file_name = os.path.basename(dbx_path)
             truncated_name = truncate_string(file_name, font=self.menu.font(),
-                                             side="left")
+                                             side="right")
             action = self.recentFilesMenu.addAction(truncated_name)
             action.setData(dbx_path)
 
