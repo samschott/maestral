@@ -66,6 +66,7 @@ class RebuildIndexDialog(QtWidgets.QDialog):
     def __init__(self, monitor, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         uic.loadUi(REBUILD_INDEX_DIALOG_PATH, self)
+        self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
 
         self.monitor = monitor
 

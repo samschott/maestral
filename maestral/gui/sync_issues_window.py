@@ -114,6 +114,7 @@ class SyncIssueWindow(QtWidgets.QWidget):
     def __init__(self, sync_issues_queue, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         uic.loadUi(SYNC_ISSUES_WINDOW_PATH, self)
+        self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
 
         self.sync_issues_queue = sync_issues_queue
 

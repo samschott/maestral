@@ -315,8 +315,8 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
         self.rebuild_dialog = RebuildIndexDialog(self.mdbx.monitor)
         self.rebuild_dialog.show()
-        self.rebuild_dialog.raise_()
         self.rebuild_dialog.activateWindow()
+        self.rebuild_dialog.raise_()
 
     # callbacks to update GUI
 
