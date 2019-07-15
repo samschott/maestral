@@ -3,6 +3,6 @@ dropbox
 watchdog
 blinker
 requests
-tqdm
 u-msgpack-python
 keyring
+keyrings.alt
