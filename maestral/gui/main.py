@@ -15,19 +15,19 @@ import webbrowser
 import shutil
 from blinker import signal
 from traceback import format_exception
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtGui import QIcon
 
 from maestral.main import Maestral
 from maestral.monitor import (IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR,
-                              CorruptedRevFileError)
+                              RevFileError)
 from maestral.client import MaestralApiError
 from maestral.config.main import CONF
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.first_sync_dialog import FirstSyncDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
-from maestral.gui.resources import TRAY_ICON_PATH
+from maestral.gui.resources import TRAY_ICON_PATH, APP_ICON_PATH
 from maestral.gui.utils import truncate_string, get_scaled_font, isDarkStatusBar
 
 
@@ -92,28 +92,35 @@ class ErrorDialog(QtWidgets.QDialog):
         self.gridLayout = QtWidgets.QGridLayout()
         self.setLayout(self.gridLayout)
 
+        self.iconLabel = QtWidgets.QLabel(self)
         self.titleLabel = QtWidgets.QLabel(self)
         self.infoLabel = QtWidgets.QLabel(self)
 
+        self.iconLabel.setMinimumSize(50, 50)
+        self.iconLabel.setMaximumSize(50, 50)
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
         self.infoLabel.setWordWrap(True)
 
+        icon = QIcon(APP_ICON_PATH)
+        pixmap = icon.pixmap(50, 50)
+        self.iconLabel.setPixmap(pixmap)
         self.titleLabel.setText(title)
         self.infoLabel.setText(message)
 
         if exc_info:
             self.details = QtWidgets.QTextEdit(self)
-            self.details.setHtml(format_exception(*exc_info))
+            self.details.setHtml("".join(format_exception(*exc_info)))
 
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
         self.buttonBox.accepted.connect(self.accept)
 
-        self.gridLayout.addWidget(self.titleLabel)
-        self.gridLayout.addWidget(self.infoLabel)
+        self.gridLayout.addWidget(self.iconLabel, 0, 0, 2, 1)
+        self.gridLayout.addWidget(self.titleLabel, 0, 1, 1, 1)
+        self.gridLayout.addWidget(self.infoLabel, 1, 1, 1, 1)
         if exc_info:
-            self.gridLayout.addWidget(self.details)
-        self.gridLayout.addWidget(self.buttonBox)
+            self.gridLayout.addWidget(self.details, 2, 0, 1, 2)
+        self.gridLayout.addWidget(self.buttonBox, 3, 1, -1, -1)
 
 
 # noinspection PyTypeChecker
@@ -297,7 +304,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
     def on_error(exc_info):
         exc_type, exc, tb = exc_info
 
-        if isinstance(exc, CorruptedRevFileError):
+        if isinstance(exc, RevFileError):
             # show error dialog to user
             title = "Maestral Error"
             message = exc.args[0]

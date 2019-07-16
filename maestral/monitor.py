@@ -178,7 +178,7 @@ class FileEventHandler(FileSystemEventHandler):
             self.local_q.put(event)
 
 
-class CorruptedRevFileError(Exception):
+class RevFileError(Exception):
     """Raised when the rev file exists but cannot be read."""
     pass
 
@@ -233,7 +233,7 @@ class UpDownSync(object):
     notify = Notipy()
     lock = threading.RLock()
 
-    _rev_lock = threading.Lock()
+    _rev_lock = threading.RLock()
 
     failed_uploads = queue.Queue()
     failed_downloads = queue.Queue()
@@ -378,11 +378,10 @@ class UpDownSync(object):
         else:
             return osp.join(local_parent, dbx_path_basename)
 
-    def _load_rev_dict_from_file(self, path=None, raise_exception=False):
-        path = self.rev_file_path if not path else path
+    def _load_rev_dict_from_file(self, raise_exception=False):
         with self._rev_lock:
             try:
-                with open(path, "rb") as f:
+                with open(self.rev_file_path, "rb") as f:
                     rev_dict_cache = umsgpack.unpack(f)
                 assert isinstance(rev_dict_cache, dict)
                 assert all(isinstance(key, str) for key in rev_dict_cache.keys())
@@ -393,7 +392,7 @@ class UpDownSync(object):
             except (AssertionError, IsADirectoryError):
                 msg = "Maestral index has become corrupted. Please rebuild."
                 if raise_exception:
-                    raise CorruptedRevFileError(msg)
+                    raise RevFileError(msg)
                 else:
                     rev_dict_cache = dict()
                     logger.exception(msg)
@@ -401,12 +400,35 @@ class UpDownSync(object):
                 msg = ("Insufficient permissions for Dropbox folder. Please " +
                        "make sure that you have read and write permissions.")
                 if raise_exception:
-                    raise CorruptedRevFileError(msg)
+                    raise RevFileError(msg)
                 else:
                     rev_dict_cache = dict()
                     logger.exception(msg)
+            except OSError as exc:
+                if raise_exception:
+                    raise exc
+                else:
+                    logger.exception("Could not load revision index.")
 
             return rev_dict_cache
+
+    def _save_rev_dict_to_file(self, raise_exception=False):
+        with self._rev_lock:
+            try:
+                with open(self.rev_file_path, "w+b") as f:
+                    umsgpack.pack(self._rev_dict_cache, f)
+            except PermissionError as exc:
+                msg = ("Insufficient permissions for Dropbox folder. Please " +
+                       "make sure that you have read and write permissions.")
+                if raise_exception:
+                    raise RevFileError(msg) from exc
+                else:
+                    logger.exception(msg)
+            except OSError as exc:
+                if raise_exception:
+                    raise exc
+                else:
+                    logger.exception("Could not save revision index.")
 
     def get_rev_dict(self):
         """
@@ -464,9 +486,7 @@ class UpDownSync(object):
                     dirname = osp.dirname(dirname)
 
             # save changes to file
-            # don't wrap in try statement but raise all errors
-            with open(self.rev_file_path, "w+b") as f:
-                umsgpack.pack(self._rev_dict_cache, f)
+            self._save_rev_dict_to_file()
 
     def has_sync_errors(self):
         return self.sync_errors.qsize() > 0
