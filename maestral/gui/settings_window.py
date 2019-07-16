@@ -20,8 +20,9 @@ from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
                                     SETTINGS_WINDOW_PATH)
-from maestral.gui.utils import (get_scaled_font, isDarkWindow, LINE_COLOR_DARK,
-                                LINE_COLOR_LIGHT)
+from maestral.gui.utils import (get_scaled_font, isDarkWindow,
+                                LINE_COLOR_DARK, LINE_COLOR_LIGHT)
+from maestral.utils import is_macos_bundle
 
 
 class UnlinkDialog(QtWidgets.QDialog):
@@ -121,7 +122,7 @@ class SettingsWindow(QtWidgets.QWidget):
         pid = os.getpid()  # get ID of current process
 
         # wait for current process to quit and then restart Maestral
-        if getattr(sys, "frozen", False) and self.system == "Darwin":
+        if is_macos_bundle:
             launch_command = os.path.join(sys._MEIPASS, "main")
             Popen("lsof -p {0} +r 1 &>/dev/null; {0}".format(launch_command), shell=True)
         if platform.system() == "Darwin":

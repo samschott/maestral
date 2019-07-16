@@ -9,8 +9,7 @@ Created on Sun Dec  9 23:08:47 2018
 import platform
 import sys
 import os
-import subprocess
-import shutil
+from maestral.utils import is_macos_bundle
 
 _root = os.path.abspath(os.path.dirname(__file__))
 
@@ -22,7 +21,7 @@ class AutoStart(object):
         if self.system == "Darwin":
             self.filename = "com.samschott.maestral.plist"
             self.destination_dir = os.path.expanduser("~/Library/LaunchAgents")
-            if getattr(sys, "frozen", False):
+            if is_macos_bundle:
                 launch_command = os.path.join(sys._MEIPASS, "main")
             else:
                 launch_command = "mercury-gui"

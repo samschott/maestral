@@ -21,8 +21,9 @@ from dropbox import DropboxOAuth2FlowNoRedirect
 
 from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
+from maestral.utils import is_macos_bundle
 
-if getattr(sys, "frozen", False) and platform.system() == "Darwin":
+if is_macos_bundle:
     # running in a bundle in macOS
     import keyring.backends.OS_X
     keyring.set_keyring(keyring.backends.OS_X.Keyring())
