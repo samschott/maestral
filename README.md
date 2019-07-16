@@ -1,9 +1,11 @@
-# Meastral
+
+# Meastral [![PyPi Release](https://img.shields.io/pypi/v/maestral.svg?color=blue)](https://pypi.org/project/maestral/)  <img src="maestral/gui/resources/Maestral.png" align="right" title="Maestral" width="110" height="110">
+
 
 A light-weight and open-source Dropbox client for macOS and Linux.
 
 ## About
-
+     
 Meastral is an open-source Dropbox client written in Python. The project's main goal is to
 provide a client for platforms and file systems that are not directly supported by
 Dropbox. Meastral uses the Python SDK for the Dropbox API v2.
@@ -14,9 +16,10 @@ must use the Dropbox website.
 
 ## Installation
 
-Download and install the Python package by running
+A binary is provided for macOS Mojave and can be downloaded from the Releases tab. On other platforms,
+download and install the Python package by running
 ```console
-$ pip install --upgrade git+https://github.com/SamSchott/maestral
+$ pip install --upgrade maestral
 ```
 in the command line. If you intend to use the graphical user interface, you also need to
 install PyQt5. It is recommended to install PyQt5 through your distribution's package manager
@@ -78,8 +81,7 @@ folders and the remote Dropbox for changes and applies them using the interface 
 by `maestral.client`.
 
 `maestral.main` provides the main programmatic user interface. It links your Dropbox
-account and sets up your local, lets you select which folders to sync and can pause and
-resume syncing.
+account and sets up your local folder and lets you select which folders to sync.
 
 `maestral.gui` contains all graphical user interfaces for `Maestral`.
 
