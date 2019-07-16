@@ -38,6 +38,7 @@ setup(
     author_email="ss2151@cam.ac.uk",
     license="MIT",
     long_description=open("README.md").read(),
+    long_description_content_type='text/markdown',
     packages=find_packages(),
     package_data={
             "maestral": [
