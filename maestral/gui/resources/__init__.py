@@ -34,7 +34,9 @@ def get_native_item_icon(item_path):
 
 
 def get_native_folder_icon():
-    return _icon_provider.icon(_icon_provider.Folder)
+    # use a real folder here because Qt may return the wrong folder icon
+    # in macOS with dark mode activated
+    return _icon_provider.icon(QtCore.QFileInfo("/usr"))
 
 
 def get_native_file_icon():

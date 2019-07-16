@@ -31,14 +31,7 @@ class SyncIssueWidget(QtWidgets.QWidget):
         self.sync_issue = sync_issue
 
         self.errorLabel.setFont(get_scaled_font(scaling=0.85))
-
-        # set appropriate background color
-        self.update_dark_mode()
-
-        # fill with content
-        icon = get_native_item_icon(self.sync_issue.local_path)
-        pixmap = icon.pixmap(self.iconLabel.width(), self.iconLabel.height())
-        self.iconLabel.setPixmap(pixmap)
+        self.update_dark_mode()  # set appropriate item icon and colors in style sheet
 
         self.pathLabel.setText(self.to_display_path(self.sync_issue.local_path))
         self.errorLabel.setText(self.sync_issue.title + ":\n" + self.sync_issue.message)
@@ -94,9 +87,11 @@ class SyncIssueWidget(QtWidgets.QWidget):
             self.update_dark_mode()
 
     def update_dark_mode(self):
+        # update style sheet with new colors
         line_rgb = LINE_COLOR_DARK if isDarkWindow() else LINE_COLOR_LIGHT
         bg_color = self.palette().color(QtGui.QPalette.Background)
         bg_color_rgb = [bg_color.red(), bg_color.green(), bg_color.blue()]
+        # set background color to be slightly lighter than the window background
         frame_bg_color = [min([c + 16, 255]) for c in bg_color_rgb]
         self.frame.setStyleSheet("""
         .QFrame {{
@@ -104,6 +99,11 @@ class SyncIssueWidget(QtWidgets.QWidget):
             background-color: rgb({3},{4},{5});
             border-radius: 7px;
         }}""".format(*line_rgb, *frame_bg_color))
+
+        # update item icons (the system may supply different icons in dark mode)
+        icon = get_native_item_icon(self.sync_issue.local_path)
+        pixmap = icon.pixmap(self.iconLabel.width(), self.iconLabel.height())
+        self.iconLabel.setPixmap(pixmap)
 
 
 class SyncIssueWindow(QtWidgets.QWidget):

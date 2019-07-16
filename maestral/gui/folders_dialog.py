@@ -6,7 +6,7 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 
-from PyQt5 import QtWidgets, uic
+from PyQt5 import QtCore, QtWidgets, uic
 
 from dropbox import files
 
@@ -17,7 +17,8 @@ from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
 
 class FolderItem(QtWidgets.QListWidgetItem):
 
-    def __init__(self, icon, name, is_included, parent=None):
+    def __init__(self, name, is_included, parent=None):
+        icon = get_native_folder_icon()
         super(self.__class__, self).__init__(icon, name, parent=parent)
 
         self.name = name
@@ -73,8 +74,8 @@ class FoldersDialog(QtWidgets.QDialog):
 
             for entry in result.entries:
                 if isinstance(entry, files.FolderMetadata):
-                    inc = not self.mdbx.sync.is_excluded_by_user(entry.path_lower)
-                    item = FolderItem(get_native_folder_icon(), entry.name, inc)
+                    is_included = not self.mdbx.sync.is_excluded_by_user(entry.path_lower)
+                    item = FolderItem(entry.name, is_included)
                     self.path_items.append(item)
 
             for item in self.path_items:
@@ -105,3 +106,12 @@ class FoldersDialog(QtWidgets.QDialog):
 
         CONF.set("main", "excluded_folders", excluded_folders)
 
+    def changeEvent(self, QEvent):
+
+        if QEvent.type() == QtCore.QEvent.PaletteChange:
+            self.update_dark_mode()
+
+    def update_dark_mode(self):
+        # update folder icons: the system may provide different icons in dark mode
+        for item in self.path_items:
+            item.setIcon(get_native_folder_icon())
