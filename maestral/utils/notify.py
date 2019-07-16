@@ -5,10 +5,14 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
-
 import os
 from enum import Enum
 from maestral.config.main import CONF
+from maestral.utils import is_macos_bundle
+
+if is_macos_bundle:
+    import Foundation
+    import objc
 
 
 class SupportedImplementation(Enum):
@@ -40,7 +44,9 @@ class Notipy(object):
             pass
 
     def __send_message(self, message, title=""):
-        if self.implementation == SupportedImplementation.osascript:
+        if is_macos_bundle:
+            notify_macOS_bundle(title, message)
+        elif self.implementation == SupportedImplementation.osascript:
             os.system("osascript -e 'display notification \"{}\" with title \"{}\"'".format(message, title))
         elif self.implementation == SupportedImplementation.notifySend:
             os.system('notify-send "{}" "{}"'.format(title, message))
@@ -60,3 +66,23 @@ class Notipy(object):
         elif self.__command_exists('notify-send'):
             return SupportedImplementation.notifySend
         return None
+
+
+if is_macos_bundle:
+
+    NSUserNotification = objc.lookUpClass('NSUserNotification')
+    NSUserNotificationCenter = objc.lookUpClass('NSUserNotificationCenter')
+
+
+    def notify_macOS_bundle(title, info_text, subtitle=None, delay=0, sound=False,
+                            userInfo={}):
+        notification = NSUserNotification.alloc().init()
+        notification.setTitle_(title)
+        if subtitle:
+            notification.setSubtitle_(subtitle)
+        notification.setInformativeText_(info_text)
+        notification.setUserInfo_(userInfo)
+        if sound:
+            notification.setSoundName_("NSUserNotificationDefaultSoundName")
+        notification.setDeliveryDate_(Foundation.NSDate.dateWithTimeInterval_sinceDate_(delay, Foundation.NSDate.date()))
+        NSUserNotificationCenter.defaultUserNotificationCenter().scheduleNotification_(notification)
