@@ -94,7 +94,9 @@ class FirstSyncDialog(QtWidgets.QDialog):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(FIRST_SYNC_DIALOG_PATH, self)
-        self.app_icon = QtGui.QPixmap(APP_ICON_PATH)
+        icon = QtGui.QIcon(APP_ICON_PATH)
+        self.app_icon = icon.pixmap(self.labelIcon.maximumWidth(),
+                                    self.labelIcon.maximumHeight())
 
         self.mdbx = None
         self.folder_items = []

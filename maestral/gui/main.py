@@ -96,14 +96,15 @@ class ErrorDialog(QtWidgets.QDialog):
         self.titleLabel = QtWidgets.QLabel(self)
         self.infoLabel = QtWidgets.QLabel(self)
 
-        self.iconLabel.setMinimumSize(50, 50)
-        self.iconLabel.setMaximumSize(50, 50)
+        icon_size = 50
+        self.iconLabel.setMinimumSize(icon_size, icon_size)
+        self.iconLabel.setMaximumSize(icon_size, icon_size)
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
         self.infoLabel.setWordWrap(True)
 
         icon = QIcon(APP_ICON_PATH)
-        pixmap = icon.pixmap(50, 50)
+        pixmap = icon.pixmap(icon_size, icon_size)
         self.iconLabel.setPixmap(pixmap)
         self.titleLabel.setText(title)
         self.infoLabel.setText(message)
