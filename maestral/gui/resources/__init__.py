@@ -10,7 +10,7 @@ else:
     _root = os.path.dirname(os.path.realpath(__file__))
 _icon_provider = QtWidgets.QFileIconProvider()
 
-APP_ICON_PATH = _root + "/app_icon.svg"
+APP_ICON_PATH = _root + "/Maestral.png"
 TRAY_ICON_PATH = _root + "/menubar_icon_{0}_{1}.svg"
 
 FOLDERS_DIALOG_PATH = _root + "/folders_dialog.ui"
