@@ -122,7 +122,8 @@ class SettingsWindow(QtWidgets.QWidget):
 
         # wait for current process to quit and then restart Maestral
         if getattr(sys, "frozen", False) and self.system == "Darwin":
-            Popen("lsof -p {0} +r 1 &>/dev/null; /Applications/Maestral.app/Contents/MacOS/main", shell=True)
+            launch_command = os.path.join(sys._MEIPASS, "main")
+            Popen("lsof -p {0} +r 1 &>/dev/null; {0}".format(launch_command), shell=True)
         if platform.system() == "Darwin":
             Popen("lsof -p {0} +r 1 &>/dev/null; maestral-gui".format(pid), shell=True)
         elif platform.system() == "Linux":

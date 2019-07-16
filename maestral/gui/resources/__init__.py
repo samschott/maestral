@@ -4,7 +4,7 @@ from PyQt5 import QtWidgets, QtCore
 
 if getattr(sys, "frozen", False):
     # running in a bundle
-    _root = os.path.dirname(os.path.join(sys._MEIPASS)) + "/Resources"
+    _root = os.path.join(os.path.dirname(sys._MEIPASS), "/Resources")
 else:
     # running from python
     _root = os.path.dirname(os.path.realpath(__file__))

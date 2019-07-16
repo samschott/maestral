@@ -23,7 +23,7 @@ class AutoStart(object):
             self.filename = "com.samschott.maestral.plist"
             self.destination_dir = os.path.expanduser("~/Library/LaunchAgents")
             if getattr(sys, "frozen", False):
-                launch_command = "/Applications/Maestral.app/Contents/MacOS/main"
+                launch_command = os.path.join(sys._MEIPASS, "main")
             else:
                 launch_command = "mercury-gui"
             self.contents = _plist_template.format(launch_command)
