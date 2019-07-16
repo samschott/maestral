@@ -5,6 +5,7 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+import sys
 import os
 import os.path as osp
 from subprocess import Popen
@@ -120,6 +121,8 @@ class SettingsWindow(QtWidgets.QWidget):
         pid = os.getpid()  # get ID of current process
 
         # wait for current process to quit and then restart Maestral
+        if getattr(sys, "frozen", False) and self.system == "Darwin":
+            Popen("lsof -p {0} +r 1 &>/dev/null; /Applications/Maestral.app/Contents/MacOS/main", shell=True)
         if platform.system() == "Darwin":
             Popen("lsof -p {0} +r 1 &>/dev/null; maestral-gui".format(pid), shell=True)
         elif platform.system() == "Linux":
