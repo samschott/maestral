@@ -57,6 +57,8 @@ _Changed:_
     - Files that start with "~" and end with ".tmp"
 - Cleaned up some of the config module code: removed Spyder specific functions and
   obsolete Python 2 compatibility.
+- Adapted code to correcly load resources in case Maestral is packaged as a macOS app
+  bundle.
 
 _Fixed:_
 
