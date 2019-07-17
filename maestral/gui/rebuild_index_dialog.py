@@ -80,6 +80,8 @@ class RebuildIndexDialog(QtWidgets.QDialog):
         self.progressBar.hide()
         self.statusLabel.hide()
 
+        self.adjustSize()
+
     def accept(self):
         if self.rebuildButton.text() == "Rebuild":
             self.start_rebuild()
@@ -94,6 +96,8 @@ class RebuildIndexDialog(QtWidgets.QDialog):
 
         self.progressBar.show()
         self.statusLabel.show()
+
+        self.adjustSize()
 
         self.progressBar.setMinimum(0)
         self.progressBar.setMaximum(0)
