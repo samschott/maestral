@@ -447,13 +447,16 @@ class MaestralApiClient(object):
 
         return md
 
-    def list_folder(self, dbx_path, **kwargs):
+    def list_folder(self, dbx_path, include_non_downloadable_files=False, **kwargs):
         """
         Lists contents of a folder on Dropbox as dictionary mapping unicode
         file names to FileMetadata|FolderMetadata entries.
 
         :param str dbx_path: Path of folder on Dropbox.
-        :param kwargs: Keyword arguments for Dropbox SDK files_list_folder.
+        :param bool include_non_downloadable_files: If ``True``, files that cannot be
+            downloaded (at the moment only G-suite files on Dropbox) will be included.
+            Defaults to ``False``.
+        :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
         :returns: :class:`dropbox.files.ListFolderResult` instance.
         :rtype: :class:`dropbox.files.ListFolderResult`
         :raises: :class:`MaestralApiError`
@@ -462,7 +465,12 @@ class MaestralApiClient(object):
         results = []
 
         try:
-            results.append(self.dbx.files_list_folder(dbx_path, **kwargs))
+            res = self.dbx.files_list_folder(
+                dbx_path,
+                include_non_downloadable_files=include_non_downloadable_files,
+                **kwargs
+            )
+            results.append(res)
         except dropbox.exceptions.ApiError as exc:
             raise _to_maestral_error(exc, dbx_path) from exc
 
@@ -627,6 +635,7 @@ def _construct_local_error_msg(exc, dbx_path=None):
 
 
 # TODO: handle OAuth errors, differentiate error types
+# TODO: add error for non-downloadable files
 def _to_maestral_error(exc, dbx_path=None, local_path=None):
     """
     Gets the Dropbox API Error and tries to add a reasonably informative error
