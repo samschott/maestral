@@ -360,7 +360,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
 
 def run():
-    app = QtWidgets.QApplication([""])
+    app = QtWidgets.QApplication(["Maestral"])
     app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
     app.setQuitOnLastWindowClosed(False)
 
