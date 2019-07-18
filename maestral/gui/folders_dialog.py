@@ -15,6 +15,7 @@ from maestral.config.main import CONF
 from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
 
 
+# noinspection PyTypeChecker
 class FolderItem(QtWidgets.QListWidgetItem):
 
     def __init__(self, name, is_included, parent=None):

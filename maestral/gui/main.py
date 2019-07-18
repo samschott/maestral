@@ -15,12 +15,11 @@ import webbrowser
 import shutil
 from blinker import signal
 from traceback import format_exception
-from PyQt5 import QtCore, QtWidgets, QtGui
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtGui import QIcon
 
 from maestral.main import Maestral
-from maestral.monitor import (IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR,
-                              RevFileError)
+from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR, RevFileError
 from maestral.client import MaestralApiError
 from maestral.config.main import CONF
 from maestral.gui.settings_window import SettingsWindow
