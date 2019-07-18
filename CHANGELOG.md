@@ -1,3 +1,19 @@
+### v0.2.1 (2019-07-18)
+
+_Changes_:
+
+- Reload all file and folder icons when the system appearance changes: the system may 
+  provide different icons (e.g., darker folder icons in "dark mode" on macOS Mojave).
+- Improved notification center alerts in macOS: when installed as a bundled app,
+  notifications are now properly sent from the Maestral itself, showing the Maestral icon,
+  instead of through apple script.
+- Improved layout of the "Rebuild index" dialog.
+
+_Fixes_:
+
+- Fixes a bug which would prevent Meastral from starting on login: the correct startup 
+  script is now called.
+
 ### v0.2.0 (2019-07-17)
 
 #### Major changes
@@ -28,7 +44,7 @@ _Changed_:
   catches Dropbox API errors but raises them, augmented with useful information, as
   `MaestralApiError`.
 - Moved storage of user authentication tokens from a text file to the system keyring. As a
-  result, authentication tokens will be encryptet on the hard drive and only decrypted
+  result, authentication tokens will be encrypted on the hard drive and only decrypted
   when the user logs in. On some systems, this may cause problems in headless mode, when
   the Gnome keyring is not loaded. The
   [keyring documentation](https://keyring.readthedocs.io/en/latest/#using-keyring-on-headless-linux-systems)
@@ -57,7 +73,7 @@ _Changed:_
     - Files that start with "~" and end with ".tmp"
 - Cleaned up some of the config module code: removed Spyder specific functions and
   obsolete Python 2 compatibility.
-- Adapted code to correcly load resources in case Maestral is packaged as a macOS app
+- Adapted code to correctly load resources in case Maestral is packaged as a macOS app
   bundle.
 
 _Fixed:_
