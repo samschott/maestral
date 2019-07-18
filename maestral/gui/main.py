@@ -20,7 +20,7 @@ from PyQt5.QtGui import QIcon
 
 from maestral.main import Maestral
 from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR, RevFileError
-from maestral.client import MaestralApiError
+from maestral.client import CursorResetError, MaestralApiError
 from maestral.config.main import CONF
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.first_sync_dialog import FirstSyncDialog
@@ -310,9 +310,12 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
             message = exc.args[0]
             error_dialog = ErrorDialog(title, message)
             error_dialog.open()
-        elif isinstance(exc, MaestralApiError):
-            pass
-        else:
+        elif isinstance(exc, CursorResetError):
+            title = "Dropbox has reset its sync state."
+            message = 'Please go to "Rebuild index..." to re-sync your Dropbox.'
+            error_dialog = ErrorDialog(title, message)
+            error_dialog.open()
+        elif not isinstance(exc, MaestralApiError):
             title = "An unexpected error occurred."
             message = "Please contact the Maestral developer with the information below."
             error_dialog = ErrorDialog(title, message, exc_info)
