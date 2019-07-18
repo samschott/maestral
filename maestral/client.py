@@ -5,10 +5,8 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
-import sys
 import os
 import os.path as osp
-import platform
 import time
 import datetime
 import logging
