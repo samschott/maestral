@@ -1,5 +1,5 @@
 
-# Meastral [![PyPi Release](https://img.shields.io/pypi/v/maestral.svg?color=blue)](https://pypi.org/project/maestral/)  <img src="maestral/gui/resources/Maestral.png" align="right" title="Maestral" width="110" height="110">
+# Meastral [![PyPi Release](https://img.shields.io/pypi/v/maestral.svg?color=blue)](https://pypi.org/project/maestral/)  <img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/maestral/gui/resources/Maestral.png" align="right" title="Maestral" width="110" height="110">
 
 A light-weight and open-source Dropbox client for macOS and Linux.
 
@@ -42,8 +42,8 @@ Run `meastral gui` in the command line (or open the Maestral app on macOS) to st
 Meastral with a graphical user interface. On its first run, Meastral will guide you
 through linking and configuring your Dropbox and will then start syncing.
 
-![screenshot macOS](/screenshots/macOS.png)
-![screenshot fedora](/screenshots/Fedora.png)
+![screenshot macOS](https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/macOS.png)
+![screenshot fedora](https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/Fedora.png)
 
 ## Command line usage
 
