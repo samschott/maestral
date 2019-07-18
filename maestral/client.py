@@ -212,7 +212,8 @@ class MaestralApiClient(object):
         # get Dropbox session
         self.auth = OAuth2Session()
         self.last_longpoll = None
-        self.backoff = 0
+        self._backoff = 0
+        self._retry_count = 0
 
         # initialize API client
         self.dbx = dropbox.Dropbox(self.auth.access_token, session=SESSION,
@@ -537,7 +538,7 @@ class MaestralApiClient(object):
 
         # honour last request to back off
         if self.last_longpoll is not None:
-            while time.time() - self.last_longpoll < self.backoff:
+            while time.time() - self.last_longpoll < self._backoff:
                 time.sleep(1)
 
         try:
@@ -547,9 +548,9 @@ class MaestralApiClient(object):
 
         # keep track of last long poll, back off if requested by SDK
         if result.backoff:
-            self.backoff = result.backoff + 5
+            self._backoff = result.backoff + 5
         else:
-            self.backoff = 0
+            self._backoff = 0
 
         self.last_longpoll = time.time()
 
