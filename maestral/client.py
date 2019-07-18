@@ -446,12 +446,15 @@ class MaestralApiClient(object):
 
         return md
 
-    def list_folder(self, dbx_path, include_non_downloadable_files=False, **kwargs):
+    def list_folder(self, dbx_path, retry=3, include_non_downloadable_files=False,
+                    **kwargs):
         """
         Lists contents of a folder on Dropbox as dictionary mapping unicode
         file names to FileMetadata|FolderMetadata entries.
 
         :param str dbx_path: Path of folder on Dropbox.
+        :param int retry: Number of times to try again call fails because cursor is
+            reset. Defaults to 3.
         :param bool include_non_downloadable_files: If ``True``, files that cannot be
             downloaded (at the moment only G-suite files on Dropbox) will be included.
             Defaults to ``False``.
@@ -482,9 +485,18 @@ class MaestralApiClient(object):
                 more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
                 results.append(more_results)
             except dropbox.exceptions.ApiError as exc:
-                raise _to_maestral_error(exc, dbx_path) from exc
+                new_exc = _to_maestral_error(exc, dbx_path)
+                if isinstance(new_exc, CursorResetError) and self._retry_count < retry:
+                    # retry up to three times, then raise
+                    self._retry_count += 1
+                    self.list_folder(dbx_path, include_non_downloadable_files, **kwargs)
+                else:
+                    self._retry_count = 0
+                    raise new_exc from exc
 
         logger.debug("Listed contents of folder '{0}'".format(dbx_path))
+
+        self._retry_count = 0
 
         return self.flatten_results(results)
 
