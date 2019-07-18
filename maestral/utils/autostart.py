@@ -24,12 +24,12 @@ class AutoStart(object):
             if is_macos_bundle:
                 launch_command = os.path.join(sys._MEIPASS, "main")
             else:
-                launch_command = "mercury-gui"
+                launch_command = "maestral-gui"
             self.contents = _plist_template.format(launch_command)
         elif self.system == "Linux":
             self.filename = "maestral.desktop"
             self.destination_dir = os.path.expanduser("~/.config/autostart")
-            launch_command = "mercury-gui"
+            launch_command = "maestral-gui"
             self.contents = _desktop_entry_template.format(launch_command)
         else:
             raise OSError("Windows is not currently supported.")
