@@ -35,7 +35,7 @@ from watchdog.utils.dirsnapshot import DirectorySnapshot
 from maestral.config.main import CONF
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import Notipy
-from maestral.client import MaestralApiError
+from maestral.client import MaestralApiError, CursorResetError
 
 
 logger = logging.getLogger(__name__)
@@ -1303,15 +1303,19 @@ def download_worker(sync, running, shutdown, flagged):
                     sync.apply_remote_changes(changes)
                     time.sleep(2)
 
-                    # clear flagged list
-                    flagged.clear()
-
             logger.info(IDLE)
-        except CONNECTION_ERRORS as e:
-            logger.debug(e)
+        except CONNECTION_ERRORS:
             logger.info(DISCONNECTED)
             disconnected_signal.send()
             running.clear()  # must be started again from outside
+        except CursorResetError:
+            logger.exception("Cursor has been reset by Dropbox. Syncing will be "
+                             "stopped. Please rebuild the Maestral index.")
+            running.clear()  # stop syncing
+            shutdown.set()  # shutdown threads
+        finally:
+            # clear flagged list
+            flagged.clear()
 
 
 def upload_worker(sync, running, shutdown):
