@@ -3,7 +3,6 @@
 _Added_:
 
 - More fine-grained errors, subclassed from `MaestralApiError`.
-- Added `clear` entry to sync error UI.
 
 _Changed_:
 

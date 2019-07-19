@@ -1,5 +1,6 @@
+[![PyPi Release](https://img.shields.io/pypi/v/maestral.svg?color=blue)](https://pypi.org/project/maestral/)
 
-# Meastral [![PyPi Release](https://img.shields.io/pypi/v/maestral.svg?color=blue)](https://pypi.org/project/maestral/)  <img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/maestral/gui/resources/Maestral.png" align="right" title="Maestral" width="110" height="110">
+# Meastral <img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/maestral/gui/resources/Maestral.png" align="right" title="Maestral" width="110" height="110">
 
 A light-weight and open-source Dropbox client for macOS and Linux.
 
@@ -43,7 +44,7 @@ Meastral with a graphical user interface. On its first run, Meastral will guide 
 through linking and configuring your Dropbox and will then start syncing.
 
 ![screenshot macOS](https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/macOS.png)
-![screenshot fedora](https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/Fedora.png)
+![screenshot Fedora](https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/Fedora.png)
 
 ## Command line usage
 
@@ -62,7 +63,7 @@ After installation, in a Python command prompt, run
 ```
 On initial use, Meastral will ask you to link your Dropbox account, give the location of
 your Dropbox folder on the local drive, and to specify excluded folders. It will then
-start syncing. Supported commands are:
+start syncing. Supported commands include:
 
 ```Python
 >>> m.pause_sync()  # pause syncing
@@ -73,7 +74,7 @@ start syncing. Supported commands are:
 >>> m.include_folder(path)  # include Dropbox folder in sync, download its contents
 
 >>> m.set_dropbox_directory('~/Dropbox')  # give path for local Dropbox folder
->>> m.unlink()  # unlinks your Dropbox account but keeps are your files
+>>> m.unlink()  # unlinks your Dropbox account but keeps all your files
 ```
 
 ## Structure
@@ -94,9 +95,10 @@ account and sets up your local folder and lets you select which folders to sync.
 
 The following tasks could need your help:
 
+- [ ] Write tests for maestral.
 - [ ] Detect and warn in case of unsupported Dropbox folder locations (network drives,
       external hard drives, etc) and when the Dropbox folder is deleted by the user.
-- [ ] Speed up download of large folders and initial sync: Download zip files if possible.
+- [ ] Speed up downloads of large folders and initial sync: Download zip files if possible.
 - [ ] Native Cocoa and GTK interfaces. Maestral currently uses PyQt5.
 - [ ] Packaging: improve packing for macOS (reduce app size) and package for other platforms.
 
