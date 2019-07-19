@@ -1,17 +1,36 @@
+### v0.2.2-dev1 (2019-07-19)
+
+_Added_:
+
+- More fine-grained errors, subclassed from `MaestralApiError`.
+- Added `clear` entry to sync error UI.
+
+_Changed_:
+
+- Better handling when Dropbox resets a cursor: retry any `files_list_folder` calls and
+  prompt the user to rebuild the index on `files_list_folder_longpoll`calls.
+- Prepare for G-suite Dropbox integration: G-suite files such as Google docs and sheets
+  will not be downloadable but can only be exported. Maestral will ignore such files.
+- Moved deprecated API calls to v2.
+
+_Fixed_:
+
+- Fixed a bug which would prevent some error dialogs from being shown to the user.
+
 ### v0.2.1 (2019-07-18)
 
-_Changes_:
+_Changed_:
 
-- Reload all file and folder icons when the system appearance changes: the system may 
+- Reload all file and folder icons when the system appearance changes: the system may
   provide different icons (e.g., darker folder icons in "dark mode" on macOS Mojave).
 - Improved notification center alerts in macOS: when installed as a bundled app,
   notifications are now properly sent from the Maestral itself, showing the Maestral icon,
   instead of through apple script.
 - Improved layout of the "Rebuild index" dialog.
 
-_Fixes_:
+_Fixed_:
 
-- Fixes a bug which would prevent Meastral from starting on login: the correct startup 
+- Fixes a bug which would prevent Meastral from starting on login: the correct startup
   script is now called.
 
 ### v0.2.0 (2019-07-17)
