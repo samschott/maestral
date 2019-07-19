@@ -211,7 +211,7 @@ class MaestralApiClient(object):
 
         # get Dropbox session
         self.auth = OAuth2Session()
-        self.last_longpoll = None
+        self._last_longpoll = None
         self._backoff = 0
         self._retry_count = 0
 
@@ -537,8 +537,8 @@ class MaestralApiClient(object):
         logger.debug("Waiting for remote changes since cursor:\n{0}".format(last_cursor))
 
         # honour last request to back off
-        if self.last_longpoll is not None:
-            while time.time() - self.last_longpoll < self._backoff:
+        if self._last_longpoll is not None:
+            while time.time() - self._last_longpoll < self._backoff:
                 time.sleep(1)
 
         try:
@@ -552,7 +552,7 @@ class MaestralApiClient(object):
         else:
             self._backoff = 0
 
-        self.last_longpoll = time.time()
+        self._last_longpoll = time.time()
 
         return result.changes  # will be True or False
 
