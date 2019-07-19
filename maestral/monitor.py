@@ -468,7 +468,7 @@ class UpDownSync(object):
             dbx_path = dbx_path.lower()
 
             if rev == self._rev_dict_cache.get(dbx_path, None):
-                # nothing to do
+                # rev is already set, nothing to do
                 return
 
             if rev is None:
