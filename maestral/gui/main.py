@@ -373,6 +373,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 def run():
     app = QtWidgets.QApplication(["Maestral"])
     app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
+    app.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
     app.setQuitOnLastWindowClosed(False)
 
     if FIRST_SYNC:
