@@ -1308,9 +1308,8 @@ def download_worker(sync, running, shutdown, flagged):
             logger.info(DISCONNECTED)
             disconnected_signal.send()
             running.clear()  # must be started again from outside
-        except CursorResetError:
-            logger.exception("Cursor has been reset by Dropbox. Syncing will be "
-                             "stopped. Please rebuild the Maestral index.")
+        except CursorResetError as exc:
+            logger.exception("Sync error", exc_info=True)
             running.clear()  # stop syncing
             shutdown.set()  # shutdown threads
         finally:
