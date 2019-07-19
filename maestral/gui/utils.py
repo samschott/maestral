@@ -5,7 +5,7 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
-
+import os
 from PyQt5 import QtGui, QtWidgets
 
 THEME_DARK = "dark"
@@ -170,3 +170,19 @@ def isDarkStatusBar():
 
 def isLightStatusBar():
     return statusBarTheme() == THEME_LIGHT
+
+
+def get_gnome_scaling_factor():
+    """Returns gnome scaling factor as str or None."""
+    if __command_exists("gsettings"):
+        res = os.popen("gsettings get org.gnome.desktop.interface scaling-factor").read()
+        return res.split()[1]
+    else:
+        return None
+
+
+def __command_exists(command):
+    return any(
+        os.access(os.path.join(path, command), os.X_OK)
+        for path in os.environ["PATH"].split(os.pathsep)
+    )
