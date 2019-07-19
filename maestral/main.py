@@ -396,11 +396,11 @@ class Maestral(object):
         if self.connected:
             email = CONF.get("account", "email")
             account_type = CONF.get("account", "type")
-            inner = "{0}, {1})".format(email, account_type)
+            inner = "{0}, {1}".format(email, account_type)
         else:
             inner = DISCONNECTED
 
-        return "{0}({1})".format(self.__class__.__name__, inner)
+        return "<{0}({1})>".format(self.__class__.__name__, inner)
 
 
 def yesno(message, default):
