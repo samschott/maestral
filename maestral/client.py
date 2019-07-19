@@ -385,7 +385,7 @@ class MaestralApiClient(object):
         Removes file / folder from Dropbox.
 
         :param str dbx_path: Path to file on Dropbox.
-        :param kwargs: Keyword arguments for Dropbox SDK files_delete.
+        :param kwargs: Keyword arguments for Dropbox SDK files_delete_v2.
         :returns: Metadata of deleted file or ``False`` if the file does not exist on
             Dropbox.
         :raises: :class:`MaestralApiError` if deletion fails for any other reason than
@@ -393,7 +393,8 @@ class MaestralApiClient(object):
         """
         try:
             # try to move file (response will be metadata, probably)
-            md = self.dbx.files_delete(dbx_path, **kwargs)
+            res = self.dbx.files_delete_v2(dbx_path, **kwargs)
+            md = res.metadata
         except dropbox.exceptions.ApiError as exc:
             if exc.error.is_path_lookup():
                 # don't log as error if file did not exist
@@ -407,18 +408,20 @@ class MaestralApiClient(object):
 
         return md
 
-    def move(self, dbx_path, new_path):
+    def move(self, dbx_path, new_path, **kwargs):
         """
         Moves/renames files or folders on Dropbox.
 
         :param str dbx_path: Path to file/folder on Dropbox.
         :param str new_path: New path on Dropbox to move to.
+        :param kwargs: Keyword arguments for Dropbox SDK files_move_v2.
         :returns: Metadata of moved file/folder.
         :raises: :class:`MaestralApiError`
         """
         try:
-            md = self.dbx.files_move(dbx_path, new_path, allow_shared_folder=True,
-                                     allow_ownership_transfer=True)
+            res = self.dbx.files_move_v2(dbx_path, new_path, allow_shared_folder=True,
+                                         allow_ownership_transfer=True, **kwargs)
+            md = res.metadata
         except dropbox.exceptions.ApiError as exc:
             raise _to_maestral_error(exc, new_path) from exc
 
@@ -432,12 +435,13 @@ class MaestralApiClient(object):
         Creates folder on Dropbox.
 
         :param str dbx_path: Path o fDropbox folder.
-        :param kwargs: Keyword arguments for Dropbox SDK files_create_folder.
+        :param kwargs: Keyword arguments for Dropbox SDK files_create_folder_v2.
         :returns: Metadata of created folder.
         :raises: :class:`MaestralApiError`
         """
         try:
-            md = self.dbx.files_create_folder(dbx_path, **kwargs)
+            res = self.dbx.files_create_folder_v2(dbx_path, **kwargs)
+            md = res.metadata
         except dropbox.exceptions.ApiError as exc:
             raise _to_maestral_error(exc, dbx_path) from exc
 
