@@ -293,6 +293,9 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         elif self.pauseAction.text() == "Resume Syncing":
             self.mdbx.resume_sync()
             self.pauseAction.setText("Pause Syncing")
+        elif self.pauseAction.text() == "Start Syncing":
+            self.mdbx.start_sync()
+            self.pauseAction.setText("Pause Syncing")
 
     def on_usage_available(self, space_usage):
         """Update account usage info in UI."""
@@ -300,26 +303,32 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         self.accountUsageAction.setText(usage_string)
         self.settings.labelSpaceUsage.setText(usage_string)
 
-    @staticmethod
-    def on_error(exc_info):
+    def on_error(self, exc_info):
         exc_type, exc, tb = exc_info
 
-        if isinstance(exc, RevFileError):
+        if exc_type is RevFileError:
             # show error dialog to user
             title = "Maestral Error"
             message = exc.args[0]
-            error_dialog = ErrorDialog(title, message)
-            error_dialog.open()
-        elif isinstance(exc, CursorResetError):
+            show_tb = False
+        elif exc_type is CursorResetError:
             title = "Dropbox has reset its sync state."
             message = 'Please go to "Rebuild index..." to re-sync your Dropbox.'
-            error_dialog = ErrorDialog(title, message)
-            error_dialog.open()
-        elif not isinstance(exc, MaestralApiError):
+            show_tb = False
+        elif exc_type is not MaestralApiError:
             title = "An unexpected error occurred."
             message = "Please contact the Maestral developer with the information below."
-            error_dialog = ErrorDialog(title, message, exc_info)
-            error_dialog.open()
+            show_tb = True
+        else:
+            return
+
+        self.mdbx.stop_sync()
+        self.setIcon(self.icons[SYNC_ERROR])
+        self.pauseAction.setText("Start Syncing")
+
+        exc_info = exc_info if show_tb else None
+        error_dialog = ErrorDialog(title, message, exc_info)
+        error_dialog.exec_()
 
     def on_rebuild(self):
 
