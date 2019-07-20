@@ -307,7 +307,7 @@ class MaestralApiClient(object):
             :class:`FolderMetadata` of downloaded item, `False`
             if request fails or `None` if local copy is already in sync.
         """
-        # generate local path from dropbox_path and given path parameter
+        # create local directory if not present
         dst_path_directory = osp.dirname(dst_path)
 
         if not osp.exists(dst_path_directory):
@@ -315,17 +315,15 @@ class MaestralApiClient(object):
                 os.makedirs(dst_path_directory)
             except FileExistsError:
                 pass
+            except OSError as exc:
+                raise _construct_local_error_msg(exc, dbx_path) from exc
 
         try:
             md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
         except dropbox.exceptions.ApiError as exc:
             raise _to_maestral_error(exc, dbx_path) from exc
         except OSError as exc:
-            exc = _construct_local_error_msg(exc, dbx_path)
-            exc.user_message_title = "Could not save file"
-            logger.error("File could not be saved to local drive: {0}".format(exc),
-                         exc_info=exc)
-            return False
+            raise _construct_local_error_msg(exc, dbx_path) from exc
 
         logger.debug("File '{0}' (rev {1}) from '{2}' was successfully downloaded "
                      "as '{3}'.".format(md.name, md.rev, md.path_display, dst_path))
@@ -665,16 +663,17 @@ def _construct_local_error_msg(exc, dbx_path=None):
     :rtype: :class:`MaestralApiError`
     """
     title = exc.args[0]
+    err_type = MaestralApiError
     if isinstance(exc, PermissionError):
         text = "Insufficient read or write permissions for this location."
+        err_type = InsufficientPermissionsError
     elif isinstance(exc, FileNotFoundError):
         text = "The given path does not exist."
+        err_type = PathError
     else:
         text = None
 
-    err = MaestralApiError(title, text, dbx_path)
-
-    return err
+    return err_type(title, text, dbx_path)
 
 
 # TODO: improve checks for non-downloadable files
