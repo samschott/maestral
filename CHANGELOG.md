@@ -2,15 +2,19 @@
 
 _Added_:
 
+- Added support for file and folder names with two or more periods.
+- Temporary autosave files that are created by macOS are now detected by their extension
+  and excluded from syncing.
 - More fine-grained errors, subclassed from `MaestralApiError`.
 
 _Changed_:
 
 - Better handling when Dropbox resets a cursor: retry any `files_list_folder` calls and
-  prompt the user to rebuild the index on `files_list_folder_longpoll`calls.
+  prompt the user to rebuild the index on `files_list_folder_longpoll` calls.
 - Prepare for G-suite Dropbox integration: G-suite files such as Google docs and sheets
   will not be downloadable but can only be exported. Maestral will ignore such files.
 - Moved deprecated API calls to v2.
+- Better handling of `OSErrors` on download.
 
 _Fixed_:
 
