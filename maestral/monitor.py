@@ -1003,10 +1003,13 @@ class UpDownSync(object):
         # in excluded files?
         test0 = basename in ["desktop.ini",  "thumbs.db", ".ds_store", "icon\r",
                              ".dropbox.attr", ".dropbox"]
-        # temporary file?
-        test1 = basename.count(".") > 1
+        # check for temporary files
+        # macOS autosave files
+        test1 = basename.count(".") > 1 and basename.split('.')[-1].startswith('sb-')
+        # office temporary files
         test2 = basename.startswith("~$")
         test3 = basename.startswith(".~")
+        # other temporary files
         test4 = basename.startswith("~") and basename.endswith(".tmp")
 
         # forbidden file path: Don't do any thing. Handle the Dropbox API error instead.
