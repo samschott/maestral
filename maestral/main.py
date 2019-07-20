@@ -22,16 +22,28 @@ from dropbox import files
 from maestral.client import MaestralApiClient
 from maestral.monitor import (MaestralMonitor, CONNECTION_ERRORS, IDLE,
                               DISCONNECTED, path_exists_case_insensitive)
-from maestral.config.main import CONF
+from maestral.config.main import CONF, SUBFOLDER
+from maestral.config.base import get_conf_path
 
 import logging
+import logging.handlers
+
+# set up logging
 
 logger = logging.getLogger(__name__)
+log_dir = os.path.join(get_conf_path(SUBFOLDER), 'logs')
+log_file = os.path.join(get_conf_path(SUBFOLDER), 'logs', 'maestral.log')
+if not os.path.isdir(log_dir):
+    os.mkdir(log_dir)
+rfh = logging.handlers.RotatingFileHandler(log_file, maxBytes=2*10**6, backupCount=3)
+rfh.setFormatter(logging.Formatter(fmt="%(asctime)s %(levelname)s: %(message)s",
+                                   datefmt="%Y-%m-%d %H:%M:%S"))
 
 for logger_name in ["maestral.main", "maestral.client", "maestral.monitor"]:
     mdbx_logger = logging.getLogger(logger_name)
     mdbx_logger.addHandler(logging.StreamHandler())
     mdbx_logger.setLevel(logging.INFO)
+    mdbx_logger.addHandler(rfh)
 
 
 CONNECTION_ERROR = ("Cannot connect to Dropbox servers. Please  check " +
