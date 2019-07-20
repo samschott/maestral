@@ -53,7 +53,8 @@ PAUSED = "Syncing paused"
 DISCONNECTED = "Connecting..."
 SYNC_ERROR = "Sync error"
 
-REV_FILE = ".dropbox"
+REV_FILE = ".maestral"
+OLD_REV_FILE = ".dropbox"
 
 
 # ========================================================================================
@@ -244,11 +245,24 @@ class UpDownSync(object):
         self.client = client
         self.local_q = local_q
 
+        # migrate rev file
+        self.migrate_rev_file()
+
         # cache dropbox path
         self._dropbox_path = CONF.get("main", "path")
 
         # cache of revision dictionary
         self._rev_dict_cache = self._load_rev_dict_from_file()
+
+    def migrate_rev_file(self):
+        if os.path.isfile(self.old_rev_file_path):
+            shutil.copyfile(self.old_rev_file_path, self.rev_file_path)
+            os.remove(self.old_rev_file_path)
+
+    @property
+    def old_rev_file_path(self):
+        """Path to file with revision index (read only)."""
+        return osp.join(self.dropbox_path, OLD_REV_FILE)
 
     @property
     def rev_file_path(self):
@@ -1002,7 +1016,7 @@ class UpDownSync(object):
 
         # in excluded files?
         test0 = basename in ["desktop.ini",  "thumbs.db", ".ds_store", "icon\r",
-                             ".dropbox.attr", ".dropbox"]
+                             ".dropbox.attr", OLD_REV_FILE, REV_FILE]
         # check for temporary files
         # macOS autosave files
         test1 = basename.count(".") > 1 and basename.split('.')[-1].startswith('sb-')
