@@ -312,7 +312,7 @@ class MaestralApiClient(object):
 
         if not osp.exists(dst_path_directory):
             try:
-                os.mkdir(dst_path_directory)
+                os.makedirs(dst_path_directory)
             except FileExistsError:
                 pass
 
