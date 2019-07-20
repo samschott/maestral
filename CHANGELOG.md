@@ -7,7 +7,7 @@ _Added_:
   and excluded from syncing.
 - More fine-grained errors, subclassed from `MaestralApiError`.
 - Log all events of level INFO and higher to a rotating file in '~/.maestral/logs'. The
-  log folder will never exceed 6 MB.
+  log folder size will never exceed 6 MB.
 
 _Changed_:
 
