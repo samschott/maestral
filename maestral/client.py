@@ -95,6 +95,7 @@ class OAuth2Session(object):
     """
 
     TOKEN_FILE = osp.join(get_conf_path(SUBFOLDER), "o2_store.txt")
+    auth_flow = None
     oAuth2FlowResult = None
     access_token = ""
     account_id = CONF.get("account", "account_id")
@@ -105,7 +106,8 @@ class OAuth2Session(object):
 
         self.migrate_to_keyring()
 
-        # load creds
+        # prepare auth flow
+        self.auth_flow = DropboxOAuth2FlowNoRedirect(self.app_key, self.app_secret)
         self.load_creds()
 
     def migrate_to_keyring(self):
@@ -140,15 +142,14 @@ class OAuth2Session(object):
                     "token. Please make sure that the keyring is unlocked.")
 
     def link(self):
-        auth_flow = DropboxOAuth2FlowNoRedirect(self.app_key, self.app_secret)
-        authorize_url = auth_flow.start()
+        authorize_url = self.auth_flow.start()
         print("1. Go to: " + authorize_url)
         print("2. Click \"Allow\" (you might have to log in first).")
         print("3. Copy the authorization code.")
         auth_code = input("Enter the authorization code here: ").strip()
 
         try:
-            self.oAuth2FlowResult = auth_flow.finish(auth_code)
+            self.oAuth2FlowResult = self.auth_flow.finish(auth_code)
             self.access_token = self.oAuth2FlowResult.access_token
             self.account_id = self.oAuth2FlowResult.account_id
         except Exception as exc:
