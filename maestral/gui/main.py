@@ -132,6 +132,9 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
         self.separator1 = self.menu.addSeparator()
 
+        self.accountEmailAction = self.menu.addAction(CONF.get("account", "email"))
+        self.accountEmailAction.setEnabled(False)
+
         self.accountUsageAction = self.menu.addAction(CONF.get("account", "usage"))
         self.accountUsageAction.setEnabled(False)
 
