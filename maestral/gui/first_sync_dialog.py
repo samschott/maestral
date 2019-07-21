@@ -291,30 +291,3 @@ class FirstSyncDialog(QtWidgets.QDialog):
         fsd.exec_()
 
         return fsd.mdbx
-
-
-def get_qt_app(*args, **kwargs):
-    """
-    Create a new Qt app or return an existing one.
-    """
-    created = False
-    app = QtCore.QCoreApplication.instance()
-
-    if not app:
-        if not args:
-            args = ([""],)
-        app = QtWidgets.QApplication(*args, **kwargs)
-        created = True
-
-    return app, created
-
-
-if __name__ == "__main__":
-    app, created = get_qt_app()
-    app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
-
-    dialog = FirstSyncDialog()
-    dialog.show()
-
-    if created:
-        sys.exit(app.exec_())
