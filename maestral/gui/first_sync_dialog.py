@@ -266,7 +266,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
             for entry in root_folders.entries:
                 if isinstance(entry, files.FolderMetadata):
                     inc = not self.mdbx.sync.is_excluded_by_user(entry.path_lower)
-                    item = FolderItem(get_native_folder_icon(), entry.name, inc)
+                    item = FolderItem(entry.name, inc)
                     self.folder_items.append(item)
 
             for item in self.folder_items:
