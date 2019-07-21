@@ -23,24 +23,8 @@ from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FolderItem
 from maestral.gui.resources import (APP_ICON_PATH, FIRST_SYNC_DIALOG_PATH,
-                                    ERROR_DIALOG_PATH, get_native_item_icon,
-                                    get_native_folder_icon)
-from maestral.gui.utils import get_scaled_font
-
-
-class ErrorDialog(QtWidgets.QDialog):
-
-    def __init__(self, parent, title, message):
-        super(self.__class__, self).__init__(parent=parent)
-        # load user interface layout from .ui file
-        uic.loadUi(ERROR_DIALOG_PATH, self)
-        self.setFixedSize(460, 145)
-
-        self.titleLabel.setFont(get_scaled_font(bold=True))
-        self.infoLabel.setFont(get_scaled_font(scaling=0.9))
-
-        self.titleLabel.setText(title)
-        self.infoLabel.setText(message)
+                                    get_native_item_icon)
+from maestral.gui.utils import ErrorDialog
 
 
 class OAuth2SessionGUI(OAuth2Session):

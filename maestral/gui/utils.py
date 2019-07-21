@@ -6,7 +6,10 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 import os
+from traceback import format_exception
 from PyQt5 import QtGui, QtWidgets
+
+from maestral.gui.resources import APP_ICON_PATH
 
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
@@ -186,3 +189,44 @@ def __command_exists(command):
         os.access(os.path.join(path, command), os.X_OK)
         for path in os.environ["PATH"].split(os.pathsep)
     )
+
+
+class ErrorDialog(QtWidgets.QDialog):
+    def __init__(self, title, message, exc_info=None, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+        self.setWindowTitle("Maestral Error")
+        self.setFixedWidth(450)
+
+        self.gridLayout = QtWidgets.QGridLayout()
+        self.setLayout(self.gridLayout)
+
+        self.iconLabel = QtWidgets.QLabel(self)
+        self.titleLabel = QtWidgets.QLabel(self)
+        self.infoLabel = QtWidgets.QLabel(self)
+
+        icon_size = 50
+        self.iconLabel.setMinimumSize(icon_size, icon_size)
+        self.iconLabel.setMaximumSize(icon_size, icon_size)
+        self.titleLabel.setFont(get_scaled_font(bold=True))
+        self.infoLabel.setFont(get_scaled_font(scaling=0.9))
+        self.infoLabel.setWordWrap(True)
+
+        icon = QtGui.QIcon(APP_ICON_PATH)
+        pixmap = icon.pixmap(icon_size, icon_size)
+        self.iconLabel.setPixmap(pixmap)
+        self.titleLabel.setText(title)
+        self.infoLabel.setText(message)
+
+        if exc_info:
+            self.details = QtWidgets.QTextEdit(self)
+            self.details.setHtml("".join(format_exception(*exc_info)))
+
+        self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
+        self.buttonBox.accepted.connect(self.accept)
+
+        self.gridLayout.addWidget(self.iconLabel, 0, 0, 2, 1)
+        self.gridLayout.addWidget(self.titleLabel, 0, 1, 1, 1)
+        self.gridLayout.addWidget(self.infoLabel, 1, 1, 1, 1)
+        if exc_info:
+            self.gridLayout.addWidget(self.details, 2, 0, 1, 2)
+        self.gridLayout.addWidget(self.buttonBox, 3, 1, -1, -1)

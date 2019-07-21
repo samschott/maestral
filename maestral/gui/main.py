@@ -26,8 +26,8 @@ from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.first_sync_dialog import FirstSyncDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
-from maestral.gui.resources import TRAY_ICON_PATH, APP_ICON_PATH
-from maestral.gui.utils import truncate_string, get_scaled_font, isDarkStatusBar
+from maestral.gui.resources import TRAY_ICON_PATH
+from maestral.gui.utils import truncate_string, isDarkStatusBar, ErrorDialog
 
 
 FIRST_SYNC = (not CONF.get("internal", "lastsync") or
@@ -80,47 +80,6 @@ for logger_name in ["maestral.monitor", "maestral.main", "maestral.client"]:
     mdbx_logger = logging.getLogger(logger_name)
     mdbx_logger.addHandler(info_handler)
     mdbx_logger.addHandler(error_handler)
-
-
-class ErrorDialog(QtWidgets.QDialog):
-    def __init__(self, title, message, exc_info=None, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
-        self.setWindowTitle("Maestral Error")
-        self.setFixedWidth(450)
-
-        self.gridLayout = QtWidgets.QGridLayout()
-        self.setLayout(self.gridLayout)
-
-        self.iconLabel = QtWidgets.QLabel(self)
-        self.titleLabel = QtWidgets.QLabel(self)
-        self.infoLabel = QtWidgets.QLabel(self)
-
-        icon_size = 50
-        self.iconLabel.setMinimumSize(icon_size, icon_size)
-        self.iconLabel.setMaximumSize(icon_size, icon_size)
-        self.titleLabel.setFont(get_scaled_font(bold=True))
-        self.infoLabel.setFont(get_scaled_font(scaling=0.9))
-        self.infoLabel.setWordWrap(True)
-
-        icon = QIcon(APP_ICON_PATH)
-        pixmap = icon.pixmap(icon_size, icon_size)
-        self.iconLabel.setPixmap(pixmap)
-        self.titleLabel.setText(title)
-        self.infoLabel.setText(message)
-
-        if exc_info:
-            self.details = QtWidgets.QTextEdit(self)
-            self.details.setHtml("".join(format_exception(*exc_info)))
-
-        self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
-        self.buttonBox.accepted.connect(self.accept)
-
-        self.gridLayout.addWidget(self.iconLabel, 0, 0, 2, 1)
-        self.gridLayout.addWidget(self.titleLabel, 0, 1, 1, 1)
-        self.gridLayout.addWidget(self.infoLabel, 1, 1, 1, 1)
-        if exc_info:
-            self.gridLayout.addWidget(self.details, 2, 0, 1, 2)
-        self.gridLayout.addWidget(self.buttonBox, 3, 1, -1, -1)
 
 
 # noinspection PyTypeChecker

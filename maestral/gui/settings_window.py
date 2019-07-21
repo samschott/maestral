@@ -19,7 +19,7 @@ from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
-                                    SETTINGS_WINDOW_PATH)
+                                    SETTINGS_WINDOW_PATH, APP_ICON_PATH)
 from maestral.gui.utils import (get_scaled_font, isDarkWindow,
                                 LINE_COLOR_DARK, LINE_COLOR_LIGHT)
 from maestral.utils import is_macos_bundle
@@ -35,6 +35,10 @@ class UnlinkDialog(QtWidgets.QDialog):
         self.buttonBox.buttons()[0].setText('Unlink')
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
+
+        icon = QtGui.QIcon(APP_ICON_PATH)
+        pixmap = icon.pixmap(self.iconLabel.width(), self.iconLabel.height())
+        self.iconLabel.setPixmap(pixmap)
 
 
 class SettingsWindow(QtWidgets.QWidget):
