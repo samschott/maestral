@@ -883,7 +883,7 @@ class UpDownSync(object):
     #  Download sync
     # ====================================================================================
 
-    # TODO: speed up by only indexing included
+    # TODO: speed up by only indexing included folders
     @catch_sync_issues(sync_errors)
     def get_remote_dropbox(self, dbx_path=""):
         """
@@ -1538,7 +1538,15 @@ Any changes to local files during this process may be lost. """)
         # Re-download Dropbox from server. If a local file already exists, content hashes
         # are compared. If files are identical, the local rev will be set accordingly,
         # otherwise a conflicting copy will be created.
-        self.sync.get_remote_dropbox()
+
+        completed = False
+        while not completed:
+            try:
+                self.sync.get_remote_dropbox()
+                completed = True
+            except CONNECTION_ERRORS:
+                logger.info(DISCONNECTED)
+
         self.sync.last_sync = time.time()
 
         # Resume syncing. This will upload all changes which occurred
