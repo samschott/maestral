@@ -1,4 +1,4 @@
-### v0.2.2-dev1 (2019-07-19)
+### v0.2.2 (2019-07-19)
 
 _Added_:
 
@@ -17,10 +17,12 @@ _Changed_:
   will not be downloadable but can only be exported. Maestral will ignore such files.
 - Moved deprecated API calls to v2.
 - Better handling of `OSErrors` on download.
+- Tweaks to logo.
 
 _Fixed_:
 
 - Fixed a bug which would prevent some error dialogs from being shown to the user.
+- Fixed a bug which would cause the setup dialog to crash after linking to Dropbox.
 
 ### v0.2.1 (2019-07-18)
 

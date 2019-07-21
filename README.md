@@ -108,9 +108,6 @@ The following tasks could need your help:
 - Meastral is still in beta status. Even through highly unlikely, using it may potentially
   result in loss of data.
 - Known issues:
-  - File and folder names with two periods are currently not supported. This prevents
-    syncing of temporary files which are created during the save process on some file
-    systems.
   - Network drives and some external hard drives are not supported as locations for the
     Dropbox folder.
 
