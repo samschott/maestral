@@ -14,16 +14,14 @@ import subprocess
 import webbrowser
 import shutil
 from blinker import signal
-from traceback import format_exception
-from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtGui import QIcon
+from PyQt5 import QtCore, QtWidgets, QtGui
 
 from maestral.main import Maestral
 from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR, RevFileError
 from maestral.client import CursorResetError, MaestralApiError
 from maestral.config.main import CONF
 from maestral.gui.settings_window import SettingsWindow
-from maestral.gui.first_sync_dialog import FirstSyncDialog
+from maestral.gui.first_sync_dialog import FirstSyncDialog, OAuth2SessionGUI
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import TRAY_ICON_PATH
@@ -97,7 +95,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
                 icon_color = "light"
         short = ("idle", "syncing", "paused", "disconnected", "error")
         for l, s in zip((IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR), short):
-            self.icons[l] = QIcon(TRAY_ICON_PATH.format(s, icon_color))
+            self.icons[l] = QtGui.QIcon(TRAY_ICON_PATH.format(s, icon_color))
 
         if platform.system() == "Darwin":
             # macOS will take care of adapting the icon color to the system theme if
@@ -330,10 +328,12 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
 
 def run():
-    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
+    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
     app = QtWidgets.QApplication(["Maestral"])
     app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
     app.setQuitOnLastWindowClosed(False)
+
+    auth_session_gui = OAuth2SessionGUI()
 
     if FIRST_SYNC:
         maestral = FirstSyncDialog.configureMaestral()  # returns None if aborted by user

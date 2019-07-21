@@ -6,14 +6,13 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 
-import sys
 import os.path as osp
 import requests
+import keyring
+from keyring.errors import KeyringLocked
 from dropbox.oauth import BadStateException, NotApprovedException
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
-import keyring
-from keyring.errors import KeyringLocked
 from dropbox import files
 
 from maestral.main import Maestral
@@ -36,24 +35,24 @@ class OAuth2SessionGUI(OAuth2Session):
         """Do not automatically load credentials."""
         pass
 
+    def load_creds_gui(self):
+        """Do not automatically load credentials."""
+        pass
+
     def has_creds(self):
         """
-        Check if existing credentials exist.
+        Check if credentials exist.
         :return:
         """
         try:
-            self.access_token = keyring.get_password("Maestral", "MaestralUser")
+            self.access_token = keyring.get_password("Maestral", self.account_id)
             return self.access_token is not None
         except KeyringLocked:
             title = "Could not load authentication token from keyring."
             info = "Please make sure that your keyring is unlocked and restart Maestral."
-            alert = QtWidgets.QMessageBox()
-            alert.setWindowTitle("Maestral Error")
-            alert.setText(title)
-            alert.setInformativeText(info)
-            alert.setStandardButtons(alert.Ok)
-            alert.exec_()
-            raise KeyringLocked(title + " " + info)
+            error_dialog = ErrorDialog(title, info)
+            error_dialog.exec_()
+            QtCore.QCoreApplication.quit()
 
     def get_url(self):
         authorize_url = self.auth_flow.start()
@@ -160,24 +159,24 @@ class FirstSyncDialog(QtWidgets.QDialog):
             self.auth_session.verify_auth_key(auth_code)
         except requests.HTTPError:
             msg = "Please make sure that you entered the correct authentication code."
-            msg_box = ErrorDialog(self, "Authentication failed.", msg)
+            msg_box = ErrorDialog("Authentication failed.", msg, parent=self)
             msg_box.open()
             return
         except BadStateException:
             msg = "The authentication session expired. Please try again."
-            msg_box = ErrorDialog(self, "Session expired.", msg)
+            msg_box = ErrorDialog("Session expired.", msg, parent=self)
             msg_box.open()
             self.stackedWidget.setCurrentIndex(0)
             return
         except NotApprovedException:
             msg = "Please grant Maestral access to your Dropbox to start syncing."
-            msg_box = ErrorDialog(self, "Not approved error.", msg)
+            msg_box = ErrorDialog("Not approved error.", msg, parent=self)
             msg_box.open()
             return
         except CONNECTION_ERRORS as e:
             print(e)
             msg = "Please make sure that you are connected to the internet and try again."
-            msg_box = ErrorDialog(self, "Connection failed.", msg)
+            msg_box = ErrorDialog("Connection failed.", msg, parent=self)
             msg_box.open()
             return
 
