@@ -1,5 +1,7 @@
 ### v0.2.3-dev1 (2019-07-21)
 
+This release mainly fixes crashes of the setup dialog and contains tweaks to the UI.
+
 _Changed:_
 
 - Launch into setup dialog if no Dropbox authentication token can be found in keychain.
@@ -11,6 +13,8 @@ _Fixed:_
 
 - Fixed a bug which could could result in the user being asked to re-authenticate when no
   Dropbox folder is detected on startup.
+- Fixed a bug which could cause Maestral to carsh in the setup dialog immediately after
+  user authentification on Linux platforms.
 
 ### v0.2.2 (2019-07-19)
 
