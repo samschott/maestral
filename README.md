@@ -128,3 +128,8 @@ The following tasks could need your help:
 - requests
 - u-msgpack-python
 
+
+# Acknowledgements
+
+- The config module uses code from the [Spyder IDE](https://github.com/spyder-ide).
+- The MaestralApiClient is based on the work from [Orphilia](https://github.com/ksiazkowicz/orphilia-dropbox).
