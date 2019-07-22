@@ -3,6 +3,9 @@
 _Changed:_
 
 - Launch into setup dialog if no Dropbox authentication token can be found in keychain.
+- Only log messages level ERROR or higher to file.
+- Show account email in system tray menu above space usage.
+- Unified error dialog code and added the app icon to all dialogs.
 
 _Fixed:_
 
@@ -41,7 +44,7 @@ _Changed_:
 
 - Reload all file and folder icons when the system appearance changes: the system may
   provide different icons (e.g., darker folder icons in "dark mode" on macOS Mojave).
-- Improved notification center alerts in macOS: when installed as a bundled app,
+- Improved notification centre alerts in macOS: when installed as a bundled app,
   notifications are now properly sent from the Maestral itself, showing the Maestral icon,
   instead of through apple script.
 - Improved layout of the "Rebuild index" dialog.
@@ -135,7 +138,7 @@ _Changed:_
 
 - Limit notifications to remote changes only and only notify for changes in folders that
   currently being synced, unless more than 100 files have changed.
-- Detect color of system tray and invert icon color automatically if not on macOS.
+- Detect colour of system tray and invert icon colour automatically if not on macOS.
 - Shut down immediately and kill threads instead of waiting for timeout.
 - Improve appearance of Settings window in GTK 3 style.
 
