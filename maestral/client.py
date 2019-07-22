@@ -97,12 +97,13 @@ class OAuth2Session(object):
     TOKEN_FILE = osp.join(get_conf_path(SUBFOLDER), "o2_store.txt")
     auth_flow = None
     oAuth2FlowResult = None
-    access_token = ""
-    account_id = CONF.get("account", "account_id")
 
     def __init__(self, app_key=APP_KEY, app_secret=APP_SECRET):
         self.app_key = app_key
         self.app_secret = app_secret
+
+        self.account_id = CONF.get("account", "account_id")
+        self.access_token = ""
 
         self.migrate_to_keyring()
 
