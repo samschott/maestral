@@ -148,3 +148,4 @@ maestral/utils/notify_mac.py
 *.iml
 *.xml
 post_build.py
+build_script.sh
