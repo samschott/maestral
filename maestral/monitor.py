@@ -527,7 +527,6 @@ class UpDownSync(object):
     #  Upload sync
     # ====================================================================================
 
-    @profile
     def wait_for_local_changes(self, timeout=2, delay=0.5):
         """
         Waits for local file changes. Returns a list of local changes, filtered to
@@ -617,7 +616,6 @@ class UpDownSync(object):
 
         return events, local_cursor
 
-    @profile
     def apply_local_changes(self, events, local_cursor):
         """
         Applies locally detected events to remote Dropbox.
