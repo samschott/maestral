@@ -35,7 +35,7 @@ class OAuth2SessionGUI(OAuth2Session):
         """Do not automatically load credentials."""
         pass
 
-    def load_creds_gui(self):
+    def link(self):
         """Do not automatically load credentials."""
         pass
 
@@ -45,7 +45,9 @@ class OAuth2SessionGUI(OAuth2Session):
         :return:
         """
         try:
-            self.access_token = keyring.get_password("Maestral", self.account_id)
+            t1 = keyring.get_password("Maestral", self.account_id)
+            t2 = keyring.get_password("Maestral", "MaestralUser")
+            self.access_token = t1 or t2
             return self.access_token is not None
         except KeyringLocked:
             title = "Could not load authentication token from keyring."
@@ -62,7 +64,6 @@ class OAuth2SessionGUI(OAuth2Session):
         self.oAuth2FlowResult = self.auth_flow.finish(auth_code)
         self.access_token = self.oAuth2FlowResult.access_token
         self.account_id = self.oAuth2FlowResult.account_id
-        self.user_id = self.oAuth2FlowResult.user_id
         self.write_creds()
 
         return True
