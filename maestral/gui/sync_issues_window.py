@@ -150,35 +150,3 @@ class SyncIssueWindow(QtWidgets.QWidget):
             if w: w.deleteLater()
 
         self.sync_issue_widgets = []
-
-
-if __name__ == "__main__":
-    from maestral.client import MaestralApiError
-    import queue
-
-    app = QtWidgets.QApplication([""])
-    app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
-
-    text1 = ("Something went wrong with the job on Dropbox’s end. Please "
-             "verify on the Dropbox website if the move succeeded and try "
-             "again if it failed. This should happen very rarely.")
-
-    text2 = ("There are too many write operations your "
-             "Dropbox. Please try again later.")
-
-    path = "/Users/samschott/Dropbox/MATLAB_scripts/CuSCN2 fitting/CuSCN2_5K_HFI_fit.mat"
-
-    err1 = MaestralApiError("Could not download", text1, local_path=path)
-    err2 = MaestralApiError("Could not delete folder", text2, local_path="/test_folder")
-
-    err_queue = queue.Queue()
-    err_queue.put(err1)
-    err_queue.put(err2)
-    err_queue.put(err2)
-    err_queue.put(err2)
-    err_queue.put(err2)
-
-    w = SyncIssueWindow(err_queue)
-    w.show()
-
-    app.exec_()
