@@ -1,20 +1,20 @@
-### v0.2.3-dev1 (2019-07-21)
+### v0.2.3 (2019-07-22)
 
 This release mainly fixes crashes of the setup dialog and contains tweaks to the UI.
 
 _Changed:_
 
 - Launch into setup dialog if no Dropbox authentication token can be found in keychain.
-- Only log messages level ERROR or higher to file.
-- Show account email in system tray menu above space usage.
-- Unified error dialog code and added the app icon to all dialogs.
+- Only log messages of level ERROR or higher to file.
+- Show account email in the system tray menu above space usage.
+- Unified the code for error dialogs and added an app icon to all dialogs.
 
 _Fixed:_
 
 - Fixed a bug which could could result in the user being asked to re-authenticate when no
   Dropbox folder is detected on startup.
-- Fixed a bug which could cause Maestral to carsh in the setup dialog immediately after
-  user authentification on Linux platforms.
+- Fixed a bug which could cause Maestral to carsh during the setup dialog, immediately
+  after user authentification.
 
 ### v0.2.2 (2019-07-19)
 

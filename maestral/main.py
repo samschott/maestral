@@ -6,7 +6,7 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 
-__version__ = "0.2.3-dev1"
+__version__ = "0.2.3"
 __author__ = "Sam Schott"
 __url__ = "https://github.com/SamSchott/maestral"
 
