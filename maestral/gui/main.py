@@ -338,7 +338,7 @@ def run():
 
     auth_session_gui = OAuth2SessionGUI()
 
-    if FIRST_SYNC:
+    if FIRST_SYNC or not auth_session_gui.has_creds():
         maestral = FirstSyncDialog.configureMaestral()  # returns None if aborted by user
     else:
         maestral = Maestral()
