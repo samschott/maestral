@@ -35,9 +35,10 @@ log_dir = os.path.join(get_conf_path(SUBFOLDER), 'logs')
 log_file = os.path.join(get_conf_path(SUBFOLDER), 'logs', 'maestral.log')
 if not os.path.isdir(log_dir):
     os.mkdir(log_dir)
-rfh = logging.handlers.RotatingFileHandler(log_file, maxBytes=2*10**6, backupCount=3)
+rfh = logging.handlers.RotatingFileHandler(log_file, maxBytes=10**6, backupCount=3)
 rfh.setFormatter(logging.Formatter(fmt="%(asctime)s %(levelname)s: %(message)s",
                                    datefmt="%Y-%m-%d %H:%M:%S"))
+rfh.setLevel(logging.ERROR)
 
 for logger_name in ["maestral.main", "maestral.client", "maestral.monitor"]:
     mdbx_logger = logging.getLogger(logger_name)
