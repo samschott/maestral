@@ -147,12 +147,12 @@ class Maestral(object):
             self.set_dropbox_directory()
             self.select_excluded_folders()
 
-            CONF.set("internal", "cursor", "")
-            CONF.set("internal", "lastsync", None)
+            self.sync.last_cursor = ""
+            self.sync.last_sync = None
 
             success = self.sync.get_remote_dropbox()
             if success:
-                CONF.set("internal", "lastsync", time.time())
+                self.sync.last_sync = time.time()
 
         if run:
             self.start_sync()
@@ -261,11 +261,11 @@ class Maestral(object):
         dbx_path = dbx_path.lower()
 
         # add folder's Dropbox path to excluded list
-        folders = CONF.get("main", "excluded_folders")
+        folders = self.sync.excluded_folders
         if dbx_path not in folders:
             folders.append(dbx_path)
 
-        CONF.set("main", "excluded_folders", folders)
+        self.sync.excluded_folders = folders
         self.sync.set_local_rev(dbx_path, None)
 
         # remove folder from local drive
@@ -290,7 +290,7 @@ class Maestral(object):
         dbx_path = dbx_path.lower()
 
         # remove folder's Dropbox path from excluded list
-        folders = CONF.get("main", "excluded_folders")
+        folders = self.sync.excluded_folders
         if dbx_path in folders:
             new_folders = [x for x in folders if osp.normpath(x) != dbx_path]
         else:
@@ -298,7 +298,6 @@ class Maestral(object):
             return
 
         self.sync.excluded_folders = new_folders
-        CONF.set("main", "excluded_folders", new_folders)
 
         # download folder contents from Dropbox
         logger.debug("Downloading added folder.")
@@ -338,7 +337,7 @@ class Maestral(object):
             for path in included_folders:
                 self.include_folder(path)  # may raise ConnectionError
 
-        CONF.set("main", "excluded_folders", excluded_folders)
+        self.sync.excluded_folders = excluded_folders
 
         return excluded_folders
 
@@ -354,7 +353,7 @@ class Maestral(object):
         """
 
         # get old and new paths
-        old_path = CONF.get("main", "path")
+        old_path = self.sync.dropbox_path
         if new_path is None:
             new_path = self._ask_for_path(default=old_path)
 
@@ -374,7 +373,6 @@ class Maestral(object):
 
         # update config file and client
         self.sync.dropbox_path = new_path
-        CONF.set("main", "path", new_path)
 
     def get_dropbox_directory(self):
         """
