@@ -244,7 +244,10 @@ class Maestral(object):
         self.stop_sync()
         self.client.unlink()
 
-        os.remove(self.sync.rev_file_path)
+        try:
+            os.remove(self.sync.rev_file_path)
+        except FileNotFoundError:
+            pass
 
         CONF.reset_to_defaults()
 
