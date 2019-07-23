@@ -183,8 +183,20 @@
          </property>
         </widget>
        </item>
-       <item row="2" column="0">
+       <item row="2" column="0" alignment="Qt::AlignHCenter">
         <widget class="QLineEdit" name="lineEditAuthCode">
+         <property name="minimumSize">
+          <size>
+           <width>500</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>500</width>
+           <height>16777215</height>
+          </size>
+         </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
          </property>
@@ -242,8 +254,21 @@
          </property>
         </widget>
        </item>
-       <item row="2" column="0">
-        <widget class="QComboBox" name="comboBoxDropboxPath"/>
+       <item row="2" column="0" alignment="Qt::AlignHCenter">
+        <widget class="QComboBox" name="comboBoxDropboxPath">
+         <property name="minimumSize">
+          <size>
+           <width>400</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>400</width>
+           <height>16777215</height>
+          </size>
+         </property>
+        </widget>
        </item>
        <item row="0" column="0">
         <spacer name="verticalSpacer_3">
@@ -281,10 +306,16 @@
      </widget>
      <widget class="QWidget" name="excludedFoldersPage">
       <layout class="QGridLayout" name="gridLayout_9">
-       <item row="2" column="0">
-        <widget class="QDialogButtonBox" name="buttonBoxFolderSelection">
-         <property name="standardButtons">
-          <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+       <item row="0" column="0">
+        <widget class="QLabel" name="labelFolderSelection">
+         <property name="text">
+          <string>Please select which folders to sync below. The inital download may take a while, depending on the size of Dropbox.</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -304,16 +335,17 @@
          </property>
         </widget>
        </item>
-       <item row="0" column="0">
-        <widget class="QLabel" name="labelFolderSelection">
+       <item row="3" column="0">
+        <widget class="QDialogButtonBox" name="buttonBoxFolderSelection">
+         <property name="standardButtons">
+          <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QCheckBox" name="selectAllCheckBox">
          <property name="text">
-          <string>Please select which folders to sync below. The inital download may take a while, depending on the size of Dropbox.</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-         </property>
-         <property name="wordWrap">
-          <bool>true</bool>
+          <string>Select all</string>
          </property>
         </widget>
        </item>

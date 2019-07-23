@@ -22,7 +22,7 @@ from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FolderItem
 from maestral.gui.resources import (APP_ICON_PATH, FIRST_SYNC_DIALOG_PATH,
-                                    get_native_item_icon)
+                                    get_native_item_icon, get_native_folder_icon)
 from maestral.gui.utils import ErrorDialog
 
 
@@ -121,6 +121,8 @@ class FirstSyncDialog(QtWidgets.QDialog):
                 lambda: self.stackedWidget.setCurrentIndex(2))
         self.buttonBoxFolderSelection.accepted.connect(self.on_folder_select)
         self.pushButtonClose.clicked.connect(self.on_accept)
+        self.listWidgetFolders.itemChanged.connect(self.update_select_all_checkbox)
+        self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
 
         # check if we are already authenticated, skip authentication if yes
         self.auth_session = OAuth2SessionGUI()
@@ -256,6 +258,16 @@ class FirstSyncDialog(QtWidgets.QDialog):
             for item in self.folder_items:
                 self.listWidgetFolders.addItem(item)
 
+        self.update_select_all_checkbox()
+
+    def update_select_all_checkbox(self):
+        is_included_list = (i.isIncluded() for i in self.folder_items)
+        self.selectAllCheckBox.setChecked(all(is_included_list))
+
+    def on_select_all_clicked(self, checked):
+        for item in self.folder_items:
+            item.setIncluded(checked)
+
     @staticmethod
     def rel_path(path):
         """
@@ -275,3 +287,13 @@ class FirstSyncDialog(QtWidgets.QDialog):
         fsd.exec_()
 
         return fsd.mdbx
+
+    def changeEvent(self, QEvent):
+
+        if QEvent.type() == QtCore.QEvent.PaletteChange:
+            self.update_dark_mode()
+
+    def update_dark_mode(self):
+        # update folder icons: the system may provide different icons in dark mode
+        for item in self.folder_items:
+            item.setIcon(get_native_folder_icon())

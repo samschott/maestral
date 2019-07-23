@@ -11,7 +11,6 @@ from PyQt5 import QtCore, QtWidgets, uic
 from dropbox import files
 
 from maestral.main import if_connected
-from maestral.config.main import CONF
 from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
 
 
@@ -38,7 +37,7 @@ class FolderItem(QtWidgets.QListWidgetItem):
 
 class FoldersDialog(QtWidgets.QDialog):
 
-    path_items = []
+    folder_items = []
 
     def __init__(self, mdbx,  parent=None):
         super(self.__class__, self).__init__(parent=parent)
@@ -53,6 +52,8 @@ class FoldersDialog(QtWidgets.QDialog):
 
         # connect callbacks
         self.buttonBox.accepted.connect(self.on_accepted)
+        self.listWidgetFolders.itemChanged.connect(self.update_select_all_checkbox)
+        self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
 
     @if_connected
     def populate_folders_list(self, overload=None):
@@ -65,7 +66,7 @@ class FoldersDialog(QtWidgets.QDialog):
 
         # add new entries
         result = self.mdbx.client.list_folder("", recursive=False)
-        self.path_items = []
+        self.folder_items = []
 
         if result is False:
             self.listWidgetFolders.addItem("Unable to connect")
@@ -77,10 +78,20 @@ class FoldersDialog(QtWidgets.QDialog):
                 if isinstance(entry, files.FolderMetadata):
                     is_included = not self.mdbx.sync.is_excluded_by_user(entry.path_lower)
                     item = FolderItem(entry.name, is_included)
-                    self.path_items.append(item)
+                    self.folder_items.append(item)
 
-            for item in self.path_items:
+            for item in self.folder_items:
                 self.listWidgetFolders.addItem(item)
+
+        self.update_select_all_checkbox()
+
+    def update_select_all_checkbox(self):
+        is_included_list = (i.isIncluded() for i in self.folder_items)
+        self.selectAllCheckBox.setChecked(all(is_included_list))
+
+    def on_select_all_clicked(self, checked):
+        for item in self.folder_items:
+            item.setIncluded(checked)
 
     @if_connected
     def on_accepted(self, overload=None):
@@ -94,7 +105,7 @@ class FoldersDialog(QtWidgets.QDialog):
         excluded_folders = []
         included_folders = []
 
-        for item in self.path_items:
+        for item in self.folder_items:
             if not item.isIncluded():
                 excluded_folders.append("/" + item.name.lower())
             elif item.isIncluded():
@@ -105,7 +116,7 @@ class FoldersDialog(QtWidgets.QDialog):
         for path in included_folders:
             self.mdbx.include_folder(path)
 
-        CONF.set("main", "excluded_folders", excluded_folders)
+        self.mdbx.sync.excluded_folders = excluded_folders
 
     def changeEvent(self, QEvent):
 
@@ -114,5 +125,5 @@ class FoldersDialog(QtWidgets.QDialog):
 
     def update_dark_mode(self):
         # update folder icons: the system may provide different icons in dark mode
-        for item in self.path_items:
+        for item in self.folder_items:
             item.setIcon(get_native_folder_icon())
