@@ -254,21 +254,8 @@
          </property>
         </widget>
        </item>
-       <item row="2" column="0" alignment="Qt::AlignHCenter">
-        <widget class="QComboBox" name="comboBoxDropboxPath">
-         <property name="minimumSize">
-          <size>
-           <width>400</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>400</width>
-           <height>16777215</height>
-          </size>
-         </property>
-        </widget>
+       <item row="2" column="0">
+        <widget class="QComboBox" name="comboBoxDropboxPath"/>
        </item>
        <item row="0" column="0">
         <spacer name="verticalSpacer_3">
