@@ -1152,8 +1152,6 @@ class UpDownSync(object):
         :raises: MaestralApiError on failure.
         """
 
-        self.excluded_folders = CONF.get("main", "excluded_folders")
-
         if self.is_excluded(entry.path_display):
             return
 
