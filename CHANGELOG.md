@@ -1,3 +1,9 @@
+### v0.2.4-dev1 (2019-07-23)
+
+_Added:_
+
+- Added a "Select all" option when choosing which folders to sync.
+
 ### v0.2.3 (2019-07-22)
 
 This release mainly fixes crashes of the setup dialog and contains tweaks to the UI.
@@ -13,8 +19,8 @@ _Fixed:_
 
 - Fixed a bug which could could result in the user being asked to re-authenticate when no
   Dropbox folder is detected on startup.
-- Fixed a bug which could cause Maestral to carsh during the setup dialog, immediately
-  after user authentification.
+- Fixed a bug which could cause Maestral to crash during the setup dialog, immediately
+  after user authentication.
 
 ### v0.2.2 (2019-07-19)
 
