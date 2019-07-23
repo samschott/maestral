@@ -28,9 +28,6 @@ from maestral.gui.resources import TRAY_ICON_PATH
 from maestral.gui.utils import truncate_string, isDarkStatusBar, ErrorDialog
 
 
-FIRST_SYNC = (not CONF.get("internal", "lastsync") or
-              CONF.get("internal", "cursor") == "" or
-              not os.path.isdir(CONF.get("main", "path")))
 logger = logging.getLogger(__name__)
 
 HAS_GTK_LAUNCH = shutil.which("gtk-launch") is not None
@@ -338,7 +335,7 @@ def run():
 
     auth_session_gui = OAuth2SessionGUI()
 
-    if FIRST_SYNC or not auth_session_gui.has_creds():
+    if Maestral.FIRST_SYNC or not auth_session_gui.has_creds():
         maestral = FirstSyncDialog.configureMaestral()  # returns None if aborted by user
     else:
         maestral = Maestral()
