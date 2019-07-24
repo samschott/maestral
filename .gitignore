@@ -149,3 +149,6 @@ maestral/utils/notify_mac.py
 *.xml
 post_build.py
 build_script.sh
+maestral/gui/resources/icons_icns*
+maestral/gui/resources/icons_png*
+maestral/gui/resources/icons_svg*
