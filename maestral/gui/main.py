@@ -84,21 +84,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
     def __init__(self, mdbx, parent=None):
         # ------------- load tray icons -------------------
-        self.icons = dict()
-        icon_color = "dark"
-
-        if not platform.system() == "Darwin":
-            if isDarkStatusBar():
-                icon_color = "light"
-        short = ("idle", "syncing", "paused", "disconnected", "error")
-        for l, s in zip((IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR), short):
-            self.icons[l] = QtGui.QIcon(TRAY_ICON_PATH.format(s, icon_color))
-
-        if platform.system() == "Darwin":
-            # macOS will take care of adapting the icon color to the system theme if
-            # the icons are given as "masks"
-            for status in self.icons:
-                self.icons[status].setIsMask(True)
+        self.icons = self.load_tray_icons()
 
         # ------------- initialize tray icon -------------------
         QtWidgets.QSystemTrayIcon.__init__(self, self.icons[IDLE], parent)
@@ -116,6 +102,28 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
             self.show()
         else:
             QtCore.QTimer.singleShot(1000, self.show_when_systray_available)
+
+    @staticmethod
+    def load_tray_icons():
+
+        icons = dict()
+        icon_color = "dark"
+
+        if not platform.system() == "Darwin":
+            if isDarkStatusBar():
+                icon_color = "light"
+        short = ("idle", "syncing", "paused", "disconnected", "error")
+        for l, s in zip((IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR), short):
+            icons[l] = QtGui.QIcon(TRAY_ICON_PATH.format(s, icon_color))
+
+        if platform.system() == "Darwin":
+            # macOS will take care of adapting the icon color to the system theme if
+            # the icons are given as "masks"
+            for status in icons:
+                icons[status].setIsMask(True)
+                pass
+
+        return icons
 
     def setup_ui(self):
 
