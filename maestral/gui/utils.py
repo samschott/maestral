@@ -204,7 +204,7 @@ class ErrorDialog(QtWidgets.QDialog):
         self.titleLabel = QtWidgets.QLabel(self)
         self.infoLabel = QtWidgets.QLabel(self)
 
-        icon_size = 50
+        icon_size = 70
         self.iconLabel.setMinimumSize(icon_size, icon_size)
         self.iconLabel.setMaximumSize(icon_size, icon_size)
         self.titleLabel.setFont(get_scaled_font(bold=True))
