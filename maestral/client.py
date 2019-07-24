@@ -19,12 +19,15 @@ from dropbox import DropboxOAuth2FlowNoRedirect
 
 from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
-from maestral.utils import is_macos_bundle
+from maestral.utils import is_macos_bundle, is_linux_bundle
 
 if is_macos_bundle:
     # running in a bundle in macOS
     import keyring.backends.OS_X
     keyring.set_keyring(keyring.backends.OS_X.Keyring())
+elif is_linux_bundle:
+    import keyring.backends.SecretService
+    keyring.set_keyring(keyring.backends.SecretService.Keyring())
 
 logger = logging.getLogger(__name__)
 
