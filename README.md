@@ -1,12 +1,12 @@
 [![PyPi Release](https://img.shields.io/pypi/v/maestral.svg?color=blue)](https://pypi.org/project/maestral/)
 
-# Meastral <img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/maestral/gui/resources/Maestral.png" align="right" title="Maestral" width="110" height="110">
+# Maestral <img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/maestral/gui/resources/Maestral.png" align="right" title="Maestral" width="110" height="110">
 
 A light-weight and open-source Dropbox client for macOS and Linux.
 
 ## About
 
-Meastral is an open-source Dropbox client written in Python. The project's main goal is to
+Maestral is an open-source Dropbox client written in Python. The project's main goal is to
 provide a client for platforms and file systems that are no longer directly supported by
 Dropbox.
 
@@ -39,8 +39,8 @@ However, in this case the interface style may not follow your selected system ap
 
 ## Usage
 
-Run `meastral gui` in the command line (or open the Maestral app on macOS) to start
-Meastral with a graphical user interface. On its first run, Meastral will guide you
+Run `maestral gui` in the command line (or open the Maestral app on macOS) to start
+Maestral with a graphical user interface. On its first run, Maestral will guide you
 through linking and configuring your Dropbox and will then start syncing.
 
 ![screenshot macOS](https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/macOS.png)
@@ -48,20 +48,20 @@ through linking and configuring your Dropbox and will then start syncing.
 
 ## Command line usage
 
-After installation, Meastral will be available as a command line script by typing
-`meastral` in the command prompt. Command line functionality resembles that of the
-interactive client. Type `meastral --help` to get a full list of available commands.
-Invoking `meastral sync` will configure Meastral on first run and then automatically start
+After installation, Maestral will be available as a command line script by typing
+`maestral` in the command prompt. Command line functionality resembles that of the
+interactive client. Type `maestral --help` to get a full list of available commands.
+Invoking `maestral sync` will configure Maestral on first run and then automatically start
 syncing.
 
 ## Interactive usage (Python shell)
 
 After installation, in a Python command prompt, run
 ```Python
->>> from meastral import Meastral
->>> m = Meastral()
+>>> from maestral import Maestral
+>>> m = Maestral()
 ```
-On initial use, Meastral will ask you to link your Dropbox account, give the location of
+On initial use, Maestral will ask you to link your Dropbox account, give the location of
 your Dropbox folder on the local drive, and to specify excluded folders. It will then
 start syncing. Supported commands include:
 
@@ -104,8 +104,8 @@ The following tasks could need your help:
 
 ## Warning:
 
-- Meastral does not have production status yet, so only 500 accounts can use the API keys.
-- Meastral is still in beta status. Even through highly unlikely, using it may potentially
+- Maestral does not have production status yet, so only 500 accounts can use the API keys.
+- Maestral is still in beta status. Even through highly unlikely, using it may potentially
   result in loss of data.
 - Known issues:
   - Network drives and some external hard drives are not supported as locations for the
