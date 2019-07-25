@@ -25,7 +25,8 @@ from maestral.gui.first_sync_dialog import FirstSyncDialog, OAuth2SessionGUI
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import TRAY_ICON_PATH
-from maestral.gui.utils import truncate_string, isDarkStatusBar, ErrorDialog
+from maestral.gui.utils import (truncate_string, isDarkStatusBar, ErrorDialog,
+                                get_gnome_scaling_factor)
 
 
 logger = logging.getLogger(__name__)
@@ -350,6 +351,10 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
 
 def run():
+    gsf = get_gnome_scaling_factor()
+    if gsf:
+        os.environ["QT_SCREEN_SCALE_FACTORS"] = gsf
+
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
     app = QtWidgets.QApplication(["Maestral"])
     app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
