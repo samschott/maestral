@@ -82,23 +82,26 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
     usage_signal = signal("account_usage_signal")
 
-    def __init__(self, mdbx, parent=None):
-        # ------------- load tray icons -------------------
-        self.icons = self.load_tray_icons()
-
+    def __init__(self, mdbx):
         # ------------- initialize tray icon -------------------
-        QtWidgets.QSystemTrayIcon.__init__(self, self.icons[IDLE], parent)
-        self.show_when_systray_available()
+        QtWidgets.QSystemTrayIcon.__init__(self)
 
-        # ------------- set up remaining ui --------------------
+        # ----------------- set up ui --------------------------
+        # set up UI before loading tray icons to ensure right HiDPI scaling
         self.menu = QtWidgets.QMenu()
         self.mdbx = mdbx
         self.setup_ui()
+
+        # --------------- load tray icons ----------------------
+        self.icons = self.load_tray_icons()
+        self.setIcon(self.icons[IDLE])
+        self.show_when_systray_available()
 
     def show_when_systray_available(self):
         # If available, show icon, otherwise, set a timer to check back later.
         # This is a workaround for https://bugreports.qt.io/browse/QTBUG-61898
         if self.isSystemTrayAvailable():
+            self.setIcon(self.icon())  # reload icon
             self.show()
         else:
             QtCore.QTimer.singleShot(1000, self.show_when_systray_available)
@@ -322,6 +325,28 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
             new_icon = self.icons.get(status, self.icons[SYNCING])
         self.setIcon(new_icon)
 
+    def setIcon(self, QIcon):
+        # Fixes a Qt bug where the tray icon is too small on GNOME with HiDPI
+        # scaling enabled. This is a very hackish work around which disables
+        # AA_UseHighDpiPixmaps until the tray icon has changed
+        if self.icon() == QIcon:
+            return
+
+        if platform.system() == "Linux" and self.menu.devicePixelRatio() > 1:
+            self._disable_hidpi_pixmaps()
+            super().setIcon(QIcon)
+            QtCore.QTimer.singleShot(1000, self._enable_hidpi_pixmaps)
+        else:
+            super().setIcon(QIcon)
+
+    @staticmethod
+    def _enable_hidpi_pixmaps():
+        QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
+
+    @staticmethod
+    def _disable_hidpi_pixmaps():
+        QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, False)
+
     def quit_(self):
         """Quit Maestral"""
         self.mdbx.stop_sync()
@@ -332,11 +357,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 def run():
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
     app = QtWidgets.QApplication(["Maestral"])
-    if platform.system() == "Darwin":
-        # Fixes a Qt bug where the tray icon is too small on GNOME with HiDPI
-        # scaling enabled. As a trade off, we get low resolution pixmaps in the rest of
-        # the UI - but this is better than a bad tray icon.
-        app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
+    app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
     app.setQuitOnLastWindowClosed(False)
 
     auth_session_gui = OAuth2SessionGUI()
