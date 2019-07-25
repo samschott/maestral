@@ -393,6 +393,7 @@ class UpDownSync(object):
             return osp.join(local_parent, dbx_path_basename)
 
     def _load_rev_dict_from_file(self, raise_exception=False):
+        rev_dict_cache = dict()
         with self._rev_lock:
             try:
                 with open(self.rev_file_path, "rb") as f:
@@ -401,14 +402,12 @@ class UpDownSync(object):
                 assert all(isinstance(key, str) for key in rev_dict_cache.keys())
                 assert all(isinstance(val, str) for val in rev_dict_cache.values())
             except FileNotFoundError:
-                rev_dict_cache = dict()
                 logger.warning("Maestral index could not be found. Rebuild if necessary.")
             except (AssertionError, IsADirectoryError):
                 msg = "Maestral index has become corrupted. Please rebuild."
                 if raise_exception:
                     raise RevFileError(msg)
                 else:
-                    rev_dict_cache = dict()
                     logger.exception(msg)
             except PermissionError:
                 msg = ("Insufficient permissions for Dropbox folder. Please " +
@@ -416,7 +415,6 @@ class UpDownSync(object):
                 if raise_exception:
                     raise RevFileError(msg)
                 else:
-                    rev_dict_cache = dict()
                     logger.exception(msg)
             except OSError as exc:
                 if raise_exception:
