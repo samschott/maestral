@@ -25,13 +25,11 @@ class InfoHandler(logging.Handler, QtCore.QObject):
     def __init__(self):
         logging.Handler.__init__(self)
         QtCore.QObject.__init__(self)
-        self._last_emit = time.time()
 
     def emit(self, record):
         self.format(record)
-        if time.time() - self._last_emit > 1:
-            self.info_signal.emit(record.message)
-            self._last_emit = time.time()
+        self.info_signal.emit(record.message)
+        self._last_emit = time.time()
 
 
 info_handler = InfoHandler()
