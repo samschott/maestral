@@ -115,13 +115,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         short = ("idle", "syncing", "paused", "disconnected", "error")
         for l, s in zip((IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR), short):
             icons[l] = QtGui.QIcon(TRAY_ICON_PATH.format(s, icon_color))
-
-        if platform.system() == "Darwin":
-            # macOS will take care of adapting the icon color to the system theme if
-            # the icons are given as "masks"
-            for status in icons:
-                icons[status].setIsMask(True)
-                pass
+            icons[l].setIsMask(True)
 
         return icons
 
