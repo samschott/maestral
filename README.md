@@ -26,13 +26,13 @@ ideal for systems with tight resources.
 A binary is provided for macOS Mojave and can be downloaded from the Releases tab. On
 other platforms, download and install the Python package from PyPI by running
 ```console
-$ pip install --upgrade maestral
+$ python3 -m pip install --upgrade maestral
 ```
 in the command line. If you intend to use the graphical user interface, you also need to
 install PyQt5. I highly recommend installing PyQt5 through your distribution's package
 manager (e.g, yum, dnf, apt-get, homebrew). Alternatively, you can also get it from PyPI:
 ```console
-$ pip install --upgrade PyQt5
+$ python3 -m pip install --upgrade PyQt5
 ```
 However, in this case the interface style may not follow your selected system appearance
 (e.g., "dark mode" on macOS or "Adwaita-dark" on Gnome).
