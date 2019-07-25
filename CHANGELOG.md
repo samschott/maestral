@@ -1,17 +1,22 @@
 ### v0.2.4-dev1 (2019-07-23)
 
+This version improved the appearance and responsiveness of the GUI specifically on Linux
+platforms with a Gnome desktop.
+
 _Added:_
 
 - Added a "Select all" option when choosing which folders to sync.
 
 _Changed:_
 
-- Improved performance of GUI in case of many rapid status changes.
+- Improved performance of the GUI on some Gnome systems in case of many rapid status 
+  changes.
+- Automatically detect high-DPI scaling in Gnome.
 
 _Fixed:_
 
-- Fixed size of the system tray icon in GNOME desktops with HiDPI scaling. This involves a
-  a somewhat nasty workaround a Qt bug.
+- Fixed size of the system tray icon in Gnome desktops with high-DPI scaling. This
+  involves a somewhat nasty workaround to mitigate a Qt bug.
 
 ### v0.2.3 (2019-07-22)
 
