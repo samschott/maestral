@@ -4,6 +4,15 @@ _Added:_
 
 - Added a "Select all" option when choosing which folders to sync.
 
+_Changed:_
+
+- Improved performance of GUI in case of many rapid status changes.
+
+_Fixed:_
+
+- Fixed size of the system tray icon in GNOME desktops with HiDPI scaling. This involves a
+  a somewhat nasty workaround a Qt bug.
+
 ### v0.2.3 (2019-07-22)
 
 This release mainly fixes crashes of the setup dialog and contains tweaks to the UI.
