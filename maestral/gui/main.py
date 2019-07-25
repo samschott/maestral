@@ -142,12 +142,7 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
         self.separator2 = self.menu.addSeparator()
 
-        if self.mdbx.connected and self.mdbx.syncing:
-            self.statusAction = self.menu.addAction(IDLE)
-        elif self.mdbx.connected and not self.mdbx.syncing:
-            self.statusAction = self.menu.addAction(PAUSED)
-        elif not self.mdbx.connected:
-            self.statusAction = self.menu.addAction(DISCONNECTED)
+        self.statusAction = self.menu.addAction(IDLE)
         self.statusAction.setEnabled(False)
         if self.mdbx.syncing:
             self.pauseAction = self.menu.addAction("Pause Syncing")
