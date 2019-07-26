@@ -1,6 +1,6 @@
-### v0.2.4-dev1 (2019-07-23)
+### v0.2.4-dev1 (2019-07-26)
 
-This version improved the appearance and responsiveness of the GUI specifically on Linux
+This version improves the appearance and responsiveness of the GUI specifically on Linux
 platforms with a Gnome desktop.
 
 _Added:_

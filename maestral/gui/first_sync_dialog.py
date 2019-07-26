@@ -78,22 +78,26 @@ class FirstSyncDialog(QtWidgets.QDialog):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(FIRST_SYNC_DIALOG_PATH, self)
-        icon = QtGui.QIcon(APP_ICON_PATH)
-        self.app_icon = icon.pixmap(self.labelIcon.maximumWidth(),
-                                    self.labelIcon.maximumHeight())
+        self.app_icon = QtGui.QIcon(APP_ICON_PATH)
+        self.labelIcon.setPixmap(self.app_icon.pixmap(170, 170))
+        self.labelIcon_2.setPixmap(self.app_icon.pixmap(70, 70))
+        self.labelIcon_3.setPixmap(self.app_icon.pixmap(100, 100))
 
         self.mdbx = None
         self.folder_items = []
 
         # rename dialog buttons
-        self.labelIcon.setPixmap(self.app_icon)
-        self.buttonBoxAuthCode.buttons()[0].setText('Link')
-        self.buttonBoxDropboxPath.buttons()[0].setText('Confirm')
-        self.buttonBoxFolderSelection.buttons()[0].setText('Select')
-        self.buttonBoxFolderSelection.buttons()[1].setText('Back')
+        self.buttonBoxAuthCode.buttons()[0].setText("Link")
+        self.buttonBoxAuthCode.buttons()[1].setText("Cancel")
+        self.buttonBoxDropboxPath.buttons()[0].setText("Select")
+        self.buttonBoxDropboxPath.buttons()[0].setDefault(True)
+        self.buttonBoxDropboxPath.buttons()[1].setText("Cancel")
+        self.buttonBoxDropboxPath.buttons()[2].setText("Unlink")
+        self.buttonBoxFolderSelection.buttons()[0].setText("Select")
+        self.buttonBoxFolderSelection.buttons()[1].setText("Back")
 
         # set up combobox
-        self.dropbox_location = osp.expanduser('~')
+        self.dropbox_location = osp.expanduser("~")
         relative_path = self.rel_path(self.dropbox_location)
 
         folder_icon = get_native_item_icon(self.dropbox_location)
@@ -117,6 +121,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
         self.buttonBoxAuthCode.accepted.connect(self.on_auth)
         self.buttonBoxDropboxPath.rejected.connect(self.on_reject)
         self.buttonBoxDropboxPath.accepted.connect(self.on_dropbox_path)
+        self.buttonBoxDropboxPath.clicked.connect(self.on_unlink)
         self.buttonBoxFolderSelection.rejected.connect(
                 lambda: self.stackedWidget.setCurrentIndex(2))
         self.buttonBoxFolderSelection.accepted.connect(self.on_folder_select)
@@ -127,6 +132,26 @@ class FirstSyncDialog(QtWidgets.QDialog):
         # check if we are already authenticated, skip authentication if yes
         self.auth_session = OAuth2SessionGUI()
         if self.auth_session.has_creds():
+
+            self.labelDropboxPath.setText("""
+            <html><head/><body>
+            <p align="left">
+            Your Dropbox folder has been moved or deleted from its original location.
+            Maestral will not work properly until you move it back. It used to be located
+            at: </p><p align="left">{0}</p>
+            <p align="left">
+            To move it back, click "Quit" below, move the Dropbox folder back to its 
+            original location, and launch Maestral again.
+            </p>
+            <p align="left">
+            To re-download your Dropbox, please select a location for your Dropbox 
+            folder below. Maestral will create a new folder named "Dropbox" in the
+            selected location.</p>          
+            <p align="left">
+            To unlink your Dropbox account from Maestral, click "Unlink" below.</p>
+            </body></html>
+            """.format(CONF.get("main", "path")))
+            self.buttonBoxDropboxPath.buttons()[1].setText("Quit")
             self.stackedWidget.setCurrentIndex(2)
             Maestral.FIRST_SYNC = False
             self.mdbx = Maestral(run=False)
@@ -148,6 +173,13 @@ class FirstSyncDialog(QtWidgets.QDialog):
     def on_reject(self):
         self.mdbx = None
         self.reject()
+
+    def on_unlink(self, b):
+        print("clicked")
+        if self.buttonBoxDropboxPath.buttonRole(b) == self.buttonBoxDropboxPath.ResetRole:
+            print("unlink")
+            self.mdbx.unlink()
+            self.on_reject()
 
     def on_link(self):
         self.auth_url = self.auth_session.get_url()
