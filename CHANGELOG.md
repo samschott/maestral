@@ -6,6 +6,7 @@ platforms with a Gnome desktop.
 _Added:_
 
 - Added a "Select all" option when choosing which folders to sync.
+- Handle deleted Dropbox folder in setup dialog
 
 _Changed:_
 

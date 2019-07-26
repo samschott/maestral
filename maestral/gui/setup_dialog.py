@@ -69,7 +69,7 @@ class OAuth2SessionGUI(OAuth2Session):
         return True
 
 
-class FirstSyncDialog(QtWidgets.QDialog):
+class SetupDialog(QtWidgets.QDialog):
 
     auth_session = ""
     auth_url = ""
@@ -315,7 +315,7 @@ class FirstSyncDialog(QtWidgets.QDialog):
     # static method to create the dialog and return Maestral instance on success
     @staticmethod
     def configureMaestral(parent=None):
-        fsd = FirstSyncDialog(parent)
+        fsd = SetupDialog(parent)
         fsd.exec_()
 
         return fsd.mdbx

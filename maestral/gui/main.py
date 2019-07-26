@@ -21,7 +21,7 @@ from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR, Re
 from maestral.client import CursorResetError, MaestralApiError
 from maestral.config.main import CONF
 from maestral.gui.settings_window import SettingsWindow
-from maestral.gui.first_sync_dialog import FirstSyncDialog, OAuth2SessionGUI
+from maestral.gui.setup_dialog import SetupDialog, OAuth2SessionGUI
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import TRAY_ICON_PATH
@@ -362,7 +362,7 @@ def run():
     auth_session_gui = OAuth2SessionGUI()
 
     if Maestral.FIRST_SYNC or not auth_session_gui.has_creds():
-        maestral = FirstSyncDialog.configureMaestral()  # returns None if aborted by user
+        maestral = SetupDialog.configureMaestral()  # returns None if aborted by user
     else:
         maestral = Maestral()
 
