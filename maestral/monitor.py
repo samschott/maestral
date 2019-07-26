@@ -171,15 +171,19 @@ class FileEventHandler(FileSystemEventHandler):
         return False
 
     def on_any_event(self, event):
-        if os.path.basename(event.src_path) == REV_FILE:  # TODO: find a better place
-            # do not upload file with rev index
-            return
+
+        print(event)
 
         if self.running.is_set() and not self.is_flagged(event.src_path):
             self.local_q.put(event)
 
 
 class RevFileError(Exception):
+    """Raised when the rev file exists but cannot be read."""
+    pass
+
+
+class DropboxDeletedError(Exception):
     """Raised when the rev file exists but cannot be read."""
     pass
 
@@ -1024,7 +1028,7 @@ class UpDownSync(object):
                              ".dropbox.attr", OLD_REV_FILE, REV_FILE]
         # check for temporary files
         # macOS autosave files
-        test1 = basename.count(".") > 1 and basename.split('.')[-1].startswith('sb-')
+        test1 = basename.count(".") > 1 and osp.splitext(basename)[-1].startswith("sb-")
         # office temporary files
         test2 = basename.startswith("~$")
         test3 = basename.startswith(".~")
@@ -1355,6 +1359,17 @@ def upload_worker(sync, running, shutdown):
     disconnected_signal = signal("disconnected_signal")
 
     while not shutdown.is_set():
+
+        # check if local directory still exists
+        # ideally, we would like the observer thread to notify us if the local Dropbox
+        # folder gets deleted, but this is not implemented yet in watchdog
+
+        if not osp.isdir(sync.dropbox_path):
+            print("Dropbox directory deleted")
+            err = DropboxDeletedError("Dropbox folder has been moved or deleted.")
+            logger.error("Dropbox folder has been moved or deleted.",
+                         exc_info=(type(err), err, None))
+            running.clear()
 
         events, local_cursor = sync.wait_for_local_changes(timeout=2)
 

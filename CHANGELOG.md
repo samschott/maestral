@@ -1,12 +1,14 @@
 ### v0.2.4-dev1 (2019-07-26)
 
-This version improves the appearance and responsiveness of the GUI specifically on Linux
-platforms with a Gnome desktop.
+This version mainly improves the appearance and responsiveness of the GUI specifically on 
+Linux platforms with a Gnome desktop. It also introduces dialogs to handle a deleted or 
+moved Dropbox folder.
 
 _Added:_
 
 - Added a "Select all" option when choosing which folders to sync.
-- Handle deleted Dropbox folder in setup dialog
+- Handle deleted or moved Dropbox folder in setup dialog.
+- Handle deleted or moved Dropbox folder while Maestral is running.
 
 _Changed:_
 
