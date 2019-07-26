@@ -263,16 +263,16 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
     def on_error(self, exc_info):
         exc_type, exc, tb = exc_info
 
-        if exc_type is RevFileError:
+        if isinstance(exc, RevFileError):
             # show error dialog to user
             title = "Maestral Error"
             message = exc.args[0]
             show_tb = False
-        elif exc_type is CursorResetError:
+        elif isinstance(exc, CursorResetError):
             title = "Dropbox has reset its sync state."
             message = 'Please go to "Rebuild index..." to re-sync your Dropbox.'
             show_tb = False
-        elif exc_type is not MaestralApiError:
+        elif not isinstance(exc, MaestralApiError):
             title = "An unexpected error occurred."
             message = "Please contact the Maestral developer with the information below."
             show_tb = True
