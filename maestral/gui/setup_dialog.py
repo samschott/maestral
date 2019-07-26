@@ -175,9 +175,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.reject()
 
     def on_unlink(self, b):
-        print("clicked")
         if self.buttonBoxDropboxPath.buttonRole(b) == self.buttonBoxDropboxPath.ResetRole:
-            print("unlink")
             self.mdbx.unlink()
             self.on_reject()
 
@@ -209,7 +207,6 @@ class SetupDialog(QtWidgets.QDialog):
             msg_box.open()
             return
         except CONNECTION_ERRORS as e:
-            print(e)
             msg = "Please make sure that you are connected to the internet and try again."
             msg_box = ErrorDialog("Connection failed.", msg, parent=self)
             msg_box.open()
