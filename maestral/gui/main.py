@@ -113,9 +113,8 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
         icons = dict()
         icon_color = "dark"
 
-        if not platform.system() == "Darwin":
-            if isDarkStatusBar():
-                icon_color = "light"
+        if not platform.system() == "Darwin" and isDarkStatusBar():
+            icon_color = "light"
         short = ("idle", "syncing", "paused", "disconnected", "error")
         for l, s in zip((IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR), short):
             icons[l] = QtGui.QIcon(TRAY_ICON_PATH.format(s, icon_color))
@@ -323,8 +322,8 @@ class MaestralApp(QtWidgets.QSystemTrayIcon):
 
     def setIcon(self, QIcon):
         # Fixes a Qt bug where the tray icon is too small on GNOME with HiDPI
-        # scaling enabled. This is a very hackish work around which disables
-        # AA_UseHighDpiPixmaps until the tray icon has changed
+        # scaling enabled. This is a very hackish workaround which disables
+        # AA_UseHighDpiPixmaps until the tray icon has changed.
         if self.icon() == QIcon:
             return
 
