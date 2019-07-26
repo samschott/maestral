@@ -331,6 +331,15 @@ class UpDownSync(object):
     #  Helper functions
     # ====================================================================================
 
+    def ensure_dropbox_folder_present(self, raise_exception=False):
+
+        if not osp.isdir(self.dropbox_path):
+            exc = DropboxDeletedError("Dropbox folder has been moved or deleted.")
+            logger.error("Dropbox folder has been moved or deleted.",
+                         exc_info=(type(exc), exc, None))
+            if raise_exception:
+                raise exc
+
     def to_dbx_path(self, local_path):
         """
         Converts a local path to a path relative to the Dropbox folder.
@@ -1364,14 +1373,9 @@ def upload_worker(sync, running, shutdown):
         # ideally, we would like the observer thread to notify us if the local Dropbox
         # folder gets deleted, but this is not implemented yet in watchdog
 
-        if not osp.isdir(sync.dropbox_path):
-            print("Dropbox directory deleted")
-            err = DropboxDeletedError("Dropbox folder has been moved or deleted.")
-            logger.error("Dropbox folder has been moved or deleted.",
-                         exc_info=(type(err), err, None))
-            running.clear()
-
         events, local_cursor = sync.wait_for_local_changes(timeout=2)
+
+        sync.ensure_dropbox_folder_present(raise_exception=True)
 
         if len(events) > 0:
             # apply changes
@@ -1581,7 +1585,11 @@ Any changes to local files during this process may be lost. """)
 
         logger.info("Indexing...")
 
-        events = self._get_local_changes()
+        try:
+            events = self._get_local_changes()
+        except FileNotFoundError:
+            self.sync.ensure_dropbox_folder_present()
+            return
 
         # queue changes for upload
         for event in events:
