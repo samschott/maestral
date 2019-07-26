@@ -5,11 +5,15 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+import sys
 import os
+import platform
+from subprocess import Popen
 from traceback import format_exception
-from PyQt5 import QtGui, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 from maestral.gui.resources import APP_ICON_PATH
+from maestral.utils import is_macos_bundle
 
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
@@ -230,3 +234,18 @@ class ErrorDialog(QtWidgets.QDialog):
         if exc_info:
             self.gridLayout.addWidget(self.details, 2, 0, 1, 2)
         self.gridLayout.addWidget(self.buttonBox, 3, 1, -1, -1)
+
+
+def quit_and_restart_maestral():
+    pid = os.getpid()  # get ID of current process
+
+    # wait for current process to quit and then restart Maestral
+    if is_macos_bundle:
+        launch_command = os.path.join(sys._MEIPASS, "main")
+        Popen("lsof -p {0} +r 1 &>/dev/null; {0}".format(launch_command), shell=True)
+    if platform.system() == "Darwin":
+        Popen("lsof -p {0} +r 1 &>/dev/null; maestral-gui".format(pid), shell=True)
+    elif platform.system() == "Linux":
+        Popen("tail --pid={0} -f /dev/null; maestral-gui".format(pid), shell=True)
+
+    QtCore.QCoreApplication.quit()

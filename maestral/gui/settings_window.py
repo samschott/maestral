@@ -5,24 +5,20 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
-import sys
-import os
 import os.path as osp
-from subprocess import Popen
-import platform
 import time
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
-from maestral.main import if_connected, __version__, __author__, __url__
+from maestral.main import __version__, __author__, __url__
+from maestral.monitor import CONNECTION_ERRORS
 from maestral.utils.autostart import AutoStart
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
                                     SETTINGS_WINDOW_PATH, APP_ICON_PATH)
-from maestral.gui.utils import (get_scaled_font, isDarkWindow,
+from maestral.gui.utils import (get_scaled_font, isDarkWindow, quit_and_restart_maestral,
                                 LINE_COLOR_DARK, LINE_COLOR_LIGHT)
-from maestral.utils import is_macos_bundle
 
 
 class UnlinkDialog(QtWidgets.QDialog):
@@ -118,23 +114,14 @@ class SettingsWindow(QtWidgets.QWidget):
             new_path = osp.join(new_location, 'Dropbox')
             self.mdbx.set_dropbox_directory(new_path)
 
-    @if_connected
     def on_unlink(self):
         """Unlinks the user's account and restarts the setup dialog."""
 
-        self.mdbx.unlink()  # unlink
-        pid = os.getpid()  # get ID of current process
-
-        # wait for current process to quit and then restart Maestral
-        if is_macos_bundle:
-            launch_command = os.path.join(sys._MEIPASS, "main")
-            Popen("lsof -p {0} +r 1 &>/dev/null; {0}".format(launch_command), shell=True)
-        if platform.system() == "Darwin":
-            Popen("lsof -p {0} +r 1 &>/dev/null; maestral-gui".format(pid), shell=True)
-        elif platform.system() == "Linux":
-            Popen("tail --pid={0} -f /dev/null; maestral-gui".format(pid), shell=True)
-
-        QtCore.QCoreApplication.quit()
+        try:
+            self.mdbx.unlink()  # unlink
+        except CONNECTION_ERRORS:
+            pass
+        quit_and_restart_maestral()
 
     def on_start_on_login_clicked(self, state):
         if state == 0:
