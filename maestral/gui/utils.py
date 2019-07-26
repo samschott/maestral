@@ -219,7 +219,7 @@ class ErrorDialog(QtWidgets.QDialog):
 
         if exc_info:
             self.details = QtWidgets.QTextEdit(self)
-            self.details.setHtml("".join(format_exception(*exc_info)))
+            self.details.setText("".join(format_exception(*exc_info)))
 
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
         self.buttonBox.accepted.connect(self.accept)
