@@ -53,7 +53,7 @@ setup(
             },
     install_requires=[
         "click",
-        "dropbox",
+        "dropbox>=9.4.0",
         "watchdog",
         "blinker",
         "requests",
