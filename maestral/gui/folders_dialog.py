@@ -12,6 +12,7 @@ from dropbox import files
 
 from maestral.main import if_connected
 from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
+from maestral.client import MaestralApiError
 
 
 # noinspection PyTypeChecker
@@ -62,26 +63,23 @@ class FoldersDialog(QtWidgets.QDialog):
 
         if not self.mdbx.connected:
             self.listWidgetFolders.addItem("Cannot connect to Dropbox.")
+            self.accept_button.setEnabled(False)
             return
 
         # add new entries
         result = self.mdbx.client.list_folder("", recursive=False)
         self.folder_items = []
 
-        if result is False:
-            self.listWidgetFolders.addItem("Unable to connect")
-            self.accept_button.setEnabled(False)
-        else:
-            self.accept_button.setEnabled(True)
+        self.accept_button.setEnabled(True)
 
-            for entry in result.entries:
-                if isinstance(entry, files.FolderMetadata):
-                    is_included = not self.mdbx.sync.is_excluded_by_user(entry.path_lower)
-                    item = FolderItem(entry.name, is_included)
-                    self.folder_items.append(item)
+        for entry in result.entries:
+            if isinstance(entry, files.FolderMetadata):
+                is_included = not self.mdbx.sync.is_excluded_by_user(entry.path_lower)
+                item = FolderItem(entry.name, is_included)
+                self.folder_items.append(item)
 
-            for item in self.folder_items:
-                self.listWidgetFolders.addItem(item)
+        for item in self.folder_items:
+            self.listWidgetFolders.addItem(item)
 
         self.update_select_all_checkbox()
 
