@@ -48,6 +48,12 @@ class AutoStart(object):
         if os.path.exists(self.destination):
             os.remove(self.destination)
 
+    def toggle(self):
+        if self.enabled:
+            self.disable()
+        else:
+            self.enable()
+
     @property
     def enabled(self):
         return os.path.isfile(self.destination)
