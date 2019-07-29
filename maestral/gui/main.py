@@ -80,7 +80,7 @@ for logger_name in ["maestral.monitor", "maestral.main", "maestral.client"]:
 
 
 # noinspection PyTypeChecker
-class MaestralApp(QtWidgets.QSystemTrayIcon):
+class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     usage_signal = signal("account_usage_signal")
 
