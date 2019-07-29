@@ -10,7 +10,7 @@ from PyQt5 import QtCore, QtWidgets, uic
 
 from dropbox import files
 
-from maestral.main import if_connected
+from maestral.main import handle_disconnect
 from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
 from maestral.client import MaestralApiError
 
@@ -56,7 +56,7 @@ class FoldersDialog(QtWidgets.QDialog):
         self.listWidgetFolders.itemChanged.connect(self.update_select_all_checkbox)
         self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
 
-    @if_connected
+    @handle_disconnect
     def populate_folders_list(self, overload=None):
 
         self.listWidgetFolders.clear()
@@ -91,7 +91,7 @@ class FoldersDialog(QtWidgets.QDialog):
         for item in self.folder_items:
             item.setIncluded(checked)
 
-    @if_connected
+    @handle_disconnect
     def on_accepted(self, overload=None):
         """
         Apply changes to local Dropbox folder.

@@ -99,10 +99,9 @@ def with_sync_paused(func):
     return wrapper
 
 
-def if_connected(func):
+def handle_disconnect(func):
     """
-    Decorator which checks for connection to Dropbox API before a method call. This can be
-    used to decorate any function.
+    Decorator which handles connection errors during a function call.
     """
 
     @functools.wraps(func)
@@ -177,12 +176,12 @@ class Maestral(object):
         """Setter: Bool indicating if notifications are enabled."""
         self.sync.notify.enabled = boolean
 
-    @if_connected
+    @handle_disconnect
     def get_account_info(self):
         res = self.client.get_account_info()
         return res
 
-    @if_connected
+    @handle_disconnect
     def get_remote_dropbox_async(self, dbx_path):
         """
         Runs `sync.get_remote_dropbox` in the background, downloads the full
@@ -278,7 +277,7 @@ class Maestral(object):
         if osp.isdir(local_path_cased):
             shutil.rmtree(local_path_cased)
 
-    @if_connected
+    @handle_disconnect
     def include_folder(self, dbx_path):
         """
         Includes folder in sync and downloads in the background. It is safe to
@@ -306,7 +305,7 @@ class Maestral(object):
         logger.debug("Downloading added folder.")
         self.get_remote_dropbox_async(dbx_path)
 
-    @if_connected
+    @handle_disconnect
     def select_excluded_folders(self):
         """
         Gets all top level folder paths from Dropbox and asks user to include
