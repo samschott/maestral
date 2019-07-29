@@ -1,7 +1,7 @@
-### v0.2.4-dev1 (2019-07-26)
+### v0.2.4-dev1 (2019-07-29)
 
-This version mainly improves the appearance and responsiveness of the GUI specifically on 
-Linux platforms with a Gnome desktop. It also introduces dialogs to handle a deleted or 
+This version mainly improves the appearance and responsiveness of the GUI specifically on
+Linux platforms with a Gnome desktop. It also introduces a dialog to handle a deleted or
 moved Dropbox folder.
 
 _Added:_
@@ -12,9 +12,10 @@ _Added:_
 
 _Changed:_
 
-- Improved performance of the GUI on some Gnome systems in case of many rapid status 
+- Improved performance of the GUI on some Gnome systems in case of many rapid status
   changes.
 - Automatically detect high-DPI scaling in Gnome.
+- Show system tray icon already during the setup dialog.
 
 _Fixed:_
 
