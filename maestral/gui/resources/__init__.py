@@ -14,7 +14,7 @@ APP_ICON_PATH = _root + "/Maestral.png"
 TRAY_ICON_PATH = _root + "/menubar_icon_{0}_{1}.svg"
 
 FOLDERS_DIALOG_PATH = _root + "/folders_dialog.ui"
-FIRST_SYNC_DIALOG_PATH = _root + "/first_sync_dialog.ui"
+SETUP_DIALOG_PATH = _root + "/setup_dialog.ui"
 SETTINGS_WINDOW_PATH = _root + "/settings_window.ui"
 UNLINK_DIALOG_PATH = _root + "/unlink_dialog.ui"
 REBUILD_INDEX_DIALOG_PATH = _root + "/rebuild_index_dialog.ui"

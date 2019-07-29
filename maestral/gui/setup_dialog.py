@@ -21,7 +21,7 @@ from maestral.monitor import CONNECTION_ERRORS
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FolderItem
-from maestral.gui.resources import (APP_ICON_PATH, FIRST_SYNC_DIALOG_PATH,
+from maestral.gui.resources import (APP_ICON_PATH, SETUP_DIALOG_PATH,
                                     get_native_item_icon, get_native_folder_icon)
 from maestral.gui.utils import ErrorDialog
 
@@ -77,7 +77,7 @@ class SetupDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
-        uic.loadUi(FIRST_SYNC_DIALOG_PATH, self)
+        uic.loadUi(SETUP_DIALOG_PATH, self)
         self.app_icon = QtGui.QIcon(APP_ICON_PATH)
         self.labelIcon.setPixmap(self.app_icon.pixmap(170, 170))
         self.labelIcon_2.setPixmap(self.app_icon.pixmap(70, 70))
@@ -309,14 +309,6 @@ class SetupDialog(QtWidgets.QDialog):
         else:
             return path
 
-    # static method to create the dialog and return Maestral instance on success
-    @staticmethod
-    def configureMaestral(parent=None):
-        fsd = SetupDialog(parent)
-        fsd.exec_()
-
-        return fsd.mdbx
-
     def changeEvent(self, QEvent):
 
         if QEvent.type() == QtCore.QEvent.PaletteChange:
@@ -326,3 +318,11 @@ class SetupDialog(QtWidgets.QDialog):
         # update folder icons: the system may provide different icons in dark mode
         for item in self.folder_items:
             item.setIcon(get_native_folder_icon())
+
+    # static method to create the dialog and return Maestral instance on success
+    @staticmethod
+    def configureMaestral(parent=None):
+        fsd = SetupDialog(parent)
+        fsd.exec_()
+
+        return fsd.mdbx
