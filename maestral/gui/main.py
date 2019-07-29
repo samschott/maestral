@@ -14,7 +14,7 @@ import subprocess
 import webbrowser
 import shutil
 from blinker import signal
-from PyQt5 import QtCore, QtWidgets, QtGui, uic
+from PyQt5 import QtCore, QtWidgets, QtGui
 
 from maestral.main import Maestral
 from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
@@ -386,7 +386,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         if self.icon() == QIcon:
             return
 
-        if platform.system() == "Linux" and self.menu.devicePixelRatio() > 1:
+        is_hidpi = QtWidgets.QApplication.primaryScreen().devicePixelRatio() > 1
+        is_linux = platform.system() == "Linux"
+
+        if is_linux and is_hidpi:
             self._disable_hidpi_pixmaps()
             super().setIcon(QIcon)
             QtCore.QTimer.singleShot(1000, self._enable_hidpi_pixmaps)
