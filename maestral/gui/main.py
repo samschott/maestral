@@ -14,13 +14,12 @@ import subprocess
 import webbrowser
 import shutil
 from blinker import signal
-from PyQt5 import QtCore, QtWidgets, QtGui
+from PyQt5 import QtCore, QtWidgets, QtGui, uic
 
 from maestral.main import Maestral
 from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
 from maestral.monitor import RevFileError, DropboxDeletedError
 from maestral.client import CursorResetError, MaestralApiError
-from maestral.config.main import CONF
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.setup_dialog import SetupDialog, OAuth2SessionGUI
 from maestral.gui.sync_issues_window import SyncIssueWindow
@@ -28,6 +27,9 @@ from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import TRAY_ICON_PATH
 from maestral.gui.utils import (truncate_string, isDarkStatusBar, ErrorDialog,
                                 get_gnome_scaling_factor, quit_and_restart_maestral)
+
+from maestral.utils.autostart import AutoStart
+from maestral.config.main import CONF
 
 
 logger = logging.getLogger(__name__)
@@ -84,20 +86,16 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     usage_signal = signal("account_usage_signal")
 
-    def __init__(self, mdbx):
+    mdbx = None
+
+    def __init__(self):
         # ------------- initialize tray icon -------------------
         QtWidgets.QSystemTrayIcon.__init__(self)
 
-        # ----------------- set up ui --------------------------
-        # set up UI before loading tray icons to ensure right HiDPI scaling
-        self.menu = QtWidgets.QMenu()
-        self.mdbx = mdbx
-        self.setup_ui()
-
-        # --------------- load tray icons ----------------------
         self.icons = self.load_tray_icons()
-        self.setIcon(self.icons[IDLE])
+        self.setIcon(self.icons[DISCONNECTED])
         self.show_when_systray_available()
+        self.setup_ui_unlinked()
 
     def show_when_systray_available(self):
         # If available, show icon, otherwise, set a timer to check back later.
@@ -123,7 +121,63 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         return icons
 
-    def setup_ui(self):
+    def load_maestral(self):
+
+        auth_session_gui = OAuth2SessionGUI()
+
+        if Maestral.FIRST_SYNC or not auth_session_gui.has_creds():
+            self.mdbx = SetupDialog.configureMaestral()  # returns None if aborted by user
+        else:
+            self.mdbx = Maestral()
+
+        if self.mdbx:
+            self.setup_ui_linked()
+            self.mdbx.download_complete_signal.connect(self.mdbx.start_sync)
+        else:
+            logger.info("Setup aborted. Quitting.")
+            self.quit_()
+
+    def setup_ui_unlinked(self):
+
+        self.menu = QtWidgets.QMenu()
+        self.autostart = AutoStart()
+
+        # ------------- populate context menu -------------------
+        self.openDropboxFolderAction = self.menu.addAction("Open Dropbox Folder")
+        self.openDropboxFolderAction.setEnabled(False)
+        self.openWebsiteAction = self.menu.addAction("Launch Dropbox Website")
+
+        self.separator1 = self.menu.addSeparator()
+
+        self.accountEmailAction = self.menu.addAction("Not linked")
+        self.accountEmailAction.setEnabled(False)
+
+        self.separator2 = self.menu.addSeparator()
+
+        self.loginAction = self.menu.addAction("Start on login")
+        self.loginAction.setCheckable(True)
+        self.loginAction.triggered.connect(self.autostart.toggle)
+        self.helpAction = self.menu.addAction("Help Center")
+
+        self.separator5 = self.menu.addSeparator()
+
+        self.quitAction = self.menu.addAction("Quit Maestral")
+        self.setContextMenu(self.menu)
+
+        # ------------- connect callbacks for menu items -------------------
+        self.openDropboxFolderAction.triggered.connect(
+            lambda: self.open_destination(self.mdbx.sync.dropbox_path))
+        self.openWebsiteAction.triggered.connect(self.on_website_clicked)
+        self.loginAction.setChecked(self.autostart.enabled)
+        self.helpAction.triggered.connect(self.on_help_clicked)
+        self.quitAction.triggered.connect(self.quit_)
+
+    def setup_ui_linked(self):
+
+        if not self.mdbx:
+            return
+
+        self.menu = QtWidgets.QMenu()
 
         # ----------------- create windows ----------------------
         self.settings = SettingsWindow(self.mdbx, parent=None)
@@ -349,9 +403,11 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def quit_(self):
         """Quit Maestral"""
-        self.mdbx.stop_sync()
+        if self.mdbx:
+            self.mdbx.stop_sync()
         self.deleteLater()
         QtCore.QCoreApplication.quit()
+        sys.exit()
 
 
 def run():
@@ -360,23 +416,14 @@ def run():
         os.environ["QT_SCREEN_SCALE_FACTORS"] = gsf
 
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
+    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
+
     app = QtWidgets.QApplication(["Maestral"])
-    app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
     app.setQuitOnLastWindowClosed(False)
 
-    auth_session_gui = OAuth2SessionGUI()
-
-    if Maestral.FIRST_SYNC or not auth_session_gui.has_creds():
-        maestral = SetupDialog.configureMaestral()  # returns None if aborted by user
-    else:
-        maestral = Maestral()
-
-    if maestral:
-        maestral.download_complete_signal.connect(maestral.start_sync)
-        maestral_gui = MaestralApp(maestral)
-        sys.exit(app.exec_())
-    else:
-        logger.info("Setup aborted. Quitting.")
+    maestral_gui = MaestralGuiApp()
+    maestral_gui.load_maestral()
+    sys.exit(app.exec_())
 
 
 if __name__ == "__main__":
