@@ -78,10 +78,23 @@ class SetupDialog(QtWidgets.QDialog):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(SETUP_DIALOG_PATH, self)
+
         self.app_icon = QtGui.QIcon(APP_ICON_PATH)
-        self.labelIcon.setPixmap(self.app_icon.pixmap(170, 170))
-        self.labelIcon_2.setPixmap(self.app_icon.pixmap(70, 70))
-        self.labelIcon_3.setPixmap(self.app_icon.pixmap(100, 100))
+
+        if not QtCore.QCoreApplication.testAttribute(QtCore.Qt.AA_UseHighDpiPixmaps):
+            p0 = self.app_icon.pixmap(340, 340)
+            p1 = self.app_icon.pixmap(140, 140)
+            p2 = self.app_icon.pixmap(200, 200)
+            for p in (p0, p1, p2):
+                p.setDevicePixelRatio(2.0)
+        else:
+            p0 = self.app_icon.pixmap(170, 170)
+            p1 = self.app_icon.pixmap(70, 70)
+            p2 = self.app_icon.pixmap(100, 100)
+
+        self.labelIcon.setPixmap(p0)
+        self.labelIcon_2.setPixmap(p1)
+        self.labelIcon_3.setPixmap(p2)
 
         self.mdbx = None
         self.folder_items = []
