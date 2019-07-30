@@ -128,6 +128,23 @@ def _luminance(r, g, b, base=256):
     return (0.2126*r + 0.7152*g + 0.0722*b)/base
 
 
+def icon_to_pixmap(icon, width, height=None):
+    if not height:
+        height = width
+
+    is_hidpi = QtCore.QCoreApplication.testAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
+    dpr = QtWidgets.QApplication.primaryScreen().devicePixelRatio()
+
+    if not is_hidpi:
+        width = width*dpr
+        height = height*dpr
+    px = icon.pixmap(width, height)
+    if not is_hidpi:
+        px.setDevicePixelRatio(dpr)
+
+    return px
+
+
 def __pixel_at(x, y):
     """
     Returns (r, g, b) color code for a pixel with given coordinates (each value is in
@@ -216,8 +233,7 @@ class ErrorDialog(QtWidgets.QDialog):
         self.infoLabel.setWordWrap(True)
 
         icon = QtGui.QIcon(APP_ICON_PATH)
-        pixmap = icon.pixmap(icon_size, icon_size)
-        self.iconLabel.setPixmap(pixmap)
+        self.iconLabel.setPixmap(icon_to_pixmap(icon, icon_size))
         self.titleLabel.setText(title)
         self.infoLabel.setText(message)
 

@@ -18,7 +18,7 @@ from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
                                     SETTINGS_WINDOW_PATH, APP_ICON_PATH)
 from maestral.gui.utils import (get_scaled_font, isDarkWindow, quit_and_restart_maestral,
-                                LINE_COLOR_DARK, LINE_COLOR_LIGHT)
+                                LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap)
 
 
 class UnlinkDialog(QtWidgets.QDialog):
@@ -33,7 +33,7 @@ class UnlinkDialog(QtWidgets.QDialog):
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
 
         icon = QtGui.QIcon(APP_ICON_PATH)
-        pixmap = icon.pixmap(self.iconLabel.width(), self.iconLabel.height())
+        pixmap = icon_to_pixmap(icon, self.iconLabel.width(), self.iconLabel.height())
         self.iconLabel.setPixmap(pixmap)
 
 

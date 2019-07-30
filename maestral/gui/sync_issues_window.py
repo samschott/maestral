@@ -13,8 +13,8 @@ from PyQt5 import QtCore, QtGui, QtWidgets, uic
 
 from maestral.gui.resources import (SYNC_ISSUES_WINDOW_PATH, SYNC_ISSUE_WIDGET_PATH,
                                     get_native_item_icon)
-from maestral.gui.utils import (truncate_string, get_scaled_font, isDarkWindow,
-                                LINE_COLOR_DARK, LINE_COLOR_LIGHT)
+from maestral.gui.utils import (truncate_string, icon_to_pixmap, get_scaled_font,
+                                isDarkWindow, LINE_COLOR_DARK, LINE_COLOR_LIGHT)
 
 HAS_GTK_LAUNCH = shutil.which("gtk-launch") is not None
 
@@ -102,7 +102,7 @@ class SyncIssueWidget(QtWidgets.QWidget):
 
         # update item icons (the system may supply different icons in dark mode)
         icon = get_native_item_icon(self.sync_issue.local_path)
-        pixmap = icon.pixmap(self.iconLabel.width(), self.iconLabel.height())
+        pixmap = icon_to_pixmap(icon, self.iconLabel.width(), self.iconLabel.height())
         self.iconLabel.setPixmap(pixmap)
 
 

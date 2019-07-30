@@ -23,7 +23,7 @@ from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FolderItem
 from maestral.gui.resources import (APP_ICON_PATH, SETUP_DIALOG_PATH,
                                     get_native_item_icon, get_native_folder_icon)
-from maestral.gui.utils import ErrorDialog
+from maestral.gui.utils import ErrorDialog, icon_to_pixmap
 
 
 class OAuth2SessionGUI(OAuth2Session):
@@ -81,20 +81,9 @@ class SetupDialog(QtWidgets.QDialog):
 
         self.app_icon = QtGui.QIcon(APP_ICON_PATH)
 
-        if not QtCore.QCoreApplication.testAttribute(QtCore.Qt.AA_UseHighDpiPixmaps):
-            p0 = self.app_icon.pixmap(340, 340)
-            p1 = self.app_icon.pixmap(140, 140)
-            p2 = self.app_icon.pixmap(200, 200)
-            for p in (p0, p1, p2):
-                p.setDevicePixelRatio(2.0)
-        else:
-            p0 = self.app_icon.pixmap(170, 170)
-            p1 = self.app_icon.pixmap(70, 70)
-            p2 = self.app_icon.pixmap(100, 100)
-
-        self.labelIcon.setPixmap(p0)
-        self.labelIcon_2.setPixmap(p1)
-        self.labelIcon_3.setPixmap(p2)
+        self.labelIcon.setPixmap(icon_to_pixmap(self.app_icon, 170))
+        self.labelIcon_2.setPixmap(icon_to_pixmap(self.app_icon, 70))
+        self.labelIcon_3.setPixmap(icon_to_pixmap(self.app_icon, 100))
 
         self.mdbx = None
         self.folder_items = []
