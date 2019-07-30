@@ -60,17 +60,15 @@ class FoldersDialog(QtWidgets.QDialog):
     def populate_folders_list(self, overload=None):
 
         self.listWidgetFolders.clear()
+        self.accept_button.setEnabled(False)
 
         if not self.mdbx.connected:
             self.listWidgetFolders.addItem("Cannot connect to Dropbox.")
-            self.accept_button.setEnabled(False)
             return
 
         # add new entries
         result = self.mdbx.client.list_folder("", recursive=False)
         self.folder_items = []
-
-        self.accept_button.setEnabled(True)
 
         for entry in result.entries:
             if isinstance(entry, files.FolderMetadata):
@@ -82,6 +80,13 @@ class FoldersDialog(QtWidgets.QDialog):
             self.listWidgetFolders.addItem(item)
 
         self.update_select_all_checkbox()
+
+        if not self.mdbx.connected:
+            self.listWidgetFolders.clear()
+            self.listWidgetFolders.addItem("Cannot connect to Dropbox.")
+            self.accept_button.setEnabled(False)
+        else:
+            self.accept_button.setEnabled(True)
 
     def update_select_all_checkbox(self):
         is_included_list = (i.isIncluded() for i in self.folder_items)
