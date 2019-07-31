@@ -172,8 +172,6 @@ class FileEventHandler(FileSystemEventHandler):
 
     def on_any_event(self, event):
 
-        print(event)
-
         if self.running.is_set() and not self.is_flagged(event.src_path):
             self.local_q.put(event)
 
