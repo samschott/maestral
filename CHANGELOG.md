@@ -14,7 +14,6 @@ _Changed:_
 
 - Improved performance of the GUI on some Gnome systems in case of many rapid status
   changes.
-- Automatically detect high-DPI scaling in Gnome.
 - Show system tray icon already during the setup dialog.
 
 _Fixed:_
