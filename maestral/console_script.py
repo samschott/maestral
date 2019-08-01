@@ -43,9 +43,9 @@ def configure():
 @main.command()
 def unlink():
     """Unlinks your Dropbox account."""
-    import os
-    from maestral.client import OAuth2Session
-    os.unlink(OAuth2Session.TOKEN_FILE)
+    from maestral.main import Maestral
+    m = Maestral(run=False)
+    m.unlink()
 
 
 @main.command()
@@ -54,8 +54,8 @@ def unlink():
 def download(dropbox_path: str, local_path: str):
     """Downloads a file from Dropbox."""
     from maestral.client import MaestralApiClient
-    client = MaestralApiClient()
-    client.download(dropbox_path, local_path)
+    c = MaestralApiClient()
+    c.download(dropbox_path, local_path)
 
 
 @main.command()
@@ -64,8 +64,8 @@ def download(dropbox_path: str, local_path: str):
 def upload(local_path: str, dropbox_path: str):
     """Uploads a file to Dropbox."""
     from maestral.client import MaestralApiClient
-    client = MaestralApiClient()
-    client.upload(local_path, dropbox_path)
+    c = MaestralApiClient()
+    c.upload(local_path, dropbox_path)
 
 
 @main.command()
@@ -74,8 +74,8 @@ def upload(local_path: str, dropbox_path: str):
 def move(old_path: str, new_path: str):
     """Moves or renames a file or folder on Dropbox."""
     from maestral.client import MaestralApiClient
-    client = MaestralApiClient()
-    client.move(old_path, new_path)
+    c = MaestralApiClient()
+    c.move(old_path, new_path)
 
 
 @main.command()
@@ -83,9 +83,14 @@ def move(old_path: str, new_path: str):
 def ls(dropbox_path: str):
     """Lists contents of a folder on Dropbox."""
     from maestral.client import MaestralApiClient
+    from dropbox.files import FolderMetadata
     client = MaestralApiClient()
     res = client.list_folder(dropbox_path, recursive=False)
-    print("\t".join(res.keys()))
+    entry_types = ("Folder" if isinstance(md, FolderMetadata) else "File" for md in
+                   res.entries)
+    entry_names = (md.name for md in res.entries)
+    for t, n in zip(entry_types, entry_names):
+        print("{0}:\t{1}".format(t, n))
 
 
 @main.command()
@@ -103,7 +108,7 @@ def account_info():
     from maestral.client import MaestralApiClient
     client = MaestralApiClient()
     res = client.get_account_info()
-    print("%s, %s" % (res.email, res.account_type))
+    print("{0}, {1}".format(res.email, res.account_type))
 
 
 @main.command()

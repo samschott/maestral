@@ -357,7 +357,7 @@ class Maestral(object):
         # get old and new paths
         old_path = self.sync.dropbox_path
         if new_path is None:
-            new_path = self._ask_for_path(default=old_path)
+            new_path = self._ask_for_path(default=old_path or "~/Dropbox")
 
         if osp.exists(old_path) and osp.exists(new_path):
             if osp.samefile(old_path, new_path):
@@ -387,7 +387,8 @@ class Maestral(object):
         Asks for Dropbox path.
         """
         default = osp.expanduser(default)
-        msg = "Please give Dropbox folder location or press enter for default [%s]:" % default
+        msg = ("Please give Dropbox folder location or press enter for default "
+               "[{0}]:".format(default))
         res = input(msg).strip().strip("'")
 
         if res == "":
