@@ -35,7 +35,7 @@ from watchdog.utils.dirsnapshot import DirectorySnapshot
 from maestral.config.main import CONF
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import Notipy
-from maestral.client import MaestralApiError, CursorResetError
+from maestral.errors import MaestralApiError, CursorResetError
 
 
 logger = logging.getLogger(__name__)

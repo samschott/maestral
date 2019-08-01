@@ -19,14 +19,15 @@ from PyQt5 import QtCore, QtWidgets, QtGui
 from maestral.main import Maestral
 from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
 from maestral.monitor import RevFileError, DropboxDeletedError
-from maestral.client import CursorResetError, MaestralApiError
+from maestral.errors import CursorResetError, MaestralApiError
+from maestral.oauth import OAuth2Session
 from maestral.gui.settings_window import SettingsWindow
-from maestral.gui.setup_dialog import SetupDialog, OAuth2SessionGUI
+from maestral.gui.setup_dialog import SetupDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import TRAY_ICON_PATH
 from maestral.gui.utils import (truncate_string, isDarkStatusBar, ErrorDialog,
-                                get_gnome_scaling_factor, quit_and_restart_maestral)
+                                quit_and_restart_maestral)
 
 from maestral.utils.autostart import AutoStart
 from maestral.config.main import CONF
@@ -123,9 +124,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def load_maestral(self):
 
-        auth_session_gui = OAuth2SessionGUI()
+        auth = OAuth2Session()
 
-        if Maestral.FIRST_SYNC or not auth_session_gui.has_creds():
+        if Maestral.FIRST_SYNC or not auth.load_token():
             self.mdbx = SetupDialog.configureMaestral()  # returns None if aborted by user
         else:
             self.mdbx = Maestral()

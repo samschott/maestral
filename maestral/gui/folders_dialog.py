@@ -12,7 +12,6 @@ from dropbox import files
 
 from maestral.main import handle_disconnect
 from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
-from maestral.client import MaestralApiError
 
 
 # noinspection PyTypeChecker

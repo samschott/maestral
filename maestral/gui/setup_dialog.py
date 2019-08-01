@@ -8,15 +8,13 @@ Created on Wed Oct 31 16:23:13 2018
 
 import os.path as osp
 import requests
-import keyring
-from keyring.errors import KeyringLocked
 from dropbox.oauth import BadStateException, NotApprovedException
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 from dropbox import files
 
 from maestral.main import Maestral
-from maestral.client import OAuth2Session
+from maestral.oauth import OAuth2Session
 from maestral.monitor import CONNECTION_ERRORS
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
@@ -24,49 +22,6 @@ from maestral.gui.folders_dialog import FolderItem
 from maestral.gui.resources import (APP_ICON_PATH, SETUP_DIALOG_PATH,
                                     get_native_item_icon, get_native_folder_icon)
 from maestral.gui.utils import ErrorDialog, icon_to_pixmap
-
-
-class OAuth2SessionGUI(OAuth2Session):
-
-    def __init__(self):
-        super(self.__class__, self).__init__()
-
-    def load_creds(self):
-        """Do not automatically load credentials."""
-        pass
-
-    def link(self):
-        """Do not automatically load credentials."""
-        pass
-
-    def has_creds(self):
-        """
-        Check if credentials exist.
-        :return:
-        """
-        try:
-            t1 = keyring.get_password("Maestral", self.account_id)
-            t2 = keyring.get_password("Maestral", "MaestralUser")
-            self.access_token = t1 or t2
-            return self.access_token is not None
-        except KeyringLocked:
-            title = "Could not load authentication token from keyring."
-            info = "Please make sure that your keyring is unlocked and restart Maestral."
-            error_dialog = ErrorDialog(title, info)
-            error_dialog.exec_()
-            QtCore.QCoreApplication.quit()
-
-    def get_url(self):
-        authorize_url = self.auth_flow.start()
-        return authorize_url
-
-    def verify_auth_key(self, auth_code):
-        self.oAuth2FlowResult = self.auth_flow.finish(auth_code)
-        self.access_token = self.oAuth2FlowResult.access_token
-        self.account_id = self.oAuth2FlowResult.account_id
-        self.write_creds()
-
-        return True
 
 
 class SetupDialog(QtWidgets.QDialog):
@@ -132,8 +87,8 @@ class SetupDialog(QtWidgets.QDialog):
         self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
 
         # check if we are already authenticated, skip authentication if yes
-        self.auth_session = OAuth2SessionGUI()
-        if self.auth_session.has_creds():
+        self.auth_session = OAuth2Session()
+        if self.auth_session.load_token():
 
             self.labelDropboxPath.setText("""
             <html><head/><body>
@@ -182,7 +137,7 @@ class SetupDialog(QtWidgets.QDialog):
             self.on_reject()
 
     def on_link(self):
-        self.auth_url = self.auth_session.get_url()
+        self.auth_url = self.auth_session.get_auth_url()
         prompt = self.labelAuthLink.text().format(self.auth_url)
         self.labelAuthLink.setText(prompt)
 
@@ -192,6 +147,7 @@ class SetupDialog(QtWidgets.QDialog):
         auth_code = self.lineEditAuthCode.text()
         try:
             self.auth_session.verify_auth_key(auth_code)
+            self.auth_session.save_creds()
         except requests.HTTPError:
             msg = "Please make sure that you entered the correct authentication code."
             msg_box = ErrorDialog("Authentication failed.", msg, parent=self)
