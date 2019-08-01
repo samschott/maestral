@@ -1437,12 +1437,6 @@ class MaestralMonitor(object):
 
         self.sync = UpDownSync(self.client, self.local_q)
 
-        self.connection_thread = Thread(
-                target=connection_helper, daemon=True,
-                args=(self.client, self.connected, self.syncing, self.running),
-                name="MaestralConnectionHelper")
-        self.connection_thread.start()
-
     def start(self, overload=None):
         """Creates observer threads and starts syncing."""
 
@@ -1451,6 +1445,11 @@ class MaestralMonitor(object):
         if self.running.is_set() or self.syncing.is_set():
             # do nothing if already running
             return
+
+        self.connection_thread = Thread(
+                target=connection_helper, daemon=True,
+                args=(self.client, self.connected, self.syncing, self.running),
+                name="MaestralConnectionHelper")
 
         self.local_observer_thread = Observer()
         self.local_observer_thread.schedule(
@@ -1468,6 +1467,7 @@ class MaestralMonitor(object):
 
         self.running.set()
 
+        self.connection_thread.start()
         self.local_observer_thread.start()
         self.download_thread.start()
         self.upload_thread.start()
@@ -1479,6 +1479,8 @@ class MaestralMonitor(object):
 
         self.syncing.set()  # resumes download_thread
         self.file_handler.running.set()  # starts local file event handler
+
+        logger.info("Syncing started")
 
     def pause(self, overload=None):
         """Pauses syncing."""
@@ -1534,10 +1536,7 @@ class MaestralMonitor(object):
 
         if blocking:
             self.upload_thread.join()  # wait to finish (up to 2 sec)
-
-        del self.local_observer_thread
-        del self.upload_thread
-        del self.download_thread
+            self.connection_thread.join()
 
         logger.info("Syncing stopped")
 
