@@ -1505,7 +1505,7 @@ class MaestralMonitor(object):
         """Checks for changes while idle and starts syncing."""
 
         if self.running.is_set() or not self._auto_resume_on_connect:
-            # do nothing if already running or paused by user
+            logger.debug("Syncing was already running")
             return
 
         # clear all sync errors, see if they occur again
@@ -1518,9 +1518,13 @@ class MaestralMonitor(object):
     def stop(self, overload=None, blocking=False):
         """Stops syncing and destroys worker threads."""
 
+        if self.shutdown.is_set():
+            logger.debug("Syncing was already stopped")
+            return
+
         self._auto_resume_on_connect = False
 
-        logger.debug('Shutting down threads...')
+        logger.debug("Shutting down threads...")
 
         self.local_observer_thread.stop()  # stop observer
         self.local_observer_thread.join()  # wait to finish
@@ -1530,7 +1534,7 @@ class MaestralMonitor(object):
         if blocking:
             self.upload_thread.join()  # wait to finish (up to 2 sec)
 
-        logger.debug('Stopped.')
+        logger.info("Syncing stopped")
 
     def rebuild_rev_file(self, restart=True):
         """Rebuilds the rev file by comparing local with remote files and updating rev
