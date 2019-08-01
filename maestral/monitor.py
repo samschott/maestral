@@ -413,7 +413,7 @@ class UpDownSync(object):
                 assert all(isinstance(key, str) for key in rev_dict_cache.keys())
                 assert all(isinstance(val, str) for val in rev_dict_cache.values())
             except FileNotFoundError:
-                logger.warning("Maestral index could not be found. Rebuild if necessary.")
+                logger.warning("Maestral index could not be found.")
             except (AssertionError, IsADirectoryError):
                 msg = "Maestral index has become corrupted. Please rebuild."
                 if raise_exception:
@@ -1250,7 +1250,7 @@ class UpDownSync(object):
 # Workers for upload, download and connection monitoring threads
 # ========================================================================================
 
-def connection_helper(client, connected, running, shutdown):
+def connection_helper(client, connected, syncing, running):
     """
     A worker which periodically checks the connection to Dropbox servers.
     This is done through inexpensive calls to :method:`client.get_space_usage`.
@@ -1259,15 +1259,15 @@ def connection_helper(client, connected, running, shutdown):
 
     :param client: Maestral client instance.
     :param connected: Event that indicates if connection to Dropbox is established.
-    :param running: Event that indicates if workers should be running or paused.
-    :param shutdown: Event to shutdown local event handler and workers.
+    :param syncing: Event that indicates if workers should be running or paused.
+    :param running: Event to shutdown local event handler and workers.
     """
 
     disconnected_signal = signal("disconnected_signal")
     connected_signal = signal("connected_signal")
     account_usage_signal = signal("account_usage_signal")
 
-    while not shutdown.is_set():
+    while running.is_set():
         try:
             # use an inexpensive call to get_space_usage to test connection
             res = client.get_space_usage()
@@ -1278,32 +1278,32 @@ def connection_helper(client, connected, running, shutdown):
             time.sleep(5)
         except CONNECTION_ERRORS as e:
             logger.debug(e)
-            running.clear()
+            syncing.clear()
             connected.clear()
             disconnected_signal.send()
             logger.info(DISCONNECTED)
             time.sleep(1)
 
 
-def download_worker(sync, running, shutdown, flagged):
+def download_worker(sync, syncing, running, flagged):
     """
     Worker to sync changes of remote Dropbox with local folder. All files about
     to change are temporarily excluded from the local file monitor by adding
     their paths to the `flagged` deque.
 
     :param sync: Instance of :class:`UpDownSync`.
-    :param running: If not `running.is_set()` the worker is paused. This event
+    :param syncing: If not `running.is_set()` the worker is paused. This event
         will be set if the connection to the Dropbox server fails, or if
         syncing is paused by the user.
-    :param shutdown: Event to shutdown local event handler and workers.
+    :param running: Event to shutdown local event handler and workers.
     :param deque flagged: Flagged paths for local observer to ignore.
     """
 
     disconnected_signal = signal("disconnected_signal")
 
-    while not shutdown.is_set():
+    while running.is_set():
 
-        running.wait()  # if not running, wait until resumed
+        syncing.wait()  # if not running, wait until resumed
 
         try:
             # wait for remote changes (times out after 120 secs)
@@ -1311,7 +1311,7 @@ def download_worker(sync, running, shutdown, flagged):
             has_changes = sync.client.wait_for_remote_changes(
                 sync.last_cursor, timeout=120)
 
-            running.wait()  # if not running, wait until resumed
+            syncing.wait()  # if not running, wait until resumed
 
             # apply remote changes
             if has_changes:
@@ -1338,34 +1338,33 @@ def download_worker(sync, running, shutdown, flagged):
         except CONNECTION_ERRORS:
             logger.info(DISCONNECTED)
             disconnected_signal.send()
-            running.clear()  # must be started again from outside
-        except CursorResetError as exc:
+            syncing.clear()  # must be started again from outside
+        except CursorResetError:
             logger.exception("Sync error", exc_info=True)
-            running.clear()  # stop syncing
-            shutdown.set()  # shutdown threads
+            syncing.clear()  # stop syncing
+            running.clear()  # shutdown threads
         finally:
             # clear flagged list
             flagged.clear()
 
 
-def upload_worker(sync, running, shutdown):
+def upload_worker(sync, syncing, running):
     """
     Worker to sync local changes to remote Dropbox. It collects the most recent
     local file events from `local_q`, prunes them from duplicates, and
     processes the remaining events by calling methods of
     :class:`DropboxUploadSync`.
 
-
     :param sync: Instance of :class:`UpDownSync`.
-    :param running: Event to pause local event handler and download worker.
+    :param syncing: Event to pause local event handler and download worker.
         Will be set if the connection to the Dropbox server fails, or if
         syncing is paused by the user.
-    :param shutdown: Event to shutdown local event handler and workers.
+    :param running: Event to shutdown local event handler and workers.
     """
 
     disconnected_signal = signal("disconnected_signal")
 
-    while not shutdown.is_set():
+    while running.is_set():
 
         # check if local directory still exists
         # ideally, we would like the observer thread to notify us if the local Dropbox
@@ -1386,7 +1385,7 @@ def upload_worker(sync, running, shutdown):
                     logger.info(DISCONNECTED)
                     logger.debug(e)
                     disconnected_signal.send()
-                    running.clear()   # must be started again from outside
+                    syncing.clear()   # must be started again from outside
         else:
             # just update local cursor
             sync.last_sync = local_cursor
@@ -1413,13 +1412,13 @@ class MaestralMonitor(object):
     :ivar sync: Class to coordinate syncing. This is the brain of Maestral.
     :cvar connected: Event that is set if connection to Dropbox API servers can
         be established.
-    :cvar running: Event is set if worker threads are running.
-    :cvar shutdown: Event to shutdown worker threads.
+    :cvar running: Event to indicate if threads are running.
+    :cvar syncing: Event is set Maestral is syncing.
     """
 
     connected = Event()
+    syncing = Event()
     running = Event()
-    shutdown = Event()
     flagged = deque()
 
     connected_signal = signal("connected_signal")
@@ -1440,7 +1439,7 @@ class MaestralMonitor(object):
 
         self.connection_thread = Thread(
                 target=connection_helper, daemon=True,
-                args=(self.client, self.connected, self.running, self.shutdown),
+                args=(self.client, self.connected, self.syncing, self.running),
                 name="MaestralConnectionHelper")
         self.connection_thread.start()
 
@@ -1449,7 +1448,7 @@ class MaestralMonitor(object):
 
         self._auto_resume_on_connect = True
 
-        if self.running.is_set():
+        if self.running.is_set() or self.syncing.is_set():
             # do nothing if already running
             return
 
@@ -1459,13 +1458,15 @@ class MaestralMonitor(object):
 
         self.download_thread = Thread(
                 target=download_worker, daemon=True,
-                args=(self.sync, self.running, self.shutdown, self.flagged),
+                args=(self.sync, self.syncing, self.running, self.flagged),
                 name="MaestralDownloader")
 
         self.upload_thread = Thread(
                 target=upload_worker, daemon=True,
-                args=(self.sync, self.running, self.shutdown),
+                args=(self.sync, self.syncing, self.running),
                 name="MaestralUploader")
+
+        self.running.set()
 
         self.local_observer_thread.start()
         self.download_thread.start()
@@ -1476,7 +1477,7 @@ class MaestralMonitor(object):
 
         self.upload_local_changes_after_inactive()
 
-        self.running.set()  # resumes download_thread
+        self.syncing.set()  # resumes download_thread
         self.file_handler.running.set()  # starts local file event handler
 
     def pause(self, overload=None):
@@ -1498,13 +1499,13 @@ class MaestralMonitor(object):
     def _pause_on_disconnect(self, overload=None):
         """Pauses syncing."""
 
-        self.running.clear()  # pauses download_thread
+        self.syncing.clear()  # pauses download_thread
         self.file_handler.running.clear()  # stops local file event handler
 
     def _resume_on_connect(self, overload=None):
         """Checks for changes while idle and starts syncing."""
 
-        if self.running.is_set() or not self._auto_resume_on_connect:
+        if self.syncing.is_set() or not self._auto_resume_on_connect:
             logger.debug("Syncing was already running")
             return
 
@@ -1512,13 +1513,13 @@ class MaestralMonitor(object):
         self.sync.clear_all_sync_errors()
         self.upload_local_changes_after_inactive()
 
-        self.running.set()  # resumes download_thread
+        self.syncing.set()  # resumes download_thread
         self.file_handler.running.set()  # starts local file event handler
 
     def stop(self, overload=None, blocking=False):
         """Stops syncing and destroys worker threads."""
 
-        if self.shutdown.is_set():
+        if not self.running.is_set():
             logger.debug("Syncing was already stopped")
             return
 
@@ -1529,10 +1530,14 @@ class MaestralMonitor(object):
         self.local_observer_thread.stop()  # stop observer
         self.local_observer_thread.join()  # wait to finish
 
-        self.shutdown.set()  # stops our own threads
+        self.running.clear()  # stops our own threads
 
         if blocking:
             self.upload_thread.join()  # wait to finish (up to 2 sec)
+
+        del self.local_observer_thread
+        del self.upload_thread
+        del self.download_thread
 
         logger.info("Syncing stopped")
 

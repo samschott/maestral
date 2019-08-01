@@ -159,7 +159,7 @@ class Maestral(object):
     @property
     def syncing(self):
         """Bool indicating if syncing is running or paused."""
-        return self.monitor.running.is_set()
+        return self.monitor.syncing.is_set()
 
     @property
     def connected(self):
