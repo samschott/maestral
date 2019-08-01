@@ -412,9 +412,9 @@ class UpDownSync(object):
                 assert isinstance(rev_dict_cache, dict)
                 assert all(isinstance(key, str) for key in rev_dict_cache.keys())
                 assert all(isinstance(val, str) for val in rev_dict_cache.values())
-            except FileNotFoundError:
+            except (FileNotFoundError, IsADirectoryError):
                 logger.warning("Maestral index could not be found.")
-            except (AssertionError, IsADirectoryError):
+            except AssertionError:
                 msg = "Maestral index has become corrupted. Please rebuild."
                 if raise_exception:
                     raise RevFileError(msg)
