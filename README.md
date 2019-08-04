@@ -37,6 +37,10 @@ $ python3 -m pip install --upgrade PyQt5
 However, in this case the interface style may not follow your selected system appearance
 (e.g., "dark mode" on macOS or "Adwaita-dark" on Gnome).
 
+If you clone and install the version from GitHub, you will need to provide your own
+Dropbox API keys as environment variables `DROPBOX_API_KEY` and `DROPBOX_API_SECRET`. You
+can get those keys [here](https://www.dropbox.com/developers/apps/create).
+
 ## Usage
 
 Run `maestral gui` in the command line (or open the Maestral app on macOS) to start
