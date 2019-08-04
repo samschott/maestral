@@ -5,7 +5,6 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
-
 from PyQt5 import QtCore, QtWidgets, uic
 
 from dropbox import files

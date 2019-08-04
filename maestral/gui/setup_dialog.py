@@ -5,7 +5,6 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
-
 import os.path as osp
 import requests
 from dropbox.oauth import BadStateException, NotApprovedException
