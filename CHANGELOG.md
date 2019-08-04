@@ -23,6 +23,7 @@ _Fixed:_
 - Fixed a bug which would result in an error dialog being shown for "normal" sync errors
   such as an invalid file name.
 - Fixed missing line-breaks in the traceback shown by the error dialog.
+- Updated console scripts to reflect changes in MaestralMonitor and MaestralApiClient.
 
 ### v0.2.3 (2019-07-22)
 
