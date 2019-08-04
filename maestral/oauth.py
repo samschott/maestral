@@ -18,9 +18,6 @@ from maestral.errors import to_maestral_error
 
 logger = logging.getLogger(__name__)
 
-APP_KEY = os.environ["DROPBOX_API_KEY"]
-APP_SECRET = os.environ["DROPBOX_API_SECRET"]
-
 
 class OAuth2Session(object):
     """
@@ -31,20 +28,14 @@ class OAuth2Session(object):
     """
 
     TOKEN_FILE = osp.join(get_conf_path(SUBFOLDER), "o2_store.txt")
-    auth_flow = None
     oAuth2FlowResult = None
 
-    def __init__(self, app_key=APP_KEY, app_secret=APP_SECRET):
-        self.app_key = app_key
-        self.app_secret = app_secret
+    def __init__(self):
 
         self.account_id = CONF.get("account", "account_id")
         self.access_token = ""
 
         self.migrate_to_keyring()
-
-        # prepare auth flow
-        self.auth_flow = DropboxOAuth2FlowNoRedirect(self.app_key, self.app_secret)
 
     def load_token(self):
         """
@@ -61,13 +52,20 @@ class OAuth2Session(object):
             raise KeyringLocked(info)
 
     def get_auth_url(self):
-        authorize_url = self.auth_flow.start()
+
+        APP_KEY = os.environ["DROPBOX_API_KEY"]
+        APP_SECRET = os.environ["DROPBOX_API_SECRET"]
+
+        self._auth_flow = DropboxOAuth2FlowNoRedirect(APP_KEY, APP_SECRET)
+        authorize_url = self._auth_flow.start()
         return authorize_url
 
     def verify_auth_key(self, auth_code):
-        self.oAuth2FlowResult = self.auth_flow.finish(auth_code)
+        self.oAuth2FlowResult = self._auth_flow.finish(auth_code)
         self.access_token = self.oAuth2FlowResult.access_token
         self.account_id = self.oAuth2FlowResult.account_id
+
+        del self._auth_flow
 
         return True
 
