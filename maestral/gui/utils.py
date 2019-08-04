@@ -201,11 +201,14 @@ def get_gnome_scaling_factor():
     if __command_exists("gsettings"):
         res = os.popen("gsettings get org.gnome.desktop.interface scaling-factor").read()
         if res.split()[0] == "uint32":
-            return res.split()[1]
-        else:
-            return None
-    else:
-        return None
+            scaling_factor_str = res.split()[1]
+            try:
+                scaling_factor_float = float(scaling_factor_str)
+                if scaling_factor_float > 1:
+                    return scaling_factor_str
+            except ValueError:
+                pass
+    return None
 
 
 def __command_exists(command):
