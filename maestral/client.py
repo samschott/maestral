@@ -375,7 +375,7 @@ class MaestralApiClient(object):
 
         while results[-1].has_more:
             idx += len(results[-1].entries)
-            logger.info("Indexing %s..." % idx)
+            logger.info("Indexing {0}...".format(idx))
             try:
                 more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
                 results.append(more_results)

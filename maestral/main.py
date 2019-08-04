@@ -245,7 +245,7 @@ class Maestral(object):
 
         try:
             os.remove(self.sync.rev_file_path)
-        except FileNotFoundError:
+        except Exception:
             pass
 
         CONF.reset_to_defaults()
