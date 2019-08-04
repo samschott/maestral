@@ -22,9 +22,6 @@ logger = logging.getLogger(__name__)
 class OAuth2Session(object):
     """
     OAuth2Session provides OAuth2 login and token store.
-
-    :ivar app_key: String containing app key provided by Dropbox.
-    :ivar app_secret: String containing app secret provided by Dropbox.
     """
 
     TOKEN_FILE = osp.join(get_conf_path(SUBFOLDER), "o2_store.txt")
