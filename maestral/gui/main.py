@@ -112,7 +112,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         icons = dict()
         short = ("idle", "syncing", "paused", "disconnected", "error")
 
-        color = "dark" if isDarkStatusBar() else "light"
+        color = "light" if isDarkStatusBar() else "dark"
 
         for l, s in zip((IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR), short):
             icons[l] = get_system_tray_icon(s, color)
