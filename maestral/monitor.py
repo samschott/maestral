@@ -208,7 +208,7 @@ def catch_sync_issues(sync_errors=None, failed_items=None):
                 logger.exception(SYNC_ERROR)
                 file_name = os.path.basename(exc.dbx_path)
                 self.notify.send("Could not sync {0}".format(file_name))
-                if not exc.local_path:
+                if exc.local_path is None:
                     exc.local_path = self.to_local_path(exc.dbx_path)
                 if sync_errors:
                     sync_errors.put(exc)
