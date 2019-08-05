@@ -200,7 +200,7 @@ def get_gnome_scaling_factor():
     """Returns gnome scaling factor as str or None."""
     if __command_exists("gsettings"):
         res = os.popen("gsettings get org.gnome.desktop.interface scaling-factor").read()
-        if res.split()[0] == "uint32":
+        if res and res.split()[0] == "uint32" and len(res.split()) > 1:
             scaling_factor_str = res.split()[1]
             try:
                 scaling_factor_float = float(scaling_factor_str)
