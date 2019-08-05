@@ -24,7 +24,7 @@ from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.setup_dialog import SetupDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
-from maestral.gui.resources import TRAY_ICON_PATH
+from maestral.gui.resources import get_system_tray_icon
 from maestral.gui.utils import (truncate_string, isDarkStatusBar, ErrorDialog,
                                 quit_and_restart_maestral, get_gnome_scaling_factor)
 
@@ -110,14 +110,12 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def load_tray_icons():
 
         icons = dict()
-        icon_color = "dark"
-
-        if not platform.system() == "Darwin" and isDarkStatusBar():
-            icon_color = "light"
         short = ("idle", "syncing", "paused", "disconnected", "error")
+
+        color = "dark" if isDarkStatusBar() else "light"
+
         for l, s in zip((IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR), short):
-            icons[l] = QtGui.QIcon(TRAY_ICON_PATH.format(s, icon_color))
-            icons[l].setIsMask(True)
+            icons[l] = get_system_tray_icon(s, color)
 
         return icons
 
@@ -378,23 +376,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         else:
             new_icon = self.icons.get(status, self.icons[SYNCING])
         self.setIcon(new_icon)
-
-    def setIcon(self, QIcon):
-        # Fixes a Qt bug where the tray icon is too small on GNOME with HiDPI
-        # scaling enabled. This is a very hackish workaround which disables
-        # AA_UseHighDpiPixmaps until the tray icon has changed.
-        if self.icon() == QIcon:
-            return
-
-        is_hidpi = QtWidgets.QApplication.primaryScreen().devicePixelRatio() > 1
-        is_linux = platform.system() == "Linux"
-
-        if is_linux and is_hidpi:
-            self._disable_hidpi_pixmaps()
-            super().setIcon(QIcon)
-            QtCore.QTimer.singleShot(1000, self._enable_hidpi_pixmaps)
-        else:
-            super().setIcon(QIcon)
 
     @staticmethod
     def _enable_hidpi_pixmaps():

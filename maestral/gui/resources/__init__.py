@@ -7,8 +7,9 @@ Created on Wed Oct 31 16:23:13 2018
 """
 import sys
 import os
-from PyQt5 import QtWidgets, QtCore
-
+import re
+import platform
+from PyQt5 import QtWidgets, QtCore, QtGui
 
 _root = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
 
@@ -44,3 +45,50 @@ def get_native_folder_icon():
 
 def get_native_file_icon():
     return _icon_provider.icon(_icon_provider.File)
+
+
+def get_system_tray_icon(status, icon_color="dark"):
+    assert status in ("idle", "syncing", "paused", "disconnected", "error")
+
+    gnome_version = __get_gnome_version(return_str=False)
+    has_gnome3 = gnome_version is not None and gnome_version[0] >= 3
+
+    if platform.system() == "Linux" and has_gnome3:
+        QtGui.QIcon.setThemeSearchPaths([os.path.join(_root, "icon-theme-gnome")])
+        icon = QtGui.QIcon.fromTheme("menubar_icon_{0}-symbolic".format(status))
+    elif platform.system() == "Darwin":
+        icon = QtGui.QIcon(TRAY_ICON_PATH.format(status, "dark"))
+        icon.setIsMask(True)
+    else:
+        icon = QtGui.QIcon(TRAY_ICON_PATH.format(status, icon_color))
+        icon.setIsMask(True)
+
+    return icon
+
+
+def __get_gnome_version(return_str=False):
+    gnome3_config_path = "/usr/share/gnome/gnome-version.xml"
+    gnome2_config_path = "/usr/share/gnome-about/gnome-version.xml"
+
+    xml = None
+
+    for path in (gnome2_config_path, gnome3_config_path):
+        if os.path.isfile(path):
+            try:
+                with open(path, "r") as f:
+                    xml = f.read()
+            except Exception:
+                pass
+
+    if xml:
+        p = re.compile(r"<platform>(?P<maj>\d+)</platform>\s+<minor>"
+                       r"(?P<min>\d+)</minor>\s+<micro>(?P<mic>\d+)</micro>")
+        m = p.search(xml)
+        version = "{0}.{1}.{2}".format(m.group("maj"), m.group("min"), m.group("mic"))
+
+        if return_str:
+            return version
+        else:
+            return tuple(int(v) for v in version.split("."))
+    else:
+        return None

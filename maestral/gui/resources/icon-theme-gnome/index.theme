@@ -1,0 +1,30 @@
+[Icon Theme]
+Name=MaestralStatusIcons
+Comment=Status icon for Maestral
+Example=menubar_idle-symbolic
+
+# KDE Specific Stuff
+DisplayDepth=32
+LinkOverlay=link_overlay
+LockOverlay=lock_overlay
+ZipOverlay=zip_overlay
+DesktopDefault=48
+DesktopSizes=16,22,32,48,64,72,96,128
+ToolbarDefault=22
+ToolbarSizes=16,22,32,48
+MainToolbarDefault=22
+MainToolbarSizes=16,22,32,48
+SmallDefault=16
+SmallSizes=16
+PanelDefault=32
+PanelSizes=16,22,32,48,64,72,96,128
+
+# Directory list
+Directories=scalable/status,
+
+[scalable/status]
+Context=Status
+Size=16
+MinSize=8
+MaxSize=512
+Type=Scalable

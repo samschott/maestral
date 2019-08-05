@@ -46,6 +46,8 @@ setup(
                     "gui/resources/*.icns",
                     "gui/resources/*.png",
                     "gui/resources/*.svg",
+                    "gui/resources/icon-theme-gnome/*.theme",
+                    "gui/resources/icon-theme-gnome/*/*/*.svg",
                     "utils/maestral.desktop",
                     "utils/com.maestral.loginscript.plist",
                     "bin/*.sh",
