@@ -1,4 +1,4 @@
-### v0.2.4-dev1 (2019-07-29)
+### v0.2.4 (2019-08-05)
 
 This version mainly improves the appearance and responsiveness of the GUI specifically on
 Linux platforms with a Gnome desktop. It also introduces a dialog to handle a deleted or
