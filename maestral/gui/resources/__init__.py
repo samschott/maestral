@@ -77,7 +77,7 @@ def __get_gnome_version(return_str=False):
             try:
                 with open(path, "r") as f:
                     xml = f.read()
-            except Exception:
+            except OSError:
                 pass
 
     if xml:
