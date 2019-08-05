@@ -18,8 +18,7 @@ _Changed:_
 
 _Fixed:_
 
-- Fixed size of the system tray icon in Gnome desktops with high-DPI scaling. This
-  involves a somewhat nasty workaround to mitigate a Qt bug.
+- Fixed size of the system tray icon in Gnome desktops with high-DPI scaling.
 - Fixed a bug which would result in an error dialog being shown for "normal" sync errors
   such as an invalid file name.
 - Fixed missing line-breaks in the traceback shown by the error dialog.
