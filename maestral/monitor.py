@@ -42,10 +42,11 @@ logger = logging.getLogger(__name__)
 
 
 CONNECTION_ERRORS = (
-         requests.exceptions.Timeout,
-         requests.exceptions.ConnectionError,
-         requests.exceptions.HTTPError
-    )
+    requests.exceptions.Timeout,
+    requests.exceptions.ConnectionError,
+    requests.exceptions.HTTPError,
+    ConnectionError,
+)
 
 IDLE = "Up to date"
 SYNCING = "Syncing..."

@@ -209,11 +209,15 @@ class MaestralApiClient(object):
                 os.makedirs(dst_path_directory)
             except FileExistsError:
                 pass
+            except ConnectionError:
+                raise
             except OSError as exc:
                 raise construct_local_error_msg(exc, dbx_path) from exc
 
         try:
             md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
+        except ConnectionError:
+            raise
         except dropbox.exceptions.ApiError as exc:
             raise to_maestral_error(exc, dbx_path) from exc
         except OSError as exc:
@@ -264,8 +268,12 @@ class MaestralApiClient(object):
                             self.dbx.files_upload_session_append_v2(
                                 f.read(chunk_size), cursor)
                             cursor.offset = f.tell()
-        except (dropbox.exceptions.ApiError, OSError) as exc:
+        except ConnectionError:
+            raise
+        except dropbox.exceptions.ApiError as exc:
             raise to_maestral_error(exc, dbx_path) from exc
+        except OSError as exc:
+            raise construct_local_error_msg(exc, dbx_path) from exc
 
         logger.debug("File '{0}' (rev {1}) uploaded to Dropbox.".format(
             md.path_display, md.rev))
