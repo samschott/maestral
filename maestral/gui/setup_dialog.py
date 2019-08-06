@@ -175,6 +175,11 @@ class SetupDialog(QtWidgets.QDialog):
         self.mdbx.client.get_account_info()
 
     def on_dropbox_path_set(self):
+
+        # reset sync status, we are starting fresh!
+        self.mdbx.sync.last_cursor = ""
+        self.mdbx.sync.last_sync = None
+
         # switch to next page
         self.stackedWidget.setCurrentIndex(3)
         # apply dropbox path
