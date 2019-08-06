@@ -1383,12 +1383,13 @@ def upload_worker(sync, syncing, running):
 
     while running.is_set():
 
-        # check if local directory still exists
-        # ideally, we would like the observer thread to notify us if the local Dropbox
-        # folder gets deleted, but this is not implemented yet in watchdog
+        syncing.wait()  # if not running, wait until resumed
 
         events, local_cursor = sync.wait_for_local_changes(timeout=2)
 
+        # check if local directory still exists
+        # ideally, we would like the observer thread to notify us if the local Dropbox
+        # folder gets deleted, but this is not implemented yet in watchdog
         sync.ensure_dropbox_folder_present(raise_exception=True)
 
         if len(events) > 0:
@@ -1405,7 +1406,8 @@ def upload_worker(sync, syncing, running):
                     syncing.clear()   # must be started again from outside
         else:
             # just update local cursor
-            sync.last_sync = local_cursor
+            if syncing.is_set():
+                sync.last_sync = local_cursor
 
 
 # ========================================================================================
