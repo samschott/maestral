@@ -76,7 +76,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.buttonBoxAuthCode.rejected.connect(self.on_reject)
         self.buttonBoxAuthCode.accepted.connect(self.on_auth)
         self.buttonBoxDropboxPath.rejected.connect(self.on_reject)
-        self.buttonBoxDropboxPath.accepted.connect(self.on_dropbox_path_set)
+        self.buttonBoxDropboxPath.accepted.connect(self.on_dropbox_location_selected)
         self.buttonBoxDropboxPath.clicked.connect(self.on_unlink)
         self.buttonBoxFolderSelection.rejected.connect(
                 lambda: self.stackedWidget.setCurrentIndex(2))
@@ -174,17 +174,19 @@ class SetupDialog(QtWidgets.QDialog):
         self.mdbx = Maestral(run=False)
         self.mdbx.client.get_account_info()
 
-    def on_dropbox_path_set(self):
+    def on_dropbox_location_selected(self):
 
         # reset sync status, we are starting fresh!
         self.mdbx.sync.last_cursor = ""
         self.mdbx.sync.last_sync = None
 
-        # switch to next page
-        self.stackedWidget.setCurrentIndex(3)
         # apply dropbox path
         dropbox_path = osp.join(self.dropbox_location, 'Dropbox')
         self.mdbx.set_dropbox_directory(dropbox_path)
+
+        # switch to next page
+        self.stackedWidget.setCurrentIndex(3)
+
         # populate folder list
         if self.folder_items == []:
             self.populate_folders_list()
