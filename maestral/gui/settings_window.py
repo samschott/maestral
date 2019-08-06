@@ -28,6 +28,8 @@ class UnlinkDialog(QtWidgets.QDialog):
         # load user interface layout from .ui file
         uic.loadUi(UNLINK_DIALOG_PATH, self)
 
+        self.setWindowFlags(QtCore.Qt.Sheet)
+
         self.buttonBox.buttons()[0].setText('Unlink')
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
