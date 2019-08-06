@@ -133,6 +133,7 @@ class SetupDialog(QtWidgets.QDialog):
             self.on_reject()
 
     def on_link(self):
+        self.auth_session = OAuth2Session()
         self.auth_url = self.auth_session.get_auth_url()
         prompt = self.labelAuthLink.text().format(self.auth_url)
         self.labelAuthLink.setText(prompt)
