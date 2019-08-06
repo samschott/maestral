@@ -895,7 +895,6 @@ class UpDownSync(object):
     #  Download sync
     # ====================================================================================
 
-    # TODO: speed up by only indexing included folders
     @catch_sync_issues(sync_errors)
     def get_remote_dropbox(self, dbx_path=""):
         """
@@ -908,17 +907,30 @@ class UpDownSync(object):
         :return: ``True`` on success, ``False`` otherwise.
         :rtype: bool
         """
-        logger.info("Indexing...")
-        result = self.client.list_folder(dbx_path, recursive=True,
-                                         include_deleted=False, limit=500)
 
-        # apply remote changes, don't update the global cursor when downloading
-        # a single folder only
-        save_cursor = (dbx_path == "")
+        is_dbx_root = (dbx_path == "")
+        success = []
+
+        logger.info("Indexing...")
+        root_result = self.client.list_folder(dbx_path, recursive=False,
+                                              include_deleted=False, limit=500)
+
+        # download top-level folders / files first
         logger.info("Syncing...")
-        success = self.apply_remote_changes(result, save_cursor)
+        success.append(self.apply_remote_changes(root_result, save_cursor=False))
+
+        # download sub-folders if not excluded
+        for entry in root_result.entries:
+            if isinstance(entry, FolderMetadata) and not self.is_excluded_by_user(
+                    entry.path_display):
+                success.append(self.get_remote_dropbox(entry.path_display))
+
+        if all(success) and is_dbx_root:
+            self.last_cursor = root_result.cursor
+
         logger.info("Up to date")
-        return success
+
+        return all(success)
 
     def filter_excluded_changes(self, changes):
 
