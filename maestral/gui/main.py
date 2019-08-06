@@ -219,7 +219,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.quitAction = self.menu.addAction("Quit Maestral")
         self.setContextMenu(self.menu)
 
-        # ------------- connect callbacks for menu items -------------------
+        # --------- connect callbacks for menu items ------------
         self.openDropboxFolderAction.triggered.connect(
             lambda: self.open_destination(self.mdbx.sync.dropbox_path))
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
@@ -255,6 +255,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         info_handler.info_signal.connect(self.on_info_signal)
         error_handler.error_signal.connect(self.on_error)
         self.usage_signal.connect(self.on_usage_available)
+
+        # --------------- switch to idle icon -------------------
+        self.setIcon(self.icons[IDLE])
 
     # callbacks for user interaction
 
