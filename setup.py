@@ -90,4 +90,13 @@ setup(
       },
     scripts=['bin/maestral-gui'],
     python_requires='>=3.6',
+    classifiers=[
+        'License :: OSI Approved :: MIT License',
+        'Operating System :: Unix',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3 :: Only',
+    ],
     )
