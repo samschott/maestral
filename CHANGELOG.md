@@ -1,3 +1,16 @@
+### v0.2.5.dev1 
+
+_Changed:_
+
+- Significant speedup of initial indexing. Excluded folders or subfolders will no
+  longer be indexed.
+  
+_Fixed:_
+
+- Fixed a false "Dropbox folder cannot be found" message which would appear when
+  quitting and restarting Maestral during the first sync. Now, the initial sync is quietly
+  restarted when relaunching Maestral.
+
 ### v0.2.4 (2019-08-05)
 
 This version mainly improves the appearance and responsiveness of the GUI specifically on
