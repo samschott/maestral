@@ -76,11 +76,11 @@ class SetupDialog(QtWidgets.QDialog):
         self.buttonBoxAuthCode.rejected.connect(self.on_reject)
         self.buttonBoxAuthCode.accepted.connect(self.on_auth)
         self.buttonBoxDropboxPath.rejected.connect(self.on_reject)
-        self.buttonBoxDropboxPath.accepted.connect(self.on_dropbox_path)
+        self.buttonBoxDropboxPath.accepted.connect(self.on_dropbox_path_set)
         self.buttonBoxDropboxPath.clicked.connect(self.on_unlink)
         self.buttonBoxFolderSelection.rejected.connect(
                 lambda: self.stackedWidget.setCurrentIndex(2))
-        self.buttonBoxFolderSelection.accepted.connect(self.on_folder_select)
+        self.buttonBoxFolderSelection.accepted.connect(self.on_folders_selected)
         self.pushButtonClose.clicked.connect(self.on_accept)
         self.listWidgetFolders.itemChanged.connect(self.update_select_all_checkbox)
         self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
@@ -174,7 +174,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.mdbx = Maestral(run=False)
         self.mdbx.client.get_account_info()
 
-    def on_dropbox_path(self):
+    def on_dropbox_path_set(self):
         # switch to next page
         self.stackedWidget.setCurrentIndex(3)
         # apply dropbox path
@@ -184,7 +184,7 @@ class SetupDialog(QtWidgets.QDialog):
         if self.folder_items == []:
             self.populate_folders_list()
 
-    def on_folder_select(self):
+    def on_folders_selected(self):
         # switch to next page
         self.stackedWidget.setCurrentIndex(4)
 
