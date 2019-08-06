@@ -45,6 +45,7 @@ CONNECTION_ERRORS = (
     requests.exceptions.Timeout,
     requests.exceptions.ConnectionError,
     requests.exceptions.HTTPError,
+    requests.exceptions.ReadTimeout,
     ConnectionError,
 )
 
