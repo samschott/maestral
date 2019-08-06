@@ -150,11 +150,10 @@ class Maestral(object):
                 self.sync.last_sync = None
 
             if self.pending_first_download():
-                success = self.sync.get_remote_dropbox()
-                if success:
-                    self.sync.last_sync = time.time()
-
-            self.start_sync()
+                self.get_remote_dropbox_async("")
+                self.download_complete_signal.connect(self.start_sync)
+            else:
+                self.start_sync()
 
     @staticmethod
     def pending_link():
@@ -167,7 +166,7 @@ class Maestral(object):
 
     @staticmethod
     def pending_first_download():
-        return (not CONF.get("internal", "lastsync") or
+        return (CONF.get("internal", "lastsync") is None or
                 CONF.get("internal", "cursor") == "")
 
     @property
@@ -204,7 +203,9 @@ class Maestral(object):
 
         :param str dbx_path: Path to folder on Dropbox.
         """
-        if dbx_path is "":  # pause all syncing while downloading root folder
+
+        is_root = dbx_path == ""
+        if is_root:  # pause all syncing while downloading root folder
             self.monitor.pause()
         else:  # exclude only specific folder otherwise
             self.monitor.flagged.append(self.sync.to_local_path(dbx_path))
@@ -216,7 +217,8 @@ class Maestral(object):
         self.download_thread.start()
 
         def callback(*args):  # blinker signal will carry the sender as argument
-            if dbx_path is "":
+            if is_root:
+                self.sync.last_sync = time.time()
                 self.monitor.resume()  # resume all syncing
             else:
                 # remove folder from excluded list
