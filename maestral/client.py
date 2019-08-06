@@ -227,21 +227,26 @@ class MaestralApiClient(object):
 
         return md
 
-    def upload(self, local_path, dbx_path, chunk_size=10, **kwargs):
+    def upload(self, local_path, dbx_path, chunk_size_mb=20, **kwargs):
         """
         Uploads local file to Dropbox.
 
         :param str local_path: Path of local file to upload.
         :param str dbx_path: Path to save file on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_upload.
-        :param int chunk_size: Maximum size for individual uploads in MB. If
+        :param int chunk_size_mb: Maximum size for individual uploads in MB. If
             the file size exceeds the chunk_size, an upload-session is created
             instead.
         :returns: Metadata of uploaded file or `False` if upload failed.
         """
 
         file_size = osp.getsize(local_path)
-        chunk_size = int(tobytes(chunk_size, "MB"))
+        chunk_size = int(tobytes(chunk_size_mb, "MB"))
+
+        display_unit = "GB" if file_size > tobytes(1000, "MB") else "MB"
+        file_size_display = int(bytesto(file_size, display_unit))
+        chunk_size_display = int(bytesto(chunk_size, display_unit))
+        uploaded_display = 0
 
         mtime = osp.getmtime(local_path)
         mtime_dt = datetime.datetime(*time.gmtime(mtime)[:6])
@@ -252,6 +257,8 @@ class MaestralApiClient(object):
                     md = self.dbx.files_upload(
                             f.read(), dbx_path, client_modified=mtime_dt, **kwargs)
                 else:
+                    logger.info("Uploading {0}/{1}{2}...".format(
+                        uploaded_display, file_size_display, display_unit))
                     session_start = self.dbx.files_upload_session_start(
                         f.read(chunk_size))
                     cursor = dropbox.files.UploadSessionCursor(
@@ -263,10 +270,15 @@ class MaestralApiClient(object):
                         if file_size - f.tell() <= chunk_size:
                             md = self.dbx.files_upload_session_finish(
                                 f.read(chunk_size), cursor, commit)
+                            logger.info("Uploading {0}/{1}{2}...".format(
+                                file_size_display, file_size_display, display_unit))
                         else:
                             self.dbx.files_upload_session_append_v2(
                                 f.read(chunk_size), cursor)
                             cursor.offset = f.tell()
+                            uploaded_display += chunk_size_display
+                            logger.info("Uploading {0}/{1}{2}...".format(
+                                uploaded_display, file_size_display, display_unit))
         except dropbox.exceptions.ApiError as exc:
             raise to_maestral_error(exc, dbx_path) from exc
         except OS_FILE_ERRORS as exc:
