@@ -1050,7 +1050,7 @@ class UpDownSync(object):
                              ".dropbox.attr", OLD_REV_FILE, REV_FILE]
         # check for temporary files
         # macOS autosave files
-        test1 = basename.count(".") > 1 and osp.splitext(basename)[-1].startswith("sb-")
+        test1 = basename.count(".") > 1 and osp.splitext(basename)[-1].startswith(".sb-")
         # office temporary files
         test2 = basename.startswith("~$")
         test3 = basename.startswith(".~")
