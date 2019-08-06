@@ -181,7 +181,20 @@ class SetupDialog(QtWidgets.QDialog):
         self.mdbx.sync.last_sync = None
 
         # apply dropbox path
-        dropbox_path = osp.join(self.dropbox_location, 'Dropbox')
+        dropbox_path = osp.join(self.dropbox_location, "Dropbox")
+        if osp.exists(dropbox_path):
+            msg = ('There already is a folder named "Dropbox" at this location. Would '
+                   'you like to replace it?')
+            msg_box = ErrorDialog("Folder already exists", msg, parent=self)
+            msg_box.buttonBox.removeButton(msg_box.buttonBox.buttons()[0])
+            msg_box.buttonBox.addButton(QtWidgets.QDialogButtonBox.Yes)
+            msg_box.buttonBox.addButton(QtWidgets.QDialogButtonBox.Cancel)
+            msg_box.buttonBox.rejected.connect(msg_box.reject)
+            res = msg_box.exec_()
+
+            if res == 0:
+                return
+
         self.mdbx.set_dropbox_directory(dropbox_path)
 
         # switch to next page
