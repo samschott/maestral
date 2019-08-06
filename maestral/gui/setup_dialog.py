@@ -28,7 +28,7 @@ class SetupDialog(QtWidgets.QDialog):
     auth_session = ""
     auth_url = ""
 
-    def __init__(self, parent=None):
+    def __init__(self, pending_link=True, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(SETUP_DIALOG_PATH, self)
@@ -86,9 +86,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
 
         # check if we are already authenticated, skip authentication if yes
-        self.auth_session = OAuth2Session()
-        if self.auth_session.load_token():
-
+        if not pending_link:
             self.labelDropboxPath.setText("""
             <html><head/><body>
             <p align="left">
@@ -109,7 +107,6 @@ class SetupDialog(QtWidgets.QDialog):
             """.format(CONF.get("main", "path")))
             self.buttonBoxDropboxPath.buttons()[1].setText("Quit")
             self.stackedWidget.setCurrentIndex(2)
-            Maestral.FIRST_SYNC = False
             self.mdbx = Maestral(run=False)
             self.mdbx.client.get_account_info()
 
@@ -173,7 +170,6 @@ class SetupDialog(QtWidgets.QDialog):
         self.stackedWidget.setCurrentIndex(2)
 
         # start Maestral after linking to Dropbox account
-        Maestral.FIRST_SYNC = False
         self.mdbx = Maestral(run=False)
         self.mdbx.client.get_account_info()
 

@@ -13,13 +13,12 @@ import subprocess
 import webbrowser
 import shutil
 from blinker import signal
-from PyQt5 import QtCore, QtWidgets, QtGui
+from PyQt5 import QtCore, QtWidgets
 
 from maestral.main import Maestral
 from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
 from maestral.monitor import RevFileError, DropboxDeletedError
 from maestral.errors import CursorResetError, MaestralApiError
-from maestral.oauth import OAuth2Session
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.setup_dialog import SetupDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
@@ -121,10 +120,12 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def load_maestral(self):
 
-        auth = OAuth2Session()
+        pending_link = Maestral.pending_link()
+        pending_dbx_folder = Maestral.pending_dropbox_folder()
 
-        if Maestral.FIRST_SYNC or not auth.load_token():
-            self.mdbx = SetupDialog.configureMaestral()  # returns None if aborted by user
+        if pending_link or pending_dbx_folder:
+            # Run setup dialog. This returns None if aborted by the user.
+            self.mdbx = SetupDialog.configureMaestral(pending_link)
         else:
             self.mdbx = Maestral()
 

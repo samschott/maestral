@@ -20,6 +20,7 @@ from threading import Thread
 from dropbox import files
 
 from maestral.client import MaestralApiClient
+from maestral.oauth import OAuth2Session
 from maestral.monitor import (MaestralMonitor, CONNECTION_ERRORS, IDLE,
                               DISCONNECTED, path_exists_case_insensitive)
 from maestral.config.main import CONF, SUBFOLDER
@@ -127,10 +128,6 @@ class Maestral(object):
     changes in between sessions or while Maestral has been idle.
     """
 
-    FIRST_SYNC = (not CONF.get("internal", "lastsync") or
-                  CONF.get("internal", "cursor") == "" or
-                  not osp.isdir(CONF.get("main", "path")))
-
     download_complete_signal = signal("download_complete_signal")
 
     def __init__(self, run=True):
@@ -142,19 +139,36 @@ class Maestral(object):
         self.monitor = MaestralMonitor(self.client)
         self.sync = self.monitor.sync
 
-        if self.FIRST_SYNC:
-            self.set_dropbox_directory()
-            self.select_excluded_folders()
-
-            self.sync.last_cursor = ""
-            self.sync.last_sync = None
-
-            success = self.sync.get_remote_dropbox()
-            if success:
-                self.sync.last_sync = time.time()
-
         if run:
+            # if `run == False`, make sure that you manually initiate the first sync
+            # before calling `start_sync`
+            if self.pending_dropbox_folder():
+                self.set_dropbox_directory()
+                self.select_excluded_folders()
+
+                self.sync.last_cursor = ""
+                self.sync.last_sync = None
+
+            if self.pending_first_download():
+                success = self.sync.get_remote_dropbox()
+                if success:
+                    self.sync.last_sync = time.time()
+
             self.start_sync()
+
+    @staticmethod
+    def pending_link():
+        auth_session = OAuth2Session()
+        return auth_session.load_token() is None
+
+    @staticmethod
+    def pending_dropbox_folder():
+        return not osp.isdir(CONF.get("main", "path"))
+
+    @staticmethod
+    def pending_first_download():
+        return (not CONF.get("internal", "lastsync") or
+                CONF.get("internal", "cursor") == "")
 
     @property
     def syncing(self):
@@ -333,7 +347,7 @@ class Maestral(object):
                     included_folders.append(entry.path_lower)
 
         # detect and apply changes
-        if not self.FIRST_SYNC:
+        if not self.pending_first_download():
             for path in excluded_folders:
                 self.exclude_folder(path)
             for path in included_folders:
