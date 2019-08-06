@@ -896,7 +896,7 @@ class UpDownSync(object):
     # ====================================================================================
 
     @catch_sync_issues(sync_errors)
-    def get_remote_dropbox(self, dbx_path=""):
+    def get_remote_dropbox(self, dbx_path="", ignore_excluded=True):
         """
         Gets all files/folders from Dropbox and writes them to local folder
         :ivar:`dropbox_path`. Call this method on first run of client. Indexing
@@ -904,6 +904,7 @@ class UpDownSync(object):
         Dropbox folder.
 
         :param str dbx_path: Path to Dropbox folder. Defaults to root ("").
+        :param bool ignore_excluded: If ``True``, do not index excluded folders.
         :return: ``True`` on success, ``False`` otherwise.
         :rtype: bool
         """
@@ -912,18 +913,19 @@ class UpDownSync(object):
         success = []
 
         logger.info("Indexing...")
-        root_result = self.client.list_folder(dbx_path, recursive=False,
+        root_result = self.client.list_folder(dbx_path, recursive=(not ignore_excluded),
                                               include_deleted=False, limit=500)
 
         # download top-level folders / files first
         logger.info("Syncing...")
         success.append(self.apply_remote_changes(root_result, save_cursor=False))
 
-        # download sub-folders if not excluded
-        for entry in root_result.entries:
-            if isinstance(entry, FolderMetadata) and not self.is_excluded_by_user(
-                    entry.path_display):
-                success.append(self.get_remote_dropbox(entry.path_display))
+        if ignore_excluded:
+            # download sub-folders if not excluded
+            for entry in root_result.entries:
+                if isinstance(entry, FolderMetadata) and not self.is_excluded_by_user(
+                        entry.path_display):
+                    success.append(self.get_remote_dropbox(entry.path_display))
 
         if all(success) and is_dbx_root:
             self.last_cursor = root_result.cursor
@@ -989,7 +991,7 @@ class UpDownSync(object):
             fs = [executor.submit(self._create_local_entry, file) for file in files]
             for (f, n) in zip(as_completed(fs), range(1, n_files+1)):
                 if time.time() - last_emit > 1 or n in (1, n_files+1):
-                    # emit message at maximum every second
+                    # emit messages at maximum every second
                     logger.info("Downloading {0}/{1}...".format(n, n_files))
                     last_emit = time.time()
                 success += [f.result()]
@@ -1582,7 +1584,7 @@ Any changes to local files during this process may be lost. """)
         completed = False
         while not completed:
             try:
-                self.sync.get_remote_dropbox()
+                self.sync.get_remote_dropbox(ignore_excluded=False)
                 completed = True
             except CONNECTION_ERRORS:
                 logger.info(DISCONNECTED)
