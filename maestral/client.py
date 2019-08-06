@@ -227,7 +227,7 @@ class MaestralApiClient(object):
 
         return md
 
-    def upload(self, local_path, dbx_path, chunk_size_mb=20, **kwargs):
+    def upload(self, local_path, dbx_path, chunk_size_mb=5, **kwargs):
         """
         Uploads local file to Dropbox.
 
