@@ -222,6 +222,7 @@ class ErrorDialog(QtWidgets.QDialog):
     def __init__(self, title, message, exc_info=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         self.setWindowModality(QtCore.Qt.WindowModal)
+        self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Maestral Error")
         self.setFixedWidth(450)
 
