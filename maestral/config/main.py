@@ -15,10 +15,11 @@ a full download on the next startup.
 """
 
 # Local import
-from maestral.config.user import UserConfig
+from .user import UserConfig
+from .base import migrate_config_files
 
 PACKAGE_NAME = 'maestral'
-SUBFOLDER = '.%s' % PACKAGE_NAME
+SUBFOLDER = PACKAGE_NAME
 
 
 # =============================================================================
@@ -64,6 +65,8 @@ DEFAULTS = [
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
 CONF_VERSION = '3.3.0'
+
+migrate_config_files()
 
 # Main configuration instance
 try:

@@ -11,6 +11,7 @@ import sys
 import os
 import os.path as osp
 import shutil
+import platform
 
 
 STDERR = sys.stderr
@@ -51,13 +52,41 @@ def get_home_dir():
                                'your user/home directory.')
 
 
-def get_conf_path(subfolder=None, filename=None):
+def get_conf_path(subfolder=None, filename=None, create=True):
+    """Return absolute path to the config file with the specified filename."""
+    # Define conf_dir
+    if platform.system() == 'Linux':
+        # This makes us follow the XDG standard to save our settings
+        # on Linux
+        xdg_config_home = os.environ.get('XDG_CONFIG_HOME', '')
+        if not xdg_config_home:
+            xdg_config_home = osp.join(get_home_dir(), '.config')
+
+        if create and not osp.isdir(xdg_config_home):
+            os.makedirs(xdg_config_home)
+
+        conf_dir = osp.join(xdg_config_home, subfolder)
+    elif platform.system() == 'Darwin':
+        conf_dir = osp.join(get_home_dir(), 'Library', 'Application Support', subfolder)
+    else:
+        conf_dir = osp.join(get_home_dir(), subfolder)
+
+    # Create conf_dir
+    if create and not osp.isdir(conf_dir):
+        os.mkdir(conf_dir)
+    if filename is None:
+        return conf_dir
+    else:
+        return osp.join(conf_dir, filename)
+
+
+def get_old_conf_path(subfolder=None, filename=None, create=True):
     """Return absolute path to the config file with the specified filename."""
     # Define conf_dir
     conf_dir = osp.join(get_home_dir(), subfolder)
 
     # Create conf_dir
-    if not osp.isdir(conf_dir):
+    if create and not osp.isdir(conf_dir):
         os.mkdir(conf_dir)
     if filename is None:
         return conf_dir
@@ -81,3 +110,27 @@ def reset_config_files(subfolder, saved_config_files):
         else:
             continue
         print("removing:", cfg_fname, file=STDERR)
+
+
+# =============================================================================
+# Migrate config files
+# =============================================================================
+
+# code to migrate from old config file locations to new locations
+# config files will be stored in '$XDG_CONFIG_HOME/maestral' in Linux (or
+# '~/.config/maestral' if $XDG_CONFIG_HOME is not set) and in '~/Library/Application
+# Support/maestral' on macOS.
+
+def migrate_config_files():
+
+    import os
+    import shutil
+
+    old_path = get_old_conf_path('.maestral', create=False)
+    new_path = get_conf_path('maestral', create=False)
+
+    if os.path.isdir(old_path):
+        shutil.copytree(old_path, new_path)
+        shutil.rmtree(old_path)
+
+        print("Migrated config files.")
