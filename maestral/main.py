@@ -116,7 +116,7 @@ def handle_disconnect(func):
             logger.warning("{0}: {1}".format(CONNECTION_ERROR, e))
             return False
         except DropboxAuthError as e:
-            logger.warning("{0}: {1}".format(e.title, e.message))
+            logger.exception("{0}: {1}".format(e.title, e.message))
             return False
 
     return wrapper
