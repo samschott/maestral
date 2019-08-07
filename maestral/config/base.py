@@ -68,7 +68,7 @@ def get_conf_path(subfolder=None, filename=None, create=True):
     elif platform.system() == 'Darwin':
         conf_dir = osp.join(get_home_dir(), 'Library', 'Application Support', subfolder)
     else:
-        conf_dir = osp.join(get_home_dir(), subfolder)
+        conf_dir = osp.join(get_home_dir(), '.config', subfolder)
 
     # Create conf_dir
     if create and not osp.isdir(conf_dir):
@@ -79,14 +79,11 @@ def get_conf_path(subfolder=None, filename=None, create=True):
         return osp.join(conf_dir, filename)
 
 
-def get_old_conf_path(subfolder=None, filename=None, create=True):
+def get_old_conf_path(subfolder=None, filename=None):
     """Return absolute path to the config file with the specified filename."""
     # Define conf_dir
     conf_dir = osp.join(get_home_dir(), subfolder)
 
-    # Create conf_dir
-    if create and not osp.isdir(conf_dir):
-        os.mkdir(conf_dir)
     if filename is None:
         return conf_dir
     else:
@@ -125,7 +122,7 @@ def migrate_config_files():
     import os
     import shutil
 
-    old_path = get_old_conf_path('.maestral', create=False)
+    old_path = get_old_conf_path('.maestral')
     new_path = get_conf_path('maestral', create=False)
 
     print('Using config directory: %s' % new_path)
