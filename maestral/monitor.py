@@ -634,13 +634,11 @@ class UpDownSync(object):
                     last_emit = time.time()
                 success += [f.result()]
 
-        if not all(success):
+        if all(success):
+            self.last_sync = local_cursor  # save local cursor
+            return True
+        else:
             return False
-
-        # save cursor and clear un-synced changes cache
-        self.last_sync = local_cursor
-
-        return True
 
     @staticmethod
     def _list_diff(list1, list2):
@@ -1638,14 +1636,13 @@ Any changes to local files during this process may be lost. """)
         # get modified or added items
         for path in snapshot.paths:
             stats = snapshot.stat_info(path)
-            last_sync = CONF.get("internal", "lastsync")
             # check if item was created or modified since last sync
             dbx_path = self.sync.to_dbx_path(path).lower()
 
             is_new = (self.sync.get_local_rev(dbx_path) is None and
                       not self.sync.is_excluded(dbx_path))
             is_modified = (self.sync.get_local_rev(dbx_path) and
-                           max(stats.st_ctime, stats.st_mtime) > last_sync)
+                           max(stats.st_ctime, stats.st_mtime) > self.sync.last_sync)
 
             if is_new:
                 if osp.isdir(path):
