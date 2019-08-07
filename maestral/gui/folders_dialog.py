@@ -42,6 +42,7 @@ class FoldersDialog(QtWidgets.QDialog):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(FOLDERS_DIALOG_PATH, self)
+        self.setModal(True)
 
         self.mdbx = mdbx
         self.accept_button = self.buttonBox.buttons()[0]

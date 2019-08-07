@@ -27,6 +27,7 @@ class UnlinkDialog(QtWidgets.QDialog):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(UNLINK_DIALOG_PATH, self)
+        self.setModal(True)
 
         self.setWindowFlags(QtCore.Qt.Sheet)
 
@@ -95,6 +96,7 @@ class SettingsWindow(QtWidgets.QWidget):
         msg = ('Choose a location for your Dropbox. A folder named "Dropbox"' +
                ' will be created inside the folder you select.')
         self.dropbox_folder_dialog = QtWidgets.QFileDialog(self, caption=msg)
+        self.dropbox_folder_dialog.setModal(True)
         self.dropbox_folder_dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptOpen)
         self.dropbox_folder_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
         self.dropbox_folder_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly, True)
