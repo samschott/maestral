@@ -312,7 +312,8 @@ class MaestralApiClient(object):
             res = self.dbx.files_delete_v2(dbx_path, **kwargs)
             md = res.metadata
         except dropbox.exceptions.DropboxException as exc:
-            if exc.error.is_path_lookup():
+            if (isinstance(exc.error, dropbox.files.DeleteError) and
+                    exc.error.is_path_lookup()):
                 # don't log as error if file did not exist
                 logger.debug("An error occurred when deleting '{0}': the file does "
                              "not exist on Dropbox".format(dbx_path))
