@@ -12,6 +12,7 @@ import platform
 import subprocess
 import webbrowser
 import shutil
+import keyring
 from blinker import signal
 from PyQt5 import QtCore, QtWidgets
 
@@ -336,7 +337,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             return
         elif isinstance(exc, DropboxAuthError):
             auth_session = OAuth2Session()
-            auth_session.delete_creds()
+            try:
+                auth_session.delete_creds()
+            except keyring.errors.PasswordDeleteError:
+                pass
             error_dialog = ErrorDialog(exc.title, exc.message)
             error_dialog.exec_()
             quit_and_restart_maestral()
