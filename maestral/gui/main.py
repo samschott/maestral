@@ -17,6 +17,7 @@ from PyQt5 import QtCore, QtWidgets
 
 from maestral.main import Maestral
 from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
+from maestral.oauth import OAuth2Session
 from maestral.errors import (DropboxAuthError, CursorResetError, MaestralApiError,
                              RevFileError, DropboxDeletedError)
 from maestral.gui.settings_window import SettingsWindow
@@ -334,6 +335,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             quit_and_restart_maestral()
             return
         elif isinstance(exc, DropboxAuthError):
+            auth_session = OAuth2Session()
+            auth_session.delete_creds()
             error_dialog = ErrorDialog(exc.title, exc.message)
             error_dialog.exec_()
             quit_and_restart_maestral()
