@@ -1,4 +1,5 @@
-[![PyPi Release](https://img.shields.io/pypi/v/maestral.svg?color=blue)](https://pypi.org/project/maestral/)
+[![PyPi Release](https://img.shields.io/pypi/v/maestral.svg)](https://pypi.org/project/maestral/)
+[![Pyversions](https://img.shields.io/pypi/pyversions/maestral.svg)](https://pypi.org/pypi/maestral/)
 
 # Maestral <img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/maestral/gui/resources/Maestral.png" align="right" title="Maestral" width="110" height="110">
 
@@ -12,25 +13,28 @@ Dropbox.
 
 Currently, Maestral does not support Dropbox Paper, the management of Dropbox teams and
 the management of shared folder settings. If you need any of this functionality, please
-use the Dropbox website or the official client.
+use the Dropbox website or the official client. Since Maestral aims to be compatible with
+as many systems as possible, it does not integrate with file managers: there are no badges
+to indicate the sync status of folders or files.
 
-The focus on file syncing does come with advantages: the Maestral App on macOS is 80%
-smaller than the official Dropbox App (50 MB vs 290 MB) and uses 70% less memory. The app
-size and memory footprint can be further reduced when installing and running Maestral
+The focus on "simple" file syncing does come with advantages: the Maestral App on macOS is
+80% smaller than the official Dropbox app (50 MB vs 290 MB) and uses 70% less memory. The
+app size and memory footprint can be further reduced when installing and running Maestral
 without a GUI and using the Python installation provided by your OS. The Maestral code
 itself and its Python dependencies take up less than 3 MB,  making a headless install
 ideal for systems with tight resources.
 
 ## Installation
 
-A binary is provided for macOS Mojave and can be downloaded from the Releases tab. On
-other platforms, download and install the Python package from PyPI by running
+A binary is provided for macOS High Sierra and higher and can be downloaded from the
+Releases tab. On other platforms, download and install the Python package from PyPI by
+running
 ```console
 $ python3 -m pip install --upgrade maestral
 ```
 in the command line. If you intend to use the graphical user interface, you also need to
 install PyQt5. I highly recommend installing PyQt5 through your distribution's package
-manager (e.g, yum, dnf, apt-get, homebrew). Alternatively, you can also get it from PyPI:
+manager (e.g., yum, dnf, apt-get, homebrew). Alternatively, you can also get it from PyPI:
 ```console
 $ python3 -m pip install --upgrade PyQt5
 ```
@@ -86,12 +90,12 @@ start syncing. Supported commands include:
 `maestral.client` handles all the interaction with the Dropbox API such as authentication,
 uploading and downloading files and folders, getting metadata and listing folder contents.
 
-`maestral.monitor` handles the actual syncing. It monitors the local Dropbox folders and
-the remote Dropbox for changes and applies them using the interface provided by
+`maestral.monitor` handles the actual syncing. It monitors the local Dropbox folder and
+the remote Dropbox for changes and syncs them using the interface provided by
 `maestral.client`.
 
 `maestral.main` provides the main programmatic user interface. It links your Dropbox
-account and sets up your local folder and lets you select which folders to sync.
+account, sets up your local folder and lets you select which folders to sync.
 
 `maestral.gui` contains all graphical user interfaces for `Maestral`.
 
@@ -101,19 +105,17 @@ The following tasks could need your help:
 
 - [ ] Write tests for maestral.
 - [ ] Detect and warn in case of unsupported Dropbox folder locations (network drives,
-      external hard drives, etc) and when the Dropbox folder is deleted by the user.
+      external hard drives, etc).
 - [ ] Speed up downloads of large folders and initial sync: Download zip files if possible.
 - [ ] Native Cocoa and GTK interfaces. Maestral currently uses PyQt5.
 - [ ] Packaging: improve packing for macOS (reduce app size) and package for other platforms.
 
 ## Warning:
 
-- Maestral does not have production status yet, so only 500 accounts can use the API keys.
 - Maestral is still in beta status. Even through highly unlikely, using it may potentially
   result in loss of data.
-- Known issues:
-  - Network drives and some external hard drives are not supported as locations for the
-    Dropbox folder.
+- Network drives and some external hard drives are not supported as locations for the
+  Dropbox folder.
 
 ## Dependencies
 
@@ -131,7 +133,8 @@ The following tasks could need your help:
 - blinker
 - requests
 - u-msgpack-python
-
+- keyring
+- keyring.alt
 
 # Acknowledgements
 
