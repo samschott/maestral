@@ -336,15 +336,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             quit_and_restart_maestral()
             return
         elif isinstance(exc, DropboxAuthError):
-            auth_session = OAuth2Session()
-            try:
-                auth_session.delete_creds()
-            except keyring.errors.PasswordDeleteError:
-                pass
-            error_dialog = ErrorDialog(exc.title, exc.message)
-            error_dialog.exec_()
-            quit_and_restart_maestral()
-            return
+            title = exc.title
+            message = exc.message
+            show_tb = False
         elif isinstance(exc, MaestralApiError):
             # don't show dialog on all other MaestralApiErrors, they are "normal" sync
             # issues which can be resolved by the user
@@ -361,6 +355,14 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         exc_info = exc_info if show_tb else None
         error_dialog = ErrorDialog(title, message, exc_info)
         error_dialog.exec_()
+
+        if isinstance(exc, DropboxAuthError):
+            auth_session = OAuth2Session()
+            try:
+                auth_session.delete_creds()
+            except keyring.errors.PasswordDeleteError:
+                pass
+            quit_and_restart_maestral()
 
     def on_rebuild(self):
 
