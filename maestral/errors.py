@@ -44,6 +44,9 @@ class MaestralApiError(Exception):
         self.local_path = local_path
         self.local_path_dst = local_path_dst
 
+    def __str__(self):
+        return "{0}: {1}".format(self.title, self.message)
+
 
 class InsufficientPermissionsError(MaestralApiError):
     """Raised when writing a file / folder fails due to insufficient permissions,
