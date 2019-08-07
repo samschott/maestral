@@ -102,7 +102,7 @@ def with_sync_paused(func):
 
 def handle_disconnect(func):
     """
-    Decorator which handles connection errors during a function call.
+    Decorator which handles connection and auth errors during a function call.
     """
 
     @functools.wraps(func)
@@ -113,6 +113,9 @@ def handle_disconnect(func):
             return res
         except CONNECTION_ERRORS as e:
             logger.warning("{0}: {1}".format(CONNECTION_ERROR, e))
+            return False
+        except DropboxAuthError as e:
+            logger.warning("{0}: {1}".format(e.title, e.message))
             return False
 
     return wrapper

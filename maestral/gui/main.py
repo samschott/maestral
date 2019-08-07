@@ -333,12 +333,19 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.mdbx.stop_sync()
             quit_and_restart_maestral()
             return
-        elif not isinstance(exc, MaestralApiError):
+        elif isinstance(exc, DropboxAuthError):
+            error_dialog = ErrorDialog(exc.title, exc.message)
+            error_dialog.exec_()
+            quit_and_restart_maestral()
+            return
+        elif isinstance(exc, MaestralApiError):
+            # don't show dialog on all other MaestralApiErrors, they are "normal" sync
+            # issues which can be resolved by the user
+            return
+        else:
             title = "An unexpected error occurred."
             message = "Please contact the Maestral developer with the information below."
             show_tb = True
-        else:
-            return
 
         self.mdbx.stop_sync()
         self.setIcon(self.icons[SYNC_ERROR])

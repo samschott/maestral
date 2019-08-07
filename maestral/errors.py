@@ -100,13 +100,15 @@ def to_maestral_error(exc, dbx_path=None, local_path=None):
     message from the mess which is the Python Dropbox SDK exception handling.
 
     :param exc: :class:`dropbox.exceptions.ApiError` instance.
+    :param str dbx_path: Dropbox path of file which triggered the error.
+    :param str local_path: Local path of file which triggered the error.
     :returns: :class:`MaestralApiError` instance.
     :rtype: :class:`MaestralApiError`
     """
 
     err_type = MaestralApiError
 
-    # ----------------------- Dropbox API Errors -----------------------------------------
+    # --------------------------- Dropbox API Errors -------------------------------------
     if isinstance(exc, dropbox.exceptions.ApiError):
 
         title = "Dropbox Error"
@@ -227,8 +229,25 @@ def to_maestral_error(exc, dbx_path=None, local_path=None):
         title = "Could not download file"
         text = "The given download path is invalid."
         err_type = PathError
+    elif isinstance(exc, IsADirectoryError):
+        title = "Could not download file"
+        text = "The given download path is a directory."
+        err_type = PathError
 
     # ----------------------- Authentication errors --------------------------------------
+    elif isinstance(exc, dropbox.exceptions.AuthError):
+        err_type = DropboxAuthError
+        error = exc.error
+        if isinstance(error, dropbox.auth.AuthError):
+            title = "Authentication error"
+            if error.is_expired_access_token():
+                text = ("Maestral's access to your Dropbox has expired. Please relink "
+                        "to continue syncing.")
+            elif error.is_invalid_access_token():
+                text = ("Maestral's access to your Dropbox has been revoked. Please "
+                        "relink to continue syncing.")
+
+    # -------------------------- OAuth2 flow errors --------------------------------------
     elif isinstance(exc, requests.HTTPError):
         title = "Authentication failed"
         text = "Please make sure that you entered the correct authentication code."

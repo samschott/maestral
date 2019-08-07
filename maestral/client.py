@@ -124,7 +124,10 @@ class MaestralApiClient(object):
         :returns: :class:`dropbox.users.FullAccount` instance or `None` if failed.
         :rtype: dropbox.users.FullAccount
         """
-        res = self.dbx.users_get_current_account()  # this does not raise any API errors
+        try:
+            res = self.dbx.users_get_current_account()  # should only raise auth errors
+        except dropbox.exceptions.DropboxException as exc:
+            raise to_maestral_error(exc)
 
         if res.account_type.is_basic():
             account_type = 'basic'
@@ -148,7 +151,10 @@ class MaestralApiClient(object):
         :returns: :class:`SpaceUsage` instance or `False` if failed.
         :rtype: SpaceUsage
         """
-        res = self.dbx.users_get_space_usage()  # this does not raise any API errors
+        try:
+            res = self.dbx.users_get_space_usage()  # should only raise auth errors
+        except dropbox.exceptions.DropboxException as exc:
+            raise to_maestral_error(exc)
 
         # convert from dropbox.users.SpaceUsage to SpaceUsage with nice string
         # representation
@@ -168,7 +174,10 @@ class MaestralApiClient(object):
         Unlinks the Dropbox account and deletes local sync information.
         """
         self.auth.delete_creds()
-        self.dbx.auth_token_revoke()  # this does not raise any API errors
+        try:
+            self.dbx.auth_token_revoke()  # should only raise auth errors
+        except dropbox.exceptions.DropboxException as exc:
+            raise to_maestral_error(exc)
 
     def get_metadata(self, dbx_path, **kwargs):
         """
@@ -184,7 +193,7 @@ class MaestralApiClient(object):
         try:
             md = self.dbx.files_get_metadata(dbx_path, **kwargs)
             logger.debug("Retrieved metadata for '{0}'".format(md.path_display))
-        except dropbox.exceptions.ApiError as exc:
+        except dropbox.exceptions.DropboxException as exc:
             # DropboxAPI error is only raised when the item does not exist on Dropbox
             # this is handled on a DEBUG level since we use call `get_metadata` to check
             # if a file exists
@@ -213,14 +222,14 @@ class MaestralApiClient(object):
             except FileExistsError:
                 pass
             except OS_FILE_ERRORS as exc:
-                raise construct_local_error_msg(exc, dbx_path) from exc
+                raise construct_local_error(exc, dbx_path) from exc
 
         try:
             md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
-        except dropbox.exceptions.ApiError as exc:
+        except dropbox.exceptions.DropboxException as exc:
             raise to_maestral_error(exc, dbx_path) from exc
         except OS_FILE_ERRORS as exc:
-            raise construct_local_error_msg(exc, dbx_path) from exc
+            raise construct_local_error(exc, dbx_path) from exc
 
         logger.debug("File '{0}' (rev {1}) from '{2}' was successfully downloaded "
                      "as '{3}'.".format(md.name, md.rev, md.path_display, dst_path))
@@ -279,10 +288,10 @@ class MaestralApiClient(object):
                             uploaded_display += chunk_size_display
                             logger.info("Uploading {0}/{1}{2}...".format(
                                 uploaded_display, file_size_display, display_unit))
-        except dropbox.exceptions.ApiError as exc:
+        except dropbox.exceptions.DropboxException as exc:
             raise to_maestral_error(exc, dbx_path) from exc
         except OS_FILE_ERRORS as exc:
-            raise construct_local_error_msg(exc, dbx_path) from exc
+            raise construct_local_error(exc, dbx_path) from exc
 
         logger.debug("File '{0}' (rev {1}) uploaded to Dropbox.".format(
             md.path_display, md.rev))
@@ -304,7 +313,7 @@ class MaestralApiClient(object):
             # try to move file (response will be metadata, probably)
             res = self.dbx.files_delete_v2(dbx_path, **kwargs)
             md = res.metadata
-        except dropbox.exceptions.ApiError as exc:
+        except dropbox.exceptions.DropboxException as exc:
             if exc.error.is_path_lookup():
                 # don't log as error if file did not exist
                 logger.debug("An error occurred when deleting '{0}': the file does "
@@ -331,7 +340,7 @@ class MaestralApiClient(object):
             res = self.dbx.files_move_v2(dbx_path, new_path, allow_shared_folder=True,
                                          allow_ownership_transfer=True, **kwargs)
             md = res.metadata
-        except dropbox.exceptions.ApiError as exc:
+        except dropbox.exceptions.DropboxException as exc:
             raise to_maestral_error(exc, new_path) from exc
 
         logger.debug("File moved from '{0}' to '{1}' on Dropbox.".format(
@@ -351,7 +360,7 @@ class MaestralApiClient(object):
         try:
             res = self.dbx.files_create_folder_v2(dbx_path, **kwargs)
             md = res.metadata
-        except dropbox.exceptions.ApiError as exc:
+        except dropbox.exceptions.DropboxException as exc:
             raise to_maestral_error(exc, dbx_path) from exc
 
         logger.debug("Created folder '%s' on Dropbox.", md.path_display)
@@ -385,7 +394,7 @@ class MaestralApiClient(object):
                 **kwargs
             )
             results.append(res)
-        except dropbox.exceptions.ApiError as exc:
+        except dropbox.exceptions.DropboxException as exc:
             raise to_maestral_error(exc, dbx_path) from exc
 
         idx = 0
@@ -396,7 +405,7 @@ class MaestralApiClient(object):
             try:
                 more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
                 results.append(more_results)
-            except dropbox.exceptions.ApiError as exc:
+            except dropbox.exceptions.DropboxException as exc:
                 new_exc = to_maestral_error(exc, dbx_path)
                 if isinstance(new_exc, CursorResetError) and self._retry_count < retry:
                     # retry up to three times, then raise
@@ -456,7 +465,7 @@ class MaestralApiClient(object):
 
         try:
             result = self.dbx.files_list_folder_longpoll(last_cursor, timeout=timeout)
-        except dropbox.exceptions.ApiError as exc:
+        except dropbox.exceptions.DropboxException as exc:
             raise to_maestral_error(exc) from exc
 
         # keep track of last long poll, back off if requested by SDK
@@ -485,14 +494,14 @@ class MaestralApiClient(object):
 
         try:
             results.append(self.dbx.files_list_folder_continue(last_cursor))
-        except dropbox.exceptions.ApiError as exc:
+        except dropbox.exceptions.DropboxException as exc:
             raise to_maestral_error(exc) from exc
 
         while results[-1].has_more:
             try:
                 more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
                 results.append(more_results)
-            except dropbox.exceptions.ApiError as exc:
+            except dropbox.exceptions.DropboxException as exc:
                 raise to_maestral_error(exc) from exc
 
         # combine all results into one
