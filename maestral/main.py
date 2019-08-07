@@ -44,7 +44,7 @@ rfh.setLevel(logging.ERROR)
 
 sh = logging.StreamHandler(sys.stdout)
 sh.setFormatter(log_fmt)
-sh.setLevel(logging.DEBUG)
+sh.setLevel(logging.INFO)
 
 mdbx_logger = logging.getLogger("maestral")
 mdbx_logger.setLevel(logging.DEBUG)
