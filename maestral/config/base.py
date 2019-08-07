@@ -125,8 +125,6 @@ def migrate_config_files():
     old_path = get_old_conf_path('.maestral')
     new_path = get_conf_path('maestral', create=False)
 
-    print('Using config directory: %s' % new_path)
-
     if os.path.isdir(old_path):
         shutil.copytree(old_path, new_path)
         shutil.rmtree(old_path)
