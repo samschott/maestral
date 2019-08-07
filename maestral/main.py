@@ -71,7 +71,6 @@ def folder_download_worker(sync, dbx_path):
         while not completed:
             try:
                 sync.get_remote_dropbox(dbx_path)
-                sync.last_sync = time.time()
                 logger.info(IDLE)
 
                 time.sleep(1)
