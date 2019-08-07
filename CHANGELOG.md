@@ -2,21 +2,25 @@
 
 _Added:_
 
-- Handle expired or invalided Dropbox access.
+- Handle expired or invalidated Dropbox access.
 - Ask the user before overriding an existing folder in the setup dialog.
-- Added status updates on large file uploads (e.g., "Uploading 10/545MB...").
+- Added status updates for large file uploads (e.g., "Uploading 10/545MB...").
 
 _Changed:_
 
 - Significant speedup of initial indexing. Excluded folders or subfolders will no
   longer be indexed.
+- Save config files in the systems default location: '$XDG_DATA_HOME/maestral' or
+  '.config/maestral' in Linux and '~/Library/Application Support/maestral' on macOS.
   
 _Fixed:_
 
 - Fixed a false "Dropbox folder cannot be found" message which would appear when
-  quitting and restarting Maestral during the first sync. Now, the initial sync is quietly
-  restarted when relaunching Maestral.
+  quitting and restarting Maestral during the first sync. Now, the initial download is
+  quietly resumed when relaunching Maestral.
 - Fixed an issue where an interrupted upload would not resume without restarting Maestral.
+- Fixed an issue where file changes while "offline" would sometimes not be synced to
+  Dropbox when a connection is reestablished.
 
 ### v0.2.4 (2019-08-05)
 
