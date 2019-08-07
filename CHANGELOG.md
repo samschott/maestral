@@ -21,6 +21,8 @@ _Fixed:_
 - Fixed an issue where an interrupted upload would not resume without restarting Maestral.
 - Fixed an issue where file changes while "offline" would sometimes not be synced to
   Dropbox when a connection is reestablished.
+- Fixed an issue where errors from `requests` would inadvertently get caught instead of
+  being raised.
 
 ### v0.2.4 (2019-08-05)
 
