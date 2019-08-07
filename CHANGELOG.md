@@ -27,6 +27,8 @@ _Fixed:_
   Dropbox when a connection is reestablished.
 - Fixed an issue where errors from `requests` would inadvertently get caught instead of
   being raised.
+- Fixes an issue in macOS where modal dialogs in the settings window would sometimes
+  appear behind the window instead of in front of it.
 
 ### v0.2.4 (2019-08-05)
 
