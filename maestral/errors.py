@@ -79,6 +79,12 @@ class DropboxAuthError(MaestralApiError):
     pass
 
 
+class BadInputError(MaestralApiError):
+    """Raised when an API request is made with bad input. This should not happen
+    during syncing but only in case of manual API calls."""
+    pass
+
+
 class CursorResetError(MaestralApiError):
     """Raised when the cursor used for a longpoll or list-folder request has been
     invalidated. Dropbox should very rarely invalidate a cursor. If this happens, a new
@@ -286,12 +292,16 @@ def to_maestral_error(exc, dbx_path=None, local_path=None):
         text = "Please grant Maestral access to your Dropbox to start syncing."
         err_type = DropboxAuthError
 
+    # ----------------------------- Bad input errors -------------------------------------
+    # should only occur due to user input from console scripts
+    elif isinstance(exc, dropbox.exceptions.BadInputError):
+        title = "Dropbox error"
+        text = exc.message
+        err_type = BadInputError
+
     # -------------------------- Everything else -----------------------------------------
     else:
-        try:
-            title = exc.arg[0]
-        except AttributeError:
-            title = "Dropbox Error"
+        title = exc.args[0]
         text = None
 
     return err_type(title, text, dbx_path=dbx_path, local_path=local_path)
