@@ -21,8 +21,9 @@ from dropbox import files
 
 from maestral.client import MaestralApiClient
 from maestral.oauth import OAuth2Session
-from maestral.monitor import (MaestralMonitor, CONNECTION_ERRORS, IDLE,
-                              DISCONNECTED, path_exists_case_insensitive)
+from maestral.errors import CONNECTION_ERRORS, DropboxAuthError
+from maestral.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
+                              path_exists_case_insensitive)
 from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
 

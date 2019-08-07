@@ -10,7 +10,7 @@ import time
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 from maestral.main import __version__, __author__, __url__
-from maestral.monitor import CONNECTION_ERRORS
+from maestral.errors import CONNECTION_ERRORS
 from maestral.utils.autostart import AutoStart
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir

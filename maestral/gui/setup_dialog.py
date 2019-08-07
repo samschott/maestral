@@ -14,7 +14,7 @@ from dropbox import files
 
 from maestral.main import Maestral
 from maestral.oauth import OAuth2Session
-from maestral.monitor import CONNECTION_ERRORS
+from maestral.errors import CONNECTION_ERRORS
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FolderItem

@@ -17,8 +17,8 @@ from PyQt5 import QtCore, QtWidgets
 
 from maestral.main import Maestral
 from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
-from maestral.monitor import RevFileError, DropboxDeletedError
-from maestral.errors import CursorResetError, MaestralApiError
+from maestral.errors import (DropboxAuthError, CursorResetError, MaestralApiError,
+                             RevFileError, DropboxDeletedError)
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.setup_dialog import SetupDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow

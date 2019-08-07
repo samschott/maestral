@@ -9,6 +9,29 @@ import dropbox
 import requests
 
 
+CONNECTION_ERRORS = (
+    requests.exceptions.Timeout,
+    requests.exceptions.ConnectionError,
+    requests.exceptions.HTTPError,
+    requests.exceptions.ReadTimeout,
+    requests.exceptions.RetryError,
+    ConnectionError,
+)
+
+OS_FILE_ERRORS = (FileExistsError, FileNotFoundError, InterruptedError,
+                  IsADirectoryError, NotADirectoryError, PermissionError, )
+
+
+class RevFileError(Exception):
+    """Raised when the rev file exists but cannot be read."""
+    pass
+
+
+class DropboxDeletedError(Exception):
+    """Raised when the rev file exists but cannot be read."""
+    pass
+
+
 class MaestralApiError(Exception):
 
     def __init__(self, title, message, dbx_path=None, dbx_path_dst=None,
@@ -71,11 +94,13 @@ class UnsupportedFileError(MaestralApiError):
     pass
 
 
-def construct_local_error_msg(exc, dbx_path=None):
+def construct_local_error(exc, dbx_path=None, local_path=None):
     """
     Gets the OSError and tries to add a reasonably informative error message.
 
     :param exc: Python Exception.
+    :param str dbx_path: Dropbox path of file which triggered the error.
+    :param str local_path: Local path of file which triggered the error.
     :returns: :class:`MaestralApiError` instance.
     :rtype: :class:`MaestralApiError`
     """
@@ -90,7 +115,7 @@ def construct_local_error_msg(exc, dbx_path=None):
     else:
         text = None
 
-    return err_type(title, text, dbx_path)
+    return err_type(title, text, dbx_path=dbx_path, local_path=local_path)
 
 
 # TODO: improve checks for non-downloadable files

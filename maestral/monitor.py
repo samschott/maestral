@@ -16,7 +16,6 @@ from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import queue
 from collections import OrderedDict
-import requests
 import functools
 
 import umsgpack
@@ -35,20 +34,12 @@ from watchdog.utils.dirsnapshot import DirectorySnapshot
 from maestral.config.main import CONF
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import Notipy
-from maestral.errors import MaestralApiError, CursorResetError
+from maestral.errors import (CONNECTION_ERRORS, MaestralApiError, CursorResetError,
+                             RevFileError, DropboxDeletedError)
 
 
 logger = logging.getLogger(__name__)
 
-
-CONNECTION_ERRORS = (
-    requests.exceptions.Timeout,
-    requests.exceptions.ConnectionError,
-    requests.exceptions.HTTPError,
-    requests.exceptions.ReadTimeout,
-    requests.exceptions.RetryError,
-    ConnectionError,
-)
 
 IDLE = "Up to date"
 SYNCING = "Syncing..."
@@ -179,16 +170,6 @@ class FileEventHandler(FileSystemEventHandler):
             self.local_q.put(event)
 
 
-class RevFileError(Exception):
-    """Raised when the rev file exists but cannot be read."""
-    pass
-
-
-class DropboxDeletedError(Exception):
-    """Raised when the rev file exists but cannot be read."""
-    pass
-
-
 def catch_sync_issues(sync_errors=None, failed_items=None):
     """
     Decorator that catches all MaestralApiErrors and logs them. This should only be used
@@ -211,12 +192,13 @@ def catch_sync_issues(sync_errors=None, failed_items=None):
                 logger.exception(SYNC_ERROR)
                 file_name = os.path.basename(exc.dbx_path)
                 self.notify.send("Could not sync {0}".format(file_name))
-                if exc.local_path is None:
-                    exc.local_path = self.to_local_path(exc.dbx_path)
-                if sync_errors:
-                    sync_errors.put(exc)
-                if failed_items:
-                    failed_items.put(args[0])
+                if exc.dbx_path is not None:
+                    if exc.local_path is None:
+                        exc.local_path = self.to_local_path(exc.dbx_path)
+                    if sync_errors:
+                        sync_errors.put(exc)
+                    if failed_items:
+                        failed_items.put(args[0])
                 res = False
 
             return res

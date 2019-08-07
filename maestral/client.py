@@ -16,7 +16,8 @@ import dropbox
 from maestral.oauth import OAuth2Session
 from maestral.config.main import CONF
 from maestral.utils import is_macos_bundle, is_linux_bundle
-from maestral.errors import to_maestral_error, construct_local_error_msg, CursorResetError
+from maestral.errors import to_maestral_error, construct_local_error
+from maestral.errors import OS_FILE_ERRORS, CursorResetError
 
 if is_macos_bundle:
     # running in a bundle in macOS
@@ -31,9 +32,6 @@ logger = logging.getLogger(__name__)
 # create single requests session for all clients
 SESSION = dropbox.dropbox.create_session()
 USER_AGENT = "Maestral/v0.2"
-
-OS_FILE_ERRORS = (FileExistsError, FileNotFoundError, InterruptedError,
-                  IsADirectoryError, NotADirectoryError, PermissionError, )
 
 
 def tobytes(value, unit, bsize=1024):
