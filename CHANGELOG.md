@@ -1,4 +1,8 @@
-### v0.2.5.dev1 
+### v0.2.5 (2019-08-07)
+
+This release fixes several sync issues which could occur when the internet connection is
+lost during a sync. It also notifies the user if Maestral's access to their Dropbox has
+been revoked.
 
 _Added:_
 
