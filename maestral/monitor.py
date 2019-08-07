@@ -35,7 +35,7 @@ from maestral.config.main import CONF
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import Notipy
 from maestral.errors import (CONNECTION_ERRORS, MaestralApiError, CursorResetError,
-                             RevFileError, DropboxDeletedError)
+                             RevFileError, DropboxDeletedError, DropboxAuthError)
 
 
 logger = logging.getLogger(__name__)
@@ -1282,6 +1282,10 @@ def connection_helper(client, connected, syncing, running):
             disconnected_signal.send()
             logger.info(DISCONNECTED)
             time.sleep(1)
+        except DropboxAuthError as e:
+            running.clear()
+            syncing.clear()
+            logger.exception("{0}: {1}".format(e.title, e.message))
 
 
 def download_worker(sync, syncing, running, flagged):
