@@ -288,7 +288,10 @@ def to_maestral_error(exc, dbx_path=None, local_path=None):
 
     # -------------------------- Everything else -----------------------------------------
     else:
-        title = exc.arg[0]
+        try:
+            title = exc.arg[0]
+        except AttributeError:
+            title = "Dropbox Error"
         text = None
 
     return err_type(title, text, dbx_path=dbx_path, local_path=local_path)
