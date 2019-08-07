@@ -15,17 +15,9 @@ import dropbox
 
 from maestral.oauth import OAuth2Session
 from maestral.config.main import CONF
-from maestral.utils import is_macos_bundle, is_linux_bundle
 from maestral.errors import to_maestral_error, construct_local_error
 from maestral.errors import OS_FILE_ERRORS, CursorResetError
 
-if is_macos_bundle:
-    # running in a bundle in macOS
-    import keyring.backends.OS_X
-    keyring.set_keyring(keyring.backends.OS_X.Keyring())
-elif is_linux_bundle:
-    import keyring.backends.SecretService
-    keyring.set_keyring(keyring.backends.SecretService.Keyring())
 
 logger = logging.getLogger(__name__)
 

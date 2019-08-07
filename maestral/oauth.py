@@ -12,11 +12,21 @@ import logging
 from keyring.errors import KeyringLocked
 from dropbox import DropboxOAuth2FlowNoRedirect
 
+from maestral.utils import is_macos_bundle, is_linux_bundle
 from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
 from maestral.errors import to_maestral_error
 
+
 logger = logging.getLogger(__name__)
+
+if is_macos_bundle:
+    # running in a bundle in macOS
+    import keyring.backends.OS_X
+    keyring.set_keyring(keyring.backends.OS_X.Keyring())
+elif is_linux_bundle:
+    import keyring.backends.SecretService
+    keyring.set_keyring(keyring.backends.SecretService.Keyring())
 
 
 class OAuth2Session(object):
@@ -39,6 +49,7 @@ class OAuth2Session(object):
         Check if credentials exist.
         :return:
         """
+        logger.debug("Using keyring: %s" % keyring.get_keyring())
         try:
             t1 = keyring.get_password("Maestral", self.account_id)
             t2 = keyring.get_password("Maestral", "MaestralUser")
