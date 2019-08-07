@@ -10,6 +10,7 @@ __version__ = "0.2.5.dev1"
 __author__ = "Sam Schott"
 __url__ = "https://github.com/SamSchott/maestral"
 
+import sys
 import os
 import os.path as osp
 import time
@@ -31,27 +32,27 @@ import logging
 import logging.handlers
 
 # set up logging
-
 logger = logging.getLogger(__name__)
-log_dir = os.path.join(get_conf_path(SUBFOLDER), 'logs')
-log_file = os.path.join(get_conf_path(SUBFOLDER), 'logs', 'maestral.log')
-if not os.path.isdir(log_dir):
-    os.mkdir(log_dir)
+
+log_dir = get_conf_path(os.path.join(SUBFOLDER, 'logs'))
+log_file = get_conf_path(os.path.join(SUBFOLDER, 'logs'), 'maestral.log')
+log_fmt = logging.Formatter(fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
+                            datefmt="%Y-%m-%d %H:%M:%S")
 rfh = logging.handlers.RotatingFileHandler(log_file, maxBytes=10**6, backupCount=3)
-rfh.setFormatter(logging.Formatter(fmt="%(asctime)s %(levelname)s: %(message)s",
-                                   datefmt="%Y-%m-%d %H:%M:%S"))
-rfh.setLevel(logging.DEBUG)
+rfh.setFormatter(log_fmt)
+rfh.setLevel(logging.ERROR)
 
-for log_name in ("maestral.config", "maestral.main", "maestral.client", "maestral.oauth",
-                 "maestral.monitor"):
-    mdbx_logger = logging.getLogger(log_name)
-    mdbx_logger.addHandler(logging.StreamHandler())
-    mdbx_logger.setLevel(logging.DEBUG)
-    mdbx_logger.addHandler(rfh)
+sh = logging.StreamHandler(sys.stdout)
+sh.setFormatter(log_fmt)
+sh.setLevel(logging.DEBUG)
 
+mdbx_logger = logging.getLogger("maestral")
+mdbx_logger.setLevel(logging.DEBUG)
+mdbx_logger.addHandler(rfh)
+mdbx_logger.addHandler(sh)
 
-CONNECTION_ERROR = ("Cannot connect to Dropbox servers. Please  check " +
-                    "your internet connection and try again later.")
+CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
+                        "your internet connection and try again later.")
 
 
 def folder_download_worker(sync, dbx_path):
@@ -78,7 +79,7 @@ def folder_download_worker(sync, dbx_path):
                 download_complete_signal.send()
 
             except CONNECTION_ERRORS as e:
-                logger.warning("{0}: {1}".format(CONNECTION_ERROR, e))
+                logger.warning("{0}: {1}".format(CONNECTION_ERROR_MSG, e))
                 logger.info(DISCONNECTED)
 
 
@@ -114,7 +115,7 @@ def handle_disconnect(func):
             res = func(*args, **kwargs)
             return res
         except CONNECTION_ERRORS as e:
-            logger.warning("{0}: {1}".format(CONNECTION_ERROR, e))
+            logger.warning("{0}: {1}".format(CONNECTION_ERROR_MSG, e))
             return False
         except DropboxAuthError as e:
             logger.exception("{0}: {1}".format(e.title, e.message))
