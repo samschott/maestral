@@ -919,6 +919,16 @@ class UpDownSync(object):
 
         return all(success)
 
+    @catch_sync_issues()
+    def wait_for_remote_changes(self, last_cursor, timeout=40):
+        """Wraps MaestralApiClient.wait_for_remote_changes and catches sync errors."""
+        return self.client.wait_for_remote_changes(last_cursor, timeout=timeout)
+
+    @catch_sync_issues()
+    def list_remote_changes(self, last_cursor):
+        """Wraps MaestralApiClient.list_remove_changes and catches sync errors."""
+        return self.client.list_remote_changes(last_cursor)
+
     def filter_excluded_changes(self, changes):
 
         # filter changes from non-excluded folders
@@ -1311,7 +1321,7 @@ def download_worker(sync, syncing, running, flagged):
         try:
             # wait for remote changes (times out after 120 secs)
             logger.info(IDLE)
-            has_changes = sync.client.wait_for_remote_changes(
+            has_changes = sync.wait_for_remote_changes(
                 sync.last_cursor, timeout=120)
 
             syncing.wait()  # if not running, wait until resumed
@@ -1321,7 +1331,7 @@ def download_worker(sync, syncing, running, flagged):
                 logger.info(SYNCING)
                 with sync.lock:
                     # get changes
-                    changes = sync.client.list_remote_changes(sync.last_cursor)
+                    changes = sync.list_remote_changes(sync.last_cursor)
                     # filter out excluded folders
                     changes = sync.filter_excluded_changes(changes)
                     # notify user about changes
