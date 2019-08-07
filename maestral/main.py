@@ -40,12 +40,13 @@ if not os.path.isdir(log_dir):
 rfh = logging.handlers.RotatingFileHandler(log_file, maxBytes=10**6, backupCount=3)
 rfh.setFormatter(logging.Formatter(fmt="%(asctime)s %(levelname)s: %(message)s",
                                    datefmt="%Y-%m-%d %H:%M:%S"))
-rfh.setLevel(logging.ERROR)
+rfh.setLevel(logging.DEBUG)
 
-for logger_name in ["maestral.main", "maestral.client", "maestral.monitor"]:
-    mdbx_logger = logging.getLogger(logger_name)
+for log_name in ("maestral.config", "maestral.main", "maestral.client", "maestral.oauth",
+                 "maestral.monitor"):
+    mdbx_logger = logging.getLogger(log_name)
     mdbx_logger.addHandler(logging.StreamHandler())
-    mdbx_logger.setLevel(logging.INFO)
+    mdbx_logger.setLevel(logging.DEBUG)
     mdbx_logger.addHandler(rfh)
 
 
