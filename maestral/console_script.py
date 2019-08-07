@@ -84,13 +84,13 @@ def ls(dropbox_path: str):
     """Lists contents of a folder on Dropbox."""
     from maestral.client import MaestralApiClient
     from dropbox.files import FolderMetadata
-    client = MaestralApiClient()
-    res = client.list_folder(dropbox_path, recursive=False)
+    c = MaestralApiClient()
+    res = c.list_folder(dropbox_path, recursive=False)
     entry_types = ("Folder" if isinstance(md, FolderMetadata) else "File" for md in
                    res.entries)
     entry_names = (md.name for md in res.entries)
     for t, n in zip(entry_types, entry_names):
-        print("{0}:\t{1}".format(t, n))
+        click.echo("{0}:\t{1}".format(t, n))
 
 
 @main.command()
@@ -98,16 +98,16 @@ def ls(dropbox_path: str):
 def mkdir(dropbox_path: str):
     """Creates a new directory on Dropbox."""
     from maestral.client import MaestralApiClient
-    client = MaestralApiClient()
-    client.make_dir(dropbox_path)
+    c = MaestralApiClient()
+    c.make_dir(dropbox_path)
 
 
 @main.command()
 def account_info():
     """Prints Dropbox account info."""
     from maestral.client import MaestralApiClient
-    client = MaestralApiClient()
-    res = client.get_account_info()
+    c = MaestralApiClient()
+    res = c.get_account_info()
     print("{0}, {1}".format(res.email, res.account_type))
 
 
