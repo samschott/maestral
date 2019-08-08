@@ -895,6 +895,9 @@ class UpDownSync(object):
         is_dbx_root = (dbx_path == "")
         success = []
 
+        if not self.excluded_folders:
+            ignore_excluded = False
+
         logger.info("Indexing...")
         root_result = self.client.list_folder(dbx_path, recursive=(not ignore_excluded),
                                               include_deleted=False, limit=500)
