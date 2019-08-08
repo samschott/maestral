@@ -54,23 +54,30 @@ CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
                         "your internet connection and try again later.")
 
 
-def folder_download_worker(sync, dbx_path):
+def folder_download_worker(monitor, dbx_path):
     """
     Worker to to download a whole Dropbox directory in the background.
 
-    :param class sync: :class:`UpDownSync` instance.
+    :param class monitor: :class:`Monitor` instance.
     :param str dbx_path: Path to directory on Dropbox.
     """
     download_complete_signal = signal("download_complete_signal")
 
     time.sleep(2)  # wait for pausing to take effect
 
-    with sync.lock:
+    with monitor.sync.lock:
         completed = False
         while not completed:
             try:
-                sync.get_remote_dropbox(dbx_path)
+                monitor.sync.get_remote_dropbox(dbx_path)
                 logger.info(IDLE)
+
+                if dbx_path == "":
+                    monitor.sync.last_sync = time.time()
+                    monitor.resume()  # resume all syncing
+                else:
+                    # remove folder from excluded list
+                    monitor.flagged.remove(monitor.sync.to_local_path(dbx_path))
 
                 time.sleep(1)
                 completed = True
@@ -216,19 +223,9 @@ class Maestral(object):
 
         self.download_thread = Thread(
                 target=folder_download_worker,
-                args=(self.sync, dbx_path),
+                args=(self.monitor, dbx_path),
                 name="MaestralFolderDownloader")
         self.download_thread.start()
-
-        def callback(*args):  # blinker signal will carry the sender as argument
-            if is_root:
-                self.sync.last_sync = time.time()
-                self.monitor.resume()  # resume all syncing
-            else:
-                # remove folder from excluded list
-                self.monitor.flagged.remove(self.sync.to_local_path(dbx_path))
-
-        self.download_complete_signal.connect(callback)
 
     def start_sync(self, overload=None):
         """
