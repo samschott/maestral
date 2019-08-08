@@ -14,7 +14,7 @@ _Changed:_
 
 - Significant speedup of initial indexing. Excluded folders or subfolders will no
   longer be indexed.
-- Save config files in the systems default location: '$XDG_DATA_HOME/maestral' or
+- Save config files in the systems default location: '$XDG_CONFIG_HOME/maestral' or
   '.config/maestral' in Linux and '~/Library/Application Support/maestral' on macOS.
   
 _Fixed:_
