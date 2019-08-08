@@ -895,7 +895,9 @@ class UpDownSync(object):
         is_dbx_root = (dbx_path == "")
         success = []
 
-        if not self.excluded_folders:
+        if not any(folder.startswith(dbx_path) for folder in self.excluded_folders):
+            # if there are no excluded subfolders of dbx_path, index and download all
+            # at once
             ignore_excluded = False
 
         logger.info("Indexing...")
