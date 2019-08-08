@@ -1,4 +1,8 @@
-### v0.2.6-dev0
+### v0.2.6 (2019-08-08)
+
+This release fixes a critical bug which would cause Maestral to get stuck after the
+initial sync. This does not affect users who have already performed the initial sync
+with a previous version of maestral.
 
 _Added:_
 
@@ -7,6 +11,7 @@ _Added:_
 _Changed:_
 
 - Move logs to '$XDG_CACHE_HOME/maestral' on Linux and '~/Library/Logs/maestral' on macOS.
+- Reduce the number of Dropbox API calls during initial sync.
 
 _Fixed:_
 
