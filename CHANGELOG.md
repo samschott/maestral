@@ -1,9 +1,16 @@
 ### v0.2.6-dev0
 
+_Added:_
+
+- Added a context menu entry to the "Sync issues" window to show a file on dropbox.com.
+
 _Changed:_
 
 - Move logs to '$XDG_CACHE_HOME/maestral' on Linux and '~/Library/Logs/maestral' on macOS.
 
+_Fixed:_
+
+- Fixed a bug which would cause Maestral to get stuck after te initial download.
 
 ### v0.2.5 (2019-08-07)
 
