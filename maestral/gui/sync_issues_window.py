@@ -48,7 +48,7 @@ class SyncIssueWidget(QtWidgets.QWidget):
     def showContextMenu(self, pos):
 
         self.actionButtonContextMenu = QtWidgets.QMenu()
-        a0 = self.actionButtonContextMenu.addAction("View local item")
+        a0 = self.actionButtonContextMenu.addAction("View in folder")
         a1 = self.actionButtonContextMenu.addAction("View on dropbox.com")
 
         a0.setEnabled(os.path.exists(self.sync_issue.local_path))
