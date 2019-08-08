@@ -1,3 +1,10 @@
+### v0.2.6-dev0
+
+_Changed:_
+
+- Move logs to '$XDG_CACHE_HOME/maestral' on Linux and '~/Library/Logs/maestral' on macOS.
+
+
 ### v0.2.5 (2019-08-07)
 
 This release fixes several sync issues which could occur when the internet connection is

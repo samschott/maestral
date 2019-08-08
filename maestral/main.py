@@ -25,8 +25,8 @@ from maestral.oauth import OAuth2Session
 from maestral.errors import CONNECTION_ERRORS, DropboxAuthError
 from maestral.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
                               path_exists_case_insensitive)
-from maestral.config.main import CONF, SUBFOLDER
-from maestral.config.base import get_conf_path
+from maestral.config.main import CONF
+from maestral.utils.app_dirs import get_log_path
 
 import logging
 import logging.handlers
@@ -34,8 +34,7 @@ import logging.handlers
 # set up logging
 logger = logging.getLogger(__name__)
 
-log_dir = get_conf_path(os.path.join(SUBFOLDER, 'logs'))
-log_file = get_conf_path(os.path.join(SUBFOLDER, 'logs'), 'maestral.log')
+log_file = get_log_path('maestral', 'maestral.log')
 log_fmt = logging.Formatter(fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
                             datefmt="%Y-%m-%d %H:%M:%S")
 rfh = logging.handlers.RotatingFileHandler(log_file, maxBytes=10**6, backupCount=3)
