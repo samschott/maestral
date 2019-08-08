@@ -12,6 +12,7 @@ import platform
 import subprocess
 import webbrowser
 import shutil
+import urllib
 import keyring
 from blinker import signal
 from PyQt5 import QtCore, QtWidgets
@@ -245,13 +246,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         else:
             self.recentFilesMenu.aboutToShow.connect(self.update_recent_files)
 
-        def callback(action):
-            dbx_path = action.data()
-            local_path = self.mdbx.sync.to_local_path(dbx_path)
-            self.open_destination(local_path, reveal=True)
-
-        self.recentFilesMenu.triggered.connect(callback)
-
         # ------------- connect UI to signals -------------------
         info_handler.info_signal.connect(self.statusAction.setText)
         info_handler.info_signal.connect(self.on_info_signal)
@@ -290,6 +284,14 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
                 subprocess.run(["xdg-open", path])
         else:
             pass
+
+    @staticmethod
+    def show_online(dbx_path):
+
+        dbx_address = "https://www.dropbox.com/preview"
+        file_address = urllib.parse.quote(dbx_path)
+
+        webbrowser.open_new_tab(dbx_address + file_address)
 
     @staticmethod
     def on_website_clicked():
@@ -380,8 +382,14 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             file_name = os.path.basename(dbx_path)
             truncated_name = truncate_string(file_name, font=self.menu.font(),
                                              side="right")
-            action = self.recentFilesMenu.addAction(truncated_name)
-            action.setData(dbx_path)
+            local_path = self.mdbx.sync.to_local_path(dbx_path)
+
+            submenu = self.recentFilesMenu.addMenu(truncated_name)
+            a0 = submenu.addAction("View in folder")
+            a1 = submenu.addAction("View on dropbox.com")
+
+            a0.triggered.connect(lambda: self.open_destination(local_path, reveal=True))
+            a1.triggered.connect(lambda: self.show_online(dbx_path))
 
     def on_info_signal(self, status):
         """Change icon according to status."""
