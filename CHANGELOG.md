@@ -2,7 +2,7 @@
 
 This release fixes a critical bug which would cause Maestral to get stuck after the
 initial sync. This does not affect users who have already performed the initial sync
-with a previous version of maestral.
+with a previous version of Maestral.
 
 _Added:_
 
@@ -15,7 +15,9 @@ _Changed:_
 
 _Fixed:_
 
-- Fixed a bug which would cause Maestral to get stuck after te initial download.
+- Fixed a bug which would cause Maestral to get stuck after the initial download.
+- Fixes an issue in macOS where modal dialogs in the settings window would sometimes
+  appear behind the window instead of in front of it.
 
 ### v0.2.5 (2019-08-07)
 
@@ -46,8 +48,6 @@ _Fixed:_
   Dropbox when a connection is reestablished.
 - Fixed an issue where errors from `requests` would inadvertently get caught instead of
   being raised.
-- Fixes an issue in macOS where modal dialogs in the settings window would sometimes
-  appear behind the window instead of in front of it.
 
 ### v0.2.4 (2019-08-05)
 
