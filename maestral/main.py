@@ -26,6 +26,7 @@ from maestral.errors import CONNECTION_ERRORS, DropboxAuthError
 from maestral.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
                               path_exists_case_insensitive)
 from maestral.config.main import CONF
+from maestral.config.base import get_home_dir
 from maestral.utils.app_dirs import get_log_path
 
 import logging
@@ -154,7 +155,7 @@ class Maestral(object):
             # if `run == False`, make sure that you manually initiate the first sync
             # before calling `start_sync`
             if self.pending_dropbox_folder():
-                self.set_dropbox_directory()
+                self.create_dropbox_directory()
                 self.select_excluded_folders()
 
                 self.sync.last_cursor = ""
@@ -361,10 +362,10 @@ class Maestral(object):
         return excluded_folders
 
     @with_sync_paused
-    def set_dropbox_directory(self, new_path=None):
+    def move_dropbox_directory(self, new_path=None):
         """
         Change or set local dropbox directory. This moves all local files to
-        the new location. If a file or directory already exists at this location,
+        the new location. If a file or folder already exists at this location,
         it will be overwritten.
 
         :param str new_path: Path to local Dropbox folder. If not given, the
@@ -373,18 +374,24 @@ class Maestral(object):
 
         # get old and new paths
         old_path = self.sync.dropbox_path
+        default_path = osp.join(get_home_dir(), "Dropbox")
         if new_path is None:
-            new_path = self._ask_for_path(default=old_path or "~/Dropbox")
+            new_path = self._ask_for_path(default=old_path or default_path)
 
         if osp.exists(old_path) and osp.exists(new_path):
             if osp.samefile(old_path, new_path):
                 # nothing to do
                 return
 
-        # move old directory or create new directory
-        if osp.exists(new_path):
-            shutil.rmtree(new_path)
+        # remove existing items at current location
+        try:
+            os.unlink(new_path)
+        except IsADirectoryError:
+            shutil.rmtree(new_path, ignore_errors=True)
+        except FileNotFoundError:
+            pass
 
+        # move folder from old location or create a new one if no old folder exists
         if osp.isdir(old_path):
             shutil.move(old_path, new_path)
         else:
@@ -393,13 +400,43 @@ class Maestral(object):
         # update config file and client
         self.sync.dropbox_path = new_path
 
+    @with_sync_paused
+    def create_dropbox_directory(self, path=None, overwrite=True):
+        """
+        Set a new local dropbox directory.
+
+        :param str path: Path to local Dropbox folder. If not given, the user will be
+            prompted to input the path.
+        :param bool overwrite: If ``True``, any existing file or folder at ``new_path``
+            will be replaced.
+        """
+
+        # ask for new path
+        if path is None:
+            path = self._ask_for_path()
+
+        if overwrite:
+            # remove any old items at the location
+            try:
+                os.unlink(path)
+            except IsADirectoryError:
+                shutil.rmtree(path, ignore_errors=True)
+            except FileNotFoundError:
+                pass
+
+        # create new folder
+        os.makedirs(path, exist_ok=True)
+
+        # update config file and client
+        self.sync.dropbox_path = path
+
     def get_dropbox_directory(self):
         """
         Returns the path to the local Dropbox directory.
         """
         return self.sync.dropbox_path
 
-    def _ask_for_path(self, default="~/Dropbox"):
+    def _ask_for_path(self, default=osp.join(get_home_dir(), "Dropbox")):
         """
         Asks for Dropbox path.
         """

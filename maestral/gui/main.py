@@ -27,7 +27,7 @@ from maestral.gui.setup_dialog import SetupDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import get_system_tray_icon
-from maestral.gui.utils import (truncate_string, isDarkStatusBar, ErrorDialog,
+from maestral.gui.utils import (truncate_string, isDarkStatusBar, UserDialog,
                                 quit_and_restart_maestral, get_gnome_scaling_factor)
 
 from maestral.utils.autostart import AutoStart
@@ -355,7 +355,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.pauseAction.setText("Start Syncing")
 
         exc_info = exc_info if show_tb else None
-        error_dialog = ErrorDialog(title, message, exc_info)
+        error_dialog = UserDialog(title, message, exc_info)
         error_dialog.exec_()
 
         if isinstance(exc, DropboxAuthError):

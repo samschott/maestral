@@ -5,7 +5,9 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+import os
 import os.path as osp
+import shutil
 import requests
 from dropbox.oauth import BadStateException, NotApprovedException
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
@@ -20,7 +22,7 @@ from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FolderItem
 from maestral.gui.resources import (APP_ICON_PATH, SETUP_DIALOG_PATH,
                                     get_native_item_icon, get_native_folder_icon)
-from maestral.gui.utils import ErrorDialog, icon_to_pixmap
+from maestral.gui.utils import UserDialog, icon_to_pixmap
 
 
 class SetupDialog(QtWidgets.QDialog):
@@ -53,7 +55,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.buttonBoxFolderSelection.buttons()[1].setText("Back")
 
         # set up combobox
-        self.dropbox_location = osp.expanduser("~")
+        self.dropbox_location = osp.dirname(CONF.get("main", "path")) or get_home_dir()
         relative_path = self.rel_path(self.dropbox_location)
 
         folder_icon = get_native_item_icon(self.dropbox_location)
@@ -147,23 +149,23 @@ class SetupDialog(QtWidgets.QDialog):
             self.auth_session.save_creds()
         except requests.HTTPError:
             msg = "Please make sure that you entered the correct authentication code."
-            msg_box = ErrorDialog("Authentication failed.", msg, parent=self)
+            msg_box = UserDialog("Authentication failed.", msg, parent=self)
             msg_box.open()
             return
         except BadStateException:
             msg = "The authentication session expired. Please try again."
-            msg_box = ErrorDialog("Session expired.", msg, parent=self)
+            msg_box = UserDialog("Session expired.", msg, parent=self)
             msg_box.open()
             self.stackedWidget.setCurrentIndex(0)
             return
         except NotApprovedException:
             msg = "Please grant Maestral access to your Dropbox to start syncing."
-            msg_box = ErrorDialog("Not approved error.", msg, parent=self)
+            msg_box = UserDialog("Not approved error.", msg, parent=self)
             msg_box.open()
             return
         except CONNECTION_ERRORS as e:
             msg = "Please make sure that you are connected to the internet and try again."
-            msg_box = ErrorDialog("Connection failed.", msg, parent=self)
+            msg_box = UserDialog("Connection failed.", msg, parent=self)
             msg_box.open()
             return
 
@@ -179,13 +181,30 @@ class SetupDialog(QtWidgets.QDialog):
         # reset sync status, we are starting fresh!
         self.mdbx.sync.last_cursor = ""
         self.mdbx.sync.last_sync = None
+        self.mdbx.sync.dropbox_path = ""
 
         # apply dropbox path
         dropbox_path = osp.join(self.dropbox_location, "Dropbox")
-        if osp.exists(dropbox_path):
-            msg = ('There already is a folder named "Dropbox" at this location. Would '
+        if osp.isdir(dropbox_path):
+            msg = ('The folder "%s" already exists. Would '
+                   'you like to keep using it?' % self.dropbox_location)
+            msg_box = UserDialog("Folder already exists", msg, parent=self)
+            msg_box.setAcceptButtonName("Keep")
+            msg_box.addSecondAcceptButton("Replace")
+            msg_box.addCancelButton()
+            res = msg_box.exec_()
+
+            if res == 1:
+                pass
+            elif res == 2:
+                shutil.rmtree(dropbox_path, ignore_errors=True)
+            else:
+                return
+
+        elif osp.isfile(dropbox_path):
+            msg = ('There already is a file named "Dropbox" at this location. Would '
                    'you like to replace it?')
-            msg_box = ErrorDialog("Folder already exists", msg, parent=self)
+            msg_box = UserDialog("File conflict", msg, parent=self)
             msg_box.buttonBox.removeButton(msg_box.buttonBox.buttons()[0])
             msg_box.buttonBox.addButton(QtWidgets.QDialogButtonBox.Yes)
             msg_box.buttonBox.addButton(QtWidgets.QDialogButtonBox.Cancel)
@@ -194,8 +213,13 @@ class SetupDialog(QtWidgets.QDialog):
 
             if res == 0:
                 return
+            else:
+                try:
+                    os.unlink(dropbox_path)
+                except OSError:
+                    pass
 
-        self.mdbx.set_dropbox_directory(dropbox_path)
+        self.mdbx.create_dropbox_directory(path=dropbox_path, overwrite=False)
 
         # switch to next page
         self.stackedWidget.setCurrentIndex(3)

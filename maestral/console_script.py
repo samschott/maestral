@@ -36,7 +36,7 @@ def configure():
     """Runs the command line configuration wizard."""
     from maestral.main import Maestral
     m = Maestral(run=False)
-    m.set_dropbox_directory()
+    m.move_dropbox_directory()
     m.select_excluded_folders()
 
 

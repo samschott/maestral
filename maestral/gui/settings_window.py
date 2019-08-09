@@ -116,7 +116,7 @@ class SettingsWindow(QtWidgets.QWidget):
             self.comboBoxDropboxPath.setItemIcon(0, get_native_item_icon(new_location))
 
             new_path = osp.join(new_location, 'Dropbox')
-            self.mdbx.set_dropbox_directory(new_path)
+            self.mdbx.move_dropbox_directory(new_path)
 
     def on_unlink(self):
         """Unlinks the user's account and restarts the setup dialog."""

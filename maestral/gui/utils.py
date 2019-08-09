@@ -218,12 +218,12 @@ def __command_exists(command):
     )
 
 
-class ErrorDialog(QtWidgets.QDialog):
+class UserDialog(QtWidgets.QDialog):
     def __init__(self, title, message, exc_info=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         self.setModal(True)
         self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint)
-        self.setWindowTitle("Maestral Error")
+        self.setWindowTitle("Maestral Error")  # user dialogs are only shown for errors
         self.setFixedWidth(450)
 
         self.gridLayout = QtWidgets.QGridLayout()
@@ -258,6 +258,26 @@ class ErrorDialog(QtWidgets.QDialog):
         if exc_info:
             self.gridLayout.addWidget(self.details, 2, 0, 1, 2)
         self.gridLayout.addWidget(self.buttonBox, 3, 1, -1, -1)
+
+    def setAcceptButtonName(self, name):
+        self.buttonBox.buttons()[0].setText(name)
+
+    def addCancelButton(self, name="Cancel"):
+        self._cancelButton = self.buttonBox.addButton(QtWidgets.QDialogButtonBox.Cancel)
+        self._cancelButton.setText(name)
+
+    def setCancelButtonName(self, name):
+        self._cancelButton.setText(name)
+        self._cancelButton.clicked.connect(self.close)
+
+    def addSecondAcceptButton(self, name):
+        self._acceptButton2 = self.buttonBox.addButton(QtWidgets.QDialogButtonBox.Ignore)
+        self._acceptButton2.setText(name)
+        self._acceptButton2.clicked.connect(lambda: self.setResult(2))
+        self._acceptButton2.clicked.connect(self.close)
+
+    def setSecondAcceptButtonName(self, name):
+        self._acceptButton2.setText(name)
 
 
 def quit_and_restart_maestral():
