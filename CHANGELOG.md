@@ -1,3 +1,16 @@
+### v0.2.7-dev0
+
+Starting with preparations to support multiple Dropbox accounts.
+
+_Added:_
+
+- Added experimental support for custom Dropbox folder names. The folder name must be
+  set in the config file before launching the GUI.
+  
+_Changed:_
+
+- Improved command line and GUI flows for setting or moving the Dropbox folder location.
+
 ### v0.2.6 (2019-08-08)
 
 This release fixes a critical bug which would cause Maestral to get stuck after the
