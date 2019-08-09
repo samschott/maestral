@@ -29,6 +29,7 @@ DEFAULTS = [
             ('main',
              {
               'path': '',
+              'default_dir_name': 'Dropbox',
               'excluded_folders': [],
               'excluded_files': ["desktop.ini",  "thumbs.db", ".ds_store",
                                  "icon\r", ".dropbox.attr", ".dropbox", ".maestral"],

@@ -368,13 +368,13 @@ class Maestral(object):
         the new location. If a file or folder already exists at this location,
         it will be overwritten.
 
-        :param str new_path: Path to local Dropbox folder. If not given, the
+        :param str new_path: Full path to local Dropbox folder. If not given, the
             user will be prompted to input the path.
         """
 
         # get old and new paths
         old_path = self.sync.dropbox_path
-        default_path = osp.join(get_home_dir(), "Dropbox")
+        default_path = osp.join(get_home_dir(), CONF.get("main", "default_dir_name"))
         if new_path is None:
             new_path = self._ask_for_path(default=old_path or default_path)
 
@@ -405,12 +405,11 @@ class Maestral(object):
         """
         Set a new local dropbox directory.
 
-        :param str path: Path to local Dropbox folder. If not given, the user will be
+        :param str path: Full path to local Dropbox folder. If not given, the user will be
             prompted to input the path.
         :param bool overwrite: If ``True``, any existing file or folder at ``new_path``
             will be replaced.
         """
-
         # ask for new path
         if path is None:
             path = self._ask_for_path()
@@ -436,19 +435,15 @@ class Maestral(object):
         """
         return self.sync.dropbox_path
 
-    def _ask_for_path(self, default=osp.join(get_home_dir(), "Dropbox")):
+    def _ask_for_path(self, default=osp.join("~", CONF.get("main", "default_dir_name"))):
         """
         Asks for Dropbox path.
         """
-        default = osp.expanduser(default)
         msg = ("Please give Dropbox folder location or press enter for default "
                "[{0}]:".format(default))
         res = input(msg).strip().strip("'")
 
-        if res == "":
-            dropbox_path = default
-        else:
-            dropbox_path = osp.expanduser(res)
+        dropbox_path = osp.expanduser(res or default)
 
         if osp.exists(dropbox_path):
             msg = "Directory '%s' already exist. Do you want to overwrite it?" % dropbox_path

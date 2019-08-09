@@ -87,6 +87,9 @@ class SetupDialog(QtWidgets.QDialog):
         self.listWidgetFolders.itemChanged.connect(self.update_select_all_checkbox)
         self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
 
+        self.labelDropboxPath.setText(self.labelDropboxPath.text().format(CONF.get(
+            "main", "default_dir_name")))
+
         # check if we are already authenticated, skip authentication if yes
         if not pending_link:
             self.labelDropboxPath.setText("""
@@ -101,12 +104,12 @@ class SetupDialog(QtWidgets.QDialog):
             </p>
             <p align="left">
             To re-download your Dropbox, please select a location for your Dropbox 
-            folder below. Maestral will create a new folder named "Dropbox" in the
+            folder below. Maestral will create a new folder named "{1}" in the
             selected location.</p>          
             <p align="left">
             To unlink your Dropbox account from Maestral, click "Unlink" below.</p>
             </body></html>
-            """.format(CONF.get("main", "path")))
+            """.format(CONF.get("main", "path"), CONF.get("main", "default_dir_name")))
             self.buttonBoxDropboxPath.buttons()[1].setText("Quit")
             self.stackedWidget.setCurrentIndex(2)
             self.mdbx = Maestral(run=False)
@@ -184,7 +187,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.mdbx.sync.dropbox_path = ""
 
         # apply dropbox path
-        dropbox_path = osp.join(self.dropbox_location, "Dropbox")
+        dropbox_path = osp.join(self.dropbox_location, CONF.get("main", "default_dir_name"))
         if osp.isdir(dropbox_path):
             msg = ('The folder "%s" already exists. Would '
                    'you like to keep using it?' % self.dropbox_location)
@@ -202,8 +205,8 @@ class SetupDialog(QtWidgets.QDialog):
                 return
 
         elif osp.isfile(dropbox_path):
-            msg = ('There already is a file named "Dropbox" at this location. Would '
-                   'you like to replace it?')
+            msg = ('There already is a file named "{0}" at this location. Would '
+                   'you like to replace it?'.format(CONF.get("main", "default_dir_name")))
             msg_box = UserDialog("File conflict", msg, parent=self)
             msg_box.setAcceptButtonName("Replace")
             msg_box.addCancelButton()
