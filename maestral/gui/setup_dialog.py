@@ -205,10 +205,8 @@ class SetupDialog(QtWidgets.QDialog):
             msg = ('There already is a file named "Dropbox" at this location. Would '
                    'you like to replace it?')
             msg_box = UserDialog("File conflict", msg, parent=self)
-            msg_box.buttonBox.removeButton(msg_box.buttonBox.buttons()[0])
-            msg_box.buttonBox.addButton(QtWidgets.QDialogButtonBox.Yes)
-            msg_box.buttonBox.addButton(QtWidgets.QDialogButtonBox.Cancel)
-            msg_box.buttonBox.rejected.connect(msg_box.reject)
+            msg_box.setAcceptButtonName("Replace")
+            msg_box.addCancelButton()
             res = msg_box.exec_()
 
             if res == 0:

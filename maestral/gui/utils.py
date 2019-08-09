@@ -222,6 +222,7 @@ class UserDialog(QtWidgets.QDialog):
     def __init__(self, title, message, exc_info=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         self.setModal(True)
+        self.setWindowModality(QtCore.Qt.WindowModal)
         self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Maestral Error")  # user dialogs are only shown for errors
         self.setFixedWidth(450)
@@ -265,10 +266,10 @@ class UserDialog(QtWidgets.QDialog):
     def addCancelButton(self, name="Cancel"):
         self._cancelButton = self.buttonBox.addButton(QtWidgets.QDialogButtonBox.Cancel)
         self._cancelButton.setText(name)
+        self._cancelButton.clicked.connect(self.close)
 
     def setCancelButtonName(self, name):
         self._cancelButton.setText(name)
-        self._cancelButton.clicked.connect(self.close)
 
     def addSecondAcceptButton(self, name):
         self._acceptButton2 = self.buttonBox.addButton(QtWidgets.QDialogButtonBox.Ignore)
