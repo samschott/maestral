@@ -34,7 +34,7 @@ class OAuth2Session(object):
     OAuth2Session provides OAuth2 login and token store.
     """
 
-    TOKEN_FILE = osp.join(get_conf_path(SUBFOLDER), "o2_store.txt")
+    TOKEN_FILE = osp.join(get_conf_path(SUBFOLDER), "o2_store.txt")  # before v0.2.0
     oAuth2FlowResult = None
 
     def __init__(self):
@@ -51,9 +51,12 @@ class OAuth2Session(object):
         """
         logger.debug("Using keyring: %s" % keyring.get_keyring())
         try:
-            t1 = keyring.get_password("Maestral", self.account_id)
-            t2 = keyring.get_password("Maestral", "MaestralUser")
-            self.access_token = t1 or t2
+            if self.account_id == "":
+                self.access_token = None
+            else:
+                t1 = keyring.get_password("Maestral", self.account_id)
+                t2 = keyring.get_password("Maestral", "MaestralUser")  # before v0.2.2
+                self.access_token = t1 or t2
             return self.access_token
         except KeyringLocked:
             info = "Please make sure that your keyring is unlocked and restart Maestral."
@@ -61,8 +64,8 @@ class OAuth2Session(object):
 
     def get_auth_url(self):
 
-        APP_KEY = os.environ["DROPBOX_API_KEY"]
-        APP_SECRET = os.environ["DROPBOX_API_SECRET"]
+        APP_KEY = os.getenv("DROPBOX_API_KEY")
+        APP_SECRET = os.getenv("DROPBOX_API_SECRET")
 
         self._auth_flow = DropboxOAuth2FlowNoRedirect(APP_KEY, APP_SECRET)
         authorize_url = self._auth_flow.start()

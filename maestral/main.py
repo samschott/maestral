@@ -35,7 +35,9 @@ import logging.handlers
 # set up logging
 logger = logging.getLogger(__name__)
 
-log_file = get_log_path('maestral', 'maestral.log')
+file_name = os.getenv('MAESTRAL_CONFIG', 'maestral')
+
+log_file = get_log_path('maestral', file_name + '.log')
 log_fmt = logging.Formatter(fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
                             datefmt="%Y-%m-%d %H:%M:%S")
 rfh = logging.handlers.RotatingFileHandler(log_file, maxBytes=10**6, backupCount=3)
