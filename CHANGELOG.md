@@ -30,6 +30,9 @@ _Added:_
 _Changed:_
 
 - Improved command line and GUI flows for setting or moving the Dropbox folder location.
+- Moved to an Implicit Grant OAuth2 flow. This does not require an app secret to be
+  stored in the client source code. Maestral will therefore no longer require the user to
+  get their own API keys or to use the precompiled oauth binaries hosted on PyPI.
 
 ### v0.2.6 (2019-08-08)
 
