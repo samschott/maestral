@@ -40,6 +40,8 @@ DEFAULTS = [
              {
               'account_id': '',
               'email': '',
+              'display_name': '',
+              'abbreviated_name': '',
               'type': '',
               'usage': '',
               'usage_type': '',

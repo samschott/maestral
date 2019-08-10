@@ -132,6 +132,8 @@ class MaestralApiClient(object):
 
         CONF.set("account", "account_id", res.account_id)
         CONF.set("account", "email", res.email)
+        CONF.set("account", "display_name", res.name.display_name)
+        CONF.set("account", "abbreviated_name", res.name.abbreviated_name)
         CONF.set("account", "type", account_type)
 
         return res
