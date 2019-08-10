@@ -150,11 +150,6 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
         except dropbox.exceptions.DropboxException as exc:
             raise to_maestral_error(exc)
 
-        if res.is_paired and res.team:
-            account_id = res.team_member_id
-        else:
-            account_id = res.account_id
-
-        return OAuth2FlowNoRedirectResult(access_token, account_id, "")
+        return OAuth2FlowNoRedirectResult(access_token, res.account_id, "")
 
 
