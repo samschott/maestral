@@ -268,6 +268,7 @@ class Maestral(object):
             pass
 
         CONF.reset_to_defaults()
+        CONF.set("main", "default_dir_name", "Dropbox ({0})".format(config_name.capitalize()))
 
         logger.info("Unlinked Dropbox account.")
 
