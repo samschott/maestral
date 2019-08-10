@@ -24,6 +24,8 @@ without a GUI and using the Python installation provided by your OS. The Maestra
 itself and its Python dependencies take up less than 3 MB,  making a headless install
 ideal for systems with tight resources.
 
+In the latest beta, Maestral introduces experimental support for multiple Dropbox accounts.
+
 ## Installation
 
 A binary is provided for macOS High Sierra and higher and can be downloaded from the
@@ -40,10 +42,6 @@ $ python3 -m pip install --upgrade PyQt5
 ```
 However, in this case the interface style may not follow your selected system appearance
 (e.g., "dark mode" on macOS or "Adwaita-dark" on Gnome).
-
-If you clone and install the version from GitHub, you will need to provide your own
-Dropbox API keys as environment variables `DROPBOX_API_KEY` and `DROPBOX_API_SECRET`. You
-can get those keys [here](https://www.dropbox.com/developers/apps/create).
 
 ## Usage
 
