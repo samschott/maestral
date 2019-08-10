@@ -161,7 +161,6 @@ class SetupDialog(QtWidgets.QDialog):
             self.mdbx = Maestral(run=False)
             self.mdbx.client.get_account_info()
         elif res == OAuth2Session.InvalidToken:
-            self.lineEditAuthCode.setText("")
             msg = "Please make sure that you entered the correct authentication token."
             msg_box = UserDialog("Authentication failed.", msg, parent=self)
             msg_box.open()
