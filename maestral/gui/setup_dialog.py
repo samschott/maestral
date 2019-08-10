@@ -8,16 +8,13 @@ Created on Wed Oct 31 16:23:13 2018
 import os
 import os.path as osp
 import shutil
-import requests
 import webbrowser
-from dropbox.oauth import BadStateException, NotApprovedException
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 from dropbox import files
 
 from maestral.main import Maestral
 from maestral.oauth import OAuth2Session
-from maestral.errors import CONNECTION_ERRORS
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FolderItem
@@ -76,15 +73,15 @@ class SetupDialog(QtWidgets.QDialog):
         # connect buttons to callbacks
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.pushButtonLink.clicked.connect(self.on_link)
-        self.buttonBoxAuthCode.rejected.connect(self.on_reject)
+        self.buttonBoxAuthCode.rejected.connect(self.abort)
         self.buttonBoxAuthCode.accepted.connect(self.on_auth)
-        self.buttonBoxDropboxPath.rejected.connect(self.on_reject)
+        self.buttonBoxDropboxPath.rejected.connect(self.abort)
         self.buttonBoxDropboxPath.accepted.connect(self.on_dropbox_location_selected)
-        self.buttonBoxDropboxPath.clicked.connect(self.on_unlink)
+        self.buttonBoxDropboxPath.clicked.connect(self.abort_and_unlink_if_reset)
         self.buttonBoxFolderSelection.rejected.connect(
                 lambda: self.stackedWidget.setCurrentIndex(2))
         self.buttonBoxFolderSelection.accepted.connect(self.on_folders_selected)
-        self.pushButtonClose.clicked.connect(self.on_accept)
+        self.pushButtonClose.clicked.connect(self.accept)
         self.listWidgetFolders.itemChanged.connect(self.update_select_all_checkbox)
         self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
 
@@ -122,21 +119,18 @@ class SetupDialog(QtWidgets.QDialog):
 
     def closeEvent(self, event):
         if self.stackedWidget.currentIndex == 4:
-            self.on_accept()
+            self.accept()
         else:
-            self.on_reject()
+            self.abort()
 
-    def on_accept(self):
-        self.accept()
-
-    def on_reject(self):
+    def abort(self):
         self.mdbx = None
         self.reject()
 
-    def on_unlink(self, b):
+    def abort_and_unlink_if_reset(self, b):
         if self.buttonBoxDropboxPath.buttonRole(b) == self.buttonBoxDropboxPath.ResetRole:
             self.mdbx.unlink()
-            self.on_reject()
+            self.abort()
 
     def on_link(self):
         self.auth_session = OAuth2Session()
