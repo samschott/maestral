@@ -18,6 +18,8 @@ _icon_provider = QtWidgets.QFileIconProvider()
 APP_ICON_PATH = _root + "/Maestral.png"
 TRAY_ICON_PATH = _root + "/menubar_icon_{0}_{1}.svg"
 
+FACEHOLDER_PATH = _root + "/faceholder.svg"
+
 FOLDERS_DIALOG_PATH = _root + "/folders_dialog.ui"
 SETUP_DIALOG_PATH = _root + "/setup_dialog.ui"
 SETTINGS_WINDOW_PATH = _root + "/settings_window.ui"
