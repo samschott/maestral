@@ -7,7 +7,6 @@ Created on Wed Oct 31 16:23:13 2018
 """
 
 import hashlib
-import six
 
 
 class DropboxContentHasher(object):
@@ -45,7 +44,7 @@ class DropboxContentHasher(object):
             raise AssertionError(
                 "can't use this object anymore; you already called digest()")
 
-        assert isinstance(new_data, six.binary_type), (
+        assert isinstance(new_data, bytes), (
             "Expecting a byte string, got {!r}".format(new_data))
 
         new_data_pos = 0
