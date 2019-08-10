@@ -63,17 +63,19 @@ class SpaceUsage(dropbox.users.SpaceUsage):
         if self.allocation.is_individual():
             used = self.used
             allocated = self.allocation.get_individual().allocated
+            str_rep_usage_type = ""
         elif self.allocation.is_team():
             used = self.allocation.get_team().used
             allocated = self.allocation.get_team().allocated
+            str_rep_usage_type = " (Team)"
         else:
             used_gb = bytesto(self.used, "GB")
             return "{:,}GB used".format(used_gb)
 
         percent = used / allocated * 100
         alloc_gb = bytesto(allocated, "GB")
-        str_rep = "{:.1f}% of {:,}GB used".format(percent, alloc_gb)
-        return str_rep
+        str_rep_usage = "{:.1f}% of {:,}GB used".format(percent, alloc_gb)
+        return str_rep_usage + str_rep_usage_type
 
 
 # noinspection PyDeprecation
