@@ -18,6 +18,7 @@ import shutil
 import functools
 from blinker import signal
 from threading import Thread
+import requests
 from dropbox import files
 
 from maestral.client import MaestralApiClient
@@ -27,7 +28,7 @@ from maestral.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
                               path_exists_case_insensitive)
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
-from maestral.utils.app_dirs import get_log_path
+from maestral.utils.app_dirs import get_log_path, get_cache_path
 
 import logging
 import logging.handlers
@@ -147,7 +148,7 @@ class Maestral(object):
     def __init__(self, run=True):
 
         self.client = MaestralApiClient()
-        self.get_account_info()
+        self.get_account_info_and_profile_pic()
 
         # monitor needs to be created before any decorators are called
         self.monitor = MaestralMonitor(self.client)
@@ -202,10 +203,26 @@ class Maestral(object):
         """Setter: Bool indicating if notifications are enabled."""
         self.sync.notify.enabled = boolean
 
+    @property
+    def account_profile_pic_path(self):
+        return get_cache_path('maestral', config_name + '_profile_pic.jpeg')
+
     @handle_disconnect
     def get_account_info(self):
         res = self.client.get_account_info()
         return res
+
+    @handle_disconnect
+    def get_account_info_and_profile_pic(self):
+        res = self.client.get_account_info()
+        if hasattr(res, "profile_photo_url"):
+            r = requests.get(res.profile_photo_url)
+
+            try:
+                with open(self.account_profile_pic_path, 'wb') as f:
+                    f.write(r.content)
+            except OSError:
+                pass
 
     @handle_disconnect
     def get_remote_dropbox_async(self, dbx_path, callback=None):
