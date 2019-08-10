@@ -5,6 +5,7 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+import os
 import os.path as osp
 import time
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
@@ -12,13 +13,14 @@ from PyQt5 import QtGui, QtCore, QtWidgets, uic
 from maestral.main import __version__, __author__, __url__
 from maestral.errors import CONNECTION_ERRORS
 from maestral.utils.autostart import AutoStart
+from maestral.utils.app_dirs import get_log_path
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
                                     SETTINGS_WINDOW_PATH, APP_ICON_PATH)
 from maestral.gui.utils import (get_scaled_font, isDarkWindow, quit_and_restart_maestral,
-                                LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap)
+                                LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap, mask_image)
 
 
 class UnlinkDialog(QtWidgets.QDialog):
@@ -73,6 +75,7 @@ class SettingsWindow(QtWidgets.QWidget):
         elif usage_type == "individual":
             self.labelSpaceUsageTitle.setText("Your space:")
         self.labelSpaceUsage.setText(CONF.get("account", "usage"))
+        self.set_profile_pic()
         self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
         self.unlink_dialog.accepted.connect(self.on_unlink)
 
@@ -104,6 +107,18 @@ class SettingsWindow(QtWidgets.QWidget):
         self.dropbox_folder_dialog.fileSelected.connect(self.on_new_dbx_folder)
         self.dropbox_folder_dialog.rejected.connect(
                 lambda: self.comboBoxDropboxPath.setCurrentIndex(0))
+
+    def set_profile_pic(self):
+
+        try:
+            with open(self.mdbx.account_profile_pic_path, "rb") as f:
+                img_data = f.read()
+        except OSError:
+            pass
+        else:
+            height = self.gridLayoutAccountInfo.sizeHint().height()
+            pixmap = mask_image(img_data, size=height)
+            self.labelUserProfilePic.setPixmap(pixmap)
 
     def on_combobox(self, idx):
         if idx == 2:
