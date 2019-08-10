@@ -64,7 +64,7 @@ syncing.
 
 After installation, in a Python command prompt, run
 ```Python
->>> from maestral import Maestral
+>>> from maestral.main import Maestral
 >>> m = Maestral()
 ```
 On initial use, Maestral will ask you to link your Dropbox account, give the location of
