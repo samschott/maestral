@@ -9,6 +9,7 @@ import os
 import os.path as osp
 import shutil
 import requests
+import webbrowser
 from dropbox.oauth import BadStateException, NotApprovedException
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
@@ -144,40 +145,30 @@ class SetupDialog(QtWidgets.QDialog):
         self.labelAuthLink.setText(prompt)
 
         self.stackedWidget.setCurrentIndex(1)
+        webbrowser.open_new(self.auth_url)
 
     def on_auth(self):
-        auth_code = self.lineEditAuthCode.text()
-        try:
-            self.auth_session.verify_auth_key(auth_code)
+        token = self.lineEditAuthCode.text()
+        res = self.auth_session.verify_auth_token(token)
+
+        if res == OAuth2Session.Success:
             self.auth_session.save_creds()
-        except requests.HTTPError:
-            msg = "Please make sure that you entered the correct authentication code."
+
+            # switch to next page
+            self.stackedWidget.setCurrentIndex(2)
+
+            # start Maestral after linking to Dropbox account
+            self.mdbx = Maestral(run=False)
+            self.mdbx.client.get_account_info()
+        elif res == OAuth2Session.InvalidToken:
+            self.lineEditAuthCode.setText("")
+            msg = "Please make sure that you entered the correct authentication token."
             msg_box = UserDialog("Authentication failed.", msg, parent=self)
             msg_box.open()
-            return
-        except BadStateException:
-            msg = "The authentication session expired. Please try again."
-            msg_box = UserDialog("Session expired.", msg, parent=self)
-            msg_box.open()
-            self.stackedWidget.setCurrentIndex(0)
-            return
-        except NotApprovedException:
-            msg = "Please grant Maestral access to your Dropbox to start syncing."
-            msg_box = UserDialog("Not approved error.", msg, parent=self)
-            msg_box.open()
-            return
-        except CONNECTION_ERRORS as e:
+        elif res == OAuth2Session.ConnectionFailed:
             msg = "Please make sure that you are connected to the internet and try again."
             msg_box = UserDialog("Connection failed.", msg, parent=self)
             msg_box.open()
-            return
-
-        # switch to next page
-        self.stackedWidget.setCurrentIndex(2)
-
-        # start Maestral after linking to Dropbox account
-        self.mdbx = Maestral(run=False)
-        self.mdbx.client.get_account_info()
 
     def on_dropbox_location_selected(self):
 

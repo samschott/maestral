@@ -291,7 +291,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         dbx_address = "https://www.dropbox.com/preview"
         file_address = urllib.parse.quote(dbx_path)
 
-        webbrowser.open_new_tab(dbx_address + file_address)
+        webbrowser.open_new(dbx_address + file_address)
 
     @staticmethod
     def on_website_clicked():
