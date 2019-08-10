@@ -36,6 +36,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.app_icon = QtGui.QIcon(APP_ICON_PATH)
 
         self.labelIcon.setPixmap(icon_to_pixmap(self.app_icon, 170))
+        self.labelIcon_1.setPixmap(icon_to_pixmap(self.app_icon, 70))
         self.labelIcon_2.setPixmap(icon_to_pixmap(self.app_icon, 70))
         self.labelIcon_3.setPixmap(icon_to_pixmap(self.app_icon, 100))
 

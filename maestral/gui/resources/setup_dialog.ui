@@ -124,7 +124,32 @@
      </widget>
      <widget class="QWidget" name="authorizePage">
       <layout class="QGridLayout" name="gridLayout_5">
-       <item row="0" column="0">
+       <item row="1" column="0" alignment="Qt::AlignHCenter">
+        <widget class="QLabel" name="labelIcon_1">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>70</width>
+           <height>70</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>70</width>
+           <height>70</height>
+          </size>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
         <spacer name="verticalSpacer_5">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -135,12 +160,12 @@
          <property name="sizeHint" stdset="0">
           <size>
            <width>20</width>
-           <height>100</height>
+           <height>0</height>
           </size>
          </property>
         </spacer>
        </item>
-       <item row="1" column="0">
+       <item row="3" column="0">
         <widget class="QLabel" name="labelAuthLink">
          <property name="text">
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;To link Maestral to your Dropbox account, please click &lt;a href=&quot;{0}&quot;&gt;&lt;span style=&quot;text-decoration: underline; color:#2874e1;&quot;&gt;here&lt;/span&gt;&lt;/a&gt; to retrieve an authorization token from Dropbox and enter it below:&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -156,14 +181,14 @@
          </property>
         </widget>
        </item>
-       <item row="4" column="0">
+       <item row="6" column="0">
         <widget class="QDialogButtonBox" name="buttonBoxAuthCode">
          <property name="standardButtons">
           <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
          </property>
         </widget>
        </item>
-       <item row="2" column="0" alignment="Qt::AlignHCenter">
+       <item row="4" column="0" alignment="Qt::AlignHCenter">
         <widget class="QLineEdit" name="lineEditAuthCode">
          <property name="minimumSize">
           <size>
@@ -185,7 +210,7 @@
          </property>
         </widget>
        </item>
-       <item row="3" column="0">
+       <item row="5" column="0">
         <spacer name="verticalSpacer_2">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -196,7 +221,23 @@
          <property name="sizeHint" stdset="0">
           <size>
            <width>20</width>
-           <height>100</height>
+           <height>65</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="0" column="0">
+        <spacer name="verticalSpacer_12">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeType">
+          <enum>QSizePolicy::Preferred</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>0</height>
           </size>
          </property>
         </spacer>
