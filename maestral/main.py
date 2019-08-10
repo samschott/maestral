@@ -148,7 +148,7 @@ class Maestral(object):
     def __init__(self, run=True):
 
         self.client = MaestralApiClient()
-        self.get_account_info_and_profile_pic()
+        self.get_account_info()
 
         # monitor needs to be created before any decorators are called
         self.monitor = MaestralMonitor(self.client)
@@ -205,7 +205,7 @@ class Maestral(object):
 
     @property
     def account_profile_pic_path(self):
-        return get_cache_path('maestral', config_name + '_profile_pic.jpeg')
+        return get_cache_path('maestral', config_name + '_profile_pic')
 
     @handle_disconnect
     def get_account_info(self):
@@ -213,16 +213,31 @@ class Maestral(object):
         return res
 
     @handle_disconnect
-    def get_account_info_and_profile_pic(self):
-        res = self.client.get_account_info()
-        if hasattr(res, "profile_photo_url"):
-            r = requests.get(res.profile_photo_url)
+    def get_profile_pic(self):
 
+        res = self.client.get_account_info()
+        if res.profile_photo_url:
             try:
-                with open(self.account_profile_pic_path, 'wb') as f:
+                # download current profile pic
+                r = requests.get(res.profile_photo_url)
+                file_ext = os.path.splitext(res.profile_photo_url)[1]
+                self._delete_old_profile_pics()  # delete old after successful download
+                with open(self.account_profile_pic_path + file_ext, "wb") as f:
                     f.write(r.content)
-            except OSError:
+            except Exception:
                 pass
+        else:
+            # delete current profile pic
+            self._delete_old_profile_pics()
+
+    def _delete_old_profile_pics(self):
+        # delete all old pictures
+        for file in os.listdir(get_cache_path('maestral')):
+            if file.startswith(config_name + '_profile_pic'):
+                try:
+                    os.unlink(self.account_profile_pic_path)
+                except OSError:
+                    pass
 
     @handle_disconnect
     def get_remote_dropbox_async(self, dbx_path, callback=None):
