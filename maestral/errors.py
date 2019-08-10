@@ -298,9 +298,14 @@ def to_maestral_error(exc, dbx_path=None, local_path=None):
     # ----------------------------- Bad input errors -------------------------------------
     # should only occur due to user input from console scripts
     elif isinstance(exc, dropbox.exceptions.BadInputError):
-        title = "Dropbox error"
-        text = exc.message
-        err_type = BadInputError
+        if "The given OAuth 2 access token is malformed" in exc.message:
+            title = "Authentication failed"
+            text = "Please make sure that you entered the correct authentication code."
+            err_type = DropboxAuthError
+        else:
+            title = "Dropbox error"
+            text = exc.message
+            err_type = BadInputError
 
     # -------------------------- Everything else -----------------------------------------
     else:
