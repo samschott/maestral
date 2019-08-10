@@ -18,18 +18,20 @@ class AutoStart(object):
 
     def __init__(self):
         self.system = platform.system()
+        config_name = os.getenv('MAESTRAL_CONFIG', 'maestral')
+
         if self.system == "Darwin":
             self.filename = "com.samschott.maestral.plist"
             self.destination_dir = os.path.expanduser("~/Library/LaunchAgents")
             if is_macos_bundle:
                 launch_command = os.path.join(sys._MEIPASS, "main")
             else:
-                launch_command = "maestral-gui"
+                launch_command = "maestral gui --config-name='{0}'".format(config_name)
             self.contents = _plist_template.format(launch_command)
         elif self.system == "Linux":
             self.filename = "maestral.desktop"
             self.destination_dir = os.path.expanduser("~/.config/autostart")
-            launch_command = "maestral-gui"
+            launch_command = "maestral gui --config-name='{0}'".format(config_name)
             self.contents = _desktop_entry_template.format(launch_command)
         else:
             raise OSError("Windows is not currently supported.")
