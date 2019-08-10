@@ -283,14 +283,17 @@ class UserDialog(QtWidgets.QDialog):
 
 def quit_and_restart_maestral():
     pid = os.getpid()  # get ID of current process
+    config_name = os.getenv('MAESTRAL_CONFIG', 'maestral')
 
     # wait for current process to quit and then restart Maestral
     if is_macos_bundle:
         launch_command = os.path.join(sys._MEIPASS, "main")
         Popen("lsof -p {0} +r 1 &>/dev/null; {0}".format(launch_command), shell=True)
     if platform.system() == "Darwin":
-        Popen("lsof -p {0} +r 1 &>/dev/null; maestral-gui".format(pid), shell=True)
+        Popen("lsof -p {0} +r 1 &>/dev/null; maestral gui --config-name='{1}'".format(
+            pid, config_name), shell=True)
     elif platform.system() == "Linux":
-        Popen("tail --pid={0} -f /dev/null; maestral-gui".format(pid), shell=True)
+        Popen("tail --pid={0} -f /dev/null; maestral gui --config-name='{1}'".format(
+            pid, config_name), shell=True)
 
     QtCore.QCoreApplication.quit()
