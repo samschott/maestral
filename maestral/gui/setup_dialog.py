@@ -236,7 +236,7 @@ class SetupDialog(QtWidgets.QDialog):
 
         CONF.set("main", "excluded_folders", excluded_folders)
 
-        self.mdbx.get_remote_dropbox_async("")
+        self.mdbx.get_remote_dropbox_async("", callback=self.mdbx.start_sync)
 
 # =============================================================================
 # Helper functions

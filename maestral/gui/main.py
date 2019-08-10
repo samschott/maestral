@@ -134,7 +134,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         if self.mdbx:
             self.setup_ui_linked()
-            self.mdbx.download_complete_signal.connect(self.mdbx.start_sync)
         else:
             logger.info("Setup aborted. Quitting.")
             self.quit_()

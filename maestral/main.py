@@ -57,12 +57,13 @@ CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
                         "your internet connection and try again later.")
 
 
-def folder_download_worker(monitor, dbx_path):
+def folder_download_worker(monitor, dbx_path, callback=None):
     """
-    Worker to to download a whole Dropbox directory in the background.
+    Worker to download a whole Dropbox directory in the background.
 
     :param class monitor: :class:`Monitor` instance.
     :param str dbx_path: Path to directory on Dropbox.
+    :param callback: function to be called after download is complete
     """
     download_complete_signal = signal("download_complete_signal")
 
@@ -77,13 +78,14 @@ def folder_download_worker(monitor, dbx_path):
 
                 if dbx_path == "":
                     monitor.sync.last_sync = time.time()
-                    monitor.resume()  # resume all syncing
                 else:
                     # remove folder from excluded list
                     monitor.flagged.remove(monitor.sync.to_local_path(dbx_path))
 
                 time.sleep(1)
                 completed = True
+                if callback is not None:
+                    callback()
                 download_complete_signal.send()
 
             except CONNECTION_ERRORS as e:
@@ -142,8 +144,6 @@ class Maestral(object):
     changes in between sessions or while Maestral has been idle.
     """
 
-    download_complete_signal = signal("download_complete_signal")
-
     def __init__(self, run=True):
 
         self.client = MaestralApiClient()
@@ -164,8 +164,7 @@ class Maestral(object):
                 self.sync.last_sync = None
 
             if self.pending_first_download():
-                self.get_remote_dropbox_async("")
-                self.download_complete_signal.connect(self.start_sync)
+                self.get_remote_dropbox_async("", callback=self.start_sync)
             else:
                 self.start_sync()
 
@@ -209,24 +208,24 @@ class Maestral(object):
         return res
 
     @handle_disconnect
-    def get_remote_dropbox_async(self, dbx_path):
+    def get_remote_dropbox_async(self, dbx_path, callback=None):
         """
         Runs `sync.get_remote_dropbox` in the background, downloads the full
         Dropbox folder `dbx_path` to the local drive. The folder is temporarily
         excluded from the local observer to prevent duplicate uploads.
 
         :param str dbx_path: Path to folder on Dropbox.
+        :param callback: Function to call after download.
         """
 
         is_root = dbx_path == ""
-        if is_root:  # pause all syncing while downloading root folder
-            self.monitor.pause()
-        else:  # exclude only specific folder otherwise
+        if not is_root:  # exclude only specific folder otherwise
             self.monitor.flagged.append(self.sync.to_local_path(dbx_path))
 
         self.download_thread = Thread(
                 target=folder_download_worker,
                 args=(self.monitor, dbx_path),
+                kwargs={'callback': callback},
                 name="MaestralFolderDownloader")
         self.download_thread.start()
 
