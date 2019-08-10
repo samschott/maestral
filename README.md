@@ -81,7 +81,7 @@ start syncing. Supported commands include:
 >>> m.exclude_folder(path)  # exclude Dropbox folder from sync, delete locally
 >>> m.include_folder(path)  # include Dropbox folder in sync, download its contents
 
->>> m.set_dropbox_directory('~/Dropbox')  # give path for local Dropbox folder
+>>> m.move_dropbox_directory('~/Dropbox')  # move local Dropbox folder
 >>> m.unlink()  # unlinks your Dropbox account but keeps all your files
 ```
 

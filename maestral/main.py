@@ -6,7 +6,7 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 
-__version__ = "0.2.6"
+__version__ = "0.2.7-beta1"
 __author__ = "Sam Schott"
 __url__ = "https://github.com/SamSchott/maestral"
 
@@ -26,6 +26,7 @@ from maestral.errors import CONNECTION_ERRORS, DropboxAuthError
 from maestral.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
                               path_exists_case_insensitive)
 from maestral.config.main import CONF
+from maestral.config.base import get_home_dir
 from maestral.utils.app_dirs import get_log_path
 
 import logging
@@ -34,7 +35,9 @@ import logging.handlers
 # set up logging
 logger = logging.getLogger(__name__)
 
-log_file = get_log_path('maestral', 'maestral.log')
+config_name = os.getenv('MAESTRAL_CONFIG', 'maestral')
+
+log_file = get_log_path('maestral', config_name + '.log')
 log_fmt = logging.Formatter(fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
                             datefmt="%Y-%m-%d %H:%M:%S")
 rfh = logging.handlers.RotatingFileHandler(log_file, maxBytes=10**6, backupCount=3)
@@ -54,12 +57,13 @@ CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
                         "your internet connection and try again later.")
 
 
-def folder_download_worker(monitor, dbx_path):
+def folder_download_worker(monitor, dbx_path, callback=None):
     """
-    Worker to to download a whole Dropbox directory in the background.
+    Worker to download a whole Dropbox directory in the background.
 
     :param class monitor: :class:`Monitor` instance.
     :param str dbx_path: Path to directory on Dropbox.
+    :param callback: function to be called after download is complete
     """
     download_complete_signal = signal("download_complete_signal")
 
@@ -74,13 +78,14 @@ def folder_download_worker(monitor, dbx_path):
 
                 if dbx_path == "":
                     monitor.sync.last_sync = time.time()
-                    monitor.resume()  # resume all syncing
                 else:
                     # remove folder from excluded list
                     monitor.flagged.remove(monitor.sync.to_local_path(dbx_path))
 
                 time.sleep(1)
                 completed = True
+                if callback is not None:
+                    callback()
                 download_complete_signal.send()
 
             except CONNECTION_ERRORS as e:
@@ -139,8 +144,6 @@ class Maestral(object):
     changes in between sessions or while Maestral has been idle.
     """
 
-    download_complete_signal = signal("download_complete_signal")
-
     def __init__(self, run=True):
 
         self.client = MaestralApiClient()
@@ -154,15 +157,14 @@ class Maestral(object):
             # if `run == False`, make sure that you manually initiate the first sync
             # before calling `start_sync`
             if self.pending_dropbox_folder():
-                self.set_dropbox_directory()
+                self.create_dropbox_directory()
                 self.select_excluded_folders()
 
                 self.sync.last_cursor = ""
                 self.sync.last_sync = None
 
             if self.pending_first_download():
-                self.get_remote_dropbox_async("")
-                self.download_complete_signal.connect(self.start_sync)
+                self.get_remote_dropbox_async("", callback=self.start_sync)
             else:
                 self.start_sync()
 
@@ -206,24 +208,24 @@ class Maestral(object):
         return res
 
     @handle_disconnect
-    def get_remote_dropbox_async(self, dbx_path):
+    def get_remote_dropbox_async(self, dbx_path, callback=None):
         """
         Runs `sync.get_remote_dropbox` in the background, downloads the full
         Dropbox folder `dbx_path` to the local drive. The folder is temporarily
         excluded from the local observer to prevent duplicate uploads.
 
         :param str dbx_path: Path to folder on Dropbox.
+        :param callback: Function to call after download.
         """
 
         is_root = dbx_path == ""
-        if is_root:  # pause all syncing while downloading root folder
-            self.monitor.pause()
-        else:  # exclude only specific folder otherwise
+        if not is_root:  # exclude only specific folder otherwise
             self.monitor.flagged.append(self.sync.to_local_path(dbx_path))
 
         self.download_thread = Thread(
                 target=folder_download_worker,
                 args=(self.monitor, dbx_path),
+                kwargs={'callback': callback},
                 name="MaestralFolderDownloader")
         self.download_thread.start()
 
@@ -266,6 +268,7 @@ class Maestral(object):
             pass
 
         CONF.reset_to_defaults()
+        CONF.set("main", "default_dir_name", "Dropbox ({0})".format(config_name.capitalize()))
 
         logger.info("Unlinked Dropbox account.")
 
@@ -361,30 +364,36 @@ class Maestral(object):
         return excluded_folders
 
     @with_sync_paused
-    def set_dropbox_directory(self, new_path=None):
+    def move_dropbox_directory(self, new_path=None):
         """
         Change or set local dropbox directory. This moves all local files to
-        the new location. If a file or directory already exists at this location,
+        the new location. If a file or folder already exists at this location,
         it will be overwritten.
 
-        :param str new_path: Path to local Dropbox folder. If not given, the
+        :param str new_path: Full path to local Dropbox folder. If not given, the
             user will be prompted to input the path.
         """
 
         # get old and new paths
         old_path = self.sync.dropbox_path
+        default_path = osp.join(get_home_dir(), CONF.get("main", "default_dir_name"))
         if new_path is None:
-            new_path = self._ask_for_path(default=old_path or "~/Dropbox")
+            new_path = self._ask_for_path(default=old_path or default_path)
 
         if osp.exists(old_path) and osp.exists(new_path):
             if osp.samefile(old_path, new_path):
                 # nothing to do
                 return
 
-        # move old directory or create new directory
-        if osp.exists(new_path):
-            shutil.rmtree(new_path)
+        # remove existing items at current location
+        try:
+            os.unlink(new_path)
+        except IsADirectoryError:
+            shutil.rmtree(new_path, ignore_errors=True)
+        except FileNotFoundError:
+            pass
 
+        # move folder from old location or create a new one if no old folder exists
         if osp.isdir(old_path):
             shutil.move(old_path, new_path)
         else:
@@ -393,25 +402,50 @@ class Maestral(object):
         # update config file and client
         self.sync.dropbox_path = new_path
 
+    @with_sync_paused
+    def create_dropbox_directory(self, path=None, overwrite=True):
+        """
+        Set a new local dropbox directory.
+
+        :param str path: Full path to local Dropbox folder. If not given, the user will be
+            prompted to input the path.
+        :param bool overwrite: If ``True``, any existing file or folder at ``new_path``
+            will be replaced.
+        """
+        # ask for new path
+        if path is None:
+            path = self._ask_for_path()
+
+        if overwrite:
+            # remove any old items at the location
+            try:
+                os.unlink(path)
+            except IsADirectoryError:
+                shutil.rmtree(path, ignore_errors=True)
+            except FileNotFoundError:
+                pass
+
+        # create new folder
+        os.makedirs(path, exist_ok=True)
+
+        # update config file and client
+        self.sync.dropbox_path = path
+
     def get_dropbox_directory(self):
         """
         Returns the path to the local Dropbox directory.
         """
         return self.sync.dropbox_path
 
-    def _ask_for_path(self, default="~/Dropbox"):
+    def _ask_for_path(self, default=osp.join("~", CONF.get("main", "default_dir_name"))):
         """
         Asks for Dropbox path.
         """
-        default = osp.expanduser(default)
         msg = ("Please give Dropbox folder location or press enter for default "
                "[{0}]:".format(default))
         res = input(msg).strip().strip("'")
 
-        if res == "":
-            dropbox_path = default
-        else:
-            dropbox_path = osp.expanduser(res)
+        dropbox_path = osp.expanduser(res or default)
 
         if osp.exists(dropbox_path):
             msg = "Directory '%s' already exist. Do you want to overwrite it?" % dropbox_path

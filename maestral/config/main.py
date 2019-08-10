@@ -14,12 +14,14 @@ local state, respectively. Resetting those to the default values will trigger
 a full download on the next startup.
 """
 
+import os
+
 # Local import
 from .user import UserConfig
 from .base import migrate_config_files
 
-PACKAGE_NAME = 'maestral'
-SUBFOLDER = PACKAGE_NAME
+PACKAGE_NAME = os.getenv('MAESTRAL_CONFIG', 'maestral')
+SUBFOLDER = 'maestral'
 
 
 # =============================================================================
@@ -29,9 +31,10 @@ DEFAULTS = [
             ('main',
              {
               'path': '',
+              'default_dir_name': 'Dropbox',
               'excluded_folders': [],
-              'excluded_files': ["desktop.ini",  "thumbs.db", ".ds_store",
-                                 "icon\r", ".dropbox.attr", ".dropbox", ".maestral"],
+              'excluded_files': ['desktop.ini',  'thumbs.db', '.ds_store',
+                                 'icon\r', '.dropbox.attr', '.dropbox', '.maestral'],
               }),
             ('account',
              {

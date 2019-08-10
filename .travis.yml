@@ -1,0 +1,15 @@
+language: python
+python:
+- '3.6'
+install:
+- pip install .
+script:
+- echo "skipping tests"
+deploy:
+  provider: pypi
+  user: SamSchott
+  skip_existing: true
+  on:
+    tags: true
+  password:
+    secure: PhLlF3KzZMs221rP9dK8OdWMD8Nv99DZq5mIueg6sKxYFxSxqcrdd1DQfY9fmnAI9yV4tIWmrs5O90BcvcwbzdrJ5ZVg2agagmcpFIdw72+47g4bw7a9fZSf6LSMPG8TWM/dwGf84mgwjGPxAs+zpk5Gh+UB3OAPQ6HTnSs+clvNJxSUSkQacbZ5mRgQ5uT2midfd6PWxx2KUKlauXTjtFQis+am9C8Zoq52ZOztrXsa0joXkpoNVkYcm20CZOoWf5RY+9R/S8ISTOb7fvLasbWTMm2UcIoNSRw0EATYXkCJiBintuZaem62/4gUyYLQh+D/hnYodp3//6E7AxKJlR17EH6aWrg9hl6s7BAzbv136nUNNsyNQRRYkgiDx7RT2NamKbN6MD4lhVeQXgtcBvALCjXhUK7joKRxAYTJNVz1xAMRSujtONnd5n6WFVCNqba7QY3jJbXp1F8wRi6fh0sNpza2UXaNEUmIqsTTlF60rvPh0/UbePsYY3+9wq9R3i0ErYs2mun+MRrlW2xKw33J0lRl5vw76tcGN6vKwz1Tthi8Yv7og6r1Xsn158Qg15kElI+DO5XXXZRmP6trGV3H7JMeMnt05oDOz4/4ocHOYrEOk133a+8Fv8kbP7v3Mz4wgQyXjGQEflWzHP1bsajBBJtxGvzn+2Lb2eCSJG4=

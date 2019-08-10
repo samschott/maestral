@@ -1,3 +1,39 @@
+### v0.2.7-beta1
+
+Started with preparations to support multiple Dropbox accounts. For now, the support
+is command-line only. E.g., before running `maestral gui`, one must set up a new
+configuration with `maestral env new`. For instance, to sync both a private and
+business account, run:
+
+```shell
+$ maestral env new "personal"
+$ maestral env new "work"
+$ maestral gui  --config-name="personal"
+$ maestral gui  --config-name="work"
+```
+This will start two Maestral instances, syncing the private and the business account,
+respectively. By default, the Dropbox folders will be named "Dropbox (Personal)" and
+"Dropbox (Work)" in this case.
+
+_Added:_
+
+- Added experimental support for custom Dropbox folder names. The folder name must be
+  set in the config file before launching the GUI.
+- Set config file for Maestral with the environment variable "MAESTRAL_CONFIG". This
+  allows the user to launch multiple instances of Maestral with different configurations,
+  e.g., different Dropbox accounts. If "MAESTRAL_CONFIG" is not set, Maestral will use its
+  default configuration.
+- Added a new command group "maestral env" to manage different Maestral configurations.
+- Added a new command line option "--config-name" or "-c" to select the configuration
+  file to use.
+
+_Changed:_
+
+- Improved command line and GUI flows for setting or moving the Dropbox folder location.
+- Moved to an Implicit Grant OAuth2 flow. This does not require an app secret to be
+  stored in the client source code. Maestral will therefore no longer require the user to
+  get their own API keys or to use the precompiled oauth binaries hosted on PyPI.
+
 ### v0.2.6 (2019-08-08)
 
 This release fixes a critical bug which would cause Maestral to get stuck after the
@@ -37,7 +73,7 @@ _Changed:_
   longer be indexed.
 - Save config files in the systems default location: '$XDG_CONFIG_HOME/maestral' or
   '.config/maestral' in Linux and '~/Library/Application Support/maestral' on macOS.
-  
+
 _Fixed:_
 
 - Fixed a false "Dropbox folder cannot be found" message which would appear when

@@ -31,7 +31,7 @@ class UnlinkDialog(QtWidgets.QDialog):
 
         self.setWindowFlags(QtCore.Qt.Sheet)
 
-        self.buttonBox.buttons()[0].setText('Unlink')
+        self.buttonBox.buttons()[0].setText("Unlink")
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
 
@@ -93,8 +93,9 @@ class SettingsWindow(QtWidgets.QWidget):
         self.comboBoxDropboxPath.insertSeparator(1)
         self.comboBoxDropboxPath.addItem(QtGui.QIcon(), "Other...")
         self.comboBoxDropboxPath.currentIndexChanged.connect(self.on_combobox)
-        msg = ('Choose a location for your Dropbox. A folder named "Dropbox"' +
-               ' will be created inside the folder you select.')
+        msg = ('Choose a location for your Dropbox. A folder named "{0}" will be ' +
+               'created inside the folder you select.'.format(
+                   CONF.get("main", "default_dir_name")))
         self.dropbox_folder_dialog = QtWidgets.QFileDialog(self, caption=msg)
         self.dropbox_folder_dialog.setModal(True)
         self.dropbox_folder_dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptOpen)
@@ -115,8 +116,8 @@ class SettingsWindow(QtWidgets.QWidget):
             self.comboBoxDropboxPath.setItemText(0, self.rel_path(new_location))
             self.comboBoxDropboxPath.setItemIcon(0, get_native_item_icon(new_location))
 
-            new_path = osp.join(new_location, 'Dropbox')
-            self.mdbx.set_dropbox_directory(new_path)
+            new_path = osp.join(new_location, CONF.get("main", "default_dir_name"))
+            self.mdbx.move_dropbox_directory(new_path)
 
     def on_unlink(self):
         """Unlinks the user's account and restarts the setup dialog."""

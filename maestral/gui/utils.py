@@ -218,12 +218,13 @@ def __command_exists(command):
     )
 
 
-class ErrorDialog(QtWidgets.QDialog):
+class UserDialog(QtWidgets.QDialog):
     def __init__(self, title, message, exc_info=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         self.setModal(True)
+        self.setWindowModality(QtCore.Qt.WindowModal)
         self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint)
-        self.setWindowTitle("Maestral Error")
+        self.setWindowTitle("Maestral Error")  # user dialogs are only shown for errors
         self.setFixedWidth(450)
 
         self.gridLayout = QtWidgets.QGridLayout()
@@ -259,17 +260,40 @@ class ErrorDialog(QtWidgets.QDialog):
             self.gridLayout.addWidget(self.details, 2, 0, 1, 2)
         self.gridLayout.addWidget(self.buttonBox, 3, 1, -1, -1)
 
+    def setAcceptButtonName(self, name):
+        self.buttonBox.buttons()[0].setText(name)
+
+    def addCancelButton(self, name="Cancel"):
+        self._cancelButton = self.buttonBox.addButton(QtWidgets.QDialogButtonBox.Cancel)
+        self._cancelButton.setText(name)
+        self._cancelButton.clicked.connect(self.close)
+
+    def setCancelButtonName(self, name):
+        self._cancelButton.setText(name)
+
+    def addSecondAcceptButton(self, name):
+        self._acceptButton2 = self.buttonBox.addButton(QtWidgets.QDialogButtonBox.Ignore)
+        self._acceptButton2.setText(name)
+        self._acceptButton2.clicked.connect(lambda: self.setResult(2))
+        self._acceptButton2.clicked.connect(self.close)
+
+    def setSecondAcceptButtonName(self, name):
+        self._acceptButton2.setText(name)
+
 
 def quit_and_restart_maestral():
     pid = os.getpid()  # get ID of current process
+    config_name = os.getenv('MAESTRAL_CONFIG', 'maestral')
 
     # wait for current process to quit and then restart Maestral
     if is_macos_bundle:
         launch_command = os.path.join(sys._MEIPASS, "main")
         Popen("lsof -p {0} +r 1 &>/dev/null; {0}".format(launch_command), shell=True)
     if platform.system() == "Darwin":
-        Popen("lsof -p {0} +r 1 &>/dev/null; maestral-gui".format(pid), shell=True)
+        Popen("lsof -p {0} +r 1 &>/dev/null; maestral gui --config-name='{1}'".format(
+            pid, config_name), shell=True)
     elif platform.system() == "Linux":
-        Popen("tail --pid={0} -f /dev/null; maestral-gui".format(pid), shell=True)
+        Popen("tail --pid={0} -f /dev/null; maestral gui --config-name='{1}'".format(
+            pid, config_name), shell=True)
 
     QtCore.QCoreApplication.quit()

@@ -105,7 +105,7 @@ class MaestralApiClient(object):
         # initialize API client
         self.dbx = dropbox.Dropbox(self.auth.access_token, session=SESSION,
                                    user_agent=USER_AGENT, timeout=60)
-        print(" > MaestralClient is ready.")
+        print(" > MaestralApiClient is ready.")
 
     def get_account_info(self):
         """
