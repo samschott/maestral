@@ -152,4 +152,10 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
 
         return OAuth2FlowNoRedirectResult(access_token, res.account_id, "")
 
-
+    @staticmethod
+    def invalidate_token(access_token):
+        dbx = dropbox.Dropbox(access_token)
+        try:
+            dbx.auth_token_revoke()
+        except dropbox.exceptions.DropboxException as exc:
+            raise to_maestral_error(exc)
