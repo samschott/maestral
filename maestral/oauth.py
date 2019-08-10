@@ -77,9 +77,11 @@ class OAuth2Session(object):
 
     def verify_auth_token(self, token):
         """
-        Verify the provided authorization token with Dropbox servers
-        :return: OAuth2Session.Success, OAuth2Session.SessionExpired,
-            OAuth2Session.NotApproved or OAuth2Session.ConnectionFailed
+        Verify the provided authorization token with Dropbox servers.
+
+        :return: OAuth2Session.Success, OAuth2Session.InvalidToken, or
+            OAuth2Session.ConnectionFailed
+        :rtype: int
         """
 
         try:
