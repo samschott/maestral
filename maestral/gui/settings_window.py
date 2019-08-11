@@ -10,15 +10,15 @@ import os.path as osp
 import time
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
-from maestral.main import __version__, __author__, __url__
+from maestral.main import config_name, __version__, __author__, __url__
 from maestral.errors import CONNECTION_ERRORS
 from maestral.utils.autostart import AutoStart
-from maestral.utils.app_dirs import get_log_path
+from maestral.utils.app_dirs import get_cache_path
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
-                                    SETTINGS_WINDOW_PATH, APP_ICON_PATH)
+                                    SETTINGS_WINDOW_PATH, APP_ICON_PATH, FACEHOLDER_PATH)
 from maestral.gui.utils import (get_scaled_font, isDarkWindow, quit_and_restart_maestral,
                                 LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap, mask_image)
 
@@ -49,11 +49,14 @@ class SettingsWindow(QtWidgets.QWidget):
         uic.loadUi(SETTINGS_WINDOW_PATH, self)
         self.update_dark_mode()
         self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
-        # self.setFixedSize(560, 320)
+        self.adjustSize()
 
         self.mdbx = mdbx
         self.folders_dialog = FoldersDialog(self.mdbx, parent=self)
         self.unlink_dialog = UnlinkDialog(self)
+
+        self.labelAccountInfo.setFont(get_scaled_font(0.85))
+        self.labelSpaceUsage.setFont(get_scaled_font(0.85))
 
         # populate app section
         self.autostart = AutoStart()
@@ -68,12 +71,14 @@ class SettingsWindow(QtWidgets.QWidget):
         self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.populate_folders_list)
 
         # populate account section
-        self.labelAccountEmail.setText(CONF.get("account", "email"))
-        usage_type = CONF.get("account", "usage_type")
-        if usage_type == "team":
-            self.labelSpaceUsageTitle.setText("Your team's space:")
-        elif usage_type == "individual":
-            self.labelSpaceUsageTitle.setText("Your space:")
+        self.labelAccountName.setText(CONF.get("account", "display_name"))
+        acc_mail = CONF.get("account", "email")
+        acc_type = CONF.get("account", "type")
+        if acc_type is not "":
+            acc_type_text = ", Dropbox {0}".format(acc_type.capitalize())
+        else:
+            acc_type_text = ""
+        self.labelAccountInfo.setText(acc_mail + acc_type_text)
         self.labelSpaceUsage.setText(CONF.get("account", "usage"))
         self.set_profile_pic()
         self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
@@ -110,15 +115,19 @@ class SettingsWindow(QtWidgets.QWidget):
 
     def set_profile_pic(self):
 
+        self.mdbx.get_profile_pic()
+
+        height = round(self.labelUserProfilePic.height()*0.8)
+
         try:
             with open(self.mdbx.account_profile_pic_path, "rb") as f:
                 img_data = f.read()
-        except OSError:
-            pass
-        else:
-            height = self.gridLayoutAccountInfo.sizeHint().height()
-            pixmap = mask_image(img_data, size=height)
-            self.labelUserProfilePic.setPixmap(pixmap)
+            pixmap = mask_image(img_data, imgtype="jpeg", size=height)
+        except Exception:
+            pixmap = icon_to_pixmap(QtGui.QIcon(FACEHOLDER_PATH), height)
+
+        self.labelUserProfilePic.setPixmap(pixmap)
+        self.labelUserProfilePic.setAlignment(QtCore.Qt.AlignTop)
 
     def on_combobox(self, idx):
         if idx == 2:
