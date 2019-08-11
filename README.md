@@ -13,35 +13,30 @@ Dropbox.
 
 Currently, Maestral does not support Dropbox Paper, the management of Dropbox teams and
 the management of shared folder settings. If you need any of this functionality, please
-use the Dropbox website or the official client. Since Maestral aims to be compatible with
-as many systems as possible, it does not integrate with file managers: there are no badges
-to indicate the sync status of folders or files.
+use the Dropbox website or the official client.
 
 The focus on "simple" file syncing does come with advantages: the Maestral App on macOS is
 80% smaller than the official Dropbox app (50 MB vs 290 MB) and uses 70% less memory. The
 app size and memory footprint can be further reduced when installing and running Maestral
 without a GUI and using the Python installation provided by your OS. The Maestral code
-itself and its Python dependencies take up less than 3 MB,  making a headless install
-ideal for systems with tight resources.
+itself and its Python dependencies take up less than 3 MB,  making an install without GUI
+ideal for systems with little resources.
 
 In the latest beta, Maestral introduces experimental support for multiple Dropbox accounts.
 
 ## Installation
 
 A binary is provided for macOS High Sierra and higher and can be downloaded from the
-Releases tab. On other platforms, download and install the Python package from PyPI by
-running
+Releases tab. On other platforms, download and install the Python package from PyPI:
 ```console
 $ python3 -m pip install --upgrade maestral
 ```
-in the command line. If you intend to use the graphical user interface, you also need to
-install PyQt5. I highly recommend installing PyQt5 through your distribution's package
-manager (e.g., yum, dnf, apt-get, homebrew). Alternatively, you can also get it from PyPI:
+You can also install the latest beta:
 ```console
-$ python3 -m pip install --upgrade PyQt5
+$ python3 -m pip install --upgrade --pre maestral
 ```
-However, in this case the interface style may not follow your selected system appearance
-(e.g., "dark mode" on macOS or "Adwaita-dark" on Gnome).
+If you intend to use the graphical user interface, you also need to install PyQt5, either
+from PyPI or form your platforms package manager.
 
 ## Usage
 
