@@ -327,6 +327,13 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>pushButtonUnlink</tabstop>
+  <tabstop>comboBoxDropboxPath</tabstop>
+  <tabstop>pushButtonExcludedFolders</tabstop>
+  <tabstop>checkBoxStartup</tabstop>
+  <tabstop>checkBoxNotifications</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>
