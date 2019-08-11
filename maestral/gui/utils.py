@@ -54,18 +54,18 @@ def _truncate_string_right(string, font=None, pixels=200):
     new_string = string
 
     # truncate string using the average width per character
-    if metrics.width(string) > pixels:
+    if metrics.horizontalAdvance(string) > pixels:
         pixel_per_char = metrics.width(string) / len(string)
         cutoff = int(pixels / pixel_per_char)
         new_string = string[0:cutoff]
         truncated = True
 
         # truncate further if necessary
-        while metrics.width(new_string) > pixels:
+        while metrics.horizontalAdvance(new_string) > pixels:
             new_string = new_string[0:-1]
 
         # expand if truncated too far
-        while metrics.width(new_string) < pixels:
+        while metrics.horizontalAdvance(new_string) < pixels:
             cutoff = len(new_string)
             new_string = new_string + string[cutoff:cutoff + 1]
 
@@ -91,18 +91,18 @@ def _truncate_string_left(string, font=None, pixels=300):
     new_string = string
 
     # truncate string using the average width per character
-    if metrics.width(string) > pixels:
-        pixel_per_char = metrics.width(string) / len(string)
+    if metrics.horizontalAdvance(string) > pixels:
+        pixel_per_char = metrics.horizontalAdvance(string) / len(string)
         cutoff = int(pixels / pixel_per_char)
         new_string = string[cutoff:]
         truncated = True
 
         # truncate further if necessary
-        while metrics.width(new_string) > pixels:
+        while metrics.horizontalAdvance(new_string) > pixels:
             new_string = new_string[1:]
 
         # expand if truncated too far
-        while metrics.width(new_string) < pixels:
+        while metrics.horizontalAdvance(new_string) < pixels:
             cutoff = len(new_string)
             new_string = string[-cutoff:-cutoff+1] + new_string
 
