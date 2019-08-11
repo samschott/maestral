@@ -7,7 +7,7 @@ Created on Wed Oct 31 16:23:13 2018
 """
 import os.path as osp
 import time
-from packaging import version
+from distutils.version import LooseVersion
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 from maestral.main import __version__, __author__, __url__
@@ -62,7 +62,7 @@ class SettingsWindow(QtWidgets.QWidget):
         # populate account name
         account_display_name = CONF.get("account", "display_name")
         # if the display name is longer than 230 pixels, reduce font-size
-        if version.parse(QtCore.QT_VERSION_STR) >= version.parse("5.11"):
+        if LooseVersion(QtCore.QT_VERSION_STR) >= LooseVersion("5.11"):
             account_display_name_length = QtGui.QFontMetrics(
                 self.labelAccountName.font()).horizontalAdvance(account_display_name)
         else:
