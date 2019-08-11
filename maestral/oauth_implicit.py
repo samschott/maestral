@@ -77,7 +77,7 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
 
     """
 
-    REDIRECT_URI = "https://samschott.github.io/maestral-dropbox/"
+    REDIRECT_URI = "https://www.dropbox.com/1/oauth2/display_token"
 
     def __init__(self, consumer_key, redirect_uri=REDIRECT_URI, session=None,
                  csrf_token_session_key="dropbox-auth-csrf-token", locale=None):
