@@ -60,14 +60,19 @@ class SpaceUsage(dropbox.users.SpaceUsage):
 
     def __str__(self):
 
+        if self.allocation.is_team():
+            str_rep_usage_type = " (Team)"
+        else:
+            str_rep_usage_type = ""
+        return self.__repr__() + str_rep_usage_type
+
+    def __repr__(self):
         if self.allocation.is_individual():
             used = self.used
             allocated = self.allocation.get_individual().allocated
-            str_rep_usage_type = ""
         elif self.allocation.is_team():
             used = self.allocation.get_team().used
             allocated = self.allocation.get_team().allocated
-            str_rep_usage_type = " (Team)"
         else:
             used_gb = bytesto(self.used, "GB")
             return "{:,}GB used".format(used_gb)
@@ -75,7 +80,7 @@ class SpaceUsage(dropbox.users.SpaceUsage):
         percent = used / allocated * 100
         alloc_gb = bytesto(allocated, "GB")
         str_rep_usage = "{:.1f}% of {:,}GB used".format(percent, alloc_gb)
-        return str_rep_usage + str_rep_usage_type
+        return str_rep_usage
 
 
 # noinspection PyDeprecation
@@ -159,7 +164,7 @@ class MaestralApiClient(object):
         elif res.allocation.is_individual():
             CONF.set("account", "usage_type", "individual")
 
-        CONF.set("account", "usage", str(res))
+        CONF.set("account", "usage", repr(res))
 
         return res
 

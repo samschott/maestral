@@ -131,7 +131,7 @@ class SettingsWindow(QtWidgets.QWidget):
 
         self.mdbx.get_profile_pic()
 
-        height = round(self.labelUserProfilePic.height()*0.8)
+        height = round(self.labelUserProfilePic.height()*0.7)
 
         try:
             pixmap = get_masked_image(self.mdbx.account_profile_pic_path, size=height)

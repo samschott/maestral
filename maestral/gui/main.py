@@ -316,9 +316,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def on_usage_available(self, space_usage):
         """Update account usage info in UI."""
-        usage_string = str(space_usage)
-        self.accountUsageAction.setText(usage_string)
-        self.settings.labelSpaceUsage.setText(usage_string)
+        self.accountUsageAction.setText(repr(space_usage))
+        self.settings.labelSpaceUsage.setText(str(space_usage))
 
     def on_error(self, exc_info):
         exc_type, exc, tb = exc_info
