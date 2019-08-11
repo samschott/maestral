@@ -205,7 +205,7 @@ class Maestral(object):
 
     @property
     def account_profile_pic_path(self):
-        return get_cache_path('maestral', config_name + '_profile_pic')
+        return get_cache_path('maestral', config_name + '_profile_pic.jpeg')
 
     @handle_disconnect
     def get_account_info(self):
@@ -220,9 +220,7 @@ class Maestral(object):
             try:
                 # download current profile pic
                 r = requests.get(res.profile_photo_url)
-                file_ext = os.path.splitext(res.profile_photo_url)[1]
-                self._delete_old_profile_pics()  # delete old after successful download
-                with open(self.account_profile_pic_path + file_ext, "wb") as f:
+                with open(self.account_profile_pic_path, "wb") as f:
                     f.write(r.content)
             except Exception:
                 pass
@@ -235,7 +233,7 @@ class Maestral(object):
         for file in os.listdir(get_cache_path('maestral')):
             if file.startswith(config_name + '_profile_pic'):
                 try:
-                    os.unlink(self.account_profile_pic_path)
+                    os.unlink(osp.join(get_cache_path('maestral'), file))
                 except OSError:
                     pass
 
