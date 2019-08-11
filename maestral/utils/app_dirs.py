@@ -1,7 +1,7 @@
 import platform
 import os
 import os.path as osp
-from maestral.config.base import get_home_dir
+from maestral.config.base import get_home_dir, get_conf_path
 
 
 def get_log_path(subfolder=None, filename=None, create=True):
@@ -30,3 +30,10 @@ def get_log_path(subfolder=None, filename=None, create=True):
         return log_dir
     else:
         return osp.join(log_dir, filename)
+
+
+def get_cache_path(subfolder=None, filename=None, create=True):
+    if platform.system() == 'Darwin':
+        return get_conf_path(subfolder, filename, create)
+    else:
+        return get_log_path(subfolder, filename, create)

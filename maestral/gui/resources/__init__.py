@@ -18,6 +18,8 @@ _icon_provider = QtWidgets.QFileIconProvider()
 APP_ICON_PATH = _root + "/Maestral.png"
 TRAY_ICON_PATH = _root + "/menubar_icon_{0}_{1}.svg"
 
+FACEHOLDER_PATH = _root + "/faceholder.png"
+
 FOLDERS_DIALOG_PATH = _root + "/folders_dialog.ui"
 SETUP_DIALOG_PATH = _root + "/setup_dialog.ui"
 SETTINGS_WINDOW_PATH = _root + "/settings_window.ui"
@@ -54,7 +56,7 @@ def get_system_tray_icon(status, icon_color="dark"):
     has_gnome3 = gnome_version is not None and gnome_version[0] >= 3
 
     if platform.system() == "Linux" and has_gnome3:
-        QtGui.QIcon.setThemeSearchPaths([os.path.join(_root, "icon-theme-gnome")])
+        QtGui.QIcon.setFallbackSearchPaths([os.path.join(_root, "icon-theme-gnome")])
         icon = QtGui.QIcon.fromTheme("menubar_icon_{0}-symbolic".format(status))
     elif platform.system() == "Darwin":
         icon = QtGui.QIcon(TRAY_ICON_PATH.format(status, "dark"))

@@ -1,19 +1,4 @@
-### v0.2.7-beta1
-
-Started with preparations to support multiple Dropbox accounts. For now, the support
-is command-line only. E.g., before running `maestral gui`, one must set up a new
-configuration with `maestral env new`. For instance, to sync both a private and
-business account, run:
-
-```shell
-$ maestral env new "personal"
-$ maestral env new "work"
-$ maestral gui  --config-name="personal"
-$ maestral gui  --config-name="work"
-```
-This will start two Maestral instances, syncing the private and the business account,
-respectively. By default, the Dropbox folders will be named "Dropbox (Personal)" and
-"Dropbox (Work)" in this case.
+### v0.2.7-beta2
 
 _Added:_
 
@@ -29,6 +14,7 @@ _Added:_
 
 _Changed:_
 
+- Redesigned the settings window to show more prominent account information.
 - Improved command line and GUI flows for setting or moving the Dropbox folder location.
 - Moved to an Implicit Grant OAuth2 flow. This does not require an app secret to be
   stored in the client source code. Maestral will therefore no longer require the user to

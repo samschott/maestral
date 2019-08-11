@@ -11,8 +11,8 @@ import logging
 import platform
 import subprocess
 import webbrowser
-import shutil
 import urllib
+import shutil
 import keyring
 from blinker import signal
 from PyQt5 import QtCore, QtWidgets
@@ -316,9 +316,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def on_usage_available(self, space_usage):
         """Update account usage info in UI."""
-        usage_string = str(space_usage)
-        self.accountUsageAction.setText(usage_string)
-        self.settings.labelSpaceUsage.setText(usage_string)
+        self.accountUsageAction.setText(repr(space_usage))
+        self.settings.labelSpaceUsage.setText(str(space_usage))
 
     def on_error(self, exc_info):
         exc_type, exc, tb = exc_info
@@ -379,16 +378,11 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.recentFilesMenu.clear()
         for dbx_path in reversed(CONF.get("internal", "recent_changes")):
             file_name = os.path.basename(dbx_path)
+            local_path = self.mdbx.sync.to_local_path(dbx_path)
             truncated_name = truncate_string(file_name, font=self.menu.font(),
                                              side="right")
-            local_path = self.mdbx.sync.to_local_path(dbx_path)
-
-            submenu = self.recentFilesMenu.addMenu(truncated_name)
-            a0 = submenu.addAction("View in folder")
-            a1 = submenu.addAction("View on dropbox.com")
-
-            a0.triggered.connect(lambda: self.open_destination(local_path, reveal=True))
-            a1.triggered.connect(lambda: self.show_online(dbx_path))
+            a = self.recentFilesMenu.addAction(truncated_name)
+            a.triggered.connect(lambda: self.open_destination(local_path, reveal=True))
 
     def on_info_signal(self, status):
         """Change icon according to status."""

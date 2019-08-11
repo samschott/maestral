@@ -11,6 +11,8 @@ import platform
 from subprocess import Popen
 from traceback import format_exception
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import Qt, QRect
+from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap, QWindow
 
 from maestral.gui.resources import APP_ICON_PATH
 from maestral.utils import is_macos_bundle
@@ -23,91 +25,36 @@ LINE_COLOR_LIGHT = (205, 203, 205)
 
 
 def truncate_string(string, font=None, pixels=200, side="right"):
-
-    if side == "right":
-        return _truncate_string_right(string, font=font, pixels=pixels)
-    elif side == "left":
-        return _truncate_string_left(string, font=font, pixels=pixels)
-
-
-def _truncate_string_right(string, font=None, pixels=200):
     """
-    Truncates strings so that it is short than `pixels` in the given `font`.
+    Elide a string to fit into the given width.
 
-    :param str string: String to truncate.
-    :param font: QFont used to determine the pixel width of the text.
-    :param int pixels: Maximum allowed width in pixels.
-
+    :param str string: String to elide.
+    :param font: Font to calculate size. If not given, the current styles default font
+        for a QLabel is used.
+    :param int pixels: Maximum width in pixels.
+    :param str side: Side to truncate. Can be "right" or "left", defaults to "right".
     :return: Truncated string.
     :rtype: str
     """
 
     if not font:
-        test_label = QtWidgets.QLabel()
-        font = test_label.font()
+        font = QtWidgets.QLabel().font()
 
     metrics = QtGui.QFontMetrics(font)
+    mode = Qt.ElideRight if side is "right" else Qt.ElideLeft
 
-    truncated = False
-    new_string = string
-
-    # truncate string using the average width per character
-    if metrics.width(string) > pixels:
-        pixel_per_char = metrics.width(string) / len(string)
-        cutoff = int(pixels / pixel_per_char)
-        new_string = string[0:cutoff]
-        truncated = True
-
-        # truncate further if necessary
-        while metrics.width(new_string) > pixels:
-            new_string = new_string[0:-1]
-
-        # expand if truncated too far
-        while metrics.width(new_string) < pixels:
-            cutoff = len(new_string)
-            new_string = new_string + string[cutoff:cutoff + 1]
-
-    return new_string + ('...' if truncated else '')
-
-
-def _truncate_string_left(string, font=None, pixels=300):
-    """
-    Truncates strings so that it is short than `pixels` in the given `font`.
-
-    :param str string: String to truncate.
-    :param int pixels: Maximum allowed width in pixels.
-
-    :return: Truncated string.
-    :rtype: str
-    """
-    if not font:
-        test_label = QtWidgets.QLabel()
-        font = test_label.font()
-    metrics = QtGui.QFontMetrics(font)
-
-    truncated = False
-    new_string = string
-
-    # truncate string using the average width per character
-    if metrics.width(string) > pixels:
-        pixel_per_char = metrics.width(string) / len(string)
-        cutoff = int(pixels / pixel_per_char)
-        new_string = string[cutoff:]
-        truncated = True
-
-        # truncate further if necessary
-        while metrics.width(new_string) > pixels:
-            new_string = new_string[1:]
-
-        # expand if truncated too far
-        while metrics.width(new_string) < pixels:
-            cutoff = len(new_string)
-            new_string = string[-cutoff:-cutoff+1] + new_string
-
-    return ('...' if truncated else '') + new_string
+    return metrics.elidedText(string, mode, pixels)
 
 
 def get_scaled_font(scaling=1.0, bold=False, italic=False):
+    """
+    Returns the styles default font for QLabels, but scaled.
+
+    :param float scaling: Scaling factor.
+    :param bool bold: Sets the returned font to bold (defaults to ``False``)
+    :param bool italic: Sets the returned font to italic (defaults to ``False``)
+    :return: `QFont`` instance.
+    """
     label = QtWidgets.QLabel()
     font = label.font()
     font.setBold(bold)
@@ -123,12 +70,20 @@ def _luminance(r, g, b, base=256):
     """
     Calculates luminance of a color, on a scale from 0 to 1, meaning that 1 is the
     highest luminance. r, g, b arguments values should be in 0..256 limits, or base
-    argument should define the upper limit otherwise
+    argument should define the upper limit otherwise.
     """
     return (0.2126*r + 0.7152*g + 0.0722*b)/base
 
 
 def icon_to_pixmap(icon, width, height=None):
+    """
+    Converts a given icon to a pixmap. Automatically adjusts to high-DPI scaling.
+
+    :param icon: Icon to convert.
+    :param int width: Target point height.
+    :param int height: Target point height.
+    :return: ``QPixmap`` instance.
+    """
     if not height:
         height = width
 
@@ -158,7 +113,8 @@ def __pixel_at(x, y):
 
 def statusBarTheme():
     """
-    Returns one of THEME_LIGHT or THEME_DARK, corresponding to current status bar theme
+    Returns one of gui.utils.THEME_LIGHT or gui.utils.THEME_DARK, corresponding to the
+    current status bar theme.
     """
     # getting color of a pixel on a top bar, and identifying best-fitting color
     # theme based on its luminance
@@ -169,7 +125,8 @@ def statusBarTheme():
 
 def windowTheme():
     """
-    Returns one of THEME_LIGHT or THEME_DARK, corresponding to current user's UI theme
+    Returns one of gui.utils.THEME_LIGHT or gui.utils.THEME_DARK, corresponding to
+    current user's UI theme.
     """
     # getting color of a pixel on a top bar, and identifying best-fitting color
     # theme based on its luminance
@@ -219,6 +176,9 @@ def __command_exists(command):
 
 
 class UserDialog(QtWidgets.QDialog):
+    """
+    A template user dialog for Maestral. Shows a traceback if given in constructor.
+    """
     def __init__(self, title, message, exc_info=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         self.setModal(True)
@@ -282,6 +242,10 @@ class UserDialog(QtWidgets.QDialog):
 
 
 def quit_and_restart_maestral():
+    """
+    Quits and restarts Maestral. This chooses the right command to restart Maestral,
+    running with the previous configuration. It also handles restarting macOS app bundles.
+    """
     pid = os.getpid()  # get ID of current process
     config_name = os.getenv('MAESTRAL_CONFIG', 'maestral')
 
@@ -297,3 +261,69 @@ def quit_and_restart_maestral():
             pid, config_name), shell=True)
 
     QtCore.QCoreApplication.quit()
+
+
+def get_masked_image(path, size=64, overlay_text=""):
+    """
+    Returns a ``QPixmap`` from an image file masked with a smooth circle.
+    The returned pixmap will have a size of *size* × *size* pixels.
+
+    :param str path: Path to image file.
+    :param int size: Target size. Will be the diameter of the masked image.
+    :param overlay_text: Overlay text. This will be shown in white sans-serif on top of
+        the image.
+    :return: `QPixmap`` instance.
+    """
+
+    with open(path, "rb") as f:
+        imgdata = f.read()
+
+    imgtype = path.split(".")[-1]
+
+    # Load image and convert to 32-bit ARGB (adds an alpha channel):
+    image = QImage.fromData(imgdata, imgtype)
+    image.convertToFormat(QImage.Format_ARGB32)
+
+    # Crop image to a square:
+    imgsize = min(image.width(), image.height())
+    rect = QRect(
+        (image.width() - imgsize) / 2,
+        (image.height() - imgsize) / 2,
+        imgsize,
+        imgsize,
+    )
+    image = image.copy(rect)
+
+    # Create the output image with the same dimensions and an alpha channel
+    # and make it completely transparent:
+    out_img = QImage(imgsize, imgsize, QImage.Format_ARGB32)
+    out_img.fill(Qt.transparent)
+
+    # Create a texture brush and paint a circle with the original image onto
+    # the output image:
+    brush = QBrush(image)        # Create texture brush
+    painter = QPainter(out_img)  # Paint the output image
+    painter.setBrush(brush)      # Use the image texture brush
+    painter.setPen(Qt.NoPen)     # Don't draw an outline
+    painter.setRenderHint(QPainter.Antialiasing, True)  # Use AA
+    painter.drawEllipse(0, 0, imgsize, imgsize)  # Actually draw the circle
+
+    if overlay_text:
+        # draw text
+        font = get_scaled_font(bold=True)
+        font.setPointSize(imgsize * 0.4)
+        painter.setFont(font)
+        painter.setPen(Qt.white)
+        painter.drawText(QRect(0, 0, imgsize, imgsize), Qt.AlignCenter, overlay_text)
+
+    painter.end()                # We are done (segfault if you forget this)
+
+    # Convert the image to a pixmap and rescale it.  Take pixel ratio into
+    # account to get a sharp image on retina displays:
+    pr = QWindow().devicePixelRatio()
+    pm = QPixmap.fromImage(out_img)
+    pm.setDevicePixelRatio(pr)
+    size *= pr
+    pm = pm.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+    return pm

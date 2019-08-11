@@ -7,6 +7,7 @@ Created on Wed Oct 31 16:23:13 2018
 """
 import os.path as osp
 import time
+from distutils.version import LooseVersion
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 from maestral.main import __version__, __author__, __url__
@@ -16,9 +17,10 @@ from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
-                                    SETTINGS_WINDOW_PATH, APP_ICON_PATH)
+                                    SETTINGS_WINDOW_PATH, APP_ICON_PATH, FACEHOLDER_PATH)
 from maestral.gui.utils import (get_scaled_font, isDarkWindow, quit_and_restart_maestral,
-                                LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap)
+                                LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap,
+                                get_masked_image)
 
 
 class UnlinkDialog(QtWidgets.QDialog):
@@ -47,11 +49,47 @@ class SettingsWindow(QtWidgets.QWidget):
         uic.loadUi(SETTINGS_WINDOW_PATH, self)
         self.update_dark_mode()
         self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
-        # self.setFixedSize(560, 320)
+        self.adjustSize()
 
         self.mdbx = mdbx
         self.folders_dialog = FoldersDialog(self.mdbx, parent=self)
         self.unlink_dialog = UnlinkDialog(self)
+
+        self.labelAccountName.setFont(get_scaled_font(1.5))
+        self.labelAccountInfo.setFont(get_scaled_font(0.85))
+        self.labelSpaceUsage.setFont(get_scaled_font(0.85))
+
+        # populate account name
+        account_display_name = CONF.get("account", "display_name")
+        # if the display name is longer than 230 pixels, reduce font-size
+        if LooseVersion(QtCore.QT_VERSION_STR) >= LooseVersion("5.11"):
+            account_display_name_length = QtGui.QFontMetrics(
+                self.labelAccountName.font()).horizontalAdvance(account_display_name)
+        else:
+            account_display_name_length = QtGui.QFontMetrics(
+                self.labelAccountName.font()).width(account_display_name)
+        if account_display_name_length > 220:
+            font = get_scaled_font(scaling=1.5*230/account_display_name_length)
+            self.labelAccountName.setFont(font)
+        self.labelAccountName.setText(CONF.get("account", "display_name"))
+
+        # populate account info
+        acc_mail = CONF.get("account", "email")
+        acc_type = CONF.get("account", "type")
+        if acc_type is not "":
+            acc_type_text = ", Dropbox {0}".format(acc_type.capitalize())
+        else:
+            acc_type_text = ""
+        self.labelAccountInfo.setText(acc_mail + acc_type_text)
+        self.labelSpaceUsage.setText(CONF.get("account", "usage"))
+        self.set_profile_pic()
+        self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
+        self.unlink_dialog.accepted.connect(self.on_unlink)
+
+        # populate sync section
+        self.setup_combobox()
+        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.open)
+        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.populate_folders_list)
 
         # populate app section
         self.autostart = AutoStart()
@@ -59,22 +97,6 @@ class SettingsWindow(QtWidgets.QWidget):
         self.checkBoxStartup.stateChanged.connect(self.on_start_on_login_clicked)
         self.checkBoxNotifications.setChecked(self.mdbx.notify)
         self.checkBoxNotifications.stateChanged.connect(self.on_notifications_clicked)
-
-        # populate sync section
-        self.setup_combobox()
-        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.open)
-        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.populate_folders_list)
-
-        # populate account section
-        self.labelAccountEmail.setText(CONF.get("account", "email"))
-        usage_type = CONF.get("account", "usage_type")
-        if usage_type == "team":
-            self.labelSpaceUsageTitle.setText("Your team's space:")
-        elif usage_type == "individual":
-            self.labelSpaceUsageTitle.setText("Your space:")
-        self.labelSpaceUsage.setText(CONF.get("account", "usage"))
-        self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
-        self.unlink_dialog.accepted.connect(self.on_unlink)
 
         # populate about section
         year = time.localtime().tm_year
@@ -104,6 +126,21 @@ class SettingsWindow(QtWidgets.QWidget):
         self.dropbox_folder_dialog.fileSelected.connect(self.on_new_dbx_folder)
         self.dropbox_folder_dialog.rejected.connect(
                 lambda: self.comboBoxDropboxPath.setCurrentIndex(0))
+
+    def set_profile_pic(self):
+
+        self.mdbx.get_profile_pic()
+
+        height = round(self.labelUserProfilePic.height()*0.7)
+
+        try:
+            pixmap = get_masked_image(self.mdbx.account_profile_pic_path, size=height)
+        except Exception:
+            initials = CONF.get("account", "abbreviated_name")
+            pixmap = get_masked_image(FACEHOLDER_PATH, size=height, overlay_text=initials)
+
+        self.labelUserProfilePic.setPixmap(pixmap)
+        self.labelUserProfilePic.setAlignment(QtCore.Qt.AlignTop)
 
     def on_combobox(self, idx):
         if idx == 2:
