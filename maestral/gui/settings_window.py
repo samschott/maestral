@@ -55,23 +55,21 @@ class SettingsWindow(QtWidgets.QWidget):
         self.folders_dialog = FoldersDialog(self.mdbx, parent=self)
         self.unlink_dialog = UnlinkDialog(self)
 
+        self.labelAccountName.setFont(get_scaled_font(1.5))
         self.labelAccountInfo.setFont(get_scaled_font(0.85))
         self.labelSpaceUsage.setFont(get_scaled_font(0.85))
 
-        # populate app section
-        self.autostart = AutoStart()
-        self.checkBoxStartup.setChecked(self.autostart.enabled)
-        self.checkBoxStartup.stateChanged.connect(self.on_start_on_login_clicked)
-        self.checkBoxNotifications.setChecked(self.mdbx.notify)
-        self.checkBoxNotifications.stateChanged.connect(self.on_notifications_clicked)
-
-        # populate sync section
-        self.setup_combobox()
-        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.open)
-        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.populate_folders_list)
-
-        # populate account section
+        # populate account name
+        account_display_name = CONF.get("account", "display_name")
+        # if the display name is longer than 230 pixels, reduce font-size
+        account_display_name_length = QtGui.QFontMetrics(
+            self.labelAccountName.font()).horizontalAdvance(account_display_name)
+        if account_display_name_length > 220:
+            font = get_scaled_font(scaling=1.5*230/account_display_name_length)
+            self.labelAccountName.setFont(font)
         self.labelAccountName.setText(CONF.get("account", "display_name"))
+
+        # populate account info
         acc_mail = CONF.get("account", "email")
         acc_type = CONF.get("account", "type")
         if acc_type is not "":
@@ -83,6 +81,18 @@ class SettingsWindow(QtWidgets.QWidget):
         self.set_profile_pic()
         self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
         self.unlink_dialog.accepted.connect(self.on_unlink)
+
+        # populate sync section
+        self.setup_combobox()
+        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.open)
+        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.populate_folders_list)
+
+        # populate app section
+        self.autostart = AutoStart()
+        self.checkBoxStartup.setChecked(self.autostart.enabled)
+        self.checkBoxStartup.stateChanged.connect(self.on_start_on_login_clicked)
+        self.checkBoxNotifications.setChecked(self.mdbx.notify)
+        self.checkBoxNotifications.stateChanged.connect(self.on_notifications_clicked)
 
         # populate about section
         year = time.localtime().tm_year
