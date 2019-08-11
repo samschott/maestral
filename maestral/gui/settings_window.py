@@ -17,10 +17,10 @@ from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
-                                    SETTINGS_WINDOW_PATH, APP_ICON_PATH)
+                                    SETTINGS_WINDOW_PATH, APP_ICON_PATH, FACEHOLDER_PATH)
 from maestral.gui.utils import (get_scaled_font, isDarkWindow, quit_and_restart_maestral,
                                 LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap,
-                                FACEHOLDER_PATH, get_masked_image)
+                                get_masked_image)
 
 
 class UnlinkDialog(QtWidgets.QDialog):
