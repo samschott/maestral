@@ -10,17 +10,17 @@ import os.path as osp
 import time
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
-from maestral.main import config_name, __version__, __author__, __url__
+from maestral.main import __version__, __author__, __url__
 from maestral.errors import CONNECTION_ERRORS
 from maestral.utils.autostart import AutoStart
-from maestral.utils.app_dirs import get_cache_path
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
-                                    SETTINGS_WINDOW_PATH, APP_ICON_PATH, FACEHOLDER_PATH)
+                                    SETTINGS_WINDOW_PATH, APP_ICON_PATH)
 from maestral.gui.utils import (get_scaled_font, isDarkWindow, quit_and_restart_maestral,
-                                LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap, mask_image)
+                                LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap,
+                                FACEHOLDER_PATH, get_masked_image)
 
 
 class UnlinkDialog(QtWidgets.QDialog):
@@ -120,11 +120,10 @@ class SettingsWindow(QtWidgets.QWidget):
         height = round(self.labelUserProfilePic.height()*0.8)
 
         try:
-            with open(self.mdbx.account_profile_pic_path, "rb") as f:
-                img_data = f.read()
-            pixmap = mask_image(img_data, imgtype="jpeg", size=height)
+            pixmap = get_masked_image(self.mdbx.account_profile_pic_path, size=height)
         except Exception:
-            pixmap = icon_to_pixmap(QtGui.QIcon(FACEHOLDER_PATH), height)
+            initials = CONF.get("account", "abbreviated_name")
+            pixmap = get_masked_image(FACEHOLDER_PATH, size=height, overlay_text=initials)
 
         self.labelUserProfilePic.setPixmap(pixmap)
         self.labelUserProfilePic.setAlignment(QtCore.Qt.AlignTop)

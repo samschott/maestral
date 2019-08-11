@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, QRect
 from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap, QWindow
 
-from maestral.gui.resources import APP_ICON_PATH
+from maestral.gui.resources import APP_ICON_PATH, FACEHOLDER_PATH
 from maestral.utils import is_macos_bundle
 
 THEME_DARK = "dark"
@@ -301,14 +301,20 @@ def quit_and_restart_maestral():
     QtCore.QCoreApplication.quit()
 
 
-def mask_image(imgdata, imgtype='jpeg', size=64):
-    """Return a ``QPixmap`` from *imgdata* masked with a smooth circle.
+def get_masked_image(path, size=64, overlay_text=""):
+    """Return a ``QPixmap`` from image file masked with a smooth circle.
 
-    *imgdata* are the raw image bytes, *imgtype* denotes the image type.
+    *overlay_text* will be drawn on top of the image.
 
-    The returned image will have a size of *size* × *size* pixels.
+    The returned pixmap will have a size of *size* × *size* pixels.
 
     """
+
+    with open(path, "rb") as f:
+        imgdata = f.read()
+
+    imgtype = path.split(".")[-1]
+
     # Load image and convert to 32-bit ARGB (adds an alpha channel):
     image = QImage.fromData(imgdata, imgtype)
     image.convertToFormat(QImage.Format_ARGB32)
@@ -336,6 +342,15 @@ def mask_image(imgdata, imgtype='jpeg', size=64):
     painter.setPen(Qt.NoPen)     # Don't draw an outline
     painter.setRenderHint(QPainter.Antialiasing, True)  # Use AA
     painter.drawEllipse(0, 0, imgsize, imgsize)  # Actually draw the circle
+
+    if overlay_text:
+        # draw text
+        font = get_scaled_font(bold=True)
+        font.setPointSize(imgsize * 0.4)
+        painter.setFont(font)
+        painter.setPen(Qt.white)
+        painter.drawText(QRect(0, 0, imgsize, imgsize), Qt.AlignCenter, overlay_text)
+
     painter.end()                # We are done (segfault if you forget this)
 
     # Convert the image to a pixmap and rescale it.  Take pixel ratio into
