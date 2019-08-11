@@ -50,7 +50,7 @@ Maestral with a graphical user interface. On its first run, Maestral will guide 
 through linking and configuring your Dropbox and will then start syncing.
 
 ![screenshot macOS](https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/macOS.png)
-![screenshot Fedora](https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/Fedora.png)
+![screenshot Fedora](https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/Ubuntu.png)
 
 ## Command line usage
 
