@@ -2,6 +2,7 @@
 
 _Added:_
 
+- Animated setup dialog.
 - Added experimental support for custom Dropbox folder names. The folder name must be
   set in the config file before launching the GUI.
 - Set config file for Maestral with the environment variable "MAESTRAL_CONFIG". This
