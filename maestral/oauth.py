@@ -14,7 +14,6 @@ from keyring.errors import KeyringLocked
 from maestral.utils import is_macos_bundle, is_linux_bundle
 from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
-from maestral.errors import to_maestral_error
 from maestral.oauth_implicit import DropboxOAuth2FlowImplicit
 from maestral.errors import CONNECTION_ERRORS, DropboxAuthError
 
