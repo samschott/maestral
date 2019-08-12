@@ -126,7 +126,7 @@ class SetupDialog(QtWidgets.QDialog):
             self.mdbx = Maestral(run=False)
             self.mdbx.client.get_account_info()
         else:
-            self.stackedWidgetButtons.setCurrentIndex(0)
+            self.stackedWidget.setCurrentIndex(0)
             self.stackedWidgetButtons.setCurrentIndex(0)
 
 # =============================================================================
