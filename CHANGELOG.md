@@ -12,6 +12,8 @@ _Added:_
 - Added a new command group "maestral env" to manage different Maestral configurations.
 - Added a new command line option "--config-name" or "-c" to select the configuration
   file to use.
+- Relink dialog: If the Dropbox authorisation expires, we no longer reboot into the
+  setup dialog but show a custom "Relink Dialog".
 
 _Changed:_
 
