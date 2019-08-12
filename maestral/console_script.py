@@ -20,8 +20,8 @@ def set_environ(ctx, param, value):
         os.environ["MAESTRAL_CONFIG"] = value
 
 
-with_config_opt = click.option('-c', '--config-name', default='', callback=set_environ,
-                               is_eager=True, expose_value=False,
+with_config_opt = click.option("-c", "--config-name", default="", callback=set_environ,
+                               is_eager=True, expose_value=False, metavar="NAME",
                                help="Run Maestral with the selected configuration.")
 
 
