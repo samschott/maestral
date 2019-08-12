@@ -345,8 +345,8 @@ class SetupDialog(QtWidgets.QDialog):
 
     # static method to create the dialog and return Maestral instance on success
     @staticmethod
-    def configureMaestral(parent=None):
-        fsd = SetupDialog(parent)
+    def configureMaestral(pending_link=True, parent=None):
+        fsd = SetupDialog(pending_link, parent)
         fsd.exec_()
 
         return fsd.mdbx
