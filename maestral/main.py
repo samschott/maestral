@@ -148,7 +148,6 @@ class Maestral(object):
     def __init__(self, run=True):
 
         self.client = MaestralApiClient()
-        self.get_account_info()
 
         # monitor needs to be created before any decorators are called
         self.monitor = MaestralMonitor(self.client)
@@ -167,6 +166,7 @@ class Maestral(object):
             if self.pending_first_download():
                 self.get_remote_dropbox_async("", callback=self.start_sync)
             else:
+                self.get_account_info()
                 self.start_sync()
 
     @staticmethod
