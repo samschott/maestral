@@ -20,6 +20,11 @@ def set_environ(ctx, param, value):
         os.environ["MAESTRAL_CONFIG"] = value
 
 
+with_config_opt = click.option('-c', '--config-name', default='', callback=set_environ,
+                               is_eager=True, expose_value=False,
+                               help="Run Maestral with the selected configuration.")
+
+
 @click.group()
 def main():
     """Maestral Dropbox Client for Linux and macOS."""
@@ -27,8 +32,7 @@ def main():
 
 
 @main.command()
-@click.option('-c', '--config-name', default='', callback=set_environ, is_eager=True,
-              expose_value=False, help="Run Maestral with the selected configuration.")
+@with_config_opt
 def sync():
     """Runs Maestral from the command line."""
     from maestral.main import Maestral
@@ -38,8 +42,7 @@ def sync():
 
 
 @main.command()
-@click.option('-c', '--config-name', default='', callback=set_environ, is_eager=True,
-              expose_value=False, help="Run Maestral with the selected configuration.")
+@with_config_opt
 def gui():
     """Runs Maestral with a GUI."""
     # check for PyQt5
@@ -47,16 +50,15 @@ def gui():
     spec = importlib.util.find_spec("PyQt5")
 
     if not spec:
-        click.echo('Error: PyQt5 is required to run the Maestral GUI. '
-                   'Run `pip install pyqt5` to install it.')
+        click.echo("Error: PyQt5 is required to run the Maestral GUI. "
+                   "Run `pip install pyqt5` to install it.")
     else:
         from maestral.gui.main import run
         run()
 
 
 @main.command()
-@click.option('-c', '--config-name', default='', callback=set_environ, is_eager=True,
-              expose_value=False, help="Run Maestral with the selected configuration.")
+@with_config_opt
 def configure():
     """Runs the command line configuration wizard."""
     from maestral.main import Maestral
@@ -66,18 +68,17 @@ def configure():
 
 
 @main.command()
-@click.option('-c', '--config-name', default='', callback=set_environ, is_eager=True,
-              expose_value=False, help="Run Maestral with the selected configuration.")
+@with_config_opt
 def unlink():
     """Unlinks your Dropbox account."""
     from maestral.main import Maestral
     m = Maestral(run=False)
     m.unlink()
+    click.echo("Unlinked Maestral.")
 
 
 @main.command()
-@click.option('-c', '--config-name', default='', callback=set_environ, is_eager=True,
-              expose_value=False, help="Run Maestral with the selected configuration.")
+@with_config_opt
 @click.argument("dropbox_path", type=click.Path())
 @click.argument("local_path", type=click.Path())
 def download(dropbox_path: str, local_path: str):
@@ -85,11 +86,11 @@ def download(dropbox_path: str, local_path: str):
     from maestral.client import MaestralApiClient
     c = MaestralApiClient()
     c.download(dropbox_path, local_path)
+    click.echo("Downloaded '{0}' to '{1}'.".format(dropbox_path, local_path))
 
 
 @main.command()
-@click.option('-c', '--config-name', default='', callback=set_environ, is_eager=True,
-              expose_value=False, help="Run Maestral with the selected configuration.")
+@with_config_opt
 @click.argument("local_path", type=click.Path())
 @click.argument("dropbox_path", type=click.Path())
 def upload(local_path: str, dropbox_path: str):
@@ -97,11 +98,11 @@ def upload(local_path: str, dropbox_path: str):
     from maestral.client import MaestralApiClient
     c = MaestralApiClient()
     c.upload(local_path, dropbox_path)
+    click.echo("Uploaded '{0}'.".format(dropbox_path))
 
 
 @main.command()
-@click.option('-c', '--config-name', default='', callback=set_environ, is_eager=True,
-              expose_value=False, help="Run Maestral with the selected configuration.")
+@with_config_opt
 @click.argument("old_path", type=click.Path())
 @click.argument("new_path", type=click.Path())
 def move(old_path: str, new_path: str):
@@ -109,11 +110,11 @@ def move(old_path: str, new_path: str):
     from maestral.client import MaestralApiClient
     c = MaestralApiClient()
     c.move(old_path, new_path)
+    click.echo("Moved '{0}' to '{1}'.".format(old_path, new_path))
 
 
 @main.command(name='list')
-@click.option('-c', '--config-name', default='', callback=set_environ, is_eager=True,
-              expose_value=False, help="Run Maestral with the selected configuration.")
+@with_config_opt
 @click.argument("dropbox_path", type=click.Path())
 def main_list(dropbox_path: str):
     """Lists contents of a folder on Dropbox."""
@@ -129,30 +130,28 @@ def main_list(dropbox_path: str):
 
 
 @main.command()
-@click.option('-c', '--config-name', default='', callback=set_environ, is_eager=True,
-              expose_value=False, help="Run Maestral with the selected configuration.")
+@with_config_opt
 @click.argument("dropbox_path", type=click.Path())
 def mkdir(dropbox_path: str):
     """Creates a new directory on Dropbox."""
     from maestral.client import MaestralApiClient
     c = MaestralApiClient()
     c.make_dir(dropbox_path)
+    click.echo("Created directory '{0}'.".format(dropbox_path))
 
 
 @main.command()
-@click.option('-c', '--config-name', default='', callback=set_environ, is_eager=True,
-              expose_value=False, help="Run Maestral with the selected configuration.")
+@with_config_opt
 def account_info():
     """Prints Dropbox account info."""
     from maestral.client import MaestralApiClient
     c = MaestralApiClient()
     res = c.get_account_info()
-    print("{0}, {1}".format(res.email, res.account_type))
+    click.echo("{0}, {1}".format(res.email, res.account_type))
 
 
 @main.command()
-@click.option('-c', '--config-name', default='', callback=set_environ, is_eager=True,
-              expose_value=False, help="Run Maestral with the selected configuration.")
+@with_config_opt
 @click.option("--yes/--no", "-Y/-N", default=True)
 def autostart(yes: bool):
     """Starts Maestral on login. May not work on some Linux distributions."""
@@ -160,8 +159,10 @@ def autostart(yes: bool):
     ast = AutoStart()
     if yes:
         ast.enable()
+        click.echo("Enabled start on login.")
     else:
         ast.disable()
+        click.echo("Disabled start on login.")
 
 
 # ========================================================================================
