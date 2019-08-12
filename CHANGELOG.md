@@ -2,7 +2,6 @@
 
 _Added:_
 
-- Animated setup dialog.
 - Added experimental support for custom Dropbox folder names. The folder name must be
   set in the config file before launching the GUI.
 - Set config file for Maestral with the environment variable "MAESTRAL_CONFIG". This
@@ -12,11 +11,12 @@ _Added:_
 - Added a new command group "maestral env" to manage different Maestral configurations.
 - Added a new command line option "--config-name" or "-c" to select the configuration
   file to use.
-- Relink dialog: If the Dropbox authorisation expires, we no longer reboot into the
-  setup dialog but show a custom "Relink Dialog".
 
 _Changed:_
 
+- Animated setup dialog.
+- Relink dialog: If the Dropbox authorisation expires, we no longer reboot into the
+  setup dialog but show a custom "Relink Dialog".
 - Redesigned the settings window to show more prominent account information.
 - Improved command line and GUI flows for setting or moving the Dropbox folder location.
 - Moved to an Implicit Grant OAuth2 flow. This does not require an app secret to be
