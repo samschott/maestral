@@ -41,15 +41,12 @@ class RelinkDialog(QtWidgets.QDialog):
         self.lineEditAuthCode.setLayout(self._layout)
         self.progressIndicator = QProgressIndicator(self.lineEditAuthCode)
         self._layout.addWidget(self.progressIndicator)
-        height = self.lineEditAuthCode.height()*0.7
-        self.progressIndicator.setMinimumHeight(height)
-        self.progressIndicator.setMaximumHeight(height)
 
         # format line edit
         self.lineEditAuthCode.setTextMargins(3, 0, 0, 0)
 
         # connect callbacks
-        self.lineEditAuthCode.textChanged.connect(self.on_text_changed)
+        self.lineEditAuthCode.textChanged.connect(self.set_text_style)
         self.pushButtonCancel.clicked.connect(QtWidgets.QApplication.quit)
         self.pushButtonLink.clicked.connect(self.on_link_clicked)
 
@@ -57,7 +54,7 @@ class RelinkDialog(QtWidgets.QDialog):
         self.pushButtonCancel.setFocus()
         self.adjustSize()
 
-    def on_text_changed(self, text):
+    def set_text_style(self, text):
         if text == "":
             self.pushButtonLink.setEnabled(False)
             self.lineEditAuthCode.setStyleSheet("")
@@ -79,11 +76,7 @@ class RelinkDialog(QtWidgets.QDialog):
         if token == "":
             return
 
-        self.adjustSize()
-
-        self.progressIndicator.startAnimation()
-        self.pushButtonLink.setEnabled(False)
-        self.lineEditAuthCode.setEnabled(False)
+        self.set_ui_linking()
 
         self.auth_thread = AuthThread(self.auth_session, token)
         self.auth_thread.result_sig.connect(self.on_verify_token_finished)
@@ -102,5 +95,18 @@ class RelinkDialog(QtWidgets.QDialog):
         elif res == OAuth2Session.ConnectionFailed:
             self.lineEditAuthCode.setText(self.CONNECTION_ERR_MSG)
 
-        self.progressIndicator.stopAnimation()
-        self.lineEditAuthCode.setEnabled(True)
+        self.set_ui_linking(False)
+
+    def set_ui_linking(self, enabled=True):
+        height = round(self.lineEditAuthCode.height()*0.8)
+        self.progressIndicator.setMinimumHeight(height)
+        self.progressIndicator.setMaximumHeight(height)
+
+        if enabled:
+            self.progressIndicator.startAnimation()
+            self.lineEditAuthCode.setEnabled(False)
+            self.pushButtonLink.setEnabled(False)
+        else:
+            self.progressIndicator.stopAnimation()
+            self.lineEditAuthCode.setEnabled(True)
+            self.pushButtonLink.setEnabled(True)
