@@ -499,6 +499,8 @@ class QProgressIndicator(QtWidgets.QWidget):
         self.m_displayedWhenStopped = False
         self.m_color = self.m_dark_color
 
+        self.update_dark_mode()
+
         # Set size and focus policy
         self.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         self.setFocusPolicy(Qt.NoFocus)
