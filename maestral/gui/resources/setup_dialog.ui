@@ -664,7 +664,7 @@
           <string>Unlink</string>
          </property>
          <property name="icon">
-          <iconset theme="dialog-close">
+          <iconset theme="edit-clear">
            <normaloff>.</normaloff>.</iconset>
          </property>
         </widget>

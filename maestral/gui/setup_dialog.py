@@ -218,7 +218,7 @@ class SetupDialog(QtWidgets.QDialog):
                    'you like to keep using it?' % self.dropbox_location)
             msg_box = UserDialog("Folder already exists", msg, parent=self)
             msg_box.setAcceptButtonName("Keep")
-            msg_box.addSecondAcceptButton("Replace", icon="dialog-close")
+            msg_box.addSecondAcceptButton("Replace", icon="edit-clear")
             msg_box.addCancelButton()
             res = msg_box.exec_()
 
