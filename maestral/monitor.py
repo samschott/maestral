@@ -1447,8 +1447,6 @@ class MaestralMonitor(object):
 
     def __init__(self, client):
 
-        logger.info(IDLE)
-
         self.client = client
         self.file_handler = FileEventHandler(self.flagged)
         self.local_q = self.file_handler.local_q
