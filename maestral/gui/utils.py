@@ -363,6 +363,9 @@ class FaderWidget(QtWidgets.QWidget):
 
 
 class AnimatedStackedWidget(QtWidgets.QStackedWidget):
+    """
+    A subclass of ``QStackedWidget`` with sliding or fading animations between stacks.
+    """
 
     def __init__(self, parent=None):
         super(AnimatedStackedWidget, self).__init__(parent)
@@ -479,6 +482,10 @@ class AnimatedStackedWidget(QtWidgets.QStackedWidget):
 
 
 class QProgressIndicator(QtWidgets.QWidget):
+    """
+    A macOS style spinning progress indicator. ``QProgressIndicator`` automatically
+    detects and adjusts to "dark mode" appearances.
+    """
 
     m_angle = None
     m_timerId = None
