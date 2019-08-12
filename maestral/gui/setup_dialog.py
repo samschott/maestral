@@ -164,6 +164,7 @@ class SetupDialog(QtWidgets.QDialog):
         else:
             self.progressIndicator.startAnimation()
             self.pushButtonAuthPageLink.setEnabled(False)
+            self.lineEditAuthCode.setEnabled(False)
 
             self.verify_token_async()
 
@@ -200,6 +201,7 @@ class SetupDialog(QtWidgets.QDialog):
 
         self.progressIndicator.stopAnimation()
         self.pushButtonAuthPageLink.setEnabled(True)
+        self.lineEditAuthCode.setEnabled(True)
 
     def on_dropbox_location_selected(self):
 
