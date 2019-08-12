@@ -231,9 +231,13 @@ class UserDialog(QtWidgets.QDialog):
     def setCancelButtonName(self, name):
         self._cancelButton.setText(name)
 
-    def addSecondAcceptButton(self, name):
+    def addSecondAcceptButton(self, name, icon="dialog-ok"):
         self._acceptButton2 = self.buttonBox.addButton(QtWidgets.QDialogButtonBox.Ignore)
         self._acceptButton2.setText(name)
+        if isinstance(icon, QtGui.QIcon):
+            self._acceptButton2.setIcon(icon)
+        elif isinstance(icon, str):
+            self._acceptButton2.setIcon(QtGui.QIcon.fromTheme(icon))
         self._acceptButton2.clicked.connect(lambda: self.setResult(2))
         self._acceptButton2.clicked.connect(self.close)
 

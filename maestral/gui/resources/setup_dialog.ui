@@ -17,13 +17,31 @@
    <property name="spacing">
     <number>5</number>
    </property>
+   <property name="topMargin">
+    <number>15</number>
+   </property>
+   <property name="rightMargin">
+    <number>15</number>
+   </property>
+   <property name="bottomMargin">
+    <number>24</number>
+   </property>
    <item>
     <widget class="AnimatedStackedWidget" name="stackedWidget">
      <property name="currentIndex">
-      <number>0</number>
+      <number>4</number>
      </property>
      <widget class="QWidget" name="welcomePage">
       <layout class="QGridLayout" name="gridLayout">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
        <property name="bottomMargin">
         <number>0</number>
        </property>
@@ -130,6 +148,15 @@
      </widget>
      <widget class="QWidget" name="authPage">
       <layout class="QGridLayout" name="gridLayout_5">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
        <property name="bottomMargin">
         <number>0</number>
        </property>
@@ -248,6 +275,15 @@
      </widget>
      <widget class="QWidget" name="dropboxPathPage">
       <layout class="QGridLayout" name="gridLayout_7">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
        <property name="bottomMargin">
         <number>0</number>
        </property>
@@ -344,6 +380,15 @@
      </widget>
      <widget class="QWidget" name="excludedFoldersPage">
       <layout class="QGridLayout" name="gridLayout_9">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
        <property name="bottomMargin">
         <number>0</number>
        </property>
@@ -387,6 +432,15 @@
      </widget>
      <widget class="QWidget" name="donePage">
       <layout class="QGridLayout" name="gridLayout_3">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
        <property name="bottomMargin">
         <number>0</number>
        </property>
@@ -459,6 +513,10 @@
          <property name="text">
           <string>Close</string>
          </property>
+         <property name="icon">
+          <iconset theme="dialog-apply">
+           <normaloff>.</normaloff>.</iconset>
+         </property>
         </widget>
        </item>
        <item row="0" column="0">
@@ -494,7 +552,13 @@
      </property>
      <widget class="QWidget" name="welcomePageButtons">
       <layout class="QGridLayout" name="gridLayout_2">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
        <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
         <number>0</number>
        </property>
        <property name="bottomMargin">
@@ -517,7 +581,13 @@
      </widget>
      <widget class="QWidget" name="authPageButtons">
       <layout class="QGridLayout" name="gridLayout_4">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
        <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
         <number>0</number>
        </property>
        <property name="bottomMargin">
@@ -528,14 +598,12 @@
          <property name="enabled">
           <bool>true</bool>
          </property>
-         <property name="minimumSize">
-          <size>
-           <width>81</width>
-           <height>0</height>
-          </size>
-         </property>
          <property name="text">
           <string>Link</string>
+         </property>
+         <property name="icon">
+          <iconset theme="dialog-ok">
+           <normaloff>.</normaloff>.</iconset>
          </property>
         </widget>
        </item>
@@ -543,6 +611,10 @@
         <widget class="QPushButton" name="pushButtonAuthPageCancel">
          <property name="text">
           <string>Cancel</string>
+         </property>
+         <property name="icon">
+          <iconset theme="dialog-close">
+           <normaloff>.</normaloff>.</iconset>
          </property>
         </widget>
        </item>
@@ -563,7 +635,13 @@
      </widget>
      <widget class="QWidget" name="dropboxPathPageButtons">
       <layout class="QGridLayout" name="gridLayout_8">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
        <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
         <number>0</number>
        </property>
        <property name="bottomMargin">
@@ -574,31 +652,31 @@
          <property name="text">
           <string>Cancel</string>
          </property>
+         <property name="icon">
+          <iconset theme="dialog-close">
+           <normaloff>.</normaloff>.</iconset>
+         </property>
         </widget>
        </item>
        <item row="0" column="1">
         <widget class="QPushButton" name="pussButtonDropboxPathUnlink">
-         <property name="minimumSize">
-          <size>
-           <width>81</width>
-           <height>0</height>
-          </size>
-         </property>
          <property name="text">
           <string>Unlink</string>
+         </property>
+         <property name="icon">
+          <iconset theme="dialog-close">
+           <normaloff>.</normaloff>.</iconset>
          </property>
         </widget>
        </item>
        <item row="0" column="4">
         <widget class="QPushButton" name="pussButtonDropboxPathSelect">
-         <property name="minimumSize">
-          <size>
-           <width>81</width>
-           <height>0</height>
-          </size>
-         </property>
          <property name="text">
           <string>Select</string>
+         </property>
+         <property name="icon">
+          <iconset theme="dialog-ok">
+           <normaloff>.</normaloff>.</iconset>
          </property>
         </widget>
        </item>
@@ -619,7 +697,13 @@
      </widget>
      <widget class="QWidget" name="excludedFoldersPageButtons">
       <layout class="QGridLayout" name="gridLayout_6">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
        <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
         <number>0</number>
        </property>
        <property name="bottomMargin">
@@ -627,12 +711,6 @@
        </property>
        <item row="0" column="1">
         <widget class="QPushButton" name="pushButtonFolderSelectionBack">
-         <property name="minimumSize">
-          <size>
-           <width>81</width>
-           <height>0</height>
-          </size>
-         </property>
          <property name="text">
           <string>Back</string>
          </property>
@@ -640,14 +718,12 @@
        </item>
        <item row="0" column="2">
         <widget class="QPushButton" name="pushButtonFolderSelectionSelect">
-         <property name="minimumSize">
-          <size>
-           <width>81</width>
-           <height>0</height>
-          </size>
-         </property>
          <property name="text">
           <string>Select</string>
+         </property>
+         <property name="icon">
+          <iconset theme="dialog-ok">
+           <normaloff>.</normaloff>.</iconset>
          </property>
         </widget>
        </item>
@@ -668,7 +744,13 @@
      </widget>
      <widget class="QWidget" name="donePageButtons">
       <layout class="QGridLayout" name="gridLayout_10">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
        <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
         <number>0</number>
        </property>
        <property name="bottomMargin">

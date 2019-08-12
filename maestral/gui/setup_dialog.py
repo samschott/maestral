@@ -57,12 +57,13 @@ class SetupDialog(QtWidgets.QDialog):
         self.folder_items = []
 
         # resize dialog buttons
-        minimum_width = self.pushButtonAuthPageCancel.width()
-        self.pushButtonAuthPageLink.setMinimumWidth(minimum_width)
-        self.pussButtonDropboxPathUnlink.setMinimumWidth(minimum_width)
-        self.pussButtonDropboxPathSelect.setMinimumWidth(minimum_width)
-        self.pushButtonFolderSelectionBack.setMinimumWidth(minimum_width)
-        self.pushButtonFolderSelectionSelect.setMinimumWidth(minimum_width)
+        width = self.pushButtonAuthPageCancel.width()*1.1
+        for b in (self.pushButtonAuthPageLink, self.pussButtonDropboxPathUnlink,
+                  self.pussButtonDropboxPathSelect, self.pushButtonFolderSelectionBack,
+                  self.pushButtonFolderSelectionSelect, self.pushButtonAuthPageCancel,
+                  self.pussButtonDropboxPathCalcel, self.pushButtonClose):
+            b.setMinimumWidth(width)
+            b.setMaximumWidth(width)
 
         # set up combobox
         self.dropbox_location = osp.dirname(CONF.get("main", "path")) or get_home_dir()
@@ -217,7 +218,7 @@ class SetupDialog(QtWidgets.QDialog):
                    'you like to keep using it?' % self.dropbox_location)
             msg_box = UserDialog("Folder already exists", msg, parent=self)
             msg_box.setAcceptButtonName("Keep")
-            msg_box.addSecondAcceptButton("Replace")
+            msg_box.addSecondAcceptButton("Replace", icon="dialog-close")
             msg_box.addCancelButton()
             res = msg_box.exec_()
 
