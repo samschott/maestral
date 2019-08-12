@@ -20,10 +20,11 @@ from PyQt5 import QtCore, QtWidgets
 from maestral.main import Maestral
 from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
 from maestral.oauth import OAuth2Session
-from maestral.errors import (DropboxAuthError, CursorResetError, MaestralApiError,
-                             RevFileError, DropboxDeletedError)
+from maestral.errors import (DropboxAuthError, TokenExpiredError, CursorResetError,
+                             MaestralApiError, RevFileError, DropboxDeletedError)
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.setup_dialog import SetupDialog
+from maestral.gui.relink_dialog import RelinkDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import get_system_tray_icon
@@ -326,43 +327,49 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             # show error dialog to user
             title = "Maestral Error"
             message = exc.args[0]
-            show_tb = False
+            self.stop_and_exec_error_dialog(title, message)
         elif isinstance(exc, CursorResetError):
             title = "Dropbox has reset its sync state."
             message = 'Please go to "Rebuild index..." to re-sync your Dropbox.'
-            show_tb = False
+            self.stop_and_exec_error_dialog(title, message)
         elif isinstance(exc, DropboxDeletedError):
             self.mdbx.stop_sync()
             quit_and_restart_maestral()
-            return
+        elif isinstance(exc, TokenExpiredError):
+            self.stop_and_exec_relink_dialog()
         elif isinstance(exc, DropboxAuthError):
             title = exc.title
             message = exc.message
-            show_tb = False
+            self.stop_and_exec_error_dialog(title, message)
+            try:
+                OAuth2Session().delete_creds()
+            except keyring.errors.PasswordDeleteError:
+                pass
+            quit_and_restart_maestral()
         elif isinstance(exc, MaestralApiError):
             # don't show dialog on all other MaestralApiErrors, they are "normal" sync
             # issues which can be resolved by the user
-            return
+            pass
         else:
             title = "An unexpected error occurred."
             message = "Please contact the Maestral developer with the information below."
-            show_tb = True
+            self.stop_and_exec_error_dialog(title, message, exc_info)
 
+    def stop_and_exec_relink_dialog(self):
         self.mdbx.stop_sync()
         self.setIcon(self.icons[SYNC_ERROR])
         self.pauseAction.setText("Start Syncing")
 
-        exc_info = exc_info if show_tb else None
+        relink_dialog = RelinkDialog()
+        relink_dialog.exec_()
+
+    def stop_and_exec_error_dialog(self, title, message, exc_info):
+        self.mdbx.stop_sync()
+        self.setIcon(self.icons[SYNC_ERROR])
+        self.pauseAction.setText("Start Syncing")
+
         error_dialog = UserDialog(title, message, exc_info)
         error_dialog.exec_()
-
-        if isinstance(exc, DropboxAuthError):
-            auth_session = OAuth2Session()
-            try:
-                auth_session.delete_creds()
-            except keyring.errors.PasswordDeleteError:
-                pass
-            quit_and_restart_maestral()
 
     def on_rebuild(self):
 
