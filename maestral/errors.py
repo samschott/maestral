@@ -82,6 +82,12 @@ class DropboxAuthError(MaestralApiError):
     pass
 
 
+class TokenExpiredError(DropboxAuthError):
+    """Raised when authentication fails. Refer to the ``message``` attribute for
+    details."""
+    pass
+
+
 class BadInputError(MaestralApiError):
     """Raised when an API request is made with bad input. This should not happen
     during syncing but only in case of manual API calls."""
@@ -270,16 +276,17 @@ def to_maestral_error(exc, dbx_path=None, local_path=None):
 
     # ----------------------- Authentication errors --------------------------------------
     elif isinstance(exc, dropbox.exceptions.AuthError):
-        err_type = DropboxAuthError
         error = exc.error
-        if isinstance(error, dropbox.auth.AuthError):
+        if isinstance(error, dropbox.auth.AuthError) and error.is_expired_access_token():
+            title = "Expired Dropbox access"
+            text = ("Maestral's access to your Dropbox has expired. Please relink "
+                    "to continue syncing.")
+            err_type = TokenExpiredError
+        else:
             title = "Authentication error"
-            if error.is_expired_access_token():
-                text = ("Maestral's access to your Dropbox has expired. Please relink "
-                        "to continue syncing.")
-            elif error.is_invalid_access_token():
-                text = ("Maestral's access to your Dropbox has been revoked. Please "
-                        "relink to continue syncing.")
+            text = ("Maestral's access to your Dropbox has been revoked. Please "
+                    "relink to continue syncing.")
+            err_type = DropboxAuthError
 
     # -------------------------- OAuth2 flow errors --------------------------------------
     elif isinstance(exc, requests.HTTPError):
@@ -298,7 +305,8 @@ def to_maestral_error(exc, dbx_path=None, local_path=None):
     # ----------------------------- Bad input errors -------------------------------------
     # should only occur due to user input from console scripts
     elif isinstance(exc, dropbox.exceptions.BadInputError):
-        if "The given OAuth 2 access token is malformed" in exc.message:
+        if ("The given OAuth 2 access token is malformed" in exc.message or
+                "Invalid authorization value in HTTP header" in exc.message):
             title = "Authentication failed"
             text = "Please make sure that you entered the correct authentication code."
             err_type = DropboxAuthError
