@@ -2,6 +2,7 @@ import time
 from PyQt5 import QtCore, QtWidgets, QtGui, uic
 
 from maestral.oauth import OAuth2Session
+from maestral.gui.setup_dialog import AuthThread
 from maestral.gui.resources import RELINK_DIALOG_PATH, APP_ICON_PATH
 from maestral.gui.utils import (quit_and_restart_maestral, get_scaled_font,
                                 icon_to_pixmap, QProgressIndicator)
@@ -41,8 +42,8 @@ class RelinkDialog(QtWidgets.QDialog):
         self.progressIndicator = QProgressIndicator(self.lineEditAuthCode)
         self._layout.addWidget(self.progressIndicator)
         height = self.lineEditAuthCode.height()*0.7
-        self.progressIndicator.setMinimumSize(height, height)
-        self.progressIndicator.setMaximumSize(height, height)
+        self.progressIndicator.setMinimumHeight(height)
+        self.progressIndicator.setMaximumHeight(height)
 
         # format line edit
         self.lineEditAuthCode.setTextMargins(3, 0, 0, 0)
