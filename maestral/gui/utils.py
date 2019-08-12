@@ -574,7 +574,9 @@ class QProgressIndicator(QtWidgets.QWidget):
         innerRadius = (width - 1) * 0.5 * 0.5
 
         capsuleHeight = outerRadius - innerRadius
-        capsuleWidth = capsuleHeight * .23 if (width > 32) else capsuleHeight * .35
+
+        capsuleWidth = max(1.2, 1.0 + capsuleHeight*0.19, 0.35 + capsuleHeight*0.28)
+
         capsuleRadius = capsuleWidth / 2
 
         for i in range(0, 12):
