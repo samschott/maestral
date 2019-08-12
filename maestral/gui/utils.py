@@ -327,3 +327,273 @@ def get_masked_image(path, size=64, overlay_text=""):
     pm = pm.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
     return pm
+
+
+class FaderWidget(QtWidgets.QWidget):
+
+    pixmap_opacity = 1.0
+
+    def __init__(self, old_widget, new_widget, duration=300):
+        QtWidgets.QWidget.__init__(self, new_widget)
+
+        dpr = QWindow().devicePixelRatio()
+        self.old_pixmap = QPixmap(new_widget.size()*dpr)
+        self.old_pixmap.setDevicePixelRatio(dpr)
+        old_widget.render(self.old_pixmap)
+
+        self.timeline = QtCore.QTimeLine()
+        self.timeline.valueChanged.connect(self.animate)
+        self.timeline.finished.connect(self.close)
+        self.timeline.setDuration(duration)
+        self.timeline.start()
+
+        self.resize(new_widget.size())
+        self.show()
+
+    def paintEvent(self, event):
+        painter = QPainter()
+        painter.begin(self)
+        painter.setOpacity(self.pixmap_opacity)
+        painter.drawPixmap(0, 0, self.old_pixmap)
+        painter.end()
+
+    def animate(self, value):
+        self.pixmap_opacity = 1.0 - value
+        self.repaint()
+
+
+class AnimatedStackedWidget(QtWidgets.QStackedWidget):
+
+    def __init__(self, parent=None):
+        super(AnimatedStackedWidget, self).__init__(parent)
+
+        self.m_direction = QtCore.Qt.Horizontal
+        self.m_speed = 300
+        self.m_animationtype = QtCore.QEasingCurve.OutCubic
+        self.m_now = 0
+        self.m_next = 0
+        self.m_wrap = False
+        self.m_pnow = QtCore.QPoint(0, 0)
+        self.m_active = False
+
+    def setDirection(self, direction):
+        self.m_direction = direction
+
+    def setSpeed(self, speed):
+        self.m_speed = speed
+
+    def setAnimation(self, animationtype):
+        self.m_animationtype = animationtype
+
+    def setWrap(self, wrap):
+        self.m_wrap = wrap
+
+    @QtCore.pyqtSlot()
+    def slideInPrev(self):
+        now = self.currentIndex()
+        if self.m_wrap or now > 0:
+            self.slideInIdx(now - 1)
+
+    @QtCore.pyqtSlot()
+    def slideInNext(self):
+        now = self.currentIndex()
+        if self.m_wrap or now < (self.count() - 1):
+            self.slideInIdx(now + 1)
+
+    def slideInIdx(self, idx):
+        if idx > (self.count() - 1):
+            idx = idx % self.count()
+        elif idx < 0:
+            idx = (idx + self.count()) % self.count()
+        self.slideInWgt(self.widget(idx))
+
+    def slideInWgt(self, newwidget):
+        if self.m_active:
+            return
+
+        self.m_active = True
+
+        _now = self.currentIndex()
+        _next = self.indexOf(newwidget)
+
+        if _now == _next:
+            self.m_active = False
+            return
+
+        offsetx, offsety = self.frameRect().width(), self.frameRect().height()
+        self.widget(_next).setGeometry(self.frameRect())
+
+        if not self.m_direction == QtCore.Qt.Horizontal:
+            if _now < _next:
+                offsetx, offsety = 0, -offsety
+            else:
+                offsetx = 0
+        else:
+            if _now < _next:
+                offsetx, offsety = -offsetx, 0
+            else:
+                offsety = 0
+
+        pnext = self.widget(_next).pos()
+        pnow = self.widget(_now).pos()
+        self.m_pnow = pnow
+
+        offset = QtCore.QPoint(offsetx, offsety)
+        self.widget(_next).move(pnext - offset)
+        self.widget(_next).show()
+        self.widget(_next).raise_()
+
+        anim_group = QtCore.QParallelAnimationGroup(
+            self, finished=self.animationDoneSlot
+        )
+
+        for index, start, end in zip(
+            (_now, _next), (pnow, pnext - offset), (pnow + offset, pnext)
+        ):
+            animation = QtCore.QPropertyAnimation(
+                self.widget(index),
+                b"pos",
+                duration=self.m_speed,
+                easingCurve=self.m_animationtype,
+                startValue=start,
+                endValue=end,
+            )
+            anim_group.addAnimation(animation)
+
+        self.m_next = _next
+        self.m_now = _now
+        self.m_active = True
+        anim_group.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
+
+    @QtCore.pyqtSlot()
+    def animationDoneSlot(self):
+        self.setCurrentIndex(self.m_next)
+        self.widget(self.m_now).hide()
+        self.widget(self.m_now).move(self.m_pnow)
+        self.m_active = False
+
+    def fadeInIdx(self, index):
+        self.fader_widget = FaderWidget(self.currentWidget(), self.widget(index),
+                                        self.m_speed)
+        self.setCurrentIndex(index)
+
+
+class QProgressIndicator(QtWidgets.QWidget):
+
+    m_angle = None
+    m_timerId = None
+    m_delay = None
+    m_displayedWhenStopped = None
+    m_color = None
+    m_light_color = QtGui.QColor(170, 170, 170)
+    m_dark_color = QtGui.QColor(40, 40, 40)
+
+    def __init__(self, parent=None):
+        # Call parent class constructor first
+        super(QProgressIndicator, self).__init__(parent)
+
+        # Initialize instance variables
+        self.m_angle = 0
+        self.m_timerId = -1
+        self.m_delay = 40
+        self.m_displayedWhenStopped = False
+        self.m_color = self.m_dark_color
+
+        # Set size and focus policy
+        self.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.setFocusPolicy(Qt.NoFocus)
+
+    def animationDelay(self):
+        return self.delay
+
+    def isAnimated(self):
+        return self.m_timerId != -1
+
+    def isDisplayedWhenStopped(self):
+        return self.displayedWhenStopped
+
+    def getColor(self):
+        return self.color
+
+    def sizeHint(self):
+        return QtCore.QSize(20, 20)
+
+    def startAnimation(self):
+        self.m_angle = 0
+
+        if self.m_timerId == -1:
+            self.m_timerId = self.startTimer(self.m_delay)
+
+    def stopAnimation(self):
+        if self.m_timerId != -1:
+            self.killTimer(self.m_timerId)
+
+        self.m_timerId = -1
+        self.update()
+
+    def setAnimationDelay(self, delay):
+        if self.m_timerId != -1:
+            self.killTimer(self.m_timerId)
+
+        self.m_delay = delay
+
+        if self.m_timerId != -1:
+            self.m_timerId = self.startTimer(self.m_delay)
+
+    def setDisplayedWhenStopped(self, state):
+        self.displayedWhenStopped = state
+        self.update()
+
+    def setColor(self, color):
+        self.m_color = color
+        self.update()
+
+    def timerEvent(self, event):
+        self.m_angle = (self.m_angle + 30) % 360
+        self.update()
+
+    def paintEvent(self, event):
+        if (not self.m_displayedWhenStopped) and (not self.isAnimated()):
+            return
+
+        width = min(self.width(), self.height())
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        outerRadius = (width - 1) * 0.5
+        innerRadius = (width - 1) * 0.5 * 0.5
+
+        capsuleHeight = outerRadius - innerRadius
+        capsuleWidth = capsuleHeight * .23 if (width > 32) else capsuleHeight * .35
+        capsuleRadius = capsuleWidth / 2
+
+        for i in range(0, 12):
+            color = QtGui.QColor(self.m_color)
+
+            if self.isAnimated():
+                color.setAlphaF(1.0 - (i / 12.0))
+            else:
+                color.setAlphaF(0.2)
+
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(color)
+            painter.save()
+            painter.translate(self.rect().center())
+            painter.rotate(self.m_angle - (i * 30.0))
+            painter.drawRoundedRect(capsuleWidth * -0.5,
+                                    (innerRadius + capsuleHeight) * -1, capsuleWidth,
+                                    capsuleHeight, capsuleRadius, capsuleRadius)
+            painter.restore()
+
+    def changeEvent(self, QEvent):
+
+        if QEvent.type() == QtCore.QEvent.PaletteChange:
+            self.update_dark_mode()
+
+    def update_dark_mode(self):
+        # update folder icons: the system may provide different icons in dark mode
+        if isDarkWindow():
+            self.setColor(self.m_light_color)
+        else:
+            self.setColor(self.m_dark_color)

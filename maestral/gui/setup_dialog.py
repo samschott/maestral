@@ -8,7 +8,6 @@ Created on Wed Oct 31 16:23:13 2018
 import os
 import os.path as osp
 import shutil
-import webbrowser
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 from dropbox import files
@@ -23,6 +22,20 @@ from maestral.gui.resources import (APP_ICON_PATH, SETUP_DIALOG_PATH,
 from maestral.gui.utils import UserDialog, icon_to_pixmap
 
 
+class AuthThread(QtCore.QThread):
+
+    result_sig = QtCore.pyqtSignal(object)
+
+    def __init__(self, auth_session, token, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+        self.auth_session = auth_session
+        self.token = token
+
+    def run(self):
+        res = self.auth_session.verify_auth_token(self.token)
+        self.result_sig.emit(res)
+
+
 class SetupDialog(QtWidgets.QDialog):
 
     auth_session = ""
@@ -35,7 +48,7 @@ class SetupDialog(QtWidgets.QDialog):
 
         self.app_icon = QtGui.QIcon(APP_ICON_PATH)
 
-        self.labelIcon.setPixmap(icon_to_pixmap(self.app_icon, 170))
+        self.labelIcon_0.setPixmap(icon_to_pixmap(self.app_icon, 170))
         self.labelIcon_1.setPixmap(icon_to_pixmap(self.app_icon, 70))
         self.labelIcon_2.setPixmap(icon_to_pixmap(self.app_icon, 70))
         self.labelIcon_3.setPixmap(icon_to_pixmap(self.app_icon, 100))
@@ -43,15 +56,13 @@ class SetupDialog(QtWidgets.QDialog):
         self.mdbx = None
         self.folder_items = []
 
-        # rename dialog buttons
-        self.buttonBoxAuthCode.buttons()[0].setText("Link")
-        self.buttonBoxAuthCode.buttons()[1].setText("Cancel")
-        self.buttonBoxDropboxPath.buttons()[0].setText("Select")
-        self.buttonBoxDropboxPath.buttons()[0].setDefault(True)
-        self.buttonBoxDropboxPath.buttons()[1].setText("Cancel")
-        self.buttonBoxDropboxPath.buttons()[2].setText("Unlink")
-        self.buttonBoxFolderSelection.buttons()[0].setText("Select")
-        self.buttonBoxFolderSelection.buttons()[1].setText("Back")
+        # resize dialog buttons
+        minimum_width = self.pushButtonAuthPageCancel.width()
+        self.pushButtonAuthPageLink.setMinimumWidth(minimum_width)
+        self.pussButtonDropboxPathUnlink.setMinimumWidth(minimum_width)
+        self.pussButtonDropboxPathSelect.setMinimumWidth(minimum_width)
+        self.pushButtonFolderSelectionBack.setMinimumWidth(minimum_width)
+        self.pushButtonFolderSelectionSelect.setMinimumWidth(minimum_width)
 
         # set up combobox
         self.dropbox_location = osp.dirname(CONF.get("main", "path")) or get_home_dir()
@@ -74,14 +85,13 @@ class SetupDialog(QtWidgets.QDialog):
         # connect buttons to callbacks
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.pushButtonLink.clicked.connect(self.on_link)
-        self.buttonBoxAuthCode.rejected.connect(self.abort)
-        self.buttonBoxAuthCode.accepted.connect(self.on_auth)
-        self.buttonBoxDropboxPath.rejected.connect(self.abort)
-        self.buttonBoxDropboxPath.accepted.connect(self.on_dropbox_location_selected)
-        self.buttonBoxDropboxPath.clicked.connect(self.abort_and_unlink_if_reset)
-        self.buttonBoxFolderSelection.rejected.connect(
-                lambda: self.stackedWidget.setCurrentIndex(2))
-        self.buttonBoxFolderSelection.accepted.connect(self.on_folders_selected)
+        self.pushButtonAuthPageCancel.clicked.connect(self.abort)
+        self.pushButtonAuthPageLink.clicked.connect(self.on_auth_clicked)
+        self.pussButtonDropboxPathCalcel.clicked.connect(self.abort)
+        self.pussButtonDropboxPathSelect.clicked.connect(self.on_dropbox_location_selected)
+        self.pussButtonDropboxPathUnlink.clicked.connect(self.unlink_and_go_to_start)
+        self.pushButtonFolderSelectionBack.clicked.connect(self.stackedWidget.slideInPrev)
+        self.pushButtonFolderSelectionSelect.clicked.connect(self.on_folders_selected)
         self.pushButtonClose.clicked.connect(self.accept)
         self.listWidgetFolders.itemChanged.connect(self.update_select_all_checkbox)
         self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
@@ -109,10 +119,14 @@ class SetupDialog(QtWidgets.QDialog):
             To unlink your Dropbox account from Maestral, click "Unlink" below.</p>
             </body></html>
             """.format(CONF.get("main", "path"), CONF.get("main", "default_dir_name")))
-            self.buttonBoxDropboxPath.buttons()[1].setText("Quit")
+            self.pussButtonDropboxPathCalcel.setText("Quit")
             self.stackedWidget.setCurrentIndex(2)
+            self.stackedWidgetButtons.setCurrentIndex(2)
             self.mdbx = Maestral(run=False)
             self.mdbx.client.get_account_info()
+        else:
+            self.stackedWidgetButtons.setCurrentIndex(0)
+            self.stackedWidgetButtons.setCurrentIndex(0)
 
 # =============================================================================
 # Main callbacks
@@ -128,10 +142,9 @@ class SetupDialog(QtWidgets.QDialog):
         self.mdbx = None
         self.reject()
 
-    def abort_and_unlink_if_reset(self, b):
-        if self.buttonBoxDropboxPath.buttonRole(b) == self.buttonBoxDropboxPath.ResetRole:
-            self.mdbx.unlink()
-            self.abort()
+    def unlink_and_go_to_start(self, b):
+        self.mdbx.unlink()
+        self.stackedWidget.slideInIdx(0)
 
     def on_link(self):
         self.auth_session = OAuth2Session()
@@ -139,18 +152,40 @@ class SetupDialog(QtWidgets.QDialog):
         prompt = self.labelAuthLink.text().format(self.auth_url)
         self.labelAuthLink.setText(prompt)
 
-        self.stackedWidget.setCurrentIndex(1)
-        webbrowser.open_new(self.auth_url)
+        self.stackedWidget.fadeInIdx(1)
+        self.pushButtonAuthPageLink.setFocus()
 
-    def on_auth(self):
+    def on_auth_clicked(self):
+
+        if self.lineEditAuthCode.text() == "":
+            msg = "Please enter an authentication token."
+            msg_box = UserDialog("Authentication failed.", msg, parent=self)
+            msg_box.open()
+        else:
+            self.progressIndicator.startAnimation()
+            self.pushButtonAuthPageLink.setEnabled(False)
+            self.pushButtonAuthPageCancel.setEnabled(False)
+
+            self.verify_token_async()
+
+    def verify_token_async(self):
+
         token = self.lineEditAuthCode.text()
-        res = self.auth_session.verify_auth_token(token)
+
+        self.auth_thread = AuthThread(self.auth_session, token)
+        self.auth_thread.result_sig.connect(self.on_verify_token_finished)
+        self.auth_thread.finished.connect(self.auth_thread.deleteLater)
+        self.auth_thread.start()
+
+    def on_verify_token_finished(self, res):
 
         if res == OAuth2Session.Success:
             self.auth_session.save_creds()
 
             # switch to next page
-            self.stackedWidget.setCurrentIndex(2)
+            self.stackedWidget.slideInIdx(2)
+            self.pussButtonDropboxPathSelect.setFocus()
+            self.lineEditAuthCode.clear()  # clear since we might come back on unlink
 
             # start Maestral after linking to Dropbox account
             self.mdbx = Maestral(run=False)
@@ -163,6 +198,10 @@ class SetupDialog(QtWidgets.QDialog):
             msg = "Please make sure that you are connected to the internet and try again."
             msg_box = UserDialog("Connection failed.", msg, parent=self)
             msg_box.open()
+
+        self.progressIndicator.stopAnimation()
+        self.pushButtonAuthPageLink.setEnabled(True)
+        self.pushButtonAuthPageCancel.setEnabled(True)
 
     def on_dropbox_location_selected(self):
 
@@ -208,7 +247,8 @@ class SetupDialog(QtWidgets.QDialog):
         self.mdbx.create_dropbox_directory(path=dropbox_path, overwrite=False)
 
         # switch to next page
-        self.stackedWidget.setCurrentIndex(3)
+        self.stackedWidget.slideInIdx(3)
+        self.pushButtonFolderSelectionSelect.setFocus()
 
         # populate folder list
         if self.folder_items == []:
@@ -216,7 +256,7 @@ class SetupDialog(QtWidgets.QDialog):
 
     def on_folders_selected(self):
         # switch to next page
-        self.stackedWidget.setCurrentIndex(4)
+        self.stackedWidget.slideInIdx(4)
 
         # exclude folders
         excluded_folders = []
@@ -258,9 +298,9 @@ class SetupDialog(QtWidgets.QDialog):
 
         if root_folders is False:
             self.listWidgetFolders.addItem("Unable to connect. Please try again later.")
-            self.self.buttonBoxFolderSelection.buttons()[0].setEnabled(False)
+            self.pushButtonFolderSelectionSelect.setEnabled(False)
         else:
-            self.buttonBoxFolderSelection.buttons()[0].setEnabled(True)
+            self.pushButtonFolderSelectionSelect.setEnabled(True)
 
             for entry in root_folders.entries:
                 if isinstance(entry, files.FolderMetadata):
