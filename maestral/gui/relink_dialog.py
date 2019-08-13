@@ -1,10 +1,13 @@
+import sys
 import logging
 from PyQt5 import QtCore, QtWidgets, QtGui, uic
+from PyQt5.QtCore import Qt
 
 from maestral.oauth import OAuth2Session
 from maestral.gui.setup_dialog import AuthThread
 from maestral.gui.resources import RELINK_DIALOG_PATH, APP_ICON_PATH
 from maestral.gui.utils import get_scaled_font, icon_to_pixmap, QProgressIndicator
+from maestral.gui.utils import quit_and_restart_maestral
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +28,7 @@ class RelinkDialog(QtWidgets.QDialog):
         # load user interface layout from .ui file
         uic.loadUi(RELINK_DIALOG_PATH, self)
         self.setModal(True)
-        self.setWindowFlags(QtCore.Qt.Sheet)
+        self.setWindowFlags(Qt.WindowTitleHint | Qt.CustomizeWindowHint)
 
         assert reason in (self.EXPIRED, self.REVOKED)
 
@@ -50,7 +53,7 @@ class RelinkDialog(QtWidgets.QDialog):
         # format progress indicator
         self._layout = QtWidgets.QHBoxLayout()
         self._layout.setContentsMargins(0, 0, 3, 0)
-        self._layout.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self._layout.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.lineEditAuthCode.setLayout(self._layout)
         self.progressIndicator = QProgressIndicator(self.lineEditAuthCode)
         self._layout.addWidget(self.progressIndicator)
@@ -59,15 +62,24 @@ class RelinkDialog(QtWidgets.QDialog):
         self.lineEditAuthCode.setTextMargins(3, 0, 0, 0)
 
         # connect callbacks
-        self.lineEditAuthCode.textChanged.connect(self.set_text_style)
-        self.pushButtonCancel.clicked.connect(self.reject)
+        self.lineEditAuthCode.textChanged.connect(self._set_text_style)
+        self.pushButtonCancel.clicked.connect(self.quit)
+        self.pushButtonUnlink.clicked.connect(self.delete_creds_and_quit)
         self.pushButtonLink.clicked.connect(self.on_link_clicked)
 
         # other
         self.pushButtonCancel.setFocus()
         self.adjustSize()
 
-    def set_text_style(self, text):
+    def quit(self):
+        QtCore.QCoreApplication.quit()
+        sys.exit(0)
+
+    def delete_creds_and_quit(self):
+        self.auth_session.delete_creds
+        self.quit()
+
+    def _set_text_style(self, text):
         if text == "":
             self.pushButtonLink.setEnabled(False)
             self.lineEditAuthCode.setStyleSheet("")
@@ -87,6 +99,8 @@ class RelinkDialog(QtWidgets.QDialog):
     def on_link_clicked(self):
         token = self.lineEditAuthCode.text()
         if token == "":
+            # this should not occur because link button will be inactivate when there
+            # is no text in QLineEdit
             return
 
         self.set_ui_linking()
@@ -102,7 +116,7 @@ class RelinkDialog(QtWidgets.QDialog):
             self.auth_session.save_creds()
             self.lineEditAuthCode.setText(self.VALID_MSG)
             QtWidgets.QApplication.processEvents()
-            QtCore.QTimer.singleShot(500, self.accept)
+            QtCore.QTimer.singleShot(500, quit_and_restart_maestral)
         elif res == OAuth2Session.InvalidToken:
             self.lineEditAuthCode.setText(self.INVALID_MSG)
         elif res == OAuth2Session.ConnectionFailed:

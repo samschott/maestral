@@ -137,7 +137,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.setup_ui_linked()
         else:
             logger.info("Setup aborted. Quitting.")
-            self.quit_()
+            self.quit()
 
     def setup_ui_unlinked(self):
 
@@ -172,7 +172,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.loginAction.setChecked(self.autostart.enabled)
         self.helpAction.triggered.connect(self.on_help_clicked)
-        self.quitAction.triggered.connect(self.quit_)
+        self.quitAction.triggered.connect(self.quit)
 
     def setup_ui_linked(self):
 
@@ -236,7 +236,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.activateWindow)
         self.rebuiltAction.triggered.connect(self.on_rebuild)
         self.helpAction.triggered.connect(self.on_help_clicked)
-        self.quitAction.triggered.connect(self.quit_)
+        self.quitAction.triggered.connect(self.quit)
 
         if platform.system() == "Linux":
             # on linux, submenu.aboutToShow may not be emitted
@@ -347,24 +347,25 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.stop_and_exec_error_dialog(title, message, exc_info)
 
     def stop_and_exec_relink_dialog(self, reason):
-        # remove invalid token
-        try:
-            OAuth2Session().delete_creds()
-        except Exception:
-            pass
-
-        self.mdbx.stop_sync()
         self.setIcon(self.icons[SYNC_ERROR])
+
+        if self.mdbx:
+            self.mdbx.stop_sync()
         if hasattr(self, "pauseAction"):
             self.pauseAction.setText("Start Syncing")
             self.pauseAction.setEnabled(False)
+
         relink_dialog = RelinkDialog(reason)
-        relink_dialog.exec_()
-        quit_and_restart_maestral()
+        # Will either just return (Cancel), relink the account (Link) or unlink it and
+        # delete the old creds (Unlink). In the first case
+
+        relink_dialog.exec_()  # this will perform quit actions as appropriate
 
     def stop_and_exec_error_dialog(self, title, message, exc_info=None):
-        self.mdbx.stop_sync()
         self.setIcon(self.icons[SYNC_ERROR])
+
+        if self.mdbx:
+            self.mdbx.stop_sync()
         if hasattr(self, "pauseAction"):
             self.pauseAction.setText("Start Syncing")
 
@@ -413,13 +414,13 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def _disable_hidpi_pixmaps():
         QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, False)
 
-    def quit_(self):
+    def quit(self):
         """Quit Maestral"""
         if self.mdbx:
             self.mdbx.stop_sync()
         self.deleteLater()
         QtCore.QCoreApplication.quit()
-        sys.exit()
+        sys.exit(0)
 
 
 def run():
