@@ -51,46 +51,30 @@ through linking and configuring your Dropbox and will then start syncing.
 
 After installation, Maestral will be available as a command line script by typing
 `maestral` in the command prompt. Command line functionality resembles that of the
-interactive client. Type `maestral --help` to get a full list of available commands.
-Invoking `maestral sync` will configure Maestral on first run and then automatically start
-syncing.
+interactive client. Type `maestral --help` to get a full list of available commands. The
+most important are:
 
-## Interactive usage (Python shell)
+- `maestral gui`: Starts Maestral with a GUI.
+- `maestral sync`: Starts Maestral in the command line.
+- `maestral set-excluded`: Select folders to be excluded from syncing.
+- `maestral set-dir`: Sets the location of your local Dropbox folder.
+- `maestral unlink`: Unlinks the current account.
 
-After installation, in a Python command prompt, run
-```Python
->>> from maestral.main import Maestral
->>> m = Maestral()
+Maestral supports syncing multiple Dropbox accounts by running multiple instances. For
+now, the configuration needs to be done from the command line. E.g., before running
+`maestral gui`, one can set up a new configuration with `maestral config new`. For
+instance, to sync both a private and business account, run:
+
+```shell
+$ maestral config new "personal"
+$ maestral config new "work"
+$ maestral gui --config-name="personal"
+$ maestral gui --config-name="work"
 ```
-On initial use, Maestral will ask you to link your Dropbox account, give the location of
-your Dropbox folder on the local drive, and to specify excluded folders. It will then
-start syncing. Supported commands include:
-
-```Python
->>> m.pause_sync()  # pause syncing
->>> m.resume_sync()  # resume syncing
-
->>> path = '/Folder/On/Dropbox'  # path relative to Dropbox folder
->>> m.exclude_folder(path)  # exclude Dropbox folder from sync, delete locally
->>> m.include_folder(path)  # include Dropbox folder in sync, download its contents
-
->>> m.move_dropbox_directory('~/Dropbox')  # move local Dropbox folder
->>> m.unlink()  # unlinks your Dropbox account but keeps all your files
-```
-
-## Structure
-
-`maestral.client` handles all the interaction with the Dropbox API such as authentication,
-uploading and downloading files and folders, getting metadata and listing folder contents.
-
-`maestral.monitor` handles the actual syncing. It monitors the local Dropbox folder and
-the remote Dropbox for changes and syncs them using the interface provided by
-`maestral.client`.
-
-`maestral.main` provides the main programmatic user interface. It links your Dropbox
-account, sets up your local folder and lets you select which folders to sync.
-
-`maestral.gui` contains all graphical user interfaces for `Maestral`.
+This will start two Maestral instances, syncing the private and the work accounts,
+respectively. By default, the Dropbox folder names will contain the capitalised
+config-name in braces. For our example, this will be "Dropbox (Personal)" and "Dropbox
+(Work)".
 
 ## Contribute
 
