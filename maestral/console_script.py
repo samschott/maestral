@@ -13,22 +13,44 @@ import click
 # Main commands
 # ========================================================================================
 
-def set_environ(ctx, param, value):
+def set_config(ctx, param, value):
     if value:
         if value not in list_configs():
             ctx.fail("Configuration '{0}' does not exist.".format(value))
         os.environ["MAESTRAL_CONFIG"] = value
 
 
-with_config_opt = click.option("-c", "--config-name", default="", callback=set_environ,
+with_config_opt = click.option("-c", "--config-name", default="", callback=set_config,
                                is_eager=True, expose_value=False, metavar="NAME",
                                help="Run Maestral with the selected configuration.")
+
+
+def is_linked():
+    from maestral.main import Maestral
+    if Maestral.pending_link():
+        click.echo("No Dropbox account linked.")
+        return False
+    else:
+        return True
 
 
 @click.group()
 def main():
     """Maestral Dropbox Client for Linux and macOS."""
     pass
+
+
+@main.command()
+def about():
+    """Returns the version number and other information."""
+    import time
+    from maestral.main import __version__, __author__, __url__
+    click.echo("")
+    click.echo("Version:    {}".format(__version__))
+    click.echo("Website:    {}".format(__url__))
+    click.echo("Copyright:  (c) 2018 - {}, {}.".format(
+        time.localtime().tm_year, __author__))
+    click.echo("")
 
 
 @main.command()
@@ -83,10 +105,11 @@ def unlink():
 @click.argument("local_path", type=click.Path())
 def download(dropbox_path: str, local_path: str):
     """Downloads a file from Dropbox."""
-    from maestral.client import MaestralApiClient
-    c = MaestralApiClient()
-    c.download(dropbox_path, local_path)
-    click.echo("Downloaded '{0}' to '{1}'.".format(dropbox_path, local_path))
+    if is_linked():
+        from maestral.client import MaestralApiClient
+        c = MaestralApiClient()
+        c.download(dropbox_path, local_path)
+        click.echo("Downloaded '{0}' to '{1}'.".format(dropbox_path, local_path))
 
 
 @main.command()
@@ -95,10 +118,11 @@ def download(dropbox_path: str, local_path: str):
 @click.argument("dropbox_path", type=click.Path())
 def upload(local_path: str, dropbox_path: str):
     """Uploads a file to Dropbox."""
-    from maestral.client import MaestralApiClient
-    c = MaestralApiClient()
-    c.upload(local_path, dropbox_path)
-    click.echo("Uploaded '{0}'.".format(dropbox_path))
+    if is_linked():
+        from maestral.client import MaestralApiClient
+        c = MaestralApiClient()
+        c.upload(local_path, dropbox_path)
+        click.echo("Uploaded '{0}'.".format(dropbox_path))
 
 
 @main.command()
@@ -107,10 +131,11 @@ def upload(local_path: str, dropbox_path: str):
 @click.argument("new_path", type=click.Path())
 def move(old_path: str, new_path: str):
     """Moves or renames a file or folder on Dropbox."""
-    from maestral.client import MaestralApiClient
-    c = MaestralApiClient()
-    c.move(old_path, new_path)
-    click.echo("Moved '{0}' to '{1}'.".format(old_path, new_path))
+    if is_linked():
+        from maestral.client import MaestralApiClient
+        c = MaestralApiClient()
+        c.move(old_path, new_path)
+        click.echo("Moved '{0}' to '{1}'.".format(old_path, new_path))
 
 
 @main.command(name='list')
@@ -118,15 +143,16 @@ def move(old_path: str, new_path: str):
 @click.argument("dropbox_path", type=click.Path())
 def main_list(dropbox_path: str):
     """Lists contents of a folder on Dropbox."""
-    from maestral.client import MaestralApiClient
-    from dropbox.files import FolderMetadata
-    c = MaestralApiClient()
-    res = c.list_folder(dropbox_path, recursive=False)
-    entry_types = ("Folder" if isinstance(md, FolderMetadata) else "File" for md in
-                   res.entries)
-    entry_names = (md.name for md in res.entries)
-    for t, n in zip(entry_types, entry_names):
-        click.echo("{0}:\t{1}".format(t, n))
+    if is_linked():
+        from maestral.client import MaestralApiClient
+        from dropbox.files import FolderMetadata
+        c = MaestralApiClient()
+        res = c.list_folder(dropbox_path, recursive=False)
+        entry_types = ("Folder" if isinstance(md, FolderMetadata) else "File" for md in
+                       res.entries)
+        entry_names = (md.name for md in res.entries)
+        for t, n in zip(entry_types, entry_names):
+            click.echo("{0}:\t{1}".format(t, n))
 
 
 @main.command()
@@ -134,20 +160,24 @@ def main_list(dropbox_path: str):
 @click.argument("dropbox_path", type=click.Path())
 def mkdir(dropbox_path: str):
     """Creates a new directory on Dropbox."""
-    from maestral.client import MaestralApiClient
-    c = MaestralApiClient()
-    c.make_dir(dropbox_path)
-    click.echo("Created directory '{0}'.".format(dropbox_path))
+    if is_linked():
+        from maestral.client import MaestralApiClient
+        c = MaestralApiClient()
+        c.make_dir(dropbox_path)
+        click.echo("Created directory '{0}'.".format(dropbox_path))
 
 
 @main.command()
 @with_config_opt
 def account_info():
     """Prints Dropbox account info."""
-    from maestral.client import MaestralApiClient
-    c = MaestralApiClient()
-    res = c.get_account_info()
-    click.echo("{0}, {1}".format(res.email, res.account_type))
+    if is_linked():
+        from maestral.config.main import CONF
+        email = CONF.get("account", "email")
+        account_type = CONF.get("account", "type")
+        usage = CONF.get("account", "usage")
+        click.echo("{0}, {1}".format(email, account_type))
+        click.echo(usage)
 
 
 @main.command()
@@ -156,12 +186,12 @@ def account_info():
 def autostart(yes: bool):
     """Starts Maestral on login. May not work on some Linux distributions."""
     from maestral.utils.autostart import AutoStart
-    ast = AutoStart()
+    auto_start = AutoStart()
     if yes:
-        ast.enable()
+        auto_start.enable()
         click.echo("Enabled start on login.")
     else:
-        ast.disable()
+        auto_start.disable()
         click.echo("Disabled start on login.")
 
 
