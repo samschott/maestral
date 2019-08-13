@@ -124,7 +124,7 @@ class MaestralApiClient(object):
         try:
             res = self.dbx.users_get_current_account()  # should only raise auth errors
         except dropbox.exceptions.DropboxException as exc:
-            raise to_maestral_error(exc)
+            raise to_maestral_error(exc) from exc
 
         if res.account_type.is_basic():
             account_type = 'basic'
@@ -153,7 +153,7 @@ class MaestralApiClient(object):
         try:
             res = self.dbx.users_get_space_usage()  # should only raise auth errors
         except dropbox.exceptions.DropboxException as exc:
-            raise to_maestral_error(exc)
+            raise to_maestral_error(exc) from exc
 
         # convert from dropbox.users.SpaceUsage to SpaceUsage with nice string
         # representation
@@ -176,7 +176,7 @@ class MaestralApiClient(object):
         try:
             self.dbx.auth_token_revoke()  # should only raise auth errors
         except dropbox.exceptions.DropboxException as exc:
-            raise to_maestral_error(exc)
+            raise to_maestral_error(exc) from exc
 
     def get_metadata(self, dbx_path, **kwargs):
         """

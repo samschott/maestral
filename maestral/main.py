@@ -36,9 +36,9 @@ import logging.handlers
 # set up logging
 logger = logging.getLogger(__name__)
 
-config_name = os.getenv('MAESTRAL_CONFIG', 'maestral')
+config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
 
-log_file = get_log_path('maestral', config_name + '.log')
+log_file = get_log_path("maestral", config_name + ".log")
 log_fmt = logging.Formatter(fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
                             datefmt="%Y-%m-%d %H:%M:%S")
 rfh = logging.handlers.RotatingFileHandler(log_file, maxBytes=10**6, backupCount=3)
@@ -205,7 +205,7 @@ class Maestral(object):
 
     @property
     def account_profile_pic_path(self):
-        return get_cache_path('maestral', config_name + '_profile_pic.jpeg')
+        return get_cache_path("maestral", config_name + "_profile_pic.jpeg")
 
     @handle_disconnect
     def get_account_info(self):
@@ -230,10 +230,10 @@ class Maestral(object):
 
     def _delete_old_profile_pics(self):
         # delete all old pictures
-        for file in os.listdir(get_cache_path('maestral')):
-            if file.startswith(config_name + '_profile_pic'):
+        for file in os.listdir(get_cache_path("maestral")):
+            if file.startswith(config_name + "_profile_pic"):
                 try:
-                    os.unlink(osp.join(get_cache_path('maestral'), file))
+                    os.unlink(osp.join(get_cache_path("maestral"), file))
                 except OSError:
                     pass
 
@@ -255,7 +255,7 @@ class Maestral(object):
         self.download_thread = Thread(
                 target=folder_download_worker,
                 args=(self.monitor, dbx_path),
-                kwargs={'callback': callback},
+                kwargs={"callback": callback},
                 name="MaestralFolderDownloader")
         self.download_thread.start()
 

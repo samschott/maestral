@@ -251,7 +251,7 @@ def quit_and_restart_maestral():
     running with the previous configuration. It also handles restarting macOS app bundles.
     """
     pid = os.getpid()  # get ID of current process
-    config_name = os.getenv('MAESTRAL_CONFIG', 'maestral')
+    config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
 
     # wait for current process to quit and then restart Maestral
     if is_macos_bundle:
@@ -265,6 +265,7 @@ def quit_and_restart_maestral():
             pid, config_name), shell=True)
 
     QtCore.QCoreApplication.quit()
+    sys.exit(0)
 
 
 def get_masked_image(path, size=64, overlay_text=""):
