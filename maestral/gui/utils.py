@@ -87,7 +87,7 @@ def icon_to_pixmap(icon, width, height=None):
     if not height:
         height = width
 
-    is_hidpi = QtCore.QCoreApplication.testAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
+    is_hidpi = QtCore.QCoreApplication.testAttribute(Qt.AA_UseHighDpiPixmaps)
     dpr = QtWidgets.QApplication.primaryScreen().devicePixelRatio()
 
     if not is_hidpi:
@@ -182,9 +182,9 @@ class UserDialog(QtWidgets.QDialog):
     def __init__(self, title, message, exc_info=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         self.setModal(True)
-        self.setWindowModality(QtCore.Qt.WindowModal)
-        self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint)
-        self.setWindowTitle("Maestral Error")  # user dialogs are only shown for errors
+        self.setWindowModality(Qt.WindowModal)
+        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Sheet | Qt.WindowTitleHint | Qt.CustomizeWindowHint)
+        self.setWindowTitle("")
         self.setFixedWidth(450)
 
         self.gridLayout = QtWidgets.QGridLayout()
@@ -375,7 +375,7 @@ class AnimatedStackedWidget(QtWidgets.QStackedWidget):
     def __init__(self, parent=None):
         super(AnimatedStackedWidget, self).__init__(parent)
 
-        self.m_direction = QtCore.Qt.Horizontal
+        self.m_direction = Qt.Horizontal
         self.m_speed = 300
         self.m_animationtype = QtCore.QEasingCurve.OutCubic
         self.m_now = 0
@@ -431,7 +431,7 @@ class AnimatedStackedWidget(QtWidgets.QStackedWidget):
         offsetx, offsety = self.frameRect().width(), self.frameRect().height()
         self.widget(_next).setGeometry(self.frameRect())
 
-        if not self.m_direction == QtCore.Qt.Horizontal:
+        if not self.m_direction == Qt.Horizontal:
             if _now < _next:
                 offsetx, offsety = 0, -offsety
             else:
