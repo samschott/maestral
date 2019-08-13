@@ -1,11 +1,12 @@
-import time
+import logging
 from PyQt5 import QtCore, QtWidgets, QtGui, uic
 
 from maestral.oauth import OAuth2Session
 from maestral.gui.setup_dialog import AuthThread
 from maestral.gui.resources import RELINK_DIALOG_PATH, APP_ICON_PATH
-from maestral.gui.utils import (quit_and_restart_maestral, get_scaled_font,
-                                icon_to_pixmap, QProgressIndicator)
+from maestral.gui.utils import get_scaled_font, icon_to_pixmap, QProgressIndicator
+
+logger = logging.getLogger(__name__)
 
 
 class RelinkDialog(QtWidgets.QDialog):
@@ -16,18 +17,30 @@ class RelinkDialog(QtWidgets.QDialog):
     INVALID_MSG = "Invalid token"
     CONNECTION_ERR_MSG = "Connection failed"
 
-    def __init__(self, parent=None):
+    EXPIRED = 0
+    REVOKED = 1
+
+    def __init__(self, reason=EXPIRED, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(RELINK_DIALOG_PATH, self)
         self.setModal(True)
         self.setWindowFlags(QtCore.Qt.Sheet)
 
+        assert reason in (self.EXPIRED, self.REVOKED)
+
         # format text labels
+        if reason is self.EXPIRED:
+            self.titleLabel.setText("Dropbox Access expired")
+            formatted_text = self.infoLabel.text().format(
+                "has expired", self.auth_session.get_auth_url())
+        else:
+            self.titleLabel.setText("Dropbox Access revoked")
+            formatted_text = self.infoLabel.text().format(
+                "has been revoked", self.auth_session.get_auth_url())
+        self.infoLabel.setText(formatted_text)
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
-        formatted_text = self.infoLabel.text().format(self.auth_session.get_auth_url())
-        self.infoLabel.setText(formatted_text)
 
         # add app icon
         icon = QtGui.QIcon(APP_ICON_PATH)
@@ -47,7 +60,7 @@ class RelinkDialog(QtWidgets.QDialog):
 
         # connect callbacks
         self.lineEditAuthCode.textChanged.connect(self.set_text_style)
-        self.pushButtonCancel.clicked.connect(QtWidgets.QApplication.quit)
+        self.pushButtonCancel.clicked.connect(self.reject)
         self.pushButtonLink.clicked.connect(self.on_link_clicked)
 
         # other
@@ -88,8 +101,8 @@ class RelinkDialog(QtWidgets.QDialog):
         if res == OAuth2Session.Success:
             self.auth_session.save_creds()
             self.lineEditAuthCode.setText(self.VALID_MSG)
-            time.sleep(500)
-            quit_and_restart_maestral()
+            QtWidgets.QApplication.processEvents()
+            QtCore.QTimer.singleShot(500, self.accept)
         elif res == OAuth2Session.InvalidToken:
             self.lineEditAuthCode.setText(self.INVALID_MSG)
         elif res == OAuth2Session.ConnectionFailed:

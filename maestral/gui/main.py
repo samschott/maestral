@@ -13,7 +13,6 @@ import subprocess
 import webbrowser
 import urllib
 import shutil
-import keyring
 from blinker import signal
 from PyQt5 import QtCore, QtWidgets
 
@@ -78,10 +77,9 @@ info_handler.setLevel(logging.INFO)
 error_handler = ErrorHandler()
 error_handler.setLevel(logging.ERROR)
 
-for logger_name in ["maestral.monitor", "maestral.main", "maestral.client"]:
-    mdbx_logger = logging.getLogger(logger_name)
-    mdbx_logger.addHandler(info_handler)
-    mdbx_logger.addHandler(error_handler)
+mdbx_logger = logging.getLogger("maestral")
+mdbx_logger.addHandler(info_handler)
+mdbx_logger.addHandler(error_handler)
 
 
 # noinspection PyTypeChecker
@@ -98,6 +96,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.icons = self.load_tray_icons()
         self.setIcon(self.icons[DISCONNECTED])
         self.show_when_systray_available()
+
+        error_handler.error_signal.connect(self.on_error)
         self.setup_ui_unlinked()
 
     def show_when_systray_available(self):
@@ -249,7 +249,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         # ------------- connect UI to signals -------------------
         info_handler.info_signal.connect(self.statusAction.setText)
         info_handler.info_signal.connect(self.on_info_signal)
-        error_handler.error_signal.connect(self.on_error)
         self.usage_signal.connect(self.on_usage_available)
 
         # --------------- switch to idle icon -------------------
@@ -335,17 +334,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         elif isinstance(exc, DropboxDeletedError):
             self.mdbx.stop_sync()
             quit_and_restart_maestral()
-        elif isinstance(exc, TokenExpiredError):
-            self.stop_and_exec_relink_dialog()
         elif isinstance(exc, DropboxAuthError):
-            title = exc.title
-            message = exc.message
-            self.stop_and_exec_error_dialog(title, message)
-            try:
-                OAuth2Session().delete_creds()
-            except keyring.errors.PasswordDeleteError:
-                pass
-            quit_and_restart_maestral()
+            reason = RelinkDialog.EXPIRED if isinstance(exc, TokenExpiredError) else RelinkDialog.REVOKED
+            self.stop_and_exec_relink_dialog(reason)
         elif isinstance(exc, MaestralApiError):
             # don't show dialog on all other MaestralApiErrors, they are "normal" sync
             # issues which can be resolved by the user
@@ -355,18 +346,27 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             message = "Please contact the Maestral developer with the information below."
             self.stop_and_exec_error_dialog(title, message, exc_info)
 
-    def stop_and_exec_relink_dialog(self):
+    def stop_and_exec_relink_dialog(self, reason):
+        # remove invalid token
+        try:
+            OAuth2Session().delete_creds()
+        except Exception:
+            pass
+
         self.mdbx.stop_sync()
         self.setIcon(self.icons[SYNC_ERROR])
-        self.pauseAction.setText("Start Syncing")
-
-        relink_dialog = RelinkDialog()
+        if hasattr(self, "pauseAction"):
+            self.pauseAction.setText("Start Syncing")
+            self.pauseAction.setEnabled(False)
+        relink_dialog = RelinkDialog(reason)
         relink_dialog.exec_()
+        quit_and_restart_maestral()
 
-    def stop_and_exec_error_dialog(self, title, message, exc_info):
+    def stop_and_exec_error_dialog(self, title, message, exc_info=None):
         self.mdbx.stop_sync()
         self.setIcon(self.icons[SYNC_ERROR])
-        self.pauseAction.setText("Start Syncing")
+        if hasattr(self, "pauseAction"):
+            self.pauseAction.setText("Start Syncing")
 
         error_dialog = UserDialog(title, message, exc_info)
         error_dialog.exec_()

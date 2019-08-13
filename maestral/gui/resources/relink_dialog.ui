@@ -54,7 +54,7 @@
    <item row="1" column="2" colspan="3">
     <widget class="QLabel" name="infoLabel">
      <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your Dropbox access has expired. To continue syncing, please click &lt;a href=&quot;{0}&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#2874e1;&quot;&gt;here&lt;/span&gt;&lt;/a&gt; to retrieve a new authorization token from Dropbox and enter it below.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your Dropbox access {0}. To continue syncing, please click &lt;a href=&quot;{1}&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#2874e1;&quot;&gt;here&lt;/span&gt;&lt;/a&gt; to retrieve a new authorization token from Dropbox and enter it below.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="wordWrap">
       <bool>true</bool>
@@ -67,7 +67,7 @@
    <item row="3" column="3">
     <widget class="QPushButton" name="pushButtonCancel">
      <property name="text">
-      <string>Quit</string>
+      <string>Unlink and Quit</string>
      </property>
     </widget>
    </item>
@@ -77,7 +77,7 @@
       <bool>false</bool>
      </property>
      <property name="text">
-      <string>Relink</string>
+      <string>Link</string>
      </property>
     </widget>
    </item>

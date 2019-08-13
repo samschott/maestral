@@ -129,7 +129,11 @@ class SettingsWindow(QtWidgets.QWidget):
 
     def set_profile_pic(self):
 
-        self.mdbx.get_profile_pic()
+        try:
+            self.mdbx.get_profile_pic()
+        except Exception:
+            # never raise since `set_profile_pic` is called during __init__
+            pass
 
         height = round(self.labelUserProfilePic.height()*0.7)
 
