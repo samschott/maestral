@@ -88,14 +88,14 @@ def icon_to_pixmap(icon, width, height=None):
         height = width
 
     is_hidpi = QtCore.QCoreApplication.testAttribute(Qt.AA_UseHighDpiPixmaps)
-    dpr = QtWidgets.QApplication.primaryScreen().devicePixelRatio()
+    pr = QWindow().devicePixelRatio()
 
     if not is_hidpi:
-        width = width*dpr
-        height = height*dpr
+        width = width*pr
+        height = height*pr
     px = icon.pixmap(width, height)
     if not is_hidpi:
-        px.setDevicePixelRatio(dpr)
+        px.setDevicePixelRatio(pr)
 
     return px
 
@@ -315,7 +315,7 @@ def get_masked_image(path, size=64, overlay_text=""):
 
     if overlay_text:
         # draw text
-        font = get_scaled_font(bold=True)
+        font = QtGui.QFont("Arial Rounded MT Bold")
         font.setPointSize(imgsize * 0.4)
         painter.setFont(font)
         painter.setPen(Qt.white)
@@ -341,9 +341,9 @@ class FaderWidget(QtWidgets.QWidget):
     def __init__(self, old_widget, new_widget, duration=300):
         QtWidgets.QWidget.__init__(self, new_widget)
 
-        dpr = QWindow().devicePixelRatio()
-        self.old_pixmap = QPixmap(new_widget.size()*dpr)
-        self.old_pixmap.setDevicePixelRatio(dpr)
+        pr = QWindow().devicePixelRatio()
+        self.old_pixmap = QPixmap(new_widget.size()*pr)
+        self.old_pixmap.setDevicePixelRatio(pr)
         old_widget.render(self.old_pixmap)
 
         self.timeline = QtCore.QTimeLine()
