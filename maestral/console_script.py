@@ -81,22 +81,33 @@ def gui():
 
 @main.command()
 @with_config_opt
-def configure():
-    """Runs the command line configuration wizard."""
-    from maestral.main import Maestral
-    m = Maestral(run=False)
-    m.move_dropbox_directory()
-    m.select_excluded_folders()
+def set_dir():
+    """Set or change the location of your Dropbox folder."""
+    if is_linked():
+        from maestral.main import Maestral
+        m = Maestral(run=False)
+        m.move_dropbox_directory()
+
+
+@main.command()
+@with_config_opt
+def set_excluded():
+    """Select folders to exclude from sync."""
+    if is_linked():
+        from maestral.main import Maestral
+        m = Maestral(run=False)
+        m.select_excluded_folders()
 
 
 @main.command()
 @with_config_opt
 def unlink():
     """Unlinks your Dropbox account."""
-    from maestral.main import Maestral
-    m = Maestral(run=False)
-    m.unlink()
-    click.echo("Unlinked Maestral.")
+    if is_linked():
+        from maestral.main import Maestral
+        m = Maestral(run=False)
+        m.unlink()
+        click.echo("Unlinked Maestral.")
 
 
 @main.command()
@@ -210,11 +221,11 @@ def list_configs():
 
 
 @main.group()
-def env():
+def config():
     """Manage different Maestral configuration environments."""
 
 
-@env.command()
+@config.command()
 @click.argument("name")
 def new(name: str):
     """Set up and activate a fresh Maestral configuration."""
@@ -227,7 +238,7 @@ def new(name: str):
         click.echo("Created configuration '{0}'.".format(name))
 
 
-@env.command(name='list')
+@config.command(name='list')
 def env_list():
     """List all Maestral configurations."""
     click.echo("Available Maestral configurations:")
@@ -235,7 +246,7 @@ def env_list():
         click.echo('  ' + c)
 
 
-@env.command()
+@config.command()
 @click.argument("name")
 def delete(name: str):
     """Remove a Maestral configuration."""
