@@ -59,7 +59,7 @@ def get_scaled_font(scaling=1.0, bold=False, italic=False):
     font = label.font()
     font.setBold(bold)
     font.setItalic(italic)
-    font_size = font.pointSize()*scaling
+    font_size = round(font.pointSize()*scaling)
     # noinspection PyTypeChecker
     font.setPointSize(font_size)
 
