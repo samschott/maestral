@@ -18,6 +18,9 @@ CONNECTION_ERRORS = (
     ConnectionError,
 )
 
+CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
+                        "your internet connection and try again later.")
+
 OS_FILE_ERRORS = (FileExistsError, FileNotFoundError, InterruptedError,
                   IsADirectoryError, NotADirectoryError, PermissionError, )
 

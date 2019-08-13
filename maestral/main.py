@@ -23,14 +23,13 @@ from dropbox import files
 
 from maestral.client import MaestralApiClient
 from maestral.oauth import OAuth2Session
-from maestral.errors import CONNECTION_ERRORS, DropboxAuthError
+from maestral.errors import CONNECTION_ERRORS, DropboxAuthError, CONNECTION_ERROR_MSG
 from maestral.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
                               path_exists_case_insensitive)
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.utils.app_dirs import get_log_path, get_cache_path
 
-import logging
 import logging.handlers
 
 # set up logging
@@ -53,9 +52,6 @@ mdbx_logger = logging.getLogger("maestral")
 mdbx_logger.setLevel(logging.DEBUG)
 mdbx_logger.addHandler(rfh)
 mdbx_logger.addHandler(sh)
-
-CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
-                        "your internet connection and try again later.")
 
 
 def folder_download_worker(monitor, dbx_path, callback=None):
