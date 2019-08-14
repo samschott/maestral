@@ -98,12 +98,13 @@ def stop_command(config_name):
 
 def start_command(config_name):
     """Starts Maestral as a damon."""
-    click.echo("Starting Maestral...", nl=False)
     from maestral.main import Maestral
     if Maestral.pending_link() or Maestral.pending_dropbox_folder():
         m = Maestral(run=False)
         m.create_dropbox_directory()
         m.select_excluded_folders()
+
+    click.echo("Starting Maestral...", nl=False)
 
     s = subprocess.Popen("maestral sync -c {}".format(config_name),
                          shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
@@ -238,6 +239,10 @@ def link(config_name: str):
         m = Maestral(run=False)
         m.create_dropbox_directory()
         m.select_excluded_folders()
+        if is_maestral_running(config_name):
+            # restart
+            stop_command(config_name)
+            start_command(config_name)
     else:
         click.echo("Maestral is already linked.")
 
@@ -250,6 +255,9 @@ def unlink(config_name: str):
         with MaestralProxy(config_name, fallback=True) as m:
             m.unlink()
         click.echo("Unlinked Maestral.")
+        if is_maestral_running(config_name):
+            # stop
+            stop_command(config_name)
 
 
 @main.command()
@@ -272,13 +280,16 @@ def notify(config_name: str, yes: bool):
 
 @main.command()
 @with_config_opt
-def set_dir(config_name: str):
+@click.option("--new-path", "-P", type=click.Path(), default=None)
+def set_dir(config_name: str, new_path: str):
     """Change the location of your Dropbox folder."""
     if is_maestral_linked(config_name):
         from maestral.main import Maestral
         with MaestralProxy(config_name, fallback=True) as m:
-            new_path = Maestral._ask_for_path()
+            if not new_path:
+                new_path = Maestral._ask_for_path()
             m.move_dropbox_directory(new_path)
+        click.echo("Dropbox folder moved to {}.".format(new_path))
 
 
 @main.command()
