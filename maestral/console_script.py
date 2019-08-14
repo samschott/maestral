@@ -180,9 +180,15 @@ def set_config(ctx, param, value):
     return value
 
 
-with_config_opt = click.option("-c", "--config-name", default="maestral", is_eager=True,
-                               expose_value=True, metavar="NAME", callback=set_config,
-                               help="Run Maestral with the selected configuration.")
+with_config_opt = click.option(
+    "-c", "--config-name",
+    default="maestral",
+    is_eager=True,
+    expose_value=True,
+    metavar="NAME",
+    callback=set_config,
+    help="Run Maestral with the selected configuration."
+)
 
 
 @click.group()
