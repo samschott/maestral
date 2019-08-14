@@ -1,30 +1,43 @@
-### v0.2.7-beta3
+### v0.3.0 (2019-08-14)
+
+This release includes several significant changes. The largest are:
+
+1) Support for multiple Dropbox accounts (via the command line)
+2) A Maestral daemon for the command line
+3) A redesigned settings window with more prominent account information
+
+The detailed list of changes is:
 
 _Added:_
 
-- Maestral can now be started as a daemon!
+- Maestral can now be started as a daemon from the command line. A new command group
+  `maestral daemon` has been introduced to manage this.
 - Added support for custom Dropbox folder names. The folder name must be set with the
   command line scripts.
-- Added a new command group "maestral config" to manage different Maestral configurations.
-- Added a new command line option "--config-name" or "-c" to select the configuration
+- Added a new command group `maestral config` to manage multiple Maestral configurations
+  for different Dropbox accounts.
+- Added a new command line option `--config-name` or `-c` to select the configuration
   file to use.
-- Improved command line scripts.
+- Improved grouping and naming of command line scripts.
+- Added a "relink" dialog which is shown when Maestral's Dropbox access has expired or
+  has been revoked by the user.
 
 _Changed:_
 
 - Animated setup dialog.
-- Relink dialog: If the Dropbox authorisation expires, we no longer reboot into the
-  setup dialog but show a custom "Relink Dialog".
 - Redesigned the settings window to show more prominent account information.
 - Improved command line and GUI flows for setting or moving the Dropbox folder location.
 - Moved to an Implicit Grant OAuth2 flow. This does not require an app secret to be
   stored in the client source code. Maestral will therefore no longer require the user to
   get their own API keys or to use the precompiled oauth binaries hosted on PyPI.
-  
+- Improved the user massages given by command line scripts.
+ 
 _Fixed:_
 
 - Fixed a crash on startup if the Meastral's Dropbox access has expired or has been
   revoked.
+- Fixed handling of `ListFolder` errors. Those will only occur when the user gives an
+  incorrect folder name to list and will (hopefully) never be caused my Maestral itself.
 
 ### v0.2.6 (2019-08-08)
 

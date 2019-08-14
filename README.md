@@ -13,7 +13,8 @@ Dropbox.
 
 Currently, Maestral does not support Dropbox Paper, the management of Dropbox teams and
 the management of shared folder settings. If you need any of this functionality, please
-use the Dropbox website or the official client.
+use the Dropbox website or the official client. As of v0.3, Maestral does however
+support the syncing of _multiple Dropbox accounts_.
 
 The focus on "simple" file syncing does come with advantages: the Maestral App on macOS is
 80% smaller than the official Dropbox app (50 MB vs 290 MB) and uses 70% less memory. The
@@ -21,8 +22,6 @@ app size and memory footprint can be further reduced when installing and running
 without a GUI and using the Python installation provided by your OS. The Maestral code
 itself and its Python dependencies take up less than 3 MB,  making an install without GUI
 ideal for systems with little resources.
-
-In the latest beta, Maestral introduces experimental support for multiple Dropbox accounts.
 
 ## Installation
 
