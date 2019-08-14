@@ -302,6 +302,12 @@ def dir_exclude(dropbox_path: str, config_name: str):
 @click.argument("dropbox_path", type=click.Path())
 def dir_include(dropbox_path: str, config_name: str):
     """Includes a Dropbox directory in syncing."""
+    if not dropbox_path.startswith("/"):
+        dropbox_path = "/" + dropbox_path
+    if dropbox_path == "/":
+        click.echo(click.style("The root directory is always included.", fg="red"))
+        return
+
     if is_maestral_linked(config_name):
         with MaestralProxy(config_name, fallback=True) as m:
             m.include_folder(dropbox_path)
