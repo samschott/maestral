@@ -39,7 +39,6 @@ class MaestralApiError(Exception):
 
     def __init__(self, title, message, dbx_path=None, dbx_path_dst=None,
                  local_path=None, local_path_dst=None):
-        super().__init__(title)
         self.title = title
         self.message = message
         self.dbx_path = dbx_path

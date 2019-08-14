@@ -465,12 +465,17 @@ def errors(config_name: str):
     """Lists all sync errors."""
     try:
         with MaestralProxy(config_name) as m:
-            if len(m.sync_errors) == 0:
+            err_list = m.sync_errors
+            if len(err_list) == 0:
                 click.echo("No sync errors.")
             else:
-                for err in m.sync_errors:
-                    click.echo("{0}:   {1}, {2}".format(
-                        err.dbx_path, err.title, err.message))
+                max_path_length = max(len(err.dbx_path) for err in err_list)
+                column_length = max(max_path_length, len("Relative path")) + 2
+                click.echo("PATH".ljust(column_length) + "ERROR")
+                for err in err_list:
+                    c0 = "'{}'".format(err.dbx_path).ljust(column_length)
+                    c1 = "{}. {}".format(err.title, err.message)
+                    click.echo(c0 + c1)
 
     except Pyro4.errors.CommunicationError:
         click.echo("Maestral is not running.")
