@@ -49,9 +49,8 @@ through linking and configuring your Dropbox and will then start syncing.
 ## Command line usage
 
 After installation, Maestral will be available as a command line script by typing
-`maestral` in the command prompt. Command line functionality resembles that of the
-interactive client. Type `maestral --help` to get a full list of available commands. The
-most important are:
+`maestral` in the command prompt. Type `maestral --help` to get a full list of available
+commands. The most important are:
 
 - `maestral gui`: Starts Maestral with a GUI.
 - `maestral daemon {start/stop}`: Starts or stops Maestral as a daemon.
