@@ -17,9 +17,10 @@ Steps to reproduce the behaviour.
 A clear and concise description of what you expected to happen.
 
 **System (please complete the following information):**
+ - Maestral version:
  - OS: [e.g. Ubuntu]
- - Desktop environment [e.g. Gnome 3.32]
- - Qt version
+ - Desktop environment: [e.g. Gnome 3.32]
+ - Qt version:
 
 **Additional context**
 Add any other context about the problem here.
