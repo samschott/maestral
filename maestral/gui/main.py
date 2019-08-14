@@ -13,17 +13,17 @@ import subprocess
 import webbrowser
 import urllib
 import shutil
-import keyring
 from blinker import signal
 from PyQt5 import QtCore, QtWidgets
 
 from maestral.main import Maestral
 from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
 from maestral.oauth import OAuth2Session
-from maestral.errors import (DropboxAuthError, CursorResetError, MaestralApiError,
-                             RevFileError, DropboxDeletedError)
+from maestral.errors import (DropboxAuthError, TokenExpiredError, CursorResetError,
+                             MaestralApiError, RevFileError, DropboxDeletedError)
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.setup_dialog import SetupDialog
+from maestral.gui.relink_dialog import RelinkDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import get_system_tray_icon
@@ -77,10 +77,9 @@ info_handler.setLevel(logging.INFO)
 error_handler = ErrorHandler()
 error_handler.setLevel(logging.ERROR)
 
-for logger_name in ["maestral.monitor", "maestral.main", "maestral.client"]:
-    mdbx_logger = logging.getLogger(logger_name)
-    mdbx_logger.addHandler(info_handler)
-    mdbx_logger.addHandler(error_handler)
+mdbx_logger = logging.getLogger("maestral")
+mdbx_logger.addHandler(info_handler)
+mdbx_logger.addHandler(error_handler)
 
 
 # noinspection PyTypeChecker
@@ -97,6 +96,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.icons = self.load_tray_icons()
         self.setIcon(self.icons[DISCONNECTED])
         self.show_when_systray_available()
+
+        error_handler.error_signal.connect(self.on_error)
         self.setup_ui_unlinked()
 
     def show_when_systray_available(self):
@@ -136,7 +137,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.setup_ui_linked()
         else:
             logger.info("Setup aborted. Quitting.")
-            self.quit_()
+            self.quit()
 
     def setup_ui_unlinked(self):
 
@@ -171,7 +172,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.loginAction.setChecked(self.autostart.enabled)
         self.helpAction.triggered.connect(self.on_help_clicked)
-        self.quitAction.triggered.connect(self.quit_)
+        self.quitAction.triggered.connect(self.quit)
 
     def setup_ui_linked(self):
 
@@ -235,7 +236,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.activateWindow)
         self.rebuiltAction.triggered.connect(self.on_rebuild)
         self.helpAction.triggered.connect(self.on_help_clicked)
-        self.quitAction.triggered.connect(self.quit_)
+        self.quitAction.triggered.connect(self.quit)
 
         if platform.system() == "Linux":
             # on linux, submenu.aboutToShow may not be emitted
@@ -248,7 +249,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         # ------------- connect UI to signals -------------------
         info_handler.info_signal.connect(self.statusAction.setText)
         info_handler.info_signal.connect(self.on_info_signal)
-        error_handler.error_signal.connect(self.on_error)
         self.usage_signal.connect(self.on_usage_available)
 
         # --------------- switch to idle icon -------------------
@@ -326,43 +326,51 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             # show error dialog to user
             title = "Maestral Error"
             message = exc.args[0]
-            show_tb = False
+            self.stop_and_exec_error_dialog(title, message)
         elif isinstance(exc, CursorResetError):
             title = "Dropbox has reset its sync state."
             message = 'Please go to "Rebuild index..." to re-sync your Dropbox.'
-            show_tb = False
+            self.stop_and_exec_error_dialog(title, message)
         elif isinstance(exc, DropboxDeletedError):
             self.mdbx.stop_sync()
             quit_and_restart_maestral()
-            return
         elif isinstance(exc, DropboxAuthError):
-            title = exc.title
-            message = exc.message
-            show_tb = False
+            reason = RelinkDialog.EXPIRED if isinstance(exc, TokenExpiredError) else RelinkDialog.REVOKED
+            self.stop_and_exec_relink_dialog(reason)
         elif isinstance(exc, MaestralApiError):
             # don't show dialog on all other MaestralApiErrors, they are "normal" sync
             # issues which can be resolved by the user
-            return
+            pass
         else:
             title = "An unexpected error occurred."
             message = "Please contact the Maestral developer with the information below."
-            show_tb = True
+            self.stop_and_exec_error_dialog(title, message, exc_info)
 
-        self.mdbx.stop_sync()
+    def stop_and_exec_relink_dialog(self, reason):
         self.setIcon(self.icons[SYNC_ERROR])
-        self.pauseAction.setText("Start Syncing")
 
-        exc_info = exc_info if show_tb else None
+        if self.mdbx:
+            self.mdbx.stop_sync()
+        if hasattr(self, "pauseAction"):
+            self.pauseAction.setText("Start Syncing")
+            self.pauseAction.setEnabled(False)
+
+        relink_dialog = RelinkDialog(reason)
+        # Will either just return (Cancel), relink the account (Link) or unlink it and
+        # delete the old creds (Unlink). In the first case
+
+        relink_dialog.exec_()  # this will perform quit actions as appropriate
+
+    def stop_and_exec_error_dialog(self, title, message, exc_info=None):
+        self.setIcon(self.icons[SYNC_ERROR])
+
+        if self.mdbx:
+            self.mdbx.stop_sync()
+        if hasattr(self, "pauseAction"):
+            self.pauseAction.setText("Start Syncing")
+
         error_dialog = UserDialog(title, message, exc_info)
         error_dialog.exec_()
-
-        if isinstance(exc, DropboxAuthError):
-            auth_session = OAuth2Session()
-            try:
-                auth_session.delete_creds()
-            except keyring.errors.PasswordDeleteError:
-                pass
-            quit_and_restart_maestral()
 
     def on_rebuild(self):
 
@@ -406,13 +414,13 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def _disable_hidpi_pixmaps():
         QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, False)
 
-    def quit_(self):
+    def quit(self):
         """Quit Maestral"""
         if self.mdbx:
             self.mdbx.stop_sync()
         self.deleteLater()
         QtCore.QCoreApplication.quit()
-        sys.exit()
+        sys.exit(0)
 
 
 def run():

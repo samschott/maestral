@@ -1,24 +1,30 @@
-### v0.2.7-beta2
+### v0.2.7-beta3
 
 _Added:_
 
-- Added experimental support for custom Dropbox folder names. The folder name must be
-  set in the config file before launching the GUI.
-- Set config file for Maestral with the environment variable "MAESTRAL_CONFIG". This
-  allows the user to launch multiple instances of Maestral with different configurations,
-  e.g., different Dropbox accounts. If "MAESTRAL_CONFIG" is not set, Maestral will use its
-  default configuration.
-- Added a new command group "maestral env" to manage different Maestral configurations.
+- Maestral can now be started as a daemon!
+- Added support for custom Dropbox folder names. The folder name must be set with the
+  command line scripts.
+- Added a new command group "maestral config" to manage different Maestral configurations.
 - Added a new command line option "--config-name" or "-c" to select the configuration
   file to use.
+- Improved command line scripts.
 
 _Changed:_
 
+- Animated setup dialog.
+- Relink dialog: If the Dropbox authorisation expires, we no longer reboot into the
+  setup dialog but show a custom "Relink Dialog".
 - Redesigned the settings window to show more prominent account information.
 - Improved command line and GUI flows for setting or moving the Dropbox folder location.
 - Moved to an Implicit Grant OAuth2 flow. This does not require an app secret to be
   stored in the client source code. Maestral will therefore no longer require the user to
   get their own API keys or to use the precompiled oauth binaries hosted on PyPI.
+  
+_Fixed:_
+
+- Fixed a crash on startup if the Meastral's Dropbox access has expired or has been
+  revoked.
 
 ### v0.2.6 (2019-08-08)
 

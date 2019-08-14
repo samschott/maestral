@@ -51,55 +51,44 @@ through linking and configuring your Dropbox and will then start syncing.
 
 After installation, Maestral will be available as a command line script by typing
 `maestral` in the command prompt. Command line functionality resembles that of the
-interactive client. Type `maestral --help` to get a full list of available commands.
-Invoking `maestral sync` will configure Maestral on first run and then automatically start
-syncing.
+interactive client. Type `maestral --help` to get a full list of available commands. The
+most important are:
 
-## Interactive usage (Python shell)
+- `maestral gui`: Starts Maestral with a GUI.
+- `maestral daemon {start/stop}`: Starts or stops Maestral as a daemon.
+- `maestral daemon {pause/resume}`: Pauses or resumes syncing.
+- `maestral daemon status`: Gets the current sync status.
+- `maestral daemon errors`: Lists all sync errors.
+- `maestral set-dir`: Sets the location of your local Dropbox folder.
+- `maestral dir-exclude`: Excludes a Dropbox folder from syncing.
+- `maestral dir-inlcude`: Includes a Dropbox folder in syncing.
+- `maestral list`: Lists the contents of a directory on Dropbox.
 
-After installation, in a Python command prompt, run
-```Python
->>> from maestral.main import Maestral
->>> m = Maestral()
+Maestral currently supports the syncing of multiple Dropbox accounts by running multiple
+instances. This configuration needs to be done from the command line. For example, before
+running `maestral gui`, one can set up a new configuration with `maestral config new`.
+The configuration name should then be given as command line option `--config-name` before
+running maestral. For example:
+
+```shell
+$ maestral config new "personal"
+$ maestral config new "work"
+$ maestral gui --config-name="personal"
+$ maestral gui --config-name="work"
 ```
-On initial use, Maestral will ask you to link your Dropbox account, give the location of
-your Dropbox folder on the local drive, and to specify excluded folders. It will then
-start syncing. Supported commands include:
+This will start two instances of Maestral, syncing the private and the work accounts,
+respectively. Multiple Maestral daemons are supported as well.
 
-```Python
->>> m.pause_sync()  # pause syncing
->>> m.resume_sync()  # resume syncing
-
->>> path = '/Folder/On/Dropbox'  # path relative to Dropbox folder
->>> m.exclude_folder(path)  # exclude Dropbox folder from sync, delete locally
->>> m.include_folder(path)  # include Dropbox folder in sync, download its contents
-
->>> m.move_dropbox_directory('~/Dropbox')  # move local Dropbox folder
->>> m.unlink()  # unlinks your Dropbox account but keeps all your files
-```
-
-## Structure
-
-`maestral.client` handles all the interaction with the Dropbox API such as authentication,
-uploading and downloading files and folders, getting metadata and listing folder contents.
-
-`maestral.monitor` handles the actual syncing. It monitors the local Dropbox folder and
-the remote Dropbox for changes and syncs them using the interface provided by
-`maestral.client`.
-
-`maestral.main` provides the main programmatic user interface. It links your Dropbox
-account, sets up your local folder and lets you select which folders to sync.
-
-`maestral.gui` contains all graphical user interfaces for `Maestral`.
+By default, the Dropbox folder names will contain the capitalised config-name in braces.
+In the above case, this will be "Dropbox (Personal)" and "Dropbox (Work)".
 
 ## Contribute
 
 The following tasks could need your help:
 
-- [ ] Write tests for maestral.
+- [ ] Write tests for Maestral.
 - [ ] Detect and warn in case of unsupported Dropbox folder locations (network drives,
       external hard drives, etc).
-- [ ] Speed up downloads of large folders and initial sync: Download zip files if possible.
 - [ ] Native Cocoa and GTK interfaces. Maestral currently uses PyQt5.
 - [ ] Packaging: improve packing for macOS (reduce app size) and package for other platforms.
 
@@ -112,22 +101,12 @@ The following tasks could need your help:
 
 ## Dependencies
 
-*System:*
-- macOS or Linux
+- macOS (10.13 or higher for binary) or Linux
 - Python 3.6 or higher
-- [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
-  on Gnome 3.26 and higher
-- PyQt 5.9 or higher (for GUI only).
-
-*Python:*
-- click
-- dropbox
-- watchdog
-- blinker
-- requests
-- u-msgpack-python
-- keyring
-- keyring.alt
+- For the GUI only:
+  - PyQt 5.9 or higher
+  - [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
+    on Gnome 3.26 and higher
 
 # Acknowledgements
 

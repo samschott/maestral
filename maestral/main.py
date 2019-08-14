@@ -6,7 +6,7 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 
-__version__ = "0.2.7-beta2"
+__version__ = "0.2.7-beta3"
 __author__ = "Sam Schott"
 __url__ = "https://github.com/SamSchott/maestral"
 
@@ -20,25 +20,25 @@ from blinker import signal
 from threading import Thread
 import requests
 from dropbox import files
+import Pyro4
 
 from maestral.client import MaestralApiClient
 from maestral.oauth import OAuth2Session
-from maestral.errors import CONNECTION_ERRORS, DropboxAuthError
+from maestral.errors import CONNECTION_ERRORS, DropboxAuthError, CONNECTION_ERROR_MSG
 from maestral.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
                               path_exists_case_insensitive)
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.utils.app_dirs import get_log_path, get_cache_path
 
-import logging
 import logging.handlers
 
 # set up logging
 logger = logging.getLogger(__name__)
 
-config_name = os.getenv('MAESTRAL_CONFIG', 'maestral')
+config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
 
-log_file = get_log_path('maestral', config_name + '.log')
+log_file = get_log_path("maestral", config_name + ".log")
 log_fmt = logging.Formatter(fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
                             datefmt="%Y-%m-%d %H:%M:%S")
 rfh = logging.handlers.RotatingFileHandler(log_file, maxBytes=10**6, backupCount=3)
@@ -53,9 +53,6 @@ mdbx_logger = logging.getLogger("maestral")
 mdbx_logger.setLevel(logging.DEBUG)
 mdbx_logger.addHandler(rfh)
 mdbx_logger.addHandler(sh)
-
-CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
-                        "your internet connection and try again later.")
 
 
 def folder_download_worker(monitor, dbx_path, callback=None):
@@ -135,6 +132,7 @@ def handle_disconnect(func):
     return wrapper
 
 
+@Pyro4.expose
 class Maestral(object):
     """
     An open source Dropbox client for macOS and Linux to syncing a local folder
@@ -145,10 +143,11 @@ class Maestral(object):
     changes in between sessions or while Maestral has been idle.
     """
 
+    _daemon_running = True  # this is for running maestral as a daemon only
+
     def __init__(self, run=True):
 
         self.client = MaestralApiClient()
-        self.get_account_info()
 
         # monitor needs to be created before any decorators are called
         self.monitor = MaestralMonitor(self.client)
@@ -167,6 +166,7 @@ class Maestral(object):
             if self.pending_first_download():
                 self.get_remote_dropbox_async("", callback=self.start_sync)
             else:
+                self.get_account_info()
                 self.start_sync()
 
     @staticmethod
@@ -204,8 +204,13 @@ class Maestral(object):
         self.sync.notify.enabled = boolean
 
     @property
+    def sync_errors(self):
+        """List of sync errors."""
+        return list(self.sync.sync_errors.queue)
+
+    @property
     def account_profile_pic_path(self):
-        return get_cache_path('maestral', config_name + '_profile_pic.jpeg')
+        return get_cache_path("maestral", config_name + "_profile_pic.jpeg")
 
     @handle_disconnect
     def get_account_info(self):
@@ -230,10 +235,10 @@ class Maestral(object):
 
     def _delete_old_profile_pics(self):
         # delete all old pictures
-        for file in os.listdir(get_cache_path('maestral')):
-            if file.startswith(config_name + '_profile_pic'):
+        for file in os.listdir(get_cache_path("maestral")):
+            if file.startswith(config_name + "_profile_pic"):
                 try:
-                    os.unlink(osp.join(get_cache_path('maestral'), file))
+                    os.unlink(osp.join(get_cache_path("maestral"), file))
                 except OSError:
                     pass
 
@@ -255,7 +260,7 @@ class Maestral(object):
         self.download_thread = Thread(
                 target=folder_download_worker,
                 args=(self.monitor, dbx_path),
-                kwargs={'callback': callback},
+                kwargs={"callback": callback},
                 name="MaestralFolderDownloader")
         self.download_thread.start()
 
@@ -408,7 +413,7 @@ class Maestral(object):
         old_path = self.sync.dropbox_path
         default_path = osp.join(get_home_dir(), CONF.get("main", "default_dir_name"))
         if new_path is None:
-            new_path = self._ask_for_path(default=old_path or default_path)
+            new_path = self._ask_for_path(default=default_path)
 
         if osp.exists(old_path) and osp.exists(new_path):
             if osp.samefile(old_path, new_path):
@@ -467,25 +472,33 @@ class Maestral(object):
         """
         return self.sync.dropbox_path
 
-    def _ask_for_path(self, default=osp.join("~", CONF.get("main", "default_dir_name"))):
+    @staticmethod
+    def _ask_for_path(default=osp.join("~", CONF.get("main", "default_dir_name"))):
         """
         Asks for Dropbox path.
         """
-        msg = ("Please give Dropbox folder location or press enter for default "
-               "[{0}]:".format(default))
-        res = input(msg).strip().strip("'")
+        while True:
+            msg = ("Please give Dropbox folder location or press enter for default "
+                   "[{0}]:".format(default))
+            res = input(msg).strip().strip("'")
 
-        dropbox_path = osp.expanduser(res or default)
+            dropbox_path = osp.expanduser(res or default)
 
-        if osp.exists(dropbox_path):
-            msg = "Directory '%s' already exist. Do you want to overwrite it?" % dropbox_path
-            yes = yesno(msg, True)
-            if yes:
-                return dropbox_path
+            if osp.exists(dropbox_path):
+                msg = "Directory '{0}' already exist. Do you want to overwrite it?".format(dropbox_path)
+                yes = yesno(msg, True)
+                if yes:
+                    return dropbox_path
+                else:
+                    pass
             else:
-                dropbox_path = self._ask_for_path()
+                return dropbox_path
 
-        return dropbox_path
+    def shutdown_daemon(self):
+        self._daemon_running = False
+
+    def _shutdown_requested(self):
+        return self._daemon_running
 
     def __repr__(self):
         if self.connected:

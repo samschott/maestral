@@ -18,6 +18,9 @@ CONNECTION_ERRORS = (
     ConnectionError,
 )
 
+CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
+                        "your internet connection and try again later.")
+
 OS_FILE_ERRORS = (FileExistsError, FileNotFoundError, InterruptedError,
                   IsADirectoryError, NotADirectoryError, PermissionError, )
 
@@ -77,6 +80,12 @@ class RestrictedContentError(MaestralApiError):
 
 
 class DropboxAuthError(MaestralApiError):
+    """Raised when authentication fails. Refer to the ``message``` attribute for
+    details."""
+    pass
+
+
+class TokenExpiredError(DropboxAuthError):
     """Raised when authentication fails. Refer to the ``message``` attribute for
     details."""
     pass
@@ -235,6 +244,12 @@ def to_maestral_error(exc, dbx_path=None, local_path=None):
                     lookup_error = error.get_path()
                     text, err_type = _get_lookup_error_msg(lookup_error)
 
+            if isinstance(error, dropbox.files.ListFolderError):
+                title = "Could not list folder contents"
+                if error.is_path():
+                    lookup_error = error.get_path()
+                    text, err_type = _get_lookup_error_msg(lookup_error)
+
             if isinstance(exc.error, dropbox.files.ListFolderContinueError):
                 title = "Could not list folder contents"
                 if error.is_path():
@@ -252,7 +267,7 @@ def to_maestral_error(exc, dbx_path=None, local_path=None):
 
         if text is None:
             text = ("An unexpected error occurred. Please contact the Maestral "
-                    "developer with the information shown below.")
+                    "developer with the traceback information.")
 
     # ----------------------- Local read / write errors ----------------------------------
     elif isinstance(exc, PermissionError):
@@ -270,16 +285,17 @@ def to_maestral_error(exc, dbx_path=None, local_path=None):
 
     # ----------------------- Authentication errors --------------------------------------
     elif isinstance(exc, dropbox.exceptions.AuthError):
-        err_type = DropboxAuthError
         error = exc.error
-        if isinstance(error, dropbox.auth.AuthError):
+        if isinstance(error, dropbox.auth.AuthError) and error.is_expired_access_token():
+            title = "Expired Dropbox access"
+            text = ("Maestral's access to your Dropbox has expired. Please relink "
+                    "to continue syncing.")
+            err_type = TokenExpiredError
+        else:
             title = "Authentication error"
-            if error.is_expired_access_token():
-                text = ("Maestral's access to your Dropbox has expired. Please relink "
-                        "to continue syncing.")
-            elif error.is_invalid_access_token():
-                text = ("Maestral's access to your Dropbox has been revoked. Please "
-                        "relink to continue syncing.")
+            text = ("Maestral's access to your Dropbox has been revoked. Please "
+                    "relink to continue syncing.")
+            err_type = DropboxAuthError
 
     # -------------------------- OAuth2 flow errors --------------------------------------
     elif isinstance(exc, requests.HTTPError):
@@ -298,7 +314,8 @@ def to_maestral_error(exc, dbx_path=None, local_path=None):
     # ----------------------------- Bad input errors -------------------------------------
     # should only occur due to user input from console scripts
     elif isinstance(exc, dropbox.exceptions.BadInputError):
-        if "The given OAuth 2 access token is malformed" in exc.message:
+        if ("The given OAuth 2 access token is malformed" in exc.message or
+                "Invalid authorization value in HTTP header" in exc.message):
             title = "Authentication failed"
             text = "Please make sure that you entered the correct authentication code."
             err_type = DropboxAuthError
