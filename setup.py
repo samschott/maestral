@@ -73,19 +73,20 @@ setup(
                     ],
             },
     install_requires=[
+        "blinker",
         "click",
         "dropbox>=9.4.0",
-        "watchdog",
-        "blinker",
+        "keyring",
+        "keyrings.alt",
+        "Pyro4",
         "requests",
         "u-msgpack-python",
-        "keyring",
-        "keyrings.alt"
-        ],
+        "watchdog",
+    ],
     zip_safe=False,
     entry_points={
       "console_scripts": ["maestral=maestral.console_script:main"],
-      },
+    },
     scripts=['bin/maestral-gui'],
     python_requires='>=3.6',
     classifiers=[
@@ -97,4 +98,4 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3 :: Only',
     ],
-    )
+)

@@ -20,6 +20,7 @@ from blinker import signal
 from threading import Thread
 import requests
 from dropbox import files
+import Pyro4
 
 from maestral.client import MaestralApiClient
 from maestral.oauth import OAuth2Session
@@ -131,6 +132,7 @@ def handle_disconnect(func):
     return wrapper
 
 
+@Pyro4.expose
 class Maestral(object):
     """
     An open source Dropbox client for macOS and Linux to syncing a local folder
@@ -140,6 +142,8 @@ class Maestral(object):
     Maestral gracefully handles lost internet connections and will detect
     changes in between sessions or while Maestral has been idle.
     """
+
+    _daemon_running = True  # this is for running maestral as a daemon only
 
     def __init__(self, run=True):
 
@@ -198,6 +202,11 @@ class Maestral(object):
     def notify(self, boolean):
         """Setter: Bool indicating if notifications are enabled."""
         self.sync.notify.enabled = boolean
+
+    @property
+    def sync_errors(self):
+        """List of sync errors."""
+        return list(self.sync.sync_errors.queue)
 
     @property
     def account_profile_pic_path(self):
@@ -404,7 +413,7 @@ class Maestral(object):
         old_path = self.sync.dropbox_path
         default_path = osp.join(get_home_dir(), CONF.get("main", "default_dir_name"))
         if new_path is None:
-            new_path = self._ask_for_path(default=old_path or default_path)
+            new_path = self._ask_for_path(default=default_path)
 
         if osp.exists(old_path) and osp.exists(new_path):
             if osp.samefile(old_path, new_path):
@@ -463,25 +472,33 @@ class Maestral(object):
         """
         return self.sync.dropbox_path
 
-    def _ask_for_path(self, default=osp.join("~", CONF.get("main", "default_dir_name"))):
+    @staticmethod
+    def _ask_for_path(default=osp.join("~", CONF.get("main", "default_dir_name"))):
         """
         Asks for Dropbox path.
         """
-        msg = ("Please give Dropbox folder location or press enter for default "
-               "[{0}]:".format(default))
-        res = input(msg).strip().strip("'")
+        while True:
+            msg = ("Please give Dropbox folder location or press enter for default "
+                   "[{0}]:".format(default))
+            res = input(msg).strip().strip("'")
 
-        dropbox_path = osp.expanduser(res or default)
+            dropbox_path = osp.expanduser(res or default)
 
-        if osp.exists(dropbox_path):
-            msg = "Directory '%s' already exist. Do you want to overwrite it?" % dropbox_path
-            yes = yesno(msg, True)
-            if yes:
-                return dropbox_path
+            if osp.exists(dropbox_path):
+                msg = "Directory '{0}' already exist. Do you want to overwrite it?".format(dropbox_path)
+                yes = yesno(msg, True)
+                if yes:
+                    return dropbox_path
+                else:
+                    pass
             else:
-                dropbox_path = self._ask_for_path()
+                return dropbox_path
 
-        return dropbox_path
+    def shutdown_daemon(self):
+        self._daemon_running = False
+
+    def _shutdown_requested(self):
+        return self._daemon_running
 
     def __repr__(self):
         if self.connected:
