@@ -55,10 +55,14 @@ interactive client. Type `maestral --help` to get a full list of available comma
 most important are:
 
 - `maestral gui`: Starts Maestral with a GUI.
-- `maestral sync`: Starts Maestral in the command line.
-- `maestral set-excluded`: Select folders to be excluded from syncing.
+- `maestral daemon {start/stop}`: Start or stop Maestral as a daemon.
+- `maestral daemon {pause/resume}`: Pause or resume syncing.
+- `maestral daemon status`: Get the current sync status.
+- `maestral daemon errors`: Lists all sync errors.
 - `maestral set-dir`: Sets the location of your local Dropbox folder.
-- `maestral unlink`: Unlinks the current account.
+- `maestral dir-exclude`: Excludes a Dropbox folder from syncing.
+- `maestral dir-inlcude`: Includes a Dropbox folder in syncing.
+- `maestral list`: Lists the contents of a directory on Dropbox.
 
 Maestral supports syncing multiple Dropbox accounts by running multiple instances. For
 now, the configuration needs to be done from the command line. E.g., before running
