@@ -1,3 +1,12 @@
+### v0.3.1 (2019-08-14)
+
+_Fixes_:
+
+- Fixes a bug when calling the command line script `maestral daemon errors`. This bug
+  was the result of an error in pickling our MaestralApiExceptions (see
+  [https://bugs.python.org/issue1692335#msg310951](https://bugs.python.org/issue1692335#msg310951)
+  for a discussion).
+
 ### v0.3.0 (2019-08-14)
 
 This release includes several significant changes. The largest are:
