@@ -244,6 +244,12 @@ def to_maestral_error(exc, dbx_path=None, local_path=None):
                     lookup_error = error.get_path()
                     text, err_type = _get_lookup_error_msg(lookup_error)
 
+            if isinstance(error, dropbox.files.ListFolderError):
+                title = "Could not list folder contents"
+                if error.is_path():
+                    lookup_error = error.get_path()
+                    text, err_type = _get_lookup_error_msg(lookup_error)
+
             if isinstance(exc.error, dropbox.files.ListFolderContinueError):
                 title = "Could not list folder contents"
                 if error.is_path():
@@ -261,7 +267,7 @@ def to_maestral_error(exc, dbx_path=None, local_path=None):
 
         if text is None:
             text = ("An unexpected error occurred. Please contact the Maestral "
-                    "developer with the information shown below.")
+                    "developer with the traceback information.")
 
     # ----------------------- Local read / write errors ----------------------------------
     elif isinstance(exc, PermissionError):
