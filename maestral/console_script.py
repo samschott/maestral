@@ -73,7 +73,7 @@ def get_maestral_daemon(config_name="maestral", fallback=False):
             raise Pyro4.errors.CommunicationError
 
 
-def stop_command(config_name):
+def stop_command(config_name="maestral"):
     # stops maestral by finding its PID and shutting it down
     pid = is_maestral_running(config_name)
     if pid:
@@ -88,10 +88,15 @@ def stop_command(config_name):
             # send SIGTERM if failed
             os.kill(pid, signal.SIGTERM)
         finally:
-            time.sleep(0.25)
-            if is_maestral_running(config_name):
-                # send SIGKILL if failed
-                os.kill(pid, signal.SIGKILL)
+            elapsed = 0
+            timeout = 5
+            check_interval = 0.25
+            while is_maestral_running(config_name):
+                time.sleep(check_interval)
+                elapsed += check_interval
+                if elapsed > timeout:
+                    # send SIGKILL if failed
+                    os.kill(pid, signal.SIGKILL)
     else:
         click.echo("Maestral is not running.")
 
@@ -361,7 +366,7 @@ def main_list(dropbox_path: str, config_name: str):
 @main.command()
 @with_config_opt
 def account_info(config_name: str):
-    """Prints Dropbox account info."""
+    """Prints your Dropbox account information."""
     if is_maestral_linked(config_name):
         from maestral.config.main import CONF
         email = CONF.get("account", "email")
