@@ -68,7 +68,7 @@ def get_maestral_daemon(config_name="maestral", fallback=False):
         if fallback:
             from maestral.main import Maestral
             m = Maestral(run=False)
-            return m, None
+            return m
         else:
             raise Pyro4.errors.CommunicationError
 
