@@ -316,6 +316,10 @@ def main_list(dropbox_path: str, config_name: str):
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
 
+    if dropbox_path == "/":
+        # work around an inconsistency where the root folder must always be given as ""
+        dropbox_path = ""
+
     if is_maestral_linked(config_name):
         from maestral.client import MaestralApiClient
         from dropbox.files import FolderMetadata
