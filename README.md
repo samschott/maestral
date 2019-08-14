@@ -55,19 +55,20 @@ interactive client. Type `maestral --help` to get a full list of available comma
 most important are:
 
 - `maestral gui`: Starts Maestral with a GUI.
-- `maestral daemon {start/stop}`: Start or stop Maestral as a daemon.
-- `maestral daemon {pause/resume}`: Pause or resume syncing.
-- `maestral daemon status`: Get the current sync status.
+- `maestral daemon {start/stop}`: Starts or stops Maestral as a daemon.
+- `maestral daemon {pause/resume}`: Pauses or resumes syncing.
+- `maestral daemon status`: Gets the current sync status.
 - `maestral daemon errors`: Lists all sync errors.
 - `maestral set-dir`: Sets the location of your local Dropbox folder.
 - `maestral dir-exclude`: Excludes a Dropbox folder from syncing.
 - `maestral dir-inlcude`: Includes a Dropbox folder in syncing.
 - `maestral list`: Lists the contents of a directory on Dropbox.
 
-Maestral supports syncing multiple Dropbox accounts by running multiple instances. For
-now, the configuration needs to be done from the command line. E.g., before running
-`maestral gui`, one can set up a new configuration with `maestral config new`. For
-instance, to sync both a private and business account, run:
+Maestral currently supports the syncing of multiple Dropbox accounts by running multiple
+instances. This configuration needs to be done from the command line. For example, before
+running `maestral gui`, one can set up a new configuration with `maestral config new`.
+The configuration name should then be given as command line option `--config-name` before
+running maestral. For example:
 
 ```shell
 $ maestral config new "personal"
@@ -75,19 +76,19 @@ $ maestral config new "work"
 $ maestral gui --config-name="personal"
 $ maestral gui --config-name="work"
 ```
-This will start two Maestral instances, syncing the private and the work accounts,
-respectively. By default, the Dropbox folder names will contain the capitalised
-config-name in braces. For our example, this will be "Dropbox (Personal)" and "Dropbox
-(Work)".
+This will start two instances of Maestral, syncing the private and the work accounts,
+respectively. Multiple Maestral daemons are supported as well.
+
+By default, the Dropbox folder names will contain the capitalised config-name in braces.
+In the above case, this will be "Dropbox (Personal)" and "Dropbox (Work)".
 
 ## Contribute
 
 The following tasks could need your help:
 
-- [ ] Write tests for maestral.
+- [ ] Write tests for Maestral.
 - [ ] Detect and warn in case of unsupported Dropbox folder locations (network drives,
       external hard drives, etc).
-- [ ] Speed up downloads of large folders and initial sync: Download zip files if possible.
 - [ ] Native Cocoa and GTK interfaces. Maestral currently uses PyQt5.
 - [ ] Packaging: improve packing for macOS (reduce app size) and package for other platforms.
 
@@ -100,22 +101,12 @@ The following tasks could need your help:
 
 ## Dependencies
 
-*System:*
-- macOS or Linux
+- macOS (10.13 or higher for binary) or Linux
 - Python 3.6 or higher
-- [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
-  on Gnome 3.26 and higher
-- PyQt 5.9 or higher (for GUI only).
-
-*Python:*
-- click
-- dropbox
-- watchdog
-- blinker
-- requests
-- u-msgpack-python
-- keyring
-- keyring.alt
+- For the GUI only:
+  - PyQt 5.9 or higher
+  - [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
+    on Gnome 3.26 and higher
 
 # Acknowledgements
 
