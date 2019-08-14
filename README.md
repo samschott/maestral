@@ -63,9 +63,9 @@ commands. The most important are:
 - `maestral list`: Lists the contents of a directory on Dropbox.
 
 Maestral currently supports the syncing of multiple Dropbox accounts by running multiple
-instances. This configuration needs to be done from the command line. For example, before
-running `maestral gui`, one can set up a new configuration with `maestral config new`.
-The configuration name should then be given as command line option `--config-name` before
+instances. This needs to be done from the command line. For example, before running
+`maestral gui`, one can set up a new configuration with `maestral config new`. The
+configuration name should then be given as command line option `--config-name` before
 running maestral. For example:
 
 ```shell
@@ -74,7 +74,7 @@ $ maestral config new "work"
 $ maestral gui --config-name="personal"
 $ maestral gui --config-name="work"
 ```
-This will start two instances of Maestral, syncing the private and the work accounts,
+This will start two instances of Maestral, syncing a private and a work account,
 respectively. Multiple Maestral daemons are supported as well.
 
 By default, the Dropbox folder names will contain the capitalised config-name in braces.
