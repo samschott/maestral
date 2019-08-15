@@ -28,6 +28,8 @@
   one and `maestral daemon start` will do nothing if a daemon for the given configuration
   is already running.
 - Automatic allocation of ports for the communication between daemon and client.
+- Show the (Dropbox) file path in the string representation of `MaestralApiError`.
+  Previously, one could not see from the traceback which file caused the error.
 
 ### v0.3.1 (2019-08-14)
 
