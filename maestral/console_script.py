@@ -19,7 +19,7 @@ Pyro4.config.SERIALIZERS_ACCEPTED.add('pickle')
 
 PORT = 5814
 ADDRESS = "localhost"
-URI = "PYRO:maestral.{0}@{1}:{2}"
+URI = "PYRO:maestral.{0}@{1}"
 
 OK = click.style("[OK]", fg="green")
 FAILED = click.style("[FAILED]", fg="red")
@@ -38,16 +38,19 @@ def start_maestral_daemon(config_name="maestral"):
     from maestral.main import Maestral
     from maestral.config.base import get_conf_path
 
+    daemon = Pyro4.Daemon()
+
     # write PID to file
     pid_file = get_conf_path("maestral", config_name + ".pid")
 
     with open(pid_file, "w") as f:
-        f.write(str(os.getpid()))
+        f.write(str(os.getpid()) + "|" + daemon.locationStr)
 
     try:
+        # we wrap this in a try-except block to make sure that the PID file is always
+        # removed, even when Maestral crashes
         m = Maestral()
 
-        daemon = Pyro4.Daemon(ADDRESS, PORT)
         daemon.register(m, "maestral.{}".format(config_name))
         daemon.requestLoop(loopCondition=m._shutdown_requested)
         daemon.close()
@@ -58,29 +61,10 @@ def start_maestral_daemon(config_name="maestral"):
         os.unlink(pid_file)
 
 
-def get_maestral_daemon(config_name="maestral", fallback=False):
-    """
-    Returns a proxy of the running Maestral daemon. If fallback == True,
-    a new instance of Maestral will be returned when the daemon cannot be reached.
-    """
-    maestral_daemon = Pyro4.Proxy(URI.format(config_name, ADDRESS, PORT))
-    try:
-        maestral_daemon._pyroBind()
-        return maestral_daemon
-    except Pyro4.errors.CommunicationError:
-        maestral_daemon._pyroRelease()
-        if fallback:
-            from maestral.main import Maestral
-            m = Maestral(run=False)
-            return m
-        else:
-            raise Pyro4.errors.CommunicationError
-
-
-def start_command(config_name):
+def start_daemon_subprocess(config_name):
     """Starts Maestral as a damon."""
 
-    if is_maestral_running(config_name):
+    if is_daemon_running(config_name):
         click.echo("Maestral is already running.")
         return
 
@@ -94,7 +78,8 @@ def start_command(config_name):
     click.echo("Starting Maestral...", nl=False)
 
     s = subprocess.Popen("maestral sync -c {}".format(config_name),
-                         shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+                         shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL)
 
     # check it the subprocess is still running after 1 sec
     try:
@@ -104,9 +89,9 @@ def start_command(config_name):
         click.echo("\rStarting Maestral...        " + OK)
 
 
-def stop_command(config_name="maestral"):
+def stop_maestral_daemon(config_name="maestral"):
     # stops maestral by finding its PID and shutting it down
-    pid = is_maestral_running(config_name)
+    pid = is_daemon_running(config_name)
     if pid:
         try:
             # try to shut down gracefully
@@ -119,7 +104,7 @@ def stop_command(config_name="maestral"):
             os.kill(pid, signal.SIGTERM)
         finally:
             t0 = time.time()
-            while is_maestral_running(config_name):
+            while is_daemon_running(config_name):
                 time.sleep(0.25)
                 if time.time() - t0 > 5:
                     # send SIGKILL if still running
@@ -133,11 +118,35 @@ def stop_command(config_name="maestral"):
         click.echo("Maestral is not running.")
 
 
+def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
+    """
+    Returns a proxy of the running Maestral daemon. If fallback == True,
+    a new instance of Maestral will be returned when the daemon cannot be reached.
+    """
+
+    location = get_daemon_socket_location(config_name)
+
+    if location:
+        maestral_daemon = Pyro4.Proxy(URI.format(config_name, location))
+        try:
+            maestral_daemon._pyroBind()
+            return maestral_daemon
+        except Pyro4.errors.CommunicationError:
+            maestral_daemon._pyroRelease()
+
+    if fallback:
+        from maestral.main import Maestral
+        m = Maestral(run=False)
+        return m
+    else:
+        raise Pyro4.errors.CommunicationError
+
+
 class MaestralProxy(object):
     """A context manager to open and close a Proxy to the Maestral daemon."""
 
     def __init__(self, config_name="maestral", fallback=False):
-        self.m = get_maestral_daemon(config_name, fallback)
+        self.m = get_maestral_daemon_proxy(config_name, fallback)
 
     def __enter__(self):
         return self.m
@@ -160,24 +169,46 @@ def is_maestral_linked(config_name):
         return True
 
 
-def is_maestral_running(config_name):
-    """Returns Maestral's PID or ``False``"""
+def get_daemon_pid(config_name):
+    return is_daemon_running(config_name, return_info="pid")
+
+
+def get_daemon_socket_location(config_name):
+    return is_daemon_running(config_name, return_info="socket")
+
+
+def is_daemon_running(config_name, return_info="pid"):
+    """Returns maestral daemon's PID or the socket location if the daemon is running,
+    ``False`` otherwise."""
     from maestral.config.base import get_conf_path
 
     pid_file = get_conf_path("maestral", config_name + ".pid")
 
     try:
         with open(pid_file, "r") as f:
-            pid = int(f.read())
-    except:
+            pid, socket = f.read().split("|")
+        pid = int(pid)
+    except Exception:
         return False
 
     try:
+        # test if the daemon process receives signals
         os.kill(pid, 0)
     except OSError:
+        # shut it down
+        os.kill(pid, signal.SIGKILL)
+        try:
+            os.unlink(pid_file)
+        except Exception:
+            pass
         return False
     else:
-        return pid
+        if return_info == "pid":
+            return pid
+        elif return_info == "socket":
+            return socket
+        else:
+            return True
 
 
 # ========================================================================================
@@ -261,10 +292,10 @@ def link(config_name: str):
         m = Maestral(run=False)
         m.create_dropbox_directory()
         m.select_excluded_folders()
-        if is_maestral_running(config_name):
+        if is_daemon_running(config_name):
             # restart
-            stop_command(config_name)
-            start_command(config_name)
+            stop_maestral_daemon(config_name)
+            start_daemon_subprocess(config_name)
     else:
         click.echo("Maestral is already linked.")
 
@@ -277,9 +308,9 @@ def unlink(config_name: str):
         with MaestralProxy(config_name, fallback=True) as m:
             m.unlink()
         click.echo("Unlinked Maestral.")
-        if is_maestral_running(config_name):
+        if is_daemon_running(config_name):
             # stop
-            stop_command(config_name)
+            stop_maestral_daemon(config_name)
 
 
 @main.command()
@@ -401,22 +432,22 @@ def account_info(config_name: str):
 @with_config_opt
 def start(config_name: str):
     """Starts the Maestral as a daemon in the background."""
-    start_command(config_name)
+    start_daemon_subprocess(config_name)
 
 
 @daemon.command()
 @with_config_opt
 def stop(config_name: str):
     """Stops the Maestral daemon."""
-    stop_command(config_name)
+    stop_maestral_daemon(config_name)
 
 
 @daemon.command()
 @with_config_opt
 def restart(config_name: str):
     """Restarts the Maestral daemon."""
-    stop_command(config_name)
-    start_command(config_name)
+    stop_maestral_daemon(config_name)
+    start_daemon_subprocess(config_name)
 
 
 @daemon.command()
