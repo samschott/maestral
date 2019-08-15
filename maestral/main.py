@@ -20,7 +20,6 @@ from blinker import signal
 from threading import Thread
 import requests
 from dropbox import files
-import Pyro4
 
 from maestral.client import MaestralApiClient
 from maestral.oauth import OAuth2Session
@@ -132,7 +131,6 @@ def handle_disconnect(func):
     return wrapper
 
 
-@Pyro4.expose
 class Maestral(object):
     """
     An open source Dropbox client for macOS and Linux to syncing a local folder
@@ -233,7 +231,8 @@ class Maestral(object):
             # delete current profile pic
             self._delete_old_profile_pics()
 
-    def _delete_old_profile_pics(self):
+    @staticmethod
+    def _delete_old_profile_pics():
         # delete all old pictures
         for file in os.listdir(get_cache_path("maestral")):
             if file.startswith(config_name + "_profile_pic"):
@@ -495,6 +494,8 @@ class Maestral(object):
                 return dropbox_path
 
     def shutdown_daemon(self):
+        """Does nothing except for setting the _daemon_running flag ``False``. This
+        will be checked by Pyro4 periodically to shut down the daemon when requested."""
         self._daemon_running = False
 
     def _shutdown_requested(self):

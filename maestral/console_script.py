@@ -49,7 +49,9 @@ def start_maestral_daemon(config_name="maestral"):
     try:
         # we wrap this in a try-except block to make sure that the PID file is always
         # removed, even when Maestral crashes
-        m = Maestral()
+
+        ExposedMaestral = Pyro4.expose(Maestral)
+        m = ExposedMaestral()
 
         daemon.register(m, "maestral.{}".format(config_name))
         daemon.requestLoop(loopCondition=m._shutdown_requested)
