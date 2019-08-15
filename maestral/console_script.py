@@ -384,11 +384,13 @@ def dir_include(dropbox_path: str, config_name: str):
         click.echo("Included directory '{}' in syncing.".format(dropbox_path))
 
 
-@main.command(name='ls')
+@main.command()
 @with_config_opt
 @click.argument("dropbox_path", type=click.Path(), default="")
-def ls(dropbox_path: str, config_name: str):
+@click.option("-a", "all", is_flag=True, default=False,
+              help="Include directory entries whose names begin with a dot (.).")
     """Lists contents of a Dropbox directory."""
+
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
 
@@ -398,8 +400,9 @@ def ls(dropbox_path: str, config_name: str):
 
     if is_maestral_linked(config_name):
         from maestral.client import MaestralApiClient
-        from dropbox.files import FolderMetadata
         from maestral.config.main import CONF
+        from dropbox.files import FolderMetadata
+
         # get a list of all contents
         c = MaestralApiClient()
         res = c.list_folder(dropbox_path, recursive=False)
@@ -414,7 +417,8 @@ def ls(dropbox_path: str, config_name: str):
         # display results
         for t, n, ex in zip(entry_types, entry_names, is_exluded):
             excluded_str = click.style(" (excluded)", bold=True) if ex else ""
-            click.echo("{0}:\t{1}{2}".format(t, n, excluded_str))
+            if not n.startswith(".") or all:
+                click.echo("{0}:\t{1}{2}".format(t, n, excluded_str))
 
 
 @main.command()
