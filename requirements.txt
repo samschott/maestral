@@ -6,3 +6,4 @@ requests
 u-msgpack-python
 keyring
 keyrings.alt
+Pyro4
