@@ -257,6 +257,9 @@
        <property name="text">
         <string/>
        </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
+       </property>
       </widget>
      </item>
      <item row="3" column="0" colspan="2" alignment="Qt::AlignHCenter">

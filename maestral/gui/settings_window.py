@@ -11,7 +11,7 @@ from distutils.version import LooseVersion
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 from maestral.main import __version__, __author__, __url__
-from maestral.errors import CONNECTION_ERRORS
+from maestral.errors import CONNECTION_ERRORS, MaestralApiError
 from maestral.utils.autostart import AutoStart
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
@@ -42,6 +42,23 @@ class UnlinkDialog(QtWidgets.QDialog):
         self.iconLabel.setPixmap(pixmap)
 
 
+class ProfilePicDownloadThread(QtCore.QThread):
+
+    pic_available = QtCore.pyqtSignal()
+
+    def __init__(self, mdbx):
+        QtCore.QObject.__init__(self)
+        self.mdbx = mdbx
+
+    def run(self):
+        try:
+            path = self.mdbx.get_profile_pic()
+            if path is not False:
+                self.pic_available.emit()
+        except MaestralApiError:
+            pass
+
+
 class SettingsWindow(QtWidgets.QWidget):
 
     def __init__(self, mdbx, parent=None):
@@ -58,6 +75,8 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelAccountName.setFont(get_scaled_font(1.5))
         self.labelAccountInfo.setFont(get_scaled_font(0.85))
         self.labelSpaceUsage.setFont(get_scaled_font(0.85))
+
+        self.profile_pic_height = round(self.labelUserProfilePic.height() * 0.7)
 
         # populate account name
         account_display_name = CONF.get("account", "display_name")
@@ -82,7 +101,7 @@ class SettingsWindow(QtWidgets.QWidget):
             acc_type_text = ""
         self.labelAccountInfo.setText(acc_mail + acc_type_text)
         self.labelSpaceUsage.setText(CONF.get("account", "usage"))
-        self.set_profile_pic()
+        self.set_profile_pic_from_cache()
         self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
         self.unlink_dialog.accepted.connect(self.on_unlink)
 
@@ -103,6 +122,11 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelVersion.setText(self.labelVersion.text().format(__version__))
         self.labelUrl.setText(self.labelUrl.text().format(__url__))
         self.labelCopyright.setText(self.labelCopyright.text().format(year, __author__))
+
+        # update profile pic and account info periodically
+        self.update_timer = QtCore.QTimer()
+        self.update_timer.timeout.connect(self.update_profile_pic)
+        self.update_timer.start(1000*60*20)  # every 20 min
 
     def setup_combobox(self):
 
@@ -127,24 +151,25 @@ class SettingsWindow(QtWidgets.QWidget):
         self.dropbox_folder_dialog.rejected.connect(
                 lambda: self.comboBoxDropboxPath.setCurrentIndex(0))
 
-    def set_profile_pic(self):
+    def set_profile_pic_from_cache(self):
 
-        try:
-            self.mdbx.get_profile_pic()
-        except Exception:
-            # never raise since `set_profile_pic` is called during __init__
-            pass
-
-        height = round(self.labelUserProfilePic.height()*0.7)
+        height = self.profile_pic_height
 
         try:
             pixmap = get_masked_image(self.mdbx.account_profile_pic_path, size=height)
-        except Exception:
+        except OSError:
             initials = CONF.get("account", "abbreviated_name")
             pixmap = get_masked_image(FACEHOLDER_PATH, size=height, overlay_text=initials)
 
         self.labelUserProfilePic.setPixmap(pixmap)
-        self.labelUserProfilePic.setAlignment(QtCore.Qt.AlignTop)
+
+    def update_profile_pic(self):
+
+        # download new profile pic in background
+        self._profile_pic_thread = ProfilePicDownloadThread(self.mdbx)
+        self._profile_pic_thread.pic_available.connect(self.set_profile_pic_from_cache)
+        self._profile_pic_thread.start()
+        self._profile_pic_thread.finished.connect(self._profile_pic_thread.deleteLater)
 
     def on_combobox(self, idx):
         if idx == 2:

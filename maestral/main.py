@@ -138,7 +138,8 @@ def with_sync_paused(func):
 
 def handle_disconnect(func):
     """
-    Decorator which handles connection and auth errors during a function call.
+    Decorator which handles connection and auth errors during a function call and returns
+    ``False`` if an error occurred.
     """
 
     @functools.wraps(func)
@@ -247,6 +248,12 @@ class Maestral(object):
 
     @handle_disconnect
     def get_profile_pic(self):
+        """
+        Download the user's profile picture from Dropbox. The picture saved in Maestral's
+        cache directory for retrieval when there is no internet connection.
+
+        :returns: Path to saved profile picture or None if no profile picture is set.
+        """
 
         res = self.client.get_account_info()
         if res.profile_photo_url:
@@ -255,6 +262,7 @@ class Maestral(object):
                 r = requests.get(res.profile_photo_url)
                 with open(self.account_profile_pic_path, "wb") as f:
                     f.write(r.content)
+                return self.account_profile_pic_path
             except Exception:
                 pass
         else:
