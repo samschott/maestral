@@ -47,7 +47,7 @@ class MaestralApiError(Exception):
         self.local_path_dst = local_path_dst
 
     def __str__(self):
-        return "{0}: {1}".format(self.title, self.message)
+        return "'{0}': {1}. {2}".format(self.dbx_path, self.title, self.message)
 
 
 class InsufficientPermissionsError(MaestralApiError):
