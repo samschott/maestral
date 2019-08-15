@@ -252,10 +252,14 @@ def config():
     """Manage different Maestral configuration environments."""
 
 
+@main.group()
+def log():
+    """View and manage Maestral's log."""
+
+
 # ========================================================================================
 # Main commands
 # ========================================================================================
-
 
 @main.command()
 def about():
@@ -424,6 +428,67 @@ def account_info(config_name: str):
         usage = CONF.get("account", "usage")
         click.echo("{0}, {1}".format(email, account_type))
         click.echo(usage)
+
+# ========================================================================================
+# Log commands
+# ========================================================================================
+
+@log.command()
+@with_config_opt
+def show(config_name: str):
+    """Shows Maestral's log file."""
+    from maestral.utils.app_dirs import get_log_path
+
+    log_file = get_log_path("maestral", config_name + ".log")
+
+    if os.path.isfile(log_file):
+        try:
+            with open(log_file, "r") as f:
+                text = f.read()
+            click.echo_via_pager(text)
+        except OSError:
+            click.echo("Could not open log file at '{}'".format(log_file))
+    else:
+        click.echo_via_pager("")
+
+
+@log.command()
+@with_config_opt
+def clear(config_name: str):
+    """Clears Maestral's log file."""
+    from maestral.utils.app_dirs import get_log_path
+
+    log_file = get_log_path("maestral", config_name + ".log")
+
+    try:
+        open(log_file, 'w').close()
+        click.echo("Cleared Maestral's log.")
+    except FileNotFoundError:
+        click.echo("Cleared Maestral's log.")
+    except OSError:
+        click.echo("Could not clear log file at '{}'. Please try to delete it "
+                   "manually".format(log_file))
+
+
+@log.command()
+@click.argument('level_name', required=False,
+                type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
+@with_config_opt
+def level(config_name: str, level_name: str):
+    """Gets or sets the log level. Changes will persist between restarts."""
+    import logging
+    if level_name:
+        level_number = logging._nameToLevel[level_name]
+        with MaestralProxy(config_name, fallback=True) as m:
+            m.set_log_level_file(level_number)
+        click.echo("Log level set to {}.".format(level_name))
+    else:
+        os.environ["MAESTRAL_CONFIG"] = config_name
+        from maestral.config.main import CONF
+        level_number = CONF.get("app", "log_level_file")
+        fallback_name = "CUSTOM ({})".format(level_number)
+        level_name = logging._levelToName.get(level_number, fallback_name)
+        click.echo("Log level:  {}".format(level_name))
 
 
 # ========================================================================================
