@@ -94,7 +94,8 @@ def start_maestral_daemon(config_name):
         daemon.requestLoop(loopCondition=m._shutdown_requested)
         daemon.close()
     except Exception:
-        pass
+        import traceback
+        traceback.print_exc()
     finally:
         # remove PID file
         delete_pid(config_name)  # write PID to file
@@ -346,6 +347,9 @@ def gui(config_name, running):
             from maestral.gui.main import run
             run()
         except Exception:
+            import traceback
+            traceback.print_exc()
+        finally:
             delete_pid(config_name)
 
 
