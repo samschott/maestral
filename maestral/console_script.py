@@ -73,6 +73,9 @@ def get_maestral_daemon(config_name="maestral", fallback=False):
             raise Pyro4.errors.CommunicationError
 
 
+    if is_maestral_running(config_name):
+        click.echo("Maestral is already running.")
+        return
 def stop_command(config_name="maestral"):
     # stops maestral by finding its PID and shutting it down
     pid = is_maestral_running(config_name)
