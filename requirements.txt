@@ -1,4 +1,4 @@
-click
+click>=7.0
 dropbox>=9.4.0
 watchdog
 blinker

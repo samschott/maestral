@@ -74,7 +74,7 @@ setup(
             },
     install_requires=[
         "blinker",
-        "click",
+        "click>=7.0",
         "dropbox>=9.4.0",
         "keyring",
         "keyrings.alt",
