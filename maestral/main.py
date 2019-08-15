@@ -44,14 +44,40 @@ rfh = logging.handlers.RotatingFileHandler(log_file, maxBytes=10**5, backupCount
 rfh.setFormatter(log_fmt)
 rfh.setLevel(CONF.get("app", "log_level_file"))
 
+# set up logging to stdout
 sh = logging.StreamHandler(sys.stdout)
 sh.setFormatter(log_fmt)
 sh.setLevel(CONF.get("app", "log_level_console"))
 
+
+# set up logging to stream
+class CachedHandler(logging.Handler):
+    """
+    Handler which remembers the last record only.
+    """
+    def __init__(self):
+        logging.Handler.__init__(self)
+        self.lastRecord = None
+
+    def emit(self, record):
+        self.lastRecord = record
+
+    def getLastRecord(self):
+        if self.lastRecord:
+            return self.lastRecord.getMessage()
+        else:
+            return ""
+
+
+ch = CachedHandler()
+ch.setLevel(logging.INFO)
+
+# add handlers
 mdbx_logger = logging.getLogger("maestral")
 mdbx_logger.setLevel(logging.DEBUG)
 mdbx_logger.addHandler(rfh)
 mdbx_logger.addHandler(sh)
+mdbx_logger.addHandler(ch)
 
 
 def folder_download_worker(monitor, dbx_path, callback=None):
@@ -190,6 +216,10 @@ class Maestral(object):
     def connected(self):
         """Bool indicating if Dropbox servers can be reached."""
         return self.monitor.connected.is_set()
+
+    @property
+    def status(self):
+        return ch.getLastRecord()
 
     @property
     def notify(self):
