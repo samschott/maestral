@@ -21,6 +21,10 @@ PORT = 5814
 ADDRESS = "localhost"
 URI = "PYRO:maestral.{0}@{1}:{2}"
 
+OK = click.style("[OK]", fg="green")
+FAILED = click.style("[FAILED]", fg="red")
+KILLED = click.style("[KILLED]", fg="red")
+
 
 # ========================================================================================
 # Maestral daemon
@@ -73,41 +77,16 @@ def get_maestral_daemon(config_name="maestral", fallback=False):
             raise Pyro4.errors.CommunicationError
 
 
+def start_command(config_name):
+    """Starts Maestral as a damon."""
+
     if is_maestral_running(config_name):
         click.echo("Maestral is already running.")
         return
-def stop_command(config_name="maestral"):
-    # stops maestral by finding its PID and shutting it down
-    pid = is_maestral_running(config_name)
-    if pid:
-        try:
-            # try to shut down gracefully
-            click.echo("Stopping Maestral...", nl=False)
-            with MaestralProxy(config_name) as m:
-                m.stop_sync()
-                m.shutdown_daemon()
-            click.echo("\rStopping Maestral...        [OK]")
-        except Pyro4.errors.CommunicationError:
-            # send SIGTERM if failed
-            os.kill(pid, signal.SIGTERM)
-        finally:
-            elapsed = 0
-            timeout = 5
-            check_interval = 0.25
-            while is_maestral_running(config_name):
-                time.sleep(check_interval)
-                elapsed += check_interval
-                if elapsed > timeout:
-                    # send SIGKILL if failed
-                    os.kill(pid, signal.SIGKILL)
-    else:
-        click.echo("Maestral is not running.")
 
-
-def start_command(config_name):
-    """Starts Maestral as a damon."""
     from maestral.main import Maestral
     if Maestral.pending_link() or Maestral.pending_dropbox_folder():
+        # run onboarding
         m = Maestral(run=False)
         m.create_dropbox_directory()
         m.select_excluded_folders()
@@ -120,13 +99,42 @@ def start_command(config_name):
     # check it the subprocess is still running after 1 sec
     try:
         s.wait(timeout=1)
-        click.echo("\rStarting Maestral...        [FAILED]")
+        click.echo("\rStarting Maestral...        " + FAILED)
     except subprocess.TimeoutExpired:
-        click.echo("\rStarting Maestral...        [OK]")
+        click.echo("\rStarting Maestral...        " + OK)
+
+
+def stop_command(config_name="maestral"):
+    # stops maestral by finding its PID and shutting it down
+    pid = is_maestral_running(config_name)
+    if pid:
+        try:
+            # try to shut down gracefully
+            click.echo("Stopping Maestral...", nl=False)
+            with MaestralProxy(config_name) as m:
+                m.stop_sync()
+                m.shutdown_daemon()
+        except Pyro4.errors.CommunicationError:
+            # send SIGTERM if failed
+            os.kill(pid, signal.SIGTERM)
+        finally:
+            t0 = time.time()
+            while is_maestral_running(config_name):
+                time.sleep(0.25)
+                if time.time() - t0 > 5:
+                    # send SIGKILL if still running
+                    os.kill(pid, signal.SIGKILL)
+                    click.echo("\rStopping Maestral...        " + KILLED)
+                    return
+
+            click.echo("\rStopping Maestral...        " + OK)
+
+    else:
+        click.echo("Maestral is not running.")
 
 
 class MaestralProxy(object):
-    """A context manager to open and close the Maestral daemon proxy."""
+    """A context manager to open and close a Proxy to the Maestral daemon."""
 
     def __init__(self, config_name="maestral", fallback=False):
         self.m = get_maestral_daemon(config_name, fallback)
@@ -339,10 +347,10 @@ def dir_include(dropbox_path: str, config_name: str):
         click.echo("Included directory '{0}' in syncing.".format(dropbox_path))
 
 
-@main.command(name='list')
+@main.command(name='ls')
 @with_config_opt
 @click.argument("dropbox_path", type=click.Path(), default="")
-def main_list(dropbox_path: str, config_name: str):
+def ls(dropbox_path: str, config_name: str):
     """Lists contents of a Dropbox directory."""
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
