@@ -18,7 +18,6 @@ from PyQt5 import QtCore, QtWidgets
 
 from maestral.main import Maestral
 from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
-from maestral.oauth import OAuth2Session
 from maestral.errors import (DropboxAuthError, TokenExpiredError, CursorResetError,
                              MaestralApiError, RevFileError, DropboxDeletedError)
 from maestral.gui.settings_window import SettingsWindow
