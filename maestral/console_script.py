@@ -219,7 +219,7 @@ def is_daemon_running(config_name, return_info="pid"):
 
 def set_config(ctx, param, value):
     if value not in list_configs():
-        ctx.fail("Configuration '{0}' does not exist.".format(value))
+        ctx.fail("Configuration '{}' does not exist.".format(value))
     os.environ["MAESTRAL_CONFIG"] = value
     return value
 
@@ -339,7 +339,7 @@ def notify(config_name: str, yes: bool):
 
 @main.command()
 @with_config_opt
-@click.option("--new-path", "-P", type=click.Path(), default=None)
+@click.option("--new-path", "-P", type=click.Path(writable=True), default=None)
 def set_dir(config_name: str, new_path: str):
     """Change the location of your Dropbox folder."""
     if is_maestral_linked(config_name):
@@ -364,7 +364,7 @@ def dir_exclude(dropbox_path: str, config_name: str):
     if is_maestral_linked(config_name):
         with MaestralProxy(config_name, fallback=True) as m:
             m.exclude_folder(dropbox_path)
-        click.echo("Excluded directory '{0}' from syncing.".format(dropbox_path))
+        click.echo("Excluded directory '{}' from syncing.".format(dropbox_path))
 
 
 @main.command()
@@ -381,7 +381,7 @@ def dir_include(dropbox_path: str, config_name: str):
     if is_maestral_linked(config_name):
         with MaestralProxy(config_name, fallback=True) as m:
             m.include_folder(dropbox_path)
-        click.echo("Included directory '{0}' in syncing.".format(dropbox_path))
+        click.echo("Included directory '{}' in syncing.".format(dropbox_path))
 
 
 @main.command(name='ls')
@@ -424,10 +424,14 @@ def account_info(config_name: str):
     if is_maestral_linked(config_name):
         from maestral.config.main import CONF
         email = CONF.get("account", "email")
-        account_type = CONF.get("account", "type")
+        account_type = CONF.get("account", "type").capitalize()
         usage = CONF.get("account", "usage")
-        click.echo("{0}, {1}".format(email, account_type))
-        click.echo(usage)
+        path = CONF.get("main", "path")
+        click.echo("Account:           {0}, {1}".format(email, account_type))
+        click.echo("Usage:             {}".format(usage))
+        click.echo("Dropbox location:  '{}'".format(path))
+        click.echo("")
+
 
 # ========================================================================================
 # Log commands
@@ -550,12 +554,8 @@ def status(config_name: str):
         with MaestralProxy(config_name) as m:
             if m.pending_link():
                 s_text = "Not linked"
-            elif not m.connected:
-                s_text = "Connecting"
-            elif not m.syncing:
-                s_text = "Paused"
             else:
-                s_text = "Syncing"
+                s_text = m.status
             n_errors = len(m.sync_errors)
             color = "red" if n_errors > 0 else "green"
             n_errors_str = click.style(str(n_errors), fg=color)
@@ -563,6 +563,7 @@ def status(config_name: str):
             click.echo("Usage:         {}".format(CONF.get("account", "usage")))
             click.echo("Status:        {}".format(s_text))
             click.echo("Sync errors:   {}".format(n_errors_str))
+            click.echo("")
 
     except Pyro4.errors.CommunicationError:
         click.echo("Maestral is not running.")
@@ -609,12 +610,12 @@ def list_configs():
 def new(name: str):
     """Set up and activate a fresh Maestral configuration."""
     if name in list_configs():
-        click.echo("Configuration '{0}' already exists.".format(name))
+        click.echo("Configuration '{}' already exists.".format(name))
     else:
         os.environ["MAESTRAL_CONFIG"] = name
         from maestral.config.main import CONF
-        CONF.set("main", "default_dir_name", "Dropbox ({0})".format(name.capitalize()))
-        click.echo("Created configuration '{0}'.".format(name))
+        CONF.set("main", "default_dir_name", "Dropbox ({})".format(name.capitalize()))
+        click.echo("Created configuration '{}'.".format(name))
 
 
 @config.command(name='list')
@@ -630,10 +631,10 @@ def env_list():
 def delete(name: str):
     """Remove a Maestral configuration."""
     if name not in list_configs():
-        click.echo("Configuration '{0}' could not be found.".format(name))
+        click.echo("Configuration '{}' could not be found.".format(name))
     else:
         from maestral.config.base import get_conf_path
         for file in os.listdir(get_conf_path("maestral")):
             if file.startswith(name):
                 os.unlink(os.path.join(get_conf_path("maestral"), file))
-        click.echo("Deleted configuration '{0}'.".format(name))
+        click.echo("Deleted configuration '{}'.".format(name))
