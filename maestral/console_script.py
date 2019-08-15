@@ -4,11 +4,14 @@
 Created on Fri Nov 30 13:51:32 2018
 
 @author: samschott
+
+This file contains the code to daemonize Maestral and all of the command line scripts to
+configure and interact with Maestral.
+
+We aim to import most packages locally where they are required in order to reduce the
+startup time of scripts.
 """
 import os
-import signal
-import time
-import subprocess
 import click
 import Pyro4
 import Pyro4.naming
@@ -17,8 +20,6 @@ import Pyro4.errors
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add('pickle')
 
-PORT = 5814
-ADDRESS = "localhost"
 URI = "PYRO:maestral.{0}@{1}"
 
 OK = click.style("[OK]", fg="green")
@@ -109,8 +110,9 @@ def start_daemon_subprocess(config_name):
     to check if either a Meastral gui or daemon is already running for the given
     `config_name`.
     """
-
+    import subprocess
     from maestral.main import Maestral
+
     if Maestral.pending_link() or Maestral.pending_dropbox_folder():
         # run onboarding
         m = Maestral(run=False)
@@ -132,7 +134,10 @@ def start_daemon_subprocess(config_name):
 
 
 def stop_maestral_daemon(config_name="maestral"):
-    # stops maestral by finding its PID and shutting it down
+    """stops maestral by finding its PID and shutting it down"""
+    import signal
+    import time
+
     pid, socket, p_type = get_maestral_process_info(config_name)
     if p_type == "daemon":
         try:
@@ -142,8 +147,11 @@ def stop_maestral_daemon(config_name="maestral"):
                 m.stop_sync()
                 m.shutdown_daemon()
         except Pyro4.errors.CommunicationError:
-            # send SIGTERM if failed
-            os.kill(pid, signal.SIGTERM)
+            try:
+                # send SIGTERM if failed
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                delete_pid(pid)
         finally:
             t0 = time.time()
             while any(get_maestral_process_info(config_name)):
@@ -225,6 +233,8 @@ def get_maestral_process_info(config_name):
     Maestral is running but is unresponsive. This function will attempt to kill it by
     sending SIGKILL.
     """
+    import signal
+
     pid = None
     socket = None
     running = False
@@ -236,8 +246,15 @@ def get_maestral_process_info(config_name):
     try:
         # test if the daemon process receives signals
         os.kill(pid, 0)
+    except ProcessLookupError:
+        # if the process does not exist, delete pid file
+        try:
+            delete_pid(config_name)
+        except Exception:
+            pass
+        return pid, socket, running
     except OSError:
-        # shut it down
+        # if the process does not respond, try to kill it
         os.kill(pid, signal.SIGKILL)
         try:
             delete_pid(config_name)
@@ -245,6 +262,7 @@ def get_maestral_process_info(config_name):
             pass
         return pid, socket, running
     else:
+        # everything ok, return process info
         running = "gui" if socket == "gui" else "daemon"
         return pid, socket, running
 
@@ -309,7 +327,7 @@ def log():
 @main.command()
 def about():
     """Returns the version number and other information."""
-
+    import time
     from maestral.main import __version__, __author__, __url__
 
     year = time.localtime().tm_year
@@ -334,8 +352,9 @@ def gui(config_name, running):
         click.echo("Maestral GUI is already running.")
         return
 
-    # check for PyQt5
     import importlib.util
+
+    # check for PyQt5
     spec = importlib.util.find_spec("PyQt5")
 
     if not spec:
