@@ -427,6 +427,7 @@ def account_info(config_name: str):
         account_type = CONF.get("account", "type").capitalize()
         usage = CONF.get("account", "usage")
         path = CONF.get("main", "path")
+        click.echo("")
         click.echo("Account:           {0}, {1}".format(email, account_type))
         click.echo("Usage:             {}".format(usage))
         click.echo("Dropbox location:  '{}'".format(path))
@@ -559,6 +560,7 @@ def status(config_name: str):
             n_errors = len(m.sync_errors)
             color = "red" if n_errors > 0 else "green"
             n_errors_str = click.style(str(n_errors), fg=color)
+            click.echo("")
             click.echo("Account:       {}".format(CONF.get("account", "email")))
             click.echo("Usage:         {}".format(CONF.get("account", "usage")))
             click.echo("Status:        {}".format(s_text))
@@ -581,11 +583,13 @@ def errors(config_name: str):
             else:
                 max_path_length = max(len(err.dbx_path) for err in err_list)
                 column_length = max(max_path_length, len("Relative path")) + 2
+                click.echo("")
                 click.echo("PATH".ljust(column_length) + "ERROR")
                 for err in err_list:
                     c0 = "'{}'".format(err.dbx_path).ljust(column_length)
                     c1 = "{}. {}".format(err.title, err.message)
                     click.echo(c0 + c1)
+                click.echo("")
 
     except Pyro4.errors.CommunicationError:
         click.echo("Maestral is not running.")
