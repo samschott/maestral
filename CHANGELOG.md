@@ -10,11 +10,14 @@
     - `maestral log level`: returns the current log level
     - `maestral log level [DEBUG|INFO|WARNING|ERROR]`: sets the log level to the given
        value
+- Added an option "-a" to `maestral ls` 
 
 #### Changed:
 
 - Made log levels persistent between sessions.
-- Changed the name of `maestral list` to `maestral ls`.
+- Changed the name of `maestral list` to `maestral ls` and, by default, do not list
+  "hidden" items that start with a dot. Added an option "-a" to explicitly list all
+  files in a directly.
 - Improved output from command line scripts:
     - Wrap all long outputs in empty lines.
     - Show more informative status.
@@ -24,6 +27,7 @@
  
 #### Fixed:
 
+- Prevent the GUI and a daemon from syncing the same folder at the same time.
 - Fixed the creation of multiple daemons. A new daemon will no longer overwrite an old
   one and `maestral daemon start` will do nothing if a daemon for the given configuration
   is already running.
