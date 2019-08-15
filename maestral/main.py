@@ -42,11 +42,11 @@ log_fmt = logging.Formatter(fmt="%(asctime)s %(name)s %(levelname)s: %(message)s
                             datefmt="%Y-%m-%d %H:%M:%S")
 rfh = logging.handlers.RotatingFileHandler(log_file, maxBytes=10**6, backupCount=3)
 rfh.setFormatter(log_fmt)
-rfh.setLevel(logging.ERROR)
+rfh.setLevel(CONF.get("app", "log_level_file"))
 
 sh = logging.StreamHandler(sys.stdout)
 sh.setFormatter(log_fmt)
-sh.setLevel(logging.INFO)
+sh.setLevel(CONF.get("app", "log_level_console"))
 
 mdbx_logger = logging.getLogger("maestral")
 mdbx_logger.setLevel(logging.DEBUG)
@@ -492,6 +492,20 @@ class Maestral(object):
                     pass
             else:
                 return dropbox_path
+
+    @staticmethod
+    def set_log_level_file(level):
+        """Sets the log level for the file log. Changes will persist between
+        restarts."""
+        rfh.setLevel(level)
+        CONF.set("app", "log_level_file", level)
+
+    @staticmethod
+    def set_log_level_console(level):
+        """Sets the log level for the console log. Changes will persist between
+        restarts."""
+        sh.setLevel(level)
+        CONF.set("app", "log_level_console", level)
 
     def shutdown_daemon(self):
         """Does nothing except for setting the _daemon_running flag ``False``. This
