@@ -49,6 +49,8 @@ DEFAULTS = [
             ('app',
              {
               'notifications': True,
+              'log_level_file': 40,
+              'log_level_console': 20,
               }),
             ('internal',
              {
