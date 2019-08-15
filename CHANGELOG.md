@@ -5,16 +5,22 @@
 - Added a "status" property to `maestral.main` which shows the last log message.
 - Added a command group `maestral log` to view and clear the logs as well set the log
   level. Commands are:
-  - `maestral log show`: shows the logs in terminal
-  - `maestral log clear`: clears the logs
-  - `maestral log level`: returns the current log level
-  - `maestral log level [DEBUG|INFO|WARNING|ERROR]`: sets the log level to the given value
+    - `maestral log show`: shows the logs in terminal
+    - `maestral log clear`: clears the logs
+    - `maestral log level`: returns the current log level
+    - `maestral log level [DEBUG|INFO|WARNING|ERROR]`: sets the log level to the given
+       value
 
 #### Changed:
 
 - Made log levels persistent between sessions.
-- Improved output from command line scripts.
 - Changed the name of `maestral list` to `maestral ls`.
+- Improved output from command line scripts:
+    - Wrap all long outputs in empty lines.
+    - Show more informative status.
+    - Show Dropbox folder location in account-info.
+    - Add colors to outputs like "[OK]" and "[FAILED]".
+- Set minimum version requirement for click package.
  
 #### Fixed:
 
