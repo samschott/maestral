@@ -31,20 +31,57 @@ KILLED = click.style("[KILLED]", fg="red")
 # ========================================================================================
 
 
-def start_maestral_daemon(config_name="maestral"):
+def write_pid(config_name, socket_address="gui"):
+    """
+    Write the PID of the current process to the appropriate file for the given
+    config name. If a socket_address is given, it will be appended after a '|'.
+    """
+    from maestral.config.base import get_conf_path
+    pid_file = get_conf_path("maestral", config_name + ".pid")
+    with open(pid_file, "w") as f:
+        f.write(str(os.getpid()) + "|" + socket_address)
+
+
+def read_pid(config_name):
+    """
+    Reads the PID of the current process to the appropriate file for the given
+    config name.
+    """
+    from maestral.config.base import get_conf_path
+    pid_file = get_conf_path("maestral", config_name + ".pid")
+    with open(pid_file, "r") as f:
+        pid, socket = f.read().split("|")
+    pid = int(pid)
+
+    return pid, socket
+
+
+def delete_pid(config_name):
+    """
+    Reads the PID of the current process to the appropriate file for the given
+    config name.
+    """
+    from maestral.config.base import get_conf_path
+    pid_file = get_conf_path("maestral", config_name + ".pid")
+    os.unlink(pid_file)
+
+
+def start_maestral_daemon(config_name):
+    """Starts Maestral as a daemon.
+
+    This command will create a new daemon on each run. Take care not to sync the same
+    directory with multiple instances of Meastral! You can use `get_maestral_process_info`
+    to check if either a Meastral gui or daemon is already running for the given
+    `config_name`.
+    """
 
     os.environ["MAESTRAL_CONFIG"] = config_name
 
     from maestral.main import Maestral
-    from maestral.config.base import get_conf_path
 
     daemon = Pyro4.Daemon()
 
-    # write PID to file
-    pid_file = get_conf_path("maestral", config_name + ".pid")
-
-    with open(pid_file, "w") as f:
-        f.write(str(os.getpid()) + "|" + daemon.locationStr)
+    write_pid(config_name, daemon.locationStr)  # write PID to file
 
     try:
         # we wrap this in a try-except block to make sure that the PID file is always
@@ -60,15 +97,17 @@ def start_maestral_daemon(config_name="maestral"):
         pass
     finally:
         # remove PID file
-        os.unlink(pid_file)
+        delete_pid(config_name)  # write PID to file
 
 
 def start_daemon_subprocess(config_name):
-    """Starts Maestral as a damon."""
+    """Starts the Maestral daemon as a subprocess (by calling `start_maestral_daemon`).
 
-    if is_daemon_running(config_name):
-        click.echo("Maestral is already running.")
-        return
+    This command will create a new daemon on each run. Take care not to sync the same
+    directory with multiple instances of Meastral! You can use `get_maestral_process_info`
+    to check if either a Meastral gui or daemon is already running for the given
+    `config_name`.
+    """
 
     from maestral.main import Maestral
     if Maestral.pending_link() or Maestral.pending_dropbox_folder():
@@ -93,8 +132,8 @@ def start_daemon_subprocess(config_name):
 
 def stop_maestral_daemon(config_name="maestral"):
     # stops maestral by finding its PID and shutting it down
-    pid = is_daemon_running(config_name)
-    if pid:
+    pid, socket, p_type = get_maestral_process_info(config_name)
+    if p_type == "daemon":
         try:
             # try to shut down gracefully
             click.echo("Stopping Maestral...", nl=False)
@@ -106,8 +145,8 @@ def stop_maestral_daemon(config_name="maestral"):
             os.kill(pid, signal.SIGTERM)
         finally:
             t0 = time.time()
-            while is_daemon_running(config_name):
-                time.sleep(0.25)
+            while any(get_maestral_process_info(config_name)):
+                time.sleep(0.2)
                 if time.time() - t0 > 5:
                     # send SIGKILL if still running
                     os.kill(pid, signal.SIGKILL)
@@ -117,18 +156,19 @@ def stop_maestral_daemon(config_name="maestral"):
             click.echo("\rStopping Maestral...        " + OK)
 
     else:
-        click.echo("Maestral is not running.")
+        click.echo("Maestral daemon is not running.")
 
 
 def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
     """
     Returns a proxy of the running Maestral daemon. If fallback == True,
-    a new instance of Maestral will be returned when the daemon cannot be reached.
+    a new instance of Maestral will be returned when the daemon cannot be reached. This
+    can be dangerous if the GUI is running at the same time.
     """
 
-    location = get_daemon_socket_location(config_name)
+    pid, location, p_type = get_maestral_process_info(config_name)
 
-    if location:
+    if p_type == "daemon":
         maestral_daemon = Pyro4.Proxy(URI.format(config_name, location))
         try:
             maestral_daemon._pyroBind()
@@ -160,7 +200,8 @@ class MaestralProxy(object):
 
 def is_maestral_linked(config_name):
     """
-    This does not create a Maestral instance and is therefore safe to call from anywhere.
+    This does not create a Maestral instance and is therefore safe to call from anywhere
+    at any time.
     """
     os.environ["MAESTRAL_CONFIG"] = config_name
     from maestral.main import Maestral
@@ -171,27 +212,25 @@ def is_maestral_linked(config_name):
         return True
 
 
-def get_daemon_pid(config_name):
-    return is_daemon_running(config_name, return_info="pid")
+def get_maestral_process_info(config_name):
+    """
+    Returns Maestral's PID, the socket location, and the type of instance as (pid,
+    socket, running) if Maestral is running or (``None``, ``None``, ``False``)  otherwise.
 
+    Possible values for ``running`` are "gui", "daemon" or ``False``. Possible values for
+    ``socket`` are "gui", "<network_address>:<port>" or "None".
 
-def get_daemon_socket_location(config_name):
-    return is_daemon_running(config_name, return_info="socket")
-
-
-def is_daemon_running(config_name, return_info="pid"):
-    """Returns maestral daemon's PID or the socket location if the daemon is running,
-    ``False`` otherwise."""
-    from maestral.config.base import get_conf_path
-
-    pid_file = get_conf_path("maestral", config_name + ".pid")
-
+    If ``running == False`` but the PID and socket values are set, this means that
+    Maestral is running but is unresponsive. This function will attempt to kill it by
+    sending SIGKILL.
+    """
+    pid = None
+    socket = None
+    running = False
     try:
-        with open(pid_file, "r") as f:
-            pid, socket = f.read().split("|")
-        pid = int(pid)
+        pid, socket = read_pid(config_name)
     except Exception:
-        return False
+        return pid, socket, running
 
     try:
         # test if the daemon process receives signals
@@ -200,17 +239,13 @@ def is_daemon_running(config_name, return_info="pid"):
         # shut it down
         os.kill(pid, signal.SIGKILL)
         try:
-            os.unlink(pid_file)
+            delete_pid(config_name)
         except Exception:
             pass
-        return False
+        return pid, socket, running
     else:
-        if return_info == "pid":
-            return pid
-        elif return_info == "socket":
-            return socket
-        else:
-            return True
+        running = "gui" if socket == "gui" else "daemon"
+        return pid, socket, running
 
 
 # ========================================================================================
@@ -218,9 +253,17 @@ def is_daemon_running(config_name, return_info="pid"):
 # ========================================================================================
 
 def set_config(ctx, param, value):
+    # check if valid config
     if value not in list_configs():
         ctx.fail("Configuration '{}' does not exist.".format(value))
+
+    # set environment variable
     os.environ["MAESTRAL_CONFIG"] = value
+
+    # check if maestral is running and store the result for other commands to use
+    pid, socket, running = get_maestral_process_info(value)
+    ctx.params["running"] = running
+
     return value
 
 
@@ -236,7 +279,8 @@ with_config_opt = click.option(
 
 
 @click.group()
-def main():
+@click.pass_context
+def main(ctx):
     """Maestral Dropbox Client for Linux and macOS."""
     pass
 
@@ -264,7 +308,9 @@ def log():
 @main.command()
 def about():
     """Returns the version number and other information."""
+
     from maestral.main import __version__, __author__, __url__
+
     year = time.localtime().tm_year
     click.echo("")
     click.echo("Version:    {}".format(__version__))
@@ -275,8 +321,18 @@ def about():
 
 @main.command()
 @with_config_opt
-def gui(config_name: str):
+def gui(config_name, running):
     """Runs Maestral with a GUI."""
+
+    if running == "daemon":
+        click.echo("Maestral daemon is already running. Please quit "
+                   "before starting the GUI.")
+        return
+
+    if running == "gui":
+        click.echo("Maestral GUI is already running.")
+        return
+
     # check for PyQt5
     import importlib.util
     spec = importlib.util.find_spec("PyQt5")
@@ -285,82 +341,127 @@ def gui(config_name: str):
         click.echo("Error: PyQt5 is required to run the Maestral GUI. "
                    "Run `pip install pyqt5` to install it.")
     else:
-        from maestral.gui.main import run
-        run()
+        try:
+            write_pid(config_name)
+            from maestral.gui.main import run
+            run()
+        except Exception:
+            delete_pid(config_name)
 
 
 @main.command()
 @with_config_opt
-def link(config_name: str):
+def link(config_name: str, running):
     """Links Maestral with your Dropbox account."""
-    from maestral.main import Maestral
-    if Maestral.pending_link():
-        m = Maestral(run=False)
-        m.create_dropbox_directory()
-        m.select_excluded_folders()
-        if is_daemon_running(config_name):
-            # restart
+
+    if not is_maestral_linked(config_name):
+        if running == "gui":
+            click.echo("Maestral GUI is already running. Please link through the GUI.")
+            return
+
+        if running == "daemon":  # stop daemon
             stop_maestral_daemon(config_name)
+
+        from maestral.main import Maestral
+        Maestral(run=False)
+
+        if running == "daemon":  # start daemon
             start_daemon_subprocess(config_name)
+
     else:
         click.echo("Maestral is already linked.")
 
 
 @main.command()
 @with_config_opt
-def unlink(config_name: str):
+def unlink(config_name: str, running):
     """Unlinks your Dropbox account."""
+
     if is_maestral_linked(config_name):
+        if running == "gui":
+            click.echo("Maestral GUI is already running. Please perform action through "
+                       "the GUI.")
+            return
+
+        if running == "daemon":
+            stop_maestral_daemon(config_name)
+
         with MaestralProxy(config_name, fallback=True) as m:
             m.unlink()
+
         click.echo("Unlinked Maestral.")
-        if is_daemon_running(config_name):
-            # stop
-            stop_maestral_daemon(config_name)
+    else:
+        click.echo("Maestral is not linked.")
 
 
 @main.command()
 @with_config_opt
-def sync(config_name: str):
+def sync(config_name: str, running):
     """Starts Maestral in the console. Quit with Ctrl-C."""
+
+    if running == "gui":
+        click.echo("Maestral GUI is already running. Please quit the GUI "
+                   "before starting the daemon.")
+        return
+    elif running == "daemon":
+        click.echo("Maestral daemon is already running.")
+        return
+
     start_maestral_daemon(config_name)
 
 
 @main.command()
 @with_config_opt
 @click.option("--yes/--no", "-Y/-N", default=True)
-def notify(config_name: str, yes: bool):
+def notify(config_name: str, yes: bool, running):
     """Enables or disables system notifications."""
+
+    # This is safe to call, even if the GUI or daemon are running.
+
     with MaestralProxy(config_name, fallback=True) as m:
         m.notify = yes
+
     enabled_str = "enabled" if yes else "disabled"
     click.echo("Notifications {}.".format(enabled_str))
 
 
 @main.command()
 @with_config_opt
-@click.option("--new-path", "-P", type=click.Path(writable=True), default=None)
-def set_dir(config_name: str, new_path: str):
+@click.option("--new-path", "-p", type=click.Path(writable=True), default=None)
+def set_dir(config_name: str, new_path: str, running):
     """Change the location of your Dropbox folder."""
+
+    if running == "gui":
+        click.echo("Maestral GUI is already running. Please use the GUI.")
+        return
+
     if is_maestral_linked(config_name):
         from maestral.main import Maestral
         with MaestralProxy(config_name, fallback=True) as m:
             if not new_path:
                 new_path = Maestral._ask_for_path()
             m.move_dropbox_directory(new_path)
+
         click.echo("Dropbox folder moved to {}.".format(new_path))
 
 
 @main.command()
 @with_config_opt
 @click.argument("dropbox_path", type=click.Path())
-def dir_exclude(dropbox_path: str, config_name: str):
+def dir_exclude(dropbox_path: str, config_name: str, running):
     """Excludes a Dropbox directory from syncing."""
+
+    if running == "gui":
+        click.echo("Maestral GUI is already running. Please use the GUI.")
+        return
+
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
+
     if dropbox_path == "/":
         click.echo(click.style("Cannot exclude the root directory.", fg="red"))
         return
+
     if is_maestral_linked(config_name):
         with MaestralProxy(config_name, fallback=True) as m:
             m.exclude_folder(dropbox_path)
@@ -370,10 +471,16 @@ def dir_exclude(dropbox_path: str, config_name: str):
 @main.command()
 @with_config_opt
 @click.argument("dropbox_path", type=click.Path())
-def dir_include(dropbox_path: str, config_name: str):
+def dir_include(dropbox_path: str, config_name: str, running):
     """Includes a Dropbox directory in syncing."""
+
+    if running == "gui":
+        click.echo("Maestral GUI is already running. Please use the GUI.")
+        return
+
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
+
     if dropbox_path == "/":
         click.echo(click.style("The root directory is always included.", fg="red"))
         return
@@ -389,6 +496,7 @@ def dir_include(dropbox_path: str, config_name: str):
 @click.argument("dropbox_path", type=click.Path(), default="")
 @click.option("-a", "all", is_flag=True, default=False,
               help="Include directory entries whose names begin with a dot (.).")
+def ls(dropbox_path: str, running, config_name: str, all: bool):
     """Lists contents of a Dropbox directory."""
 
     if not dropbox_path.startswith("/"):
@@ -423,8 +531,9 @@ def dir_include(dropbox_path: str, config_name: str):
 
 @main.command()
 @with_config_opt
-def account_info(config_name: str):
+def account_info(config_name: str, running):
     """Prints your Dropbox account information."""
+
     if is_maestral_linked(config_name):
         from maestral.config.main import CONF
         email = CONF.get("account", "email")
@@ -444,7 +553,7 @@ def account_info(config_name: str):
 
 @log.command()
 @with_config_opt
-def show(config_name: str):
+def show(config_name: str, running):
     """Shows Maestral's log file."""
     from maestral.utils.app_dirs import get_log_path
 
@@ -463,7 +572,7 @@ def show(config_name: str):
 
 @log.command()
 @with_config_opt
-def clear(config_name: str):
+def clear(config_name: str, running):
     """Clears Maestral's log file."""
     from maestral.utils.app_dirs import get_log_path
 
@@ -483,7 +592,7 @@ def clear(config_name: str):
 @click.argument('level_name', required=False,
                 type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
 @with_config_opt
-def level(config_name: str, level_name: str):
+def level(config_name: str, level_name: str, running):
     """Gets or sets the log level. Changes will persist between restarts."""
     import logging
     if level_name:
@@ -506,53 +615,73 @@ def level(config_name: str, level_name: str):
 
 @daemon.command()
 @with_config_opt
-def start(config_name: str):
+def start(config_name: str, running):
     """Starts the Maestral as a daemon in the background."""
+    if running == "gui":
+        click.echo("Maestral GUI is already running. Please quit before starting the "
+                   "daemon.")
+        return
+
+    if running == "daemon":
+        click.echo("Maestral daemon is already running.")
+        return
+
     start_daemon_subprocess(config_name)
 
 
 @daemon.command()
 @with_config_opt
-def stop(config_name: str):
+def stop(config_name: str, running):
     """Stops the Maestral daemon."""
+    if not running == "daemon":
+        click.echo("Maestral daemon is not running.")
+        return
     stop_maestral_daemon(config_name)
 
 
 @daemon.command()
 @with_config_opt
-def restart(config_name: str):
+def restart(config_name: str, running):
     """Restarts the Maestral daemon."""
-    stop_maestral_daemon(config_name)
+    if running == "gui":
+        click.echo("Maestral GUI is running. Please stop first.")
+        return
+
+    if running == "daemon":
+        stop_maestral_daemon(config_name)
+    else:
+        click.echo("Maestral daemon is not running.")
+
     start_daemon_subprocess(config_name)
 
 
 @daemon.command()
 @with_config_opt
-def pause(config_name: str):
+def pause(config_name: str, running):
     """Pauses syncing."""
     try:
         with MaestralProxy(config_name) as m:
             m.pause_sync()
         click.echo("Syncing paused.")
     except Pyro4.errors.CommunicationError:
-        click.echo("Maestral is not running.")
+        click.echo("Maestral daemon is not running.")
 
 
 @daemon.command()
 @with_config_opt
-def resume(config_name: str):
+def resume(config_name: str, running):
     """Resumes syncing."""
     try:
         with MaestralProxy(config_name) as m:
             m.resume_sync()
         click.echo("Syncing resumed.")
     except Pyro4.errors.CommunicationError:
-        click.echo("Maestral is not running.")
+        click.echo("Maestral daemon is not running.")
 
 
 @daemon.command()
 @with_config_opt
-def status(config_name: str):
+def status(config_name: str, running):
     """Returns the current status of Maestral."""
     try:
         from maestral.config.main import CONF
@@ -572,12 +701,12 @@ def status(config_name: str):
             click.echo("")
 
     except Pyro4.errors.CommunicationError:
-        click.echo("Maestral is not running.")
+        click.echo("Maestral daemon is not running.")
 
 
 @daemon.command()
 @with_config_opt
-def errors(config_name: str):
+def errors(config_name: str, running):
     """Lists all sync errors."""
     try:
         with MaestralProxy(config_name) as m:
@@ -596,7 +725,7 @@ def errors(config_name: str):
                 click.echo("")
 
     except Pyro4.errors.CommunicationError:
-        click.echo("Maestral is not running.")
+        click.echo("Maestral daemon is not running.")
 
 
 # ========================================================================================
