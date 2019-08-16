@@ -174,8 +174,13 @@ def is_maestral_running(config_name):
 # ========================================================================================
 
 def set_config(ctx, param, value):
-    if value not in list_configs():
-        ctx.fail("Configuration '{0}' does not exist.".format(value))
+
+    # check if valid config
+    if value not in list_configs() and not value == "maestral":
+        ctx.fail("Configuration '{}' does not exist. You can create new "
+                 "configuration with 'maestral config new'.".format(value))
+
+    # set environment variable
     os.environ["MAESTRAL_CONFIG"] = value
     return value
 
