@@ -87,7 +87,6 @@ setup(
     entry_points={
       "console_scripts": ["maestral=maestral.console_script:main"],
     },
-    scripts=['bin/maestral-gui'],
     python_requires='>=3.6',
     classifiers=[
         'License :: OSI Approved :: MIT License',
