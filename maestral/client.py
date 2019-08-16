@@ -89,8 +89,7 @@ class MaestralApiClient(object):
 
     This client defines basic methods to wrap Dropbox Python SDK calls, such as creating,
     moving, modifying and deleting files and folders on Dropbox and downloading files from
-    Dropbox. MaestralClient also provides methods to wait for and list changes from the
-    remote Dropbox.
+    Dropbox.
 
     All Dropbox API errors are caught and handled here. ConnectionErrors will
     be caught and handled by :class:`MaestralMonitor` instead.

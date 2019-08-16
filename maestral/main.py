@@ -32,10 +32,10 @@ from maestral.utils.app_dirs import get_log_path, get_cache_path
 
 import logging.handlers
 
+config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
+
 # set up logging
 logger = logging.getLogger(__name__)
-
-config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
 
 log_file = get_log_path("maestral", config_name + ".log")
 log_fmt = logging.Formatter(fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
@@ -161,11 +161,7 @@ def handle_disconnect(func):
 class Maestral(object):
     """
     An open source Dropbox client for macOS and Linux to syncing a local folder
-    with your Dropbox account. It currently only supports excluding top-level
-    folders from the sync.
-
-    Maestral gracefully handles lost internet connections and will detect
-    changes in between sessions or while Maestral has been idle.
+    with your Dropbox account.
     """
 
     _daemon_running = True  # this is for running maestral as a daemon only

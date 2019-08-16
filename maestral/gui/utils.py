@@ -29,7 +29,7 @@ def truncate_string(string, font=None, pixels=200, side="right"):
     Elide a string to fit into the given width.
 
     :param str string: String to elide.
-    :param font: Font to calculate size. If not given, the current styles default font
+    :param font: Font to calculate size. If not given, the current style's default font
         for a QLabel is used.
     :param int pixels: Maximum width in pixels.
     :param str side: Side to truncate. Can be "right" or "left", defaults to "right".
@@ -146,10 +146,14 @@ def isLightWindow():
 
 
 def isDarkStatusBar():
+    """Detects the current status bar brighness and returns ``True`` for a dark status
+    bar."""
     return statusBarTheme() == THEME_DARK
 
 
 def isLightStatusBar():
+    """Detects the current status bar brighness and returns ``True`` for a light status
+    bar."""
     return statusBarTheme() == THEME_LIGHT
 
 

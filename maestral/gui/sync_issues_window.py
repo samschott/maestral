@@ -23,7 +23,7 @@ HAS_GTK_LAUNCH = shutil.which("gtk-launch") is not None
 
 class SyncIssueWidget(QtWidgets.QWidget):
     """
-    A class to graphically display a Maestral sync issue.
+    A widget to graphically display a Maestral sync issue.
     """
 
     def __init__(self, sync_issue, parent=None):
@@ -122,7 +122,7 @@ class SyncIssueWidget(QtWidgets.QWidget):
 
 class SyncIssueWindow(QtWidgets.QWidget):
     """
-    A class to graphically display all Maestral sync issues.
+    A widget to graphically display all Maestral sync issues.
     """
 
     def __init__(self, sync_issues_queue, parent=None):

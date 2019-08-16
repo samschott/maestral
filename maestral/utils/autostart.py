@@ -15,6 +15,8 @@ _root = os.path.abspath(os.path.dirname(__file__))
 
 
 class AutoStart(object):
+    """Creates auto-start entries in the appropriate system location to automatically
+    start Maestral when the user logs in."""
 
     def __init__(self):
         self.system = platform.system()

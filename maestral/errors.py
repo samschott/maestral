@@ -31,7 +31,7 @@ class RevFileError(Exception):
 
 
 class DropboxDeletedError(Exception):
-    """Raised when the rev file exists but cannot be read."""
+    """Raised when the local Dropbox folder cannot be found."""
     pass
 
 
@@ -85,8 +85,7 @@ class DropboxAuthError(MaestralApiError):
 
 
 class TokenExpiredError(DropboxAuthError):
-    """Raised when authentication fails. Refer to the ``message``` attribute for
-    details."""
+    """Raised when authentication fails because the user's token has expired."""
     pass
 
 

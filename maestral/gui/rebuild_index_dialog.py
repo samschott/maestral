@@ -60,6 +60,7 @@ class BaseThread(Thread):
 
 
 class RebuildIndexDialog(QtWidgets.QDialog):
+    """A dialog to rebuild Maestral's sync index."""
 
     def __init__(self, monitor, parent=None):
         super(self.__class__, self).__init__(parent=parent)

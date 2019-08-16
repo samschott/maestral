@@ -37,6 +37,7 @@ class AuthThread(QtCore.QThread):
 
 
 class SetupDialog(QtWidgets.QDialog):
+    """A dialog to link and set up a new Drobox account."""
 
     auth_session = ""
     auth_url = ""

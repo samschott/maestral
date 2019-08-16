@@ -22,7 +22,8 @@ STDERR = sys.stderr
 
 def get_home_dir():
     """
-    Return user home directory
+    Returns user home directory. This will be determined from the first
+    valid result out of (osp.expanduser('~'), $HOME, $USERPROFILE, $TMP).
     """
     try:
         # expanduser() returns a raw byte string which needs to be
@@ -52,7 +53,17 @@ def get_home_dir():
 
 
 def get_conf_path(subfolder=None, filename=None, create=True):
-    """Return absolute path to the config file with the specified filename."""
+    """
+    Returns the default config path for the platform. This will be:
+
+        - macOS: '~/Library/Application Support/<subfolder>/<filename>.'
+        - Linux: 'XDG_CONFIG_HOME/<subfolder>/<filename>'
+        - other: '~/.config/<subfolder>/<filename>'
+
+    :param str subfolder: The subfolder for the app.
+    :param str filename: The filename to append for the app.
+    :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
+    """
     # Define conf_dir
     if platform.system() == 'Linux':
         # This makes us follow the XDG standard to save our settings

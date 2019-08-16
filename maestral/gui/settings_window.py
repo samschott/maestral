@@ -60,6 +60,7 @@ class ProfilePicDownloadThread(QtCore.QThread):
 
 
 class SettingsWindow(QtWidgets.QWidget):
+    """A widget showing all of Maestral's settings."""
 
     def __init__(self, mdbx, parent=None):
         super(self.__class__, self).__init__(parent=parent)

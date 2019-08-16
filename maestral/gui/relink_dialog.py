@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class RelinkDialog(QtWidgets.QDialog):
+    """A dalog to show when Maestral's Dropbox access has expried or has been revoked."""
 
     auth_session = OAuth2Session()
 
