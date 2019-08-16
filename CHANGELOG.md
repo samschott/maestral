@@ -10,7 +10,7 @@
     - `maestral log level`: returns the current log level
     - `maestral log level [DEBUG|INFO|WARNING|ERROR]`: sets the log level to the given
        value
-- Added an option "-a" to `maestral ls` 
+- Added an option "-a" to `maestral ls`
 
 #### Changed:
 
@@ -24,7 +24,9 @@
     - Show Dropbox folder location in account-info.
     - Add colors to outputs like "[OK]" and "[FAILED]".
 - Set minimum version requirement for click package.
- 
+- Reduced the startup time by downloading profile picture in a thread. Periodially update
+  in the background (every 20 min).
+
 #### Fixed:
 
 - Prevent the GUI and a daemon from syncing the same folder at the same time.
@@ -77,7 +79,7 @@ The detailed list of changes is:
   stored in the client source code. Maestral will therefore no longer require the user to
   get their own API keys or to use the precompiled oauth binaries hosted on PyPI.
 - Improved the user massages given by command line scripts.
- 
+
 #### Fixed:
 
 - Fixed a crash on startup if the Meastral's Dropbox access has expired or has been
