@@ -273,8 +273,9 @@ def get_maestral_process_info(config_name):
 
 def set_config(ctx, param, value):
     # check if valid config
-    if value not in list_configs():
-        ctx.fail("Configuration '{}' does not exist.".format(value))
+    if value not in list_configs() and not value == "maestral":
+        ctx.fail("Configuration '{}' does not exist. You can create new "
+                 "configuration with 'maestral config new'.".format(value))
 
     # set environment variable
     os.environ["MAESTRAL_CONFIG"] = value
