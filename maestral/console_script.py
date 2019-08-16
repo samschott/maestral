@@ -619,17 +619,20 @@ def level(config_name: str, level_name: str, running):
     """Gets or sets the log level. Changes will persist between restarts."""
     import logging
     if level_name:
-        level_number = logging._nameToLevel[level_name]
+        level_num = logging._nameToLevel[level_name]
         with MaestralProxy(config_name, fallback=True) as m:
-            m.set_log_level_file(level_number)
+            m.set_log_level_file(level_num)
+            m.set_log_level_console(level_num)
         click.echo("Log level set to {}.".format(level_name))
     else:
         os.environ["MAESTRAL_CONFIG"] = config_name
         from maestral.config.main import CONF
-        level_number = CONF.get("app", "log_level_file")
-        fallback_name = "CUSTOM ({})".format(level_number)
-        level_name = logging._levelToName.get(level_number, fallback_name)
-        click.echo("Log level:  {}".format(level_name))
+        level_file = CONF.get("app", "log_level_file")
+        level_console = CONF.get("app", "log_level_console")
+        for level_num, target in zip((level_file, level_console), ("file", "console")):
+            fallback_name = "CUSTOM ({})".format(level_num)
+            level_name = logging._levelToName.get(level_num, fallback_name)
+            click.echo("Log level {0}:  {1}".format(level_name, target))
 
 
 # ========================================================================================
