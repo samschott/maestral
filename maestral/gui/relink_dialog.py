@@ -77,7 +77,7 @@ class RelinkDialog(QtWidgets.QDialog):
         sys.exit(0)
 
     def delete_creds_and_quit(self):
-        self.auth_session.delete_creds
+        self.auth_session.delete_creds()
         self.quit()
 
     def _set_text_style(self, text):
