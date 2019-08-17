@@ -61,11 +61,15 @@ def get_system_tray_icon(status):
     is_gnome3 = gnome_version is not None and gnome_version[0] >= 3
 
     if desktop == "gnome" and is_gnome3:
-        QtGui.QIcon.setFallbackSearchPaths([os.path.join(_root, "icon-theme-gnome")])
-        icon = QtGui.QIcon.fromTheme("menubar_icon_{0}-symbolic".format(status))
+        icon_theme_paths = QtGui.QIcon.themeSearchPaths()
+        icon_theme_paths += os.path.join(_root, "icon-theme-gnome")
+        QtGui.QIcon.themeSearchPaths(icon_theme_paths)
+        icon = QtGui.QIcon.fromTheme("menubar_icon_{}-symbolic".format(status))
     elif desktop == "kde":
-        QtGui.QIcon.setFallbackSearchPaths([os.path.join(_root, "icon-theme-kde")])
-        icon = QtGui.QIcon.fromTheme("menubar_icon_{0}-symbolic".format(status))
+        icon_theme_paths = QtGui.QIcon.themeSearchPaths()
+        icon_theme_paths += os.path.join(_root, "icon-theme-kde")
+        QtGui.QIcon.themeSearchPaths(icon_theme_paths)
+        icon = QtGui.QIcon.fromTheme("menubar_icon_{}-symbolic".format(status))
     elif desktop == "cocoa":
         icon = QtGui.QIcon(TRAY_ICON_PATH.format(status, "dark"))
         icon.setIsMask(True)
