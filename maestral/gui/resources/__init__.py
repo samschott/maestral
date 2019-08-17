@@ -78,9 +78,11 @@ def get_system_tray_icon(status, geometry=None):
 
     if DESKTOP == "gnome" and is_gnome3:
         icon_theme_paths = QtGui.QIcon.themeSearchPaths()
-        icon_theme_paths += [os.path.join(_root, "icon-theme-gnome")]
+        maestral_icon_path = os.path.join(_root, "icon-theme-gnome")
+        if maestral_icon_path not in icon_theme_paths:
+            icon_theme_paths += [os.path.join(_root, "icon-theme-gnome")]
         QtGui.QIcon.setThemeSearchPaths(icon_theme_paths)
-        icon = QtGui.QIcon.fromTheme("maestral-icon-{}-symbolic".format(status))
+        icon = QtGui.QIcon.fromTheme("menubar_icon_{}-symbolic".format(status))
     elif DESKTOP == "cocoa":
         icon = QtGui.QIcon(TRAY_ICON_PATH.format(status, "dark"))
         icon.setIsMask(True)
