@@ -633,7 +633,7 @@ def level(config_name: str, level_name: str, running):
         for level_num, target in zip((level_file, level_console), ("file", "console")):
             fallback_name = "CUSTOM ({})".format(level_num)
             level_name = logging._levelToName.get(level_num, fallback_name)
-            click.echo("Log level {0}:  {1}".format(level_name, target))
+            click.echo("Log level {0}:  {1}".format(target, level_name))
 
 
 # ========================================================================================
