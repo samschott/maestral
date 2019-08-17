@@ -26,6 +26,7 @@
 - Set minimum version requirement for click package.
 - Reduced the startup time by downloading profile picture in a thread. Periodically update
   in the background (every 20 min).
+- Check hashes before uploading modified files.
 
 #### Fixed:
 
@@ -76,9 +77,8 @@ The detailed list of changes is:
 - Improved grouping and naming of command line scripts.
 - Added a "relink" dialog which is shown when Maestral's Dropbox access has expired or
   has been revoked by the user.
-- Added icons to comply with KDE status icon guidelines
-  ([https://hig.kde.org/style/icon.html#action-and-status-icons](https://hig.kde.org/style/icon.html#action-and-status-icons)).
-  These icons can be adapted by KDE to fit the interface theme (dark / light).
+- Improved logic to detect system tray color and set icons accordingly. This is mostly for
+  KDE which, unlike Gnome, does not handle automatically adapting its tray icon colors.
 
 #### Changed:
 
