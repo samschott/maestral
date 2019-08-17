@@ -1,3 +1,10 @@
+### v0.3.1-post1 (2019-08-17)
+
+_Fixes_:
+
+- Fixed a bug which would result in Maestral not automatically creating a config file
+  on first run, if launched from the command line scripts.
+  
 ### v0.3.1 (2019-08-14)
 
 _Fixes_:
