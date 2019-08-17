@@ -317,7 +317,7 @@ class UpDownSync(object):
     def ensure_dropbox_folder_present(self, raise_exception=False):
         """
         Checks if the Dropbox folder still exists where we expect it to be.
-        
+
         :param bool raise_exception: If ``True``, raises an exception when the folder
             cannot be found. If ``False``, this function only create an entry in the log.
             Defaults to ``False``.
@@ -373,7 +373,7 @@ class UpDownSync(object):
 
         Therefore, if the parent directory is already present on the local
         drive, it's casing is used. Otherwise, the casing given by the Dropbox
-        API metadata is used. This aims to preserve the correct casing of file and 
+        API metadata is used. This aims to preserve the correct casing of file and
         folder names and prevents the creation of duplicate folders with different
         casing on the local drive.
 
@@ -731,7 +731,7 @@ class UpDownSync(object):
     def _apply_event(self, event):
         """Apply a local file event `event` to the remote Dropbox. Clear any related
         sync errors if successful. Any MaestralApiErrors will be caught by the
-        deconrator."""
+        decorator."""
         if event.event_type is EVENT_TYPE_CREATED:
             self._on_created(event)
         elif event.event_type is EVENT_TYPE_MOVED:
@@ -891,6 +891,15 @@ class UpDownSync(object):
                 size2 = osp.getsize(path)
                 if size1 == size2:
                     break
+
+            # check if file already exists with identical content
+            md = self.client.get_metadata(dbx_path)
+            if md:
+                local_hash = get_local_hash(path)
+                if local_hash == md.content_hash:
+                    # file hashes are identical, do not upload
+                    self.set_local_rev(md.path_display, "folder")
+                    return
 
             rev = self.get_local_rev(dbx_path)
             mode = dropbox.files.WriteMode("update", rev)
@@ -1595,7 +1604,7 @@ class MaestralMonitor(object):
         a file is modified during this process before it has been re-indexed,
         any changes to will be flagged as sync conflicts. If a file is deleted before
         it has been re-indexed, the deletion will be reversed.
-        
+
         :param bool restart: If ``True``, syncing will be restarted after rebuilding the
             index has completed. Defaults to ``True``.
         """
