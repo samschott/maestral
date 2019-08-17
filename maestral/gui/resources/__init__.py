@@ -16,7 +16,7 @@ _root = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
 _icon_provider = QtWidgets.QFileIconProvider()
 
 APP_ICON_PATH = _root + "/Maestral.png"
-TRAY_ICON_PATH = _root + "/menubar_icon_{0}_{1}.svg"
+TRAY_ICON_PATH = _root + "/maestral-icon-{0}-{1}.svg"
 
 FACEHOLDER_PATH = _root + "/faceholder.png"
 
@@ -31,6 +31,23 @@ SYNC_ISSUE_WIDGET_PATH = _root + "/sync_issue_widget.ui"
 
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
+
+
+def _get_desktop():
+
+    if platform.system() == "Linux":
+        current_desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
+        desktop_session = os.environ.get("GDMSESSION", "").lower()
+
+        for desktop in ("gnome", "kde", "xfce", ""):
+            if desktop in current_desktop or desktop in desktop_session:
+                return desktop
+
+    elif platform.system() == "Darwin":
+        return "cocoa"
+
+
+DESKTOP = _get_desktop()
 
 
 def get_native_item_icon(item_path):
@@ -53,72 +70,99 @@ def get_native_file_icon():
     return _icon_provider.icon(_icon_provider.File)
 
 
-def get_system_tray_icon(status):
+def get_system_tray_icon(status, geometry=None):
     assert status in ("idle", "syncing", "paused", "disconnected", "error")
 
-    desktop = get_desktop()
     gnome_version = __get_gnome_version()
     is_gnome3 = gnome_version is not None and gnome_version[0] >= 3
 
-    if desktop == "gnome" and is_gnome3:
+    if DESKTOP == "gnome" and is_gnome3:
         icon_theme_paths = QtGui.QIcon.themeSearchPaths()
-        icon_theme_paths += os.path.join(_root, "icon-theme-gnome")
-        QtGui.QIcon.themeSearchPaths(icon_theme_paths)
-        icon = QtGui.QIcon.fromTheme("menubar_icon_{}-symbolic".format(status))
-    elif desktop == "kde":
-        icon_theme_paths = QtGui.QIcon.themeSearchPaths()
-        icon_theme_paths += os.path.join(_root, "icon-theme-kde")
-        QtGui.QIcon.themeSearchPaths(icon_theme_paths)
-        icon = QtGui.QIcon.fromTheme("menubar_icon_{}-symbolic".format(status))
-    elif desktop == "cocoa":
+        icon_theme_paths += [os.path.join(_root, "icon-theme-gnome")]
+        QtGui.QIcon.setThemeSearchPaths(icon_theme_paths)
+        icon = QtGui.QIcon.fromTheme("maestral-icon-{}-symbolic".format(status))
+    elif DESKTOP == "cocoa":
         icon = QtGui.QIcon(TRAY_ICON_PATH.format(status, "dark"))
         icon.setIsMask(True)
     else:
-        icon_color = "light" if isDarkStatusBar() else "dark"
+        icon_color = "light" if isDarkStatusBar(geometry) else "dark"
         icon = QtGui.QIcon(TRAY_ICON_PATH.format(status, icon_color))
         icon.setIsMask(True)
 
     return icon
 
 
-def statusBarTheme():
+def statusBarTheme(icon_geometry=None):
     """
     Returns one of gui.utils.THEME_LIGHT or gui.utils.THEME_DARK, corresponding to the
-    current status bar theme. This function assumes that the status is located at the top.
-    Do not use it if the platform supports symbolic status bar icons that automatically
-    adapt their color.
+    current status bar theme.
+
+    `icon_geometry` provides the geometry (location and dimensions) of the tray
+    icon. If not given, we try to guess the location of the system tray.
     """
-    # getting color of a pixel on a top bar, and identifying best-fitting color
-    # theme based on its luminance
 
-    pixel_rgb = __pixel_at(2, 2)
-    lum = rgb_to_luminance(*pixel_rgb)
+    # ---------------- check for the status bar color --------------------------
 
-    return THEME_LIGHT if lum >= 0.4 else THEME_DARK
+    # see if we can trust returned pixel colors (work around for a bug in Qt with KDE
+    # where all screenshots return black)
 
+    c0 = __pixel_at(10, 10)
+    c1 = __pixel_at(300, 400)
+    c2 = __pixel_at(800, 800)
 
-def get_desktop():
-    desktop = ""
+    if not c0 == c1 == c2 == (0, 0, 0):
 
-    if platform.system() == "Linux":
-        if os.popen("pidof gnome-session").read():
-            desktop = "gnome"
-        elif os.popen("pidof ksmserver").read():
-            desktop = "kde"
-        elif os.popen("pidof xfce-mcs-manage").read():
-            desktop = "xfce"
+        if not icon_geometry or icon_geometry.isEmpty():
+
+            # ---------------- guess the location of the status bar ----------------
+
+            rec_screen = QtWidgets.QApplication.desktop().screenGeometry()  # screen size
+            rec_available = QtWidgets.QApplication.desktop().availableGeometry()  # available size
+
+            # convert to regions for subtraction
+            region_screen = QtGui.QRegion(rec_screen)
+            region_available = QtGui.QRegion(rec_available)
+
+            # subtract and convert back to rect
+            rects_diff = region_screen.subtracted(region_available).rects()
+            if len(rects_diff) > 0:
+                # there seems to be a task bar
+                taskBarRect = rects_diff[0]
+            else:
+                taskBarRect = rec_screen
+
+            px = taskBarRect.left() + 2
+            py = taskBarRect.bottom() - 2
+
         else:
-            desktop = ""
-    elif platform.system() == "Darwin":
-        desktop = "cocoa"
+            px = icon_geometry.left()
+            py = icon_geometry.bottom()
 
-    return desktop
+        # ------------- calculate luminance of bottom right pixel ---------------
+
+        # get pixel color from icon corner or status bar
+        pixel_rgb = __pixel_at(px, py)
+        lum = rgb_to_luminance(*pixel_rgb)
+
+        return THEME_LIGHT if lum >= 0.4 else THEME_DARK
+
+    else:
+        # ---------------------- check icon theme for hints -----------------------
+        theme_name = QtGui.QIcon.themeName().lower()
+
+        if theme_name in ("breeze-dark", "adwaita-dark", "ubuntu-mono-dark", "humanity-dark"):
+            return THEME_DARK
+        elif theme_name in ("breeze", "adwaita", "ubuntu-mono-light", "humanity"):
+            return THEME_LIGHT
+        else:  # we give up, we will never guess the right color!
+            return THEME_DARK
 
 
-def isDarkStatusBar():
-    """Detects the current status bar brighness and returns ``True`` for a dark status
-    bar."""
-    return statusBarTheme() == THEME_DARK
+def isDarkStatusBar(icon_geometry=None):
+    """Detects the current status bar brightness and returns ``True`` for a dark status
+    bar. `icon_geometry` provides the geometry (location and dimensions) of the tray
+    icon. If not given, we try to guess the location of the system tray."""
+    return statusBarTheme(icon_geometry) == THEME_DARK
 
 
 def rgb_to_luminance(r, g, b, base=256):
@@ -160,6 +204,12 @@ def __pixel_at(x, y):
     Returns (r, g, b) color code for a pixel with given coordinates (each value is in
     0..256 limits)
     """
+    from PyQt5 import QtQuick
+
+    view = QtQuick.QQuickView()
+
+    view.rootContext()
+
     desktop_id = QtWidgets.QApplication.desktop().winId()
     screen = QtWidgets.QApplication.primaryScreen()
     color = screen.grabWindow(desktop_id, x, y, 1, 1).toImage().pixel(0, 0)
