@@ -3,32 +3,35 @@
 #### Added:
 
 - Added a "status" property to `maestral.main` which shows the last log message.
-- Added a command group `maestral log` to view and clear the logs as well set the log
+- Added a command group `maestral log` to view and clear the log as well set the logging
   level. Commands are:
-    - `maestral log show`: shows the logs in terminal
-    - `maestral log clear`: clears the logs
-    - `maestral log level`: returns the current log level
-    - `maestral log level [DEBUG|INFO|WARNING|ERROR]`: sets the log level to the given
-       value
-- Added an option "-a" to `maestral ls`
+    - `maestral log show`: Shows the logs in terminal.
+    - `maestral log clear`: Clears the logs.
+    - `maestral log level`: Returns the current log level.
+    - `maestral log level [DEBUG|INFO|WARNING|ERROR]`: Sets the log level to the given
+       value. Affects both stdout and file logs.
+- Added an option "-a" to `maestral ls` to include hidden files.
 
 #### Changed:
 
 - Made log levels persistent between sessions.
 - Changed the name of `maestral list` to `maestral ls` and, by default, do not list
   "hidden" items that start with a dot. Added an option "-a" to explicitly list all
-  files in a directly.
+  files in a directory.
 - Improved output from command line scripts:
     - Wrap all long outputs in empty lines.
     - Show more informative status.
     - Show Dropbox folder location in account-info.
-    - Add colors to outputs like "[OK]" and "[FAILED]".
+    - Add colours to outputs like "[OK]" and "[FAILED]".
 - Set minimum version requirement for click package.
-- Reduced the startup time by downloading profile picture in a thread. Periodially update
+- Reduced the startup time by downloading profile picture in a thread. Periodically update
   in the background (every 20 min).
 
 #### Fixed:
 
+- Fixed a bug which would not allow running maestral for the first time before explicitly
+  adding a configuration with `maestral config new`. Now, a default configuration is
+  created automatically on first run.
 - Prevent the GUI and a daemon from syncing the same folder at the same time.
 - Fixed the creation of multiple daemons. A new daemon will no longer overwrite an old
   one and `maestral daemon start` will do nothing if a daemon for the given configuration
@@ -36,6 +39,10 @@
 - Automatic allocation of ports for the communication between daemon and client.
 - Show the (Dropbox) file path in the string representation of `MaestralApiError`.
   Previously, one could not see from the traceback which file caused the error.
+  
+#### Removed:
+
+- No longer install a script "maestral-gui". Use "maestral gui" instead.
 
 ### v0.3.1 (2019-08-14)
 
@@ -69,6 +76,9 @@ The detailed list of changes is:
 - Improved grouping and naming of command line scripts.
 - Added a "relink" dialog which is shown when Maestral's Dropbox access has expired or
   has been revoked by the user.
+- Added icons to comply with KDE status icon guidelines
+  ([https://hig.kde.org/style/icon.html#action-and-status-icons](https://hig.kde.org/style/icon.html#action-and-status-icons)).
+  These icons can be adapted by KDE to fit the interface theme (dark / light).
 
 #### Changed:
 
