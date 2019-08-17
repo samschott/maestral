@@ -26,8 +26,8 @@ from maestral.gui.relink_dialog import RelinkDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import get_system_tray_icon
-from maestral.gui.utils import (truncate_string, isDarkStatusBar, UserDialog,
-                                quit_and_restart_maestral, get_gnome_scaling_factor)
+from maestral.gui.utils import (truncate_string, UserDialog, quit_and_restart_maestral,
+                                get_gnome_scaling_factor)
 
 from maestral.utils.autostart import AutoStart
 from maestral.config.main import CONF
@@ -114,10 +114,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         icons = dict()
         short = ("idle", "syncing", "paused", "disconnected", "error")
 
-        color = "light" if isDarkStatusBar() else "dark"
-
         for l, s in zip((IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR), short):
-            icons[l] = get_system_tray_icon(s, color)
+            icons[l] = get_system_tray_icon(s)
 
         return icons
 

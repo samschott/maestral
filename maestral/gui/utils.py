@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, QRect
 from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap, QWindow
 
-from maestral.gui.resources import APP_ICON_PATH
+from maestral.gui.resources import APP_ICON_PATH, rgb_to_luminance
 from maestral.utils import is_macos_bundle
 
 THEME_DARK = "dark"
@@ -66,15 +66,6 @@ def get_scaled_font(scaling=1.0, bold=False, italic=False):
     return font
 
 
-def _luminance(r, g, b, base=256):
-    """
-    Calculates luminance of a color, on a scale from 0 to 1, meaning that 1 is the
-    highest luminance. r, g, b arguments values should be in 0..256 limits, or base
-    argument should define the upper limit otherwise.
-    """
-    return (0.2126*r + 0.7152*g + 0.0722*b)/base
-
-
 def icon_to_pixmap(icon, width, height=None):
     """
     Converts a given icon to a pixmap. Automatically adjusts to high-DPI scaling.
@@ -100,29 +91,6 @@ def icon_to_pixmap(icon, width, height=None):
     return px
 
 
-def __pixel_at(x, y):
-    """
-    Returns (r, g, b) color code for a pixel with given coordinates (each value is in
-    0..256 limits)
-    """
-    desktop_id = QtWidgets.QApplication.desktop().winId()
-    screen = QtWidgets.QApplication.primaryScreen()
-    color = screen.grabWindow(desktop_id, x, y, 1, 1).toImage().pixel(0, 0)
-    return ((color >> 16) & 0xff), ((color >> 8) & 0xff), (color & 0xff)
-
-
-def statusBarTheme():
-    """
-    Returns one of gui.utils.THEME_LIGHT or gui.utils.THEME_DARK, corresponding to the
-    current status bar theme.
-    """
-    # getting color of a pixel on a top bar, and identifying best-fitting color
-    # theme based on its luminance
-    pixel_rgb = __pixel_at(2, 2)
-    luminance = _luminance(*pixel_rgb)
-    return THEME_LIGHT if luminance >= 0.4 else THEME_DARK
-
-
 def windowTheme():
     """
     Returns one of gui.utils.THEME_LIGHT or gui.utils.THEME_DARK, corresponding to
@@ -133,18 +101,12 @@ def windowTheme():
     w = QtWidgets.QWidget()
     bg_color = w.palette().color(QtGui.QPalette.Background)
     bg_color_rgb = [bg_color.red(), bg_color.green(), bg_color.blue()]
-    luminance = _luminance(*bg_color_rgb)
+    luminance = luminance(*bg_color_rgb)
     return THEME_LIGHT if luminance >= 0.4 else THEME_DARK
 
 
 def isDarkWindow():
     return windowTheme() == THEME_DARK
-
-
-def isDarkStatusBar():
-    """Detects the current status bar brighness and returns ``True`` for a dark status
-    bar."""
-    return statusBarTheme() == THEME_DARK
 
 
 def get_gnome_scaling_factor():
