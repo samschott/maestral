@@ -141,20 +141,10 @@ def isDarkWindow():
     return windowTheme() == THEME_DARK
 
 
-def isLightWindow():
-    return windowTheme() == THEME_LIGHT
-
-
 def isDarkStatusBar():
     """Detects the current status bar brighness and returns ``True`` for a dark status
     bar."""
     return statusBarTheme() == THEME_DARK
-
-
-def isLightStatusBar():
-    """Detects the current status bar brighness and returns ``True`` for a light status
-    bar."""
-    return statusBarTheme() == THEME_LIGHT
 
 
 def get_gnome_scaling_factor():
