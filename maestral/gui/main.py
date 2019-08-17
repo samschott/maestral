@@ -25,7 +25,7 @@ from maestral.gui.setup_dialog import SetupDialog
 from maestral.gui.relink_dialog import RelinkDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
-from maestral.gui.resources import get_system_tray_icon, isDarkStatusBar
+from maestral.gui.resources import get_system_tray_icon
 from maestral.gui.utils import (truncate_string, UserDialog, quit_and_restart_maestral,
                                 get_gnome_scaling_factor)
 
@@ -87,14 +87,13 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     usage_signal = signal("account_usage_signal")
 
     mdbx = None
-    _current_icon_name = DISCONNECTED
 
     def __init__(self):
         # ------------- initialize tray icon -------------------
         QtWidgets.QSystemTrayIcon.__init__(self)
 
         self.icons = self.load_tray_icons()
-        self.setIconFromName(DISCONNECTED)
+        self.setIcon(self.icons[DISCONNECTED])
         self.show_when_systray_available()
 
         error_handler.error_signal.connect(self.on_error)
@@ -104,21 +103,19 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         # If available, show icon, otherwise, set a timer to check back later.
         # This is a workaround for https://bugreports.qt.io/browse/QTBUG-61898
         if self.isSystemTrayAvailable():
+            self.setIcon(self.icon())  # reload icon
             self.show()
-
-            # reload icons to contrast system tray color
-            self.icons = self.load_tray_icons()
-            self.setIconFromName(self._current_icon_name)
         else:
             QtCore.QTimer.singleShot(1000, self.show_when_systray_available)
 
-    def load_tray_icons(self):
+    @staticmethod
+    def load_tray_icons():
 
         icons = dict()
         short = ("idle", "syncing", "paused", "disconnected", "error")
 
         for l, s in zip((IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR), short):
-            icons[l] = get_system_tray_icon(s, self.geometry())
+            icons[l] = get_system_tray_icon(s)
 
         return icons
 
@@ -252,12 +249,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.usage_signal.connect(self.on_usage_available)
 
         # --------------- switch to idle icon -------------------
-        self.setIconFromName(IDLE)
-
-    def setIconFromName(self, name):
-        self._current_icon_name = name
-        new_icon = self.icons.get(name, self.icons[SYNCING])  # fall back to syncing icon
-        self.setIcon(new_icon)
+        self.setIcon(self.icons[IDLE])
 
     # callbacks for user interaction
 
@@ -340,10 +332,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.mdbx.stop_sync()
             quit_and_restart_maestral()
         elif isinstance(exc, DropboxAuthError):
-            if isinstance(exc, TokenExpiredError):
-                reason = RelinkDialog.EXPIRED
-            else:
-                reason = RelinkDialog.REVOKED
+            reason = RelinkDialog.EXPIRED if isinstance(exc, TokenExpiredError) else RelinkDialog.REVOKED
             self.stop_and_exec_relink_dialog(reason)
         elif isinstance(exc, MaestralApiError):
             # don't show dialog on all other MaestralApiErrors, they are "normal" sync
@@ -355,7 +344,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.stop_and_exec_error_dialog(title, message, exc_info)
 
     def stop_and_exec_relink_dialog(self, reason):
-        self.setIconFromName(SYNC_ERROR)
+        self.setIcon(self.icons[SYNC_ERROR])
 
         if self.mdbx:
             self.mdbx.stop_sync()
@@ -370,7 +359,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         relink_dialog.exec_()  # this will perform quit actions as appropriate
 
     def stop_and_exec_error_dialog(self, title, message, exc_info=None):
-        self.setIconFromName(SYNC_ERROR)
+        self.setIcon(self.icons[SYNC_ERROR])
 
         if self.mdbx:
             self.mdbx.stop_sync()
@@ -409,8 +398,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.syncIssuesAction.setText("Show Sync Issues...")
 
         if n_errors > 0 and status != PAUSED:
-            status = SYNC_ERROR
-        self.setIconFromName(status)
+            new_icon = self.icons[SYNC_ERROR]
+        else:
+            new_icon = self.icons.get(status, self.icons[SYNCING])
+        self.setIcon(new_icon)
 
     @staticmethod
     def _enable_hidpi_pixmaps():
