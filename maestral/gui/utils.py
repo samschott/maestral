@@ -101,7 +101,7 @@ def windowTheme():
     w = QtWidgets.QWidget()
     bg_color = w.palette().color(QtGui.QPalette.Background)
     bg_color_rgb = [bg_color.red(), bg_color.green(), bg_color.blue()]
-    luminance = luminance(*bg_color_rgb)
+    luminance = rgb_to_luminance(*bg_color_rgb)
     return THEME_LIGHT if luminance >= 0.4 else THEME_DARK
 
 
