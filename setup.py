@@ -69,8 +69,6 @@ setup(
                     "gui/resources/*.svg",
                     "gui/resources/icon-theme-gnome/*.theme",
                     "gui/resources/icon-theme-gnome/*/*/*.svg",
-                    "gui/resources/icon-theme-kde/*.theme",
-                    "gui/resources/icon-theme-kde/*/*/*.svg",
                     "bin/*.sh",
                     ],
             },
