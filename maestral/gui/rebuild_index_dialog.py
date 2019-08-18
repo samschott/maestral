@@ -8,7 +8,6 @@ Created on Wed Oct 31 16:23:13 2018
 
 # system imports
 import time
-from threading import Thread
 import logging
 
 # external packages
@@ -16,7 +15,7 @@ from PyQt5 import QtCore, QtWidgets, uic
 
 # maestral modules
 from maestral.gui.resources import REBUILD_INDEX_DIALOG_PATH
-from maestral.gui.utils import get_scaled_font
+from maestral.gui.utils import MaestralBackgroundTask, get_scaled_font
 
 
 class InfoHandler(logging.Handler, QtCore.QObject):
@@ -43,25 +42,8 @@ info_handler.setLevel(logging.INFO)
 info_handler = InfoHandler()
 info_handler.setLevel(logging.INFO)
 
-mdbx_logger = logging.getLogger("maestral.monitor")
+mdbx_logger = logging.getLogger("maestral")
 mdbx_logger.addHandler(info_handler)
-
-
-class BaseThread(Thread):
-    def __init__(self, callback=None, callback_args=None, *args, **kwargs):
-        target = kwargs.pop("target")
-        super(BaseThread, self).__init__(target=self.target_with_callback, *args, **kwargs)
-        self.callback = callback
-        self.method = target
-        self.callback_args = callback_args
-
-    def target_with_callback(self):
-        self.method()
-        if self.callback is not None:
-            if self.callback_args is not None:
-                self.callback(*self.callback_args)
-            else:
-                self.callback()
 
 
 class RebuildIndexDialog(QtWidgets.QDialog):
@@ -127,12 +109,8 @@ class RebuildIndexDialog(QtWidgets.QDialog):
 
         self.statusLabel.setText("Indexing...")
 
-        self.rebuild_thread = BaseThread(
-                target=self.monitor.rebuild_rev_file,
-                callback=self.on_rebuild_done,
-                name="MaestralRebuildIndex"
-        )
-        self.rebuild_thread.start()
+        self.rebuild_task = MaestralBackgroundTask(self, self.monitor.rebuild_rev_file)
+        self.rebuild_task.sig_done.connect(self.on_rebuild_done)
 
     def on_rebuild_done(self):
 
@@ -150,9 +128,14 @@ class RebuildIndexDialog(QtWidgets.QDialog):
 
 
 def _filter_text(text):
-    s = text[12:-3]
-    s_list = s.split("/")
-    n = int(s_list[0])
-    n_tot = int(s_list[1])
+    f = list(filter(lambda x: x in '0123456789/', text))
+    f = ''.join(f)
+    s = f.split("/")
 
-    return n, n_tot
+    if len(s) > 1:
+        n = int(s[0])
+        n_tot = int(s[1])
+        return n, n_tot
+    else:
+        raise ValueError("Cannot get progress indication from given string.")
+

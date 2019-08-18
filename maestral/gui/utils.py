@@ -136,10 +136,57 @@ def __command_exists(command):
     )
 
 
+class MaestralWorker(QtCore.QObject):
+    """A worker object for Maestral. To be used in QThreads."""
+
+    sig_done = QtCore.pyqtSignal(object)
+
+    def __init__(self, target=None, args=None, kwargs=None):
+        QtCore.QObject.__init__(self)
+        self._target = target
+        self._args = args or ()
+        self._kwargs = kwargs or {}
+
+    def start(self):
+        res = self._target(*self._args, **self._kwargs)
+        self.sig_done.emit(res)
+
+
+class MaestralBackgroundTask(QtCore.QObject):
+    """A utility class to manage a worker thread."""
+
+    sig_done = QtCore.pyqtSignal(object)
+
+    def __init__(self, parent=None, target=None, args=None, kwargs=None, autostart=True):
+        QtCore.QObject.__init__(self, parent)
+        self._target = target
+        self._args = args or ()
+        self._kwargs = kwargs or {}
+
+        if autostart:
+            self.start()
+
+    def start(self):
+
+        self.thread = QtCore.QThread(self)
+        self.worker = MaestralWorker(
+            target=self._target, args=self._args, kwargs=self._kwargs)
+        self.worker.sig_done.connect(self.sig_done.emit)
+        self.worker.sig_done.connect(self.thread.quit)
+        self.worker.moveToThread(self.thread)
+        self.thread.started.connect(self.worker.start)
+        self.thread.start()
+
+    def wait(self, timeout=None):
+        if timeout:
+            self.thread.wait(msecs=timeout)
+        else:
+            self.thread.wait()
+
+
 class UserDialog(QtWidgets.QDialog):
-    """
-    A template user dialog for Maestral. Shows a traceback if given in constructor.
-    """
+    """A template user dialog for Maestral. Shows a traceback if given in constructor."""
+
     def __init__(self, title, message, exc_info=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         self.setModal(True)

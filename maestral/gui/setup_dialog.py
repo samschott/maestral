@@ -23,21 +23,7 @@ from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FolderItem
 from maestral.gui.resources import (APP_ICON_PATH, SETUP_DIALOG_PATH,
                                     get_native_item_icon, get_native_folder_icon)
-from maestral.gui.utils import UserDialog, icon_to_pixmap
-
-
-class AuthThread(QtCore.QThread):
-
-    result_sig = QtCore.pyqtSignal(object)
-
-    def __init__(self, auth_session, token, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
-        self.auth_session = auth_session
-        self.token = token
-
-    def run(self):
-        res = self.auth_session.verify_auth_token(self.token)
-        self.result_sig.emit(res)
+from maestral.gui.utils import UserDialog, icon_to_pixmap, MaestralBackgroundTask
 
 
 class SetupDialog(QtWidgets.QDialog):
@@ -178,10 +164,12 @@ class SetupDialog(QtWidgets.QDialog):
 
         token = self.lineEditAuthCode.text()
 
-        self.auth_thread = AuthThread(self.auth_session, token)
-        self.auth_thread.result_sig.connect(self.on_verify_token_finished)
-        self.auth_thread.finished.connect(self.auth_thread.deleteLater)
-        self.auth_thread.start()
+        self.auth_task = MaestralBackgroundTask(
+            parent=self,
+            target=self.auth_session.verify_auth_token,
+            args=(token,)
+        )
+        self.auth_task.sig_done.connect(self.on_verify_token_finished)
 
     def on_verify_token_finished(self, res):
 

@@ -16,16 +16,15 @@ from PyQt5.QtCore import Qt
 
 # maestral modules
 from maestral.oauth import OAuth2Session
-from maestral.gui.setup_dialog import AuthThread
 from maestral.gui.resources import RELINK_DIALOG_PATH, APP_ICON_PATH
 from maestral.gui.utils import get_scaled_font, icon_to_pixmap, QProgressIndicator
-from maestral.gui.utils import quit_and_restart_maestral
+from maestral.gui.utils import MaestralBackgroundTask, quit_and_restart_maestral
 
 logger = logging.getLogger(__name__)
 
 
 class RelinkDialog(QtWidgets.QDialog):
-    """A dialog to show when Maestral's Dropbox access has expried or has been revoked."""
+    """A dialog to show when Maestral's Dropbox access has expired or has been revoked."""
 
     auth_session = OAuth2Session()
 
@@ -118,10 +117,12 @@ class RelinkDialog(QtWidgets.QDialog):
 
         self.set_ui_linking()
 
-        self.auth_thread = AuthThread(self.auth_session, token)
-        self.auth_thread.result_sig.connect(self.on_verify_token_finished)
-        self.auth_thread.finished.connect(self.auth_thread.deleteLater)
-        self.auth_thread.start()
+        self.auth_task = MaestralBackgroundTask(
+            parent=self,
+            target=self.auth_session.verify_auth_token,
+            args=(token,)
+        )
+        self.auth_task.sig_done.connect(self.on_verify_token_finished)
 
     def on_verify_token_finished(self, res):
 

@@ -15,7 +15,7 @@ from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 # maestral modules
 from maestral.main import __version__, __author__, __url__
-from maestral.errors import CONNECTION_ERRORS, MaestralApiError
+from maestral.errors import CONNECTION_ERRORS
 from maestral.utils.autostart import AutoStart
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
@@ -24,7 +24,7 @@ from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
                                     SETTINGS_WINDOW_PATH, APP_ICON_PATH, FACEHOLDER_PATH)
 from maestral.gui.utils import (get_scaled_font, isDarkWindow, quit_and_restart_maestral,
                                 LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap,
-                                get_masked_image)
+                                get_masked_image, MaestralBackgroundTask)
 
 
 class UnlinkDialog(QtWidgets.QDialog):
@@ -44,23 +44,6 @@ class UnlinkDialog(QtWidgets.QDialog):
         icon = QtGui.QIcon(APP_ICON_PATH)
         pixmap = icon_to_pixmap(icon, self.iconLabel.width(), self.iconLabel.height())
         self.iconLabel.setPixmap(pixmap)
-
-
-class ProfilePicDownloadThread(QtCore.QThread):
-
-    pic_available = QtCore.pyqtSignal()
-
-    def __init__(self, mdbx):
-        QtCore.QObject.__init__(self)
-        self.mdbx = mdbx
-
-    def run(self):
-        try:
-            path = self.mdbx.get_profile_pic()
-            if path is not False:
-                self.pic_available.emit()
-        except MaestralApiError:
-            pass
 
 
 class SettingsWindow(QtWidgets.QWidget):
@@ -171,11 +154,8 @@ class SettingsWindow(QtWidgets.QWidget):
 
     def update_profile_pic(self):
 
-        # download new profile pic in background
-        self._profile_pic_thread = ProfilePicDownloadThread(self.mdbx)
-        self._profile_pic_thread.pic_available.connect(self.set_profile_pic_from_cache)
-        self._profile_pic_thread.start()
-        self._profile_pic_thread.finished.connect(self._profile_pic_thread.deleteLater)
+        self.download_task = MaestralBackgroundTask(self, self.mdbx.get_profile_pic)
+        self.download_task.sig_done.connect(self.set_profile_pic_from_cache)
 
     def on_combobox(self, idx):
         if idx == 2:
