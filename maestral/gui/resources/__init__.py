@@ -16,7 +16,8 @@ _root = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
 _icon_provider = QtWidgets.QFileIconProvider()
 
 APP_ICON_PATH = _root + "/Maestral.png"
-TRAY_ICON_PATH = _root + "/maestral-icon-{0}-{1}.svg"
+TRAY_ICON_PATH_SVG = _root + "/maestral-icon-{0}-{1}.svg"
+TRAY_ICON_PATH_PNG = _root + "/maestral-icon-{0}-{1}.png"
 
 FACEHOLDER_PATH = _root + "/faceholder.png"
 
@@ -84,11 +85,12 @@ def get_system_tray_icon(status, geometry=None):
         QtGui.QIcon.setThemeSearchPaths(icon_theme_paths)
         icon = QtGui.QIcon.fromTheme("menubar_icon_{}-symbolic".format(status))
     elif DESKTOP == "cocoa":
-        icon = QtGui.QIcon(TRAY_ICON_PATH.format(status, "dark"))
+        icon = QtGui.QIcon(TRAY_ICON_PATH_SVG.format(status, "dark"))
         icon.setIsMask(True)
     else:
+        # use PNG icons unless we know that the platform works with our SVGs
         icon_color = "light" if isDarkStatusBar(geometry) else "dark"
-        icon = QtGui.QIcon(TRAY_ICON_PATH.format(status, icon_color))
+        icon = QtGui.QIcon(TRAY_ICON_PATH_PNG.format(status, icon_color))
         icon.setIsMask(True)
 
     return icon
