@@ -13,7 +13,6 @@ import logging
 import platform
 import subprocess
 import webbrowser
-import urllib
 import shutil
 
 # external packages
@@ -146,6 +145,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def setup_ui_unlinked(self):
 
+        self.setToolTip("Not linked.")
+
         self.autostart = AutoStart()
 
         # ------------- populate context menu -------------------
@@ -184,6 +185,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         if not self.mdbx:
             return
+
+        self.setToolTip("Connecting...")
 
         # ----------------- create windows ----------------------
         self.settings = SettingsWindow(self.mdbx, parent=None)
@@ -406,7 +409,12 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             new_icon = self.icons.get(status, self.icons[SYNCING])
 
         self.setIcon(new_icon)
+        self.setToolTip(status)
 
+    def setToolTip(self, text):
+        if not platform.system() == "Darwin":
+            # tray icons in macOS should not have tooltips
+            QtWidgets.QSystemTrayIcon.setToolTip(self, text)
 
     def quit(self):
         """Quit Maestral"""
