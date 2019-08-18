@@ -221,6 +221,8 @@ class Maestral(object):
 
     @property
     def status(self):
+        """Returns a string with the last status message. This can be displayed as
+        information to the user but should not be relied on otherwise."""
         return ch.getLastRecord()
 
     @property
@@ -309,6 +311,16 @@ class Maestral(object):
                 kwargs={"callback": callback},
                 name="MaestralFolderDownloader")
         self.download_thread.start()
+
+    def rebuild_index(self):
+        """Rebuilds the Maestral index and resumes syncing afterwards if it has been
+        running."""
+
+        print("""Rebuilding the revision index. This process may
+        take several minutes, depending on the size of your Dropbox.
+        Any changes to local files during this process may be lost. """)
+
+        self.monitor.rebuild_rev_file()
 
     def start_sync(self, overload=None):
         """
@@ -512,12 +524,6 @@ class Maestral(object):
         # update config file and client
         self.sync.dropbox_path = path
 
-    def get_dropbox_directory(self):
-        """
-        Returns the path to the local Dropbox directory.
-        """
-        return self.sync.dropbox_path
-
     @staticmethod
     def _ask_for_path(default=osp.join("~", CONF.get("main", "default_dir_name"))):
         """
@@ -602,7 +608,3 @@ def yesno(message, default):
             import pdb
             pdb.set_trace()
         print("Please answer YES or NO.")
-
-
-if __name__ == "__main__":
-    mdbx = Maestral()

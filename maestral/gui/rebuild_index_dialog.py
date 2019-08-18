@@ -49,12 +49,12 @@ mdbx_logger.addHandler(info_handler)
 class RebuildIndexDialog(QtWidgets.QDialog):
     """A dialog to rebuild Maestral's sync index."""
 
-    def __init__(self, monitor, parent=None):
+    def __init__(self, mdbx, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         uic.loadUi(REBUILD_INDEX_DIALOG_PATH, self)
         self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
 
-        self.monitor = monitor
+        self.mdbx = mdbx
 
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
@@ -109,7 +109,7 @@ class RebuildIndexDialog(QtWidgets.QDialog):
 
         self.statusLabel.setText("Indexing...")
 
-        self.rebuild_task = MaestralBackgroundTask(self, self.monitor.rebuild_rev_file)
+        self.rebuild_task = MaestralBackgroundTask(self, self.mdbx.rebuild_index)
         self.rebuild_task.sig_done.connect(self.on_rebuild_done)
 
     def on_rebuild_done(self):
@@ -123,8 +123,6 @@ class RebuildIndexDialog(QtWidgets.QDialog):
         self.rebuildButton.setEnabled(True)
 
         self.update()
-
-        self.monitor.start()
 
 
 def _filter_text(text):

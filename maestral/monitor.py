@@ -1598,7 +1598,7 @@ class MaestralMonitor(object):
 
         logger.info("Syncing stopped")
 
-    def rebuild_rev_file(self, restart=True):
+    def rebuild_rev_file(self):
         """
         Rebuilds the rev file by comparing local with remote files and updating rev
         numbers from the Dropbox server. Files are compared by their content hashes and
@@ -1606,18 +1606,14 @@ class MaestralMonitor(object):
         a file is modified during this process before it has been re-indexed,
         any changes to will be flagged as sync conflicts. If a file is deleted before
         it has been re-indexed, the deletion will be reversed.
-
-        :param bool restart: If ``True``, syncing will be restarted after rebuilding the
-            index has completed. Defaults to ``True``.
         """
 
         logger.info("Rebuilding index...")
 
-        print("""Rebuilding the revision index. This process may
-take several minutes, depending on the size of your Dropbox.
-Any changes to local files during this process may be lost. """)
+        was_running = self.running.is_set()
+        was_paused = not self.syncing.is_set()
 
-        self.stop(blocking=True)  # stop all sync threads
+        self.stop(blocking=True)  # stop all sync threads and wait for them to return
         try:
             os.unlink(self.sync.rev_file_path)  # delete rev file
         except OSError:
@@ -1642,8 +1638,10 @@ Any changes to local files during this process may be lost. """)
         # while rebuilding, including conflicting copies. Files that were
         # deleted before re-indexing will be downloaded again. If restart==False,
         # this should be done manually.
-        if restart:
+        if was_running:
             self.start()
+        if was_paused:
+            self.pause()
 
     def upload_local_changes_after_inactive(self):
         """
