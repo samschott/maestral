@@ -58,6 +58,7 @@ class RebuildIndexDialog(QtWidgets.QDialog):
 
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
+        self.statusLabel.setFont(get_scaled_font(scaling=0.9))
 
         self.cancelButton = self.buttonBox.buttons()[1]
         self.rebuildButton = self.buttonBox.buttons()[0]
