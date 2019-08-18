@@ -85,7 +85,7 @@ setup(
     ],
     zip_safe=False,
     entry_points={
-      "console_scripts": ["maestral=maestral.console_script:main"],
+      "console_scripts": ["maestral=maestral.cli:main"],
     },
     python_requires='>=3.6',
     classifiers=[
