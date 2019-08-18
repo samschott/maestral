@@ -919,7 +919,7 @@ class UpDownSync(object):
     def get_remote_dropbox(self, dbx_path="", ignore_excluded=True):
         """
         Gets all files/folders from Dropbox and writes them to the local folder
-        :ivar:`dropbox_path`. Call this method on first run of the client. Indexing
+        :ivar:`dropbox_path`. Call this method on first run of the Maestral. Indexing
         and downloading may take several minutes, depending on the size of the user's
         Dropbox folder.
 
@@ -933,9 +933,10 @@ class UpDownSync(object):
         success = []
 
         if not any(folder.startswith(dbx_path) for folder in self.excluded_folders):
-            # if there are no excluded subfolders of dbx_path, index and download all
-            # at once
+            # if there are no excluded subfolders, index and download all at once
             ignore_excluded = False
+
+        cursor = self.client.get_latest_cursor(dbx_path)  # get a global cursor
 
         logger.info("Indexing...")
         root_result = self.client.list_folder(dbx_path, recursive=(not ignore_excluded),
@@ -953,7 +954,7 @@ class UpDownSync(object):
                     success.append(self.get_remote_dropbox(entry.path_display))
 
         if all(success) and is_dbx_root:
-            self.last_cursor = root_result.cursor
+            self.last_cursor = cursor
 
         logger.info("Up to date")
 
@@ -993,7 +994,8 @@ class UpDownSync(object):
         :param changes: :class:`dropbox.files.ListFolderResult` instance
             or ``False`` if requests failed.
         :param bool save_cursor: If True, :ivar:`last_cursor` will be updated
-            from the last applied changes.
+            from the last applied changes. Take care to only save a "global" and
+            "recursive" cursor which represents the state of the entire Dropbox
         :return: ``True`` on success, ``False`` otherwise.
         :rtype: bool
         """
@@ -1600,7 +1602,7 @@ class MaestralMonitor(object):
 
     def rebuild_rev_file(self):
         """
-        Rebuilds the rev file by comparing local with remote files and updating rev
+        Rebuilds the rev file by comparing remote with local files and updating rev
         numbers from the Dropbox server. Files are compared by their content hashes and
         reindexing may take several minutes, depending on the size of your Dropbox. If
         a file is modified during this process before it has been re-indexed,
