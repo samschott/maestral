@@ -33,7 +33,7 @@ from maestral.gui.resources import get_system_tray_icon
 from maestral.gui.utils import (elide_string, UserDialog, quit_and_restart_maestral,
                                 get_gnome_scaling_factor)
 
-from maestral.utils.autostart import AutoStart
+from maestral.gui.autostart import AutoStart
 from maestral.config.main import CONF
 
 
