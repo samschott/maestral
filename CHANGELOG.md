@@ -89,6 +89,13 @@ The detailed list of changes is:
   stored in the client source code. Maestral will therefore no longer require the user to
   get their own API keys or to use the precompiled oauth binaries hosted on PyPI.
 - Improved the user massages given by command line scripts.
+- Improved status messages given in RebuildIndexDialog.
+- Unified and improved the creation of QThreads by the GUI to perform background tasks.
+  This fixes an issue with occasional segfaults RebuildIndexDialog and improves the
+  reliability of the UI.
+- Started to work on providing a top-level API in `Maestral` for all functionality that is
+  required by the UI. There should be no need to interact with `Monitor` or `UpDownSync`
+  directly for high-level functionality.
 
 #### Fixed:
 
