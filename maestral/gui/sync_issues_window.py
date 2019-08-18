@@ -20,7 +20,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets, uic
 # maestral modules
 from maestral.gui.resources import (SYNC_ISSUES_WINDOW_PATH, SYNC_ISSUE_WIDGET_PATH,
                                     get_native_item_icon)
-from maestral.gui.utils import (truncate_string, icon_to_pixmap, get_scaled_font,
+from maestral.gui.utils import (elide_string, icon_to_pixmap, get_scaled_font,
                                 isDarkWindow, LINE_COLOR_DARK, LINE_COLOR_LIGHT)
 
 HAS_GTK_LAUNCH = shutil.which("gtk-launch") is not None
@@ -64,8 +64,8 @@ class SyncIssueWidget(QtWidgets.QWidget):
 
     def to_display_path(self, local_path):
 
-        return truncate_string(os.path.basename(local_path), font=self.pathLabel.font(),
-                               pixels=300, side="left")
+        return elide_string(os.path.basename(local_path), font=self.pathLabel.font(),
+                            pixels=300, side="left")
 
     @staticmethod
     def open_destination(local_path, reveal=True):

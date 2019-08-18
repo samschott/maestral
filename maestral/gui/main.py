@@ -31,7 +31,7 @@ from maestral.gui.relink_dialog import RelinkDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import get_system_tray_icon
-from maestral.gui.utils import (truncate_string, UserDialog, quit_and_restart_maestral,
+from maestral.gui.utils import (elide_string, UserDialog, quit_and_restart_maestral,
                                 get_gnome_scaling_factor)
 
 from maestral.utils.autostart import AutoStart
@@ -226,7 +226,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         # --------- connect callbacks for menu items ------------
         self.openDropboxFolderAction.triggered.connect(
-            lambda: self.open_destination(self.mdbx.sync.dropbox_path))
+            lambda: self.open_destination(self.mdbx.dropbox_path))
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.pauseAction.triggered.connect(self.on_start_stop_clicked)
         self.preferencesAction.triggered.connect(self.settings.show)
@@ -389,8 +389,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         for dbx_path in reversed(CONF.get("internal", "recent_changes")):
             file_name = os.path.basename(dbx_path)
             local_path = self.mdbx.sync.to_local_path(dbx_path)
-            truncated_name = truncate_string(file_name, font=self.menu.font(),
-                                             side="right")
+            truncated_name = elide_string(file_name, font=self.menu.font(),
+                                          side="right")
             a = self.recentFilesMenu.addAction(truncated_name)
             a.triggered.connect(lambda: self.open_destination(local_path, reveal=True))
 

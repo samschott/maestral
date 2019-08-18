@@ -29,7 +29,7 @@ LINE_COLOR_DARK = (95, 104, 104)
 LINE_COLOR_LIGHT = (205, 203, 205)
 
 
-def truncate_string(string, font=None, pixels=200, side="right"):
+def elide_string(string, font=None, pixels=200, side="right"):
     """
     Elide a string to fit into the given width.
 
