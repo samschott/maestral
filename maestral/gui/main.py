@@ -186,7 +186,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         if not self.mdbx:
             return
 
-        self.setToolTip("Connecting...")
+        self.setToolTip(IDLE)
 
         # ----------------- create windows ----------------------
         self.settings = SettingsWindow(self.mdbx, parent=None)
