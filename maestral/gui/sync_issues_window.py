@@ -130,12 +130,12 @@ class SyncIssueWindow(QtWidgets.QWidget):
     A widget to graphically display all Maestral sync issues.
     """
 
-    def __init__(self, sync_issues_queue, parent=None):
+    def __init__(self, mdbx, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         uic.loadUi(SYNC_ISSUES_WINDOW_PATH, self)
         self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
 
-        self.sync_issues_queue = sync_issues_queue
+        self.mdbx = mdbx
 
         self.reload()
 
@@ -143,17 +143,15 @@ class SyncIssueWindow(QtWidgets.QWidget):
 
         self.clear()
 
-        sync_issues_list = list(self.sync_issues_queue.queue)
+        sync_errors_list = self.mdbx.sync_errors  # get a new copy
 
-        if len(sync_issues_list) == 0:
+        if len(sync_errors_list) == 0:
             no_issues_label = QtWidgets.QLabel("No sync issues :)")
             self.verticalLayout.addWidget(no_issues_label)
             self.sync_issue_widgets.append(no_issues_label)
 
-        for issue in sync_issues_list:
+        for issue in sync_errors_list:
             self.addIssue(issue)
-
-        # self.verticalLayout.insertStretch(-1)
 
     def addIssue(self, sync_issue):
 

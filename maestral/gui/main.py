@@ -170,7 +170,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         # ------------- connect callbacks for menu items -------------------
         self.openDropboxFolderAction.triggered.connect(
-            lambda: self.open_destination(self.mdbx.sync.dropbox_path))
+            lambda: self.open_destination(self.mdbx.dropbox_path))
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.loginAction.setChecked(self.autostart.enabled)
         self.helpAction.triggered.connect(self.on_help_clicked)
@@ -185,7 +185,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         # ----------------- create windows ----------------------
         self.settings = SettingsWindow(self.mdbx, parent=None)
-        self.sync_issues_window = SyncIssueWindow(self.mdbx.monitor.sync.sync_errors)
+        self.sync_issues_window = SyncIssueWindow(self.mdbx)
 
         # ------------- populate context menu -------------------
         self.openDropboxFolderAction = self.menu.addAction("Open Dropbox Folder")
@@ -396,7 +396,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def on_info_signal(self, status):
         """Change icon according to status."""
-        n_errors = self.mdbx.monitor.sync.sync_errors.qsize()
+        n_errors = len(self.mdbx.sync_errors)
         if n_errors > 0:
             self.syncIssuesAction.setText("Show Sync Issues ({0})...".format(n_errors))
         else:

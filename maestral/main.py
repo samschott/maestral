@@ -233,8 +233,15 @@ class Maestral(object):
         self.sync.notify.enabled = boolean
 
     @property
+    def dropbox_path(self):
+        """Returns the path to the local Dropbox directory. Read only. Use
+        :meth:`create_dropbox_directory` or :meth:`move_dropbox_directory` to set or
+        change the Dropbox directory location instead. """
+        return self.sync.dropbox_path
+
+    @property
     def sync_errors(self):
-        """List of sync errors."""
+        """Returns list containing the current sync errors."""
         return list(self.sync.sync_errors.queue)
 
     @property
