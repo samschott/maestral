@@ -11,7 +11,11 @@ configure and interact with Maestral.
 We aim to import most packages locally where they are required in order to reduce the
 startup time of scripts.
 """
+
+# system imports
 import os
+
+# external packages
 import click
 import Pyro4
 import Pyro4.naming
@@ -68,12 +72,18 @@ def delete_pid(config_name):
 
 
 def start_maestral_daemon(config_name):
-    """Starts Maestral as a daemon.
+    """
+
+    Wraps :class:`maestral.main.Maestral` as Pyro daemon object, creates a new instance
+    and start Pyro's event loop to listen for requests on 'localhost'. This call will
+    block until the event loop shuts down.
 
     This command will create a new daemon on each run. Take care not to sync the same
     directory with multiple instances of Meastral! You can use `get_maestral_process_info`
     to check if either a Meastral gui or daemon is already running for the given
     `config_name`.
+
+    :param str config_name: The name of maestral configuration to use.
     """
 
     os.environ["MAESTRAL_CONFIG"] = config_name
@@ -86,7 +96,7 @@ def start_maestral_daemon(config_name):
 
     try:
         # we wrap this in a try-except block to make sure that the PID file is always
-        # removed, even when Maestral crashes
+        # removed, even when Maestral crashes for some reason
 
         ExposedMaestral = Pyro4.expose(Maestral)
         m = ExposedMaestral()
@@ -98,8 +108,7 @@ def start_maestral_daemon(config_name):
         import traceback
         traceback.print_exc()
     finally:
-        # remove PID file
-        delete_pid(config_name)  # write PID to file
+        delete_pid(config_name)  # remove PID file
 
 
 def start_daemon_subprocess(config_name):
@@ -109,6 +118,9 @@ def start_daemon_subprocess(config_name):
     directory with multiple instances of Meastral! You can use `get_maestral_process_info`
     to check if either a Meastral gui or daemon is already running for the given
     `config_name`.
+
+    :param str config_name: The name of maestral configuration to use.
+    :returns: Popen object instance.
     """
     import subprocess
     from maestral.main import Maestral
@@ -121,16 +133,18 @@ def start_daemon_subprocess(config_name):
 
     click.echo("Starting Maestral...", nl=False)
 
-    s = subprocess.Popen("maestral sync -c {}".format(config_name),
-                         shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL)
+    proc = subprocess.Popen("maestral sync -c {}".format(config_name),
+                            shell=True, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    # check it the subprocess is still running after 1 sec
+    # check if the subprocess is still running after 1 sec
     try:
-        s.wait(timeout=1)
+        proc.wait(timeout=1)
         click.echo("\rStarting Maestral...        " + FAILED)
     except subprocess.TimeoutExpired:
         click.echo("\rStarting Maestral...        " + OK)
+
+    return proc
 
 
 def stop_maestral_daemon(config_name="maestral"):

@@ -5,11 +5,15 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+# system imports
 import os.path as osp
 import time
 from distutils.version import LooseVersion
+
+# external packages
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
+# maestral modules
 from maestral.main import __version__, __author__, __url__
 from maestral.errors import CONNECTION_ERRORS, MaestralApiError
 from maestral.utils.autostart import AutoStart

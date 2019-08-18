@@ -5,19 +5,20 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+# system imports
 import os
 import os.path as osp
 import shutil
 import logging
 import time
-import threading
-from threading import Thread, Event
+from threading import Thread, Event, RLock
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import queue
 from collections import OrderedDict
 import functools
 
+# external packages
 import umsgpack
 from blinker import signal
 import dropbox
@@ -31,6 +32,7 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              DirDeletedEvent, FileDeletedEvent)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 
+# maestral modules
 from maestral.config.main import CONF
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import Notipy
@@ -218,9 +220,9 @@ class UpDownSync(object):
     _dropbox_path = CONF.get("main", "path")
 
     notify = Notipy()
-    lock = threading.RLock()
+    lock = RLock()
 
-    _rev_lock = threading.RLock()
+    _rev_lock = RLock()
 
     failed_uploads = queue.Queue()
     failed_downloads = queue.Queue()

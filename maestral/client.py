@@ -5,14 +5,18 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+
+# system imports
 import os
 import os.path as osp
 import time
 import datetime
 import logging
 
+# external packages
 import dropbox
 
+# maestral modules
 from maestral.oauth import OAuth2Session
 from maestral.config.main import CONF
 from maestral.errors import to_maestral_error, construct_local_error

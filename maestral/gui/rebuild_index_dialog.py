@@ -5,11 +5,16 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+
+# system imports
 import time
 from threading import Thread
 import logging
+
+# external packages
 from PyQt5 import QtCore, QtWidgets, uic
 
+# maestral modules
 from maestral.gui.resources import REBUILD_INDEX_DIALOG_PATH
 from maestral.gui.utils import get_scaled_font
 

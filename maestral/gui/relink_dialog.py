@@ -1,8 +1,20 @@
+# !/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Oct 31 16:23:13 2018
+
+@author: samschott
+"""
+
+# system imports
 import sys
 import logging
+
+# external packages
 from PyQt5 import QtCore, QtWidgets, QtGui, uic
 from PyQt5.QtCore import Qt
 
+# maestral modules
 from maestral.oauth import OAuth2Session
 from maestral.gui.setup_dialog import AuthThread
 from maestral.gui.resources import RELINK_DIALOG_PATH, APP_ICON_PATH

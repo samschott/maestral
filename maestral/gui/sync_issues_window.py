@@ -5,14 +5,19 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+
+# system imports
 import os
 import platform
 import subprocess
 import webbrowser
 import urllib
 import shutil
+
+# external packages
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 
+# maestral modules
 from maestral.gui.resources import (SYNC_ISSUES_WINDOW_PATH, SYNC_ISSUE_WIDGET_PATH,
                                     get_native_item_icon)
 from maestral.gui.utils import (truncate_string, icon_to_pixmap, get_scaled_font,

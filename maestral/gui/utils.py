@@ -5,15 +5,20 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+
+# system imports
 import sys
 import os
 import platform
 from subprocess import Popen
 from traceback import format_exception
+
+# external packages
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, QRect
 from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap, QWindow
 
+# maestral modules
 from maestral.gui.resources import APP_ICON_PATH, rgb_to_luminance
 from maestral.utils import is_macos_bundle
 

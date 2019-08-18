@@ -10,17 +10,22 @@ __version__ = "0.3.2-dev"
 __author__ = "Sam Schott"
 __url__ = "https://github.com/SamSchott/maestral"
 
+# system imports
 import sys
 import os
 import os.path as osp
-import time
 import shutil
+import time
 import functools
-from blinker import signal
 from threading import Thread
-import requests
-from dropbox import files
+import logging.handlers
 
+# external packages
+from dropbox import files
+from blinker import signal
+import requests
+
+# maestral modules
 from maestral.client import MaestralApiClient
 from maestral.oauth import OAuth2Session
 from maestral.errors import CONNECTION_ERRORS, DropboxAuthError, CONNECTION_ERROR_MSG
@@ -30,7 +35,6 @@ from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.utils.app_dirs import get_log_path, get_cache_path
 
-import logging.handlers
 
 config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
 

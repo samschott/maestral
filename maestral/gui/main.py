@@ -5,6 +5,8 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+
+# system imports
 import sys
 import os
 import logging
@@ -13,9 +15,12 @@ import subprocess
 import webbrowser
 import urllib
 import shutil
+
+# external packages
 from blinker import signal
 from PyQt5 import QtCore, QtWidgets
 
+# maestral modules
 from maestral.main import Maestral
 from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
 from maestral.errors import (DropboxAuthError, TokenExpiredError, CursorResetError,

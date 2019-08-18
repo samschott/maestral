@@ -5,13 +5,17 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+
+# system imports
 import os
 import os.path as osp
 import shutil
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
+# external packages
 from dropbox import files
 
+# maestral modules
 from maestral.main import Maestral
 from maestral.oauth import OAuth2Session
 from maestral.config.main import CONF
