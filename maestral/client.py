@@ -369,6 +369,30 @@ class MaestralApiClient(object):
 
         return md
 
+    def get_latest_cursor(self, dbx_path, include_non_downloadable_files=False, **kwargs):
+        """
+        Gets the latest cursor for the given folder and subfolders.
+
+        :param str dbx_path: Path of folder on Dropbox.
+        :param bool include_non_downloadable_files: If ``True``, files that cannot be
+            downloaded (at the moment only G-suite files on Dropbox) will be included.
+            Defaults to ``False``.
+        :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
+        :returns: The latest cursor representing a state of a folder and its subfolders.
+        :rtype: str
+        :raises: :class:`MaestralApiError`
+        """
+
+        try:
+            res = self.dbx.files_list_folder_get_latest_cursor(
+                dbx_path, include_non_downloadable_files=include_non_downloadable_files,
+                recursive=True,
+                **kwargs)
+        except dropbox.exceptions.DropboxException as exc:
+            raise to_maestral_error(exc, dbx_path)
+
+        return res.cursor
+
     def list_folder(self, dbx_path, retry=3, include_non_downloadable_files=False,
                     **kwargs):
         """
