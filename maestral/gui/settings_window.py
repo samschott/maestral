@@ -77,8 +77,6 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelAccountInfo.setFont(get_scaled_font(0.85))
         self.labelSpaceUsage.setFont(get_scaled_font(0.85))
 
-        self.profile_pic_height = round(self.labelUserProfilePic.height() * 0.7)
-
         # populate account name
         account_display_name = CONF.get("account", "display_name")
         # if the display name is longer than 230 pixels, reduce font-size
@@ -88,8 +86,8 @@ class SettingsWindow(QtWidgets.QWidget):
         else:
             account_display_name_length = QtGui.QFontMetrics(
                 self.labelAccountName.font()).width(account_display_name)
-        if account_display_name_length > 220:
-            font = get_scaled_font(scaling=1.5*230/account_display_name_length)
+        if account_display_name_length > 240:
+            font = get_scaled_font(scaling=1.5*240/account_display_name_length)
             self.labelAccountName.setFont(font)
         self.labelAccountName.setText(CONF.get("account", "display_name"))
 
@@ -102,9 +100,12 @@ class SettingsWindow(QtWidgets.QWidget):
             acc_type_text = ""
         self.labelAccountInfo.setText(acc_mail + acc_type_text)
         self.labelSpaceUsage.setText(CONF.get("account", "usage"))
-        self.set_profile_pic_from_cache()
         self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
         self.unlink_dialog.accepted.connect(self.on_unlink)
+
+        self.profile_pic_height = round(self.labelUserProfilePic.height() * 0.7)
+        self.set_profile_pic_from_cache()
+        self.update_profile_pic()
 
         # populate sync section
         self.setup_combobox()
