@@ -28,7 +28,8 @@ import requests
 # maestral modules
 from maestral.client import MaestralApiClient
 from maestral.oauth import OAuth2Session
-from maestral.errors import CONNECTION_ERRORS, DropboxAuthError, CONNECTION_ERROR_MSG
+from maestral.errors import (MaestralApiError, CONNECTION_ERRORS, DropboxAuthError,
+                             CONNECTION_ERROR_MSG)
 from maestral.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
                               path_exists_case_insensitive)
 from maestral.config.main import CONF
@@ -262,19 +263,20 @@ class Maestral(object):
         :returns: Path to saved profile picture or None if no profile picture is set.
         """
 
-        res = self.client.get_account_info()
-        if res.profile_photo_url:
-            try:
+        try:
+            res = self.client.get_account_info()
+        except MaestralApiError:
+            pass
+        else:
+            if res.profile_photo_url:
                 # download current profile pic
                 r = requests.get(res.profile_photo_url)
                 with open(self.account_profile_pic_path, "wb") as f:
                     f.write(r.content)
                 return self.account_profile_pic_path
-            except Exception:
-                pass
-        else:
-            # delete current profile pic
-            self._delete_old_profile_pics()
+            else:
+                # delete current profile pic
+                self._delete_old_profile_pics()
 
     @staticmethod
     def _delete_old_profile_pics():
