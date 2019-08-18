@@ -5,14 +5,18 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+# system imports
 import os.path as osp
 import time
 from distutils.version import LooseVersion
+
+# external packages
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
+# maestral modules
 from maestral.main import __version__, __author__, __url__
 from maestral.errors import CONNECTION_ERRORS
-from maestral.utils.autostart import AutoStart
+from maestral.gui.autostart import AutoStart
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog
@@ -20,7 +24,7 @@ from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
                                     SETTINGS_WINDOW_PATH, APP_ICON_PATH, FACEHOLDER_PATH)
 from maestral.gui.utils import (get_scaled_font, isDarkWindow, quit_and_restart_maestral,
                                 LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap,
-                                get_masked_image)
+                                get_masked_image, MaestralBackgroundTask)
 
 
 class UnlinkDialog(QtWidgets.QDialog):
@@ -43,6 +47,7 @@ class UnlinkDialog(QtWidgets.QDialog):
 
 
 class SettingsWindow(QtWidgets.QWidget):
+    """A widget showing all of Maestral's settings."""
 
     def __init__(self, mdbx, parent=None):
         super(self.__class__, self).__init__(parent=parent)
@@ -68,8 +73,8 @@ class SettingsWindow(QtWidgets.QWidget):
         else:
             account_display_name_length = QtGui.QFontMetrics(
                 self.labelAccountName.font()).width(account_display_name)
-        if account_display_name_length > 220:
-            font = get_scaled_font(scaling=1.5*230/account_display_name_length)
+        if account_display_name_length > 240:
+            font = get_scaled_font(scaling=1.5*240/account_display_name_length)
             self.labelAccountName.setFont(font)
         self.labelAccountName.setText(CONF.get("account", "display_name"))
 
@@ -82,9 +87,12 @@ class SettingsWindow(QtWidgets.QWidget):
             acc_type_text = ""
         self.labelAccountInfo.setText(acc_mail + acc_type_text)
         self.labelSpaceUsage.setText(CONF.get("account", "usage"))
-        self.set_profile_pic()
         self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
         self.unlink_dialog.accepted.connect(self.on_unlink)
+
+        self.profile_pic_height = round(self.labelUserProfilePic.height() * 0.7)
+        self.set_profile_pic_from_cache()
+        self.update_profile_pic()
 
         # populate sync section
         self.setup_combobox()
@@ -103,6 +111,11 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelVersion.setText(self.labelVersion.text().format(__version__))
         self.labelUrl.setText(self.labelUrl.text().format(__url__))
         self.labelCopyright.setText(self.labelCopyright.text().format(year, __author__))
+
+        # update profile pic and account info periodically
+        self.update_timer = QtCore.QTimer()
+        self.update_timer.timeout.connect(self.update_profile_pic)
+        self.update_timer.start(1000*60*20)  # every 20 min
 
     def setup_combobox(self):
 
@@ -127,24 +140,22 @@ class SettingsWindow(QtWidgets.QWidget):
         self.dropbox_folder_dialog.rejected.connect(
                 lambda: self.comboBoxDropboxPath.setCurrentIndex(0))
 
-    def set_profile_pic(self):
+    def set_profile_pic_from_cache(self):
 
-        try:
-            self.mdbx.get_profile_pic()
-        except Exception:
-            # never raise since `set_profile_pic` is called during __init__
-            pass
-
-        height = round(self.labelUserProfilePic.height()*0.7)
+        height = self.profile_pic_height
 
         try:
             pixmap = get_masked_image(self.mdbx.account_profile_pic_path, size=height)
-        except Exception:
+        except OSError:
             initials = CONF.get("account", "abbreviated_name")
             pixmap = get_masked_image(FACEHOLDER_PATH, size=height, overlay_text=initials)
 
         self.labelUserProfilePic.setPixmap(pixmap)
-        self.labelUserProfilePic.setAlignment(QtCore.Qt.AlignTop)
+
+    def update_profile_pic(self):
+
+        self.download_task = MaestralBackgroundTask(self, self.mdbx.get_profile_pic)
+        self.download_task.sig_done.connect(self.set_profile_pic_from_cache)
 
     def on_combobox(self, idx):
         if idx == 2:

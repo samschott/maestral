@@ -1,11 +1,22 @@
+# !/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Oct 31 16:23:13 2018
+
+@author: samschott
+"""
+
+# system imports
 import os
 import base64
 import logging
 
+# external packages
 import dropbox
-from dropbox.oauth import OAuth2FlowNoRedirectResult
-from dropbox.oauth import (WEB_HOST, API_HOST, pinned_session, url_path_quote,
-                           _params_to_urlencoded)
+from dropbox.oauth import (OAuth2FlowNoRedirectResult, WEB_HOST, API_HOST,
+                           pinned_session, url_path_quote, _params_to_urlencoded)
+
+# maestral modules
 from maestral.errors import to_maestral_error
 
 logger = logging.getLogger(__name__)

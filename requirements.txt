@@ -1,8 +1,9 @@
-click
+click>=7.0
 dropbox>=9.4.0
 watchdog
 blinker
 requests
 u-msgpack-python
-keyring
-keyrings.alt
+keyring>=19.0.0
+keyrings.alt>=3.0.0
+Pyro4

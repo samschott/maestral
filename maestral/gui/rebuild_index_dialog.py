@@ -5,13 +5,17 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+
+# system imports
 import time
-from threading import Thread
 import logging
+
+# external packages
 from PyQt5 import QtCore, QtWidgets, uic
 
+# maestral modules
 from maestral.gui.resources import REBUILD_INDEX_DIALOG_PATH
-from maestral.gui.utils import get_scaled_font
+from maestral.gui.utils import MaestralBackgroundTask, get_scaled_font
 
 
 class InfoHandler(logging.Handler, QtCore.QObject):
@@ -38,38 +42,23 @@ info_handler.setLevel(logging.INFO)
 info_handler = InfoHandler()
 info_handler.setLevel(logging.INFO)
 
-mdbx_logger = logging.getLogger("maestral.monitor")
+mdbx_logger = logging.getLogger("maestral")
 mdbx_logger.addHandler(info_handler)
 
 
-class BaseThread(Thread):
-    def __init__(self, callback=None, callback_args=None, *args, **kwargs):
-        target = kwargs.pop("target")
-        super(BaseThread, self).__init__(target=self.target_with_callback, *args, **kwargs)
-        self.callback = callback
-        self.method = target
-        self.callback_args = callback_args
-
-    def target_with_callback(self):
-        self.method()
-        if self.callback is not None:
-            if self.callback_args is not None:
-                self.callback(*self.callback_args)
-            else:
-                self.callback()
-
-
 class RebuildIndexDialog(QtWidgets.QDialog):
+    """A dialog to rebuild Maestral's sync index."""
 
-    def __init__(self, monitor, parent=None):
+    def __init__(self, mdbx, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         uic.loadUi(REBUILD_INDEX_DIALOG_PATH, self)
         self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
 
-        self.monitor = monitor
+        self.mdbx = mdbx
 
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
+        self.statusLabel.setFont(get_scaled_font(scaling=0.9))
 
         self.cancelButton = self.buttonBox.buttons()[1]
         self.rebuildButton = self.buttonBox.buttons()[0]
@@ -121,12 +110,8 @@ class RebuildIndexDialog(QtWidgets.QDialog):
 
         self.statusLabel.setText("Indexing...")
 
-        self.rebuild_thread = BaseThread(
-                target=self.monitor.rebuild_rev_file,
-                callback=self.on_rebuild_done,
-                name="MaestralRebuildIndex"
-        )
-        self.rebuild_thread.start()
+        self.rebuild_task = MaestralBackgroundTask(self, self.mdbx.rebuild_index)
+        self.rebuild_task.sig_done.connect(self.on_rebuild_done)
 
     def on_rebuild_done(self):
 
@@ -140,13 +125,16 @@ class RebuildIndexDialog(QtWidgets.QDialog):
 
         self.update()
 
-        self.monitor.start()
-
 
 def _filter_text(text):
-    s = text[12:-3]
-    s_list = s.split("/")
-    n = int(s_list[0])
-    n_tot = int(s_list[1])
+    f = list(filter(lambda x: x in '0123456789/', text))
+    f = ''.join(f)
+    s = f.split("/")
 
-    return n, n_tot
+    if len(s) > 1:
+        n = int(s[0])
+        n_tot = int(s[1])
+        return n, n_tot
+    else:
+        raise ValueError("Cannot get progress indication from given string.")
+

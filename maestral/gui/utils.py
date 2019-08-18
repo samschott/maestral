@@ -5,16 +5,21 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+
+# system imports
 import sys
 import os
 import platform
 from subprocess import Popen
 from traceback import format_exception
+
+# external packages
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, QRect
 from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap, QWindow
 
-from maestral.gui.resources import APP_ICON_PATH
+# maestral modules
+from maestral.gui.resources import APP_ICON_PATH, rgb_to_luminance
 from maestral.utils import is_macos_bundle
 
 THEME_DARK = "dark"
@@ -24,12 +29,12 @@ LINE_COLOR_DARK = (95, 104, 104)
 LINE_COLOR_LIGHT = (205, 203, 205)
 
 
-def truncate_string(string, font=None, pixels=200, side="right"):
+def elide_string(string, font=None, pixels=200, side="right"):
     """
     Elide a string to fit into the given width.
 
     :param str string: String to elide.
-    :param font: Font to calculate size. If not given, the current styles default font
+    :param font: Font to calculate size. If not given, the current style's default font
         for a QLabel is used.
     :param int pixels: Maximum width in pixels.
     :param str side: Side to truncate. Can be "right" or "left", defaults to "right".
@@ -66,15 +71,6 @@ def get_scaled_font(scaling=1.0, bold=False, italic=False):
     return font
 
 
-def _luminance(r, g, b, base=256):
-    """
-    Calculates luminance of a color, on a scale from 0 to 1, meaning that 1 is the
-    highest luminance. r, g, b arguments values should be in 0..256 limits, or base
-    argument should define the upper limit otherwise.
-    """
-    return (0.2126*r + 0.7152*g + 0.0722*b)/base
-
-
 def icon_to_pixmap(icon, width, height=None):
     """
     Converts a given icon to a pixmap. Automatically adjusts to high-DPI scaling.
@@ -100,29 +96,6 @@ def icon_to_pixmap(icon, width, height=None):
     return px
 
 
-def __pixel_at(x, y):
-    """
-    Returns (r, g, b) color code for a pixel with given coordinates (each value is in
-    0..256 limits)
-    """
-    desktop_id = QtWidgets.QApplication.desktop().winId()
-    screen = QtWidgets.QApplication.primaryScreen()
-    color = screen.grabWindow(desktop_id, x, y, 1, 1).toImage().pixel(0, 0)
-    return ((color >> 16) & 0xff), ((color >> 8) & 0xff), (color & 0xff)
-
-
-def statusBarTheme():
-    """
-    Returns one of gui.utils.THEME_LIGHT or gui.utils.THEME_DARK, corresponding to the
-    current status bar theme.
-    """
-    # getting color of a pixel on a top bar, and identifying best-fitting color
-    # theme based on its luminance
-    pixel_rgb = __pixel_at(2, 2)
-    luminance = _luminance(*pixel_rgb)
-    return THEME_LIGHT if luminance >= 0.4 else THEME_DARK
-
-
 def windowTheme():
     """
     Returns one of gui.utils.THEME_LIGHT or gui.utils.THEME_DARK, corresponding to
@@ -133,24 +106,12 @@ def windowTheme():
     w = QtWidgets.QWidget()
     bg_color = w.palette().color(QtGui.QPalette.Background)
     bg_color_rgb = [bg_color.red(), bg_color.green(), bg_color.blue()]
-    luminance = _luminance(*bg_color_rgb)
+    luminance = rgb_to_luminance(*bg_color_rgb)
     return THEME_LIGHT if luminance >= 0.4 else THEME_DARK
 
 
 def isDarkWindow():
     return windowTheme() == THEME_DARK
-
-
-def isLightWindow():
-    return windowTheme() == THEME_LIGHT
-
-
-def isDarkStatusBar():
-    return statusBarTheme() == THEME_DARK
-
-
-def isLightStatusBar():
-    return statusBarTheme() == THEME_LIGHT
 
 
 def get_gnome_scaling_factor():
@@ -175,10 +136,57 @@ def __command_exists(command):
     )
 
 
+class MaestralWorker(QtCore.QObject):
+    """A worker object for Maestral. To be used in QThreads."""
+
+    sig_done = QtCore.pyqtSignal(object)
+
+    def __init__(self, target=None, args=None, kwargs=None):
+        QtCore.QObject.__init__(self)
+        self._target = target
+        self._args = args or ()
+        self._kwargs = kwargs or {}
+
+    def start(self):
+        res = self._target(*self._args, **self._kwargs)
+        self.sig_done.emit(res)
+
+
+class MaestralBackgroundTask(QtCore.QObject):
+    """A utility class to manage a worker thread."""
+
+    sig_done = QtCore.pyqtSignal(object)
+
+    def __init__(self, parent=None, target=None, args=None, kwargs=None, autostart=True):
+        QtCore.QObject.__init__(self, parent)
+        self._target = target
+        self._args = args or ()
+        self._kwargs = kwargs or {}
+
+        if autostart:
+            self.start()
+
+    def start(self):
+
+        self.thread = QtCore.QThread(self)
+        self.worker = MaestralWorker(
+            target=self._target, args=self._args, kwargs=self._kwargs)
+        self.worker.sig_done.connect(self.sig_done.emit)
+        self.worker.sig_done.connect(self.thread.quit)
+        self.worker.moveToThread(self.thread)
+        self.thread.started.connect(self.worker.start)
+        self.thread.start()
+
+    def wait(self, timeout=None):
+        if timeout:
+            self.thread.wait(msecs=timeout)
+        else:
+            self.thread.wait()
+
+
 class UserDialog(QtWidgets.QDialog):
-    """
-    A template user dialog for Maestral. Shows a traceback if given in constructor.
-    """
+    """A template user dialog for Maestral. Shows a traceback if given in constructor."""
+
     def __init__(self, title, message, exc_info=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         self.setModal(True)

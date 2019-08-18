@@ -5,10 +5,12 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
-from PyQt5 import QtCore, QtWidgets, uic
 
+# external packages
+from PyQt5 import QtCore, QtWidgets, uic
 from dropbox import files
 
+# maestral modules
 from maestral.main import handle_disconnect
 from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
 

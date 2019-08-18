@@ -5,20 +5,23 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+
+# system imports
 import sys
 import os
 import logging
 import platform
 import subprocess
 import webbrowser
-import urllib
 import shutil
+
+# external packages
 from blinker import signal
 from PyQt5 import QtCore, QtWidgets
 
+# maestral modules
 from maestral.main import Maestral
 from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
-from maestral.oauth import OAuth2Session
 from maestral.errors import (DropboxAuthError, TokenExpiredError, CursorResetError,
                              MaestralApiError, RevFileError, DropboxDeletedError)
 from maestral.gui.settings_window import SettingsWindow
@@ -27,10 +30,10 @@ from maestral.gui.relink_dialog import RelinkDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import get_system_tray_icon
-from maestral.gui.utils import (truncate_string, isDarkStatusBar, UserDialog,
-                                quit_and_restart_maestral, get_gnome_scaling_factor)
+from maestral.gui.utils import (elide_string, UserDialog, quit_and_restart_maestral,
+                                get_gnome_scaling_factor)
 
-from maestral.utils.autostart import AutoStart
+from maestral.gui.autostart import AutoStart
 from maestral.config.main import CONF
 
 
@@ -97,6 +100,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.setIcon(self.icons[DISCONNECTED])
         self.show_when_systray_available()
 
+        self.menu = QtWidgets.QMenu()
+        self.setContextMenu(self.menu)
+
         error_handler.error_signal.connect(self.on_error)
         self.setup_ui_unlinked()
 
@@ -115,10 +121,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         icons = dict()
         short = ("idle", "syncing", "paused", "disconnected", "error")
 
-        color = "light" if isDarkStatusBar() else "dark"
-
         for l, s in zip((IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR), short):
-            icons[l] = get_system_tray_icon(s, color)
+            icons[l] = get_system_tray_icon(s)
 
         return icons
 
@@ -141,10 +145,14 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def setup_ui_unlinked(self):
 
-        self.menu = QtWidgets.QMenu()
+        self.setToolTip("Not linked.")
+
         self.autostart = AutoStart()
 
         # ------------- populate context menu -------------------
+
+        self.menu.clear()
+
         self.openDropboxFolderAction = self.menu.addAction("Open Dropbox Folder")
         self.openDropboxFolderAction.setEnabled(False)
         self.openWebsiteAction = self.menu.addAction("Launch Dropbox Website")
@@ -164,11 +172,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.separator5 = self.menu.addSeparator()
 
         self.quitAction = self.menu.addAction("Quit Maestral")
-        self.setContextMenu(self.menu)
 
         # ------------- connect callbacks for menu items -------------------
         self.openDropboxFolderAction.triggered.connect(
-            lambda: self.open_destination(self.mdbx.sync.dropbox_path))
+            lambda: self.open_destination(self.mdbx.dropbox_path))
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.loginAction.setChecked(self.autostart.enabled)
         self.helpAction.triggered.connect(self.on_help_clicked)
@@ -179,13 +186,16 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         if not self.mdbx:
             return
 
-        self.menu = QtWidgets.QMenu()
+        self.setToolTip(IDLE)
 
         # ----------------- create windows ----------------------
         self.settings = SettingsWindow(self.mdbx, parent=None)
-        self.sync_issues_window = SyncIssueWindow(self.mdbx.monitor.sync.sync_errors)
+        self.sync_issues_window = SyncIssueWindow(self.mdbx)
 
         # ------------- populate context menu -------------------
+
+        self.menu.clear()
+
         self.openDropboxFolderAction = self.menu.addAction("Open Dropbox Folder")
         self.openWebsiteAction = self.menu.addAction("Launch Dropbox Website")
 
@@ -220,11 +230,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.separator5 = self.menu.addSeparator()
 
         self.quitAction = self.menu.addAction("Quit Maestral")
-        self.setContextMenu(self.menu)
 
         # --------- connect callbacks for menu items ------------
         self.openDropboxFolderAction.triggered.connect(
-            lambda: self.open_destination(self.mdbx.sync.dropbox_path))
+            lambda: self.open_destination(self.mdbx.dropbox_path))
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.pauseAction.triggered.connect(self.on_start_stop_clicked)
         self.preferencesAction.triggered.connect(self.settings.show)
@@ -285,14 +294,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             pass
 
     @staticmethod
-    def show_online(dbx_path):
-
-        dbx_address = "https://www.dropbox.com/preview"
-        file_address = urllib.parse.quote(dbx_path)
-
-        webbrowser.open_new(dbx_address + file_address)
-
-    @staticmethod
     def on_website_clicked():
         """Open the Dropbox website."""
         webbrowser.open_new("https://www.dropbox.com/")
@@ -326,17 +327,17 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             # show error dialog to user
             title = "Maestral Error"
             message = exc.args[0]
-            self.stop_and_exec_error_dialog(title, message)
+            self._stop_and_exec_error_dialog(title, message)
         elif isinstance(exc, CursorResetError):
             title = "Dropbox has reset its sync state."
             message = 'Please go to "Rebuild index..." to re-sync your Dropbox.'
-            self.stop_and_exec_error_dialog(title, message)
+            self._stop_and_exec_error_dialog(title, message)
         elif isinstance(exc, DropboxDeletedError):
             self.mdbx.stop_sync()
             quit_and_restart_maestral()
         elif isinstance(exc, DropboxAuthError):
             reason = RelinkDialog.EXPIRED if isinstance(exc, TokenExpiredError) else RelinkDialog.REVOKED
-            self.stop_and_exec_relink_dialog(reason)
+            self._stop_and_exec_relink_dialog(reason)
         elif isinstance(exc, MaestralApiError):
             # don't show dialog on all other MaestralApiErrors, they are "normal" sync
             # issues which can be resolved by the user
@@ -344,9 +345,16 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         else:
             title = "An unexpected error occurred."
             message = "Please contact the Maestral developer with the information below."
-            self.stop_and_exec_error_dialog(title, message, exc_info)
+            self._stop_and_exec_error_dialog(title, message, exc_info)
 
-    def stop_and_exec_relink_dialog(self, reason):
+    def on_rebuild(self):
+
+        self.rebuild_dialog = RebuildIndexDialog(self.mdbx)
+        self.rebuild_dialog.show()
+        self.rebuild_dialog.activateWindow()
+        self.rebuild_dialog.raise_()
+
+    def _stop_and_exec_relink_dialog(self, reason):
         self.setIcon(self.icons[SYNC_ERROR])
 
         if self.mdbx:
@@ -361,7 +369,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         relink_dialog.exec_()  # this will perform quit actions as appropriate
 
-    def stop_and_exec_error_dialog(self, title, message, exc_info=None):
+    def _stop_and_exec_error_dialog(self, title, message, exc_info=None):
         self.setIcon(self.icons[SYNC_ERROR])
 
         if self.mdbx:
@@ -372,13 +380,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         error_dialog = UserDialog(title, message, exc_info)
         error_dialog.exec_()
 
-    def on_rebuild(self):
-
-        self.rebuild_dialog = RebuildIndexDialog(self.mdbx.monitor)
-        self.rebuild_dialog.show()
-        self.rebuild_dialog.activateWindow()
-        self.rebuild_dialog.raise_()
-
     # callbacks to update GUI
 
     def update_recent_files(self):
@@ -387,14 +388,16 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         for dbx_path in reversed(CONF.get("internal", "recent_changes")):
             file_name = os.path.basename(dbx_path)
             local_path = self.mdbx.sync.to_local_path(dbx_path)
-            truncated_name = truncate_string(file_name, font=self.menu.font(),
-                                             side="right")
+            truncated_name = elide_string(file_name, font=self.menu.font(),
+                                          side="right")
             a = self.recentFilesMenu.addAction(truncated_name)
             a.triggered.connect(lambda: self.open_destination(local_path, reveal=True))
 
     def on_info_signal(self, status):
         """Change icon according to status."""
-        n_errors = self.mdbx.monitor.sync.sync_errors.qsize()
+
+        n_errors = len(self.mdbx.sync_errors)
+
         if n_errors > 0:
             self.syncIssuesAction.setText("Show Sync Issues ({0})...".format(n_errors))
         else:
@@ -404,15 +407,14 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             new_icon = self.icons[SYNC_ERROR]
         else:
             new_icon = self.icons.get(status, self.icons[SYNCING])
+
         self.setIcon(new_icon)
+        self.setToolTip(status)
 
-    @staticmethod
-    def _enable_hidpi_pixmaps():
-        QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
-
-    @staticmethod
-    def _disable_hidpi_pixmaps():
-        QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, False)
+    def setToolTip(self, text):
+        if not platform.system() == "Darwin":
+            # tray icons in macOS should not have tooltips
+            QtWidgets.QSystemTrayIcon.setToolTip(self, text)
 
     def quit(self):
         """Quit Maestral"""

@@ -5,6 +5,8 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+
+# external packages
 import dropbox
 import requests
 
@@ -31,7 +33,7 @@ class RevFileError(Exception):
 
 
 class DropboxDeletedError(Exception):
-    """Raised when the rev file exists but cannot be read."""
+    """Raised when the local Dropbox folder cannot be found."""
     pass
 
 
@@ -47,7 +49,7 @@ class MaestralApiError(Exception):
         self.local_path_dst = local_path_dst
 
     def __str__(self):
-        return "{0}: {1}".format(self.title, self.message)
+        return "'{0}': {1}. {2}".format(self.dbx_path, self.title, self.message)
 
 
 class InsufficientPermissionsError(MaestralApiError):
@@ -85,8 +87,7 @@ class DropboxAuthError(MaestralApiError):
 
 
 class TokenExpiredError(DropboxAuthError):
-    """Raised when authentication fails. Refer to the ``message``` attribute for
-    details."""
+    """Raised when authentication fails because the user's token has expired."""
     pass
 
 

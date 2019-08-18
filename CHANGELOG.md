@@ -1,6 +1,70 @@
+### v0.3.2
+
+This release fixes a bug that could result in only changes of top-level items being
+synced. This affects users who carried out the initial linking with Maestral v0.2.5 or
+later and selected to exclude folders before the first download. Users affected by this
+should rebuild Maestral's index by selecting "Rebuild index..." in the main menu.
+
+Other improvements include expanded command line scripts with more useful output, minor
+bug fixes and small tweaks to the UI.
+
+#### Added:
+
+- Added a "status" property to `maestral.main` which shows the last log message.
+- Added a command group `maestral log` to view and clear the log as well set the logging
+  level. Commands are:
+    - `maestral log show`: Shows the logs in terminal.
+    - `maestral log clear`: Clears the logs.
+    - `maestral log level`: Returns the current log level.
+    - `maestral log level [DEBUG|INFO|WARNING|ERROR]`: Sets the log level to the given
+       value. Affects both stdout and file logs.
+- Added an option "-a" to `maestral ls` to include hidden files.
+- Added tooltips for system tray icon when not on macOS.
+
+#### Changed:
+
+- Made log levels persistent between sessions.
+- Changed the name of `maestral list` to `maestral ls` and, by default, do not list
+  "hidden" items that start with a dot. Added an option "-a" to explicitly list all
+  files in a directory.
+- Improved output from command line scripts:
+    - Wrap all long outputs in empty lines.
+    - Show more informative status.
+    - Show Dropbox folder location in account-info.
+    - Add colours to outputs like "[OK]" and "[FAILED]".
+- Set minimum version requirement for click package.
+- Reduced the startup time by downloading profile picture in a thread. Periodically update
+  in the background (every 20 min).
+- Check hashes before uploading modified files. This speeds up re-linking an old folder by
+  orders of magnitude.
+- Enable the creation of multiple autostart entries for different configurations.
+- Fall back to PNG tray icons if the platform may not support our svg format.
+
+#### Fixed:
+
+- Fixed a bug which would not allow running maestral for the first time before explicitly
+  adding a configuration with `maestral config new`. Now, a default configuration is
+  created automatically on first run.
+- Prevent the GUI and a daemon from syncing the same folder at the same time.
+- Fixed the creation of multiple daemons. A new daemon will no longer overwrite an old
+  one and `maestral daemon start` will do nothing if a daemon for the given configuration
+  is already running.
+- Automatic allocation of ports for the communication between daemon and client.
+- Show the (Dropbox) file path in the string representation of `MaestralApiError`.
+  Previously, one could not see from the traceback which file caused the error.
+- Fixed a bug that would result in only changes of top-level items being synced. This
+  affects users who carrier out the initial linking with Maestral v0.2.5 or later
+  (commit 40be316b49f2198a01cc9ce9b804f8e6336e36f8) and selected to exclude folders
+  before the initial sync. Users affected by this bug should rebuild Maestral's index by
+  selecting "Rebuild index..." in the main menu.
+  
+#### Removed:
+
+- No longer install a script "maestral-gui". Use "maestral gui" instead.
+
 ### v0.3.1 (2019-08-14)
 
-_Fixes_:
+#### Fixed:
 
 - Fixes a bug when calling the command line script `maestral daemon errors`. This bug
   was the result of an error in pickling our MaestralApiExceptions (see
@@ -17,7 +81,7 @@ This release includes several significant changes. The largest are:
 
 The detailed list of changes is:
 
-_Added:_
+#### Added:
 
 - Maestral can now be started as a daemon from the command line. A new command group
   `maestral daemon` has been introduced to manage this.
@@ -30,8 +94,10 @@ _Added:_
 - Improved grouping and naming of command line scripts.
 - Added a "relink" dialog which is shown when Maestral's Dropbox access has expired or
   has been revoked by the user.
+- Improved logic to detect system tray color and set icons accordingly. This is mostly for
+  KDE which, unlike Gnome, does not handle automatically adapting its tray icon colors.
 
-_Changed:_
+#### Changed:
 
 - Animated setup dialog.
 - Redesigned the settings window to show more prominent account information.
@@ -40,8 +106,15 @@ _Changed:_
   stored in the client source code. Maestral will therefore no longer require the user to
   get their own API keys or to use the precompiled oauth binaries hosted on PyPI.
 - Improved the user massages given by command line scripts.
- 
-_Fixed:_
+- Improved status messages given in RebuildIndexDialog.
+- Unified and improved the creation of QThreads by the GUI to perform background tasks.
+  This fixes an issue with occasional segfaults RebuildIndexDialog and improves the
+  reliability of the UI.
+- Started to work on providing a top-level API in `Maestral` for all functionality that is
+  required by the UI. There should be no need to interact with `Monitor` or `UpDownSync`
+  directly for high-level functionality.
+
+#### Fixed:
 
 - Fixed a crash on startup if the Meastral's Dropbox access has expired or has been
   revoked.
@@ -54,16 +127,16 @@ This release fixes a critical bug which would cause Maestral to get stuck after 
 initial sync. This does not affect users who have already performed the initial sync
 with a previous version of Maestral.
 
-_Added:_
+#### Added:
 
 - Added a context menu entry to the "Sync issues" window to show a file on dropbox.com.
 
-_Changed:_
+#### Changed:
 
 - Move logs to '$XDG_CACHE_HOME/maestral' on Linux and '~/Library/Logs/maestral' on macOS.
 - Reduce the number of Dropbox API calls during initial sync.
 
-_Fixed:_
+#### Fixed:
 
 - Fixed a bug which would cause Maestral to get stuck after the initial download.
 - Fixes an issue in macOS where modal dialogs in the settings window would sometimes
@@ -75,20 +148,20 @@ This release fixes several sync issues which could occur when the internet conne
 lost during a sync. It also notifies the user if Maestral's access to their Dropbox has
 been revoked.
 
-_Added:_
+#### Added:
 
 - Handle expired or invalidated Dropbox access.
 - Ask the user before overriding an existing folder in the setup dialog.
 - Added status updates for large file uploads (e.g., "Uploading 10/545MB...").
 
-_Changed:_
+#### Changed:
 
 - Significant speedup of initial indexing. Excluded folders or subfolders will no
   longer be indexed.
 - Save config files in the systems default location: '$XDG_CONFIG_HOME/maestral' or
   '.config/maestral' in Linux and '~/Library/Application Support/maestral' on macOS.
 
-_Fixed:_
+#### Fixed:
 
 - Fixed a false "Dropbox folder cannot be found" message which would appear when
   quitting and restarting Maestral during the first sync. Now, the initial download is
@@ -105,19 +178,19 @@ This version mainly improves the appearance and responsiveness of the GUI specif
 Linux platforms with a Gnome desktop. It also introduces a dialog to handle a deleted or
 moved Dropbox folder.
 
-_Added:_
+#### Added:
 
 - Added a "Select all" option when choosing which folders to sync.
 - Handle deleted or moved Dropbox folder in setup dialog.
 - Handle deleted or moved Dropbox folder while Maestral is running.
 
-_Changed:_
+#### Changed:
 
 - Improved performance of the GUI on some Gnome systems in case of many rapid status
   changes.
 - Show system tray icon already during the setup dialog.
 
-_Fixed:_
+#### Fixed:
 
 - Fixed size of the system tray icon in Gnome desktops with high-DPI scaling.
 - Fixed a bug which would result in an error dialog being shown for "normal" sync errors
@@ -129,14 +202,14 @@ _Fixed:_
 
 This release mainly fixes crashes of the setup dialog and contains tweaks to the UI.
 
-_Changed:_
+#### Changed:
 
 - Launch into setup dialog if no Dropbox authentication token can be found in keychain.
 - Only log messages of level ERROR or higher to file.
 - Show account email in the system tray menu above space usage.
 - Unified the code for error dialogs and added an app icon to all dialogs.
 
-_Fixed:_
+#### Fixed:
 
 - Fixed a bug which could could result in the user being asked to re-authenticate when no
   Dropbox folder is detected on startup.
@@ -145,7 +218,7 @@ _Fixed:_
 
 ### v0.2.2 (2019-07-19)
 
-_Added_:
+#### Added:
 
 - Added support for file and folder names with two or more periods.
 - Temporary autosave files that are created by macOS are now detected by their extension
@@ -154,7 +227,7 @@ _Added_:
 - Log all events of level INFO and higher to a rotating file in '~/.maestral/logs'. The
   log folder size will never exceed 6 MB.
 
-_Changed_:
+#### Changed:
 
 - Better handling when Dropbox resets a cursor: retry any `files_list_folder` calls and
   prompt the user to rebuild the index on `files_list_folder_longpoll` calls.
@@ -164,14 +237,14 @@ _Changed_:
 - Better handling of `OSErrors` on download.
 - Tweaks to logo.
 
-_Fixed_:
+#### Fixed:
 
 - Fixed a bug which would prevent some error dialogs from being shown to the user.
 - Fixed a bug which would cause the setup dialog to crash after linking to Dropbox.
 
 ### v0.2.1 (2019-07-18)
 
-_Changed_:
+#### Changed:
 
 - Reload all file and folder icons when the system appearance changes: the system may
   provide different icons (e.g., darker folder icons in "dark mode" on macOS Mojave).
@@ -180,7 +253,7 @@ _Changed_:
   instead of through apple script.
 - Improved layout of the "Rebuild index" dialog.
 
-_Fixed_:
+#### Fixed:
 
 - Fixes a bug which would prevent Meastral from starting on login: the correct startup
   script is now called.
@@ -189,7 +262,7 @@ _Fixed_:
 
 #### Major changes
 
-_Added_:
+#### Added:
 
 - Proper handling of sync errors. Dropbox API errors are converted to a more informative
   `MaestralApiError` and a log of sync errors is kept. This log is cleared as sync errors
@@ -207,7 +280,7 @@ _Added_:
   shows entries for the 30 last-changed files (synced folders only) and navigates to the
   respective file in the default file manager when an entry is clicked.
 
-_Changed_:
+#### Changed:
 
 - Refactored sync code: Collected all sync functionality in a the new class
   `monitor.UpDownSync`. `MaestralClient` now only handles access to the Dropbox API itself
@@ -223,7 +296,7 @@ _Changed_:
 
 #### Minor changes
 
-_Added:_
+#### Added:
 
 - Added progress messages for uploads and downloads, e.g., "Downloading 3/98...". These
   are output as info messages and shown in the status field of the system tray menu.
@@ -231,7 +304,7 @@ _Added:_
   setup dialog.
 - Refinements for dark interface themes such as Dark Mode in macOS Mojave
 
-_Changed:_
+#### Changed:
 
 - Use native system icons instead of macOS icons to represent files and folders.
 - Some programs save file changes by deleting the old file and creating a new file. This
@@ -247,7 +320,7 @@ _Changed:_
 - Adapted code to correctly load resources in case Maestral is packaged as a macOS app
   bundle.
 
-_Fixed:_
+#### Fixed:
 
 - Fixed a bug which may result in a removed folder not being deleted locally if it
   contains subfolders.
@@ -261,11 +334,11 @@ _Fixed:_
 
 ### v0.1.2 (2019-06-25)
 
-_Added:_
+#### Added:
 
 - Added new command line option 'autostart' to automatically start Maestral on login.
 
-_Changed:_
+#### Changed:
 
 - Limit notifications to remote changes only and only notify for changes in folders that
   currently being synced, unless more than 100 files have changed.
@@ -273,7 +346,7 @@ _Changed:_
 - Shut down immediately and kill threads instead of waiting for timeout.
 - Improve appearance of Settings window in GTK 3 style.
 
-_Fixed:_
+#### Fixed:
 
 - Fixed a bug which would cause uploads to fail if they are split into multiple chunks.
 - Fixed a bug that would prevent Maestral from quitting if the setup dialog is aborted.
@@ -284,7 +357,7 @@ _Fixed:_
 
 ### v0.1.1 (2019-06-23)
 
-_Fixed:_
+#### Fixed:
 
 - Fixes an issue which would prevent newly created empty folders from being synced.
 - Remove references to conda in startup script.

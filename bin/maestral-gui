@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-
-# startup script for maestral
-# environment setup or checks outside of python can be done here
-
-maestral gui

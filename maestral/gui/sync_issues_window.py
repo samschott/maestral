@@ -5,17 +5,22 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+
+# system imports
 import os
 import platform
 import subprocess
 import webbrowser
 import urllib
 import shutil
+
+# external packages
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 
+# maestral modules
 from maestral.gui.resources import (SYNC_ISSUES_WINDOW_PATH, SYNC_ISSUE_WIDGET_PATH,
                                     get_native_item_icon)
-from maestral.gui.utils import (truncate_string, icon_to_pixmap, get_scaled_font,
+from maestral.gui.utils import (elide_string, icon_to_pixmap, get_scaled_font,
                                 isDarkWindow, LINE_COLOR_DARK, LINE_COLOR_LIGHT)
 
 HAS_GTK_LAUNCH = shutil.which("gtk-launch") is not None
@@ -23,7 +28,7 @@ HAS_GTK_LAUNCH = shutil.which("gtk-launch") is not None
 
 class SyncIssueWidget(QtWidgets.QWidget):
     """
-    A class to graphically display a Maestral sync issue.
+    A widget to graphically display a Maestral sync issue.
     """
 
     def __init__(self, sync_issue, parent=None):
@@ -59,8 +64,8 @@ class SyncIssueWidget(QtWidgets.QWidget):
 
     def to_display_path(self, local_path):
 
-        return truncate_string(os.path.basename(local_path), font=self.pathLabel.font(),
-                               pixels=300, side="left")
+        return elide_string(os.path.basename(local_path), font=self.pathLabel.font(),
+                            pixels=300, side="left")
 
     @staticmethod
     def open_destination(local_path, reveal=True):
@@ -122,15 +127,15 @@ class SyncIssueWidget(QtWidgets.QWidget):
 
 class SyncIssueWindow(QtWidgets.QWidget):
     """
-    A class to graphically display all Maestral sync issues.
+    A widget to graphically display all Maestral sync issues.
     """
 
-    def __init__(self, sync_issues_queue, parent=None):
+    def __init__(self, mdbx, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         uic.loadUi(SYNC_ISSUES_WINDOW_PATH, self)
         self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
 
-        self.sync_issues_queue = sync_issues_queue
+        self.mdbx = mdbx
 
         self.reload()
 
@@ -138,17 +143,15 @@ class SyncIssueWindow(QtWidgets.QWidget):
 
         self.clear()
 
-        sync_issues_list = list(self.sync_issues_queue.queue)
+        sync_errors_list = self.mdbx.sync_errors  # get a new copy
 
-        if len(sync_issues_list) == 0:
+        if len(sync_errors_list) == 0:
             no_issues_label = QtWidgets.QLabel("No sync issues :)")
             self.verticalLayout.addWidget(no_issues_label)
             self.sync_issue_widgets.append(no_issues_label)
 
-        for issue in sync_issues_list:
+        for issue in sync_errors_list:
             self.addIssue(issue)
-
-        # self.verticalLayout.insertStretch(-1)
 
     def addIssue(self, sync_issue):
 

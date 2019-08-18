@@ -57,11 +57,6 @@
    </item>
    <item row="5" column="0">
     <widget class="QLabel" name="statusLabel">
-     <property name="font">
-      <font>
-       <pointsize>11</pointsize>
-      </font>
-     </property>
      <property name="text">
       <string/>
      </property>

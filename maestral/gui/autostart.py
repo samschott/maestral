@@ -9,39 +9,40 @@ Created on Sun Dec  9 23:08:47 2018
 import platform
 import sys
 import os
+
+from maestral.utils.app_dirs import get_autostart_path
 from maestral.utils import is_macos_bundle
+from maestral.main import __version__
 
 _root = os.path.abspath(os.path.dirname(__file__))
 
 
 class AutoStart(object):
+    """Creates auto-start entries in the appropriate system location to automatically
+    start Maestral when the user logs in."""
 
     def __init__(self):
-        self.system = platform.system()
+        system = platform.system()
         config_name = os.getenv('MAESTRAL_CONFIG', 'maestral')
 
-        if self.system == "Darwin":
-            self.filename = "com.samschott.maestral.plist"
-            self.destination_dir = os.path.expanduser("~/Library/LaunchAgents")
-            if is_macos_bundle:
-                launch_command = os.path.join(sys._MEIPASS, "main")
-            else:
-                launch_command = "maestral gui --config-name='{0}'".format(config_name)
-            self.contents = _plist_template.format(launch_command)
-        elif self.system == "Linux":
-            self.filename = "maestral.desktop"
-            self.destination_dir = os.path.expanduser("~/.config/autostart")
-            launch_command = "maestral gui --config-name='{0}'".format(config_name)
-            self.contents = _desktop_entry_template.format(launch_command)
+        if is_macos_bundle:
+            launch_command = os.path.join(sys._MEIPASS, "main")
+        else:
+            launch_command = "maestral gui --config-name='{}'".format(config_name)
+
+        if system == "Darwin":
+            app_name = "com.samschott.maestral.{}".format(config_name)
+            filename = app_name + ".plist"
+            self.contents = _plist_template.format(app_name, launch_command)
+        elif system == "Linux":
+            filename = "maestral-{}.desktop".format(config_name)
+            self.contents = _desktop_entry_template.format(__version__, launch_command)
         else:
             raise OSError("Windows is not currently supported.")
 
-        self.source = os.path.join(_root, self.filename)
-        self.destination = os.path.join(self.destination_dir, self.filename)
+        self.destination = get_autostart_path(filename)
 
     def enable(self):
-        if not os.path.isdir(self.destination_dir):
-            os.makedirs(self.destination_dir)
 
         with open(self.destination, "w+") as f:
             f.write(self.contents)
@@ -67,12 +68,12 @@ _plist_template = """
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>com.samschott.maestral</string>
+	<string>{0}</string>
 	<key>ProcessType</key>
 	<string>Interactive</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>{0}</string>
+		<string>{1}</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
@@ -82,14 +83,17 @@ _plist_template = """
 
 _desktop_entry_template = """
 [Desktop Entry]
+Version={0}
+Type=Application
 Name=Maestral
 GenericName=File Synchronizer
 Comment=Sync your files with Dropbox
-Exec={0}
+Exec={1}
 Hidden=false
 Terminal=false
 Type=Application
 Categories=Network;FileTransfer;
 StartupNotify=false
 X-GNOME-Autostart-enabled=true
+X-DBUS-ServiceName=maestral
 """

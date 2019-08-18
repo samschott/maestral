@@ -60,7 +60,8 @@ commands. The most important are:
 - `maestral set-dir`: Sets the location of your local Dropbox folder.
 - `maestral dir-exclude`: Excludes a Dropbox folder from syncing.
 - `maestral dir-inlcude`: Includes a Dropbox folder in syncing.
-- `maestral list`: Lists the contents of a directory on Dropbox.
+- `maestral ls`: Lists the contents of a directory on Dropbox.
+- `maestral log`: Command group to show and clear logs, to set the log level, etc.
 
 Maestral currently supports the syncing of multiple Dropbox accounts by running multiple
 instances. This needs to be done from the command line. For example, before running

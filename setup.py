@@ -74,10 +74,10 @@ setup(
             },
     install_requires=[
         "blinker",
-        "click",
+        "click>=7.0",
         "dropbox>=9.4.0",
-        "keyring",
-        "keyrings.alt",
+        "keyring>=19.0.0",
+        "keyrings.alt>=3.0.0",
         "Pyro4",
         "requests",
         "u-msgpack-python",
@@ -85,9 +85,8 @@ setup(
     ],
     zip_safe=False,
     entry_points={
-      "console_scripts": ["maestral=maestral.console_script:main"],
+      "console_scripts": ["maestral=maestral.cli:main"],
     },
-    scripts=['bin/maestral-gui'],
     python_requires='>=3.6',
     classifiers=[
         'License :: OSI Approved :: MIT License',

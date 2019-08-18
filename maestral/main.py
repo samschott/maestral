@@ -6,53 +6,83 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 __author__ = "Sam Schott"
 __url__ = "https://github.com/SamSchott/maestral"
 
+# system imports
 import sys
 import os
 import os.path as osp
-import time
 import shutil
+import time
 import functools
-from blinker import signal
 from threading import Thread
-import requests
-from dropbox import files
-import Pyro4
+import logging.handlers
 
+# external packages
+from dropbox import files
+from blinker import signal
+import requests
+
+# maestral modules
 from maestral.client import MaestralApiClient
 from maestral.oauth import OAuth2Session
-from maestral.errors import CONNECTION_ERRORS, DropboxAuthError, CONNECTION_ERROR_MSG
+from maestral.errors import (MaestralApiError, CONNECTION_ERRORS, DropboxAuthError,
+                             CONNECTION_ERROR_MSG)
 from maestral.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
                               path_exists_case_insensitive)
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.utils.app_dirs import get_log_path, get_cache_path
 
-import logging.handlers
+
+config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
 
 # set up logging
 logger = logging.getLogger(__name__)
 
-config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
-
 log_file = get_log_path("maestral", config_name + ".log")
 log_fmt = logging.Formatter(fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
                             datefmt="%Y-%m-%d %H:%M:%S")
-rfh = logging.handlers.RotatingFileHandler(log_file, maxBytes=10**6, backupCount=3)
+rfh = logging.handlers.WatchedFileHandler(log_file)
 rfh.setFormatter(log_fmt)
-rfh.setLevel(logging.ERROR)
+rfh.setLevel(CONF.get("app", "log_level_file"))
 
+# set up logging to stdout
 sh = logging.StreamHandler(sys.stdout)
 sh.setFormatter(log_fmt)
-sh.setLevel(logging.INFO)
+sh.setLevel(CONF.get("app", "log_level_console"))
 
+
+# set up logging to stream
+class CachedHandler(logging.Handler):
+    """
+    Handler which remembers the last record only.
+    """
+    def __init__(self):
+        logging.Handler.__init__(self)
+        self.lastRecord = None
+
+    def emit(self, record):
+        self.lastRecord = record
+
+    def getLastRecord(self):
+        if self.lastRecord:
+            return self.lastRecord.getMessage()
+        else:
+            return ""
+
+
+ch = CachedHandler()
+ch.setLevel(logging.INFO)
+
+# add handlers
 mdbx_logger = logging.getLogger("maestral")
 mdbx_logger.setLevel(logging.DEBUG)
 mdbx_logger.addHandler(rfh)
 mdbx_logger.addHandler(sh)
+mdbx_logger.addHandler(ch)
 
 
 def folder_download_worker(monitor, dbx_path, callback=None):
@@ -113,7 +143,8 @@ def with_sync_paused(func):
 
 def handle_disconnect(func):
     """
-    Decorator which handles connection and auth errors during a function call.
+    Decorator which handles connection and auth errors during a function call and returns
+    ``False`` if an error occurred.
     """
 
     @functools.wraps(func)
@@ -132,15 +163,10 @@ def handle_disconnect(func):
     return wrapper
 
 
-@Pyro4.expose
 class Maestral(object):
     """
     An open source Dropbox client for macOS and Linux to syncing a local folder
-    with your Dropbox account. It currently only supports excluding top-level
-    folders from the sync.
-
-    Maestral gracefully handles lost internet connections and will detect
-    changes in between sessions or while Maestral has been idle.
+    with your Dropbox account.
     """
 
     _daemon_running = True  # this is for running maestral as a daemon only
@@ -194,6 +220,12 @@ class Maestral(object):
         return self.monitor.connected.is_set()
 
     @property
+    def status(self):
+        """Returns a string with the last status message. This can be displayed as
+        information to the user but should not be relied on otherwise."""
+        return ch.getLastRecord()
+
+    @property
     def notify(self):
         """Bool indicating if notifications are enabled."""
         return self.sync.notify.enabled
@@ -204,8 +236,15 @@ class Maestral(object):
         self.sync.notify.enabled = boolean
 
     @property
+    def dropbox_path(self):
+        """Returns the path to the local Dropbox directory. Read only. Use
+        :meth:`create_dropbox_directory` or :meth:`move_dropbox_directory` to set or
+        change the Dropbox directory location instead. """
+        return self.sync.dropbox_path
+
+    @property
     def sync_errors(self):
-        """List of sync errors."""
+        """Returns list containing the current sync errors."""
         return list(self.sync.sync_errors.queue)
 
     @property
@@ -219,21 +258,30 @@ class Maestral(object):
 
     @handle_disconnect
     def get_profile_pic(self):
+        """
+        Download the user's profile picture from Dropbox. The picture saved in Maestral's
+        cache directory for retrieval when there is no internet connection.
 
-        res = self.client.get_account_info()
-        if res.profile_photo_url:
-            try:
+        :returns: Path to saved profile picture or None if no profile picture is set.
+        """
+
+        try:
+            res = self.client.get_account_info()
+        except MaestralApiError:
+            pass
+        else:
+            if res.profile_photo_url:
                 # download current profile pic
                 r = requests.get(res.profile_photo_url)
                 with open(self.account_profile_pic_path, "wb") as f:
                     f.write(r.content)
-            except Exception:
-                pass
-        else:
-            # delete current profile pic
-            self._delete_old_profile_pics()
+                return self.account_profile_pic_path
+            else:
+                # delete current profile pic
+                self._delete_old_profile_pics()
 
-    def _delete_old_profile_pics(self):
+    @staticmethod
+    def _delete_old_profile_pics():
         # delete all old pictures
         for file in os.listdir(get_cache_path("maestral")):
             if file.startswith(config_name + "_profile_pic"):
@@ -263,6 +311,16 @@ class Maestral(object):
                 kwargs={"callback": callback},
                 name="MaestralFolderDownloader")
         self.download_thread.start()
+
+    def rebuild_index(self):
+        """Rebuilds the Maestral index and resumes syncing afterwards if it has been
+        running."""
+
+        print("""Rebuilding the revision index. This process may
+        take several minutes, depending on the size of your Dropbox.
+        Any changes to local files during this process may be lost. """)
+
+        self.monitor.rebuild_rev_file()
 
     def start_sync(self, overload=None):
         """
@@ -466,12 +524,6 @@ class Maestral(object):
         # update config file and client
         self.sync.dropbox_path = path
 
-    def get_dropbox_directory(self):
-        """
-        Returns the path to the local Dropbox directory.
-        """
-        return self.sync.dropbox_path
-
     @staticmethod
     def _ask_for_path(default=osp.join("~", CONF.get("main", "default_dir_name"))):
         """
@@ -494,7 +546,23 @@ class Maestral(object):
             else:
                 return dropbox_path
 
+    @staticmethod
+    def set_log_level_file(level):
+        """Sets the log level for the file log. Changes will persist between
+        restarts."""
+        rfh.setLevel(level)
+        CONF.set("app", "log_level_file", level)
+
+    @staticmethod
+    def set_log_level_console(level):
+        """Sets the log level for the console log. Changes will persist between
+        restarts."""
+        sh.setLevel(level)
+        CONF.set("app", "log_level_console", level)
+
     def shutdown_daemon(self):
+        """Does nothing except for setting the _daemon_running flag ``False``. This
+        will be checked by Pyro4 periodically to shut down the daemon when requested."""
         self._daemon_running = False
 
     def _shutdown_requested(self):
@@ -540,7 +608,3 @@ def yesno(message, default):
             import pdb
             pdb.set_trace()
         print("Please answer YES or NO.")
-
-
-if __name__ == "__main__":
-    mdbx = Maestral()

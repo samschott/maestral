@@ -5,12 +5,17 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+
+# system imports
 import os
 import os.path as osp
-import keyring
 import logging
+
+# external packages
+import keyring
 from keyring.errors import KeyringLocked
 
+# maestral modules
 from maestral.utils import is_macos_bundle, is_linux_bundle
 from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path

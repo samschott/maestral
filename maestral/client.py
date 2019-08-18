@@ -5,14 +5,18 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+
+# system imports
 import os
 import os.path as osp
 import time
 import datetime
 import logging
 
+# external packages
 import dropbox
 
+# maestral modules
 from maestral.oauth import OAuth2Session
 from maestral.config.main import CONF
 from maestral.errors import to_maestral_error, construct_local_error
@@ -89,8 +93,7 @@ class MaestralApiClient(object):
 
     This client defines basic methods to wrap Dropbox Python SDK calls, such as creating,
     moving, modifying and deleting files and folders on Dropbox and downloading files from
-    Dropbox. MaestralClient also provides methods to wait for and list changes from the
-    remote Dropbox.
+    Dropbox.
 
     All Dropbox API errors are caught and handled here. ConnectionErrors will
     be caught and handled by :class:`MaestralMonitor` instead.
@@ -112,7 +115,6 @@ class MaestralApiClient(object):
         # initialize API client
         self.dbx = dropbox.Dropbox(self.auth.access_token, session=SESSION,
                                    user_agent=USER_AGENT, timeout=60)
-        print(" > MaestralApiClient is ready.")
 
     def get_account_info(self):
         """
@@ -367,6 +369,30 @@ class MaestralApiClient(object):
 
         return md
 
+    def get_latest_cursor(self, dbx_path, include_non_downloadable_files=False, **kwargs):
+        """
+        Gets the latest cursor for the given folder and subfolders.
+
+        :param str dbx_path: Path of folder on Dropbox.
+        :param bool include_non_downloadable_files: If ``True``, files that cannot be
+            downloaded (at the moment only G-suite files on Dropbox) will be included.
+            Defaults to ``False``.
+        :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
+        :returns: The latest cursor representing a state of a folder and its subfolders.
+        :rtype: str
+        :raises: :class:`MaestralApiError`
+        """
+
+        try:
+            res = self.dbx.files_list_folder_get_latest_cursor(
+                dbx_path, include_non_downloadable_files=include_non_downloadable_files,
+                recursive=True,
+                **kwargs)
+        except dropbox.exceptions.DropboxException as exc:
+            raise to_maestral_error(exc, dbx_path)
+
+        return res.cursor
+
     def list_folder(self, dbx_path, retry=3, include_non_downloadable_files=False,
                     **kwargs):
         """
@@ -474,6 +500,8 @@ class MaestralApiClient(object):
         else:
             self._backoff = 0
 
+        logger.debug("Detected remote changes: {}.".format(str(result.changes)))
+
         self._last_longpoll = time.time()
 
         return result.changes  # will be True or False
@@ -507,6 +535,6 @@ class MaestralApiClient(object):
         # combine all results into one
         results = self.flatten_results(results)
 
-        logger.debug("Listed remote changes")
+        logger.debug("Listed remote changes: {} changes.".format(len(results.entries)))
 
         return results
