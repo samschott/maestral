@@ -101,6 +101,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.setIcon(self.icons[DISCONNECTED])
         self.show_when_systray_available()
 
+        self.menu = QtWidgets.QMenu()
+        self.setContextMenu(self.menu)
+
         error_handler.error_signal.connect(self.on_error)
         self.setup_ui_unlinked()
 
@@ -143,10 +146,12 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def setup_ui_unlinked(self):
 
-        self.menu = QtWidgets.QMenu()
         self.autostart = AutoStart()
 
         # ------------- populate context menu -------------------
+
+        self.menu.clear()
+
         self.openDropboxFolderAction = self.menu.addAction("Open Dropbox Folder")
         self.openDropboxFolderAction.setEnabled(False)
         self.openWebsiteAction = self.menu.addAction("Launch Dropbox Website")
@@ -166,7 +171,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.separator5 = self.menu.addSeparator()
 
         self.quitAction = self.menu.addAction("Quit Maestral")
-        self.setContextMenu(self.menu)
 
         # ------------- connect callbacks for menu items -------------------
         self.openDropboxFolderAction.triggered.connect(
@@ -181,13 +185,14 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         if not self.mdbx:
             return
 
-        self.menu = QtWidgets.QMenu()
-
         # ----------------- create windows ----------------------
         self.settings = SettingsWindow(self.mdbx, parent=None)
         self.sync_issues_window = SyncIssueWindow(self.mdbx)
 
         # ------------- populate context menu -------------------
+
+        self.menu.clear()
+
         self.openDropboxFolderAction = self.menu.addAction("Open Dropbox Folder")
         self.openWebsiteAction = self.menu.addAction("Launch Dropbox Website")
 
@@ -222,7 +227,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.separator5 = self.menu.addSeparator()
 
         self.quitAction = self.menu.addAction("Quit Maestral")
-        self.setContextMenu(self.menu)
 
         # --------- connect callbacks for menu items ------------
         self.openDropboxFolderAction.triggered.connect(
