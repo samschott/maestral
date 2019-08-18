@@ -291,14 +291,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             pass
 
     @staticmethod
-    def show_online(dbx_path):
-
-        dbx_address = "https://www.dropbox.com/preview"
-        file_address = urllib.parse.quote(dbx_path)
-
-        webbrowser.open_new(dbx_address + file_address)
-
-    @staticmethod
     def on_website_clicked():
         """Open the Dropbox website."""
         webbrowser.open_new("https://www.dropbox.com/")
@@ -332,17 +324,17 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             # show error dialog to user
             title = "Maestral Error"
             message = exc.args[0]
-            self.stop_and_exec_error_dialog(title, message)
+            self._stop_and_exec_error_dialog(title, message)
         elif isinstance(exc, CursorResetError):
             title = "Dropbox has reset its sync state."
             message = 'Please go to "Rebuild index..." to re-sync your Dropbox.'
-            self.stop_and_exec_error_dialog(title, message)
+            self._stop_and_exec_error_dialog(title, message)
         elif isinstance(exc, DropboxDeletedError):
             self.mdbx.stop_sync()
             quit_and_restart_maestral()
         elif isinstance(exc, DropboxAuthError):
             reason = RelinkDialog.EXPIRED if isinstance(exc, TokenExpiredError) else RelinkDialog.REVOKED
-            self.stop_and_exec_relink_dialog(reason)
+            self._stop_and_exec_relink_dialog(reason)
         elif isinstance(exc, MaestralApiError):
             # don't show dialog on all other MaestralApiErrors, they are "normal" sync
             # issues which can be resolved by the user
@@ -350,9 +342,16 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         else:
             title = "An unexpected error occurred."
             message = "Please contact the Maestral developer with the information below."
-            self.stop_and_exec_error_dialog(title, message, exc_info)
+            self._stop_and_exec_error_dialog(title, message, exc_info)
 
-    def stop_and_exec_relink_dialog(self, reason):
+    def on_rebuild(self):
+
+        self.rebuild_dialog = RebuildIndexDialog(self.mdbx)
+        self.rebuild_dialog.show()
+        self.rebuild_dialog.activateWindow()
+        self.rebuild_dialog.raise_()
+
+    def _stop_and_exec_relink_dialog(self, reason):
         self.setIcon(self.icons[SYNC_ERROR])
 
         if self.mdbx:
@@ -367,7 +366,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         relink_dialog.exec_()  # this will perform quit actions as appropriate
 
-    def stop_and_exec_error_dialog(self, title, message, exc_info=None):
+    def _stop_and_exec_error_dialog(self, title, message, exc_info=None):
         self.setIcon(self.icons[SYNC_ERROR])
 
         if self.mdbx:
@@ -377,13 +376,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         error_dialog = UserDialog(title, message, exc_info)
         error_dialog.exec_()
-
-    def on_rebuild(self):
-
-        self.rebuild_dialog = RebuildIndexDialog(self.mdbx)
-        self.rebuild_dialog.show()
-        self.rebuild_dialog.activateWindow()
-        self.rebuild_dialog.raise_()
 
     # callbacks to update GUI
 
@@ -400,7 +392,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def on_info_signal(self, status):
         """Change icon according to status."""
+
         n_errors = len(self.mdbx.sync_errors)
+
         if n_errors > 0:
             self.syncIssuesAction.setText("Show Sync Issues ({0})...".format(n_errors))
         else:
@@ -410,15 +404,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             new_icon = self.icons[SYNC_ERROR]
         else:
             new_icon = self.icons.get(status, self.icons[SYNCING])
+
         self.setIcon(new_icon)
 
-    @staticmethod
-    def _enable_hidpi_pixmaps():
-        QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
-
-    @staticmethod
-    def _disable_hidpi_pixmaps():
-        QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, False)
 
     def quit(self):
         """Quit Maestral"""
