@@ -476,6 +476,8 @@ class MaestralApiClient(object):
         else:
             self._backoff = 0
 
+        logger.debug("Detected remote changes: {}.".format(str(result.changes)))
+
         self._last_longpoll = time.time()
 
         return result.changes  # will be True or False
@@ -509,6 +511,6 @@ class MaestralApiClient(object):
         # combine all results into one
         results = self.flatten_results(results)
 
-        logger.debug("Listed remote changes")
+        logger.debug("Listed remote changes: {} changes.".format(len(results.entries)))
 
         return results
