@@ -11,6 +11,7 @@
     - `maestral log level [DEBUG|INFO|WARNING|ERROR]`: Sets the log level to the given
        value. Affects both stdout and file logs.
 - Added an option "-a" to `maestral ls` to include hidden files.
+- Added tooltips for system tray icon when not on macOS.
 
 #### Changed:
 
@@ -27,6 +28,8 @@
 - Reduced the startup time by downloading profile picture in a thread. Periodically update
   in the background (every 20 min).
 - Check hashes before uploading modified files.
+- Enable the creation of multiple autostart entries for different configurations.
+- Fall back to PNG tray icons if the platform may not support our svg format.
 
 #### Fixed:
 
