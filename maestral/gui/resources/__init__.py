@@ -206,13 +206,9 @@ def __pixel_at(x, y):
     Returns (r, g, b) color code for a pixel with given coordinates (each value is in
     0..256 limits)
     """
-    from PyQt5 import QtQuick
-
-    view = QtQuick.QQuickView()
-
-    view.rootContext()
 
     desktop_id = QtWidgets.QApplication.desktop().winId()
     screen = QtWidgets.QApplication.primaryScreen()
     color = screen.grabWindow(desktop_id, x, y, 1, 1).toImage().pixel(0, 0)
+
     return ((color >> 16) & 0xff), ((color >> 8) & 0xff), (color & 0xff)
