@@ -1,4 +1,12 @@
-### v0.3.2-dev
+### v0.3.2
+
+This release fixes a bug that could result in only changes of top-level items being
+synced. This affects users who carried out the initial linking with Maestral v0.2.5 or
+later and selected to exclude folders before the first download. Users affected by this
+should rebuild Maestral's index by selecting "Rebuild index..." in the main menu.
+
+Other improvements include expanded command line scripts with more useful output, minor
+bug fixes and small tweaks to the UI.
 
 #### Added:
 
@@ -27,7 +35,8 @@
 - Set minimum version requirement for click package.
 - Reduced the startup time by downloading profile picture in a thread. Periodically update
   in the background (every 20 min).
-- Check hashes before uploading modified files.
+- Check hashes before uploading modified files. This speeds up re-linking an old folder by
+  orders of magnitude.
 - Enable the creation of multiple autostart entries for different configurations.
 - Fall back to PNG tray icons if the platform may not support our svg format.
 
@@ -43,6 +52,11 @@
 - Automatic allocation of ports for the communication between daemon and client.
 - Show the (Dropbox) file path in the string representation of `MaestralApiError`.
   Previously, one could not see from the traceback which file caused the error.
+- Fixed a bug that would result in only changes of top-level items being synced. This
+  affects users who carrier out the initial linking with Maestral v0.2.5 or later
+  (commit 40be316b49f2198a01cc9ce9b804f8e6336e36f8) and selected to exclude folders
+  before the initial sync. Users affected by this bug should rebuild Maestral's index by
+  selecting "Rebuild index..." in the main menu.
   
 #### Removed:
 
