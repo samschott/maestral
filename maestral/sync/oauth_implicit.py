@@ -17,7 +17,7 @@ from dropbox.oauth import (OAuth2FlowNoRedirectResult, WEB_HOST, API_HOST,
                            pinned_session, url_path_quote, _params_to_urlencoded)
 
 # maestral modules
-from maestral.errors import to_maestral_error
+from maestral.sync.errors import to_maestral_error
 
 logger = logging.getLogger(__name__)
 

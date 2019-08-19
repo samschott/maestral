@@ -20,10 +20,10 @@ from blinker import signal
 from PyQt5 import QtCore, QtWidgets
 
 # maestral modules
-from maestral.main import Maestral
-from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
-from maestral.errors import (DropboxAuthError, TokenExpiredError, CursorResetError,
-                             MaestralApiError, RevFileError, DropboxDeletedError)
+from maestral.sync.main import Maestral
+from maestral.sync.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
+from maestral.sync.errors import (DropboxAuthError, TokenExpiredError, CursorResetError,
+                                  MaestralApiError, RevFileError, DropboxDeletedError)
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.setup_dialog import SetupDialog
 from maestral.gui.relink_dialog import RelinkDialog

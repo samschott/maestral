@@ -16,8 +16,8 @@ from PyQt5 import QtGui, QtCore, QtWidgets, uic
 from dropbox import files
 
 # maestral modules
-from maestral.main import Maestral
-from maestral.oauth import OAuth2Session
+from maestral.sync.main import Maestral
+from maestral.sync.oauth import OAuth2Session
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FolderItem

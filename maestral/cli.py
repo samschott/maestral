@@ -88,7 +88,7 @@ def start_maestral_daemon(config_name):
 
     os.environ["MAESTRAL_CONFIG"] = config_name
 
-    from maestral.main import Maestral
+    from maestral.sync.main import Maestral
 
     daemon = Pyro4.Daemon()
 
@@ -123,7 +123,7 @@ def start_daemon_subprocess(config_name):
     :returns: Popen object instance.
     """
     import subprocess
-    from maestral.main import Maestral
+    from maestral.sync.main import Maestral
 
     if Maestral.pending_link() or Maestral.pending_dropbox_folder():
         # run onboarding
@@ -200,7 +200,7 @@ def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
             maestral_daemon._pyroRelease()
 
     if fallback:
-        from maestral.main import Maestral
+        from maestral.sync.main import Maestral
         m = Maestral(run=False)
         return m
     else:
@@ -227,7 +227,7 @@ def is_maestral_linked(config_name):
     at any time.
     """
     os.environ["MAESTRAL_CONFIG"] = config_name
-    from maestral.main import Maestral
+    from maestral.sync.main import Maestral
     if Maestral.pending_link():
         click.echo("No Dropbox account linked.")
         return False
@@ -343,7 +343,7 @@ def log():
 def about():
     """Returns the version number and other information."""
     import time
-    from maestral.main import __version__, __author__, __url__
+    from maestral.sync.main import __version__, __author__, __url__
 
     year = time.localtime().tm_year
     click.echo("")
@@ -400,7 +400,7 @@ def link(config_name: str, running):
         if running == "daemon":  # stop daemon
             stop_maestral_daemon(config_name)
 
-        from maestral.main import Maestral
+        from maestral.sync.main import Maestral
         Maestral(run=False)
 
         if running == "daemon":  # start daemon
@@ -474,7 +474,7 @@ def set_dir(config_name: str, new_path: str, running):
         return
 
     if is_maestral_linked(config_name):
-        from maestral.main import Maestral
+        from maestral.sync.main import Maestral
         with MaestralProxy(config_name, fallback=True) as m:
             if not new_path:
                 new_path = Maestral._ask_for_path()
@@ -545,7 +545,7 @@ def ls(dropbox_path: str, running, config_name: str, all: bool):
         dropbox_path = ""
 
     if is_maestral_linked(config_name):
-        from maestral.client import MaestralApiClient
+        from maestral.sync.client import MaestralApiClient
         from maestral.config.main import CONF
         from dropbox.files import FolderMetadata
 

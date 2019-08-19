@@ -17,10 +17,10 @@ import logging
 import dropbox
 
 # maestral modules
-from maestral.oauth import OAuth2Session
+from maestral.sync.oauth import OAuth2Session
 from maestral.config.main import CONF
-from maestral.errors import to_maestral_error, construct_local_error
-from maestral.errors import OS_FILE_ERRORS, CursorResetError
+from maestral.sync.errors import to_maestral_error, construct_local_error
+from maestral.sync.errors import OS_FILE_ERRORS, CursorResetError
 
 
 logger = logging.getLogger(__name__)
