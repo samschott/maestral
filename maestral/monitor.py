@@ -432,19 +432,23 @@ class UpDownSync(object):
                 assert all(isinstance(val, str) for val in rev_dict_cache.values())
             except (FileNotFoundError, IsADirectoryError):
                 logger.warning("Maestral index could not be found.")
-            except AssertionError:
+            except (AssertionError, umsgpack.InsufficientDataException) as exc:
                 msg = "Maestral index has become corrupted. Please rebuild."
+                new_exc = RevFileError(msg).with_traceback(exc.__traceback__)
                 if raise_exception:
-                    raise RevFileError(msg)
+                    raise new_exc
                 else:
-                    logger.exception(msg)
-            except PermissionError:
+                    exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
+                    logger.error(msg, exc_info=exc_info)
+            except PermissionError as exc:
                 msg = ("Insufficient permissions for Dropbox folder. Please " +
                        "make sure that you have read and write permissions.")
+                new_exc = RevFileError(msg).with_traceback(exc.__traceback__)
                 if raise_exception:
                     raise RevFileError(msg)
                 else:
-                    logger.exception(msg)
+                    exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
+                    logger.error(msg, exc_info=exc_info)
             except OSError as exc:
                 if raise_exception:
                     raise exc
