@@ -1412,11 +1412,13 @@ def download_worker(sync, syncing, running, queue_downloading):
                     for item in changes.entries:
                         local_path = sync.to_local_path(item.path_display)
                         queue_downloading.put(local_path)
+
                     time.sleep(1)
 
                     # apply remote changes to local Dropbox folder
                     sync.apply_remote_changes(changes)
-                    time.sleep(2)
+                    # wait some times for local file events to register
+                    time.sleep(5)
 
             logger.info(IDLE)
         except CONNECTION_ERRORS:
@@ -1429,7 +1431,6 @@ def download_worker(sync, syncing, running, queue_downloading):
             running.clear()  # shutdown threads
         finally:
             # clear queue_downloading
-            time.sleep(1.0)  # wait some time before clearing queue
             queue_downloading.queue.clear()
 
 
