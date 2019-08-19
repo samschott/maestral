@@ -25,9 +25,10 @@ from maestral.sync.daemon import write_pid, delete_pid, get_maestral_process_inf
 from maestral.sync.daemon import (start_maestral_daemon, start_daemon_subprocess,
                                   stop_maestral_daemon, MaestralProxy)
 
-# ========================================================================================
-# Maestral daemon
-# ========================================================================================
+
+OK = click.style("[OK]", fg="green")
+FAILED = click.style("[FAILED]", fg="red")
+KILLED = click.style("[KILLED]", fg="red")
 
 
 def is_maestral_linked(config_name):
@@ -42,6 +43,26 @@ def is_maestral_linked(config_name):
         return False
     else:
         return True
+
+
+def start_daemon_subprocess_with_cli_feedback(config_name):
+    click.echo("Starting Maestral...", nl=False)
+    res = start_daemon_subprocess(config_name)
+    if res:
+        click.echo("\rStarting Maestral...        " + OK)
+    else:
+        click.echo("\rStarting Maestral...        " + FAILED)
+
+
+def stop_daemon_with_cli_feedback(config_name):
+    click.echo("Stopping Maestral...", nl=False)
+    success = stop_maestral_daemon(config_name)
+    if success is None:
+        click.echo("Maestral daemon was not running.")
+    elif success is True:
+        click.echo("\rStopping Maestral...        " + OK)
+    else:
+        click.echo("\rStopping Maestral...        " + KILLED)
 
 
 # ========================================================================================
@@ -156,18 +177,12 @@ def link(config_name: str, running):
     """Links Maestral with your Dropbox account."""
 
     if not is_maestral_linked(config_name):
-        if running == "gui":
-            click.echo("Maestral GUI is already running. Please link through the GUI.")
+        if running:
+            click.echo("Maestral is already running. Please link through the CLI or GUI.")
             return
-
-        if running == "daemon":  # stop daemon
-            stop_maestral_daemon(config_name)
 
         from maestral.sync.main import Maestral
         Maestral(run=False)
-
-        if running == "daemon":  # start daemon
-            start_daemon_subprocess(config_name)
 
     else:
         click.echo("Maestral is already linked.")
@@ -185,7 +200,7 @@ def unlink(config_name: str, running):
             return
 
         if running == "daemon":
-            stop_maestral_daemon(config_name)
+            stop_daemon_with_cli_feedback()
 
         with MaestralProxy(config_name, fallback=True) as m:
             m.unlink()
@@ -430,7 +445,7 @@ def start(config_name: str, running):
         click.echo("Maestral daemon is already running.")
         return
 
-    start_daemon_subprocess(config_name)
+    start_daemon_subprocess_with_cli_feedback(config_name)
 
 
 @daemon.command()
@@ -439,8 +454,8 @@ def stop(config_name: str, running):
     """Stops the Maestral daemon."""
     if not running == "daemon":
         click.echo("Maestral daemon is not running.")
-        return
-    stop_maestral_daemon(config_name)
+    else:
+        stop_daemon_with_cli_feedback(config_name)
 
 
 @daemon.command()
@@ -452,11 +467,11 @@ def restart(config_name: str, running):
         return
 
     if running == "daemon":
-        stop_maestral_daemon(config_name)
+        stop_daemon_with_cli_feedback(config_name)
     else:
         click.echo("Maestral daemon is not running.")
 
-    start_daemon_subprocess(config_name)
+    start_daemon_subprocess_with_cli_feedback(config_name)
 
 
 @daemon.command()

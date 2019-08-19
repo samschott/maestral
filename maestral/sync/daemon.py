@@ -11,13 +11,8 @@ import os
 
 # external packages
 import Pyro4
-import click
 
 URI = "PYRO:maestral.{0}@{1}"
-
-OK = click.style("[OK]", fg="green")
-FAILED = click.style("[FAILED]", fg="red")
-KILLED = click.style("[KILLED]", fg="red")
 
 Pyro4.config.SERIALIZER = "pickle"
 Pyro4.config.SERIALIZERS_ACCEPTED.add('pickle')
@@ -58,7 +53,7 @@ def delete_pid(config_name):
     os.unlink(pid_file)
 
 
-def start_maestral_daemon(config_name):
+def start_maestral_daemon(config_name, run=True):
     """
 
     Wraps :class:`maestral.main.Maestral` as Pyro daemon object, creates a new instance
@@ -71,6 +66,7 @@ def start_maestral_daemon(config_name):
     `config_name`.
 
     :param str config_name: The name of maestral configuration to use.
+    :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
     """
 
     os.environ["MAESTRAL_CONFIG"] = config_name
@@ -86,7 +82,7 @@ def start_maestral_daemon(config_name):
         # removed, even when Maestral crashes for some reason
 
         ExposedMaestral = Pyro4.expose(Maestral)
-        m = ExposedMaestral()
+        m = ExposedMaestral(run=run)
 
         daemon.register(m, "maestral.{}".format(config_name))
         daemon.requestLoop(loopCondition=m._shutdown_requested)
@@ -107,18 +103,16 @@ def start_daemon_subprocess(config_name):
     `config_name`.
 
     :param str config_name: The name of maestral configuration to use.
-    :returns: Popen object instance.
+    :returns: ``True`` if started, ``False`` otherwise.
     """
     import subprocess
     from maestral.sync.main import Maestral
 
     if Maestral.pending_link() or Maestral.pending_dropbox_folder():
-        # run onboarding
+        # run setup
         m = Maestral(run=False)
         m.create_dropbox_directory()
         m.set_excluded_folders()
-
-    click.echo("Starting Maestral...", nl=False)
 
     proc = subprocess.Popen("maestral sync -c {}".format(config_name),
                             shell=True, stdin=subprocess.DEVNULL,
@@ -127,15 +121,21 @@ def start_daemon_subprocess(config_name):
     # check if the subprocess is still running after 1 sec
     try:
         proc.wait(timeout=1)
-        click.echo("\rStarting Maestral...        " + FAILED)
+        return False
     except subprocess.TimeoutExpired:
-        click.echo("\rStarting Maestral...        " + OK)
-
-    return proc
+        return True
 
 
 def stop_maestral_daemon(config_name="maestral"):
-    """stops maestral by finding its PID and shutting it down"""
+    """Stops maestral by finding its PID and shutting it down.
+
+    This function first tries to shut down Maestral gracefully. If this fails, it will
+    send SIGTERM. If that fails as well, it will send SIGKILL.
+
+    :param str config_name: The name of maestral configuration to use.
+    :returns: ``True`` if terminated gracefully, ``False`` if killed and ``None`` if the
+        daemon was not running.
+    """
     import signal
     import time
 
@@ -143,7 +143,6 @@ def stop_maestral_daemon(config_name="maestral"):
     if p_type == "daemon":
         try:
             # try to shut down gracefully
-            click.echo("Stopping Maestral...", nl=False)
             with MaestralProxy(config_name) as m:
                 m.stop_sync()
                 m.shutdown_daemon()
@@ -153,6 +152,7 @@ def stop_maestral_daemon(config_name="maestral"):
                 os.kill(pid, signal.SIGTERM)
             except ProcessLookupError:
                 delete_pid(pid)
+                return
         finally:
             t0 = time.time()
             while any(get_maestral_process_info(config_name)):
@@ -160,13 +160,9 @@ def stop_maestral_daemon(config_name="maestral"):
                 if time.time() - t0 > 5:
                     # send SIGKILL if still running
                     os.kill(pid, signal.SIGKILL)
-                    click.echo("\rStopping Maestral...        " + KILLED)
-                    return
+                    return False
 
-            click.echo("\rStopping Maestral...        " + OK)
-
-    else:
-        click.echo("Maestral daemon is not running.")
+            return True
 
 
 def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
