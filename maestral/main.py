@@ -108,7 +108,7 @@ def folder_download_worker(monitor, dbx_path, callback=None):
                     monitor.sync.last_sync = time.time()
                 else:
                     # remove folder from excluded list
-                    monitor.flagged.remove(monitor.sync.to_local_path(dbx_path))
+                    monitor.queue_downloading.remove(monitor.sync.to_local_path(dbx_path))
 
                 time.sleep(1)
                 completed = True
@@ -303,7 +303,7 @@ class Maestral(object):
 
         is_root = dbx_path == ""
         if not is_root:  # exclude only specific folder otherwise
-            self.monitor.flagged.append(self.sync.to_local_path(dbx_path))
+            self.monitor.queue_downloading.append(self.sync.to_local_path(dbx_path))
 
         self.download_thread = Thread(
                 target=folder_download_worker,

@@ -12,7 +12,6 @@ import shutil
 import logging
 import time
 from threading import Thread, Event, RLock
-from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import queue
 from collections import OrderedDict
@@ -142,33 +141,42 @@ class TimedQueue(queue.Queue):
 
 class FileEventHandler(FileSystemEventHandler):
     """
-    Logs captured file events and adds them to :ivar:`local_q` to be processed
+    Handles captured file events and adds them to :ivar:`local_q` to be processed
     by :class:`upload_worker`. This acts as a translation layer between
     `watchdog.Observer` and :class:`upload_worker`.
 
-    :ivar local_q: Queue with unprocessed local file events.
-    :ivar flagged: Deque with files to be ignored. This is primarily used to
+    :ivar queue_to_upload: Queue with unprocessed local file events.
+    :ivar queue_downloading: Deque with files to be ignored. This is primarily used to
          exclude files and folders from monitoring if they are currently being
-         downloaded. All entries in `flagged` should be temporary only.
+         downloaded. All entries in :ivar:`queue_downloading` should be temporary only.
     :ivar running: Event to turn the queueing of uploads on / off.
     """
 
-    def __init__(self, flagged):
-        self.local_q = TimedQueue()
+    def __init__(self, queue_to_upload, queue_downloading):
+
         self.running = Event()
-        self.flagged = flagged
+        self.queue_to_upload = queue_to_upload
+        self.queue_downloading = queue_downloading
 
     def is_flagged(self, local_path):
-        for path in self.flagged:
+        for path in self.queue_downloading:
             if local_path.lower().startswith(path.lower()):
-                logger.debug("'{0}' is flagged, no upload.".format(local_path))
+                logger.debug("'{0}' being downloaded, ignore.".format(local_path))
                 return True
         return False
 
+    @staticmethod
+    def is_rev_file(local_path):
+
+        return osp.basename(local_path) == REV_FILE
+
     def on_any_event(self, event):
 
+        if self.is_rev_file(event.src_path):
+            return
+
         if self.running.is_set() and not self.is_flagged(event.src_path):
-            self.local_q.put(event)
+            self.queue_to_upload.put(event)
 
 
 def catch_sync_issues(sync_errors=None, failed_items=None):
@@ -214,7 +222,7 @@ class UpDownSync(object):
     Class that contains methods to sync local file events with Dropbox and vice versa.
 
     :param client: MaestralApiClient client instance.
-    :param local_q: Queue with local file-changed events.
+    :param queue_to_upload: Queue with local file-changed events.
     """
 
     _dropbox_path = CONF.get("main", "path")
@@ -228,10 +236,10 @@ class UpDownSync(object):
     failed_downloads = queue.Queue()
     sync_errors = queue.Queue()
 
-    def __init__(self, client, local_q):
+    def __init__(self, client, queue_to_upload):
 
         self.client = client
-        self.local_q = local_q
+        self.queue_to_upload = queue_to_upload
 
         # migrate rev file
         self.migrate_rev_file()
@@ -566,15 +574,15 @@ class UpDownSync(object):
         :rtype: (list, float)
         """
         try:
-            events = [self.local_q.get(timeout=timeout)]  # blocks until event is in queue
+            events = [self.queue_to_upload.get(timeout=timeout)]  # blocks until event is in queue
         except queue.Empty:
             return [], time.time()
 
         # keep collecting events until no more changes happen for at least 0.5 sec
         t0 = time.time()
-        while t0 - self.local_q.update_time < delay:
-            while self.local_q.qsize() > 0:
-                events.append(self.local_q.get())
+        while t0 - self.queue_to_upload.update_time < delay:
+            while self.queue_to_upload.qsize() > 0:
+                events.append(self.queue_to_upload.get())
             time.sleep(delay)
             t0 = time.time()
 
@@ -1355,18 +1363,18 @@ def connection_helper(client, connected, syncing, running):
             logger.exception("{0}: {1}".format(e.title, e.message))
 
 
-def download_worker(sync, syncing, running, flagged):
+def download_worker(sync, syncing, running, queue_downloading):
     """
     Worker to sync changes of remote Dropbox with local folder. All files about
     to change are temporarily excluded from the local file monitor by adding
-    their paths to the `flagged` deque.
+    their paths to the `queue_downloading`.
 
-    :param sync: Instance of :class:`UpDownSync`.
-    :param syncing: If not `running.is_set()` the worker is paused. This event
+    :param UpDownSync sync: Instance of :class:`UpDownSync`.
+    :param Event syncing: If not `running.is_set()` the worker is paused. This event
         will be set if the connection to the Dropbox server fails, or if
         syncing is paused by the user.
-    :param running: Event to shutdown local event handler and workers.
-    :param deque flagged: Flagged paths for local observer to ignore.
+    :param Event running: Event to shutdown local event handler and workers.
+    :param Queue queue_downloading: Flagged paths for local observer to ignore.
     """
 
     disconnected_signal = signal("disconnected_signal")
@@ -1397,7 +1405,7 @@ def download_worker(sync, syncing, running, flagged):
                     # flag changes to temporarily exclude from upload
                     for item in changes.entries:
                         local_path = sync.to_local_path(item.path_display)
-                        flagged.append(local_path)
+                        queue_downloading.put(local_path)
                     time.sleep(1)
 
                     # apply remote changes to local Dropbox folder
@@ -1414,22 +1422,23 @@ def download_worker(sync, syncing, running, flagged):
             syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
         finally:
-            # clear flagged list
-            flagged.clear()
+            # clear queue_downloading
+            queue_downloading.queue.clear()
 
 
-def upload_worker(sync, syncing, running):
+def upload_worker(sync, syncing, running, queue_uploading):
     """
     Worker to sync local changes to remote Dropbox. It collects the most recent
     local file events from `local_q`, prunes them from duplicates, and
     processes the remaining events by calling methods of
     :class:`DropboxUploadSync`.
 
-    :param sync: Instance of :class:`UpDownSync`.
-    :param syncing: Event to pause local event handler and download worker.
+    :param UpDownSync sync: Instance of :class:`UpDownSync`.
+    :param Event syncing: Event to pause local event handler and download worker.
         Will be set if the connection to the Dropbox server fails, or if
         syncing is paused by the user.
-    :param running: Event to shutdown local event handler and workers.
+    :param Event running: Event to shutdown local event handler and workers.
+    :param Queue queue_uploading: Queue to hold files that are being uploaded.
     """
 
     disconnected_signal = signal("disconnected_signal")
@@ -1439,6 +1448,9 @@ def upload_worker(sync, syncing, running):
         syncing.wait()  # if not running, wait until resumed
 
         events, local_cursor = sync.wait_for_local_changes(timeout=2)
+
+        for e in events:
+            queue_uploading.put(e.src_path)
 
         # check if local directory still exists
         # ideally, we would like the observer thread to notify us if the local Dropbox
@@ -1462,6 +1474,8 @@ def upload_worker(sync, syncing, running):
             if syncing.is_set():
                 sync.last_sync = local_cursor
 
+        queue_uploading.queue.clear()
+
 
 # ========================================================================================
 # Main Monitor class to start, stop and coordinate threads
@@ -1483,16 +1497,23 @@ class MaestralMonitor(object):
     :ivar sync: `UpDownSync` instance to coordinate syncing. This is the brain of
         Maestral. It contains the logic to process local and remote file events and to
         apply them while checking for conflicts.
-    :cvar connected: Event that is set when a connection to Dropbox servers can be
-        established.
+
+    :cvar connected: Event that is set when connected to Dropbox servers.
     :cvar running: Event that is set when the threads are running.
     :cvar syncing: Event that is set when syncing is not paused.
+
+    :cvar queue_downloading: Queue with *local file paths* that are being downloaded.
+    :cvar queue_uploading: Queue with *local file paths* that are being uploaded.
+    :cvar queue_to_upload: Queue with *file events* to be uploaded.
     """
 
     connected = Event()
     syncing = Event()
     running = Event()
-    flagged = deque()
+
+    queue_downloading = queue.Queue()
+    queue_uploading = queue.Queue()
+    queue_to_upload = TimedQueue()
 
     connected_signal = signal("connected_signal")
     disconnected_signal = signal("disconnected_signal")
@@ -1500,13 +1521,21 @@ class MaestralMonitor(object):
 
     _auto_resume_on_connect = False
 
+    @property
+    def upload_list(self):
+        queue_to_upload_list = list(e.src_path for e in self.queue_to_upload.queue)
+        return list(self.queue_uploading.queue) + queue_to_upload_list
+
+    @property
+    def download_list(self):
+        return list(self.queue_downloading.queue)
+
     def __init__(self, client):
 
         self.client = client
-        self.file_handler = FileEventHandler(self.flagged)
-        self.local_q = self.file_handler.local_q
+        self.file_handler = FileEventHandler(self.queue_to_upload, self.queue_downloading)
 
-        self.sync = UpDownSync(self.client, self.local_q)
+        self.sync = UpDownSync(self.client, self.queue_to_upload)
 
     def start(self, overload=None):
         """Creates observer threads and starts syncing."""
@@ -1528,12 +1557,12 @@ class MaestralMonitor(object):
 
         self.download_thread = Thread(
                 target=download_worker, daemon=True,
-                args=(self.sync, self.syncing, self.running, self.flagged),
+                args=(self.sync, self.syncing, self.running, self.queue_downloading),
                 name="MaestralDownloader")
 
         self.upload_thread = Thread(
                 target=upload_worker, daemon=True,
-                args=(self.sync, self.syncing, self.running),
+                args=(self.sync, self.syncing, self.running, self.queue_uploading),
                 name="MaestralUploader")
 
         self.running.set()
@@ -1671,7 +1700,7 @@ class MaestralMonitor(object):
 
         # queue changes for upload
         for event in events:
-            self.local_q.put(event)
+            self.queue_to_upload.put(event)
 
         logger.info(IDLE)
 
