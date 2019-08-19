@@ -236,10 +236,10 @@ class UpDownSync(object):
         # migrate rev file
         self.migrate_rev_file()
 
-        # cache dropbox path
+        # load cached properties
         self._dropbox_path = CONF.get("main", "path")
-
-        # cache of revision dictionary
+        self._excluded_files = CONF.get("main", "excluded_files")
+        self._excluded_folders = CONF.get("main", "excluded_folders")
         self._rev_dict_cache = self._load_rev_dict_from_file()
 
     def migrate_rev_file(self):
@@ -297,19 +297,26 @@ class UpDownSync(object):
 
     @property
     def excluded_files(self):
-        """List containing all files excluded from sync (read only). This only contains
-        system files such as '.DS_STore' and internal files such as '.dropbox'."""
-        return CONF.get("main", "excluded_files")
+        """List containing all files excluded from sync. Changes are saved to the
+        config file."""
+        return self._excluded_files
+
+    @excluded_files.setter
+    def excluded_files(self, files_list):
+        """Setter: excluded_folders"""
+        self._excluded_files = files_list
+        CONF.set("main", "excluded_files", files_list)
 
     @property
     def excluded_folders(self):
         """List containing all files excluded from sync. Changes are saved to the
         config file."""
-        return CONF.get("main", "excluded_folders")
+        return self._excluded_folders
 
     @excluded_folders.setter
     def excluded_folders(self, folders_list):
         """Setter: excluded_folders"""
+        self._excluded_folders = folders_list
         CONF.set("main", "excluded_folders", folders_list)
 
     # ====================================================================================
@@ -1057,6 +1064,10 @@ class UpDownSync(object):
         dbx_path = dbx_path.lower()
 
         excluded = False
+
+        # in excluded files?
+        if dbx_path in self.excluded_files:
+            excluded = True
 
         # in excluded folders?
         for excluded_folder in self.excluded_folders:
