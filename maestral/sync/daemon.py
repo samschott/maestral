@@ -116,7 +116,7 @@ def start_daemon_subprocess(config_name):
         # run onboarding
         m = Maestral(run=False)
         m.create_dropbox_directory()
-        m.select_excluded_folders()
+        m.set_excluded_folders()
 
     click.echo("Starting Maestral...", nl=False)
 

@@ -185,7 +185,7 @@ class Maestral(object):
             # before calling `start_sync`
             if self.pending_dropbox_folder():
                 self.create_dropbox_directory()
-                self.select_excluded_folders()
+                self.set_excluded_folders()
 
                 self.sync.last_cursor = ""
                 self.sync.last_sync = None
@@ -442,31 +442,38 @@ Any changes to local files during this process may be lost.""")
         self.get_remote_dropbox_async(dbx_path)
 
     @handle_disconnect
-    def select_excluded_folders(self):
+    def set_excluded_folders(self, folder_list=None):
         """
-        Gets all top level folder paths from Dropbox and asks user to include
-        or exclude. On initial sync, this does not trigger any syncing. Call
-        `get_remote_dropbox` or `get_remote_dropbox_async` instead.
+        Sets the list of excluded folders to `folder_list`. If not given, gets all top
+        level folder paths from Dropbox and asks user to include or exclude.
 
+        On initial sync, this does not trigger any syncing. Call `get_remote_dropbox` or
+        `get_remote_dropbox_async` instead.
+
+        :param list folder_list: If given, list of excluded folder to set.
         :return: List of excluded folders.
         :rtype: list
         """
 
-        excluded_folders = []
-        included_folders = []
+        if not folder_list:
+            excluded_folders = []
+            included_folders = []
 
-        # get all top-level Dropbox folders
-        # if this raises an error, we have a serious problem => crash
-        result = self.client.list_folder("", recursive=False)
+            # get all top-level Dropbox folders
+            # if this raises an error, we have a serious problem => crash
+            result = self.client.list_folder("", recursive=False)
 
-        # paginate through top-level folders, ask to exclude
-        for entry in result.entries:
-            if isinstance(entry, files.FolderMetadata):
-                yes = yesno("Exclude '%s' from sync?" % entry.path_display, False)
-                if yes:
-                    excluded_folders.append(entry.path_lower)
-                else:
-                    included_folders.append(entry.path_lower)
+            # paginate through top-level folders, ask to exclude
+            for entry in result.entries:
+                if isinstance(entry, files.FolderMetadata):
+                    yes = yesno("Exclude '%s' from sync?" % entry.path_display, False)
+                    if yes:
+                        excluded_folders.append(entry.path_lower)
+                    else:
+                        included_folders.append(entry.path_lower)
+        else:
+            excluded_folders = list(f.lower() for f in folder_list)
+            included_folders = []
 
         # detect and apply changes
         if not self.pending_first_download():
