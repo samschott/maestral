@@ -338,4 +338,4 @@ class SetupDialog(QtWidgets.QDialog):
         fsd = SetupDialog(pending_link, parent)
         fsd.exec_()
 
-        return fsd.mdbx
+        return fsd.mdbx is not None

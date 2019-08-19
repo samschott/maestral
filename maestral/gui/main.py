@@ -32,10 +32,10 @@ from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import get_system_tray_icon
 from maestral.gui.utils import (elide_string, UserDialog, quit_and_restart_maestral,
                                 get_gnome_scaling_factor)
-
 from maestral.gui.autostart import AutoStart
 from maestral.config.main import CONF
-
+from maestral.sync.daemon import start_maestral_daemon, stop_maestral_daemon
+from maestral.sync.daemon import MaestralProxy
 
 logger = logging.getLogger(__name__)
 
@@ -133,15 +133,17 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         if pending_link or pending_dbx_folder:
             # Run setup dialog. This returns None if aborted by the user.
-            self.mdbx = SetupDialog.configureMaestral(pending_link)
+            finished = SetupDialog.configureMaestral(pending_link)
+            if finished:
+                self.mdbx = Maestral()
+                self.mdbx.get_remote_dropbox_async("", callback=self.mdbx.start_sync)
+            else:
+                logger.info("Setup aborted. Quitting.")
+                self.quit()
         else:
             self.mdbx = Maestral()
 
-        if self.mdbx:
-            self.setup_ui_linked()
-        else:
-            logger.info("Setup aborted. Quitting.")
-            self.quit()
+        self.setup_ui_linked()
 
     def setup_ui_unlinked(self):
 
