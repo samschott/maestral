@@ -261,9 +261,6 @@ class SetupDialog(QtWidgets.QDialog):
 
         self.mdbx.set_excluded_folders(excluded_folders)
 
-        # start downloading in background
-        self.mdbx.get_remote_dropbox_async("", callback=self.mdbx.start_sync)
-
 # =============================================================================
 # Helper functions
 # =============================================================================
