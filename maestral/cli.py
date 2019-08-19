@@ -723,26 +723,37 @@ def resume(config_name: str, running):
 @daemon.command()
 @with_config_opt
 def status(config_name: str, running):
-    """Returns the current status of Maestral."""
+    """Returns the current status of the Maestral daemon."""
     try:
         from maestral.config.main import CONF
         with MaestralProxy(config_name) as m:
-            if m.pending_link():
-                s_text = "Not linked"
-            else:
-                s_text = m.status
             n_errors = len(m.sync_errors)
             color = "red" if n_errors > 0 else "green"
             n_errors_str = click.style(str(n_errors), fg=color)
             click.echo("")
             click.echo("Account:       {}".format(CONF.get("account", "email")))
             click.echo("Usage:         {}".format(CONF.get("account", "usage")))
-            click.echo("Status:        {}".format(s_text))
+            click.echo("Status:        {}".format(m.status))
             click.echo("Sync errors:   {}".format(n_errors_str))
             click.echo("")
 
     except Pyro4.errors.CommunicationError:
         click.echo("Maestral daemon is not running.")
+
+
+@daemon.command()
+@click.argument("local_path", type=click.Path(exists=True))
+@with_config_opt
+def file_status(config_name: str, running, local_path: str):
+    """Returns the current sync status of a given file or folder."""
+    try:
+        from maestral.config.main import CONF
+        with MaestralProxy(config_name) as m:
+            status = m.get_file_status(local_path)
+            click.echo(status)
+
+    except Pyro4.errors.CommunicationError:
+        click.echo("unwatched")
 
 
 @daemon.command()
