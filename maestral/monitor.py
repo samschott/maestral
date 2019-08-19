@@ -159,7 +159,7 @@ class FileEventHandler(FileSystemEventHandler):
         self.queue_downloading = queue_downloading
 
     def is_flagged(self, local_path):
-        for path in self.queue_downloading:
+        for path in self.queue_downloading.queue:
             if local_path.lower().startswith(path.lower()):
                 logger.debug("'{0}' being downloaded, ignore.".format(local_path))
                 return True
@@ -289,6 +289,7 @@ class UpDownSync(object):
     @last_cursor.setter
     def last_cursor(self, cursor):
         """Setter: last_cursor"""
+        logger.debug("Remote cursor saved: {}".format(cursor))
         CONF.set("internal", "cursor", cursor)
 
     @property
@@ -301,6 +302,7 @@ class UpDownSync(object):
     @last_sync.setter
     def last_sync(self, last_sync):
         """Setter: last_cursor"""
+        logger.debug("Local cursor saved: {}".format(last_sync))
         CONF.set("internal", "lastsync", last_sync)
 
     @property

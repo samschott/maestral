@@ -108,7 +108,8 @@ def folder_download_worker(monitor, dbx_path, callback=None):
                     monitor.sync.last_sync = time.time()
                 else:
                     # remove folder from excluded list
-                    monitor.queue_downloading.remove(monitor.sync.to_local_path(dbx_path))
+                    monitor.queue_downloading.queue.remove(
+                        monitor.sync.to_local_path(dbx_path))
 
                 time.sleep(1)
                 completed = True
@@ -319,7 +320,7 @@ class Maestral(object):
 
         is_root = dbx_path == ""
         if not is_root:  # exclude only specific folder otherwise
-            self.monitor.queue_downloading.append(self.sync.to_local_path(dbx_path))
+            self.monitor.queue_downloading.put(self.sync.to_local_path(dbx_path))
 
         self.download_thread = Thread(
                 target=folder_download_worker,
@@ -332,9 +333,10 @@ class Maestral(object):
         """Rebuilds the Maestral index and resumes syncing afterwards if it has been
         running."""
 
-        print("""Rebuilding the revision index. This process may
-        take several minutes, depending on the size of your Dropbox.
-        Any changes to local files during this process may be lost. """)
+        print("""
+Rebuilding the revision index. This process may
+take several minutes, depending on the size of your Dropbox.
+Any changes to local files during this process may be lost.""")
 
         self.monitor.rebuild_rev_file()
 
