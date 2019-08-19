@@ -253,16 +253,19 @@ class Maestral(object):
 
     def get_file_status(self, local_path):
 
-        if local_path in self.monitor.upload_list:
-            return "uploading"
-        elif local_path in self.monitor.download_list:
-            return "downloading"
-        elif local_path in self.sync_errors:
-            return "error"
-        elif self.sync.get_local_rev(self.sync.to_dbx_path(local_path)):
-            return "up to date"
-        else:
+        if not self.syncing:
             return "unwatched"
+        else:
+            if local_path in self.monitor.upload_list:
+                return "uploading"
+            elif local_path in self.monitor.download_list:
+                return "downloading"
+            elif local_path in self.sync_errors:
+                return "error"
+            elif self.sync.get_local_rev(self.sync.to_dbx_path(local_path)):
+                return "up to date"
+            else:
+                return "unwatched"
 
     @handle_disconnect
     def get_account_info(self):
