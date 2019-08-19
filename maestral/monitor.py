@@ -159,9 +159,9 @@ class FileEventHandler(FileSystemEventHandler):
         self.queue_downloading = queue_downloading
 
     def is_flagged(self, local_path):
-        for path in self.queue_downloading.queue:
+        for path in tuple(self.queue_downloading.queue):
             if local_path.lower().startswith(path.lower()):
-                logger.debug("'{0}' being downloaded, ignore.".format(local_path))
+                logger.debug("'{0}' is being downloaded, ignore.".format(local_path))
                 return True
         return False
 
@@ -1429,6 +1429,7 @@ def download_worker(sync, syncing, running, queue_downloading):
             running.clear()  # shutdown threads
         finally:
             # clear queue_downloading
+            time.sleep(1.0)  # wait some time before clearing queue
             queue_downloading.queue.clear()
 
 
