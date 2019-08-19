@@ -245,7 +245,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.pushButtonFolderSelectionSelect.setFocus()
 
         # populate folder list
-        if self.folder_items == []:
+        if not self.folder_items:
             self.populate_folders_list()
 
     def on_folders_selected(self):
@@ -254,16 +254,14 @@ class SetupDialog(QtWidgets.QDialog):
 
         # exclude folders
         excluded_folders = []
-        included_folders = []
 
         for item in self.folder_items:
             if not item.isIncluded():
                 excluded_folders.append("/" + item.name.lower())
-            elif item.isIncluded():
-                included_folders.append("/" + item.name.lower())
 
-        CONF.set("main", "excluded_folders", excluded_folders)
+        self.mdbx.set_excluded_folders(excluded_folders)
 
+        # start downloading in background
         self.mdbx.get_remote_dropbox_async("", callback=self.mdbx.start_sync)
 
 # =============================================================================
