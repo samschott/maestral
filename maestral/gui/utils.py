@@ -20,7 +20,7 @@ from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap, QWindow
 
 # maestral modules
 from maestral.gui.resources import APP_ICON_PATH, rgb_to_luminance
-from maestral.utils import is_macos_bundle
+from maestral.sync.utils import is_macos_bundle
 
 THEME_DARK = "dark"
 THEME_LIGHT = "light"

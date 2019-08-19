@@ -34,7 +34,7 @@ from maestral.sync.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
                                    path_exists_case_insensitive)
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
-from maestral.utils.app_dirs import get_log_path, get_cache_path
+from maestral.sync.utils.app_dirs import get_log_path, get_cache_path
 
 
 config_name = os.getenv("MAESTRAL_CONFIG", "maestral")

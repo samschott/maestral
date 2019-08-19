@@ -33,8 +33,8 @@ from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 # maestral modules
 from maestral.config.main import CONF
-from maestral.utils.content_hasher import DropboxContentHasher
-from maestral.utils.notify import Notipy
+from maestral.sync.utils.content_hasher import DropboxContentHasher
+from maestral.sync.utils import Notipy
 from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, CursorResetError,
                                   RevFileError, DropboxDeletedError, DropboxAuthError)
 
