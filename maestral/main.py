@@ -256,17 +256,22 @@ class Maestral(object):
 
         if not self.syncing:
             return "unwatched"
+
+        try:
+            dbx_path = self.sync.to_dbx_path(local_path)
+        except ValueError:
+            return "unwatched"
+
+        if local_path in self.monitor.upload_list:
+            return "uploading"
+        elif local_path in self.monitor.download_list:
+            return "downloading"
+        elif local_path in self.sync_errors:
+            return "error"
+        elif self.sync.get_local_rev(dbx_path):
+            return "up to date"
         else:
-            if local_path in self.monitor.upload_list:
-                return "uploading"
-            elif local_path in self.monitor.download_list:
-                return "downloading"
-            elif local_path in self.sync_errors:
-                return "error"
-            elif self.sync.get_local_rev(self.sync.to_dbx_path(local_path)):
-                return "up to date"
-            else:
-                return "unwatched"
+            return "unwatched"
 
     @handle_disconnect
     def get_account_info(self):
@@ -404,7 +409,7 @@ Any changes to local files during this process may be lost.""")
         # remove folder from local drive
         local_path = self.sync.to_local_path(dbx_path)
         local_path_cased = path_exists_case_insensitive(local_path)
-        logger.debug("Deleting folder {0}.".format(local_path_cased))
+        logger.info("Deleting folder '{}'.".format(local_path_cased))
         if osp.isdir(local_path_cased):
             shutil.rmtree(local_path_cased)
 
@@ -433,7 +438,7 @@ Any changes to local files during this process may be lost.""")
         self.sync.excluded_folders = new_folders
 
         # download folder contents from Dropbox
-        logger.debug("Downloading added folder.")
+        logger.info("Downloading added folder '{}'.".format(dbx_path))
         self.get_remote_dropbox_async(dbx_path)
 
     @handle_disconnect
