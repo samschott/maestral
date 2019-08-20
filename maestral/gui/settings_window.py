@@ -14,7 +14,7 @@ from distutils.version import LooseVersion
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 # maestral modules
-from maestral.sync.main import __version__, __author__, __url__
+from maestral import __version__, __author__, __url__
 from maestral.sync.errors import CONNECTION_ERRORS
 from maestral.gui.autostart import AutoStart
 from maestral.config.main import CONF

@@ -127,7 +127,9 @@ def log():
 def about():
     """Returns the version number and other information."""
     import time
-    from maestral.sync.main import __version__, __author__, __url__
+    from maestral import __url__
+    from maestral import __author__
+    from maestral import __version__
 
     year = time.localtime().tm_year
     click.echo("")
