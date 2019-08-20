@@ -168,8 +168,7 @@ def stop_maestral_daemon(config_name="maestral"):
 def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
     """
     Returns a proxy of the running Maestral daemon. If fallback == True,
-    a new instance of Maestral will be returned when the daemon cannot be reached. This
-    can be dangerous if the GUI is running at the same time.
+    a new instance of Maestral will be returned when the daemon cannot be reached.
     """
 
     pid, location, p_type = get_maestral_process_info(config_name)
@@ -202,6 +201,8 @@ class MaestralProxy(object):
     def __exit__(self, exc_type, exc_value, traceback):
         if hasattr(self.m, "_pyroRelease"):
             self.m._pyroRelease()
+
+        del self.m
 
 
 def get_maestral_process_info(config_name):

@@ -132,16 +132,16 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         pending_dbx_folder = Maestral.pending_dropbox_folder()
 
         if pending_link or pending_dbx_folder:
-            # Run setup dialog. This returns None if aborted by the user.
+            # Run setup dialog. This returns False if aborted by the user, True otherwise.
             finished = SetupDialog.configureMaestral(pending_link)
             if finished:
-                self.mdbx = Maestral()
+                self.mdbx = Maestral()  # TODO: create or get daemon instead?
                 self.mdbx.get_remote_dropbox_async("", callback=self.mdbx.start_sync)
             else:
                 logger.info("Setup aborted. Quitting.")
                 self.quit()
         else:
-            self.mdbx = Maestral()
+            self.mdbx = Maestral()  # TODO: create or get daemon instead?
 
         self.setup_ui_linked()
 
