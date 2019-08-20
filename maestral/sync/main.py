@@ -194,15 +194,18 @@ class Maestral(object):
 
     @staticmethod
     def pending_link():
+        """Bool indicating if auth tokens are stored in the system's keychain."""
         auth_session = OAuth2Session()
         return auth_session.load_token() is None
 
     @staticmethod
     def pending_dropbox_folder():
+        """Bool indicating if a local Dropbox directory has been set."""
         return not osp.isdir(CONF.get("main", "path"))
 
     @staticmethod
     def pending_first_download():
+        """Bool indicating if the initial download has already occured.."""
         return (CONF.get("internal", "lastsync") is None or
                 CONF.get("internal", "cursor") == "")
 
@@ -224,7 +227,7 @@ class Maestral(object):
 
     @property
     def notify(self):
-        """Bool indicating if notifications are enabled."""
+        """Bool indicating if notifications are enabled or disabled."""
         return self.sync.notify.enabled
 
     @notify.setter
@@ -239,6 +242,7 @@ class Maestral(object):
         change the Dropbox directory location instead. """
         return self.sync.dropbox_path
 
+    # TODO: return a list of dictionaries or strings instead for safe serializations
     @property
     def sync_errors(self):
         """Returns list containing the current sync errors."""
@@ -246,10 +250,21 @@ class Maestral(object):
 
     @property
     def account_profile_pic_path(self):
+        """Returns the path of the current account's profile picture. There may not be
+        an actual file at that path, if the user did not set a profile picture or the
+        picture has not yet been downloaded."""
         return get_cache_path("maestral", config_name + "_profile_pic.jpeg")
 
     def get_file_status(self, local_path):
+        """
+        Returns the sync status of an individual file.
 
+        :param local_path: Path to file on the local drive.
+        :return: String indicating the sync status. Can be "uploading", "downloading",
+            "up to date", "error", or "unwatched" (for files outside of the Dropbox
+            directory).
+        :rtype: str
+        """
         if not self.syncing:
             return "unwatched"
 
