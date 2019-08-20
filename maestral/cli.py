@@ -422,12 +422,15 @@ def level(config_name: str, level_name: str, running):
     else:
         os.environ["MAESTRAL_CONFIG"] = config_name
         from maestral.config.main import CONF
-        level_file = CONF.get("app", "log_level_file")
-        level_console = CONF.get("app", "log_level_console")
-        for level_num, target in zip((level_file, level_console), ("file", "console")):
-            fallback_name = "CUSTOM ({})".format(level_num)
-            level_name = logging._levelToName.get(level_num, fallback_name)
-            click.echo("Log level {0}:  {1}".format(target, level_name))
+
+        level_num_file = CONF.get("app", "log_level_file")
+        level_num_console = CONF.get("app", "log_level_console")
+
+        level_name_file = logging.getLevelName(level_num_file)
+        level_name_console = logging.getLevelName(level_num_console)
+
+        click.echo("Log level file:     {}".format(level_name_file))
+        click.echo("Log level console:  {}".format(level_name_console))
 
 
 # ========================================================================================
@@ -529,8 +532,8 @@ def file_status(config_name: str, running, local_path: str):
     try:
         from maestral.config.main import CONF
         with MaestralProxy(config_name) as m:
-            status = m.get_file_status(local_path)
-            click.echo(status)
+            stat = m.get_file_status(local_path)
+            click.echo(stat)
 
     except Pyro4.errors.CommunicationError:
         click.echo("unwatched")
