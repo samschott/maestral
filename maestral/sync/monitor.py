@@ -568,6 +568,84 @@ class UpDownSync(object):
     #  Upload sync
     # ====================================================================================
 
+    def collect_local_changes_while_inactive(self):
+        """
+        Collects changes while sync has not been running and puts them in the
+        `queue_upload`. Only file which occurred before calling this method will be
+        returned.
+        """
+
+        logger.info("Indexing...")
+
+        try:
+            events = self._get_local_changes()
+        except FileNotFoundError:
+            self.ensure_dropbox_folder_present()
+            return
+
+        # queue changes for upload
+        for event in events:
+            self.queue_to_upload.put(event)
+
+        logger.info(IDLE)
+
+    def _get_local_changes(self):
+        """
+        Gets all local changes while app has not been running. Call this method
+        on startup of `MaestralMonitor` to upload all local changes.
+
+        :return: Dictionary with all changes, keys are file paths relative to
+            local Dropbox folder, entries are watchdog file changed events.
+        :rtype: dict
+        """
+
+        now = time.time()
+
+        changes = []
+        snapshot = DirectorySnapshot(self.dropbox_path)
+        # remove root entry from snapshot
+        del snapshot._inode_to_path[snapshot.inode(self.dropbox_path)]
+        del snapshot._stat_info[self.dropbox_path]
+        # get lowercase paths
+        lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
+
+        # get modified or added items
+        for path in snapshot.paths:
+            stats = snapshot.stat_info(path)
+            last_sync = CONF.get("internal", "lastsync") or 0
+            # check if item was created or modified since last sync
+            dbx_path = self.to_dbx_path(path).lower()
+
+            is_new = (self.get_local_rev(dbx_path) is None and
+                      not self.is_excluded(dbx_path))
+            is_modified = (self.get_local_rev(dbx_path) and
+                           now > max(stats.st_ctime, stats.st_mtime) > last_sync)
+
+            if is_new:
+                if osp.isdir(path):
+                    event = DirCreatedEvent(path)
+                else:
+                    event = FileCreatedEvent(path)
+                changes.append(event)
+            elif is_modified:
+                if osp.isdir(path):
+                    event = DirModifiedEvent(path)
+                else:
+                    event = FileModifiedEvent(path)
+                changes.append(event)
+
+        # get deleted items
+        rev_dict_copy = self.get_rev_dict()
+        for path in rev_dict_copy:
+            if self.to_local_path(path).lower() not in lowercase_snapshot_paths:
+                if rev_dict_copy[path] == "folder":
+                    event = DirDeletedEvent(self.to_local_path(path))
+                else:
+                    event = FileDeletedEvent(self.to_local_path(path))
+                changes.append(event)
+
+        return changes
+
     def wait_for_local_changes(self, timeout=2, delay=0.5):
         """
         Waits for local file changes. Returns a list of local changes, filtered to
@@ -1408,7 +1486,7 @@ def download_worker(sync, syncing, running, queue_downloading):
                     # notify user about changes
                     sync.notify_user(changes)
 
-                    # flag changes to temporarily exclude from upload
+                    # flag files as downloading to temporarily exclude from upload
                     for item in changes.entries:
                         local_path = sync.to_local_path(item.path_display)
                         queue_downloading.put(local_path)
@@ -1451,18 +1529,23 @@ def upload_worker(sync, syncing, running, queue_uploading):
 
     disconnected_signal = signal("disconnected_signal")
 
+    sync.collect_local_changes_while_inactive()
+
     while running.is_set():
 
-        syncing.wait()  # if not running, wait until resumed
+        # wait until resumed, check collect changes while inactive
+        if not syncing.is_set():
+            syncing.wait()
+            sync.collect_local_changes_while_inactive()
 
+        # wait for local changes
         events, local_cursor = sync.wait_for_local_changes(timeout=2)
 
+        # flag files as uploading
         for e in events:
             queue_uploading.put(e.src_path)
 
         # check if local directory still exists
-        # ideally, we would like the observer thread to notify us if the local Dropbox
-        # folder gets deleted, but this is not implemented yet in watchdog
         sync.ensure_dropbox_folder_present(raise_exception=True)
 
         if len(events) > 0:
@@ -1580,13 +1663,11 @@ class MaestralMonitor(object):
         self.download_thread.start()
         self.upload_thread.start()
 
+        self.syncing.set()  # starts upload_thread and download_thread
+        self.file_handler.running.set()  # starts local file event handler
+
         self.connected_signal.connect(self._resume_on_connect)
         self.disconnected_signal.connect(self._pause_on_disconnect)
-
-        self.upload_local_changes_after_inactive()
-
-        self.syncing.set()  # resumes download_thread
-        self.file_handler.running.set()  # starts local file event handler
 
         logger.info("Syncing started")
 
@@ -1621,9 +1702,8 @@ class MaestralMonitor(object):
 
         # clear all sync errors, see if they occur again
         self.sync.clear_all_sync_errors()
-        self.upload_local_changes_after_inactive()
 
-        self.syncing.set()  # resumes download_thread
+        self.syncing.set()  # resumes upload_thread and download_thread
         self.file_handler.running.set()  # starts local file event handler
 
     def stop(self, overload=None, blocking=False):
@@ -1692,76 +1772,3 @@ class MaestralMonitor(object):
             self.start()
         if was_paused:
             self.pause()
-
-    def upload_local_changes_after_inactive(self):
-        """
-        Pushes changes while sync has not been running to Dropbox.
-        """
-
-        logger.info("Indexing...")
-
-        try:
-            events = self._get_local_changes()
-        except FileNotFoundError:
-            self.sync.ensure_dropbox_folder_present()
-            return
-
-        # queue changes for upload
-        for event in events:
-            self.queue_to_upload.put(event)
-
-        logger.info(IDLE)
-
-    def _get_local_changes(self):
-        """
-        Gets all local changes while app has not been running. Call this method
-        on startup of `MaestralMonitor` to upload all local changes.
-
-        :return: Dictionary with all changes, keys are file paths relative to
-            local Dropbox folder, entries are watchdog file changed events.
-        :rtype: dict
-        """
-        changes = []
-        snapshot = DirectorySnapshot(self.sync.dropbox_path)
-        # remove root entry from snapshot
-        del snapshot._inode_to_path[snapshot.inode(self.sync.dropbox_path)]
-        del snapshot._stat_info[self.sync.dropbox_path]
-        # get lowercase paths
-        lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
-
-        # get modified or added items
-        for path in snapshot.paths:
-            stats = snapshot.stat_info(path)
-            last_sync = CONF.get("internal", "lastsync") or 0
-            # check if item was created or modified since last sync
-            dbx_path = self.sync.to_dbx_path(path).lower()
-
-            is_new = (self.sync.get_local_rev(dbx_path) is None and
-                      not self.sync.is_excluded(dbx_path))
-            is_modified = (self.sync.get_local_rev(dbx_path) and
-                           max(stats.st_ctime, stats.st_mtime) > last_sync)
-
-            if is_new:
-                if osp.isdir(path):
-                    event = DirCreatedEvent(path)
-                else:
-                    event = FileCreatedEvent(path)
-                changes.append(event)
-            elif is_modified:
-                if osp.isdir(path):
-                    event = DirModifiedEvent(path)
-                else:
-                    event = FileModifiedEvent(path)
-                changes.append(event)
-
-        # get deleted items
-        rev_dict_copy = self.sync.get_rev_dict()
-        for path in rev_dict_copy:
-            if self.sync.to_local_path(path).lower() not in lowercase_snapshot_paths:
-                if rev_dict_copy[path] == "folder":
-                    event = DirDeletedEvent(self.sync.to_local_path(path))
-                else:
-                    event = FileDeletedEvent(self.sync.to_local_path(path))
-                changes.append(event)
-
-        return changes
