@@ -22,7 +22,7 @@ from blinker import signal
 import requests
 
 # maestral modules
-from maestral.sync.client import MaestralApiClient
+from maestral.sync.client import MaestralApiClient, dropbox_stone_to_dict, remove_tags
 from maestral.sync.oauth import OAuth2Session
 from maestral.sync.errors import (MaestralApiError, CONNECTION_ERRORS, DropboxAuthError,
                                   CONNECTION_ERROR_MSG)
@@ -286,8 +286,16 @@ class Maestral(object):
 
     @handle_disconnect
     def get_account_info(self):
+        """
+        Gets account information stored by Dropbox and returns it as a dictionary.
+        The entries will either be of type ``str`` or ``bool``.
+
+        :returns: Dropbox account information.
+        :rtype: dict
+        """
         res = self.client.get_account_info()
-        return res
+        res_dict = dropbox_stone_to_dict(res)
+        return remove_tags(res_dict)
 
     @handle_disconnect
     def get_profile_pic(self):

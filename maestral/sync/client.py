@@ -12,9 +12,12 @@ import os.path as osp
 import time
 import datetime
 import logging
+import json
 
 # external packages
 import dropbox
+from dropbox.stone_serializers import json_encode
+from dropbox.stone_validators import Struct
 
 # maestral modules
 from maestral.sync.oauth import OAuth2Session
@@ -538,3 +541,46 @@ class MaestralApiClient(object):
         logger.debug("Listed remote changes: {} changes.".format(len(results.entries)))
 
         return results
+
+
+def dropbox_stone_to_dict(obj):
+    """Converts the result of a Dropbox SDK call to a dict."""
+
+    obj_string = json_encode(Struct(obj.__class__), obj)
+
+    return json.loads(obj_string)
+
+
+def remove_tags(dictionary):
+
+    new_dict = dict(dictionary)
+
+    for key, value in dictionary.items():
+        if key == ".tag":
+            del new_dict[key]
+        elif isinstance(value, dict):
+            new_dict[key] = remove_tags(value)
+
+    return new_dict
+
+
+def flatten_dropbox_dict(dictionary):
+
+    while any(isinstance(v, dict) for v in dictionary.values()):
+        dictionary = _flatten_dropbox_dict_once(dictionary)
+
+    return dictionary
+
+
+def _flatten_dropbox_dict_once(dictionary):
+
+    new_dict = dict(dictionary)
+
+    for key, val in dictionary.items():
+        if isinstance(val, dict):
+            for k, v in val.items():
+                new_key = "{}: {}".format(key, k)
+                new_dict[new_key] = v
+            del new_dict[key]
+
+    return new_dict
