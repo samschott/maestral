@@ -114,6 +114,8 @@ def is_child(path1, path2):
     assert isinstance(path1, str)
     assert isinstance(path2, str)
 
+    path2.rstrip(osp.sep)
+
     return path1.startswith(path2 + osp.sep) and not path1 == path2
 
 
@@ -353,8 +355,8 @@ class UpDownSync(object):
     def clean_excluded_folder_list(folder_list):
         """Removes all duplicates from the excluded folder list."""
 
-        # remove duplicate entries
-        folder_list = list(set(folder_list))
+        # remove duplicate entries by creating set, strip trailing "/"
+        folder_list = set(f.rstrip(osp.sep) for f in folder_list)
 
         # remove all children of excluded folders
         clean_folders_list = list(folder_list)

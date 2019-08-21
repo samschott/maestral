@@ -415,7 +415,7 @@ Any changes to local files during this process may be lost.""")
         :param str dbx_path: Dropbox folder to exclude.
         """
 
-        dbx_path = dbx_path.lower()
+        dbx_path = dbx_path.lower().rstrip(osp.sep)
 
         # add the path to excluded list
         folders = self.sync.excluded_folders
@@ -447,7 +447,7 @@ Any changes to local files during this process may be lost.""")
         :rtype: bool
         """
 
-        dbx_path = dbx_path.lower()
+        dbx_path = dbx_path.lower().rstrip(osp.sep)
 
         old_excluded_folders = self.sync.excluded_folders
 
@@ -478,7 +478,7 @@ Any changes to local files during this process may be lost.""")
         is to be used internally, when a folder has been removed from the excluded list,
         but some of its subfolders may have been added."""
 
-        dbx_path = dbx_path.lower()
+        dbx_path = dbx_path.lower().rstrip(osp.sep)
         excluded_folders = self.sync.excluded_folders
 
         if dbx_path not in excluded_folders:
@@ -518,7 +518,7 @@ Any changes to local files during this process may be lost.""")
                     if yes:
                         excluded_folders.append(entry.path_lower)
         else:
-            excluded_folders = [f.lower() for f in folder_list]
+            excluded_folders = (f.lower().rstrip(osp.sep) for f in folder_list)
             excluded_folders = self.sync.clean_excluded_folder_list(excluded_folders)
 
         old_excluded_folders = self.sync.excluded_folders
