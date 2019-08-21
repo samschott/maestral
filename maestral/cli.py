@@ -120,7 +120,7 @@ def log():
 
 
 @main.group()
-def exclude():
+def excluded():
     """View and manage excluded folders."""
 
 
@@ -301,7 +301,10 @@ def ls(dropbox_path: str, running, config_name: str, all: bool):
 
         # display results
         for t, n, ex in zip(entry_types, entry_names, excluded_status):
-            excluded_str = click.style(" ({})".format(ex), bold=True)
+            if not ex == "included":
+                excluded_str = click.style(" ({})".format(ex), bold=True)
+            else:
+                excluded_str = ""
             if not n.startswith(".") or all:
                 click.echo("{0}:\t{1}{2}".format(t, n, excluded_str))
 
@@ -329,7 +332,7 @@ def account_info(config_name: str, running):
 # ========================================================================================
 
 
-@exclude.command()
+@excluded.command()
 @with_config_opt
 @click.argument("dropbox_path", type=click.Path())
 def add(dropbox_path: str, config_name: str, running):
@@ -352,7 +355,7 @@ def add(dropbox_path: str, config_name: str, running):
         click.echo("Excluded directory '{}' from syncing.".format(dropbox_path))
 
 
-@exclude.command()
+@excluded.command()
 @with_config_opt
 @click.argument("dropbox_path", type=click.Path())
 def remove(dropbox_path: str, config_name: str, running):
@@ -375,16 +378,18 @@ def remove(dropbox_path: str, config_name: str, running):
         click.echo("Included directory '{}' in syncing.".format(dropbox_path))
 
 
-@exclude.command()
+@excluded.command()
 @with_config_opt
-def ls(config_name: str, running):
+def list(config_name: str, running):
     """Lists all excluded folders."""
 
     if is_maestral_linked(config_name):
 
         from maestral.config.main import CONF
 
-        excluded_folders = CONF.get("main", "excluded_folders").sort()
+        excluded_folders = CONF.get("main", "excluded_folders")
+
+        excluded_folders.sort()
 
         for folder in excluded_folders:
             click.echo(folder)
