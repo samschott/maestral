@@ -27,7 +27,7 @@ from maestral.sync.oauth import OAuth2Session
 from maestral.sync.errors import (MaestralApiError, CONNECTION_ERRORS, DropboxAuthError,
                                   CONNECTION_ERROR_MSG)
 from maestral.sync.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
-                                   path_exists_case_insensitive)
+                                   path_exists_case_insensitive, is_child)
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.sync.utils.app_dirs import get_log_path, get_cache_path
@@ -417,10 +417,13 @@ Any changes to local files during this process may be lost.""")
 
         dbx_path = dbx_path.lower()
 
-        # add folder's Dropbox path to excluded list
+        # add the path to excluded list
         folders = self.sync.excluded_folders
         if dbx_path not in folders:
             folders.append(dbx_path)
+        else:
+            logger.info("Folder was already excluded, nothing to do.")
+            return
 
         self.sync.excluded_folders = folders
         self.sync.set_local_rev(dbx_path, None)
@@ -440,33 +443,60 @@ Any changes to local files during this process may be lost.""")
         will not be downloaded again.
 
         :param str dbx_path: Dropbox folder to include.
-        :return: `True` or `False` on success or failure, respectively.
+        :return: ``True`` on success, ``False`` on failure.
         :rtype: bool
         """
 
         dbx_path = dbx_path.lower()
 
-        # remove folder's Dropbox path from excluded list
-        folders = self.sync.excluded_folders
-        if dbx_path in folders:
-            new_folders = [x for x in folders if osp.normpath(x) != dbx_path]
+        old_excluded_folders = self.sync.excluded_folders
+
+        # Get folders which will need to be downloaded, do not attempt to download
+        # subfolders of `dbx_path` which were already included.
+        # `new_included_folders` will either be empty (`dbx_path` was already
+        # included), just contain `dbx_path` itself (the whole folder was excluded) or
+        # only contain subfolders of `dbx_path` (`dbx_path` was partially included).
+        new_included_folders = (x for x in old_excluded_folders if is_child(x, dbx_path))
+
+        if new_included_folders:
+            # remove `dbx_path` or all excluded children from the excluded list
+            excluded_folders = list(set(old_excluded_folders) - set(new_included_folders))
         else:
-            logger.debug("Folder was already included, nothing to do.")
+            logger.info("Folder was already included, nothing to do.")
             return
 
-        self.sync.excluded_folders = new_folders
+        self.sync.excluded_folders = excluded_folders
 
         # download folder contents from Dropbox
         logger.info("Downloading added folder '{}'.".format(dbx_path))
+        for folder in new_included_folders:
+            self.get_remote_dropbox_async(folder)
+
+    @handle_disconnect
+    def _include_folder_without_subfolders(self, dbx_path):
+        """Sets a folder to included without explicitly including its subfolders. This
+        is to be used internally, when a folder has been removed from the excluded list,
+        but some of its subfolders may have been added."""
+
+        dbx_path = dbx_path.lower()
+        excluded_folders = self.sync.excluded_folders
+
+        if dbx_path not in excluded_folders:
+            return
+
+        excluded_folders.remove(dbx_path)
+        self.sync.excluded_folders = excluded_folders
+
         self.get_remote_dropbox_async(dbx_path)
 
     @handle_disconnect
     def set_excluded_folders(self, folder_list=None):
         """
         Sets the list of excluded folders to `folder_list`. If not given, gets all top
-        level folder paths from Dropbox and asks user to include or exclude.
+        level folder paths from Dropbox and asks user to include or exclude. Folders
+        which are no in `folder_list` but exist on Dropbox will be downloaded.
 
-        On initial sync, this does not trigger any syncing. Call `get_remote_dropbox` or
+        On initial sync, this does not trigger any downloads. Call `get_remote_dropbox` or
         `get_remote_dropbox_async` instead.
 
         :param list folder_list: If given, list of excluded folder to set.
@@ -475,11 +505,10 @@ Any changes to local files during this process may be lost.""")
         """
 
         if not folder_list:
+
             excluded_folders = []
-            included_folders = []
 
             # get all top-level Dropbox folders
-            # if this raises an error, we have a serious problem => crash
             result = self.client.list_folder("", recursive=False)
 
             # paginate through top-level folders, ask to exclude
@@ -488,18 +517,21 @@ Any changes to local files during this process may be lost.""")
                     yes = yesno("Exclude '%s' from sync?" % entry.path_display, False)
                     if yes:
                         excluded_folders.append(entry.path_lower)
-                    else:
-                        included_folders.append(entry.path_lower)
         else:
-            excluded_folders = list(f.lower() for f in folder_list)
-            included_folders = []
+            excluded_folders = [f.lower() for f in folder_list]
+            excluded_folders = self.sync.clean_excluded_folder_list(excluded_folders)
 
-        # detect and apply changes
+        old_excluded_folders = self.sync.excluded_folders
+
+        added_excluded_folders = set(excluded_folders) - set(old_excluded_folders)
+        added_included_folders = set(old_excluded_folders) - set(excluded_folders)
+
         if not self.pending_first_download():
-            for path in excluded_folders:
+            # apply changes
+            for path in added_excluded_folders:
                 self.exclude_folder(path)
-            for path in included_folders:
-                self.include_folder(path)  # may raise ConnectionError
+            for path in added_included_folders:
+                self._include_folder_without_subfolders(path)
 
         self.sync.excluded_folders = excluded_folders
 

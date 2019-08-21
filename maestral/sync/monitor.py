@@ -343,10 +343,25 @@ class UpDownSync(object):
         return self._excluded_folders
 
     @excluded_folders.setter
-    def excluded_folders(self, folders_list):
+    def excluded_folders(self, folder_list):
         """Setter: excluded_folders"""
-        self._excluded_folders = folders_list
-        CONF.set("main", "excluded_folders", folders_list)
+        clean_list = self.clean_excluded_folder_list(folder_list)
+        self._excluded_folders = clean_list
+        CONF.set("main", "excluded_folders", clean_list)
+
+    @staticmethod
+    def clean_excluded_folder_list(folder_list):
+        """Removes all duplicates from the excluded folder list."""
+
+        # remove duplicate entries
+        folder_list = list(set(folder_list))
+
+        # remove all children of excluded folders
+        clean_folders_list = list(folder_list)
+        for folder in folder_list:
+            clean_folders_list = [f for f in clean_folders_list if not is_child(f, folder)]
+
+        return clean_folders_list
 
     # ====================================================================================
     #  Helper functions
@@ -1187,7 +1202,7 @@ class UpDownSync(object):
 
         # in excluded folders?
         for excluded_folder in self.excluded_folders:
-            if not osp.commonpath([dbx_path, excluded_folder]) in ["/", ""]:
+            if is_child(dbx_path, excluded_folder):
                 excluded = True
 
         return excluded
