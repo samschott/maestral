@@ -119,6 +119,11 @@ def log():
     """View and manage Maestral's log."""
 
 
+@main.group()
+def exclude():
+    """View and manage excluded folders."""
+
+
 # ========================================================================================
 # Main commands
 # ========================================================================================
@@ -265,52 +270,6 @@ def set_dir(config_name: str, new_path: str, running):
 
 @main.command()
 @with_config_opt
-@click.argument("dropbox_path", type=click.Path())
-def dir_exclude(dropbox_path: str, config_name: str, running):
-    """Excludes a Dropbox directory from syncing."""
-
-    if running == "gui":
-        click.echo("Maestral GUI is already running. Please use the GUI.")
-        return
-
-    if not dropbox_path.startswith("/"):
-        dropbox_path = "/" + dropbox_path
-
-    if dropbox_path == "/":
-        click.echo(click.style("Cannot exclude the root directory.", fg="red"))
-        return
-
-    if is_maestral_linked(config_name):
-        with MaestralProxy(config_name, fallback=True) as m:
-            m.exclude_folder(dropbox_path)
-        click.echo("Excluded directory '{}' from syncing.".format(dropbox_path))
-
-
-@main.command()
-@with_config_opt
-@click.argument("dropbox_path", type=click.Path())
-def dir_include(dropbox_path: str, config_name: str, running):
-    """Includes a Dropbox directory in syncing."""
-
-    if running == "gui":
-        click.echo("Maestral GUI is already running. Please use the GUI.")
-        return
-
-    if not dropbox_path.startswith("/"):
-        dropbox_path = "/" + dropbox_path
-
-    if dropbox_path == "/":
-        click.echo(click.style("The root directory is always included.", fg="red"))
-        return
-
-    if is_maestral_linked(config_name):
-        with MaestralProxy(config_name, fallback=True) as m:
-            m.include_folder(dropbox_path)
-        click.echo("Included directory '{}' in syncing.".format(dropbox_path))
-
-
-@main.command()
-@with_config_opt
 @click.argument("dropbox_path", type=click.Path(), default="")
 @click.option("-a", "all", is_flag=True, default=False,
               help="Include directory entries whose names begin with a dot (.).")
@@ -326,6 +285,7 @@ def ls(dropbox_path: str, running, config_name: str, all: bool):
 
     if is_maestral_linked(config_name):
         from maestral.sync.client import MaestralApiClient
+        from maestral.sync.main import Maestral
         from maestral.config.main import CONF
         from dropbox.files import FolderMetadata
 
@@ -336,13 +296,12 @@ def ls(dropbox_path: str, running, config_name: str, all: bool):
         # parse it in a nice way
         entry_types = tuple("Folder" if isinstance(md, FolderMetadata) else "File" for
                             md in res.entries)
-        entry_names = tuple(md.name for md in res.entries)
-        is_exluded = tuple(md.path_lower in CONF.get("main", "excluded_folders") for md in
-                           res.entries)
+        entry_names = (md.name for md in res.entries)
+        excluded_status = (Maestral.excluded_status(md.path_lower) for md in res.entries)
 
         # display results
-        for t, n, ex in zip(entry_types, entry_names, is_exluded):
-            excluded_str = click.style(" (excluded)", bold=True) if ex else ""
+        for t, n, ex in zip(entry_types, entry_names, excluded_status):
+            excluded_str = click.style(" ({})".format(ex), bold=True)
             if not n.startswith(".") or all:
                 click.echo("{0}:\t{1}{2}".format(t, n, excluded_str))
 
@@ -363,6 +322,72 @@ def account_info(config_name: str, running):
         click.echo("Usage:             {}".format(usage))
         click.echo("Dropbox location:  '{}'".format(path))
         click.echo("")
+
+
+# ========================================================================================
+# Exclude commands
+# ========================================================================================
+
+
+@exclude.command()
+@with_config_opt
+@click.argument("dropbox_path", type=click.Path())
+def add(dropbox_path: str, config_name: str, running):
+    """Adds a folder to the excluded list and re-syncs."""
+
+    if running == "gui":
+        click.echo("Maestral GUI is already running. Please use the GUI.")
+        return
+
+    if not dropbox_path.startswith("/"):
+        dropbox_path = "/" + dropbox_path
+
+    if dropbox_path == "/":
+        click.echo(click.style("Cannot exclude the root directory.", fg="red"))
+        return
+
+    if is_maestral_linked(config_name):
+        with MaestralProxy(config_name, fallback=True) as m:
+            m.exclude_folder(dropbox_path)
+        click.echo("Excluded directory '{}' from syncing.".format(dropbox_path))
+
+
+@exclude.command()
+@with_config_opt
+@click.argument("dropbox_path", type=click.Path())
+def remove(dropbox_path: str, config_name: str, running):
+    """Removes a folder from the excluded list and re-syncs."""
+
+    if running == "gui":
+        click.echo("Maestral GUI is already running. Please use the GUI.")
+        return
+
+    if not dropbox_path.startswith("/"):
+        dropbox_path = "/" + dropbox_path
+
+    if dropbox_path == "/":
+        click.echo(click.style("The root directory is always included.", fg="red"))
+        return
+
+    if is_maestral_linked(config_name):
+        with MaestralProxy(config_name, fallback=True) as m:
+            m.include_folder(dropbox_path)
+        click.echo("Included directory '{}' in syncing.".format(dropbox_path))
+
+
+@exclude.command()
+@with_config_opt
+def ls(config_name: str, running):
+    """Lists all excluded folders."""
+
+    if is_maestral_linked(config_name):
+
+        from maestral.config.main import CONF
+
+        excluded_folders = CONF.get("main", "excluded_folders").sort()
+
+        for folder in excluded_folders:
+            click.echo(folder)
 
 
 # ========================================================================================
