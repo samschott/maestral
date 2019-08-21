@@ -445,11 +445,17 @@ Any changes to local files during this process may be lost.""")
         :param str dbx_path: Dropbox folder to include.
         :return: ``True`` on success, ``False`` on failure.
         :rtype: bool
+        :raises: ValueError if ``dbx_path`` is inside another excluded folder.
         """
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
 
         old_excluded_folders = self.sync.excluded_folders
+
+        for p in old_excluded_folders:
+            if is_child(dbx_path, p):
+                raise ValueError("'{0}' lies inside the excluded folder {1}. "
+                                 "Please include {1} first.".format(dbx_path, p))
 
         # Get folders which will need to be downloaded, do not attempt to download
         # subfolders of `dbx_path` which were already included.
