@@ -100,6 +100,23 @@ def path_exists_case_insensitive(path, root="/"):
         return local_paths[0]
 
 
+def is_child(path1, path2):
+    """
+    Checks if :param:`path1` semantically is inside folder :param:`path2`. Neither
+    path must refer to an actual item on the drive. This function is case sensitive.
+
+    :param str path1: Folder path.
+    :param str path2: Parent folder path.
+    :returns: ``True`` if :param:`path1` semantically is a subfolder of :param:`path2`,
+        ``False`` otherwise (including ``path1 == path2``.
+    :rtype: bool
+    """
+    assert isinstance(path1, str)
+    assert isinstance(path2, str)
+
+    return path1.startswith(path2 + osp.sep) and not path1 == path2
+
+
 def get_local_hash(dst_path):
     """
     Computes content hash of a local file.
@@ -777,9 +794,7 @@ class UpDownSync(object):
     def _is_moved_child(x, parent):
         """Check for children of moved folders"""
         is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
-        is_child = (x.src_path.startswith(parent.src_path) and
-                    x is not parent)
-        return is_moved_event and is_child
+        return is_moved_event and is_child(x.src_path, parent.src_path)
 
     @staticmethod
     def _is_deleted_folder(x):
@@ -791,9 +806,7 @@ class UpDownSync(object):
     def _is_deleted_child(x, parent):
         """Check for children of deleted folders"""
         is_deleted_event = (x.event_type is EVENT_TYPE_DELETED)
-        is_child = (x.src_path.startswith(parent.src_path) and
-                    x is not parent)
-        return is_deleted_event and is_child
+        return is_deleted_event and is_child(x.src_path, parent.src_path)
 
     @staticmethod
     def _is_tmp_file(x, events):
