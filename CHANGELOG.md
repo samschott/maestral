@@ -1,3 +1,33 @@
+### v0.3.3-dev
+
+_Added:_
+
+- Methods to get the sync status of individual files or folders, including CLI support.
+  In the future, this could be used by file manager plugins to overlay the sync status of
+  files.
+- Added experimental support to exclude subfolders to the sync engine and CLI.
+- Added a command group `maestral excluded` to view and manage excluded folders.
+- Automatically rename created items which have the same name as an existing item, but
+  with a different case. This avoids possible issues on case-sensitive file systems since
+  Dropbox itself is not case-sensitive.
+
+_Changed:_
+
+- Separated daemon and CLI code into different modules.
+- Created a submodule for the sync engine.
+- Setup dialog no longer returns a Maestral instance on success but just ``True``. It
+  is up to the GUI to create its own instance or attach to a daemon.
+- Moved indexing of local files after a restart to the `upload_thread`. This improves the
+  apparent startup time for a large local Dropbox folder. 
+- Removed many direct calls of Maestral attributes from the GUI. Try to limit required
+  methods to the main API (Maestral's methods and properties) which is exposed by the
+  daemon.
+
+_Fixed:_
+
+- Fixed incorrect error type being raised for a corrupted rev file, which could lead to a
+  crash or misleading error message.
+
 ### v0.3.2
 
 This release fixes a bug that could result in only changes of top-level items being
