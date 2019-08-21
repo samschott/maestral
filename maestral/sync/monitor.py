@@ -8,6 +8,7 @@ Created on Wed Oct 31 16:23:13 2018
 # system imports
 import os
 import os.path as osp
+import platform
 import shutil
 import logging
 import time
@@ -28,7 +29,8 @@ from watchdog.events import (EVENT_TYPE_CREATED, EVENT_TYPE_DELETED,
                              EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED)
 from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              DirCreatedEvent, FileCreatedEvent,
-                             DirDeletedEvent, FileDeletedEvent)
+                             DirDeletedEvent, FileDeletedEvent,
+                             DirMovedEvent, FileMovedEvent)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 # maestral modules
@@ -177,6 +179,8 @@ class FileEventHandler(FileSystemEventHandler):
         self.queue_to_upload = queue_to_upload
         self.queue_downloading = queue_downloading
 
+        self._renamed_items_cache = []
+
     def is_flagged(self, local_path):
         for path in tuple(self.queue_downloading.queue):
             if local_path.lower().startswith(path.lower()):
@@ -189,9 +193,77 @@ class FileEventHandler(FileSystemEventHandler):
 
         return osp.basename(local_path) == REV_FILE
 
+    # TODO: Our logic for ignoring moved events of children will no longer work when
+    #   renaming the parent's moved event. This will throw sync errors when trying to
+    #   apply those events, but they are only temporary and therefore tolerable for now.
+    def rename_on_case_conflict(self, event):
+        """
+        Checks for other items in the same directory with same name but a different case.
+        Will only run those check on Linux because Apple's APFS or journaled file systems
+        are not case sensitive.
+
+        :param event: Created or moved event.
+        :returns: Modified event if conflict detected and file has been
+            renamed, original event otherwise.
+        """
+
+        if platform.system() == "Darwin":
+            return event
+
+        if not (event.event_type is EVENT_TYPE_CREATED or event.event_type is
+                EVENT_TYPE_MOVED):
+            return event
+
+        # get the created items path (src_path or dest_path)
+        created_path = getattr(event, "dest_path", event.src_path)
+
+        # get all other items in the same directory
+        try:
+            parent_dir = osp.dirname(created_path)
+            other_items = [osp.join(parent_dir, file) for file in os.listdir(parent_dir)]
+            other_items.remove(created_path)
+        except FileNotFoundError:
+            return event
+
+        # check if we have any conflicting names with different cases
+        if any(p.lower() == created_path.lower() for p in other_items):
+            # try to find a unique new name of the form "(case conflict)"
+            # or "(case conflict 1)"
+            base, ext = osp.splitext(created_path)
+            new_path = base + " (case conflict)" + ext
+            i = 1
+            while any(p.lower() == new_path.lower() for p in other_items):
+                new_path = base + " (case conflict {})".format(i) + ext
+                i += 1
+            # rename newly created item
+            self._renamed_items_cache.append(created_path)  # ignore temporarily
+            os.rename(created_path, new_path)  # this will be picked up by watchdog
+            logger.info("Case conflict: renamed '{0}' "
+                        "to '{1}'".format(created_path, new_path))
+
+            if isinstance(event, DirCreatedEvent):
+                return DirCreatedEvent(src_path=new_path)
+            elif isinstance(event, FileCreatedEvent):
+                return FileCreatedEvent(src_path=new_path)
+            elif isinstance(event, DirMovedEvent):
+                return DirMovedEvent(src_path=event.src_path, dest_path=new_path)
+            elif isinstance(event, FileMovedEvent):
+                return FileMovedEvent(src_path=event.src_path, dest_path=new_path)
+
+        return event
+
     def on_any_event(self, event):
 
+        # ignore changes to the rev file
         if self.is_rev_file(event.src_path):
+            return
+
+        # rename target on case conflict
+        event = self.rename_on_case_conflict(event)
+
+        # ignore files which have been renamed
+        if event.src_path in self._renamed_items_cache:
+            self._renamed_items_cache.remove(event.src_path)
             return
 
         if self.running.is_set() and not self.is_flagged(event.src_path):
@@ -857,14 +929,14 @@ class UpDownSync(object):
 
     @staticmethod
     def _get_subsequent_deleted_event(event, all_events):
-        """Get any subsequet deleted event of the same item following `event`."""
+        """Get any subsequent deleted event of the same item following `event`."""
         return next((x for x in all_events if x.src_path == event.src_path and
                      all_events.index(x) > all_events.index(event) and
                      isinstance(x, FileDeletedEvent)), None)
 
     @staticmethod
     def _get_subsequent_created_event(event, all_events):
-        """Get any subsequet created event of the same item following `event`."""
+        """Get any subsequent created event of the same item following `event`."""
         return next((x for x in all_events if x.src_path == event.src_path and
                      all_events.index(x) > all_events.index(event) and
                      isinstance(x, FileCreatedEvent)), None)
@@ -874,14 +946,15 @@ class UpDownSync(object):
         """Apply a local file event `event` to the remote Dropbox. Clear any related
         sync errors if successful. Any MaestralApiErrors will be caught by the
         decorator."""
+
         if event.event_type is EVENT_TYPE_CREATED:
             self._on_created(event)
         elif event.event_type is EVENT_TYPE_MOVED:
             self._on_moved(event)
-        elif event.event_type is EVENT_TYPE_DELETED:
-            self._on_deleted(event)
         elif event.event_type is EVENT_TYPE_MODIFIED:
             self._on_modified(event)
+        elif event.event_type is EVENT_TYPE_DELETED:
+            self._on_deleted(event)
 
         self.clear_sync_error(local_path=event.src_path)
 
@@ -1203,8 +1276,8 @@ class UpDownSync(object):
             excluded = True
 
         # in excluded folders?
-        for excluded_folder in self.excluded_folders:
-            if is_child(dbx_path, excluded_folder):
+        for folder in self.excluded_folders:
+            if dbx_path == folder or is_child(dbx_path, folder):
                 excluded = True
 
         return excluded
@@ -1389,8 +1462,8 @@ class UpDownSync(object):
             if conflict == 0:  # no conflict
                 pass
             elif conflict == 1:  # conflict! rename local file
-                parts = osp.splitext(local_path)
-                new_local_file = parts[0] + " (conflicting copy)" + parts[1]
+                base, ext = osp.splitext(local_path)
+                new_local_file = base + " (conflicting copy)" + ext
                 os.rename(local_path, new_local_file)
             elif conflict == 2:  # Dropbox files corresponds to local file, nothing to do
                 # rev number has been updated by `check_download_conflict` if necessary
