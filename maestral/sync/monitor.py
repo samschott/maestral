@@ -754,7 +754,7 @@ class UpDownSync(object):
 
         return changes
 
-    def wait_for_local_changes(self, timeout=2, delay=0.5):
+    def wait_for_local_changes(self, timeout=2, delay=1):
         """
         Waits for local file changes. Returns a list of local changes, filtered to
         avoid duplicates.
@@ -766,20 +766,29 @@ class UpDownSync(object):
         :rtype: (list, float)
         """
         try:
-            events = [self.queue_to_upload.get(timeout=timeout)]  # blocks until event is in queue
+            events = [self.queue_to_upload.get(timeout=timeout)]
         except queue.Empty:
             return [], time.time()
 
-        # keep collecting events until no more changes happen for at least 0.5 sec
+        # keep collecting events until no more changes happen for at least `delay` sec
         t0 = time.time()
-        while t0 - self.queue_to_upload.update_time < delay:
-            while self.queue_to_upload.qsize() > 0:
-                events.append(self.queue_to_upload.get())
-            time.sleep(delay)
-            t0 = time.time()
+        has_more = True
+        while has_more:
+            try:
+                events.append(self.queue_to_upload.get(timeout=delay))
+            except queue.Empty:
+                has_more = False
+                t0 = time.time()
 
         # save timestamp
         local_cursor = t0
+
+        logger.debug("***************** Original events ************************")
+        logger.debug(events)
+        logger.debug("**********************************************************")
+
+        # REMOVE DIR_MODIFIED_EVENTS
+        events = [e for e in events if not isinstance(e, DirModifiedEvent)]
 
         # COMBINE "MOVED" EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
         moved_folder_events = [x for x in events if self._is_moved_folder(x)]
@@ -839,6 +848,10 @@ class UpDownSync(object):
 
         events = self._list_diff(events, to_remove)
         events += to_add
+
+        logger.debug("******************* Cleaned up events ********************")
+        logger.debug(events)
+        logger.debug("**********************************************************")
 
         return events, local_cursor
 
@@ -1073,6 +1086,7 @@ class UpDownSync(object):
 
         # do not propagate deletions that result from excluding a folder!
         if self.is_excluded_by_user(dbx_path):
+            self.set_local_rev(dbx_path, None)
             return
 
         md = self.client.remove(dbx_path)
