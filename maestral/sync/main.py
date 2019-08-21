@@ -537,6 +537,28 @@ Any changes to local files during this process may be lost.""")
 
         return excluded_folders
 
+    @staticmethod
+    def excluded_status(dbx_path):
+        """
+        Returns 'excluded', 'partially excluded' or 'included'. This function will not
+        check if the item actually exists on Dropbox.
+
+        :param str dbx_path: Path to item on Dropbox.
+        :returns: Excluded status.
+        :rtype: str
+        """
+
+        dbx_path = dbx_path.lower().rstrip(osp.sep)
+
+        excluded_items = CONF.get("main", "excluded_folders") + CONF.get("main", "excluded_files")
+
+        if dbx_path in excluded_items:
+            return "excluded"
+        elif any(is_child(dbx_path, f) for f in excluded_items):
+            return "partially excluded"
+        else:
+            return "included"
+
     @with_sync_paused
     def move_dropbox_directory(self, new_path=None):
         """
