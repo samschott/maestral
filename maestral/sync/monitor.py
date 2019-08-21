@@ -336,8 +336,10 @@ class UpDownSync(object):
 
     @property
     def excluded_folders(self):
-        """List containing all files excluded from sync. Changes are saved to the
-        config file."""
+        """List containing all folders excluded from sync. Changes are saved to the
+        config file. If a parent folder is excluded, its children will automatically be
+        removed from the list. If only children are given but not the parent folder,
+        any new items added to the parent will be synced."""
         return self._excluded_folders
 
     @excluded_folders.setter
@@ -782,6 +784,15 @@ class UpDownSync(object):
 
     @staticmethod
     def _list_diff(list1, list2):
+        """
+        Subtracts elements of `list2` from `list1` while preserving the order of
+        list1.
+
+        :param list list1: List to subtract from.
+        :param list list2: List of elements to subtract.
+        :returns: Subtracted list.
+        :rtype: list
+        """
         return [l for l in list1 if l not in list2]
 
     @staticmethod
