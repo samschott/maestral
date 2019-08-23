@@ -14,9 +14,6 @@ import Pyro4
 
 URI = "PYRO:maestral.{0}@{1}"
 
-Pyro4.config.SERIALIZER = "pickle"
-Pyro4.config.SERIALIZERS_ACCEPTED.add('pickle')
-
 
 def write_pid(config_name, socket_address="gui"):
     """
