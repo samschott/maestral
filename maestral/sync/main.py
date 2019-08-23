@@ -22,7 +22,8 @@ from blinker import signal
 import requests
 
 # maestral modules
-from maestral.sync.client import MaestralApiClient, dropbox_stone_to_dict, remove_tags
+from maestral.sync.client import MaestralApiClient
+from maestral.sync.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
 from maestral.sync.oauth import OAuth2Session
 from maestral.sync.errors import (MaestralApiError, CONNECTION_ERRORS, DropboxAuthError,
                                   CONNECTION_ERROR_MSG)
