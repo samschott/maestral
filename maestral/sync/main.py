@@ -164,7 +164,8 @@ def handle_disconnect(func):
 class Maestral(object):
     """
     An open source Dropbox client for macOS and Linux to syncing a local folder
-    with your Dropbox account.
+    with your Dropbox account. All functions and properties return objects which can
+    safely serialized, i.e., pure Python types.
     """
 
     _daemon_running = True  # this is for running maestral as a daemon only
@@ -206,7 +207,7 @@ class Maestral(object):
 
     @staticmethod
     def pending_first_download():
-        """Bool indicating if the initial download has already occured.."""
+        """Bool indicating if the initial download has already occurred.."""
         return (CONF.get("internal", "lastsync") is None or
                 CONF.get("internal", "cursor") == "")
 
@@ -243,11 +244,12 @@ class Maestral(object):
         change the Dropbox directory location instead. """
         return self.sync.dropbox_path
 
-    # TODO: return a list of dictionaries or strings instead for safe serializations
     @property
     def sync_errors(self):
-        """Returns list containing the current sync errors."""
-        return list(self.sync.sync_errors.queue)
+        """Returns list containing the current sync errors as dicts."""
+        sync_errors = list(self.sync.sync_errors.queue)
+        sync_errors_dicts = [maestral_error_to_dict(e) for e in sync_errors]
+        return sync_errors_dicts
 
     @property
     def account_profile_pic_path(self):
@@ -278,7 +280,7 @@ class Maestral(object):
             return "uploading"
         elif local_path in self.monitor.download_list:
             return "downloading"
-        elif local_path in self.sync_errors:
+        elif any(local_path == err["local_path"] for err in self.sync_errors):
             return "error"
         elif self.sync.get_local_rev(dbx_path):
             return "up to date"
@@ -292,11 +294,10 @@ class Maestral(object):
         The entries will either be of type ``str`` or ``bool``.
 
         :returns: Dropbox account information.
-        :rtype: dict
+        :rtype: dict[str, bool]
         """
         res = self.client.get_account_info()
-        res_dict = dropbox_stone_to_dict(res)
-        return remove_tags(res_dict)
+        return dropbox_stone_to_dict(res)
 
     @handle_disconnect
     def get_profile_pic(self):

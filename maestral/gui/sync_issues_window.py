@@ -31,17 +31,17 @@ class SyncIssueWidget(QtWidgets.QWidget):
     A widget to graphically display a Maestral sync issue.
     """
 
-    def __init__(self, sync_issue, parent=None):
+    def __init__(self, sync_err, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         uic.loadUi(SYNC_ISSUE_WIDGET_PATH, self)
 
-        self.sync_issue = sync_issue
+        self.sync_err = sync_err
 
         self.errorLabel.setFont(get_scaled_font(scaling=0.85))
         self.update_dark_mode()  # set appropriate item icon and colors in style sheet
 
-        self.pathLabel.setText(self.to_display_path(self.sync_issue.local_path))
-        self.errorLabel.setText(self.sync_issue.title + ":\n" + self.sync_issue.message)
+        self.pathLabel.setText(self.to_display_path(self.sync_err["local_path"]))
+        self.errorLabel.setText(self.sync_err["title"] + ":\n" + self.sync_err["message"])
 
         def request_context_menu():
             self.actionButton.customContextMenuRequested.emit(self.actionButton.pos())
@@ -56,10 +56,10 @@ class SyncIssueWidget(QtWidgets.QWidget):
         a0 = self.actionButtonContextMenu.addAction("View in folder")
         a1 = self.actionButtonContextMenu.addAction("View on dropbox.com")
 
-        a0.setEnabled(os.path.exists(self.sync_issue.local_path))
+        a0.setEnabled(os.path.exists(self.sync_err["local_path"]))
 
-        a0.triggered.connect(lambda: self.open_destination(self.sync_issue.local_path))
-        a1.triggered.connect(lambda: self.show_online(self.sync_issue.dbx_path))
+        a0.triggered.connect(lambda: self.open_destination(self.sync_err["local_path"]))
+        a1.triggered.connect(lambda: self.show_online(self.sync_err["dbx_path"]))
         self.actionButtonContextMenu.exec_(self.mapToGlobal(pos))
 
     def to_display_path(self, local_path):
@@ -120,7 +120,7 @@ class SyncIssueWidget(QtWidgets.QWidget):
         }}""".format(*line_rgb, *frame_bg_color))
 
         # update item icons (the system may supply different icons in dark mode)
-        icon = get_native_item_icon(self.sync_issue.local_path)
+        icon = get_native_item_icon(self.sync_err["local_path"])
         pixmap = icon_to_pixmap(icon, self.iconLabel.width(), self.iconLabel.height())
         self.iconLabel.setPixmap(pixmap)
 
