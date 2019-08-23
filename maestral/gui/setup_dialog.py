@@ -21,7 +21,7 @@ from maestral.config.base import get_home_dir
 from maestral.gui.resources import (APP_ICON_PATH, SETUP_DIALOG_PATH,
                                     get_native_item_icon, get_native_folder_icon)
 from maestral.gui.utils import UserDialog, icon_to_pixmap, MaestralBackgroundTask
-from maestral.gui.folders_dialog import AsyncLoad, TreeModel, DropboxPathModel
+from maestral.gui.folders_dialog import AsyncLoadFolders, TreeModel, DropboxPathModel
 
 
 class SetupDialog(QtWidgets.QDialog):
@@ -240,7 +240,7 @@ class SetupDialog(QtWidgets.QDialog):
         # switch to next page
         CONF.set("main", "excluded_folders", [])
         self.stackedWidget.slideInIdx(3)
-        self.pushButtonFolderSelectionSelect.setFocus()
+        self.treeViewFolders.setFocus()
 
         # populate folder list
         if not self.excluded_folders:
@@ -272,11 +272,21 @@ class SetupDialog(QtWidgets.QDialog):
 
     @handle_disconnect
     def populate_folders_list(self, overload=None):
-        self.async_loader = AsyncLoad(self.mdbx, self)
+        self.async_loader = AsyncLoadFolders(self.mdbx, self)
         self.dbx_root = DropboxPathModel(self.async_loader, "/")
         self.dbx_model = TreeModel(self.dbx_root)
         self.treeViewFolders.clicked.connect(self.update_select_all_checkbox)
         self.treeViewFolders.setModel(self.dbx_model)
+
+        self.dbx_model.loading_done.connect(
+            lambda: self.pushButtonFolderSelectionSelect.setEnabled(True))
+        self.dbx_model.loading_failed.connect(
+            lambda: self.pushButtonFolderSelectionSelect.setEnabled(False))
+
+        self.dbx_model.loading_done.connect(
+            lambda: self.selectAllCheckBox.setEnabled(True))
+        self.dbx_model.loading_failed.connect(
+            lambda: self.selectAllCheckBox.setEnabled(False))
 
     def update_select_all_checkbox(self):
         check_states = []

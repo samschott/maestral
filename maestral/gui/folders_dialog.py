@@ -9,7 +9,7 @@ import os
 import logging
 
 # external packages
-from PyQt5 import QtCore, QtWidgets, uic
+from PyQt5 import QtCore, QtWidgets, QtGui, uic
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, QVariant
 
 # maestral modules
@@ -22,12 +22,32 @@ logger = logging.getLogger(__name__)
 
 
 class TreeModel(QAbstractItemModel):
+    """A QAbstractItemModel which loads items and their children on-demand and
+    asynchronously. It is useful for displaying a item hierarchy from a source which is
+    slow to load (remote server, slow file system, etc)."""
+
+    loading_failed = QtCore.pyqtSignal()
+    loading_done = QtCore.pyqtSignal()
 
     def __init__(self, root, parent=None):
         super(TreeModel, self).__init__(parent)
         self._root_item = root
-        self._root_item.done_loading.connect(self.reloadData)
+        self._root_item.loading_done.connect(self.reloadData)
+        self._root_item.loading_failed.connect(self.on_loading_failed)
         self._header = self._root_item.header()
+        self._flags = Qt.ItemIsUserCheckable
+
+    def on_loading_failed(self):
+
+        self._root_item._children = [
+            LoadingFailedTreeItem(
+                self._root_item,
+                message="Could not connect to Dropbox. Please check your internet "
+                        "connection.")
+        ]
+
+        self.loading_failed.emit()
+        self.modelReset.emit()
 
     def reloadData(self, roles=None):
 
@@ -36,9 +56,10 @@ class TreeModel(QAbstractItemModel):
 
         self.dataChanged.emit(QModelIndex(), QModelIndex(), roles)
         self.layoutChanged.emit()
+        self.loading_done.emit()
 
     def flags(self, index):
-        flags = super().flags(index) | Qt.ItemIsUserCheckable
+        flags = super().flags(index) | self._flags
         return flags
 
     def columnCount(self, parent=None):
@@ -78,7 +99,7 @@ class TreeModel(QAbstractItemModel):
         if role == Qt.CheckStateRole:
             return item.checkState
         if role == Qt.DecorationRole:
-            return get_native_folder_icon()
+            return item.icon
         return QVariant()
 
     def headerData(self, column, orientation, role):
@@ -108,7 +129,7 @@ class TreeModel(QAbstractItemModel):
         child_item = index.internalPointer()
         if not child_item:
             return QModelIndex()
-        parent_item = child_item.parent()
+        parent_item = child_item.parent_()
         if parent_item == self._root_item:
             return QModelIndex()
         return self.createIndex(parent_item.row(), 0, parent_item)
@@ -124,8 +145,10 @@ class TreeModel(QAbstractItemModel):
 
 
 class AbstractTreeItem(QtCore.QObject):
+    """An abstract item for `TreeModel`. To be subclassed depending on the application."""
 
-    done_loading = QtCore.pyqtSignal()
+    loading_done = QtCore.pyqtSignal()
+    loading_failed = QtCore.pyqtSignal()
 
     def __init__(self, parent=None):
         QtCore.QObject.__init__(self, parent=parent)
@@ -134,7 +157,19 @@ class AbstractTreeItem(QtCore.QObject):
         self._children_update_started = False
 
         if self._parent:
-            self.done_loading.connect(self._parent.done_loading)
+            self.loading_done.connect(self._parent.loading_done)
+            self.loading_failed.connect(self._parent.loading_failed)
+
+        self.icon = QtGui.QIcon()
+        self._checkState = 0
+
+    @property
+    def checkState(self):
+        return self._checkState
+
+    @checkState.setter
+    def checkState(self, state):
+        self._checkState = state
 
     def header(self):
         # subclass this
@@ -144,15 +179,17 @@ class AbstractTreeItem(QtCore.QObject):
         # subclass this
         raise NotImplementedError(self.column_count)
 
-    def parent(self):
+    def parent_(self):
         return self._parent
 
-    def _async_done_loading(self, result):
-        # subclass this to set the children, depending on the `result` of the async´ call
-        self.done_loading.emit()
+    def _async_loading_done(self, result):
+        # subclass this to set the children, depending on the `result` of the async call
+        # self.loading_done.emit()
+        # self.loading_failed.emit()
+        raise NotImplementedError(self._async_loading_done)
 
     def _create_children_async(self):
-        pass
+        raise NotImplementedError(self._create_children_async)
 
     def row(self):
         if self._parent:
@@ -179,10 +216,41 @@ class AbstractTreeItem(QtCore.QObject):
         return len(self._children)
 
 
+class LoadingFailedTreeItem(AbstractTreeItem):
+    """A tree item to display when loading failed."""
+
+    def __init__(self, parent=None, message="Loading failed."):
+        AbstractTreeItem.__init__(self, parent=parent)
+        self._parent = parent
+        self._message = message
+        self._checkState = QVariant()
+
+    def _async_loading_done(self, result):
+        pass
+
+    def _create_children_async(self):
+        pass
+
+    def child_at(self, row):
+        return QVariant()
+
+    def data(self, column):
+        return self._message
+
+    def header(self):
+        return ["name"]
+
+    def column_count(self):
+        return 1
+
+
 class DropboxPathModel(AbstractTreeItem):
+    """A Dropbox folder item. It lists its children asynchronously, only when asked to by
+    `TreeModel`."""
 
     def __init__(self, async_loader, root="/", parent=None):
         AbstractTreeItem.__init__(self, parent=parent)
+        self.icon = get_native_folder_icon()
         self._root = root
         self._async_loader = async_loader
 
@@ -215,12 +283,15 @@ class DropboxPathModel(AbstractTreeItem):
 
     def _create_children_async(self):
         self._remote = self._async_loader.loadFolders(self._root)
-        self._remote.sig_done.connect(self._async_done_loading)
+        self._remote.sig_done.connect(self._async_loading_done)
 
-    def _async_done_loading(self, result):
-        for folder in result:
-            self._children.append(self.__class__(self._async_loader, folder, self))
-        self.done_loading.emit()
+    def _async_loading_done(self, result):
+        if result is False:
+            self.loading_failed.emit()
+        else:
+            for folder in result:
+                self._children.append(self.__class__(self._async_loader, folder, self))
+            self.loading_done.emit()
 
     def data(self, column):
         return os.path.basename(self._root)
@@ -273,14 +344,27 @@ class DropboxPathModel(AbstractTreeItem):
         return self._checkState == self._originalCheckState
 
 
-class AsyncLoad(QtCore.QObject):
+class AsyncLoadFolders(QtCore.QObject):
 
     def __init__(self, m, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
+        """
+        A helper which creates instances of :class:`MaestralBackgroundTask` to
+        asynchronously list Dropbox folders
 
+        :param Maestral m: Instance of :class:`maestral.sync.main.Maestral`.
+        :param parent: QObject. Defaults to None.
+        """
+        super(self.__class__, self).__init__(parent=parent)
         self.m = m
 
     def loadFolders(self, path):
+        """
+        Returns a running instance of :class:`MaestralBackgroundTask` which will emit
+        `sig_done` once it has a result.
+        :param str path: Dropbox path to list.
+        :returns: Running background task.
+        :rtype: :class:`maestral.gui.utils.MaestralBackgroundTask`
+        """
 
         new_job = MaestralBackgroundTask(
             parent=self,
@@ -291,16 +375,18 @@ class AsyncLoad(QtCore.QObject):
         return new_job
 
     def _loadFolders(self, path):
+        """The actual function which does the listing. Returns a list of Dropbox folder
+        paths or ``False`` if the listing fails."""
 
         path = "" if path == "/" else path
         entries = self.m.list_folder(path, recursive=False)
 
         if not entries:
-            folders = []
+            folders = False
         else:
             folders = [os.path.join(path, e["path_display"]) for e in entries
                        if e["type"] == "FolderMetadata"]
-        print("Loaded folders inside %s" % path)
+        logger.debug("Loaded folders inside %s" % path)
         return folders
 
 
@@ -315,16 +401,20 @@ class FoldersDialog(QtWidgets.QDialog):
         self.accept_button = self.buttonBox.buttons()[0]
         self.accept_button.setText('Update')
 
+        self.ui_failed()
+
         # connect callbacks
         self.buttonBox.accepted.connect(self.on_accepted)
         self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
 
     @handle_disconnect
     def populate_folders_list(self, overload=None):
-        self.async_loader = AsyncLoad(self.mdbx, self)
+        self.async_loader = AsyncLoadFolders(self.mdbx, self)
         self.dbx_root = DropboxPathModel(self.async_loader, "/")
         self.dbx_model = TreeModel(self.dbx_root)
-        self.treeViewFolders.clicked.connect(self.update_select_all_checkbox)
+        self.dbx_model.loading_done.connect(self.ui_loaded)
+        self.dbx_model.loading_failed.connect(self.ui_failed)
+        self.dbx_model.dataChanged.connect(self.update_select_all_checkbox)
         self.treeViewFolders.setModel(self.dbx_model)
 
     def update_select_all_checkbox(self):
@@ -378,6 +468,14 @@ class FoldersDialog(QtWidgets.QDialog):
         for row in range(item.child_count_loaded()):
             index_child = self.dbx_model.index(row, 0, index)
             self.apply_selection(index=index_child)
+
+    def ui_failed(self):
+        self.accept_button.setEnabled(False)
+        self.selectAllCheckBox.setEnabled(False)
+
+    def ui_loaded(self):
+        self.accept_button.setEnabled(True)
+        self.selectAllCheckBox.setEnabled(True)
 
     def changeEvent(self, QEvent):
 
