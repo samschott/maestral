@@ -1553,7 +1553,7 @@ def connection_helper(client, connected, syncing, running):
     connected_signal = signal("connected_signal")
     account_usage_signal = signal("account_usage_signal")
 
-    while running.is_set():
+    while True:
         try:
             # use an inexpensive call to get_space_usage to test connection
             res = client.get_space_usage()
@@ -1756,6 +1756,14 @@ class MaestralMonitor(object):
 
         self.sync = UpDownSync(self.client, self.queue_to_upload)
 
+        self.connection_thread = Thread(
+            target=connection_helper,
+            daemon=True,
+            args=(self.client, self.connected, self.syncing, self.running),
+            name="MaestralConnectionHelper"
+        )
+        self.connection_thread.start()
+
     def start(self, overload=None):
         """Creates observer threads and starts syncing."""
 
@@ -1765,28 +1773,27 @@ class MaestralMonitor(object):
             # do nothing if already running
             return
 
-        self.connection_thread = Thread(
-                target=connection_helper, daemon=True,
-                args=(self.client, self.connected, self.syncing, self.running),
-                name="MaestralConnectionHelper")
-
         self.local_observer_thread = Observer()
         self.local_observer_thread.schedule(
-                self.file_handler, self.sync.dropbox_path, recursive=True)
+            self.file_handler, self.sync.dropbox_path, recursive=True
+        )
 
         self.download_thread = Thread(
-                target=download_worker, daemon=True,
-                args=(self.sync, self.syncing, self.running, self.queue_downloading),
-                name="MaestralDownloader")
+            target=download_worker,
+            daemon=True,
+            args=(self.sync, self.syncing, self.running, self.queue_downloading),
+            name="MaestralDownloader"
+        )
 
         self.upload_thread = Thread(
-                target=upload_worker, daemon=True,
-                args=(self.sync, self.syncing, self.running, self.queue_uploading),
-                name="MaestralUploader")
+            target=upload_worker,
+            daemon=True,
+            args=(self.sync, self.syncing, self.running, self.queue_uploading),
+            name="MaestralUploader"
+        )
 
         self.running.set()
 
-        self.connection_thread.start()
         self.local_observer_thread.start()
         self.download_thread.start()
         self.upload_thread.start()
@@ -1852,7 +1859,6 @@ class MaestralMonitor(object):
 
         if blocking:
             self.upload_thread.join()  # wait to finish (up to 2 sec)
-            self.connection_thread.join()
 
         logger.info("Syncing stopped")
 
