@@ -37,12 +37,13 @@ class SetupDialog(QtWidgets.QDialog):
 
         self.app_icon = QtGui.QIcon(APP_ICON_PATH)
 
-        self.labelIcon_0.setPixmap(icon_to_pixmap(self.app_icon, 170))
+        self.labelIcon_0.setPixmap(icon_to_pixmap(self.app_icon, 150))
         self.labelIcon_1.setPixmap(icon_to_pixmap(self.app_icon, 70))
         self.labelIcon_2.setPixmap(icon_to_pixmap(self.app_icon, 70))
         self.labelIcon_3.setPixmap(icon_to_pixmap(self.app_icon, 100))
 
         self.mdbx = None
+        self.dbx_model = None
         self.excluded_folders = []
 
         # resize dialog buttons
@@ -97,13 +98,13 @@ class SetupDialog(QtWidgets.QDialog):
             Maestral will not work properly until you move it back. It used to be located
             at: </p><p align="left">{0}</p>
             <p align="left">
-            To move it back, click "Quit" below, move the Dropbox folder back to its 
+            To move it back, click "Quit" below, move the Dropbox folder back to its
             original location, and launch Maestral again.
             </p>
             <p align="left">
-            To re-download your Dropbox, please select a location for your Dropbox 
+            To re-download your Dropbox, please select a location for your Dropbox
             folder below. Maestral will create a new folder named "{1}" in the
-            selected location.</p>          
+            selected location.</p>
             <p align="left">
             To unlink your Dropbox account from Maestral, click "Unlink" below.</p>
             </body></html>
