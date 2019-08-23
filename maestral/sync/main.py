@@ -436,14 +436,14 @@ Any changes to local files during this process may be lost.""")
         dbx_path = dbx_path.lower().rstrip(osp.sep)
 
         # add the path to excluded list
-        folders = self.sync.excluded_folders
-        if dbx_path not in folders:
-            folders.append(dbx_path)
+        excluded_folders = self.sync.excluded_folders
+        if dbx_path not in excluded_folders:
+            excluded_folders.append(dbx_path)
         else:
             logger.info("Folder was already excluded, nothing to do.")
             return
 
-        self.sync.excluded_folders = folders
+        self.sync.excluded_folders = excluded_folders
         self.sync.set_local_rev(dbx_path, None)
 
         # remove folder from local drive
