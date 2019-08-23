@@ -754,7 +754,7 @@ class UpDownSync(object):
 
         return changes
 
-    def wait_for_local_changes(self, timeout=2, delay=1):
+    def wait_for_local_changes(self, timeout=2, delay=0.5):
         """
         Waits for local file changes. Returns a list of local changes, filtered to
         avoid duplicates.
