@@ -33,19 +33,20 @@ class TreeModel(QAbstractItemModel):
     def __init__(self, root, parent=None):
         super(TreeModel, self).__init__(parent)
         self._root_item = root
+        self.display_message("Loading your folders...")
         self._root_item.loading_done.connect(self.reloadData)
         self._root_item.loading_failed.connect(self.on_loading_failed)
         self._header = self._root_item.header()
         self._flags = Qt.ItemIsUserCheckable
 
-    def on_loading_failed(self):
+    def on_loading_failed(self, message):
 
-        self._root_item._children = [
-            LoadingFailedTreeItem(
-                self._root_item,
-                message="Could not connect to Dropbox. Please check your internet "
-                        "connection.")
-        ]
+        self.display_message("Could not connect to Dropbox. Please check "
+                             "your internet connection.")
+
+    def display_message(self, message):
+
+        self._root_item._children = [MessageTreeItem(self._root_item, message=message)]
 
         self.loading_failed.emit()
         self.modelReset.emit()
@@ -198,7 +199,7 @@ class AbstractTreeItem(QtCore.QObject):
         return 0
 
     def children_(self):
-        if not self._children and not self._children_update_started:
+        if not self._children_update_started:
             self._create_children_async()
             self._children_update_started = True
         return self._children
@@ -217,10 +218,10 @@ class AbstractTreeItem(QtCore.QObject):
         return len(self._children)
 
 
-class LoadingFailedTreeItem(AbstractTreeItem):
-    """A tree item to display when loading failed."""
+class MessageTreeItem(AbstractTreeItem):
+    """A tree item to display a message instead of contents."""
 
-    def __init__(self, parent=None, message="Loading failed."):
+    def __init__(self, parent=None, message=""):
         AbstractTreeItem.__init__(self, parent=parent)
         self._parent = parent
         self._message = message
@@ -290,8 +291,8 @@ class DropboxPathModel(AbstractTreeItem):
         if result is False:
             self.loading_failed.emit()
         else:
-            for folder in result:
-                self._children.append(self.__class__(self._async_loader, folder, self))
+            self._children = [self.__class__(self._async_loader, folder, self)
+                              for folder in result]
             self.loading_done.emit()
 
     def data(self, column):
