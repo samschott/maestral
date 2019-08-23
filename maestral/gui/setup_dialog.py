@@ -11,19 +11,17 @@ import os
 import os.path as osp
 import shutil
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
-
-# external packages
-from dropbox import files
+from PyQt5.QtCore import QModelIndex, Qt
 
 # maestral modules
-from maestral.sync.main import Maestral
+from maestral.sync.main import Maestral, handle_disconnect
 from maestral.sync.oauth import OAuth2Session
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
-from maestral.gui.folders_dialog import FolderItem
 from maestral.gui.resources import (APP_ICON_PATH, SETUP_DIALOG_PATH,
                                     get_native_item_icon, get_native_folder_icon)
 from maestral.gui.utils import UserDialog, icon_to_pixmap, MaestralBackgroundTask
+from maestral.gui.folders_dialog import AsyncLoad, TreeModel, DropboxPathModel
 
 
 class SetupDialog(QtWidgets.QDialog):
@@ -45,7 +43,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.labelIcon_3.setPixmap(icon_to_pixmap(self.app_icon, 100))
 
         self.mdbx = None
-        self.folder_items = []
+        self.excluded_folders = []
 
         # resize dialog buttons
         width = self.pushButtonAuthPageCancel.width()*1.1
@@ -85,7 +83,6 @@ class SetupDialog(QtWidgets.QDialog):
         self.pushButtonFolderSelectionBack.clicked.connect(self.stackedWidget.slideInPrev)
         self.pushButtonFolderSelectionSelect.clicked.connect(self.on_folders_selected)
         self.pushButtonClose.clicked.connect(self.accept)
-        self.listWidgetFolders.itemChanged.connect(self.update_select_all_checkbox)
         self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
 
         self.labelDropboxPath.setText(self.labelDropboxPath.text().format(CONF.get(
@@ -241,11 +238,12 @@ class SetupDialog(QtWidgets.QDialog):
         self.mdbx.create_dropbox_directory(path=dropbox_path, overwrite=False)
 
         # switch to next page
+        CONF.set("main", "excluded_folders", [])
         self.stackedWidget.slideInIdx(3)
         self.pushButtonFolderSelectionSelect.setFocus()
 
         # populate folder list
-        if not self.folder_items:
+        if not self.excluded_folders:
             self.populate_folders_list()
 
     def on_folders_selected(self):
@@ -253,13 +251,8 @@ class SetupDialog(QtWidgets.QDialog):
         self.stackedWidget.slideInIdx(4)
 
         # exclude folders
-        excluded_folders = []
-
-        for item in self.folder_items:
-            if not item.isIncluded():
-                excluded_folders.append("/" + item.name.lower())
-
-        self.mdbx.set_excluded_folders(excluded_folders)
+        self.apply_selection()
+        CONF.set("main", "excluded_folders", self.excluded_folders)
 
 # =============================================================================
 # Helper functions
@@ -277,38 +270,46 @@ class SetupDialog(QtWidgets.QDialog):
 
         self.dropbox_location = new_location
 
-    def populate_folders_list(self):
-
-        self.listWidgetFolders.addItem("Loading your folders...")
-
-        # add new entries
-        root_folders = self.mdbx.client.list_folder("", recursive=False)
-        self.listWidgetFolders.clear()
-
-        if root_folders is False:
-            self.listWidgetFolders.addItem("Unable to connect. Please try again later.")
-            self.pushButtonFolderSelectionSelect.setEnabled(False)
-        else:
-            self.pushButtonFolderSelectionSelect.setEnabled(True)
-
-            for entry in root_folders.entries:
-                if isinstance(entry, files.FolderMetadata):
-                    inc = not self.mdbx.sync.is_excluded_by_user(entry.path_lower)
-                    item = FolderItem(entry.name, inc)
-                    self.folder_items.append(item)
-
-            for item in self.folder_items:
-                self.listWidgetFolders.addItem(item)
-
-        self.update_select_all_checkbox()
+    @handle_disconnect
+    def populate_folders_list(self, overload=None):
+        self.async_loader = AsyncLoad(self.mdbx, self)
+        self.dbx_root = DropboxPathModel(self.async_loader, "/")
+        self.dbx_model = TreeModel(self.dbx_root)
+        self.treeViewFolders.clicked.connect(self.update_select_all_checkbox)
+        self.treeViewFolders.setModel(self.dbx_model)
 
     def update_select_all_checkbox(self):
-        is_included_list = (i.isIncluded() for i in self.folder_items)
-        self.selectAllCheckBox.setChecked(all(is_included_list))
+        check_states = []
+        for irow in range(self.dbx_model._root_item.child_count_loaded()):
+            index = self.dbx_model.index(irow, 0, QModelIndex())
+            check_states.append(self.dbx_model.data(index, Qt.CheckStateRole))
+        if all(cs == 2 for cs in check_states):
+            self.selectAllCheckBox.setChecked(True)
+        else:
+            self.selectAllCheckBox.setChecked(False)
 
     def on_select_all_clicked(self, checked):
-        for item in self.folder_items:
-            item.setIncluded(checked)
+        checked_state = 2 if checked else 0
+        for irow in range(self.dbx_model._root_item.child_count_loaded()):
+            index = self.dbx_model.index(irow, 0, QModelIndex())
+            self.dbx_model.setCheckState(index, checked_state)
+
+    def apply_selection(self, index=QModelIndex()):
+
+        if index.isValid():
+            item = index.internalPointer()
+            item_dbx_path = item._root.lower()
+
+            # We have started with all folders included. Therefore just append excluded
+            # folders here.
+            if item.checkState == 0:
+                self.excluded_folders.append(item_dbx_path)
+        else:
+            item = self.dbx_model._root_item
+
+        for row in range(item.child_count_loaded()):
+            index_child = self.dbx_model.index(row, 0, index)
+            self.apply_selection(index=index_child)
 
     @staticmethod
     def rel_path(path):
