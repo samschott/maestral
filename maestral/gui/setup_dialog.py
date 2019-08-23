@@ -247,12 +247,17 @@ class SetupDialog(QtWidgets.QDialog):
             self.populate_folders_list()
 
     def on_folders_selected(self):
-        # switch to next page
-        self.stackedWidget.slideInIdx(4)
 
         # exclude folders
+        if not self.mdbx.connected:
+            self.dbx_model.on_loading_failed()
+            return
+
         self.apply_selection()
         CONF.set("main", "excluded_folders", self.excluded_folders)
+
+        # switch to next page
+        self.stackedWidget.slideInIdx(4)
 
 # =============================================================================
 # Helper functions
