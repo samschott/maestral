@@ -298,7 +298,7 @@ def ls(dropbox_path: str, running, config_name: str, list_all: bool):
                     excluded_str = ""
                 type_str = "Folder" if e["type"] == "FolderMetadata" else "File"
                 if not e["name"].startswith(".") or list_all:
-                    click.echo("{0}:\t{1}{2}".format(e["type"], type_str, excluded_str))
+                    click.echo("{0}:\t{1}{2}".format(type_str, e["name"], excluded_str))
 
 
 @main.command()
