@@ -13,7 +13,7 @@ Dropbox.
 
 Currently, Maestral does not support Dropbox Paper, the management of Dropbox teams and
 the management of shared folder settings. If you need any of this functionality, please
-use the Dropbox website or the official client. As of v0.3, Maestral does however
+use the Dropbox website or the official client. As of version 0.3.0, Maestral does
 support the syncing of multiple Dropbox accounts.
 
 The focus on "simple" file syncing does come with advantages: the Maestral App on macOS is
@@ -64,7 +64,7 @@ commands. The most important are:
 - `maestral log`: Command group to show and clear logs, to set the log level, etc.
 
 Maestral currently supports the syncing of multiple Dropbox accounts by running multiple
-instances. This needs to be done from the command line. For example, before running
+instances. This needs to be configured from the command line. For example, before running
 `maestral gui`, one can set up a new configuration with `maestral config new`. The
 configuration name should then be given as command line option `--config-name` before
 running maestral. For example:
