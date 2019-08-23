@@ -5,7 +5,7 @@ _Added:_
 - Methods to get the sync status of individual files or folders, including CLI support.
   In the future, this could be used by file manager plugins to overlay the sync status of
   files.
-- Added experimental support to exclude subfolders to the sync engine and CLI.
+- Added experimental support to exclude subfolders.
 - Added a command group `maestral excluded` to view and manage excluded folders.
 - Automatically rename created items which have the same name as an existing item, but
   with a different case. This avoids possible issues on case-sensitive file systems since
@@ -18,14 +18,16 @@ _Changed:_
 - Setup dialog no longer returns a Maestral instance on success but just ``True``. It
   is up to the GUI to create its own instance or attach to a daemon.
 - Moved indexing of local files after a restart to the `upload_thread`. This improves the
-  apparent startup time for a large local Dropbox folder. 
+  apparent startup time for a large local Dropbox folder.
 - Removed many direct calls of Maestral attributes from the GUI. Try to limit required
   methods to the main API (Maestral's methods and properties) which is exposed by the
   daemon.
+- Changed returned values of the main API to Python types only. This provides safer
+  serialization.
 
 _Fixed:_
 
-- Fixed incorrect error type being raised for a corrupted rev file, which could lead to a
+- Fixed incorrect error being raised for a corrupted rev file, which could lead to a
   crash or misleading error message.
 
 ### v0.3.2
@@ -87,7 +89,7 @@ bug fixes and small tweaks to the UI.
   (commit 40be316b49f2198a01cc9ce9b804f8e6336e36f8) and selected to exclude folders
   before the initial sync. Users affected by this bug should rebuild Maestral's index by
   selecting "Rebuild index..." in the main menu.
-  
+
 #### Removed:
 
 - No longer install a script "maestral-gui". Use "maestral gui" instead.
