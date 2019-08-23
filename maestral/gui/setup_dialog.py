@@ -344,9 +344,8 @@ class SetupDialog(QtWidgets.QDialog):
             self.update_dark_mode()
 
     def update_dark_mode(self):
-        # update folder icons: the system may provide different icons in dark mode
-        for item in self.folder_items:
-            item.setIcon(get_native_folder_icon())
+        if self.dbx_model:
+            self.dbx_model.reloadData([Qt.DecorationRole])  # reload folder icons
 
     # static method to create the dialog and return Maestral instance on success
     @staticmethod
