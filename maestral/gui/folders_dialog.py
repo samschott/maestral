@@ -347,7 +347,7 @@ class DropboxPathModel(AbstractTreeItem):
 
 class AsyncLoadFolders(QtCore.QObject):
 
-    _lock = threading.BoundedSemaphore(2)
+    _lock = threading.BoundedSemaphore(10)  # do not list more than 10 folders in parallel
 
     def __init__(self, m, parent=None):
         """
@@ -444,6 +444,7 @@ class FoldersDialog(QtWidgets.QDialog):
         """
 
         if not self.mdbx.connected:
+            self.dbx_model.on_loading_failed()
             return
 
         self.apply_selection()
