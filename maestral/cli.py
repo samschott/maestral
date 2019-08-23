@@ -262,6 +262,7 @@ def set_dir(config_name: str, new_path: str, running):
         from maestral.sync.main import Maestral
         with MaestralProxy(config_name, fallback=True) as m:
             if not new_path:
+                # don't use the remote instance because we need console interaction
                 new_path = Maestral._ask_for_path()
             m.move_dropbox_directory(new_path)
 
@@ -271,42 +272,33 @@ def set_dir(config_name: str, new_path: str, running):
 @main.command()
 @with_config_opt
 @click.argument("dropbox_path", type=click.Path(), default="")
-@click.option("-a", "all", is_flag=True, default=False,
+@click.option("-a", "list_all", is_flag=True, default=False,
               help="Include directory entries whose names begin with a dot (.).")
-def ls(dropbox_path: str, running, config_name: str, all: bool):
+def ls(dropbox_path: str, running, config_name: str, list_all: bool):
     """Lists contents of a Dropbox directory."""
 
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
 
-    if dropbox_path == "/":
-        # work around an inconsistency where the root folder must always be given as ""
-        dropbox_path = ""
-
     if is_maestral_linked(config_name):
-        from maestral.sync.client import MaestralApiClient
-        from maestral.sync.main import Maestral
-        from maestral.config.main import CONF
-        from dropbox.files import FolderMetadata
+        with MaestralProxy(config_name, fallback=True) as m:
+            entries = m.list_folder(dropbox_path, recursive=False)
 
-        # get a list of all contents
-        c = MaestralApiClient()
-        res = c.list_folder(dropbox_path, recursive=False)
+            if not entries:
+                click.echo("Could not connect to Dropbox")
+                return
 
-        # parse it in a nice way
-        entry_types = tuple("Folder" if isinstance(md, FolderMetadata) else "File" for
-                            md in res.entries)
-        entry_names = (md.name for md in res.entries)
-        excluded_status = (Maestral.excluded_status(md.path_lower) for md in res.entries)
+            excluded_status = (m.excluded_status(e["path_lower"]) for e in entries)
 
-        # display results
-        for t, n, ex in zip(entry_types, entry_names, excluded_status):
-            if not ex == "included":
-                excluded_str = click.style(" ({})".format(ex), bold=True)
-            else:
-                excluded_str = ""
-            if not n.startswith(".") or all:
-                click.echo("{0}:\t{1}{2}".format(t, n, excluded_str))
+            # display results
+            for e, ex in zip(entries, excluded_status):
+                if not ex == "included":
+                    excluded_str = click.style(" ({})".format(ex), bold=True)
+                else:
+                    excluded_str = ""
+                type_str = "Folder" if e["type"] == "FolderMetadata" else "File"
+                if not e["name"].startswith(".") or list_all:
+                    click.echo("{0}:\t{1}{2}".format(e["type"], type_str, excluded_str))
 
 
 @main.command()
@@ -579,13 +571,13 @@ def errors(config_name: str, running):
             if len(err_list) == 0:
                 click.echo("No sync errors.")
             else:
-                max_path_length = max(len(err.dbx_path) for err in err_list)
-                column_length = max(max_path_length, len("Relative path")) + 2
+                max_path_length = max(len(err["dbx_path"]) for err in err_list)
+                column_length = max(max_path_length, len("Relative path")) + 4
                 click.echo("")
                 click.echo("PATH".ljust(column_length) + "ERROR")
                 for err in err_list:
-                    c0 = "'{}'".format(err.dbx_path).ljust(column_length)
-                    c1 = "{}. {}".format(err.title, err.message)
+                    c0 = "'{}'".format(err["dbx_path"]).ljust(column_length)
+                    c1 = "{}. {}".format(err["title"], err["message"])
                     click.echo(c0 + c1)
                 click.echo("")
 
