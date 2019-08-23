@@ -152,7 +152,7 @@ def handle_disconnect(func):
             res = func(*args, **kwargs)
             return res
         except CONNECTION_ERRORS as e:
-            logger.warning("{0}: {1}".format(CONNECTION_ERROR_MSG, e))
+            logger.info(DISCONNECTED)
             return False
         except DropboxAuthError as e:
             logger.exception("{0}: {1}".format(e.title, e.message))
@@ -213,8 +213,14 @@ class Maestral(object):
 
     @property
     def syncing(self):
-        """Bool indicating if syncing is running or paused."""
+        """Bool indicating if Maestral is syncing. It will be ``True`` if syncing is
+        not paused by the user *and* Maestral is connected to the internet."""
         return self.monitor.syncing.is_set()
+
+    @property
+    def paused(self):
+        """Bool indicating if syncing is paused by user."""
+        return not self.monitor._auto_resume_on_connect
 
     @property
     def connected(self):

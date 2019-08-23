@@ -39,7 +39,7 @@ class TreeModel(QAbstractItemModel):
         self._header = self._root_item.header()
         self._flags = Qt.ItemIsUserCheckable
 
-    def on_loading_failed(self, message):
+    def on_loading_failed(self):
 
         self.display_message("Could not connect to Dropbox. Please check "
                              "your internet connection.")
