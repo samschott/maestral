@@ -7,6 +7,7 @@ Created on Wed Oct 31 16:23:13 2018
 """
 import os
 import logging
+import threading
 
 # external packages
 from PyQt5 import QtCore, QtWidgets, QtGui, uic
@@ -346,6 +347,8 @@ class DropboxPathModel(AbstractTreeItem):
 
 class AsyncLoadFolders(QtCore.QObject):
 
+    _lock = threading.BoundedSemaphore(2)
+
     def __init__(self, m, parent=None):
         """
         A helper which creates instances of :class:`MaestralBackgroundTask` to
@@ -378,16 +381,17 @@ class AsyncLoadFolders(QtCore.QObject):
         """The actual function which does the listing. Returns a list of Dropbox folder
         paths or ``False`` if the listing fails."""
 
-        path = "" if path == "/" else path
-        entries = self.m.list_folder(path, recursive=False)
+        with self._lock:
 
-        if not entries:
-            folders = False
-        else:
-            folders = [os.path.join(path, e["path_display"]) for e in entries
-                       if e["type"] == "FolderMetadata"]
-        logger.debug("Loaded folders inside %s" % path)
-        return folders
+            path = "" if path == "/" else path
+            entries = self.m.list_folder(path, recursive=False)
+
+            if entries is False:
+                folders = False
+            else:
+                folders = [os.path.join(path, e["path_display"]) for e in entries
+                           if e["type"] == "FolderMetadata"]
+            return folders
 
 
 class FoldersDialog(QtWidgets.QDialog):
