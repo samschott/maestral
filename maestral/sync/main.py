@@ -322,6 +322,22 @@ class Maestral(object):
                 # delete current profile pic
                 self._delete_old_profile_pics()
 
+    @handle_disconnect
+    def list_folder(self, dbx_path, **kwargs):
+        """
+        List all items inside the folder given by :param:`dbx_path`.
+
+        :param dbx_path: Path to folder on Dropbox.
+        :return: List of Dropbox item metadata as dicts.
+        :rtype: list[dict]
+        """
+        dbx_path = "" if dbx_path == "/" else dbx_path
+        res = self.client.list_folder(dbx_path, **kwargs)
+
+        entries = [dropbox_stone_to_dict(e) for e in res.entries]
+
+        return entries
+
     @staticmethod
     def _delete_old_profile_pics():
         # delete all old pictures
