@@ -472,15 +472,16 @@ Any changes to local files during this process may be lost.""")
 
         for p in old_excluded_folders:
             if is_child(dbx_path, p):
-                raise ValueError("'{0}' lies inside the excluded folder {1}. "
-                                 "Please include {1} first.".format(dbx_path, p))
+                raise ValueError("'{0}' lies inside the excluded folder '{1}'. "
+                                 "Please include '{1}' first.".format(dbx_path, p))
 
         # Get folders which will need to be downloaded, do not attempt to download
         # subfolders of `dbx_path` which were already included.
         # `new_included_folders` will either be empty (`dbx_path` was already
         # included), just contain `dbx_path` itself (the whole folder was excluded) or
         # only contain subfolders of `dbx_path` (`dbx_path` was partially included).
-        new_included_folders = (x for x in old_excluded_folders if is_child(x, dbx_path))
+        new_included_folders = tuple(x for x in old_excluded_folders if
+                                     x == dbx_path or is_child(x, dbx_path))
 
         if new_included_folders:
             # remove `dbx_path` or all excluded children from the excluded list
