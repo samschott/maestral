@@ -15,6 +15,7 @@ from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, QVariant
 
 # maestral modules
 from maestral.sync.main import handle_disconnect, is_child
+from maestral.sync.monitor import UpDownSync
 from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
 from maestral.gui.utils import MaestralBackgroundTask
 from maestral.config.main import CONF
@@ -414,6 +415,7 @@ class FoldersDialog(QtWidgets.QDialog):
 
     @handle_disconnect
     def populate_folders_list(self, overload=None):
+        self.excluded_folders = self.mdbx.excluded_folders
         self.async_loader = AsyncLoadFolders(self.mdbx, self)
         self.dbx_root = DropboxPathModel(self.async_loader, "/")
         self.dbx_model = TreeModel(self.dbx_root)
@@ -449,6 +451,10 @@ class FoldersDialog(QtWidgets.QDialog):
             return
 
         self.apply_selection()
+        self.excluded_folders = UpDownSync.clean_excluded_folder_list(
+            self.excluded_folders)
+
+        self.mdbx.set_excluded_folders(self.excluded_folders)
 
     def apply_selection(self, index=QModelIndex()):
 
@@ -456,18 +462,16 @@ class FoldersDialog(QtWidgets.QDialog):
             item = index.internalPointer()
             item_dbx_path = item._root.lower()
 
-            # Include items which have been checked.
+            # Include items which have been checked / partially checked.
             # Remove items which have been unchecked.
-            # Do not touch items which are partially checked.
-            if not item.isOriginalState():
-                if item.checkState == 0:
-                    logger.debug("Excluding: %s" % item_dbx_path)
-                    self.mdbx.exclude_folder(item_dbx_path)
-                elif item.checkState == 1:
-                    pass
-                elif item.checkState == 2:
-                    logger.debug("Including: %s" % item_dbx_path)
-                    self.mdbx.include_folder(item_dbx_path)
+            # The list will be cleaned up later.
+            if item.checkState == 0:
+                logger.debug("Excluding: %s" % item_dbx_path)
+                self.excluded_folders.append(item_dbx_path)
+            elif item.checkState in (1, 2):
+                logger.debug("Including: %s" % item_dbx_path)
+                self.excluded_folders = [f for f in self.excluded_folders
+                                         if not f == item_dbx_path]
         else:
             item = self.dbx_model._root_item
 
