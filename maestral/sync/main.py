@@ -251,6 +251,11 @@ class Maestral(object):
         return self.sync.dropbox_path
 
     @property
+    def excluded_folders(self):
+        """Returns a list of excluded folders (read only)."""
+        return self.sync.excluded_folders
+
+    @property
     def sync_errors(self):
         """Returns list containing the current sync errors as dicts."""
         sync_errors = list(self.sync.sync_errors.queue)
