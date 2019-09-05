@@ -812,16 +812,16 @@ class UpDownSync(object):
 
         elif not event.is_directory:
 
-            while True:  # wait until file is fully created
-                try:
+            try:
+                while True:  # wait until file is fully created
                     size1 = osp.getsize(path)
                     time.sleep(0.5)
                     size2 = osp.getsize(path)
                     if size1 == size2:
                         break
-                except FileNotFoundError:
-                    logger.info("File not found for sync: %s" % path)
-                    return
+            except FileNotFoundError:
+                logger.info("File not found for sync: %s" % path)
+                return
 
             # check if file already exists with identical content
             md = self.client.get_metadata(dbx_path)
