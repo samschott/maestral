@@ -31,12 +31,13 @@ from maestral.gui.utils import (elide_string, UserDialog, quit_and_restart_maest
                                 get_gnome_scaling_factor)
 from maestral.gui.autostart import AutoStart
 from maestral.config.main import CONF
-from maestral.sync.daemon import start_maestral_daemon, stop_maestral_daemon
-from maestral.sync.daemon import MaestralProxy
+from maestral.sync.daemon import (start_daemon_subprocess, stop_maestral_daemon,
+                                  get_maestral_process_info, get_maestral_daemon_proxy)
 
 logger = logging.getLogger(__name__)
 
 HAS_GTK_LAUNCH = shutil.which("gtk-launch") is not None
+CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
 
 
 # noinspection PyTypeChecker
@@ -98,16 +99,25 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             logger.info("Setting up Maestral...")
             done = SetupDialog.configureMaestral(pending_link)
             if done:
-                self.mdbx = Maestral()  # TODO: create or get daemon instead?
+                self.mdbx = self._get_or_start_maestral_daemon()
                 self.mdbx.get_remote_dropbox_async("", callback=self.mdbx.start_sync)
                 logger.info("Successfully set up Maestral")
             else:
                 logger.info("Setup aborted. Quitting.")
                 self.quit()
         else:
-            self.mdbx = Maestral()  # TODO: create or get daemon instead?
+            self.mdbx = self._get_or_start_maestral_daemon()
+            self.mdbx.start_sync()
 
         self.setup_ui_linked()
+
+    @staticmethod
+    def _get_or_start_maestral_daemon():
+        pid, _ = get_maestral_process_info(CONFIG_NAME)
+        if not pid:
+            start_daemon_subprocess(CONFIG_NAME)
+
+        return get_maestral_daemon_proxy(CONFIG_NAME)
 
     def setup_ui_unlinked(self):
 
@@ -393,6 +403,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         """Quit Maestral"""
         if self.mdbx:
             self.mdbx.stop_sync()
+            stop_maestral_daemon(CONFIG_NAME)
         self.deleteLater()
         QtCore.QCoreApplication.quit()
         sys.exit(0)
