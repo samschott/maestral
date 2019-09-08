@@ -52,8 +52,8 @@ After installation, Maestral will be available as a command line script by typin
 `maestral` in the command prompt. Type `maestral --help` to get a full list of available
 commands. The most important are:
 
-- `maestral gui`: Starts Maestral with a GUI.
-- `maestral {start/stop}`: Starts or stops Maestral as a daemon.
+- `maestral gui`: Starts the Maestral GUI. Creates a sync daemon if not already running.
+- `maestral {start/stop}`: Starts or stops the Maestral daemon without a GUI.
 - `maestral {pause/resume}`: Pauses or resumes syncing.
 - `maestral status`: Gets the current sync status.
 - `maestral errors`: Lists all sync errors.
