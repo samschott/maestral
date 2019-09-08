@@ -15,6 +15,7 @@ import time
 import functools
 from threading import Thread
 import logging.handlers
+import collections
 
 # external packages
 from dropbox import files
@@ -25,8 +26,8 @@ import requests
 from maestral.sync.client import MaestralApiClient
 from maestral.sync.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
 from maestral.sync.oauth import OAuth2Session
-from maestral.sync.errors import (MaestralApiError, CONNECTION_ERRORS, DropboxAuthError,
-                                  CONNECTION_ERROR_MSG)
+from maestral.sync.errors import (MaestralApiError, DropboxAuthError,
+                                  CONNECTION_ERRORS, SYNC_ERRORS, CONNECTION_ERROR_MSG)
 from maestral.sync.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
                                    path_exists_case_insensitive, is_child)
 from maestral.config.main import CONF
@@ -52,34 +53,43 @@ sh.setFormatter(log_fmt)
 sh.setLevel(CONF.get("app", "log_level_console"))
 
 
-# set up logging to stream
+# set up logging to cached handlers
 class CachedHandler(logging.Handler):
     """
-    Handler which remembers the last record only.
+    Handler which remembers past records.
     """
-    def __init__(self):
+    def __init__(self, maxlen=None):
         logging.Handler.__init__(self)
-        self.lastRecord = None
+        self.cached_records = collections.deque([], maxlen)
 
     def emit(self, record):
-        self.lastRecord = record
+        self.format(record)
+        self.cached_records.append(record)
 
-    def getLastRecord(self):
-        if self.lastRecord:
-            return self.lastRecord.getMessage()
+    def getLastMessage(self):
+        if len(self.cached_records) > 0:
+            return self.cached_records[-1].message
         else:
             return ""
 
+    def getAllMessages(self):
+        return [r.message for r in self.cached_records]
 
-ch = CachedHandler()
-ch.setLevel(logging.INFO)
+    def clear(self):
+        self.cached_records.clear()
+
+
+ch_info = CachedHandler(maxlen=1)
+ch_info.setLevel(logging.INFO)
+
+ch_error = CachedHandler()
+ch_error.setLevel(logging.ERROR)
 
 # add handlers
 mdbx_logger = logging.getLogger("maestral")
 mdbx_logger.setLevel(logging.DEBUG)
-mdbx_logger.addHandler(rfh)
-mdbx_logger.addHandler(sh)
-mdbx_logger.addHandler(ch)
+for h in (rfh, sh, ch_info, ch_error):
+    mdbx_logger.addHandler(h)
 
 
 def folder_download_worker(monitor, dbx_path, callback=None):
@@ -151,7 +161,7 @@ def handle_disconnect(func):
         try:
             res = func(*args, **kwargs)
             return res
-        except CONNECTION_ERRORS as e:
+        except CONNECTION_ERRORS:
             logger.info(DISCONNECTED)
             return False
         except DropboxAuthError as e:
@@ -231,7 +241,7 @@ class Maestral(object):
     def status(self):
         """Returns a string with the last status message. This can be displayed as
         information to the user but should not be relied on otherwise."""
-        return ch.getLastRecord()
+        return ch_info.getLastMessage()
 
     @property
     def notify(self):
@@ -261,6 +271,26 @@ class Maestral(object):
         sync_errors = list(self.sync.sync_errors.queue)
         sync_errors_dicts = [maestral_error_to_dict(e) for e in sync_errors]
         return sync_errors_dicts
+
+    @staticmethod
+    def get_maestral_errors():
+        """Returns a list of Maestral's errors as dicts. This does not include lost
+        internet connections, which only emit warnings, or file sync errors which
+        are tracked and cleared separately. Errors listed here must be acted upon for
+        Maestral to continue syncing.
+        """
+
+        maestral_errors = [r.exc_info[1] for r in ch_error.cached_records]
+        maestral_errors_dicts = [maestral_error_to_dict(e) for e in maestral_errors
+                                 if not isinstance(e, SYNC_ERRORS)]
+        return maestral_errors_dicts
+
+    @staticmethod
+    def clear_maestral_errors():
+        """Manually clears all Maestral errors. This should be used after they have been
+        resolved by the user through the GUI or CLI.
+        """
+        ch_error.clear()
 
     @property
     def account_profile_pic_path(self):
