@@ -15,7 +15,7 @@ import Pyro4
 URI = "PYRO:maestral.{0}@{1}"
 
 
-def write_pid(config_name, socket_address="gui"):
+def write_pid(config_name, socket_address):
     """
     Write the PID of the current process to the appropriate file for the given
     config name. If a socket_address is given, it will be appended after a '|'.
@@ -111,13 +111,13 @@ def start_daemon_subprocess(config_name):
         m.create_dropbox_directory()
         m.set_excluded_folders()
 
-    proc = subprocess.Popen("maestral sync -c {}".format(config_name),
+    proc = subprocess.Popen("maestral start -c {} --foreground".format(config_name),
                             shell=True, stdin=subprocess.DEVNULL,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    # check if the subprocess is still running after 1 sec
+    # check if the subprocess is still running after 0.1 sec
     try:
-        proc.wait(timeout=1)
+        proc.wait(timeout=0.1)
         return False
     except subprocess.TimeoutExpired:
         return True
@@ -136,8 +136,8 @@ def stop_maestral_daemon(config_name="maestral"):
     import signal
     import time
 
-    pid, socket, p_type = get_maestral_process_info(config_name)
-    if p_type == "daemon":
+    pid, socket = get_maestral_process_info(config_name)
+    if pid:
         try:
             # try to shut down gracefully
             with MaestralProxy(config_name) as m:
@@ -168,9 +168,9 @@ def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
     a new instance of Maestral will be returned when the daemon cannot be reached.
     """
 
-    pid, location, p_type = get_maestral_process_info(config_name)
+    pid, location = get_maestral_process_info(config_name)
 
-    if p_type == "daemon":
+    if pid:
         maestral_daemon = Pyro4.Proxy(URI.format(config_name, location))
         try:
             maestral_daemon._pyroBind()
@@ -204,25 +204,17 @@ class MaestralProxy(object):
 
 def get_maestral_process_info(config_name):
     """
-    Returns Maestral's PID, the socket location, and the type of instance as (pid,
-    socket, running) if Maestral is running or (``None``, ``None``, ``False``)  otherwise.
+    Returns Maestral's PID and the socket location as tuple (pid, socket) if Maestral
+    is running or (``None``, ``None``)  otherwise.
 
-    Possible values for ``running`` are "gui", "daemon" or ``False``. Possible values for
-    ``socket`` are "gui", "<network_address>:<port>" or "None".
-
-    If ``running == False`` but the PID and socket values are set, this means that
-    Maestral is running but is unresponsive. This function will attempt to kill it by
-    sending SIGKILL.
+    If not ``None``, ``socket`` will be a string of the form "<network_address>:<port>".
     """
     import signal
 
-    pid = None
-    socket = None
-    running = False
     try:
         pid, socket = read_pid(config_name)
     except Exception:
-        return pid, socket, running
+        return None, None
 
     try:
         # test if the daemon process receives signals
@@ -233,7 +225,7 @@ def get_maestral_process_info(config_name):
             delete_pid(config_name)
         except Exception:
             pass
-        return pid, socket, running
+        return None, None
     except OSError:
         # if the process does not respond, try to kill it
         os.kill(pid, signal.SIGKILL)
@@ -241,8 +233,7 @@ def get_maestral_process_info(config_name):
             delete_pid(config_name)
         except Exception:
             pass
-        return pid, socket, running
+        return None, None
     else:
         # everything ok, return process info
-        running = "gui" if socket == "gui" else "daemon"
-        return pid, socket, running
+        return pid, socket
