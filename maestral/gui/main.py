@@ -76,9 +76,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.update_ui_timer.start(200)  # every 200 ms
 
     def update_ui(self):
-        self.on_error()
         if self.mdbx:
             self.on_status()
+            self.on_error()
 
     def show_when_systray_available(self):
         # If available, show icon, otherwise, set a timer to check back later.
