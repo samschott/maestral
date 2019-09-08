@@ -111,7 +111,7 @@ class SettingsWindow(QtWidgets.QWidget):
 
     def setup_combobox(self):
 
-        parent_dir = osp.split(self.mdbx.sync.dropbox_path)[0]
+        parent_dir = osp.split(self.mdbx.dropbox_path)[0]
         relative_path = self.rel_path(parent_dir)
 
         folder_icon = get_native_item_icon(parent_dir)
@@ -145,7 +145,7 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelUserProfilePic.setPixmap(pixmap)
 
     def update_account_info(self):
-    
+
         acc_mail = CONF.get("account", "email")
         acc_type = CONF.get("account", "type")
         if acc_type is not "":
