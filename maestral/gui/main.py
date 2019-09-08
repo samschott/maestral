@@ -370,11 +370,26 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.recentFilesMenu.clear()
         for dbx_path in reversed(CONF.get("internal", "recent_changes")):
             file_name = os.path.basename(dbx_path)
-            local_path = self.mdbx.sync.to_local_path(dbx_path)
-            truncated_name = elide_string(file_name, font=self.menu.font(),
-                                          side="right")
+            truncated_name = elide_string(file_name, font=self.menu.font(), side="right")
+            local_path = self._to_local_path(dbx_path)
             a = self.recentFilesMenu.addAction(truncated_name)
-            a.triggered.connect(lambda: self.open_destination(local_path, reveal=True))
+            a.triggered.connect(
+                lambda _, lp=local_path: self.open_destination(lp, reveal=True))
+
+    @staticmethod
+    def _to_local_path(dbx_path):
+
+        dropbox_path = CONF.get("main", "path")
+
+        dbx_path = dbx_path.replace("/", os.path.sep)
+        dbx_path_parent, dbx_path_basename,  = os.path.split(dbx_path)
+
+        local_parent = path_exists_case_insensitive(dbx_path_parent, dropbox_path)
+
+        if local_parent == "":
+            return os.path.join(dropbox_path, dbx_path.lstrip(os.path.sep))
+        else:
+            return os.path.join(local_parent, dbx_path_basename)
 
     def on_status(self):
         """Change icon according to status."""
