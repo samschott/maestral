@@ -35,12 +35,12 @@ from maestral.config.base import get_home_dir
 from maestral.sync.utils.app_dirs import get_log_path, get_cache_path
 
 
-config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
+CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
 
 # set up logging
 logger = logging.getLogger(__name__)
 
-log_file = get_log_path("maestral", config_name + ".log")
+log_file = get_log_path("maestral", CONFIG_NAME + ".log")
 log_fmt = logging.Formatter(fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
                             datefmt="%Y-%m-%d %H:%M:%S")
 rfh = logging.handlers.WatchedFileHandler(log_file)
@@ -297,7 +297,7 @@ class Maestral(object):
         """Returns the path of the current account's profile picture. There may not be
         an actual file at that path, if the user did not set a profile picture or the
         picture has not yet been downloaded."""
-        return get_cache_path("maestral", config_name + "_profile_pic.jpeg")
+        return get_cache_path("maestral", CONFIG_NAME + "_profile_pic.jpeg")
 
     def get_file_status(self, local_path):
         """
@@ -384,7 +384,7 @@ class Maestral(object):
     def _delete_old_profile_pics():
         # delete all old pictures
         for file in os.listdir(get_cache_path("maestral")):
-            if file.startswith(config_name + "_profile_pic"):
+            if file.startswith(CONFIG_NAME + "_profile_pic"):
                 try:
                     os.unlink(osp.join(get_cache_path("maestral"), file))
                 except OSError:
@@ -462,7 +462,7 @@ Any changes to local files during this process may be lost.""")
             pass
 
         CONF.reset_to_defaults()
-        CONF.set("main", "default_dir_name", "Dropbox ({0})".format(config_name.capitalize()))
+        CONF.set("main", "default_dir_name", "Dropbox ({0})".format(CONFIG_NAME.capitalize()))
 
         logger.info("Unlinked Dropbox account.")
 
