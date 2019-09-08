@@ -18,34 +18,6 @@ from maestral.gui.resources import REBUILD_INDEX_DIALOG_PATH
 from maestral.gui.utils import MaestralBackgroundTask, get_scaled_font
 
 
-class InfoHandler(logging.Handler, QtCore.QObject):
-    """
-    Handler which emits a signal containing the logging message for every
-    logged event. The signal will be connected to "Status" field of the GUI.
-    """
-
-    info_signal = QtCore.pyqtSignal(str)
-
-    def __init__(self):
-        logging.Handler.__init__(self)
-        QtCore.QObject.__init__(self)
-
-    def emit(self, record):
-        self.format(record)
-        self.info_signal.emit(record.message)
-        self._last_emit = time.time()
-
-
-info_handler = InfoHandler()
-info_handler.setLevel(logging.INFO)
-
-info_handler = InfoHandler()
-info_handler.setLevel(logging.INFO)
-
-mdbx_logger = logging.getLogger("maestral")
-mdbx_logger.addHandler(info_handler)
-
-
 class RebuildIndexDialog(QtWidgets.QDialog):
     """A dialog to rebuild Maestral's sync index."""
 
@@ -90,16 +62,20 @@ class RebuildIndexDialog(QtWidgets.QDialog):
         self.progressBar.setMaximum(0)
         self.progressBar.setValue(0)
 
-        info_handler.info_signal.connect(self.update_progress)
+        self._timer = QtCore.QTimer()
+        self._timer.timeout.connect(self.update_progress)
+        self._timer.start(70)
 
         self.rebuild_rev_file_async()
 
-    def update_progress(self, info_text):
+    def update_progress(self):
 
-        self.statusLabel.setText(info_text)
+        status_string = self.mdbx.status
+
+        self.statusLabel.setText(status_string)
 
         try:
-            n, n_tot = _filter_text(info_text)
+            n, n_tot = _filter_text(status_string)
             self.progressBar.setValue(n)
             self.progressBar.setMaximum(n_tot)
         except ValueError:
@@ -115,7 +91,7 @@ class RebuildIndexDialog(QtWidgets.QDialog):
 
     def on_rebuild_done(self):
 
-        info_handler.info_signal.disconnect(self.update_progress)
+        self._timer.stop()
 
         self.progressBar.setMaximum(100)
         self.progressBar.setValue(100)
