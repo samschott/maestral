@@ -79,8 +79,8 @@ def set_config(ctx, param, value):
     os.environ["MAESTRAL_CONFIG"] = value
 
     # check if maestral is running and store the result for other commands to use
-    pid, socket, running = get_maestral_process_info(value)
-    ctx.params["running"] = running
+    pid, socket = get_maestral_process_info(value)
+    ctx.params["running"] = True if pid else False
 
     return value
 
@@ -100,12 +100,6 @@ with_config_opt = click.option(
 @click.pass_context
 def main(ctx):
     """Maestral Dropbox Client for Linux and macOS."""
-    pass
-
-
-@main.group()
-def daemon():
-    """Run Maestral as a daemon. See 'maestral daemon --help'."""
     pass
 
 
@@ -149,15 +143,6 @@ def about():
 def gui(config_name, running):
     """Runs Maestral with a GUI."""
 
-    if running == "daemon":
-        click.echo("Maestral daemon is already running. Please quit "
-                   "before starting the GUI.")
-        return
-
-    if running == "gui":
-        click.echo("Maestral GUI is already running.")
-        return
-
     import importlib.util
 
     # check for PyQt5
@@ -167,15 +152,132 @@ def gui(config_name, running):
         click.echo("Error: PyQt5 is required to run the Maestral GUI. "
                    "Run `pip install pyqt5` to install it.")
     else:
-        try:
-            write_pid(config_name)
-            from maestral.gui.main import run
-            run()
-        except Exception:
-            import traceback
-            traceback.print_exc()
-        finally:
-            delete_pid(config_name)
+        from maestral.gui.main import run
+        run()
+
+
+@main.command()
+@click.option("--foreground", "-f", is_flag=True, default=False,
+              help="Starts Maestral in the foreground.")
+@with_config_opt
+def start(config_name: str, running, foreground: bool):
+    """Starts the Maestral as a daemon."""
+
+    if running:
+        click.echo("Maestral daemon is already running.")
+        return
+
+    if foreground:
+        start_maestral_daemon(config_name)
+    else:
+        start_daemon_subprocess_with_cli_feedback(config_name)
+
+
+@main.command()
+@with_config_opt
+def stop(config_name: str, running):
+    """Stops the Maestral daemon."""
+    if not running:
+        click.echo("Maestral daemon is not running.")
+    else:
+        stop_daemon_with_cli_feedback(config_name)
+
+
+@main.command()
+@with_config_opt
+def restart(config_name: str, running):
+    """Restarts the Maestral daemon."""
+
+    if running:
+        stop_daemon_with_cli_feedback(config_name)
+    else:
+        click.echo("Maestral daemon is not running.")
+
+    start_daemon_subprocess_with_cli_feedback(config_name)
+
+
+@main.command()
+@with_config_opt
+def pause(config_name: str, running):
+    """Pauses syncing."""
+    try:
+        with MaestralProxy(config_name) as m:
+            m.pause_sync()
+        click.echo("Syncing paused.")
+    except Pyro4.errors.CommunicationError:
+        click.echo("Maestral daemon is not running.")
+
+
+@main.command()
+@with_config_opt
+def resume(config_name: str, running):
+    """Resumes syncing."""
+    try:
+        with MaestralProxy(config_name) as m:
+            m.resume_sync()
+        click.echo("Syncing resumed.")
+    except Pyro4.errors.CommunicationError:
+        click.echo("Maestral daemon is not running.")
+
+
+@main.command()
+@with_config_opt
+def status(config_name: str, running):
+    """Returns the current status of the Maestral daemon."""
+    try:
+        from maestral.config.main import CONF
+        with MaestralProxy(config_name) as m:
+            n_errors = len(m.sync_errors)
+            color = "red" if n_errors > 0 else "green"
+            n_errors_str = click.style(str(n_errors), fg=color)
+            click.echo("")
+            click.echo("Account:       {}".format(CONF.get("account", "email")))
+            click.echo("Usage:         {}".format(CONF.get("account", "usage")))
+            click.echo("Status:        {}".format(m.status))
+            click.echo("Sync errors:   {}".format(n_errors_str))
+            click.echo("")
+
+    except Pyro4.errors.CommunicationError:
+        click.echo("Maestral daemon is not running.")
+
+
+@main.command()
+@click.argument("local_path", type=click.Path(exists=True))
+@with_config_opt
+def file_status(config_name: str, running, local_path: str):
+    """Returns the current sync status of a given file or folder."""
+    try:
+        from maestral.config.main import CONF
+        with MaestralProxy(config_name) as m:
+            stat = m.get_file_status(local_path)
+            click.echo(stat)
+
+    except Pyro4.errors.CommunicationError:
+        click.echo("unwatched")
+
+
+@main.command()
+@with_config_opt
+def errors(config_name: str, running):
+    """Lists all sync errors."""
+    try:
+        with MaestralProxy(config_name) as m:
+            err_list = m.sync_errors
+            if len(err_list) == 0:
+                click.echo("No sync errors.")
+            else:
+                max_path_length = max(len(err["dbx_path"]) for err in err_list)
+                column_length = max(max_path_length, len("Relative path")) + 4
+                click.echo("")
+                click.echo("PATH".ljust(column_length) + "ERROR")
+                for err in err_list:
+                    c0 = "'{}'".format(err["dbx_path"]).ljust(column_length)
+                    c1 = "{}. {}".format(err["title"], err["message"])
+                    click.echo(c0 + c1)
+                click.echo("")
+
+    except Pyro4.errors.CommunicationError:
+        click.echo("Maestral daemon is not running.")
 
 
 @main.command()
@@ -201,12 +303,8 @@ def unlink(config_name: str, running):
     """Unlinks your Dropbox account."""
 
     if is_maestral_linked(config_name):
-        if running == "gui":
-            click.echo("Maestral GUI is already running. Please perform action through "
-                       "the GUI.")
-            return
 
-        if running == "daemon":
+        if running:
             stop_daemon_with_cli_feedback()
 
         with MaestralProxy(config_name, fallback=True) as m:
@@ -218,19 +316,42 @@ def unlink(config_name: str, running):
 
 
 @main.command()
+@click.argument("local_path", type=click.Path(exists=True))
 @with_config_opt
-def sync(config_name: str, running):
-    """Starts Maestral in the console. Quit with Ctrl-C."""
+def file_status(config_name: str, running, local_path: str):
+    """Returns the current sync status of a given file or folder."""
+    try:
+        from maestral.config.main import CONF
+        with MaestralProxy(config_name) as m:
+            stat = m.get_file_status(local_path)
+            click.echo(stat)
 
-    if running == "gui":
-        click.echo("Maestral GUI is already running. Please quit the GUI "
-                   "before starting the daemon.")
-        return
-    elif running == "daemon":
-        click.echo("Maestral daemon is already running.")
-        return
+    except Pyro4.errors.CommunicationError:
+        click.echo("unwatched")
 
-    start_maestral_daemon(config_name)
+
+@main.command()
+@with_config_opt
+def errors(config_name: str, running):
+    """Lists all sync errors."""
+    try:
+        with MaestralProxy(config_name) as m:
+            err_list = m.sync_errors
+            if len(err_list) == 0:
+                click.echo("No sync errors.")
+            else:
+                max_path_length = max(len(err["dbx_path"]) for err in err_list)
+                column_length = max(max_path_length, len("Relative path")) + 4
+                click.echo("")
+                click.echo("PATH".ljust(column_length) + "ERROR")
+                for err in err_list:
+                    c0 = "'{}'".format(err["dbx_path"]).ljust(column_length)
+                    c1 = "{}. {}".format(err["title"], err["message"])
+                    click.echo(c0 + c1)
+                click.echo("")
+
+    except Pyro4.errors.CommunicationError:
+        click.echo("Maestral daemon is not running.")
 
 
 @main.command()
@@ -253,10 +374,6 @@ def notify(config_name: str, yes: bool, running):
 @click.option("--new-path", "-p", type=click.Path(writable=True), default=None)
 def set_dir(config_name: str, new_path: str, running):
     """Change the location of your Dropbox folder."""
-
-    if running == "gui":
-        click.echo("Maestral GUI is already running. Please use the GUI.")
-        return
 
     if is_maestral_linked(config_name):
         from maestral.sync.main import Maestral
@@ -330,10 +447,6 @@ def account_info(config_name: str, running):
 def add(dropbox_path: str, config_name: str, running):
     """Adds a folder to the excluded list and re-syncs."""
 
-    if running == "gui":
-        click.echo("Maestral GUI is already running. Please use the GUI.")
-        return
-
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
 
@@ -353,10 +466,6 @@ def add(dropbox_path: str, config_name: str, running):
 def remove(dropbox_path: str, config_name: str, running):
     """Removes a folder from the excluded list and re-syncs."""
 
-    if running == "gui":
-        click.echo("Maestral GUI is already running. Please use the GUI.")
-        return
-
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
 
@@ -370,9 +479,9 @@ def remove(dropbox_path: str, config_name: str, running):
         click.echo("Included directory '{}' in syncing.".format(dropbox_path))
 
 
-@excluded.command()
+@excluded.command(name="list")
 @with_config_opt
-def list(config_name: str, running):
+def excluded_list(config_name: str, running):
     """Lists all excluded folders."""
 
     if is_maestral_linked(config_name):
@@ -456,136 +565,6 @@ def level(config_name: str, level_name: str, running):
 
 
 # ========================================================================================
-# Daemon commands
-# ========================================================================================
-
-@daemon.command()
-@with_config_opt
-def start(config_name: str, running):
-    """Starts the Maestral as a daemon in the background."""
-    if running == "gui":
-        click.echo("Maestral GUI is already running. Please quit before starting the "
-                   "daemon.")
-        return
-
-    if running == "daemon":
-        click.echo("Maestral daemon is already running.")
-        return
-
-    start_daemon_subprocess_with_cli_feedback(config_name)
-
-
-@daemon.command()
-@with_config_opt
-def stop(config_name: str, running):
-    """Stops the Maestral daemon."""
-    if not running == "daemon":
-        click.echo("Maestral daemon is not running.")
-    else:
-        stop_daemon_with_cli_feedback(config_name)
-
-
-@daemon.command()
-@with_config_opt
-def restart(config_name: str, running):
-    """Restarts the Maestral daemon."""
-    if running == "gui":
-        click.echo("Maestral GUI is running. Please stop first.")
-        return
-
-    if running == "daemon":
-        stop_daemon_with_cli_feedback(config_name)
-    else:
-        click.echo("Maestral daemon is not running.")
-
-    start_daemon_subprocess_with_cli_feedback(config_name)
-
-
-@daemon.command()
-@with_config_opt
-def pause(config_name: str, running):
-    """Pauses syncing."""
-    try:
-        with MaestralProxy(config_name) as m:
-            m.pause_sync()
-        click.echo("Syncing paused.")
-    except Pyro4.errors.CommunicationError:
-        click.echo("Maestral daemon is not running.")
-
-
-@daemon.command()
-@with_config_opt
-def resume(config_name: str, running):
-    """Resumes syncing."""
-    try:
-        with MaestralProxy(config_name) as m:
-            m.resume_sync()
-        click.echo("Syncing resumed.")
-    except Pyro4.errors.CommunicationError:
-        click.echo("Maestral daemon is not running.")
-
-
-@daemon.command()
-@with_config_opt
-def status(config_name: str, running):
-    """Returns the current status of the Maestral daemon."""
-    try:
-        from maestral.config.main import CONF
-        with MaestralProxy(config_name) as m:
-            n_errors = len(m.sync_errors)
-            color = "red" if n_errors > 0 else "green"
-            n_errors_str = click.style(str(n_errors), fg=color)
-            click.echo("")
-            click.echo("Account:       {}".format(CONF.get("account", "email")))
-            click.echo("Usage:         {}".format(CONF.get("account", "usage")))
-            click.echo("Status:        {}".format(m.status))
-            click.echo("Sync errors:   {}".format(n_errors_str))
-            click.echo("")
-
-    except Pyro4.errors.CommunicationError:
-        click.echo("Maestral daemon is not running.")
-
-
-@daemon.command()
-@click.argument("local_path", type=click.Path(exists=True))
-@with_config_opt
-def file_status(config_name: str, running, local_path: str):
-    """Returns the current sync status of a given file or folder."""
-    try:
-        from maestral.config.main import CONF
-        with MaestralProxy(config_name) as m:
-            stat = m.get_file_status(local_path)
-            click.echo(stat)
-
-    except Pyro4.errors.CommunicationError:
-        click.echo("unwatched")
-
-
-@daemon.command()
-@with_config_opt
-def errors(config_name: str, running):
-    """Lists all sync errors."""
-    try:
-        with MaestralProxy(config_name) as m:
-            err_list = m.sync_errors
-            if len(err_list) == 0:
-                click.echo("No sync errors.")
-            else:
-                max_path_length = max(len(err["dbx_path"]) for err in err_list)
-                column_length = max(max_path_length, len("Relative path")) + 4
-                click.echo("")
-                click.echo("PATH".ljust(column_length) + "ERROR")
-                for err in err_list:
-                    c0 = "'{}'".format(err["dbx_path"]).ljust(column_length)
-                    c1 = "{}. {}".format(err["title"], err["message"])
-                    click.echo(c0 + c1)
-                click.echo("")
-
-    except Pyro4.errors.CommunicationError:
-        click.echo("Maestral daemon is not running.")
-
-
-# ========================================================================================
 # Management of different configurations
 # ========================================================================================
 
@@ -612,8 +591,8 @@ def new(name: str):
         click.echo("Created configuration '{}'.".format(name))
 
 
-@config.command(name='list')
-def env_list():
+@config.command(name="list")
+def config_list():
     """List all Maestral configurations."""
     click.echo("Available Maestral configurations:")
     for c in list_configs():
