@@ -79,20 +79,12 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelAccountName.setText(CONF.get("account", "display_name"))
 
         # populate account info
-        acc_mail = CONF.get("account", "email")
-        acc_type = CONF.get("account", "type")
-        if acc_type is not "":
-            acc_type_text = ", Dropbox {0}".format(acc_type.capitalize())
-        else:
-            acc_type_text = ""
-        self.labelAccountInfo.setText(acc_mail + acc_type_text)
-        self.labelSpaceUsage.setText(CONF.get("account", "usage"))
         self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
         self.unlink_dialog.accepted.connect(self.on_unlink)
 
         self.profile_pic_height = round(self.labelUserProfilePic.height() * 0.7)
         self.set_profile_pic_from_cache()
-        self.update_profile_pic()
+        self.update_account_info()
 
         # populate sync section
         self.setup_combobox()
@@ -114,7 +106,7 @@ class SettingsWindow(QtWidgets.QWidget):
 
         # update profile pic and account info periodically
         self.update_timer = QtCore.QTimer()
-        self.update_timer.timeout.connect(self.update_profile_pic)
+        self.update_timer.timeout.connect(self.update_account_info)
         self.update_timer.start(1000*60*20)  # every 20 min
 
     def setup_combobox(self):
@@ -152,7 +144,16 @@ class SettingsWindow(QtWidgets.QWidget):
 
         self.labelUserProfilePic.setPixmap(pixmap)
 
-    def update_profile_pic(self):
+    def update_account_info(self):
+    
+        acc_mail = CONF.get("account", "email")
+        acc_type = CONF.get("account", "type")
+        if acc_type is not "":
+            acc_type_text = ", Dropbox {0}".format(acc_type.capitalize())
+        else:
+            acc_type_text = ""
+        self.labelAccountInfo.setText(acc_mail + acc_type_text)
+        self.labelSpaceUsage.setText(CONF.get("account", "usage"))
 
         self.download_task = MaestralBackgroundTask(self, self.mdbx.get_profile_pic)
         self.download_task.sig_done.connect(self.set_profile_pic_from_cache)
