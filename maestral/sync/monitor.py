@@ -979,23 +979,34 @@ class UpDownSync(object):
         :raises: MaestralApiError on failure.
         """
 
-        logger.debug("Move detected: from '%s' to '%s'",
-                     event.src_path, event.dest_path)
+        logger.debug("Move detected: from '%s' to '%s'", event.src_path, event.dest_path)
 
-        path = event.src_path
-        path2 = event.dest_path
+        dbx_path_old = self.to_dbx_path(event.src_path)
+        dbx_path_new = self.to_dbx_path(event.dest_path)
 
-        dbx_path_old = self.to_dbx_path(path)
-        dbx_path_new = self.to_dbx_path(path2)
-
-        # is file excluded?
+        # Is item excluded?
         if self.is_excluded(dbx_path_new):
             return
 
-        md = self.client.move(dbx_path_old, dbx_path_new)
+        # Does item exist on Dropbox?
+        md_old = self.client.get_metadata(dbx_path_old)
 
-        # remove old revs
-        self.set_local_rev(dbx_path_old, None)
+        if not md_old:
+            # If not, e.g., because its old name was invalid,
+            # create it instead of moving it.
+            if event.is_direcotory:
+                new_event = DirCreatedEvent(event.dest_path)
+            else:
+                new_event = FileCreatedEvent(event.dest_path)
+            self._on_created(new_event)
+            # remove old revs
+            self.set_local_rev(dbx_path_old, None)
+            return
+        else:
+            # otherwise, just move it
+            md = self.client.move(dbx_path_old, dbx_path_new)
+            # remove old revs
+            self.set_local_rev(dbx_path_old, None)
 
         # add new revs
         if isinstance(md, dropbox.files.FileMetadata):
