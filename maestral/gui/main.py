@@ -442,7 +442,7 @@ def run():
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
 
-    app = QtWidgets.QApplication(["Maestral"])
+    app = QtWidgets.QApplication(["Maestral GUI"])
     app.setQuitOnLastWindowClosed(False)
 
     maestral_gui = MaestralGuiApp()
