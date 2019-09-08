@@ -957,8 +957,10 @@ class UpDownSync(object):
     @catch_sync_issues(sync_errors, failed_uploads)
     def _apply_event(self, event):
         """Apply a local file event `event` to the remote Dropbox. Clear any related
-        sync errors if successful. Any MaestralApiErrors will be caught by the
+        sync errors with the file. Any new MaestralApiErrors will be caught by the
         decorator."""
+
+        self.clear_sync_error(local_path=event.src_path)
 
         if event.event_type is EVENT_TYPE_CREATED:
             self._on_created(event)
@@ -968,8 +970,6 @@ class UpDownSync(object):
             self._on_modified(event)
         elif event.event_type is EVENT_TYPE_DELETED:
             self._on_deleted(event)
-
-        self.clear_sync_error(local_path=event.src_path)
 
     def _on_moved(self, event):
         """
