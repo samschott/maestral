@@ -994,7 +994,7 @@ class UpDownSync(object):
         if not md_old:
             # If not, e.g., because its old name was invalid,
             # create it instead of moving it.
-            if event.is_direcotory:
+            if isinstance(event, DirMovedEvent):
                 new_event = DirCreatedEvent(event.dest_path)
             else:
                 new_event = FileCreatedEvent(event.dest_path)
