@@ -11,20 +11,8 @@ import dropbox
 import requests
 
 
-CONNECTION_ERRORS = (
-    requests.exceptions.Timeout,
-    requests.exceptions.ConnectionError,
-    requests.exceptions.HTTPError,
-    requests.exceptions.ReadTimeout,
-    requests.exceptions.RetryError,
-    ConnectionError,
-)
-
 CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
                         "your internet connection and try again later.")
-
-OS_FILE_ERRORS = (FileExistsError, FileNotFoundError, InterruptedError,
-                  IsADirectoryError, NotADirectoryError, PermissionError, )
 
 
 class RevFileError(Exception):
@@ -393,3 +381,34 @@ def _get_lookup_error_msg(lookup_error):
         err_type = UnsupportedFileError
 
     return text, err_type
+
+
+# connection errors are handled as warnings
+# sync errors only appear in the sync errors list
+# all other errors raise an error dialog in the GUI
+
+CONNECTION_ERRORS = (
+    requests.exceptions.Timeout,
+    requests.exceptions.ConnectionError,
+    requests.exceptions.HTTPError,
+    requests.exceptions.ReadTimeout,
+    requests.exceptions.RetryError,
+    ConnectionError,
+)
+
+SYNC_ERRORS = (
+    InsufficientPermissionsError,
+    InsufficientSpaceError,
+    PathError,
+    RestrictedContentError,
+    UnsupportedFileError,
+)
+
+OS_FILE_ERRORS = (
+    FileExistsError,
+    FileNotFoundError,
+    InterruptedError,
+    IsADirectoryError,
+    NotADirectoryError,
+    PermissionError,
+)
