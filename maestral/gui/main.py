@@ -19,20 +19,30 @@ import shutil
 from PyQt5 import QtCore, QtWidgets
 
 # maestral modules
+from maestral.config.main import CONF
 from maestral.sync.main import Maestral
 from maestral.sync.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
+from maestral.sync.monitor import path_exists_case_insensitive
+from maestral.sync.daemon import (
+    start_daemon_subprocess,
+    stop_maestral_daemon,
+    get_maestral_process_info,
+    get_maestral_daemon_proxy
+)
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.setup_dialog import SetupDialog
 from maestral.gui.relink_dialog import RelinkDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import get_system_tray_icon
-from maestral.gui.utils import (elide_string, UserDialog, quit_and_restart_maestral,
-                                get_gnome_scaling_factor)
 from maestral.gui.autostart import AutoStart
-from maestral.config.main import CONF
-from maestral.sync.daemon import (start_daemon_subprocess, stop_maestral_daemon,
-                                  get_maestral_process_info, get_maestral_daemon_proxy)
+from maestral.gui.utils import (
+    UserDialog,
+    elide_string,
+    quit_and_restart_maestral,
+    get_gnome_scaling_factor
+)
+
 
 logger = logging.getLogger(__name__)
 
