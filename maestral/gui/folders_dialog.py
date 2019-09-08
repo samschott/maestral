@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtWidgets, QtGui, uic
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, QVariant
 
 # maestral modules
-from maestral.sync.main import handle_disconnect, is_child
+from maestral.sync.main import Maestral, handle_disconnect, is_child
 from maestral.sync.monitor import UpDownSync
 from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
 from maestral.gui.utils import MaestralBackgroundTask
@@ -360,7 +360,7 @@ class AsyncLoadFolders(QtCore.QObject):
         :param parent: QObject. Defaults to None.
         """
         super(self.__class__, self).__init__(parent=parent)
-        self.m = m
+        self.m = Maestral(run=False)
 
     def loadFolders(self, path):
         """

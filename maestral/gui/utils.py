@@ -20,6 +20,7 @@ from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap, QWindow
 # maestral modules
 from maestral.gui.resources import APP_ICON_PATH, rgb_to_luminance
 from maestral.sync.utils import is_macos_bundle
+from maestral.sync.daemon import MaestralProxy
 
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
@@ -151,6 +152,17 @@ class MaestralWorker(QtCore.QObject):
         self.sig_done.emit(res)
 
 
+class MaestralWorkerNewProxy(MaestralWorker):
+    """A worker object for Maestral. To be used in QThreads."""
+
+    def start(self):
+        config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
+        with MaestralProxy(config_name) as m:
+            func = m.__getattr__(self._target)
+            res = func(*self._args, **self._kwargs)
+        self.sig_done.emit(res)
+
+
 class MaestralBackgroundTask(QtCore.QObject):
     """A utility class to manage a worker thread."""
 
@@ -181,6 +193,21 @@ class MaestralBackgroundTask(QtCore.QObject):
             self.thread.wait(msecs=timeout)
         else:
             self.thread.wait()
+
+
+class MaestralBackgroundTaskNewProxy(MaestralBackgroundTask):
+    """A utility class to manage a worker thread."""
+
+    def start(self):
+
+        self.thread = QtCore.QThread(self)
+        self.worker = MaestralWorkerNewProxy(
+            target=self._target, args=self._args, kwargs=self._kwargs)
+        self.worker.sig_done.connect(self.sig_done.emit)
+        self.worker.sig_done.connect(self.thread.quit)
+        self.worker.moveToThread(self.thread)
+        self.thread.started.connect(self.worker.start)
+        self.thread.start()
 
 
 class UserDialog(QtWidgets.QDialog):
