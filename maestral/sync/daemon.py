@@ -8,6 +8,7 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 """
 # system imports
 import os
+import time
 
 # external packages
 import Pyro4
@@ -111,16 +112,40 @@ def start_daemon_subprocess(config_name):
         m.create_dropbox_directory()
         m.set_excluded_folders()
 
-    proc = subprocess.Popen("maestral start -c {} --foreground".format(config_name),
-                            shell=True, stdin=subprocess.DEVNULL,
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.Popen(
+        "maestral start -c {} --foreground".format(config_name),
+        shell=True,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
 
-    # check if the subprocess is still running after 0.1 sec
-    try:
-        proc.wait(timeout=0.1)
+    # wait until process is created, timeout after 1 sec
+
+    t0 = time.time()
+    location = None
+
+    while not location and t0 - time.time() < 1:
+        pid, location = get_maestral_process_info(config_name)
+
+    if location:
+        maestral_daemon = Pyro4.Proxy(URI.format(config_name, location))
+    else:
         return False
-    except subprocess.TimeoutExpired:
-        return True
+
+    # wait until we can communicate with daemon, timeout after 1 sec
+    t0 = time.time()
+    while time.time() - t0 < 1:
+        try:
+            maestral_daemon._pyroBind()
+            return True
+        except Exception:
+            maestral_daemon._pyroRelease()
+            time.sleep(0.1)
+        finally:
+            maestral_daemon._pyroRelease()
+
+    return False
 
 
 def stop_maestral_daemon(config_name="maestral"):
