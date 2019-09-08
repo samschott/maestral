@@ -11,7 +11,6 @@ import sys
 import os
 import platform
 from subprocess import Popen
-from traceback import format_exception
 
 # external packages
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -187,7 +186,7 @@ class MaestralBackgroundTask(QtCore.QObject):
 class UserDialog(QtWidgets.QDialog):
     """A template user dialog for Maestral. Shows a traceback if given in constructor."""
 
-    def __init__(self, title, message, exc_info=None, parent=None):
+    def __init__(self, title, message, traceback=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         self.setModal(True)
         self.setWindowModality(Qt.WindowModal)
@@ -214,9 +213,9 @@ class UserDialog(QtWidgets.QDialog):
         self.titleLabel.setText(title)
         self.infoLabel.setText(message)
 
-        if exc_info:
+        if traceback:
             self.details = QtWidgets.QTextEdit(self)
-            self.details.setText("".join(format_exception(*exc_info)))
+            self.details.setText("".join(traceback))
 
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
         self.buttonBox.accepted.connect(self.accept)
@@ -224,7 +223,7 @@ class UserDialog(QtWidgets.QDialog):
         self.gridLayout.addWidget(self.iconLabel, 0, 0, 2, 1)
         self.gridLayout.addWidget(self.titleLabel, 0, 1, 1, 1)
         self.gridLayout.addWidget(self.infoLabel, 1, 1, 1, 1)
-        if exc_info:
+        if traceback:
             self.gridLayout.addWidget(self.details, 2, 0, 1, 2)
         self.gridLayout.addWidget(self.buttonBox, 3, 1, -1, -1)
 
