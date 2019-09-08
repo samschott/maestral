@@ -110,7 +110,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             done = SetupDialog.configureMaestral(pending_link)
             if done:
                 self.mdbx = self._get_or_start_maestral_daemon()
-                self.mdbx.get_remote_dropbox_async("", callback=self.mdbx.start_sync)
+                self.mdbx.get_remote_dropbox_async("", callback="start_sync")
                 logger.info("Successfully set up Maestral")
             else:
                 logger.info("Setup aborted. Quitting.")
@@ -396,6 +396,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         n_errors = len(self.mdbx.sync_errors)
         status = self.mdbx.status
+        is_paused = self.mdbx.paused
 
         if status == self._status and n_errors == self._n_errors:
             return
@@ -405,7 +406,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         else:
             self.syncIssuesAction.setText("Show Sync Issues...")
 
-        if self.mdbx.paused:
+        if is_paused:
             new_icon = self.icons[PAUSED]
         elif n_errors > 0:
             new_icon = self.icons[SYNC_ERROR]

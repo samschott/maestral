@@ -405,6 +405,9 @@ class Maestral(object):
         if not is_root:  # exclude only specific folder otherwise
             self.monitor.queue_downloading.put(self.sync.to_local_path(dbx_path))
 
+        if callback == "start_sync":
+            callback = self.start_sync
+
         self.download_thread = Thread(
                 target=folder_download_worker,
                 args=(self.monitor, dbx_path),
