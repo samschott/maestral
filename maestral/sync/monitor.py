@@ -510,9 +510,6 @@ class UpDownSync(object):
         :raises: ValueError if no path is specified.
         """
 
-        if not dbx_path:
-            raise ValueError("No path specified.")
-
         dbx_path = dbx_path.replace("/", osp.sep)
         dbx_path_parent, dbx_path_basename,  = osp.split(dbx_path)
 
