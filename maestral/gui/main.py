@@ -431,6 +431,7 @@ def run():
     app.setQuitOnLastWindowClosed(False)
 
     maestral_gui = MaestralGuiApp()
+    app.processEvents()  # refresh ui before loading the Maestral daemon
     maestral_gui.load_maestral()
     sys.exit(app.exec_())
 
