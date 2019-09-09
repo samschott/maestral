@@ -110,7 +110,7 @@ def construct_local_error(exc, dbx_path=None, local_path=None):
     :returns: :class:`MaestralApiError` instance.
     :rtype: :class:`MaestralApiError`
     """
-    title = exc.args[0]
+    title = "Could not access or create local item"
     err_type = MaestralApiError
     if isinstance(exc, PermissionError):
         text = "Insufficient read or write permissions for this location."
