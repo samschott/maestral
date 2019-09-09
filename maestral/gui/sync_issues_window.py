@@ -8,14 +8,12 @@ Created on Wed Oct 31 16:23:13 2018
 
 # system imports
 import os
-import platform
-import subprocess
-import webbrowser
 import urllib
 import shutil
 
 # external packages
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
+import click
 
 # maestral modules
 from maestral.gui.resources import (SYNC_ISSUES_WINDOW_PATH, SYNC_ISSUE_WIDGET_PATH,
@@ -58,7 +56,8 @@ class SyncIssueWidget(QtWidgets.QWidget):
 
         a0.setEnabled(os.path.exists(self.sync_err["local_path"]))
 
-        a0.triggered.connect(lambda: self.open_destination(self.sync_err["local_path"]))
+        a0.triggered.connect(lambda: click.launch(self.sync_err["local_path"],
+                                                  locate=True))
         a1.triggered.connect(lambda: self.show_online(self.sync_err["dbx_path"]))
         self.actionButtonContextMenu.exec_(self.mapToGlobal(pos))
 
@@ -68,38 +67,12 @@ class SyncIssueWidget(QtWidgets.QWidget):
                             pixels=300, side="left")
 
     @staticmethod
-    def open_destination(local_path, reveal=True):
-        """Open the item at the given path. If the item is a file, attempt to open it
-        in the systems default program. If ``reveal == True``, reveal the file in the
-        systems default file manager instead."""
-        local_path = os.path.abspath(os.path.normpath(local_path))
-        if platform.system() == "Darwin":
-            if reveal:
-                subprocess.run(["open", "--reveal", local_path])
-            else:
-                subprocess.run(["open", local_path])
-        elif platform.system() == "Linux":
-            if reveal:
-                if HAS_GTK_LAUNCH:
-                    # if gtk-launch is available, query for the default file manager and
-                    # reveal file in the latter
-                    file_manager = os.popen("xdg-mime query default inode/directory").read()
-                    subprocess.run(["gtk-launch", file_manager.strip(), local_path])
-                else:
-                    # otherwise open the containing directory
-                    if not os.path.isdir(local_path):
-                        local_path = os.path.dirname(local_path)
-                    subprocess.run(["xdg-open", local_path])
-            else:
-                subprocess.run(["xdg-open", local_path])
-
-    @staticmethod
     def show_online(dbx_path):
 
         dbx_address = "https://www.dropbox.com/preview"
         file_address = urllib.parse.quote(dbx_path)
 
-        webbrowser.open_new_tab(dbx_address + file_address)
+        click.launch(dbx_address + file_address)
 
     def changeEvent(self, QEvent):
         if QEvent.type() == QtCore.QEvent.PaletteChange:

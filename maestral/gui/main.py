@@ -11,11 +11,10 @@ import sys
 import os
 import logging
 import platform
-import subprocess
-import webbrowser
 import shutil
 
 # external packages
+import click
 from PyQt5 import QtCore, QtWidgets
 
 # maestral modules
@@ -167,7 +166,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         # ------------- connect callbacks for menu items -------------------
         self.openDropboxFolderAction.triggered.connect(
-            lambda: self.open_destination(self.mdbx.dropbox_path))
+            lambda: click.launch(self.mdbx.dropbox_path))
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.loginAction.setChecked(self.autostart.enabled)
         self.helpAction.triggered.connect(self.on_help_clicked)
@@ -221,11 +220,14 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.separator5 = self.menu.addSeparator()
 
-        self.quitAction = self.menu.addAction("Quit Maestral")
+        if self.started:
+            self.quitAction = self.menu.addAction("Quit Maestral")
+        else:
+            self.quitAction = self.menu.addAction("Quit Maestral GUI")
 
         # --------- connect callbacks for menu items ------------
         self.openDropboxFolderAction.triggered.connect(
-            lambda: self.open_destination(self.mdbx.dropbox_path))
+            lambda: click.launch(self.mdbx.dropbox_path))
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.pauseAction.triggered.connect(self.on_start_stop_clicked)
         self.preferencesAction.triggered.connect(self.settings.show)
@@ -253,42 +255,14 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     # callbacks for user interaction
 
     @staticmethod
-    def open_destination(path, reveal=False):
-        """Open the item at the given path. If the item is a file, attempt to open it
-        in the systems default program. If ``reveal == True``, reveal the file in the
-        systems default file manager instead."""
-        path = os.path.abspath(os.path.normpath(path))
-        if platform.system() == "Darwin":
-            if reveal:
-                subprocess.run(["open", "--reveal", path])
-            else:
-                subprocess.run(["open", path])
-        elif platform.system() == "Linux":
-            if reveal:
-                if HAS_GTK_LAUNCH:
-                    # if gtk-launch is available, query for the default file manager and
-                    # reveal file in the latter
-                    file_manager = os.popen("xdg-mime query default inode/directory").read()
-                    subprocess.run(["gtk-launch", file_manager.strip(), path])
-                else:
-                    # otherwise open the containing directory
-                    if not os.path.isdir(path):
-                        path = os.path.dirname(path)
-                    subprocess.run(["xdg-open", path])
-            else:
-                subprocess.run(["xdg-open", path])
-        else:
-            pass
-
-    @staticmethod
     def on_website_clicked():
         """Open the Dropbox website."""
-        webbrowser.open_new("https://www.dropbox.com/")
+        click.launch("https://www.dropbox.com/")
 
     @staticmethod
     def on_help_clicked():
         """Open the Dropbox help website."""
-        webbrowser.open_new("https://dropbox.com/help")
+        click.launch("https://dropbox.com/help")
 
     def on_start_stop_clicked(self):
         """Pause / resume syncing on menu item clicked."""
@@ -380,7 +354,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             local_path = self._to_local_path(dbx_path)
             a = self.recentFilesMenu.addAction(truncated_name)
             a.triggered.connect(
-                lambda _, lp=local_path: self.open_destination(lp, reveal=True))
+                lambda _, lp=local_path: click.launch(lp, locate=True))
 
     @staticmethod
     def _to_local_path(dbx_path):
