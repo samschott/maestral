@@ -92,8 +92,45 @@ def start_maestral_daemon(config_name, run=True):
         delete_pid(config_name)  # remove PID file
 
 
-def start_daemon_subprocess(config_name):
-    """Starts the Maestral daemon as a subprocess (by calling `start_maestral_daemon`).
+def start_maestral_daemon_thread(config_name):
+    """Starts the Maestral daemon in a thread (by calling `start_maestral_daemon`).
+
+    This command will create a new daemon on each run. Take care not to sync the same
+    directory with multiple instances of Meastral! You can use `get_maestral_process_info`
+    to check if either a Meastral gui or daemon is already running for the given
+    `config_name`.
+
+    :param str config_name: The name of maestral configuration to use.
+    :returns: ``True`` if started, ``False`` otherwise.
+    """
+    import threading
+    from maestral.sync.main import Maestral
+
+    if Maestral.pending_link() or Maestral.pending_dropbox_folder():
+        # run setup
+        m = Maestral(run=False)
+        m.create_dropbox_directory()
+        m.set_excluded_folders()
+
+    t = threading.Thread(
+        target=start_maestral_daemon,
+        args=(config_name, ),
+        kwargs={"run": False},
+        daemon=True,
+        name="Maestral daemon",
+    )
+    t.start()
+
+    time.sleep(0.2)
+    if t.is_alive():
+        return True
+    else:
+        return False
+
+
+def start_maestral_daemon_process(config_name):
+    """Starts the Maestral daemon as a separate process (by calling
+    `start_maestral_daemon`).
 
     This command will create a new daemon on each run. Take care not to sync the same
     directory with multiple instances of Meastral! You can use `get_maestral_process_info`
@@ -148,7 +185,7 @@ def start_daemon_subprocess(config_name):
     return False
 
 
-def stop_maestral_daemon(config_name="maestral"):
+def stop_maestral_daemon_process(config_name="maestral"):
     """Stops maestral by finding its PID and shutting it down.
 
     This function first tries to shut down Maestral gracefully. If this fails, it will

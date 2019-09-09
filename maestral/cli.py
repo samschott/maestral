@@ -22,8 +22,8 @@ import Pyro4.errors
 
 # maestral modules
 from maestral.sync.daemon import write_pid, delete_pid, get_maestral_process_info
-from maestral.sync.daemon import (start_maestral_daemon, start_daemon_subprocess,
-                                  stop_maestral_daemon, MaestralProxy)
+from maestral.sync.daemon import (start_maestral_daemon, start_maestral_daemon_process,
+                                  stop_maestral_daemon_process, MaestralProxy)
 
 
 OK = click.style("[OK]", fg="green")
@@ -47,7 +47,7 @@ def is_maestral_linked(config_name):
 
 def start_daemon_subprocess_with_cli_feedback(config_name):
     click.echo("Starting Maestral...", nl=False)
-    res = start_daemon_subprocess(config_name)
+    res = start_maestral_daemon_process(config_name)
     if res:
         click.echo("\rStarting Maestral...        " + OK)
     else:
@@ -56,7 +56,7 @@ def start_daemon_subprocess_with_cli_feedback(config_name):
 
 def stop_daemon_with_cli_feedback(config_name):
     click.echo("Stopping Maestral...", nl=False)
-    success = stop_maestral_daemon(config_name)
+    success = stop_maestral_daemon_process(config_name)
     if success is None:
         click.echo("Maestral daemon was not running.")
     elif success is True:

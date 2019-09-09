@@ -24,10 +24,11 @@ from maestral.sync.main import Maestral
 from maestral.sync.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
 from maestral.sync.monitor import path_exists_case_insensitive
 from maestral.sync.daemon import (
-    start_daemon_subprocess,
-    stop_maestral_daemon,
+    start_maestral_daemon_process,
+    start_maestral_daemon_thread,
+    stop_maestral_daemon_process,
     get_maestral_process_info,
-    get_maestral_daemon_proxy
+    get_maestral_daemon_proxy,
 )
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.setup_dialog import SetupDialog
@@ -40,7 +41,8 @@ from maestral.gui.utils import (
     UserDialog,
     elide_string,
     quit_and_restart_maestral,
-    get_gnome_scaling_factor
+    get_gnome_scaling_factor,
+    is_macos_bundle,
 )
 
 
@@ -123,9 +125,13 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     @staticmethod
     def _get_or_start_maestral_daemon():
+
         pid, _ = get_maestral_process_info(CONFIG_NAME)
         if not pid:
-            start_daemon_subprocess(CONFIG_NAME)
+            if is_macos_bundle:
+                start_maestral_daemon_thread(CONFIG_NAME)
+            else:
+                start_maestral_daemon_process(CONFIG_NAME)
 
         return get_maestral_daemon_proxy(CONFIG_NAME)
 
@@ -429,7 +435,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         """Quit Maestral"""
         if self.mdbx:
             self.mdbx.stop_sync()
-            stop_maestral_daemon(CONFIG_NAME)
+            if not is_macos_bundle:
+                stop_maestral_daemon_process(CONFIG_NAME)
         self.deleteLater()
         QtCore.QCoreApplication.quit()
         sys.exit(0)

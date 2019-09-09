@@ -20,7 +20,7 @@ from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap, QWindow
 # maestral modules
 from maestral.gui.resources import APP_ICON_PATH, rgb_to_luminance
 from maestral.sync.utils import is_macos_bundle
-from maestral.sync.daemon import MaestralProxy, stop_maestral_daemon
+from maestral.sync.daemon import MaestralProxy, stop_maestral_daemon_process
 
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
@@ -300,7 +300,8 @@ def quit_and_restart_maestral():
         Popen("tail --pid={0} -f /dev/null; maestral gui --config-name='{1}'".format(
             pid, config_name), shell=True)
 
-    stop_maestral_daemon(config_name)
+    if not is_macos_bundle:
+        stop_maestral_daemon_process(config_name)
     QtCore.QCoreApplication.quit()
     sys.exit(0)
 
