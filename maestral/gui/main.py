@@ -55,6 +55,7 @@ CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
 class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     mdbx = None
+    started = False
 
     def __init__(self):
         # ------------- initialize tray icon -------------------
@@ -122,8 +123,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.setup_ui_linked()
 
-    @staticmethod
-    def _get_or_start_maestral_daemon():
+    def _get_or_start_maestral_daemon(self):
 
         pid, _ = get_maestral_process_info(CONFIG_NAME)
         if not pid:
@@ -131,6 +131,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
                 start_maestral_daemon_thread(CONFIG_NAME)
             else:
                 start_maestral_daemon_process(CONFIG_NAME)
+            self.started = True
+        else:
+            self.started = False
 
         return get_maestral_daemon_proxy(CONFIG_NAME)
 
@@ -407,7 +410,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def quit(self):
         """Quit Maestral"""
-        if self.mdbx:
+        if self.mdbx and self.started:
             self.mdbx.stop_sync()
             if not is_macos_bundle:
                 stop_maestral_daemon_process(CONFIG_NAME)
