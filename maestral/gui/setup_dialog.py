@@ -20,7 +20,7 @@ from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.gui.resources import (APP_ICON_PATH, SETUP_DIALOG_PATH,
                                     get_native_item_icon, get_native_folder_icon)
-from maestral.gui.utils import UserDialog, icon_to_pixmap, MaestralBackgroundTask
+from maestral.gui.utils import UserDialog, icon_to_pixmap, BackgroundTask
 from maestral.gui.folders_dialog import AsyncLoadFolders, TreeModel, DropboxPathModel
 
 
@@ -162,7 +162,7 @@ class SetupDialog(QtWidgets.QDialog):
 
         token = self.lineEditAuthCode.text()
 
-        self.auth_task = MaestralBackgroundTask(
+        self.auth_task = BackgroundTask(
             parent=self,
             target=self.auth_session.verify_auth_token,
             args=(token,)

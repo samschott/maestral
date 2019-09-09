@@ -24,7 +24,7 @@ from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
                                     SETTINGS_WINDOW_PATH, APP_ICON_PATH, FACEHOLDER_PATH)
 from maestral.gui.utils import (get_scaled_font, isDarkWindow, quit_and_restart_maestral,
                                 LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap,
-                                get_masked_image, MaestralBackgroundTaskNewProxy)
+                                get_masked_image, MaestralBackgroundTask)
 
 
 class UnlinkDialog(QtWidgets.QDialog):
@@ -155,7 +155,7 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelAccountInfo.setText(acc_mail + acc_type_text)
         self.labelSpaceUsage.setText(CONF.get("account", "usage"))
 
-        self.download_task = MaestralBackgroundTaskNewProxy(self, "get_profile_pic")
+        self.download_task = MaestralBackgroundTask(self, "get_profile_pic")
         self.download_task.sig_done.connect(self.set_profile_pic_from_cache)
 
     def on_combobox(self, idx):

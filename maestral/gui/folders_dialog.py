@@ -17,7 +17,7 @@ from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, QVariant
 from maestral.sync.main import Maestral, handle_disconnect, is_child
 from maestral.sync.monitor import UpDownSync
 from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
-from maestral.gui.utils import MaestralBackgroundTask
+from maestral.gui.utils import BackgroundTask
 from maestral.config.main import CONF
 
 logger = logging.getLogger(__name__)
@@ -368,10 +368,10 @@ class AsyncLoadFolders(QtCore.QObject):
         `sig_done` once it has a result.
         :param str path: Dropbox path to list.
         :returns: Running background task.
-        :rtype: :class:`maestral.gui.utils.MaestralBackgroundTask`
+        :rtype: :class:`maestral.gui.utils.BackgroundTask`
         """
 
-        new_job = MaestralBackgroundTask(
+        new_job = BackgroundTask(
             parent=self,
             target=self._loadFolders,
             args=(path, )

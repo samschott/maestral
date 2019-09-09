@@ -18,7 +18,7 @@ from PyQt5.QtCore import Qt
 from maestral.sync.oauth import OAuth2Session
 from maestral.gui.resources import RELINK_DIALOG_PATH, APP_ICON_PATH
 from maestral.gui.utils import get_scaled_font, icon_to_pixmap, QProgressIndicator
-from maestral.gui.utils import MaestralBackgroundTask, quit_and_restart_maestral
+from maestral.gui.utils import BackgroundTask, quit_and_restart_maestral
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ class RelinkDialog(QtWidgets.QDialog):
 
         self.set_ui_linking()
 
-        self.auth_task = MaestralBackgroundTask(
+        self.auth_task = BackgroundTask(
             parent=self,
             target=self.auth_session.verify_auth_token,
             args=(token,)

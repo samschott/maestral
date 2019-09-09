@@ -15,7 +15,7 @@ from PyQt5 import QtCore, QtWidgets, uic
 
 # maestral modules
 from maestral.gui.resources import REBUILD_INDEX_DIALOG_PATH
-from maestral.gui.utils import MaestralBackgroundTaskNewProxy, get_scaled_font
+from maestral.gui.utils import MaestralBackgroundTask, get_scaled_font
 
 
 class RebuildIndexDialog(QtWidgets.QDialog):
@@ -86,7 +86,7 @@ class RebuildIndexDialog(QtWidgets.QDialog):
 
         self.statusLabel.setText("Indexing...")
 
-        self.rebuild_task = MaestralBackgroundTaskNewProxy(self, "rebuild_index")
+        self.rebuild_task = MaestralBackgroundTask(self, "rebuild_index")
         self.rebuild_task.sig_done.connect(self.on_rebuild_done)
 
     def on_rebuild_done(self):

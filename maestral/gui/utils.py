@@ -20,7 +20,6 @@ from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap, QWindow
 # maestral modules
 from maestral.gui.resources import APP_ICON_PATH, rgb_to_luminance
 from maestral.sync.utils import is_macos_bundle
-from maestral.sync.daemon import MaestralProxy
 from maestral.sync.daemon import MaestralProxy, stop_maestral_daemon
 
 THEME_DARK = "dark"
@@ -137,8 +136,8 @@ def __command_exists(command):
     )
 
 
-class MaestralWorker(QtCore.QObject):
-    """A worker object for Maestral. To be used in QThreads."""
+class Worker(QtCore.QObject):
+    """A worker object. To be used in QThreads."""
 
     sig_done = QtCore.pyqtSignal(object)
 
@@ -153,8 +152,9 @@ class MaestralWorker(QtCore.QObject):
         self.sig_done.emit(res)
 
 
-class MaestralWorkerNewProxy(MaestralWorker):
-    """A worker object for Maestral. To be used in QThreads."""
+class MaestralWorker(Worker):
+    """A worker object for Maestral. It uses a separate Maestral proxy to prevent
+    the main connection from blocking."""
 
     def start(self):
         config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
@@ -164,7 +164,7 @@ class MaestralWorkerNewProxy(MaestralWorker):
         self.sig_done.emit(res)
 
 
-class MaestralBackgroundTask(QtCore.QObject):
+class BackgroundTask(QtCore.QObject):
     """A utility class to manage a worker thread."""
 
     sig_done = QtCore.pyqtSignal(object)
@@ -181,7 +181,7 @@ class MaestralBackgroundTask(QtCore.QObject):
     def start(self):
 
         self.thread = QtCore.QThread(self)
-        self.worker = MaestralWorker(
+        self.worker = Worker(
             target=self._target, args=self._args, kwargs=self._kwargs)
         self.worker.sig_done.connect(self.sig_done.emit)
         self.worker.sig_done.connect(self.thread.quit)
@@ -196,13 +196,14 @@ class MaestralBackgroundTask(QtCore.QObject):
             self.thread.wait()
 
 
-class MaestralBackgroundTaskNewProxy(MaestralBackgroundTask):
-    """A utility class to manage a worker thread."""
+class MaestralBackgroundTask(BackgroundTask):
+    """A utility class to manage a worker thread. It uses a separate Maestral proxy
+    to prevent the main connection from blocking."""
 
     def start(self):
 
         self.thread = QtCore.QThread(self)
-        self.worker = MaestralWorkerNewProxy(
+        self.worker = MaestralWorker(
             target=self._target, args=self._args, kwargs=self._kwargs)
         self.worker.sig_done.connect(self.sig_done.emit)
         self.worker.sig_done.connect(self.thread.quit)
