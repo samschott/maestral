@@ -404,6 +404,7 @@ class FoldersDialog(QtWidgets.QDialog):
         self.setModal(True)
 
         self.mdbx = mdbx
+        self.dbx_model = None
         self.accept_button = self.buttonBox.buttons()[0]
         self.accept_button.setText('Update')
 
@@ -493,7 +494,8 @@ class FoldersDialog(QtWidgets.QDialog):
             self.update_dark_mode()
 
     def update_dark_mode(self):
-        self.dbx_model.reloadData([Qt.DecorationRole])  # reload folder icons
+        if self.dbx_model:
+            self.dbx_model.reloadData([Qt.DecorationRole])  # reload folder icons
 
 
 if __name__ == "__main__":
