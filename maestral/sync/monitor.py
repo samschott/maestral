@@ -38,8 +38,8 @@ from maestral.config.main import CONF
 from maestral.sync.utils.content_hasher import DropboxContentHasher
 from maestral.sync.utils.notify import Notipy
 from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, CursorResetError,
-                                  RevFileError, DropboxDeletedError, DropboxAuthError)
-
+                                  RevFileError, DropboxDeletedError, DropboxAuthError,
+                                  to_maestral_error)
 
 logger = logging.getLogger(__name__)
 
@@ -1046,16 +1046,15 @@ class UpDownSync(object):
 
         elif not event.is_directory:
 
-            try:
-                while True:  # wait until file is fully created
+            while True:  # wait until file is fully created
+                try:
                     size1 = osp.getsize(path)
                     time.sleep(0.5)
                     size2 = osp.getsize(path)
                     if size1 == size2:
                         break
-            except FileNotFoundError:
-                logger.info("File not found for sync: %s" % path)
-                return
+                except OSError as exc:
+                    raise to_maestral_error(exc, dbx_path)
 
             # check if file already exists with identical content
             md = self.client.get_metadata(dbx_path)
@@ -1127,11 +1126,14 @@ class UpDownSync(object):
             assert osp.isfile(path)
 
             while True:  # wait until file is fully created
-                size1 = osp.getsize(path)
-                time.sleep(0.2)
-                size2 = osp.getsize(path)
-                if size1 == size2:
-                    break
+                try:
+                    size1 = osp.getsize(path)
+                    time.sleep(0.2)
+                    size2 = osp.getsize(path)
+                    if size1 == size2:
+                        break
+                except OSError as exc:
+                    raise to_maestral_error(exc, dbx_path)
 
             # check if file already exists with identical content
             md = self.client.get_metadata(dbx_path)
