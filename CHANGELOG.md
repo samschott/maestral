@@ -5,15 +5,17 @@ _Added:_
 - Methods to get the sync status of individual files or folders, including CLI support.
   In the future, this could be used by file manager plugins to overlay the sync status of
   files.
-- Added experimental support to exclude subfolders.
+- Experimental support to exclude subfolders.
 - Added a command group `maestral excluded` to view and manage excluded folders.
-- Automatically rename created items which have the same name as an existing item, but
-  with a different case. This avoids possible issues on case-sensitive file systems since
-  Dropbox itself is not case-sensitive.
+- For case-sensitive file systems: Automatically rename created items which have the same
+  name as an existing item, but with a different case. This avoids possible issues on
+  case-sensitive file systems since Dropbox itself is not case-sensitive.
+- Notifications when an update is available.
 
 _Changed:_
 
 - Separated daemon and CLI code into different modules.
+- GUI now starts its own daemon on demand or attaches to an existing one.
 - Created a submodule for the sync engine.
 - Setup dialog no longer returns a Maestral instance on success but just ``True``. It
   is up to the GUI to create its own instance or attach to a daemon.
@@ -23,12 +25,28 @@ _Changed:_
   methods to the main API (Maestral's methods and properties) which is exposed by the
   daemon.
 - Changed returned values of the main API to Python types only. This provides safer
-  serialization.
+  serialisation.
+- Simplified CLI:
+    - Moved commands from `maestral daemon` to main command group, i.e.,
+      `maestral daemon start` is now `maestral start`.
+    - Removed `maestral sync`. Use `maestral start --foreground` instead.
 
 _Fixed:_
 
 - Fixed incorrect error being raised for a corrupted rev file, which could lead to a
   crash or misleading error message.
+- Fixed a bug which would cause renaming a file with an invalid name not to sync to
+  Dropbox.
+- Fixed a bug in the GUI which would cause clicking on a recently changed file to reveal
+  the wrong item in the file manager.
+- Fixed a bug which would cause the sync thread to crash when attempting to follow a
+  broken symlink (#50). Now, the error will be reported to the user as a sync issue.
+  Thanks to @michaelbjames for the fix.
+
+_Removed:_
+
+- Removed the CLI command `maestral sync`. Use `maestral start --foreground` instead.
+
 
 ### v0.3.2
 
@@ -127,7 +145,7 @@ The detailed list of changes is:
 - Added a "relink" dialog which is shown when Maestral's Dropbox access has expired or
   has been revoked by the user.
 - Improved logic to detect system tray color and set icons accordingly. This is mostly for
-  KDE which, unlike Gnome, does not handle automatically adapting its tray icon colors.
+  KDE which, unlike Gnome, does not handle automatically adapting its tray icon colours.
 
 #### Changed:
 
