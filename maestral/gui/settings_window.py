@@ -49,6 +49,8 @@ class UnlinkDialog(QtWidgets.QDialog):
 class SettingsWindow(QtWidgets.QWidget):
     """A widget showing all of Maestral's settings."""
 
+    _update_interval_mapping = {0: 60*60*24, 1: 60*60*24*7, 2: 60*60*24*30, 3: 9999999999}
+
     def __init__(self, mdbx, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         uic.loadUi(SETTINGS_WINDOW_PATH, self)
@@ -87,7 +89,7 @@ class SettingsWindow(QtWidgets.QWidget):
         self.update_account_info()
 
         # populate sync section
-        self.setup_combobox()
+        self.setup_path_combobox()
         self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.open)
         self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.populate_folders_list)
 
@@ -97,6 +99,14 @@ class SettingsWindow(QtWidgets.QWidget):
         self.checkBoxStartup.stateChanged.connect(self.on_start_on_login_clicked)
         self.checkBoxNotifications.setChecked(self.mdbx.notify)
         self.checkBoxNotifications.stateChanged.connect(self.on_notifications_clicked)
+        update_interval = CONF.get("app", "update_notification_interval")
+        closest_key = min(
+            self._update_interval_mapping,
+            key=lambda x: abs(self._update_interval_mapping[x] - update_interval)
+        )
+        self.comboBoxUpdateInterval.setCurrentIndex(closest_key)
+        self.comboBoxUpdateInterval.currentIndexChanged.connect(
+            self.on_combobox_update_interval)
 
         # populate about section
         year = time.localtime().tm_year
@@ -109,7 +119,7 @@ class SettingsWindow(QtWidgets.QWidget):
         self.update_timer.timeout.connect(self.update_account_info)
         self.update_timer.start(1000*60*20)  # every 20 min
 
-    def setup_combobox(self):
+    def setup_path_combobox(self):
 
         parent_dir = osp.split(self.mdbx.dropbox_path)[0]
         relative_path = self.rel_path(parent_dir)
@@ -119,7 +129,7 @@ class SettingsWindow(QtWidgets.QWidget):
 
         self.comboBoxDropboxPath.insertSeparator(1)
         self.comboBoxDropboxPath.addItem(QtGui.QIcon(), "Other...")
-        self.comboBoxDropboxPath.currentIndexChanged.connect(self.on_combobox)
+        self.comboBoxDropboxPath.currentIndexChanged.connect(self.on_combobox_path)
         msg = ('Choose a location for your Dropbox. A folder named "{0}" will be ' +
                'created inside the folder you select.'.format(
                    CONF.get("main", "default_dir_name")))
@@ -158,9 +168,12 @@ class SettingsWindow(QtWidgets.QWidget):
         self.download_task = MaestralBackgroundTask(self, "get_profile_pic")
         self.download_task.sig_done.connect(self.set_profile_pic_from_cache)
 
-    def on_combobox(self, idx):
+    def on_combobox_path(self, idx):
         if idx == 2:
             self.dropbox_folder_dialog.open()
+
+    def on_combobox_update_interval(self, idx):
+        CONF.set("app", "update_notification_interval", self._update_interval_mapping[idx])
 
     def on_new_dbx_folder(self, new_location):
 
