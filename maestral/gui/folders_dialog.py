@@ -10,6 +10,7 @@ import logging
 import threading
 
 # external packages
+import Pyro4
 from PyQt5 import QtCore, QtWidgets, QtGui, uic
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, QVariant
 
@@ -353,19 +354,19 @@ class AsyncLoadFolders(QtCore.QObject):
 
     def __init__(self, m, parent=None):
         """
-        A helper which creates instances of :class:`MaestralBackgroundTask` to
+        A helper which creates instances of :class:`BackgroundTask` to
         asynchronously list Dropbox folders
 
         :param Maestral m: Instance of :class:`maestral.sync.main.Maestral`.
         :param parent: QObject. Defaults to None.
         """
         super(self.__class__, self).__init__(parent=parent)
-        self.m = Maestral(run=False)
+        self.m = m
 
     def loadFolders(self, path):
         """
-        Returns a running instance of :class:`MaestralBackgroundTask` which will emit
-        `sig_done` once it has a result.
+        Returns a running instance of :class:`maestral.gui.utils.BackgroundTask` which
+        will emit `sig_done` once it has a result.
         :param str path: Dropbox path to list.
         :returns: Running background task.
         :rtype: :class:`maestral.gui.utils.BackgroundTask`
@@ -386,7 +387,13 @@ class AsyncLoadFolders(QtCore.QObject):
         with self._lock:
 
             path = "" if path == "/" else path
-            entries = self.m.list_folder(path, recursive=False)
+
+            if isinstance(self.m, Pyro4.Proxy):
+                # use a duplicate proxy to prevent blocking of the main connection
+                with Pyro4.Proxy(self.m._pyroUri) as m:
+                    entries = m.list_folder(path, recursive=False)
+            else:
+                entries = self.m.list_folder(path, recursive=False)
 
             if entries is False:
                 folders = False
@@ -406,7 +413,7 @@ class FoldersDialog(QtWidgets.QDialog):
         self.mdbx = mdbx
         self.dbx_model = None
         self.accept_button = self.buttonBox.buttons()[0]
-        self.accept_button.setText('Update')
+        self.accept_button.setText("Update")
 
         self.ui_failed()
 
