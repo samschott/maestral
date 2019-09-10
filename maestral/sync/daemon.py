@@ -69,6 +69,7 @@ def start_maestral_daemon(config_name, run=True):
 
     os.environ["MAESTRAL_CONFIG"] = config_name
 
+    import sys
     from maestral.sync.main import Maestral
 
     daemon = Pyro4.Daemon()
@@ -83,7 +84,7 @@ def start_maestral_daemon(config_name, run=True):
         m = ExposedMaestral(run=run)
 
         daemon.register(m, "maestral.{}".format(config_name))
-        daemon.requestLoop(loopCondition=m._shutdown_requested)
+        daemon.requestLoop(loopCondition=m._loop_condition)
         daemon.close()
     except Exception:
         import traceback
@@ -214,14 +215,18 @@ def stop_maestral_daemon_process(config_name="maestral"):
                 return
         finally:
             t0 = time.time()
-            while any(get_maestral_process_info(config_name)):
-                time.sleep(0.2)
-                if time.time() - t0 > 5:
-                    # send SIGKILL if still running
-                    os.kill(pid, signal.SIGKILL)
-                    return False
-
-            return True
+            while True:
+                try:
+                    os.kill(pid, 0)
+                except OSError:
+                    # process does not exist anymore
+                    return True
+                else:
+                    time.sleep(0.2)
+                    if time.time() - t0 > 5:
+                        # send SIGKILL if still running
+                        os.kill(pid, signal.SIGKILL)
+                        return False
 
 
 def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
