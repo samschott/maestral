@@ -53,8 +53,8 @@ After installation, Maestral will be available as a command line script by typin
 commands. The most important are:
 
 - `maestral gui`: Starts the Maestral GUI. Creates a sync daemon if not already running.
-- `maestral {start/stop}`: Starts or stops the Maestral daemon without a GUI.
-- `maestral {pause/resume}`: Pauses or resumes syncing.
+- `maestral start/stop`: Starts or stops the Maestral sync daemon without a GUI.
+- `maestral pause/resume`: Pauses or resumes syncing.
 - `maestral status`: Gets the current sync status.
 - `maestral errors`: Lists all sync errors.
 - `maestral set-dir`: Sets the location of your local Dropbox folder.
