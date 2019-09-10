@@ -100,7 +100,18 @@ with_config_opt = click.option(
 @click.pass_context
 def main(ctx):
     """Maestral Dropbox Client for Linux and macOS."""
-    pass
+    from maestral import __version__
+    from maestral.config.main import CONF
+    from maestral.sync.utils.updates import check_version
+
+    latest_release = CONF.get("app", "latest_release")
+
+    has_update = check_version(__version__, latest_release, '<')
+
+    if has_update:
+        click.secho("Maestral v{0} has been released, you have v{1}. Please use your "
+                    "package manager to update.".format(latest_release, __version__),
+                    fg="red")
 
 
 @main.group()
