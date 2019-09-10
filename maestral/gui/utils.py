@@ -219,7 +219,8 @@ class UserDialog(QtWidgets.QDialog):
         super(self.__class__, self).__init__(parent=parent)
         self.setModal(True)
         self.setWindowModality(Qt.WindowModal)
-        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Sheet | Qt.WindowTitleHint | Qt.CustomizeWindowHint)
+        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Sheet | Qt.WindowTitleHint |
+                            Qt.CustomizeWindowHint)
         self.setWindowTitle("")
         self.setFixedWidth(450)
 
@@ -235,7 +236,9 @@ class UserDialog(QtWidgets.QDialog):
         self.iconLabel.setMaximumSize(icon_size, icon_size)
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
+        self.infoLabel.setFixedWidth(300)
         self.infoLabel.setWordWrap(True)
+        self.infoLabel.setOpenExternalLinks(True)
 
         icon = QtGui.QIcon(APP_ICON_PATH)
         self.iconLabel.setPixmap(icon_to_pixmap(icon, icon_size))
@@ -255,6 +258,8 @@ class UserDialog(QtWidgets.QDialog):
         if traceback:
             self.gridLayout.addWidget(self.details, 2, 0, 1, 2)
         self.gridLayout.addWidget(self.buttonBox, 3, 1, -1, -1)
+
+        self.adjustSize()
 
     def setAcceptButtonName(self, name):
         self.buttonBox.buttons()[0].setText(name)
