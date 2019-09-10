@@ -968,6 +968,22 @@ class UpDownSync(object):
         elif event.event_type is EVENT_TYPE_DELETED:
             self._on_deleted(event)
 
+    @staticmethod
+    def _wait_for_creation(path):
+        """
+        Wait for a file at a path to be created or modified.
+        :param str path: absolute path to file
+        """
+        try:
+            while True:
+                size1 = osp.getsize(path)
+                time.sleep(0.5)
+                size2 = osp.getsize(path)
+                if size1 == size2:
+                    return
+        except OSError:
+            return
+
     def _on_moved(self, event):
         """
         Call when local file is moved.
@@ -1046,15 +1062,7 @@ class UpDownSync(object):
 
         elif not event.is_directory:
 
-            while True:  # wait until file is fully created
-                try:
-                    size1 = osp.getsize(path)
-                    time.sleep(0.5)
-                    size2 = osp.getsize(path)
-                    if size1 == size2:
-                        break
-                except OSError as exc:
-                    raise to_maestral_error(exc, dbx_path)
+            UpDownSync._wait_for_creation(path)
 
             # check if file already exists with identical content
             md = self.client.get_metadata(dbx_path)
@@ -1125,15 +1133,7 @@ class UpDownSync(object):
         if not event.is_directory:  # ignore directory modified events
             assert osp.isfile(path)
 
-            while True:  # wait until file is fully created
-                try:
-                    size1 = osp.getsize(path)
-                    time.sleep(0.2)
-                    size2 = osp.getsize(path)
-                    if size1 == size2:
-                        break
-                except OSError as exc:
-                    raise to_maestral_error(exc, dbx_path)
+            UpDownSync._wait_for_creation(path)
 
             # check if file already exists with identical content
             md = self.client.get_metadata(dbx_path)
