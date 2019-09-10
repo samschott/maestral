@@ -8,6 +8,7 @@ Created on Wed Oct 31 16:23:13 2018
 # system imports
 import os.path as osp
 import time
+import platform
 from distutils.version import LooseVersion
 
 # external packages
@@ -25,6 +26,9 @@ from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
 from maestral.gui.utils import (get_scaled_font, isDarkWindow, quit_and_restart_maestral,
                                 LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap,
                                 get_masked_image, MaestralBackgroundTask)
+
+
+NEW_QT = LooseVersion(QtCore.QT_VERSION_STR) >= LooseVersion("5.11")
 
 
 class UnlinkDialog(QtWidgets.QDialog):
@@ -66,10 +70,14 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelAccountInfo.setFont(get_scaled_font(0.85))
         self.labelSpaceUsage.setFont(get_scaled_font(0.85))
 
+        if platform.system() == "Darwin" and NEW_QT:
+            self.spacerMacOS.setMinimumWidth(2)  # bug fix for macOS
+            self.spacerMacOS.setMaximumWidth(2)  # bug fix for macOS
+
         # populate account name
         account_display_name = CONF.get("account", "display_name")
         # if the display name is longer than 230 pixels, reduce font-size
-        if LooseVersion(QtCore.QT_VERSION_STR) >= LooseVersion("5.11"):
+        if NEW_QT:
             account_display_name_length = QtGui.QFontMetrics(
                 self.labelAccountName.font()).horizontalAdvance(account_display_name)
         else:
