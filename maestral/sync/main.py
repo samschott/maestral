@@ -13,7 +13,7 @@ import os.path as osp
 import shutil
 import time
 import functools
-from threading import Thread
+from threading import Thread, Timer
 import logging.handlers
 import collections
 
@@ -23,6 +23,7 @@ from blinker import signal
 import requests
 
 # maestral modules
+from maestral import __version__
 from maestral.sync.client import MaestralApiClient
 from maestral.sync.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
 from maestral.sync.oauth import OAuth2Session
@@ -33,6 +34,7 @@ from maestral.sync.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.sync.utils.app_dirs import get_log_path, get_cache_path
+from maestral.sync.utils.updates import check_update_available, check_version
 
 
 CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
@@ -183,6 +185,9 @@ class Maestral(object):
     def __init__(self, run=True):
 
         self.client = MaestralApiClient()
+
+        # check for updates
+        self._periodically_check_for_updates()
 
         # monitor needs to be created before any decorators are called
         self.monitor = MaestralMonitor(self.client)
@@ -719,6 +724,30 @@ Any changes to local files during this process may be lost.""")
                 return dropbox_path
 
     @staticmethod
+    def check_for_updates():
+        res = check_update_available()
+        return res
+
+    def _periodically_check_for_updates(self, interval=60*60):
+        res = self.check_for_updates()
+        if not res["error"]:
+            CONF.set("app", "latest_release", res["latest_release"])
+        self._update_timer = Timer(interval, self._periodically_check_for_updates)
+        self._update_timer.daemon = True
+        self._update_timer.start()
+
+    @property
+    def update_available(self):
+        """Property that returns ``False`` or the version number of the latest available
+        release."""
+        latest_release = CONF.get("app", "latest_release")
+        update_available = check_version("0.3.0", latest_release, '<')
+        if update_available:
+            return latest_release
+        else:
+            return False
+
+    @staticmethod
     def set_log_level_file(level):
         """Sets the log level for the file log. Changes will persist between
         restarts."""
@@ -733,11 +762,11 @@ Any changes to local files during this process may be lost.""")
         CONF.set("app", "log_level_console", level)
 
     def shutdown_daemon(self):
-        """Does nothing except for setting the _daemon_running flag ``False``. This
+        """Does nothing except for setting the _daemon_running flag to ``False``. This
         will be checked by Pyro4 periodically to shut down the daemon when requested."""
         self._daemon_running = False
 
-    def _shutdown_requested(self):
+    def _loop_condition(self):
         return self._daemon_running
 
     def __repr__(self):
