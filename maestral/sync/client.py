@@ -249,19 +249,18 @@ class MaestralApiClient(object):
             instead.
         :returns: Metadata of uploaded file or `False` if upload failed.
         """
-
-        file_size = osp.getsize(local_path)
-        chunk_size = int(tobytes(chunk_size_mb, "MB"))
-
-        display_unit = "GB" if file_size > tobytes(1000, "MB") else "MB"
-        file_size_display = int(bytesto(file_size, display_unit))
-        chunk_size_display = int(bytesto(chunk_size, display_unit))
-        uploaded_display = 0
-
-        mtime = osp.getmtime(local_path)
-        mtime_dt = datetime.datetime(*time.gmtime(mtime)[:6])
-
         try:
+            file_size = osp.getsize(local_path)
+            chunk_size = int(tobytes(chunk_size_mb, "MB"))
+
+            display_unit = "GB" if file_size > tobytes(1000, "MB") else "MB"
+            file_size_display = int(bytesto(file_size, display_unit))
+            chunk_size_display = int(bytesto(chunk_size, display_unit))
+            uploaded_display = 0
+
+            mtime = osp.getmtime(local_path)
+            mtime_dt = datetime.datetime(*time.gmtime(mtime)[:6])
+
             with open(local_path, "rb") as f:
                 if file_size <= chunk_size:
                     md = self.dbx.files_upload(
