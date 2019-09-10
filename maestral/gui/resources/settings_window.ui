@@ -394,6 +394,8 @@
  <tabstops>
   <tabstop>pushButtonUnlink</tabstop>
   <tabstop>pushButtonExcludedFolders</tabstop>
+  <tabstop>comboBoxDropboxPath</tabstop>
+  <tabstop>comboBoxUpdateInterval</tabstop>
   <tabstop>checkBoxStartup</tabstop>
   <tabstop>checkBoxNotifications</tabstop>
  </tabstops>
