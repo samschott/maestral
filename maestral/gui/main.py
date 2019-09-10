@@ -12,6 +12,7 @@ import os
 import logging
 import platform
 import shutil
+import time
 
 # external packages
 import click
@@ -255,7 +256,32 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         # --------------- switch to idle icon -------------------
         self.setIcon(self.icons[IDLE])
 
+        # ----------- check for updates and notify user ---------
+        self._update_timer = QtCore.QTimer()
+        self._update_timer.timeout.connect(self.auto_check_for_updates)
+        self._update_timer.start(30*60*1000)  # every 30 min
+
     # callbacks for user interaction
+
+    def auto_check_for_updates(self):
+        last_update_notification = CONF.get("app", "update_notification_last")
+        update_notification_interval = CONF.get("app", "update_notification_last")
+        if time.time() - last_update_notification > update_notification_interval:
+            # notify at most once every week
+            self.on_check_for_updates()
+
+    def on_check_for_updates(self):
+        if self.mdbx.update_available:
+            CONF.set("app", "update_notification_last", time.time())
+            url_r = "https://github.com/samschott/maestral-dropbox/releases"
+            message = (
+                'Maestral v{0} is available. Please use your package manager to update '
+                'Maestral or go to the <a href=\"{1}\"><span style="text-decoration: '
+                'underline; color:#2874e1;">releases</span></a> page to download '
+                'the new version.'
+            ).format(self.mdbx.update_available, url_r)
+            update_dialog = UserDialog("Update available", message)
+            update_dialog.exec_()
 
     @staticmethod
     def on_website_clicked():
@@ -410,7 +436,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def quit(self):
         """Quit Maestral"""
-        if self.mdbx and self.started:
+        if self.started and self.mdbx:
             self.mdbx.stop_sync()
             if not is_macos_bundle:
                 stop_maestral_daemon_process(CONFIG_NAME)
