@@ -38,8 +38,7 @@ from maestral.config.main import CONF
 from maestral.sync.utils.content_hasher import DropboxContentHasher
 from maestral.sync.utils.notify import Notipy
 from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, CursorResetError,
-                                  RevFileError, DropboxDeletedError, DropboxAuthError,
-                                  to_maestral_error)
+                                  RevFileError, DropboxDeletedError, DropboxAuthError)
 
 logger = logging.getLogger(__name__)
 
