@@ -40,6 +40,7 @@ from maestral.sync.utils.notify import Notipy
 from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, CursorResetError,
                                   RevFileError, DropboxDeletedError, DropboxAuthError)
 
+
 logger = logging.getLogger(__name__)
 
 
