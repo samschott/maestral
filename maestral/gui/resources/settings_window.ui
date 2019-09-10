@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>631</width>
-    <height>440</height>
+    <height>444</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -56,14 +56,7 @@
      <property name="verticalSpacing">
       <number>-1</number>
      </property>
-     <item row="13" column="1" alignment="Qt::AlignLeft">
-      <widget class="QLabel" name="labelCopyright">
-       <property name="text">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#838383;&quot;&gt;© 2018-{0}, {1}. &lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="1" alignment="Qt::AlignLeft">
+     <item row="5" column="1" alignment="Qt::AlignLeft">
       <widget class="QComboBox" name="comboBoxDropboxPath">
        <property name="minimumSize">
         <size>
@@ -79,60 +72,66 @@
        </property>
       </widget>
      </item>
-     <item row="0" column="1" alignment="Qt::AlignLeft">
-      <widget class="QLabel" name="labelAccountName">
-       <property name="font">
-        <font>
-         <pointsize>20</pointsize>
-        </font>
-       </property>
+     <item row="4" column="0">
+      <widget class="QLabel" name="labelExcludedFoldersTitle">
        <property name="text">
-        <string>Sam Schott</string>
-       </property>
-      </widget>
-     </item>
-     <item row="11" column="1" alignment="Qt::AlignLeft">
-      <widget class="QLabel" name="labelVersion">
-       <property name="text">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;v{0}&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-       </property>
-       <property name="textFormat">
-        <enum>Qt::RichText</enum>
+        <string>Select folders to sync:</string>
        </property>
        <property name="alignment">
-        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
        </property>
       </widget>
      </item>
-     <item row="8" column="1" alignment="Qt::AlignLeft">
-      <widget class="QCheckBox" name="checkBoxNotifications">
+     <item row="7" column="0">
+      <widget class="QLabel" name="labelUpdateInterval">
        <property name="text">
-        <string>Enable system notifications</string>
-       </property>
-       <property name="checked">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="1" alignment="Qt::AlignLeft">
-      <widget class="QCheckBox" name="checkBoxStartup">
-       <property name="text">
-        <string>Start Maestral on login</string>
-       </property>
-       <property name="checked">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="11" column="0">
-      <widget class="QLabel" name="labelAboutTitle">
-       <property name="text">
-        <string>About Maestral:</string>
+        <string>Check for updates:</string>
        </property>
        <property name="alignment">
-        <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
        </property>
       </widget>
+     </item>
+     <item row="8" column="0">
+      <widget class="QLabel" name="labelSystemSettings">
+       <property name="text">
+        <string>System settings:</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <layout class="QVBoxLayout" name="verticalLayoutAccountInfo">
+       <property name="spacing">
+        <number>2</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="labelAccountInfo">
+         <property name="font">
+          <font>
+           <pointsize>11</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>ss2151@cam.ac.uk, Dropbox Business</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="labelSpaceUsage">
+         <property name="font">
+          <font>
+           <pointsize>11</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>31.8% of 1,324,980GB used</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
      <item row="6" column="0" colspan="2" alignment="Qt::AlignHCenter">
       <widget class="Line" name="line0">
@@ -159,155 +158,40 @@
        </property>
       </widget>
      </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="labelExcludedFoldersTitle">
+     <item row="11" column="0">
+      <widget class="QLabel" name="labelAboutTitle">
        <property name="text">
-        <string>Select folders to sync:</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="labelDropboxPathTitle">
-       <property name="text">
-        <string>Dropbox folder location:</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-       </property>
-      </widget>
-     </item>
-     <item row="12" column="1" alignment="Qt::AlignLeft">
-      <widget class="QLabel" name="labelUrl">
-       <property name="text">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;{0}&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#2874e1;&quot;&gt;{0}&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-       </property>
-       <property name="openExternalLinks">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1" alignment="Qt::AlignLeft">
-      <widget class="QPushButton" name="pushButtonUnlink">
-       <property name="minimumSize">
-        <size>
-         <width>200</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="text">
-        <string>Unlink this Dropbox...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="10" column="0" colspan="2" alignment="Qt::AlignHCenter">
-      <widget class="Line" name="line1">
-       <property name="minimumSize">
-        <size>
-         <width>350</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>400</width>
-         <height>16777215</height>
-        </size>
-       </property>
-       <property name="styleSheet">
-        <string notr="true">color: rgb(205, 203, 205)</string>
-       </property>
-       <property name="frameShadow">
-        <enum>QFrame::Plain</enum>
-       </property>
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="1" alignment="Qt::AlignLeft">
-      <widget class="QPushButton" name="pushButtonExcludedFolders">
-       <property name="minimumSize">
-        <size>
-         <width>200</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>200</width>
-         <height>16777215</height>
-        </size>
-       </property>
-       <property name="text">
-        <string>Choose folders to sync...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="0" colspan="2" alignment="Qt::AlignHCenter">
-      <widget class="Line" name="line2">
-       <property name="minimumSize">
-        <size>
-         <width>350</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>400</width>
-         <height>16777215</height>
-        </size>
-       </property>
-       <property name="styleSheet">
-        <string notr="true">color: rgb(205, 203, 205)</string>
-       </property>
-       <property name="frameShadow">
-        <enum>QFrame::Plain</enum>
-       </property>
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="0">
-      <widget class="QLabel" name="labelSystemSettings">
-       <property name="text">
-        <string>System settings:</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0" rowspan="3" alignment="Qt::AlignRight">
-      <widget class="QLabel" name="labelUserProfilePic">
-       <property name="minimumSize">
-        <size>
-         <width>30</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="text">
-        <string/>
+        <string>About Maestral:</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
        </property>
       </widget>
      </item>
-     <item row="9" column="0">
-      <widget class="QLabel" name="labelUpdateInterval">
+     <item row="11" column="1" alignment="Qt::AlignLeft">
+      <widget class="QLabel" name="labelVersion">
        <property name="text">
-        <string>Check for updates:</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;v{0}&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="textFormat">
+        <enum>Qt::RichText</enum>
        </property>
        <property name="alignment">
-        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
        </property>
       </widget>
      </item>
      <item row="9" column="1" alignment="Qt::AlignLeft">
+      <widget class="QCheckBox" name="checkBoxNotifications">
+       <property name="text">
+        <string>Enable system notifications</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="1" alignment="Qt::AlignLeft">
       <widget class="QComboBox" name="comboBoxUpdateInterval">
        <property name="minimumSize">
         <size>
@@ -343,36 +227,152 @@
        </item>
       </widget>
      </item>
-     <item row="1" column="1">
-      <layout class="QVBoxLayout" name="verticalLayoutAccountInfo">
-       <property name="spacing">
-        <number>2</number>
+     <item row="13" column="1" alignment="Qt::AlignLeft">
+      <widget class="QLabel" name="labelCopyright">
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#838383;&quot;&gt;© 2018-{0}, {1}. &lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
-       <item>
-        <widget class="QLabel" name="labelAccountInfo">
-         <property name="font">
-          <font>
-           <pointsize>11</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>ss2151@cam.ac.uk, Dropbox Business</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLabel" name="labelSpaceUsage">
-         <property name="font">
-          <font>
-           <pointsize>11</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>31.8% of 1,324,980GB used</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
+      </widget>
+     </item>
+     <item row="0" column="1" alignment="Qt::AlignLeft">
+      <widget class="QLabel" name="labelAccountName">
+       <property name="font">
+        <font>
+         <pointsize>20</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>Sam Schott</string>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="1" alignment="Qt::AlignLeft">
+      <widget class="QCheckBox" name="checkBoxStartup">
+       <property name="text">
+        <string>Start Maestral on login</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="12" column="1" alignment="Qt::AlignLeft">
+      <widget class="QLabel" name="labelUrl">
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;{0}&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#2874e1;&quot;&gt;{0}&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="openExternalLinks">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="0" colspan="2" alignment="Qt::AlignHCenter">
+      <widget class="Line" name="line2">
+       <property name="minimumSize">
+        <size>
+         <width>350</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>400</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: rgb(205, 203, 205)</string>
+       </property>
+       <property name="frameShadow">
+        <enum>QFrame::Plain</enum>
+       </property>
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="1" alignment="Qt::AlignLeft">
+      <widget class="QPushButton" name="pushButtonExcludedFolders">
+       <property name="minimumSize">
+        <size>
+         <width>200</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>200</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="text">
+        <string>Choose folders to sync...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="10" column="0" colspan="2" alignment="Qt::AlignHCenter">
+      <widget class="Line" name="line1">
+       <property name="minimumSize">
+        <size>
+         <width>350</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>400</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: rgb(205, 203, 205)</string>
+       </property>
+       <property name="frameShadow">
+        <enum>QFrame::Plain</enum>
+       </property>
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0" rowspan="3" alignment="Qt::AlignRight">
+      <widget class="QLabel" name="labelUserProfilePic">
+       <property name="minimumSize">
+        <size>
+         <width>30</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1" alignment="Qt::AlignLeft">
+      <widget class="QPushButton" name="pushButtonUnlink">
+       <property name="minimumSize">
+        <size>
+         <width>200</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="text">
+        <string>Unlink this Dropbox...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="0">
+      <widget class="QLabel" name="labelDropboxPathTitle">
+       <property name="text">
+        <string>Dropbox folder location:</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>
@@ -393,7 +393,6 @@
  </widget>
  <tabstops>
   <tabstop>pushButtonUnlink</tabstop>
-  <tabstop>comboBoxDropboxPath</tabstop>
   <tabstop>pushButtonExcludedFolders</tabstop>
   <tabstop>checkBoxStartup</tabstop>
   <tabstop>checkBoxNotifications</tabstop>
