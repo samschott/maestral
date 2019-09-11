@@ -39,6 +39,7 @@ from maestral.gui.resources import get_system_tray_icon
 from maestral.gui.autostart import AutoStart
 from maestral.gui.utils import (
     UserDialog,
+    MaestralBackgroundTask,
     elide_string,
     quit_and_restart_maestral,
     get_gnome_scaling_factor,
@@ -266,21 +267,42 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def auto_check_for_updates(self):
         last_update_notification = CONF.get("app", "update_notification_last")
         update_notification_interval = CONF.get("app", "update_notification_last")
-        if time.time() - last_update_notification > update_notification_interval:
-            # notify at most once every week
-            self.on_check_for_updates()
+        if update_notification_interval == 0:  # checks disabled
+            return
+        elif time.time() - last_update_notification > update_notification_interval:
+            self.on_check_for_updates(user_requested=False)
 
-    def on_check_for_updates(self):
-        if self.mdbx.update_available:
-            CONF.set("app", "update_notification_last", time.time())
+    def on_check_for_updates(self, user_requested=True):
+
+        checker = MaestralBackgroundTask(self, "check_for_updates")
+        checker.sig_done.connect(
+            lambda res: self._notify_updates(res, user_requested=user_requested))
+
+    @staticmethod
+    def _notify_updates(res, user_requested=True):
+
+        if user_requested and res["error"]:
+            update_dialog = UserDialog("Could not check for updates", res["error"])
+            update_dialog.exec_()
+
+        elif res["update_available"]:
+            if not user_requested:  # save last update time
+                CONF.set("app", "update_notification_last", time.time())
             url_r = "https://github.com/samschott/maestral-dropbox/releases"
             message = (
-                'Maestral v{0} is available. Please use your package manager to update '
-                'Maestral or go to the <a href=\"{1}\"><span style="text-decoration: '
-                'underline; color:#2874e1;">releases</span></a> page to download '
-                'the new version.'
-            ).format(self.mdbx.update_available, url_r)
-            update_dialog = UserDialog("Update available", message)
+                'Maestral v{0} is available. Please use your package manager to '
+                'update Maestral or go to the <a href=\"{1}\"><span '
+                'style="text-decoration: underline; color:#2874e1;">releases</span></a> '
+                'page to download the new version. '
+                '<div style="height:5px;font-size:5px;">&nbsp;<br></div>'
+                '<b>Release notes:</b>'
+            ).format(res["latest_release"], url_r)
+            update_dialog = UserDialog("Update available", message, res["release_notes"])
+            update_dialog.exec_()
+
+        elif user_requested and not res["update_available"]:
+            message = 'Maestral v{0} is the newest version available.'.format(res["latest_release"])
+            update_dialog = UserDialog("You’re up-to-date!", message)
             update_dialog.exec_()
 
     @staticmethod
