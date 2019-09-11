@@ -214,6 +214,14 @@ class Maestral(object):
                 self.start_sync()
 
     @staticmethod
+    def get_conf(section, name):
+        return CONF.get(section, name)
+
+    @staticmethod
+    def set_conf(section, name, value):
+        CONF.set(section, name, value)
+
+    @staticmethod
     def pending_link():
         """Bool indicating if auth tokens are stored in the system's keychain."""
         auth_session = OAuth2Session()
