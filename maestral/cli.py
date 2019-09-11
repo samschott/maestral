@@ -327,45 +327,6 @@ def unlink(config_name: str, running):
 
 
 @main.command()
-@click.argument("local_path", type=click.Path(exists=True))
-@with_config_opt
-def file_status(config_name: str, running, local_path: str):
-    """Returns the current sync status of a given file or folder."""
-    try:
-        from maestral.config.main import CONF
-        with MaestralProxy(config_name) as m:
-            stat = m.get_file_status(local_path)
-            click.echo(stat)
-
-    except Pyro4.errors.CommunicationError:
-        click.echo("unwatched")
-
-
-@main.command()
-@with_config_opt
-def errors(config_name: str, running):
-    """Lists all sync errors."""
-    try:
-        with MaestralProxy(config_name) as m:
-            err_list = m.sync_errors
-            if len(err_list) == 0:
-                click.echo("No sync errors.")
-            else:
-                max_path_length = max(len(err["dbx_path"]) for err in err_list)
-                column_length = max(max_path_length, len("Relative path")) + 4
-                click.echo("")
-                click.echo("PATH".ljust(column_length) + "ERROR")
-                for err in err_list:
-                    c0 = "'{}'".format(err["dbx_path"]).ljust(column_length)
-                    c1 = "{}. {}".format(err["title"], err["message"])
-                    click.echo(c0 + c1)
-                click.echo("")
-
-    except Pyro4.errors.CommunicationError:
-        click.echo("Maestral daemon is not running.")
-
-
-@main.command()
 @with_config_opt
 @click.option("--yes/--no", "-Y/-N", default=True)
 def notify(config_name: str, yes: bool, running):
