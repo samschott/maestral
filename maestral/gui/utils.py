@@ -215,14 +215,15 @@ class MaestralBackgroundTask(BackgroundTask):
 class UserDialog(QtWidgets.QDialog):
     """A template user dialog for Maestral. Shows a traceback if given in constructor."""
 
-    def __init__(self, title, message, traceback=None, parent=None):
+    def __init__(self, title, message, details=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         self.setModal(True)
         self.setWindowModality(Qt.WindowModal)
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Sheet | Qt.WindowTitleHint |
                             Qt.CustomizeWindowHint)
         self.setWindowTitle("")
-        self.setFixedWidth(450)
+        width = 550 if details else 450
+        self.setFixedWidth(width)
 
         self.gridLayout = QtWidgets.QGridLayout()
         self.setLayout(self.gridLayout)
@@ -236,7 +237,9 @@ class UserDialog(QtWidgets.QDialog):
         self.iconLabel.setMaximumSize(icon_size, icon_size)
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
-        self.infoLabel.setFixedWidth(300)
+        self.infoLabel.setFixedWidth(width-150)
+        self.infoLabel.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
+                                     QtWidgets.QSizePolicy.MinimumExpanding)
         self.infoLabel.setWordWrap(True)
         self.infoLabel.setOpenExternalLinks(True)
 
@@ -245,9 +248,9 @@ class UserDialog(QtWidgets.QDialog):
         self.titleLabel.setText(title)
         self.infoLabel.setText(message)
 
-        if traceback:
+        if details:
             self.details = QtWidgets.QTextEdit(self)
-            self.details.setText("".join(traceback))
+            self.details.setText("".join(details))
 
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
         self.buttonBox.accepted.connect(self.accept)
@@ -255,8 +258,8 @@ class UserDialog(QtWidgets.QDialog):
         self.gridLayout.addWidget(self.iconLabel, 0, 0, 2, 1)
         self.gridLayout.addWidget(self.titleLabel, 0, 1, 1, 1)
         self.gridLayout.addWidget(self.infoLabel, 1, 1, 1, 1)
-        if traceback:
-            self.gridLayout.addWidget(self.details, 2, 0, 1, 2)
+        if details:
+            self.gridLayout.addWidget(self.details, 2, 1, 1, 1)
         self.gridLayout.addWidget(self.buttonBox, 3, 1, -1, -1)
 
         self.adjustSize()
