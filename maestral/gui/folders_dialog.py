@@ -293,7 +293,7 @@ class DropboxPathModel(AbstractTreeItem):
         if result is False:
             self.loading_failed.emit()
         else:
-            self._children = [self.__class__(self._async_loader, folder, self)
+            self._children = [self.__class__(self._mdbx, self._async_loader, folder, self)
                               for folder in result]
             self.loading_done.emit()
 
