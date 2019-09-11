@@ -30,11 +30,10 @@ def dropbox_stone_to_dict(obj):
 
 
 def maestral_error_to_dict(err):
-    assert isinstance(err, MaestralApiError)
 
     dictionary = dict(
         type=err.__class__.__name__,
-        inherits=MaestralApiError.__name__,
+        inherits=[str(b) for b in err.__class__.__bases__],
         cause=err.__cause__,
         traceback=traceback.format_exception(err.__class__, err, err.__traceback__)
     )
