@@ -91,6 +91,7 @@ def check_update_available(current_version=__version__):
     url = "https://api.github.com/repos/samschott/maestral-dropbox/releases"
     update_available = False
     latest_release = current_version.strip("v")
+    release_notes = ""
 
     error_msg = None
 
@@ -110,6 +111,10 @@ def check_update_available(current_version=__version__):
             releases = [item["tag_name"].replace("v", "") for item in data]
             releases = list(reversed(releases))
 
+            releases_notes = [item["body"] for item in data]
+            releases_notes = list(reversed(releases_notes))
+            release_notes = releases_notes[-1]
+
             result = has_newer_version(latest_release, releases)
             update_available, latest_release = result
         except Exception:
@@ -117,13 +122,15 @@ def check_update_available(current_version=__version__):
     except HTTPError:
         error_msg = "Unable to retrieve information."
     except URLError:
-        error_msg = ("Unable to connect to the internet. <br><br>Make "
-                     "sure the connection is working properly.")
+        error_msg = ('Unable to connect to the internet. '
+                     '<div style="height:5px;font-size:5px;">&nbsp;<br></div>'
+                     'Please make sure the connection is working properly.')
     except Exception:
         error_msg = "Unable to check for updates."
 
     return {"update_available": update_available,
             "latest_release": latest_release,
+            "release_notes": release_notes,
             "error": error_msg}
 
 
