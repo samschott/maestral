@@ -53,7 +53,7 @@ class UnlinkDialog(QtWidgets.QDialog):
 class SettingsWindow(QtWidgets.QWidget):
     """A widget showing all of Maestral's settings."""
 
-    _update_interval_mapping = {0: 60*60*24, 1: 60*60*24*7, 2: 60*60*24*30, 3: 9999999999}
+    _update_interval_mapping = {0: 60*60*24, 1: 60*60*24*7, 2: 60*60*24*30, 3: 0}
 
     def __init__(self, mdbx, parent=None):
         super(self.__class__, self).__init__(parent=parent)
