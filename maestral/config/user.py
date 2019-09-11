@@ -333,7 +333,6 @@ class UserConfig(DefaultsConfig):
         Set an option
         section=None: attribute a default section name
         """
-        self.load_from_ini()
         section = self._check_section_option(section, option)
         default_value = self.get_default(section, option)
         if default_value is NoDefault:
