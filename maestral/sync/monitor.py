@@ -1774,7 +1774,7 @@ class MaestralMonitor(object):
             target=connection_helper,
             daemon=True,
             args=(self.client, self.connected, self.syncing, self.running),
-            name="MaestralConnectionHelper"
+            name="Maestral connection helper"
         )
         self.connection_thread.start()
 
@@ -1796,14 +1796,14 @@ class MaestralMonitor(object):
             target=download_worker,
             daemon=True,
             args=(self.sync, self.syncing, self.running, self.queue_downloading),
-            name="MaestralDownloader"
+            name="Maestral downloader"
         )
 
         self.upload_thread = Thread(
             target=upload_worker,
             daemon=True,
             args=(self.sync, self.syncing, self.running, self.queue_uploading),
-            name="MaestralUploader"
+            name="Maestral uploader"
         )
 
         self.running.set()
