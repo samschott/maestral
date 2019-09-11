@@ -251,6 +251,7 @@ class UserDialog(QtWidgets.QDialog):
         if details:
             self.details = QtWidgets.QTextEdit(self)
             self.details.setText("".join(details))
+            self.details.setOpenExternalLinks(True)
 
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
         self.buttonBox.accepted.connect(self.accept)
