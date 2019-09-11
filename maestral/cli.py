@@ -236,14 +236,13 @@ def resume(config_name: str, running):
 def status(config_name: str, running):
     """Returns the current status of the Maestral daemon."""
     try:
-        from maestral.config.main import CONF
         with MaestralProxy(config_name) as m:
             n_errors = len(m.sync_errors)
             color = "red" if n_errors > 0 else "green"
             n_errors_str = click.style(str(n_errors), fg=color)
             click.echo("")
-            click.echo("Account:       {}".format(CONF.get("account", "email")))
-            click.echo("Usage:         {}".format(CONF.get("account", "usage")))
+            click.echo("Account:       {}".format(m.get_config("account", "email")))
+            click.echo("Usage:         {}".format(m.get_config("account", "usage")))
             click.echo("Status:        {}".format(m.status))
             click.echo("Sync errors:   {}".format(n_errors_str))
             click.echo("")
@@ -258,7 +257,6 @@ def status(config_name: str, running):
 def file_status(config_name: str, running, local_path: str):
     """Returns the current sync status of a given file or folder."""
     try:
-        from maestral.config.main import CONF
         with MaestralProxy(config_name) as m:
             stat = m.get_file_status(local_path)
             click.echo(stat)

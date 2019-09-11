@@ -16,16 +16,15 @@ from PyQt5.QtCore import QModelIndex, Qt
 # maestral modules
 from maestral.sync.main import Maestral, handle_disconnect
 from maestral.sync.oauth import OAuth2Session
-from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
-from maestral.gui.resources import (APP_ICON_PATH, SETUP_DIALOG_PATH,
-                                    get_native_item_icon, get_native_folder_icon)
+from maestral.config.main import CONF
+from maestral.gui.resources import APP_ICON_PATH, SETUP_DIALOG_PATH, get_native_item_icon
 from maestral.gui.utils import UserDialog, icon_to_pixmap, BackgroundTask
 from maestral.gui.folders_dialog import AsyncLoadFolders, TreeModel, DropboxPathModel
 
 
 class SetupDialog(QtWidgets.QDialog):
-    """A dialog to link and set up a new Drobox account."""
+    """A dialog to link and set up a new Dropbox account."""
 
     auth_session = ""
     auth_url = ""
@@ -91,6 +90,8 @@ class SetupDialog(QtWidgets.QDialog):
 
         # check if we are already authenticated, skip authentication if yes
         if not pending_link:
+            self.mdbx = Maestral(run=False)
+            self.mdbx.get_account_info()
             self.labelDropboxPath.setText("""
             <html><head/><body>
             <p align="left">
@@ -108,12 +109,10 @@ class SetupDialog(QtWidgets.QDialog):
             <p align="left">
             To unlink your Dropbox account from Maestral, click "Unlink" below.</p>
             </body></html>
-            """.format(CONF.get("main", "path"), CONF.get("main", "default_dir_name")))
+            """.format(self.mdbx.get_conf("main", "path"), self.mdbx.get_conf("main", "default_dir_name")))
             self.pussButtonDropboxPathCalcel.setText("Quit")
             self.stackedWidget.setCurrentIndex(2)
             self.stackedWidgetButtons.setCurrentIndex(2)
-            self.mdbx = Maestral(run=False)
-            self.mdbx.get_account_info()
         else:
             self.stackedWidget.setCurrentIndex(0)
             self.stackedWidgetButtons.setCurrentIndex(0)
@@ -203,7 +202,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.mdbx.sync.dropbox_path = ""
 
         # apply dropbox path
-        dropbox_path = osp.join(self.dropbox_location, CONF.get("main", "default_dir_name"))
+        dropbox_path = osp.join(self.dropbox_location, self.mdbx.get_conf("main", "default_dir_name"))
         if osp.isdir(dropbox_path):
             msg = ('The folder "%s" already exists. Would '
                    'you like to keep using it?' % self.dropbox_location)
@@ -222,7 +221,7 @@ class SetupDialog(QtWidgets.QDialog):
 
         elif osp.isfile(dropbox_path):
             msg = ('There already is a file named "{0}" at this location. Would '
-                   'you like to replace it?'.format(CONF.get("main", "default_dir_name")))
+                   'you like to replace it?'.format(self.mdbx.get_conf("main", "default_dir_name")))
             msg_box = UserDialog("File conflict", msg, parent=self)
             msg_box.setAcceptButtonName("Replace")
             msg_box.addCancelButton()
@@ -239,7 +238,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.mdbx.create_dropbox_directory(path=dropbox_path, overwrite=False)
 
         # switch to next page
-        CONF.set("main", "excluded_folders", [])
+        self.mdbx.set_conf("main", "excluded_folders", [])
         self.stackedWidget.slideInIdx(3)
         self.treeViewFolders.setFocus()
 
@@ -255,7 +254,7 @@ class SetupDialog(QtWidgets.QDialog):
             return
 
         self.apply_selection()
-        CONF.set("main", "excluded_folders", self.excluded_folders)
+        self.mdbx.set_conf("main", "excluded_folders", self.excluded_folders)
 
         # switch to next page
         self.stackedWidget.slideInIdx(4)
@@ -279,7 +278,7 @@ class SetupDialog(QtWidgets.QDialog):
     @handle_disconnect
     def populate_folders_list(self, overload=None):
         self.async_loader = AsyncLoadFolders(self.mdbx, self)
-        self.dbx_root = DropboxPathModel(self.async_loader, "/")
+        self.dbx_root = DropboxPathModel(self.mdbx, self.async_loader, "/")
         self.dbx_model = TreeModel(self.dbx_root)
         self.treeViewFolders.clicked.connect(self.update_select_all_checkbox)
         self.treeViewFolders.setModel(self.dbx_model)

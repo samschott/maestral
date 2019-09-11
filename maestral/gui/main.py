@@ -19,7 +19,6 @@ import click
 from PyQt5 import QtCore, QtWidgets
 
 # maestral modules
-from maestral.config.main import CONF
 from maestral.sync.main import Maestral
 from maestral.sync.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
 from maestral.sync.monitor import path_exists_case_insensitive
@@ -197,10 +196,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.separator1 = self.menu.addSeparator()
 
-        self.accountEmailAction = self.menu.addAction(CONF.get("account", "email"))
+        self.accountEmailAction = self.menu.addAction(self.mdbx.get_conf("account", "email"))
         self.accountEmailAction.setEnabled(False)
 
-        self.accountUsageAction = self.menu.addAction(CONF.get("account", "usage"))
+        self.accountUsageAction = self.menu.addAction(self.mdbx.get_conf("account", "usage"))
         self.accountUsageAction.setEnabled(False)
 
         self.separator2 = self.menu.addSeparator()
@@ -268,11 +267,11 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     # callbacks for user interaction
 
     def auto_check_for_updates(self):
-        last_update_notification = CONF.get("app", "update_notification_last")
-        update_notification_interval = CONF.get("app", "update_notification_last")
-        if update_notification_interval == 0:  # checks disabled
+        last_update = self.mdbx.get_conf("app", "update_notification_last")
+        interval = self.mdbx.get_conf("app", "update_notification_last")
+        if interval == 0:  # checks disabled
             return
-        elif time.time() - last_update_notification > update_notification_interval:
+        elif time.time() - last_update > interval:
             self.on_check_for_updates(user_requested=False)
 
     def on_check_for_updates(self, user_requested=True):
@@ -281,8 +280,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         checker.sig_done.connect(
             lambda res: self._notify_updates(res, user_requested=user_requested))
 
-    @staticmethod
-    def _notify_updates(res, user_requested=True):
+    def _notify_updates(self, res, user_requested=True):
 
         if user_requested and res["error"]:
             update_dialog = UserDialog("Could not check for updates", res["error"])
@@ -290,7 +288,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         elif res["update_available"]:
             if not user_requested:  # save last update time
-                CONF.set("app", "update_notification_last", time.time())
+                self.mdbx.set_conf("app", "update_notification_last", time.time())
             url_r = "https://github.com/samschott/maestral-dropbox/releases"
             message = (
                 'Maestral v{0} is available. Please use your package manager to '
@@ -332,7 +330,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def on_space_usage(self):
         """Update account usage info in UI."""
-        self.accountUsageAction.setText(CONF.get("account", "usage"))
+        self.accountUsageAction.setText(self.mdbx.get_conf("account", "usage"))
 
     def on_error(self):
         errs = self.mdbx.get_maestral_errors()
@@ -402,7 +400,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def update_recent_files(self):
         """Update menu with list of recently changed files."""
         self.recentFilesMenu.clear()
-        for dbx_path in reversed(CONF.get("internal", "recent_changes")):
+        for dbx_path in reversed(self.mdbx.get_conf("internal", "recent_changes")):
             file_name = os.path.basename(dbx_path)
             truncated_name = elide_string(file_name, font=self.menu.font(), side="right")
             local_path = self._to_local_path(dbx_path)
@@ -410,10 +408,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             a.triggered.connect(
                 lambda _, lp=local_path: click.launch(lp, locate=True))
 
-    @staticmethod
-    def _to_local_path(dbx_path):
+    def _to_local_path(self, dbx_path):
 
-        dropbox_path = CONF.get("main", "path")
+        dropbox_path = self.mdbx.dropbox_path
 
         dbx_path = dbx_path.replace("/", os.path.sep)
         dbx_path_parent, dbx_path_basename,  = os.path.split(dbx_path)

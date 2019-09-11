@@ -15,11 +15,10 @@ from PyQt5 import QtCore, QtWidgets, QtGui, uic
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, QVariant
 
 # maestral modules
-from maestral.sync.main import Maestral, handle_disconnect, is_child
+from maestral.sync.main import handle_disconnect, is_child
 from maestral.sync.monitor import UpDownSync
 from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
 from maestral.gui.utils import BackgroundTask
-from maestral.config.main import CONF
 
 logger = logging.getLogger(__name__)
 
@@ -252,16 +251,17 @@ class DropboxPathModel(AbstractTreeItem):
     """A Dropbox folder item. It lists its children asynchronously, only when asked to by
     `TreeModel`."""
 
-    def __init__(self, async_loader, root="/", parent=None):
+    def __init__(self, mdbx, async_loader, root="/", parent=None):
         AbstractTreeItem.__init__(self, parent=parent)
         self.icon = get_native_folder_icon()
         self._root = root
+        self._mdbx = mdbx
         self._async_loader = async_loader
 
         self._checkStateChanged = False
 
         # get info from our own excluded list
-        excluded_folders = CONF.get("main", "excluded_folders")
+        excluded_folders = self._mdbx.get_conf("main", "excluded_folders")
         if root.lower() in excluded_folders:
             # item is excluded
             self._originalCheckState = 0
@@ -425,7 +425,7 @@ class FoldersDialog(QtWidgets.QDialog):
     def populate_folders_list(self, overload=None):
         self.excluded_folders = self.mdbx.excluded_folders
         self.async_loader = AsyncLoadFolders(self.mdbx, self)
-        self.dbx_root = DropboxPathModel(self.async_loader, "/")
+        self.dbx_root = DropboxPathModel(self.mdbx, self.async_loader, "/")
         self.dbx_model = TreeModel(self.dbx_root)
         self.dbx_model.loading_done.connect(self.ui_loaded)
         self.dbx_model.loading_failed.connect(self.ui_failed)
