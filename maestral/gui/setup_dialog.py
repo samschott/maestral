@@ -128,7 +128,9 @@ class SetupDialog(QtWidgets.QDialog):
             self.abort()
 
     def abort(self):
-        self.mdbx = None
+        if self.mdbx:
+            self.mdbx.set_conf("main", "path", "")
+            self.mdbx = None
         self.reject()
 
     def unlink_and_go_to_start(self, b):
