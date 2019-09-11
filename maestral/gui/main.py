@@ -216,6 +216,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.separator3 = self.menu.addSeparator()
 
         self.preferencesAction = self.menu.addAction("Preferences...")
+        self.updatesAction = self.menu.addAction("Check for Updates...")
         self.helpAction = self.menu.addAction("Help Center")
 
         self.separator4 = self.menu.addSeparator()
@@ -238,6 +239,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.preferencesAction.triggered.connect(self.settings.show)
         self.preferencesAction.triggered.connect(self.settings.raise_)
         self.preferencesAction.triggered.connect(self.settings.activateWindow)
+        self.updatesAction.triggered.connect(lambda: self.on_check_for_updates(
+            user_requested=True))
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.reload)
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.show)
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.raise_)
