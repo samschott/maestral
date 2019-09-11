@@ -13,7 +13,7 @@ import os.path as osp
 import shutil
 import time
 import functools
-from threading import Thread, Timer
+from threading import Thread
 import logging.handlers
 import collections
 
@@ -23,7 +23,6 @@ from blinker import signal
 import requests
 
 # maestral modules
-from maestral import __version__
 from maestral.sync.client import MaestralApiClient
 from maestral.sync.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
 from maestral.sync.oauth import OAuth2Session
@@ -34,7 +33,7 @@ from maestral.sync.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
 from maestral.config.main import CONF
 from maestral.config.base import get_home_dir
 from maestral.sync.utils.app_dirs import get_log_path, get_cache_path
-from maestral.sync.utils.updates import check_update_available, check_version
+from maestral.sync.utils.updates import check_update_available
 
 
 CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
@@ -180,14 +179,19 @@ class Maestral(object):
     safely serialized, i.e., pure Python types.
     """
 
-    _daemon_running = True  # this is for running maestral as a daemon only
+    _daemon_running = True  # for integration with Pyro4
 
     def __init__(self, run=True):
 
         self.client = MaestralApiClient()
 
-        # check for updates
-        self._periodically_check_for_updates()
+        # periodically check for updates
+        self.update_thread = Thread(
+            name="Maestral update check",
+            target=self._periodically_check_for_updates,
+            daemon=True,
+        )
+        self.update_thread.start()
 
         # monitor needs to be created before any decorators are called
         self.monitor = MaestralMonitor(self.client)
@@ -728,24 +732,17 @@ Any changes to local files during this process may be lost.""")
         res = check_update_available()
         return res
 
-    def _periodically_check_for_updates(self, interval=60*60):
-        res = self.check_for_updates()
-        if not res["error"]:
-            CONF.set("app", "latest_release", res["latest_release"])
-        self._update_timer = Timer(interval, self._periodically_check_for_updates)
-        self._update_timer.daemon = True
-        self._update_timer.start()
-
-    @property
-    def update_available(self):
-        """Property that returns ``False`` or the version number of the latest available
-        release."""
-        latest_release = CONF.get("app", "latest_release")
-        update_available = check_version("0.3.0", latest_release, '<')
-        if update_available:
-            return latest_release
-        else:
-            return False
+    def _periodically_check_for_updates(self):
+        while True:
+            last_update = CONF.get("app", "update_notification_last")
+            interval = CONF.get("app", "update_notification_last")
+            if interval == 0:
+                pass
+            elif time.time() - last_update > interval:
+                res = self.check_for_updates()
+                if not res["error"]:
+                    CONF.set("app", "latest_release", res["latest_release"])
+            time.sleep(60*60)
 
     @staticmethod
     def set_log_level_file(level):
