@@ -285,7 +285,6 @@ class UserConfig(DefaultsConfig):
         default: default value (if not specified, an exception
         will be raised if option doesn't exist)
         """
-        self.load_from_ini()
         section = self._check_section_option(section, option)
 
         if not self.has_section(section):
