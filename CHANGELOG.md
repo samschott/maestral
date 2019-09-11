@@ -1,6 +1,16 @@
 ### v0.3.3-dev
 
-_Added:_
+Main changes are:
+
+- Support the exclusion of subfolders.
+- Check and notify if updates are available.
+- Cleaned up the command line interface.
+- Decoupled GUI and sync daemon.
+- Bug fixes and performance improvements.
+
+Details are given below.
+
+#### Added:
 
 - Methods to get the sync status of individual files or folders, including CLI support.
   In the future, this could be used by file manager plugins to overlay the sync status of
@@ -12,38 +22,37 @@ _Added:_
   case-sensitive file systems since Dropbox itself is not case-sensitive.
 - Notifications when an update is available.
 
-_Changed:_
+#### Changed:
 
 - Separated daemon and CLI code into different modules.
-- GUI now starts its own daemon on demand or attaches to an existing one.
-- Created a submodule for the sync engine.
-- Setup dialog no longer returns a Maestral instance on success but just ``True``. It
-  is up to the GUI to create its own instance or attach to a daemon.
-- Moved indexing of local files after a restart to the `upload_thread`. This improves the
-  apparent startup time for a large local Dropbox folder.
-- Removed many direct calls of Maestral attributes from the GUI. Try to limit required
-  methods to the main API (Maestral's methods and properties) which is exposed by the
-  daemon.
-- Changed returned values of the main API to Python types only. This provides safer
-  serialisation.
 - Simplified CLI:
     - Moved commands from `maestral daemon` to main command group, i.e.,
       `maestral daemon start` is now `maestral start`.
     - Removed `maestral sync`. Use `maestral start --foreground` instead.
+- GUI now uses only the main Maestral API which is exposed over sockets.
+- Changed returned values of the Maestral API to Python types only for better
+  serialisation.
+- GUI now starts its own daemon on demand or attaches to an existing one. This daemon will
+  run in a separate process, unless started from a macOS App bundle.
+- Improved startup time for large folders: Moved indexing of local files after a restart
+  to the `upload_thread`.
+- Sync engine moved to a submodule.
+- Setup dialog no longer returns a Maestral instance on success but just ``True``. It
+  is up to the GUI to create or attach to a Maestral daemon.
 
-_Fixed:_
+#### Fixed:
 
-- Fixed incorrect error being raised for a corrupted rev file, which could lead to a
+- Fixed an incorrect error being raised for a corrupted rev file, which could lead to a
   crash or misleading error message.
-- Fixed a bug which would cause renaming a file with an invalid name not to sync to
-  Dropbox.
+- Fixed a bug which would cause a renamed file with a previsously invalid name not to sync
+  to Dropbox.
 - Fixed a bug in the GUI which would cause clicking on a recently changed file to reveal
   the wrong item in the file manager.
 - Fixed a bug which would cause the sync thread to crash when attempting to follow a
   broken symlink (#50). Now, the error will be reported to the user as a sync issue.
   Thanks to @michaelbjames for the fix.
 
-_Removed:_
+#### Removed:
 
 - Removed the CLI command `maestral sync`. Use `maestral start --foreground` instead.
 
