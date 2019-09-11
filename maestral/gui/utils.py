@@ -249,7 +249,7 @@ class UserDialog(QtWidgets.QDialog):
         self.infoLabel.setText(message)
 
         if details:
-            self.details = QtWidgets.QTextEdit(self)
+            self.details = QtWidgets.QTextBrowser(self)
             self.details.setText("".join(details))
             self.details.setOpenExternalLinks(True)
 
