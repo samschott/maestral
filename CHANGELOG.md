@@ -51,6 +51,7 @@ Details are given below.
 - Fixed a bug which would cause the sync thread to crash when attempting to follow a
   broken symlink (#50). Now, the error will be reported to the user as a sync issue.
   Thanks to @michaelbjames for the fix.
+- Fixes a bug where the Dropbox path is not reset when aborting the setup dialog.
 
 #### Removed:
 
