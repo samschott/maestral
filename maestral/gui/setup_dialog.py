@@ -258,6 +258,11 @@ class SetupDialog(QtWidgets.QDialog):
         self.apply_selection()
         self.mdbx.set_conf("main", "excluded_folders", self.excluded_folders)
 
+        # if any excluded folders are currently on the drive, delete them
+        for folder in self.excluded_folders:
+            local_folder = self.mdbx.to_local_path(folder)
+            _delete_file_or_folder(local_folder)
+
         # switch to next page
         self.stackedWidget.slideInIdx(4)
 
@@ -356,3 +361,14 @@ class SetupDialog(QtWidgets.QDialog):
         fsd.exec_()
 
         return fsd.mdbx is not None
+
+
+def _delete_file_or_folder(path):
+
+    try:
+        shutil.rmtree(path)
+    except OSError:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
