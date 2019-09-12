@@ -408,13 +408,11 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             a.triggered.connect(
                 lambda _, lp=local_path: click.launch(lp, locate=True))
 
-
     def on_status(self):
         """Change icon according to status."""
 
         n_errors = len(self.mdbx.sync_errors)
         status = self.mdbx.status
-        is_paused = self.mdbx.paused
 
         if status == self._status and n_errors == self._n_errors:
             return
@@ -430,8 +428,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             new_icon = self.icons.get(status, self.icons[SYNCING])
 
         self.setIcon(new_icon)
-        self.statusAction.setText(status)
-        self.setToolTip(status)
+
+        status_short = elide_string(status)
+        self.statusAction.setText(status_short)
+        self.setToolTip(status_short)
 
         self._n_errors = n_errors
         self._status = status
