@@ -21,7 +21,7 @@ import Pyro4.naming
 import Pyro4.errors
 
 # maestral modules
-from maestral.sync.daemon import write_pid, delete_pid, get_maestral_process_info
+from maestral.sync.daemon import get_maestral_process_info
 from maestral.sync.daemon import (start_maestral_daemon, start_maestral_daemon_process,
                                   stop_maestral_daemon_process, MaestralProxy)
 
@@ -241,8 +241,8 @@ def status(config_name: str, running):
             color = "red" if n_errors > 0 else "green"
             n_errors_str = click.style(str(n_errors), fg=color)
             click.echo("")
-            click.echo("Account:       {}".format(m.get_config("account", "email")))
-            click.echo("Usage:         {}".format(m.get_config("account", "usage")))
+            click.echo("Account:       {}".format(m.get_conf("account", "email")))
+            click.echo("Usage:         {}".format(m.get_conf("account", "usage")))
             click.echo("Status:        {}".format(m.status))
             click.echo("Sync errors:   {}".format(n_errors_str))
             click.echo("")
