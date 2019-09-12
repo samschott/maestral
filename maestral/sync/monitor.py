@@ -6,6 +6,7 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 # system imports
+import sys
 import os
 import os.path as osp
 import platform
@@ -289,7 +290,7 @@ def catch_sync_issues(sync_errors=None, failed_items=None):
                 if res is None:
                     res = True
             except MaestralApiError as exc:
-                logger.exception(SYNC_ERROR)
+                logger.warning(SYNC_ERROR, exc_info=True)
                 file_name = os.path.basename(exc.dbx_path)
                 self.notify.send("Could not sync {0}".format(file_name))
                 if exc.dbx_path is not None:
@@ -526,7 +527,8 @@ class UpDownSync(object):
         loaded using u-msgpack.
 
         :param bool raise_exception: If ``True``, raises an exception when loading fails.
-            Defaults to ``False``.
+            If ``False``, no exception is raised but an error message with exc_info is
+            logged.
         :raises: RevFileError, PermissionError, OSError
         """
         rev_dict_cache = dict()
