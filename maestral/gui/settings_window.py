@@ -97,8 +97,8 @@ class SettingsWindow(QtWidgets.QWidget):
 
         # populate sync section
         self.setup_path_combobox()
-        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.open)
         self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.populate_folders_list)
+        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.open)
 
         # populate app section
         self.autostart = AutoStart()
