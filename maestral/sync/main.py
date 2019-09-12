@@ -590,7 +590,7 @@ Any changes to local files during this process may be lost.""")
         :rtype: list
         """
 
-        if not folder_list:
+        if folder_list is None:
 
             excluded_folders = []
 
@@ -734,6 +734,9 @@ Any changes to local files during this process may be lost.""")
                     pass
             else:
                 return dropbox_path
+
+    def to_local_path(self, dbx_path):
+        return self.sync.to_local_path(dbx_path)
 
     @staticmethod
     def check_for_updates():
