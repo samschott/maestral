@@ -12,48 +12,50 @@ def get_log_path(subfolder=None, filename=None, create=True):
     """
     Returns the default log path for the platform. This will be:
 
-        - macOS: '~/Library/Logs/SUBFOLDER/FILENAME'
-        - Linux: '$XDG_CACHE_HOME/SUBFOLDER/FILENAME'
-        - fallback: '~/.cache/SUBFOLDER/FILENAME'
+        - macOS: "~/Library/Logs/SUBFOLDER/FILENAME"
+        - Linux: "$XDG_CACHE_HOME/SUBFOLDER/FILENAME"
+        - fallback: "~/.cache/SUBFOLDER/FILENAME"
 
     :param str subfolder: The subfolder for the app.
     :param str filename: The filename to append for the app.
-    :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
+    :param bool create: If ``True``, the folder "<subfolder>" will be created on-demand.
     """
-    # check if there is a XDG default
-    xdg_cache_home = os.environ.get('XDG_CACHE_HOME', '')
+
     # if-defs for different platforms
-    if platform.system() == 'Linux' and xdg_cache_home:
-        log_dir = osp.join(xdg_cache_home, subfolder)
-    elif platform.system() == 'Darwin':
-        log_dir = osp.join(get_home_dir(), 'Library', 'Logs', subfolder)
+    if platform.system() == "Darwin":
+        log_path = osp.join(get_home_dir(), "Library", "Logs")
     else:
-        log_dir = osp.join(get_home_dir(), '.cache', subfolder)
+        fallback = osp.join(get_home_dir(), ".cache")
+        log_path = os.environ.get("XDG_CACHE_HOME", fallback)
 
-    # create log_dir
-    if create and not osp.isdir(log_dir):
-        os.makedirs(log_dir)
+    # attach subfolder
+    if subfolder:
+        log_path = osp.join(log_path, subfolder)
 
-    # return runtime_dir (+ filename)
-    if filename is None:
-        return log_dir
-    else:
-        return osp.join(log_dir, filename)
+    # create dir
+    if create:
+        os.makedirs(log_path, exist_ok=True)
+
+    # attach filename
+    if filename:
+        log_path = osp.join(log_path, filename)
+
+    return log_path
 
 
 def get_cache_path(subfolder=None, filename=None, create=True):
     """
     Returns the default cache path for the platform. This will be:
 
-        - macOS: '~/Library/Application Support/SUBFOLDER/FILENAME'
-        - Linux: '$XDG_CACHE_HOME/SUBFOLDER/FILENAME'
-        - fallback: '~/.cache/SUBFOLDER/FILENAME'
+        - macOS: "~/Library/Application Support/SUBFOLDER/FILENAME"
+        - Linux: "$XDG_CACHE_HOME/SUBFOLDER/FILENAME"
+        - fallback: "~/.cache/SUBFOLDER/FILENAME"
 
     :param str subfolder: The subfolder for the app.
     :param str filename: The filename to append for the app.
-    :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
+    :param bool create: If ``True``, the folder "<subfolder>" will be created on-demand.
     """
-    if platform.system() == 'Darwin':
+    if platform.system() == "Darwin":
         return get_conf_path(subfolder, filename, create)
     else:
         return get_log_path(subfolder, filename, create)
@@ -63,47 +65,54 @@ def get_autostart_path(filename=None, create=True):
     """
     Returns the default cache path for the platform. This will be:
 
-        - macOS: '~/Library/LaunchAgents/FILENAME'
-        - Linux: '$XDG_CONFIG_HOME/autostart/FILENAME'
-        - fallback: '~/.config/autostart/FILENAME'
+        - macOS: "~/Library/LaunchAgents/FILENAME"
+        - Linux: "$XDG_CONFIG_HOME/autostart/FILENAME"
+        - fallback: "~/.config/autostart/FILENAME"
 
     :param str filename: The filename to append for the app.
-    :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
+    :param bool create: If ``True``, the folder "<subfolder>" will be created on-demand.
     """
-    if platform.system() == 'Darwin':
-        return osp.join(get_home_dir(), "Library", "LaunchAgents", filename)
+    if platform.system() == "Darwin":
+        autostart_path = osp.join(get_home_dir(), "Library", "LaunchAgents")
     else:
-        return get_log_path("autostart", filename, create)
+        autostart_path = get_conf_path("autostart", create=create)
+
+    # attach filename
+    if filename:
+        autostart_path = osp.join(autostart_path, filename)
+
+    return autostart_path
 
 
 def get_runtime_path(subfolder=None, filename=None, create=True):
     """
     Returns the default runtime directory for the platform. This will be:
 
-        - macOS: '~/Library/Application Support/SUBFOLDER/FILENAME'
-        - Linux: '$XDG_RUNTIME_DIR/SUBFOLDER/FILENAME'
-        - fallback: '~/.cache/SUBFOLDER/FILENAME'
+        - macOS: "~/Library/Application Support/SUBFOLDER/FILENAME"
+        - Linux: "$XDG_RUNTIME_DIR/SUBFOLDER/FILENAME"
+        - fallback: "~/.cache/SUBFOLDER/FILENAME"
 
     :param str subfolder: The subfolder for the app.
     :param str filename: The filename to append for the app.
-    :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
+    :param bool create: If ``True``, the folder "<subfolder>" will be created on-demand.
     """
-    # check if there is a XDG default
-    xdg_runtime_dir = os.environ.get('XDG_RUNTIME_DIR', '')
+    fallback = get_cache_path()
     # if-defs for different platforms
-    if platform.system() == 'Linux' and xdg_runtime_dir:
-        runtime_dir = osp.join(xdg_runtime_dir, subfolder)
+    if platform.system() == "Darwin":
+        runtime_path = fallback
     else:
-        runtime_dir = get_cache_path(subfolder, filename)
-        logger.warning("$XDG_RUNTIME_DIR is not set. '"
-                       "'Using '{}' instead.".format(runtime_dir))
+        runtime_path = os.environ.get("XDG_RUNTIME_DIR", fallback)
 
-    # create runtime_dir
-    if create and not osp.isdir(runtime_dir):
-        os.makedirs(runtime_dir)
+    # attach subfolder
+    if subfolder:
+        runtime_path = osp.join(runtime_path, subfolder)
 
-    # return runtime_dir (+ filename)
-    if filename is None:
-        return runtime_dir
-    else:
-        return osp.join(runtime_dir, filename)
+    # create dir
+    if create:
+        os.makedirs(runtime_path, exist_ok=True)
+
+    # attach filename
+    if filename:
+        runtime_path = osp.join(runtime_path, filename)
+
+    return runtime_path
