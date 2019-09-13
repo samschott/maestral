@@ -21,8 +21,8 @@ def write_pid(config_name, socket_address):
     Write the PID of the current process to the appropriate file for the given
     config name. If a socket_address is given, it will be appended after a '|'.
     """
-    from maestral.config.base import get_conf_path
-    pid_file = get_conf_path("maestral", config_name + ".pid")
+    from maestral.sync.utils.app_dirs import get_runtime_path
+    pid_file = get_runtime_path("maestral", config_name + ".pid")
     with open(pid_file, "w") as f:
         f.write(str(os.getpid()) + "|" + socket_address)
 
@@ -32,8 +32,8 @@ def read_pid(config_name):
     Reads the PID of the current process to the appropriate file for the given
     config name.
     """
-    from maestral.config.base import get_conf_path
-    pid_file = get_conf_path("maestral", config_name + ".pid")
+    from maestral.sync.utils.app_dirs import get_runtime_path
+    pid_file = get_runtime_path("maestral", config_name + ".pid")
     with open(pid_file, "r") as f:
         pid, socket = f.read().split("|")
     pid = int(pid)
@@ -46,8 +46,8 @@ def delete_pid(config_name):
     Reads the PID of the current process to the appropriate file for the given
     config name.
     """
-    from maestral.config.base import get_conf_path
-    pid_file = get_conf_path("maestral", config_name + ".pid")
+    from maestral.sync.utils.app_dirs import get_runtime_path
+    pid_file = get_runtime_path("maestral", config_name + ".pid")
     os.unlink(pid_file)
 
 
@@ -69,7 +69,6 @@ def start_maestral_daemon(config_name, run=True):
 
     os.environ["MAESTRAL_CONFIG"] = config_name
 
-    import sys
     from maestral.sync.main import Maestral
 
     daemon = Pyro4.Daemon()
