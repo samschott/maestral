@@ -232,10 +232,7 @@ class SetupDialog(QtWidgets.QDialog):
             if res == 0:
                 return
             else:
-                try:
-                    os.unlink(dropbox_path)
-                except OSError:
-                    pass
+                _delete_file_or_folder(dropbox_path)
 
         self.mdbx.create_dropbox_directory(path=dropbox_path, overwrite=False)
 
@@ -367,8 +364,10 @@ def _delete_file_or_folder(path):
 
     try:
         shutil.rmtree(path)
+        return True
     except OSError:
         try:
             os.unlink(path)
+            return True
         except OSError:
-            pass
+            return False
