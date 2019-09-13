@@ -87,7 +87,6 @@ class SpaceUsage(dropbox.users.SpaceUsage):
         return str_rep_usage
 
 
-# noinspection PyDeprecation
 class MaestralApiClient(object):
     """Client for Dropbox SDK.
 
