@@ -18,10 +18,8 @@ support the syncing of multiple Dropbox accounts.
 
 The focus on "simple" file syncing does come with advantages: the Maestral App on macOS is
 80% smaller than the official Dropbox app (50 MB vs 290 MB) and uses 70% less memory. The
-app size and memory footprint can be further reduced when installing and running Maestral
-without a GUI and using the Python installation provided by your OS. The Maestral code
-itself and its Python dependencies take up less than 3 MB,  making an install without GUI
-ideal for systems with little resources.
+app size and memory footprint can be more than halved when installing and running Maestral
+without a GUI.
 
 ## Installation
 
