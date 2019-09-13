@@ -50,8 +50,8 @@ DEFAULTS = [
     ('app',
      {
          'notifications': True,
-         'log_level_file': 30,  # "WARNING"
-         'log_level_console': 30,  # "WARNING"
+         'log_level_file': 20,
+         'log_level_console': 20,
          'update_notification_last': 0.0,
          'update_notification_interval': 60*60*24*7,  # weekly
          'latest_release': '0.0.0',
@@ -77,7 +77,7 @@ DEFAULTS = [
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = '6.1.0'
+CONF_VERSION = '6.0.0'
 
 migrate_config_files()
 
