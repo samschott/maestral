@@ -38,6 +38,10 @@ from maestral.sync.utils.updates import check_update_available
 
 CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
 
+# ========================================================================================
+# Logging setup
+# ========================================================================================
+
 # set up logging
 logger = logging.getLogger(__name__)
 
@@ -92,6 +96,10 @@ mdbx_logger.setLevel(logging.DEBUG)
 for h in (rfh, sh, ch_info, ch_error):
     mdbx_logger.addHandler(h)
 
+
+# ========================================================================================
+# Helper functions
+# ========================================================================================
 
 def folder_download_worker(monitor, dbx_path, callback=None):
     """
@@ -171,6 +179,41 @@ def handle_disconnect(func):
 
     return wrapper
 
+
+def yesno(message, default):
+    """Handy helper function to ask a yes/no question.
+
+    A blank line returns the default, and answering
+    y/yes or n/no returns True or False.
+    Retry on unrecognized answer.
+    Special answers:
+    - q or quit exits the program
+    - p or pdb invokes the debugger
+    """
+    if default:
+        message += " [Y/n] "
+    else:
+        message += " [N/y] "
+    while True:
+        answer = input(message).strip().lower()
+        if not answer:
+            return default
+        if answer in ("y", "yes"):
+            return True
+        if answer in ("n", "no"):
+            return False
+        if answer in ("q", "quit"):
+            print("Exit")
+            raise SystemExit(0)
+        if answer in ("p", "pdb"):
+            import pdb
+            pdb.set_trace()
+        print("Please answer YES or NO.")
+
+
+# ========================================================================================
+# Main API
+# ========================================================================================
 
 class Maestral(object):
     """
@@ -786,34 +829,3 @@ Any changes to local files during this process may be lost.""")
             inner = DISCONNECTED
 
         return "<{0}({1})>".format(self.__class__.__name__, inner)
-
-
-def yesno(message, default):
-    """Handy helper function to ask a yes/no question.
-
-    A blank line returns the default, and answering
-    y/yes or n/no returns True or False.
-    Retry on unrecognized answer.
-    Special answers:
-    - q or quit exits the program
-    - p or pdb invokes the debugger
-    """
-    if default:
-        message += " [Y/n] "
-    else:
-        message += " [N/y] "
-    while True:
-        answer = input(message).strip().lower()
-        if not answer:
-            return default
-        if answer in ("y", "yes"):
-            return True
-        if answer in ("n", "no"):
-            return False
-        if answer in ("q", "quit"):
-            print("Exit")
-            raise SystemExit(0)
-        if answer in ("p", "pdb"):
-            import pdb
-            pdb.set_trace()
-        print("Please answer YES or NO.")
