@@ -4,8 +4,9 @@ Main changes are:
 
 - Support the exclusion of subfolders.
 - Check and notify if updates are available.
-- Cleaned up the command line interface.
 - Decoupled GUI and sync daemon.
+- Cleaned up the command line interface. Use `maestral start` instead of
+  `maestral daemon start` and `maestral start --foreground` instead of `maestral sync`.
 - Bug fixes and performance improvements.
 
 Details are given below.
@@ -15,12 +16,16 @@ Details are given below.
 - Methods to get the sync status of individual files or folders, including CLI support.
   In the future, this could be used by file manager plugins to overlay the sync status of
   files.
-- Experimental support to exclude subfolders.
+- Support to exclude subfolders in GUI and CLI.
 - Added a command group `maestral excluded` to view and manage excluded folders.
 - For case-sensitive file systems: Automatically rename created items which have the same
   name as an existing item, but with a different case. This avoids possible issues on
   case-sensitive file systems since Dropbox itself is not case-sensitive.
 - Notifications when an update is available.
+- Better integration with systemd: When the daemon is started from systemd, status updates
+  and ready / stopping signals are sent to systemd and the log is sent to the journal
+  instead of stdout. This adds two new dependencies for Linux only: `python-systemd` and
+  `sdnotify`.
 
 #### Changed:
 
