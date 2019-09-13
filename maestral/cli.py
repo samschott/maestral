@@ -521,9 +521,10 @@ def level(config_name: str, level_name: str, running):
     if level_name:
         level_num = logging._nameToLevel[level_name]
         with MaestralProxy(config_name, fallback=True) as m:
-            m.set_log_level_file(level_num)
-            m.set_log_level_console(level_num)
-        click.echo("Log level set to {}.".format(level_name))
+            m.set_conf("app", "log_level_file", level)
+            m.set_conf("app", "log_level_console", level)
+        click.echo("Log level file set to {}.".format(level_name))
+        click.echo("Log level console set to {}.".format(level_name))
     else:
         os.environ["MAESTRAL_CONFIG"] = config_name
         from maestral.config.main import CONF

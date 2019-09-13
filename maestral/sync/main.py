@@ -815,20 +815,6 @@ Any changes to local files during this process may be lost.""")
                     CONF.set("app", "latest_release", res["latest_release"])
             time.sleep(60*60)
 
-    @staticmethod
-    def set_log_level_file(level):
-        """Sets the log level for the file log. Changes will persist between
-        restarts."""
-        rfh.setLevel(level)
-        CONF.set("app", "log_level_file", level)
-
-    @staticmethod
-    def set_log_level_console(level):
-        """Sets the log level for the console log. Changes will persist between
-        restarts."""
-        dh.setLevel(level)
-        CONF.set("app", "log_level_console", level)
-
     def shutdown_daemon(self):
         """Does nothing except for setting the _daemon_running flag to ``False``. This
         will be checked by Pyro4 periodically to shut down the daemon when requested."""
