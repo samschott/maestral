@@ -1,5 +1,6 @@
 import sys
 from setuptools import setup, find_packages
+
 from maestral import __version__
 
 CURRENT_PYTHON = sys.version_info[:2]
@@ -7,6 +8,7 @@ REQUIRED_PYTHON = (3, 6)
 
 # This check and everything above must remain compatible with Python 2.7.
 if CURRENT_PYTHON < REQUIRED_PYTHON:
+    # noinspection PyStringFormat
     sys.stderr.write("""
 ==========================
 Unsupported Python version
@@ -54,6 +56,8 @@ setup(
         "requests",
         "u-msgpack-python",
         "watchdog",
+        "python-systemd; platform_system == 'Linux'",
+        "sdnotify; platform_system == 'Linux'",
     ],
     zip_safe=False,
     entry_points={
