@@ -16,6 +16,7 @@ import functools
 from threading import Thread
 import logging.handlers
 import collections
+import platform
 
 # external packages
 from dropbox import files
@@ -37,14 +38,15 @@ from maestral.sync.utils.updates import check_update_available
 
 
 CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
+INVOCATION_ID = os.getenv("INVOCATION_ID", "")  # set by systemd
 
 # ========================================================================================
 # Logging setup
 # ========================================================================================
 
-# set up logging
 logger = logging.getLogger(__name__)
 
+# logging to file
 log_file = get_log_path("maestral", CONFIG_NAME + ".log")
 log_fmt = logging.Formatter(fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
                             datefmt="%Y-%m-%d %H:%M:%S")
@@ -52,13 +54,18 @@ rfh = logging.handlers.WatchedFileHandler(log_file)
 rfh.setFormatter(log_fmt)
 rfh.setLevel(CONF.get("app", "log_level_file"))
 
-# set up logging to stdout
-sh = logging.StreamHandler(sys.stdout)
-sh.setFormatter(log_fmt)
-sh.setLevel(CONF.get("app", "log_level_console"))
+# logging to stdout or journal when launched from systemd
+if INVOCATION_ID and platform.system() == "Linux":
+    from systemd import journal
+    import uuid
+    dh = journal.JournaldLogHandler()
+else:
+    dh = logging.StreamHandler(sys.stdout)
+    dh.setFormatter(log_fmt)
+    dh.setLevel(CONF.get("app", "log_level_console"))
 
 
-# set up logging to cached handlers
+# logging to cached handlers
 class CachedHandler(logging.Handler):
     """
     Handler which remembers past records.
@@ -93,7 +100,7 @@ ch_error.setLevel(logging.ERROR)
 # add handlers
 mdbx_logger = logging.getLogger("maestral")
 mdbx_logger.setLevel(logging.DEBUG)
-for h in (rfh, sh, ch_info, ch_error):
+for h in (rfh, dh, ch_info, ch_error):
     mdbx_logger.addHandler(h)
 
 
@@ -809,7 +816,7 @@ Any changes to local files during this process may be lost.""")
     def set_log_level_console(level):
         """Sets the log level for the console log. Changes will persist between
         restarts."""
-        sh.setLevel(level)
+        dh.setLevel(level)
         CONF.set("app", "log_level_console", level)
 
     def shutdown_daemon(self):
