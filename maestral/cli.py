@@ -145,7 +145,7 @@ def about():
     click.echo("")
     click.echo("Version:    {}".format(__version__))
     click.echo("Website:    {}".format(__url__))
-    click.echo("Copyright:  (c) 2018 - {}, {}.".format(year, __author__))
+    click.echo("Copyright:  (c) 2018-{}, {}.".format(year, __author__))
     click.echo("")
 
 
@@ -400,7 +400,8 @@ def account_info(config_name: str, running):
         usage = CONF.get("account", "usage")
         path = CONF.get("main", "path")
         click.echo("")
-        click.echo("Account:           {0}, {1}".format(email, account_type))
+        click.echo("Email:             {}".format(email))
+        click.echo("Account-type:      {}".format(account_type))
         click.echo("Usage:             {}".format(usage))
         click.echo("Dropbox location:  '{}'".format(path))
         click.echo("")
@@ -462,8 +463,11 @@ def excluded_list(config_name: str, running):
 
         excluded_folders.sort()
 
-        for folder in excluded_folders:
-            click.echo(folder)
+        if len(excluded_folders) == 0:
+            click.echo("No excluded folders.")
+        else:
+            for folder in excluded_folders:
+                click.echo(folder)
 
 
 # ========================================================================================
