@@ -66,8 +66,9 @@ if IS_SYSTEMD:
     dh = journal.JournalHandler()
 else:
     dh = logging.StreamHandler(sys.stdout)
-    dh.setFormatter(log_fmt)
-    dh.setLevel(CONF.get("app", "log_level_console"))
+
+dh.setFormatter(log_fmt)
+dh.setLevel(CONF.get("app", "log_level_console"))
 
 
 # logging to cached handlers
