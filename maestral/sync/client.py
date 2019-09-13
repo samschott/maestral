@@ -12,6 +12,7 @@ import os.path as osp
 import time
 import datetime
 import logging
+import functools
 
 # external packages
 import dropbox
@@ -85,6 +86,28 @@ class SpaceUsage(dropbox.users.SpaceUsage):
         alloc_gb = bytesto(allocated, "GB")
         str_rep_usage = "{:.1f}% of {:,}GB used".format(percent, alloc_gb)
         return str_rep_usage
+
+
+def to_maestral_error():
+    """
+    Decorator that converts all OS_FILE_ERRORS and DropboxExceptions to MaestralApiErrors.
+    """
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                res = func(*args, **kwargs)
+            except dropbox.exceptions.DropboxException as exc:
+                raise api_to_maestral_error(exc)
+            except OS_FILE_ERRORS as exc:
+                raise os_to_maestral_error(exc)
+
+            return res
+
+        return wrapper
+
+    return decorator
 
 
 class MaestralApiClient(object):
