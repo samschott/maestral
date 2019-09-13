@@ -235,6 +235,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             lambda: click.launch(self.mdbx.dropbox_path))
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.pauseAction.triggered.connect(self.on_start_stop_clicked)
+        self.preferencesAction.triggered.connect(self.settings.populate_gui)
         self.preferencesAction.triggered.connect(self.settings.show)
         self.preferencesAction.triggered.connect(self.settings.raise_)
         self.preferencesAction.triggered.connect(self.settings.activateWindow)
