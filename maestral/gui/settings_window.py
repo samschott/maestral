@@ -73,6 +73,37 @@ class SettingsWindow(QtWidgets.QWidget):
             self.spacerMacOS.setMinimumWidth(2)  # bug fix for macOS
             self.spacerMacOS.setMaximumWidth(2)  # bug fix for macOS
 
+        self.populate_gui()
+
+        # update profile pic and account info periodically
+        self.update_timer = QtCore.QTimer()
+        self.update_timer.timeout.connect(self.update_account_info)
+        self.update_timer.start(1000*60*20)  # every 20 min
+
+        # connect callbacks
+        self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
+        self.unlink_dialog.accepted.connect(self.on_unlink)
+        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.populate_folders_list)
+        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.open)
+        self.checkBoxStartup.stateChanged.connect(self.on_start_on_login_clicked)
+        self.checkBoxNotifications.stateChanged.connect(self.on_notifications_clicked)
+        self.comboBoxUpdateInterval.currentIndexChanged.connect(
+            self.on_combobox_update_interval)
+        self.comboBoxDropboxPath.currentIndexChanged.connect(self.on_combobox_path)
+        msg = ('Choose a location for your Dropbox. A folder named "{0}" will be ' +
+               'created inside the folder you select.'.format(
+                   self.mdbx.get_conf("main", "default_dir_name")))
+        self.dropbox_folder_dialog = QtWidgets.QFileDialog(self, caption=msg)
+        self.dropbox_folder_dialog.setModal(True)
+        self.dropbox_folder_dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptOpen)
+        self.dropbox_folder_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
+        self.dropbox_folder_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly, True)
+        self.dropbox_folder_dialog.fileSelected.connect(self.on_new_dbx_folder)
+        self.dropbox_folder_dialog.rejected.connect(
+                lambda: self.comboBoxDropboxPath.setCurrentIndex(0))
+
+    def populate_gui(self):
+
         # populate account name
         account_display_name = self.mdbx.get_conf("account", "display_name")
         # if the display name is longer than 230 pixels, reduce font-size
@@ -88,66 +119,36 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelAccountName.setText(self.mdbx.get_conf("account", "display_name"))
 
         # populate account info
-        self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
-        self.unlink_dialog.accepted.connect(self.on_unlink)
-
         self.profile_pic_height = round(self.labelUserProfilePic.height() * 0.7)
         self.set_profile_pic_from_cache()
         self.update_account_info()
 
         # populate sync section
-        self.setup_path_combobox()
-        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.populate_folders_list)
-        self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.open)
+        parent_dir = osp.split(self.mdbx.dropbox_path)[0]
+        relative_path = self.rel_path(parent_dir)
+        folder_icon = get_native_item_icon(parent_dir)
+
+        self.comboBoxDropboxPath.clear()
+        self.comboBoxDropboxPath.addItem(folder_icon, relative_path)
+        self.comboBoxDropboxPath.insertSeparator(1)
+        self.comboBoxDropboxPath.addItem(QtGui.QIcon(), "Other...")
 
         # populate app section
         self.autostart = AutoStart()
         self.checkBoxStartup.setChecked(self.autostart.enabled)
-        self.checkBoxStartup.stateChanged.connect(self.on_start_on_login_clicked)
         self.checkBoxNotifications.setChecked(self.mdbx.notify)
-        self.checkBoxNotifications.stateChanged.connect(self.on_notifications_clicked)
         update_interval = self.mdbx.get_conf("app", "update_notification_interval")
         closest_key = min(
             self._update_interval_mapping,
             key=lambda x: abs(self._update_interval_mapping[x] - update_interval)
         )
         self.comboBoxUpdateInterval.setCurrentIndex(closest_key)
-        self.comboBoxUpdateInterval.currentIndexChanged.connect(
-            self.on_combobox_update_interval)
 
         # populate about section
         year = time.localtime().tm_year
         self.labelVersion.setText(self.labelVersion.text().format(__version__))
         self.labelUrl.setText(self.labelUrl.text().format(__url__))
         self.labelCopyright.setText(self.labelCopyright.text().format(year, __author__))
-
-        # update profile pic and account info periodically
-        self.update_timer = QtCore.QTimer()
-        self.update_timer.timeout.connect(self.update_account_info)
-        self.update_timer.start(1000*60*20)  # every 20 min
-
-    def setup_path_combobox(self):
-
-        parent_dir = osp.split(self.mdbx.dropbox_path)[0]
-        relative_path = self.rel_path(parent_dir)
-
-        folder_icon = get_native_item_icon(parent_dir)
-        self.comboBoxDropboxPath.addItem(folder_icon, relative_path)
-
-        self.comboBoxDropboxPath.insertSeparator(1)
-        self.comboBoxDropboxPath.addItem(QtGui.QIcon(), "Other...")
-        self.comboBoxDropboxPath.currentIndexChanged.connect(self.on_combobox_path)
-        msg = ('Choose a location for your Dropbox. A folder named "{0}" will be ' +
-               'created inside the folder you select.'.format(
-                   self.mdbx.get_conf("main", "default_dir_name")))
-        self.dropbox_folder_dialog = QtWidgets.QFileDialog(self, caption=msg)
-        self.dropbox_folder_dialog.setModal(True)
-        self.dropbox_folder_dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptOpen)
-        self.dropbox_folder_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
-        self.dropbox_folder_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly, True)
-        self.dropbox_folder_dialog.fileSelected.connect(self.on_new_dbx_folder)
-        self.dropbox_folder_dialog.rejected.connect(
-                lambda: self.comboBoxDropboxPath.setCurrentIndex(0))
 
     def set_profile_pic_from_cache(self):
 
