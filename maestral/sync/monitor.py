@@ -1613,7 +1613,6 @@ def download_worker(sync, syncing, running, queue_downloading):
 
         try:
             # wait for remote changes (times out after 120 secs)
-            logger.info(IDLE)
             has_changes = sync.wait_for_remote_changes(
                 sync.last_cursor, timeout=120)
 
@@ -1641,8 +1640,8 @@ def download_worker(sync, syncing, running, queue_downloading):
                     sync.apply_remote_changes(changes)
                     # wait some times for local file events to register
                     time.sleep(5)
+                    logger.info(IDLE)
 
-            logger.info(IDLE)
         except CONNECTION_ERRORS:
             logger.info(DISCONNECTED)
             disconnected_signal.send()
@@ -1836,8 +1835,6 @@ class MaestralMonitor(object):
         self._auto_resume_on_connect = True
         self._resume_on_connect()
 
-        logger.info(IDLE)
-
     def _pause_on_disconnect(self, overload=None):
         """Pauses syncing."""
 
@@ -1856,6 +1853,8 @@ class MaestralMonitor(object):
 
         self.syncing.set()  # resumes upload_thread and download_thread
         self.file_handler.running.set()  # starts local file event handler
+
+        logger.info(IDLE)
 
     def stop(self, overload=None, blocking=False):
         """Stops syncing and destroys worker threads."""

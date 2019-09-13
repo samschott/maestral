@@ -509,7 +509,6 @@ Any changes to local files during this process may be lost.""")
         Creates syncing threads and starts syncing.
         """
         self.monitor.start()
-        logger.info(IDLE)
 
     def resume_sync(self, overload=None):
         """
