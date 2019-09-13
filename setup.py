@@ -56,7 +56,7 @@ setup(
         "requests",
         "u-msgpack-python",
         "watchdog",
-        "python-systemd; platform_system == 'Linux'",
+        "systemd-python; platform_system == 'Linux'",
         "sdnotify; platform_system == 'Linux'",
     ],
     zip_safe=False,

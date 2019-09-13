@@ -63,7 +63,7 @@ rfh.setLevel(CONF.get("app", "log_level_file"))
 
 # logging to stdout or journal when launched from systemd
 if IS_SYSTEMD:
-    dh = journal.JournaldLogHandler()
+    dh = journal.JournalHandler()
 else:
     dh = logging.StreamHandler(sys.stdout)
     dh.setFormatter(log_fmt)
