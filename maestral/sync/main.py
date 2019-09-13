@@ -40,6 +40,13 @@ from maestral.sync.utils.updates import check_update_available
 CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
 INVOCATION_ID = os.getenv("INVOCATION_ID", "")  # set by systemd
 
+IS_SYSTEMD = INVOCATION_ID and platform.system() == "Linux"
+
+if IS_SYSTEMD:
+    import sdnotify
+    from systemd import journal
+    system_notifier = sdnotify.SystemdNotifier()
+
 # ========================================================================================
 # Logging setup
 # ========================================================================================
@@ -55,9 +62,7 @@ rfh.setFormatter(log_fmt)
 rfh.setLevel(CONF.get("app", "log_level_file"))
 
 # logging to stdout or journal when launched from systemd
-if INVOCATION_ID and platform.system() == "Linux":
-    from systemd import journal
-    import uuid
+if IS_SYSTEMD:
     dh = journal.JournaldLogHandler()
 else:
     dh = logging.StreamHandler(sys.stdout)
@@ -77,6 +82,8 @@ class CachedHandler(logging.Handler):
     def emit(self, record):
         self.format(record)
         self.cached_records.append(record)
+        if IS_SYSTEMD:
+            system_notifier.notify("STATUS={}".format(record))
 
     def getLastMessage(self):
         if len(self.cached_records) > 0:
@@ -246,6 +253,9 @@ class Maestral(object):
         # monitor needs to be created before any decorators are called
         self.monitor = MaestralMonitor(self.client)
         self.sync = self.monitor.sync
+
+        if IS_SYSTEMD:
+            system_notifier.notify("RUNNING=1")
 
         if run:
             # if `run == False`, make sure that you manually initiate the first sync
@@ -823,6 +833,8 @@ Any changes to local files during this process may be lost.""")
         """Does nothing except for setting the _daemon_running flag to ``False``. This
         will be checked by Pyro4 periodically to shut down the daemon when requested."""
         self._daemon_running = False
+        if IS_SYSTEMD:
+            system_notifier.notify("STOPPING=1")
 
     def _loop_condition(self):
         return self._daemon_running
