@@ -100,7 +100,7 @@ class UnsupportedFileError(MaestralApiError):
     pass
 
 
-def construct_local_error(exc, dbx_path=None, local_path=None):
+def os_to_maestral_error(exc, dbx_path=None, local_path=None):
     """
     Gets the OSError and tries to add a reasonably informative error message.
 
@@ -125,7 +125,7 @@ def construct_local_error(exc, dbx_path=None, local_path=None):
 
 
 # TODO: improve checks for non-downloadable files
-def to_maestral_error(exc, dbx_path=None, local_path=None):
+def api_to_maestral_error(exc, dbx_path=None, local_path=None):
     """
     Gets the Dropbox API Error and tries to add a reasonably informative error
     message from the mess which is the Python Dropbox SDK exception handling.
