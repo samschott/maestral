@@ -242,7 +242,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.treeViewFolders.setFocus()
 
         # populate folder list
-        if not self.excluded_folders:
+        if not self.excluded_folders:  # don't repopulate
             self.populate_folders_list()
 
     def on_folders_selected(self):
@@ -284,7 +284,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.async_loader = AsyncLoadFolders(self.mdbx, self)
         self.dbx_root = DropboxPathModel(self.mdbx, self.async_loader, "/")
         self.dbx_model = TreeModel(self.dbx_root)
-        self.treeViewFolders.clicked.connect(self.update_select_all_checkbox)
+        self.dbx_model.dataChanged.connect(self.update_select_all_checkbox)
         self.treeViewFolders.setModel(self.dbx_model)
 
         self.dbx_model.loading_done.connect(
