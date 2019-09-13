@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 IDLE = "Up to date"
 SYNCING = "Syncing..."
 PAUSED = "Syncing paused"
+STOPPED = "Syncing stopped"
 DISCONNECTED = "Connecting..."
 SYNC_ERROR = "Sync error"
 
@@ -1820,6 +1821,7 @@ class MaestralMonitor(object):
         self.disconnected_signal.connect(self._pause_on_disconnect)
 
         logger.info("Syncing started")
+        logger.info(IDLE)
 
     def pause(self, overload=None):
         """Pauses syncing."""
@@ -1875,7 +1877,7 @@ class MaestralMonitor(object):
         if blocking:
             self.upload_thread.join()  # wait to finish (up to 2 sec)
 
-        logger.info("Syncing stopped")
+        logger.info(STOPPED)
 
     def rebuild_rev_file(self):
         """

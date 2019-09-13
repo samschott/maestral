@@ -20,8 +20,7 @@ from PyQt5 import QtCore, QtWidgets
 
 # maestral modules
 from maestral.sync.main import Maestral
-from maestral.sync.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
-from maestral.sync.monitor import path_exists_case_insensitive
+from maestral.sync.monitor import IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, SYNC_ERROR
 from maestral.sync.daemon import (
     start_maestral_daemon_process,
     start_maestral_daemon_thread,
@@ -96,10 +95,17 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def load_tray_icons():
 
         icons = dict()
-        short = ("idle", "syncing", "paused", "disconnected", "error")
+        icon_mapping = {
+            IDLE: "idle",
+            SYNCING: "syncing",
+            PAUSED: "paused",
+            STOPPED: "error",
+            DISCONNECTED: "disconnected",
+            SYNC_ERROR: "error",
+        }
 
-        for l, s in zip((IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR), short):
-            icons[l] = get_system_tray_icon(s)
+        for key in icon_mapping:
+            icons[key] = get_system_tray_icon(icon_mapping[key])
 
         return icons
 
