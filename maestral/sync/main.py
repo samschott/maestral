@@ -59,12 +59,13 @@ log_fmt_long = logging.Formatter(
     datefmt="%Y-%m-%d %H:%M:%S"
 )
 log_fmt_short = logging.Formatter(fmt="%(message)s")
+log_level = CONF.get("app", "log_level")
 
 # -- log to file -------------------------------------------------------------------------
 rfh_log_file = get_log_path("maestral", CONFIG_NAME + ".log")
 rfh = logging.handlers.RotatingFileHandler(rfh_log_file, maxBytes=2**6, backupCount=1)
 rfh.setFormatter(log_fmt_long)
-rfh.setLevel(CONF.get("app", "log_level_file"))
+rfh.setLevel(log_level)
 
 # -- log to stdout or journal (when launched from systemd) -------------------------------
 if IS_SYSTEMD:
@@ -74,7 +75,7 @@ else:
     sh = logging.StreamHandler(sys.stdout)
     sh.setFormatter(log_fmt_long)
 
-sh.setLevel(CONF.get("app", "log_level_console"))
+sh.setLevel(log_level)
 
 
 # -- log to cached handlers --------------------------------------------------------------
@@ -107,9 +108,11 @@ class CachedHandler(logging.Handler):
 
 ch_info = CachedHandler(maxlen=1)
 ch_info.setLevel(logging.INFO)
+ch_info.setFormatter(log_fmt_short)
 
 ch_error = CachedHandler()
 ch_error.setLevel(logging.ERROR)
+ch_error.setFormatter(log_fmt_short)
 
 # add handlers
 mdbx_logger = logging.getLogger("maestral")

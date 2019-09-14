@@ -50,8 +50,8 @@ DEFAULTS = [
     ('app',
      {
          'notifications': True,
-         'log_level_file': 20,
-         'log_level_console': 20,
+         'log_level': 20,  # INFO
+         'log_target': 'STDOUT',  # or JOURNAL, SYSLOG, LOGFILE
          'update_notification_last': 0.0,
          'update_notification_interval': 60*60*24*7,  # weekly
          'latest_release': '0.0.0',
