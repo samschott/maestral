@@ -16,7 +16,6 @@ import functools
 from threading import Thread
 import logging.handlers
 import collections
-import platform
 
 # external packages
 from dropbox import files
@@ -38,40 +37,47 @@ from maestral.sync.utils.updates import check_update_available
 
 
 CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
-INVOCATION_ID = os.getenv("INVOCATION_ID", "")  # set by systemd
 
-IS_SYSTEMD = INVOCATION_ID and platform.system() == "Linux"
+IS_NOTIFY = os.getenv("NOTIFY_SOCKET", "")  # set by systemd
+IS_SYSTEMD = os.getenv("INVOCATION_ID", "")  # set by systemd
 
 if IS_SYSTEMD:
-    import sdnotify
     from systemd import journal
+
+if IS_NOTIFY:
+    import sdnotify
     system_notifier = sdnotify.SystemdNotifier()
+    print("running under systemd as type=notify")
 
 # ========================================================================================
 # Logging setup
 # ========================================================================================
 
 logger = logging.getLogger(__name__)
+log_fmt_long = logging.Formatter(
+    fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+log_fmt_short = logging.Formatter(fmt="%(message)s")
 
-# logging to file
-log_file = get_log_path("maestral", CONFIG_NAME + ".log")
-log_fmt = logging.Formatter(fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
-                            datefmt="%Y-%m-%d %H:%M:%S")
-rfh = logging.handlers.WatchedFileHandler(log_file)
-rfh.setFormatter(log_fmt)
+# -- log to file -------------------------------------------------------------------------
+rfh_log_file = get_log_path("maestral", CONFIG_NAME + ".log")
+rfh = logging.handlers.RotatingFileHandler(rfh_log_file, maxBytes=2**6, backupCount=1)
+rfh.setFormatter(log_fmt_long)
 rfh.setLevel(CONF.get("app", "log_level_file"))
 
-# logging to stdout or journal when launched from systemd
+# -- log to stdout or journal (when launched from systemd) -------------------------------
 if IS_SYSTEMD:
-    dh = journal.JournalHandler()
+    sh = journal.JournalHandler()
+    sh.setFormatter(log_fmt_short)
 else:
-    dh = logging.StreamHandler(sys.stdout)
+    sh = logging.StreamHandler(sys.stdout)
+    sh.setFormatter(log_fmt_long)
 
-dh.setFormatter(log_fmt)
-dh.setLevel(CONF.get("app", "log_level_console"))
+sh.setLevel(CONF.get("app", "log_level_console"))
 
 
-# logging to cached handlers
+# -- log to cached handlers --------------------------------------------------------------
 class CachedHandler(logging.Handler):
     """
     Handler which remembers past records.
@@ -83,8 +89,8 @@ class CachedHandler(logging.Handler):
     def emit(self, record):
         self.format(record)
         self.cached_records.append(record)
-        if IS_SYSTEMD:
-            system_notifier.notify("STATUS={}".format(record))
+        if IS_NOTIFY:
+            system_notifier.notify("STATUS={}".format(record.message))
 
     def getLastMessage(self):
         if len(self.cached_records) > 0:
@@ -108,7 +114,7 @@ ch_error.setLevel(logging.ERROR)
 # add handlers
 mdbx_logger = logging.getLogger("maestral")
 mdbx_logger.setLevel(logging.DEBUG)
-for h in (rfh, dh, ch_info, ch_error):
+for h in (rfh, sh, ch_info, ch_error):
     mdbx_logger.addHandler(h)
 
 
@@ -255,8 +261,8 @@ class Maestral(object):
         self.monitor = MaestralMonitor(self.client)
         self.sync = self.monitor.sync
 
-        if IS_SYSTEMD:
-            system_notifier.notify("RUNNING=1")
+        if IS_NOTIFY:
+            system_notifier.notify("READY=1")
 
         if run:
             # if `run == False`, make sure that you manually initiate the first sync
@@ -819,7 +825,7 @@ Any changes to local files during this process may be lost.""")
         """Does nothing except for setting the _daemon_running flag to ``False``. This
         will be checked by Pyro4 periodically to shut down the daemon when requested."""
         self._daemon_running = False
-        if IS_SYSTEMD:
+        if IS_NOTIFY:
             system_notifier.notify("STOPPING=1")
 
     def _loop_condition(self):
