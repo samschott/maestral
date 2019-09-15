@@ -51,15 +51,14 @@ After installation, Maestral will be available as a command line script by typin
 commands. The most important are:
 
 - `maestral gui`: Starts the Maestral GUI. Creates a sync daemon if not already running.
-- `maestral start/stop`: Starts or stops the Maestral sync daemon without a GUI.
-- `maestral pause/resume`: Pauses or resumes syncing.
+- `maestral start|stop`: Starts or stops the Maestral sync daemon.
+- `maestral pause|resume`: Pauses or resumes syncing.
 - `maestral status`: Gets the current sync status.
 - `maestral errors`: Lists all sync errors.
 - `maestral set-dir`: Sets the location of your local Dropbox folder.
-- `maestral dir-exclude`: Excludes a Dropbox folder from syncing.
-- `maestral dir-inlcude`: Includes a Dropbox folder in syncing.
+- `maestral excluded add|remove|list`: Command group to manage excluded folders.
 - `maestral ls`: Lists the contents of a directory on Dropbox.
-- `maestral log`: Command group to show and clear logs, to set the log level, etc.
+- `maestral log show|clear|level`: Command group to manage logging.
 
 Maestral currently supports the syncing of multiple Dropbox accounts by running multiple
 instances. This needs to be configured from the command line. For example, before running

@@ -24,8 +24,11 @@ Details are given below.
 - Notifications when an update is available.
 - Better integration with systemd: When the daemon is started from systemd, status updates
   and ready / stopping signals are sent to systemd and the log is sent to the journal
-  instead of stdout. This adds two new dependencies for Linux only: `python-systemd` and
-  `sdnotify`.
+  instead of stdout. This requires the installation of the systemd extra as
+  `pip3 install -U maestral[systemd]`, which will install `sdnotify` and `systemd-python`.
+  The latter may require you install additional packages through your system's package
+  manager first. See [here](https://github.com/systemd/python-systemd) for installation
+  instructions.
 
 #### Changed:
 
