@@ -42,12 +42,17 @@ IS_NOTIFY = os.getenv("NOTIFY_SOCKET", "")  # set by systemd
 IS_SYSTEMD = os.getenv("INVOCATION_ID", "")  # set by systemd
 
 if IS_SYSTEMD:
-    from systemd import journal
+    try:
+        from systemd import journal
+    except ImportError:
+        IS_SYSTEMD = False
 
 if IS_NOTIFY:
-    import sdnotify
-    system_notifier = sdnotify.SystemdNotifier()
-    print("running under systemd as type=notify")
+    try:
+        import sdnotify
+        system_notifier = sdnotify.SystemdNotifier()
+    except ImportError:
+        IS_NOTIFY = False
 
 # ========================================================================================
 # Logging setup

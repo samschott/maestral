@@ -56,9 +56,10 @@ setup(
         "requests",
         "u-msgpack-python",
         "watchdog",
-        "systemd-python; platform_system == 'Linux'",
-        "sdnotify; platform_system == 'Linux'",
     ],
+    extras_require={
+        "systemd": ["systemd-python", "sdnotify"],
+    },
     zip_safe=False,
     entry_points={
       "console_scripts": ["maestral=maestral.cli:main"],
