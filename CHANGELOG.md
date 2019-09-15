@@ -1,4 +1,4 @@
-### v0.3.3-dev
+### v0.4.0
 
 Main changes are:
 
