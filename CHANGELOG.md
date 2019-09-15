@@ -13,15 +13,18 @@ Details are given below.
 
 #### Added:
 
-- Methods to get the sync status of individual files or folders, including CLI support.
-  In the future, this could be used by file manager plugins to overlay the sync status of
-  files.
-- Support to exclude subfolders in GUI and CLI.
-- Added a command group `maestral excluded` to view and manage excluded folders.
+- Method to get the sync status of individual files or folders. This is also accessible
+  through the CLI via `maestal file-status LOCAL_PATH`. In the future, this could be used
+  by file manager plugins to overlay the sync status of files.
+- Support to exclude subfolders in the main API, CLI and GUI.
+- Added a command group `maestral excluded` to view and manage excluded folders. Available
+  commands are `add`, `remove` and `show`.
 - For case-sensitive file systems: Automatically rename created items which have the same
   name as an existing item, but with a different case. This avoids possible issues on
   case-sensitive file systems since Dropbox itself is not case-sensitive.
-- Notifications when an update is available.
+- GUI notifications when a new version of Maestral is available, configurable to daily,
+  weekly, monthly or never.
+- A new "Check for updates..." menu entry.
 - Better integration with systemd: When the daemon is started from systemd, status updates
   and ready / stopping signals are sent to systemd and the log is sent to the journal
   instead of stdout. This requires the installation of the systemd extra as
