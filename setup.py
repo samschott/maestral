@@ -59,6 +59,7 @@ setup(
     ],
     extras_require={
         "systemd": ["systemd-python", "sdnotify"],
+        "gui": ["PyQt5>=5.9"],
     },
     zip_safe=False,
     entry_points={
