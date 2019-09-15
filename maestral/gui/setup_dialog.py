@@ -11,23 +11,20 @@ import os
 import os.path as osp
 import shutil
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
-
-# external packages
-from dropbox import files
+from PyQt5.QtCore import QModelIndex, Qt
 
 # maestral modules
-from maestral.main import Maestral
-from maestral.oauth import OAuth2Session
-from maestral.config.main import CONF
+from maestral.sync.main import Maestral, handle_disconnect
+from maestral.sync.oauth import OAuth2Session
 from maestral.config.base import get_home_dir
-from maestral.gui.folders_dialog import FolderItem
-from maestral.gui.resources import (APP_ICON_PATH, SETUP_DIALOG_PATH,
-                                    get_native_item_icon, get_native_folder_icon)
-from maestral.gui.utils import UserDialog, icon_to_pixmap, MaestralBackgroundTask
+from maestral.config.main import CONF
+from maestral.gui.resources import APP_ICON_PATH, SETUP_DIALOG_PATH, get_native_item_icon
+from maestral.gui.utils import UserDialog, icon_to_pixmap, BackgroundTask
+from maestral.gui.folders_dialog import AsyncLoadFolders, TreeModel, DropboxPathModel
 
 
 class SetupDialog(QtWidgets.QDialog):
-    """A dialog to link and set up a new Drobox account."""
+    """A dialog to link and set up a new Dropbox account."""
 
     auth_session = ""
     auth_url = ""
@@ -39,13 +36,14 @@ class SetupDialog(QtWidgets.QDialog):
 
         self.app_icon = QtGui.QIcon(APP_ICON_PATH)
 
-        self.labelIcon_0.setPixmap(icon_to_pixmap(self.app_icon, 170))
+        self.labelIcon_0.setPixmap(icon_to_pixmap(self.app_icon, 150))
         self.labelIcon_1.setPixmap(icon_to_pixmap(self.app_icon, 70))
         self.labelIcon_2.setPixmap(icon_to_pixmap(self.app_icon, 70))
-        self.labelIcon_3.setPixmap(icon_to_pixmap(self.app_icon, 100))
+        self.labelIcon_3.setPixmap(icon_to_pixmap(self.app_icon, 120))
 
         self.mdbx = None
-        self.folder_items = []
+        self.dbx_model = None
+        self.excluded_folders = []
 
         # resize dialog buttons
         width = self.pushButtonAuthPageCancel.width()*1.1
@@ -85,7 +83,6 @@ class SetupDialog(QtWidgets.QDialog):
         self.pushButtonFolderSelectionBack.clicked.connect(self.stackedWidget.slideInPrev)
         self.pushButtonFolderSelectionSelect.clicked.connect(self.on_folders_selected)
         self.pushButtonClose.clicked.connect(self.accept)
-        self.listWidgetFolders.itemChanged.connect(self.update_select_all_checkbox)
         self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
 
         self.labelDropboxPath.setText(self.labelDropboxPath.text().format(CONF.get(
@@ -93,6 +90,8 @@ class SetupDialog(QtWidgets.QDialog):
 
         # check if we are already authenticated, skip authentication if yes
         if not pending_link:
+            self.mdbx = Maestral(run=False)
+            self.mdbx.get_account_info()
             self.labelDropboxPath.setText("""
             <html><head/><body>
             <p align="left">
@@ -100,22 +99,20 @@ class SetupDialog(QtWidgets.QDialog):
             Maestral will not work properly until you move it back. It used to be located
             at: </p><p align="left">{0}</p>
             <p align="left">
-            To move it back, click "Quit" below, move the Dropbox folder back to its 
+            To move it back, click "Quit" below, move the Dropbox folder back to its
             original location, and launch Maestral again.
             </p>
             <p align="left">
-            To re-download your Dropbox, please select a location for your Dropbox 
+            To re-download your Dropbox, please select a location for your Dropbox
             folder below. Maestral will create a new folder named "{1}" in the
-            selected location.</p>          
+            selected location.</p>
             <p align="left">
             To unlink your Dropbox account from Maestral, click "Unlink" below.</p>
             </body></html>
-            """.format(CONF.get("main", "path"), CONF.get("main", "default_dir_name")))
+            """.format(self.mdbx.get_conf("main", "path"), self.mdbx.get_conf("main", "default_dir_name")))
             self.pussButtonDropboxPathCalcel.setText("Quit")
             self.stackedWidget.setCurrentIndex(2)
             self.stackedWidgetButtons.setCurrentIndex(2)
-            self.mdbx = Maestral(run=False)
-            self.mdbx.client.get_account_info()
         else:
             self.stackedWidget.setCurrentIndex(0)
             self.stackedWidgetButtons.setCurrentIndex(0)
@@ -131,7 +128,9 @@ class SetupDialog(QtWidgets.QDialog):
             self.abort()
 
     def abort(self):
-        self.mdbx = None
+        if self.mdbx:
+            self.mdbx.set_conf("main", "path", "")
+            self.mdbx = None
         self.reject()
 
     def unlink_and_go_to_start(self, b):
@@ -164,7 +163,7 @@ class SetupDialog(QtWidgets.QDialog):
 
         token = self.lineEditAuthCode.text()
 
-        self.auth_task = MaestralBackgroundTask(
+        self.auth_task = BackgroundTask(
             parent=self,
             target=self.auth_session.verify_auth_token,
             args=(token,)
@@ -205,7 +204,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.mdbx.sync.dropbox_path = ""
 
         # apply dropbox path
-        dropbox_path = osp.join(self.dropbox_location, CONF.get("main", "default_dir_name"))
+        dropbox_path = osp.join(self.dropbox_location, self.mdbx.get_conf("main", "default_dir_name"))
         if osp.isdir(dropbox_path):
             msg = ('The folder "%s" already exists. Would '
                    'you like to keep using it?' % self.dropbox_location)
@@ -224,7 +223,7 @@ class SetupDialog(QtWidgets.QDialog):
 
         elif osp.isfile(dropbox_path):
             msg = ('There already is a file named "{0}" at this location. Would '
-                   'you like to replace it?'.format(CONF.get("main", "default_dir_name")))
+                   'you like to replace it?'.format(self.mdbx.get_conf("main", "default_dir_name")))
             msg_box = UserDialog("File conflict", msg, parent=self)
             msg_box.setAcceptButtonName("Replace")
             msg_box.addCancelButton()
@@ -233,38 +232,36 @@ class SetupDialog(QtWidgets.QDialog):
             if res == 0:
                 return
             else:
-                try:
-                    os.unlink(dropbox_path)
-                except OSError:
-                    pass
+                _delete_file_or_folder(dropbox_path)
 
         self.mdbx.create_dropbox_directory(path=dropbox_path, overwrite=False)
 
         # switch to next page
+        self.mdbx.set_conf("main", "excluded_folders", [])
         self.stackedWidget.slideInIdx(3)
-        self.pushButtonFolderSelectionSelect.setFocus()
+        self.treeViewFolders.setFocus()
 
         # populate folder list
-        if self.folder_items == []:
+        if not self.excluded_folders:  # don't repopulate
             self.populate_folders_list()
 
     def on_folders_selected(self):
-        # switch to next page
-        self.stackedWidget.slideInIdx(4)
 
         # exclude folders
-        excluded_folders = []
-        included_folders = []
+        if not self.mdbx.connected:
+            self.dbx_model.on_loading_failed()
+            return
 
-        for item in self.folder_items:
-            if not item.isIncluded():
-                excluded_folders.append("/" + item.name.lower())
-            elif item.isIncluded():
-                included_folders.append("/" + item.name.lower())
+        self.apply_selection()
+        self.mdbx.set_conf("main", "excluded_folders", self.excluded_folders)
 
-        CONF.set("main", "excluded_folders", excluded_folders)
+        # if any excluded folders are currently on the drive, delete them
+        for folder in self.excluded_folders:
+            local_folder = self.mdbx.to_local_path(folder)
+            _delete_file_or_folder(local_folder)
 
-        self.mdbx.get_remote_dropbox_async("", callback=self.mdbx.start_sync)
+        # switch to next page
+        self.stackedWidget.slideInIdx(4)
 
 # =============================================================================
 # Helper functions
@@ -282,38 +279,56 @@ class SetupDialog(QtWidgets.QDialog):
 
         self.dropbox_location = new_location
 
-    def populate_folders_list(self):
+    @handle_disconnect
+    def populate_folders_list(self, overload=None):
+        self.async_loader = AsyncLoadFolders(self.mdbx, self)
+        self.dbx_root = DropboxPathModel(self.mdbx, self.async_loader, "/")
+        self.dbx_model = TreeModel(self.dbx_root)
+        self.dbx_model.dataChanged.connect(self.update_select_all_checkbox)
+        self.treeViewFolders.setModel(self.dbx_model)
 
-        self.listWidgetFolders.addItem("Loading your folders...")
+        self.dbx_model.loading_done.connect(
+            lambda: self.pushButtonFolderSelectionSelect.setEnabled(True))
+        self.dbx_model.loading_failed.connect(
+            lambda: self.pushButtonFolderSelectionSelect.setEnabled(False))
 
-        # add new entries
-        root_folders = self.mdbx.client.list_folder("", recursive=False)
-        self.listWidgetFolders.clear()
-
-        if root_folders is False:
-            self.listWidgetFolders.addItem("Unable to connect. Please try again later.")
-            self.pushButtonFolderSelectionSelect.setEnabled(False)
-        else:
-            self.pushButtonFolderSelectionSelect.setEnabled(True)
-
-            for entry in root_folders.entries:
-                if isinstance(entry, files.FolderMetadata):
-                    inc = not self.mdbx.sync.is_excluded_by_user(entry.path_lower)
-                    item = FolderItem(entry.name, inc)
-                    self.folder_items.append(item)
-
-            for item in self.folder_items:
-                self.listWidgetFolders.addItem(item)
-
-        self.update_select_all_checkbox()
+        self.dbx_model.loading_done.connect(
+            lambda: self.selectAllCheckBox.setEnabled(True))
+        self.dbx_model.loading_failed.connect(
+            lambda: self.selectAllCheckBox.setEnabled(False))
 
     def update_select_all_checkbox(self):
-        is_included_list = (i.isIncluded() for i in self.folder_items)
-        self.selectAllCheckBox.setChecked(all(is_included_list))
+        check_states = []
+        for irow in range(self.dbx_model._root_item.child_count_loaded()):
+            index = self.dbx_model.index(irow, 0, QModelIndex())
+            check_states.append(self.dbx_model.data(index, Qt.CheckStateRole))
+        if all(cs == 2 for cs in check_states):
+            self.selectAllCheckBox.setChecked(True)
+        else:
+            self.selectAllCheckBox.setChecked(False)
 
     def on_select_all_clicked(self, checked):
-        for item in self.folder_items:
-            item.setIncluded(checked)
+        checked_state = 2 if checked else 0
+        for irow in range(self.dbx_model._root_item.child_count_loaded()):
+            index = self.dbx_model.index(irow, 0, QModelIndex())
+            self.dbx_model.setCheckState(index, checked_state)
+
+    def apply_selection(self, index=QModelIndex()):
+
+        if index.isValid():
+            item = index.internalPointer()
+            item_dbx_path = item._root.lower()
+
+            # We have started with all folders included. Therefore just append excluded
+            # folders here.
+            if item.checkState == 0:
+                self.excluded_folders.append(item_dbx_path)
+        else:
+            item = self.dbx_model._root_item
+
+        for row in range(item.child_count_loaded()):
+            index_child = self.dbx_model.index(row, 0, index)
+            self.apply_selection(index=index_child)
 
     @staticmethod
     def rel_path(path):
@@ -333,9 +348,8 @@ class SetupDialog(QtWidgets.QDialog):
             self.update_dark_mode()
 
     def update_dark_mode(self):
-        # update folder icons: the system may provide different icons in dark mode
-        for item in self.folder_items:
-            item.setIcon(get_native_folder_icon())
+        if self.dbx_model:
+            self.dbx_model.reloadData([Qt.DecorationRole])  # reload folder icons
 
     # static method to create the dialog and return Maestral instance on success
     @staticmethod
@@ -343,4 +357,17 @@ class SetupDialog(QtWidgets.QDialog):
         fsd = SetupDialog(pending_link, parent)
         fsd.exec_()
 
-        return fsd.mdbx
+        return fsd.mdbx is not None
+
+
+def _delete_file_or_folder(path):
+
+    try:
+        shutil.rmtree(path)
+        return True
+    except OSError:
+        try:
+            os.unlink(path)
+            return True
+        except OSError:
+            return False

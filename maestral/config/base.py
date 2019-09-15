@@ -64,30 +64,25 @@ def get_conf_path(subfolder=None, filename=None, create=True):
     :param str filename: The filename to append for the app.
     :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
-    # Define conf_dir
-    if platform.system() == 'Linux':
-        # This makes us follow the XDG standard to save our settings
-        # on Linux
-        xdg_config_home = os.environ.get('XDG_CONFIG_HOME', '')
-        if not xdg_config_home:
-            xdg_config_home = osp.join(get_home_dir(), '.config')
-
-        if create and not osp.isdir(xdg_config_home):
-            os.makedirs(xdg_config_home)
-
-        conf_dir = osp.join(xdg_config_home, subfolder)
-    elif platform.system() == 'Darwin':
-        conf_dir = osp.join(get_home_dir(), 'Library', 'Application Support', subfolder)
+    if platform.system() == 'Darwin':
+        conf_path = osp.join(get_home_dir(), 'Library', 'Application Support')
     else:
-        conf_dir = osp.join(get_home_dir(), '.config', subfolder)
+        fallback = osp.join(get_home_dir(), '.config')
+        conf_path = os.environ.get('XDG_CONFIG_HOME', fallback)
 
-    # Create conf_dir
-    if create and not osp.isdir(conf_dir):
-        os.mkdir(conf_dir)
-    if filename is None:
-        return conf_dir
-    else:
-        return osp.join(conf_dir, filename)
+    # attach subfolder
+    if subfolder:
+        conf_path = osp.join(conf_path, subfolder)
+
+    # create dir
+    if create:
+        os.makedirs(conf_path, exist_ok=True)
+
+    # attach filename
+    if filename:
+        conf_path = osp.join(conf_path, filename)
+
+    return conf_path
 
 
 def get_old_conf_path(subfolder=None, filename=None):

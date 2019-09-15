@@ -15,10 +15,10 @@ from PyQt5 import QtCore, QtWidgets, QtGui, uic
 from PyQt5.QtCore import Qt
 
 # maestral modules
-from maestral.oauth import OAuth2Session
+from maestral.sync.oauth import OAuth2Session
 from maestral.gui.resources import RELINK_DIALOG_PATH, APP_ICON_PATH
 from maestral.gui.utils import get_scaled_font, icon_to_pixmap, QProgressIndicator
-from maestral.gui.utils import MaestralBackgroundTask, quit_and_restart_maestral
+from maestral.gui.utils import BackgroundTask, quit_and_restart_maestral
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +103,8 @@ class RelinkDialog(QtWidgets.QDialog):
             self.lineEditAuthCode.setStyleSheet("color: rgb(205, 0, 0); font: bold;")
         elif text == self.VALID_MSG:
             self.pushButtonLink.setEnabled(False)
+            self.pushButtonUnlink.setEnabled(False)
+            self.pushButtonCancel.setEnabled(False)
             self.lineEditAuthCode.setStyleSheet("color: rgb(0, 129, 0); font: bold;")
         else:
             self.pushButtonLink.setEnabled(True)
@@ -115,9 +117,9 @@ class RelinkDialog(QtWidgets.QDialog):
             # is no text in QLineEdit
             return
 
-        self.set_ui_linking()
+        self.set_ui_busy()
 
-        self.auth_task = MaestralBackgroundTask(
+        self.auth_task = BackgroundTask(
             parent=self,
             target=self.auth_session.verify_auth_token,
             args=(token,)
@@ -130,15 +132,15 @@ class RelinkDialog(QtWidgets.QDialog):
             self.auth_session.save_creds()
             self.lineEditAuthCode.setText(self.VALID_MSG)
             QtWidgets.QApplication.processEvents()
-            QtCore.QTimer.singleShot(500, quit_and_restart_maestral)
+            QtCore.QTimer.singleShot(200, quit_and_restart_maestral)
         elif res == OAuth2Session.InvalidToken:
             self.lineEditAuthCode.setText(self.INVALID_MSG)
+            self.set_ui_busy(False)
         elif res == OAuth2Session.ConnectionFailed:
             self.lineEditAuthCode.setText(self.CONNECTION_ERR_MSG)
+            self.set_ui_busy(False)
 
-        self.set_ui_linking(False)
-
-    def set_ui_linking(self, enabled=True):
+    def set_ui_busy(self, enabled=True):
         height = round(self.lineEditAuthCode.height()*0.8)
         self.progressIndicator.setMinimumHeight(height)
         self.progressIndicator.setMaximumHeight(height)

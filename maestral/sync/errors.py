@@ -11,20 +11,8 @@ import dropbox
 import requests
 
 
-CONNECTION_ERRORS = (
-    requests.exceptions.Timeout,
-    requests.exceptions.ConnectionError,
-    requests.exceptions.HTTPError,
-    requests.exceptions.ReadTimeout,
-    requests.exceptions.RetryError,
-    ConnectionError,
-)
-
 CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
                         "your internet connection and try again later.")
-
-OS_FILE_ERRORS = (FileExistsError, FileNotFoundError, InterruptedError,
-                  IsADirectoryError, NotADirectoryError, PermissionError, )
 
 
 class RevFileError(Exception):
@@ -112,7 +100,7 @@ class UnsupportedFileError(MaestralApiError):
     pass
 
 
-def construct_local_error(exc, dbx_path=None, local_path=None):
+def os_to_maestral_error(exc, dbx_path=None, local_path=None):
     """
     Gets the OSError and tries to add a reasonably informative error message.
 
@@ -122,7 +110,7 @@ def construct_local_error(exc, dbx_path=None, local_path=None):
     :returns: :class:`MaestralApiError` instance.
     :rtype: :class:`MaestralApiError`
     """
-    title = exc.args[0]
+    title = "Could not access or create local item"
     err_type = MaestralApiError
     if isinstance(exc, PermissionError):
         text = "Insufficient read or write permissions for this location."
@@ -137,7 +125,7 @@ def construct_local_error(exc, dbx_path=None, local_path=None):
 
 
 # TODO: improve checks for non-downloadable files
-def to_maestral_error(exc, dbx_path=None, local_path=None):
+def api_to_maestral_error(exc, dbx_path=None, local_path=None):
     """
     Gets the Dropbox API Error and tries to add a reasonably informative error
     message from the mess which is the Python Dropbox SDK exception handling.
@@ -393,3 +381,34 @@ def _get_lookup_error_msg(lookup_error):
         err_type = UnsupportedFileError
 
     return text, err_type
+
+
+# connection errors are handled as warnings
+# sync errors only appear in the sync errors list
+# all other errors raise an error dialog in the GUI
+
+CONNECTION_ERRORS = (
+    requests.exceptions.Timeout,
+    requests.exceptions.ConnectionError,
+    requests.exceptions.HTTPError,
+    requests.exceptions.ReadTimeout,
+    requests.exceptions.RetryError,
+    ConnectionError,
+)
+
+SYNC_ERRORS = (
+    InsufficientPermissionsError,
+    InsufficientSpaceError,
+    PathError,
+    RestrictedContentError,
+    UnsupportedFileError,
+)
+
+OS_FILE_ERRORS = (
+    FileExistsError,
+    FileNotFoundError,
+    InterruptedError,
+    IsADirectoryError,
+    NotADirectoryError,
+    PermissionError,
+)

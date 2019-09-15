@@ -17,7 +17,7 @@ from dropbox.oauth import (OAuth2FlowNoRedirectResult, WEB_HOST, API_HOST,
                            pinned_session, url_path_quote, _params_to_urlencoded)
 
 # maestral modules
-from maestral.errors import to_maestral_error
+from maestral.sync.errors import api_to_maestral_error
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +159,7 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
         try:
             res = dbx.users_get_current_account()
         except dropbox.exceptions.DropboxException as exc:
-            raise to_maestral_error(exc)
+            raise api_to_maestral_error(exc)
 
         return OAuth2FlowNoRedirectResult(access_token, res.account_id, "")
 
@@ -169,4 +169,4 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
         try:
             dbx.auth_token_revoke()
         except dropbox.exceptions.DropboxException as exc:
-            raise to_maestral_error(exc)
+            raise api_to_maestral_error(exc)

@@ -10,9 +10,9 @@ import platform
 import sys
 import os
 
-from maestral.utils.app_dirs import get_autostart_path
-from maestral.utils import is_macos_bundle
-from maestral.main import __version__
+from maestral.sync.utils.app_dirs import get_autostart_path
+from maestral.sync.utils import is_macos_bundle
+from maestral import __version__
 
 _root = os.path.abspath(os.path.dirname(__file__))
 

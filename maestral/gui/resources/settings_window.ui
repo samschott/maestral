@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>630</width>
-    <height>414</height>
+    <width>631</width>
+    <height>448</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -39,7 +39,7 @@
     <number>30</number>
    </property>
    <item>
-    <spacer name="verticalSpacer_2">
+    <spacer name="verticalSpacerTop">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
      </property>
@@ -52,11 +52,43 @@
     </spacer>
    </item>
    <item>
-    <layout class="QGridLayout" name="gridLayoutMain" columnstretch="2,3">
-     <property name="verticalSpacing">
-      <number>-1</number>
+    <layout class="QGridLayout" name="gridLayoutMain" columnstretch="2,0,0,3">
+     <property name="horizontalSpacing">
+      <number>0</number>
      </property>
-     <item row="4" column="0">
+     <item row="5" column="2" colspan="2" alignment="Qt::AlignLeft">
+      <widget class="QComboBox" name="comboBoxDropboxPath">
+       <property name="minimumSize">
+        <size>
+         <width>200</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>200</width>
+         <height>16777215</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0" rowspan="3" alignment="Qt::AlignRight">
+      <widget class="QLabel" name="labelUserProfilePic">
+       <property name="minimumSize">
+        <size>
+         <width>30</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="0">
       <widget class="QLabel" name="labelDropboxPathTitle">
        <property name="text">
         <string>Dropbox folder location:</string>
@@ -66,7 +98,39 @@
        </property>
       </widget>
      </item>
-     <item row="9" column="0" colspan="2" alignment="Qt::AlignHCenter">
+     <item row="4" column="3" alignment="Qt::AlignLeft">
+      <widget class="QPushButton" name="pushButtonExcludedFolders">
+       <property name="minimumSize">
+        <size>
+         <width>200</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>200</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="text">
+        <string>Choose folders to sync...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="3" alignment="Qt::AlignLeft">
+      <widget class="QPushButton" name="pushButtonUnlink">
+       <property name="minimumSize">
+        <size>
+         <width>200</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="text">
+        <string>Unlink this Dropbox...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="10" column="0" colspan="4" alignment="Qt::AlignHCenter">
       <widget class="Line" name="line1">
        <property name="minimumSize">
         <size>
@@ -91,72 +155,17 @@
        </property>
       </widget>
      </item>
-     <item row="11" column="1" alignment="Qt::AlignLeft">
-      <widget class="QLabel" name="labelUrl">
+     <item row="8" column="0">
+      <widget class="QLabel" name="labelSystemSettings">
        <property name="text">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;{0}&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#2874e1;&quot;&gt;{0}&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string>System settings:</string>
        </property>
-       <property name="openExternalLinks">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1" alignment="Qt::AlignLeft">
-      <widget class="QPushButton" name="pushButtonUnlink">
-       <property name="minimumSize">
-        <size>
-         <width>200</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="text">
-        <string>Unlink this Dropbox...</string>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
        </property>
       </widget>
      </item>
-     <item row="5" column="1" alignment="Qt::AlignLeft">
-      <widget class="QPushButton" name="pushButtonExcludedFolders">
-       <property name="minimumSize">
-        <size>
-         <width>200</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>200</width>
-         <height>16777215</height>
-        </size>
-       </property>
-       <property name="text">
-        <string>Choose folders to sync...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="12" column="1" alignment="Qt::AlignLeft">
-      <widget class="QLabel" name="labelCopyright">
-       <property name="text">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#838383;&quot;&gt;© 2018-{0}, {1}. &lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="1" alignment="Qt::AlignLeft">
-      <widget class="QComboBox" name="comboBoxDropboxPath">
-       <property name="minimumSize">
-        <size>
-         <width>200</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>200</width>
-         <height>16777215</height>
-        </size>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="1" alignment="Qt::AlignLeft">
+     <item row="0" column="3" alignment="Qt::AlignLeft">
       <widget class="QLabel" name="labelAccountName">
        <property name="font">
         <font>
@@ -168,7 +177,7 @@
        </property>
       </widget>
      </item>
-     <item row="10" column="1" alignment="Qt::AlignLeft">
+     <item row="11" column="3" alignment="Qt::AlignLeft">
       <widget class="QLabel" name="labelVersion">
        <property name="text">
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;v{0}&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -181,37 +190,17 @@
        </property>
       </widget>
      </item>
-     <item row="8" column="1" alignment="Qt::AlignLeft">
-      <widget class="QCheckBox" name="checkBoxNotifications">
+     <item row="7" column="0">
+      <widget class="QLabel" name="labelUpdateInterval">
        <property name="text">
-        <string>Enable system notifications</string>
-       </property>
-       <property name="checked">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="1" alignment="Qt::AlignLeft">
-      <widget class="QCheckBox" name="checkBoxStartup">
-       <property name="text">
-        <string>Start Maestral on login</string>
-       </property>
-       <property name="checked">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="10" column="0">
-      <widget class="QLabel" name="labelAboutTitle">
-       <property name="text">
-        <string>About Maestral:</string>
+        <string>Check for updates:</string>
        </property>
        <property name="alignment">
-        <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
        </property>
       </widget>
      </item>
-     <item row="6" column="0" colspan="2" alignment="Qt::AlignHCenter">
+     <item row="6" column="0" colspan="4" alignment="Qt::AlignHCenter">
       <widget class="Line" name="line0">
        <property name="minimumSize">
         <size>
@@ -236,7 +225,14 @@
        </property>
       </widget>
      </item>
-     <item row="5" column="0">
+     <item row="13" column="3" alignment="Qt::AlignLeft">
+      <widget class="QLabel" name="labelCopyright">
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#838383;&quot;&gt;© 2018-{0}, {1}. &lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="0">
       <widget class="QLabel" name="labelExcludedFoldersTitle">
        <property name="text">
         <string>Select folders to sync:</string>
@@ -246,23 +242,7 @@
        </property>
       </widget>
      </item>
-     <item row="0" column="0" rowspan="3" alignment="Qt::AlignRight">
-      <widget class="QLabel" name="labelUserProfilePic">
-       <property name="minimumSize">
-        <size>
-         <width>30</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="text">
-        <string/>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="0" colspan="2" alignment="Qt::AlignHCenter">
+     <item row="3" column="0" colspan="4" alignment="Qt::AlignHCenter">
       <widget class="Line" name="line2">
        <property name="minimumSize">
         <size>
@@ -287,17 +267,47 @@
        </property>
       </widget>
      </item>
-     <item row="7" column="0">
-      <widget class="QLabel" name="label">
+     <item row="11" column="0">
+      <widget class="QLabel" name="labelAboutTitle">
        <property name="text">
-        <string>System settings:</string>
+        <string>About Maestral:</string>
        </property>
        <property name="alignment">
-        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
        </property>
       </widget>
      </item>
-     <item row="1" column="1">
+     <item row="9" column="3" alignment="Qt::AlignLeft">
+      <widget class="QCheckBox" name="checkBoxNotifications">
+       <property name="text">
+        <string>Enable system notifications</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="3" alignment="Qt::AlignLeft">
+      <widget class="QCheckBox" name="checkBoxStartup">
+       <property name="text">
+        <string>Start Maestral on login</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="12" column="3" alignment="Qt::AlignLeft">
+      <widget class="QLabel" name="labelUrl">
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;{0}&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#2874e1;&quot;&gt;{0}&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="openExternalLinks">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="3">
       <layout class="QVBoxLayout" name="verticalLayoutAccountInfo">
        <property name="spacing">
         <number>2</number>
@@ -328,10 +338,78 @@
        </item>
       </layout>
      </item>
+     <item row="7" column="2" colspan="2" alignment="Qt::AlignLeft">
+      <widget class="QComboBox" name="comboBoxUpdateInterval">
+       <property name="minimumSize">
+        <size>
+         <width>200</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>200</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <item>
+        <property name="text">
+         <string>Daily</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Weekly</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Monthly</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Never</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item row="4" column="1">
+      <widget class="QLabel" name="hprizontalSpacer">
+       <property name="minimumSize">
+        <size>
+         <width>13</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="2">
+      <widget class="QLabel" name="spacerMacOS">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>0</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
    <item>
-    <spacer name="verticalSpacer">
+    <spacer name="verticalSpacerBottom">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
      </property>
@@ -347,8 +425,9 @@
  </widget>
  <tabstops>
   <tabstop>pushButtonUnlink</tabstop>
-  <tabstop>comboBoxDropboxPath</tabstop>
   <tabstop>pushButtonExcludedFolders</tabstop>
+  <tabstop>comboBoxDropboxPath</tabstop>
+  <tabstop>comboBoxUpdateInterval</tabstop>
   <tabstop>checkBoxStartup</tabstop>
   <tabstop>checkBoxNotifications</tabstop>
  </tabstops>

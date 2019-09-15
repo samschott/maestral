@@ -28,37 +28,43 @@ SUBFOLDER = 'maestral'
 #  Defaults
 # =============================================================================
 DEFAULTS = [
-            ('main',
-             {
-              'path': '',
-              'default_dir_name': 'Dropbox (Maestral)',
-              'excluded_folders': [],
-              'excluded_files': ['desktop.ini',  'thumbs.db', '.ds_store',
-                                 'icon\r', '.dropbox.attr', '.dropbox', '.maestral'],
-              }),
-            ('account',
-             {
-              'account_id': '',
-              'email': '',
-              'display_name': '',
-              'abbreviated_name': '',
-              'type': '',
-              'usage': '',
-              'usage_type': '',
-              }),
-            ('app',
-             {
-              'notifications': True,
-              'log_level_file': 20,
-              'log_level_console': 20,
-              }),
-            ('internal',
-             {
-              'cursor': '',
-              'lastsync': None,
-              'recent_changes': [],
-              }),
-            ]
+    ('main',
+     {
+         'path': '',
+         'default_dir_name': 'Dropbox (Maestral)',
+         'excluded_folders': [],
+         'excluded_files': [],
+     }
+     ),
+    ('account',
+     {
+         'account_id': '',
+         'email': '',
+         'display_name': '',
+         'abbreviated_name': '',
+         'type': '',
+         'usage': '',
+         'usage_type': '',
+     }
+     ),
+    ('app',
+     {
+         'notifications': True,
+         'log_level': 20,  # INFO
+         'log_target': 'STDOUT',  # or JOURNAL, SYSLOG, LOGFILE
+         'update_notification_last': 0.0,
+         'update_notification_interval': 60*60*24*7,  # weekly
+         'latest_release': '0.0.0',
+     }
+     ),
+    ('internal',
+     {
+         'cursor': '',
+         'lastsync': None,
+         'recent_changes': [],
+     }
+     ),
+]
 
 
 # =============================================================================
@@ -71,7 +77,7 @@ DEFAULTS = [
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = '3.4.0'
+CONF_VERSION = '7.0.0'
 
 migrate_config_files()
 

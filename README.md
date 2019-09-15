@@ -18,10 +18,8 @@ support the syncing of multiple Dropbox accounts.
 
 The focus on "simple" file syncing does come with advantages: the Maestral App on macOS is
 80% smaller than the official Dropbox app (50 MB vs 290 MB) and uses 70% less memory. The
-app size and memory footprint can be further reduced when installing and running Maestral
-without a GUI and using the Python installation provided by your OS. The Maestral code
-itself and its Python dependencies take up less than 3 MB,  making an install without GUI
-ideal for systems with little resources.
+app size and memory footprint can be more than halved when installing and running Maestral
+without a GUI.
 
 ## Installation
 
@@ -52,16 +50,18 @@ After installation, Maestral will be available as a command line script by typin
 `maestral` in the command prompt. Type `maestral --help` to get a full list of available
 commands. The most important are:
 
-- `maestral gui`: Starts Maestral with a GUI.
-- `maestral daemon {start/stop}`: Starts or stops Maestral as a daemon.
-- `maestral daemon {pause/resume}`: Pauses or resumes syncing.
-- `maestral daemon status`: Gets the current sync status.
-- `maestral daemon errors`: Lists all sync errors.
-- `maestral set-dir`: Sets the location of your local Dropbox folder.
-- `maestral dir-exclude`: Excludes a Dropbox folder from syncing.
-- `maestral dir-inlcude`: Includes a Dropbox folder in syncing.
-- `maestral ls`: Lists the contents of a directory on Dropbox.
-- `maestral log`: Command group to show and clear logs, to set the log level, etc.
+- `maestral gui`: Starts the Maestral GUI. Creates a sync daemon if not already running.
+- `maestral start|stop`: Starts or stops the Maestral sync daemon.
+- `maestral pause|resume`: Pauses or resumes syncing.
+- `maestral status`: Gets the current status of Maestral.
+- `maestral file-status LOCAL_PATH`: Gets the sync status of an individual file or folder.
+- `maestral errors`: Lists all sync errors.
+- `maestral set-dir LOCAL_PATH`: Sets the location of your local Dropbox folder.
+- `maestral excluded add|remove|list`: Command group to manage excluded folders.
+- `maestral ls DROPBOX_PATH`: Lists the contents of a directory on Dropbox.
+- `maestral log show|clear|level`: Command group to manage logging.
+
+Use `maestral --help` to view all available commands.
 
 Maestral currently supports the syncing of multiple Dropbox accounts by running multiple
 instances. This needs to be configured from the command line. For example, before running

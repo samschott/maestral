@@ -8,7 +8,7 @@ Created on Wed Oct 31 16:23:13 2018
 import os
 from enum import Enum
 from maestral.config.main import CONF
-from maestral.utils import is_macos_bundle
+from maestral.sync.utils import is_macos_bundle
 
 if is_macos_bundle:
     import Foundation

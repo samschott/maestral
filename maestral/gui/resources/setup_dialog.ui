@@ -78,14 +78,14 @@
         <widget class="QLabel" name="labelIcon_0">
          <property name="minimumSize">
           <size>
-           <width>170</width>
-           <height>170</height>
+           <width>150</width>
+           <height>150</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
-           <width>170</width>
-           <height>170</height>
+           <width>150</width>
+           <height>150</height>
           </size>
          </property>
          <property name="text">
@@ -105,12 +105,12 @@
           <enum>Qt::Vertical</enum>
          </property>
          <property name="sizeType">
-          <enum>QSizePolicy::Preferred</enum>
+          <enum>QSizePolicy::Expanding</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
            <width>20</width>
-           <height>40</height>
+           <height>20</height>
           </size>
          </property>
         </spacer>
@@ -121,12 +121,12 @@
           <enum>Qt::Vertical</enum>
          </property>
          <property name="sizeType">
-          <enum>QSizePolicy::MinimumExpanding</enum>
+          <enum>QSizePolicy::Expanding</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
            <width>20</width>
-           <height>0</height>
+           <height>20</height>
           </size>
          </property>
         </spacer>
@@ -392,22 +392,6 @@
        <property name="bottomMargin">
         <number>0</number>
        </property>
-       <item row="1" column="0">
-        <widget class="QListWidget" name="listWidgetFolders">
-         <property name="editTriggers">
-          <set>QAbstractItemView::NoEditTriggers</set>
-         </property>
-         <property name="alternatingRowColors">
-          <bool>false</bool>
-         </property>
-         <property name="selectionMode">
-          <enum>QAbstractItemView::NoSelection</enum>
-         </property>
-         <property name="sortingEnabled">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
        <item row="0" column="0">
         <widget class="QLabel" name="labelFolderSelection">
          <property name="text">
@@ -425,6 +409,22 @@
         <widget class="QCheckBox" name="selectAllCheckBox">
          <property name="text">
           <string>Select all</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QTreeView" name="treeViewFolders">
+         <property name="editTriggers">
+          <set>QAbstractItemView::NoEditTriggers</set>
+         </property>
+         <property name="alternatingRowColors">
+          <bool>true</bool>
+         </property>
+         <property name="selectionMode">
+          <enum>QAbstractItemView::NoSelection</enum>
+         </property>
+         <property name="headerHidden">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -455,7 +455,7 @@
          <property name="sizeHint" stdset="0">
           <size>
            <width>20</width>
-           <height>65</height>
+           <height>30</height>
           </size>
          </property>
         </spacer>
@@ -466,7 +466,7 @@
           <enum>Qt::Vertical</enum>
          </property>
          <property name="sizeType">
-          <enum>QSizePolicy::Preferred</enum>
+          <enum>QSizePolicy::Expanding</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
@@ -480,14 +480,14 @@
         <widget class="QLabel" name="labelIcon_3">
          <property name="minimumSize">
           <size>
-           <width>100</width>
-           <height>100</height>
+           <width>120</width>
+           <height>120</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
-           <width>100</width>
-           <height>100</height>
+           <width>120</width>
+           <height>120</height>
           </size>
          </property>
          <property name="text">
@@ -525,7 +525,7 @@
           <enum>Qt::Vertical</enum>
          </property>
          <property name="sizeType">
-          <enum>QSizePolicy::Preferred</enum>
+          <enum>QSizePolicy::Expanding</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
@@ -800,7 +800,7 @@
   <tabstop>comboBoxDropboxPath</tabstop>
   <tabstop>pushButtonFolderSelectionSelect</tabstop>
   <tabstop>pushButtonFolderSelectionBack</tabstop>
-  <tabstop>listWidgetFolders</tabstop>
+  <tabstop>treeViewFolders</tabstop>
   <tabstop>selectAllCheckBox</tabstop>
   <tabstop>pushButtonClose</tabstop>
  </tabstops>

@@ -1,3 +1,74 @@
+### v0.3.3-dev
+
+Main changes are:
+
+- Support the exclusion of subfolders.
+- Check and notify if updates are available.
+- Decoupled GUI and sync daemon.
+- Cleaned up the command line interface. Use `maestral start` instead of
+  `maestral daemon start` and `maestral start --foreground` instead of `maestral sync`.
+- Bug fixes and performance improvements.
+
+Details are given below.
+
+#### Added:
+
+- Method to get the sync status of individual files or folders. This is also accessible
+  through the CLI via `maestal file-status LOCAL_PATH`. In the future, this could be used
+  by file manager plugins to overlay the sync status of files.
+- Support to exclude subfolders in the main API, CLI and GUI.
+- Added a command group `maestral excluded` to view and manage excluded folders. Available
+  commands are `add`, `remove` and `show`.
+- For case-sensitive file systems: Automatically rename created items which have the same
+  name as an existing item, but with a different case. This avoids possible issues on
+  case-sensitive file systems since Dropbox itself is not case-sensitive.
+- GUI notifications when a new version of Maestral is available, configurable to daily,
+  weekly, monthly or never.
+- A new "Check for updates..." menu entry.
+- Better integration with systemd: When the daemon is started from systemd, status updates
+  and ready / stopping signals are sent to systemd and the log is sent to the journal
+  instead of stdout. This requires the installation of the systemd extra as
+  `pip3 install -U maestral[systemd]`, which will install `sdnotify` and `systemd-python`.
+  The latter may require you install additional packages through your system's package
+  manager first. See [here](https://github.com/systemd/python-systemd) for installation
+  instructions.
+
+#### Changed:
+
+- Separated daemon and CLI code into different modules.
+- Simplified CLI:
+    - Moved commands from `maestral daemon` to main command group, i.e.,
+      `maestral daemon start` is now `maestral start`.
+    - Removed `maestral sync`. Use `maestral start --foreground` instead.
+- GUI now uses only the main Maestral API which is exposed over sockets.
+- Changed returned values of the Maestral API to Python types only for better
+  serialisation.
+- GUI now starts its own daemon on demand or attaches to an existing one. This daemon will
+  run in a separate process, unless started from a macOS App bundle.
+- Improved startup time for large folders: Moved indexing of local files after a restart
+  to the `upload_thread`.
+- Sync engine moved to a submodule.
+- Setup dialog no longer returns a Maestral instance on success but just ``True``. It
+  is up to the GUI to create or attach to a Maestral daemon.
+
+#### Fixed:
+
+- Fixed an incorrect error being raised for a corrupted rev file, which could lead to a
+  crash or misleading error message.
+- Fixed a bug which would cause a renamed file with a previsously invalid name not to sync
+  to Dropbox.
+- Fixed a bug in the GUI which would cause clicking on a recently changed file to reveal
+  the wrong item in the file manager.
+- Fixed a bug which would cause the sync thread to crash when attempting to follow a
+  broken symlink (#50). Now, the error will be reported to the user as a sync issue.
+  Thanks to @michaelbjames for the fix.
+- Fixes a bug where the Dropbox path is not reset when aborting the setup dialog.
+
+#### Removed:
+
+- Removed the CLI command `maestral sync`. Use `maestral start --foreground` instead.
+
+
 ### v0.3.2
 
 This release fixes a bug that could result in only changes of top-level items being
@@ -57,7 +128,7 @@ bug fixes and small tweaks to the UI.
   (commit 40be316b49f2198a01cc9ce9b804f8e6336e36f8) and selected to exclude folders
   before the initial sync. Users affected by this bug should rebuild Maestral's index by
   selecting "Rebuild index..." in the main menu.
-  
+
 #### Removed:
 
 - No longer install a script "maestral-gui". Use "maestral gui" instead.
@@ -95,7 +166,7 @@ The detailed list of changes is:
 - Added a "relink" dialog which is shown when Maestral's Dropbox access has expired or
   has been revoked by the user.
 - Improved logic to detect system tray color and set icons accordingly. This is mostly for
-  KDE which, unlike Gnome, does not handle automatically adapting its tray icon colors.
+  KDE which, unlike Gnome, does not handle automatically adapting its tray icon colours.
 
 #### Changed:
 

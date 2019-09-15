@@ -8,14 +8,12 @@ Created on Wed Oct 31 16:23:13 2018
 
 # system imports
 import os
-import platform
-import subprocess
-import webbrowser
 import urllib
 import shutil
 
 # external packages
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
+import click
 
 # maestral modules
 from maestral.gui.resources import (SYNC_ISSUES_WINDOW_PATH, SYNC_ISSUE_WIDGET_PATH,
@@ -31,17 +29,17 @@ class SyncIssueWidget(QtWidgets.QWidget):
     A widget to graphically display a Maestral sync issue.
     """
 
-    def __init__(self, sync_issue, parent=None):
+    def __init__(self, sync_err, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         uic.loadUi(SYNC_ISSUE_WIDGET_PATH, self)
 
-        self.sync_issue = sync_issue
+        self.sync_err = sync_err
 
         self.errorLabel.setFont(get_scaled_font(scaling=0.85))
         self.update_dark_mode()  # set appropriate item icon and colors in style sheet
 
-        self.pathLabel.setText(self.to_display_path(self.sync_issue.local_path))
-        self.errorLabel.setText(self.sync_issue.title + ":\n" + self.sync_issue.message)
+        self.pathLabel.setText(self.to_display_path(self.sync_err["local_path"]))
+        self.errorLabel.setText(self.sync_err["title"] + ":\n" + self.sync_err["message"])
 
         def request_context_menu():
             self.actionButton.customContextMenuRequested.emit(self.actionButton.pos())
@@ -56,10 +54,11 @@ class SyncIssueWidget(QtWidgets.QWidget):
         a0 = self.actionButtonContextMenu.addAction("View in folder")
         a1 = self.actionButtonContextMenu.addAction("View on dropbox.com")
 
-        a0.setEnabled(os.path.exists(self.sync_issue.local_path))
+        a0.setEnabled(os.path.exists(self.sync_err["local_path"]))
 
-        a0.triggered.connect(lambda: self.open_destination(self.sync_issue.local_path))
-        a1.triggered.connect(lambda: self.show_online(self.sync_issue.dbx_path))
+        a0.triggered.connect(lambda: click.launch(self.sync_err["local_path"],
+                                                  locate=True))
+        a1.triggered.connect(lambda: self.show_online(self.sync_err["dbx_path"]))
         self.actionButtonContextMenu.exec_(self.mapToGlobal(pos))
 
     def to_display_path(self, local_path):
@@ -68,38 +67,12 @@ class SyncIssueWidget(QtWidgets.QWidget):
                             pixels=300, side="left")
 
     @staticmethod
-    def open_destination(local_path, reveal=True):
-        """Open the item at the given path. If the item is a file, attempt to open it
-        in the systems default program. If ``reveal == True``, reveal the file in the
-        systems default file manager instead."""
-        local_path = os.path.abspath(os.path.normpath(local_path))
-        if platform.system() == "Darwin":
-            if reveal:
-                subprocess.run(["open", "--reveal", local_path])
-            else:
-                subprocess.run(["open", local_path])
-        elif platform.system() == "Linux":
-            if reveal:
-                if HAS_GTK_LAUNCH:
-                    # if gtk-launch is available, query for the default file manager and
-                    # reveal file in the latter
-                    file_manager = os.popen("xdg-mime query default inode/directory").read()
-                    subprocess.run(["gtk-launch", file_manager.strip(), local_path])
-                else:
-                    # otherwise open the containing directory
-                    if not os.path.isdir(local_path):
-                        local_path = os.path.dirname(local_path)
-                    subprocess.run(["xdg-open", local_path])
-            else:
-                subprocess.run(["xdg-open", local_path])
-
-    @staticmethod
     def show_online(dbx_path):
 
         dbx_address = "https://www.dropbox.com/preview"
         file_address = urllib.parse.quote(dbx_path)
 
-        webbrowser.open_new_tab(dbx_address + file_address)
+        click.launch(dbx_address + file_address)
 
     def changeEvent(self, QEvent):
         if QEvent.type() == QtCore.QEvent.PaletteChange:
@@ -120,7 +93,7 @@ class SyncIssueWidget(QtWidgets.QWidget):
         }}""".format(*line_rgb, *frame_bg_color))
 
         # update item icons (the system may supply different icons in dark mode)
-        icon = get_native_item_icon(self.sync_issue.local_path)
+        icon = get_native_item_icon(self.sync_err["local_path"])
         pixmap = icon_to_pixmap(icon, self.iconLabel.width(), self.iconLabel.height())
         self.iconLabel.setPixmap(pixmap)
 

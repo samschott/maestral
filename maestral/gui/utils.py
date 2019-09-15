@@ -11,7 +11,6 @@ import sys
 import os
 import platform
 from subprocess import Popen
-from traceback import format_exception
 
 # external packages
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -20,7 +19,8 @@ from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap, QWindow
 
 # maestral modules
 from maestral.gui.resources import APP_ICON_PATH, rgb_to_luminance
-from maestral.utils import is_macos_bundle
+from maestral.sync.utils import is_macos_bundle
+from maestral.sync.daemon import MaestralProxy, stop_maestral_daemon_process
 
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
@@ -136,8 +136,8 @@ def __command_exists(command):
     )
 
 
-class MaestralWorker(QtCore.QObject):
-    """A worker object for Maestral. To be used in QThreads."""
+class Worker(QtCore.QObject):
+    """A worker object. To be used in QThreads."""
 
     sig_done = QtCore.pyqtSignal(object)
 
@@ -152,7 +152,19 @@ class MaestralWorker(QtCore.QObject):
         self.sig_done.emit(res)
 
 
-class MaestralBackgroundTask(QtCore.QObject):
+class MaestralWorker(Worker):
+    """A worker object for Maestral. It uses a separate Maestral proxy to prevent
+    the main connection from blocking."""
+
+    def start(self):
+        config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
+        with MaestralProxy(config_name) as m:
+            func = m.__getattr__(self._target)
+            res = func(*self._args, **self._kwargs)
+        self.sig_done.emit(res)
+
+
+class BackgroundTask(QtCore.QObject):
     """A utility class to manage a worker thread."""
 
     sig_done = QtCore.pyqtSignal(object)
@@ -169,7 +181,7 @@ class MaestralBackgroundTask(QtCore.QObject):
     def start(self):
 
         self.thread = QtCore.QThread(self)
-        self.worker = MaestralWorker(
+        self.worker = Worker(
             target=self._target, args=self._args, kwargs=self._kwargs)
         self.worker.sig_done.connect(self.sig_done.emit)
         self.worker.sig_done.connect(self.thread.quit)
@@ -184,16 +196,34 @@ class MaestralBackgroundTask(QtCore.QObject):
             self.thread.wait()
 
 
+class MaestralBackgroundTask(BackgroundTask):
+    """A utility class to manage a worker thread. It uses a separate Maestral proxy
+    to prevent the main connection from blocking."""
+
+    def start(self):
+
+        self.thread = QtCore.QThread(self)
+        self.worker = MaestralWorker(
+            target=self._target, args=self._args, kwargs=self._kwargs)
+        self.worker.sig_done.connect(self.sig_done.emit)
+        self.worker.sig_done.connect(self.thread.quit)
+        self.worker.moveToThread(self.thread)
+        self.thread.started.connect(self.worker.start)
+        self.thread.start()
+
+
 class UserDialog(QtWidgets.QDialog):
     """A template user dialog for Maestral. Shows a traceback if given in constructor."""
 
-    def __init__(self, title, message, exc_info=None, parent=None):
+    def __init__(self, title, message, details=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         self.setModal(True)
         self.setWindowModality(Qt.WindowModal)
-        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Sheet | Qt.WindowTitleHint | Qt.CustomizeWindowHint)
+        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Sheet | Qt.WindowTitleHint |
+                            Qt.CustomizeWindowHint)
         self.setWindowTitle("")
-        self.setFixedWidth(450)
+        width = 550 if details else 450
+        self.setFixedWidth(width)
 
         self.gridLayout = QtWidgets.QGridLayout()
         self.setLayout(self.gridLayout)
@@ -207,16 +237,21 @@ class UserDialog(QtWidgets.QDialog):
         self.iconLabel.setMaximumSize(icon_size, icon_size)
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
+        self.infoLabel.setFixedWidth(width-150)
+        self.infoLabel.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
+                                     QtWidgets.QSizePolicy.MinimumExpanding)
         self.infoLabel.setWordWrap(True)
+        self.infoLabel.setOpenExternalLinks(True)
 
         icon = QtGui.QIcon(APP_ICON_PATH)
         self.iconLabel.setPixmap(icon_to_pixmap(icon, icon_size))
         self.titleLabel.setText(title)
         self.infoLabel.setText(message)
 
-        if exc_info:
-            self.details = QtWidgets.QTextEdit(self)
-            self.details.setText("".join(format_exception(*exc_info)))
+        if details:
+            self.details = QtWidgets.QTextBrowser(self)
+            self.details.setText("".join(details))
+            self.details.setOpenExternalLinks(True)
 
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
         self.buttonBox.accepted.connect(self.accept)
@@ -224,9 +259,11 @@ class UserDialog(QtWidgets.QDialog):
         self.gridLayout.addWidget(self.iconLabel, 0, 0, 2, 1)
         self.gridLayout.addWidget(self.titleLabel, 0, 1, 1, 1)
         self.gridLayout.addWidget(self.infoLabel, 1, 1, 1, 1)
-        if exc_info:
-            self.gridLayout.addWidget(self.details, 2, 0, 1, 2)
+        if details:
+            self.gridLayout.addWidget(self.details, 2, 1, 1, 1)
         self.gridLayout.addWidget(self.buttonBox, 3, 1, -1, -1)
+
+        self.adjustSize()
 
     def setAcceptButtonName(self, name):
         self.buttonBox.buttons()[0].setText(name)
@@ -272,6 +309,8 @@ def quit_and_restart_maestral():
         Popen("tail --pid={0} -f /dev/null; maestral gui --config-name='{1}'".format(
             pid, config_name), shell=True)
 
+    if not is_macos_bundle:
+        stop_maestral_daemon_process(config_name)
     QtCore.QCoreApplication.quit()
     sys.exit(0)
 

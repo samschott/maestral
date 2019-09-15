@@ -7,3 +7,5 @@ u-msgpack-python
 keyring>=19.0.0
 keyrings.alt>=3.0.0
 Pyro4
+systemd-python
+sdnotify

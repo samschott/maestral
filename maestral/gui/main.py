@@ -11,86 +11,51 @@ import sys
 import os
 import logging
 import platform
-import subprocess
-import webbrowser
 import shutil
+import time
 
 # external packages
-from blinker import signal
+import click
 from PyQt5 import QtCore, QtWidgets
 
 # maestral modules
-from maestral.main import Maestral
-from maestral.monitor import IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR
-from maestral.errors import (DropboxAuthError, TokenExpiredError, CursorResetError,
-                             MaestralApiError, RevFileError, DropboxDeletedError)
+from maestral.sync.main import Maestral
+from maestral.sync.monitor import IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, SYNC_ERROR
+from maestral.sync.daemon import (
+    start_maestral_daemon_process,
+    start_maestral_daemon_thread,
+    stop_maestral_daemon_process,
+    get_maestral_process_info,
+    get_maestral_daemon_proxy,
+)
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.setup_dialog import SetupDialog
 from maestral.gui.relink_dialog import RelinkDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import get_system_tray_icon
-from maestral.gui.utils import (elide_string, UserDialog, quit_and_restart_maestral,
-                                get_gnome_scaling_factor)
-
 from maestral.gui.autostart import AutoStart
-from maestral.config.main import CONF
+from maestral.gui.utils import (
+    UserDialog,
+    MaestralBackgroundTask,
+    elide_string,
+    quit_and_restart_maestral,
+    get_gnome_scaling_factor,
+    is_macos_bundle,
+)
 
 
 logger = logging.getLogger(__name__)
 
 HAS_GTK_LAUNCH = shutil.which("gtk-launch") is not None
-
-
-class InfoHandler(logging.Handler, QtCore.QObject):
-    """
-    Handler which emits a signal containing the logging message for every
-    logged event. The signal will be connected to "Status" field of the GUI.
-    """
-
-    info_signal = QtCore.pyqtSignal(str)
-
-    def __init__(self):
-        logging.Handler.__init__(self)
-        QtCore.QObject.__init__(self)
-
-    def emit(self, record):
-        self.format(record)
-        self.info_signal.emit(record.message)
-
-
-class ErrorHandler(logging.Handler, QtCore.QObject):
-    """
-    Handler which emits a signal containing the error message.
-    """
-
-    error_signal = QtCore.pyqtSignal(tuple)
-
-    def __init__(self):
-        logging.Handler.__init__(self)
-        QtCore.QObject.__init__(self)
-
-    def emit(self, record):
-        self.format(record)
-        self.error_signal.emit(record.exc_info)
-
-
-info_handler = InfoHandler()
-info_handler.setLevel(logging.INFO)
-error_handler = ErrorHandler()
-error_handler.setLevel(logging.ERROR)
-
-mdbx_logger = logging.getLogger("maestral")
-mdbx_logger.addHandler(info_handler)
-mdbx_logger.addHandler(error_handler)
+CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
 
 
 # noinspection PyTypeChecker
 class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
-    usage_signal = signal("account_usage_signal")
-
     mdbx = None
+    started = False
 
     def __init__(self):
         # ------------- initialize tray icon -------------------
@@ -103,8 +68,19 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.menu = QtWidgets.QMenu()
         self.setContextMenu(self.menu)
 
-        error_handler.error_signal.connect(self.on_error)
         self.setup_ui_unlinked()
+
+        self._n_errors = None
+        self._status = None
+
+        self.update_ui_timer = QtCore.QTimer()
+        self.update_ui_timer.timeout.connect(self.update_ui)
+        self.update_ui_timer.start(200)  # every 200 ms
+
+    def update_ui(self):
+        if self.mdbx:
+            self.on_status()
+            self.on_error()
 
     def show_when_systray_available(self):
         # If available, show icon, otherwise, set a timer to check back later.
@@ -119,10 +95,17 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def load_tray_icons():
 
         icons = dict()
-        short = ("idle", "syncing", "paused", "disconnected", "error")
+        icon_mapping = {
+            IDLE: "idle",
+            SYNCING: "syncing",
+            PAUSED: "paused",
+            STOPPED: "error",
+            DISCONNECTED: "disconnected",
+            SYNC_ERROR: "error",
+        }
 
-        for l, s in zip((IDLE, SYNCING, PAUSED, DISCONNECTED, SYNC_ERROR), short):
-            icons[l] = get_system_tray_icon(s)
+        for key in icon_mapping:
+            icons[key] = get_system_tray_icon(icon_mapping[key])
 
         return icons
 
@@ -132,16 +115,34 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         pending_dbx_folder = Maestral.pending_dropbox_folder()
 
         if pending_link or pending_dbx_folder:
-            # Run setup dialog. This returns None if aborted by the user.
-            self.mdbx = SetupDialog.configureMaestral(pending_link)
+            logger.info("Setting up Maestral...")
+            done = SetupDialog.configureMaestral(pending_link)
+            if done:
+                self.mdbx = self._get_or_start_maestral_daemon()
+                self.mdbx.get_remote_dropbox_async("", callback="start_sync")
+                logger.info("Successfully set up Maestral")
+            else:
+                logger.info("Setup aborted. Quitting.")
+                self.quit()
         else:
-            self.mdbx = Maestral()
+            self.mdbx = self._get_or_start_maestral_daemon()
+            self.mdbx.start_sync()
 
-        if self.mdbx:
-            self.setup_ui_linked()
+        self.setup_ui_linked()
+
+    def _get_or_start_maestral_daemon(self):
+
+        pid, _ = get_maestral_process_info(CONFIG_NAME)
+        if not pid:
+            if is_macos_bundle:
+                start_maestral_daemon_thread(CONFIG_NAME)
+            else:
+                start_maestral_daemon_process(CONFIG_NAME)
+            self.started = True
         else:
-            logger.info("Setup aborted. Quitting.")
-            self.quit()
+            self.started = False
+
+        return get_maestral_daemon_proxy(CONFIG_NAME)
 
     def setup_ui_unlinked(self):
 
@@ -175,7 +176,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         # ------------- connect callbacks for menu items -------------------
         self.openDropboxFolderAction.triggered.connect(
-            lambda: self.open_destination(self.mdbx.dropbox_path))
+            lambda: click.launch(self.mdbx.dropbox_path))
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.loginAction.setChecked(self.autostart.enabled)
         self.helpAction.triggered.connect(self.on_help_clicked)
@@ -201,10 +202,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.separator1 = self.menu.addSeparator()
 
-        self.accountEmailAction = self.menu.addAction(CONF.get("account", "email"))
+        self.accountEmailAction = self.menu.addAction(self.mdbx.get_conf("account", "email"))
         self.accountEmailAction.setEnabled(False)
 
-        self.accountUsageAction = self.menu.addAction(CONF.get("account", "usage"))
+        self.accountUsageAction = self.menu.addAction(self.mdbx.get_conf("account", "usage"))
         self.accountUsageAction.setEnabled(False)
 
         self.separator2 = self.menu.addSeparator()
@@ -220,6 +221,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.separator3 = self.menu.addSeparator()
 
         self.preferencesAction = self.menu.addAction("Preferences...")
+        self.updatesAction = self.menu.addAction("Check for Updates...")
         self.helpAction = self.menu.addAction("Help Center")
 
         self.separator4 = self.menu.addSeparator()
@@ -229,16 +231,22 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.separator5 = self.menu.addSeparator()
 
-        self.quitAction = self.menu.addAction("Quit Maestral")
+        if self.started:
+            self.quitAction = self.menu.addAction("Quit Maestral")
+        else:
+            self.quitAction = self.menu.addAction("Quit Maestral GUI")
 
         # --------- connect callbacks for menu items ------------
         self.openDropboxFolderAction.triggered.connect(
-            lambda: self.open_destination(self.mdbx.dropbox_path))
+            lambda: click.launch(self.mdbx.dropbox_path))
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.pauseAction.triggered.connect(self.on_start_stop_clicked)
+        self.preferencesAction.triggered.connect(self.settings.populate_gui)
         self.preferencesAction.triggered.connect(self.settings.show)
         self.preferencesAction.triggered.connect(self.settings.raise_)
         self.preferencesAction.triggered.connect(self.settings.activateWindow)
+        self.updatesAction.triggered.connect(lambda: self.on_check_for_updates(
+            user_requested=True))
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.reload)
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.show)
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.raise_)
@@ -255,53 +263,65 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         else:
             self.recentFilesMenu.aboutToShow.connect(self.update_recent_files)
 
-        # ------------- connect UI to signals -------------------
-        info_handler.info_signal.connect(self.statusAction.setText)
-        info_handler.info_signal.connect(self.on_info_signal)
-        self.usage_signal.connect(self.on_usage_available)
-
         # --------------- switch to idle icon -------------------
         self.setIcon(self.icons[IDLE])
 
+        # ----------- check for updates and notify user ---------
+        self._update_timer = QtCore.QTimer()
+        self._update_timer.timeout.connect(self.auto_check_for_updates)
+        self._update_timer.start(30*60*1000)  # every 30 min
+
     # callbacks for user interaction
 
-    @staticmethod
-    def open_destination(path, reveal=False):
-        """Open the item at the given path. If the item is a file, attempt to open it
-        in the systems default program. If ``reveal == True``, reveal the file in the
-        systems default file manager instead."""
-        path = os.path.abspath(os.path.normpath(path))
-        if platform.system() == "Darwin":
-            if reveal:
-                subprocess.run(["open", "--reveal", path])
-            else:
-                subprocess.run(["open", path])
-        elif platform.system() == "Linux":
-            if reveal:
-                if HAS_GTK_LAUNCH:
-                    # if gtk-launch is available, query for the default file manager and
-                    # reveal file in the latter
-                    file_manager = os.popen("xdg-mime query default inode/directory").read()
-                    subprocess.run(["gtk-launch", file_manager.strip(), path])
-                else:
-                    # otherwise open the containing directory
-                    if not os.path.isdir(path):
-                        path = os.path.dirname(path)
-                    subprocess.run(["xdg-open", path])
-            else:
-                subprocess.run(["xdg-open", path])
-        else:
-            pass
+    def auto_check_for_updates(self):
+        last_update = self.mdbx.get_conf("app", "update_notification_last")
+        interval = self.mdbx.get_conf("app", "update_notification_last")
+        if interval == 0:  # checks disabled
+            return
+        elif time.time() - last_update > interval:
+            self.on_check_for_updates(user_requested=False)
+
+    def on_check_for_updates(self, user_requested=True):
+
+        checker = MaestralBackgroundTask(self, "check_for_updates")
+        checker.sig_done.connect(
+            lambda res: self._notify_updates(res, user_requested=user_requested))
+
+    def _notify_updates(self, res, user_requested=True):
+
+        if user_requested and res["error"]:
+            update_dialog = UserDialog("Could not check for updates", res["error"])
+            update_dialog.exec_()
+
+        elif res["update_available"]:
+            if not user_requested:  # save last update time
+                self.mdbx.set_conf("app", "update_notification_last", time.time())
+            url_r = "https://github.com/samschott/maestral-dropbox/releases"
+            message = (
+                'Maestral v{0} is available. Please use your package manager to '
+                'update Maestral or go to the <a href=\"{1}\"><span '
+                'style="text-decoration: underline; color:#2874e1;">releases</span></a> '
+                'page to download the new version. '
+                '<div style="height:5px;font-size:5px;">&nbsp;<br></div>'
+                '<b>Release notes:</b>'
+            ).format(res["latest_release"], url_r)
+            update_dialog = UserDialog("Update available", message, res["release_notes"])
+            update_dialog.exec_()
+
+        elif user_requested and not res["update_available"]:
+            message = 'Maestral v{0} is the newest version available.'.format(res["latest_release"])
+            update_dialog = UserDialog("You’re up-to-date!", message)
+            update_dialog.exec_()
 
     @staticmethod
     def on_website_clicked():
         """Open the Dropbox website."""
-        webbrowser.open_new("https://www.dropbox.com/")
+        click.launch("https://www.dropbox.com/")
 
     @staticmethod
     def on_help_clicked():
         """Open the Dropbox help website."""
-        webbrowser.open_new("https://dropbox.com/help")
+        click.launch("https://dropbox.com/help")
 
     def on_start_stop_clicked(self):
         """Pause / resume syncing on menu item clicked."""
@@ -315,37 +335,39 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.mdbx.start_sync()
             self.pauseAction.setText("Pause Syncing")
 
-    def on_usage_available(self, space_usage):
+    def on_space_usage(self):
         """Update account usage info in UI."""
-        self.accountUsageAction.setText(repr(space_usage))
-        self.settings.labelSpaceUsage.setText(str(space_usage))
+        self.accountUsageAction.setText(self.mdbx.get_conf("account", "usage"))
 
-    def on_error(self, exc_info):
-        exc_type, exc, tb = exc_info
+    def on_error(self):
+        errs = self.mdbx.get_maestral_errors()
+        self.mdbx.clear_maestral_errors()
 
-        if isinstance(exc, RevFileError):
+        if len(errs) == 0:
+            return
+
+        err = errs[-1]
+
+        if err["type"] in ("RevFileError", "BadInputError"):
             # show error dialog to user
             title = "Maestral Error"
-            message = exc.args[0]
+            message = err["message"]
             self._stop_and_exec_error_dialog(title, message)
-        elif isinstance(exc, CursorResetError):
+        elif err["type"] == "CursorResetError":
             title = "Dropbox has reset its sync state."
             message = 'Please go to "Rebuild index..." to re-sync your Dropbox.'
             self._stop_and_exec_error_dialog(title, message)
-        elif isinstance(exc, DropboxDeletedError):
+        elif err["type"] == "DropboxDeletedError":
             self.mdbx.stop_sync()
             quit_and_restart_maestral()
-        elif isinstance(exc, DropboxAuthError):
-            reason = RelinkDialog.EXPIRED if isinstance(exc, TokenExpiredError) else RelinkDialog.REVOKED
-            self._stop_and_exec_relink_dialog(reason)
-        elif isinstance(exc, MaestralApiError):
-            # don't show dialog on all other MaestralApiErrors, they are "normal" sync
-            # issues which can be resolved by the user
-            pass
+        elif err["type"] == "DropboxAuthError":
+            self._stop_and_exec_relink_dialog(RelinkDialog.REVOKED)
+        elif err["type"] == "TokenExpiredError":
+            self._stop_and_exec_relink_dialog(RelinkDialog.EXPIRED)
         else:
             title = "An unexpected error occurred."
             message = "Please contact the Maestral developer with the information below."
-            self._stop_and_exec_error_dialog(title, message, exc_info)
+            self._stop_and_exec_error_dialog(title, message, err["traceback"])
 
     def on_rebuild(self):
 
@@ -385,31 +407,41 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def update_recent_files(self):
         """Update menu with list of recently changed files."""
         self.recentFilesMenu.clear()
-        for dbx_path in reversed(CONF.get("internal", "recent_changes")):
+        for dbx_path in reversed(self.mdbx.get_conf("internal", "recent_changes")):
             file_name = os.path.basename(dbx_path)
-            local_path = self.mdbx.sync.to_local_path(dbx_path)
-            truncated_name = elide_string(file_name, font=self.menu.font(),
-                                          side="right")
+            truncated_name = elide_string(file_name, font=self.menu.font(), side="right")
+            local_path = self.mdbx.to_local_path(dbx_path)
             a = self.recentFilesMenu.addAction(truncated_name)
-            a.triggered.connect(lambda: self.open_destination(local_path, reveal=True))
+            a.triggered.connect(
+                lambda _, lp=local_path: click.launch(lp, locate=True))
 
-    def on_info_signal(self, status):
+    def on_status(self):
         """Change icon according to status."""
 
         n_errors = len(self.mdbx.sync_errors)
+        status = self.mdbx.status
+
+        if status == self._status and n_errors == self._n_errors:
+            return
 
         if n_errors > 0:
             self.syncIssuesAction.setText("Show Sync Issues ({0})...".format(n_errors))
         else:
             self.syncIssuesAction.setText("Show Sync Issues...")
 
-        if n_errors > 0 and status != PAUSED:
+        if n_errors > 0:
             new_icon = self.icons[SYNC_ERROR]
         else:
             new_icon = self.icons.get(status, self.icons[SYNCING])
 
         self.setIcon(new_icon)
-        self.setToolTip(status)
+
+        status_short = elide_string(status)
+        self.statusAction.setText(status_short)
+        self.setToolTip(status_short)
+
+        self._n_errors = n_errors
+        self._status = status
 
     def setToolTip(self, text):
         if not platform.system() == "Darwin":
@@ -418,8 +450,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def quit(self):
         """Quit Maestral"""
-        if self.mdbx:
+        if self.started and self.mdbx:
             self.mdbx.stop_sync()
+            if not is_macos_bundle:
+                stop_maestral_daemon_process(CONFIG_NAME)
         self.deleteLater()
         QtCore.QCoreApplication.quit()
         sys.exit(0)
@@ -433,10 +467,11 @@ def run():
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
 
-    app = QtWidgets.QApplication(["Maestral"])
+    app = QtWidgets.QApplication(["Maestral GUI"])
     app.setQuitOnLastWindowClosed(False)
 
     maestral_gui = MaestralGuiApp()
+    app.processEvents()  # refresh ui before loading the Maestral daemon
     maestral_gui.load_maestral()
     sys.exit(app.exec_())
 
