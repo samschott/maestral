@@ -14,7 +14,7 @@ Details are given below.
 #### Added:
 
 - Method to get the sync status of individual files or folders. This is also accessible
-  through the CLI via `maestal file-status LOCAL_PATH`. In the future, this could be used
+  through the CLI via `maestral file-status LOCAL_PATH`. In the future, this could be used
   by file manager plugins to overlay the sync status of files.
 - Support to exclude subfolders in the main API, CLI and GUI.
 - Added a command group `maestral excluded` to view and manage excluded folders. Available
@@ -55,7 +55,7 @@ Details are given below.
 
 - Fixed an incorrect error being raised for a corrupted rev file, which could lead to a
   crash or misleading error message.
-- Fixed a bug which would cause a renamed file with a previsously invalid name not to sync
+- Fixed a bug which would cause a renamed file with a previously invalid name not to sync
   to Dropbox.
 - Fixed a bug in the GUI which would cause clicking on a recently changed file to reveal
   the wrong item in the file manager.
