@@ -78,6 +78,7 @@ def get_system_tray_icon(status, geometry=None):
     is_gnome3 = gnome_version is not None and gnome_version[0] >= 3
 
     if DESKTOP == "gnome" and is_gnome3:
+        # use symbolic SVG icons created for Gnome 3
         icon_theme_paths = QtGui.QIcon.themeSearchPaths()
         maestral_icon_path = os.path.join(_root, "icon-theme-gnome")
         if maestral_icon_path not in icon_theme_paths:
@@ -85,10 +86,11 @@ def get_system_tray_icon(status, geometry=None):
         QtGui.QIcon.setThemeSearchPaths(icon_theme_paths)
         icon = QtGui.QIcon.fromTheme("menubar_icon_{}-symbolic".format(status))
     elif DESKTOP == "cocoa":
+        # use default dark SVG icons, macOS will adjust the color as needed
         icon = QtGui.QIcon(TRAY_ICON_PATH_SVG.format(status, "dark"))
         icon.setIsMask(True)
     else:
-        # use PNG icons unless we know that the platform works with our SVGs
+        # use PNG icons with color to contrast status bar background
         icon_color = "light" if isDarkStatusBar(geometry) else "dark"
         icon = QtGui.QIcon(TRAY_ICON_PATH_PNG.format(status, icon_color))
         icon.setIsMask(True)
@@ -105,20 +107,18 @@ def statusBarTheme(icon_geometry=None):
     icon. If not given, we try to guess the location of the system tray.
     """
 
-    # ---------------- check for the status bar color --------------------------
+    # --------------------- check for the status bar color -------------------------
 
-    # see if we can trust returned pixel colors (work around for a bug in Qt with KDE
-    # where all screenshots return black)
+    # see if we can trust returned pixel colors
+    # (work around for a bug in Qt with KDE where all screenshots return black)
 
     c0 = __pixel_at(10, 10)
     c1 = __pixel_at(300, 400)
     c2 = __pixel_at(800, 800)
 
-    if not c0 == c1 == c2 == (0, 0, 0):
+    if not c0 == c1 == c2 == (0, 0, 0):  # we can trust pixel colors from screenshots
 
-        if not icon_geometry or icon_geometry.isEmpty():
-
-            # ---------------- guess the location of the status bar ----------------
+        if not icon_geometry or icon_geometry.isEmpty():  # guess the location of the status bar
 
             rec_screen = QtWidgets.QApplication.desktop().screenGeometry()  # screen size
             rec_available = QtWidgets.QApplication.desktop().availableGeometry()  # available size
@@ -138,20 +138,18 @@ def statusBarTheme(icon_geometry=None):
             px = taskBarRect.left() + 2
             py = taskBarRect.bottom() - 2
 
-        else:
+        else:  # use the given location from icon_geometry
             px = icon_geometry.left()
             py = icon_geometry.bottom()
 
-        # ------------- calculate luminance of bottom right pixel ---------------
-
-        # get pixel color from icon corner or status bar
+        # get pixel luminance from icon corner or status bar
         pixel_rgb = __pixel_at(px, py)
         lum = rgb_to_luminance(*pixel_rgb)
 
         return THEME_LIGHT if lum >= 0.4 else THEME_DARK
 
     else:
-        # ---------------------- check icon theme for hints -----------------------
+        # -------------------- check icon theme for hints --------------------------
         theme_name = QtGui.QIcon.themeName().lower()
 
         if theme_name in ("breeze-dark", "adwaita-dark", "ubuntu-mono-dark", "humanity-dark"):
