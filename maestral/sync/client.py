@@ -63,6 +63,14 @@ def bytesto(value, unit, bsize=1024):
 
 class SpaceUsage(dropbox.users.SpaceUsage):
 
+    def allocation_type(self):
+        if self.allocation.is_team():
+            return "team"
+        elif self.allocation.is_individual():
+            return "individual"
+        else:
+            return ""
+
     def __str__(self):
 
         if self.allocation.is_team():
@@ -146,18 +154,18 @@ class MaestralApiClient(object):
         :rtype: dropbox.users.FullAccount
         """
         try:
-            res = self.dbx.users_get_current_account()  # should only raise auth errors
+            res = self.dbx.users_get_current_account()
         except dropbox.exceptions.DropboxException as exc:
             raise api_to_maestral_error(exc)
 
         if res.account_type.is_basic():
-            account_type = 'basic'
+            account_type = "basic"
         elif res.account_type.is_business():
-            account_type = 'business'
+            account_type = "business"
         elif res.account_type.is_pro():
-            account_type = 'pro'
+            account_type = "pro"
         else:
-            account_type = ''
+            account_type = ""
 
         CONF.set("account", "account_id", res.account_id)
         CONF.set("account", "email", res.email)
@@ -179,16 +187,12 @@ class MaestralApiClient(object):
         except dropbox.exceptions.DropboxException as exc:
             raise api_to_maestral_error(exc)
 
-        # convert from dropbox.users.SpaceUsage to SpaceUsage with nice string
-        # representation
+        # convert from dropbox.users.SpaceUsage to SpaceUsage
         res.__class__ = SpaceUsage
 
-        if res.allocation.is_team():
-            CONF.set("account", "usage_type", "team")
-        elif res.allocation.is_individual():
-            CONF.set("account", "usage_type", "individual")
-
+        # save results to config
         CONF.set("account", "usage", repr(res))
+        CONF.set("account", "usage_type", res.allocation_type())
 
         return res
 

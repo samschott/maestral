@@ -166,12 +166,14 @@ class SettingsWindow(QtWidgets.QWidget):
 
         acc_mail = self.mdbx.get_conf("account", "email")
         acc_type = self.mdbx.get_conf("account", "type")
+        acc_space_usage = self.mdbx.get_conf("account", "usage")
+
         if acc_type is not "":
             acc_type_text = ", Dropbox {0}".format(acc_type.capitalize())
         else:
             acc_type_text = ""
         self.labelAccountInfo.setText(acc_mail + acc_type_text)
-        self.labelSpaceUsage.setText(self.mdbx.get_conf("account", "usage"))
+        self.labelSpaceUsage.setText(acc_space_usage)
 
         self.download_task = MaestralBackgroundTask(self, "get_profile_pic")
         self.download_task.sig_done.connect(self.set_profile_pic_from_cache)
