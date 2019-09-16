@@ -1566,7 +1566,7 @@ def connection_helper(client, connected, syncing, running):
     while True:
         try:
             # use an inexpensive call to get_space_usage to test connection
-            res = client.get_space_usage()
+            res = client.get_space_usage(timeout=1)
             if not connected.is_set():
                 connected.set()
                 connected_signal.send()
