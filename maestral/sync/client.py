@@ -128,23 +128,30 @@ class MaestralApiClient(object):
     All Dropbox API errors are caught and handled here. ConnectionErrors will
     be caught and handled by :class:`MaestralMonitor` instead.
 
+    :param int timeout: Timeout for individual requests in sec. Defaults to 60 sec.
     """
 
     SDK_VERSION = "2.0"
+    _timeout = 60
 
-    def __init__(self):
+    def __init__(self, timeout=_timeout):
 
         # get Dropbox session
         self.auth = OAuth2Session()
         if not self.auth.load_token():
             self.auth.link()
+        self._timeout = timeout
         self._last_longpoll = None
         self._backoff = 0
         self._retry_count = 0
 
         # initialize API client
-        self.dbx = dropbox.Dropbox(self.auth.access_token, session=SESSION,
-                                   user_agent=USER_AGENT, timeout=60)
+        self.dbx = dropbox.Dropbox(
+            self.auth.access_token,
+            session=SESSION,
+            user_agent=USER_AGENT,
+            timeout=self._timeout
+        )
 
     def get_account_info(self):
         """
