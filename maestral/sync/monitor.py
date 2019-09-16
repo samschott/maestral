@@ -6,7 +6,6 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 # system imports
-import sys
 import os
 import os.path as osp
 import platform
@@ -443,22 +442,15 @@ class UpDownSync(object):
     #  Helper functions
     # ====================================================================================
 
-    def ensure_dropbox_folder_present(self, raise_exception=False):
+    def ensure_dropbox_folder_present(self):
         """
         Checks if the Dropbox folder still exists where we expect it to be.
 
-        :param bool raise_exception: If ``True``, raises an exception when the folder
-            cannot be found. If ``False``, this function only create an entry in the log.
-            Defaults to ``False``.
         :raises: DropboxDeletedError
         """
 
         if not osp.isdir(self.dropbox_path):
-            exc = DropboxDeletedError("Dropbox folder has been moved or deleted.")
-            logger.error("Dropbox folder has been moved or deleted.",
-                         exc_info=(type(exc), exc, None))
-            if raise_exception:
-                raise exc
+            raise DropboxDeletedError("Dropbox folder has been moved or deleted.")
 
     def to_dbx_path(self, local_path):
         """
@@ -765,6 +757,7 @@ class UpDownSync(object):
         :return: (list of file events, time_stamp)
         :rtype: (list, float)
         """
+        self.ensure_dropbox_folder_present()
         try:
             events = [self.queue_to_upload.get(timeout=timeout)]
         except queue.Empty:
@@ -1651,6 +1644,8 @@ def download_worker(sync, syncing, running, queue_downloading):
             logger.exception("Sync error", exc_info=True)
             syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
+        except Exception:
+            logger.exception("Unexpected error")
         finally:
             # clear queue_downloading
             queue_downloading.queue.clear()
@@ -1677,39 +1672,42 @@ def upload_worker(sync, syncing, running, queue_uploading):
 
     while running.is_set():
 
-        # wait until resumed, check collect changes while inactive
-        if not syncing.is_set():
-            syncing.wait()
-            sync.collect_local_changes_while_inactive()
+        try:
+            # wait until resumed, check collect changes while inactive
+            if not syncing.is_set():
+                syncing.wait()
+                sync.collect_local_changes_while_inactive()
 
-        # wait for local changes
-        events, local_cursor = sync.wait_for_local_changes(timeout=2)
+            # wait for local changes
+            events, local_cursor = sync.wait_for_local_changes(timeout=2)
 
-        # flag files as uploading
-        for e in events:
-            queue_uploading.put(e.src_path)
+            # flag files as uploading
+            for e in events:
+                queue_uploading.put(e.src_path)
 
-        # check if local directory still exists
-        sync.ensure_dropbox_folder_present(raise_exception=True)
-
-        if len(events) > 0:
-            # apply changes
-            with sync.lock:
-                try:
+            if len(events) > 0:
+                # apply changes
+                with sync.lock:
                     logger.info(SYNCING)
                     sync.apply_local_changes(events, local_cursor)
                     logger.info(IDLE)
-                except CONNECTION_ERRORS as e:
-                    logger.info(DISCONNECTED)
-                    logger.debug(e)
-                    disconnected_signal.send()
-                    syncing.clear()   # must be started again from outside
-        else:
-            # just update local cursor
-            if syncing.is_set():
-                sync.last_sync = local_cursor
-
-        queue_uploading.queue.clear()
+            else:
+                # just update local cursor
+                if syncing.is_set():
+                    sync.last_sync = local_cursor
+        except CONNECTION_ERRORS as e:
+            logger.info(DISCONNECTED)
+            logger.debug(e)
+            disconnected_signal.send()
+            syncing.clear()   # must be started again from outside
+        except DropboxDeletedError:
+            logger.exception("Dropbox folder has been moved or deleted.")
+            syncing.clear()  # stop syncing
+            running.clear()  # shutdown threads
+        except Exception:
+            logger.exception("Unexpected error")
+        finally:
+            queue_uploading.queue.clear()
 
 
 # ========================================================================================
