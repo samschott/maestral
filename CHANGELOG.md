@@ -1,3 +1,14 @@
+### v0.4.1
+
+#### Changed:
+
+- Timeout connection check after 1 sec. This improves how quickly Maestral notices that
+  there is not connection to Dropbox servers.
+
+#### Fixed:
+
+- Catch unexpected exceptions in sync threads.
+
 ### v0.4.0
 
 Main changes are:
