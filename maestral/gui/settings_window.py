@@ -104,23 +104,9 @@ class SettingsWindow(QtWidgets.QWidget):
 
     def populate_gui(self):
 
-        # populate account name
-        account_display_name = self.mdbx.get_conf("account", "display_name")
-        # if the display name is longer than 230 pixels, reduce font-size
-        if NEW_QT:
-            account_display_name_length = QtGui.QFontMetrics(
-                self.labelAccountName.font()).horizontalAdvance(account_display_name)
-        else:
-            account_display_name_length = QtGui.QFontMetrics(
-                self.labelAccountName.font()).width(account_display_name)
-        if account_display_name_length > 240:
-            font = get_scaled_font(scaling=1.5*240/account_display_name_length)
-            self.labelAccountName.setFont(font)
-        self.labelAccountName.setText(self.mdbx.get_conf("account", "display_name"))
-
         # populate account info
-        self.profile_pic_height = round(self.labelUserProfilePic.height() * 0.7)
         self.set_profile_pic_from_cache()
+        self.set_account_info_from_cache()
         self.update_account_info()
 
         # populate sync section
@@ -152,7 +138,7 @@ class SettingsWindow(QtWidgets.QWidget):
 
     def set_profile_pic_from_cache(self):
 
-        height = self.profile_pic_height
+        height = round(self.labelUserProfilePic.height() * 0.7)
 
         try:
             pixmap = get_masked_image(self.mdbx.account_profile_pic_path, size=height)
@@ -162,11 +148,24 @@ class SettingsWindow(QtWidgets.QWidget):
 
         self.labelUserProfilePic.setPixmap(pixmap)
 
-    def update_account_info(self):
+    def set_account_info_from_cache(self):
 
+        acc_display_name = self.mdbx.get_conf("account", "display_name")
         acc_mail = self.mdbx.get_conf("account", "email")
         acc_type = self.mdbx.get_conf("account", "type")
         acc_space_usage = self.mdbx.get_conf("account", "usage")
+
+        # if the display name is longer than 230 pixels, reduce font-size
+        if NEW_QT:
+            account_display_name_length = QtGui.QFontMetrics(
+                self.labelAccountName.font()).horizontalAdvance(acc_display_name)
+        else:
+            account_display_name_length = QtGui.QFontMetrics(
+                self.labelAccountName.font()).width(acc_display_name)
+        if account_display_name_length > 240:
+            font = get_scaled_font(scaling=1.5*240/account_display_name_length)
+            self.labelAccountName.setFont(font)
+        self.labelAccountName.setText(self.mdbx.get_conf("account", "display_name"))
 
         if acc_type is not "":
             acc_type_text = ", Dropbox {0}".format(acc_type.capitalize())
@@ -175,8 +174,13 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelAccountInfo.setText(acc_mail + acc_type_text)
         self.labelSpaceUsage.setText(acc_space_usage)
 
-        self.download_task = MaestralBackgroundTask(self, "get_profile_pic")
-        self.download_task.sig_done.connect(self.set_profile_pic_from_cache)
+    def update_account_info(self):
+
+        self.load_profile_pic = MaestralBackgroundTask(self, "get_profile_pic")
+        self.load_profile_pic.sig_done.connect(self.set_profile_pic_from_cache)
+
+        self.load_account_info = MaestralBackgroundTask(self, "get_account_info")
+        self.load_account_info.sig_done.connext(self.set_account_info_from_cache)
 
     def on_combobox_path(self, idx):
         if idx == 2:
