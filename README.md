@@ -61,8 +61,6 @@ commands. The most important are:
 - `maestral ls DROPBOX_PATH`: Lists the contents of a directory on Dropbox.
 - `maestral log show|clear|level`: Command group to manage logging.
 
-Use `maestral --help` to view all available commands.
-
 Maestral currently supports the syncing of multiple Dropbox accounts by running multiple
 instances. This needs to be configured from the command line. For example, before running
 `maestral gui`, one can set up a new configuration with `maestral config new`. The
