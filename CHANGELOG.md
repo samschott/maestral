@@ -1,5 +1,10 @@
 ### v0.4.1
 
+#### Added:
+
+- `ExcludedItemError`: is raised when creating a local item which already exists on
+  Dropbox but has been been excluded from syncing.
+
 #### Changed:
 
 - Timeout connection check after 1 sec. This improves how quickly Maestral notices that
@@ -8,6 +13,7 @@
 #### Fixed:
 
 - Catch unexpected exceptions in sync threads.
+- Do not upload changes to an excluded folder but raise a sync issue instead.
 
 ### v0.4.0
 

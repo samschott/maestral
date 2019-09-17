@@ -38,7 +38,8 @@ from maestral.config.main import CONF
 from maestral.sync.utils.content_hasher import DropboxContentHasher
 from maestral.sync.utils.notify import Notipy
 from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, CursorResetError,
-                                  RevFileError, DropboxDeletedError, DropboxAuthError)
+                                  RevFileError, DropboxDeletedError, DropboxAuthError,
+                                  ExcludedItemError)
 
 
 logger = logging.getLogger(__name__)
@@ -848,6 +849,39 @@ class UpDownSync(object):
 
         return events, local_cursor
 
+    def filter_excluded_changes_local(self, events):
+
+        events_filtered = []
+        events_excluded = []
+
+        for event in events:
+
+            if event.event_type is EVENT_TYPE_MOVED:
+                local_path = event.dest_path
+            else:
+                local_path = event.src_path
+            dbx_path = self.to_dbx_path(local_path)
+
+            if self.is_excluded(dbx_path):  # is excluded?
+                events_excluded.append(event)
+            elif self.is_excluded_by_user(dbx_path):  # is excluded by user?
+                if event.event_type is EVENT_TYPE_DELETED:
+                    self.clear_sync_error(local_path, dbx_path)
+                else:
+                    title = "Could not upload"
+                    message = ("Another item with the same name already exists on " +
+                               "Dropbox but is excluded from syncing.")
+                    exc = ExcludedItemError(title, message, dbx_path=dbx_path,
+                                            local_path=local_path)
+                    logger.warning(SYNC_ERROR, exc_info=(type(exc), exc, None))
+                    self.sync_errors.put(exc)
+                    self.failed_uploads.put(event)
+                events_excluded.append(event)
+            else:
+                events_filtered.append(event)
+
+        return events_filtered, events_excluded
+
     def apply_local_changes(self, events, local_cursor):
         """
         Applies locally detected events to remote Dropbox.
@@ -858,12 +892,15 @@ class UpDownSync(object):
             otherwise.
         :rtype: bool
         """
+
+        filtered_events, _ = self.filter_excluded_changes_local(events)
+
         num_threads = os.cpu_count() * 2
         success = []
         last_emit = time.time()
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            fs = [executor.submit(self._apply_event, e) for e in events]
-            n_files = len(events)
+            fs = [executor.submit(self._apply_event, e) for e in filtered_events]
+            n_files = len(filtered_events)
             for (f, n) in zip(as_completed(fs), range(1, n_files+1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
                     # emit message at maximum every second
@@ -955,6 +992,7 @@ class UpDownSync(object):
 
         self.clear_sync_error(local_path=event.src_path)
 
+        # apply event
         if event.event_type is EVENT_TYPE_CREATED:
             self._on_created(event)
         elif event.event_type is EVENT_TYPE_MOVED:
@@ -993,11 +1031,7 @@ class UpDownSync(object):
         dbx_path_old = self.to_dbx_path(event.src_path)
         dbx_path_new = self.to_dbx_path(event.dest_path)
 
-        # Is item excluded?
-        if self.is_excluded(dbx_path_new):
-            return
-
-        # Does item exist on Dropbox?
+        # do items exist on Dropbox?
         md_old = self.client.get_metadata(dbx_path_old)
 
         if not md_old:
@@ -1042,10 +1076,6 @@ class UpDownSync(object):
 
         path = event.src_path
         dbx_path = self.to_dbx_path(path)
-
-        # is file excluded?
-        if self.is_excluded(dbx_path):
-            return
 
         if event.is_directory:
             # check if directory is not yet on Dropbox, else leave alone
@@ -1094,15 +1124,6 @@ class UpDownSync(object):
 
         path = event.src_path
         dbx_path = self.to_dbx_path(path)
-
-        # is file excluded?
-        if self.is_excluded(dbx_path):
-            return
-
-        # do not propagate deletions that result from excluding a folder!
-        if self.is_excluded_by_user(dbx_path):
-            self.set_local_rev(dbx_path, None)
-            return
 
         md = self.client.remove(dbx_path)
 
@@ -1207,20 +1228,24 @@ class UpDownSync(object):
         """Wraps MaestralApiClient.list_remove_changes and catches sync errors."""
         return self.client.list_remote_changes(last_cursor)
 
-    def filter_excluded_changes(self, changes):
+    def filter_excluded_changes_remote(self, changes):
         """Removes all excluded items from the given list of changes.
 
         :param changes: :class:`dropbox.files.ListFolderResult` instance.
-        :return: :class:`dropbox.files.ListFolderResult` instance.
+        :return: (changes_filtered, changes_discarded)
+        :rtype: tuple[:class:`dropbox.files.ListFolderResult`]
         """
         # filter changes from non-excluded folders
         entries_filtered = [e for e in changes.entries if not self.is_excluded_by_user(
-            e.path_lower)]
+            e.path_lower) or self.is_excluded(e.path_lower)]
+        entries_discarded = list(set(changes.entries) - set(entries_filtered))
 
-        result_filtered = dropbox.files.ListFolderResult(
+        changes_filtered = dropbox.files.ListFolderResult(
             entries=entries_filtered, cursor=changes.cursor, has_more=False)
+        changes_discarded = dropbox.files.ListFolderResult(
+            entries=entries_discarded, cursor=changes.cursor, has_more=False)
 
-        return result_filtered
+        return changes_filtered, changes_discarded
 
     def apply_remote_changes(self, changes, save_cursor=True):
         """
@@ -1240,8 +1265,17 @@ class UpDownSync(object):
         if not changes:
             return False
 
+        # filter out excluded changes
+        changes_filtered, changes_excluded = self.filter_excluded_changes_remote(changes)
+
+        # remove all deleted items from the excluded list
+        _, _, deleted_excluded = self._sort_entries(changes_excluded)
+        for d in deleted_excluded:
+            new_excluded = [f for f in self.excluded_folders if not f.startswith(d.path_lower)]
+            self.excluded_folders = new_excluded
+
         # sort changes into folders, files and deleted
-        folders, files, deleted = self._sort_entries(changes)
+        folders, files, deleted = self._sort_entries(changes_filtered)
 
         # sort according to path hierarchy
         # do not create sub-folder / file before parent exists
@@ -1285,7 +1319,7 @@ class UpDownSync(object):
 
     def is_excluded_by_user(self, dbx_path):
         """
-        Check if file is excluded from sync.
+        Check if file has been excluded from sync by the user.
 
         :param str dbx_path: Path of folder on Dropbox.
         :return: ``True`` or `False`.
@@ -1329,16 +1363,15 @@ class UpDownSync(object):
         # in excluded files?
         test0 = basename in ["desktop.ini",  "thumbs.db", ".ds_store", "icon\r",
                              ".dropbox.attr", OLD_REV_FILE, REV_FILE]
-        # check for temporary files
-        # macOS autosave files
+
+        # is temporary file?
+        # 1) macOS autosave files
         test1 = basename.count(".") > 1 and osp.splitext(basename)[-1].startswith(".sb-")
-        # office temporary files
+        # 2) office temporary files
         test2 = basename.startswith("~$")
         test3 = basename.startswith(".~")
-        # other temporary files
+        # 3) other temporary files
         test4 = basename.startswith("~") and basename.endswith(".tmp")
-
-        # forbidden file path: Don't do any thing. Handle the Dropbox API error instead.
 
         return any((test0, test1, test2, test3, test4))
 
@@ -1457,19 +1490,13 @@ class UpDownSync(object):
         return folders, files, deleted
 
     @catch_sync_issues(sync_errors, failed_downloads)
-    def _create_local_entry(self, entry, check_excluded=True):
+    def _create_local_entry(self, entry):
         """
         Creates local file / folder for remote entry.
 
         :param class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
         :raises: MaestralApiError on failure.
         """
-
-        if self.is_excluded(entry.path_display):
-            return
-
-        if check_excluded and self.is_excluded_by_user(entry.path_display):
-            return
 
         local_path = self.to_local_path(entry.path_display)
 
@@ -1618,8 +1645,7 @@ def download_worker(sync, syncing, running, queue_downloading):
                 with sync.lock:
                     # get changes
                     changes = sync.list_remote_changes(sync.last_cursor)
-                    # filter out excluded folders
-                    changes = sync.filter_excluded_changes(changes)
+
                     # notify user about changes
                     sync.notify_user(changes)
 

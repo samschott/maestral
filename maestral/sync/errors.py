@@ -57,6 +57,11 @@ class PathError(MaestralApiError):
     pass
 
 
+class ExcludedItemError(MaestralApiError):
+    """Raised when an item which is excluded form syncing is created locally."""
+    pass
+
+
 class DropboxServerError(MaestralApiError):
     """Raised in case of internal Dropbox errors."""
     pass
@@ -402,6 +407,7 @@ SYNC_ERRORS = (
     PathError,
     RestrictedContentError,
     UnsupportedFileError,
+    ExcludedItemError,
 )
 
 OS_FILE_ERRORS = (
