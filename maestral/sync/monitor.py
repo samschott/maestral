@@ -60,90 +60,6 @@ OLD_REV_FILE = ".dropbox"
 # Syncing functionality
 # ========================================================================================
 
-def path_exists_case_insensitive(path, root="/"):
-    """
-    Checks if a `path` exists in given `root` directory, similar to
-    `os.path.exists` but case-insensitive. If there are multiple
-    case-insensitive matches, the first one is returned. If there is no match,
-    an empty string is returned.
-
-    :param str path: Relative path of item to find in the `root` directory.
-    :param str root: Directory where we will look for `path`.
-    :return: Absolute and case-sensitive path to search result on hard drive.
-    :rtype: str
-    """
-
-    if not osp.isdir(root):
-        raise ValueError("'{0}' is not a directory.".format(root))
-
-    if path in ["", "/"]:
-        return root
-
-    path_list = path.lstrip(osp.sep).split(osp.sep)
-    path_list_lower = [x.lower() for x in path_list]
-
-    i = 0
-    local_paths = []
-    for root, dirs, files in os.walk(root):
-        for d in list(dirs):
-            if not d.lower() == path_list_lower[i]:
-                dirs.remove(d)
-        for f in list(files):
-            if not f.lower() == path_list_lower[i]:
-                files.remove(f)
-
-        local_paths = [osp.join(root, name) for name in dirs + files]
-
-        i += 1
-        if i == len(path_list_lower):
-            break
-
-    if len(local_paths) == 0:
-        return ''
-    else:
-        return local_paths[0]
-
-
-def is_child(path1, path2):
-    """
-    Checks if :param:`path1` semantically is inside folder :param:`path2`. Neither
-    path must refer to an actual item on the drive. This function is case sensitive.
-
-    :param str path1: Folder path.
-    :param str path2: Parent folder path.
-    :returns: ``True`` if :param:`path1` semantically is a subfolder of :param:`path2`,
-        ``False`` otherwise (including ``path1 == path2``.
-    :rtype: bool
-    """
-    assert isinstance(path1, str)
-    assert isinstance(path2, str)
-
-    path2.rstrip(osp.sep)
-
-    return path1.startswith(path2 + osp.sep) and not path1 == path2
-
-
-def get_local_hash(dst_path):
-    """
-    Computes content hash of a local file.
-
-    :param str dst_path: Path to local file.
-    :return: content hash to compare with ``content_hash`` attribute of
-        :class:`dropbox.files.FileMetadata` object.
-    """
-
-    hasher = DropboxContentHasher()
-
-    with open(dst_path, 'rb') as f:
-        while True:
-            chunk = f.read(1024)
-            if len(chunk) == 0:
-                break
-            hasher.update(chunk)
-
-    return hasher.hexdigest()
-
-
 class TimedQueue(queue.Queue):
     """
     A queue that remembers the time of the last put.
@@ -335,7 +251,7 @@ class UpDownSync(object):
         self.queue_to_upload = queue_to_upload
 
         # migrate rev file
-        self.migrate_rev_file()
+        self._migrate_rev_file()
 
         # load cached properties
         self._dropbox_path = CONF.get("main", "path")
@@ -343,13 +259,13 @@ class UpDownSync(object):
         self._excluded_folders = CONF.get("main", "excluded_folders")
         self._rev_dict_cache = self._load_rev_dict_from_file()
 
-    def migrate_rev_file(self):
-        if os.path.isfile(self.old_rev_file_path):
-            shutil.copyfile(self.old_rev_file_path, self.rev_file_path)
-            os.remove(self.old_rev_file_path)
+    def _migrate_rev_file(self):
+        if os.path.isfile(self._old_rev_file_path):
+            shutil.copyfile(self._old_rev_file_path, self.rev_file_path)
+            os.remove(self._old_rev_file_path)
 
     @property
-    def old_rev_file_path(self):
+    def _old_rev_file_path(self):
         """Path to file with revision index (read only)."""
         return osp.join(self.dropbox_path, OLD_REV_FILE)
 
@@ -425,6 +341,10 @@ class UpDownSync(object):
         self._excluded_folders = clean_list
         CONF.set("main", "excluded_folders", clean_list)
 
+    # ====================================================================================
+    #  Helper functions
+    # ====================================================================================
+
     @staticmethod
     def clean_excluded_folder_list(folder_list):
         """Removes all duplicates from the excluded folder list."""
@@ -438,10 +358,6 @@ class UpDownSync(object):
             clean_folders_list = [f for f in clean_folders_list if not is_child(f, folder)]
 
         return clean_folders_list
-
-    # ====================================================================================
-    #  Helper functions
-    # ====================================================================================
 
     def ensure_dropbox_folder_present(self):
         """
@@ -665,11 +581,63 @@ class UpDownSync(object):
             with self.sync_errors.mutex:
                 self.sync_errors.queue.clear()
 
+    @staticmethod
+    def is_excluded(dbx_path):
+        """
+        Check if file is excluded from sync.
+
+        :param str dbx_path: Path of folder on Dropbox.
+        :return: ``True`` or `False`.
+        :rtype: bool
+        """
+        dbx_path = dbx_path.lower()
+
+        # is root folder?
+        if dbx_path in ["/", ""]:
+            return True
+
+        # information about excluded files:
+        # https://help.dropbox.com/installs-integrations/sync-uploads/files-not-syncing
+
+        basename = osp.basename(dbx_path)
+
+        # in excluded files?
+        test0 = basename in ["desktop.ini",  "thumbs.db", ".ds_store", "icon\r",
+                             ".dropbox.attr", OLD_REV_FILE, REV_FILE]
+
+        # is temporary file?
+        # 1) macOS autosave files
+        test1 = basename.count(".") > 1 and osp.splitext(basename)[-1].startswith(".sb-")
+        # 2) office temporary files
+        test2 = basename.startswith("~$")
+        test3 = basename.startswith(".~")
+        # 3) other temporary files
+        test4 = basename.startswith("~") and basename.endswith(".tmp")
+
+        return any((test0, test1, test2, test3, test4))
+
+    def is_excluded_by_user(self, dbx_path):
+        """
+        Check if file has been excluded from sync by the user.
+
+        :param str dbx_path: Path of folder on Dropbox.
+        :return: ``True`` or `False`.
+        :rtype: bool
+        """
+        dbx_path = dbx_path.lower()
+
+        # in excluded files?
+        test0 = dbx_path in self.excluded_files
+        # in excluded folders?
+        test1 = any(dbx_path == f or is_child(dbx_path, f) for f in self.excluded_folders)
+
+        return any((test0, test1))
+
     # ====================================================================================
     #  Upload sync
     # ====================================================================================
 
-    def collect_local_changes_while_inactive(self):
+    def get_local_changes_while_inactive(self):
         """
         Collects changes while sync has not been running and puts them in the
         `queue_upload`. Only file which occurred before calling this method will be
@@ -679,7 +647,7 @@ class UpDownSync(object):
         logger.info("Indexing...")
 
         try:
-            events = self._get_local_changes()
+            events = self._get_local_changes_while_inactive()
         except FileNotFoundError:
             self.ensure_dropbox_folder_present()
             return
@@ -690,7 +658,7 @@ class UpDownSync(object):
 
         logger.info(IDLE)
 
-    def _get_local_changes(self):
+    def _get_local_changes_while_inactive(self):
         """
         Gets all local changes while app has not been running. Call this method
         on startup of `MaestralMonitor` to upload all local changes.
@@ -1125,7 +1093,7 @@ class UpDownSync(object):
         path = event.src_path
         dbx_path = self.to_dbx_path(path)
 
-        md = self.client.remove(dbx_path)
+        self.client.remove(dbx_path)
 
         # remove revision metadata
         self.set_local_rev(dbx_path, None)
@@ -1142,10 +1110,6 @@ class UpDownSync(object):
 
         path = event.src_path
         dbx_path = self.to_dbx_path(path)
-
-        # is file excluded?
-        if self.is_excluded(dbx_path):
-            return
 
         if not event.is_directory:  # ignore directory modified events
             assert osp.isfile(path)
@@ -1317,67 +1281,10 @@ class UpDownSync(object):
 
         return True
 
-    def is_excluded_by_user(self, dbx_path):
-        """
-        Check if file has been excluded from sync by the user.
-
-        :param str dbx_path: Path of folder on Dropbox.
-        :return: ``True`` or `False`.
-        :rtype: bool
-        """
-        dbx_path = dbx_path.lower()
-
-        excluded = False
-
-        # in excluded files?
-        if dbx_path in self.excluded_files:
-            excluded = True
-
-        # in excluded folders?
-        for folder in self.excluded_folders:
-            if dbx_path == folder or is_child(dbx_path, folder):
-                excluded = True
-
-        return excluded
-
-    @staticmethod
-    def is_excluded(dbx_path):
-        """
-        Check if file is excluded from sync.
-
-        :param str dbx_path: Path of folder on Dropbox.
-        :return: ``True`` or `False`.
-        :rtype: bool
-        """
-        dbx_path = dbx_path.lower()
-
-        # is root folder?
-        if dbx_path in ["/", ""]:
-            return True
-
-        # information about excluded files:
-        # https://help.dropbox.com/installs-integrations/sync-uploads/files-not-syncing
-
-        basename = osp.basename(dbx_path)
-
-        # in excluded files?
-        test0 = basename in ["desktop.ini",  "thumbs.db", ".ds_store", "icon\r",
-                             ".dropbox.attr", OLD_REV_FILE, REV_FILE]
-
-        # is temporary file?
-        # 1) macOS autosave files
-        test1 = basename.count(".") > 1 and osp.splitext(basename)[-1].startswith(".sb-")
-        # 2) office temporary files
-        test2 = basename.startswith("~$")
-        test3 = basename.startswith(".~")
-        # 3) other temporary files
-        test4 = basename.startswith("~") and basename.endswith(".tmp")
-
-        return any((test0, test1, test2, test3, test4))
-
     def check_download_conflict(self, dbx_path):
         """
-        Check if local file is conflicting with remote file.
+        Check if local file is conflicting with remote file. The equivalent check when
+        uploading ("check_upload_conflict") will be carried out by Dropbox itself.
 
         :param str dbx_path: Path of folder on Dropbox.
         :return: 0 for no conflict, 1 for conflict, 2 if files are identical.
@@ -1385,7 +1292,7 @@ class UpDownSync(object):
         :raises: MaestralApiError if the Dropbox item does not exist.
         """
         # get corresponding local path
-        dst_path = self.to_local_path(dbx_path)
+        local_path = self.to_local_path(dbx_path)
 
         # get metadata of remote file
         md = self.client.get_metadata(dbx_path)
@@ -1394,7 +1301,7 @@ class UpDownSync(object):
                                    "Item does not exist on Dropbox", pbx_path=dbx_path)
 
         # no conflict if local file does not exist yet
-        if not osp.exists(dst_path):
+        if not osp.exists(local_path):
             logger.debug("Local file '%s' does not exist. No conflict.", dbx_path)
             return 0
 
@@ -1405,7 +1312,7 @@ class UpDownSync(object):
             # created on Dropbox and locally independent of each other.
             # Check actual content first before declaring conflict!
 
-            local_hash = get_local_hash(dst_path)
+            local_hash = get_local_hash(local_path)
 
             if not md.content_hash == local_hash:
                 logger.debug("Conflicting copy without rev.")
@@ -1593,7 +1500,7 @@ def connection_helper(client, connected, syncing, running):
     while True:
         try:
             # use an inexpensive call to get_space_usage to test connection
-            res = client.get_space_usage(timeout=5)
+            res = client.get_space_usage(timeout=10)
             if not connected.is_set():
                 connected.set()
                 connected_signal.send()
@@ -1667,7 +1574,7 @@ def download_worker(sync, syncing, running, queue_downloading):
             disconnected_signal.send()
             syncing.clear()  # must be started again from outside
         except CursorResetError:
-            logger.exception("Sync error", exc_info=True)
+            logger.exception("Sync error")
             syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
         except Exception:
@@ -1694,7 +1601,7 @@ def upload_worker(sync, syncing, running, queue_uploading):
 
     disconnected_signal = signal("disconnected_signal")
 
-    sync.collect_local_changes_while_inactive()
+    sync.get_local_changes_while_inactive()
 
     while running.is_set():
 
@@ -1702,7 +1609,7 @@ def upload_worker(sync, syncing, running, queue_uploading):
             # wait until resumed, check collect changes while inactive
             if not syncing.is_set():
                 syncing.wait()
-                sync.collect_local_changes_while_inactive()
+                sync.get_local_changes_while_inactive()
 
             # wait for local changes
             events, local_cursor = sync.wait_for_local_changes(timeout=2)
@@ -1947,3 +1854,91 @@ class MaestralMonitor(object):
             self.start()
         if was_paused:
             self.pause()
+
+
+# ========================================================================================
+# Helper functions
+# ========================================================================================
+
+def path_exists_case_insensitive(path, root="/"):
+    """
+    Checks if a `path` exists in given `root` directory, similar to
+    `os.path.exists` but case-insensitive. If there are multiple
+    case-insensitive matches, the first one is returned. If there is no match,
+    an empty string is returned.
+
+    :param str path: Relative path of item to find in the `root` directory.
+    :param str root: Directory where we will look for `path`.
+    :return: Absolute and case-sensitive path to search result on hard drive.
+    :rtype: str
+    """
+
+    if not osp.isdir(root):
+        raise ValueError("'{0}' is not a directory.".format(root))
+
+    if path in ["", "/"]:
+        return root
+
+    path_list = path.lstrip(osp.sep).split(osp.sep)
+    path_list_lower = [x.lower() for x in path_list]
+
+    i = 0
+    local_paths = []
+    for root, dirs, files in os.walk(root):
+        for d in list(dirs):
+            if not d.lower() == path_list_lower[i]:
+                dirs.remove(d)
+        for f in list(files):
+            if not f.lower() == path_list_lower[i]:
+                files.remove(f)
+
+        local_paths = [osp.join(root, name) for name in dirs + files]
+
+        i += 1
+        if i == len(path_list_lower):
+            break
+
+    if len(local_paths) == 0:
+        return ''
+    else:
+        return local_paths[0]
+
+
+def is_child(path1, path2):
+    """
+    Checks if :param:`path1` semantically is inside folder :param:`path2`. Neither
+    path must refer to an actual item on the drive. This function is case sensitive.
+
+    :param str path1: Folder path.
+    :param str path2: Parent folder path.
+    :returns: ``True`` if :param:`path1` semantically is a subfolder of :param:`path2`,
+        ``False`` otherwise (including ``path1 == path2``.
+    :rtype: bool
+    """
+    assert isinstance(path1, str)
+    assert isinstance(path2, str)
+
+    path2.rstrip(osp.sep)
+
+    return path1.startswith(path2 + osp.sep) and not path1 == path2
+
+
+def get_local_hash(local_path):
+    """
+    Computes content hash of a local file.
+
+    :param str local_path: Path to local file.
+    :return: content hash to compare with ``content_hash`` attribute of
+        :class:`dropbox.files.FileMetadata` object.
+    """
+
+    hasher = DropboxContentHasher()
+
+    with open(local_path, 'rb') as f:
+        while True:
+            chunk = f.read(1024)
+            if len(chunk) == 0:
+                break
+            hasher.update(chunk)
+
+    return hasher.hexdigest()
