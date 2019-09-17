@@ -420,6 +420,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         n_errors = len(self.mdbx.sync_errors)
         status = self.mdbx.status
+        is_paused = self.mdbx.paused
 
         if status == self._status and n_errors == self._n_errors:
             return
@@ -429,7 +430,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         else:
             self.syncIssuesAction.setText("Show Sync Issues...")
 
-        if n_errors > 0:
+        if is_paused:
+            new_icon = self.icons[PAUSED]
+        elif n_errors > 0:
             new_icon = self.icons[SYNC_ERROR]
         else:
             new_icon = self.icons.get(status, self.icons[SYNCING])
