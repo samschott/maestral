@@ -257,10 +257,10 @@ class Maestral(object):
 
         self.client = MaestralApiClient()
 
-        # periodically check for updates
+        # periodically check for updates and refresh account info
         self.update_thread = Thread(
             name="Maestral update check",
-            target=self._periodically_check_for_updates,
+            target=self._periodic_refresh,
             daemon=True,
         )
         self.update_thread.start()
@@ -285,7 +285,6 @@ class Maestral(object):
             if self.pending_first_download():
                 self.get_remote_dropbox_async("", callback=self.start_sync)
             else:
-                self.get_account_info()
                 self.start_sync()
 
     @staticmethod
@@ -817,8 +816,11 @@ Any changes to local files during this process may be lost.""")
         res = check_update_available()
         return res
 
-    def _periodically_check_for_updates(self):
+    def _periodic_refresh(self):
         while True:
+            # update account info
+            self.get_account_info()
+            # check for updates
             last_update = CONF.get("app", "update_notification_last")
             interval = CONF.get("app", "update_notification_last")
             if interval == 0:
@@ -827,7 +829,7 @@ Any changes to local files during this process may be lost.""")
                 res = self.check_for_updates()
                 if not res["error"]:
                     CONF.set("app", "latest_release", res["latest_release"])
-            time.sleep(60*60)
+            time.sleep(60*60)  # 20 min
 
     def shutdown_daemon(self):
         """Does nothing except for setting the _daemon_running flag to ``False``. This
