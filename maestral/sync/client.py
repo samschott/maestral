@@ -182,20 +182,15 @@ class MaestralApiClient(object):
 
         return res
 
-    def get_space_usage(self, timeout=_timeout):
+    def get_space_usage(self):
         """
         Gets current account space usage.
 
-        :param int timeout: Timeout in seconds for the request. Defaults to 60 sec.
         :returns: :class:`SpaceUsage` instance or `False` if failed.
         :rtype: SpaceUsage
         """
         try:
-            # use `request` here to specify custom timeout
-            res = self.dbx.request(
-                dropbox.users.get_space_usage, "users", None, None, timeout=timeout
-            )
-
+            res = self.dbx.users_get_space_usage()
         except dropbox.exceptions.DropboxException as exc:
             raise api_to_maestral_error(exc)
 
