@@ -35,27 +35,7 @@
    <property name="verticalSpacing">
     <number>20</number>
    </property>
-   <item row="3" column="4">
-    <widget class="QPushButton" name="pushButtonCancel">
-     <property name="text">
-      <string>Cancel</string>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="1" colspan="5">
-    <widget class="QLabel" name="titleLabel">
-     <property name="font">
-      <font>
-       <weight>75</weight>
-       <bold>true</bold>
-      </font>
-     </property>
-     <property name="text">
-      <string>Expired Dropbox access</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="1" colspan="5">
+   <item row="1" column="1" colspan="6">
     <widget class="QLabel" name="infoLabel">
      <property name="text">
       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your Dropbox access {0}. To continue syncing, please click &lt;a href=&quot;{1}&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#2874e1;&quot;&gt;here&lt;/span&gt;&lt;/a&gt; to retrieve a new authorization token from Dropbox and enter it below.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -65,36 +45,6 @@
      </property>
      <property name="openExternalLinks">
       <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="5">
-    <widget class="QPushButton" name="pushButtonLink">
-     <property name="enabled">
-      <bool>false</bool>
-     </property>
-     <property name="text">
-      <string>Link</string>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="1" colspan="5">
-    <widget class="QLineEdit" name="lineEditAuthCode">
-     <property name="text">
-      <string/>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-     </property>
-     <property name="placeholderText">
-      <string>Authorization token</string>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="2">
-    <widget class="QPushButton" name="pushButtonUnlink">
-     <property name="text">
-      <string>Unlink and Quit</string>
      </property>
     </widget>
    </item>
@@ -118,6 +68,56 @@
     </widget>
    </item>
    <item row="3" column="3">
+    <widget class="QPushButton" name="pushButtonUnlink">
+     <property name="text">
+      <string>Unlink and Quit</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="6">
+    <widget class="QPushButton" name="pushButtonLink">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="text">
+      <string>Link</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="1" colspan="6">
+    <widget class="QLabel" name="titleLabel">
+     <property name="font">
+      <font>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string>Expired Dropbox access</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1" colspan="6">
+    <widget class="QLineEdit" name="lineEditAuthCode">
+     <property name="text">
+      <string/>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+     </property>
+     <property name="placeholderText">
+      <string>Authorization token</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="5">
+    <widget class="QPushButton" name="pushButtonCancel">
+     <property name="text">
+      <string>Cancel</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="4">
     <spacer name="horizontalSpacer">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -133,21 +133,38 @@
      </property>
     </spacer>
    </item>
-   <item row="3" column="0" colspan="2">
-    <spacer name="horizontalSpacer_2">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
+   <item row="3" column="1">
+    <widget class="QProgressIndicator" name="progressIndicator" native="true">
+     <property name="minimumSize">
       <size>
-       <width>40</width>
-       <height>20</height>
+       <width>16</width>
+       <height>16</height>
       </size>
      </property>
-    </spacer>
+     <property name="maximumSize">
+      <size>
+       <width>16</width>
+       <height>16</height>
+      </size>
+     </property>
+    </widget>
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QProgressIndicator</class>
+   <extends>QWidget</extends>
+   <header>maestral.gui.utils.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>lineEditAuthCode</tabstop>
+  <tabstop>pushButtonLink</tabstop>
+  <tabstop>pushButtonCancel</tabstop>
+  <tabstop>pushButtonUnlink</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>
