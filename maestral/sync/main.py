@@ -677,8 +677,7 @@ Any changes to local files during this process may be lost.""")
                     if yes:
                         excluded_folders.append(entry.path_lower)
         else:
-            excluded_folders = (f.lower().rstrip(osp.sep) for f in folder_list)
-            excluded_folders = self.sync.clean_excluded_folder_list(excluded_folders)
+            excluded_folders = self.sync.clean_excluded_folder_list(folder_list)
 
         old_excluded_folders = self.sync.excluded_folders
 

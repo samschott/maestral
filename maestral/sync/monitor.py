@@ -351,7 +351,7 @@ class UpDownSync(object):
         """Removes all duplicates from the excluded folder list."""
 
         # remove duplicate entries by creating set, strip trailing "/"
-        folder_list = set(f.rstrip(osp.sep) for f in folder_list)
+        folder_list = set(f.lower().rstrip(osp.sep) for f in folder_list)
 
         # remove all children of excluded folders
         clean_folders_list = list(folder_list)

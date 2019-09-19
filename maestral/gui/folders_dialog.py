@@ -459,9 +459,6 @@ class FoldersDialog(QtWidgets.QDialog):
             return
 
         self.apply_selection()
-        self.excluded_folders = UpDownSync.clean_excluded_folder_list(
-            self.excluded_folders)
-
         self.mdbx.set_excluded_folders(self.excluded_folders)
 
     def apply_selection(self, index=QModelIndex()):
