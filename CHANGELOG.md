@@ -4,6 +4,7 @@
 
 - `ExcludedItemError`: is raised when creating a local item which already exists on
   Dropbox but has been been excluded from syncing.
+- Added `maestral rebuild-index` to CLI.
 
 #### Changed:
 

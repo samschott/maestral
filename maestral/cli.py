@@ -171,7 +171,7 @@ def gui(config_name, running):
 @click.option("--foreground", "-f", is_flag=True, default=False,
               help="Starts Maestral in the foreground.")
 @with_config_opt
-def start(config_name: str, running, foreground: bool):
+def start(config_name: str, running: bool, foreground: bool):
     """Starts the Maestral as a daemon."""
 
     if running:
@@ -186,7 +186,7 @@ def start(config_name: str, running, foreground: bool):
 
 @main.command()
 @with_config_opt
-def stop(config_name: str, running):
+def stop(config_name: str, running: bool):
     """Stops the Maestral daemon."""
     if not running:
         click.echo("Maestral daemon is not running.")
@@ -196,7 +196,7 @@ def stop(config_name: str, running):
 
 @main.command()
 @with_config_opt
-def restart(config_name: str, running):
+def restart(config_name: str, running: bool):
     """Restarts the Maestral daemon."""
 
     if running:
@@ -209,7 +209,7 @@ def restart(config_name: str, running):
 
 @main.command()
 @with_config_opt
-def pause(config_name: str, running):
+def pause(config_name: str, running: bool):
     """Pauses syncing."""
     try:
         with MaestralProxy(config_name) as m:
@@ -221,7 +221,7 @@ def pause(config_name: str, running):
 
 @main.command()
 @with_config_opt
-def resume(config_name: str, running):
+def resume(config_name: str, running: bool):
     """Resumes syncing."""
     try:
         with MaestralProxy(config_name) as m:
@@ -233,7 +233,7 @@ def resume(config_name: str, running):
 
 @main.command()
 @with_config_opt
-def status(config_name: str, running):
+def status(config_name: str, running: bool):
     """Returns the current status of the Maestral daemon."""
     try:
         with MaestralProxy(config_name) as m:
@@ -254,7 +254,7 @@ def status(config_name: str, running):
 @main.command()
 @click.argument("local_path", type=click.Path(exists=True))
 @with_config_opt
-def file_status(config_name: str, running, local_path: str):
+def file_status(config_name: str, running: bool, local_path: str):
     """Returns the current sync status of a given file or folder."""
     try:
         with MaestralProxy(config_name) as m:
@@ -267,7 +267,7 @@ def file_status(config_name: str, running, local_path: str):
 
 @main.command()
 @with_config_opt
-def errors(config_name: str, running):
+def errors(config_name: str, running: bool):
     """Lists all sync errors."""
     try:
         with MaestralProxy(config_name) as m:
@@ -291,7 +291,7 @@ def errors(config_name: str, running):
 
 @main.command()
 @with_config_opt
-def link(config_name: str, running):
+def link(config_name: str, running: bool):
     """Links Maestral with your Dropbox account."""
 
     if not is_maestral_linked(config_name):
@@ -308,7 +308,7 @@ def link(config_name: str, running):
 
 @main.command()
 @with_config_opt
-def unlink(config_name: str, running):
+def unlink(config_name: str, running: bool):
     """Unlinks your Dropbox account."""
 
     if is_maestral_linked(config_name):
@@ -327,7 +327,7 @@ def unlink(config_name: str, running):
 @main.command()
 @with_config_opt
 @click.option("--yes/--no", "-Y/-N", default=True)
-def notify(config_name: str, yes: bool, running):
+def notify(config_name: str, yes: bool, running: bool):
     """Enables or disables system notifications."""
 
     # This is safe to call, even if the GUI or daemon are running.
@@ -342,7 +342,7 @@ def notify(config_name: str, yes: bool, running):
 @main.command()
 @with_config_opt
 @click.option("--new-path", "-p", type=click.Path(writable=True), default=None)
-def set_dir(config_name: str, new_path: str, running):
+def set_dir(config_name: str, new_path: str, running: bool):
     """Change the location of your Dropbox folder."""
 
     if is_maestral_linked(config_name):
@@ -361,7 +361,7 @@ def set_dir(config_name: str, new_path: str, running):
 @click.argument("dropbox_path", type=click.Path(), default="")
 @click.option("-a", "list_all", is_flag=True, default=False,
               help="Include directory entries whose names begin with a dot (.).")
-def ls(dropbox_path: str, running, config_name: str, list_all: bool):
+def ls(dropbox_path: str, running: bool, config_name: str, list_all: bool):
     """Lists contents of a Dropbox directory."""
 
     if not dropbox_path.startswith("/"):
@@ -390,7 +390,7 @@ def ls(dropbox_path: str, running, config_name: str, list_all: bool):
 
 @main.command()
 @with_config_opt
-def account_info(config_name: str, running):
+def account_info(config_name: str, running: bool):
     """Prints your Dropbox account information."""
 
     if is_maestral_linked(config_name):
@@ -407,6 +407,55 @@ def account_info(config_name: str, running):
         click.echo("")
 
 
+@main.command()
+@with_config_opt
+def rebuild_index(config_name: str, running: bool):
+    """Prints your Dropbox account information."""
+
+    if is_maestral_linked(config_name):
+
+        import textwrap
+
+        width, height = click.get_terminal_size()
+
+        message1 = textwrap.wrap(
+            "If you encounter sync issues, please run 'maestral errors' to check for "
+            "incompatible file names, insufficient permissions or other issues which "
+            "should be resolved manually. After resolving them, please pause and resume "
+            "syncing. Only rebuild the index if you continue to have problems after "
+            "taking those steps.",
+            width=width,
+        )
+
+        message2 = textwrap.wrap(
+            "Rebuilding the index may take several minutes, depending on the size of  "
+            "your Dropbox. Please do not modify any items in your local Dropbox folder "
+            "during this process. Any changes to local files while rebuilding may be "
+            "lost.",
+            width=width
+        )
+
+        click.echo("\n".join(message1) + "\n")
+        click.echo("\n".join(message2) + "\n")
+        click.confirm("Do you want to continue?", abort=True)
+
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        with MaestralProxy(config_name, fallback=True) as m0:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(m0.rebuild_index)
+                with MaestralProxy(config_name, fallback=True) as m1:
+                    while future.running():
+                        msg = ("\r" + m1.status).ljust(width)
+                        click.echo(msg, nl=False)
+                        time.sleep(1.0)
+
+        click.echo("\rRebuilding complete.".ljust(width))
+
+    else:
+        click.echo("Maestral does not appear to be linked.")
+
 # ========================================================================================
 # Exclude commands
 # ========================================================================================
@@ -415,7 +464,7 @@ def account_info(config_name: str, running):
 @excluded.command()
 @with_config_opt
 @click.argument("dropbox_path", type=click.Path())
-def add(dropbox_path: str, config_name: str, running):
+def add(dropbox_path: str, config_name: str, running: bool):
     """Adds a folder to the excluded list and re-syncs."""
 
     if not dropbox_path.startswith("/"):
@@ -434,7 +483,7 @@ def add(dropbox_path: str, config_name: str, running):
 @excluded.command()
 @with_config_opt
 @click.argument("dropbox_path", type=click.Path())
-def remove(dropbox_path: str, config_name: str, running):
+def remove(dropbox_path: str, config_name: str, running: bool):
     """Removes a folder from the excluded list and re-syncs."""
 
     if not dropbox_path.startswith("/"):
@@ -452,7 +501,7 @@ def remove(dropbox_path: str, config_name: str, running):
 
 @excluded.command(name="list")
 @with_config_opt
-def excluded_list(config_name: str, running):
+def excluded_list(config_name: str, running: bool):
     """Lists all excluded folders."""
 
     if is_maestral_linked(config_name):
@@ -476,7 +525,7 @@ def excluded_list(config_name: str, running):
 
 @log.command()
 @with_config_opt
-def show(config_name: str, running):
+def show(config_name: str, running: bool):
     """Shows Maestral's log file."""
     from maestral.sync.utils.app_dirs import get_log_path
 
@@ -495,7 +544,7 @@ def show(config_name: str, running):
 
 @log.command()
 @with_config_opt
-def clear(config_name: str, running):
+def clear(config_name: str, running: bool):
     """Clears Maestral's log file."""
     from maestral.sync.utils.app_dirs import get_log_path
 
@@ -515,7 +564,7 @@ def clear(config_name: str, running):
 @click.argument('level_name', required=False,
                 type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
 @with_config_opt
-def level(config_name: str, level_name: str, running):
+def level(config_name: str, level_name: str, running: bool):
     """Gets or sets the log level. Changes will persist between restarts."""
     import logging
     if level_name:
