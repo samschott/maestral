@@ -18,9 +18,10 @@ import logging.handlers
 import collections
 
 # external packages
+import click
+import requests
 from dropbox import files
 from blinker import signal
-import requests
 
 # maestral modules
 from maestral.sync.client import MaestralApiClient
@@ -207,37 +208,6 @@ def handle_disconnect(func):
             return False
 
     return wrapper
-
-
-def yesno(message, default):
-    """Handy helper function to ask a yes/no question.
-
-    A blank line returns the default, and answering
-    y/yes or n/no returns True or False.
-    Retry on unrecognized answer.
-    Special answers:
-    - q or quit exits the program
-    - p or pdb invokes the debugger
-    """
-    if default:
-        message += " [Y/n] "
-    else:
-        message += " [N/y] "
-    while True:
-        answer = input(message).strip().lower()
-        if not answer:
-            return default
-        if answer in ("y", "yes"):
-            return True
-        if answer in ("n", "no"):
-            return False
-        if answer in ("q", "quit"):
-            print("Exit")
-            raise SystemExit(0)
-        if answer in ("p", "pdb"):
-            import pdb
-            pdb.set_trace()
-        print("Please answer YES or NO.")
 
 
 # ========================================================================================
@@ -673,7 +643,8 @@ Any changes to local files during this process may be lost.""")
             # paginate through top-level folders, ask to exclude
             for entry in result.entries:
                 if isinstance(entry, files.FolderMetadata):
-                    yes = yesno("Exclude '%s' from sync?" % entry.path_display, False)
+                    msg = "Exclude '{}' from sync?".format(entry.path_display)
+                    yes = click.confirm(msg)
                     if yes:
                         excluded_folders.append(entry.path_lower)
         else:
@@ -799,7 +770,7 @@ Any changes to local files during this process may be lost.""")
 
             if osp.exists(dropbox_path):
                 msg = "Directory '{0}' already exist. Do you want to overwrite it?".format(dropbox_path)
-                yes = yesno(msg, True)
+                yes = click.confirm(msg)
                 if yes:
                     return dropbox_path
                 else:
