@@ -1,15 +1,8 @@
-### v0.4.1
+### v0.4.1-dev
 
 #### Added:
 
-- `ExcludedItemError`: is raised when creating a local item which already exists on
-  Dropbox but has been been excluded from syncing.
-- Added `maestral rebuild-index` to CLI.
-
-#### Changed:
-
-- Timeout connection check after 1 sec. This improves how quickly Maestral notices that
-  there is not connection to Dropbox servers.
+- Added `maestral rebuild-index` command to CLI.
 
 #### Fixed:
 
