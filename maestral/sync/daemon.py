@@ -104,13 +104,6 @@ def start_maestral_daemon_thread(config_name):
     :returns: ``True`` if started, ``False`` otherwise.
     """
     import threading
-    from maestral.sync.main import Maestral
-
-    if Maestral.pending_link() or Maestral.pending_dropbox_folder():
-        # run setup
-        m = Maestral(run=False)
-        m.create_dropbox_directory()
-        m.set_excluded_folders()
 
     t = threading.Thread(
         target=start_maestral_daemon,
@@ -141,13 +134,6 @@ def start_maestral_daemon_process(config_name):
     :returns: ``True`` if started, ``False`` otherwise.
     """
     import subprocess
-    from maestral.sync.main import Maestral
-
-    if Maestral.pending_link() or Maestral.pending_dropbox_folder():
-        # run setup
-        m = Maestral(run=False)
-        m.create_dropbox_directory()
-        m.set_excluded_folders()
 
     subprocess.Popen(
         "maestral start -c {} --foreground".format(config_name),
