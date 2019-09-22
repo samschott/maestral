@@ -29,6 +29,8 @@ class SetupDialog(QtWidgets.QDialog):
     auth_session = ""
     auth_url = ""
 
+    accepted = False
+
     def __init__(self, pending_link=True, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
@@ -75,14 +77,14 @@ class SetupDialog(QtWidgets.QDialog):
         # connect buttons to callbacks
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.pushButtonLink.clicked.connect(self.on_link)
-        self.pushButtonAuthPageCancel.clicked.connect(self.abort)
+        self.pushButtonAuthPageCancel.clicked.connect(self.on_reject_requested)
         self.pushButtonAuthPageLink.clicked.connect(self.on_auth_clicked)
-        self.pussButtonDropboxPathCalcel.clicked.connect(self.abort)
+        self.pussButtonDropboxPathCalcel.clicked.connect(self.on_reject_requested)
         self.pussButtonDropboxPathSelect.clicked.connect(self.on_dropbox_location_selected)
         self.pussButtonDropboxPathUnlink.clicked.connect(self.unlink_and_go_to_start)
         self.pushButtonFolderSelectionBack.clicked.connect(self.stackedWidget.slideInPrev)
         self.pushButtonFolderSelectionSelect.clicked.connect(self.on_folders_selected)
-        self.pushButtonClose.clicked.connect(self.accept)
+        self.pushButtonClose.clicked.connect(self.on_accept_requested)
         self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
 
         self.labelDropboxPath.setText(self.labelDropboxPath.text().format(CONF.get(
@@ -122,15 +124,24 @@ class SetupDialog(QtWidgets.QDialog):
 # =============================================================================
 
     def closeEvent(self, event):
-        if self.stackedWidget.currentIndex == 4:
-            self.accept()
-        else:
-            self.abort()
 
-    def abort(self):
+        if self.stackedWidget.currentIndex == 4:
+            self.on_accept_requested()
+        else:
+            self.on_reject_requested()
+
+    def on_accept_requested(self):
+        del self.mdbx
+
+        self.accepted = True
+        self.accept()
+
+    def on_reject_requested(self):
         if self.mdbx:
             self.mdbx.set_conf("main", "path", "")
-            self.mdbx = None
+
+        del self.mdbx
+        self.accepted = False
         self.reject()
 
     def unlink_and_go_to_start(self, b):
@@ -357,7 +368,7 @@ class SetupDialog(QtWidgets.QDialog):
         fsd = SetupDialog(pending_link, parent)
         fsd.exec_()
 
-        return fsd.mdbx is not None
+        return fsd.accepted
 
 
 def _delete_file_or_folder(path):
