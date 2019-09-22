@@ -1674,10 +1674,6 @@ class MaestralMonitor(object):
     :cvar queue_to_upload: Queue with *file events* to be uploaded.
     """
 
-    connected = Event()
-    syncing = Event()
-    running = Event()
-
     queue_downloading = queue.Queue()
     queue_uploading = queue.Queue()
     queue_to_upload = TimedQueue()
@@ -1699,6 +1695,10 @@ class MaestralMonitor(object):
 
     def __init__(self, client):
 
+        self.connected = Event()
+        self.syncing = Event()
+        self.running = Event()
+
         self.client = client
         self.file_handler = FileEventHandler(self.syncing, self.queue_to_upload,
                                              self.queue_downloading)
@@ -1708,7 +1708,7 @@ class MaestralMonitor(object):
         self.connection_thread = Thread(
             target=connection_helper,
             daemon=True,
-            args=(self.client, self.connected, self.syncing, self.running),
+            args=(self.client, self.syncing, self.running, self.connected),
             name="Maestral connection helper"
         )
         self.connection_thread.start()
