@@ -1500,7 +1500,7 @@ def connection_helper(client, syncing, running, connected):
     connected_signal = signal("connected_signal")
     account_usage_signal = signal("account_usage_signal")
 
-    while running.is_set():
+    while True:
         try:
             # use an inexpensive call to get_space_usage to test connection
             res = client.get_space_usage()
@@ -1778,8 +1778,11 @@ class MaestralMonitor(object):
     def _resume_on_connect(self, overload=None):
         """Resumes syncing."""
 
-        if self.syncing.is_set() or not self._auto_resume_on_connect:
+        if self.syncing.is_set():
             logger.debug("Syncing was already running")
+            return
+
+        if not self._auto_resume_on_connect:
             return
 
         self.sync.clear_all_sync_errors()  # clear all previous sync errors
