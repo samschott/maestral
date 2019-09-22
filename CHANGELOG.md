@@ -11,6 +11,10 @@
 - Fixed wrong color of system tray / menu bar icon on macOS when clicked in light-mode.
 - Fixed a regression bug from v0.4.0 which caused the creation of new configs for separate
   Dropbox accounts to fail silently.
+- Fixed a bug which could result in a missing sync cursor when running the Maestral GUI
+  after the setup dialog. This would come from parallel access to the config files
+  from a thread spawned by the setup dialog and the Maestral daemon itself. We now make
+  sure that the setup dialog leaves no threads behind after exiting.
 
 ### v0.4.0
 
