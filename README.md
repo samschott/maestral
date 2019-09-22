@@ -33,7 +33,7 @@ You can also install the latest beta:
 $ python3 -m pip install --upgrade --pre maestral
 ```
 If you intend to use the graphical user interface, you also need to install PyQt5, either
-from PyPI or form your platforms package manager.
+from PyPI or from your platforms package manager.
 
 ## Usage
 
