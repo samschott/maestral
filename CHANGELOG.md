@@ -9,6 +9,8 @@
 - Catch unexpected exceptions in sync threads instead of crashing.
 - Do not upload changes to an excluded folder but raise a sync issue instead.
 - Fixed wrong color of system tray / menu bar icon on macOS when clicked in light-mode.
+- Fixed a regression bug from v0.4.0 which caused the creation of new configs for separate
+  Dropbox accounts to fail silently.
 
 ### v0.4.0
 
