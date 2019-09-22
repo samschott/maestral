@@ -13,8 +13,9 @@
 
 #### Fixed:
 
-- Catch unexpected exceptions in sync threads.
+- Catch unexpected exceptions in sync threads instead of crashing.
 - Do not upload changes to an excluded folder but raise a sync issue instead.
+- Fixed wrong color of system tray / menu bar icon on macOS when clicked in light-mode.
 
 ### v0.4.0
 

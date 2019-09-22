@@ -57,8 +57,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     mdbx = None
     started = False
 
+    _context_menu_visible = False
+
     def __init__(self):
-        # ------------- initialize tray icon -------------------
         QtWidgets.QSystemTrayIcon.__init__(self)
 
         self.icons = self.load_tray_icons()
@@ -66,6 +67,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.show_when_systray_available()
 
         self.menu = QtWidgets.QMenu()
+        self.menu.aboutToShow.connect(self._onContextMenuAboutToShow)
+        self.menu.aboutToHide.connect(self._onContextMenuAboutToHide)
         self.setContextMenu(self.menu)
 
         self.setup_ui_unlinked()
@@ -91,8 +94,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         else:
             QtCore.QTimer.singleShot(1000, self.show_when_systray_available)
 
-    @staticmethod
-    def load_tray_icons():
+    def load_tray_icons(self):
 
         icons = dict()
         icon_mapping = {
@@ -104,8 +106,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             SYNC_ERROR: "error",
         }
 
+        color = "light" if self.contextMenuVisible() else None
+
         for key in icon_mapping:
-            icons[key] = get_system_tray_icon(icon_mapping[key])
+            icons[key] = get_system_tray_icon(icon_mapping[key], color=color)
 
         return icons
 
@@ -309,7 +313,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             update_dialog.exec_()
 
         elif user_requested and not res["update_available"]:
-            message = 'Maestral v{0} is the newest version available.'.format(res["latest_release"])
+            message = 'Maestral v{} is the newest version available.'.format(res["latest_release"])
             update_dialog = UserDialog("You’re up-to-date!", message)
             update_dialog.exec_()
 
@@ -422,8 +426,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         status = self.mdbx.status
         is_paused = self.mdbx.paused
 
-        if status == self._status and n_errors == self._n_errors:
-            return
+        #if status == self._status and n_errors == self._n_errors:
+        #    return
 
         if n_errors > 0:
             self.syncIssuesAction.setText("Show Sync Issues ({0})...".format(n_errors))
@@ -445,6 +449,21 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self._n_errors = n_errors
         self._status = status
+
+    def _onContextMenuAboutToShow(self):
+        self._context_menu_visible = True
+
+        self.icons = self.load_tray_icons()
+        self.on_status()
+
+    def _onContextMenuAboutToHide(self):
+        self._context_menu_visible = False
+
+        self.icons = self.load_tray_icons()
+        self.on_status()
+
+    def contextMenuVisible(self):
+        return self._context_menu_visible
 
     def setToolTip(self, text):
         if not platform.system() == "Darwin":

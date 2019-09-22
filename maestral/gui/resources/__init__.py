@@ -71,7 +71,7 @@ def get_native_file_icon():
     return _icon_provider.icon(_icon_provider.File)
 
 
-def get_system_tray_icon(status, geometry=None):
+def get_system_tray_icon(status, color=None, geometry=None):
     assert status in ("idle", "syncing", "paused", "disconnected", "error")
 
     gnome_version = __get_gnome_version()
@@ -86,14 +86,20 @@ def get_system_tray_icon(status, geometry=None):
         QtGui.QIcon.setThemeSearchPaths(icon_theme_paths)
         icon = QtGui.QIcon.fromTheme("menubar_icon_{}-symbolic".format(status))
     elif DESKTOP == "cocoa":
-        # use default dark SVG icons, macOS will adjust the color as needed
-        icon = QtGui.QIcon(TRAY_ICON_PATH_SVG.format(status, "dark"))
-        icon.setIsMask(True)
+        if not color:
+            # use default dark SVG icons, macOS will adjust the color as needed
+            icon = QtGui.QIcon(TRAY_ICON_PATH_SVG.format(status, "dark"))
+            icon.setIsMask(True)
+        else:
+            # use fixed color
+            icon = QtGui.QIcon(TRAY_ICON_PATH_SVG.format(status, color))
     else:
-        # use PNG icons with color to contrast status bar background
-        icon_color = "light" if isDarkStatusBar(geometry) else "dark"
+        if not color:
+            # use PNG icons with color to contrast status bar background
+            icon_color = "light" if isDarkStatusBar(geometry) else "dark"
+        else:
+            icon_color = color
         icon = QtGui.QIcon(TRAY_ICON_PATH_PNG.format(status, icon_color))
-        icon.setIsMask(True)
 
     return icon
 
