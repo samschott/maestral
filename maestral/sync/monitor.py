@@ -1730,14 +1730,16 @@ class MaestralMonitor(object):
         self.download_thread = Thread(
             target=download_worker,
             daemon=True,
-            args=(self.sync, self.syncing, self.running, self.queue_downloading),
+            args=(self.sync, self.syncing, self.running,
+                  self.connected, self.queue_downloading),
             name="Maestral downloader"
         )
 
         self.upload_thread = Thread(
             target=upload_worker,
             daemon=True,
-            args=(self.sync, self.syncing, self.running, self.queue_uploading),
+            args=(self.sync, self.syncing, self.running,
+                  self.connected, self.queue_uploading),
             name="Maestral uploader"
         )
 
