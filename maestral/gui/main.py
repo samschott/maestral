@@ -106,7 +106,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             SYNC_ERROR: "error",
         }
 
-        color = "light" if self.contextMenuVisible() else None
+        if self.contextMenuVisible() and platform.system() == "Darwin":
+            color = "light"
+        else:
+            color = None
 
         for key in icon_mapping:
             icons[key] = get_system_tray_icon(icon_mapping[key], color=color)
@@ -453,14 +456,16 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def _onContextMenuAboutToShow(self):
         self._context_menu_visible = True
 
-        self.icons = self.load_tray_icons()
-        self.on_status()
+        if platform.system() == "Darwin":
+            self.icons = self.load_tray_icons()
+            self.on_status()
 
     def _onContextMenuAboutToHide(self):
         self._context_menu_visible = False
 
-        self.icons = self.load_tray_icons()
-        self.on_status()
+        if platform.system() == "Darwin":
+            self.icons = self.load_tray_icons()
+            self.on_status()
 
     def contextMenuVisible(self):
         return self._context_menu_visible
