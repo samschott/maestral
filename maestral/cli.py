@@ -17,7 +17,6 @@ import os
 
 # external packages
 import click
-import Pyro4.naming
 import Pyro4.errors
 
 
@@ -65,6 +64,22 @@ def stop_daemon_with_cli_feedback(config_name):
         click.echo("\rStopping Maestral...        " + KILLED)
 
 
+def check_for_updates():
+
+    from maestral import __version__
+    from maestral.config.main import CONF
+    from maestral.sync.utils.updates import check_version
+
+    latest_release = CONF.get("app", "latest_release")
+
+    has_update = check_version(__version__, latest_release, '<')
+
+    if has_update:
+        click.secho("Maestral v{0} has been released, you have v{1}. Please use your "
+                    "package manager to update.".format(latest_release, __version__),
+                    fg="red")
+
+
 # ========================================================================================
 # Command groups
 # ========================================================================================
@@ -103,18 +118,6 @@ with_config_opt = click.option(
 @click.pass_context
 def main(ctx):
     """Maestral Dropbox Client for Linux and macOS."""
-    from maestral import __version__
-    from maestral.config.main import CONF
-    from maestral.sync.utils.updates import check_version
-
-    latest_release = CONF.get("app", "latest_release")
-
-    has_update = check_version(__version__, latest_release, '<')
-
-    if has_update:
-        click.secho("Maestral v{0} has been released, you have v{1}. Please use your "
-                    "package manager to update.".format(latest_release, __version__),
-                    fg="red")
 
 
 @main.group()
@@ -176,6 +179,8 @@ def gui(config_name, running):
 @with_config_opt
 def start(config_name: str, running: bool, foreground: bool):
     """Starts the Maestral as a daemon."""
+
+    check_for_updates()
 
     if running:
         click.echo("Maestral daemon is already running.")
@@ -624,10 +629,10 @@ def list_configs():
 @click.argument("name")
 def new(name: str):
     """Set up and activate a fresh Maestral configuration."""
+    os.environ["MAESTRAL_CONFIG"] = name
     if name in list_configs():
         click.echo("Configuration '{}' already exists.".format(name))
     else:
-        os.environ["MAESTRAL_CONFIG"] = name
         from maestral.config.main import CONF
         CONF.set("main", "default_dir_name", "Dropbox ({})".format(name.capitalize()))
         click.echo("Created configuration '{}'.".format(name))
