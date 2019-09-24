@@ -339,22 +339,14 @@ class MaestralApiClient(object):
         :param kwargs: Keyword arguments for Dropbox SDK files_delete_v2.
         :returns: Metadata of deleted file or ``False`` if the file does not exist on
             Dropbox.
-        :raises: :class:`MaestralApiError` if deletion fails for any other reason than
-            a non-existing file.
+        :raises: :class:`MaestralApiError`.
         """
         try:
             # try to move file (response will be metadata, probably)
             res = self.dbx.files_delete_v2(dbx_path, **kwargs)
             md = res.metadata
         except dropbox.exceptions.DropboxException as exc:
-            if (isinstance(exc.error, dropbox.files.DeleteError) and
-                    exc.error.is_path_lookup()):
-                # don't log as error if file did not exist
-                logger.debug("An error occurred when deleting '{0}': the file does "
-                             "not exist on Dropbox".format(dbx_path))
-                return True
-            else:
-                raise api_to_maestral_error(exc, dbx_path)
+            raise api_to_maestral_error(exc, dbx_path)
 
         logger.debug("File / folder '{0}' removed from Dropbox.".format(dbx_path))
 
