@@ -39,7 +39,7 @@ from maestral.sync.utils.content_hasher import DropboxContentHasher
 from maestral.sync.utils.notify import Notipy
 from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, CursorResetError,
                                   RevFileError, DropboxDeletedError, DropboxAuthError,
-                                  ExcludedItemError)
+                                  ExcludedItemError, PathError)
 
 
 logger = logging.getLogger(__name__)
@@ -1091,12 +1091,16 @@ class UpDownSync(object):
         :raises: MaestralApiError on failure.
         """
 
-        logger.debug("Deletion detected: '%s'", event.src_path)
-
         path = event.src_path
         dbx_path = self.to_dbx_path(path)
 
-        self.client.remove(dbx_path)
+        try:
+            self.client.remove(dbx_path)
+        except PathError:
+            logger.debug("Could not delete '{0}': the item does not exist on Dropbox.",
+                         event.src_path)
+        else:
+            logger.debug("Deleted '%s' from Dropbox.", event.src_path)
 
         # remove revision metadata
         self.set_local_rev(dbx_path, None)
