@@ -622,8 +622,8 @@ class QProgressIndicator(QtWidgets.QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        outerRadius = width * 0.5
-        innerRadius = width * 0.5 * 0.4375
+        outerRadius = (width - 1) * 0.5
+        innerRadius = (width - 1) * 0.5 * 0.4375
 
         capsuleHeight = outerRadius - innerRadius
         capsuleWidth  = width * 3/32
