@@ -4,6 +4,11 @@
 
 - Added `maestral rebuild-index` command to CLI.
 
+#### Changed:
+
+- Renamed CLI command `maestral config new` to `maestral config add`.
+- Renamed CLI command `maestral config delete` to `maestral config remove`.
+
 #### Fixed:
 
 - Catch unexpected exceptions in sync threads instead of crashing.
@@ -15,6 +20,8 @@
   after the setup dialog. This would come from parallel access to the config files
   from a thread spawned by the setup dialog and the Maestral daemon itself. We now make
   sure that the setup dialog leaves no threads behind after exiting.
+- Fixed a bug which could cause false sync errors when adding a nested folder structure to
+  the local Dropbox folder.
 
 ### v0.4.0
 
