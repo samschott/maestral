@@ -218,7 +218,7 @@ class SetupDialog(QtWidgets.QDialog):
         dropbox_path = osp.join(self.dropbox_location, self.mdbx.get_conf("main", "default_dir_name"))
         if osp.isdir(dropbox_path):
             msg = ('The folder "%s" already exists. Would '
-                   'you like to keep using it?' % self.dropbox_location)
+                   'you like to keep using it?' % dropbox_path)
             msg_box = UserDialog("Folder already exists", msg, parent=self)
             msg_box.setAcceptButtonName("Keep")
             msg_box.addSecondAcceptButton("Replace", icon="edit-clear")
