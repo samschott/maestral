@@ -63,7 +63,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         QtWidgets.QSystemTrayIcon.__init__(self)
 
         self.icons = self.load_tray_icons()
-        self.setIcon(self.icons[DISCONNECTED])
+        self.setIcon(DISCONNECTED)
         self.show_when_systray_available()
 
         self.menu = QtWidgets.QMenu()
@@ -80,6 +80,11 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.update_ui_timer.timeout.connect(self.update_ui)
         self.update_ui_timer.start(200)  # every 200 ms
 
+    def setIcon(self, icon_name):
+        icon = self.icons.get(icon_name, self.icons[SYNCING])
+        self._current_icon = icon_name
+        QtWidgets.QSystemTrayIcon.setIcon(self, icon)
+
     def update_ui(self):
         if self.mdbx:
             self.on_status()
@@ -89,7 +94,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         # If available, show icon, otherwise, set a timer to check back later.
         # This is a workaround for https://bugreports.qt.io/browse/QTBUG-61898
         if self.isSystemTrayAvailable():
-            self.setIcon(self.icon())  # reload icon
+            self.setIcon(self._current_icon)  # reload icon
             self.show()
         else:
             QtCore.QTimer.singleShot(1000, self.show_when_systray_available)
@@ -271,7 +276,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.recentFilesMenu.aboutToShow.connect(self.update_recent_files)
 
         # --------------- switch to idle icon -------------------
-        self.setIcon(self.icons[IDLE])
+        self.setIcon(IDLE)
 
         # ----------- check for updates and notify user ---------
         self._update_timer = QtCore.QTimer()
@@ -384,7 +389,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.rebuild_dialog.raise_()
 
     def _stop_and_exec_relink_dialog(self, reason):
-        self.setIcon(self.icons[SYNC_ERROR])
+        self.setIcon(SYNC_ERROR)
 
         if self.mdbx:
             self.mdbx.stop_sync()
@@ -399,7 +404,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         relink_dialog.exec_()  # this will perform quit actions as appropriate
 
     def _stop_and_exec_error_dialog(self, title, message, exc_info=None):
-        self.setIcon(self.icons[SYNC_ERROR])
+        self.setIcon(SYNC_ERROR)
 
         if self.mdbx:
             self.mdbx.stop_sync()
@@ -429,20 +434,17 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         status = self.mdbx.status
         is_paused = self.mdbx.paused
 
-        #if status == self._status and n_errors == self._n_errors:
-        #    return
-
         if n_errors > 0:
             self.syncIssuesAction.setText("Show Sync Issues ({0})...".format(n_errors))
         else:
             self.syncIssuesAction.setText("Show Sync Issues...")
 
         if is_paused:
-            new_icon = self.icons[PAUSED]
+            new_icon = PAUSED
         elif n_errors > 0:
-            new_icon = self.icons[SYNC_ERROR]
+            new_icon = SYNC_ERROR
         else:
-            new_icon = self.icons.get(status, self.icons[SYNCING])
+            new_icon = status
 
         self.setIcon(new_icon)
 
@@ -457,15 +459,17 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self._context_menu_visible = True
 
         if platform.system() == "Darwin":
-            self.icons = self.load_tray_icons()
-            self.on_status()
+            self.reload_icons()
 
     def _onContextMenuAboutToHide(self):
         self._context_menu_visible = False
 
         if platform.system() == "Darwin":
-            self.icons = self.load_tray_icons()
-            self.on_status()
+            self.reload_icons()
+
+    def reload_icons(self):
+        self.icons = self.load_tray_icons()
+        self.setIcon(self._current_icon)
 
     def contextMenuVisible(self):
         return self._context_menu_visible
