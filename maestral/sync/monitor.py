@@ -997,8 +997,6 @@ class UpDownSync(object):
         :raises: MaestralApiError on failure.
         """
 
-        logger.debug("Move detected: from '%s' to '%s'", event.src_path, event.dest_path)
-
         dbx_path_old = self.to_dbx_path(event.src_path)
         dbx_path_new = self.to_dbx_path(event.dest_path)
 
@@ -1015,6 +1013,7 @@ class UpDownSync(object):
             self._on_created(new_event)
             # remove old revs
             self.set_local_rev(dbx_path_old, None)
+            logger.debug("Created '%s' on Dropbox.", event.dest_path)
             return
         else:
             # otherwise, just move it
@@ -1035,6 +1034,8 @@ class UpDownSync(object):
                 elif isinstance(md, dropbox.files.FolderMetadata):
                     self.set_local_rev(md.path_display, "folder")
 
+        logger.debug("Moved '%s' to '%s' on Dropbox.", event.src_path, event.dest_path)
+
     def _on_created(self, event):
         """
         Call when local file is created.
@@ -1042,8 +1043,6 @@ class UpDownSync(object):
         :param class event: Watchdog file event.
         :raises: MaestralApiError on failure.
         """
-
-        logger.debug("Creation detected: '%s'", event.src_path)
 
         path = event.src_path
         dbx_path = self.to_dbx_path(path)
@@ -1083,6 +1082,8 @@ class UpDownSync(object):
             # save or update revision metadata
             self.set_local_rev(md.path_display, md.rev)
 
+        logger.debug("Created '%s' on Dropbox.", event.src_path)
+
     def _on_deleted(self, event):
         """
         Call when local file is deleted.
@@ -1113,8 +1114,6 @@ class UpDownSync(object):
         :raises: MaestralApiError on failure.
         """
 
-        logger.debug("Modification detected: '%s'", event.src_path)
-
         path = event.src_path
         dbx_path = self.to_dbx_path(path)
 
@@ -1130,6 +1129,8 @@ class UpDownSync(object):
                 if local_hash == md.content_hash:
                     # file hashes are identical, do not upload
                     self.set_local_rev(md.path_display, "folder")
+                    logger.debug("Modification of '%s' detected but file content is "
+                                 "the same as on Dropbox.", event.src_path)
                     return
 
             rev = self.get_local_rev(dbx_path)
@@ -1139,6 +1140,8 @@ class UpDownSync(object):
                          md.path_display, rev, md.rev)
             # save or update revision metadata
             self.set_local_rev(md.path_display, md.rev)
+
+            logger.debug("Uploaded modified '%s' to Dropbox.", event.src_path)
 
     # ====================================================================================
     #  Download sync
@@ -1240,13 +1243,13 @@ class UpDownSync(object):
         changes_filtered, changes_excluded = self.filter_excluded_changes_remote(changes)
 
         # remove all deleted items from the excluded list
-        _, _, deleted_excluded = self._sort_entries(changes_excluded)
+        _, _, deleted_excluded = self._sort_remote_entries(changes_excluded)
         for d in deleted_excluded:
             new_excluded = [f for f in self.excluded_folders if not f.startswith(d.path_lower)]
             self.excluded_folders = new_excluded
 
         # sort changes into folders, files and deleted
-        folders, files, deleted = self._sort_entries(changes_filtered)
+        folders, files, deleted = self._sort_remote_entries(changes_filtered)
 
         # sort according to path hierarchy
         # do not create sub-folder / file before parent exists
@@ -1386,7 +1389,7 @@ class UpDownSync(object):
             self.notify.send("{0} files changed".format(n_changed))
 
     @staticmethod
-    def _sort_entries(result):
+    def _sort_remote_entries(result):
         """
         Sorts entries in :class:`dropbox.files.ListFolderResult` into
         FolderMetadata, FileMetadata and DeletedMetadata.
