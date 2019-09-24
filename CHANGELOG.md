@@ -22,6 +22,8 @@
   sure that the setup dialog leaves no threads behind after exiting.
 - Fixed a bug which could cause false sync errors when adding a nested folder structure to
   the local Dropbox folder.
+- Fixed bug in converting Dropbox `DeleteError`s due to an invalid path to
+  `MaestralApiError`s.
 
 ### v0.4.0
 
