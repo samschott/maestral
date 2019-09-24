@@ -493,10 +493,10 @@ def rebuild_index(config_name: str, running: bool):
 # ========================================================================================
 
 
-@excluded.command()
+@excluded.command(name="add")
 @with_config_opt
 @click.argument("dropbox_path", type=click.Path())
-def add(dropbox_path: str, config_name: str, running: bool):
+def excluded_add(dropbox_path: str, config_name: str, running: bool):
     """Adds a folder to the excluded list and re-syncs."""
 
     if not dropbox_path.startswith("/"):
@@ -514,10 +514,10 @@ def add(dropbox_path: str, config_name: str, running: bool):
         click.echo("Excluded directory '{}' from syncing.".format(dropbox_path))
 
 
-@excluded.command()
+@excluded.command(name="remove")
 @with_config_opt
 @click.argument("dropbox_path", type=click.Path())
-def remove(dropbox_path: str, config_name: str, running: bool):
+def excluded_remove(dropbox_path: str, config_name: str, running: bool):
     """Removes a folder from the excluded list and re-syncs."""
 
     if not dropbox_path.startswith("/"):
@@ -633,9 +633,9 @@ def list_configs():
     return configs
 
 
-@config.command()
+@config.command(name="add")
 @click.argument("name")
-def new(name: str):
+def config_add(name: str):
     """Set up and activate a fresh Maestral configuration."""
     os.environ["MAESTRAL_CONFIG"] = name
     if name in list_configs():
@@ -654,9 +654,9 @@ def config_list():
         click.echo('  ' + c)
 
 
-@config.command()
+@config.command(name="remove")
 @click.argument("name")
-def delete(name: str):
+def config_remove(name: str):
     """Remove a Maestral configuration."""
     if name not in list_configs():
         click.echo("Configuration '{}' could not be found.".format(name))
