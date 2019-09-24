@@ -853,6 +853,21 @@ class UpDownSync(object):
 
         return events_filtered, events_excluded
 
+    @staticmethod
+    def _sort_local_events(events):
+        """
+        Sorts local file events into DirEvents and FileEvents.
+
+        :return: Tuple of (folders, files)
+        :rtype: tuple
+        """
+
+        folders = [x for x in events if isinstance(x, (DirCreatedEvent, DirMovedEvent,
+                                                       DirDeletedEvent))]
+        files = [x for x in events if x not in folders]
+
+        return folders, files
+
     def apply_local_changes(self, events, local_cursor):
         """
         Applies locally detected events to remote Dropbox.
@@ -865,13 +880,19 @@ class UpDownSync(object):
         """
 
         filtered_events, _ = self.filter_excluded_changes_local(events)
+        dir_events, file_events = self._sort_local_events(filtered_events)
 
+        # apply directory events first (the do not require any upload)
+        for event in dir_events:
+            self._apply_event(event)
+
+        # apply file events in parallel
         num_threads = os.cpu_count() * 2
         success = []
         last_emit = time.time()
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            fs = [executor.submit(self._apply_event, e) for e in filtered_events]
-            n_files = len(filtered_events)
+            fs = [executor.submit(self._apply_event, e) for e in file_events]
+            n_files = len(file_events)
             for (f, n) in zip(as_completed(fs), range(1, n_files+1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
                     # emit message at maximum every second
