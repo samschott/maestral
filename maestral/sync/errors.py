@@ -203,10 +203,10 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
             if isinstance(error, dropbox.files.DeleteError):
                 title = "Could not delete item"
                 if error.is_path_lookup():
-                    lookup_error = error.get_from_lookup()
+                    lookup_error = error.get_path_lookup()
                     text, err_type = _get_lookup_error_msg(lookup_error)
                 elif error.is_path_write():
-                    write_error = error.get_from_write()
+                    write_error = error.get_path_write()
                     text, err_type = _get_write_error_msg(write_error)
                 elif error.is_too_many_files():
                     text = ("There are too many files in one request. Please "
