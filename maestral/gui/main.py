@@ -172,8 +172,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.separator1 = self.menu.addSeparator()
 
-        self.accountEmailAction = self.menu.addAction("Not linked")
-        self.accountEmailAction.setEnabled(False)
+        self.statusAction = self.menu.addAction("Setting up...")
+        self.statusAction.setEnabled(False)
 
         self.separator2 = self.menu.addSeparator()
 
