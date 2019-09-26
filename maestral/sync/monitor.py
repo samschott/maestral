@@ -1556,11 +1556,12 @@ def download_worker(sync, syncing, running, connected, queue_downloading):
     to change are temporarily excluded from the local file monitor by adding
     their paths to the `queue_downloading`.
 
-    :param sync: Instance of :class:`UpDownSync`.
-    :param syncing: Event that indicates if workers are running or paused.
-    :param running: Event to shutdown local file event handler and worker threads.
-    :param connected: Event that indicates if a connection to Dropbox can be established.
-    :param queue_downloading: Flagged paths for local observer to ignore.
+    :param UpDownSync sync: Instance of :class:`UpDownSync`.
+    :param Event syncing: Event that indicates if workers are running or paused.
+    :param Event running: Event to shutdown local file event handler and worker threads.
+    :param Event connected: Event that indicates if a connection to Dropbox can be
+        established.
+    :param Queue queue_downloading: Flagged paths for local observer to ignore.
     """
 
     disconnected_signal = signal("disconnected_signal")
@@ -1573,7 +1574,9 @@ def download_worker(sync, syncing, running, connected, queue_downloading):
 
             if not sync.last_cursor:
                 # run the initial Dropbox download
-                sync.get_remote_dropbox()
+                with sync.lock:
+                    queue_downloading.put(sync.dropbox_path)
+                    sync.get_remote_dropbox()
             else:
                 # wait for remote changes (times out after 120 secs)
                 has_changes = sync.wait_for_remote_changes(sync.last_cursor, timeout=120)
