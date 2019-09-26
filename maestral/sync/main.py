@@ -744,9 +744,9 @@ Any changes to local files during this process may be lost.""")
         if overwrite:
             # remove any old items at the location
             try:
+                shutil.rmtree(path)
+            except NotADirectoryError:
                 os.unlink(path)
-            except IsADirectoryError:
-                shutil.rmtree(path, ignore_errors=True)
             except FileNotFoundError:
                 pass
 
