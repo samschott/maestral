@@ -8,6 +8,8 @@
 
 - Renamed CLI command `maestral config new` to `maestral config add`.
 - Renamed CLI command `maestral config delete` to `maestral config remove`.
+- Use Unix domain socket instead of TCP/IP socket for communication with daemon.
+- Use NSTemporaryDirectory on macOS as runtime dir.
 
 #### Fixed:
 
