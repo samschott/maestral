@@ -527,7 +527,10 @@ Any changes to local files during this process may be lost.""")
         in place. All syncing metadata will be removed as well.
         """
         self.stop_sync()
-        self.client.unlink()
+        try:
+            self.client.unlink()
+        except CONNECTION_ERRORS:
+            pass
 
         try:
             os.remove(self.sync.rev_file_path)
