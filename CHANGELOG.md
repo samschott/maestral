@@ -15,19 +15,23 @@
 
 - Catch unexpected exceptions in sync threads instead of crashing.
 - Do not upload changes to an excluded folder but raise a sync issue instead.
-- Fixed wrong color of system tray / menu bar icon on macOS when clicked in light-mode.
-- Fixed a regression bug from v0.4.0 which caused the creation of new configs for separate
+- Fixes wrong color of system tray / menu bar icon on macOS when clicked in light-mode.
+- Fixes a regression bug from v0.4.0 which caused the creation of new configs for separate
   Dropbox accounts to fail silently.
-- Fixed a bug which could result in a missing sync cursor when running the Maestral GUI
+- Fixes a bug which could result in a missing sync cursor when running the Maestral GUI
   after the setup dialog. This would come from parallel access to the config files
   from a thread spawned by the setup dialog and the Maestral daemon itself. We now make
   sure that the setup dialog leaves no threads behind after exiting.
-- Fixed a bug which could cause false sync errors when adding a nested folder structure to
+- Fixes a bug which could cause false sync errors when adding a nested folder structure to
   the local Dropbox folder.
-- Fixed bug in converting Dropbox `DeleteError`s due to an invalid path to
+- Fixes bug in converting Dropbox `DeleteError`s due to an invalid path to
   `MaestralApiError`s.
-- Fixed a bug which would cause `maestral unlink` to fail when the Maestral daemon is
+- Fixes a bug which would cause `maestral unlink` to fail when the Maestral daemon is
   still running.
+- Fixes a bug where the menu bar item "Pause Syncing" would not change to "Resume Syncing"
+  when pausing sync through the CLI via `maestral pause` (and vice versa).
+- Fixes a bug where the Maestral GUI would show a paused icon during the inital sync after
+  setup.
 
 ### v0.4.0
 
