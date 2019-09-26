@@ -250,7 +250,7 @@ class Maestral(object):
                 self.set_excluded_folders()
 
                 self.sync.last_cursor = ""
-                self.sync.last_sync = None
+                self.sync.last_sync = 0
 
             self.start_sync()
 
