@@ -211,7 +211,7 @@ class SetupDialog(QtWidgets.QDialog):
 
         # reset sync status, we are starting fresh!
         self.mdbx.sync.last_cursor = ""
-        self.mdbx.sync.last_sync = None
+        self.mdbx.sync.last_sync = 0
         self.mdbx.sync.dropbox_path = ""
 
         # apply dropbox path
