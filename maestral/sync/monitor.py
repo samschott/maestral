@@ -1570,33 +1570,38 @@ def download_worker(sync, syncing, running, connected, queue_downloading):
         syncing.wait()  # if not running, wait until resumed
 
         try:
-            # wait for remote changes (times out after 120 secs)
-            has_changes = sync.wait_for_remote_changes(sync.last_cursor, timeout=120)
 
-            syncing.wait()  # if not running, wait until resumed
+            if not sync.last_cursor:
+                # run the initial Dropbox download
+                sync.get_remote_dropbox()
+            else:
+                # wait for remote changes (times out after 120 secs)
+                has_changes = sync.wait_for_remote_changes(sync.last_cursor, timeout=120)
 
-            # apply remote changes
-            if has_changes:
-                logger.info(SYNCING)
-                with sync.lock:
-                    # get changes
-                    changes = sync.list_remote_changes(sync.last_cursor)
+                syncing.wait()  # if not running, wait until resumed
 
-                    # notify user about changes
-                    sync.notify_user(changes)
+                # apply remote changes
+                if has_changes:
+                    logger.info(SYNCING)
+                    with sync.lock:
+                        # get changes
+                        changes = sync.list_remote_changes(sync.last_cursor)
 
-                    # flag files as downloading to temporarily exclude from upload
-                    for item in changes.entries:
-                        local_path = sync.to_local_path(item.path_display)
-                        queue_downloading.put(local_path)
+                        # notify user about changes
+                        sync.notify_user(changes)
 
-                    time.sleep(1)
+                        # flag files as downloading to temporarily exclude from upload
+                        for item in changes.entries:
+                            local_path = sync.to_local_path(item.path_display)
+                            queue_downloading.put(local_path)
 
-                    # apply remote changes to local Dropbox folder
-                    sync.apply_remote_changes(changes)
-                    # wait some times for local file events to register
-                    time.sleep(5)
-                    logger.info(IDLE)
+                        time.sleep(1)
+
+                        # apply remote changes to local Dropbox folder
+                        sync.apply_remote_changes(changes)
+                        # wait some times for local file events to register
+                        time.sleep(5)
+                        logger.info(IDLE)
 
         except CONNECTION_ERRORS:
             syncing.clear()
@@ -1733,14 +1738,6 @@ class MaestralMonitor(object):
 
         self.sync = UpDownSync(self.client, self.queue_to_upload)
 
-        self.connection_thread = Thread(
-            target=connection_helper,
-            daemon=True,
-            args=(self.client, self.syncing, self.connected),
-            name="Maestral connection helper"
-        )
-        self.connection_thread.start()
-
     def start(self, overload=None):
         """Creates observer threads and starts syncing."""
 
@@ -1753,6 +1750,13 @@ class MaestralMonitor(object):
         self.local_observer_thread = Observer()
         self.local_observer_thread.schedule(
             self.file_handler, self.sync.dropbox_path, recursive=True
+        )
+
+        self.connection_thread = Thread(
+            target=connection_helper,
+            daemon=True,
+            args=(self.client, self.syncing, self.running, self.connected),
+            name="Maestral connection helper"
         )
 
         self.download_thread = Thread(
@@ -1773,6 +1777,7 @@ class MaestralMonitor(object):
 
         self.running.set()
 
+        self.connection_thread.start()
         self.local_observer_thread.start()
         self.download_thread.start()
         self.upload_thread.start()
@@ -1882,10 +1887,6 @@ class MaestralMonitor(object):
             self.start()
         if was_paused:
             self.pause()
-
-    def __del__(self):
-        self.stop()
-        self.connection_thread_running.clear()
 
 
 # ========================================================================================
