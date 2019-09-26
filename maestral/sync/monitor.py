@@ -1511,7 +1511,7 @@ class UpDownSync(object):
 # Workers for upload, download and connection monitoring threads
 # ========================================================================================
 
-def connection_helper(client, syncing, connected):
+def connection_helper(client, syncing, running, connected):
     """
     A worker which periodically checks the connection to Dropbox servers.
     This is done through inexpensive calls to :method:`client.get_space_usage`.
@@ -1520,15 +1520,13 @@ def connection_helper(client, syncing, connected):
 
     :param client: Maestral client instance.
     :param syncing: Event that indicates if workers are running or paused.
+    :param running: Event to shutdown connection helper.
     :param connected: Event that indicates if a connection to Dropbox can be established.
     """
 
     disconnected_signal = signal("disconnected_signal")
     connected_signal = signal("connected_signal")
     account_usage_signal = signal("account_usage_signal")
-
-    running = Event()
-    running.set()
 
     while running.is_set():
         try:
@@ -1887,7 +1885,7 @@ class MaestralMonitor(object):
 
     def __del__(self):
         self.stop()
-        self.connection_thread.running.clear()
+        self.connection_thread_running.clear()
 
 
 # ========================================================================================
