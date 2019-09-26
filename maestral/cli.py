@@ -86,7 +86,7 @@ def check_for_updates():
 
 def set_config(ctx, param, value):
 
-    from maestral.sync.daemon import get_maestral_process_info
+    from maestral.sync.daemon import get_maestral_pid
 
     # check if valid config
     if value not in list_configs() and not value == "maestral":
@@ -97,7 +97,7 @@ def set_config(ctx, param, value):
     os.environ["MAESTRAL_CONFIG"] = value
 
     # check if maestral is running and store the result for other commands to use
-    pid, socket = get_maestral_process_info(value)
+    pid = get_maestral_pid(value)
     ctx.params["running"] = True if pid else False
 
     return value

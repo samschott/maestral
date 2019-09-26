@@ -7,6 +7,7 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
 # system imports
+import sys
 import os
 import time
 
@@ -16,29 +17,35 @@ import Pyro4
 URI = "PYRO:maestral.{0}@{1}"
 
 
-def write_pid(config_name, socket_address):
+def get_sock_name(config_name):
+    os.environ["MAESTRAL_CONFIG"] = config_name
+
+    from maestral.sync.utils.app_dirs import get_runtime_path
+    return get_runtime_path("maestral", config_name + ".sock")
+
+
+def write_pid(config_name):
     """
-    Write the PID of the current process to the appropriate file for the given
-    config name. If a socket_address is given, it will be appended after a '|'.
+    Write the PID to the appropriate file for the given config name.
     """
     from maestral.sync.utils.app_dirs import get_runtime_path
     pid_file = get_runtime_path("maestral", config_name + ".pid")
     with open(pid_file, "w") as f:
-        f.write(str(os.getpid()) + "|" + socket_address)
+        f.write(str(os.getpid()))
 
 
 def read_pid(config_name):
     """
-    Reads the PID of the current process to the appropriate file for the given
+    Reads the PID of the current process from the appropriate file for the given
     config name.
     """
     from maestral.sync.utils.app_dirs import get_runtime_path
     pid_file = get_runtime_path("maestral", config_name + ".pid")
     with open(pid_file, "r") as f:
-        pid, socket = f.read().split("|")
+        pid = f.read().split("\n")[0]  # ignore all new lines
     pid = int(pid)
 
-    return pid, socket
+    return pid
 
 
 def delete_pid(config_name):
@@ -70,10 +77,16 @@ def start_maestral_daemon(config_name, run=True):
     os.environ["MAESTRAL_CONFIG"] = config_name
 
     from maestral.sync.main import Maestral
+    sock_name = get_sock_name(config_name)
 
-    daemon = Pyro4.Daemon()
+    try:
+        os.remove(sock_name)
+    except FileNotFoundError:
+        pass
 
-    write_pid(config_name, daemon.locationStr)  # write PID to file
+    daemon = Pyro4.Daemon(unixsocket=sock_name)
+
+    write_pid(config_name)  # write PID to file
 
     try:
         # we wrap this in a try-except block to make sure that the PID file is always
@@ -146,13 +159,14 @@ def start_maestral_daemon_process(config_name):
     # wait until process is created, timeout after 1 sec
 
     t0 = time.time()
-    location = None
+    pid = None
 
-    while not location and t0 - time.time() < 1:
-        pid, location = get_maestral_process_info(config_name)
+    while not pid and t0 - time.time() < 1:
+        pid = get_maestral_pid(config_name)
 
-    if location:
-        maestral_daemon = Pyro4.Proxy(URI.format(config_name, location))
+    if pid:
+        sock_name = get_sock_name(config_name)
+        maestral_daemon = Pyro4.Proxy(URI.format(config_name, "./u:" + sock_name))
     else:
         return False
 
@@ -184,7 +198,7 @@ def stop_maestral_daemon_process(config_name="maestral"):
     import signal
     import time
 
-    pid, socket = get_maestral_process_info(config_name)
+    pid = get_maestral_pid(config_name)
     if pid:
         try:
             # try to shut down gracefully
@@ -220,10 +234,17 @@ def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
     a new instance of Maestral will be returned when the daemon cannot be reached.
     """
 
-    pid, location = get_maestral_process_info(config_name)
+    os.environ["MAESTRAL_CONFIG"] = config_name
+
+    pid = get_maestral_pid(config_name)
 
     if pid:
-        maestral_daemon = Pyro4.Proxy(URI.format(config_name, location))
+
+        from maestral.sync.utils.app_dirs import get_runtime_path
+        sock_name = get_runtime_path("maestral", config_name + ".sock")
+
+        sys.excepthook = Pyro4.util.excepthook
+        maestral_daemon = Pyro4.Proxy(URI.format(config_name, "./u:" + sock_name))
         try:
             maestral_daemon._pyroBind()
             return maestral_daemon
@@ -254,19 +275,18 @@ class MaestralProxy(object):
         del self.m
 
 
-def get_maestral_process_info(config_name):
+def get_maestral_pid(config_name):
     """
-    Returns Maestral's PID and the socket location as tuple (pid, socket) if Maestral
-    is running or (``None``, ``None``)  otherwise.
+    Returns Maestral's PID if the daemon is running and responsive, ``None`` otherwise.
 
-    If not ``None``, ``socket`` will be a string of the form "<network_address>:<port>".
+    If the daemon is unresponsive, it will be killed before returning ``None``.
     """
     import signal
 
     try:
-        pid, socket = read_pid(config_name)
+        pid = read_pid(config_name)
     except Exception:
-        return None, None
+        return None
 
     try:
         # test if the daemon process receives signals
@@ -277,7 +297,7 @@ def get_maestral_process_info(config_name):
             delete_pid(config_name)
         except Exception:
             pass
-        return None, None
+        return None
     except OSError:
         # if the process does not respond, try to kill it
         os.kill(pid, signal.SIGKILL)
@@ -285,7 +305,7 @@ def get_maestral_process_info(config_name):
             delete_pid(config_name)
         except Exception:
             pass
-        return None, None
+        return None
     else:
         # everything ok, return process info
-        return pid, socket
+        return pid

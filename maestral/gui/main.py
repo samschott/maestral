@@ -25,7 +25,7 @@ from maestral.sync.daemon import (
     start_maestral_daemon_process,
     start_maestral_daemon_thread,
     stop_maestral_daemon_process,
-    get_maestral_process_info,
+    get_maestral_pid,
     get_maestral_daemon_proxy,
 )
 from maestral.gui.settings_window import SettingsWindow
@@ -144,7 +144,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def _get_or_start_maestral_daemon(self):
 
-        pid, _ = get_maestral_process_info(CONFIG_NAME)
+        pid = get_maestral_pid(CONFIG_NAME)
         if not pid:
             if is_macos_bundle:
                 start_maestral_daemon_thread(CONFIG_NAME)
