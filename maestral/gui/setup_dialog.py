@@ -258,11 +258,6 @@ class SetupDialog(QtWidgets.QDialog):
 
     def on_folders_selected(self):
 
-        # exclude folders
-        if not self.mdbx.connected:
-            self.dbx_model.on_loading_failed()
-            return
-
         self.apply_selection()
         self.mdbx.set_conf("main", "excluded_folders", self.excluded_folders)
 
