@@ -48,6 +48,13 @@ class UnlinkDialog(QtWidgets.QDialog):
         pixmap = icon_to_pixmap(icon, self.iconLabel.width(), self.iconLabel.height())
         self.iconLabel.setPixmap(pixmap)
 
+    def accept(self):
+
+        self.buttonBox.setEnabled(False)
+        self.progressIndicator.startAnimation()
+        self.unlink_thread = MaestralBackgroundTask(self, "unlink")
+        self.unlink_thread.sig_done.connect(quit_and_restart_maestral)
+
 
 class SettingsWindow(QtWidgets.QWidget):
     """A widget showing all of Maestral's settings."""
@@ -83,8 +90,7 @@ class SettingsWindow(QtWidgets.QWidget):
         self.update_timer.start(1000*60*20)  # every 20 min
 
         # connect callbacks
-        self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
-        self.unlink_dialog.accepted.connect(self.on_unlink)
+        self.pushButtonUnlink.clicked.connect(self.unlink_dialog.exec_)
         self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.populate_folders_list)
         self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.open)
         self.checkBoxStartup.stateChanged.connect(self.on_start_on_login_clicked)
@@ -197,15 +203,6 @@ class SettingsWindow(QtWidgets.QWidget):
 
             new_path = osp.join(new_location, self.mdbx.get_conf("main", "default_dir_name"))
             self.mdbx.move_dropbox_directory(new_path)
-
-    def on_unlink(self):
-        """Unlinks the user's account and restarts the setup dialog."""
-
-        try:
-            self.mdbx.unlink()  # unlink
-        except CONNECTION_ERRORS:
-            pass
-        quit_and_restart_maestral()
 
     def on_start_on_login_clicked(self, state):
         if state == 0:

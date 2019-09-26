@@ -10,6 +10,8 @@
 - Renamed CLI command `maestral config delete` to `maestral config remove`.
 - Use Unix domain socket instead of TCP/IP socket for communication with daemon.
 - Use NSTemporaryDirectory on macOS as runtime dir.
+- Improved appearance of unlink dialog: show spinning progress indicator and perform
+  unlink in background.
 
 #### Fixed:
 
@@ -30,8 +32,10 @@
   still running.
 - Fixes a bug where the menu bar item "Pause Syncing" would not change to "Resume Syncing"
   when pausing sync through the CLI via `maestral pause` (and vice versa).
-- Fixes a bug where the Maestral GUI would show a paused icon during the inital sync after
-  setup.
+- Fixes a bug where the Maestral GUI would show a paused icon during the initial sync
+  after setup.
+- Fixes a bug where the CLI setup dialog could fail when choosing to replace an existing
+  folder.
 
 ### v0.4.0
 
