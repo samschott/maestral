@@ -808,6 +808,9 @@ Any changes to local files during this process may be lost.""")
     def _loop_condition(self):
         return self._daemon_running
 
+    def __del__(self):
+        self.monitor.stop()
+
     def __repr__(self):
         if self.connected:
             email = CONF.get("account", "email")
