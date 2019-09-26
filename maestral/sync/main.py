@@ -276,7 +276,7 @@ class Maestral(object):
     @staticmethod
     def pending_first_download():
         """Bool indicating if the initial download has already occurred.."""
-        return (CONF.get("internal", "lastsync") is None or
+        return (CONF.get("internal", "lastsync") == 0 or
                 CONF.get("internal", "cursor") == "")
 
     @property

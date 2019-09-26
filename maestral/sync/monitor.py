@@ -684,7 +684,7 @@ class UpDownSync(object):
         # get modified or added items
         for path in snapshot.paths:
             stats = snapshot.stat_info(path)
-            last_sync = CONF.get("internal", "lastsync") or 0
+            last_sync = CONF.get("internal", "lastsync")
             # check if item was created or modified since last sync
             dbx_path = self.to_dbx_path(path).lower()
 
