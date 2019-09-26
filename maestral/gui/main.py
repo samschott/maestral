@@ -59,6 +59,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     _context_menu_visible = False
 
+    PAUSE_TEXT = "Pause Syncing"
+    RESUME_TEXT = "Resume Syncing"
+
     def __init__(self):
         QtWidgets.QSystemTrayIcon.__init__(self)
 
@@ -225,9 +228,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.statusAction = self.menu.addAction(IDLE)
         self.statusAction.setEnabled(False)
         if self.mdbx.syncing:
-            self.pauseAction = self.menu.addAction("Pause Syncing")
+            self.pauseAction = self.menu.addAction(self.PAUSE_TEXT)
         else:
-            self.pauseAction = self.menu.addAction("Resume Syncing")
+            self.pauseAction = self.menu.addAction(self.RESUME_TEXT)
         self.recentFilesMenu = self.menu.addMenu("Recently Changed Files")
 
         self.separator3 = self.menu.addSeparator()
@@ -337,15 +340,15 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def on_start_stop_clicked(self):
         """Pause / resume syncing on menu item clicked."""
-        if self.pauseAction.text() == "Pause Syncing":
+        if self.pauseAction.text() == self.PAUSE_TEXT:
             self.mdbx.pause_sync()
-            self.pauseAction.setText("Resume Syncing")
-        elif self.pauseAction.text() == "Resume Syncing":
+            self.pauseAction.setText(self.RESUME_TEXT)
+        elif self.pauseAction.text() == self.RESUME_TEXT:
             self.mdbx.resume_sync()
-            self.pauseAction.setText("Pause Syncing")
+            self.pauseAction.setText(self.PAUSE_TEXT)
         elif self.pauseAction.text() == "Start Syncing":
             self.mdbx.start_sync()
-            self.pauseAction.setText("Pause Syncing")
+            self.pauseAction.setText(self.PAUSE_TEXT)
 
     def on_space_usage(self):
         """Update account usage info in UI."""
@@ -438,6 +441,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.syncIssuesAction.setText("Show Sync Issues ({0})...".format(n_errors))
         else:
             self.syncIssuesAction.setText("Show Sync Issues...")
+
+        self.pauseAction.setText(self.RESUME_TEXT if is_paused else self.PAUSE_TEXT)
 
         if is_paused:
             new_icon = PAUSED
