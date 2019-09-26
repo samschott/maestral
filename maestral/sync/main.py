@@ -390,13 +390,25 @@ class Maestral(object):
     @handle_disconnect
     def get_account_info(self):
         """
-        Gets account information stored by Dropbox and returns it as a dictionary.
+        Gets account information from Dropbox and returns it as a dictionary.
         The entries will either be of type ``str`` or ``bool``.
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
         """
         res = self.client.get_account_info()
+        return dropbox_stone_to_dict(res)
+
+    @handle_disconnect
+    def get_space_usage(self):
+        """
+        Gets the space usage stored by Dropbox and returns it as a dictionary.
+        The entries will either be of type ``str`` or ``bool``.
+
+        :returns: Dropbox account information.
+        :rtype: dict[str, bool]
+        """
+        res = self.client.get_space_usage()
         return dropbox_stone_to_dict(res)
 
     @handle_disconnect
@@ -788,6 +800,7 @@ Any changes to local files during this process may be lost.""")
         while True:
             # update account info
             self.get_account_info()
+            self.get_space_usage()
             # check for updates
             last_update = CONF.get("app", "update_notification_last")
             interval = CONF.get("app", "update_notification_last")
