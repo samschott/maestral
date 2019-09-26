@@ -26,6 +26,8 @@
   the local Dropbox folder.
 - Fixed bug in converting Dropbox `DeleteError`s due to an invalid path to
   `MaestralApiError`s.
+- Fixed a bug which would cause `maestral unlink` to fail when the Maestral daemon is
+  still running.
 
 ### v0.4.0
 

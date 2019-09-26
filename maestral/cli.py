@@ -343,7 +343,7 @@ def unlink(config_name: str, running: bool):
         from maestral.sync.daemon import MaestralProxy
 
         if running:
-            stop_daemon_with_cli_feedback()
+            stop_daemon_with_cli_feedback(config_name)
 
         with MaestralProxy(config_name, fallback=True) as m:
             m.unlink()
