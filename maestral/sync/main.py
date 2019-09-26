@@ -28,7 +28,7 @@ from maestral.sync.client import MaestralApiClient
 from maestral.sync.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
 from maestral.sync.oauth import OAuth2Session
 from maestral.sync.errors import (MaestralApiError, DropboxAuthError,
-                                  CONNECTION_ERRORS, SYNC_ERRORS, CONNECTION_ERROR_MSG)
+                                  CONNECTION_ERRORS, SYNC_ERRORS)
 from maestral.sync.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
                                    path_exists_case_insensitive, is_child)
 from maestral.config.main import CONF
@@ -163,8 +163,8 @@ def folder_download_worker(monitor, dbx_path, callback=None):
                     callback()
                 download_complete_signal.send()
 
-            except CONNECTION_ERRORS as e:
-                logger.warning("{0}: {1}".format(CONNECTION_ERROR_MSG, e))
+            except CONNECTION_ERRORS:
+                logger.debug(DISCONNECTED, exc_info=True)
                 logger.info(DISCONNECTED)
 
 
@@ -287,7 +287,8 @@ class Maestral(object):
 
     @property
     def paused(self):
-        """Bool indicating if syncing is paused by user."""
+        """Bool indicating if syncing is paused by the user. This is set by calling
+        :meth:`pause`."""
         return not self.monitor._auto_resume_on_connect
 
     @property
