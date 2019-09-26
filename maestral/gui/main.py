@@ -350,10 +350,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.mdbx.start_sync()
             self.pauseAction.setText(self.PAUSE_TEXT)
 
-    def on_space_usage(self):
-        """Update account usage info in UI."""
-        self.accountUsageAction.setText(self.mdbx.get_conf("account", "usage"))
-
     def on_error(self):
         errs = self.mdbx.get_maestral_errors()
         self.mdbx.clear_maestral_errors()
@@ -437,13 +433,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         status = self.mdbx.status
         is_paused = self.mdbx.paused
 
-        if n_errors > 0:
-            self.syncIssuesAction.setText("Show Sync Issues ({0})...".format(n_errors))
-        else:
-            self.syncIssuesAction.setText("Show Sync Issues...")
+        if status == self._status and n_errors == self._n_errors:
+            return
 
-        self.pauseAction.setText(self.RESUME_TEXT if is_paused else self.PAUSE_TEXT)
-
+        # update icon
         if is_paused:
             new_icon = PAUSED
         elif n_errors > 0:
@@ -453,10 +446,22 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.setIcon(new_icon)
 
+        # update action texts
+        if n_errors > 0:
+            self.syncIssuesAction.setText("Show Sync Issues ({0})...".format(n_errors))
+        else:
+            self.syncIssuesAction.setText("Show Sync Issues...")
+
+        self.pauseAction.setText(self.RESUME_TEXT if is_paused else self.PAUSE_TEXT)
+        self.accountUsageAction.setText(self.mdbx.get_conf("account", "usage"))
+
         status_short = elide_string(status)
         self.statusAction.setText(status_short)
+
+        # update tooltip
         self.setToolTip(status_short)
 
+        # cache status
         self._n_errors = n_errors
         self._status = status
 
