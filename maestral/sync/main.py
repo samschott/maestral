@@ -243,7 +243,7 @@ class Maestral(object):
             system_notifier.notify("READY=1")
 
         if run:
-            # if `run == False`, make sure that you manually initiate the first sync
+            # if `run == False`, make sure that you manually run the setup
             # before calling `start_sync`
             if self.pending_dropbox_folder():
                 self.create_dropbox_directory()
@@ -252,10 +252,7 @@ class Maestral(object):
                 self.sync.last_cursor = ""
                 self.sync.last_sync = None
 
-            if self.pending_first_download():
-                self.get_remote_dropbox_async("", callback=self.start_sync)
-            else:
-                self.start_sync()
+            self.start_sync()
 
     @staticmethod
     def get_conf(section, name):
