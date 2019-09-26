@@ -11,7 +11,7 @@ import dropbox
 import requests
 
 
-CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
+CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please check " +
                         "your internet connection and try again later.")
 
 
