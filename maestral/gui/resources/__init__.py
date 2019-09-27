@@ -11,6 +11,8 @@ import re
 import platform
 from PyQt5 import QtWidgets, QtCore, QtGui
 
+from maestral.sync.utils import get_desktop
+
 _root = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
 
 _icon_provider = QtWidgets.QFileIconProvider()
@@ -34,21 +36,7 @@ THEME_DARK = "dark"
 THEME_LIGHT = "light"
 
 
-def _get_desktop():
-
-    if platform.system() == "Linux":
-        current_desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
-        desktop_session = os.environ.get("GDMSESSION", "").lower()
-
-        for desktop in ("gnome", "kde", "xfce", ""):
-            if desktop in current_desktop or desktop in desktop_session:
-                return desktop
-
-    elif platform.system() == "Darwin":
-        return "cocoa"
-
-
-DESKTOP = _get_desktop()
+DESKTOP = get_desktop()
 
 
 def get_native_item_icon(item_path):
