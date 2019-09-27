@@ -156,8 +156,7 @@ def start_maestral_daemon_process(config_name):
         stderr=subprocess.DEVNULL
     )
 
-    # wait until process is created, timeout after 1 sec
-
+    # wait until process is created, timeout after 2 sec
     t0 = time.time()
     pid = None
 
