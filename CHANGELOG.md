@@ -40,6 +40,10 @@
   created successfully.
 - Fixes a bug which would prevent Maestral from detecting local changes to files that are
   part of a batch which is currently being downloaded.
+- Fixes a bug where the user may be asked to create a new keyring in a non-default wallet
+  if multiple wallets are available on first start (e.g., Gnome-keyring and kwallet).
+  See https://github.com/jaraco/keyring/issues/391 for the current behaviour of python
+  keyring.
 
 ### v0.4.0
 
