@@ -149,7 +149,7 @@ def start_maestral_daemon_process(config_name):
     import subprocess
 
     subprocess.Popen(
-        "maestral start -c {} --foreground".format(config_name),
+        "maestral start --foreground -c {}".format(config_name),
         shell=True,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
@@ -161,7 +161,7 @@ def start_maestral_daemon_process(config_name):
     t0 = time.time()
     pid = None
 
-    while not pid and t0 - time.time() < 1:
+    while not pid and time.time() - t0 < 2:
         pid = get_maestral_pid(config_name)
 
     if pid:
