@@ -180,6 +180,12 @@ def gui(config_name, running):
 def start(config_name: str, running: bool, foreground: bool):
     """Starts the Maestral as a daemon."""
 
+    if running:
+        click.echo("Maestral daemon is already running.")
+        return
+
+    check_for_updates()
+
     from maestral.sync.main import Maestral
 
     if Maestral.pending_link() or Maestral.pending_dropbox_folder():
@@ -188,11 +194,8 @@ def start(config_name: str, running: bool, foreground: bool):
         m.create_dropbox_directory()
         m.set_excluded_folders()
 
-    check_for_updates()
-
-    if running:
-        click.echo("Maestral daemon is already running.")
-        return
+        m.sync.last_cursor = ""
+        m.sync.last_sync = 0
 
     if foreground:
         from maestral.sync.daemon import start_maestral_daemon
