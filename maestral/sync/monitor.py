@@ -101,7 +101,11 @@ class FileEventHandler(FileSystemEventHandler):
         self._renamed_items_cache = []
 
     def is_flagged(self, local_path):
-        for path in tuple(self.queue_downloading.queue):
+
+        with self.queue_downloading.mutex:
+            queue_downloading = tuple(self.queue_downloading.queue)
+
+        for path in queue_downloading:
             if local_path.lower().startswith(path.lower()):
                 logger.debug("'{0}' is being downloaded, ignore.".format(local_path))
                 return True
@@ -173,6 +177,10 @@ class FileEventHandler(FileSystemEventHandler):
 
     def on_any_event(self, event):
 
+        # ignore files currently being downloaded
+        if self.is_flagged(event.src_path):
+            return
+
         # ignore changes to the rev file
         if self.is_rev_file(event.src_path):
             return
@@ -185,7 +193,7 @@ class FileEventHandler(FileSystemEventHandler):
             self._renamed_items_cache.remove(event.src_path)
             return
 
-        if self.syncing.is_set() and not self.is_flagged(event.src_path):
+        if self.syncing.is_set():
             self.queue_to_upload.put(event)
 
 
@@ -228,15 +236,17 @@ def catch_sync_issues(sync_errors=None, failed_items=None):
 
 
 class InQueue(object):
-    def __init__(self, name, custom_queued):
+    def __init__(self, name, custom_queue):
         self.name = name
-        self.custom_queue = custom_queued
+        self.custom_queue = custom_queue
 
     def __enter__(self):
         self.custom_queue.put(self.name)
 
     def __exit__(self, type, value, traceback):
-        self.custom_queue.queue.remove(self.name)
+        time.sleep(0.2)
+        with self.custom_queue.mutex:
+            self.custom_queue.queue.remove(self.name)
 
 
 class UpDownSync(object):
