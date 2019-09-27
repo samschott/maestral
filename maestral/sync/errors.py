@@ -26,6 +26,19 @@ class DropboxDeletedError(Exception):
 
 
 class MaestralApiError(Exception):
+    """
+    Base class for errors originating from the Dropbox API or the 'local API'.
+
+    :ivar str title: A short description of the error type.
+    :ivar str message: A more verbose description which can include instructions on how to
+        proceed to handle the error.
+    :ivar str dbx_path: Dropbox path of the file that caused the error.
+    :ivar str dbx_path_dst: Dropbox destination path of the file that caused the error.
+        This should be set for instance when error occurs when moving a file / folder.
+    :ivar str local_path: Local path of the file that caused the error.
+    :ivar str local_path_dst: Local destination path of the file that caused the error.
+        This should be set for instance when error occurs when moving a file / folder.
+    """
 
     def __init__(self, title, message, dbx_path=None, dbx_path_dst=None,
                  local_path=None, local_path_dst=None):

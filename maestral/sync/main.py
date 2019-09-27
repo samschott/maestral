@@ -44,12 +44,14 @@ IS_SYSTEMD = os.getenv("INVOCATION_ID", "")  # set by systemd
 
 if IS_SYSTEMD:
     try:
+        # noinspection PyUnresolvedReferences
         from systemd import journal
     except ImportError:
         IS_SYSTEMD = False
 
 if IS_NOTIFY:
     try:
+        # noinspection PyUnresolvedReferences
         import sdnotify
         system_notifier = sdnotify.SystemdNotifier()
     except ImportError:

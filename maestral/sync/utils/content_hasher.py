@@ -37,7 +37,6 @@ class DropboxContentHasher(object):
         self._block_pos = 0
 
         self.digest_size = self._overall_hasher.digest_size
-        # hashlib classes also define 'block_size', but I don't know how people use that value
 
     def update(self, new_data):
         if self._overall_hasher is None:

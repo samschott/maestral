@@ -16,7 +16,6 @@ from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, QVariant
 
 # maestral modules
 from maestral.sync.main import handle_disconnect, is_child
-from maestral.sync.monitor import UpDownSync
 from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
 from maestral.gui.utils import BackgroundTask
 

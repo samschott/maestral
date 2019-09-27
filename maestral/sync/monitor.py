@@ -89,7 +89,6 @@ class FileEventHandler(FileSystemEventHandler):
     :ivar queue_downloading: Deque with files to be ignored. This is primarily used to
          exclude files and folders from monitoring if they are currently being
          downloaded. All entries in :ivar:`queue_downloading` should be temporary only.
-    :ivar running: Event to turn the queueing of uploads on / off.
     """
 
     def __init__(self, syncing, queue_to_upload, queue_downloading):
@@ -100,7 +99,15 @@ class FileEventHandler(FileSystemEventHandler):
 
         self._renamed_items_cache = []
 
-    def is_flagged(self, local_path):
+    def is_being_downloaded(self, local_path):
+        """
+        Checks if a file is currently being downloaded and should therefore not trigger
+        any file events.
+
+        :param str local_path: Local path to file.
+        :return: ``True`` if the file is currently being downloaded, ``False`` otherwise.
+        :rtype: bool
+        """
 
         with self.queue_downloading.mutex:
             queue_downloading = tuple(self.queue_downloading.queue)
@@ -113,6 +120,13 @@ class FileEventHandler(FileSystemEventHandler):
 
     @staticmethod
     def is_rev_file(local_path):
+        """
+        Checks if :param:`local_path` refers to our rev file.
+
+        :param str local_path: Local path to file.
+        :return: ``True`` if yes, ``False`` otherwise.
+        :rtype: bool
+        """
 
         return osp.basename(local_path) == REV_FILE
 
@@ -176,9 +190,15 @@ class FileEventHandler(FileSystemEventHandler):
         return event
 
     def on_any_event(self, event):
+        """
+        Checks if the system file event should be ignored for any reason. If not, adds it
+        to the queue for events to upload.
+
+        :param event: Watchdog file event.
+        """
 
         # ignore files currently being downloaded
-        if self.is_flagged(event.src_path):
+        if self.is_being_downloaded(event.src_path):
             return
 
         # ignore changes to the rev file
@@ -236,15 +256,28 @@ def catch_sync_issues(sync_errors=None, failed_items=None):
 
 
 class InQueue(object):
-    def __init__(self, name, custom_queue):
+    """
+    A context manager that puts `name` into `custom_queue` when entering the context and
+    removes it when exiting, after a short delay.
+
+    :ivar name: Item to put in queue.
+    :ivar custom_queue: Instance of :class:`queue.Queue`.
+    """
+    def __init__(self, name, custom_queue, delay=0.2):
+        """
+        :param name: Item to put in queue.
+        :param custom_queue: Instance of :class:`queue.Queue`.
+        :param float delay: Delay before removing item from queue
+        """
         self.name = name
         self.custom_queue = custom_queue
+        self._delay = delay
 
     def __enter__(self):
         self.custom_queue.put(self.name)
 
-    def __exit__(self, type, value, traceback):
-        time.sleep(0.2)
+    def __exit__(self, err_type, err_value, err_traceback):
+        time.sleep(self._delay)
         with self.custom_queue.mutex:
             self.custom_queue.queue.remove(self.name)
 
@@ -590,9 +623,17 @@ class UpDownSync(object):
             self._save_rev_dict_to_file()
 
     def has_sync_errors(self):
+        """Returns ``True`` in case of sync errors, ``False`` otherwise."""
         return self.sync_errors.qsize() > 0
 
     def clear_sync_error(self, local_path=None, dbx_path=None):
+        """
+        Clears all sync errors related to the item defined by :param:`local_path`
+        or :param:`local_path.
+
+        :param str local_path: Path to local file.
+        :param str dbx_path: Path to file on Dropbox.
+        """
         assert local_path or dbx_path
         if self.has_sync_errors():
             if not dbx_path:
@@ -606,6 +647,7 @@ class UpDownSync(object):
                             pass
 
     def clear_all_sync_errors(self):
+        """Clears all sync errors."""
         if self.has_sync_errors():
             with self.sync_errors.mutex:
                 self.sync_errors.queue.clear()
@@ -1355,8 +1397,8 @@ class UpDownSync(object):
         # get metadata of remote file
         md = self.client.get_metadata(dbx_path)
         if not md:
-            raise MaestralApiError("Could not download",
-                                   "Item does not exist on Dropbox", pbx_path=dbx_path)
+            raise MaestralApiError("Could not download. Item does not exist on Dropbox",
+                                   dbx_path)
 
         # no conflict if local file does not exist yet
         if not osp.exists(local_path):
@@ -1477,14 +1519,17 @@ class UpDownSync(object):
 
                 # check for sync conflicts
                 conflict = self.check_download_conflict(entry.path_display)
-                if conflict == 0:  # no conflict
+                if conflict == 0:
+                    # no conflict
                     pass
-                elif conflict == 1:  # conflict! rename local file
+                elif conflict == 1:
+                    # conflict! rename local file
                     base, ext = osp.splitext(local_path)
                     new_local_file = base + " (conflicting copy)" + ext
                     os.rename(local_path, new_local_file)
-                elif conflict == 2:  # Dropbox files corresponds to local file, nothing to do
-                    # rev number has been updated by `check_download_conflict` if necessary
+                elif conflict == 2:
+                    # Dropbox file corresponds to local file => nothing to do
+                    # rev number has been updated by `check_download_conflict`
                     return
 
                 md = self.client.download(entry.path_display, local_path)
@@ -1711,9 +1756,9 @@ class MaestralMonitor(object):
         Maestral. It contains the logic to process local and remote file events and to
         apply them while checking for conflicts.
 
-    :cvar connected: Event that is set when connected to Dropbox servers.
-    :cvar running: Event that is set when the threads are running.
-    :cvar syncing: Event that is set when syncing is not paused.
+    :ivar connected: Event that is set when connected to Dropbox servers.
+    :ivar running: Event that is set when the threads are running.
+    :ivar syncing: Event that is set when syncing is not paused.
 
     :cvar queue_downloading: Queue with *local file paths* that are being downloaded.
     :cvar queue_uploading: Queue with *local file paths* that are being uploaded.
@@ -1732,11 +1777,13 @@ class MaestralMonitor(object):
 
     @property
     def upload_list(self):
+        """Returns a list of all items queued to upload and currently uploading."""
         queue_to_upload_list = list(e.src_path for e in self.queue_to_upload.queue)
         return list(self.queue_uploading.queue) + queue_to_upload_list
 
     @property
     def download_list(self):
+        """Returns a list of all items currently downloading."""
         return list(self.queue_downloading.queue)
 
     def __init__(self, client):

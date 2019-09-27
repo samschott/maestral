@@ -16,7 +16,6 @@ from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 # maestral modules
 from maestral import __version__, __author__, __url__
-from maestral.sync.errors import CONNECTION_ERRORS
 from maestral.gui.autostart import AutoStart
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog

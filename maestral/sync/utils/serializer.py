@@ -14,9 +14,6 @@ import traceback
 from dropbox.stone_serializers import json_encode
 from dropbox.stone_validators import Struct
 
-# maestral modules
-from maestral.sync.errors import MaestralApiError
-
 
 def dropbox_stone_to_dict(obj):
     """Converts the result of a Dropbox SDK call to a dict."""

@@ -165,6 +165,9 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
 
     @staticmethod
     def invalidate_token(access_token):
+        """
+        Invalidates :param:`access_token` with Dropbox. Call this when unlinking an app.
+        """
         dbx = dropbox.Dropbox(access_token)
         try:
             dbx.auth_token_revoke()
