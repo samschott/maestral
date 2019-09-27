@@ -36,6 +36,10 @@
   after setup.
 - Fixes a bug where the CLI setup dialog could fail when choosing to replace an existing
   folder.
+- Fixes a bug which would cause `maestral start` to hang indefinitely if the daemon is not
+  created successfully.
+- Fixes a bug which would prevent Maestral from detecting local changes to files that are
+  part of a batch which is currently being downloaded.
 
 ### v0.4.0
 
