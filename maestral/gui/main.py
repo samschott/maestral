@@ -133,16 +133,13 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             logger.info("Setting up Maestral...")
             done = SetupDialog.configureMaestral(pending_link)
             if done:
-                self.mdbx = self._get_or_start_maestral_daemon()
-                self.mdbx.get_remote_dropbox_async("", callback="start_sync")
                 logger.info("Successfully set up Maestral")
             else:
                 logger.info("Setup aborted. Quitting.")
                 self.quit()
-        else:
-            self.mdbx = self._get_or_start_maestral_daemon()
-            self.mdbx.start_sync()
 
+        self.mdbx = self._get_or_start_maestral_daemon()
+        self.mdbx.start_sync()
         self.setup_ui_linked()
 
     def _get_or_start_maestral_daemon(self):
