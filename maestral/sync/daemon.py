@@ -249,7 +249,6 @@ def stop_maestral_daemon_process(config_name="maestral", timeout=5):
                         # send SIGKILL after timeout, delete PID file and return ``False``
                         os.kill(pid, signal.SIGKILL)
                         logger.debug("Daemon process killed")
-                        _delete_pid(config_name)
                         return False
 
 
