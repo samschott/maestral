@@ -1,43 +1,72 @@
 ### v0.4.1-dev
 
+This release focuses on bug fixes and performance improvements. Notable changes are:
+
+- You can now rebuild Maestral's index from the command line with `maestral rebuild-index`.
+- Communication between the sync daemon and frontend (GUI or CLI) is faster.
+
+Here is the list of all changes:
+
 #### Added:
+
+_CLI:_
 
 - Added `maestral rebuild-index` command to CLI.
 
 #### Changed:
 
+_CLI:_
+
 - Renamed CLI command `maestral config new` to `maestral config add`.
 - Renamed CLI command `maestral config delete` to `maestral config remove`.
-- Use Unix domain socket instead of TCP/IP socket for communication with daemon.
-- Use NSTemporaryDirectory on macOS as runtime dir.
+
+_GUI:_
+
 - Improved appearance of unlink dialog: show spinning progress indicator and perform
-  unlink in background.
+  unlink in the background.
+- Show menu entry "No recent files" when there are no recently changed files to display.
+
+_System:_
+
+- Use Unix domain sockets instead of TCP/IP sockets for communication with daemon. This
+  means that communication is lighter, faster and more secure (other users on the same PC
+  can no longer connect to your sync daemon).
+- Use NSTemporaryDirectory on macOS as runtime dir.
+- Simplify code for initial syncing.
 
 #### Fixed:
+
+_CLI:_
+
+- Fixes a bug where the CLI setup dialog could fail when choosing to replace an existing
+  folder.
+- Fixes a bug which would cause `maestral start` to hang indefinitely if the daemon is not
+  created successfully.
+- Fixes a bug which would cause `maestral unlink` to fail when the Maestral daemon is
+  still running.
+  
+_GUI:_
+
+- Fixes a bug where the Maestral GUI would show a paused icon during the initial sync
+  after setup.
+- Fixes a bug where the menu bar item "Pause Syncing" would not change to "Resume Syncing"
+  when pausing sync through the CLI via `maestral pause` (and vice versa).
+  
+_System_:
 
 - Catch unexpected exceptions in sync threads instead of crashing.
 - Do not upload changes to an excluded folder but raise a sync issue instead.
 - Fixes wrong color of system tray / menu bar icon on macOS when clicked in light-mode.
 - Fixes a regression bug from v0.4.0 which caused the creation of new configs for separate
   Dropbox accounts to fail silently.
-- Fixes a bug which could result in a missing sync cursor when running the Maestral GUI
-  after the setup dialog. This would come from parallel access to the config files
-  from a thread spawned by the setup dialog and the Maestral daemon itself. We now make
-  sure that the setup dialog leaves no threads behind after exiting.
+- Fixes a bug which could result in a missing sync cursor when running the Maestral after
+  the initial setup. This would come from parallel access to the config files from a
+  thread spawned by the setup dialog and the Maestral daemon itself. We now make sure that
+  the setup dialog leaves no threads behind after exiting.
 - Fixes a bug which could cause false sync errors when adding a nested folder structure to
   the local Dropbox folder.
 - Fixes bug in converting Dropbox `DeleteError`s due to an invalid path to
   `MaestralApiError`s.
-- Fixes a bug which would cause `maestral unlink` to fail when the Maestral daemon is
-  still running.
-- Fixes a bug where the menu bar item "Pause Syncing" would not change to "Resume Syncing"
-  when pausing sync through the CLI via `maestral pause` (and vice versa).
-- Fixes a bug where the Maestral GUI would show a paused icon during the initial sync
-  after setup.
-- Fixes a bug where the CLI setup dialog could fail when choosing to replace an existing
-  folder.
-- Fixes a bug which would cause `maestral start` to hang indefinitely if the daemon is not
-  created successfully.
 - Fixes a bug which would prevent Maestral from detecting local changes to files that are
   part of a batch which is currently being downloaded.
 - Fixes a bug where the user may be asked to create a new keyring in a non-default wallet
