@@ -25,8 +25,8 @@ from maestral.sync.daemon import MaestralProxy, stop_maestral_daemon_process
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
 
-LINE_COLOR_DARK = (95, 104, 104)
-LINE_COLOR_LIGHT = (205, 203, 205)
+LINE_COLOR_DARK = (70, 70, 70)
+LINE_COLOR_LIGHT = (213, 213, 213)
 
 
 def elide_string(string, font=None, pixels=200, side="right"):
