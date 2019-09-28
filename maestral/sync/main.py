@@ -71,7 +71,7 @@ log_level = CONF.get("app", "log_level")
 
 # -- log to file -------------------------------------------------------------------------
 rfh_log_file = get_log_path("maestral", CONFIG_NAME + ".log")
-rfh = logging.handlers.RotatingFileHandler(rfh_log_file, maxBytes=2**6, backupCount=1)
+rfh = logging.handlers.RotatingFileHandler(rfh_log_file, maxBytes=10**7, backupCount=1)
 rfh.setFormatter(log_fmt_long)
 rfh.setLevel(log_level)
 
