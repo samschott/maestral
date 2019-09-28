@@ -488,10 +488,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def quit(self):
         """Quit Maestral"""
-        if self.started and self.mdbx:
-            self.mdbx.stop_sync()
-            if not is_macos_bundle:
-                stop_maestral_daemon_process(CONFIG_NAME)
+        if self.started and self.mdbx and not is_macos_bundle:
+            stop_maestral_daemon_process(CONFIG_NAME)
         self.deleteLater()
         QtCore.QCoreApplication.quit()
         sys.exit(0)
