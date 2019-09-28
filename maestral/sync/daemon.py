@@ -153,10 +153,10 @@ def start_maestral_daemon_thread(config_name):
 
     time.sleep(0.2)
     if t.is_alive():
-        logger.debug("Started Maestral daemon thread.")
+        logger.debug("Started Maestral daemon thread")
         return True
     else:
-        logger.error("Could not start Maestral daemon thread.")
+        logger.error("Could not start Maestral daemon thread")
         return False
 
 
@@ -192,7 +192,7 @@ def start_maestral_daemon_process(config_name, log_to_console=False):
     if pid:
         return _check_pyro_communication(config_name, timeout=1)
     else:
-        logger.error("Could not start Maestral daemon process.")
+        logger.error("Could not start Maestral daemon process")
         return False
 
 
@@ -210,7 +210,7 @@ def stop_maestral_daemon_process(config_name="maestral", timeout=5):
     import signal
     import time
 
-    logger.debug("Stopping daemon.")
+    logger.debug("Stopping daemon")
 
     pid = get_maestral_pid(config_name)
     if pid:
@@ -220,19 +220,19 @@ def stop_maestral_daemon_process(config_name="maestral", timeout=5):
                 m.stop_sync()
                 m.shutdown_daemon()
         except Pyro4.errors.CommunicationError:
-            logger.debug("Could not communicate with daemon.")
+            logger.debug("Could not communicate with daemon")
             try:
                 # try to send SIGTERM to process
                 os.kill(pid, signal.SIGTERM)
-                logger.debug("Terminating daemon process.")
+                logger.debug("Terminating daemon process")
             except ProcessLookupError:
                 # delete PID file and return ``None`` if process does not exist
                 _delete_pid(config_name)
-                logger.debug("Daemon was not running.")
+                logger.debug("Daemon was not running")
                 return
         finally:
             # wait for maestral to carry out shutdown
-            logger.debug("Waiting for shutdown.")
+            logger.debug("Waiting for shutdown")
             t0 = time.time()
             while True:
                 try:
@@ -240,7 +240,7 @@ def stop_maestral_daemon_process(config_name="maestral", timeout=5):
                     os.kill(pid, 0)
                 except OSError:
                     # return ``True`` if not running anymore
-                    logger.debug("Daemon shut down.")
+                    logger.debug("Daemon shut down")
                     return True
                 else:
                     # wait for 0.2 sec and try again
@@ -248,7 +248,7 @@ def stop_maestral_daemon_process(config_name="maestral", timeout=5):
                     if time.time() - t0 > timeout:
                         # send SIGKILL after timeout, delete PID file and return ``False``
                         os.kill(pid, signal.SIGKILL)
-                        logger.debug("Daemon process killed.")
+                        logger.debug("Daemon process killed")
                         _delete_pid(config_name)
                         return False
 
@@ -310,7 +310,7 @@ def get_maestral_pid(config_name):
 
     try:
         pid = _read_pid(config_name)
-        logger.debug("Could not find PID file.")
+        logger.debug("Could not find PID file")
     except Exception:
         return None
 
@@ -351,12 +351,12 @@ def _check_pyro_communication(config_name, timeout=1):
     while time.time() - t0 < timeout:
         try:
             maestral_daemon._pyroBind()
-            logger.debug("Started Maestral daemon process.")
+            logger.debug("Started Maestral daemon process")
             return True
         except Exception:
             time.sleep(0.1)
         finally:
             maestral_daemon._pyroRelease()
 
-    logger.error("Could communicate with Maestral daemon process.")
+    logger.error("Could communicate with Maestral daemon process")
     return False
