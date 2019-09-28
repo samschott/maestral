@@ -608,16 +608,24 @@ def clear(config_name: str, running: bool):
     """Clears Maestral's log file."""
     from maestral.sync.utils.app_dirs import get_log_path
 
-    log_file = get_log_path("maestral", config_name + ".log")
+    log_dir = get_log_path("maestral")
+    log_name = config_name + ".log"
+
+    log_files = []
+
+    for file_name in os.listdir(log_dir):
+        if file_name.startswith(log_name):
+            log_files.append(os.path.join(log_dir, file_name))
 
     try:
-        open(log_file, 'w').close()
+        for file in log_files:
+            open(file, 'w').close()
         click.echo("Cleared Maestral's log.")
     except FileNotFoundError:
         click.echo("Cleared Maestral's log.")
     except OSError:
-        click.echo("Could not clear log file at '{}'. Please try to delete it "
-                   "manually".format(log_file))
+        click.echo("Could not clear log at '{}'. Please try to delete it "
+                   "manually".format(log_dir))
 
 
 @log.command()
