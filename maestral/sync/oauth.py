@@ -16,7 +16,7 @@ import keyring
 from keyring.errors import KeyringLocked
 
 # maestral modules
-from maestral.sync.utils import get_desktop
+from maestral.sync.utils import is_macos_bundle
 from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
 from maestral.sync.oauth_implicit import DropboxOAuth2FlowImplicit
@@ -27,23 +27,15 @@ logger = logging.getLogger(__name__)
 APP_KEY = "2jmbq42w7vof78h"
 
 
-desktop = get_desktop()
-available_keyrings = keyring.backend.get_all_keyring()
-
-if desktop == "cocoa":
-    preferred_keyring = keyring.backends.OS_X.Keyring
-elif desktop == "gnome":
-    preferred_keyring = keyring.backends.SecretService.Keyring
-elif desktop == "kde":
-    preferred_keyring = keyring.backends.kwallet.DBusKeyring
+if is_macos_bundle:
+    import keyring.backends.OS_X
+    keyring.set_keyring(keyring.backends.OS_X.Keyring())
 else:
-    preferred_keyring = keyring.backends.chainer.ChainerBackend
+    # get preferred keyring backends for platform, excluding the chainer backend
+    all_keyrings = keyring.backend.get_all_keyring()
+    preferred_kreyrings = [k for k in all_keyrings if not isinstance(k, keyring.backends.chainer.ChainerBackend)]
 
-preferred_keyring_instance = next(
-    (k for k in available_keyrings if type(k) == preferred_keyring), None)
-
-if preferred_keyring_instance:
-    keyring.set_keyring(preferred_keyring_instance)
+    keyring.set_keyring(max(preferred_kreyrings, key=lambda x: x.priority))
 
 
 class OAuth2Session(object):
