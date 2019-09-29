@@ -374,6 +374,14 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>pushButtonUnlink</tabstop>
+  <tabstop>pushButtonExcludedFolders</tabstop>
+  <tabstop>comboBoxDropboxPath</tabstop>
+  <tabstop>comboBoxUpdateInterval</tabstop>
+  <tabstop>checkBoxStartup</tabstop>
+  <tabstop>checkBoxNotifications</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
  <designerdata>
