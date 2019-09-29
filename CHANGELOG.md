@@ -17,8 +17,8 @@ _CLI:_
 
 _CLI:_
 
-- Renamed CLI command `maestral config new` to `maestral config add`.
-- Renamed CLI command `maestral config delete` to `maestral config remove`.
+- Renamed command `maestral config new` to `maestral config add`.
+- Renamed command `maestral config delete` to `maestral config remove`.
 
 _GUI:_
 
@@ -73,6 +73,8 @@ _System_:
   if multiple wallets are available on first start (e.g., Gnome-keyring and kwallet).
   See https://github.com/jaraco/keyring/issues/391 for the current behaviour of python
   keyring.
+- Fixes a bug which could cause the Maestral daemon to be started with a different PATH
+  than the invoking command.
 
 ### v0.4.0
 
