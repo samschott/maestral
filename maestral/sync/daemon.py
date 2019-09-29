@@ -178,8 +178,8 @@ def start_maestral_daemon_process(config_name, log_to_console=False):
     STD_IN_OUT = None if log_to_console else subprocess.DEVNULL
 
     subprocess.Popen(
-        "maestral start --foreground -c {}".format(config_name),
-        shell=True, stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
+        ["maestral", "start", "-f", "-c", config_name],
+        stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
     )
 
     # wait until process is created, timeout after 2 sec
