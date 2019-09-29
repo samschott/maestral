@@ -145,7 +145,6 @@ def start_maestral_daemon_thread(config_name):
     t = threading.Thread(
         target=start_maestral_daemon,
         args=(config_name, ),
-        kwargs={"run": False},
         daemon=True,
         name="Maestral daemon",
     )
