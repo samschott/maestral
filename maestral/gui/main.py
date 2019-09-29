@@ -55,7 +55,7 @@ CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
 class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     mdbx = None
-    started = False
+    _started = False
 
     _context_menu_visible = False
 
@@ -139,7 +139,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
                 self.quit()
 
         self.mdbx = self._get_or_start_maestral_daemon()
-        self.mdbx.start_sync()
         self.setup_ui_linked()
 
     def _get_or_start_maestral_daemon(self):
@@ -150,9 +149,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
                 start_maestral_daemon_thread(CONFIG_NAME)
             else:
                 start_maestral_daemon_process(CONFIG_NAME)
-            self.started = True
+            self._started = True
         else:
-            self.started = False
+            self._started = False
 
         return get_maestral_daemon_proxy(CONFIG_NAME)
 
@@ -243,7 +242,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.separator5 = self.menu.addSeparator()
 
-        if self.started:
+        if self._started:
             self.quitAction = self.menu.addAction("Quit Maestral")
         else:
             self.quitAction = self.menu.addAction("Quit Maestral GUI")
@@ -488,7 +487,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def quit(self):
         """Quit Maestral"""
-        if self.started and self.mdbx and not is_macos_bundle:
+        if self._started and self.mdbx and not is_macos_bundle:
             stop_maestral_daemon_process(CONFIG_NAME)
         self.deleteLater()
         QtCore.QCoreApplication.quit()
