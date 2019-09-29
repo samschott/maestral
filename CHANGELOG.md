@@ -3,40 +3,30 @@
 This release focuses on bug fixes and performance improvements. Notable changes are:
 
 - You can now rebuild Maestral's index from the command line with `maestral rebuild-index`.
-- Communication between the sync daemon and frontend (GUI or CLI) is faster.
+- The maestral daemon now supports running under systemd watchdog.
+- Communication between the sync daemon and frontend (GUI or CLI) is faster and more secure.
 
 Here is the list of all changes:
 
 #### Added:
 
-_CLI:_
-
 - Added `maestral rebuild-index` command to CLI.
+- Added support for systemd watchdog.
 
 #### Changed:
 
-_CLI:_
-
 - Renamed command `maestral config new` to `maestral config add`.
 - Renamed command `maestral config delete` to `maestral config remove`.
-
-_GUI:_
-
 - Improved appearance of unlink dialog: show spinning progress indicator and perform
   unlink in the background.
 - Show menu entry "No recent files" when there are no recently changed files to display.
-
-_System:_
-
 - Use Unix domain sockets instead of TCP/IP sockets for communication with daemon. This
   means that communication is lighter, faster and more secure (other users on the same PC
   can no longer connect to your sync daemon).
 - Use NSTemporaryDirectory on macOS as runtime dir.
-- Simplify code for initial syncing.
+- Simplified code for the initial sync.
 
 #### Fixed:
-
-_CLI:_
 
 - Fixes a bug where the CLI setup dialog could fail when choosing to replace an existing
   folder.
@@ -44,16 +34,10 @@ _CLI:_
   created successfully.
 - Fixes a bug which would cause `maestral unlink` to fail when the Maestral daemon is
   still running.
-  
-_GUI:_
-
 - Fixes a bug where the Maestral GUI would show a paused icon during the initial sync
   after setup.
 - Fixes a bug where the menu bar item "Pause Syncing" would not change to "Resume Syncing"
   when pausing sync through the CLI via `maestral pause` (and vice versa).
-  
-_System_:
-
 - Catch unexpected exceptions in sync threads instead of crashing.
 - Do not upload changes to an excluded folder but raise a sync issue instead.
 - Fixes wrong color of system tray / menu bar icon on macOS when clicked in light-mode.
