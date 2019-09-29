@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>614</width>
-    <height>426</height>
+    <width>612</width>
+    <height>430</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -26,6 +26,18 @@
    <string>Maestral Settings</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="leftMargin">
+    <number>50</number>
+   </property>
+   <property name="topMargin">
+    <number>20</number>
+   </property>
+   <property name="rightMargin">
+    <number>50</number>
+   </property>
+   <property name="bottomMargin">
+    <number>20</number>
+   </property>
    <item>
     <spacer name="verticalSpacer_2">
      <property name="orientation">
