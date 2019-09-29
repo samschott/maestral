@@ -23,6 +23,17 @@ import requests
 from dropbox import files
 from blinker import signal
 
+try:
+    from systemd import journal
+except ImportError:
+    journal = None
+try:
+    import sdnotify
+    system_notifier = sdnotify.SystemdNotifier()
+except ImportError:
+    sdnotify = None
+    system_notifier = None
+
 # maestral modules
 from maestral.sync.client import MaestralApiClient
 from maestral.sync.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
@@ -39,23 +50,12 @@ from maestral.sync.utils.updates import check_update_available
 
 CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
 
-IS_NOTIFY = os.getenv("NOTIFY_SOCKET", "")  # set by systemd
-IS_SYSTEMD = os.getenv("INVOCATION_ID", "")  # set by systemd
+# check environment variables set by systemd
+INVOCATION_ID = os.getenv("INVOCATION_ID")
+NOTIFY_SOCKET = os.getenv("NOTIFY_SOCKET")
+WATCHDOG_PID = os.getenv("WATCHDOG_PID")
+WATCHDOG_USEC = os.getenv("WATCHDOG_USEC")
 
-if IS_SYSTEMD:
-    try:
-        # noinspection PyUnresolvedReferences
-        from systemd import journal
-    except ImportError:
-        IS_SYSTEMD = False
-
-if IS_NOTIFY:
-    try:
-        # noinspection PyUnresolvedReferences
-        import sdnotify
-        system_notifier = sdnotify.SystemdNotifier()
-    except ImportError:
-        IS_NOTIFY = False
 
 # ========================================================================================
 # Logging setup
@@ -76,7 +76,7 @@ rfh.setFormatter(log_fmt_long)
 rfh.setLevel(log_level)
 
 # -- log to stdout or journal (when launched from systemd) -------------------------------
-if IS_SYSTEMD:
+if INVOCATION_ID and journal:
     sh = journal.JournalHandler()
     sh.setFormatter(log_fmt_short)
 else:
@@ -98,7 +98,7 @@ class CachedHandler(logging.Handler):
     def emit(self, record):
         self.format(record)
         self.cached_records.append(record)
-        if IS_NOTIFY:
+        if NOTIFY_SOCKET and system_notifier:
             system_notifier.notify("STATUS={}".format(record.message))
 
     def getLastMessage(self):
@@ -241,8 +241,18 @@ class Maestral(object):
         self.monitor = MaestralMonitor(self.client)
         self.sync = self.monitor.sync
 
-        if IS_NOTIFY:
+        if NOTIFY_SOCKET and system_notifier:
+            # notify systemd that we have successfully started
             system_notifier.notify("READY=1")
+
+        if WATCHDOG_USEC and int(WATCHDOG_PID) == os.getpid() and system_notifier:
+            # notify systemd periodically that we are still alive
+            self.watchdog_thread = Thread(
+                name="Maestral watchdog",
+                target=self._periodic_watchdog,
+                daemon=True,
+            )
+            self.update_thread.start()
 
         if run:
             # if `run == False`, make sure that you manually run the setup
@@ -817,11 +827,18 @@ Any changes to local files during this process may be lost.""")
                     CONF.set("app", "latest_release", res["latest_release"])
             time.sleep(60*60)  # 20 min
 
+    @staticmethod
+    def _periodic_watchdog():
+        while True:
+            system_notifier.notify("WATCHDOG=1")
+            time.sleep(int(WATCHDOG_USEC)/2000)
+
     def shutdown_daemon(self):
         """Does nothing except for setting the _daemon_running flag to ``False``. This
         will be checked by Pyro4 periodically to shut down the daemon when requested."""
         self._daemon_running = False
-        if IS_NOTIFY:
+        if NOTIFY_SOCKET and system_notifier:
+            # notify systemd that we are shutting down
             system_notifier.notify("STOPPING=1")
 
     def _loop_condition(self):
