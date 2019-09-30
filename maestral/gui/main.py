@@ -258,7 +258,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.preferencesAction.triggered.connect(self.settings.activateWindow)
         self.updatesAction.triggered.connect(lambda: self.on_check_for_updates(
             user_requested=True))
-        self.syncIssuesAction.triggered.connect(self.sync_issues_window.reload)
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.show)
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.raise_)
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.activateWindow)
@@ -453,6 +452,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         status_short = elide_string(status)
         self.statusAction.setText(status_short)
+
+        # update sync issues window
+        if n_errors != self._n_errors:
+            self.sync_issues_window.reload()
 
         # update tooltip
         self.setToolTip(status_short)
