@@ -96,11 +96,7 @@ border-radius: 7px;
          <string notr="true">QPushButton {
 	border: none;
 	background-color: none;
-	font: Arial;
-	font-size: 17pt
-}
-QPushButton:hover {
-	color: rgb(11,95,255);
+	color: rgb(68,133,243);
 }</string>
         </property>
         <property name="text">
@@ -127,9 +123,6 @@ QPushButton:hover {
           <pointsize>11</pointsize>
          </font>
         </property>
-        <property name="styleSheet">
-         <string notr="true">color: rgb(241, 54, 86)</string>
-        </property>
         <property name="text">
          <string>Could not upload:
 Something went wrong with the job on Dropbox’s end. Please verify on the Dropbox website.</string>
@@ -146,6 +139,12 @@ Something went wrong with the job on Dropbox’s end. Please verify on the Dropb
           <width>16777215</width>
           <height>20</height>
          </size>
+        </property>
+        <property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
         </property>
         <property name="text">
          <string>Metamorphosis.txt</string>
