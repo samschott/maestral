@@ -131,6 +131,15 @@
      <property name="textElideMode">
       <enum>Qt::ElideRight</enum>
      </property>
+     <property name="verticalScrollMode">
+      <enum>QAbstractItemView::ScrollPerPixel</enum>
+     </property>
+     <property name="horizontalScrollMode">
+      <enum>QAbstractItemView::ScrollPerItem</enum>
+     </property>
+     <property name="uniformRowHeights">
+      <bool>true</bool>
+     </property>
      <property name="headerHidden">
       <bool>true</bool>
      </property>
