@@ -1452,31 +1452,65 @@ class UpDownSync(object):
     def notify_user(self, changes):
         """Sends system notifications for files changed."""
 
-        # count remote changes
+        # get number of remote changes
         n_changed = len(changes.entries)
+
+        if n_changed == 0:
+            return
+
+        # find out who changed the file(s), get the name if its only a single user
+
+        user_name = None
+
+        if all(getattr(x, "sharing_info", None) for x in changes.entries):
+            # all files are in shared folder, see if the user IDs are the same
+            dbid0 = changes.entries[0].sharing_info.modified_by
+            if all(x.sharing_info.modified_by == dbid0 for x in changes.entries):
+                # all files have been modified by the same user
+                if dbid0 == CONF.get("account", "account_id"):
+                    user_name = "You"
+                else:
+                    account_info = self.client.get_account_info(dbid0)
+                    user_name = account_info.name.display_name
+        elif not any(getattr(x, "sharing_info", None) for x in changes.entries):
+            # all files were changed by current user
+            user_name = "You"
 
         # notify user
         if n_changed == 1:
+            # for a single change, display user name, file name and type of change
             md = changes.entries[0]
             file_name = os.path.basename(md.path_display)
+
             if isinstance(md, DeletedMetadata):
-                if self.get_local_rev(md.path_display):
-                    # file has been deleted from remote
-                    self.notify.send("{0} removed".format(file_name))
+                # file has been deleted from remote
+                self.notify.send("{0} removed {1}".format(user_name, file_name))
             elif isinstance(md, FileMetadata):
-                if self.get_local_rev(md.path_display) is None:
+                if self.get_local_rev(md.path_lower):
+                    is_new_file = False
+                else:
+                    revs = self.client.list_revisions(md.path_lower, limit=2)
+                    is_new_file = len(revs.entries) == 1
+                if is_new_file:
                     # file has been added to remote
-                    self.notify.send("{0} added".format(file_name))
-                elif not self.get_local_rev(md.path_display) == md.rev:
+                    self.notify.send("{0} added {1}".format(user_name, file_name))
+                else:
                     # file has been modified on remote
-                    self.notify.send("{0} modified".format(file_name))
+                    self.notify.send("{0} changed {1}".format(user_name, file_name))
             elif isinstance(md, FolderMetadata):
-                if self.get_local_rev(md.path_display) is None:
-                    # folder has been deleted from remote
-                    self.notify.send("{0} added".format(file_name))
+                self.notify.send("{0} added {1}".format(user_name, file_name))
 
         elif n_changed > 1:
-            self.notify.send("{0} files changed".format(n_changed))
+            # for multiple changes, display user name if all equal and type
+            # of change of "deleted"
+            if all(isinstance(x, DeletedMetadata) for x in changes.entries):
+                change_type = "removed"
+            else:
+                change_type = "changed"
+            if user_name:
+                self.notify.send("{0} {1} {2} files".format(user_name, change_type, n_changed))
+            else:
+                self.notify.send("{0} files {1}".format(n_changed, change_type))
 
     @staticmethod
     def _sort_remote_entries(result):
@@ -1663,7 +1697,8 @@ def download_worker(sync, syncing, running, connected):
                         changes = sync.list_remote_changes(sync.last_cursor)
 
                         # notify user about changes
-                        sync.notify_user(changes)
+                        if CONF.get("app", "notifications"):
+                            sync.notify_user(changes)
 
                         # apply remote changes to local Dropbox folder
                         sync.apply_remote_changes(changes)
