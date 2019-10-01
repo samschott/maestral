@@ -7,30 +7,29 @@ Created on Wed Oct 31 16:23:13 2018
 """
 import sys
 import os
-import re
+import os.path as osp
 import platform
+import re
 from PyQt5 import QtWidgets, QtCore, QtGui
 
-from maestral.sync.utils import get_desktop
-
-_root = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+_root = getattr(sys, '_MEIPASS', osp.dirname(osp.abspath(__file__)))
 
 _icon_provider = QtWidgets.QFileIconProvider()
 
-APP_ICON_PATH = _root + "/Maestral.png"
-TRAY_ICON_PATH_SVG = _root + "/maestral-icon-{0}-{1}.svg"
-TRAY_ICON_PATH_PNG = _root + "/maestral-icon-{0}-{1}.png"
+APP_ICON_PATH = osp.join(_root, "Maestral.png")
+TRAY_ICON_PATH_SVG = osp.join(_root, "maestral-icon-{0}-{1}.svg")
+TRAY_ICON_PATH_PNG = osp.join(_root, "maestral-icon-{0}-{1}.png")
 
-FACEHOLDER_PATH = _root + "/faceholder.png"
+FACEHOLDER_PATH = osp.join(_root, "faceholder.png")
 
-FOLDERS_DIALOG_PATH = _root + "/folders_dialog.ui"
-SETUP_DIALOG_PATH = _root + "/setup_dialog.ui"
-SETTINGS_WINDOW_PATH = _root + "/settings_window.ui"
-UNLINK_DIALOG_PATH = _root + "/unlink_dialog.ui"
-RELINK_DIALOG_PATH = _root + "/relink_dialog.ui"
-REBUILD_INDEX_DIALOG_PATH = _root + "/rebuild_index_dialog.ui"
-SYNC_ISSUES_WINDOW_PATH = _root + "/sync_issues_window.ui"
-SYNC_ISSUE_WIDGET_PATH = _root + "/sync_issue_widget.ui"
+FOLDERS_DIALOG_PATH = osp.join(_root, "folders_dialog.ui")
+SETUP_DIALOG_PATH = osp.join(_root, "setup_dialog.ui")
+SETTINGS_WINDOW_PATH = osp.join(_root, "settings_window.ui")
+UNLINK_DIALOG_PATH = osp.join(_root, "unlink_dialog.ui")
+RELINK_DIALOG_PATH = osp.join(_root, "relink_dialog.ui")
+REBUILD_INDEX_DIALOG_PATH = osp.join(_root, "rebuild_index_dialog.ui")
+SYNC_ISSUES_WINDOW_PATH = osp.join(_root, "sync_issues_window.ui")
+SYNC_ISSUE_WIDGET_PATH = osp.join(_root, "sync_issue_widget.ui")
 
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
