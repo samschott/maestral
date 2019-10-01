@@ -236,6 +236,27 @@ class MaestralApiClient(object):
 
         return md
 
+    def list_revisions(self, dbx_path, mode="path", limit=10):
+        """
+        Lists all file revisions for the given file.
+
+        :param str dbx_path: Path to file on Dropbox.
+        :param str mode: Must be "path" or "id". If "id", specify the Dropbox file ID
+            instead of the file path to get revisions across move and rename events.
+            Defaults to "path".
+        :param int limit: Number of revisions to list. Defaults to 10.
+        :returns: :class:`dropbox.files.ListRevisionsResult` instance
+        """
+
+        mode = dropbox.files.ListRevisionsMode(mode)
+
+        try:
+            res = self.dbx.files_list_revisions(dbx_path, mode=mode, limit=limit)
+        except dropbox.exceptions.DropboxException as exc:
+            raise api_to_maestral_error(exc, dbx_path)
+
+        return res
+
     def download(self, dbx_path, dst_path, **kwargs):
         """
         Downloads file from Dropbox to our local folder.
