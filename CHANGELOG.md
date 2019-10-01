@@ -3,7 +3,6 @@
 This release focuses on bug fixes and performance improvements. Notable changes are:
 
 - You can now rebuild Maestral's index from the command line with `maestral rebuild-index`.
-- The maestral daemon now supports running under systemd watchdog.
 - Communication between the sync daemon and frontend (GUI or CLI) is faster and more secure.
 
 Here is the list of all changes:
@@ -25,6 +24,7 @@ Here is the list of all changes:
   can no longer connect to your sync daemon).
 - Use NSTemporaryDirectory on macOS as runtime dir.
 - Simplified code for the initial sync.
+- Improved system tray notifications: Display the name of the user who changed a file.
 
 #### Fixed:
 
@@ -55,10 +55,12 @@ Here is the list of all changes:
   part of a batch which is currently being downloaded.
 - Fixes a bug where the user may be asked to create a new keyring in a non-default wallet
   if multiple wallets are available on first start (e.g., Gnome-keyring and kwallet).
-  See https://github.com/jaraco/keyring/issues/391 for the current behaviour of python
+  See https://github.com/jaraco/keyring/issues/391 for the current behaviour of Python
   keyring.
 - Fixes a bug which could cause the Maestral daemon to be started with a different PATH
   than the invoking command.
+- Fixes a bug where changes to a file which is not synced locally would trigger "file
+  added" instead of "file modified" notifications.
 
 ### v0.4.0
 
