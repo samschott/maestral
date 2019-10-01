@@ -10,11 +10,12 @@ import os
 import platform
 from enum import Enum
 from pathlib import Path
+import logging
 
 from maestral.sync.utils import is_macos_bundle, check_version
 
 _root = getattr(sys, '_MEIPASS', Path(Path(__file__).parents[2], "gui", "resources"))
-
+logger = logging.getLogger(__name__)
 APP_ICON_PATH = os.path.join(_root, "Maestral.png")
 
 
@@ -77,11 +78,11 @@ if is_macos_bundle:
     if check_version(macos_version, '10.15.0', '>='):
 
         def auth_callback(granted, err):
-            print("Granted: ", granted, )
-            print("Error in authorization request: ", err)
+            logger.debug("Granted: ", granted)
+            logger.debug("Error in authorization request: ", err)
 
         def notif_callback(err):
-            print("Error in notification callback:", err)
+            logger.debug("Error in notification callback:", err)
 
         nc = UserNotifications.UNUserNotificationCenter.currentNotificationCenter()
         nc.requestAuthorizationWithOptions_completionHandler_((1<<2) | (1<<1) | (1<<0), auth_callback)
