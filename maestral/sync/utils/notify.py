@@ -20,7 +20,6 @@ APP_ICON_PATH = os.path.join(_root, "Maestral.png")
 
 
 if is_macos_bundle:
-    import objc
     import UserNotifications
     import Foundation
 
@@ -75,7 +74,7 @@ if is_macos_bundle:
 
     macos_version, *_ = platform.mac_ver()
 
-    if check_version(macos_version, '10.15.0', '>='):
+    if check_version(macos_version, '10.15.0', '>='):  # macOS Catalina and higher
 
         def auth_callback(granted, err):
             logger.debug("Granted: ", granted)
