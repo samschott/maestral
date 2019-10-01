@@ -153,32 +153,39 @@ class MaestralApiClient(object):
             timeout=self._timeout
         )
 
-    def get_account_info(self):
+    def get_account_info(self, dbid=None):
         """
         Gets current account information.
 
+        :param str dbid: Dropbox ID of account. If not given, will get the info of our own
+            account.
         :returns: :class:`dropbox.users.FullAccount` instance or `None` if failed.
         :rtype: dropbox.users.FullAccount
         """
         try:
-            res = self.dbx.users_get_current_account()
+            if dbid:
+                res = self.dbx.users_get_account(dbid)
+            else:
+                res = self.dbx.users_get_current_account()
         except dropbox.exceptions.DropboxException as exc:
             raise api_to_maestral_error(exc)
 
-        if res.account_type.is_basic():
-            account_type = "basic"
-        elif res.account_type.is_business():
-            account_type = "business"
-        elif res.account_type.is_pro():
-            account_type = "pro"
-        else:
-            account_type = ""
+        if not dbid:
+            # save our own account info to config
+            if res.account_type.is_basic():
+                account_type = "basic"
+            elif res.account_type.is_business():
+                account_type = "business"
+            elif res.account_type.is_pro():
+                account_type = "pro"
+            else:
+                account_type = ""
 
-        CONF.set("account", "account_id", res.account_id)
-        CONF.set("account", "email", res.email)
-        CONF.set("account", "display_name", res.name.display_name)
-        CONF.set("account", "abbreviated_name", res.name.abbreviated_name)
-        CONF.set("account", "type", account_type)
+            CONF.set("account", "account_id", res.account_id)
+            CONF.set("account", "email", res.email)
+            CONF.set("account", "display_name", res.name.display_name)
+            CONF.set("account", "abbreviated_name", res.name.abbreviated_name)
+            CONF.set("account", "type", account_type)
 
         return res
 
