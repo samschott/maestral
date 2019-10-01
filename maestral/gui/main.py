@@ -372,7 +372,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self._stop_and_exec_relink_dialog(RelinkDialog.EXPIRED)
         else:
             title = "An unexpected error occurred."
-            message = "Please contact the Maestral developer with the information below."
+            message = ("Please restart Maestral to continue syncing and contact "
+                       "the developer with the information below.")
             self._stop_and_exec_error_dialog(title, message, err["traceback"])
 
     def on_rebuild(self):
