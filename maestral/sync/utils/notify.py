@@ -29,19 +29,8 @@ class Notipy(object):
     def __init__(self):
         self.implementation = self.__get_available_implementation()
 
-    @property
-    def enabled(self):
-        return CONF.get("app", "notifications")
-
-    @enabled.setter
-    def enabled(self, boolean):
-        CONF.set("app", "notifications", boolean)
-
     def send(self, message, title="Maestral"):
-        if self.enabled:
-            self.__send_message(message, title)
-        else:
-            pass
+        self.__send_message(message, title)
 
     def __send_message(self, message, title=""):
         if is_macos_bundle:

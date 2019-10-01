@@ -129,7 +129,7 @@ class SettingsWindow(QtWidgets.QWidget):
         # populate app section
         self.autostart = AutoStart()
         self.checkBoxStartup.setChecked(self.autostart.enabled)
-        self.checkBoxNotifications.setChecked(self.mdbx.notify)
+        self.checkBoxNotifications.setChecked(self.mdbx.get_conf("app", "notifications"))
         update_interval = self.mdbx.get_conf("app", "update_notification_interval")
         closest_key = min(
             self._update_interval_mapping,
@@ -210,10 +210,7 @@ class SettingsWindow(QtWidgets.QWidget):
             self.autostart.enable()
 
     def on_notifications_clicked(self, state):
-        if state == 0:
-            self.mdbx.notify = False
-        elif state == 2:
-            self.mdbx.notify = True
+        self.mdbx.set_conf("app", "notifications", state == 2)
 
     @staticmethod
     def rel_path(path):

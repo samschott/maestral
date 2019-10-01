@@ -386,7 +386,7 @@ def notify(config_name: str, yes: bool, running: bool):
     from maestral.sync.daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
-        m.notify = yes
+        m.set_conf("app", "notifications", yes)
 
     enabled_str = "enabled" if yes else "disabled"
     click.echo("Notifications {}.".format(enabled_str))
