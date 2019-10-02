@@ -4,6 +4,7 @@ This release focuses on bug fixes and performance improvements. Notable changes 
 
 - You can now rebuild Maestral's index from the command line with `maestral rebuild-index`.
 - Communication between the sync daemon and frontend (GUI or CLI) is faster and more secure.
+- Improved system tray notifications.
 
 Here is the list of all changes:
 
@@ -24,7 +25,11 @@ Here is the list of all changes:
   can no longer connect to your sync daemon).
 - Use NSTemporaryDirectory on macOS as runtime dir.
 - Simplified code for the initial sync.
-- Improved system tray notifications: Display the name of the user who changed a file.
+- Improved system tray notifications:
+    - Display the name of the user who changed a file
+    - Added app-icon and and -name to Linux notifications.
+    - Migrated macOS notifications from `NSUserNotificationCenter` to
+      `UNUserNotificatioCenter` for macOS Catalina and higher.
 
 #### Fixed:
 
