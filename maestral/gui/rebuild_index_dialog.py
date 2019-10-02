@@ -6,10 +6,6 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 
-# system imports
-import time
-import logging
-
 # external packages
 from PyQt5 import QtCore, QtWidgets, uic
 

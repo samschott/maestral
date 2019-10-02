@@ -16,7 +16,6 @@ from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, QVariant
 
 # maestral modules
 from maestral.sync.main import handle_disconnect, is_child
-from maestral.sync.monitor import UpDownSync
 from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
 from maestral.gui.utils import BackgroundTask
 
@@ -459,9 +458,6 @@ class FoldersDialog(QtWidgets.QDialog):
             return
 
         self.apply_selection()
-        self.excluded_folders = UpDownSync.clean_excluded_folder_list(
-            self.excluded_folders)
-
         self.mdbx.set_excluded_folders(self.excluded_folders)
 
     def apply_selection(self, index=QModelIndex()):

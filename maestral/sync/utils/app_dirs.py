@@ -1,3 +1,10 @@
+# !/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Oct 31 16:23:13 2018
+
+@author: samschott
+"""
 import platform
 import os
 import os.path as osp
@@ -88,7 +95,7 @@ def get_runtime_path(subfolder=None, filename=None, create=True):
     """
     Returns the default runtime directory for the platform. This will be:
 
-        - macOS: "~/Library/Application Support/SUBFOLDER/FILENAME"
+        - macOS: tempfile.gettempdir() + subfolder
         - Linux: "$XDG_RUNTIME_DIR/SUBFOLDER/FILENAME"
         - fallback: "~/.cache/SUBFOLDER/FILENAME"
 
@@ -99,7 +106,8 @@ def get_runtime_path(subfolder=None, filename=None, create=True):
     fallback = get_cache_path()
     # if-defs for different platforms
     if platform.system() == "Darwin":
-        runtime_path = fallback
+        import tempfile
+        runtime_path = tempfile.gettempdir()
     else:
         runtime_path = os.environ.get("XDG_RUNTIME_DIR", fallback)
 

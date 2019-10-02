@@ -25,7 +25,7 @@ from maestral.sync.daemon import (
     start_maestral_daemon_process,
     start_maestral_daemon_thread,
     stop_maestral_daemon_process,
-    get_maestral_process_info,
+    get_maestral_pid,
     get_maestral_daemon_proxy,
 )
 from maestral.gui.settings_window import SettingsWindow
@@ -55,17 +55,23 @@ CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
 class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     mdbx = None
-    started = False
+    _started = False
+
+    _context_menu_visible = False
+
+    PAUSE_TEXT = "Pause Syncing"
+    RESUME_TEXT = "Resume Syncing"
 
     def __init__(self):
-        # ------------- initialize tray icon -------------------
         QtWidgets.QSystemTrayIcon.__init__(self)
 
         self.icons = self.load_tray_icons()
-        self.setIcon(self.icons[DISCONNECTED])
+        self.setIcon(DISCONNECTED)
         self.show_when_systray_available()
 
         self.menu = QtWidgets.QMenu()
+        self.menu.aboutToShow.connect(self._onContextMenuAboutToShow)
+        self.menu.aboutToHide.connect(self._onContextMenuAboutToHide)
         self.setContextMenu(self.menu)
 
         self.setup_ui_unlinked()
@@ -77,6 +83,11 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.update_ui_timer.timeout.connect(self.update_ui)
         self.update_ui_timer.start(200)  # every 200 ms
 
+    def setIcon(self, icon_name):
+        icon = self.icons.get(icon_name, self.icons[SYNCING])
+        self._current_icon = icon_name
+        QtWidgets.QSystemTrayIcon.setIcon(self, icon)
+
     def update_ui(self):
         if self.mdbx:
             self.on_status()
@@ -86,13 +97,12 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         # If available, show icon, otherwise, set a timer to check back later.
         # This is a workaround for https://bugreports.qt.io/browse/QTBUG-61898
         if self.isSystemTrayAvailable():
-            self.setIcon(self.icon())  # reload icon
+            self.setIcon(self._current_icon)  # reload icon
             self.show()
         else:
             QtCore.QTimer.singleShot(1000, self.show_when_systray_available)
 
-    @staticmethod
-    def load_tray_icons():
+    def load_tray_icons(self):
 
         icons = dict()
         icon_mapping = {
@@ -104,8 +114,13 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             SYNC_ERROR: "error",
         }
 
+        if self.contextMenuVisible() and platform.system() == "Darwin":
+            color = "light"
+        else:
+            color = None
+
         for key in icon_mapping:
-            icons[key] = get_system_tray_icon(icon_mapping[key])
+            icons[key] = get_system_tray_icon(icon_mapping[key], color=color)
 
         return icons
 
@@ -118,29 +133,25 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             logger.info("Setting up Maestral...")
             done = SetupDialog.configureMaestral(pending_link)
             if done:
-                self.mdbx = self._get_or_start_maestral_daemon()
-                self.mdbx.get_remote_dropbox_async("", callback="start_sync")
                 logger.info("Successfully set up Maestral")
             else:
                 logger.info("Setup aborted. Quitting.")
                 self.quit()
-        else:
-            self.mdbx = self._get_or_start_maestral_daemon()
-            self.mdbx.start_sync()
 
+        self.mdbx = self._get_or_start_maestral_daemon()
         self.setup_ui_linked()
 
     def _get_or_start_maestral_daemon(self):
 
-        pid, _ = get_maestral_process_info(CONFIG_NAME)
+        pid = get_maestral_pid(CONFIG_NAME)
         if not pid:
             if is_macos_bundle:
                 start_maestral_daemon_thread(CONFIG_NAME)
             else:
                 start_maestral_daemon_process(CONFIG_NAME)
-            self.started = True
+            self._started = True
         else:
-            self.started = False
+            self._started = False
 
         return get_maestral_daemon_proxy(CONFIG_NAME)
 
@@ -160,8 +171,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.separator1 = self.menu.addSeparator()
 
-        self.accountEmailAction = self.menu.addAction("Not linked")
-        self.accountEmailAction.setEnabled(False)
+        self.statusAction = self.menu.addAction("Setting up...")
+        self.statusAction.setEnabled(False)
 
         self.separator2 = self.menu.addSeparator()
 
@@ -213,9 +224,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.statusAction = self.menu.addAction(IDLE)
         self.statusAction.setEnabled(False)
         if self.mdbx.syncing:
-            self.pauseAction = self.menu.addAction("Pause Syncing")
+            self.pauseAction = self.menu.addAction(self.PAUSE_TEXT)
         else:
-            self.pauseAction = self.menu.addAction("Resume Syncing")
+            self.pauseAction = self.menu.addAction(self.RESUME_TEXT)
         self.recentFilesMenu = self.menu.addMenu("Recently Changed Files")
 
         self.separator3 = self.menu.addSeparator()
@@ -231,7 +242,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.separator5 = self.menu.addSeparator()
 
-        if self.started:
+        if self._started:
             self.quitAction = self.menu.addAction("Quit Maestral")
         else:
             self.quitAction = self.menu.addAction("Quit Maestral GUI")
@@ -247,7 +258,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.preferencesAction.triggered.connect(self.settings.activateWindow)
         self.updatesAction.triggered.connect(lambda: self.on_check_for_updates(
             user_requested=True))
-        self.syncIssuesAction.triggered.connect(self.sync_issues_window.reload)
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.show)
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.raise_)
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.activateWindow)
@@ -264,7 +274,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.recentFilesMenu.aboutToShow.connect(self.update_recent_files)
 
         # --------------- switch to idle icon -------------------
-        self.setIcon(self.icons[IDLE])
+        self.setIcon(IDLE)
 
         # ----------- check for updates and notify user ---------
         self._update_timer = QtCore.QTimer()
@@ -309,7 +319,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             update_dialog.exec_()
 
         elif user_requested and not res["update_available"]:
-            message = 'Maestral v{0} is the newest version available.'.format(res["latest_release"])
+            message = 'Maestral v{} is the newest version available.'.format(res["latest_release"])
             update_dialog = UserDialog("You’re up-to-date!", message)
             update_dialog.exec_()
 
@@ -325,19 +335,15 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def on_start_stop_clicked(self):
         """Pause / resume syncing on menu item clicked."""
-        if self.pauseAction.text() == "Pause Syncing":
+        if self.pauseAction.text() == self.PAUSE_TEXT:
             self.mdbx.pause_sync()
-            self.pauseAction.setText("Resume Syncing")
-        elif self.pauseAction.text() == "Resume Syncing":
+            self.pauseAction.setText(self.RESUME_TEXT)
+        elif self.pauseAction.text() == self.RESUME_TEXT:
             self.mdbx.resume_sync()
-            self.pauseAction.setText("Pause Syncing")
+            self.pauseAction.setText(self.PAUSE_TEXT)
         elif self.pauseAction.text() == "Start Syncing":
             self.mdbx.start_sync()
-            self.pauseAction.setText("Pause Syncing")
-
-    def on_space_usage(self):
-        """Update account usage info in UI."""
-        self.accountUsageAction.setText(self.mdbx.get_conf("account", "usage"))
+            self.pauseAction.setText(self.PAUSE_TEXT)
 
     def on_error(self):
         errs = self.mdbx.get_maestral_errors()
@@ -366,7 +372,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self._stop_and_exec_relink_dialog(RelinkDialog.EXPIRED)
         else:
             title = "An unexpected error occurred."
-            message = "Please contact the Maestral developer with the information below."
+            message = ("Please restart Maestral to continue syncing and contact "
+                       "the developer with the information below.")
             self._stop_and_exec_error_dialog(title, message, err["traceback"])
 
     def on_rebuild(self):
@@ -377,7 +384,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.rebuild_dialog.raise_()
 
     def _stop_and_exec_relink_dialog(self, reason):
-        self.setIcon(self.icons[SYNC_ERROR])
+        self.setIcon(SYNC_ERROR)
 
         if self.mdbx:
             self.mdbx.stop_sync()
@@ -392,7 +399,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         relink_dialog.exec_()  # this will perform quit actions as appropriate
 
     def _stop_and_exec_error_dialog(self, title, message, exc_info=None):
-        self.setIcon(self.icons[SYNC_ERROR])
+        self.setIcon(SYNC_ERROR)
 
         if self.mdbx:
             self.mdbx.stop_sync()
@@ -420,28 +427,62 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         n_errors = len(self.mdbx.sync_errors)
         status = self.mdbx.status
+        is_paused = self.mdbx.paused
 
         if status == self._status and n_errors == self._n_errors:
             return
 
+        # update icon
+        if is_paused:
+            new_icon = PAUSED
+        elif n_errors > 0:
+            new_icon = SYNC_ERROR
+        else:
+            new_icon = status
+
+        self.setIcon(new_icon)
+
+        # update action texts
         if n_errors > 0:
             self.syncIssuesAction.setText("Show Sync Issues ({0})...".format(n_errors))
         else:
             self.syncIssuesAction.setText("Show Sync Issues...")
 
-        if n_errors > 0:
-            new_icon = self.icons[SYNC_ERROR]
-        else:
-            new_icon = self.icons.get(status, self.icons[SYNCING])
-
-        self.setIcon(new_icon)
+        self.pauseAction.setText(self.RESUME_TEXT if is_paused else self.PAUSE_TEXT)
+        self.accountUsageAction.setText(self.mdbx.get_conf("account", "usage"))
 
         status_short = elide_string(status)
         self.statusAction.setText(status_short)
+
+        # update sync issues window
+        if n_errors != self._n_errors:
+            self.sync_issues_window.reload()
+
+        # update tooltip
         self.setToolTip(status_short)
 
+        # cache status
         self._n_errors = n_errors
         self._status = status
+
+    def _onContextMenuAboutToShow(self):
+        self._context_menu_visible = True
+
+        if platform.system() == "Darwin":
+            self.reload_icons()
+
+    def _onContextMenuAboutToHide(self):
+        self._context_menu_visible = False
+
+        if platform.system() == "Darwin":
+            self.reload_icons()
+
+    def reload_icons(self):
+        self.icons = self.load_tray_icons()
+        self.setIcon(self._current_icon)
+
+    def contextMenuVisible(self):
+        return self._context_menu_visible
 
     def setToolTip(self, text):
         if not platform.system() == "Darwin":
@@ -450,10 +491,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def quit(self):
         """Quit Maestral"""
-        if self.started and self.mdbx:
-            self.mdbx.stop_sync()
-            if not is_macos_bundle:
-                stop_maestral_daemon_process(CONFIG_NAME)
+        if self._started and self.mdbx and not is_macos_bundle:
+            stop_maestral_daemon_process(CONFIG_NAME)
         self.deleteLater()
         QtCore.QCoreApplication.quit()
         sys.exit(0)

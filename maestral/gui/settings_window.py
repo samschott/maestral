@@ -16,7 +16,6 @@ from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 # maestral modules
 from maestral import __version__, __author__, __url__
-from maestral.sync.errors import CONNECTION_ERRORS
 from maestral.gui.autostart import AutoStart
 from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog
@@ -48,6 +47,13 @@ class UnlinkDialog(QtWidgets.QDialog):
         pixmap = icon_to_pixmap(icon, self.iconLabel.width(), self.iconLabel.height())
         self.iconLabel.setPixmap(pixmap)
 
+    def accept(self):
+
+        self.buttonBox.setEnabled(False)
+        self.progressIndicator.startAnimation()
+        self.unlink_thread = MaestralBackgroundTask(self, "unlink")
+        self.unlink_thread.sig_done.connect(quit_and_restart_maestral)
+
 
 class SettingsWindow(QtWidgets.QWidget):
     """A widget showing all of Maestral's settings."""
@@ -69,6 +75,8 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelAccountInfo.setFont(get_scaled_font(0.85))
         self.labelSpaceUsage.setFont(get_scaled_font(0.85))
 
+        self._profile_pic_height = round(self.labelUserProfilePic.height() * 0.65)
+
         if platform.system() == "Darwin" and NEW_QT:
             self.spacerMacOS.setMinimumWidth(2)  # bug fix for macOS
             self.spacerMacOS.setMaximumWidth(2)  # bug fix for macOS
@@ -81,8 +89,7 @@ class SettingsWindow(QtWidgets.QWidget):
         self.update_timer.start(1000*60*20)  # every 20 min
 
         # connect callbacks
-        self.pushButtonUnlink.clicked.connect(self.unlink_dialog.open)
-        self.unlink_dialog.accepted.connect(self.on_unlink)
+        self.pushButtonUnlink.clicked.connect(self.unlink_dialog.exec_)
         self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.populate_folders_list)
         self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.open)
         self.checkBoxStartup.stateChanged.connect(self.on_start_on_login_clicked)
@@ -104,22 +111,8 @@ class SettingsWindow(QtWidgets.QWidget):
 
     def populate_gui(self):
 
-        # populate account name
-        account_display_name = self.mdbx.get_conf("account", "display_name")
-        # if the display name is longer than 230 pixels, reduce font-size
-        if NEW_QT:
-            account_display_name_length = QtGui.QFontMetrics(
-                self.labelAccountName.font()).horizontalAdvance(account_display_name)
-        else:
-            account_display_name_length = QtGui.QFontMetrics(
-                self.labelAccountName.font()).width(account_display_name)
-        if account_display_name_length > 240:
-            font = get_scaled_font(scaling=1.5*240/account_display_name_length)
-            self.labelAccountName.setFont(font)
-        self.labelAccountName.setText(self.mdbx.get_conf("account", "display_name"))
-
         # populate account info
-        self.profile_pic_height = round(self.labelUserProfilePic.height() * 0.7)
+        self.set_account_info_from_cache()
         self.set_profile_pic_from_cache()
         self.update_account_info()
 
@@ -136,7 +129,7 @@ class SettingsWindow(QtWidgets.QWidget):
         # populate app section
         self.autostart = AutoStart()
         self.checkBoxStartup.setChecked(self.autostart.enabled)
-        self.checkBoxNotifications.setChecked(self.mdbx.notify)
+        self.checkBoxNotifications.setChecked(self.mdbx.get_conf("app", "notifications"))
         update_interval = self.mdbx.get_conf("app", "update_notification_interval")
         closest_key = min(
             self._update_interval_mapping,
@@ -152,29 +145,46 @@ class SettingsWindow(QtWidgets.QWidget):
 
     def set_profile_pic_from_cache(self):
 
-        height = self.profile_pic_height
-
         try:
-            pixmap = get_masked_image(self.mdbx.account_profile_pic_path, size=height)
+            pixmap = get_masked_image(self.mdbx.account_profile_pic_path, size=self._profile_pic_height)
         except OSError:
             initials = self.mdbx.get_conf("account", "abbreviated_name")
-            pixmap = get_masked_image(FACEHOLDER_PATH, size=height, overlay_text=initials)
+            pixmap = get_masked_image(FACEHOLDER_PATH, size=self._profile_pic_height, overlay_text=initials)
 
         self.labelUserProfilePic.setPixmap(pixmap)
 
-    def update_account_info(self):
+    def set_account_info_from_cache(self):
 
+        acc_display_name = self.mdbx.get_conf("account", "display_name")
         acc_mail = self.mdbx.get_conf("account", "email")
         acc_type = self.mdbx.get_conf("account", "type")
+        acc_space_usage = self.mdbx.get_conf("account", "usage")
+
+        # if the display name is longer than 230 pixels, reduce font-size
+        default_font = get_scaled_font(1.5)
+        if NEW_QT:
+            account_display_name_length = QtGui.QFontMetrics(default_font).horizontalAdvance(acc_display_name)
+        else:
+            account_display_name_length = QtGui.QFontMetrics(default_font).width(acc_display_name)
+        if account_display_name_length > 240:
+            font = get_scaled_font(scaling=1.5*240/account_display_name_length)
+            self.labelAccountName.setFont(font)
+        self.labelAccountName.setText(acc_display_name)
+
         if acc_type is not "":
             acc_type_text = ", Dropbox {0}".format(acc_type.capitalize())
         else:
             acc_type_text = ""
         self.labelAccountInfo.setText(acc_mail + acc_type_text)
-        self.labelSpaceUsage.setText(self.mdbx.get_conf("account", "usage"))
+        self.labelSpaceUsage.setText(acc_space_usage)
 
-        self.download_task = MaestralBackgroundTask(self, "get_profile_pic")
-        self.download_task.sig_done.connect(self.set_profile_pic_from_cache)
+    def update_account_info(self):
+
+        self.load_profile_pic = MaestralBackgroundTask(self, "get_profile_pic")
+        self.load_profile_pic.sig_done.connect(self.set_profile_pic_from_cache)
+
+        self.load_account_info = MaestralBackgroundTask(self, "get_account_info")
+        self.load_account_info.sig_done.connect(self.set_account_info_from_cache)
 
     def on_combobox_path(self, idx):
         if idx == 2:
@@ -193,15 +203,6 @@ class SettingsWindow(QtWidgets.QWidget):
             new_path = osp.join(new_location, self.mdbx.get_conf("main", "default_dir_name"))
             self.mdbx.move_dropbox_directory(new_path)
 
-    def on_unlink(self):
-        """Unlinks the user's account and restarts the setup dialog."""
-
-        try:
-            self.mdbx.unlink()  # unlink
-        except CONNECTION_ERRORS:
-            pass
-        quit_and_restart_maestral()
-
     def on_start_on_login_clicked(self, state):
         if state == 0:
             self.autostart.disable()
@@ -209,10 +210,7 @@ class SettingsWindow(QtWidgets.QWidget):
             self.autostart.enable()
 
     def on_notifications_clicked(self, state):
-        if state == 0:
-            self.mdbx.notify = False
-        elif state == 2:
-            self.mdbx.notify = True
+        self.mdbx.set_conf("app", "notifications", state == 2)
 
     @staticmethod
     def rel_path(path):

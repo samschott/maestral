@@ -11,7 +11,7 @@ import dropbox
 import requests
 
 
-CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please  check " +
+CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please check " +
                         "your internet connection and try again later.")
 
 
@@ -26,6 +26,19 @@ class DropboxDeletedError(Exception):
 
 
 class MaestralApiError(Exception):
+    """
+    Base class for errors originating from the Dropbox API or the 'local API'.
+
+    :ivar str title: A short description of the error type.
+    :ivar str message: A more verbose description which can include instructions on how to
+        proceed to handle the error.
+    :ivar str dbx_path: Dropbox path of the file that caused the error.
+    :ivar str dbx_path_dst: Dropbox destination path of the file that caused the error.
+        This should be set for instance when error occurs when moving a file / folder.
+    :ivar str local_path: Local path of the file that caused the error.
+    :ivar str local_path_dst: Local destination path of the file that caused the error.
+        This should be set for instance when error occurs when moving a file / folder.
+    """
 
     def __init__(self, title, message, dbx_path=None, dbx_path_dst=None,
                  local_path=None, local_path_dst=None):
@@ -54,6 +67,11 @@ class InsufficientSpaceError(MaestralApiError):
 class PathError(MaestralApiError):
     """Raised when there is an issue with the provided file / folder path. Refer to the
     ``message``` attribute for details."""
+    pass
+
+
+class ExcludedItemError(MaestralApiError):
+    """Raised when an item which is excluded form syncing is created locally."""
     pass
 
 
@@ -198,10 +216,10 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
             if isinstance(error, dropbox.files.DeleteError):
                 title = "Could not delete item"
                 if error.is_path_lookup():
-                    lookup_error = error.get_from_lookup()
+                    lookup_error = error.get_path_lookup()
                     text, err_type = _get_lookup_error_msg(lookup_error)
                 elif error.is_path_write():
-                    write_error = error.get_from_write()
+                    write_error = error.get_path_write()
                     text, err_type = _get_write_error_msg(write_error)
                 elif error.is_too_many_files():
                     text = ("There are too many files in one request. Please "
@@ -402,6 +420,7 @@ SYNC_ERRORS = (
     PathError,
     RestrictedContentError,
     UnsupportedFileError,
+    ExcludedItemError,
 )
 
 OS_FILE_ERRORS = (

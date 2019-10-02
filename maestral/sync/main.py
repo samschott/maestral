@@ -18,16 +18,28 @@ import logging.handlers
 import collections
 
 # external packages
+import click
+import requests
 from dropbox import files
 from blinker import signal
-import requests
+
+try:
+    from systemd import journal
+except ImportError:
+    journal = None
+try:
+    import sdnotify
+    system_notifier = sdnotify.SystemdNotifier()
+except ImportError:
+    sdnotify = None
+    system_notifier = None
 
 # maestral modules
 from maestral.sync.client import MaestralApiClient
 from maestral.sync.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
 from maestral.sync.oauth import OAuth2Session
 from maestral.sync.errors import (MaestralApiError, DropboxAuthError,
-                                  CONNECTION_ERRORS, SYNC_ERRORS, CONNECTION_ERROR_MSG)
+                                  CONNECTION_ERRORS, SYNC_ERRORS)
 from maestral.sync.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
                                    path_exists_case_insensitive, is_child)
 from maestral.config.main import CONF
@@ -38,21 +50,12 @@ from maestral.sync.utils.updates import check_update_available
 
 CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
 
-IS_NOTIFY = os.getenv("NOTIFY_SOCKET", "")  # set by systemd
-IS_SYSTEMD = os.getenv("INVOCATION_ID", "")  # set by systemd
+# check environment variables set by systemd
+INVOCATION_ID = os.getenv("INVOCATION_ID")
+NOTIFY_SOCKET = os.getenv("NOTIFY_SOCKET")
+WATCHDOG_PID = os.getenv("WATCHDOG_PID")
+WATCHDOG_USEC = os.getenv("WATCHDOG_USEC")
 
-if IS_SYSTEMD:
-    try:
-        from systemd import journal
-    except ImportError:
-        IS_SYSTEMD = False
-
-if IS_NOTIFY:
-    try:
-        import sdnotify
-        system_notifier = sdnotify.SystemdNotifier()
-    except ImportError:
-        IS_NOTIFY = False
 
 # ========================================================================================
 # Logging setup
@@ -68,12 +71,12 @@ log_level = CONF.get("app", "log_level")
 
 # -- log to file -------------------------------------------------------------------------
 rfh_log_file = get_log_path("maestral", CONFIG_NAME + ".log")
-rfh = logging.handlers.RotatingFileHandler(rfh_log_file, maxBytes=2**6, backupCount=1)
+rfh = logging.handlers.RotatingFileHandler(rfh_log_file, maxBytes=10**7, backupCount=1)
 rfh.setFormatter(log_fmt_long)
 rfh.setLevel(log_level)
 
 # -- log to stdout or journal (when launched from systemd) -------------------------------
-if IS_SYSTEMD:
+if INVOCATION_ID and journal:
     sh = journal.JournalHandler()
     sh.setFormatter(log_fmt_short)
 else:
@@ -95,7 +98,7 @@ class CachedHandler(logging.Handler):
     def emit(self, record):
         self.format(record)
         self.cached_records.append(record)
-        if IS_NOTIFY:
+        if NOTIFY_SOCKET and system_notifier:
             system_notifier.notify("STATUS={}".format(record.message))
 
     def getLastMessage(self):
@@ -162,8 +165,8 @@ def folder_download_worker(monitor, dbx_path, callback=None):
                     callback()
                 download_complete_signal.send()
 
-            except CONNECTION_ERRORS as e:
-                logger.warning("{0}: {1}".format(CONNECTION_ERROR_MSG, e))
+            except CONNECTION_ERRORS:
+                logger.debug(DISCONNECTED, exc_info=True)
                 logger.info(DISCONNECTED)
 
 
@@ -209,37 +212,6 @@ def handle_disconnect(func):
     return wrapper
 
 
-def yesno(message, default):
-    """Handy helper function to ask a yes/no question.
-
-    A blank line returns the default, and answering
-    y/yes or n/no returns True or False.
-    Retry on unrecognized answer.
-    Special answers:
-    - q or quit exits the program
-    - p or pdb invokes the debugger
-    """
-    if default:
-        message += " [Y/n] "
-    else:
-        message += " [N/y] "
-    while True:
-        answer = input(message).strip().lower()
-        if not answer:
-            return default
-        if answer in ("y", "yes"):
-            return True
-        if answer in ("n", "no"):
-            return False
-        if answer in ("q", "quit"):
-            print("Exit")
-            raise SystemExit(0)
-        if answer in ("p", "pdb"):
-            import pdb
-            pdb.set_trace()
-        print("Please answer YES or NO.")
-
-
 # ========================================================================================
 # Main API
 # ========================================================================================
@@ -257,10 +229,10 @@ class Maestral(object):
 
         self.client = MaestralApiClient()
 
-        # periodically check for updates
+        # periodically check for updates and refresh account info
         self.update_thread = Thread(
             name="Maestral update check",
-            target=self._periodically_check_for_updates,
+            target=self._periodic_refresh,
             daemon=True,
         )
         self.update_thread.start()
@@ -269,24 +241,30 @@ class Maestral(object):
         self.monitor = MaestralMonitor(self.client)
         self.sync = self.monitor.sync
 
-        if IS_NOTIFY:
+        if NOTIFY_SOCKET and system_notifier:
+            # notify systemd that we have successfully started
             system_notifier.notify("READY=1")
 
+        if WATCHDOG_USEC and int(WATCHDOG_PID) == os.getpid() and system_notifier:
+            # notify systemd periodically that we are still alive
+            self.watchdog_thread = Thread(
+                name="Maestral watchdog",
+                target=self._periodic_watchdog,
+                daemon=True,
+            )
+            self.update_thread.start()
+
         if run:
-            # if `run == False`, make sure that you manually initiate the first sync
+            # if `run == False`, make sure that you manually run the setup
             # before calling `start_sync`
             if self.pending_dropbox_folder():
                 self.create_dropbox_directory()
                 self.set_excluded_folders()
 
                 self.sync.last_cursor = ""
-                self.sync.last_sync = None
+                self.sync.last_sync = 0
 
-            if self.pending_first_download():
-                self.get_remote_dropbox_async("", callback=self.start_sync)
-            else:
-                self.get_account_info()
-                self.start_sync()
+            self.start_sync()
 
     @staticmethod
     def get_conf(section, name):
@@ -310,7 +288,7 @@ class Maestral(object):
     @staticmethod
     def pending_first_download():
         """Bool indicating if the initial download has already occurred.."""
-        return (CONF.get("internal", "lastsync") is None or
+        return (CONF.get("internal", "lastsync") == 0 or
                 CONF.get("internal", "cursor") == "")
 
     @property
@@ -321,7 +299,8 @@ class Maestral(object):
 
     @property
     def paused(self):
-        """Bool indicating if syncing is paused by user."""
+        """Bool indicating if syncing is paused by the user. This is set by calling
+        :meth:`pause`."""
         return not self.monitor._auto_resume_on_connect
 
     @property
@@ -423,13 +402,25 @@ class Maestral(object):
     @handle_disconnect
     def get_account_info(self):
         """
-        Gets account information stored by Dropbox and returns it as a dictionary.
+        Gets account information from Dropbox and returns it as a dictionary.
         The entries will either be of type ``str`` or ``bool``.
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
         """
         res = self.client.get_account_info()
+        return dropbox_stone_to_dict(res)
+
+    @handle_disconnect
+    def get_space_usage(self):
+        """
+        Gets the space usage stored by Dropbox and returns it as a dictionary.
+        The entries will either be of type ``str`` or ``bool``.
+
+        :returns: Dropbox account information.
+        :rtype: dict[str, bool]
+        """
+        res = self.client.get_space_usage()
         return dropbox_stone_to_dict(res)
 
     @handle_disconnect
@@ -548,7 +539,10 @@ Any changes to local files during this process may be lost.""")
         in place. All syncing metadata will be removed as well.
         """
         self.stop_sync()
-        self.client.unlink()
+        try:
+            self.client.unlink()
+        except CONNECTION_ERRORS:
+            pass
 
         try:
             os.remove(self.sync.rev_file_path)
@@ -674,12 +668,12 @@ Any changes to local files during this process may be lost.""")
             # paginate through top-level folders, ask to exclude
             for entry in result.entries:
                 if isinstance(entry, files.FolderMetadata):
-                    yes = yesno("Exclude '%s' from sync?" % entry.path_display, False)
+                    msg = "Exclude '{}' from sync?".format(entry.path_display)
+                    yes = click.confirm(msg)
                     if yes:
                         excluded_folders.append(entry.path_lower)
         else:
-            excluded_folders = (f.lower().rstrip(osp.sep) for f in folder_list)
-            excluded_folders = self.sync.clean_excluded_folder_list(excluded_folders)
+            excluded_folders = self.sync.clean_excluded_folder_list(folder_list)
 
         old_excluded_folders = self.sync.excluded_folders
 
@@ -775,9 +769,9 @@ Any changes to local files during this process may be lost.""")
         if overwrite:
             # remove any old items at the location
             try:
+                shutil.rmtree(path)
+            except NotADirectoryError:
                 os.unlink(path)
-            except IsADirectoryError:
-                shutil.rmtree(path, ignore_errors=True)
             except FileNotFoundError:
                 pass
 
@@ -801,7 +795,7 @@ Any changes to local files during this process may be lost.""")
 
             if osp.exists(dropbox_path):
                 msg = "Directory '{0}' already exist. Do you want to overwrite it?".format(dropbox_path)
-                yes = yesno(msg, True)
+                yes = click.confirm(msg)
                 if yes:
                     return dropbox_path
                 else:
@@ -817,8 +811,12 @@ Any changes to local files during this process may be lost.""")
         res = check_update_available()
         return res
 
-    def _periodically_check_for_updates(self):
+    def _periodic_refresh(self):
         while True:
+            # update account info
+            self.get_account_info()
+            self.get_space_usage()
+            # check for updates
             last_update = CONF.get("app", "update_notification_last")
             interval = CONF.get("app", "update_notification_last")
             if interval == 0:
@@ -827,17 +825,27 @@ Any changes to local files during this process may be lost.""")
                 res = self.check_for_updates()
                 if not res["error"]:
                     CONF.set("app", "latest_release", res["latest_release"])
-            time.sleep(60*60)
+            time.sleep(60*60)  # 20 min
+
+    @staticmethod
+    def _periodic_watchdog():
+        while True:
+            system_notifier.notify("WATCHDOG=1")
+            time.sleep(int(WATCHDOG_USEC)/2000)
 
     def shutdown_daemon(self):
         """Does nothing except for setting the _daemon_running flag to ``False``. This
         will be checked by Pyro4 periodically to shut down the daemon when requested."""
         self._daemon_running = False
-        if IS_NOTIFY:
+        if NOTIFY_SOCKET and system_notifier:
+            # notify systemd that we are shutting down
             system_notifier.notify("STOPPING=1")
 
     def _loop_condition(self):
         return self._daemon_running
+
+    def __del__(self):
+        self.monitor.stop()
 
     def __repr__(self):
         if self.connected:

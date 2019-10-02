@@ -164,14 +164,14 @@
         <widget class="QProgressIndicator" name="progressIndicator" native="true">
          <property name="minimumSize">
           <size>
-           <width>25</width>
-           <height>25</height>
+           <width>32</width>
+           <height>32</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
-           <width>25</width>
-           <height>25</height>
+           <width>32</width>
+           <height>32</height>
           </size>
          </property>
         </widget>
@@ -422,6 +422,9 @@
          </property>
          <property name="selectionMode">
           <enum>QAbstractItemView::NoSelection</enum>
+         </property>
+         <property name="uniformRowHeights">
+          <bool>true</bool>
          </property>
          <property name="headerHidden">
           <bool>true</bool>

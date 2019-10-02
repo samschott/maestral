@@ -51,7 +51,6 @@ DEFAULTS = [
      {
          'notifications': True,
          'log_level': 20,  # INFO
-         'log_target': 'STDOUT',  # or JOURNAL, SYSLOG, LOGFILE
          'update_notification_last': 0.0,
          'update_notification_interval': 60*60*24*7,  # weekly
          'latest_release': '0.0.0',
@@ -60,7 +59,7 @@ DEFAULTS = [
     ('internal',
      {
          'cursor': '',
-         'lastsync': None,
+         'lastsync': 0,
          'recent_changes': [],
      }
      ),
@@ -77,7 +76,7 @@ DEFAULTS = [
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = '7.0.0'
+CONF_VERSION = '8.1.0'
 
 migrate_config_files()
 

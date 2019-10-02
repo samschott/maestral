@@ -63,6 +63,14 @@ def bytesto(value, unit, bsize=1024):
 
 class SpaceUsage(dropbox.users.SpaceUsage):
 
+    def allocation_type(self):
+        if self.allocation.is_team():
+            return "team"
+        elif self.allocation.is_individual():
+            return "individual"
+        else:
+            return ""
+
     def __str__(self):
 
         if self.allocation.is_team():
@@ -120,50 +128,64 @@ class MaestralApiClient(object):
     All Dropbox API errors are caught and handled here. ConnectionErrors will
     be caught and handled by :class:`MaestralMonitor` instead.
 
+    :param int timeout: Timeout for individual requests in sec. Defaults to 60 sec.
     """
 
     SDK_VERSION = "2.0"
+    _timeout = 60
 
-    def __init__(self):
+    def __init__(self, timeout=_timeout):
 
         # get Dropbox session
         self.auth = OAuth2Session()
         if not self.auth.load_token():
             self.auth.link()
+        self._timeout = timeout
         self._last_longpoll = None
         self._backoff = 0
         self._retry_count = 0
 
         # initialize API client
-        self.dbx = dropbox.Dropbox(self.auth.access_token, session=SESSION,
-                                   user_agent=USER_AGENT, timeout=60)
+        self.dbx = dropbox.Dropbox(
+            self.auth.access_token,
+            session=SESSION,
+            user_agent=USER_AGENT,
+            timeout=self._timeout
+        )
 
-    def get_account_info(self):
+    def get_account_info(self, dbid=None):
         """
         Gets current account information.
 
+        :param str dbid: Dropbox ID of account. If not given, will get the info of our own
+            account.
         :returns: :class:`dropbox.users.FullAccount` instance or `None` if failed.
         :rtype: dropbox.users.FullAccount
         """
         try:
-            res = self.dbx.users_get_current_account()  # should only raise auth errors
+            if dbid:
+                res = self.dbx.users_get_account(dbid)
+            else:
+                res = self.dbx.users_get_current_account()
         except dropbox.exceptions.DropboxException as exc:
             raise api_to_maestral_error(exc)
 
-        if res.account_type.is_basic():
-            account_type = 'basic'
-        elif res.account_type.is_business():
-            account_type = 'business'
-        elif res.account_type.is_pro():
-            account_type = 'pro'
-        else:
-            account_type = ''
+        if not dbid:
+            # save our own account info to config
+            if res.account_type.is_basic():
+                account_type = "basic"
+            elif res.account_type.is_business():
+                account_type = "business"
+            elif res.account_type.is_pro():
+                account_type = "pro"
+            else:
+                account_type = ""
 
-        CONF.set("account", "account_id", res.account_id)
-        CONF.set("account", "email", res.email)
-        CONF.set("account", "display_name", res.name.display_name)
-        CONF.set("account", "abbreviated_name", res.name.abbreviated_name)
-        CONF.set("account", "type", account_type)
+            CONF.set("account", "account_id", res.account_id)
+            CONF.set("account", "email", res.email)
+            CONF.set("account", "display_name", res.name.display_name)
+            CONF.set("account", "abbreviated_name", res.name.abbreviated_name)
+            CONF.set("account", "type", account_type)
 
         return res
 
@@ -175,20 +197,16 @@ class MaestralApiClient(object):
         :rtype: SpaceUsage
         """
         try:
-            res = self.dbx.users_get_space_usage()  # should only raise auth errors
+            res = self.dbx.users_get_space_usage()
         except dropbox.exceptions.DropboxException as exc:
             raise api_to_maestral_error(exc)
 
-        # convert from dropbox.users.SpaceUsage to SpaceUsage with nice string
-        # representation
+        # convert from dropbox.users.SpaceUsage to SpaceUsage
         res.__class__ = SpaceUsage
 
-        if res.allocation.is_team():
-            CONF.set("account", "usage_type", "team")
-        elif res.allocation.is_individual():
-            CONF.set("account", "usage_type", "individual")
-
+        # save results to config
         CONF.set("account", "usage", repr(res))
+        CONF.set("account", "usage_type", res.allocation_type())
 
         return res
 
@@ -224,6 +242,27 @@ class MaestralApiClient(object):
             md = False
 
         return md
+
+    def list_revisions(self, dbx_path, mode="path", limit=10):
+        """
+        Lists all file revisions for the given file.
+
+        :param str dbx_path: Path to file on Dropbox.
+        :param str mode: Must be "path" or "id". If "id", specify the Dropbox file ID
+            instead of the file path to get revisions across move and rename events.
+            Defaults to "path".
+        :param int limit: Number of revisions to list. Defaults to 10.
+        :returns: :class:`dropbox.files.ListRevisionsResult` instance
+        """
+
+        mode = dropbox.files.ListRevisionsMode(mode)
+
+        try:
+            res = self.dbx.files_list_revisions(dbx_path, mode=mode, limit=limit)
+        except dropbox.exceptions.DropboxException as exc:
+            raise api_to_maestral_error(exc, dbx_path)
+
+        return res
 
     def download(self, dbx_path, dst_path, **kwargs):
         """
@@ -328,22 +367,14 @@ class MaestralApiClient(object):
         :param kwargs: Keyword arguments for Dropbox SDK files_delete_v2.
         :returns: Metadata of deleted file or ``False`` if the file does not exist on
             Dropbox.
-        :raises: :class:`MaestralApiError` if deletion fails for any other reason than
-            a non-existing file.
+        :raises: :class:`MaestralApiError`.
         """
         try:
             # try to move file (response will be metadata, probably)
             res = self.dbx.files_delete_v2(dbx_path, **kwargs)
             md = res.metadata
         except dropbox.exceptions.DropboxException as exc:
-            if (isinstance(exc.error, dropbox.files.DeleteError) and
-                    exc.error.is_path_lookup()):
-                # don't log as error if file did not exist
-                logger.debug("An error occurred when deleting '{0}': the file does "
-                             "not exist on Dropbox".format(dbx_path))
-                return True
-            else:
-                raise api_to_maestral_error(exc, dbx_path)
+            raise api_to_maestral_error(exc, dbx_path)
 
         logger.debug("File / folder '{0}' removed from Dropbox.".format(dbx_path))
 

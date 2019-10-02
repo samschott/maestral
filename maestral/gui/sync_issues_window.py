@@ -81,16 +81,14 @@ class SyncIssueWidget(QtWidgets.QWidget):
     def update_dark_mode(self):
         # update style sheet with new colors
         line_rgb = LINE_COLOR_DARK if isDarkWindow() else LINE_COLOR_LIGHT
-        bg_color = self.palette().color(QtGui.QPalette.Background)
+        bg_color = self.palette().color(QtGui.QPalette.Base)
         bg_color_rgb = [bg_color.red(), bg_color.green(), bg_color.blue()]
-        # set background color to be slightly lighter than the window background
-        frame_bg_color = [min([c + 16, 255]) for c in bg_color_rgb]
         self.frame.setStyleSheet("""
         .QFrame {{
             border: 1px solid rgb({0},{1},{2});
             background-color: rgb({3},{4},{5});
             border-radius: 7px;
-        }}""".format(*line_rgb, *frame_bg_color))
+        }}""".format(*line_rgb, *bg_color_rgb))
 
         # update item icons (the system may supply different icons in dark mode)
         icon = get_native_item_icon(self.sync_err["local_path"])

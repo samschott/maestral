@@ -16,7 +16,7 @@ import keyring
 from keyring.errors import KeyringLocked
 
 # maestral modules
-from maestral.sync.utils import is_macos_bundle, is_linux_bundle
+from maestral.sync.utils import is_macos_bundle
 from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
 from maestral.sync.oauth_implicit import DropboxOAuth2FlowImplicit
@@ -28,12 +28,14 @@ APP_KEY = "2jmbq42w7vof78h"
 
 
 if is_macos_bundle:
-    # running in a bundle in macOS
     import keyring.backends.OS_X
     keyring.set_keyring(keyring.backends.OS_X.Keyring())
-elif is_linux_bundle:
-    import keyring.backends.SecretService
-    keyring.set_keyring(keyring.backends.SecretService.Keyring())
+else:
+    # get preferred keyring backends for platform, excluding the chainer backend
+    all_keyrings = keyring.backend.get_all_keyring()
+    preferred_kreyrings = [k for k in all_keyrings if not isinstance(k, keyring.backends.chainer.ChainerBackend)]
+
+    keyring.set_keyring(max(preferred_kreyrings, key=lambda x: x.priority))
 
 
 class OAuth2Session(object):
@@ -57,8 +59,9 @@ class OAuth2Session(object):
 
     def load_token(self):
         """
-        Check if credentials exist.
-        :return:
+        Check if auth key has been saved.
+
+        :raises: ``KeyringLocked`` if the system keyring cannot be accessed.
         """
         logger.debug("Using keyring: %s" % keyring.get_keyring())
         try:
@@ -74,6 +77,7 @@ class OAuth2Session(object):
             raise KeyringLocked(info)
 
     def get_auth_url(self):
+        """Gets the auth URL to start the OAuth2 implicit grant flow."""
 
         self.auth_flow = DropboxOAuth2FlowImplicit(APP_KEY)
         authorize_url = self.auth_flow.start()
@@ -99,6 +103,8 @@ class OAuth2Session(object):
             return self.ConnectionFailed
 
     def link(self):
+        """Command line flow to get an auth key from Dropbox and save it in the system
+        keyring."""
         authorize_url = self.get_auth_url()
         print("1. Go to: " + authorize_url)
         print("2. Click \"Allow\" (you might have to log in first).")
@@ -117,6 +123,7 @@ class OAuth2Session(object):
         self.save_creds()
 
     def save_creds(self):
+        """Saves auth key to system keyring."""
         CONF.set("account", "account_id", self.account_id)
         try:
             keyring.set_password("Maestral", self.account_id, self.access_token)
@@ -126,6 +133,7 @@ class OAuth2Session(object):
                          "token. Please make sure that the keyring is unlocked.")
 
     def delete_creds(self):
+        """Deletes auth key from system keyring."""
         CONF.set("account", "account_id", "")
         try:
             keyring.delete_password("Maestral", self.account_id)
@@ -135,6 +143,7 @@ class OAuth2Session(object):
                          " token. Please make sure that the keyring is unlocked.")
 
     def migrate_to_keyring(self):
+        """Migrates auth key from text file (prior to v0.2.0) to system keyring."""
 
         if osp.isfile(self.TOKEN_FILE):
             print(" > Migrating access token to keyring...")

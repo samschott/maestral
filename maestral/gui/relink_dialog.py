@@ -17,7 +17,7 @@ from PyQt5.QtCore import Qt
 # maestral modules
 from maestral.sync.oauth import OAuth2Session
 from maestral.gui.resources import RELINK_DIALOG_PATH, APP_ICON_PATH
-from maestral.gui.utils import get_scaled_font, icon_to_pixmap, QProgressIndicator
+from maestral.gui.utils import get_scaled_font, icon_to_pixmap
 from maestral.gui.utils import BackgroundTask, quit_and_restart_maestral
 
 logger = logging.getLogger(__name__)
@@ -42,17 +42,18 @@ class RelinkDialog(QtWidgets.QDialog):
         self.setModal(True)
         self.setWindowFlags(Qt.WindowTitleHint | Qt.CustomizeWindowHint)
 
-        assert reason in (self.EXPIRED, self.REVOKED)
-
         # format text labels
         if reason is self.EXPIRED:
             self.titleLabel.setText("Dropbox Access expired")
             formatted_text = self.infoLabel.text().format(
                 "has expired", self.auth_session.get_auth_url())
-        else:
+        elif reason is self.REVOKED:
             self.titleLabel.setText("Dropbox Access revoked")
             formatted_text = self.infoLabel.text().format(
                 "has been revoked", self.auth_session.get_auth_url())
+        else:
+            raise ValueError("'reason' must be RelinkDialog.EXPIRED or "
+                             "RelinkDialog.REVOKED.")
         self.infoLabel.setText(formatted_text)
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
@@ -61,14 +62,6 @@ class RelinkDialog(QtWidgets.QDialog):
         icon = QtGui.QIcon(APP_ICON_PATH)
         pixmap = icon_to_pixmap(icon, self.iconLabel.width(), self.iconLabel.height())
         self.iconLabel.setPixmap(pixmap)
-
-        # format progress indicator
-        self._layout = QtWidgets.QHBoxLayout()
-        self._layout.setContentsMargins(0, 0, 3, 0)
-        self._layout.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self.lineEditAuthCode.setLayout(self._layout)
-        self.progressIndicator = QProgressIndicator(self.lineEditAuthCode)
-        self._layout.addWidget(self.progressIndicator)
 
         # format line edit
         self.lineEditAuthCode.setTextMargins(3, 0, 0, 0)
@@ -135,21 +128,28 @@ class RelinkDialog(QtWidgets.QDialog):
             QtCore.QTimer.singleShot(200, quit_and_restart_maestral)
         elif res == OAuth2Session.InvalidToken:
             self.lineEditAuthCode.setText(self.INVALID_MSG)
-            self.set_ui_busy(False)
+            self.set_ui_idle()
         elif res == OAuth2Session.ConnectionFailed:
             self.lineEditAuthCode.setText(self.CONNECTION_ERR_MSG)
-            self.set_ui_busy(False)
+            self.set_ui_idle()
 
-    def set_ui_busy(self, enabled=True):
-        height = round(self.lineEditAuthCode.height()*0.8)
-        self.progressIndicator.setMinimumHeight(height)
-        self.progressIndicator.setMaximumHeight(height)
+    def set_ui_busy(self):
+        self.progressIndicator.startAnimation()
+        self.lineEditAuthCode.setEnabled(False)
+        self.pushButtonLink.setEnabled(False)
+        self.pushButtonUnlink.setEnabled(False)
+        self.pushButtonCancel.setEnabled(False)
 
-        if enabled:
-            self.progressIndicator.startAnimation()
-            self.lineEditAuthCode.setEnabled(False)
-            self.pushButtonLink.setEnabled(False)
-        else:
-            self.progressIndicator.stopAnimation()
-            self.lineEditAuthCode.setEnabled(True)
-            self.pushButtonLink.setEnabled(True)
+    def set_ui_idle(self):
+        self.progressIndicator.stopAnimation()
+        self.lineEditAuthCode.setEnabled(True)
+        self.pushButtonLink.setEnabled(True)
+        self.pushButtonUnlink.setEnabled(True)
+        self.pushButtonCancel.setEnabled(True)
+
+
+if __name__ == "__main__":
+    app = QtWidgets.QApplication(["RelinkDialog test"])
+    ud = RelinkDialog()
+    ud.show()
+    sys.exit(app.exec())

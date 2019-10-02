@@ -25,8 +25,8 @@ from maestral.sync.daemon import MaestralProxy, stop_maestral_daemon_process
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
 
-LINE_COLOR_DARK = (95, 104, 104)
-LINE_COLOR_LIGHT = (205, 203, 205)
+LINE_COLOR_DARK = (70, 70, 70)
+LINE_COLOR_LIGHT = (213, 213, 213)
 
 
 def elide_string(string, font=None, pixels=200, side="right"):
@@ -554,7 +554,7 @@ class QProgressIndicator(QtWidgets.QWidget):
         # Initialize instance variables
         self.m_angle = 0
         self.m_timerId = -1
-        self.m_delay = 40
+        self.m_delay = 5/60*1000
         self.m_displayedWhenStopped = False
         self.m_color = self.m_dark_color
 
@@ -571,7 +571,7 @@ class QProgressIndicator(QtWidgets.QWidget):
         return self.m_timerId != -1
 
     def isDisplayedWhenStopped(self):
-        return self.displayedWhenStopped
+        return self.m_displayedWhenStopped
 
     def getColor(self):
         return self.color
@@ -602,7 +602,7 @@ class QProgressIndicator(QtWidgets.QWidget):
             self.m_timerId = self.startTimer(self.m_delay)
 
     def setDisplayedWhenStopped(self, state):
-        self.displayedWhenStopped = state
+        self.m_displayedWhenStopped = state
         self.update()
 
     def setColor(self, color):
@@ -623,12 +623,10 @@ class QProgressIndicator(QtWidgets.QWidget):
         painter.setRenderHint(QPainter.Antialiasing)
 
         outerRadius = (width - 1) * 0.5
-        innerRadius = (width - 1) * 0.5 * 0.5
+        innerRadius = (width - 1) * 0.5 * 0.4375
 
         capsuleHeight = outerRadius - innerRadius
-
-        capsuleWidth = max(1.2, 1.0 + capsuleHeight*0.19, 0.35 + capsuleHeight*0.28)
-
+        capsuleWidth  = width * 3/32
         capsuleRadius = capsuleWidth / 2
 
         for i in range(0, 12):
@@ -655,7 +653,6 @@ class QProgressIndicator(QtWidgets.QWidget):
             self.update_dark_mode()
 
     def update_dark_mode(self):
-        # update folder icons: the system may provide different icons in dark mode
         if isDarkWindow():
             self.setColor(self.m_light_color)
         else:

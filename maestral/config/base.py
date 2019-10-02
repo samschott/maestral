@@ -118,13 +118,12 @@ def reset_config_files(subfolder, saved_config_files):
 # Migrate config files
 # =============================================================================
 
-# code to migrate from old config file locations to new locations
-# config files will be stored in '$XDG_CONFIG_HOME/maestral' in Linux (or
-# '~/.config/maestral' if $XDG_CONFIG_HOME is not set) and in '~/Library/Application
-# Support/maestral' on macOS.
-
 def migrate_config_files():
-
+    """
+    Code to migrate from old config file locations to new locations. Config files will
+    be stored in '$XDG_CONFIG_HOME/maestral' in Linux (or '~/.config/maestral' if
+    $XDG_CONFIG_HOME is not set) and in '~/Library/Application Support/maestral' on macOS.
+    """
     import os
     import shutil
 
@@ -135,4 +134,4 @@ def migrate_config_files():
         shutil.copytree(old_path, new_path)
         shutil.rmtree(old_path)
 
-        print("Migrated config files.")
+        print("Migrated config files from '{}' to '{}'.".format(old_path, new_path))
