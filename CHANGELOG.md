@@ -11,12 +11,17 @@ Here is the list of all changes:
 #### Added:
 
 - Added `maestral rebuild-index` command to CLI.
-- Added support for systemd watchdog.
+- Added support for systemd software watchdog (see #55).
 
 #### Changed:
 
 - Renamed command `maestral config new` to `maestral config add`.
 - Renamed command `maestral config delete` to `maestral config remove`.
+- Improved system tray notifications:
+    - Display the name of the user who changed a file
+    - Added app-icon and and -name to Linux notifications.
+    - Migrated macOS notifications from `NSUserNotificationCenter` (deprecated) to
+      `UNUserNotificatioCenter` for macOS Mojave and higher.
 - Improved appearance of unlink dialog: show spinning progress indicator and perform
   unlink in the background.
 - Show menu entry "No recent files" when there are no recently changed files to display.
@@ -25,25 +30,20 @@ Here is the list of all changes:
   can no longer connect to your sync daemon).
 - Use NSTemporaryDirectory on macOS as runtime dir.
 - Simplified code for the initial sync.
-- Improved system tray notifications:
-    - Display the name of the user who changed a file
-    - Added app-icon and and -name to Linux notifications.
-    - Migrated macOS notifications from `NSUserNotificationCenter` to
-      `UNUserNotificatioCenter` for macOS Catalina and higher.
 
 #### Fixed:
 
 - Fixes a bug where the CLI setup dialog could fail when choosing to replace an existing
-  folder.
+  Dropbox folder.
 - Fixes a bug which would cause `maestral start` to hang indefinitely if the daemon is not
-  created successfully.
+  created successfully (see #57).
 - Fixes a bug which would cause `maestral unlink` to fail when the Maestral daemon is
   still running.
 - Fixes a bug where the Maestral GUI would show a paused icon during the initial sync
   after setup.
 - Fixes a bug where the menu bar item "Pause Syncing" would not change to "Resume Syncing"
   when pausing sync through the CLI via `maestral pause` (and vice versa).
-- Catch unexpected exceptions in sync threads instead of crashing.
+- Catch unexpected exceptions in sync threads and display to user instead of crashing.
 - Do not upload changes to an excluded folder but raise a sync issue instead.
 - Fixes wrong color of system tray / menu bar icon on macOS when clicked in light-mode.
 - Fixes a regression bug from v0.4.0 which caused the creation of new configs for separate
@@ -59,11 +59,11 @@ Here is the list of all changes:
 - Fixes a bug which would prevent Maestral from detecting local changes to files that are
   part of a batch which is currently being downloaded.
 - Fixes a bug where the user may be asked to create a new keyring in a non-default wallet
-  if multiple wallets are available on first start (e.g., Gnome-keyring and kwallet).
+  if multiple wallets are available on first start (see #56).
   See https://github.com/jaraco/keyring/issues/391 for the current behaviour of Python
   keyring.
 - Fixes a bug which could cause the Maestral daemon to be started with a different PATH
-  than the invoking command.
+  than the invoking command (see #57).
 - Fixes a bug where changes to a file which is not synced locally would trigger "file
   added" instead of "file modified" notifications.
 
