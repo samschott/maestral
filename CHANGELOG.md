@@ -1,4 +1,4 @@
-### v0.4.1-dev
+### v0.4.1
 
 This release focuses on bug fixes and performance improvements. Notable changes are:
 
