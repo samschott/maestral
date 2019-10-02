@@ -1459,22 +1459,19 @@ class UpDownSync(object):
             return
 
         # find out who changed the file(s), get the name if its only a single user
-
-        user_name = None
-
-        if all(getattr(x, "sharing_info", None) for x in changes.entries):
-            # all files are in shared folder, see if the user IDs are the same
-            dbid0 = changes.entries[0].sharing_info.modified_by
-            if all(x.sharing_info.modified_by == dbid0 for x in changes.entries):
+        try:
+            dbid_list = [md.sharing_info.modified_by for md in changes.entries]
+            if all(dbid == dbid_list[0] for dbid in dbid_list):
                 # all files have been modified by the same user
-                if dbid0 == CONF.get("account", "account_id"):
+                if dbid_list[0] == CONF.get("account", "account_id"):
                     user_name = "You"
                 else:
-                    account_info = self.client.get_account_info(dbid0)
+                    account_info = self.client.get_account_info(dbid_list[0])
                     user_name = account_info.name.display_name
-        elif not any(getattr(x, "sharing_info", None) for x in changes.entries):
-            # all files were changed by current user
-            user_name = "You"
+            else:
+                user_name = None
+        except AttributeError:
+            user_name = None
 
         # notify user
         if n_changed == 1:
@@ -1484,25 +1481,25 @@ class UpDownSync(object):
 
             if isinstance(md, DeletedMetadata):
                 # file has been deleted from remote
-                self.notify.send("{0} removed {1}".format(user_name, file_name))
+                change_type = "removed"
             elif isinstance(md, FileMetadata):
                 if self.get_local_rev(md.path_lower):
                     is_new_file = False
                 else:
                     revs = self.client.list_revisions(md.path_lower, limit=2)
                     is_new_file = len(revs.entries) == 1
-                if is_new_file:
-                    # file has been added to remote
-                    self.notify.send("{0} added {1}".format(user_name, file_name))
-                else:
-                    # file has been modified on remote
-                    self.notify.send("{0} changed {1}".format(user_name, file_name))
+                change_type = "added" if is_new_file else "changed"
+
             elif isinstance(md, FolderMetadata):
-                self.notify.send("{0} added {1}".format(user_name, file_name))
+                change_type = "added"
+
+            if user_name:
+                self.notify.send("{0} {1} {2}".format(user_name, change_type, file_name))
+            else:
+                self.notify.send("{0} {1}".format(file_name, change_type))
 
         elif n_changed > 1:
-            # for multiple changes, display user name if all equal and type
-            # of change of "deleted"
+            # for multiple changes, display user name if all equal
             if all(isinstance(x, DeletedMetadata) for x in changes.entries):
                 change_type = "removed"
             else:
