@@ -1,4 +1,4 @@
-### v0.4.2-dev
+## v0.4.2-dev
 
 
 #### Fixed:
@@ -8,7 +8,7 @@
 - Fixes an "Unexpected exception" message raised when attempting to upload a file to
   Dropbox which has been deleted in the meantime.
 
-### v0.4.1
+## v0.4.1
 
 This release focuses on bug fixes and performance improvements. Notable changes are:
 
@@ -77,7 +77,7 @@ Here is the list of all changes:
 - Fixes a bug where changes to a file which is not synced locally would trigger "file
   added" instead of "file modified" notifications.
 
-### v0.4.0
+## v0.4.0
 
 Main changes are:
 
@@ -148,7 +148,7 @@ Details are given below.
 - Removed the CLI command `maestral sync`. Use `maestral start --foreground` instead.
 
 
-### v0.3.2
+## v0.3.2
 
 This release fixes a bug that could result in only changes of top-level items being
 synced. This affects users who carried out the initial linking with Maestral v0.2.5 or
@@ -212,7 +212,7 @@ bug fixes and small tweaks to the UI.
 
 - No longer install a script "maestral-gui". Use "maestral gui" instead.
 
-### v0.3.1 (2019-08-14)
+## v0.3.1 (2019-08-14)
 
 #### Fixed:
 
@@ -221,7 +221,7 @@ bug fixes and small tweaks to the UI.
   [https://bugs.python.org/issue1692335#msg310951](https://bugs.python.org/issue1692335#msg310951)
   for a discussion).
 
-### v0.3.0 (2019-08-14)
+## v0.3.0 (2019-08-14)
 
 This release includes several significant changes. The largest are:
 
@@ -271,7 +271,7 @@ The detailed list of changes is:
 - Fixed handling of `ListFolder` errors. Those will only occur when the user gives an
   incorrect folder name to list and will (hopefully) never be caused my Maestral itself.
 
-### v0.2.6 (2019-08-08)
+## v0.2.6 (2019-08-08)
 
 This release fixes a critical bug which would cause Maestral to get stuck after the
 initial sync. This does not affect users who have already performed the initial sync
@@ -292,7 +292,7 @@ with a previous version of Maestral.
 - Fixes an issue in macOS where modal dialogs in the settings window would sometimes
   appear behind the window instead of in front of it.
 
-### v0.2.5 (2019-08-07)
+## v0.2.5 (2019-08-07)
 
 This release fixes several sync issues which could occur when the internet connection is
 lost during a sync. It also notifies the user if Maestral's access to their Dropbox has
@@ -322,7 +322,7 @@ been revoked.
 - Fixed an issue where errors from `requests` would inadvertently get caught instead of
   being raised.
 
-### v0.2.4 (2019-08-05)
+## v0.2.4 (2019-08-05)
 
 This version mainly improves the appearance and responsiveness of the GUI specifically on
 Linux platforms with a Gnome desktop. It also introduces a dialog to handle a deleted or
@@ -348,7 +348,7 @@ moved Dropbox folder.
 - Fixed missing line-breaks in the traceback shown by the error dialog.
 - Updated console scripts to reflect changes in MaestralMonitor and MaestralApiClient.
 
-### v0.2.3 (2019-07-22)
+## v0.2.3 (2019-07-22)
 
 This release mainly fixes crashes of the setup dialog and contains tweaks to the UI.
 
@@ -366,7 +366,7 @@ This release mainly fixes crashes of the setup dialog and contains tweaks to the
 - Fixed a bug which could cause Maestral to crash during the setup dialog, immediately
   after user authentication.
 
-### v0.2.2 (2019-07-19)
+## v0.2.2 (2019-07-19)
 
 #### Added:
 
@@ -392,7 +392,7 @@ This release mainly fixes crashes of the setup dialog and contains tweaks to the
 - Fixed a bug which would prevent some error dialogs from being shown to the user.
 - Fixed a bug which would cause the setup dialog to crash after linking to Dropbox.
 
-### v0.2.1 (2019-07-18)
+## v0.2.1 (2019-07-18)
 
 #### Changed:
 
@@ -408,7 +408,7 @@ This release mainly fixes crashes of the setup dialog and contains tweaks to the
 - Fixes a bug which would prevent Meastral from starting on login: the correct startup
   script is now called.
 
-### v0.2.0 (2019-07-17)
+## v0.2.0 (2019-07-17)
 
 #### Major changes
 
@@ -482,7 +482,7 @@ This release mainly fixes crashes of the setup dialog and contains tweaks to the
 - Fixed a bug which would cause Maestral to crash when clicking "Choose folders to sync..."
   while Maestral cannot connect to Dropbox servers.
 
-### v0.1.2 (2019-06-25)
+## v0.1.2 (2019-06-25)
 
 #### Added:
 
@@ -505,7 +505,7 @@ This release mainly fixes crashes of the setup dialog and contains tweaks to the
 - Do not upload files that have identical content on Dropbox. Previously: files were
   always uploaded and conflict checking was left to do by the Dropbox server.
 
-### v0.1.1 (2019-06-23)
+## v0.1.1 (2019-06-23)
 
 #### Fixed:
 
