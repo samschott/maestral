@@ -4,9 +4,9 @@
 #### Fixed:
 
 - Fixes an "Unexpected exception" message raised when attempting to download a file from
-  Dropbox which has been deleted in the mean time.
+  Dropbox which has been deleted in the meantime.
 - Fixes an "Unexpected exception" message raised when attempting to upload a file to
-  Dropbox which has been deleted in the mean time.
+  Dropbox which has been deleted in the meantime.
 
 ### v0.4.1
 
