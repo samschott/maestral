@@ -1396,9 +1396,9 @@ class UpDownSync(object):
         # get metadata of remote file
         md = self.client.get_metadata(dbx_path)
         if not md:
-            raise MaestralApiError(
-                "Could not download.",
-                "Item does not exist on Dropbox",
+            raise PathError(
+                "Could not download file",
+                "The file no longer exist on Dropbox",
                 dbx_path=dbx_path
             )
 
