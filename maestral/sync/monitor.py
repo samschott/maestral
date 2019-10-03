@@ -1208,7 +1208,6 @@ class UpDownSync(object):
         dbx_path = self.to_dbx_path(path)
 
         if not event.is_directory:  # ignore directory modified events
-            assert osp.isfile(path)
 
             UpDownSync._wait_for_creation(path)
 
