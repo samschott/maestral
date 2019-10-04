@@ -1223,7 +1223,10 @@ class UpDownSync(object):
                     return
 
             rev = self.get_local_rev(dbx_path)
-            mode = dropbox.files.WriteMode("update", rev)
+            if rev == "folder":
+                mode = dropbox.files.WriteMode("overwrite")
+            else:
+                mode = dropbox.files.WriteMode("update", rev)
             md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
             logger.debug("Modified file: %s (old rev: %s, new rev %s)",
                          md.path_display, rev, md.rev)
