@@ -7,6 +7,7 @@
   Dropbox which has been deleted in the meantime.
 - Fixes an "Unexpected exception" message raised when attempting to upload a file to
   Dropbox which has been deleted in the meantime.
+- Fixes a bug where the revision number of a file could be incorrectly set to "folder".
 
 ## v0.4.1
 
