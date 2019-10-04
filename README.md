@@ -16,10 +16,10 @@ the management of shared folder settings. If you need any of this functionality,
 use the Dropbox website or the official client. As of version 0.3.0, Maestral does
 support the syncing of multiple Dropbox accounts.
 
-The focus on "simple" file syncing does come with advantages: the Maestral App on macOS is
-80% smaller than the official Dropbox app (50 MB vs 290 MB) and uses 70% less memory. The
-app size and memory footprint can be more than halved when installing and running Maestral
-without a GUI.
+The focus on "simple" file syncing does come with advantages: on macOS, the Maestral App
+bundle is 80% smaller than the official Dropbox app (50 MB vs 290 MB) and uses much less
+memory (130 MB vs 800 MB, since the "new" Dropbox v82.4). The app size and memory
+footprint can be further reduced when installing and running Maestral without a GUI.
 
 ## Installation
 
