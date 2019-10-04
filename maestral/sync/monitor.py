@@ -1207,7 +1207,7 @@ class UpDownSync(object):
         path = event.src_path
         dbx_path = self.to_dbx_path(path)
 
-        if not event.is_directory:  # ignore directory modified events
+        if not osp.isdir(event.src_path):  # ignore directory modified events
 
             UpDownSync._wait_for_creation(path)
 
@@ -1217,7 +1217,7 @@ class UpDownSync(object):
                 local_hash = get_local_hash(path)
                 if local_hash == md.content_hash:
                     # file hashes are identical, do not upload
-                    self.set_local_rev(md.path_display, "folder")
+                    self.set_local_rev(md.path_display, md.rev)
                     logger.debug("Modification of '%s' detected but file content is "
                                  "the same as on Dropbox.", event.src_path)
                     return
