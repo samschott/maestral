@@ -1648,11 +1648,12 @@ def connection_helper(client, syncing, running, connected):
             account_usage_signal.send(res)
             time.sleep(5)
         except CONNECTION_ERRORS:
-            syncing.clear()  # stop syncing
+            if connected.is_set():
+                logger.debug(DISCONNECTED, exc_info=True)  # debug signal w/ traceback
+                logger.info(DISCONNECTED)  # info signal w/o traceback
+            syncing.clear()
             connected.clear()
             disconnected_signal.send()
-            logger.debug(DISCONNECTED, exc_info=True)  # debug signal w/ traceback
-            logger.info(DISCONNECTED)  # info signal w/o traceback
             time.sleep(1)
         except DropboxAuthError as e:
             syncing.clear()  # stop syncing
