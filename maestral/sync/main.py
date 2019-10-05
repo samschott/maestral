@@ -439,9 +439,9 @@ class Maestral(object):
         else:
             if res.profile_photo_url:
                 # download current profile pic
-                r = requests.get(res.profile_photo_url)
+                res = requests.get(res.profile_photo_url)
                 with open(self.account_profile_pic_path, "wb") as f:
-                    f.write(r.content)
+                    f.write(res.content)
                 return self.account_profile_pic_path
             else:
                 # delete current profile pic
@@ -492,10 +492,11 @@ class Maestral(object):
             callback = self.start_sync
 
         self.download_thread = Thread(
-                target=folder_download_worker,
-                args=(self.monitor, dbx_path),
-                kwargs={"callback": callback},
-                name="MaestralFolderDownloader")
+            target=folder_download_worker,
+            args=(self.monitor, dbx_path),
+            kwargs={"callback": callback},
+            name="MaestralFolderDownloader"
+        )
         self.download_thread.start()
 
     def rebuild_index(self):
@@ -599,10 +600,10 @@ Any changes to local files during this process may be lost.""")
 
         old_excluded_folders = self.sync.excluded_folders
 
-        for p in old_excluded_folders:
-            if is_child(dbx_path, p):
+        for folder in old_excluded_folders:
+            if is_child(dbx_path, folder):
                 raise ValueError("'{0}' lies inside the excluded folder '{1}'. "
-                                 "Please include '{1}' first.".format(dbx_path, p))
+                                 "Please include '{1}' first.".format(dbx_path, folder))
 
         # Get folders which will need to be downloaded, do not attempt to download
         # subfolders of `dbx_path` which were already included.
