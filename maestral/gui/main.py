@@ -81,7 +81,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.update_ui_timer = QtCore.QTimer()
         self.update_ui_timer.timeout.connect(self.update_ui)
-        self.update_ui_timer.start(200)  # every 200 ms
+        self.update_ui_timer.start(500)  # every 500 ms
 
     def setIcon(self, icon_name):
         icon = self.icons.get(icon_name, self.icons[SYNCING])
