@@ -586,7 +586,7 @@ def excluded_list(config_name: str, running: bool):
 @log.command()
 @with_config_opt
 def show(config_name: str, running: bool):
-    """Shows Maestral's log file."""
+    """Shows Maestral's log file in reversed order (last message first)."""
     from maestral.sync.utils.app_dirs import get_log_path
 
     log_file = get_log_path("maestral", config_name + ".log")
@@ -595,7 +595,9 @@ def show(config_name: str, running: bool):
         try:
             with open(log_file, "r") as f:
                 text = f.read()
-            click.echo_via_pager(text)
+            log_list = text.split("\n")
+            log_list.reverse()
+            click.echo_via_pager("\n".join(log_list))
         except OSError:
             click.echo("Could not open log file at '{}'".format(log_file))
     else:
