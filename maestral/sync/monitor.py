@@ -762,13 +762,13 @@ class UpDownSync(object):
                            now > max(stats.st_ctime, stats.st_mtime) > last_sync)
 
             if is_new:
-                if osp.isdir(path):
+                if snapshot.isdir(path):
                     event = DirCreatedEvent(path)
                 else:
                     event = FileCreatedEvent(path)
                 changes.append(event)
             elif is_modified:
-                if osp.isdir(path):
+                if snapshot.isdir(path):
                     event = DirModifiedEvent(path)
                 else:
                     event = FileModifiedEvent(path)
@@ -1094,7 +1094,7 @@ class UpDownSync(object):
         md_old = self.client.get_metadata(dbx_path_old)
 
         if not md_old:
-            # If not, e.g., because its old name was invalid,
+            # If not on Dropbox, e.g., because its old name was invalid,
             # create it instead of moving it.
             if isinstance(event, DirMovedEvent):
                 new_event = DirCreatedEvent(event.dest_path)
@@ -1103,7 +1103,6 @@ class UpDownSync(object):
             self._on_created(new_event)
             # remove old revs
             self.set_local_rev(dbx_path_old, None)
-            logger.debug("Created '%s' on Dropbox.", event.dest_path)
             return
         else:
             # otherwise, just move it
@@ -1207,7 +1206,7 @@ class UpDownSync(object):
         path = event.src_path
         dbx_path = self.to_dbx_path(path)
 
-        if not osp.isdir(event.src_path):  # ignore directory modified events
+        if not event.is_directory:  # ignore directory modified events
 
             UpDownSync._wait_for_creation(path)
 
