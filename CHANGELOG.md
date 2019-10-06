@@ -3,11 +3,13 @@
 
 #### Fixed:
 
-- Fixes an "Unexpected exception" message raised when attempting to download a file from
-  Dropbox which has been deleted in the meantime.
-- Fixes an "Unexpected exception" message raised when attempting to upload a file to
-  Dropbox which has been deleted in the meantime.
+- Fixes crash of the sync thread when attempting to download a file from Dropbox which has
+  been deleted after it has been queued for download but before the download attempt.
+- Fixes crash of the sync thread when attempting to upload a file to Dropbox which has
+  been deleted after it has been queued for upload but before the upload attempt.
 - Fixes a bug where the revision number of a file could be incorrectly set to "folder".
+- Fixes a crash of the sync thread while indexing local changes (after a restart) if an
+  indexed item has been deleted before we could check if it is a file or folder.
 
 ## v0.4.1
 
