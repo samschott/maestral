@@ -15,6 +15,7 @@ from PyQt5.QtCore import QModelIndex, Qt
 
 # maestral modules
 from maestral.sync.main import Maestral, handle_disconnect
+from maestral.sync.utils import delete_file_or_folder
 from maestral.sync.oauth import OAuth2Session
 from maestral.config.base import get_home_dir
 from maestral.gui.resources import APP_ICON_PATH, SETUP_DIALOG_PATH, get_native_item_icon
@@ -243,7 +244,7 @@ class SetupDialog(QtWidgets.QDialog):
             if res == 0:
                 return
             else:
-                _delete_file_or_folder(dropbox_path)
+                delete_file_or_folder(dropbox_path)
 
         self.mdbx.create_dropbox_directory(path=dropbox_path, overwrite=False)
 
@@ -264,7 +265,7 @@ class SetupDialog(QtWidgets.QDialog):
         # if any excluded folders are currently on the drive, delete them
         for folder in self.excluded_folders:
             local_folder = self.mdbx.to_local_path(folder)
-            _delete_file_or_folder(local_folder)
+            delete_file_or_folder(local_folder)
 
         # switch to next page
         self.stackedWidget.slideInIdx(4)
@@ -364,16 +365,3 @@ class SetupDialog(QtWidgets.QDialog):
         fsd.exec_()
 
         return fsd.accepted
-
-
-def _delete_file_or_folder(path):
-
-    try:
-        shutil.rmtree(path)
-        return True
-    except OSError:
-        try:
-            os.unlink(path)
-            return True
-        except OSError:
-            return False

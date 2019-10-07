@@ -35,6 +35,7 @@ from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 # maestral modules
 from maestral.config.main import CONF
+from maestral.sync.utils import delete_file_or_folder
 from maestral.sync.utils.content_hasher import DropboxContentHasher
 from maestral.sync.utils.notify import Notipy
 from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, CursorResetError,
@@ -1592,18 +1593,13 @@ class UpDownSync(object):
                 # remove it and all its children. If there’s nothing at the
                 # given path, ignore this entry.
 
-                try:
-                    if osp.isdir(local_path):
-                        shutil.rmtree(local_path)
-                    elif osp.isfile(local_path):
-                        os.remove(local_path)
+                success, err = delete_file_or_folder(local_path, return_error=True)
+                if success:
                     logger.debug("Deleted local item '{0}'".format(entry.path_display))
-                except FileNotFoundError as e:
-                    logger.debug("FileNotFoundError: {0}".format(e))
+                else:
+                    logger.debug("FileNotFoundError: {0}".format(err))
 
                 self.set_local_rev(entry.path_display, None)
-
-            self.clear_sync_error(dbx_path=entry.path_display)
 
     @staticmethod
     def _save_to_history(dbx_path):

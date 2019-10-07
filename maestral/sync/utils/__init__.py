@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import os
+import shutil
 import platform
 import re
 from distutils.version import LooseVersion
@@ -66,3 +68,27 @@ def check_version(actver, version, cmp_op):
             return False
     except TypeError:
         return True
+
+
+def delete_file_or_folder(path, return_error=False):
+    """
+    Deletes a file or folder at :param:`path`. Returns True on success,
+    False otherwise.
+    """
+    success = True
+    err = None
+
+    try:
+        shutil.rmtree(path)
+    except OSError:
+        try:
+            os.unlink(path)
+        except OSError as e:
+            success = False
+            err = e
+
+    if return_error:
+        return success, err
+    else:
+        return success
+
