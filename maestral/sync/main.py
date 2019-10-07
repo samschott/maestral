@@ -15,7 +15,7 @@ import time
 import functools
 from threading import Thread
 import logging.handlers
-import collections
+from collections import namedtuple, deque
 
 # external packages
 import click
@@ -93,7 +93,7 @@ class CachedHandler(logging.Handler):
     """
     def __init__(self, maxlen=None):
         logging.Handler.__init__(self)
-        self.cached_records = collections.deque([], maxlen)
+        self.cached_records = deque([], maxlen)
 
     def emit(self, record):
         self.format(record)
@@ -388,9 +388,9 @@ class Maestral(object):
         except ValueError:
             return "unwatched"
 
-        if local_path in self.monitor.upload_list:
+        if local_path in self.monitor.queued_for_upload:
             return "uploading"
-        elif local_path in self.monitor.download_list:
+        elif local_path in self.monitor.queued_for_download:
             return "downloading"
         elif any(local_path == err["local_path"] for err in self.sync_errors):
             return "error"
@@ -398,6 +398,29 @@ class Maestral(object):
             return "up to date"
         else:
             return "unwatched"
+
+    def get_activity(self):
+        """
+        Returns a list of all file currently queued or being synced.
+        :return:
+        """
+        PathItem = namedtuple("PathItem", "local_path status")
+        uploading = []
+        downloading = []
+
+        for path in self.monitor.uploading:
+            uploading.append(PathItem(path, "uploading"))
+
+        for path in self.monitor.queued_for_upload:
+            uploading.append(PathItem(path, "queued"))
+
+        for path in self.monitor.downloading:
+            downloading.append(PathItem(path, "downloading"))
+
+        for path in self.monitor.queued_for_upload:
+            downloading.append(PathItem(path, "queued"))
+
+        return dict(uploading=uploading, downloading=downloading)
 
     @handle_disconnect
     def get_account_info(self):
