@@ -417,7 +417,7 @@ class Maestral(object):
         for path in self.monitor.downloading:
             downloading.append(PathItem(path, "downloading"))
 
-        for path in self.monitor.queued_for_upload:
+        for path in self.monitor.queued_for_download:
             downloading.append(PathItem(path, "queued"))
 
         return dict(uploading=uploading, downloading=downloading)
