@@ -86,16 +86,16 @@ class FileEventHandler(FileSystemEventHandler):
     `watchdog.Observer` and :class:`upload_worker`.
 
     :ivar syncing: Event that needs to be set for file events to be passed on.
-    :ivar queue_to_upload: Queue with unprocessed local file events.
+    :ivar local_file_event_queue: Queue with unprocessed local file events.
     :ivar queue_downloading: Deque with files to be ignored. This is primarily used to
          exclude files and folders from monitoring if they are currently being
          downloaded. All entries in :ivar:`queue_downloading` should be temporary only.
     """
 
-    def __init__(self, syncing, queue_to_upload, queue_downloading):
+    def __init__(self, syncing, local_file_event_queue, queue_downloading):
 
         self.syncing = syncing
-        self.queue_to_upload = queue_to_upload
+        self.local_file_event_queue = local_file_event_queue
         self.queue_downloading = queue_downloading
 
         self._renamed_items_cache = []
@@ -112,10 +112,11 @@ class FileEventHandler(FileSystemEventHandler):
 
         with self.queue_downloading.mutex:
             queue_downloading = tuple(self.queue_downloading.queue)
+            for flagged_path in queue_downloading:
+                if local_path.lower() == flagged_path.lower():
+                    logger.debug("'{0}' is being downloaded, ignore.".format(local_path))
+                    self.queue_downloading.queue.remove(flagged_path)
 
-        for path in queue_downloading:
-            if local_path.lower().startswith(path.lower()):
-                logger.debug("'{0}' is being downloaded, ignore.".format(local_path))
                 return True
         return False
 
@@ -215,7 +216,7 @@ class FileEventHandler(FileSystemEventHandler):
             return
 
         if self.syncing.is_set():
-            self.queue_to_upload.put(event)
+            self.local_file_event_queue.put(event)
 
 
 def catch_sync_issues(sync_errors=None, failed_items=None):
@@ -259,16 +260,13 @@ def catch_sync_issues(sync_errors=None, failed_items=None):
 class InQueue(object):
     """
     A context manager that puts `name` into `custom_queue` when entering the context and
-    removes it when exiting, after a short delay.
-
-    :ivar name: Item to put in queue.
-    :ivar custom_queue: Instance of :class:`queue.Queue`.
+    removes it when exiting, after an optional delay.
     """
-    def __init__(self, name, custom_queue, delay=0.2):
+    def __init__(self, name, custom_queue, delay=0):
         """
-        :param name: Item to put in queue.
+        :param str name: Item to put in queue.
         :param custom_queue: Instance of :class:`queue.Queue`.
-        :param float delay: Delay before removing item from queue
+        :param float delay: Delay before removing item from queue. Defaults to 0.
         """
         self.name = name
         self.custom_queue = custom_queue
@@ -279,8 +277,7 @@ class InQueue(object):
 
     def __exit__(self, err_type, err_value, err_traceback):
         time.sleep(self._delay)
-        with self.custom_queue.mutex:
-            self.custom_queue.queue.remove(self.name)
+        remove_from_queue(self.custom_queue, self.name)
 
 
 class UpDownSync(object):
@@ -288,7 +285,7 @@ class UpDownSync(object):
     Class that contains methods to sync local file events with Dropbox and vice versa.
 
     :param client: MaestralApiClient client instance.
-    :param queue_to_upload: Queue with local file-changed events.
+    :param local_file_event_queue: Queue with local file-changed events.
     :param queue_uploading: Queue with files currently being uploaded.
     :param queue_downloading: Queue with files currently being downloaded.
     """
@@ -304,10 +301,13 @@ class UpDownSync(object):
     failed_downloads = queue.Queue()
     sync_errors = queue.Queue()
 
-    def __init__(self, client, queue_to_upload, queue_uploading, queue_downloading):
+    queued_for_download = queue.Queue()
+    queued_for_upload = queue.Queue()
+
+    def __init__(self, client, local_file_event_queue, queue_uploading, queue_downloading):
 
         self.client = client
-        self.queue_to_upload = queue_to_upload
+        self.local_file_event_queue = local_file_event_queue
         self.queue_uploading = queue_uploading
         self.queue_downloading = queue_downloading
 
@@ -641,11 +641,7 @@ class UpDownSync(object):
                 dbx_path = self.to_dbx_path(local_path)
             for error in list(self.sync_errors.queue):
                 if error.dbx_path.lower() == dbx_path.lower():
-                    with self.sync_errors.mutex:
-                        try:
-                            self.sync_errors.queue.remove(error)
-                        except ValueError:
-                            pass
+                    remove_from_queue(self.sync_errors, error)
 
     def clear_all_sync_errors(self):
         """Clears all sync errors."""
@@ -726,7 +722,7 @@ class UpDownSync(object):
 
         # queue changes for upload
         for event in events:
-            self.queue_to_upload.put(event)
+            self.local_file_event_queue.put(event)
 
         logger.info(IDLE)
 
@@ -800,7 +796,7 @@ class UpDownSync(object):
         """
         self.ensure_dropbox_folder_present()
         try:
-            events = [self.queue_to_upload.get(timeout=timeout)]
+            events = [self.local_file_event_queue.get(timeout=timeout)]
         except queue.Empty:
             return [], time.time()
 
@@ -809,7 +805,7 @@ class UpDownSync(object):
         has_more = True
         while has_more:
             try:
-                events.append(self.queue_to_upload.get(timeout=delay))
+                events.append(self.local_file_event_queue.get(timeout=delay))
             except queue.Empty:
                 has_more = False
                 t0 = time.time()
@@ -896,10 +892,7 @@ class UpDownSync(object):
 
         for event in events:
 
-            if event.event_type is EVENT_TYPE_MOVED:
-                local_path = event.dest_path
-            else:
-                local_path = event.src_path
+            local_path = getattr(event, "dest_path", event.src_path)
             dbx_path = self.to_dbx_path(local_path)
 
             if self.is_excluded(dbx_path):  # is excluded?
@@ -950,6 +943,10 @@ class UpDownSync(object):
 
         filtered_events, _ = self.filter_excluded_changes_local(events)
         dir_events, file_events = self._sort_local_events(filtered_events)
+
+        # update queues
+        for e in filtered_events:
+            self.queued_for_upload.put(getattr(e, "dest_path", e.src_path))
 
         # apply directory events first (the do not require any upload)
         for event in dir_events:
@@ -1051,9 +1048,11 @@ class UpDownSync(object):
         sync errors with the file. Any new MaestralApiErrors will be caught by the
         decorator."""
 
-        self.clear_sync_error(local_path=event.src_path)
+        local_path = getattr(event, "dest_path", event.src_path)
+        remove_from_queue(self.queued_for_upload, local_path)
+        self.clear_sync_error(local_path=local_path)
 
-        with InQueue(event.src_path, self.queue_uploading):
+        with InQueue(local_path, self.queue_uploading):
             # apply event
             if event.event_type is EVENT_TYPE_CREATED:
                 self._on_created(event)
@@ -1334,6 +1333,10 @@ class UpDownSync(object):
         # filter out excluded changes
         changes_filtered, changes_excluded = self.filter_excluded_changes_remote(changes)
 
+        # update queue
+        for md in changes_filtered.entries:
+            self.queued_for_download.put(self.to_local_path(md.path_display))
+
         # remove all deleted items from the excluded list
         _, _, deleted_excluded = self._sort_remote_entries(changes_excluded)
         for d in deleted_excluded:
@@ -1373,6 +1376,10 @@ class UpDownSync(object):
                     logger.info("Downloading {0}/{1}...".format(n, n_files))
                     last_emit = time.time()
                 success += [f.result()]
+
+        time.sleep(2)
+        with self.queue_downloading.mutex:
+            self.queue_downloading.queue.clear()
 
         if not all(success):
             return False
@@ -1543,63 +1550,65 @@ class UpDownSync(object):
 
         local_path = self.to_local_path(entry.path_display)
 
-        with InQueue(local_path, self.queue_downloading):
+        self.clear_sync_error(dbx_path=entry.path_display)
+        remove_from_queue(self.queued_for_download, local_path)
+        self.queue_downloading.put(local_path)  # will be removed by FileSystemEventHandler
 
-            if isinstance(entry, FileMetadata):
-                # Store the new entry at the given path in your local state.
-                # If the required parent folders don’t exist yet, create them.
-                # If there’s already something else at the given path,
-                # replace it and remove all its children.
+        if isinstance(entry, FileMetadata):
+            # Store the new entry at the given path in your local state.
+            # If the required parent folders don’t exist yet, create them.
+            # If there’s already something else at the given path,
+            # replace it and remove all its children.
 
-                self._save_to_history(entry.path_display)
+            self._save_to_history(entry.path_display)
 
-                # check for sync conflicts
-                conflict = self.check_download_conflict(entry.path_display)
-                if conflict == 0:
-                    # no conflict
-                    pass
-                elif conflict == 1:
-                    # conflict! rename local file
-                    base, ext = osp.splitext(local_path)
-                    new_local_file = base + " (conflicting copy)" + ext
-                    os.rename(local_path, new_local_file)
-                elif conflict == 2:
-                    # Dropbox file corresponds to local file => nothing to do
-                    # rev number has been updated by `check_download_conflict`
-                    return
+            # check for sync conflicts
+            conflict = self.check_download_conflict(entry.path_display)
+            if conflict == 0:
+                # no conflict
+                pass
+            elif conflict == 1:
+                # conflict! rename local file
+                base, ext = osp.splitext(local_path)
+                new_local_file = base + " (conflicting copy)" + ext
+                os.rename(local_path, new_local_file)
+            elif conflict == 2:
+                # Dropbox file corresponds to local file => nothing to do
+                # rev number has been updated by `check_download_conflict`
+                return
 
-                md = self.client.download(entry.path_display, local_path)
+            md = self.client.download(entry.path_display, local_path)
 
-                # save revision metadata
-                self.set_local_rev(md.path_display, md.rev)
+            # save revision metadata
+            self.set_local_rev(md.path_display, md.rev)
 
-                logger.debug("Created local file '{0}'".format(entry.path_display))
+            logger.debug("Created local file '{0}'".format(entry.path_display))
 
-            elif isinstance(entry, FolderMetadata):
-                # Store the new entry at the given path in your local state.
-                # If the required parent folders don’t exist yet, create them.
-                # If there’s already something else at the given path,
-                # replace it but leave the children as they are.
+        elif isinstance(entry, FolderMetadata):
+            # Store the new entry at the given path in your local state.
+            # If the required parent folders don’t exist yet, create them.
+            # If there’s already something else at the given path,
+            # replace it but leave the children as they are.
 
-                os.makedirs(local_path, exist_ok=True)
+            os.makedirs(local_path, exist_ok=True)
 
-                # save revision metadata
-                self.set_local_rev(entry.path_display, "folder")
+            # save revision metadata
+            self.set_local_rev(entry.path_display, "folder")
 
-                logger.debug("Created local directory '{0}'".format(entry.path_display))
+            logger.debug("Created local directory '{0}'".format(entry.path_display))
 
-            elif isinstance(entry, DeletedMetadata):
-                # If your local state has something at the given path,
-                # remove it and all its children. If there’s nothing at the
-                # given path, ignore this entry.
+        elif isinstance(entry, DeletedMetadata):
+            # If your local state has something at the given path,
+            # remove it and all its children. If there’s nothing at the
+            # given path, ignore this entry.
 
-                success, err = delete_file_or_folder(local_path, return_error=True)
-                if success:
-                    logger.debug("Deleted local item '{0}'".format(entry.path_display))
-                else:
-                    logger.debug("FileNotFoundError: {0}".format(err))
+            success, err = delete_file_or_folder(local_path, return_error=True)
+            if success:
+                logger.debug("Deleted local item '{0}'".format(entry.path_display))
+            else:
+                logger.debug("FileNotFoundError: {0}".format(err))
 
-                self.set_local_rev(entry.path_display, None)
+            self.set_local_rev(entry.path_display, None)
 
     @staticmethod
     def _save_to_history(dbx_path):
@@ -1795,12 +1804,13 @@ class MaestralMonitor(object):
 
     :cvar queue_downloading: Queue with *local file paths* that are being downloaded.
     :cvar queue_uploading: Queue with *local file paths* that are being uploaded.
-    :cvar queue_to_upload: Queue with *file events* to be uploaded.
+    :cvar local_file_event_queue: Queue with *file events* to be uploaded.
     """
 
     queue_downloading = queue.Queue()
     queue_uploading = queue.Queue()
-    queue_to_upload = TimedQueue()
+
+    local_file_event_queue = TimedQueue()
 
     connected_signal = signal("connected_signal")
     disconnected_signal = signal("disconnected_signal")
@@ -1809,15 +1819,24 @@ class MaestralMonitor(object):
     _auto_resume_on_connect = False
 
     @property
-    def upload_list(self):
-        """Returns a list of all items queued to upload and currently uploading."""
-        queue_to_upload_list = list(e.src_path for e in self.queue_to_upload.queue)
-        return list(self.queue_uploading.queue) + queue_to_upload_list
+    def uploading(self):
+        """Returns a list of all items currently uploading."""
+        return list(self.queue_uploading.queue)
 
     @property
-    def download_list(self):
+    def downloading(self):
         """Returns a list of all items currently downloading."""
         return list(self.queue_downloading.queue)
+
+    @property
+    def queued_for_upload(self):
+        """Returns a list of all items queued for upload."""
+        return list(self.sync.queued_for_upload.queue)
+
+    @property
+    def queued_for_download(self):
+        """Returns a list of all items queued for download."""
+        return list(self.sync.queued_for_download.queue)
 
     def __init__(self, client):
 
@@ -1827,9 +1846,9 @@ class MaestralMonitor(object):
 
         self.client = client
         self.file_handler = FileEventHandler(
-            self.syncing, self.queue_to_upload, self.queue_downloading)
+            self.syncing, self.local_file_event_queue, self.queue_downloading)
 
-        self.sync = UpDownSync(self.client, self.queue_to_upload,
+        self.sync = UpDownSync(self.client, self.local_file_event_queue,
                                self.queue_uploading, self.queue_downloading)
 
     def start(self, overload=None):
@@ -1932,6 +1951,7 @@ class MaestralMonitor(object):
 
         if blocking:
             self.upload_thread.join()  # wait to finish (up to 2 sec)
+            self.download_thread.join()  # may take much longer
 
         logger.info(STOPPED)
 
@@ -2067,3 +2087,18 @@ def get_local_hash(local_path):
             hasher.update(chunk)
 
     return hasher.hexdigest()
+
+
+def remove_from_queue(queue, item):
+    """
+    Tries to remove an item from a queue.
+
+    :param Queue queue: Queue to remove item from.
+    :param item: Item to remove
+    """
+
+    with queue.mutex:
+        try:
+            queue.queue.remove(item)
+        except ValueError:
+            pass
