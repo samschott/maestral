@@ -1,5 +1,10 @@
 ## v0.4.2-dev
 
+#### Added:
+
+- Added command `maestral activity` which lists all items queued for upload / download or
+  currently being uploaded / downloaded.
+
 
 #### Fixed:
 
@@ -10,6 +15,8 @@
 - Fixes a bug where the revision number of a file could be incorrectly set to "folder".
 - Fixes a crash of the sync thread while indexing local changes (after a restart) if an
   indexed item has been deleted before we could check if it is a file or folder.
+- Fixes a bug where just downloaded files could be immediately re-uploaded in some cases.
+
 
 ## v0.4.1
 
