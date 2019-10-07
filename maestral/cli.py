@@ -316,6 +316,50 @@ def file_status(config_name: str, running: bool, local_path: str):
 
 @main.command()
 @with_config_opt
+def activity(config_name: str, running: bool):
+    """Returns a list of all files that are currently being synced."""
+    from maestral.sync.daemon import MaestralProxy
+
+    try:
+        with MaestralProxy(config_name) as m:
+            res = m.get_activity()
+            uploading = res["uploading"]
+            downloading = res["downloading"]
+
+            combined = uploading + downloading
+
+            if len(combined) > 0:
+                col_len = max(len(item[0]) for item in combined)
+            else:
+                col_len = 0
+
+            click.echo("")
+            click.echo("Uploading")
+            click.echo("-"*40)
+
+            for item in uploading:
+                path = item[0].ljust(col_len)
+                queue_status = item[1]
+                click.echo("{0}  {1}".format(path, queue_status))
+
+            click.echo("")
+
+            click.echo("Downloading")
+            click.echo("-"*40)
+
+            for item in downloading:
+                path = item[0].ljust(col_len)
+                queue_status = item[1]
+                click.echo("{0}  {1}".format(path, queue_status))
+
+            click.echo("")
+
+    except Pyro4.errors.CommunicationError:
+        click.echo("Maestral daemon is not running.")
+
+
+@main.command()
+@with_config_opt
 def errors(config_name: str, running: bool):
     """Lists all sync errors."""
     from maestral.sync.daemon import MaestralProxy
