@@ -317,7 +317,7 @@ def file_status(config_name: str, running: bool, local_path: str):
 @main.command()
 @with_config_opt
 def activity(config_name: str, running: bool):
-    """Returns a list of all files that are currently being synced."""
+    """Shows all items that are currently being synced."""
     from maestral.sync.daemon import MaestralProxy
 
     try:
