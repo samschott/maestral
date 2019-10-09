@@ -1951,7 +1951,6 @@ class MaestralMonitor(object):
 
         if blocking:
             self.upload_thread.join()  # wait to finish (up to 2 sec)
-            self.download_thread.join()  # may take much longer
 
         logger.info(STOPPED)
 
