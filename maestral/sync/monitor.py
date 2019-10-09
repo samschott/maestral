@@ -1821,22 +1821,22 @@ class MaestralMonitor(object):
     @property
     def uploading(self):
         """Returns a list of all items currently uploading."""
-        return list(self.queue_uploading.queue)
+        return tuple(self.queue_uploading.queue)
 
     @property
     def downloading(self):
         """Returns a list of all items currently downloading."""
-        return list(self.queue_downloading.queue)
+        return tuple(self.queue_downloading.queue)
 
     @property
     def queued_for_upload(self):
         """Returns a list of all items queued for upload."""
-        return list(self.sync.queued_for_upload.queue)
+        return tuple(self.sync.queued_for_upload.queue)
 
     @property
     def queued_for_download(self):
         """Returns a list of all items queued for download."""
-        return list(self.sync.queued_for_download.queue)
+        return tuple(self.sync.queued_for_download.queue)
 
     def __init__(self, client):
 
