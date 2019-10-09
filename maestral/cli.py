@@ -317,42 +317,66 @@ def file_status(config_name: str, running: bool, local_path: str):
 @main.command()
 @with_config_opt
 def activity(config_name: str, running: bool):
-    """Shows all items that are currently being synced."""
+    """Live view of all items being synced."""
     from maestral.sync.daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
-            res = m.get_activity()
-            uploading = res["uploading"]
-            downloading = res["downloading"]
 
-            combined = uploading + downloading
+            import curses
+            import time
 
-            if len(combined) > 0:
-                col_len = max(len(item[0]) for item in combined)
-            else:
-                col_len = 0
+            def curses_loop(screen):
 
-            click.echo("")
-            click.echo("Uploading")
-            click.echo("-"*40)
+                curses.use_default_colors()  # don't change terminal background
+                screen.nodelay(1)  # set `scree.getch()` to non-blocking
 
-            for item in uploading:
-                path = item[0].ljust(col_len)
-                queue_status = item[1]
-                click.echo("{0}  {1}".format(path, queue_status))
+                while True:
 
-            click.echo("")
+                    # get info from daemon
+                    res = m.get_activity()
+                    up = res["uploading"]
+                    down = res["downloading"]
+                    sync_status = m.status
 
-            click.echo("Downloading")
-            click.echo("-"*40)
+                    # create header
+                    lines = [
+                        "Status: {}".format(sync_status),
+                        "Uploading: {}, Downloading: {}".format(len(up), len(down)),
+                        "",
+                    ]
 
-            for item in downloading:
-                path = item[0].ljust(col_len)
-                queue_status = item[1]
-                click.echo("{0}  {1}".format(path, queue_status))
+                    # create table
+                    up.insert(0, ("UPLOADING", "STATUS"))  # column titles
+                    up.append(("", ""))  # append spacer
+                    down.insert(0, ("DOWNLOADING", "STATUS"))  # column titles
 
-            click.echo("")
+                    combined = up + down
+
+                    col_len = max(len(item[0]) for item in combined) + 2
+
+                    for item in combined:  # create rows
+                        path = item[0].ljust(col_len)
+                        queue_status = item[1]
+                        lines.append(path + queue_status)
+
+                    # print to console screen
+                    screen.clear()
+                    try:
+                        screen.addstr("\n".join(lines))
+                    except curses.error:
+                        pass
+                    screen.refresh()
+
+                    # abort when user presses "q", refresh otherwise
+                    key = screen.getch()
+                    if key == ord("q"):
+                        break
+                    elif key < 0:
+                        time.sleep(1)
+
+            # enter curses event loop
+            curses.wrapper(curses_loop)
 
     except Pyro4.errors.CommunicationError:
         click.echo("Maestral daemon is not running.")
