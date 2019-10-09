@@ -338,10 +338,11 @@ def activity(config_name: str, running: bool):
                     up = res["uploading"]
                     down = res["downloading"]
                     sync_status = m.status
+                    n_errors = len(m.sync_errors)
 
                     # create header
                     lines = [
-                        "Status: {}".format(sync_status),
+                        "Status: {}, Sync errors: {}".format(sync_status, n_errors),
                         "Uploading: {}, Downloading: {}".format(len(up), len(down)),
                         "",
                     ]
