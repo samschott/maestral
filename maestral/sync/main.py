@@ -54,7 +54,7 @@ CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
 INVOCATION_ID = os.getenv("INVOCATION_ID")
 NOTIFY_SOCKET = os.getenv("NOTIFY_SOCKET")
 WATCHDOG_PID = os.getenv("WATCHDOG_PID")
-WATCHDOG_USEC = os.getenv("WATCHDOG_USEC")
+WATCHDOG_USEC = os.getenv("WATCHDOG_USEC", os.getpid())
 
 
 # ========================================================================================
@@ -89,7 +89,9 @@ sh.setLevel(log_level)
 # -- log to cached handlers --------------------------------------------------------------
 class CachedHandler(logging.Handler):
     """
-    Handler which remembers past records.
+    Handler which stores past records.
+
+    :param int maxlen: Maximum number of records to store.
     """
     def __init__(self, maxlen=None):
         logging.Handler.__init__(self)
@@ -252,7 +254,7 @@ class Maestral(object):
                 target=self._periodic_watchdog,
                 daemon=True,
             )
-            self.update_thread.start()
+            self.watchdog_thread.start()
 
         if run:
             # if `run == False`, make sure that you manually run the setup
