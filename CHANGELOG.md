@@ -16,7 +16,7 @@
 - Fixes a crash of the sync thread while indexing local changes (after a restart) if an
   indexed item has been deleted before we could check if it is a file or folder.
 - Fixes a bug where just downloaded files could be immediately re-uploaded in some cases.
-
+- Fixes a crash on startup when enabling systemd watchdog.
 
 ## v0.4.1
 
