@@ -1818,6 +1818,19 @@ class MaestralMonitor(object):
 
     _auto_resume_on_connect = False
 
+    def __init__(self, client):
+
+        self.connected = Event()
+        self.syncing = Event()
+        self.running = Event()
+
+        self.client = client
+        self.file_handler = FileEventHandler(
+            self.syncing, self.local_file_event_queue, self.queue_downloading)
+
+        self.sync = UpDownSync(self.client, self.local_file_event_queue,
+                               self.queue_uploading, self.queue_downloading)
+
     @property
     def uploading(self):
         """Returns a list of all items currently uploading."""
@@ -1837,19 +1850,6 @@ class MaestralMonitor(object):
     def queued_for_download(self):
         """Returns a list of all items queued for download."""
         return tuple(self.sync.queued_for_download.queue)
-
-    def __init__(self, client):
-
-        self.connected = Event()
-        self.syncing = Event()
-        self.running = Event()
-
-        self.client = client
-        self.file_handler = FileEventHandler(
-            self.syncing, self.local_file_event_queue, self.queue_downloading)
-
-        self.sync = UpDownSync(self.client, self.local_file_event_queue,
-                               self.queue_uploading, self.queue_downloading)
 
     def start(self, overload=None):
         """Creates observer threads and starts syncing."""
