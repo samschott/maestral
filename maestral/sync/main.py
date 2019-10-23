@@ -244,28 +244,7 @@ class Maestral(object):
         self.monitor = MaestralMonitor(self.client)
         self.sync = self.monitor.sync
 
-        if NOTIFY_SOCKET and system_notifier:
-            logger.debug("Running as systemd notify service")
-            logger.debug("NOTIFY_SOCKET = {}".format(NOTIFY_SOCKET))
-            system_notifier.notify("READY=1")  # notify systemd that we have successfully started
-
-        if IS_WATCHDOG and system_notifier:
-
-            logger.debug("Running as systemd watchdog service")
-            logger.debug("WATCHDOG_USEC = {}".format(WATCHDOG_USEC))
-            logger.debug("WATCHDOG_PID = {}".format(WATCHDOG_PID))
-
-            # notify systemd periodically that we are still alive
-            self.watchdog_thread = Thread(
-                name="Maestral watchdog",
-                target=self._periodic_watchdog,
-                daemon=True,
-            )
-            self.watchdog_thread.start()
-
         if run:
-            # if `run == False`, make sure that you manually run the setup
-            # before calling `start_sync`
             if self.pending_dropbox_folder():
                 self.create_dropbox_directory()
                 self.set_excluded_folders()
@@ -274,6 +253,24 @@ class Maestral(object):
                 self.sync.last_sync = 0
 
             self.start_sync()
+
+            if NOTIFY_SOCKET and system_notifier:
+                logger.debug("Running as systemd notify service")
+                logger.debug("NOTIFY_SOCKET = {}".format(NOTIFY_SOCKET))
+                system_notifier.notify("READY=1")  # notify systemd that we have started
+
+            if IS_WATCHDOG and system_notifier:
+                logger.debug("Running as systemd watchdog service")
+                logger.debug("WATCHDOG_USEC = {}".format(WATCHDOG_USEC))
+                logger.debug("WATCHDOG_PID = {}".format(WATCHDOG_PID))
+
+                # notify systemd periodically that we are still alive
+                self.watchdog_thread = Thread(
+                    name="Maestral watchdog",
+                    target=self._periodic_watchdog,
+                    daemon=True,
+                )
+                self.watchdog_thread.start()
 
     @staticmethod
     def get_conf(section, name):
