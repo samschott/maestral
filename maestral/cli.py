@@ -166,7 +166,7 @@ def about():
     click.echo("")
     click.echo("Version:    {}".format(__version__))
     click.echo("Website:    {}".format(__url__))
-    click.echo("Copyright:  (c) 2018-{}, {}.".format(year, __author__))
+    click.echo("Copyright:  (c) 2018-{0}, {1}.".format(year, __author__))
     click.echo("")
 
 
@@ -352,14 +352,12 @@ def activity(config_name: str, running: bool):
                     up.append(("", ""))  # append spacer
                     down.insert(0, ("DOWNLOADING", "STATUS"))  # column titles
 
-                    combined = up + down
+                    file_names = tuple(os.path.basename(item[0]) for item in up + down)
+                    states = tuple(item[1] for item in up + down)
+                    col_len = max(len(fn) for fn in file_names) + 2
 
-                    col_len = max(len(item[0]) for item in combined) + 2
-
-                    for item in combined:  # create rows
-                        path = item[0].ljust(col_len)
-                        queue_status = item[1]
-                        lines.append(path + queue_status)
+                    for fn, s in zip(file_names, states):  # create rows
+                        lines.append(fn.ljust(col_len) + s)
 
                     # print to console screen
                     screen.clear()
