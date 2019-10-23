@@ -35,17 +35,16 @@ except ImportError:
     system_notifier = None
 
 # maestral modules
-from maestral.sync.client import MaestralApiClient
-from maestral.sync.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
-from maestral.sync.oauth import OAuth2Session
-from maestral.sync.errors import (MaestralApiError, DropboxAuthError,
-                                  CONNECTION_ERRORS, SYNC_ERRORS)
 from maestral.sync.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
                                    path_exists_case_insensitive, is_child)
-from maestral.config.main import CONF
-from maestral.config.base import get_home_dir
-from maestral.sync.utils.app_dirs import get_log_path, get_cache_path
+from maestral.sync.client import MaestralApiClient
+from maestral.sync.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
+from maestral.sync.utils.app_dirs import get_log_path, get_cache_path, get_home_dir
 from maestral.sync.utils.updates import check_update_available
+from maestral.sync.oauth import OAuth2Session
+from maestral.sync.errors import MaestralApiError, DropboxAuthError
+from maestral.sync.errors import CONNECTION_ERRORS, SYNC_ERRORS
+from maestral.config.main import CONF
 
 
 CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
@@ -819,7 +818,7 @@ Any changes to local files during this process may be lost.""")
         while True:
             msg = ("Please give Dropbox folder location or press enter for default "
                    "[{0}]:".format(default))
-            res = input(msg).strip().strip("'")
+            res = input(msg).strip("'\" ")
 
             dropbox_path = osp.expanduser(res or default)
 
