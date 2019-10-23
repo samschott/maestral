@@ -2,9 +2,8 @@
 
 #### Added:
 
-- Added command `maestral activity` which lists all items queued for upload / download or
-  currently being uploaded / downloaded.
-
+- Added a command `maestral activity` which gives a live view of all items queued for
+  syncing or currently being synced.
 
 #### Fixed:
 
