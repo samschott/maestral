@@ -56,6 +56,7 @@ NOTIFY_SOCKET = os.getenv("NOTIFY_SOCKET")
 WATCHDOG_PID = os.getenv("WATCHDOG_PID")
 WATCHDOG_USEC = os.getenv("WATCHDOG_USEC")
 
+IS_WATCHDOG = WATCHDOG_USEC and (WATCHDOG_PID is None or int(WATCHDOG_PID) == os.getpid())
 
 # ========================================================================================
 # Logging setup
@@ -244,10 +245,16 @@ class Maestral(object):
         self.sync = self.monitor.sync
 
         if NOTIFY_SOCKET and system_notifier:
-            # notify systemd that we have successfully started
-            system_notifier.notify("READY=1")
+            logger.debug("Running as systemd notify service")
+            logger.debug("NOTIFY_SOCKET = {}".format(NOTIFY_SOCKET))
+            system_notifier.notify("READY=1")  # notify systemd that we have successfully started
 
-        if WATCHDOG_USEC and int(WATCHDOG_PID) == os.getpid() and system_notifier:
+        if IS_WATCHDOG and system_notifier:
+
+            logger.debug("Running as systemd watchdog service")
+            logger.debug("WATCHDOG_USEC = {}".format(WATCHDOG_USEC))
+            logger.debug("WATCHDOG_PID = {}".format(WATCHDOG_PID))
+
             # notify systemd periodically that we are still alive
             self.watchdog_thread = Thread(
                 name="Maestral watchdog",
@@ -853,9 +860,8 @@ Any changes to local files during this process may be lost.""")
                     CONF.set("app", "latest_release", res["latest_release"])
             time.sleep(60*60)  # 20 min
 
-    @staticmethod
-    def _periodic_watchdog():
-        while True:
+    def _periodic_watchdog(self):
+        while self.monitor.running.is_set():
             system_notifier.notify("WATCHDOG=1")
             time.sleep(int(WATCHDOG_USEC)/(2*10**6))
 
