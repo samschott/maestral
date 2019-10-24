@@ -1,4 +1,4 @@
-## v0.4.2-dev
+## v0.4.2
 
 #### Added:
 
@@ -8,13 +8,13 @@
 #### Fixed:
 
 - Fixes crash of the sync thread when attempting to download a file from Dropbox which has
-  been deleted after it has been queued for download but before the download attempt.
+  been deleted after it has been queued for download but before the actual download attempt.
 - Fixes crash of the sync thread when attempting to upload a file to Dropbox which has
-  been deleted after it has been queued for upload but before the upload attempt.
+  been deleted after it has been queued for upload but before the actual upload attempt.
 - Fixes a bug where the revision number of a file could be incorrectly set to "folder".
 - Fixes a crash of the sync thread while indexing local changes (after a restart) if an
-  indexed item has been deleted before we could check if it is a file or folder.
-- Fixes a bug where just downloaded files could be immediately re-uploaded in some cases.
+  indexed item has been deleted before we could check if it is a file or a folder.
+- Fixes a bug where newly downloaded files could be immediately re-uploaded in some cases.
 - Fixes a crash on startup when started as systemd service with watchdog.
 
 ## v0.4.1
