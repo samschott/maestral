@@ -28,15 +28,15 @@ SUBFOLDER = 'maestral'
 #  Defaults
 # =============================================================================
 DEFAULTS = [
-    ('main',
+    ('main',  # main settings regarding folder locations etc
      {
-         'path': '',
-         'default_dir_name': 'Dropbox (Maestral)',
-         'excluded_folders': [],
-         'excluded_files': [],
+         'path': '',  # dropbox folder location (parent folder)
+         'default_dir_name': 'Dropbox (Maestral)',  # default dropbox folder name
+         'excluded_folders': [],  # files excluded from sync, currently not supported
+         'excluded_files': [],  # folders excluded from sync, currently not supported
      }
      ),
-    ('account',
+    ('account',  # info on linked Dropbox account, periodically updated from servers
      {
          'account_id': '',
          'email': '',
@@ -47,20 +47,20 @@ DEFAULTS = [
          'usage_type': '',
      }
      ),
-    ('app',
+    ('app',  # app settings
      {
-         'notifications': True,
-         'log_level': 20,  # INFO
-         'update_notification_last': 0.0,
-         'update_notification_interval': 60*60*24*7,  # weekly
-         'latest_release': '0.0.0',
+         'notifications': True,  # enable / disable system tray notifications
+         'log_level': 20,  # log level for file log, defaults to INFO = 20
+         'update_notification_last': 0.0,  # last notification about updates
+         'update_notification_interval': 60*60*24*7,  # interval to check for updates (sec)
+         'latest_release': '0.0.0',  # latest available release
      }
      ),
-    ('internal',
+    ('internal',  # section that saves the last-synced state
      {
-         'cursor': '',
-         'lastsync': 0,
-         'recent_changes': [],
+         'cursor': '',  # remote cursor: represents last state synced from Dropbox
+         'lastsync': 0,  # local cursor: time-stamp of last upload
+         'recent_changes': [],  # cached list of recent changes to display in GUI
      }
      ),
 ]

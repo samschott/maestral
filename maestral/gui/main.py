@@ -53,6 +53,7 @@ CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
 
 # noinspection PyTypeChecker
 class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
+    """A Qt GUI for the Maestral daemon."""
 
     mdbx = None
     _started = False
@@ -81,7 +82,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.update_ui_timer = QtCore.QTimer()
         self.update_ui_timer.timeout.connect(self.update_ui)
-        self.update_ui_timer.start(200)  # every 200 ms
+        self.update_ui_timer.start(500)  # every 500 ms
 
     def setIcon(self, icon_name):
         icon = self.icons.get(icon_name, self.icons[SYNCING])
@@ -90,8 +91,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def update_ui(self):
         if self.mdbx:
-            self.on_status()
-            self.on_error()
+            self.update_status()
+            self.update_error()
 
     def show_when_systray_available(self):
         # If available, show icon, otherwise, set a timer to check back later.
@@ -268,7 +269,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         if platform.system() == "Linux":
             # on linux, submenu.aboutToShow may not be emitted
             # (see https://bugreports.qt.io/browse/QTBUG-55911)
-            # therefore, we update the recent files list when the tray icon menu is loaded
+            # therefore, we update the recent files list when the main menu is about to show
             self.menu.aboutToShow.connect(self.update_recent_files)
         else:
             self.recentFilesMenu.aboutToShow.connect(self.update_recent_files)
@@ -345,12 +346,13 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.mdbx.start_sync()
             self.pauseAction.setText(self.PAUSE_TEXT)
 
-    def on_error(self):
+    def update_error(self):
         errs = self.mdbx.get_maestral_errors()
-        self.mdbx.clear_maestral_errors()
 
-        if len(errs) == 0:
+        if not errs:
             return
+        else:
+            self.mdbx.clear_maestral_errors()
 
         err = errs[-1]
 
@@ -375,6 +377,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             message = ("Please restart Maestral to continue syncing and contact "
                        "the developer with the information below.")
             self._stop_and_exec_error_dialog(title, message, err["traceback"])
+            self.mdbx.start_sync()  # resume sync again
 
     def on_rebuild(self):
 
@@ -418,11 +421,11 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             file_name = os.path.basename(dbx_path)
             truncated_name = elide_string(file_name, font=self.menu.font(), side="right")
             local_path = self.mdbx.to_local_path(dbx_path)
-            a = self.recentFilesMenu.addAction(truncated_name)
-            a.triggered.connect(
+            action = self.recentFilesMenu.addAction(truncated_name)
+            action.triggered.connect(
                 lambda _, lp=local_path: click.launch(lp, locate=True))
 
-    def on_status(self):
+    def update_status(self):
         """Change icon according to status."""
 
         n_errors = len(self.mdbx.sync_errors)

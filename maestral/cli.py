@@ -166,7 +166,7 @@ def about():
     click.echo("")
     click.echo("Version:    {}".format(__version__))
     click.echo("Website:    {}".format(__url__))
-    click.echo("Copyright:  (c) 2018-{}, {}.".format(year, __author__))
+    click.echo("Copyright:  (c) 2018-{0}, {1}.".format(year, __author__))
     click.echo("")
 
 
@@ -312,6 +312,73 @@ def file_status(config_name: str, running: bool, local_path: str):
 
     except Pyro4.errors.CommunicationError:
         click.echo("unwatched")
+
+
+@main.command()
+@with_config_opt
+def activity(config_name: str, running: bool):
+    """Live view of all items being synced."""
+    from maestral.sync.daemon import MaestralProxy
+
+    try:
+        with MaestralProxy(config_name) as m:
+
+            import curses
+            import time
+
+            def curses_loop(screen):
+
+                curses.use_default_colors()  # don't change terminal background
+                screen.nodelay(1)  # set `scree.getch()` to non-blocking
+
+                while True:
+
+                    # get info from daemon
+                    res = m.get_activity()
+                    up = res["uploading"]
+                    down = res["downloading"]
+                    sync_status = m.status
+                    n_errors = len(m.sync_errors)
+
+                    # create header
+                    lines = [
+                        "Status: {}, Sync errors: {}".format(sync_status, n_errors),
+                        "Uploading: {}, Downloading: {}".format(len(up), len(down)),
+                        "",
+                    ]
+
+                    # create table
+                    up.insert(0, ("UPLOADING", "STATUS"))  # column titles
+                    up.append(("", ""))  # append spacer
+                    down.insert(0, ("DOWNLOADING", "STATUS"))  # column titles
+
+                    file_names = tuple(os.path.basename(item[0]) for item in up + down)
+                    states = tuple(item[1] for item in up + down)
+                    col_len = max(len(fn) for fn in file_names) + 2
+
+                    for fn, s in zip(file_names, states):  # create rows
+                        lines.append(fn.ljust(col_len) + s)
+
+                    # print to console screen
+                    screen.clear()
+                    try:
+                        screen.addstr("\n".join(lines))
+                    except curses.error:
+                        pass
+                    screen.refresh()
+
+                    # abort when user presses "q", refresh otherwise
+                    key = screen.getch()
+                    if key == ord("q"):
+                        break
+                    elif key < 0:
+                        time.sleep(1)
+
+            # enter curses event loop
+            curses.wrapper(curses_loop)
+
+    except Pyro4.errors.CommunicationError:
+        click.echo("Maestral daemon is not running.")
 
 
 @main.command()
@@ -586,7 +653,7 @@ def excluded_list(config_name: str, running: bool):
 @log.command()
 @with_config_opt
 def show(config_name: str, running: bool):
-    """Shows Maestral's log file."""
+    """Shows Maestral's log file in reversed order (last message first)."""
     from maestral.sync.utils.app_dirs import get_log_path
 
     log_file = get_log_path("maestral", config_name + ".log")
@@ -595,7 +662,9 @@ def show(config_name: str, running: bool):
         try:
             with open(log_file, "r") as f:
                 text = f.read()
-            click.echo_via_pager(text)
+            log_list = text.split("\n")
+            log_list.reverse()
+            click.echo_via_pager("\n".join(log_list))
         except OSError:
             click.echo("Could not open log file at '{}'".format(log_file))
     else:

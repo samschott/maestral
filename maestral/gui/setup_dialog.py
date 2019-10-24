@@ -15,9 +15,9 @@ from PyQt5.QtCore import QModelIndex, Qt
 
 # maestral modules
 from maestral.sync.main import Maestral, handle_disconnect
+from maestral.sync.utils import delete_file_or_folder
 from maestral.sync.oauth import OAuth2Session
 from maestral.config.base import get_home_dir
-from maestral.config.main import CONF
 from maestral.gui.resources import APP_ICON_PATH, SETUP_DIALOG_PATH, get_native_item_icon
 from maestral.gui.utils import UserDialog, icon_to_pixmap, BackgroundTask
 from maestral.gui.folders_dialog import AsyncLoadFolders, TreeModel, DropboxPathModel
@@ -57,7 +57,7 @@ class SetupDialog(QtWidgets.QDialog):
             b.setMaximumWidth(width)
 
         # set up combobox
-        self.dropbox_location = osp.dirname(CONF.get("main", "path")) or get_home_dir()
+        self.dropbox_location = osp.dirname(Maestral.get_conf("main", "path")) or get_home_dir()
         relative_path = self.rel_path(self.dropbox_location)
 
         folder_icon = get_native_item_icon(self.dropbox_location)
@@ -87,8 +87,9 @@ class SetupDialog(QtWidgets.QDialog):
         self.pushButtonClose.clicked.connect(self.on_accept_requested)
         self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
 
-        self.labelDropboxPath.setText(self.labelDropboxPath.text().format(CONF.get(
-            "main", "default_dir_name")))
+        default_dir_name = Maestral.get_conf("main", "default_dir_name")
+
+        self.labelDropboxPath.setText(self.labelDropboxPath.text().format(default_dir_name))
 
         # check if we are already authenticated, skip authentication if yes
         if not pending_link:
@@ -111,7 +112,7 @@ class SetupDialog(QtWidgets.QDialog):
             <p align="left">
             To unlink your Dropbox account from Maestral, click "Unlink" below.</p>
             </body></html>
-            """.format(self.mdbx.get_conf("main", "path"), self.mdbx.get_conf("main", "default_dir_name")))
+            """.format(Maestral.get_conf("main", "path"), default_dir_name))
             self.pussButtonDropboxPathCalcel.setText("Quit")
             self.stackedWidget.setCurrentIndex(2)
             self.stackedWidgetButtons.setCurrentIndex(2)
@@ -243,7 +244,7 @@ class SetupDialog(QtWidgets.QDialog):
             if res == 0:
                 return
             else:
-                _delete_file_or_folder(dropbox_path)
+                delete_file_or_folder(dropbox_path)
 
         self.mdbx.create_dropbox_directory(path=dropbox_path, overwrite=False)
 
@@ -264,7 +265,7 @@ class SetupDialog(QtWidgets.QDialog):
         # if any excluded folders are currently on the drive, delete them
         for folder in self.excluded_folders:
             local_folder = self.mdbx.to_local_path(folder)
-            _delete_file_or_folder(local_folder)
+            delete_file_or_folder(local_folder)
 
         # switch to next page
         self.stackedWidget.slideInIdx(4)
@@ -364,16 +365,3 @@ class SetupDialog(QtWidgets.QDialog):
         fsd.exec_()
 
         return fsd.accepted
-
-
-def _delete_file_or_folder(path):
-
-    try:
-        shutil.rmtree(path)
-        return True
-    except OSError:
-        try:
-            os.unlink(path)
-            return True
-        except OSError:
-            return False

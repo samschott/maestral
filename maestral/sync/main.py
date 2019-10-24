@@ -15,7 +15,7 @@ import time
 import functools
 from threading import Thread
 import logging.handlers
-import collections
+from collections import namedtuple, deque
 
 # external packages
 import click
@@ -35,17 +35,16 @@ except ImportError:
     system_notifier = None
 
 # maestral modules
-from maestral.sync.client import MaestralApiClient
-from maestral.sync.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
-from maestral.sync.oauth import OAuth2Session
-from maestral.sync.errors import (MaestralApiError, DropboxAuthError,
-                                  CONNECTION_ERRORS, SYNC_ERRORS)
 from maestral.sync.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
                                    path_exists_case_insensitive, is_child)
-from maestral.config.main import CONF
-from maestral.config.base import get_home_dir
-from maestral.sync.utils.app_dirs import get_log_path, get_cache_path
+from maestral.sync.client import MaestralApiClient
+from maestral.sync.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
+from maestral.sync.utils.app_dirs import get_log_path, get_cache_path, get_home_dir
 from maestral.sync.utils.updates import check_update_available
+from maestral.sync.oauth import OAuth2Session
+from maestral.sync.errors import MaestralApiError, DropboxAuthError
+from maestral.sync.errors import CONNECTION_ERRORS, SYNC_ERRORS
+from maestral.config.main import CONF
 
 
 CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
@@ -56,6 +55,7 @@ NOTIFY_SOCKET = os.getenv("NOTIFY_SOCKET")
 WATCHDOG_PID = os.getenv("WATCHDOG_PID")
 WATCHDOG_USEC = os.getenv("WATCHDOG_USEC")
 
+IS_WATCHDOG = WATCHDOG_USEC and (WATCHDOG_PID is None or int(WATCHDOG_PID) == os.getpid())
 
 # ========================================================================================
 # Logging setup
@@ -89,11 +89,13 @@ sh.setLevel(log_level)
 # -- log to cached handlers --------------------------------------------------------------
 class CachedHandler(logging.Handler):
     """
-    Handler which remembers past records.
+    Handler which stores past records.
+
+    :param int maxlen: Maximum number of records to store.
     """
     def __init__(self, maxlen=None):
         logging.Handler.__init__(self)
-        self.cached_records = collections.deque([], maxlen)
+        self.cached_records = deque([], maxlen)
 
     def emit(self, record):
         self.format(record)
@@ -241,22 +243,7 @@ class Maestral(object):
         self.monitor = MaestralMonitor(self.client)
         self.sync = self.monitor.sync
 
-        if NOTIFY_SOCKET and system_notifier:
-            # notify systemd that we have successfully started
-            system_notifier.notify("READY=1")
-
-        if WATCHDOG_USEC and int(WATCHDOG_PID) == os.getpid() and system_notifier:
-            # notify systemd periodically that we are still alive
-            self.watchdog_thread = Thread(
-                name="Maestral watchdog",
-                target=self._periodic_watchdog,
-                daemon=True,
-            )
-            self.update_thread.start()
-
         if run:
-            # if `run == False`, make sure that you manually run the setup
-            # before calling `start_sync`
             if self.pending_dropbox_folder():
                 self.create_dropbox_directory()
                 self.set_excluded_folders()
@@ -265,6 +252,24 @@ class Maestral(object):
                 self.sync.last_sync = 0
 
             self.start_sync()
+
+            if NOTIFY_SOCKET and system_notifier:
+                logger.debug("Running as systemd notify service")
+                logger.debug("NOTIFY_SOCKET = {}".format(NOTIFY_SOCKET))
+                system_notifier.notify("READY=1")  # notify systemd that we have started
+
+            if IS_WATCHDOG and system_notifier:
+                logger.debug("Running as systemd watchdog service")
+                logger.debug("WATCHDOG_USEC = {}".format(WATCHDOG_USEC))
+                logger.debug("WATCHDOG_PID = {}".format(WATCHDOG_PID))
+
+                # notify systemd periodically that we are still alive
+                self.watchdog_thread = Thread(
+                    name="Maestral watchdog",
+                    target=self._periodic_watchdog,
+                    daemon=True,
+                )
+                self.watchdog_thread.start()
 
     @staticmethod
     def get_conf(section, name):
@@ -388,9 +393,9 @@ class Maestral(object):
         except ValueError:
             return "unwatched"
 
-        if local_path in self.monitor.upload_list:
+        if local_path in self.monitor.queued_for_upload:
             return "uploading"
-        elif local_path in self.monitor.download_list:
+        elif local_path in self.monitor.queued_for_download:
             return "downloading"
         elif any(local_path == err["local_path"] for err in self.sync_errors):
             return "error"
@@ -398,6 +403,29 @@ class Maestral(object):
             return "up to date"
         else:
             return "unwatched"
+
+    def get_activity(self):
+        """
+        Returns a list of all file currently queued or being synced.
+        :return:
+        """
+        PathItem = namedtuple("PathItem", "local_path status")
+        uploading = []
+        downloading = []
+
+        for path in self.monitor.uploading:
+            uploading.append(PathItem(path, "uploading"))
+
+        for path in self.monitor.queued_for_upload:
+            uploading.append(PathItem(path, "queued"))
+
+        for path in self.monitor.downloading:
+            downloading.append(PathItem(path, "downloading"))
+
+        for path in self.monitor.queued_for_download:
+            downloading.append(PathItem(path, "queued"))
+
+        return dict(uploading=uploading, downloading=downloading)
 
     @handle_disconnect
     def get_account_info(self):
@@ -439,9 +467,9 @@ class Maestral(object):
         else:
             if res.profile_photo_url:
                 # download current profile pic
-                r = requests.get(res.profile_photo_url)
+                res = requests.get(res.profile_photo_url)
                 with open(self.account_profile_pic_path, "wb") as f:
-                    f.write(r.content)
+                    f.write(res.content)
                 return self.account_profile_pic_path
             else:
                 # delete current profile pic
@@ -492,10 +520,11 @@ class Maestral(object):
             callback = self.start_sync
 
         self.download_thread = Thread(
-                target=folder_download_worker,
-                args=(self.monitor, dbx_path),
-                kwargs={"callback": callback},
-                name="MaestralFolderDownloader")
+            target=folder_download_worker,
+            args=(self.monitor, dbx_path),
+            kwargs={"callback": callback},
+            name="MaestralFolderDownloader"
+        )
         self.download_thread.start()
 
     def rebuild_index(self):
@@ -599,10 +628,10 @@ Any changes to local files during this process may be lost.""")
 
         old_excluded_folders = self.sync.excluded_folders
 
-        for p in old_excluded_folders:
-            if is_child(dbx_path, p):
+        for folder in old_excluded_folders:
+            if is_child(dbx_path, folder):
                 raise ValueError("'{0}' lies inside the excluded folder '{1}'. "
-                                 "Please include '{1}' first.".format(dbx_path, p))
+                                 "Please include '{1}' first.".format(dbx_path, folder))
 
         # Get folders which will need to be downloaded, do not attempt to download
         # subfolders of `dbx_path` which were already included.
@@ -789,7 +818,7 @@ Any changes to local files during this process may be lost.""")
         while True:
             msg = ("Please give Dropbox folder location or press enter for default "
                    "[{0}]:".format(default))
-            res = input(msg).strip().strip("'")
+            res = input(msg).strip("'\" ")
 
             dropbox_path = osp.expanduser(res or default)
 
@@ -827,11 +856,10 @@ Any changes to local files during this process may be lost.""")
                     CONF.set("app", "latest_release", res["latest_release"])
             time.sleep(60*60)  # 20 min
 
-    @staticmethod
-    def _periodic_watchdog():
-        while True:
+    def _periodic_watchdog(self):
+        while self.monitor.running.is_set():
             system_notifier.notify("WATCHDOG=1")
-            time.sleep(int(WATCHDOG_USEC)/2000)
+            time.sleep(int(WATCHDOG_USEC)/(2*10**6))
 
     def shutdown_daemon(self):
         """Does nothing except for setting the _daemon_running flag to ``False``. This

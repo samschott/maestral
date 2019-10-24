@@ -131,7 +131,14 @@ def migrate_config_files():
     new_path = get_conf_path('maestral', create=False)
 
     if os.path.isdir(old_path):
-        shutil.copytree(old_path, new_path)
-        shutil.rmtree(old_path)
+        try:
+            shutil.copytree(old_path, new_path)
+        except FileExistsError:
+            print("New config at '{}' already exists.".format(new_path))
+
+        try:
+            shutil.rmtree(old_path)
+        except OSError:
+            print("Could not remove old config at '{}'.".format(old_path))
 
         print("Migrated config files from '{}' to '{}'.".format(old_path, new_path))
