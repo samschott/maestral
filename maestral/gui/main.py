@@ -285,11 +285,12 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     # callbacks for user interaction
 
     def auto_check_for_updates(self):
-        last_update = self.mdbx.get_conf("app", "update_notification_last")
+
+        last_update_check = self.mdbx.get_conf("app", "update_notification_last")
         interval = self.mdbx.get_conf("app", "update_notification_last")
         if interval == 0:  # checks disabled
             return
-        elif time.time() - last_update > interval:
+        elif time.time() - last_update_check > interval:
             self.on_check_for_updates(user_requested=False)
 
     def on_check_for_updates(self, user_requested=True):
