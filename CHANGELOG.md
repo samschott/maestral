@@ -1,5 +1,8 @@
 ## v0.4.3-dev
 
+#### Fixed:
+
+- Fixes a bug which would prevent periodic update checks from running.
 
 ## v0.4.2
 
