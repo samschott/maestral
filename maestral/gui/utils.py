@@ -110,28 +110,6 @@ def isDarkWindow():
     return windowTheme() == THEME_DARK
 
 
-def get_gnome_scaling_factor():
-    """Returns gnome scaling factor as str or None."""
-    if __command_exists("gsettings"):
-        res = os.popen("gsettings get org.gnome.desktop.interface scaling-factor").read()
-        if res and res.split()[0] == "uint32" and len(res.split()) > 1:
-            scaling_factor_str = res.split()[1]
-            try:
-                scaling_factor_float = float(scaling_factor_str)
-                if scaling_factor_float > 1:
-                    return scaling_factor_str
-            except ValueError:
-                pass
-    return None
-
-
-def __command_exists(command):
-    return any(
-        os.access(os.path.join(path, command), os.X_OK)
-        for path in os.environ["PATH"].split(os.pathsep)
-    )
-
-
 class Worker(QtCore.QObject):
     """A worker object. To be used in QThreads."""
 

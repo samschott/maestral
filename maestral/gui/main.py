@@ -40,7 +40,6 @@ from maestral.gui.utils import (
     MaestralBackgroundTask,
     elide_string,
     quit_and_restart_maestral,
-    get_gnome_scaling_factor,
     is_macos_bundle,
 )
 
