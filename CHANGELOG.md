@@ -3,6 +3,13 @@
 #### Fixed:
 
 - Fixes a bug which would prevent periodic update checks from running.
+- Fixes an issue where the system tray icon would not be displayed on Qt 5.13.1 due to
+  enabled HighDpi support.
+  
+#### Removed:
+
+- Removed explicit support for HighDpi scaling. Set the environment variable
+  `QT_SCREEN_SCALE_FACTORS` instead to enable it manually if required.
 
 ## v0.4.2
 
