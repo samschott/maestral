@@ -72,8 +72,7 @@ def get_scaled_font(scaling=1.0, bold=False, italic=False):
 
 
 def icon_to_pixmap(icon, width, height=None):
-    """
-    Converts a given icon to a pixmap. Automatically adjusts to high-DPI scaling.
+    """Converts a given icon to a pixmap. Automatically adjusts to high-DPI scaling.
 
     :param icon: Icon to convert.
     :param int width: Target point height.
@@ -97,12 +96,8 @@ def icon_to_pixmap(icon, width, height=None):
 
 
 def windowTheme():
-    """
-    Returns one of gui.utils.THEME_LIGHT or gui.utils.THEME_DARK, corresponding to
-    current user's UI theme.
-    """
-    # getting color of a pixel on a top bar, and identifying best-fitting color
-    # theme based on its luminance
+    """Returns one of gui.utils.THEME_LIGHT or gui.utils.THEME_DARK, corresponding to
+    current user's UI theme."""
     w = QtWidgets.QWidget()
     bg_color = w.palette().color(QtGui.QPalette.Background)
     bg_color_rgb = [bg_color.red(), bg_color.green(), bg_color.blue()]
@@ -111,6 +106,7 @@ def windowTheme():
 
 
 def isDarkWindow():
+    """Returns ``True`` if windows have a dark UI theme."""
     return windowTheme() == THEME_DARK
 
 
