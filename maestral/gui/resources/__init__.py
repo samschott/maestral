@@ -34,6 +34,8 @@ SYNC_ISSUE_WIDGET_PATH = osp.join(_root, "sync_issue_widget.ui")
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
 
+QT_VERSION_TUPLE = tuple(int(x) for x in QtCore.QT_VERSION_STR.split("."))
+
 
 def get_desktop():
     """
@@ -106,11 +108,14 @@ def get_system_tray_icon(status, color=None, geometry=None):
             icon = QtGui.QIcon(TRAY_ICON_PATH_SVG.format(status, color))
     else:
         if not color:
-            # use PNG icons with color to contrast status bar background
             icon_color = "light" if isDarkStatusBar(geometry) else "dark"
         else:
             icon_color = color
-        icon = QtGui.QIcon(TRAY_ICON_PATH_PNG.format(status, icon_color))
+
+        if DESKTOP == "kde" and QT_VERSION_TUPLE >= (5, 13, 0):
+            icon = QtGui.QIcon(TRAY_ICON_PATH_SVG.format(status, icon_color))
+        else:
+            icon = QtGui.QIcon(TRAY_ICON_PATH_PNG.format(status, icon_color))
 
     return icon
 
