@@ -503,11 +503,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
 
 def run():
-    gsf = get_gnome_scaling_factor()
-    if gsf:
-        os.environ["QT_SCREEN_SCALE_FACTORS"] = gsf
-
-    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
 
     app = QtWidgets.QApplication(["Maestral GUI"])
