@@ -89,14 +89,20 @@ def get_native_file_icon():
 
 
 def get_system_tray_icon(status, color=None, geometry=None):
-    """Returns the system tray icon for the given status and color.
+    """Returns the system tray icon for the given status and color. The following icons will be used:
+
+    1) macOS: Black SVG icons with transparent background. macOS will adapt the appearance as
+       necessary.
+    2) Gnome 3: SVG icon theme compatible with Gnome's "symbolic icon" specification. Gnome will
+       adapt the appearance as necessary.
+    3) KDE Plasma with PtQt 5.13 and higher: SVG icons with a color contraisting the system tray
+       background.
+    4) Other: PNG icons with a color contraisting the system tray background.
 
     :param str status: Maestral status. Must be "idle", "syncing", "paused",
         "disconnected" or "error".
     :param str color: Must be "dark" or "light". If not given, the color will be chosen
-        automatically to contrast the system tray background. This value will be ignored
-        in macOS and Gnome 3 where the icon color automatically adapts to the system tray
-        color.
+        automatically to contrast the system tray background. This value will be ignored on Gnome 3.
     :param geometry: Tray icon geometry on screen. If given, this location will be used to
         to determine the system tray background color.
     """
