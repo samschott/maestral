@@ -65,26 +65,41 @@ DESKTOP = get_desktop()
 
 
 def get_native_item_icon(item_path):
+    """Returns the system icon for the given file or folder. If there is no item at the
+    given path, the systems default file icon will be returned.
 
+    :param str item_path: Path to local item.
+    """
     if not osp.exists(item_path):
-        # fall back to default file icon
         return get_native_file_icon()
     else:
-        # get system icon for file type
         return _icon_provider.icon(QtCore.QFileInfo(item_path))
 
 
 def get_native_folder_icon():
-    # use a real folder here because Qt may return the wrong folder icon
-    # in macOS with dark mode activated
+    """Returns the system's default folder icon."""
+    # use a real folder here because Qt may otherwise
+    # return the wrong folder icon in some cases
     return _icon_provider.icon(QtCore.QFileInfo("/usr"))
 
 
 def get_native_file_icon():
+    """Returns the system's default file icon."""
     return _icon_provider.icon(_icon_provider.File)
 
 
 def get_system_tray_icon(status, color=None, geometry=None):
+    """Returns the system tray icon for the given status and color.
+
+    :param str status: Maestral status. Must be "idle", "syncing", "paused",
+        "disconnected" or "error".
+    :param str color: Must be "dark" or "light". If not given, the color will be chosen
+        automatically to contrast the system tray background. This value will be ignored
+        in macOS and Gnome 3 where the icon color automatically adapts to the system tray
+        color.
+    :param geometry: Tray icon geometry on screen. If given, this location will be used to
+        to determine the system tray background color.
+    """
     assert status in ("idle", "syncing", "paused", "disconnected", "error")
 
     gnome_version = _get_gnome_version()
