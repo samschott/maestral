@@ -16,7 +16,7 @@ from maestral.sync.utils import is_macos_bundle, check_version
 
 _root = getattr(sys, '_MEIPASS', Path(Path(__file__).parents[2], "gui", "resources"))
 logger = logging.getLogger(__name__)
-APP_ICON_PATH = os.path.join(_root, "Maestral.png")
+APP_ICON_PATH = os.path.join(_root, "maestral.png")
 
 
 if is_macos_bundle:

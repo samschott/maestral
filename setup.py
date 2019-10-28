@@ -41,9 +41,8 @@ setup(
                     "gui/resources/*.icns",
                     "gui/resources/*.png",
                     "gui/resources/*.svg",
-                    "gui/resources/icon-theme-gnome/*.theme",
-                    "gui/resources/icon-theme-gnome/*/*/*.svg",
-                    "bin/*.sh",
+                    "gui/resources/*/*.svg",
+                    "gui/resources/*/*.png",
                     ],
             },
     install_requires=[
@@ -76,4 +75,17 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3 :: Only',
     ],
+    data_files=[
+        ('share/icons/hicolor/scalable/status', [
+            'maestral/gui/resources/tray-icons-gnome/maestral-icon-disconnected-symbolic.svg',
+            'maestral/gui/resources/tray-icons-gnome/maestral-icon-error-symbolic.svg',
+            'maestral/gui/resources/tray-icons-gnome/maestral-icon-idle-symbolic.svg',
+            'maestral/gui/resources/tray-icons-gnome/maestral-icon-paused-symbolic.svg',
+            'maestral/gui/resources/tray-icons-gnome/maestral-icon-syncing-symbolic.svg',
+        ]),
+        ('share/icons/hicolor/512x512/apps', [
+            'maestral/gui/resources/maestral.png',
+        ])
+    ]
+
 )
