@@ -502,6 +502,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
 
 def run():
+    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
 
     app = QtWidgets.QApplication(["Maestral GUI"])
