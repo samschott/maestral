@@ -13,9 +13,9 @@ if CURRENT_PYTHON < REQUIRED_PYTHON:
 ==========================
 Unsupported Python version
 ==========================
-Maestral requires Python {}.{}, but you're trying to install it on
-Python {}.{}. This may be because you are using a version of pip that
-doesn't understand the python_requires classifier. Make sure you
+Maestral requires Python {}.{} or higher, but you're trying to install
+it on Python {}.{}. This may be because you are using a version of pip
+that doesn't understand the python_requires classifier. Make sure you
 have pip >= 9.0 and setuptools >= 24.2, then try again:
     $ python3 -m pip install --upgrade pip setuptools
     $ python3 -m pip install maestral
