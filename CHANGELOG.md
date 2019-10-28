@@ -5,7 +5,8 @@
 - Fixes a bug which would prevent periodic update checks from running.
 - Fixes an issue where the system tray icon would not be displayed on Qt 5.13.1 due to
   enabled HighDpi support.
-  
+- Fixes an issue which would prevent system tray icons from loading on Gnome 3.  
+
 #### Removed:
 
 - Removed explicit support for HighDpi scaling. Set the environment variable
