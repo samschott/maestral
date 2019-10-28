@@ -4,7 +4,7 @@
 	 viewBox="0 0 512 512" style="enable-background:new 0 0 512 512;" xml:space="preserve">
 <style type="text/css">
 	.st0{opacity:0.5;fill:none;stroke:#000000;stroke-width:45;enable-background:new    ;}
-	.st1{fill:none;stroke:#272525;stroke-width:45;stroke-linecap:round;stroke-miterlimit:10;}
+	.st1{fill:none;stroke:#000000;stroke-width:45;stroke-linecap:round;stroke-miterlimit:10;}
 </style>
 <ellipse class="st0" cx="256" cy="256" rx="220.2" ry="220.2"/>
 <line class="st1" x1="163.9" y1="163.9" x2="348.1" y2="348.1"/>
