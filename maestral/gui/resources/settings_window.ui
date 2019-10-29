@@ -52,7 +52,7 @@
     </spacer>
    </item>
    <item>
-    <layout class="QGridLayout" name="gridLayoutMain" columnstretch="1,0,0,1,1">
+    <layout class="QGridLayout" name="gridLayoutMain" columnstretch="3,0,0,2,2">
      <property name="horizontalSpacing">
       <number>0</number>
      </property>
