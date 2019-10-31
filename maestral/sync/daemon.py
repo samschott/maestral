@@ -23,10 +23,6 @@ def _get_sock_name(config_name):
     """
     Returns the unix socket location to be used for the config. This should default to
     the apps runtime directory + '/maestral/CONFIG_NAME.sock'.
-
-    :param str config_name: Name of config.
-    :return: Socket location.
-    :rtype: str
     """
     os.environ["MAESTRAL_CONFIG"] = config_name
 
@@ -37,8 +33,6 @@ def _get_sock_name(config_name):
 def _write_pid(config_name):
     """
     Writes the PID to the appropriate file for the given config name.
-
-    :param str config_name: Name of config.
     """
     from maestral.sync.utils.app_dirs import get_runtime_path
     pid_file = get_runtime_path("maestral", config_name + ".pid")
@@ -50,10 +44,8 @@ def _write_pid(config_name):
 
 def _read_pid(config_name):
     """
-    Reads the PID of the current process from the appropriate file for the given
-    config name.
-
-    :param str config_name: Name of config.
+    Reads and returns the PID of the current maestral daemon process from the appropriate
+    file for the given config name.
     """
     from maestral.sync.utils.app_dirs import get_runtime_path
     pid_file = get_runtime_path("maestral", config_name + ".pid")
@@ -68,10 +60,7 @@ def _read_pid(config_name):
 
 def _delete_pid(config_name):
     """
-    Reads the PID of the current process to the appropriate file for the given
-    config name.
-
-    :param str config_name: Name of config.
+    Deletes the PID file for the given config name.
     """
     from maestral.sync.utils.app_dirs import get_runtime_path
     pid_file = get_runtime_path("maestral", config_name + ".pid")
@@ -91,7 +80,7 @@ def start_maestral_daemon(config_name, run=True):
     to check if either a Meastral gui or daemon is already running for the given
     `config_name`.
 
-    :param str config_name: The name of maestral configuration to use.
+    :param str config_name: The name of the Maestral configuration to use.
     :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
     """
 
@@ -130,15 +119,15 @@ def start_maestral_daemon(config_name, run=True):
 
 def start_maestral_daemon_thread(config_name):
     """
-
     Starts the Maestral daemon in a thread (by calling `start_maestral_daemon`).
     This command will create a new daemon on each run. Take care not to sync the same
     directory with multiple instances of Meastral! You can use `get_maestral_process_info`
     to check if either a Meastral gui or daemon is already running for the given
     `config_name`.
 
-    :param str config_name: The name of maestral configuration to use.
+    :param str config_name: The name of the Maestral configuration to use.
     :returns: ``True`` if started, ``False`` otherwise.
+    :rtype: bool
     """
     import threading
 
@@ -160,17 +149,17 @@ def start_maestral_daemon_thread(config_name):
 
 
 def start_maestral_daemon_process(config_name, log_to_console=False):
-    """Starts the Maestral daemon as a separate process (by calling
-    `start_maestral_daemon`).
-
+    """
+    Starts the Maestral daemon as a separate process (by calling `start_maestral_daemon`).
     This command will create a new daemon on each run. Take care not to sync the same
     directory with multiple instances of Meastral! You can use `get_maestral_process_info`
     to check if either a Meastral gui or daemon is already running for the given
     `config_name`.
 
-    :param str config_name: The name of maestral configuration to use.
+    :param str config_name: The name of the Maestral configuration to use.
     :param bool log_to_console: Do not suppress stdout if ``True``, defaults to ``False``.
     :returns: ``True`` if started, ``False`` otherwise.
+    :rtype: bool
     """
     import subprocess
 
@@ -201,10 +190,11 @@ def stop_maestral_daemon_process(config_name="maestral", timeout=5):
     This function first tries to shut down Maestral gracefully. If this fails, it will
     send SIGTERM. If that fails as well, it will send SIGKILL.
 
-    :param str config_name: The name of maestral configuration to use.
+    :param str config_name: The name of the Maestral configuration to use.
     :param int timeout: Number of sec to wait for daemon to shut down before killing it.
     :returns: ``True`` if terminated gracefully, ``False`` if killed and ``None`` if the
         daemon was not running.
+    :rtype: bool
     """
     import signal
     import time
@@ -253,8 +243,16 @@ def stop_maestral_daemon_process(config_name="maestral", timeout=5):
 
 def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
     """
-    Returns a proxy of the running Maestral daemon. If fallback == True,
-    a new instance of Maestral will be returned when the daemon cannot be reached.
+    Returns a Pyro4 proxy of the a running Maestral instance. If ``fallback`` is
+    ``True``, a new instance of Maestral will be returned when the daemon cannot be
+    reached.
+
+    :param str config_name: The name of the Maestral configuration to use.
+    :param bool fallback: If ``True``, a new instance of Maestral will be returned when
+        the daemon cannot be reached. Defaults to ``False``.
+    :returns: Pyro4 proxy of Maestral or a new instance.
+    :raises: ``Pyro4.errors.CommunicationError`` if the daemon cannot be reached and
+        ``fallback`` is ``False``.
     """
 
     os.environ["MAESTRAL_CONFIG"] = config_name
@@ -301,8 +299,11 @@ class MaestralProxy(object):
 def get_maestral_pid(config_name):
     """
     Returns Maestral's PID if the daemon is running and responsive, ``None`` otherwise.
+    If the daemon is unresponsive, it will be killed before returning.
 
-    If the daemon is unresponsive, it will be killed before returning ``None``.
+    :param str config_name: The name of the Maestral configuration to use.
+    :returns: The daemon's PID.
+    :rtype: int
     """
     import signal
 
