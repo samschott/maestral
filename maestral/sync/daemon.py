@@ -139,13 +139,8 @@ def start_maestral_daemon_thread(config_name):
     )
     t.start()
 
-    time.sleep(0.2)
-    if t.is_alive():
-        logger.debug("Started Maestral daemon thread")
-        return True
-    else:
-        logger.error("Could not start Maestral daemon thread")
-        return False
+    # wait until the daemon has started, timeout after 2 sec
+    return _wait_for_startup(config_name, timeout=2)
 
 
 def start_maestral_daemon_process(config_name, log_to_console=False):
@@ -170,18 +165,8 @@ def start_maestral_daemon_process(config_name, log_to_console=False):
         stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
     )
 
-    # wait until process is created, timeout after 2 sec
-    t0 = time.time()
-    pid = None
-
-    while not pid and time.time() - t0 < 2:
-        pid = get_maestral_pid(config_name)
-
-    if pid:
-        return _check_pyro_communication(config_name, timeout=1)
-    else:
-        logger.error("Could not start Maestral daemon process")
-        return False
+    # wait until the daemon has started, timeout after 2 sec
+    return _wait_for_startup(config_name, timeout=2)
 
 
 def stop_maestral_daemon_process(config_name="maestral", timeout=5):
@@ -339,8 +324,29 @@ def get_maestral_pid(config_name):
         return pid
 
 
-def _check_pyro_communication(config_name, timeout=1):
-    """Checks if we can communicate with the maestral daemon."""
+def _wait_for_startup(config_name, timeout=4):
+    """Waits for the daemon to start and verifies Pyro communication. Returns ``True`` if
+    startup and communication succeeds within ``timeout``, ``False`` otherwise.
+    """
+
+    t0 = time.time()
+    pid = None
+
+    while not pid and time.time() - t0 < timeout/2:
+        pid = get_maestral_pid(config_name)
+
+    if pid:
+        logger.debug("Maestral daemon started.")
+        return _check_pyro_communication(config_name, timeout=int(timeout/2))
+    else:
+        logger.error("Could not start Maestral daemon")
+        return False
+
+
+def _check_pyro_communication(config_name, timeout=2):
+    """Checks if we can communicate with the maestral daemon. Returns ``True`` if
+    communication succeeds within ``timeout``, ``False`` otherwise.
+    """
 
     sock_name = _get_sock_name(config_name)
     maestral_daemon = Pyro4.Proxy(URI.format(config_name, "./u:" + sock_name))
@@ -350,12 +356,12 @@ def _check_pyro_communication(config_name, timeout=1):
     while time.time() - t0 < timeout:
         try:
             maestral_daemon._pyroBind()
-            logger.debug("Started Maestral daemon process")
+            logger.debug("Successfully communication with daemon")
             return True
         except Exception:
             time.sleep(0.1)
         finally:
             maestral_daemon._pyroRelease()
 
-    logger.error("Could communicate with Maestral daemon process")
+    logger.error("Could communicate with Maestral daemon")
     return False
