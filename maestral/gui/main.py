@@ -316,7 +316,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
                 '<div style="height:5px;font-size:5px;">&nbsp;<br></div>'
                 '<b>Release notes:</b>'
             ).format(res["latest_release"], url_r)
-            update_dialog = UserDialog("Update available", message, res["release_notes"])
+            list_style = '<ul style="margin-top: 0px; margin-bottom: 0px; margin-left: -20px; margin-right: 0px; -qt-list-indent: 1;">'
+            styled_release_notes = res["release_notes"].replace('<ul>', list_style)
+            update_dialog = UserDialog("Update available", message, styled_release_notes)
             update_dialog.exec_()
 
         elif user_requested and not res["update_available"]:
