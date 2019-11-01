@@ -55,6 +55,7 @@ setup(
         "requests",
         "u-msgpack-python",
         "watchdog",
+        "pyobjc;sys_platform=='darwin'"
     ],
     extras_require={
         "systemd": ["systemd-python", "sdnotify"],
