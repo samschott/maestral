@@ -133,7 +133,7 @@ with_config_opt = click.option(
 @click.pass_context
 def main(ctx):
     """Maestral Dropbox Client for Linux and macOS."""
-
+    check_for_updates()
 
 @main.group()
 def config():
@@ -201,8 +201,6 @@ def start(config_name: str, running: bool, foreground: bool, verbose: bool):
     if running:
         click.echo("Maestral daemon is already running.")
         return
-
-    check_for_updates()
 
     from maestral.sync.main import Maestral
 
