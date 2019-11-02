@@ -837,24 +837,18 @@ Any changes to local files during this process may be lost.""")
 
     @staticmethod
     def check_for_updates():
-        res = check_update_available()
-        return res
+        return check_update_available()
 
     def _periodic_refresh(self):
         while True:
             # update account info
             self.get_account_info()
             self.get_space_usage()
-            # check for updates
-            last_update = CONF.get("app", "update_notification_last")
-            interval = CONF.get("app", "update_notification_last")
-            if interval == 0:
-                pass
-            elif time.time() - last_update > interval:
-                res = self.check_for_updates()
-                if not res["error"]:
-                    CONF.set("app", "latest_release", res["latest_release"])
-            time.sleep(60*60)  # 20 min
+            # check for maestral updates
+            res = self.check_for_updates()
+            if not res["error"]:
+                CONF.set("app", "latest_release", res["latest_release"])
+            time.sleep(60*60)  # 60 min
 
     def _periodic_watchdog(self):
         while self.monitor.running.is_set():

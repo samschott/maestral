@@ -72,8 +72,7 @@ def get_scaled_font(scaling=1.0, bold=False, italic=False):
 
 
 def icon_to_pixmap(icon, width, height=None):
-    """
-    Converts a given icon to a pixmap. Automatically adjusts to high-DPI scaling.
+    """Converts a given icon to a pixmap. Automatically adjusts to high-DPI scaling.
 
     :param icon: Icon to convert.
     :param int width: Target point height.
@@ -97,12 +96,8 @@ def icon_to_pixmap(icon, width, height=None):
 
 
 def windowTheme():
-    """
-    Returns one of gui.utils.THEME_LIGHT or gui.utils.THEME_DARK, corresponding to
-    current user's UI theme.
-    """
-    # getting color of a pixel on a top bar, and identifying best-fitting color
-    # theme based on its luminance
+    """Returns one of gui.utils.THEME_LIGHT or gui.utils.THEME_DARK, corresponding to
+    current user's UI theme."""
     w = QtWidgets.QWidget()
     bg_color = w.palette().color(QtGui.QPalette.Background)
     bg_color_rgb = [bg_color.red(), bg_color.green(), bg_color.blue()]
@@ -111,29 +106,8 @@ def windowTheme():
 
 
 def isDarkWindow():
+    """Returns ``True`` if windows have a dark UI theme."""
     return windowTheme() == THEME_DARK
-
-
-def get_gnome_scaling_factor():
-    """Returns gnome scaling factor as str or None."""
-    if __command_exists("gsettings"):
-        res = os.popen("gsettings get org.gnome.desktop.interface scaling-factor").read()
-        if res and res.split()[0] == "uint32" and len(res.split()) > 1:
-            scaling_factor_str = res.split()[1]
-            try:
-                scaling_factor_float = float(scaling_factor_str)
-                if scaling_factor_float > 1:
-                    return scaling_factor_str
-            except ValueError:
-                pass
-    return None
-
-
-def __command_exists(command):
-    return any(
-        os.access(os.path.join(path, command), os.X_OK)
-        for path in os.environ["PATH"].split(os.pathsep)
-    )
 
 
 class Worker(QtCore.QObject):

@@ -72,9 +72,3 @@ def check_update_available(current_version=__version__):
             "latest_release": latest_release,
             "release_notes": release_notes,
             "error": error_msg}
-
-
-if __name__ == "__main__":
-
-    w = check_update_available()
-    print(w)

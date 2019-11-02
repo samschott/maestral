@@ -13,9 +13,9 @@ if CURRENT_PYTHON < REQUIRED_PYTHON:
 ==========================
 Unsupported Python version
 ==========================
-Maestral requires Python {}.{}, but you're trying to install it on
-Python {}.{}. This may be because you are using a version of pip that
-doesn't understand the python_requires classifier. Make sure you
+Maestral requires Python {}.{} or higher, but you're trying to install
+it on Python {}.{}. This may be because you are using a version of pip
+that doesn't understand the python_requires classifier. Make sure you
 have pip >= 9.0 and setuptools >= 24.2, then try again:
     $ python3 -m pip install --upgrade pip setuptools
     $ python3 -m pip install maestral
@@ -41,9 +41,8 @@ setup(
                     "gui/resources/*.icns",
                     "gui/resources/*.png",
                     "gui/resources/*.svg",
-                    "gui/resources/icon-theme-gnome/*.theme",
-                    "gui/resources/icon-theme-gnome/*/*/*.svg",
-                    "bin/*.sh",
+                    "gui/resources/*/*.svg",
+                    "gui/resources/*/*.png",
                     ],
             },
     install_requires=[
@@ -56,6 +55,7 @@ setup(
         "requests",
         "u-msgpack-python",
         "watchdog",
+        "pyobjc;sys_platform=='darwin'"
     ],
     extras_require={
         "systemd": ["systemd-python", "sdnotify"],
@@ -76,4 +76,17 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3 :: Only',
     ],
+    data_files=[
+        ('share/icons/hicolor/scalable/status', [
+            'maestral/gui/resources/tray-icons-gnome/maestral-icon-disconnected-symbolic.svg',
+            'maestral/gui/resources/tray-icons-gnome/maestral-icon-error-symbolic.svg',
+            'maestral/gui/resources/tray-icons-gnome/maestral-icon-idle-symbolic.svg',
+            'maestral/gui/resources/tray-icons-gnome/maestral-icon-paused-symbolic.svg',
+            'maestral/gui/resources/tray-icons-gnome/maestral-icon-syncing-symbolic.svg',
+        ]),
+        ('share/icons/hicolor/512x512/apps', [
+            'maestral/gui/resources/maestral.png',
+        ])
+    ]
+
 )

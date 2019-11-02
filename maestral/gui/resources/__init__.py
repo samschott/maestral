@@ -16,9 +16,13 @@ _root = getattr(sys, '_MEIPASS', osp.dirname(osp.abspath(__file__)))
 
 _icon_provider = QtWidgets.QFileIconProvider()
 
-APP_ICON_PATH = osp.join(_root, "Maestral.png")
-TRAY_ICON_PATH_SVG = osp.join(_root, "maestral-icon-{0}-{1}.svg")
-TRAY_ICON_PATH_PNG = osp.join(_root, "maestral-icon-{0}-{1}.png")
+APP_ICON_PATH = osp.join(_root, "maestral.png")
+TRAY_ICON_DIR_SVG = osp.join(_root, "tray-icons-svg")
+TRAY_ICON_DIR_GNOME = osp.join(_root, "tray-icons-gnome")
+TRAY_ICON_DIR_PNG = osp.join(_root, "tray-icons-png")
+TRAY_ICON_PATH_SVG = osp.join(TRAY_ICON_DIR_SVG, "maestral-icon-{0}-{1}.svg")
+TRAY_ICON_PATH_GNOME = osp.join(TRAY_ICON_DIR_GNOME, "maestral-icon-{0}-symbolic.svg")
+TRAY_ICON_PATH_PNG = osp.join(TRAY_ICON_DIR_PNG, "maestral-icon-{0}-{1}.png")
 
 FACEHOLDER_PATH = osp.join(_root, "faceholder.png")
 
@@ -33,6 +37,8 @@ SYNC_ISSUE_WIDGET_PATH = osp.join(_root, "sync_issue_widget.ui")
 
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
+
+QT_VERSION_TUPLE = tuple(int(x) for x in QtCore.QT_VERSION_STR.split("."))
 
 
 def get_desktop():
@@ -63,54 +69,71 @@ DESKTOP = get_desktop()
 
 
 def get_native_item_icon(item_path):
+    """Returns the system icon for the given file or folder. If there is no item at the
+    given path, the systems default file icon will be returned.
 
+    :param str item_path: Path to local item.
+    """
     if not osp.exists(item_path):
-        # fall back to default file icon
         return get_native_file_icon()
     else:
-        # get system icon for file type
         return _icon_provider.icon(QtCore.QFileInfo(item_path))
 
 
 def get_native_folder_icon():
-    # use a real folder here because Qt may return the wrong folder icon
-    # in macOS with dark mode activated
+    """Returns the system's default folder icon."""
+    # use a real folder here because Qt may otherwise
+    # return the wrong folder icon in some cases
     return _icon_provider.icon(QtCore.QFileInfo("/usr"))
 
 
 def get_native_file_icon():
+    """Returns the system's default file icon."""
     return _icon_provider.icon(_icon_provider.File)
 
 
 def get_system_tray_icon(status, color=None, geometry=None):
+    """Returns the system tray icon for the given status and color. The following icons
+    will be used:
+
+    1) macOS: Black SVG icons with transparent background. macOS will adapt the appearance
+       as necessary.
+    3) Gnome 3: SVG icons that follow the Gnome 3 "symbolic" icon specification.
+    3) KDE Plasma with PtQt 5.13 and higher: SVG icons with a color contrasting the
+       system tray background.
+    4) Other: PNG icons with a color contrasting the system tray background.
+
+    :param str status: Maestral status. Must be "idle", "syncing", "paused",
+        "disconnected" or "error".
+    :param str color: Must be "dark" or "light". If not given, the color will be chosen
+        automatically to contrast the system tray background.
+    :param geometry: Tray icon geometry on screen. If given, this location will be used to
+        to determine the system tray background color.
+    """
     assert status in ("idle", "syncing", "paused", "disconnected", "error")
 
     gnome_version = _get_gnome_version()
     is_gnome3 = gnome_version is not None and gnome_version[0] >= 3
 
-    if DESKTOP == "gnome" and is_gnome3:
-        # use symbolic SVG icons created for Gnome 3
-        icon_theme_paths = QtGui.QIcon.themeSearchPaths()
-        maestral_icon_path = osp.join(_root, "icon-theme-gnome")
-        if maestral_icon_path not in icon_theme_paths:
-            icon_theme_paths += [osp.join(_root, "icon-theme-gnome")]
-        QtGui.QIcon.setThemeSearchPaths(icon_theme_paths)
-        icon = QtGui.QIcon.fromTheme("menubar_icon_{}-symbolic".format(status))
-    elif DESKTOP == "cocoa":
-        if not color:
-            # use default dark SVG icons, macOS will adjust the color as needed
-            icon = QtGui.QIcon(TRAY_ICON_PATH_SVG.format(status, "dark"))
-            icon.setIsMask(True)
-        else:
-            # use fixed color
-            icon = QtGui.QIcon(TRAY_ICON_PATH_SVG.format(status, color))
+    if DESKTOP == "cocoa":
+        icon_color = color or "dark"
+        is_mask = False if color else True
+
+        icon = QtGui.QIcon(TRAY_ICON_PATH_SVG.format(status, icon_color))
+        icon.setIsMask(is_mask)
+
+    elif DESKTOP == "gnome" and is_gnome3:
+        icon = QtGui.QIcon.fromTheme("maestral-icon-{}-symbolic".format(status))
+        if not icon.name():  # icon was not found, fall back to our own
+            icon_color = color or "light" if isDarkStatusBar(geometry) else "dark"
+            icon = QtGui.QIcon(TRAY_ICON_PATH_SVG.format(status, icon_color))
     else:
-        if not color:
-            # use PNG icons with color to contrast status bar background
-            icon_color = "light" if isDarkStatusBar(geometry) else "dark"
+        icon_color = color or "light" if isDarkStatusBar(geometry) else "dark"
+
+        if DESKTOP == "kde" and QT_VERSION_TUPLE >= (5, 13, 0):
+            icon = QtGui.QIcon(TRAY_ICON_PATH_SVG.format(status, icon_color))
         else:
-            icon_color = color
-        icon = QtGui.QIcon(TRAY_ICON_PATH_PNG.format(status, icon_color))
+            icon = QtGui.QIcon(TRAY_ICON_PATH_PNG.format(status, icon_color))
 
     return icon
 

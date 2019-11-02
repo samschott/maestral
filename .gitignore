@@ -29,7 +29,6 @@ MANIFEST
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
-*.spec
 
 # Installer logs
 pip-log.txt
@@ -146,9 +145,4 @@ Temporary Items
 .idea/encodings.xml
 *.iml
 *.xml
-post_build.py
-build_script.sh
-maestral/gui/resources/icons_icns*
-maestral/gui/resources/icons_png*
-maestral/gui/resources/icons_svg*
 maestral/gui/resources/app_icon_svg/*

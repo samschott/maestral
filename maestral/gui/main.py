@@ -40,7 +40,6 @@ from maestral.gui.utils import (
     MaestralBackgroundTask,
     elide_string,
     quit_and_restart_maestral,
-    get_gnome_scaling_factor,
     is_macos_bundle,
 )
 
@@ -285,11 +284,12 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     # callbacks for user interaction
 
     def auto_check_for_updates(self):
-        last_update = self.mdbx.get_conf("app", "update_notification_last")
-        interval = self.mdbx.get_conf("app", "update_notification_last")
+
+        last_update_check = self.mdbx.get_conf("app", "update_notification_last")
+        interval = self.mdbx.get_conf("app", "update_notification_interval")
         if interval == 0:  # checks disabled
             return
-        elif time.time() - last_update > interval:
+        elif time.time() - last_update_check > interval:
             self.on_check_for_updates(user_requested=False)
 
     def on_check_for_updates(self, user_requested=True):
@@ -316,7 +316,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
                 '<div style="height:5px;font-size:5px;">&nbsp;<br></div>'
                 '<b>Release notes:</b>'
             ).format(res["latest_release"], url_r)
-            update_dialog = UserDialog("Update available", message, res["release_notes"])
+            list_style = '<ul style="margin-top: 0px; margin-bottom: 0px; margin-left: -20px; margin-right: 0px; -qt-list-indent: 1;">'
+            styled_release_notes = res["release_notes"].replace('<ul>', list_style)
+            update_dialog = UserDialog("Update available", message, styled_release_notes)
             update_dialog.exec_()
 
         elif user_requested and not res["update_available"]:
@@ -502,10 +504,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
 
 def run():
-    gsf = get_gnome_scaling_factor()
-    if gsf:
-        os.environ["QT_SCREEN_SCALE_FACTORS"] = gsf
-
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
 

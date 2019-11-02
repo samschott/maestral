@@ -86,6 +86,7 @@ _desktop_entry_template = """
 Version={0}
 Type=Application
 Name=Maestral
+Icon=maestral
 GenericName=File Synchronizer
 Comment=Sync your files with Dropbox
 Exec={1}
