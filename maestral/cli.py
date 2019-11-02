@@ -5,11 +5,10 @@ Created on Fri Nov 30 13:51:32 2018
 
 @author: samschott
 
-This file contains the code to daemonize Maestral and all of the command line scripts to
-configure and interact with Maestral.
+This file defines the functions to configure and interact with Maestral from the command line.
 
-We aim to import most packages locally where they are required in order to reduce the
-startup time of scripts.
+We aim to import most packages locally in the functions that required them, in order to reduce the
+startup time of individual CLI commands.
 """
 
 # system imports
@@ -700,7 +699,7 @@ def clear(config_name: str, running: bool):
                 type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
 @with_config_opt
 def level(config_name: str, level_name: str, running: bool):
-    """Gets or sets the log level. Changes will persist between restarts."""
+    """Gets or sets the log level. Changes will take effect after restart."""
     import logging
     if level_name:
         from maestral.sync.daemon import MaestralProxy
