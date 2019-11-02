@@ -6,10 +6,10 @@
 - Fixes an issue where the system tray icon would not be displayed on Qt 5.13.1 with
   enabled HighDpi support.
 - Fixes an issue which would prevent system tray icons from loading on Gnome 3.
-- Fixes and issue which would prevent macOS binaries from running due to the team ID missing in the
-  a code-signing certificate. Note that, even though the macOS binary is code-signed, the
-  certificate is not from Apple's Developer Program. Therefore, to run the app, you will have to
-  "right-lick -> Open".
+- Fixes and issue which would prevent macOS binaries from running due to the team ID
+  missing in the a code-signing certificate. Note that, even though the macOS binary is
+  code-signed, the certificate is not from Apple's Developer Program. Therefore, to run
+  the app, you will have to "right-lick -> Open".
 
 #### Changed:
 
