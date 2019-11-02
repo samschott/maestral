@@ -18,8 +18,9 @@
 
 #### Removed:
 
-- Removed automatic detection of Gnome screen scaling factors. Use
-  `QT_SCREEN_SCALE_FACTORS` instead to enable it manually if required.
+- Removed automatic detection of Gnome screen scaling factors because it caused problems on
+  a few desktop environments. Set the environment variable `QT_SCREEN_SCALE_FACTORS`
+  instead to enable it manually if required.
 
 ## v0.4.2
 
