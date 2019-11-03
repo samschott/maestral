@@ -38,6 +38,7 @@ from maestral.gui.autostart import AutoStart
 from maestral.gui.utils import (
     UserDialog,
     MaestralBackgroundTask,
+    MaestralBackgroundTaskProgressDialog,
     elide_string,
     quit_and_restart_maestral,
     is_macos_bundle,
@@ -256,8 +257,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.preferencesAction.triggered.connect(self.settings.show)
         self.preferencesAction.triggered.connect(self.settings.raise_)
         self.preferencesAction.triggered.connect(self.settings.activateWindow)
-        self.updatesAction.triggered.connect(lambda: self.on_check_for_updates(
-            user_requested=True))
+        self.updatesAction.triggered.connect(self.on_check_for_updates)
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.show)
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.raise_)
         self.syncIssuesAction.triggered.connect(self.sync_issues_window.activateWindow)
@@ -290,13 +290,19 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         if interval == 0:  # checks disabled
             return
         elif time.time() - last_update_check > interval:
-            self.on_check_for_updates(user_requested=False)
+            checker = MaestralBackgroundTask(self, "check_for_updates")
+            checker.sig_done.connect(
+                lambda res: self._notify_updates(res, user_requested=False))
 
-    def on_check_for_updates(self, user_requested=True):
+    def on_check_for_updates(self):
 
         checker = MaestralBackgroundTask(self, "check_for_updates")
-        checker.sig_done.connect(
-            lambda res: self._notify_updates(res, user_requested=user_requested))
+        self._pd = MaestralBackgroundTaskProgressDialog("Checking for Updates")
+        self._pd.show()
+        self._pd.rejected.connect(lambda: checker.sig_done.disconnect(self._notify_updates))
+
+        checker.sig_done.connect(self._pd.accept)
+        checker.sig_done.connect(self._notify_updates)
 
     def _notify_updates(self, res, user_requested=True):
 
