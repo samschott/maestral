@@ -186,6 +186,66 @@ class MaestralBackgroundTask(BackgroundTask):
         self.thread.start()
 
 
+class MaestralBackgroundTaskProgressDialog(QtWidgets.QDialog):
+    """A progress dialog to show during long-running background tasks."""
+
+    def __init__(self, title, message="", cancel=True, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+        self.setModal(True)
+        self.setWindowModality(Qt.WindowModal)
+        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Sheet | Qt.WindowTitleHint |
+                            Qt.CustomizeWindowHint)
+        self.setWindowTitle("")
+        width = 450
+        self.setFixedWidth(width)
+
+        self.gridLayout = QtWidgets.QGridLayout()
+        self.setLayout(self.gridLayout)
+
+        self.iconLabel = QtWidgets.QLabel(self)
+        self.titleLabel = QtWidgets.QLabel(self)
+        self.infoLabel = QtWidgets.QLabel(self)
+        self.progressBar = QtWidgets.QProgressBar()
+        self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Cancel)
+
+        icon_size = 70
+        self.iconLabel.setMinimumSize(icon_size, icon_size)
+        self.iconLabel.setMaximumSize(icon_size, icon_size)
+        self.iconLabel.setAlignment(Qt.AlignTop)
+        self.titleLabel.setFont(get_scaled_font(bold=True))
+        self.infoLabel.setFont(get_scaled_font(scaling=0.9))
+        self.infoLabel.setFixedWidth(width-150)
+        self.infoLabel.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
+                                     QtWidgets.QSizePolicy.MinimumExpanding)
+        self.infoLabel.setWordWrap(True)
+        self.infoLabel.setOpenExternalLinks(True)
+
+        icon = QtGui.QIcon(APP_ICON_PATH)
+        self.iconLabel.setPixmap(icon_to_pixmap(icon, icon_size))
+        self.titleLabel.setText(title)
+        self.infoLabel.setText(message)
+
+        self.buttonBox.rejected.connect(self.reject)
+        self.progressBar.setMinimum(0)
+        self.progressBar.setMaximum(0)
+
+        self.gridLayout.addWidget(self.iconLabel, 0, 0, 3, 1)
+        self.gridLayout.addWidget(self.titleLabel, 0, 1, 1, 1)
+
+        if message:
+            self.gridLayout.addWidget(self.infoLabel, 1, 1, 1, 1)
+            self.gridLayout.addWidget(self.progressBar, 2, 1, 1, 1)
+        else:
+            self.gridLayout.addWidget(self.progressBar, 1, 1, 1, 1)
+
+        if message and cancel:
+            self.gridLayout.addWidget(self.buttonBox, 3, 1, -1, -1)
+        elif cancel:
+            self.gridLayout.addWidget(self.buttonBox, 2, 1, -1, -1)
+
+        self.adjustSize()
+
+
 class UserDialog(QtWidgets.QDialog):
     """A template user dialog for Maestral. Shows a traceback if given in constructor."""
 
