@@ -1,3 +1,10 @@
+## v0.4.4-dev0
+
+#### Changed:
+
+- Show a progress dialog while checking for updates when requested by the user.
+
+
 ## v0.4.3
 
 #### Fixed:
