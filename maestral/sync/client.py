@@ -22,13 +22,15 @@ from maestral.sync.oauth import OAuth2Session
 from maestral.config.main import CONF
 from maestral.sync.errors import api_to_maestral_error, os_to_maestral_error
 from maestral.sync.errors import OS_FILE_ERRORS, CursorResetError
+from maestral import __version__
 
 
 logger = logging.getLogger(__name__)
 
 # create single requests session for all clients
 SESSION = dropbox.dropbox.create_session()
-USER_AGENT = "Maestral/v0.2"
+_major_minor_version = ".".join(__version__.split(".")[:2])
+USER_AGENT = "Maestral/v" + _major_minor_version
 
 
 def tobytes(value, unit, bsize=1024):
