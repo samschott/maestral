@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
+SPEC_FILE=pyinstaller_macos.spec
 
-OLD_BUILD=$(grep -E -o "'CFBundleVersion': '[!0-9]*'," maestral_macos.spec | grep -E -o '[0-9]+')
+OLD_BUILD=$(grep -E -o "'CFBundleVersion': '[!0-9]*'," $SPEC_FILE | grep -E -o '[0-9]+')
 NEW_BUILD=$(($OLD_BUILD+1))
 
 OLD="'CFBundleVersion': '$OLD_BUILD',"
@@ -9,12 +10,11 @@ NEW="'CFBundleVersion': '$NEW_BUILD',"
 
 echo "*********** INCREMENTING BUILD NUMBER TO $NEW_BUILD ************"
 
-
-sed -i "" "s/$OLD/$NEW/g" maestral_macos.spec
+sed -i "" "s/$OLD/$NEW/g" $SPEC_FILE
 
 echo "********************* BUILDING ************************"
 
-pyinstaller  -y --clean -w /Users/samschott/Documents/Python/maestral-dropbox/pyinstaller_macos.spec
+pyinstaller  -y --clean -w /Users/samschott/Documents/Python/maestral-dropbox/$SPEC_FILE
 
 echo "*************** REMOVING QML MODULES ******************"
 
