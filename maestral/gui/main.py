@@ -446,8 +446,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         # update icon
         if is_paused:
             new_icon = PAUSED
-        elif n_errors > 0:
-            new_icon = SYNC_ERROR
         else:
             new_icon = status
 
