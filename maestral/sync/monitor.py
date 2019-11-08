@@ -2076,20 +2076,24 @@ def get_local_hash(local_path):
     Computes content hash of a local file.
 
     :param str local_path: Path to local file.
-    :return: content hash to compare with ``content_hash`` attribute of
-        :class:`dropbox.files.FileMetadata` object.
+    :returns: Content hash to compare with Dropbox's content hash, or an emtpy string if
+        the file cannot be read.
+    :rtype: str
     """
 
-    hasher = DropboxContentHasher()
+    try:
+        hasher = DropboxContentHasher()
 
-    with open(local_path, 'rb') as f:
-        while True:
-            chunk = f.read(1024)
-            if len(chunk) == 0:
-                break
-            hasher.update(chunk)
+        with open(local_path, "rb") as f:
+            while True:
+                chunk = f.read(1024)
+                if len(chunk) == 0:
+                    break
+                hasher.update(chunk)
 
-    return hasher.hexdigest()
+        return hasher.hexdigest()
+    except OSError:
+        return ""
 
 
 def remove_from_queue(queue, item):
