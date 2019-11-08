@@ -4,6 +4,13 @@
 
 - Show a progress dialog while checking for updates when requested by the user.
 
+#### Fixed:
+
+- Fixes an unhandled error when trying to upload changes to a file which has not been
+  indexed by Maestral.
+- Fixes an unhandled error when attempting to calculate the content hash of a file which
+  has been deleted locally. This can occur after Maestral has been notified of remote
+  changes to a file which is deleted locally while comparing file contents.
 
 ## v0.4.3
 
