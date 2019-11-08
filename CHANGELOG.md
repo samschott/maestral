@@ -6,7 +6,7 @@
 
 #### Fixed:
 
-- Fixes an unhandled error when trying to upload changes to a file which has not been
+- Fixes an unhandled error when trying to upload changes to a file which is not currently
   indexed by Maestral.
 - Fixes an unhandled error when attempting to calculate the content hash of a file which
   has been deleted locally. This can occur after Maestral has been notified of remote
