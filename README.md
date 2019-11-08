@@ -68,8 +68,8 @@ configuration name should then be given as command line option `--config-name` b
 running maestral. For example:
 
 ```shell
-$ maestral config new "personal"
-$ maestral config new "work"
+$ maestral config add "personal"
+$ maestral config add "work"
 $ maestral gui --config-name="personal"
 $ maestral gui --config-name="work"
 ```
