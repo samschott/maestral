@@ -1090,7 +1090,7 @@ class UpDownSync(object):
         dbx_path_old = self.to_dbx_path(event.src_path)
         dbx_path_new = self.to_dbx_path(event.dest_path)
 
-        # do items exist on Dropbox?
+        # does item exist on Dropbox?
         md_old = self.client.get_metadata(dbx_path_old)
 
         if not md_old:
@@ -1147,7 +1147,7 @@ class UpDownSync(object):
 
         elif not event.is_directory:
 
-            UpDownSync._wait_for_creation(path)
+            self._wait_for_creation(path)
 
             # check if file already exists with identical content
             md = self.client.get_metadata(dbx_path)
@@ -1208,7 +1208,7 @@ class UpDownSync(object):
 
         if not event.is_directory:  # ignore directory modified events
 
-            UpDownSync._wait_for_creation(path)
+            self._wait_for_creation(path)
 
             # check if file already exists with identical content
             md = self.client.get_metadata(dbx_path)
