@@ -1224,6 +1224,10 @@ class UpDownSync(object):
             rev = self.get_local_rev(dbx_path)
             if rev == "folder":
                 mode = dropbox.files.WriteMode("overwrite")
+            elif not rev:
+                logger.warning("'%s' appears to have been modified"
+                               "but cannot find old revision.", event.src_path)
+                return
             else:
                 mode = dropbox.files.WriteMode("update", rev)
             md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
