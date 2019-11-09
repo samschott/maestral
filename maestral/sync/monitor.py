@@ -1295,6 +1295,8 @@ class UpDownSync(object):
     @catch_sync_issues()
     def list_remote_changes(self, last_cursor):
         """Wraps MaestralApiClient.list_remove_changes and catches sync errors."""
+        # TODO: Remove items whith unsynced local changes (i.e., items in 
+        # local_file_event_queue, queued_for_upload or queue_uploading)
         return self.client.list_remote_changes(last_cursor)
 
     def filter_excluded_changes_remote(self, changes):
