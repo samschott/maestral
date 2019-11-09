@@ -886,6 +886,13 @@ class UpDownSync(object):
         return events, local_cursor
 
     def filter_excluded_changes_local(self, events):
+        """
+        Checks for and removes file events referring to items which are excluded from
+        syncing.
+
+        :param events: List of file events.
+        :returns: (``events_filtered``, ``events_excluded``)
+        """
 
         events_filtered = []
         events_excluded = []
@@ -1294,10 +1301,24 @@ class UpDownSync(object):
 
     @catch_sync_issues()
     def list_remote_changes(self, last_cursor):
-        """Wraps MaestralApiClient.list_remove_changes and catches sync errors."""
-        # TODO: Remove items whith unsynced local changes (i.e., items in 
-        # local_file_event_queue, queued_for_upload or queue_uploading)
-        return self.client.list_remote_changes(last_cursor)
+        """Wraps ``MaestralApiClient.list_remove_changes`` and catches sync errors. Also
+        Removes items unsynced local changes from entries list."""
+        res = self.client.list_remote_changes(last_cursor)
+
+        unsorted_changes = tuple(getattr(e, "dest_path", e.src_path).lower() for e in self.local_file_event_queue.queue)
+        queued_for_upload = tuple(p.lower() for p in self.queued_for_upload.queue)
+        uploading = tuple(p.lower() for p in self.queue_uploading.queue)
+
+        all_pending_uploads = unsorted_changes + queued_for_upload + uploading
+
+        res.entries = list(e for e in res.entries if not e.path_lower in all_pending_uploads)
+
+        ignored_items = (e for e in res.entries if e.path_lower in all_pending_uploads)
+
+        for e in ignored_items:
+            logger.debug("Not downloading '{}' since it is currently being uploaded.".format(e.src_path))
+
+        return res
 
     def filter_excluded_changes_remote(self, changes):
         """Removes all excluded items from the given list of changes.
