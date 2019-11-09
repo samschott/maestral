@@ -659,9 +659,7 @@ def show(config_name: str, running: bool):
         try:
             with open(log_file, "r") as f:
                 text = f.read()
-            log_list = text.split("\n")
-            log_list.reverse()
-            click.echo_via_pager("\n".join(log_list))
+            click.echo_via_pager(text)
         except OSError:
             click.echo("Could not open log file at '{}'".format(log_file))
     else:
