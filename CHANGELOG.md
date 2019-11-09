@@ -11,6 +11,8 @@
 - Fixes an unhandled error when attempting to calculate the content hash of a file which
   has been deleted locally. This can occur after Maestral has been notified of remote
   changes to a file which is deleted locally while comparing file contents.
+- Fixes an bug which could create multiple false "conflicting copies" of a file when the
+  user modifies the file while it is being uploaded.
 
 ## v0.4.3
 
