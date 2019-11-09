@@ -1671,9 +1671,7 @@ def connection_helper(client, syncing, running, connected):
 
 def download_worker(sync, syncing, running, connected):
     """
-    Worker to sync changes of remote Dropbox with local folder. All files about
-    to change are temporarily excluded from the local file monitor by adding
-    their paths to the `queue_downloading`.
+    Worker to sync changes of remote Dropbox with local folder.
 
     :param UpDownSync sync: Instance of :class:`UpDownSync`.
     :param Event syncing: Event that indicates if workers are running or paused.
@@ -1732,10 +1730,7 @@ def download_worker(sync, syncing, running, connected):
 
 def upload_worker(sync, syncing, running, connected):
     """
-    Worker to sync local changes to remote Dropbox. It collects the most recent
-    local file events from `local_q`, prunes them from duplicates, and
-    processes the remaining events by calling methods of
-    :class:`DropboxUploadSync`.
+    Worker to sync local changes to remote Dropbox.
 
     :param sync: Instance of :class:`UpDownSync`.
     :param syncing: Event that indicates if workers are running or paused.
