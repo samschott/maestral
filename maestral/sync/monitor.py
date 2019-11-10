@@ -1307,25 +1307,8 @@ class UpDownSync(object):
 
     @catch_sync_issues()
     def list_remote_changes(self, last_cursor):
-        """Wraps ``MaestralApiClient.list_remove_changes`` and catches sync errors. Also
-        Removes items with unsynced local changes from the list of entries."""
-        res = self.client.list_remote_changes(last_cursor)
-
-        unsorted_changes_src = tuple(e.src_path.lower() for e in self.local_file_event_queue.queue)
-        unsorted_changes_dest = tuple(e.dest_path.lower() for e in self.local_file_event_queue.queue if hasattr(e, "dest_path"))
-        queued_for_upload = tuple(p.lower() for p in self.queued_for_upload.queue)
-        uploading = tuple(p.lower() for p in self.queue_uploading.queue)
-
-        all_pending_uploads = unsorted_changes_src + unsorted_changes_dest + queued_for_upload + uploading
-
-        res.entries = list(e for e in res.entries if not e.path_lower in all_pending_uploads)
-
-        ignored_items = (e for e in res.entries if e.path_lower in all_pending_uploads)
-
-        for e in ignored_items:
-            logger.debug("Not downloading '{}' since it is currently being uploaded.".format(e.src_path))
-
-        return res
+        """Wraps ``MaestralApiClient.list_remove_changes`` and catches sync errors."""
+        return self.client.list_remote_changes(last_cursor)
 
     def filter_excluded_changes_remote(self, changes):
         """Removes all excluded items from the given list of changes.
