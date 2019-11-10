@@ -217,6 +217,7 @@ class FileEventHandler(FileSystemEventHandler):
 
         if self.syncing.is_set():
             self.local_file_event_queue.put(event)
+            logger.debug("Put into file event queue: {}".format(event))
 
 
 def catch_sync_issues(sync_errors=None, failed_items=None):
@@ -813,9 +814,7 @@ class UpDownSync(object):
         # save timestamp
         local_cursor = t0
 
-        logger.debug("***************** Original events ************************")
-        logger.debug(events)
-        logger.debug("**********************************************************")
+        logger.debug("Retrieved local file events:\n{}".format(events))
 
         # REMOVE DIR_MODIFIED_EVENTS
         events = [e for e in events if not isinstance(e, DirModifiedEvent)]
@@ -879,9 +878,7 @@ class UpDownSync(object):
         events = self._list_diff(events, to_remove)
         events += to_add
 
-        logger.debug("******************* Cleaned up events ********************")
-        logger.debug(events)
-        logger.debug("**********************************************************")
+        logger.debug("Cleaned up local file events:\n{}".format(events))
 
         return events, local_cursor
 
@@ -893,6 +890,8 @@ class UpDownSync(object):
         :param events: List of file events.
         :returns: (``events_filtered``, ``events_excluded``)
         """
+
+        logger.debug("Filtering excluded items from local file events")
 
         events_filtered = []
         events_excluded = []
@@ -919,6 +918,9 @@ class UpDownSync(object):
                 events_excluded.append(event)
             else:
                 events_filtered.append(event)
+
+        logger.debug("Events to keep:\n{}".format(events_filtered))
+        logger.debug("Events to discard:\n{}".format(events_excluded))
 
         return events_filtered, events_excluded
 
@@ -948,6 +950,8 @@ class UpDownSync(object):
         :rtype: bool
         """
 
+        logger.debug("Beginning upload of local changes")
+
         filtered_events, _ = self.filter_excluded_changes_local(events)
         dir_events, file_events = self._sort_local_events(filtered_events)
 
@@ -975,8 +979,10 @@ class UpDownSync(object):
 
         if all(success):
             self.last_sync = local_cursor  # save local cursor
+            logger.debug("Upload of local changes succeeded")
             return True
         else:
+            logger.debug("Upload of local changes failed")
             return False
 
     @staticmethod
@@ -1464,9 +1470,7 @@ class UpDownSync(object):
 
         elif md.rev == local_rev:
             # files have the same revision, trust that they are equal
-            logger.debug(
-                    "Local file is the same as on Dropbox (rev %s).",
-                    local_rev)
+            logger.debug("Local file is the same as on Dropbox (rev %s).", local_rev)
             return 2  # files are already the same
 
         elif md.rev != local_rev:
@@ -1484,9 +1488,8 @@ class UpDownSync(object):
             #     changes may be overwritten by the remote version if the
             #     download completes before the upload starts. This is a bug.
 
-            logger.debug(
-                    "Local file has rev %s, newer file on Dropbox has rev %s.",
-                    local_rev, md.rev)
+            logger.debug("Local file has rev %s, newer file on Dropbox has rev %s.",
+                         local_rev, md.rev)
             return 0
 
     def notify_user(self, changes):
