@@ -165,8 +165,8 @@ def start_maestral_daemon_process(config_name, log_to_console=False):
         stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
     )
 
-    # wait until the daemon has started, timeout after 2 sec
-    return _wait_for_startup(config_name, timeout=2)
+    # wait until the daemon has started, timeout after 4 sec
+    return _wait_for_startup(config_name, timeout=4)
 
 
 def stop_maestral_daemon_process(config_name="maestral", timeout=5):
