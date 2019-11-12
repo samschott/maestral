@@ -80,12 +80,24 @@ CONF_VERSION = '9.0.0'
 
 migrate_config_files()
 
+
+def load_config(config_name):
+    global CONF
+    try:
+        CONF = UserConfig(
+            config_name, defaults=DEFAULTS, load=True,
+            version=CONF_VERSION, subfolder=SUBFOLDER, backup=True,
+            raw_mode=True
+        )
+    except Exception:
+        CONF = UserConfig(
+            config_name, defaults=DEFAULTS, load=False,
+            version=CONF_VERSION, subfolder=SUBFOLDER, backup=True,
+            raw_mode=True
+        )
+
+    return CONF
+
+
 # Main configuration instance
-try:
-    CONF = UserConfig(PACKAGE_NAME, defaults=DEFAULTS, load=True,
-                      version=CONF_VERSION, subfolder=SUBFOLDER, backup=True,
-                      raw_mode=True)
-except Exception:
-    CONF = UserConfig(PACKAGE_NAME, defaults=DEFAULTS, load=False,
-                      version=CONF_VERSION, subfolder=SUBFOLDER, backup=True,
-                      raw_mode=True)
+CONF = load_config(PACKAGE_NAME)
