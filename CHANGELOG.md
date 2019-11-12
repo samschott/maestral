@@ -3,6 +3,7 @@
 #### Changed:
 
 - Show a progress dialog while checking for updates when requested by the user.
+- Show an error message when the GUI cannot connect to or start a sync daemon.
 
 #### Fixed:
 
