@@ -855,7 +855,7 @@ Any changes to local files during this process may be lost.""")
             system_notifier.notify("WATCHDOG=1")
             time.sleep(int(WATCHDOG_USEC)/(2*10**6))
 
-    def shutdown_daemon(self):
+    def shutdown_pyro_daemon(self):
         """Does nothing except for setting the _daemon_running flag to ``False``. This
         will be checked by Pyro4 periodically to shut down the daemon when requested."""
         self._daemon_running = False
