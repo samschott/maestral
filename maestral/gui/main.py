@@ -145,14 +145,23 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def _get_or_start_maestral_daemon(self):
 
         pid = get_maestral_pid(CONFIG_NAME)
-        if not pid:
-            if is_macos_bundle:
-                start_maestral_daemon_thread(CONFIG_NAME)
-            else:
-                start_maestral_daemon_process(CONFIG_NAME)
-            self._started = True
-        else:
+        if pid:
             self._started = False
+        else:
+            if is_macos_bundle:
+                res = start_maestral_daemon_thread(CONFIG_NAME)
+            else:
+                res = start_maestral_daemon_process(CONFIG_NAME)
+            self._started = True
+
+            if res is False:
+                error_dialog = UserDialog(
+                    "Could not start Maestral",
+                    "Could not start or connect to sync daemon. Please try again and " +
+                    "contact the developer if this issue persists."
+                )
+                error_dialog.exec_()
+                QtWidgets.QApplication.exit(1)
 
         return get_maestral_daemon_proxy(CONFIG_NAME)
 
