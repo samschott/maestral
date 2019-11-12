@@ -13,6 +13,8 @@
   changes to a file which is deleted locally while comparing file contents.
 - Fixes an bug which could create multiple false "conflicting copies" of a file when the
   user modifies the file while it is being uploaded.
+- Fixes a regression bug which would prevent the creation and selection of new configs for
+  different Dropbox accounts.
 
 ## v0.4.3
 

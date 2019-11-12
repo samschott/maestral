@@ -101,6 +101,7 @@ def _check_and_set_config(ctx, param, value):
     """
 
     from maestral.sync.daemon import get_maestral_pid
+    from maestral.config.main import load_config
 
     # check if valid config
     if value not in list_configs() and not value == "maestral":
@@ -109,6 +110,7 @@ def _check_and_set_config(ctx, param, value):
 
     # set environment variable
     os.environ["MAESTRAL_CONFIG"] = value
+    load_config(value)
 
     # check if maestral is running and store the result for other commands to use
     pid = get_maestral_pid(value)
@@ -129,10 +131,10 @@ with_config_opt = click.option(
 
 
 @click.group()
-@click.pass_context
-def main(ctx):
+def main():
     """Maestral Dropbox Client for Linux and macOS."""
     check_for_updates()
+
 
 @main.group()
 def config():
@@ -720,6 +722,7 @@ def level(config_name: str, level_name: str, running: bool):
 # ========================================================================================
 
 def list_configs():
+    """Lists all maestral configs"""
     from maestral.config.base import get_conf_path
     configs = []
     for file in os.listdir(get_conf_path("maestral")):
@@ -733,10 +736,11 @@ def list_configs():
 @click.argument("name")
 def config_add(name: str):
     """Set up and activate a fresh Maestral configuration."""
-    os.environ["MAESTRAL_CONFIG"] = name
     if name in list_configs():
         click.echo("Configuration '{}' already exists.".format(name))
     else:
+        from maestral.config.main import load_config
+        load_config(name)
         from maestral.config.main import CONF
         CONF.set("main", "default_dir_name", "Dropbox ({})".format(name.capitalize()))
         click.echo("Created configuration '{}'.".format(name))
