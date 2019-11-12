@@ -21,7 +21,7 @@ from maestral.config.base import get_home_dir
 from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
                                     SETTINGS_WINDOW_PATH, APP_ICON_PATH, FACEHOLDER_PATH)
-from maestral.gui.utils import (get_scaled_font, isDarkWindow, quit_and_restart_maestral,
+from maestral.gui.utils import (get_scaled_font, isDarkWindow,
                                 LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap,
                                 get_masked_image, MaestralBackgroundTask)
 
@@ -31,10 +31,12 @@ NEW_QT = LooseVersion(QtCore.QT_VERSION_STR) >= LooseVersion("5.11")
 
 class UnlinkDialog(QtWidgets.QDialog):
 
-    def __init__(self, parent=None):
+    def __init__(self, restart_func, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(UNLINK_DIALOG_PATH, self)
+
+        self.restart_func = restart_func
         self.setModal(True)
 
         self.setWindowFlags(QtCore.Qt.Sheet)
@@ -52,7 +54,7 @@ class UnlinkDialog(QtWidgets.QDialog):
         self.buttonBox.setEnabled(False)
         self.progressIndicator.startAnimation()
         self.unlink_thread = MaestralBackgroundTask(self, "unlink")
-        self.unlink_thread.sig_done.connect(quit_and_restart_maestral)
+        self.unlink_thread.sig_done.connect(self.restart_func)
 
 
 class SettingsWindow(QtWidgets.QWidget):
@@ -60,16 +62,17 @@ class SettingsWindow(QtWidgets.QWidget):
 
     _update_interval_mapping = {0: 60*60*24, 1: 60*60*24*7, 2: 60*60*24*30, 3: 0}
 
-    def __init__(self, mdbx, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
+    def __init__(self, parent, mdbx):
+        super(self.__class__, self).__init__(parent=None)
         uic.loadUi(SETTINGS_WINDOW_PATH, self)
+        self._parent = parent
         self.update_dark_mode()
         self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
         self.adjustSize()
 
         self.mdbx = mdbx
         self.folders_dialog = FoldersDialog(self.mdbx, parent=self)
-        self.unlink_dialog = UnlinkDialog(self)
+        self.unlink_dialog = UnlinkDialog(self._parent.restart, parent=self)
 
         self.labelAccountName.setFont(get_scaled_font(1.5))
         self.labelAccountInfo.setFont(get_scaled_font(0.85))

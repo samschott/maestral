@@ -7,10 +7,7 @@ Created on Wed Oct 31 16:23:13 2018
 """
 
 # system imports
-import sys
 import os
-import platform
-from subprocess import Popen
 
 # external packages
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -19,8 +16,7 @@ from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap, QWindow
 
 # maestral modules
 from maestral.gui.resources import APP_ICON_PATH, rgb_to_luminance
-from maestral.sync.utils import is_macos_bundle
-from maestral.sync.daemon import MaestralProxy, stop_maestral_daemon_process
+from maestral.sync.daemon import MaestralProxy
 
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
@@ -322,31 +318,6 @@ class UserDialog(QtWidgets.QDialog):
 
     def setSecondAcceptButtonName(self, name):
         self._acceptButton2.setText(name)
-
-
-def quit_and_restart_maestral():
-    """
-    Quits and restarts Maestral. This chooses the right command to restart Maestral,
-    running with the previous configuration. It also handles restarting macOS app bundles.
-    """
-    pid = os.getpid()  # get ID of current process
-    config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
-
-    # wait for current process to quit and then restart Maestral
-    if is_macos_bundle:
-        launch_command = os.path.join(sys._MEIPASS, "main")
-        Popen("lsof -p {0} +r 1 &>/dev/null; {0}".format(launch_command), shell=True)
-    if platform.system() == "Darwin":
-        Popen("lsof -p {0} +r 1 &>/dev/null; maestral gui --config-name='{1}'".format(
-            pid, config_name), shell=True)
-    elif platform.system() == "Linux":
-        Popen("tail --pid={0} -f /dev/null; maestral gui --config-name='{1}'".format(
-            pid, config_name), shell=True)
-
-    if not is_macos_bundle:
-        stop_maestral_daemon_process(config_name)
-    QtCore.QCoreApplication.quit()
-    sys.exit(0)
 
 
 def get_masked_image(path, size=64, overlay_text=""):

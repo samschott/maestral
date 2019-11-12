@@ -13,6 +13,7 @@ import logging
 import platform
 import shutil
 import time
+from subprocess import Popen
 
 # external packages
 import click
@@ -35,13 +36,12 @@ from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import get_system_tray_icon
 from maestral.gui.autostart import AutoStart
+from maestral.sync.utils import is_macos_bundle
 from maestral.gui.utils import (
     UserDialog,
     MaestralBackgroundTask,
     MaestralBackgroundTaskProgressDialog,
     elide_string,
-    quit_and_restart_maestral,
-    is_macos_bundle,
 )
 
 
@@ -161,7 +161,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
                     "contact the developer if this issue persists."
                 )
                 error_dialog.exec_()
-                QtWidgets.QApplication.exit(1)
+                self.quit()
 
         return get_maestral_daemon_proxy(CONFIG_NAME)
 
@@ -211,7 +211,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.setToolTip(IDLE)
 
         # ----------------- create windows ----------------------
-        self.settings = SettingsWindow(self.mdbx, parent=None)
+        self.settings = SettingsWindow(self, self.mdbx)
         self.sync_issues_window = SyncIssueWindow(self.mdbx)
 
         # ------------- populate context menu -------------------
@@ -384,7 +384,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self._stop_and_exec_error_dialog(title, message)
         elif err["type"] == "DropboxDeletedError":
             self.mdbx.stop_sync()
-            quit_and_restart_maestral()
+            self.restart()
         elif err["type"] == "DropboxAuthError":
             self._stop_and_exec_relink_dialog(RelinkDialog.REVOKED)
         elif err["type"] == "TokenExpiredError":
@@ -412,7 +412,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.pauseAction.setText("Start Syncing")
             self.pauseAction.setEnabled(False)
 
-        relink_dialog = RelinkDialog(reason)
+        relink_dialog = RelinkDialog(self, reason)
         # Will either just return (Cancel), relink the account (Link) or unlink it and
         # delete the old creds (Unlink). In the first case
 
@@ -507,13 +507,48 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             # tray icons in macOS should not have tooltips
             QtWidgets.QSystemTrayIcon.setToolTip(self, text)
 
-    def quit(self):
-        """Quit Maestral"""
-        if self._started and self.mdbx and not is_macos_bundle:
+    def quit(self, *args, stop_daemon=None):
+        """Quits Maestral.
+
+        :param bool stop_daemon: If ``True``, the sync daemon will be stopped when
+            quitting the GUI, if ``False``, it will be kept alive. If ``None``, the daemon
+            will only be stopped if it was started by the GUI (default).
+        """
+
+        if stop_daemon is None:
+            stop_daemon = self._started
+
+        # stop update timer to stop communication with daemon
+        self.update_ui_timer.stop()
+
+        # stop sync daemon if we started it or ``stop_daemon==True``
+        if stop_daemon and self.mdbx and not is_macos_bundle:
+            self.mdbx._pyroRelease()
             stop_maestral_daemon_process(CONFIG_NAME)
+
+        # quit
         self.deleteLater()
         QtCore.QCoreApplication.quit()
         sys.exit(0)
+
+    def restart(self):
+        """Restarts the Maestral GUI and sync daemon."""
+
+        # schedule restart after current process has quit
+        pid = os.getpid()  # get ID of current process
+        config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
+        if is_macos_bundle:
+            launch_command = os.path.join(sys._MEIPASS, "main")
+            Popen("lsof -p {0} +r 1 &>/dev/null; {0}".format(launch_command), shell=True)
+        if platform.system() == "Darwin":
+            Popen("lsof -p {0} +r 1 &>/dev/null; maestral gui --config-name='{1}'".format(
+                pid, config_name), shell=True)
+        elif platform.system() == "Linux":
+            Popen("tail --pid={0} -f /dev/null; maestral gui --config-name='{1}'".format(
+                pid, config_name), shell=True)
+
+        # quit Maestral
+        self.quit(stop_daemon=True)
 
 
 def run():

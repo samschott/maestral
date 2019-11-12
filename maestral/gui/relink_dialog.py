@@ -18,7 +18,7 @@ from PyQt5.QtCore import Qt
 from maestral.sync.oauth import OAuth2Session
 from maestral.gui.resources import RELINK_DIALOG_PATH, APP_ICON_PATH
 from maestral.gui.utils import get_scaled_font, icon_to_pixmap
-from maestral.gui.utils import BackgroundTask, quit_and_restart_maestral
+from maestral.gui.utils import BackgroundTask
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +35,12 @@ class RelinkDialog(QtWidgets.QDialog):
     EXPIRED = 0
     REVOKED = 1
 
-    def __init__(self, reason=EXPIRED, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
-        # load user interface layout from .ui file
+    def __init__(self, parent, reason=EXPIRED):
+        super(self.__class__, self).__init__(parent=None)
         uic.loadUi(RELINK_DIALOG_PATH, self)
+
+        self._parent = parent
+
         self.setModal(True)
         self.setWindowFlags(Qt.WindowTitleHint | Qt.CustomizeWindowHint)
 
@@ -68,17 +70,13 @@ class RelinkDialog(QtWidgets.QDialog):
 
         # connect callbacks
         self.lineEditAuthCode.textChanged.connect(self._set_text_style)
-        self.pushButtonCancel.clicked.connect(self.quit)
+        self.pushButtonCancel.clicked.connect(self._parent.quit)
         self.pushButtonUnlink.clicked.connect(self.delete_creds_and_quit)
         self.pushButtonLink.clicked.connect(self.on_link_clicked)
 
         # other
         self.pushButtonCancel.setFocus()
         self.adjustSize()
-
-    def quit(self):
-        QtCore.QCoreApplication.quit()
-        sys.exit(0)
 
     def delete_creds_and_quit(self):
         self.auth_session.delete_creds()
@@ -125,7 +123,7 @@ class RelinkDialog(QtWidgets.QDialog):
             self.auth_session.save_creds()
             self.lineEditAuthCode.setText(self.VALID_MSG)
             QtWidgets.QApplication.processEvents()
-            QtCore.QTimer.singleShot(200, quit_and_restart_maestral)
+            QtCore.QTimer.singleShot(200, self._parent.restart)
         elif res == OAuth2Session.InvalidToken:
             self.lineEditAuthCode.setText(self.INVALID_MSG)
             self.set_ui_idle()
