@@ -157,15 +157,28 @@ def start_maestral_daemon_process(config_name, log_to_console=False):
     :rtype: bool
     """
     import subprocess
+    import multiprocessing
 
     STD_IN_OUT = None if log_to_console else subprocess.DEVNULL
 
-    subprocess.Popen(
-        ["maestral", "start", "-f", "-c", config_name],
-        stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
+    # use nested Popen and multiprocessing.Process to effectively create double fork
+    # see Unix "double-fork magic"
+
+    def target(config_name):
+        subprocess.Popen(
+            ["maestral", "start", "-f", "-c", config_name],
+            stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
+        )
+
+    t = multiprocessing.Process(
+        target=target,
+        args=(config_name, ),
+        daemon=True,
+        name="Maestral daemon launcher",
     )
 
-    # wait until the daemon has started, timeout after 4 sec
+    t.start()
+
     return _wait_for_startup(config_name, timeout=4)
 
 
@@ -212,7 +225,6 @@ def stop_maestral_daemon_process(config_name="maestral", timeout=20):
                 try:
                     # query if still running
                     os.kill(pid, 0)
-                    logger.debug(f"Process {pid} still active")
                 except OSError:
                     # return ``True`` if not running anymore
                     logger.debug("Daemon shut down")

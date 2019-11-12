@@ -16,6 +16,12 @@
   user modifies the file while it is being uploaded.
 - Fixes a regression bug which would prevent the creation and selection of new configs for
   different Dropbox accounts.
+- Fixes a bug that would prevent Maestral from properly shutting down a sync daemon which
+  was started from the GUI. This was a result of the daemon's sync threads not exiting as
+  long as a parent process from the same group is still alive (the GUI in our case). We
+  prevent this by using "double-fork" magic to properly orphan the daemon process so that
+  init will perform its cleanup. See Stevens' "Advanced Programming in the UNIX
+  Environment" for details (ISBN 0201563177).
 
 ## v0.4.3
 
