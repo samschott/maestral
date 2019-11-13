@@ -7,7 +7,6 @@ Created on Wed Oct 31 16:23:13 2018
 """
 
 # system imports
-import os
 import os.path as osp
 import logging
 
@@ -68,9 +67,7 @@ class OAuth2Session(object):
             if self.account_id == "":
                 self.access_token = None
             else:
-                t1 = keyring.get_password("Maestral", self.account_id)
-                t2 = keyring.get_password("Maestral", "MaestralUser")  # before v0.2.2
-                self.access_token = t1 or t2
+                self.access_token = keyring.get_password("Maestral", self.account_id)
             return self.access_token
         except KeyringLocked:
             info = "Please make sure that your keyring is unlocked and restart Maestral."
@@ -141,35 +138,3 @@ class OAuth2Session(object):
         except KeyringLocked:
             logger.error("Could not access the user keyring to delete your authentication"
                          " token. Please make sure that the keyring is unlocked.")
-
-    def migrate_to_keyring(self):
-        """Migrates auth key from text file (prior to v0.2.0) to system keyring."""
-
-        if osp.isfile(self.TOKEN_FILE):
-            print(" > Migrating access token to keyring...")
-
-            try:
-                # load old token
-                with open(self.TOKEN_FILE) as f:
-                    stored_creds = f.read()
-                self.access_token, self.account_id, _ = stored_creds.split("|")
-
-                # migrate old token to keyring
-                self.save_creds()
-                os.unlink(self.TOKEN_FILE)
-                print(" [DONE]")
-
-            except IOError:
-                print(" x Could not load old token. Beginning new session.")
-
-        elif keyring.get_password("Maestral", "MaestralUser") and self.account_id:
-            print(" > Migrating access token to account_id...")
-            self.access_token = keyring.get_password("Maestral", "MaestralUser")
-            try:
-                keyring.set_password("Maestral", self.account_id, self.access_token)
-                keyring.delete_password("Maestral", "MaestralUser")
-                print(" [DONE]")
-            except KeyringLocked:
-                raise KeyringLocked(
-                    "Could not access the user keyring to load your authentication "
-                    "token. Please make sure that the keyring is unlocked.")
