@@ -272,12 +272,18 @@ class Maestral(object):
                 self.watchdog_thread.start()
 
     @staticmethod
+    def set_conf(section, name, value):
+        CONF.set(section, name, value)
+
+    @staticmethod
     def get_conf(section, name):
         return CONF.get(section, name)
 
     @staticmethod
-    def set_conf(section, name, value):
-        CONF.set(section, name, value)
+    def set_log_level(level_num):
+        rfh.setLevel(level_num)
+        sh.setLevel(level_num)
+        CONF.set("app", "log_level", level_num)
 
     @staticmethod
     def pending_link():
