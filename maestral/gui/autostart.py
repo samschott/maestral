@@ -61,7 +61,7 @@ class AutoStart(object):
     def enabled(self):
         return os.path.isfile(self.destination)
 
-
+# noinspection ProblematicWhitespace
 _plist_template = """
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -81,6 +81,7 @@ _plist_template = """
 </plist>
 """
 
+# noinspection ProblematicWhitespace
 _desktop_entry_template = """
 [Desktop Entry]
 Version={0}
