@@ -209,29 +209,24 @@ def stop_maestral_daemon_process(config_name="maestral", timeout=20):
         except Pyro4.errors.CommunicationError:
             logger.debug("Could not communicate with daemon")
             try:
-                # try to send SIGTERM to process
-                os.kill(pid, signal.SIGTERM)
+                os.kill(pid, signal.SIGTERM)  # try to send SIGTERM to process
                 logger.debug("Terminating daemon process")
             except ProcessLookupError:
-                # delete PID file and return ``None`` if process does not exist
                 _delete_pid(config_name)
                 logger.debug("Daemon was not running")
-                return
+                return  # return ``None`` if process did not exist
         finally:
             # wait for maestral to carry out shutdown
             logger.debug("Waiting for shutdown")
             t0 = time.time()
             while time.time() - t0 < timeout:
                 try:
-                    # query if still running
-                    os.kill(pid, 0)
+                    os.kill(pid, 0)  # query if still running
                 except OSError:
-                    # return ``True`` if not running anymore
                     logger.debug("Daemon shut down")
-                    return True
+                    return True  # return ``True`` if not running anymore
                 else:
-                    # wait for 0.2 sec and try again
-                    time.sleep(0.2)
+                    time.sleep(0.2)  # wait for 0.2 sec and try again
 
             # send SIGKILL after timeout, delete PID file and return ``False``
             os.kill(pid, signal.SIGKILL)
