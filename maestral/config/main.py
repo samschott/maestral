@@ -15,10 +15,8 @@ a full download on the next startup.
 """
 
 import os
-
-# Local import
 from .user import UserConfig
-from .base import migrate_config_files
+
 
 PACKAGE_NAME = os.getenv('MAESTRAL_CONFIG', 'maestral')
 SUBFOLDER = 'maestral'
@@ -77,8 +75,6 @@ DEFAULTS = [
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
 CONF_VERSION = '9.0.0'
-
-migrate_config_files()
 
 
 def load_config(config_name):
