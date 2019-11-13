@@ -10,9 +10,9 @@ import platform
 import sys
 import os
 
-from maestral.sync.utils.app_dirs import get_autostart_path
-from maestral.sync.utils import is_macos_bundle
 from maestral import __version__
+from maestral.sync.utils.appdirs import get_autostart_path
+from maestral.sync.constants import IS_MACOS_BUNDLE
 
 _root = os.path.abspath(os.path.dirname(__file__))
 
@@ -25,7 +25,7 @@ class AutoStart(object):
         system = platform.system()
         config_name = os.getenv('MAESTRAL_CONFIG', 'maestral')
 
-        if is_macos_bundle:
+        if IS_MACOS_BUNDLE:
             launch_command = os.path.join(sys._MEIPASS, "main")
         else:
             launch_command = "maestral gui --config-name='{}'".format(config_name)

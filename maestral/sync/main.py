@@ -12,7 +12,6 @@ import os
 import os.path as osp
 import shutil
 import time
-import functools
 from threading import Thread
 import logging.handlers
 from collections import namedtuple, deque
@@ -20,8 +19,10 @@ from collections import namedtuple, deque
 # external packages
 import click
 import requests
-from dropbox import files
 from blinker import signal
+from dropbox import files
+
+from maestral.sync.utils import handle_disconnect, with_sync_paused
 
 try:
     from systemd import journal
@@ -35,27 +36,23 @@ except ImportError:
     system_notifier = None
 
 # maestral modules
-from maestral.sync.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
-                                   path_exists_case_insensitive, is_child)
+from maestral.sync.monitor import MaestralMonitor
+from maestral.sync.utils.path import is_child, path_exists_case_insensitive
+from maestral.sync.constants import (
+    IDLE, DISCONNECTED,
+    CONFIG_NAME,
+    INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
+)
 from maestral.sync.client import MaestralApiClient
 from maestral.sync.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
-from maestral.sync.utils.app_dirs import get_log_path, get_cache_path, get_home_dir
+from maestral.sync.utils.appdirs import get_log_path, get_cache_path, get_home_dir
 from maestral.sync.utils.updates import check_update_available
 from maestral.sync.oauth import OAuth2Session
-from maestral.sync.errors import MaestralApiError, DropboxAuthError
+from maestral.sync.errors import MaestralApiError
 from maestral.sync.errors import CONNECTION_ERRORS, SYNC_ERRORS
 from maestral.config.main import CONF
 
-
-CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
-
 # check environment variables set by systemd
-INVOCATION_ID = os.getenv("INVOCATION_ID")
-NOTIFY_SOCKET = os.getenv("NOTIFY_SOCKET")
-WATCHDOG_PID = os.getenv("WATCHDOG_PID")
-WATCHDOG_USEC = os.getenv("WATCHDOG_USEC")
-
-IS_WATCHDOG = WATCHDOG_USEC and (WATCHDOG_PID is None or int(WATCHDOG_PID) == os.getpid())
 
 # ========================================================================================
 # Logging setup
@@ -170,48 +167,6 @@ def folder_download_worker(monitor, dbx_path, callback=None):
             except CONNECTION_ERRORS:
                 logger.debug(DISCONNECTED, exc_info=True)
                 logger.info(DISCONNECTED)
-
-
-def with_sync_paused(func):
-    """
-    Decorator which pauses syncing before a method call, resumes afterwards. This
-    should only be used to decorate Maestral methods.
-    """
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        # pause syncing
-        resume = False
-        if self.syncing:
-            self.pause_sync()
-            resume = True
-        ret = func(self, *args, **kwargs)
-        # resume syncing if previously paused
-        if resume:
-            self.resume_sync()
-        return ret
-    return wrapper
-
-
-def handle_disconnect(func):
-    """
-    Decorator which handles connection and auth errors during a function call and returns
-    ``False`` if an error occurred.
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        # pause syncing
-        try:
-            res = func(*args, **kwargs)
-            return res
-        except CONNECTION_ERRORS:
-            logger.info(DISCONNECTED)
-            return False
-        except DropboxAuthError as e:
-            logger.exception("{0}: {1}".format(e.title, e.message))
-            return False
-
-    return wrapper
 
 
 # ========================================================================================
@@ -585,7 +540,8 @@ Any changes to local files during this process may be lost.""")
             pass
 
         CONF.reset_to_defaults()
-        CONF.set("main", "default_dir_name", "Dropbox ({0})".format(CONFIG_NAME.capitalize()))
+        CONF.set("main", "default_dir_name", "Dropbox ({0})".format(
+            CONFIG_NAME.capitalize()))
 
         logger.info("Unlinked Dropbox account.")
 
@@ -859,7 +815,7 @@ Any changes to local files during this process may be lost.""")
     def _periodic_watchdog(self):
         while self.monitor.running.is_set():
             system_notifier.notify("WATCHDOG=1")
-            time.sleep(int(WATCHDOG_USEC)/(2*10**6))
+            time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
 
     def shutdown_pyro_daemon(self):
         """Does nothing except for setting the _daemon_running flag to ``False``. This

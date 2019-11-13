@@ -12,8 +12,8 @@ import urllib
 import shutil
 
 # external packages
-from PyQt5 import QtCore, QtGui, QtWidgets, uic
 import click
+from PyQt5 import QtCore, QtGui, QtWidgets, uic
 
 # maestral modules
 from maestral.gui.resources import (SYNC_ISSUES_WINDOW_PATH, SYNC_ISSUE_WIDGET_PATH,

@@ -11,4 +11,4 @@ import os
 # this is needed to find icons installed for the current user only
 XDG_DATA_DIRS = os.environ.get("XDG_DATA_DIRS")
 if XDG_DATA_DIRS:
-  os.environ["XDG_DATA_DIRS"] = XDG_DATA_DIRS + ":" + os.path.expanduser("~/.local/share")
+    os.environ["XDG_DATA_DIRS"] = XDG_DATA_DIRS + ":" + os.path.expanduser("~/.local/share")

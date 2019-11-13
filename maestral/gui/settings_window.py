@@ -16,8 +16,8 @@ from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 # maestral modules
 from maestral import __version__, __author__, __url__
-from maestral.gui.autostart import AutoStart
 from maestral.config.base import get_home_dir
+from maestral.gui.autostart import AutoStart
 from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
                                     SETTINGS_WINDOW_PATH, APP_ICON_PATH, FACEHOLDER_PATH)

@@ -11,17 +11,21 @@ import sys
 import os
 import logging
 import platform
-import shutil
 import time
 from subprocess import Popen
 
 # external packages
 import click
+import keyring
+from keyring.errors import KeyringLocked
 from PyQt5 import QtCore, QtWidgets
 
 # maestral modules
-from maestral.sync.main import Maestral
-from maestral.sync.monitor import IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, SYNC_ERROR
+from maestral.config.main import CONF
+from maestral.sync.constants import (
+    IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, SYNC_ERROR,
+    IS_MACOS_BUNDLE
+)
 from maestral.sync.daemon import (
     start_maestral_daemon_process,
     start_maestral_daemon_thread,
@@ -30,13 +34,10 @@ from maestral.sync.daemon import (
     get_maestral_daemon_proxy,
 )
 from maestral.gui.settings_window import SettingsWindow
-from maestral.gui.setup_dialog import SetupDialog
-from maestral.gui.relink_dialog import RelinkDialog
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import get_system_tray_icon
 from maestral.gui.autostart import AutoStart
-from maestral.sync.utils import is_macos_bundle
 from maestral.gui.utils import (
     UserDialog,
     MaestralBackgroundTask,
@@ -47,7 +48,6 @@ from maestral.gui.utils import (
 
 logger = logging.getLogger(__name__)
 
-HAS_GTK_LAUNCH = shutil.which("gtk-launch") is not None
 CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
 
 
@@ -127,10 +127,11 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def load_maestral(self):
 
-        pending_link = Maestral.pending_link()
-        pending_dbx_folder = Maestral.pending_dropbox_folder()
+        pending_link = not _is_linked()
+        pending_dbx_folder = not os.path.isdir(CONF.get("main", "path"))
 
         if pending_link or pending_dbx_folder:
+            from maestral.gui.setup_dialog import SetupDialog
             logger.info("Setting up Maestral...")
             done = SetupDialog.configureMaestral(pending_link)
             if done:
@@ -148,7 +149,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         if pid:
             self._started = False
         else:
-            if is_macos_bundle:
+            if IS_MACOS_BUNDLE:
                 res = start_maestral_daemon_thread(CONFIG_NAME)
             else:
                 res = start_maestral_daemon_process(CONFIG_NAME)
@@ -386,8 +387,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.mdbx.stop_sync()
             self.restart()
         elif err["type"] == "DropboxAuthError":
+            from maestral.gui.relink_dialog import RelinkDialog
             self._stop_and_exec_relink_dialog(RelinkDialog.REVOKED)
         elif err["type"] == "TokenExpiredError":
+            from maestral.gui.relink_dialog import RelinkDialog
             self._stop_and_exec_relink_dialog(RelinkDialog.EXPIRED)
         else:
             title = "An unexpected error occurred."
@@ -404,6 +407,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.rebuild_dialog.raise_()
 
     def _stop_and_exec_relink_dialog(self, reason):
+        from maestral.gui.relink_dialog import RelinkDialog
+
         self.setIcon(SYNC_ERROR)
 
         if self.mdbx:
@@ -522,7 +527,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.update_ui_timer.stop()
 
         # stop sync daemon if we started it or ``stop_daemon==True``
-        if stop_daemon and self.mdbx and not is_macos_bundle:
+        if stop_daemon and self.mdbx and not IS_MACOS_BUNDLE:
             self.mdbx._pyroRelease()
             stop_maestral_daemon_process(CONFIG_NAME)
 
@@ -537,7 +542,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         # schedule restart after current process has quit
         pid = os.getpid()  # get ID of current process
         config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
-        if is_macos_bundle:
+        if IS_MACOS_BUNDLE:
             launch_command = os.path.join(sys._MEIPASS, "main")
             Popen("lsof -p {0} +r 1 &>/dev/null; {0}".format(launch_command), shell=True)
         if platform.system() == "Darwin":
@@ -549,6 +554,24 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         # quit Maestral
         self.quit(stop_daemon=True)
+
+
+def _is_linked():
+    """
+    Checks if auth key has been saved.
+
+    :raises: ``KeyringLocked`` if the system keyring cannot be accessed.
+    """
+    account_id = CONF.get("account", "account_id")
+    try:
+        if account_id == "":
+            access_token = None
+        else:
+            access_token = keyring.get_password("Maestral", account_id)
+        return access_token
+    except KeyringLocked:
+        info = "Please make sure that your keyring is unlocked and restart Maestral."
+        raise KeyringLocked(info)
 
 
 def run():

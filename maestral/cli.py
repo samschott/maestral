@@ -653,7 +653,7 @@ def excluded_list(config_name: str, running: bool):
 @with_config_opt
 def show(config_name: str, running: bool):
     """Shows Maestral's log file in reversed order (last message first)."""
-    from maestral.sync.utils.app_dirs import get_log_path
+    from maestral.sync.utils.appdirs import get_log_path
 
     log_file = get_log_path("maestral", config_name + ".log")
 
@@ -672,7 +672,7 @@ def show(config_name: str, running: bool):
 @with_config_opt
 def clear(config_name: str, running: bool):
     """Clears Maestral's log file."""
-    from maestral.sync.utils.app_dirs import get_log_path
+    from maestral.sync.utils.appdirs import get_log_path
 
     log_dir = get_log_path("maestral")
     log_name = config_name + ".log"

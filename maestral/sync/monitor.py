@@ -9,7 +9,6 @@ Created on Wed Oct 31 16:23:13 2018
 import os
 import os.path as osp
 import platform
-import shutil
 import logging
 import time
 from threading import Thread, Event, RLock
@@ -35,26 +34,17 @@ from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 # maestral modules
 from maestral.config.main import CONF
-from maestral.sync.utils import delete_file_or_folder
+from maestral.sync.constants import IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, \
+    SYNC_ERROR, REV_FILE
 from maestral.sync.utils.content_hasher import DropboxContentHasher
 from maestral.sync.utils.notify import Notipy
 from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, CursorResetError,
                                   RevFileError, DropboxDeletedError, DropboxAuthError,
                                   ExcludedItemError, PathError)
-
+from maestral.sync.utils.path import is_child, path_exists_case_insensitive, \
+    delete_file_or_folder
 
 logger = logging.getLogger(__name__)
-
-
-IDLE = "Up to date"
-SYNCING = "Syncing..."
-PAUSED = "Syncing paused"
-STOPPED = "Syncing stopped"
-DISCONNECTED = "Connecting..."
-SYNC_ERROR = "Sync error"
-
-REV_FILE = ".maestral"
-OLD_REV_FILE = ".dropbox"
 
 
 # ========================================================================================
@@ -312,24 +302,11 @@ class UpDownSync(object):
         self.queue_uploading = queue_uploading
         self.queue_downloading = queue_downloading
 
-        # migrate rev file
-        self._migrate_rev_file()
-
         # load cached properties
         self._dropbox_path = CONF.get("main", "path")
         self._excluded_files = CONF.get("main", "excluded_files")
         self._excluded_folders = CONF.get("main", "excluded_folders")
         self._rev_dict_cache = self._load_rev_dict_from_file()
-
-    def _migrate_rev_file(self):
-        if os.path.isfile(self._old_rev_file_path):
-            shutil.copyfile(self._old_rev_file_path, self.rev_file_path)
-            os.remove(self._old_rev_file_path)
-
-    @property
-    def _old_rev_file_path(self):
-        """Path to file with revision index (read only)."""
-        return osp.join(self.dropbox_path, OLD_REV_FILE)
 
     @property
     def rev_file_path(self):
@@ -672,7 +649,7 @@ class UpDownSync(object):
 
         # in excluded files?
         test0 = basename in ["desktop.ini",  "thumbs.db", ".ds_store", "icon\r",
-                             ".dropbox.attr", OLD_REV_FILE, REV_FILE]
+                             ".dropbox.attr", REV_FILE]
 
         # is temporary file?
         # 1) macOS autosave files
@@ -1518,6 +1495,8 @@ class UpDownSync(object):
 
             elif isinstance(md, FolderMetadata):
                 change_type = "added"
+            else:
+                change_type = "changed"
 
             if user_name:
                 self.notify.send("{0} {1} {2}".format(user_name, change_type, file_name))
@@ -2012,68 +1991,6 @@ class MaestralMonitor(object):
 # ========================================================================================
 # Helper functions
 # ========================================================================================
-
-def path_exists_case_insensitive(path, root="/"):
-    """
-    Checks if a `path` exists in given `root` directory, similar to
-    `os.path.exists` but case-insensitive. If there are multiple
-    case-insensitive matches, the first one is returned. If there is no match,
-    an empty string is returned.
-
-    :param str path: Relative path of item to find in the `root` directory.
-    :param str root: Directory where we will look for `path`.
-    :return: Absolute and case-sensitive path to search result on hard drive.
-    :rtype: str
-    """
-
-    if not osp.isdir(root):
-        raise ValueError("'{0}' is not a directory.".format(root))
-
-    if path in ["", "/"]:
-        return root
-
-    path_list = path.lstrip(osp.sep).split(osp.sep)
-    path_list_lower = [x.lower() for x in path_list]
-
-    i = 0
-    local_paths = []
-    for root, dirs, files in os.walk(root):
-        for d in list(dirs):
-            if not d.lower() == path_list_lower[i]:
-                dirs.remove(d)
-        for f in list(files):
-            if not f.lower() == path_list_lower[i]:
-                files.remove(f)
-
-        local_paths = [osp.join(root, name) for name in dirs + files]
-
-        i += 1
-        if i == len(path_list_lower):
-            break
-
-    if len(local_paths) == 0:
-        return ''
-    else:
-        return local_paths[0]
-
-
-def is_child(path1, path2):
-    """
-    Checks if :param:`path1` semantically is inside folder :param:`path2`. Neither
-    path must refer to an actual item on the drive. This function is case sensitive.
-
-    :param str path1: Folder path.
-    :param str path2: Parent folder path.
-    :returns: ``True`` if :param:`path1` semantically is a subfolder of :param:`path2`,
-        ``False`` otherwise (including ``path1 == path2``.
-    :rtype: bool
-    """
-    assert isinstance(path1, str)
-    assert isinstance(path2, str)
-
-    path2.rstrip(osp.sep)
-
-    return path1.startswith(path2 + osp.sep) and not path1 == path2
 
 
 def get_local_hash(local_path):

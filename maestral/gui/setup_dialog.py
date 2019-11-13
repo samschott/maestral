@@ -14,8 +14,9 @@ from PyQt5 import QtGui, QtCore, QtWidgets, uic
 from PyQt5.QtCore import QModelIndex, Qt
 
 # maestral modules
-from maestral.sync.main import Maestral, handle_disconnect
-from maestral.sync.utils import delete_file_or_folder
+from maestral.config.main import CONF
+from maestral.sync.utils import handle_disconnect
+from maestral.sync.utils.path import delete_file_or_folder
 from maestral.sync.oauth import OAuth2Session
 from maestral.config.base import get_home_dir
 from maestral.gui.resources import APP_ICON_PATH, SETUP_DIALOG_PATH, get_native_item_icon
@@ -35,6 +36,8 @@ class SetupDialog(QtWidgets.QDialog):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(SETUP_DIALOG_PATH, self)
+
+        from maestral.sync.main import Maestral
 
         self.app_icon = QtGui.QIcon(APP_ICON_PATH)
 
@@ -57,7 +60,7 @@ class SetupDialog(QtWidgets.QDialog):
             b.setMaximumWidth(width)
 
         # set up combobox
-        self.dropbox_location = osp.dirname(Maestral.get_conf("main", "path")) or get_home_dir()
+        self.dropbox_location = osp.dirname(CONF.get("main", "path")) or get_home_dir()
         relative_path = self.rel_path(self.dropbox_location)
 
         folder_icon = get_native_item_icon(self.dropbox_location)
@@ -87,7 +90,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.pushButtonClose.clicked.connect(self.on_accept_requested)
         self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
 
-        default_dir_name = Maestral.get_conf("main", "default_dir_name")
+        default_dir_name = CONF.get("main", "default_dir_name")
 
         self.labelDropboxPath.setText(self.labelDropboxPath.text().format(default_dir_name))
 
@@ -183,6 +186,8 @@ class SetupDialog(QtWidgets.QDialog):
         self.auth_task.sig_done.connect(self.on_verify_token_finished)
 
     def on_verify_token_finished(self, res):
+
+        from maestral.sync.main import Maestral
 
         if res == OAuth2Session.Success:
             self.auth_session.save_creds()

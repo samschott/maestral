@@ -15,7 +15,7 @@ import keyring
 from keyring.errors import KeyringLocked
 
 # maestral modules
-from maestral.sync.utils import is_macos_bundle
+from maestral.sync.constants import IS_MACOS_BUNDLE
 from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
 from maestral.sync.oauth_implicit import DropboxOAuth2FlowImplicit
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 APP_KEY = "2jmbq42w7vof78h"
 
 
-if is_macos_bundle:
+if IS_MACOS_BUNDLE:
     import keyring.backends.OS_X
     keyring.set_keyring(keyring.backends.OS_X.Keyring())
 else:
@@ -53,8 +53,6 @@ class OAuth2Session(object):
 
         self.account_id = CONF.get("account", "account_id")
         self.access_token = ""
-
-        self.migrate_to_keyring()
 
     def load_token(self):
         """

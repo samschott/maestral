@@ -12,7 +12,8 @@ from enum import Enum
 from pathlib import Path
 import logging
 
-from maestral.sync.utils import is_macos_bundle, check_version
+from maestral.sync.utils.updates import check_version
+from maestral.sync.constants import IS_MACOS_BUNDLE
 
 if platform.system() == "Darwin":
     import UserNotifications
@@ -102,7 +103,7 @@ class Notipy(object):
         )
 
     def __get_available_implementation(self):
-        if is_macos_bundle and check_version(macos_version, '10.14.0', '>='):
+        if IS_MACOS_BUNDLE and check_version(macos_version, '10.14.0', '>='):
             return SupportedImplementations.notification_center
         elif platform.system() == "Darwin" and check_version(macos_version, '10.16.0', '<'):
             return SupportedImplementations.legacy_notification_center

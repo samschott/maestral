@@ -7,7 +7,6 @@ Created on Wed Oct 31 16:23:13 2018
 """
 
 # external packages
-import dropbox
 import requests
 
 
@@ -154,6 +153,7 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
     :returns: :class:`MaestralApiError` instance.
     :rtype: :class:`MaestralApiError`
     """
+    import dropbox
 
     err_type = MaestralApiError
 
@@ -339,7 +339,6 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
 
 
 def _get_write_error_msg(write_error):
-    assert isinstance(write_error, dropbox.files.WriteError)
 
     text = None
     err_type = MaestralApiError
@@ -371,7 +370,6 @@ def _get_write_error_msg(write_error):
 
 
 def _get_lookup_error_msg(lookup_error):
-    assert isinstance(lookup_error, dropbox.files.LookupError)
 
     text = None
     err_type = MaestralApiError

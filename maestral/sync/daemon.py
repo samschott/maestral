@@ -26,7 +26,7 @@ def _get_sock_name(config_name):
     """
     os.environ["MAESTRAL_CONFIG"] = config_name
 
-    from maestral.sync.utils.app_dirs import get_runtime_path
+    from maestral.sync.utils.appdirs import get_runtime_path
     return get_runtime_path("maestral", config_name + ".sock")
 
 
@@ -34,7 +34,7 @@ def _write_pid(config_name):
     """
     Writes the PID to the appropriate file for the given config name.
     """
-    from maestral.sync.utils.app_dirs import get_runtime_path
+    from maestral.sync.utils.appdirs import get_runtime_path
     pid_file = get_runtime_path("maestral", config_name + ".pid")
     with open(pid_file, "w") as f:
         f.write(str(os.getpid()))
@@ -47,7 +47,7 @@ def _read_pid(config_name):
     Reads and returns the PID of the current maestral daemon process from the appropriate
     file for the given config name.
     """
-    from maestral.sync.utils.app_dirs import get_runtime_path
+    from maestral.sync.utils.appdirs import get_runtime_path
     pid_file = get_runtime_path("maestral", config_name + ".pid")
     with open(pid_file, "r") as f:
         pid = f.read().split("\n")[0]  # ignore all new lines
@@ -62,7 +62,7 @@ def _delete_pid(config_name):
     """
     Deletes the PID file for the given config name.
     """
-    from maestral.sync.utils.app_dirs import get_runtime_path
+    from maestral.sync.utils.appdirs import get_runtime_path
     pid_file = get_runtime_path("maestral", config_name + ".pid")
     os.unlink(pid_file)
 
@@ -254,7 +254,7 @@ def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
 
     if pid:
 
-        from maestral.sync.utils.app_dirs import get_runtime_path
+        from maestral.sync.utils.appdirs import get_runtime_path
         sock_name = get_runtime_path("maestral", config_name + ".sock")
 
         sys.excepthook = Pyro4.util.excepthook

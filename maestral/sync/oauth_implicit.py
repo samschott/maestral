@@ -13,8 +13,12 @@ import logging
 
 # external packages
 import dropbox
-from dropbox.oauth import (OAuth2FlowNoRedirectResult, WEB_HOST, API_HOST,
-                           pinned_session, url_path_quote, _params_to_urlencoded)
+from dropbox.oauth import (
+    OAuth2FlowNoRedirectResult,
+    WEB_HOST, API_HOST,
+    pinned_session, url_path_quote,
+    _params_to_urlencoded
+)
 
 # maestral modules
 from maestral.sync.errors import api_to_maestral_error
