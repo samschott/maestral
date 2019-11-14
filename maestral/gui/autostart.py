@@ -6,9 +6,10 @@ Created on Sun Dec  9 23:08:47 2018
 @author: samschott
 """
 
-import platform
 import sys
 import os
+import stat
+import platform
 
 from maestral import __version__
 from maestral.sync.utils.appdirs import get_autostart_path
@@ -21,8 +22,10 @@ class AutoStart(object):
     """Creates auto-start entries in the appropriate system location to automatically
     start Maestral when the user logs in."""
 
+    system = platform.system()
+
     def __init__(self):
-        system = platform.system()
+
         config_name = os.getenv('MAESTRAL_CONFIG', 'maestral')
 
         if IS_MACOS_BUNDLE:
@@ -30,15 +33,15 @@ class AutoStart(object):
         else:
             launch_command = "maestral gui --config-name='{}'".format(config_name)
 
-        if system == "Darwin":
+        if self.system == "Darwin":
             app_name = "com.samschott.maestral.{}".format(config_name)
             filename = app_name + ".plist"
             self.contents = _plist_template.format(app_name, launch_command)
-        elif system == "Linux":
+        elif self.system == "Linux":
             filename = "maestral-{}.desktop".format(config_name)
             self.contents = _desktop_entry_template.format(__version__, launch_command)
         else:
-            raise OSError("Windows is not currently supported.")
+            raise OSError("Your system is not currently supported.")
 
         self.destination = get_autostart_path(filename)
 
@@ -46,6 +49,10 @@ class AutoStart(object):
 
         with open(self.destination, "w+") as f:
             f.write(self.contents)
+
+        if self.system == "Linux":  # make app launcher executable
+            st = os.stat(self.destination)
+            os.chmod(self.destination, st.st_mode | stat.S_IEXEC)
 
     def disable(self):
         if os.path.exists(self.destination):
