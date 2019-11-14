@@ -162,7 +162,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
                 res = start_maestral_daemon_thread(CONFIG_NAME)
             else:
                 res = start_maestral_daemon_process(CONFIG_NAME)
-            self._started = True
 
             if res is False:
                 error_dialog = UserDialog(
@@ -172,6 +171,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
                 )
                 error_dialog.exec_()
                 self.quit()
+            else:
+                self._started = True
 
         return get_maestral_daemon_proxy(CONFIG_NAME)
 
