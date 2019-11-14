@@ -761,6 +761,9 @@ class UpDownSync(object):
                     event = FileDeletedEvent(self.to_local_path(path))
                 changes.append(event)
 
+        del snapshot
+        del lowercase_snapshot_paths
+
         return changes
 
     def wait_for_local_changes(self, timeout=2, delay=0.5):
@@ -954,7 +957,7 @@ class UpDownSync(object):
                     # emit message at maximum every second
                     logger.info("Uploading {0}/{1}...".format(n, n_files))
                     last_emit = time.time()
-                success += [f.result()]
+                success.append(f.result())
 
         if all(success):
             self.last_sync = local_cursor  # save local cursor
