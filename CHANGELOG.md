@@ -11,6 +11,8 @@ update to v0.4.3 first to avoid loss of data.
 - Reduced memory footprint of GUI by ~ 25 MB by avoiding Dropbox API imports.
 - Changes to the log level with `maestral log level` no longer require restart of the
   maestral daemon to become effective.
+- `maestral set-dir` now takes the new path as an argument: `maestral set-dir PATH`. If
+  not given, the user will be prompted to input a path or use the default.
 
 #### Fixed:
 
@@ -31,6 +33,8 @@ update to v0.4.3 first to avoid loss of data.
   UNIX Environment" for details (ISBN 0201563177).
 - Fixes an issue where the application launcher which is used to start Maestral on login
   in Linux may be untrusted.
+- Fixes an issue where `maestral set-dir` would fail if the new directory is the same as
+  the old directory.
   
 #### Removed:
 
