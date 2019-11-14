@@ -1,9 +1,16 @@
 ## v0.4.4-dev0
 
+This update removes code to migrate settings and index files from Maestral version prior
+to v0.2.5. If you are upgrading from v0.2.4 or earlier, please perform an incremental
+update to v0.4.3 first to avoid loss of data.
+
 #### Changed:
 
 - Show a progress dialog while checking for updates when requested by the user.
 - Show an error message when the GUI cannot connect to or start a sync daemon.
+- Reduced memory footprint of GUI by ~ 25 MB by avoiding Dropbox API imports.
+- Changes to the log level with `maestral log level` no longer require restart of the
+  maestral daemon to become effective.
 
 #### Fixed:
 
@@ -11,17 +18,24 @@
   indexed by Maestral.
 - Fixes an unhandled error when attempting to calculate the content hash of a file which
   has been deleted locally. This can occur after Maestral has been notified of remote
-  changes to a file which is deleted locally while comparing file contents.
-- Fixes an bug which could create multiple false "conflicting copies" of a file when the
+  changes to a file which is deleted locally before comparing file contents.
+- Fixes a bug which could result in multiple false "conflicting copies" of a file when the
   user modifies the file while it is being uploaded.
 - Fixes a regression bug which would prevent the creation and selection of new configs for
   different Dropbox accounts.
 - Fixes a bug that would prevent Maestral from properly shutting down a sync daemon which
   was started from the GUI. This was a result of the daemon's sync threads not exiting as
-  long as a parent process from the same group is still alive (the GUI in our case). We
-  prevent this by using "double-fork" magic to properly orphan the daemon process so that
-  init will perform its cleanup. See Stevens' "Advanced Programming in the UNIX
-  Environment" for details (ISBN 0201563177).
+  long as a parent process from the same process group is still alive (the GUI in our
+  case). We prevent this by using "double-fork" magic to properly orphan the daemon
+  process so that init will perform its cleanup. See Stevens' "Advanced Programming in the
+  UNIX Environment" for details (ISBN 0201563177).
+  
+#### Removed:
+
+- Removed code to migrate config files and sync indices from Maestral versions prior to
+  v0.2.5.
+- Removed code to migrate authentication keys to the system keyring when upgrading from
+  v0.1.2 or earlier.
 
 ## v0.4.3
 
