@@ -460,7 +460,7 @@ def notify(config_name: str, yes: bool, running: bool):
 
 @main.command()
 @with_config_opt
-@click.option("--new-path", "-p", type=click.Path(writable=True), default=None)
+@click.argument("new_path", required=False, type=click.Path(writable=True))
 def set_dir(config_name: str, new_path: str, running: bool):
     """Change the location of your Dropbox folder."""
 
@@ -695,8 +695,7 @@ def clear(config_name: str, running: bool):
 
 
 @log.command()
-@click.argument('level_name', required=False,
-                type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
+@click.argument('level_name', required=False, type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
 @with_config_opt
 def level(config_name: str, level_name: str, running: bool):
     """Gets or sets the log level. Changes will take effect after restart."""
