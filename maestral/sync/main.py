@@ -721,10 +721,11 @@ Any changes to local files during this process may be lost.""")
         if new_path is None:
             new_path = self._ask_for_path(default=default_path)
 
-        if osp.exists(old_path) and osp.exists(new_path):
+        try:
             if osp.samefile(old_path, new_path):
-                # nothing to do
                 return
+        except FileNotFoundError:
+            pass
 
         # remove existing items at current location
         try:
@@ -783,6 +784,13 @@ Any changes to local files during this process may be lost.""")
             res = input(msg).strip("'\" ")
 
             dropbox_path = osp.expanduser(res or default)
+            old_path = CONF.get("main", "path")
+
+            try:
+                if osp.samefile(old_path, dropbox_path):
+                    return
+            except FileNotFoundError:
+                pass
 
             if osp.exists(dropbox_path):
                 msg = "Directory '{0}' already exist. Do you want to overwrite it?".format(dropbox_path)
