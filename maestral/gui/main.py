@@ -375,8 +375,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         err = errs[-1]
 
         if err["type"] in ("RevFileError", "BadInputError"):
-            # show error dialog to user
-            title = "Maestral Error"
+            title = err["title"]
             message = err["message"]
             self._stop_and_exec_error_dialog(title, message)
         elif err["type"] == "CursorResetError":

@@ -14,11 +14,6 @@ CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please check " +
                         "your internet connection and try again later.")
 
 
-class RevFileError(Exception):
-    """Raised when the rev file exists but cannot be read."""
-    pass
-
-
 class DropboxDeletedError(Exception):
     """Raised when the local Dropbox folder cannot be found."""
     pass
@@ -50,6 +45,11 @@ class MaestralApiError(Exception):
 
     def __str__(self):
         return "'{0}': {1}. {2}".format(self.dbx_path, self.title, self.message)
+
+
+class RevFileError(MaestralApiError):
+    """Raised when the rev file exists but cannot be read."""
+    pass
 
 
 class InsufficientPermissionsError(MaestralApiError):
