@@ -29,6 +29,8 @@ update to v0.4.3 first to avoid loss of data.
   case). We prevent this by using "double-fork" magic to properly orphan the daemon
   process so that init will perform its cleanup. See Stevens' "Advanced Programming in the
   UNIX Environment" for details (ISBN 0201563177).
+- Fixes an issue where the application launcher which is used to start Maestral on login
+  in Linux may be untrusted.
   
 #### Removed:
 
