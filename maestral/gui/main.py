@@ -24,7 +24,7 @@ from PyQt5 import QtCore, QtWidgets
 from maestral.config.main import CONF
 from maestral.sync.constants import (
     IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, SYNC_ERROR,
-    IS_MACOS_BUNDLE
+    IS_MACOS_BUNDLE, CONFIG_NAME,
 )
 from maestral.sync.daemon import (
     start_maestral_daemon_process,
@@ -45,10 +45,19 @@ from maestral.gui.utils import (
     elide_string,
 )
 
-
 logger = logging.getLogger(__name__)
 
-CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
+
+# TODO: move this to sync.utils
+if IS_MACOS_BUNDLE:
+    import keyring.backends.OS_X
+    keyring.set_keyring(keyring.backends.OS_X.Keyring())
+else:
+    # get preferred keyring backends for platform, excluding the chainer backend
+    all_keyrings = keyring.backend.get_all_keyring()
+    preferred_kreyrings = [k for k in all_keyrings if not isinstance(k, keyring.backends.chainer.ChainerBackend)]
+
+    keyring.set_keyring(max(preferred_kreyrings, key=lambda x: x.priority))
 
 
 # noinspection PyTypeChecker
