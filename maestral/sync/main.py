@@ -780,7 +780,7 @@ Any changes to local files during this process may be lost.""")
         """
         while True:
             msg = ("Please give Dropbox folder location or press enter for default "
-                   "[{0}]:".format(default))
+                   "['{0}']:".format(default))
             res = input(msg).strip("'\" ")
 
             dropbox_path = osp.expanduser(res or default)
