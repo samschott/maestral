@@ -182,7 +182,7 @@ def start_maestral_daemon_process(config_name, log_to_console=False):
     return _wait_for_startup(config_name, timeout=4)
 
 
-def stop_maestral_daemon_process(config_name="maestral", timeout=20):
+def stop_maestral_daemon_process(config_name="maestral", timeout=10):
     """Stops maestral by finding its PID and shutting it down.
 
     This function first tries to shut down Maestral gracefully. If this fails, it will
