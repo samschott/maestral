@@ -531,7 +531,7 @@ def account_info(config_name: str, running: bool):
 @main.command()
 @with_config_opt
 def rebuild_index(config_name: str, running: bool):
-    """Prints your Dropbox account information."""
+    """Rebuilds Maestral's index. May take several minutes."""
 
     if _is_maestral_linked(config_name):
 
@@ -652,7 +652,7 @@ def excluded_list(config_name: str, running: bool):
 @log.command()
 @with_config_opt
 def show(config_name: str, running: bool):
-    """Shows Maestral's log file in reversed order (last message first)."""
+    """Prints Maestral's logs to the console."""
     from maestral.sync.utils.appdirs import get_log_path
 
     log_file = get_log_path("maestral", config_name + ".log")
