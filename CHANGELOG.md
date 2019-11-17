@@ -1,15 +1,16 @@
-## v0.4.4-dev0
+## v0.4.4-dev1
 
-This update removes code to migrate settings and index files from Maestral version prior
-to v0.2.5. If you are upgrading from v0.2.4 or earlier, please perform an incremental
-update to v0.4.3 first to avoid loss of data.
+This updates focuses on bug fixes and reduces the memory usage of the GUI by ~ 30MB. It
+also removes code to migrate from Maestral version prior to v0.2.5. If you are upgrading
+from v0.2.4 or earlier, please perform an incremental update to v0.4.3 first.
 
 #### Changed:
 
 - Show a progress dialog while checking for updates when requested by the user.
 - Show an error message when the GUI cannot connect to or start a sync daemon.
-- Reduced memory footprint of GUI by ~ 25 MB by avoiding Dropbox API imports.
-- Changes to the log level with `maestral log level` no longer require restart of the
+- Reduced memory footprint of GUI by ~ 30 MB by avoiding Dropbox API imports and not
+  deleting QWidgets when they are not visible.
+- Changing the log level (`maestral log level`) no longer requires a restart of the
   maestral daemon to become effective.
 - `maestral set-dir` now takes the new path as an argument: `maestral set-dir PATH`. If
   not given, the user will be prompted to input a path or use the default.
