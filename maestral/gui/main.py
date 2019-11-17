@@ -18,7 +18,7 @@ from subprocess import Popen
 import click
 import keyring
 from keyring.errors import KeyringLocked
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, sip
 
 # maestral modules
 from maestral.config.main import CONF
@@ -89,9 +89,17 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self._n_errors = None
         self._status = None
 
+        self.settings_window = None
+        self.sync_issues_window = None
+        self.rebuild_dialog = None
+
         self.update_ui_timer = QtCore.QTimer()
         self.update_ui_timer.timeout.connect(self.update_ui)
         self.update_ui_timer.start(500)  # every 500 ms
+
+        self._check_for_updates_timer = QtCore.QTimer()
+        self._check_for_updates_timer.timeout.connect(self.auto_check_for_updates)
+        self._check_for_updates_timer.start(30 * 60 * 1000)  # every 30 min
 
     def setIcon(self, icon_name):
         icon = self.icons.get(icon_name, self.icons[SYNCING])
@@ -221,10 +229,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.setToolTip(IDLE)
 
-        # ----------------- create windows ----------------------
-        self.settings = SettingsWindow(self, self.mdbx)
-        self.sync_issues_window = SyncIssueWindow(self.mdbx)
-
         # ------------- populate context menu -------------------
 
         self.menu.clear()
@@ -273,15 +277,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             lambda: click.launch(self.mdbx.dropbox_path))
         self.openWebsiteAction.triggered.connect(self.on_website_clicked)
         self.pauseAction.triggered.connect(self.on_start_stop_clicked)
-        self.preferencesAction.triggered.connect(self.settings.populate_gui)
-        self.preferencesAction.triggered.connect(self.settings.show)
-        self.preferencesAction.triggered.connect(self.settings.raise_)
-        self.preferencesAction.triggered.connect(self.settings.activateWindow)
-        self.updatesAction.triggered.connect(self.on_check_for_updates)
-        self.syncIssuesAction.triggered.connect(self.sync_issues_window.show)
-        self.syncIssuesAction.triggered.connect(self.sync_issues_window.raise_)
-        self.syncIssuesAction.triggered.connect(self.sync_issues_window.activateWindow)
-        self.rebuiltAction.triggered.connect(self.on_rebuild)
+        self.preferencesAction.triggered.connect(self.on_settings_clicked)
+        self.updatesAction.triggered.connect(self.on_check_for_updates_clicked)
+        self.syncIssuesAction.triggered.connect(self.on_sync_issues_clicked)
+        self.rebuiltAction.triggered.connect(self.on_rebuild_clicked)
         self.helpAction.triggered.connect(self.on_help_clicked)
         self.quitAction.triggered.connect(self.quit)
 
@@ -296,11 +295,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         # --------------- switch to idle icon -------------------
         self.setIcon(IDLE)
 
-        # ----------- check for updates and notify user ---------
-        self._update_timer = QtCore.QTimer()
-        self._update_timer.timeout.connect(self.auto_check_for_updates)
-        self._update_timer.start(30*60*1000)  # every 30 min
-
     # callbacks for user interaction
 
     def auto_check_for_updates(self):
@@ -314,7 +308,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             checker.sig_done.connect(
                 lambda res: self._notify_updates(res, user_requested=False))
 
-    def on_check_for_updates(self):
+    def on_check_for_updates_clicked(self):
 
         checker = MaestralBackgroundTask(self, "check_for_updates")
         self._pd = MaestralBackgroundTaskProgressDialog("Checking for Updates")
@@ -374,74 +368,27 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.mdbx.start_sync()
             self.pauseAction.setText(self.PAUSE_TEXT)
 
-    def update_error(self):
-        errs = self.mdbx.get_maestral_errors()
+    def on_settings_clicked(self):
 
-        if not errs:
-            return
-        else:
-            self.mdbx.clear_maestral_errors()
+        self.settings_window = SettingsWindow(self, self.mdbx)
+        self.settings_window.show()
+        self.settings_window.raise_()
+        self.settings_window.activateWindow()
+        self.settings_window.setAttribute(QtCore.Qt.WA_DeleteOnClose)
 
-        err = errs[-1]
+    def on_sync_issues_clicked(self):
+        self.sync_issues_window = SyncIssueWindow(self.mdbx)
+        self.sync_issues_window.show()
+        self.sync_issues_window.raise_()
+        self.sync_issues_window.activateWindow()
+        self.sync_issues_window.setAttribute(QtCore.Qt.WA_DeleteOnClose)
 
-        if err["type"] in ("RevFileError", "BadInputError"):
-            title = err["title"]
-            message = err["message"]
-            self._stop_and_exec_error_dialog(title, message)
-        elif err["type"] == "CursorResetError":
-            title = "Dropbox has reset its sync state."
-            message = 'Please go to "Rebuild index..." to re-sync your Dropbox.'
-            self._stop_and_exec_error_dialog(title, message)
-        elif err["type"] == "DropboxDeletedError":
-            self.mdbx.stop_sync()
-            self.restart()
-        elif err["type"] == "DropboxAuthError":
-            from maestral.gui.relink_dialog import RelinkDialog
-            self._stop_and_exec_relink_dialog(RelinkDialog.REVOKED)
-        elif err["type"] == "TokenExpiredError":
-            from maestral.gui.relink_dialog import RelinkDialog
-            self._stop_and_exec_relink_dialog(RelinkDialog.EXPIRED)
-        else:
-            title = "An unexpected error occurred."
-            message = ("Please restart Maestral to continue syncing and contact "
-                       "the developer with the information below.")
-            self._stop_and_exec_error_dialog(title, message, err["traceback"])
-            self.mdbx.start_sync()  # resume sync again
-
-    def on_rebuild(self):
+    def on_rebuild_clicked(self):
 
         self.rebuild_dialog = RebuildIndexDialog(self.mdbx)
         self.rebuild_dialog.show()
         self.rebuild_dialog.activateWindow()
         self.rebuild_dialog.raise_()
-
-    def _stop_and_exec_relink_dialog(self, reason):
-        from maestral.gui.relink_dialog import RelinkDialog
-
-        self.setIcon(SYNC_ERROR)
-
-        if self.mdbx:
-            self.mdbx.stop_sync()
-        if hasattr(self, "pauseAction"):
-            self.pauseAction.setText("Start Syncing")
-            self.pauseAction.setEnabled(False)
-
-        relink_dialog = RelinkDialog(self, reason)
-        # Will either just return (Cancel), relink the account (Link) or unlink it and
-        # delete the old creds (Unlink). In the first case
-
-        relink_dialog.exec_()  # this will perform quit actions as appropriate
-
-    def _stop_and_exec_error_dialog(self, title, message, exc_info=None):
-        self.setIcon(SYNC_ERROR)
-
-        if self.mdbx:
-            self.mdbx.stop_sync()
-        if hasattr(self, "pauseAction"):
-            self.pauseAction.setText("Start Syncing")
-
-        error_dialog = UserDialog(title, message, exc_info)
-        error_dialog.exec_()
 
     # callbacks to update GUI
 
@@ -487,7 +434,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.statusAction.setText(status_short)
 
         # update sync issues window
-        if n_errors != self._n_errors:
+        if n_errors != self._n_errors and _is_pyqt_obj(self.sync_issues_window):
             self.sync_issues_window.reload()
 
         # update tooltip
@@ -496,6 +443,65 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         # cache status
         self._n_errors = n_errors
         self._status = status
+
+    def update_error(self):
+        errs = self.mdbx.get_maestral_errors()
+
+        if not errs:
+            return
+        else:
+            self.mdbx.clear_maestral_errors()
+
+        err = errs[-1]
+
+        if err["type"] in ("RevFileError", "BadInputError"):
+            title = err["title"]
+            message = err["message"]
+            self._stop_and_exec_error_dialog(title, message)
+        elif err["type"] == "CursorResetError":
+            title = "Dropbox has reset its sync state."
+            message = 'Please go to "Rebuild index..." to re-sync your Dropbox.'
+            self._stop_and_exec_error_dialog(title, message)
+        elif err["type"] == "DropboxDeletedError":
+            self.mdbx.stop_sync()
+            self.restart()
+        elif err["type"] == "DropboxAuthError":
+            from maestral.gui.relink_dialog import RelinkDialog
+            self._stop_and_exec_relink_dialog(RelinkDialog.REVOKED)
+        elif err["type"] == "TokenExpiredError":
+            from maestral.gui.relink_dialog import RelinkDialog
+            self._stop_and_exec_relink_dialog(RelinkDialog.EXPIRED)
+        else:
+            title = "An unexpected error occurred."
+            message = ("Please restart Maestral to continue syncing and contact "
+                       "the developer with the information below.")
+            self._stop_and_exec_error_dialog(title, message, err["traceback"])
+            self.mdbx.start_sync()  # resume sync again
+
+    def _stop_and_exec_relink_dialog(self, reason):
+        from maestral.gui.relink_dialog import RelinkDialog
+
+        self.setIcon(SYNC_ERROR)
+
+        if self.mdbx:
+            self.mdbx.stop_sync()
+        if hasattr(self, "pauseAction"):
+            self.pauseAction.setText("Start Syncing")
+            self.pauseAction.setEnabled(False)
+
+        relink_dialog = RelinkDialog(self, reason)
+        relink_dialog.exec_()  # will perform quit / restart as appropriate
+
+    def _stop_and_exec_error_dialog(self, title, message, exc_info=None):
+        self.setIcon(SYNC_ERROR)
+
+        if self.mdbx:
+            self.mdbx.stop_sync()
+        if hasattr(self, "pauseAction"):
+            self.pauseAction.setText("Start Syncing")
+
+        error_dialog = UserDialog(title, message, exc_info)
+        error_dialog.exec_()
 
     def _onContextMenuAboutToShow(self):
         self._context_menu_visible = True
@@ -581,6 +587,15 @@ def _is_linked():
     except KeyringLocked:
         info = "Please make sure that your keyring is unlocked and restart Maestral."
         raise KeyringLocked(info)
+
+
+def _is_pyqt_obj(obj):
+    """Checks if ``obj`` wraps an underlying C/C++ object."""
+    try:
+        sip.unwrapinstance(obj)
+    except (RuntimeError, TypeError):
+        return False
+    return True
 
 
 def run():

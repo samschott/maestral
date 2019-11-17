@@ -88,8 +88,8 @@ class SettingsWindow(QtWidgets.QWidget):
 
         # update profile pic and account info periodically
         self.update_timer = QtCore.QTimer()
-        self.update_timer.timeout.connect(self.update_account_info)
-        self.update_timer.start(1000*60*20)  # every 20 min
+        self.update_timer.timeout.connect(self.update_account_info_from_chache)
+        self.update_timer.start(1000*60*5)  # every 5 min
 
         # connect callbacks
         self.pushButtonUnlink.clicked.connect(self.unlink_dialog.exec_)
@@ -115,9 +115,7 @@ class SettingsWindow(QtWidgets.QWidget):
     def populate_gui(self):
 
         # populate account info
-        self.set_account_info_from_cache()
-        self.set_profile_pic_from_cache()
-        self.update_account_info()
+        self.update_account_info_from_chache()
 
         # populate sync section
         parent_dir = osp.split(self.mdbx.dropbox_path)[0]
@@ -181,13 +179,10 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelAccountInfo.setText(acc_mail + acc_type_text)
         self.labelSpaceUsage.setText(acc_space_usage)
 
-    def update_account_info(self):
+    def update_account_info_from_chache(self):
 
-        self.load_profile_pic = MaestralBackgroundTask(self, "get_profile_pic")
-        self.load_profile_pic.sig_done.connect(self.set_profile_pic_from_cache)
-
-        self.load_account_info = MaestralBackgroundTask(self, "get_account_info")
-        self.load_account_info.sig_done.connect(self.set_account_info_from_cache)
+        self.set_profile_pic_from_cache()
+        self.set_account_info_from_cache()
 
     def on_combobox_path(self, idx):
         if idx == 2:

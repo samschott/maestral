@@ -807,6 +807,7 @@ Any changes to local files during this process may be lost.""")
             # update account info
             self.get_account_info()
             self.get_space_usage()
+            self.get_profile_pic()
             # check for maestral updates
             res = self.check_for_updates()
             if not res["error"]:
