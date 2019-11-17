@@ -34,15 +34,15 @@ from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 # maestral modules
 from maestral.config.main import CONF
-from maestral.sync.constants import IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, \
-    SYNC_ERROR, REV_FILE
+from maestral.sync.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
+                                     SYNC_ERROR, REV_FILE)
 from maestral.sync.utils.content_hasher import DropboxContentHasher
 from maestral.sync.utils.notify import Notipy
 from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, CursorResetError,
                                   RevFileError, DropboxDeletedError, DropboxAuthError,
                                   ExcludedItemError, PathError)
-from maestral.sync.utils.path import is_child, path_exists_case_insensitive, \
-    delete_file_or_folder
+from maestral.sync.utils.path import (is_child, path_exists_case_insensitive,
+                                      delete_file_or_folder)
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +58,10 @@ class TimedQueue(queue.Queue):
     :ivar update_time: Time of the last put.
     """
 
+    __slots__ = ("update_time",)
+
     def __init__(self):
         super(self.__class__, self).__init__()
-
         self.update_time = 0
 
     # Put a new item in the queue, remember time
@@ -81,6 +82,9 @@ class FileEventHandler(FileSystemEventHandler):
          exclude files and folders from monitoring if they are currently being
          downloaded. All entries in :ivar:`queue_downloading` should be temporary only.
     """
+
+    __slots__ = ("syncing", "local_file_event_queue", "queue_downloading",
+                 "_renamed_items_cache")
 
     def __init__(self, syncing, local_file_event_queue, queue_downloading):
 
@@ -104,7 +108,7 @@ class FileEventHandler(FileSystemEventHandler):
             queue_downloading = tuple(self.queue_downloading.queue)
             for flagged_path in queue_downloading:
                 if local_path.lower() == flagged_path.lower():
-                    logger.debug("'{0}' is being downloaded, ignore.".format(local_path))
+                    logger.debug(f"'{local_path}' is being downloaded, ignore.")
                     self.queue_downloading.queue.remove(flagged_path)
 
                 return True
@@ -122,7 +126,7 @@ class FileEventHandler(FileSystemEventHandler):
 
         return osp.basename(local_path) == REV_FILE
 
-    # TODO: Our logic for ignoring moved events of children will no longer work when
+    # TODO: The logic for ignoring moved events of children will no longer work when
     #   renaming the parent's moved event. This will throw sync errors when trying to
     #   apply those events, but they are only temporary and therefore tolerable for now.
     def rename_on_case_conflict(self, event):
@@ -159,16 +163,15 @@ class FileEventHandler(FileSystemEventHandler):
             # try to find a unique new name of the form "(case conflict)"
             # or "(case conflict 1)"
             base, ext = osp.splitext(created_path)
-            new_path = base + " (case conflict)" + ext
+            new_path = f"{base} (case conflict){ext}"
             i = 1
             while any(p.lower() == new_path.lower() for p in other_items):
-                new_path = base + " (case conflict {})".format(i) + ext
+                new_path = f"{base} (case conflict {i}){ext}"
                 i += 1
             # rename newly created item
             self._renamed_items_cache.append(created_path)  # ignore temporarily
             os.rename(created_path, new_path)  # this will be picked up by watchdog
-            logger.info("Case conflict: renamed '{0}' "
-                        "to '{1}'".format(created_path, new_path))
+            logger.info(f"Case conflict: renamed '{created_path}' to '{new_path}'")
 
             if isinstance(event, DirCreatedEvent):
                 return DirCreatedEvent(src_path=new_path)
@@ -207,7 +210,7 @@ class FileEventHandler(FileSystemEventHandler):
 
         if self.syncing.is_set():
             self.local_file_event_queue.put(event)
-            logger.debug("Put into file event queue: {}".format(event))
+            logger.debug(f"Put into file event queue: {event}")
 
 
 def catch_sync_issues(sync_errors=None, failed_items=None):
@@ -231,7 +234,7 @@ def catch_sync_issues(sync_errors=None, failed_items=None):
             except MaestralApiError as exc:
                 logger.warning(SYNC_ERROR, exc_info=True)
                 file_name = os.path.basename(exc.dbx_path)
-                self.notify.send("Could not sync {0}".format(file_name))
+                self.notify.send(f"Could not sync {file_name}")
                 if exc.dbx_path is not None:
                     if exc.local_path is None:
                         exc.local_path = self.to_local_path(exc.dbx_path)
@@ -337,7 +340,7 @@ class UpDownSync(object):
     @last_cursor.setter
     def last_cursor(self, cursor):
         """Setter: last_cursor"""
-        logger.debug("Remote cursor saved: {}".format(cursor))
+        logger.debug(f"Remote cursor saved: {cursor}")
         CONF.set("internal", "cursor", cursor)
 
     @property
@@ -350,7 +353,7 @@ class UpDownSync(object):
     @last_sync.setter
     def last_sync(self, last_sync):
         """Setter: last_cursor"""
-        logger.debug("Local cursor saved: {}".format(last_sync))
+        logger.debug(f"Local cursor saved: {last_sync}")
         CONF.set("internal", "lastsync", last_sync)
 
     @property
@@ -432,12 +435,9 @@ class UpDownSync(object):
         if i == len(path_list):  # path corresponds to dropbox_path
             return "/"
         elif not i == len(dbx_root_list):  # path is outside of to dropbox_path
-            raise ValueError(
-                "Specified path '%s' is not in Dropbox directory." % local_path)
+            raise ValueError(f"Specified path '{local_path}' is not in Dropbox directory.")
 
-        relative_path = "/" + "/".join(path_list[i:])
-
-        return relative_path
+        return "/{}".format("/".join(path_list[i:]))
 
     def to_local_path(self, dbx_path):
         """
@@ -501,11 +501,11 @@ class UpDownSync(object):
                     logger.error(msg, exc_info=exc_info)
             except PermissionError as exc:
                 title = "Permission denied"
-                msg = ("Insufficient permissions for Dropbox folder. Please " +
+                msg = ("Insufficient permissions for Dropbox folder. Please "
                        "make sure that you have read and write permissions.")
                 new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
                 if raise_exception:
-                    raise RevFileError(msg)
+                    raise RevFileError(title, msg)
                 else:
                     exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
                     logger.error(msg, exc_info=exc_info)
@@ -531,9 +531,10 @@ class UpDownSync(object):
                 with open(self.rev_file_path, "w+b") as f:
                     umsgpack.pack(self._rev_dict_cache, f)
             except PermissionError as exc:
-                msg = ("Insufficient permissions for Dropbox folder. Please " +
+                title = "Permission denied"
+                msg = ("Insufficient permissions for Dropbox folder. Please "
                        "make sure that you have read and write permissions.")
-                new_exc = RevFileError(msg).with_traceback(exc.__traceback__)
+                new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
                 if raise_exception:
                     raise new_exc
                 else:
@@ -796,7 +797,7 @@ class UpDownSync(object):
         # save timestamp
         local_cursor = t0
 
-        logger.debug("Retrieved local file events:\n{}".format(events))
+        logger.debug(f"Retrieved local file events:\n{events}")
 
         # REMOVE DIR_MODIFIED_EVENTS
         events = [e for e in events if not isinstance(e, DirModifiedEvent)]
@@ -860,7 +861,7 @@ class UpDownSync(object):
         events = self._list_diff(events, to_remove)
         events += to_add
 
-        logger.debug("Cleaned up local file events:\n{}".format(events))
+        logger.debug(f"Cleaned up local file events:\n{events}")
 
         return events, local_cursor
 
@@ -890,7 +891,7 @@ class UpDownSync(object):
                     self.clear_sync_error(local_path, dbx_path)
                 else:
                     title = "Could not upload"
-                    message = ("Another item with the same name already exists on " +
+                    message = ("Another item with the same name already exists on "
                                "Dropbox but is excluded from syncing.")
                     exc = ExcludedItemError(title, message, dbx_path=dbx_path,
                                             local_path=local_path)
@@ -901,8 +902,8 @@ class UpDownSync(object):
             else:
                 events_filtered.append(event)
 
-        logger.debug("Events to keep:\n{}".format(events_filtered))
-        logger.debug("Events to discard:\n{}".format(events_excluded))
+        logger.debug(f"Events to keep:\n{events_filtered}")
+        logger.debug(f"Events to discard:\n{events_excluded}")
 
         return events_filtered, events_excluded
 
@@ -955,7 +956,7 @@ class UpDownSync(object):
             for (f, n) in zip(as_completed(fs), range(1, n_files+1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
                     # emit message at maximum every second
-                    logger.info("Uploading {0}/{1}...".format(n, n_files))
+                    logger.info(f"Uploading {n}/{n_files}...")
                     last_emit = time.time()
                 success.append(f.result())
 
@@ -1372,7 +1373,7 @@ class UpDownSync(object):
             for (f, n) in zip(as_completed(fs), range(1, n_files+1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
                     # emit messages at maximum every second
-                    logger.info("Downloading {0}/{1}...".format(n, n_files))
+                    logger.info(f"Downloading {n}/{n_files}...")
                     last_emit = time.time()
                 success += [f.result()]
 
@@ -1504,9 +1505,9 @@ class UpDownSync(object):
                 change_type = "changed"
 
             if user_name:
-                self.notify.send("{0} {1} {2}".format(user_name, change_type, file_name))
+                self.notify.send(f"{user_name} {change_type} {file_name}")
             else:
-                self.notify.send("{0} {1}".format(file_name, change_type))
+                self.notify.send(f"{file_name} {change_type}")
 
         elif n_changed > 1:
             # for multiple changes, display user name if all equal
@@ -1515,9 +1516,9 @@ class UpDownSync(object):
             else:
                 change_type = "changed"
             if user_name:
-                self.notify.send("{0} {1} {2} files".format(user_name, change_type, n_changed))
+                self.notify.send(f"{user_name} {change_type} {n_changed} files")
             else:
-                self.notify.send("{0} files {1}".format(n_changed, change_type))
+                self.notify.send(f"{n_changed} files {change_type}")
 
     @staticmethod
     def _sort_remote_entries(result):
@@ -1568,7 +1569,7 @@ class UpDownSync(object):
             elif conflict == 1:
                 # conflict! rename local file
                 base, ext = osp.splitext(local_path)
-                new_local_file = base + " (conflicting copy)" + ext
+                new_local_file = "".join((base, " (conflicting copy)", ext))
                 os.rename(local_path, new_local_file)
             elif conflict == 2:
                 # Dropbox file corresponds to local file => nothing to do
@@ -1580,7 +1581,7 @@ class UpDownSync(object):
             # save revision metadata
             self.set_local_rev(md.path_display, md.rev)
 
-            logger.debug("Created local file '{0}'".format(entry.path_display))
+            logger.debug(f"Created local file '{entry.path_display}'")
 
         elif isinstance(entry, FolderMetadata):
             # Store the new entry at the given path in your local state.
@@ -1593,7 +1594,7 @@ class UpDownSync(object):
             # save revision metadata
             self.set_local_rev(entry.path_display, "folder")
 
-            logger.debug("Created local directory '{0}'".format(entry.path_display))
+            logger.debug(f"Created local directory '{entry.path_display}'")
 
         elif isinstance(entry, DeletedMetadata):
             # If your local state has something at the given path,
@@ -1602,9 +1603,9 @@ class UpDownSync(object):
 
             success, err = delete_file_or_folder(local_path, return_error=True)
             if success:
-                logger.debug("Deleted local item '{0}'".format(entry.path_display))
+                logger.debug(f"Deleted local item '{entry.path_display}'")
             else:
-                logger.debug("FileNotFoundError: {0}".format(err))
+                logger.debug(f"FileNotFoundError: {err}")
 
             self.set_local_rev(entry.path_display, None)
 
@@ -1660,7 +1661,7 @@ def connection_helper(client, syncing, running, connected):
         except DropboxAuthError as e:
             syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
-            logger.error("{0}: {1}".format(e.title, e.message), exc_info=True)
+            logger.error(f"{e.title}: {e.message}", exc_info=True)
 
 
 def download_worker(sync, syncing, running, connected):
@@ -2023,16 +2024,16 @@ def get_local_hash(local_path):
         return ""
 
 
-def remove_from_queue(queue, item):
+def remove_from_queue(q, item):
     """
     Tries to remove an item from a queue.
 
-    :param Queue queue: Queue to remove item from.
+    :param Queue q: Queue to remove item from.
     :param item: Item to remove
     """
 
-    with queue.mutex:
+    with q.mutex:
         try:
-            queue.queue.remove(item)
+            q.queue.remove(item)
         except ValueError:
             pass

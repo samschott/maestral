@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 # create single requests session for all clients
 SESSION = dropbox.dropbox.create_session()
 _major_minor_version = ".".join(__version__.split(".")[:2])
-USER_AGENT = "Maestral/v" + _major_minor_version
+USER_AGENT = f"Maestral/v{_major_minor_version}"
 
 
 def tobytes(value, unit, bsize=1024):
@@ -90,11 +90,11 @@ class SpaceUsage(dropbox.users.SpaceUsage):
             allocated = self.allocation.get_team().allocated
         else:
             used_gb = bytesto(self.used, "GB")
-            return "{:,}GB used".format(used_gb)
+            return f"{used_gb:,}GB used"
 
         percent = used / allocated * 100
         alloc_gb = bytesto(allocated, "GB")
-        str_rep_usage = "{:.1f}% of {:,}GB used".format(percent, alloc_gb)
+        str_rep_usage = f"{percent:.1f}% of {alloc_gb:,}GB used"
         return str_rep_usage
 
 
@@ -235,12 +235,12 @@ class MaestralApiClient(object):
 
         try:
             md = self.dbx.files_get_metadata(dbx_path, **kwargs)
-            logger.debug("Retrieved metadata for '{0}'".format(md.path_display))
+            logger.debug(f"Retrieved metadata for '{md.path_display}'")
         except dropbox.exceptions.DropboxException as exc:
             # DropboxAPI error is only raised when the item does not exist on Dropbox
             # this is handled on a DEBUG level since we use call `get_metadata` to check
             # if a file exists
-            logger.debug("Could not get metadata for '%s': %s", dbx_path, exc)
+            logger.debug(f"Could not get metadata for '{dbx_path}': {exc}")
             md = False
 
         return md
@@ -295,8 +295,7 @@ class MaestralApiClient(object):
         except OS_FILE_ERRORS as exc:
             raise os_to_maestral_error(exc, dbx_path)
 
-        logger.debug("File '{0}' (rev {1}) from '{2}' was successfully downloaded "
-                     "as '{3}'.".format(md.name, md.rev, md.path_display, dst_path))
+        logger.debug(f"File '{md.path_display}' (rev {md.rev}) was successfully downloaded as '{dst_path}'")
 
         return md
 
@@ -316,10 +315,10 @@ class MaestralApiClient(object):
             file_size = osp.getsize(local_path)
             chunk_size = int(tobytes(chunk_size_mb, "MB"))
 
-            display_unit = "GB" if file_size > tobytes(1000, "MB") else "MB"
-            file_size_display = int(bytesto(file_size, display_unit))
-            chunk_size_display = int(bytesto(chunk_size, display_unit))
-            uploaded_display = 0
+            unit = "GB" if file_size > tobytes(1000, "MB") else "MB"
+            file_size_unit = int(bytesto(file_size, unit))
+            chunk_size_unit = int(bytesto(chunk_size, unit))
+            uploaded_unit = 0
 
             mtime = osp.getmtime(local_path)
             mtime_dt = datetime.datetime(*time.gmtime(mtime)[:6])
@@ -329,10 +328,8 @@ class MaestralApiClient(object):
                     md = self.dbx.files_upload(
                             f.read(), dbx_path, client_modified=mtime_dt, **kwargs)
                 else:
-                    logger.info("Uploading {0}/{1}{2}...".format(
-                        uploaded_display, file_size_display, display_unit))
-                    session_start = self.dbx.files_upload_session_start(
-                        f.read(chunk_size))
+                    logger.info(f"Uploading {uploaded_unit}/{file_size_unit}{unit}...")
+                    session_start = self.dbx.files_upload_session_start(f.read(chunk_size))
                     cursor = dropbox.files.UploadSessionCursor(
                         session_id=session_start.session_id, offset=f.tell())
                     commit = dropbox.files.CommitInfo(
@@ -342,22 +339,19 @@ class MaestralApiClient(object):
                         if file_size - f.tell() <= chunk_size:
                             md = self.dbx.files_upload_session_finish(
                                 f.read(chunk_size), cursor, commit)
-                            logger.info("Uploading {0}/{1}{2}...".format(
-                                file_size_display, file_size_display, display_unit))
+                            logger.info(f"Uploading {file_size_unit}/{file_size_unit}{unit}...")
                         else:
                             self.dbx.files_upload_session_append_v2(
                                 f.read(chunk_size), cursor)
                             cursor.offset = f.tell()
-                            uploaded_display += chunk_size_display
-                            logger.info("Uploading {0}/{1}{2}...".format(
-                                uploaded_display, file_size_display, display_unit))
+                            uploaded_unit += chunk_size_unit
+                            logger.info(f"Uploading {uploaded_unit}/{file_size_unit}{unit}...")
         except dropbox.exceptions.DropboxException as exc:
             raise api_to_maestral_error(exc, dbx_path)
         except OS_FILE_ERRORS as exc:
             raise os_to_maestral_error(exc, dbx_path)
 
-        logger.debug("File '{0}' (rev {1}) uploaded to Dropbox.".format(
-            md.path_display, md.rev))
+        logger.debug(f"File '{md.path_display}' (rev {md.rev}) uploaded to Dropbox")
 
         return md
 
@@ -378,7 +372,7 @@ class MaestralApiClient(object):
         except dropbox.exceptions.DropboxException as exc:
             raise api_to_maestral_error(exc, dbx_path)
 
-        logger.debug("File / folder '{0}' removed from Dropbox.".format(dbx_path))
+        logger.debug(f"Item '{dbx_path}' removed from Dropbox")
 
         return md
 
@@ -399,8 +393,7 @@ class MaestralApiClient(object):
         except dropbox.exceptions.DropboxException as exc:
             raise api_to_maestral_error(exc, new_path)
 
-        logger.debug("File moved from '{0}' to '{1}' on Dropbox.".format(
-                     dbx_path, md.path_display))
+        logger.debug(f"Item moved from '{dbx_path}' to '{md.path_display}' on Dropbox")
 
         return md
 
@@ -419,7 +412,7 @@ class MaestralApiClient(object):
         except dropbox.exceptions.DropboxException as exc:
             raise api_to_maestral_error(exc, dbx_path)
 
-        logger.debug("Created folder '%s' on Dropbox.", md.path_display)
+        logger.debug(f"Created folder '{md.path_display}' on Dropbox")
 
         return md
 
@@ -481,7 +474,7 @@ class MaestralApiClient(object):
 
         while results[-1].has_more:
             idx += len(results[-1].entries)
-            logger.info("Indexing {0}...".format(idx))
+            logger.info(f"Indexing {idx}...")
             try:
                 more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
                 results.append(more_results)
@@ -495,7 +488,7 @@ class MaestralApiClient(object):
                     self._retry_count = 0
                     raise new_exc
 
-        logger.debug("Listed contents of folder '{0}'".format(dbx_path))
+        logger.debug(f"Listed contents of folder '{dbx_path}'")
 
         self._retry_count = 0
 
@@ -536,7 +529,7 @@ class MaestralApiClient(object):
         if not 30 <= timeout <= 480:
             raise ValueError("Timeout must be in range [30, 480]")
 
-        logger.debug("Waiting for remote changes since cursor:\n{0}".format(last_cursor))
+        logger.debug(f"Waiting for remote changes since cursor:\n{last_cursor}")
 
         # honour last request to back off
         if self._last_longpoll is not None:
@@ -554,7 +547,7 @@ class MaestralApiClient(object):
         else:
             self._backoff = 0
 
-        logger.debug("Detected remote changes: {}.".format(str(result.changes)))
+        logger.debug(f"Detected remote changes: {result.changes}")
 
         self._last_longpoll = time.time()
 
@@ -589,6 +582,6 @@ class MaestralApiClient(object):
         # combine all results into one
         results = self.flatten_results(results)
 
-        logger.debug("Listed remote changes: {} changes.".format(len(results.entries)))
+        logger.debug(f"Listed remote changes: {len(results.entries)} changes")
 
         return results

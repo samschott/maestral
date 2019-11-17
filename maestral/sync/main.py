@@ -19,7 +19,6 @@ from collections import namedtuple, deque
 # external packages
 import click
 import requests
-from blinker import signal
 from dropbox import files
 
 from maestral.sync.utils import handle_disconnect, with_sync_paused
@@ -98,7 +97,7 @@ class CachedHandler(logging.Handler):
         self.format(record)
         self.cached_records.append(record)
         if NOTIFY_SOCKET and system_notifier:
-            system_notifier.notify("STATUS={}".format(record.message))
+            system_notifier.notify(f"STATUS={record.message}")
 
     def getLastMessage(self):
         if len(self.cached_records) > 0:
@@ -140,8 +139,6 @@ def folder_download_worker(monitor, dbx_path, callback=None):
     :param str dbx_path: Path to directory on Dropbox.
     :param callback: function to be called after download is complete
     """
-    download_complete_signal = signal("download_complete_signal")
-
     time.sleep(2)  # wait for pausing to take effect
 
     with monitor.sync.lock:
@@ -162,7 +159,6 @@ def folder_download_worker(monitor, dbx_path, callback=None):
                 completed = True
                 if callback is not None:
                     callback()
-                download_complete_signal.send()
 
             except CONNECTION_ERRORS:
                 logger.debug(DISCONNECTED, exc_info=True)
@@ -210,13 +206,13 @@ class Maestral(object):
 
             if NOTIFY_SOCKET and system_notifier:
                 logger.debug("Running as systemd notify service")
-                logger.debug("NOTIFY_SOCKET = {}".format(NOTIFY_SOCKET))
+                logger.debug(f"NOTIFY_SOCKET = {NOTIFY_SOCKET}")
                 system_notifier.notify("READY=1")  # notify systemd that we have started
 
             if IS_WATCHDOG and system_notifier:
                 logger.debug("Running as systemd watchdog service")
-                logger.debug("WATCHDOG_USEC = {}".format(WATCHDOG_USEC))
-                logger.debug("WATCHDOG_PID = {}".format(WATCHDOG_PID))
+                logger.debug(f"WATCHDOG_USEC = {WATCHDOG_USEC}")
+                logger.debug(f"WATCHDOG_PID = {WATCHDOG_PID}")
 
                 # notify systemd periodically that we are still alive
                 self.watchdog_thread = Thread(
@@ -540,8 +536,7 @@ Any changes to local files during this process may be lost.""")
             pass
 
         CONF.reset_to_defaults()
-        CONF.set("main", "default_dir_name", "Dropbox ({0})".format(
-            CONFIG_NAME.capitalize()))
+        CONF.set("main", "default_dir_name", f"Dropbox ({CONFIG_NAME.capitalize()})")
 
         logger.info("Unlinked Dropbox account.")
 
@@ -569,7 +564,7 @@ Any changes to local files during this process may be lost.""")
         # remove folder from local drive
         local_path = self.sync.to_local_path(dbx_path)
         local_path_cased = path_exists_case_insensitive(local_path)
-        logger.info("Deleting folder '{}'.".format(local_path_cased))
+        logger.info(f"Deleting folder '{local_path_cased}'.")
         if osp.isdir(local_path_cased):
             shutil.rmtree(local_path_cased)
 
@@ -613,7 +608,7 @@ Any changes to local files during this process may be lost.""")
         self.sync.excluded_folders = excluded_folders
 
         # download folder contents from Dropbox
-        logger.info("Downloading added folder '{}'.".format(dbx_path))
+        logger.info(f"Downloading added folder '{dbx_path}'.")
         for folder in new_included_folders:
             self.get_remote_dropbox_async(folder)
 
@@ -659,8 +654,7 @@ Any changes to local files during this process may be lost.""")
             # paginate through top-level folders, ask to exclude
             for entry in result.entries:
                 if isinstance(entry, files.FolderMetadata):
-                    msg = "Exclude '{}' from sync?".format(entry.path_display)
-                    yes = click.confirm(msg)
+                    yes = click.confirm(f"Exclude '{entry.path_display}' from sync?")
                     if yes:
                         excluded_folders.append(entry.path_lower)
         else:
@@ -779,8 +773,7 @@ Any changes to local files during this process may be lost.""")
         Asks for Dropbox path.
         """
         while True:
-            msg = ("Please give Dropbox folder location or press enter for default "
-                   "['{0}']:".format(default))
+            msg = f"Please give Dropbox folder location or press enter for default ['{default}']:"
             res = input(msg).strip("'\" ")
 
             dropbox_path = osp.expanduser(res or default)
@@ -793,7 +786,7 @@ Any changes to local files during this process may be lost.""")
                 pass
 
             if osp.exists(dropbox_path):
-                msg = "Directory '{0}' already exist. Do you want to overwrite it?".format(dropbox_path)
+                msg = f"Directory '{dropbox_path}' already exist. Do you want to overwrite it?"
                 yes = click.confirm(msg)
                 if yes:
                     return dropbox_path
@@ -840,11 +833,7 @@ Any changes to local files during this process may be lost.""")
         self.monitor.stop()
 
     def __repr__(self):
-        if self.connected:
-            email = CONF.get("account", "email")
-            account_type = CONF.get("account", "type")
-            inner = "{0}, {1}".format(email, account_type)
-        else:
-            inner = DISCONNECTED
+        email = CONF.get("account", "email")
+        account_type = CONF.get("account", "type")
 
-        return "<{0}({1})>".format(self.__class__.__name__, inner)
+        return f"<{self.__class__}({email}, {account_type})>"
