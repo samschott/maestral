@@ -2009,9 +2009,9 @@ def get_local_hash(local_path):
     :rtype: str
     """
 
-    try:
-        hasher = DropboxContentHasher()
+    hasher = DropboxContentHasher()
 
+    try:
         with open(local_path, "rb") as f:
             while True:
                 chunk = f.read(1024)
@@ -2019,9 +2019,11 @@ def get_local_hash(local_path):
                     break
                 hasher.update(chunk)
 
-        return hasher.hexdigest()
+        return str(hasher.hexdigest())
     except OSError:
         return ""
+    finally:
+        del hasher
 
 
 def remove_from_queue(q, item):
