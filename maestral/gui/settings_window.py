@@ -179,18 +179,22 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelAccountInfo.setText(acc_mail + acc_type_text)
         self.labelSpaceUsage.setText(acc_space_usage)
 
+    @QtCore.pyqtSlot()
     def update_account_info_from_chache(self):
 
         self.set_profile_pic_from_cache()
         self.set_account_info_from_cache()
 
+    @QtCore.pyqtSlot(int)
     def on_combobox_path(self, idx):
         if idx == 2:
             self.dropbox_folder_dialog.open()
 
+    @QtCore.pyqtSlot(int)
     def on_combobox_update_interval(self, idx):
         self.mdbx.set_conf("app", "update_notification_interval", self._update_interval_mapping[idx])
 
+    @QtCore.pyqtSlot(str)
     def on_new_dbx_folder(self, new_location):
 
         self.comboBoxDropboxPath.setCurrentIndex(0)
@@ -201,12 +205,14 @@ class SettingsWindow(QtWidgets.QWidget):
             new_path = osp.join(new_location, self.mdbx.get_conf("main", "default_dir_name"))
             self.mdbx.move_dropbox_directory(new_path)
 
+    @QtCore.pyqtSlot(int)
     def on_start_on_login_clicked(self, state):
         if state == 0:
             self.autostart.disable()
         elif state == 2:
             self.autostart.enable()
 
+    @QtCore.pyqtSlot(int)
     def on_notifications_clicked(self, state):
         self.mdbx.set_conf("app", "notifications", state == 2)
 

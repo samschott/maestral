@@ -56,23 +56,22 @@ class SyncIssueWidget(QtWidgets.QWidget):
 
         a0.setEnabled(os.path.exists(self.sync_err["local_path"]))
 
-        a0.triggered.connect(lambda: click.launch(self.sync_err["local_path"],
-                                                  locate=True))
-        a1.triggered.connect(lambda: self.show_online(self.sync_err["dbx_path"]))
+        a0.triggered.connect(self._go_to_local_path)
+        a1.triggered.connect(self._go_to_online)
         self.actionButtonContextMenu.exec_(self.mapToGlobal(pos))
 
-    def to_display_path(self, local_path):
+    @QtCore.pyqtSlot()
+    def _go_to_local_path(self):
+        click.launch(self.sync_err["local_path"], locate=True)
 
-        return elide_string(os.path.basename(local_path), font=self.pathLabel.font(),
-                            pixels=300, side="left")
-
-    @staticmethod
-    def show_online(dbx_path):
-
+    @QtCore.pyqtSlot()
+    def _go_to_online(self):
         dbx_address = "https://www.dropbox.com/preview"
-        file_address = urllib.parse.quote(dbx_path)
-
+        file_address = urllib.parse.quote(self.sync_err["dbx_path"])
         click.launch(dbx_address + file_address)
+
+    def to_display_path(self, local_path):
+        return elide_string(os.path.basename(local_path), font=self.pathLabel.font(), pixels=300, side="left")
 
     def changeEvent(self, QEvent):
         if QEvent.type() == QtCore.QEvent.PaletteChange:
@@ -107,6 +106,7 @@ class SyncIssueWindow(QtWidgets.QWidget):
         self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
 
         self.mdbx = mdbx
+        self.sync_issue_widgets = []
 
         self.reload()
 
@@ -137,4 +137,4 @@ class SyncIssueWindow(QtWidgets.QWidget):
             w = item.widget()
             if w: w.deleteLater()
 
-        self.sync_issue_widgets = []
+        self.sync_issue_widgets.clear()

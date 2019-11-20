@@ -134,12 +134,14 @@ class SetupDialog(QtWidgets.QDialog):
         else:
             self.on_reject_requested()
 
+    @QtCore.pyqtSlot()
     def on_accept_requested(self):
         del self.mdbx
 
         self.accepted = True
         self.accept()
 
+    @QtCore.pyqtSlot()
     def on_reject_requested(self):
         if self.mdbx:
             self.mdbx.set_conf("main", "path", "")
@@ -152,6 +154,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.mdbx.unlink()
         self.stackedWidget.slideInIdx(0)
 
+    @QtCore.pyqtSlot()
     def on_link(self):
         self.auth_session = OAuth2Session()
         self.auth_url = self.auth_session.get_auth_url()
@@ -161,6 +164,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.stackedWidget.fadeInIdx(1)
         self.pushButtonAuthPageLink.setFocus()
 
+    @QtCore.pyqtSlot()
     def on_auth_clicked(self):
 
         if self.lineEditAuthCode.text() == "":
@@ -213,6 +217,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.pushButtonAuthPageLink.setEnabled(True)
         self.lineEditAuthCode.setEnabled(True)
 
+    @QtCore.pyqtSlot()
     def on_dropbox_location_selected(self):
 
         # reset sync status, we are starting fresh!
@@ -262,6 +267,7 @@ class SetupDialog(QtWidgets.QDialog):
         if not self.excluded_folders:  # don't repopulate
             self.populate_folders_list()
 
+    @QtCore.pyqtSlot()
     def on_folders_selected(self):
 
         self.apply_selection()
@@ -279,10 +285,12 @@ class SetupDialog(QtWidgets.QDialog):
 # Helper functions
 # =============================================================================
 
+    @QtCore.pyqtSlot(int)
     def on_combobox(self, idx):
         if idx == 2:
             self.dropbox_folder_dialog.open()
 
+    @QtCore.pyqtSlot(str)
     def on_new_dbx_folder(self, new_location):
         self.comboBoxDropboxPath.setCurrentIndex(0)
         if not new_location == '':
@@ -309,6 +317,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.dbx_model.loading_failed.connect(
             lambda: self.selectAllCheckBox.setEnabled(False))
 
+    @QtCore.pyqtSlot()
     def update_select_all_checkbox(self):
         check_states = []
         for irow in range(self.dbx_model._root_item.child_count_loaded()):
@@ -319,6 +328,7 @@ class SetupDialog(QtWidgets.QDialog):
         else:
             self.selectAllCheckBox.setChecked(False)
 
+    @QtCore.pyqtSlot(int)
     def on_select_all_clicked(self, checked):
         checked_state = 2 if checked else 0
         for irow in range(self.dbx_model._root_item.child_count_loaded()):

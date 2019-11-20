@@ -79,10 +79,12 @@ class RelinkDialog(QtWidgets.QDialog):
         self.pushButtonCancel.setFocus()
         self.adjustSize()
 
+    @QtCore.pyqtSlot()
     def delete_creds_and_quit(self):
         self.auth_session.delete_creds()
         self.quit()
 
+    @QtCore.pyqtSlot(str)
     def _set_text_style(self, text):
         if text == "":
             self.pushButtonLink.setEnabled(False)
@@ -102,6 +104,7 @@ class RelinkDialog(QtWidgets.QDialog):
             self.pushButtonLink.setEnabled(True)
             self.lineEditAuthCode.setStyleSheet("")
 
+    @QtCore.pyqtSlot()
     def on_link_clicked(self):
         token = self.lineEditAuthCode.text()
         if token == "":
@@ -118,7 +121,9 @@ class RelinkDialog(QtWidgets.QDialog):
         )
         self.auth_task.sig_done.connect(self.on_verify_token_finished)
 
+    @QtCore.pyqtSlot(int)
     def on_verify_token_finished(self, res):
+
 
         if res == OAuth2Session.Success:
             self.auth_session.save_creds()
