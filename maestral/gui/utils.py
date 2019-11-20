@@ -191,6 +191,7 @@ class MaestralBackgroundTaskProgressDialog(QtWidgets.QDialog):
         self.setWindowModality(Qt.WindowModal)
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Sheet | Qt.WindowTitleHint |
                             Qt.CustomizeWindowHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.setWindowTitle("")
         width = 450
         self.setFixedWidth(width)
@@ -251,6 +252,7 @@ class UserDialog(QtWidgets.QDialog):
         self.setWindowModality(Qt.WindowModal)
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Sheet | Qt.WindowTitleHint |
                             Qt.CustomizeWindowHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.setWindowTitle("")
         width = 550 if details else 450
         self.setFixedWidth(width)
