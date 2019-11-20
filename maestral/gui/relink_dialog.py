@@ -124,6 +124,7 @@ class RelinkDialog(QtWidgets.QDialog):
     @QtCore.pyqtSlot(int)
     def on_verify_token_finished(self, res):
 
+        from maestral.sync.oauth import OAuth2Session
 
         if res == OAuth2Session.Success:
             self.auth_session.save_creds()
