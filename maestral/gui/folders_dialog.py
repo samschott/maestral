@@ -40,6 +40,7 @@ class TreeModel(QAbstractItemModel):
         self._header = self._root_item.header()
         self._flags = Qt.ItemIsUserCheckable
 
+    @QtCore.pyqtSlot()
     def on_loading_failed(self):
 
         self.display_message("Could not connect to Dropbox. Please check "
@@ -432,6 +433,7 @@ class FoldersDialog(QtWidgets.QDialog):
         self.dbx_model.dataChanged.connect(self.update_select_all_checkbox)
         self.treeViewFolders.setModel(self.dbx_model)
 
+    @QtCore.pyqtSlot()
     def update_select_all_checkbox(self):
         check_states = []
         for irow in range(self.dbx_model._root_item.child_count_loaded()):
@@ -442,6 +444,7 @@ class FoldersDialog(QtWidgets.QDialog):
         else:
             self.selectAllCheckBox.setChecked(False)
 
+    @QtCore.pyqtSlot(bool)
     def on_select_all_clicked(self, checked):
         checked_state = 2 if checked else 0
         for irow in range(self.dbx_model._root_item.child_count_loaded()):
@@ -484,10 +487,12 @@ class FoldersDialog(QtWidgets.QDialog):
             index_child = self.dbx_model.index(row, 0, index)
             self.apply_selection(index=index_child)
 
+    @QtCore.pyqtSlot()
     def ui_failed(self):
         self.accept_button.setEnabled(False)
         self.selectAllCheckBox.setEnabled(False)
 
+    @QtCore.pyqtSlot()
     def ui_loaded(self):
         self.accept_button.setEnabled(True)
         self.selectAllCheckBox.setEnabled(True)

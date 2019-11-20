@@ -60,7 +60,7 @@ else:
     keyring.set_keyring(max(preferred_kreyrings, key=lambda x: x.priority))
 
 
-# noinspection PyTypeChecker
+# noinspection PyTypeChecker,PyArgumentList
 class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     """A Qt GUI for the Maestral daemon."""
 
@@ -72,8 +72,34 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     PAUSE_TEXT = "Pause Syncing"
     RESUME_TEXT = "Resume Syncing"
 
+    __slots__ = (
+        "icons", "menu", "recentFilesMenu",
+        "settings_window", "sync_issues_window", "rebuild_dialog", "_progress_dialog",
+        "update_ui_timer", "check_for_updates_timer",
+        "statusAction", "accountEmailAction", "accountUsageAction", "pauseAction", "syncIssuesAction",
+        "autostart", "_current_icon", "_n_errors", "_status", "_progress_dialog",
+    )
+
     def __init__(self):
         QtWidgets.QSystemTrayIcon.__init__(self)
+
+        self._n_errors = None
+        self._status = None
+        self._current_icon = None
+
+        self.settings_window = None
+        self.sync_issues_window = None
+        self.rebuild_dialog = None
+        self._progress_dialog = None
+
+        self.statusAction = None
+        self.accountEmailAction = None
+        self.accountUsageAction = None
+        self.syncIssuesAction = None
+        self.pauseAction = None
+        self.recentFilesMenu = None
+
+        self.autostart = AutoStart()
 
         self.icons = self.load_tray_icons()
         self.setIcon(DISCONNECTED)
@@ -86,20 +112,13 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.setup_ui_unlinked()
 
-        self._n_errors = None
-        self._status = None
-
-        self.settings_window = None
-        self.sync_issues_window = None
-        self.rebuild_dialog = None
-
         self.update_ui_timer = QtCore.QTimer()
         self.update_ui_timer.timeout.connect(self.update_ui)
         self.update_ui_timer.start(500)  # every 500 ms
 
-        self._check_for_updates_timer = QtCore.QTimer()
-        self._check_for_updates_timer.timeout.connect(self.auto_check_for_updates)
-        self._check_for_updates_timer.start(30 * 60 * 1000)  # every 30 min
+        self.check_for_updates_timer = QtCore.QTimer()
+        self.check_for_updates_timer.timeout.connect(self.auto_check_for_updates)
+        self.check_for_updates_timer.start(30 * 60 * 1000)  # every 30 min
 
     def setIcon(self, icon_name):
         icon = self.icons.get(icon_name, self.icons[SYNCING])
@@ -187,42 +206,36 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def setup_ui_unlinked(self):
 
         self.setToolTip("Not linked.")
-
-        self.autostart = AutoStart()
-
-        # ------------- populate context menu -------------------
-
         self.menu.clear()
 
-        self.openDropboxFolderAction = self.menu.addAction("Open Dropbox Folder")
-        self.openDropboxFolderAction.setEnabled(False)
-        self.openWebsiteAction = self.menu.addAction("Launch Dropbox Website")
+        # ------------- populate context menu -------------------
+        openDropboxFolderAction = self.menu.addAction("Open Dropbox Folder")
+        openDropboxFolderAction.setEnabled(False)
+        openWebsiteAction = self.menu.addAction("Launch Dropbox Website")
+        openWebsiteAction.triggered.connect(self.on_website_clicked)
 
-        self.separator1 = self.menu.addSeparator()
+        self.menu.addSeparator()
 
-        self.statusAction = self.menu.addAction("Setting up...")
-        self.statusAction.setEnabled(False)
+        statusAction = self.menu.addAction("Setting up...")
+        statusAction.setEnabled(False)
 
-        self.separator2 = self.menu.addSeparator()
+        self.menu.addSeparator()
 
-        self.loginAction = self.menu.addAction("Start on login")
-        self.loginAction.setCheckable(True)
-        self.loginAction.triggered.connect(self.autostart.toggle)
-        self.helpAction = self.menu.addAction("Help Center")
+        autostartAction = self.menu.addAction("Start on login")
+        autostartAction.setCheckable(True)
+        autostartAction.setChecked(self.autostart.enabled)
+        autostartAction.triggered.connect(self.autostart.toggle)
+        helpAction = self.menu.addAction("Help Center")
+        helpAction.triggered.connect(self.on_help_clicked)
 
-        self.separator5 = self.menu.addSeparator()
+        self.menu.addSeparator()
 
-        self.quitAction = self.menu.addAction("Quit Maestral")
-
-        # ------------- connect callbacks for menu items -------------------
-        self.openDropboxFolderAction.triggered.connect(
-            lambda: click.launch(self.mdbx.dropbox_path))
-        self.openWebsiteAction.triggered.connect(self.on_website_clicked)
-        self.loginAction.setChecked(self.autostart.enabled)
-        self.helpAction.triggered.connect(self.on_help_clicked)
-        self.quitAction.triggered.connect(self.quit)
+        quitAction = self.menu.addAction("Quit Maestral")
+        quitAction.triggered.connect(self.quit)
 
     def setup_ui_linked(self):
+
+        self.autostart = None
 
         if not self.mdbx:
             return
@@ -233,10 +246,12 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.menu.clear()
 
-        self.openDropboxFolderAction = self.menu.addAction("Open Dropbox Folder")
-        self.openWebsiteAction = self.menu.addAction("Launch Dropbox Website")
+        openDropboxFolderAction = self.menu.addAction("Open Dropbox Folder")
+        openDropboxFolderAction.triggered.connect(lambda: click.launch(self.mdbx.dropbox_path))
+        openWebsiteAction = self.menu.addAction("Launch Dropbox Website")
+        openWebsiteAction.triggered.connect(self.on_website_clicked)
 
-        self.separator1 = self.menu.addSeparator()
+        self.menu.addSeparator()
 
         self.accountEmailAction = self.menu.addAction(self.mdbx.get_conf("account", "email"))
         self.accountEmailAction.setEnabled(False)
@@ -244,46 +259,13 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.accountUsageAction = self.menu.addAction(self.mdbx.get_conf("account", "usage"))
         self.accountUsageAction.setEnabled(False)
 
-        self.separator2 = self.menu.addSeparator()
+        self.menu.addSeparator()
 
         self.statusAction = self.menu.addAction(IDLE)
         self.statusAction.setEnabled(False)
-        if self.mdbx.syncing:
-            self.pauseAction = self.menu.addAction(self.PAUSE_TEXT)
-        else:
-            self.pauseAction = self.menu.addAction(self.RESUME_TEXT)
-        self.recentFilesMenu = self.menu.addMenu("Recently Changed Files")
-
-        self.separator3 = self.menu.addSeparator()
-
-        self.preferencesAction = self.menu.addAction("Preferences...")
-        self.updatesAction = self.menu.addAction("Check for Updates...")
-        self.helpAction = self.menu.addAction("Help Center")
-
-        self.separator4 = self.menu.addSeparator()
-
-        self.syncIssuesAction = self.menu.addAction("Show Sync Issues...")
-        self.rebuiltAction = self.menu.addAction("Rebuild index...")
-
-        self.separator5 = self.menu.addSeparator()
-
-        if self._started:
-            self.quitAction = self.menu.addAction("Quit Maestral")
-        else:
-            self.quitAction = self.menu.addAction("Quit Maestral GUI")
-
-        # --------- connect callbacks for menu items ------------
-        self.openDropboxFolderAction.triggered.connect(
-            lambda: click.launch(self.mdbx.dropbox_path))
-        self.openWebsiteAction.triggered.connect(self.on_website_clicked)
+        self.pauseAction = self.menu.addAction(self.PAUSE_TEXT if self.mdbx.syncing else self.RESUME_TEXT)
         self.pauseAction.triggered.connect(self.on_start_stop_clicked)
-        self.preferencesAction.triggered.connect(self.on_settings_clicked)
-        self.updatesAction.triggered.connect(self.on_check_for_updates_clicked)
-        self.syncIssuesAction.triggered.connect(self.on_sync_issues_clicked)
-        self.rebuiltAction.triggered.connect(self.on_rebuild_clicked)
-        self.helpAction.triggered.connect(self.on_help_clicked)
-        self.quitAction.triggered.connect(self.quit)
-
+        self.recentFilesMenu = self.menu.addMenu("Recently Changed Files")
         if platform.system() == "Linux":
             # on linux, submenu.aboutToShow may not be emitted
             # (see https://bugreports.qt.io/browse/QTBUG-55911)
@@ -292,11 +274,36 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         else:
             self.recentFilesMenu.aboutToShow.connect(self.update_recent_files)
 
+        self.menu.addSeparator()
+
+        preferencesAction = self.menu.addAction("Preferences...")
+        preferencesAction.triggered.connect(self.on_settings_clicked)
+        updatesAction = self.menu.addAction("Check for Updates...")
+        updatesAction.triggered.connect(self.on_check_for_updates_clicked)
+        helpAction = self.menu.addAction("Help Center")
+        helpAction.triggered.connect(self.on_help_clicked)
+
+        self.menu.addSeparator()
+
+        self.syncIssuesAction = self.menu.addAction("Show Sync Issues...")
+        self.syncIssuesAction.triggered.connect(self.on_sync_issues_clicked)
+        rebuildAction = self.menu.addAction("Rebuild index...")
+        rebuildAction.triggered.connect(self.on_rebuild_clicked)
+
+        self.menu.addSeparator()
+
+        if self._started:
+            quitAction = self.menu.addAction("Quit Maestral")
+        else:
+            quitAction = self.menu.addAction("Quit Maestral GUI")
+        quitAction.triggered.connect(self.quit)
+
         # --------------- switch to idle icon -------------------
         self.setIcon(IDLE)
 
     # callbacks for user interaction
 
+    @QtCore.pyqtSlot()
     def auto_check_for_updates(self):
 
         last_update_check = self.mdbx.get_conf("app", "update_notification_last")
@@ -305,57 +312,68 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             return
         elif time.time() - last_update_check > interval:
             checker = MaestralBackgroundTask(self, "check_for_updates")
-            checker.sig_done.connect(
-                lambda res: self._notify_updates(res, user_requested=False))
+            checker.sig_done.connect(self._notify_updates_auto)
 
+    @QtCore.pyqtSlot()
     def on_check_for_updates_clicked(self):
 
         checker = MaestralBackgroundTask(self, "check_for_updates")
-        self._pd = MaestralBackgroundTaskProgressDialog("Checking for Updates")
-        self._pd.show()
-        self._pd.rejected.connect(lambda: checker.sig_done.disconnect(self._notify_updates))
+        self._progress_dialog = MaestralBackgroundTaskProgressDialog("Checking for Updates")
+        self._progress_dialog.show()
+        self._progress_dialog.rejected.connect(checker.sig_done.disconnect)
 
-        checker.sig_done.connect(self._pd.accept)
-        checker.sig_done.connect(self._notify_updates)
+        checker.sig_done.connect(self._progress_dialog.accept)
+        checker.sig_done.connect(self._notify_updates_user_requested)
 
-    def _notify_updates(self, res, user_requested=True):
+    @QtCore.pyqtSlot(dict)
+    def _notify_updates_user_requested(self, res):
 
-        if user_requested and res["error"]:
+        if res["error"]:
             update_dialog = UserDialog("Could not check for updates", res["error"])
             update_dialog.exec_()
-
         elif res["update_available"]:
-            if not user_requested:  # save last update time
-                self.mdbx.set_conf("app", "update_notification_last", time.time())
-            url_r = "https://github.com/samschott/maestral-dropbox/releases"
-            message = (
-                'Maestral v{0} is available. Please use your package manager to '
-                'update Maestral or go to the <a href=\"{1}\"><span '
-                'style="text-decoration: underline; color:#2874e1;">releases</span></a> '
-                'page to download the new version. '
-                '<div style="height:5px;font-size:5px;">&nbsp;<br></div>'
-                '<b>Release notes:</b>'
-            ).format(res["latest_release"], url_r)
-            list_style = '<ul style="margin-top: 0px; margin-bottom: 0px; margin-left: -20px; margin-right: 0px; -qt-list-indent: 1;">'
-            styled_release_notes = res["release_notes"].replace('<ul>', list_style)
-            update_dialog = UserDialog("Update available", message, styled_release_notes)
-            update_dialog.exec_()
-
-        elif user_requested and not res["update_available"]:
+            self._show_update_dialog(res)
+        elif not res["update_available"]:
             message = 'Maestral v{} is the newest version available.'.format(res["latest_release"])
             update_dialog = UserDialog("You’re up-to-date!", message)
             update_dialog.exec_()
 
+    @QtCore.pyqtSlot(dict)
+    def _notify_updates_auto(self, res):
+
+        if res["update_available"]:
+            self.mdbx.set_conf("app", "update_notification_last", time.time())
+            self._show_update_dialog(res)
+
     @staticmethod
-    def on_website_clicked():
+    def _show_update_dialog(res):
+        url_r = "https://github.com/samschott/maestral-dropbox/releases"
+        message = (
+            'Maestral v{0} is available. Please use your package manager to '
+            'update Maestral or go to the <a href=\"{1}\"><span '
+            'style="text-decoration: underline; color:#2874e1;">releases</span></a> '
+            'page to download the new version. '
+            '<div style="height:5px;font-size:5px;">&nbsp;<br></div>'
+            '<b>Release notes:</b>'
+        ).format(res["latest_release"], url_r)
+        list_style = '<ul style="margin-top: 0px; margin-bottom: 0px; margin-left: -20px; ' \
+                     'margin-right: 0px; -qt-list-indent: 1;">'
+        styled_release_notes = res["release_notes"].replace('<ul>', list_style)
+        update_dialog = UserDialog("Update available", message, styled_release_notes)
+        update_dialog.exec_()
+        update_dialog.deleteLater()
+
+    @QtCore.pyqtSlot()
+    def on_website_clicked(self):
         """Open the Dropbox website."""
         click.launch("https://www.dropbox.com/")
 
-    @staticmethod
-    def on_help_clicked():
+    @QtCore.pyqtSlot()
+    def on_help_clicked(self):
         """Open the Dropbox help website."""
         click.launch("https://dropbox.com/help")
 
+    @QtCore.pyqtSlot()
     def on_start_stop_clicked(self):
         """Pause / resume syncing on menu item clicked."""
         if self.pauseAction.text() == self.PAUSE_TEXT:
@@ -368,6 +386,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.mdbx.start_sync()
             self.pauseAction.setText(self.PAUSE_TEXT)
 
+    @QtCore.pyqtSlot()
     def on_settings_clicked(self):
 
         self.settings_window = SettingsWindow(self, self.mdbx)
@@ -376,6 +395,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.settings_window.activateWindow()
         self.settings_window.setAttribute(QtCore.Qt.WA_DeleteOnClose)
 
+    @QtCore.pyqtSlot()
     def on_sync_issues_clicked(self):
         self.sync_issues_window = SyncIssueWindow(self.mdbx)
         self.sync_issues_window.show()
@@ -383,6 +403,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.sync_issues_window.activateWindow()
         self.sync_issues_window.setAttribute(QtCore.Qt.WA_DeleteOnClose)
 
+    @QtCore.pyqtSlot()
     def on_rebuild_clicked(self):
 
         self.rebuild_dialog = RebuildIndexDialog(self.mdbx)
@@ -392,16 +413,28 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     # callbacks to update GUI
 
+    @QtCore.pyqtSlot()
     def update_recent_files(self):
         """Update menu with list of recently changed files."""
+
+        # remove old actions
         self.recentFilesMenu.clear()
+
+        # add new actions
         for dbx_path in reversed(self.mdbx.get_conf("internal", "recent_changes")):
             file_name = os.path.basename(dbx_path)
             truncated_name = elide_string(file_name, font=self.menu.font(), side="right")
             local_path = self.mdbx.to_local_path(dbx_path)
             action = self.recentFilesMenu.addAction(truncated_name)
-            action.triggered.connect(
-                lambda _, lp=local_path: click.launch(lp, locate=True))
+            action.setData(local_path)
+            action.triggered.connect(self.on_recent_file_clicked)
+            del action
+
+    @QtCore.pyqtSlot()
+    def on_recent_file_clicked(self):
+        sender = self.sender()
+        local_path = sender.data()
+        click.launch(local_path, locate=True)
 
     def update_status(self):
         """Change icon according to status."""
@@ -422,23 +455,25 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self.setIcon(new_icon)
 
         # update action texts
-        if n_errors > 0:
-            self.syncIssuesAction.setText("Show Sync Issues ({0})...".format(n_errors))
-        else:
-            self.syncIssuesAction.setText("Show Sync Issues...")
+        if self.contextMenuVisible():
+            if n_errors > 0:
+                self.syncIssuesAction.setText("Show Sync Issues ({0})...".format(n_errors))
+            else:
+                self.syncIssuesAction.setText("Show Sync Issues...")
 
-        self.pauseAction.setText(self.RESUME_TEXT if is_paused else self.PAUSE_TEXT)
-        self.accountUsageAction.setText(self.mdbx.get_conf("account", "usage"))
+            self.pauseAction.setText(self.RESUME_TEXT if is_paused else self.PAUSE_TEXT)
+            self.accountUsageAction.setText(self.mdbx.get_conf("account", "usage"))
+            self.accountEmailAction.setText(self.mdbx.get_conf("account", "email"))
 
-        status_short = elide_string(status)
-        self.statusAction.setText(status_short)
+            status_short = elide_string(status)
+            self.statusAction.setText(status_short)
 
         # update sync issues window
         if n_errors != self._n_errors and _is_pyqt_obj(self.sync_issues_window):
             self.sync_issues_window.reload()
 
         # update tooltip
-        self.setToolTip(status_short)
+        self.setToolTip(status)
 
         # cache status
         self._n_errors = n_errors
@@ -478,6 +513,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self._stop_and_exec_error_dialog(title, message, err["traceback"])
             self.mdbx.start_sync()  # resume sync again
 
+    @QtCore.pyqtSlot(int)
     def _stop_and_exec_relink_dialog(self, reason):
         from maestral.gui.relink_dialog import RelinkDialog
 
@@ -485,7 +521,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         if self.mdbx:
             self.mdbx.stop_sync()
-        if hasattr(self, "pauseAction"):
+        if self.pauseAction:
             self.pauseAction.setText("Start Syncing")
             self.pauseAction.setEnabled(False)
 
@@ -497,18 +533,20 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         if self.mdbx:
             self.mdbx.stop_sync()
-        if hasattr(self, "pauseAction"):
+        if self.pauseAction:
             self.pauseAction.setText("Start Syncing")
 
         error_dialog = UserDialog(title, message, exc_info)
         error_dialog.exec_()
 
+    @QtCore.pyqtSlot()
     def _onContextMenuAboutToShow(self):
         self._context_menu_visible = True
 
         if platform.system() == "Darwin":
             self.reload_icons()
 
+    @QtCore.pyqtSlot()
     def _onContextMenuAboutToHide(self):
         self._context_menu_visible = False
 
