@@ -284,8 +284,6 @@ class UpDownSync(object):
     :param queue_downloading: Queue with files currently being downloaded.
     """
 
-    _dropbox_path = CONF.get("main", "path")
-
     notify = Notipy()
     lock = RLock()
 
@@ -297,6 +295,12 @@ class UpDownSync(object):
 
     queued_for_download = queue.Queue()
     queued_for_upload = queue.Queue()
+
+    __slots__ = (
+        "client",
+        "local_file_event_queue", "queue_uploading", "queue_downloading",
+        "_dropbox_path", "_excluded_files", "_excluded_folders", "_rev_dict_cache",
+    )
 
     def __init__(self, client, local_file_event_queue, queue_uploading, queue_downloading):
 
@@ -971,8 +975,7 @@ class UpDownSync(object):
     @staticmethod
     def _list_diff(list1, list2):
         """
-        Subtracts elements of `list2` from `list1` while preserving the order of
-        list1.
+        Subtracts elements of `list2` from `list1` while preserving the order of `list1`.
 
         :param list list1: List to subtract from.
         :param list list2: List of elements to subtract.
@@ -1810,9 +1813,15 @@ class MaestralMonitor(object):
     disconnected_signal = signal("disconnected_signal")
     account_usage_signal = signal("account_usage_signal")
 
-    _auto_resume_on_connect = False
+    __slots__ = (
+        "connected", "syncing", "running", "client", "file_handler", "sync",
+        "local_observer_thread", "connection_thread", "upload_thread", "download_thread",
+        "_auto_resume_on_connect",
+    )
 
     def __init__(self, client):
+
+        self._auto_resume_on_connect = False
 
         self.connected = Event()
         self.syncing = Event()
