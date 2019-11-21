@@ -1813,12 +1813,6 @@ class MaestralMonitor(object):
     disconnected_signal = signal("disconnected_signal")
     account_usage_signal = signal("account_usage_signal")
 
-    __slots__ = (
-        "connected", "syncing", "running", "client", "file_handler", "sync",
-        "local_observer_thread", "connection_thread", "upload_thread", "download_thread",
-        "_auto_resume_on_connect",
-    )
-
     def __init__(self, client):
 
         self._auto_resume_on_connect = False
