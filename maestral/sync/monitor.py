@@ -951,9 +951,9 @@ class UpDownSync(object):
         success = []
         last_emit = time.time()
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            fs = [executor.submit(self._apply_event, e) for e in file_events]
+            fs = (executor.submit(self._apply_event, e) for e in file_events)
             n_files = len(file_events)
-            for (f, n) in zip(as_completed(fs), range(1, n_files+1)):
+            for f, n in zip(as_completed(fs), range(1, n_files+1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
                     # emit message at maximum every second
                     logger.info(f"Uploading {n}/{n_files}...")
@@ -1369,8 +1369,8 @@ class UpDownSync(object):
         success = []
         last_emit = time.time()
         with ThreadPoolExecutor(max_workers=15) as executor:
-            fs = [executor.submit(self._create_local_entry, file) for file in files]
-            for (f, n) in zip(as_completed(fs), range(1, n_files+1)):
+            fs = (executor.submit(self._create_local_entry, file) for file in files)
+            for f, n in zip(as_completed(fs), range(1, n_files+1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
                     # emit messages at maximum every second
                     logger.info(f"Downloading {n}/{n_files}...")
