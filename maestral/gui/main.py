@@ -77,14 +77,13 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         "settings_window", "sync_issues_window", "rebuild_dialog", "_progress_dialog",
         "update_ui_timer", "check_for_updates_timer",
         "statusAction", "accountEmailAction", "accountUsageAction", "pauseAction", "syncIssuesAction",
-        "autostart", "_current_icon", "_n_errors", "_status", "_progress_dialog",
+        "autostart", "_current_icon", "_n_errors", "_progress_dialog",
     )
 
     def __init__(self):
         QtWidgets.QSystemTrayIcon.__init__(self)
 
         self._n_errors = None
-        self._status = None
         self._current_icon = None
 
         self.settings_window = None
@@ -443,9 +442,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         status = self.mdbx.status
         is_paused = self.mdbx.paused
 
-        if status == self._status and n_errors == self._n_errors:
-            return
-
         # update icon
         if is_paused:
             new_icon = PAUSED
@@ -475,9 +471,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         # update tooltip
         self.setToolTip(status)
 
-        # cache status
+        # cache _n_errors
         self._n_errors = n_errors
-        self._status = status
 
     def update_error(self):
         errs = self.mdbx.get_maestral_errors()
