@@ -24,7 +24,7 @@ from PyQt5 import QtCore, QtWidgets, sip
 from maestral.config.main import CONF
 from maestral.sync.constants import (
     IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, SYNC_ERROR,
-    IS_MACOS_BUNDLE, CONFIG_NAME,
+    IS_MACOS_BUNDLE,
 )
 from maestral.sync.daemon import (
     start_maestral_daemon_process,
@@ -46,6 +46,8 @@ from maestral.gui.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+CONFIG_NAME = os.environ.get("MAESTRAL_CONFIG", "maestral")
 
 
 # TODO: move this to sync.utils
@@ -593,16 +595,15 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         # schedule restart after current process has quit
         pid = os.getpid()  # get ID of current process
-        config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
         if IS_MACOS_BUNDLE:
             launch_command = os.path.join(sys._MEIPASS, "main")
             Popen("lsof -p {0} +r 1 &>/dev/null; {0}".format(launch_command), shell=True)
         if platform.system() == "Darwin":
             Popen("lsof -p {0} +r 1 &>/dev/null; maestral gui --config-name='{1}'".format(
-                pid, config_name), shell=True)
+                pid, CONFIG_NAME), shell=True)
         elif platform.system() == "Linux":
             Popen("tail --pid={0} -f /dev/null; maestral gui --config-name='{1}'".format(
-                pid, config_name), shell=True)
+                pid, CONFIG_NAME), shell=True)
 
         # quit Maestral
         self.quit(stop_daemon=True)
