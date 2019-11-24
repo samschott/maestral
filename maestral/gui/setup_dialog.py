@@ -7,7 +7,6 @@ Created on Wed Oct 31 16:23:13 2018
 """
 
 # system imports
-import os
 import os.path as osp
 import shutil
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
@@ -51,10 +50,10 @@ class SetupDialog(QtWidgets.QDialog):
 
         # resize dialog buttons
         width = self.pushButtonAuthPageCancel.width()*1.1
-        for b in (self.pushButtonAuthPageLink, self.pussButtonDropboxPathUnlink,
-                  self.pussButtonDropboxPathSelect, self.pushButtonFolderSelectionBack,
+        for b in (self.pushButtonAuthPageLink, self.pushButtonDropboxPathUnlink,
+                  self.pushButtonDropboxPathSelect, self.pushButtonFolderSelectionBack,
                   self.pushButtonFolderSelectionSelect, self.pushButtonAuthPageCancel,
-                  self.pussButtonDropboxPathCalcel, self.pushButtonClose):
+                  self.pushButtonDropboxPathCalcel, self.pushButtonClose):
             b.setMinimumWidth(width)
             b.setMaximumWidth(width)
 
@@ -81,9 +80,9 @@ class SetupDialog(QtWidgets.QDialog):
         self.pushButtonLink.clicked.connect(self.on_link)
         self.pushButtonAuthPageCancel.clicked.connect(self.on_reject_requested)
         self.pushButtonAuthPageLink.clicked.connect(self.on_auth_clicked)
-        self.pussButtonDropboxPathCalcel.clicked.connect(self.on_reject_requested)
-        self.pussButtonDropboxPathSelect.clicked.connect(self.on_dropbox_location_selected)
-        self.pussButtonDropboxPathUnlink.clicked.connect(self.unlink_and_go_to_start)
+        self.pushButtonDropboxPathCalcel.clicked.connect(self.on_reject_requested)
+        self.pushButtonDropboxPathSelect.clicked.connect(self.on_dropbox_location_selected)
+        self.pushButtonDropboxPathUnlink.clicked.connect(self.unlink_and_go_to_start)
         self.pushButtonFolderSelectionBack.clicked.connect(self.stackedWidget.slideInPrev)
         self.pushButtonFolderSelectionSelect.clicked.connect(self.on_folders_selected)
         self.pushButtonClose.clicked.connect(self.on_accept_requested)
@@ -115,7 +114,7 @@ class SetupDialog(QtWidgets.QDialog):
             To unlink your Dropbox account from Maestral, click "Unlink" below.</p>
             </body></html>
             """.format(Maestral.get_conf("main", "path"), default_dir_name))
-            self.pussButtonDropboxPathCalcel.setText("Quit")
+            self.pushButtonDropboxPathCalcel.setText("Quit")
             self.stackedWidget.setCurrentIndex(2)
             self.stackedWidgetButtons.setCurrentIndex(2)
         else:
@@ -190,19 +189,17 @@ class SetupDialog(QtWidgets.QDialog):
 
     def on_verify_token_finished(self, res):
 
-        from maestral.sync.main import Maestral
-
         if res == OAuth2Session.Success:
             self.auth_session.save_creds()
 
             # switch to next page
             self.stackedWidget.slideInIdx(2)
-            self.pussButtonDropboxPathSelect.setFocus()
+            self.pushButtonDropboxPathSelect.setFocus()
             self.lineEditAuthCode.clear()  # clear since we might come back on unlink
 
             # start Maestral after linking to Dropbox account
             self.mdbx = Maestral(run=False)
-            self.mdbx.client.get_account_info()
+            self.mdbx.get_account_info()
         elif res == OAuth2Session.InvalidToken:
             msg = "Please make sure that you entered the correct authentication token."
             msg_box = UserDialog("Authentication failed.", msg, parent=self)
