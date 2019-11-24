@@ -171,12 +171,13 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             done = SetupDialog.configureMaestral(pending_link)
             if done:
                 logger.info("Successfully set up Maestral")
+                self.restart()
             else:
-                logger.info("Setup aborted. Quitting.")
+                logger.info("Setup aborted.")
                 self.quit()
-
-        self.mdbx = self._get_or_start_maestral_daemon()
-        self.setup_ui_linked()
+        else:
+            self.mdbx = self._get_or_start_maestral_daemon()
+            self.setup_ui_linked()
 
     def _get_or_start_maestral_daemon(self):
 
@@ -567,6 +568,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             quitting the GUI, if ``False``, it will be kept alive. If ``None``, the daemon
             will only be stopped if it was started by the GUI (default).
         """
+        logger.info("Quitting...")
 
         if stop_daemon is None:
             stop_daemon = self._started
@@ -586,6 +588,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def restart(self):
         """Restarts the Maestral GUI and sync daemon."""
+
+        logger.info("Restarting...")
 
         # schedule restart after current process has quit
         pid = os.getpid()  # get ID of current process
