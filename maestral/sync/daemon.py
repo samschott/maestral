@@ -13,7 +13,8 @@ import time
 import logging
 
 # external packages
-import Pyro4
+import Pyro5.errors
+from Pyro5 import server, client
 
 logger = logging.getLogger(__name__)
 URI = "PYRO:maestral.{0}@{1}"
@@ -96,7 +97,7 @@ def start_maestral_daemon(config_name="maestral", run=True):
     except FileNotFoundError:
         pass
 
-    daemon = Pyro4.Daemon(unixsocket=sock_name)
+    daemon = server.Daemon(unixsocket=sock_name)
 
     _write_pid(config_name)  # write PID to file
 
@@ -104,7 +105,7 @@ def start_maestral_daemon(config_name="maestral", run=True):
         # we wrap this in a try-except block to make sure that the PID file is always
         # removed, even when Maestral crashes for some reason
 
-        ExposedMaestral = Pyro4.expose(Maestral)
+        ExposedMaestral = server.expose(Maestral)
         m = ExposedMaestral(run=run)
 
         daemon.register(m, f"maestral.{config_name}")
@@ -164,9 +165,9 @@ def start_maestral_daemon_process(config_name="maestral", log_to_console=False):
     # use nested Popen and multiprocessing.Process to effectively create double fork
     # see Unix "double-fork magic"
 
-    def target(config_name):
+    def target(cc):
         subprocess.Popen(
-            ["maestral", "start", "-f", "-c", config_name],
+            ["maestral", "start", "-f", "-c", cc],
             stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
         )
 
@@ -206,7 +207,7 @@ def stop_maestral_daemon_process(config_name="maestral", timeout=10):
             with MaestralProxy(config_name) as m:
                 m.stop_sync()
                 m.shutdown_pyro_daemon()
-        except Pyro4.errors.CommunicationError:
+        except Pyro5.errors.CommunicationError:
             logger.debug("Could not communicate with daemon")
             try:
                 os.kill(pid, signal.SIGTERM)  # try to send SIGTERM to process
@@ -236,15 +237,15 @@ def stop_maestral_daemon_process(config_name="maestral", timeout=10):
 
 def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
     """
-    Returns a Pyro4 proxy of the a running Maestral instance. If ``fallback`` is
+    Returns a Pyro proxy of the a running Maestral instance. If ``fallback`` is
     ``True``, a new instance of Maestral will be returned when the daemon cannot be
     reached.
 
     :param str config_name: The name of the Maestral configuration to use.
     :param bool fallback: If ``True``, a new instance of Maestral will be returned when
         the daemon cannot be reached. Defaults to ``False``.
-    :returns: Pyro4 proxy of Maestral or a new instance.
-    :raises: ``Pyro4.errors.CommunicationError`` if the daemon cannot be reached and
+    :returns: Pyro proxy of Maestral or a new instance.
+    :raises: ``Pyro5.errors.CommunicationError`` if the daemon cannot be reached and
         ``fallback`` is ``False``.
     """
 
@@ -257,12 +258,12 @@ def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
         from maestral.sync.utils.appdirs import get_runtime_path
         sock_name = get_runtime_path("maestral", config_name + ".sock")
 
-        sys.excepthook = Pyro4.util.excepthook
-        maestral_daemon = Pyro4.Proxy(URI.format(config_name, "./u:" + sock_name))
+        sys.excepthook = Pyro5.errors.excepthook
+        maestral_daemon = client.Proxy(URI.format(config_name, "./u:" + sock_name))
         try:
             maestral_daemon._pyroBind()
             return maestral_daemon
-        except Pyro4.errors.CommunicationError:
+        except Pyro5.errors.CommunicationError:
             maestral_daemon._pyroRelease()
 
     if fallback:
@@ -270,7 +271,7 @@ def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
         m = Maestral(run=False)
         return m
     else:
-        raise Pyro4.errors.CommunicationError
+        raise Pyro5.errors.CommunicationError
 
 
 class MaestralProxy(object):
@@ -357,7 +358,7 @@ def _check_pyro_communication(config_name, timeout=2):
     """
 
     sock_name = _get_sock_name(config_name)
-    maestral_daemon = Pyro4.Proxy(URI.format(config_name, "./u:" + sock_name))
+    maestral_daemon = client.Proxy(URI.format(config_name, "./u:" + sock_name))
 
     t0 = time.time()
     # wait until we can communicate with daemon, timeout after :param:`timeout`

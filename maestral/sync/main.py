@@ -176,7 +176,7 @@ class Maestral(object):
     safely serialized, i.e., pure Python types.
     """
 
-    _daemon_running = True  # for integration with Pyro4
+    _daemon_running = True  # for integration with Pyro
 
     def __init__(self, run=True):
 
@@ -821,7 +821,7 @@ Any changes to local files during this process may be lost.""")
 
     def shutdown_pyro_daemon(self):
         """Does nothing except for setting the _daemon_running flag to ``False``. This
-        will be checked by Pyro4 periodically to shut down the daemon when requested."""
+        will be checked by Pyro periodically to shut down the daemon when requested."""
         self._daemon_running = False
         if NOTIFY_SOCKET and system_notifier:
             # notify systemd that we are shutting down

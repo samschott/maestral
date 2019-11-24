@@ -16,7 +16,7 @@ import os
 
 # external packages
 import click
-import Pyro4.errors
+import Pyro5.errors
 
 
 OK = click.style("[OK]", fg="green")
@@ -257,7 +257,7 @@ def pause(config_name: str, running: bool):
         with MaestralProxy(config_name) as m:
             m.pause_sync()
         click.echo("Syncing paused.")
-    except Pyro4.errors.CommunicationError:
+    except Pyro5.errors.CommunicationError:
         click.echo("Maestral daemon is not running.")
 
 
@@ -271,7 +271,7 @@ def resume(config_name: str, running: bool):
         with MaestralProxy(config_name) as m:
             m.resume_sync()
         click.echo("Syncing resumed.")
-    except Pyro4.errors.CommunicationError:
+    except Pyro5.errors.CommunicationError:
         click.echo("Maestral daemon is not running.")
 
 
@@ -293,7 +293,7 @@ def status(config_name: str, running: bool):
             click.echo("Sync errors:   {}".format(n_errors_str))
             click.echo("")
 
-    except Pyro4.errors.CommunicationError:
+    except Pyro5.errors.CommunicationError:
         click.echo("Maestral daemon is not running.")
 
 
@@ -309,7 +309,7 @@ def file_status(config_name: str, running: bool, local_path: str):
             stat = m.get_file_status(local_path)
             click.echo(stat)
 
-    except Pyro4.errors.CommunicationError:
+    except Pyro5.errors.CommunicationError:
         click.echo("unwatched")
 
 
@@ -376,7 +376,7 @@ def activity(config_name: str, running: bool):
             # enter curses event loop
             curses.wrapper(curses_loop)
 
-    except Pyro4.errors.CommunicationError:
+    except Pyro5.errors.CommunicationError:
         click.echo("Maestral daemon is not running.")
 
 
@@ -402,7 +402,7 @@ def errors(config_name: str, running: bool):
                     click.echo(c0 + c1)
                 click.echo("")
 
-    except Pyro4.errors.CommunicationError:
+    except Pyro5.errors.CommunicationError:
         click.echo("Maestral daemon is not running.")
 
 
