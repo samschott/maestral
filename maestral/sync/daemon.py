@@ -373,3 +373,9 @@ def _check_pyro_communication(config_name, timeout=2):
 
     logger.error("Could communicate with Maestral daemon")
     return False
+
+
+if __name__ == "__main__":
+    config_name = os.environ.get("MAESTRAL_CONFIG", "maestral")
+    start_maestral_daemon(config_name)
+
