@@ -69,7 +69,7 @@ def _delete_pid(config_name):
     logger.debug(f"Removed PID file '{pid_file}'.")
 
 
-def start_maestral_daemon(config_name, run=True):
+def start_maestral_daemon(config_name="maestral", run=True):
     """
     Wraps :class:`maestral.main.Maestral` as Pyro daemon object, creates a new instance
     and start Pyro's event loop to listen for requests on 'localhost'. This call will
@@ -117,7 +117,7 @@ def start_maestral_daemon(config_name, run=True):
         _delete_pid(config_name)  # remove PID file
 
 
-def start_maestral_daemon_thread(config_name):
+def start_maestral_daemon_thread(config_name="maestral"):
     """
     Starts the Maestral daemon in a thread (by calling `start_maestral_daemon`).
     This command will create a new daemon on each run. Take care not to sync the same
@@ -143,7 +143,7 @@ def start_maestral_daemon_thread(config_name):
     return _wait_for_startup(config_name, timeout=2)
 
 
-def start_maestral_daemon_process(config_name, log_to_console=False):
+def start_maestral_daemon_process(config_name="maestral", log_to_console=False):
     """
     Starts the Maestral daemon as a separate process (by calling `start_maestral_daemon`).
     This command will create a new daemon on each run. Take care not to sync the same
@@ -376,6 +376,6 @@ def _check_pyro_communication(config_name, timeout=2):
 
 
 if __name__ == "__main__":
-    config_name = os.environ.get("MAESTRAL_CONFIG", "maestral")
-    start_maestral_daemon(config_name)
+    conf = os.environ.get("MAESTRAL_CONFIG", "maestral")
+    start_maestral_daemon(conf)
 
