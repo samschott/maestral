@@ -1642,7 +1642,6 @@ def connection_helper(client, syncing, running, connected):
 
     disconnected_signal = signal("disconnected_signal")
     connected_signal = signal("connected_signal")
-    account_usage_signal = signal("account_usage_signal")
 
     while running.is_set():
         try:
@@ -1651,7 +1650,6 @@ def connection_helper(client, syncing, running, connected):
             if not connected.is_set():
                 connected.set()
                 connected_signal.send()
-            account_usage_signal.send(res)
             time.sleep(5)
         except CONNECTION_ERRORS:
             if connected.is_set():
@@ -1811,7 +1809,6 @@ class MaestralMonitor(object):
 
     connected_signal = signal("connected_signal")
     disconnected_signal = signal("disconnected_signal")
-    account_usage_signal = signal("account_usage_signal")
 
     def __init__(self, client):
 
