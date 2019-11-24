@@ -324,7 +324,7 @@ class SetupDialog(QtWidgets.QDialog):
         else:
             self.selectAllCheckBox.setChecked(False)
 
-    @QtCore.pyqtSlot(int)
+    @QtCore.pyqtSlot(bool)
     def on_select_all_clicked(self, checked):
         checked_state = 2 if checked else 0
         for irow in range(self.dbx_model._root_item.child_count_loaded()):
