@@ -15,6 +15,7 @@ incremental update to v0.4.3 first.
   of the maestral daemon to become effective.
 - `maestral set-dir` now takes the new path as an argument: `maestral set-dir PATH`. If
   not given, the user will be prompted to input a path or use the default.
+- Migrated from Pyro4 to Pyro5 for communication to daemon process.
 
 #### Fixed:
 
