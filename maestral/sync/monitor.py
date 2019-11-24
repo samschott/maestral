@@ -1627,7 +1627,7 @@ class UpDownSync(object):
 # Workers for upload, download and connection monitoring threads
 # ========================================================================================
 
-def connection_helper(client, syncing, running, connected):
+def connection_helper(client, syncing, running, connected, check_interval=8):
     """
     A worker which periodically checks the connection to Dropbox servers.
     This is done through inexpensive calls to :method:`client.get_space_usage`.
@@ -1638,6 +1638,7 @@ def connection_helper(client, syncing, running, connected):
     :param syncing: Event that indicates if workers are running or paused.
     :param running: Event to shutdown connection helper.
     :param connected: Event that indicates if a connection to Dropbox can be established.
+    :param check_interval: Time in seconds between connection checks. Defaults to 8 sec.
     """
 
     disconnected_signal = signal("disconnected_signal")
@@ -1646,11 +1647,11 @@ def connection_helper(client, syncing, running, connected):
     while running.is_set():
         try:
             # use an inexpensive call to get_space_usage to test connection
-            res = client.get_space_usage()
+            client.get_space_usage()
             if not connected.is_set():
                 connected.set()
                 connected_signal.send()
-            time.sleep(5)
+            time.sleep(check_interval)
         except CONNECTION_ERRORS:
             if connected.is_set():
                 logger.debug(DISCONNECTED, exc_info=True)  # debug signal w/ traceback
@@ -1658,7 +1659,7 @@ def connection_helper(client, syncing, running, connected):
             syncing.clear()
             connected.clear()
             disconnected_signal.send()
-            time.sleep(1)
+            time.sleep(check_interval/2)
         except DropboxAuthError as e:
             syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
