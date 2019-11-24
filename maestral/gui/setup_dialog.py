@@ -15,6 +15,7 @@ from PyQt5.QtCore import QModelIndex, Qt
 
 # maestral modules
 from maestral.config.main import CONF
+from maestral.sync.main import Maestral
 from maestral.sync.utils import handle_disconnect
 from maestral.sync.utils.path import delete_file_or_folder
 from maestral.sync.oauth import OAuth2Session
@@ -36,8 +37,6 @@ class SetupDialog(QtWidgets.QDialog):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(SETUP_DIALOG_PATH, self)
-
-        from maestral.sync.main import Maestral
 
         self.app_icon = QtGui.QIcon(APP_ICON_PATH)
 
