@@ -1,4 +1,4 @@
-## v0.4.4-dev1
+## v0.4.4-dev2
 
 This updates focuses on bug fixes and performance improvements. Notably, it reduces the
 memory usage of the GUI by ~ 30MB. It also removes code to migrate from Maestral versions
