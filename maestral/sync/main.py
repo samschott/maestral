@@ -21,8 +21,6 @@ import click
 import requests
 from dropbox import files
 
-from maestral.sync.utils import handle_disconnect, with_sync_paused
-
 try:
     from systemd import journal
 except ImportError:
@@ -36,10 +34,10 @@ except ImportError:
 
 # maestral modules
 from maestral.sync.monitor import MaestralMonitor
+from maestral.sync.utils import handle_disconnect, with_sync_paused
 from maestral.sync.utils.path import is_child, path_exists_case_insensitive
 from maestral.sync.constants import (
     IDLE, DISCONNECTED,
-    CONFIG_NAME,
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
 )
 from maestral.sync.client import MaestralApiClient
@@ -51,7 +49,8 @@ from maestral.sync.errors import MaestralApiError
 from maestral.sync.errors import CONNECTION_ERRORS, SYNC_ERRORS
 from maestral.config.main import CONF
 
-# check environment variables set by systemd
+
+CONFIG_NAME = os.environ.get("MAESTRAL_CONFIG", "maestral")
 
 # ========================================================================================
 # Logging setup

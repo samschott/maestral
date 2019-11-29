@@ -30,5 +30,4 @@ WATCHDOG_USEC = os.getenv("WATCHDOG_USEC")
 IS_WATCHDOG = WATCHDOG_USEC and (WATCHDOG_PID is None or int(WATCHDOG_PID) == os.getpid())
 
 # other
-CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
 REV_FILE = ".maestral"

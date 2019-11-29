@@ -92,7 +92,7 @@ def _check_and_set_config(ctx, param, value):
     """
     Checks if the selected config name, passed as :param:`value`, is valid and sets
     the environment variable `MAESTRAL_CONFIG` accordingly. Further, checks if a
-    daemon for the specified config is already running and stored the result in a new
+    daemon for the specified config is already running and stores the result in a new
     parameter ``running`` to be passed to the command line script.
 
     :param ctx: Click context to be passed to command.
@@ -110,6 +110,7 @@ def _check_and_set_config(ctx, param, value):
 
     # set environment variable
     os.environ["MAESTRAL_CONFIG"] = value
+    # reload config, in case it was already imported earlier
     load_config(value)
 
     # check if maestral is running and store the result for other commands to use
