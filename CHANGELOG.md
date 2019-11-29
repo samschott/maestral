@@ -1,9 +1,8 @@
-## v0.4.4-dev2
+## v0.4.4
 
 This updates focuses on bug fixes and performance improvements. Notably, it reduces the
-memory usage of the GUI by ~ 30MB. It also removes code to migrate from Maestral versions
-prior to v0.2.5. If you are upgrading from v0.2.4 or earlier, please perform an
-incremental update to v0.4.3 first.
+memory usage of the GUI by ~ 30MB. If you are upgrading from v0.2.4 or earlier, please
+perform an incremental update to v0.4.3 first (see Removed section).
 
 #### Changed:
 
@@ -15,7 +14,7 @@ incremental update to v0.4.3 first.
   of the maestral daemon to become effective.
 - `maestral set-dir` now takes the new path as an argument: `maestral set-dir PATH`. If
   not given, the user will be prompted to input a path or use the default.
-- Migrated from Pyro4 to Pyro5 for communication to daemon process.
+- Migrated from Pyro4 to Pyro5 for communication with sync daemon.
 
 #### Fixed:
 
