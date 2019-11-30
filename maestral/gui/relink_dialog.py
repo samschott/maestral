@@ -151,10 +151,3 @@ class RelinkDialog(QtWidgets.QDialog):
         self.pushButtonLink.setEnabled(True)
         self.pushButtonUnlink.setEnabled(True)
         self.pushButtonCancel.setEnabled(True)
-
-
-if __name__ == "__main__":
-    app = QtWidgets.QApplication(["RelinkDialog test"])
-    ud = RelinkDialog()
-    ud.show()
-    sys.exit(app.exec())

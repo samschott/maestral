@@ -505,16 +505,3 @@ class FoldersDialog(QtWidgets.QDialog):
     def update_dark_mode(self):
         if self.dbx_model:
             self.dbx_model.reloadData([Qt.DecorationRole])  # reload folder icons
-
-
-if __name__ == "__main__":
-
-    from maestral.sync.main import Maestral
-    mdbx = Maestral(run=False)
-
-    app = QtWidgets.QApplication(["test"])
-    app.setAttribute(Qt.AA_UseHighDpiPixmaps)
-    fd = FoldersDialog(mdbx)
-    fd.show()
-    fd.populate_folders_list()
-    app.exec_()

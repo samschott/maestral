@@ -21,8 +21,6 @@ from maestral.gui.resources import (SYNC_ISSUES_WINDOW_PATH, SYNC_ISSUE_WIDGET_P
 from maestral.gui.utils import (elide_string, icon_to_pixmap, get_scaled_font,
                                 isDarkWindow, LINE_COLOR_DARK, LINE_COLOR_LIGHT)
 
-HAS_GTK_LAUNCH = shutil.which("gtk-launch") is not None
-
 
 class SyncIssueWidget(QtWidgets.QWidget):
     """
