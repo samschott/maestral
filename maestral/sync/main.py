@@ -12,7 +12,6 @@ import os
 import os.path as osp
 import shutil
 import time
-import functools
 from threading import Thread
 import logging.handlers
 from collections import namedtuple, deque
@@ -21,7 +20,6 @@ from collections import namedtuple, deque
 import click
 import requests
 from dropbox import files
-from blinker import signal
 
 try:
     from systemd import journal
@@ -35,27 +33,24 @@ except ImportError:
     system_notifier = None
 
 # maestral modules
-from maestral.sync.monitor import (MaestralMonitor, IDLE, DISCONNECTED,
-                                   path_exists_case_insensitive, is_child)
+from maestral.sync.monitor import MaestralMonitor
+from maestral.sync.utils import handle_disconnect, with_sync_paused
+from maestral.sync.utils.path import is_child, path_exists_case_insensitive
+from maestral.sync.constants import (
+    IDLE, DISCONNECTED,
+    INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
+)
 from maestral.sync.client import MaestralApiClient
 from maestral.sync.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
-from maestral.sync.utils.app_dirs import get_log_path, get_cache_path, get_home_dir
+from maestral.sync.utils.appdirs import get_log_path, get_cache_path, get_home_dir
 from maestral.sync.utils.updates import check_update_available
 from maestral.sync.oauth import OAuth2Session
-from maestral.sync.errors import MaestralApiError, DropboxAuthError
+from maestral.sync.errors import MaestralApiError
 from maestral.sync.errors import CONNECTION_ERRORS, SYNC_ERRORS
 from maestral.config.main import CONF
 
 
-CONFIG_NAME = os.getenv("MAESTRAL_CONFIG", "maestral")
-
-# check environment variables set by systemd
-INVOCATION_ID = os.getenv("INVOCATION_ID")
-NOTIFY_SOCKET = os.getenv("NOTIFY_SOCKET")
-WATCHDOG_PID = os.getenv("WATCHDOG_PID")
-WATCHDOG_USEC = os.getenv("WATCHDOG_USEC")
-
-IS_WATCHDOG = WATCHDOG_USEC and (WATCHDOG_PID is None or int(WATCHDOG_PID) == os.getpid())
+CONFIG_NAME = os.environ.get("MAESTRAL_CONFIG", "maestral")
 
 # ========================================================================================
 # Logging setup
@@ -101,7 +96,7 @@ class CachedHandler(logging.Handler):
         self.format(record)
         self.cached_records.append(record)
         if NOTIFY_SOCKET and system_notifier:
-            system_notifier.notify("STATUS={}".format(record.message))
+            system_notifier.notify(f"STATUS={record.message}")
 
     def getLastMessage(self):
         if len(self.cached_records) > 0:
@@ -143,8 +138,6 @@ def folder_download_worker(monitor, dbx_path, callback=None):
     :param str dbx_path: Path to directory on Dropbox.
     :param callback: function to be called after download is complete
     """
-    download_complete_signal = signal("download_complete_signal")
-
     time.sleep(2)  # wait for pausing to take effect
 
     with monitor.sync.lock:
@@ -165,53 +158,10 @@ def folder_download_worker(monitor, dbx_path, callback=None):
                 completed = True
                 if callback is not None:
                     callback()
-                download_complete_signal.send()
 
             except CONNECTION_ERRORS:
                 logger.debug(DISCONNECTED, exc_info=True)
                 logger.info(DISCONNECTED)
-
-
-def with_sync_paused(func):
-    """
-    Decorator which pauses syncing before a method call, resumes afterwards. This
-    should only be used to decorate Maestral methods.
-    """
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        # pause syncing
-        resume = False
-        if self.syncing:
-            self.pause_sync()
-            resume = True
-        ret = func(self, *args, **kwargs)
-        # resume syncing if previously paused
-        if resume:
-            self.resume_sync()
-        return ret
-    return wrapper
-
-
-def handle_disconnect(func):
-    """
-    Decorator which handles connection and auth errors during a function call and returns
-    ``False`` if an error occurred.
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        # pause syncing
-        try:
-            res = func(*args, **kwargs)
-            return res
-        except CONNECTION_ERRORS:
-            logger.info(DISCONNECTED)
-            return False
-        except DropboxAuthError as e:
-            logger.exception("{0}: {1}".format(e.title, e.message))
-            return False
-
-    return wrapper
 
 
 # ========================================================================================
@@ -225,7 +175,7 @@ class Maestral(object):
     safely serialized, i.e., pure Python types.
     """
 
-    _daemon_running = True  # for integration with Pyro4
+    _daemon_running = True  # for integration with Pyro
 
     def __init__(self, run=True):
 
@@ -255,13 +205,13 @@ class Maestral(object):
 
             if NOTIFY_SOCKET and system_notifier:
                 logger.debug("Running as systemd notify service")
-                logger.debug("NOTIFY_SOCKET = {}".format(NOTIFY_SOCKET))
+                logger.debug(f"NOTIFY_SOCKET = {NOTIFY_SOCKET}")
                 system_notifier.notify("READY=1")  # notify systemd that we have started
 
             if IS_WATCHDOG and system_notifier:
                 logger.debug("Running as systemd watchdog service")
-                logger.debug("WATCHDOG_USEC = {}".format(WATCHDOG_USEC))
-                logger.debug("WATCHDOG_PID = {}".format(WATCHDOG_PID))
+                logger.debug(f"WATCHDOG_USEC = {WATCHDOG_USEC}")
+                logger.debug(f"WATCHDOG_PID = {WATCHDOG_PID}")
 
                 # notify systemd periodically that we are still alive
                 self.watchdog_thread = Thread(
@@ -272,12 +222,18 @@ class Maestral(object):
                 self.watchdog_thread.start()
 
     @staticmethod
+    def set_conf(section, name, value):
+        CONF.set(section, name, value)
+
+    @staticmethod
     def get_conf(section, name):
         return CONF.get(section, name)
 
     @staticmethod
-    def set_conf(section, name, value):
-        CONF.set(section, name, value)
+    def set_log_level(level_num):
+        rfh.setLevel(level_num)
+        sh.setLevel(level_num)
+        CONF.set("app", "log_level", level_num)
 
     @staticmethod
     def pending_link():
@@ -579,7 +535,7 @@ Any changes to local files during this process may be lost.""")
             pass
 
         CONF.reset_to_defaults()
-        CONF.set("main", "default_dir_name", "Dropbox ({0})".format(CONFIG_NAME.capitalize()))
+        CONF.set("main", "default_dir_name", f"Dropbox ({CONFIG_NAME.capitalize()})")
 
         logger.info("Unlinked Dropbox account.")
 
@@ -607,7 +563,7 @@ Any changes to local files during this process may be lost.""")
         # remove folder from local drive
         local_path = self.sync.to_local_path(dbx_path)
         local_path_cased = path_exists_case_insensitive(local_path)
-        logger.info("Deleting folder '{}'.".format(local_path_cased))
+        logger.info(f"Deleting folder '{local_path_cased}'.")
         if osp.isdir(local_path_cased):
             shutil.rmtree(local_path_cased)
 
@@ -651,7 +607,7 @@ Any changes to local files during this process may be lost.""")
         self.sync.excluded_folders = excluded_folders
 
         # download folder contents from Dropbox
-        logger.info("Downloading added folder '{}'.".format(dbx_path))
+        logger.info(f"Downloading added folder '{dbx_path}'.")
         for folder in new_included_folders:
             self.get_remote_dropbox_async(folder)
 
@@ -697,8 +653,7 @@ Any changes to local files during this process may be lost.""")
             # paginate through top-level folders, ask to exclude
             for entry in result.entries:
                 if isinstance(entry, files.FolderMetadata):
-                    msg = "Exclude '{}' from sync?".format(entry.path_display)
-                    yes = click.confirm(msg)
+                    yes = click.confirm(f"Exclude '{entry.path_display}' from sync?")
                     if yes:
                         excluded_folders.append(entry.path_lower)
         else:
@@ -759,10 +714,11 @@ Any changes to local files during this process may be lost.""")
         if new_path is None:
             new_path = self._ask_for_path(default=default_path)
 
-        if osp.exists(old_path) and osp.exists(new_path):
+        try:
             if osp.samefile(old_path, new_path):
-                # nothing to do
                 return
+        except FileNotFoundError:
+            pass
 
         # remove existing items at current location
         try:
@@ -816,14 +772,20 @@ Any changes to local files during this process may be lost.""")
         Asks for Dropbox path.
         """
         while True:
-            msg = ("Please give Dropbox folder location or press enter for default "
-                   "[{0}]:".format(default))
+            msg = f"Please give Dropbox folder location or press enter for default ['{default}']:"
             res = input(msg).strip("'\" ")
 
             dropbox_path = osp.expanduser(res or default)
+            old_path = CONF.get("main", "path")
+
+            try:
+                if osp.samefile(old_path, dropbox_path):
+                    return
+            except FileNotFoundError:
+                pass
 
             if osp.exists(dropbox_path):
-                msg = "Directory '{0}' already exist. Do you want to overwrite it?".format(dropbox_path)
+                msg = f"Directory '{dropbox_path}' already exist. Do you want to overwrite it?"
                 yes = click.confirm(msg)
                 if yes:
                     return dropbox_path
@@ -844,6 +806,7 @@ Any changes to local files during this process may be lost.""")
             # update account info
             self.get_account_info()
             self.get_space_usage()
+            self.get_profile_pic()
             # check for maestral updates
             res = self.check_for_updates()
             if not res["error"]:
@@ -853,11 +816,11 @@ Any changes to local files during this process may be lost.""")
     def _periodic_watchdog(self):
         while self.monitor.running.is_set():
             system_notifier.notify("WATCHDOG=1")
-            time.sleep(int(WATCHDOG_USEC)/(2*10**6))
+            time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
 
-    def shutdown_daemon(self):
+    def shutdown_pyro_daemon(self):
         """Does nothing except for setting the _daemon_running flag to ``False``. This
-        will be checked by Pyro4 periodically to shut down the daemon when requested."""
+        will be checked by Pyro periodically to shut down the daemon when requested."""
         self._daemon_running = False
         if NOTIFY_SOCKET and system_notifier:
             # notify systemd that we are shutting down
@@ -870,11 +833,7 @@ Any changes to local files during this process may be lost.""")
         self.monitor.stop()
 
     def __repr__(self):
-        if self.connected:
-            email = CONF.get("account", "email")
-            account_type = CONF.get("account", "type")
-            inner = "{0}, {1}".format(email, account_type)
-        else:
-            inner = DISCONNECTED
+        email = CONF.get("account", "email")
+        account_type = CONF.get("account", "type")
 
-        return "<{0}({1})>".format(self.__class__.__name__, inner)
+        return f"<{self.__class__}({email}, {account_type})>"

@@ -10,12 +10,13 @@ import logging
 import threading
 
 # external packages
-import Pyro4
+from Pyro5 import client
 from PyQt5 import QtCore, QtWidgets, QtGui, uic
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, QVariant
 
 # maestral modules
-from maestral.sync.main import handle_disconnect, is_child
+from maestral.sync.utils.path import is_child
+from maestral.sync.utils import handle_disconnect
 from maestral.gui.resources import FOLDERS_DIALOG_PATH, get_native_folder_icon
 from maestral.gui.utils import BackgroundTask
 
@@ -39,6 +40,7 @@ class TreeModel(QAbstractItemModel):
         self._header = self._root_item.header()
         self._flags = Qt.ItemIsUserCheckable
 
+    @QtCore.pyqtSlot()
     def on_loading_failed(self):
 
         self.display_message("Could not connect to Dropbox. Please check "
@@ -387,9 +389,9 @@ class AsyncLoadFolders(QtCore.QObject):
 
             path = "" if path == "/" else path
 
-            if isinstance(self.m, Pyro4.Proxy):
+            if isinstance(self.m, client.Proxy):
                 # use a duplicate proxy to prevent blocking of the main connection
-                with Pyro4.Proxy(self.m._pyroUri) as m:
+                with client.Proxy(self.m._pyroUri) as m:
                     entries = m.list_folder(path, recursive=False)
             else:
                 entries = self.m.list_folder(path, recursive=False)
@@ -431,6 +433,7 @@ class FoldersDialog(QtWidgets.QDialog):
         self.dbx_model.dataChanged.connect(self.update_select_all_checkbox)
         self.treeViewFolders.setModel(self.dbx_model)
 
+    @QtCore.pyqtSlot()
     def update_select_all_checkbox(self):
         check_states = []
         for irow in range(self.dbx_model._root_item.child_count_loaded()):
@@ -441,6 +444,7 @@ class FoldersDialog(QtWidgets.QDialog):
         else:
             self.selectAllCheckBox.setChecked(False)
 
+    @QtCore.pyqtSlot(bool)
     def on_select_all_clicked(self, checked):
         checked_state = 2 if checked else 0
         for irow in range(self.dbx_model._root_item.child_count_loaded()):
@@ -483,10 +487,12 @@ class FoldersDialog(QtWidgets.QDialog):
             index_child = self.dbx_model.index(row, 0, index)
             self.apply_selection(index=index_child)
 
+    @QtCore.pyqtSlot()
     def ui_failed(self):
         self.accept_button.setEnabled(False)
         self.selectAllCheckBox.setEnabled(False)
 
+    @QtCore.pyqtSlot()
     def ui_loaded(self):
         self.accept_button.setEnabled(True)
         self.selectAllCheckBox.setEnabled(True)
@@ -499,16 +505,3 @@ class FoldersDialog(QtWidgets.QDialog):
     def update_dark_mode(self):
         if self.dbx_model:
             self.dbx_model.reloadData([Qt.DecorationRole])  # reload folder icons
-
-
-if __name__ == "__main__":
-
-    from maestral.sync.main import Maestral
-    mdbx = Maestral(run=False)
-
-    app = QtWidgets.QApplication(["test"])
-    app.setAttribute(Qt.AA_UseHighDpiPixmaps)
-    fd = FoldersDialog(mdbx)
-    fd.show()
-    fd.populate_folders_list()
-    app.exec_()

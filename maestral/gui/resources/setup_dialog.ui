@@ -651,7 +651,7 @@
         <number>0</number>
        </property>
        <item row="0" column="3">
-        <widget class="QPushButton" name="pussButtonDropboxPathCalcel">
+        <widget class="QPushButton" name="pushButtonDropboxPathCalcel">
          <property name="text">
           <string>Cancel</string>
          </property>
@@ -662,7 +662,7 @@
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QPushButton" name="pussButtonDropboxPathUnlink">
+        <widget class="QPushButton" name="pushButtonDropboxPathUnlink">
          <property name="text">
           <string>Unlink</string>
          </property>
@@ -673,7 +673,7 @@
         </widget>
        </item>
        <item row="0" column="4">
-        <widget class="QPushButton" name="pussButtonDropboxPathSelect">
+        <widget class="QPushButton" name="pushButtonDropboxPathSelect">
          <property name="text">
           <string>Select</string>
          </property>
@@ -797,9 +797,9 @@
   <tabstop>pushButtonAuthPageLink</tabstop>
   <tabstop>pushButtonAuthPageCancel</tabstop>
   <tabstop>lineEditAuthCode</tabstop>
-  <tabstop>pussButtonDropboxPathSelect</tabstop>
-  <tabstop>pussButtonDropboxPathCalcel</tabstop>
-  <tabstop>pussButtonDropboxPathUnlink</tabstop>
+  <tabstop>pushButtonDropboxPathSelect</tabstop>
+  <tabstop>pushButtonDropboxPathCalcel</tabstop>
+  <tabstop>pushButtonDropboxPathUnlink</tabstop>
   <tabstop>comboBoxDropboxPath</tabstop>
   <tabstop>pushButtonFolderSelectionSelect</tabstop>
   <tabstop>pushButtonFolderSelectionBack</tabstop>

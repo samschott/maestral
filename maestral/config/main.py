@@ -15,10 +15,8 @@ a full download on the next startup.
 """
 
 import os
-
-# Local import
 from .user import UserConfig
-from .base import migrate_config_files
+
 
 PACKAGE_NAME = os.getenv('MAESTRAL_CONFIG', 'maestral')
 SUBFOLDER = 'maestral'
@@ -27,6 +25,7 @@ SUBFOLDER = 'maestral'
 # =============================================================================
 #  Defaults
 # =============================================================================
+
 DEFAULTS = [
     ('main',  # main settings regarding folder locations etc
      {
@@ -78,14 +77,24 @@ DEFAULTS = [
 # 3. You don't need to touch this value if you're just adding a new option
 CONF_VERSION = '9.0.0'
 
-migrate_config_files()
+
+def load_config(config_name):
+    global CONF
+    try:
+        CONF = UserConfig(
+            config_name, defaults=DEFAULTS, load=True,
+            version=CONF_VERSION, subfolder=SUBFOLDER, backup=True,
+            raw_mode=True
+        )
+    except Exception:
+        CONF = UserConfig(
+            config_name, defaults=DEFAULTS, load=False,
+            version=CONF_VERSION, subfolder=SUBFOLDER, backup=True,
+            raw_mode=True
+        )
+
+    return CONF
+
 
 # Main configuration instance
-try:
-    CONF = UserConfig(PACKAGE_NAME, defaults=DEFAULTS, load=True,
-                      version=CONF_VERSION, subfolder=SUBFOLDER, backup=True,
-                      raw_mode=True)
-except Exception:
-    CONF = UserConfig(PACKAGE_NAME, defaults=DEFAULTS, load=False,
-                      version=CONF_VERSION, subfolder=SUBFOLDER, backup=True,
-                      raw_mode=True)
+CONF = load_config(PACKAGE_NAME)

@@ -1,3 +1,50 @@
+## v0.4.4
+
+This updates focuses on bug fixes and performance improvements. Notably, it reduces the
+memory usage of the GUI by ~ 30MB. If you are upgrading from v0.2.4 or earlier, please
+perform an incremental update to v0.4.3 first (see Removed section).
+
+#### Changed:
+
+- Show a progress dialog while checking for updates when requested by the user.
+- Show an error message when the GUI cannot connect to or start a sync daemon.
+- Reduces the memory footprint of the GUI by ~ 30 MB by avoiding Dropbox API imports and
+  deleting QWidgets when they are not visible.
+- Changing the log level (e.g., `maestral log level DEBUG`) no longer requires a restart
+  of the maestral daemon to become effective.
+- `maestral set-dir` now takes the new path as an argument: `maestral set-dir PATH`. If
+  not given, the user will be prompted to input a path or use the default.
+- Migrated from Pyro4 to Pyro5 for communication with sync daemon.
+
+#### Fixed:
+
+- Fixes an unhandled error when trying to upload changes to a file which is not currently
+  indexed by Maestral.
+- Fixes an unhandled error when attempting to calculate the content hash of a file which
+  has been deleted locally. This can occur after Maestral has been notified of remote
+  changes to a file which is deleted locally before comparing file contents.
+- Fixes a bug which could result in multiple false "conflicting copies" of a file when the
+  user modifies the file while it is being uploaded.
+- Fixes a regression bug which would prevent the creation and selection of new configs for
+  different Dropbox accounts.
+- Fixes a bug that would prevent Maestral from properly shutting down a sync daemon which
+  was started from the GUI. This was a result of the daemon's sync threads not exiting as
+  long as a parent process from the same process group is still alive (the GUI in our
+  case). We prevent this by using "double-fork" magic to properly orphan the daemon
+  process so that init will perform its cleanup. See Stevens' "Advanced Programming in the
+  UNIX Environment" for details (ISBN 0201563177).
+- Fixes an issue where the application launcher which is used to start Maestral on login
+  in Linux may be untrusted.
+- Fixes an issue where `maestral set-dir` would fail if the new directory is the same as
+  the old directory.
+
+#### Removed:
+
+- Removed code to migrate config files and sync indices from Maestral versions prior to
+  v0.2.5.
+- Removed code to migrate authentication keys to the system keyring when upgrading from
+  v0.1.2 or earlier.
+
 ## v0.4.3
 
 #### Fixed:

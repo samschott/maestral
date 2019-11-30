@@ -7,10 +7,7 @@ Created on Wed Oct 31 16:23:13 2018
 """
 
 # system imports
-import sys
 import os
-import platform
-from subprocess import Popen
 
 # external packages
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -19,8 +16,7 @@ from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap, QWindow
 
 # maestral modules
 from maestral.gui.resources import APP_ICON_PATH, rgb_to_luminance
-from maestral.sync.utils import is_macos_bundle
-from maestral.sync.daemon import MaestralProxy, stop_maestral_daemon_process
+from maestral.sync.daemon import MaestralProxy
 
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
@@ -28,10 +24,12 @@ THEME_LIGHT = "light"
 LINE_COLOR_DARK = (70, 70, 70)
 LINE_COLOR_LIGHT = (213, 213, 213)
 
+_USER_DIALOG_ICON_SIZE = 70
+
 
 def elide_string(string, font=None, pixels=200, side="right"):
     """
-    Elide a string to fit into the given width.
+    Elides a string to fit into the given width.
 
     :param str string: String to elide.
     :param font: Font to calculate size. If not given, the current style's default font
@@ -53,7 +51,7 @@ def elide_string(string, font=None, pixels=200, side="right"):
 
 def get_scaled_font(scaling=1.0, bold=False, italic=False):
     """
-    Returns the styles default font for QLabels, but scaled.
+    Returns the current style's default font for a QLabel but scaled by the given factor.
 
     :param float scaling: Scaling factor.
     :param bool bold: Sets the returned font to bold (defaults to ``False``)
@@ -102,6 +100,7 @@ def windowTheme():
     bg_color = w.palette().color(QtGui.QPalette.Background)
     bg_color_rgb = [bg_color.red(), bg_color.green(), bg_color.blue()]
     luminance = rgb_to_luminance(*bg_color_rgb)
+
     return THEME_LIGHT if luminance >= 0.4 else THEME_DARK
 
 
@@ -155,8 +154,7 @@ class BackgroundTask(QtCore.QObject):
     def start(self):
 
         self.thread = QtCore.QThread(self)
-        self.worker = Worker(
-            target=self._target, args=self._args, kwargs=self._kwargs)
+        self.worker = Worker(target=self._target, args=self._args, kwargs=self._kwargs)
         self.worker.sig_done.connect(self.sig_done.emit)
         self.worker.sig_done.connect(self.thread.quit)
         self.worker.moveToThread(self.thread)
@@ -177,13 +175,69 @@ class MaestralBackgroundTask(BackgroundTask):
     def start(self):
 
         self.thread = QtCore.QThread(self)
-        self.worker = MaestralWorker(
-            target=self._target, args=self._args, kwargs=self._kwargs)
+        self.worker = MaestralWorker(target=self._target, args=self._args, kwargs=self._kwargs)
         self.worker.sig_done.connect(self.sig_done.emit)
         self.worker.sig_done.connect(self.thread.quit)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.start)
         self.thread.start()
+
+
+class MaestralBackgroundTaskProgressDialog(QtWidgets.QDialog):
+    """A progress dialog to show during long-running background tasks."""
+
+    def __init__(self, title, message="", cancel=True, parent=None, width = 450):
+        super(self.__class__, self).__init__(parent=parent)
+        self.setModal(True)
+        self.setWindowModality(Qt.WindowModal)
+        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Sheet | Qt.WindowTitleHint | Qt.CustomizeWindowHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle("")
+        self.setFixedWidth(width)
+
+        self.gridLayout = QtWidgets.QGridLayout()
+        self.setLayout(self.gridLayout)
+
+        self.iconLabel = QtWidgets.QLabel(self)
+        self.titleLabel = QtWidgets.QLabel(self)
+        self.infoLabel = QtWidgets.QLabel(self)
+        self.progressBar = QtWidgets.QProgressBar()
+        self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Cancel)
+
+        self.iconLabel.setMinimumSize(_USER_DIALOG_ICON_SIZE, _USER_DIALOG_ICON_SIZE)
+        self.iconLabel.setMaximumSize(_USER_DIALOG_ICON_SIZE, _USER_DIALOG_ICON_SIZE)
+        self.iconLabel.setAlignment(Qt.AlignTop)
+        self.titleLabel.setFont(get_scaled_font(bold=True))
+        self.infoLabel.setFont(get_scaled_font(scaling=0.9))
+        self.infoLabel.setFixedWidth(width-150)
+        self.infoLabel.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.MinimumExpanding)
+        self.infoLabel.setWordWrap(True)
+        self.infoLabel.setOpenExternalLinks(True)
+
+        icon = QtGui.QIcon(APP_ICON_PATH)
+        self.iconLabel.setPixmap(icon_to_pixmap(icon, _USER_DIALOG_ICON_SIZE))
+        self.titleLabel.setText(title)
+        self.infoLabel.setText(message)
+
+        self.buttonBox.rejected.connect(self.reject)
+        self.progressBar.setMinimum(0)
+        self.progressBar.setMaximum(0)
+
+        self.gridLayout.addWidget(self.iconLabel, 0, 0, 3, 1)
+        self.gridLayout.addWidget(self.titleLabel, 0, 1, 1, 1)
+
+        if message:
+            self.gridLayout.addWidget(self.infoLabel, 1, 1, 1, 1)
+            self.gridLayout.addWidget(self.progressBar, 2, 1, 1, 1)
+        else:
+            self.gridLayout.addWidget(self.progressBar, 1, 1, 1, 1)
+
+        if message and cancel:
+            self.gridLayout.addWidget(self.buttonBox, 3, 1, -1, -1)
+        elif cancel:
+            self.gridLayout.addWidget(self.buttonBox, 2, 1, -1, -1)
+
+        self.adjustSize()
 
 
 class UserDialog(QtWidgets.QDialog):
@@ -195,6 +249,7 @@ class UserDialog(QtWidgets.QDialog):
         self.setWindowModality(Qt.WindowModal)
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Sheet | Qt.WindowTitleHint |
                             Qt.CustomizeWindowHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.setWindowTitle("")
         width = 550 if details else 450
         self.setFixedWidth(width)
@@ -206,9 +261,8 @@ class UserDialog(QtWidgets.QDialog):
         self.titleLabel = QtWidgets.QLabel(self)
         self.infoLabel = QtWidgets.QLabel(self)
 
-        icon_size = 70
-        self.iconLabel.setMinimumSize(icon_size, icon_size)
-        self.iconLabel.setMaximumSize(icon_size, icon_size)
+        self.iconLabel.setMinimumSize(_USER_DIALOG_ICON_SIZE, _USER_DIALOG_ICON_SIZE)
+        self.iconLabel.setMaximumSize(_USER_DIALOG_ICON_SIZE, _USER_DIALOG_ICON_SIZE)
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
         self.infoLabel.setFixedWidth(width-150)
@@ -218,7 +272,7 @@ class UserDialog(QtWidgets.QDialog):
         self.infoLabel.setOpenExternalLinks(True)
 
         icon = QtGui.QIcon(APP_ICON_PATH)
-        self.iconLabel.setPixmap(icon_to_pixmap(icon, icon_size))
+        self.iconLabel.setPixmap(icon_to_pixmap(icon, _USER_DIALOG_ICON_SIZE))
         self.titleLabel.setText(title)
         self.infoLabel.setText(message)
 
@@ -262,31 +316,6 @@ class UserDialog(QtWidgets.QDialog):
 
     def setSecondAcceptButtonName(self, name):
         self._acceptButton2.setText(name)
-
-
-def quit_and_restart_maestral():
-    """
-    Quits and restarts Maestral. This chooses the right command to restart Maestral,
-    running with the previous configuration. It also handles restarting macOS app bundles.
-    """
-    pid = os.getpid()  # get ID of current process
-    config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
-
-    # wait for current process to quit and then restart Maestral
-    if is_macos_bundle:
-        launch_command = os.path.join(sys._MEIPASS, "main")
-        Popen("lsof -p {0} +r 1 &>/dev/null; {0}".format(launch_command), shell=True)
-    if platform.system() == "Darwin":
-        Popen("lsof -p {0} +r 1 &>/dev/null; maestral gui --config-name='{1}'".format(
-            pid, config_name), shell=True)
-    elif platform.system() == "Linux":
-        Popen("tail --pid={0} -f /dev/null; maestral gui --config-name='{1}'".format(
-            pid, config_name), shell=True)
-
-    if not is_macos_bundle:
-        stop_maestral_daemon_process(config_name)
-    QtCore.QCoreApplication.quit()
-    sys.exit(0)
 
 
 def get_masked_image(path, size=64, overlay_text=""):

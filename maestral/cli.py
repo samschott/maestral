@@ -16,7 +16,7 @@ import os
 
 # external packages
 import click
-import Pyro4.errors
+import Pyro5.errors
 
 
 OK = click.style("[OK]", fg="green")
@@ -92,7 +92,7 @@ def _check_and_set_config(ctx, param, value):
     """
     Checks if the selected config name, passed as :param:`value`, is valid and sets
     the environment variable `MAESTRAL_CONFIG` accordingly. Further, checks if a
-    daemon for the specified config is already running and stored the result in a new
+    daemon for the specified config is already running and stores the result in a new
     parameter ``running`` to be passed to the command line script.
 
     :param ctx: Click context to be passed to command.
@@ -101,6 +101,7 @@ def _check_and_set_config(ctx, param, value):
     """
 
     from maestral.sync.daemon import get_maestral_pid
+    from maestral.config.main import load_config
 
     # check if valid config
     if value not in list_configs() and not value == "maestral":
@@ -109,6 +110,8 @@ def _check_and_set_config(ctx, param, value):
 
     # set environment variable
     os.environ["MAESTRAL_CONFIG"] = value
+    # reload config, in case it was already imported earlier
+    load_config(value)
 
     # check if maestral is running and store the result for other commands to use
     pid = get_maestral_pid(value)
@@ -129,10 +132,10 @@ with_config_opt = click.option(
 
 
 @click.group()
-@click.pass_context
-def main(ctx):
+def main():
     """Maestral Dropbox Client for Linux and macOS."""
     check_for_updates()
+
 
 @main.group()
 def config():
@@ -255,7 +258,7 @@ def pause(config_name: str, running: bool):
         with MaestralProxy(config_name) as m:
             m.pause_sync()
         click.echo("Syncing paused.")
-    except Pyro4.errors.CommunicationError:
+    except Pyro5.errors.CommunicationError:
         click.echo("Maestral daemon is not running.")
 
 
@@ -269,7 +272,7 @@ def resume(config_name: str, running: bool):
         with MaestralProxy(config_name) as m:
             m.resume_sync()
         click.echo("Syncing resumed.")
-    except Pyro4.errors.CommunicationError:
+    except Pyro5.errors.CommunicationError:
         click.echo("Maestral daemon is not running.")
 
 
@@ -291,7 +294,7 @@ def status(config_name: str, running: bool):
             click.echo("Sync errors:   {}".format(n_errors_str))
             click.echo("")
 
-    except Pyro4.errors.CommunicationError:
+    except Pyro5.errors.CommunicationError:
         click.echo("Maestral daemon is not running.")
 
 
@@ -307,7 +310,7 @@ def file_status(config_name: str, running: bool, local_path: str):
             stat = m.get_file_status(local_path)
             click.echo(stat)
 
-    except Pyro4.errors.CommunicationError:
+    except Pyro5.errors.CommunicationError:
         click.echo("unwatched")
 
 
@@ -374,7 +377,7 @@ def activity(config_name: str, running: bool):
             # enter curses event loop
             curses.wrapper(curses_loop)
 
-    except Pyro4.errors.CommunicationError:
+    except Pyro5.errors.CommunicationError:
         click.echo("Maestral daemon is not running.")
 
 
@@ -400,7 +403,7 @@ def errors(config_name: str, running: bool):
                     click.echo(c0 + c1)
                 click.echo("")
 
-    except Pyro4.errors.CommunicationError:
+    except Pyro5.errors.CommunicationError:
         click.echo("Maestral daemon is not running.")
 
 
@@ -458,7 +461,7 @@ def notify(config_name: str, yes: bool, running: bool):
 
 @main.command()
 @with_config_opt
-@click.option("--new-path", "-p", type=click.Path(writable=True), default=None)
+@click.argument("new_path", required=False, type=click.Path(writable=True))
 def set_dir(config_name: str, new_path: str, running: bool):
     """Change the location of your Dropbox folder."""
 
@@ -529,7 +532,7 @@ def account_info(config_name: str, running: bool):
 @main.command()
 @with_config_opt
 def rebuild_index(config_name: str, running: bool):
-    """Prints your Dropbox account information."""
+    """Rebuilds Maestral's index. May take several minutes."""
 
     if _is_maestral_linked(config_name):
 
@@ -650,8 +653,8 @@ def excluded_list(config_name: str, running: bool):
 @log.command()
 @with_config_opt
 def show(config_name: str, running: bool):
-    """Shows Maestral's log file in reversed order (last message first)."""
-    from maestral.sync.utils.app_dirs import get_log_path
+    """Prints Maestral's logs to the console."""
+    from maestral.sync.utils.appdirs import get_log_path
 
     log_file = get_log_path("maestral", config_name + ".log")
 
@@ -659,9 +662,7 @@ def show(config_name: str, running: bool):
         try:
             with open(log_file, "r") as f:
                 text = f.read()
-            log_list = text.split("\n")
-            log_list.reverse()
-            click.echo_via_pager("\n".join(log_list))
+            click.echo_via_pager(text)
         except OSError:
             click.echo("Could not open log file at '{}'".format(log_file))
     else:
@@ -672,7 +673,7 @@ def show(config_name: str, running: bool):
 @with_config_opt
 def clear(config_name: str, running: bool):
     """Clears Maestral's log file."""
-    from maestral.sync.utils.app_dirs import get_log_path
+    from maestral.sync.utils.appdirs import get_log_path
 
     log_dir = get_log_path("maestral")
     log_name = config_name + ".log"
@@ -695,8 +696,7 @@ def clear(config_name: str, running: bool):
 
 
 @log.command()
-@click.argument('level_name', required=False,
-                type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
+@click.argument('level_name', required=False, type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
 @with_config_opt
 def level(config_name: str, level_name: str, running: bool):
     """Gets or sets the log level. Changes will take effect after restart."""
@@ -706,7 +706,7 @@ def level(config_name: str, level_name: str, running: bool):
 
         level_num = logging._nameToLevel[level_name]
         with MaestralProxy(config_name, fallback=True) as m:
-            m.set_conf("app", "log_level", level_num)
+            m.set_log_level("app", "log_level", level_num)
         click.echo("Log level set to {}.".format(level_name))
     else:
         os.environ["MAESTRAL_CONFIG"] = config_name
@@ -722,6 +722,7 @@ def level(config_name: str, level_name: str, running: bool):
 # ========================================================================================
 
 def list_configs():
+    """Lists all maestral configs"""
     from maestral.config.base import get_conf_path
     configs = []
     for file in os.listdir(get_conf_path("maestral")):
@@ -735,10 +736,11 @@ def list_configs():
 @click.argument("name")
 def config_add(name: str):
     """Set up and activate a fresh Maestral configuration."""
-    os.environ["MAESTRAL_CONFIG"] = name
     if name in list_configs():
         click.echo("Configuration '{}' already exists.".format(name))
     else:
+        from maestral.config.main import load_config
+        load_config(name)
         from maestral.config.main import CONF
         CONF.set("main", "default_dir_name", "Dropbox ({})".format(name.capitalize()))
         click.echo("Created configuration '{}'.".format(name))

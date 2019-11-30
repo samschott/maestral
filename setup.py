@@ -51,7 +51,7 @@ setup(
         "dropbox>=9.4.0",
         "keyring>=19.0.0",
         "keyrings.alt>=3.0.0",
-        "Pyro4",
+        "Pyro5",
         "requests",
         "u-msgpack-python",
         "watchdog",

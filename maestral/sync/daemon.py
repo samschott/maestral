@@ -13,7 +13,8 @@ import time
 import logging
 
 # external packages
-import Pyro4
+import Pyro5.errors
+from Pyro5 import server, client
 
 logger = logging.getLogger(__name__)
 URI = "PYRO:maestral.{0}@{1}"
@@ -26,7 +27,7 @@ def _get_sock_name(config_name):
     """
     os.environ["MAESTRAL_CONFIG"] = config_name
 
-    from maestral.sync.utils.app_dirs import get_runtime_path
+    from maestral.sync.utils.appdirs import get_runtime_path
     return get_runtime_path("maestral", config_name + ".sock")
 
 
@@ -34,12 +35,12 @@ def _write_pid(config_name):
     """
     Writes the PID to the appropriate file for the given config name.
     """
-    from maestral.sync.utils.app_dirs import get_runtime_path
+    from maestral.sync.utils.appdirs import get_runtime_path
     pid_file = get_runtime_path("maestral", config_name + ".pid")
     with open(pid_file, "w") as f:
         f.write(str(os.getpid()))
 
-    logger.debug("PID file written to '{}'.".format(pid_file))
+    logger.debug(f"PID file written to '{pid_file}'.")
 
 
 def _read_pid(config_name):
@@ -47,13 +48,13 @@ def _read_pid(config_name):
     Reads and returns the PID of the current maestral daemon process from the appropriate
     file for the given config name.
     """
-    from maestral.sync.utils.app_dirs import get_runtime_path
+    from maestral.sync.utils.appdirs import get_runtime_path
     pid_file = get_runtime_path("maestral", config_name + ".pid")
     with open(pid_file, "r") as f:
         pid = f.read().split("\n")[0]  # ignore all new lines
     pid = int(pid)
 
-    logger.debug("PID {} read from '{}'.".format(pid, pid_file))
+    logger.debug(f"PID {pid} read from '{pid_file}'.")
 
     return pid
 
@@ -62,14 +63,14 @@ def _delete_pid(config_name):
     """
     Deletes the PID file for the given config name.
     """
-    from maestral.sync.utils.app_dirs import get_runtime_path
+    from maestral.sync.utils.appdirs import get_runtime_path
     pid_file = get_runtime_path("maestral", config_name + ".pid")
     os.unlink(pid_file)
 
-    logger.debug("Removed PID file '{}'.".format(pid_file))
+    logger.debug(f"Removed PID file '{pid_file}'.")
 
 
-def start_maestral_daemon(config_name, run=True):
+def start_maestral_daemon(config_name="maestral", run=True):
     """
     Wraps :class:`maestral.main.Maestral` as Pyro daemon object, creates a new instance
     and start Pyro's event loop to listen for requests on 'localhost'. This call will
@@ -89,14 +90,14 @@ def start_maestral_daemon(config_name, run=True):
     from maestral.sync.main import Maestral
     sock_name = _get_sock_name(config_name)
 
-    logger.debug("Starting Maestral daemon on socket '{}'".format(sock_name))
+    logger.debug(f"Starting Maestral daemon on socket '{sock_name}'")
 
     try:
         os.remove(sock_name)
     except FileNotFoundError:
         pass
 
-    daemon = Pyro4.Daemon(unixsocket=sock_name)
+    daemon = server.Daemon(unixsocket=sock_name)
 
     _write_pid(config_name)  # write PID to file
 
@@ -104,10 +105,10 @@ def start_maestral_daemon(config_name, run=True):
         # we wrap this in a try-except block to make sure that the PID file is always
         # removed, even when Maestral crashes for some reason
 
-        ExposedMaestral = Pyro4.expose(Maestral)
+        ExposedMaestral = server.expose(Maestral)
         m = ExposedMaestral(run=run)
 
-        daemon.register(m, "maestral.{}".format(config_name))
+        daemon.register(m, f"maestral.{config_name}")
         daemon.requestLoop(loopCondition=m._loop_condition)
         daemon.close()
     except Exception:
@@ -117,7 +118,7 @@ def start_maestral_daemon(config_name, run=True):
         _delete_pid(config_name)  # remove PID file
 
 
-def start_maestral_daemon_thread(config_name):
+def start_maestral_daemon_thread(config_name="maestral"):
     """
     Starts the Maestral daemon in a thread (by calling `start_maestral_daemon`).
     This command will create a new daemon on each run. Take care not to sync the same
@@ -143,7 +144,7 @@ def start_maestral_daemon_thread(config_name):
     return _wait_for_startup(config_name, timeout=2)
 
 
-def start_maestral_daemon_process(config_name, log_to_console=False):
+def start_maestral_daemon_process(config_name="maestral", log_to_console=False):
     """
     Starts the Maestral daemon as a separate process (by calling `start_maestral_daemon`).
     This command will create a new daemon on each run. Take care not to sync the same
@@ -157,19 +158,32 @@ def start_maestral_daemon_process(config_name, log_to_console=False):
     :rtype: bool
     """
     import subprocess
+    import multiprocessing
 
     STD_IN_OUT = None if log_to_console else subprocess.DEVNULL
 
-    subprocess.Popen(
-        ["maestral", "start", "-f", "-c", config_name],
-        stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
+    # use nested Popen and multiprocessing.Process to effectively create double fork
+    # see Unix "double-fork magic"
+
+    def target(cc):
+        subprocess.Popen(
+            ["maestral", "start", "-f", "-c", cc],
+            stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
+        )
+
+    t = multiprocessing.Process(
+        target=target,
+        args=(config_name, ),
+        daemon=True,
+        name="Maestral daemon launcher",
     )
 
-    # wait until the daemon has started, timeout after 2 sec
-    return _wait_for_startup(config_name, timeout=2)
+    t.start()
+
+    return _wait_for_startup(config_name, timeout=4)
 
 
-def stop_maestral_daemon_process(config_name="maestral", timeout=5):
+def stop_maestral_daemon_process(config_name="maestral", timeout=10):
     """Stops maestral by finding its PID and shutting it down.
 
     This function first tries to shut down Maestral gracefully. If this fails, it will
@@ -192,51 +206,46 @@ def stop_maestral_daemon_process(config_name="maestral", timeout=5):
             # tell maestral daemon to shut down
             with MaestralProxy(config_name) as m:
                 m.stop_sync()
-                m.shutdown_daemon()
-        except Pyro4.errors.CommunicationError:
+                m.shutdown_pyro_daemon()
+        except Pyro5.errors.CommunicationError:
             logger.debug("Could not communicate with daemon")
             try:
-                # try to send SIGTERM to process
-                os.kill(pid, signal.SIGTERM)
+                os.kill(pid, signal.SIGTERM)  # try to send SIGTERM to process
                 logger.debug("Terminating daemon process")
             except ProcessLookupError:
-                # delete PID file and return ``None`` if process does not exist
                 _delete_pid(config_name)
                 logger.debug("Daemon was not running")
-                return
+                return  # return ``None`` if process did not exist
         finally:
             # wait for maestral to carry out shutdown
             logger.debug("Waiting for shutdown")
             t0 = time.time()
-            while True:
+            while time.time() - t0 < timeout:
                 try:
-                    # query if still running
-                    os.kill(pid, 0)
+                    os.kill(pid, 0)  # query if still running
                 except OSError:
-                    # return ``True`` if not running anymore
                     logger.debug("Daemon shut down")
-                    return True
+                    return True  # return ``True`` if not running anymore
                 else:
-                    # wait for 0.2 sec and try again
-                    time.sleep(0.2)
-                    if time.time() - t0 > timeout:
-                        # send SIGKILL after timeout, delete PID file and return ``False``
-                        os.kill(pid, signal.SIGKILL)
-                        logger.debug("Daemon process killed")
-                        return False
+                    time.sleep(0.2)  # wait for 0.2 sec and try again
+
+            # send SIGKILL after timeout, delete PID file and return ``False``
+            os.kill(pid, signal.SIGKILL)
+            logger.debug("Daemon process killed")
+            return False
 
 
 def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
     """
-    Returns a Pyro4 proxy of the a running Maestral instance. If ``fallback`` is
+    Returns a Pyro proxy of the a running Maestral instance. If ``fallback`` is
     ``True``, a new instance of Maestral will be returned when the daemon cannot be
     reached.
 
     :param str config_name: The name of the Maestral configuration to use.
     :param bool fallback: If ``True``, a new instance of Maestral will be returned when
         the daemon cannot be reached. Defaults to ``False``.
-    :returns: Pyro4 proxy of Maestral or a new instance.
-    :raises: ``Pyro4.errors.CommunicationError`` if the daemon cannot be reached and
+    :returns: Pyro proxy of Maestral or a new instance.
+    :raises: ``Pyro5.errors.CommunicationError`` if the daemon cannot be reached and
         ``fallback`` is ``False``.
     """
 
@@ -246,15 +255,15 @@ def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
 
     if pid:
 
-        from maestral.sync.utils.app_dirs import get_runtime_path
+        from maestral.sync.utils.appdirs import get_runtime_path
         sock_name = get_runtime_path("maestral", config_name + ".sock")
 
-        sys.excepthook = Pyro4.util.excepthook
-        maestral_daemon = Pyro4.Proxy(URI.format(config_name, "./u:" + sock_name))
+        sys.excepthook = Pyro5.errors.excepthook
+        maestral_daemon = client.Proxy(URI.format(config_name, "./u:" + sock_name))
         try:
             maestral_daemon._pyroBind()
             return maestral_daemon
-        except Pyro4.errors.CommunicationError:
+        except Pyro5.errors.CommunicationError:
             maestral_daemon._pyroRelease()
 
     if fallback:
@@ -262,7 +271,7 @@ def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
         m = Maestral(run=False)
         return m
     else:
-        raise Pyro4.errors.CommunicationError
+        raise Pyro5.errors.CommunicationError
 
 
 class MaestralProxy(object):
@@ -302,7 +311,7 @@ def get_maestral_pid(config_name):
         # test if the daemon process receives signals
         os.kill(pid, 0)
     except ProcessLookupError:
-        logger.debug("Daemon process with PID {} does not exist.".format(pid))
+        logger.debug(f"Daemon process with PID {pid} does not exist.")
         # if the process does not exist, delete pid file
         try:
             _delete_pid(config_name)
@@ -310,7 +319,7 @@ def get_maestral_pid(config_name):
             pass
         return None
     except OSError:
-        logger.debug("Daemon process with PID {} is not responsive. Killing.".format(pid))
+        logger.debug(f"Daemon process with PID {pid} is not responsive. Killing.")
         # if the process does not respond, try to kill it
         os.kill(pid, signal.SIGKILL)
         try:
@@ -320,7 +329,7 @@ def get_maestral_pid(config_name):
         return None
     else:
         # everything ok, return process info
-        logger.debug("Found Maestral daemon with PID {}.".format(pid))
+        logger.debug(f"Found Maestral daemon with PID {pid}.")
         return pid
 
 
@@ -349,7 +358,7 @@ def _check_pyro_communication(config_name, timeout=2):
     """
 
     sock_name = _get_sock_name(config_name)
-    maestral_daemon = Pyro4.Proxy(URI.format(config_name, "./u:" + sock_name))
+    maestral_daemon = client.Proxy(URI.format(config_name, "./u:" + sock_name))
 
     t0 = time.time()
     # wait until we can communicate with daemon, timeout after :param:`timeout`
@@ -365,3 +374,9 @@ def _check_pyro_communication(config_name, timeout=2):
 
     logger.error("Could communicate with Maestral daemon")
     return False
+
+
+if __name__ == "__main__":
+    conf = os.environ.get("MAESTRAL_CONFIG", "maestral")
+    start_maestral_daemon(conf)
+

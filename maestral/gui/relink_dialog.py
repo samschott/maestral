@@ -15,18 +15,15 @@ from PyQt5 import QtCore, QtWidgets, QtGui, uic
 from PyQt5.QtCore import Qt
 
 # maestral modules
-from maestral.sync.oauth import OAuth2Session
 from maestral.gui.resources import RELINK_DIALOG_PATH, APP_ICON_PATH
 from maestral.gui.utils import get_scaled_font, icon_to_pixmap
-from maestral.gui.utils import BackgroundTask, quit_and_restart_maestral
+from maestral.gui.utils import BackgroundTask
 
 logger = logging.getLogger(__name__)
 
 
 class RelinkDialog(QtWidgets.QDialog):
     """A dialog to show when Maestral's Dropbox access has expired or has been revoked."""
-
-    auth_session = OAuth2Session()
 
     VALID_MSG = "Verified. Restarting Maestral..."
     INVALID_MSG = "Invalid token"
@@ -35,10 +32,16 @@ class RelinkDialog(QtWidgets.QDialog):
     EXPIRED = 0
     REVOKED = 1
 
-    def __init__(self, reason=EXPIRED, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
-        # load user interface layout from .ui file
+    def __init__(self, parent, reason=EXPIRED):
+        super(self.__class__, self).__init__(parent=None)
         uic.loadUi(RELINK_DIALOG_PATH, self)
+
+        # import OAuth2Session here because of ~40 MB memory footprint
+        from maestral.sync.oauth import OAuth2Session
+
+        self._parent = parent
+        self.auth_session = OAuth2Session()
+
         self.setModal(True)
         self.setWindowFlags(Qt.WindowTitleHint | Qt.CustomizeWindowHint)
 
@@ -68,7 +71,7 @@ class RelinkDialog(QtWidgets.QDialog):
 
         # connect callbacks
         self.lineEditAuthCode.textChanged.connect(self._set_text_style)
-        self.pushButtonCancel.clicked.connect(self.quit)
+        self.pushButtonCancel.clicked.connect(self._parent.quit)
         self.pushButtonUnlink.clicked.connect(self.delete_creds_and_quit)
         self.pushButtonLink.clicked.connect(self.on_link_clicked)
 
@@ -76,14 +79,12 @@ class RelinkDialog(QtWidgets.QDialog):
         self.pushButtonCancel.setFocus()
         self.adjustSize()
 
-    def quit(self):
-        QtCore.QCoreApplication.quit()
-        sys.exit(0)
-
+    @QtCore.pyqtSlot()
     def delete_creds_and_quit(self):
         self.auth_session.delete_creds()
         self.quit()
 
+    @QtCore.pyqtSlot(str)
     def _set_text_style(self, text):
         if text == "":
             self.pushButtonLink.setEnabled(False)
@@ -103,6 +104,7 @@ class RelinkDialog(QtWidgets.QDialog):
             self.pushButtonLink.setEnabled(True)
             self.lineEditAuthCode.setStyleSheet("")
 
+    @QtCore.pyqtSlot()
     def on_link_clicked(self):
         token = self.lineEditAuthCode.text()
         if token == "":
@@ -119,13 +121,16 @@ class RelinkDialog(QtWidgets.QDialog):
         )
         self.auth_task.sig_done.connect(self.on_verify_token_finished)
 
+    @QtCore.pyqtSlot(int)
     def on_verify_token_finished(self, res):
+
+        from maestral.sync.oauth import OAuth2Session
 
         if res == OAuth2Session.Success:
             self.auth_session.save_creds()
             self.lineEditAuthCode.setText(self.VALID_MSG)
             QtWidgets.QApplication.processEvents()
-            QtCore.QTimer.singleShot(200, quit_and_restart_maestral)
+            QtCore.QTimer.singleShot(200, self._parent.restart)
         elif res == OAuth2Session.InvalidToken:
             self.lineEditAuthCode.setText(self.INVALID_MSG)
             self.set_ui_idle()
@@ -146,10 +151,3 @@ class RelinkDialog(QtWidgets.QDialog):
         self.pushButtonLink.setEnabled(True)
         self.pushButtonUnlink.setEnabled(True)
         self.pushButtonCancel.setEnabled(True)
-
-
-if __name__ == "__main__":
-    app = QtWidgets.QApplication(["RelinkDialog test"])
-    ud = RelinkDialog()
-    ud.show()
-    sys.exit(app.exec())

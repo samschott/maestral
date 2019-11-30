@@ -16,12 +16,12 @@ from PyQt5 import QtGui, QtCore, QtWidgets, uic
 
 # maestral modules
 from maestral import __version__, __author__, __url__
-from maestral.gui.autostart import AutoStart
 from maestral.config.base import get_home_dir
+from maestral.gui.autostart import AutoStart
 from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
                                     SETTINGS_WINDOW_PATH, APP_ICON_PATH, FACEHOLDER_PATH)
-from maestral.gui.utils import (get_scaled_font, isDarkWindow, quit_and_restart_maestral,
+from maestral.gui.utils import (get_scaled_font, isDarkWindow,
                                 LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap,
                                 get_masked_image, MaestralBackgroundTask)
 
@@ -31,10 +31,12 @@ NEW_QT = LooseVersion(QtCore.QT_VERSION_STR) >= LooseVersion("5.11")
 
 class UnlinkDialog(QtWidgets.QDialog):
 
-    def __init__(self, parent=None):
+    def __init__(self, restart_func, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(UNLINK_DIALOG_PATH, self)
+
+        self.restart_func = restart_func
         self.setModal(True)
 
         self.setWindowFlags(QtCore.Qt.Sheet)
@@ -52,7 +54,7 @@ class UnlinkDialog(QtWidgets.QDialog):
         self.buttonBox.setEnabled(False)
         self.progressIndicator.startAnimation()
         self.unlink_thread = MaestralBackgroundTask(self, "unlink")
-        self.unlink_thread.sig_done.connect(quit_and_restart_maestral)
+        self.unlink_thread.sig_done.connect(self.restart_func)
 
 
 class SettingsWindow(QtWidgets.QWidget):
@@ -60,16 +62,17 @@ class SettingsWindow(QtWidgets.QWidget):
 
     _update_interval_mapping = {0: 60*60*24, 1: 60*60*24*7, 2: 60*60*24*30, 3: 0}
 
-    def __init__(self, mdbx, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
+    def __init__(self, parent, mdbx):
+        super(self.__class__, self).__init__(parent=None)
         uic.loadUi(SETTINGS_WINDOW_PATH, self)
+        self._parent = parent
         self.update_dark_mode()
         self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
         self.adjustSize()
 
         self.mdbx = mdbx
         self.folders_dialog = FoldersDialog(self.mdbx, parent=self)
-        self.unlink_dialog = UnlinkDialog(self)
+        self.unlink_dialog = UnlinkDialog(self._parent.restart, parent=self)
 
         self.labelAccountName.setFont(get_scaled_font(1.5))
         self.labelAccountInfo.setFont(get_scaled_font(0.85))
@@ -85,8 +88,8 @@ class SettingsWindow(QtWidgets.QWidget):
 
         # update profile pic and account info periodically
         self.update_timer = QtCore.QTimer()
-        self.update_timer.timeout.connect(self.update_account_info)
-        self.update_timer.start(1000*60*20)  # every 20 min
+        self.update_timer.timeout.connect(self.update_account_info_from_chache)
+        self.update_timer.start(1000*60*5)  # every 5 min
 
         # connect callbacks
         self.pushButtonUnlink.clicked.connect(self.unlink_dialog.exec_)
@@ -112,9 +115,7 @@ class SettingsWindow(QtWidgets.QWidget):
     def populate_gui(self):
 
         # populate account info
-        self.set_account_info_from_cache()
-        self.set_profile_pic_from_cache()
-        self.update_account_info()
+        self.update_account_info_from_chache()
 
         # populate sync section
         parent_dir = osp.split(self.mdbx.dropbox_path)[0]
@@ -178,21 +179,22 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelAccountInfo.setText(acc_mail + acc_type_text)
         self.labelSpaceUsage.setText(acc_space_usage)
 
-    def update_account_info(self):
+    @QtCore.pyqtSlot()
+    def update_account_info_from_chache(self):
 
-        self.load_profile_pic = MaestralBackgroundTask(self, "get_profile_pic")
-        self.load_profile_pic.sig_done.connect(self.set_profile_pic_from_cache)
+        self.set_profile_pic_from_cache()
+        self.set_account_info_from_cache()
 
-        self.load_account_info = MaestralBackgroundTask(self, "get_account_info")
-        self.load_account_info.sig_done.connect(self.set_account_info_from_cache)
-
+    @QtCore.pyqtSlot(int)
     def on_combobox_path(self, idx):
         if idx == 2:
             self.dropbox_folder_dialog.open()
 
+    @QtCore.pyqtSlot(int)
     def on_combobox_update_interval(self, idx):
         self.mdbx.set_conf("app", "update_notification_interval", self._update_interval_mapping[idx])
 
+    @QtCore.pyqtSlot(str)
     def on_new_dbx_folder(self, new_location):
 
         self.comboBoxDropboxPath.setCurrentIndex(0)
@@ -203,12 +205,14 @@ class SettingsWindow(QtWidgets.QWidget):
             new_path = osp.join(new_location, self.mdbx.get_conf("main", "default_dir_name"))
             self.mdbx.move_dropbox_directory(new_path)
 
+    @QtCore.pyqtSlot(int)
     def on_start_on_login_clicked(self, state):
         if state == 0:
             self.autostart.disable()
         elif state == 2:
             self.autostart.enable()
 
+    @QtCore.pyqtSlot(int)
     def on_notifications_clicked(self, state):
         self.mdbx.set_conf("app", "notifications", state == 2)
 

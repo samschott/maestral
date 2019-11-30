@@ -20,7 +20,7 @@ class RebuildIndexDialog(QtWidgets.QDialog):
     def __init__(self, mdbx, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         uic.loadUi(REBUILD_INDEX_DIALOG_PATH, self)
-        self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+        self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.CustomizeWindowHint | QtCore.Qt.WindowTitleHint)
 
         self.mdbx = mdbx
 
@@ -64,6 +64,7 @@ class RebuildIndexDialog(QtWidgets.QDialog):
 
         self.rebuild_rev_file_async()
 
+    @QtCore.pyqtSlot()
     def update_progress(self):
 
         status_string = self.mdbx.status
@@ -85,6 +86,7 @@ class RebuildIndexDialog(QtWidgets.QDialog):
         self.rebuild_task = MaestralBackgroundTask(self, "rebuild_index")
         self.rebuild_task.sig_done.connect(self.on_rebuild_done)
 
+    @QtCore.pyqtSlot()
     def on_rebuild_done(self):
 
         self._timer.stop()

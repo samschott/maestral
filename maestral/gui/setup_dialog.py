@@ -7,15 +7,16 @@ Created on Wed Oct 31 16:23:13 2018
 """
 
 # system imports
-import os
 import os.path as osp
 import shutil
 from PyQt5 import QtGui, QtCore, QtWidgets, uic
 from PyQt5.QtCore import QModelIndex, Qt
 
 # maestral modules
-from maestral.sync.main import Maestral, handle_disconnect
-from maestral.sync.utils import delete_file_or_folder
+from maestral.config.main import CONF
+from maestral.sync.main import Maestral
+from maestral.sync.utils import handle_disconnect
+from maestral.sync.utils.path import delete_file_or_folder
 from maestral.sync.oauth import OAuth2Session
 from maestral.config.base import get_home_dir
 from maestral.gui.resources import APP_ICON_PATH, SETUP_DIALOG_PATH, get_native_item_icon
@@ -49,15 +50,15 @@ class SetupDialog(QtWidgets.QDialog):
 
         # resize dialog buttons
         width = self.pushButtonAuthPageCancel.width()*1.1
-        for b in (self.pushButtonAuthPageLink, self.pussButtonDropboxPathUnlink,
-                  self.pussButtonDropboxPathSelect, self.pushButtonFolderSelectionBack,
+        for b in (self.pushButtonAuthPageLink, self.pushButtonDropboxPathUnlink,
+                  self.pushButtonDropboxPathSelect, self.pushButtonFolderSelectionBack,
                   self.pushButtonFolderSelectionSelect, self.pushButtonAuthPageCancel,
-                  self.pussButtonDropboxPathCalcel, self.pushButtonClose):
+                  self.pushButtonDropboxPathCalcel, self.pushButtonClose):
             b.setMinimumWidth(width)
             b.setMaximumWidth(width)
 
         # set up combobox
-        self.dropbox_location = osp.dirname(Maestral.get_conf("main", "path")) or get_home_dir()
+        self.dropbox_location = osp.dirname(CONF.get("main", "path")) or get_home_dir()
         relative_path = self.rel_path(self.dropbox_location)
 
         folder_icon = get_native_item_icon(self.dropbox_location)
@@ -79,15 +80,15 @@ class SetupDialog(QtWidgets.QDialog):
         self.pushButtonLink.clicked.connect(self.on_link)
         self.pushButtonAuthPageCancel.clicked.connect(self.on_reject_requested)
         self.pushButtonAuthPageLink.clicked.connect(self.on_auth_clicked)
-        self.pussButtonDropboxPathCalcel.clicked.connect(self.on_reject_requested)
-        self.pussButtonDropboxPathSelect.clicked.connect(self.on_dropbox_location_selected)
-        self.pussButtonDropboxPathUnlink.clicked.connect(self.unlink_and_go_to_start)
+        self.pushButtonDropboxPathCalcel.clicked.connect(self.on_reject_requested)
+        self.pushButtonDropboxPathSelect.clicked.connect(self.on_dropbox_location_selected)
+        self.pushButtonDropboxPathUnlink.clicked.connect(self.unlink_and_go_to_start)
         self.pushButtonFolderSelectionBack.clicked.connect(self.stackedWidget.slideInPrev)
         self.pushButtonFolderSelectionSelect.clicked.connect(self.on_folders_selected)
         self.pushButtonClose.clicked.connect(self.on_accept_requested)
         self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
 
-        default_dir_name = Maestral.get_conf("main", "default_dir_name")
+        default_dir_name = CONF.get("main", "default_dir_name")
 
         self.labelDropboxPath.setText(self.labelDropboxPath.text().format(default_dir_name))
 
@@ -113,7 +114,7 @@ class SetupDialog(QtWidgets.QDialog):
             To unlink your Dropbox account from Maestral, click "Unlink" below.</p>
             </body></html>
             """.format(Maestral.get_conf("main", "path"), default_dir_name))
-            self.pussButtonDropboxPathCalcel.setText("Quit")
+            self.pushButtonDropboxPathCalcel.setText("Quit")
             self.stackedWidget.setCurrentIndex(2)
             self.stackedWidgetButtons.setCurrentIndex(2)
         else:
@@ -131,12 +132,14 @@ class SetupDialog(QtWidgets.QDialog):
         else:
             self.on_reject_requested()
 
+    @QtCore.pyqtSlot()
     def on_accept_requested(self):
         del self.mdbx
 
         self.accepted = True
         self.accept()
 
+    @QtCore.pyqtSlot()
     def on_reject_requested(self):
         if self.mdbx:
             self.mdbx.set_conf("main", "path", "")
@@ -149,6 +152,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.mdbx.unlink()
         self.stackedWidget.slideInIdx(0)
 
+    @QtCore.pyqtSlot()
     def on_link(self):
         self.auth_session = OAuth2Session()
         self.auth_url = self.auth_session.get_auth_url()
@@ -158,6 +162,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.stackedWidget.fadeInIdx(1)
         self.pushButtonAuthPageLink.setFocus()
 
+    @QtCore.pyqtSlot()
     def on_auth_clicked(self):
 
         if self.lineEditAuthCode.text() == "":
@@ -189,12 +194,12 @@ class SetupDialog(QtWidgets.QDialog):
 
             # switch to next page
             self.stackedWidget.slideInIdx(2)
-            self.pussButtonDropboxPathSelect.setFocus()
+            self.pushButtonDropboxPathSelect.setFocus()
             self.lineEditAuthCode.clear()  # clear since we might come back on unlink
 
             # start Maestral after linking to Dropbox account
             self.mdbx = Maestral(run=False)
-            self.mdbx.client.get_account_info()
+            self.mdbx.get_account_info()
         elif res == OAuth2Session.InvalidToken:
             msg = "Please make sure that you entered the correct authentication token."
             msg_box = UserDialog("Authentication failed.", msg, parent=self)
@@ -208,6 +213,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.pushButtonAuthPageLink.setEnabled(True)
         self.lineEditAuthCode.setEnabled(True)
 
+    @QtCore.pyqtSlot()
     def on_dropbox_location_selected(self):
 
         # reset sync status, we are starting fresh!
@@ -257,6 +263,7 @@ class SetupDialog(QtWidgets.QDialog):
         if not self.excluded_folders:  # don't repopulate
             self.populate_folders_list()
 
+    @QtCore.pyqtSlot()
     def on_folders_selected(self):
 
         self.apply_selection()
@@ -274,10 +281,12 @@ class SetupDialog(QtWidgets.QDialog):
 # Helper functions
 # =============================================================================
 
+    @QtCore.pyqtSlot(int)
     def on_combobox(self, idx):
         if idx == 2:
             self.dropbox_folder_dialog.open()
 
+    @QtCore.pyqtSlot(str)
     def on_new_dbx_folder(self, new_location):
         self.comboBoxDropboxPath.setCurrentIndex(0)
         if not new_location == '':
@@ -304,6 +313,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.dbx_model.loading_failed.connect(
             lambda: self.selectAllCheckBox.setEnabled(False))
 
+    @QtCore.pyqtSlot()
     def update_select_all_checkbox(self):
         check_states = []
         for irow in range(self.dbx_model._root_item.child_count_loaded()):
@@ -314,6 +324,7 @@ class SetupDialog(QtWidgets.QDialog):
         else:
             self.selectAllCheckBox.setChecked(False)
 
+    @QtCore.pyqtSlot(bool)
     def on_select_all_clicked(self, checked):
         checked_state = 2 if checked else 0
         for irow in range(self.dbx_model._root_item.child_count_loaded()):
