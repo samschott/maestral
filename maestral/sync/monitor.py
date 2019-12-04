@@ -1182,9 +1182,11 @@ class UpDownSync(object):
 
         path = event.src_path
         dbx_path = self.to_dbx_path(path)
+        local_rev = self.get_local_rev(dbx_path)
+        local_rev = None if local_rev == "folder" else local_rev
 
         try:
-            self.client.remove(dbx_path)
+            self.client.remove(dbx_path, parent_rev=local_rev)
         except PathError:
             logger.debug("Could not delete '{0}': the item does not exist on Dropbox.",
                          event.src_path)
