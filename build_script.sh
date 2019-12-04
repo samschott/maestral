@@ -22,6 +22,6 @@ python3 /Users/samschott/Documents/Python/maestral-dropbox/post_build.py
 
 echo "********************** SIGNING ************************"
 
-codesign -s "Mac Developer: sam.schott@outlook.com (FJNXBRUVWL)" --deep dist/Maestral.app
+codesign -s "Apple Development: sam.schott@outlook.com (FJNXBRUVWL)" --deep dist/Maestral.app
 
 echo "*********************** DONE **************************"
