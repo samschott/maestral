@@ -18,7 +18,7 @@ from subprocess import Popen
 import click
 import keyring
 from keyring.errors import KeyringLocked
-from PyQt5 import QtCore, QtWidgets, sip
+from PyQt5 import QtCore, QtWidgets
 
 # maestral modules
 from maestral.config.main import CONF
@@ -629,11 +629,14 @@ def _is_linked():
 
 def _is_pyqt_obj(obj):
     """Checks if ``obj`` wraps an underlying C/C++ object."""
-    try:
-        sip.unwrapinstance(obj)
-    except (RuntimeError, TypeError):
+    if isinstance(obj, QtCore.QObject):
+        try:
+            obj.parent()
+            return True
+        except RuntimeError:
+            return False
+    else:
         return False
-    return True
 
 
 def run():
