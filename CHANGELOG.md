@@ -1,3 +1,10 @@
+## v0.4.5-dev1
+
+#### Changed:
+
+- Remove sip import because it may fail depending on how PyQt was installed.
+
+
 ## v0.4.4
 
 This updates focuses on bug fixes and performance improvements. Notably, it reduces the
