@@ -814,7 +814,7 @@ Any changes to local files during this process may be lost.""")
             time.sleep(60*60)  # 60 min
 
     def _periodic_watchdog(self):
-        while self.monitor.running.is_set():
+        while self.monitor._threads_alive():
             system_notifier.notify("WATCHDOG=1")
             time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
 
