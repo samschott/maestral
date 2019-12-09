@@ -706,7 +706,7 @@ def level(config_name: str, level_name: str, running: bool):
 
         level_num = logging._nameToLevel[level_name]
         with MaestralProxy(config_name, fallback=True) as m:
-            m.set_log_level("app", "log_level", level_num)
+            m.set_log_level(level_num)
         click.echo("Log level set to {}.".format(level_name))
     else:
         os.environ["MAESTRAL_CONFIG"] = config_name
