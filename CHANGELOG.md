@@ -7,6 +7,7 @@
   'notify-send'.
 - Fixed an issue which could cause the watchdog thread to crash silently on case-sensitive 
   file systems when saving changes to a file. 
+- Fixes an error when setting the log level from the CLI.
 
 ## v0.4.4
 
