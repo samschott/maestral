@@ -1951,6 +1951,23 @@ class MaestralMonitor(object):
 
         logger.info(STOPPED)
 
+    def _threads_alive(self):
+        """Returns ``True`` if all threads are alive, ``False`` otherwise."""
+
+        try:
+            threads = [
+                self.local_observer_thread,
+                self.upload_thread, self.download_thread,
+                self.connection_thread
+            ]
+        except AttributeError:
+            return False
+
+        base_threads_alive = [t.is_alive() for t in threads]
+        watchdog_emitters_alive = [e.is_alive() for e in self.local_observer_thread.emitters]
+
+        return all(base_threads_alive) and all(watchdog_emitters_alive)
+
     def rebuild_rev_file(self):
         """
         Rebuilds the rev file by comparing remote with local files and updating rev
