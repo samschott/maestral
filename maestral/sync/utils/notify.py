@@ -7,6 +7,7 @@ Created on Wed Oct 31 16:23:13 2018
 """
 import sys
 import os
+import subprocess
 import platform
 from enum import Enum
 from pathlib import Path
@@ -43,6 +44,7 @@ class Notipy(object):
 
     def __init__(self):
         self.implementation = self.__get_available_implementation()
+        self._with_app_name = True  # if True, use --app-name option for nofity-send
 
         if self.implementation == SupportedImplementations.notification_center:
             self._nc = UserNotifications.UNUserNotificationCenter.currentNotificationCenter()
@@ -90,10 +92,15 @@ class Notipy(object):
         self._nc.scheduleNotification_(notification)
 
     def __send_message_macos_osascript(self, title, message):
-        os.system("osascript -e 'display notification \"{}\" with title \"{}\"'".format(message, title))
+        subprocess.call(["osascript", "-e", "display notification \"{}\" with title \"{}\"".format(message, title)])
 
     def __send_message_linux(self, title, message):
-        os.system('notify-send "{}" "{}" -a Maestral -i {} '.format(title, message, APP_ICON_PATH))
+        if self._with_app_name:  # try passing --app-name option, diable if not supported
+            r = subprocess.call(["notify-send", title, message, "-a", "Maestral", "-i", APP_ICON_PATH])
+            self._with_app_name = r == 0
+
+        if not self._with_app_name:
+            subprocess.call(["notify-send", title, message, "-i", APP_ICON_PATH])
 
     @staticmethod
     def __command_exists(command):
