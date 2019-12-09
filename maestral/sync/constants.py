@@ -9,6 +9,13 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 import os
 import platform
 import sys
+import tempfile
+
+
+def is_fs_case_sensitive():
+    with tempfile.NamedTemporaryFile(prefix='TmP') as tmp_file:
+        return not os.path.exists(tmp_file.name.lower())
+
 
 # state messages
 IDLE = "Up to date"
@@ -31,3 +38,4 @@ IS_WATCHDOG = WATCHDOG_USEC and (WATCHDOG_PID is None or int(WATCHDOG_PID) == os
 
 # other
 REV_FILE = ".maestral"
+IS_FS_CASE_SENSITIVE = is_fs_case_sensitive()

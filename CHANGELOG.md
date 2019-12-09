@@ -5,6 +5,8 @@
 - Remove sip import because it may fail depending on how PyQt was installed.
 - Fixed an issue where desktop notifications would appear for certain implementations of
   'notify-send'.
+- Fixed an issue which could cause the watchdog thread to crash silently on case-sensitive 
+  file systems when saving changes to a file. 
 
 ## v0.4.4
 

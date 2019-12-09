@@ -35,7 +35,7 @@ from watchdog.utils.dirsnapshot import DirectorySnapshot
 # maestral modules
 from maestral.config.main import CONF
 from maestral.sync.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
-                                     SYNC_ERROR, REV_FILE)
+                                     SYNC_ERROR, REV_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.sync.utils.content_hasher import DropboxContentHasher
 from maestral.sync.utils.notify import Notipy
 from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, CursorResetError,
@@ -141,9 +141,6 @@ class FileEventHandler(FileSystemEventHandler):
             renamed, original event otherwise.
         """
 
-        if platform.system() == "Darwin":
-            return event
-
         if not (event.event_type is EVENT_TYPE_CREATED or event.event_type is
                 EVENT_TYPE_MOVED):
             return event
@@ -156,7 +153,9 @@ class FileEventHandler(FileSystemEventHandler):
             parent_dir = osp.dirname(created_path)
             other_items = [osp.join(parent_dir, file) for file in os.listdir(parent_dir)]
             other_items.remove(created_path)
-        except FileNotFoundError:
+        except (FileNotFoundError, ValueError):
+            # ValueError is raised when created_path is no longer in directory
+            # FileNotFoundError is raised when directory no longer exists
             return event
 
         # check if we have any conflicting names with different cases
@@ -202,7 +201,8 @@ class FileEventHandler(FileSystemEventHandler):
             return
 
         # rename target on case conflict
-        event = self.rename_on_case_conflict(event)
+        if IS_FS_CASE_SENSITIVE:
+            event = self.rename_on_case_conflict(event)
 
         # ignore files which have been renamed
         if event.src_path in self._renamed_items_cache:
