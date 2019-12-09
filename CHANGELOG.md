@@ -1,9 +1,10 @@
 ## v0.4.5-dev1
 
-#### Changed:
+#### Fixed:
 
 - Remove sip import because it may fail depending on how PyQt was installed.
-
+- Fixed an issue where desktop notifications would appear for certain implementations of
+  'notify-send'.
 
 ## v0.4.4
 
