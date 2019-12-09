@@ -478,7 +478,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self._n_errors = n_errors
 
     def update_error(self):
-        errs = self.mdbx.get_maestral_errors()
+        errs = self.mdbx.maestral_errors
 
         if not errs:
             return

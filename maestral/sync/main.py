@@ -304,8 +304,8 @@ class Maestral(object):
         sync_errors_dicts = [maestral_error_to_dict(e) for e in sync_errors]
         return sync_errors_dicts
 
-    @staticmethod
-    def get_maestral_errors():
+    @property
+    def maestral_errors(self):
         """Returns a list of Maestral's errors as dicts. This does not include lost
         internet connections, which only emit warnings, or file sync errors which
         are tracked and cleared separately. Errors listed here must be acted upon for
