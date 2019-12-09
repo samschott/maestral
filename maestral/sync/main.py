@@ -294,7 +294,9 @@ class Maestral(object):
 
     @property
     def excluded_folders(self):
-        """Returns a list of excluded folders (read only)."""
+        """Returns a list of excluded folders (read only). Use :meth:`exclude_folder`,
+        :meth:`include_folder` or :meth:`set_excluded_folders` change which folders are
+        excluded from syncing."""
         return self.sync.excluded_folders
 
     @property
