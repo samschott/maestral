@@ -932,11 +932,11 @@ class UpDownSync(object):
             else:
                 path = h[0].src_path
 
-                if isinstance(h[0], FILE_EVENTS):
+                if isinstance(h[-1], FILE_EVENTS):  # final item is a file
                     CreatedEvent = FileCreatedEvent
                     ModifiedEvent = FileModifiedEvent
                     DeletedEvent = FileDeletedEvent
-                else:
+                else:  # final item is a directory
                     CreatedEvent = DirCreatedEvent
                     ModifiedEvent = DirModifiedEvent
                     DeletedEvent = DirDeletedEvent
