@@ -54,7 +54,7 @@ setup(
         "Pyro5",
         "requests",
         "u-msgpack-python",
-        "watchdog>=0.9.0",
+        "watchdog==0.9.0",
         "pyobjc;sys_platform=='darwin'"
     ],
     extras_require={
