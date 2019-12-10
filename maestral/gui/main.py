@@ -509,7 +509,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             message = ("Please restart Maestral to continue syncing and contact "
                        "the developer with the information below.")
             self._stop_and_exec_error_dialog(title, message, err["traceback"])
-            self.mdbx.start_sync()  # resume sync again
+            self.pauseAction.setEnabled(False)
 
     @QtCore.pyqtSlot(int)
     def _stop_and_exec_relink_dialog(self, reason):
