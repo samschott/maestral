@@ -810,12 +810,6 @@ class UpDownSync(object):
 
         logger.debug(f"Retrieved local file events:\n{events}")
 
-        # filter all events regarding excluded files
-        # Do this before processing to remove some temporary files created during
-        # save events on macOS. This should be done later, in `apply_local_events` once
-        # watchdog generates file events in the correct order on macOS.
-        events, _ = self._filter_excluded_changes_local(events)
-
         # clean up events to provide only one event per path
         events = self._clean_local_events(events)
 
@@ -993,7 +987,7 @@ class UpDownSync(object):
 
         logger.debug("Beginning upload of local changes")
 
-        # filtered_events, _ = self._filter_excluded_changes_local(events)
+        events, _ = self._filter_excluded_changes_local(events)
         dir_events, file_events = self._separate_event_types(events)
 
         # update queues
