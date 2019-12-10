@@ -78,11 +78,9 @@ class FSEventsEmitter(EventEmitter):
 
     def queue_events(self, timeout):
         with self._lock:
-            if not self.watch.is_recursive\
-                and self.watch.path not in self.pathnames:
+            if not self.watch.is_recursive and self.watch.path not in self.pathnames:
                 return
-            new_snapshot = DirectorySnapshot(self.watch.path,
-                                             self.watch.is_recursive)
+            new_snapshot = DirectorySnapshot(self.watch.path, self.watch.is_recursive)
             events = new_snapshot - self.snapshot
             self.snapshot = new_snapshot
 
@@ -110,31 +108,8 @@ class FSEventsEmitter(EventEmitter):
             def callback(pathnames, flags, emitter=self):
                 emitter.queue_events(emitter.timeout)
 
-            # for pathname, flag in zip(pathnames, flags):
-            # if emitter.watch.is_recursive: # and pathname != emitter.watch.path:
-            #    new_sub_snapshot = DirectorySnapshot(pathname, True)
-            #    old_sub_snapshot = self.snapshot.copy(pathname)
-            #    diff = new_sub_snapshot - old_sub_snapshot
-            #    self.snapshot += new_subsnapshot
-            # else:
-            #    new_snapshot = DirectorySnapshot(emitter.watch.path, False)
-            #    diff = new_snapshot - emitter.snapshot
-            #    emitter.snapshot = new_snapshot
-
-            # INFO: FSEvents reports directory notifications recursively
-            # by default, so we do not need to add subdirectory paths.
-            #pathnames = set([self.watch.path])
-            # if self.watch.is_recursive:
-            #    for root, directory_names, _ in os.walk(self.watch.path):
-            #        for directory_name in directory_names:
-            #            full_path = absolute_path(
-            #                            os.path.join(root, directory_name))
-            #            pathnames.add(full_path)
             self.pathnames = [self.watch.path]
-            _fsevents.add_watch(self,
-                                self.watch,
-                                callback,
-                                self.pathnames)
+            _fsevents.add_watch(self, self.watch, callback, self.pathnames)
             _fsevents.read_events(self)
         except:
             pass
