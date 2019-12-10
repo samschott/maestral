@@ -668,15 +668,13 @@ class UpDownSync(object):
         test0 = basename in ["desktop.ini",  "thumbs.db", ".ds_store", "icon\r", ".dropbox.attr", REV_FILE]
 
         # is temporary file?
-        # 1) macOS autosave files  TODO: remove this once watchdog can correctly track the save process on macOS
-        test1 = basename.count(".") > 1 and osp.splitext(basename)[-1].startswith(".sb-")
-        # 2) office temporary files
-        test2 = basename.startswith("~$")
-        test3 = basename.startswith(".~")
-        # 3) other temporary files
-        test4 = basename.startswith("~") and basename.endswith(".tmp")
+        # 1) office temporary files
+        test1 = basename.startswith("~$")
+        test2 = basename.startswith(".~")
+        # 2) other temporary files
+        test3 = basename.startswith("~") and basename.endswith(".tmp")
 
-        return any((test0, test1, test2, test3, test4))
+        return any((test0, test1, test2, test3))
 
     def is_excluded_by_user(self, dbx_path):
         """
