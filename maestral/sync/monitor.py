@@ -8,7 +8,6 @@ Created on Wed Oct 31 16:23:13 2018
 # system imports
 import os
 import os.path as osp
-import platform
 import logging
 import time
 from threading import Thread, Event, RLock
@@ -45,6 +44,10 @@ from maestral.sync.utils.path import (is_child, path_exists_case_insensitive,
                                       delete_file_or_folder)
 
 logger = logging.getLogger(__name__)
+
+
+DIR_EVENTS = (DirModifiedEvent, DirCreatedEvent, DirDeletedEvent, DirMovedEvent)
+FILE_EVENTS = (FileModifiedEvent, FileCreatedEvent, FileDeletedEvent, FileMovedEvent)
 
 
 # ========================================================================================
@@ -146,7 +149,7 @@ class FileEventHandler(FileSystemEventHandler):
             return event
 
         # get the created items path (src_path or dest_path)
-        created_path = getattr(event, "dest_path", event.src_path)
+        created_path = _get_dest_path(event)
 
         # get all other items in the same directory
         try:
@@ -656,11 +659,10 @@ class UpDownSync(object):
         basename = osp.basename(dbx_path)
 
         # in excluded files?
-        test0 = basename in ["desktop.ini",  "thumbs.db", ".ds_store", "icon\r",
-                             ".dropbox.attr", REV_FILE]
+        test0 = basename in ["desktop.ini",  "thumbs.db", ".ds_store", "icon\r", ".dropbox.attr", REV_FILE]
 
         # is temporary file?
-        # 1) macOS autosave files
+        # 1) macOS autosave files  TODO: remove this once watchdog can correctly track the save process on macOS
         test1 = basename.count(".") > 1 and osp.splitext(basename)[-1].startswith(".sb-")
         # 2) office temporary files
         test2 = basename.startswith("~$")
@@ -804,73 +806,47 @@ class UpDownSync(object):
 
         logger.debug(f"Retrieved local file events:\n{events}")
 
+        # filter all events regarding excluded files
+        # Do this before processing to remove some temporary files created during
+        # save events on macOS. This should be done later, in `apply_local_events` once
+        # watchdog generates file events in the correct order on macOS.
+        events, _ = self._filter_excluded_changes_local(events)
+
+        # clean up events to provide only one event per path
+        events = self._clean_local_events(events)
+
         # REMOVE DIR_MODIFIED_EVENTS
         events = [e for e in events if not isinstance(e, DirModifiedEvent)]
 
         # COMBINE "MOVED" EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
-        moved_folder_events = [x for x in events if self._is_moved_folder(x)]
-        child_move_events = []
+        dir_moved_events = [e for e in events if self._is_dir_moved(e)]
 
-        for parent_event in moved_folder_events:
-            children = [x for x in events if self._is_moved_child(x, parent_event)]
-            child_move_events += children
+        if len(dir_moved_events) > 0:
+            child_move_events = []
 
-        events = self._list_diff(events, child_move_events)
+            for parent_event in dir_moved_events:
+                children = [x for x in events if self._is_moved_child(x, parent_event)]
+                child_move_events += children
+
+            events = self._list_diff(events, child_move_events)
 
         # COMBINE "DELETED" EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
-        deleted_folder_events = [x for x in events if self._is_deleted_folder(x)]
-        child_deleted_events = []
+        dir_deleted_events = [x for x in events if self._is_dir_deleted(x)]
 
-        for parent_event in deleted_folder_events:
-            children = [x for x in events if self._is_deleted_child(x, parent_event)]
-            child_deleted_events += children
+        if len(dir_deleted_events) > 0:
+            child_deleted_events = []
 
-        events = self._list_diff(events, child_deleted_events)
+            for parent_event in dir_deleted_events:
+                children = [x for x in events if self._is_deleted_child(x, parent_event)]
+                child_deleted_events += children
 
-        # COMBINE "CREATED" AND "MODIFIED" EVENTS OF THE SAME FILE TO "CREATED"
-        created_file_events = [x for x in events if self._is_created(x)]
-        duplicate_modified_events = []
-
-        for event in created_file_events:
-            duplicates = [x for x in events if self._is_modified_duplicate(x, event)]
-            duplicate_modified_events += duplicates
-
-        # remove all events with duplicate effects
-        events = self._list_diff(events, duplicate_modified_events)
-
-        # REMOVE SUBSEQUENT "CREATED" AND "DELETED" EVENTS OF THE SAME FILE
-        to_remove = []
-
-        for event in created_file_events:
-            subsequent_delete = self._get_subsequent_deleted_event(event, events)
-            if subsequent_delete is not None:
-                to_remove.append(event)
-                to_remove.append(subsequent_delete)
-
-        events = self._list_diff(events, to_remove)
-
-        # COMBINE SUBSEQUENT "DELETED" AND "CREATED" EVENTS TO "MODIFIED"
-        deleted_file_events = [x for x in events if isinstance(x, FileDeletedEvent)]
-        to_remove = []
-        to_add = []
-
-        for event in deleted_file_events:
-            subsequent_create = self._get_subsequent_created_event(event, events)
-            if subsequent_create is not None:
-                to_remove.append(event)
-                to_remove.append(subsequent_create)
-
-                modified_event = FileModifiedEvent(event.src_path)
-                to_add.append(modified_event)
-
-        events = self._list_diff(events, to_remove)
-        events += to_add
+            events = self._list_diff(events, child_deleted_events)
 
         logger.debug(f"Cleaned up local file events:\n{events}")
 
         return events, local_cursor
 
-    def filter_excluded_changes_local(self, events):
+    def _filter_excluded_changes_local(self, events):
         """
         Checks for and removes file events referring to items which are excluded from
         syncing.
@@ -886,7 +862,7 @@ class UpDownSync(object):
 
         for event in events:
 
-            local_path = getattr(event, "dest_path", event.src_path)
+            local_path = _get_dest_path(event)
             dbx_path = self.to_dbx_path(local_path)
 
             if self.is_excluded(dbx_path):  # is excluded?
@@ -907,23 +883,96 @@ class UpDownSync(object):
             else:
                 events_filtered.append(event)
 
-        logger.debug(f"Events to keep:\n{events_filtered}")
         logger.debug(f"Events to discard:\n{events_excluded}")
 
         return events_filtered, events_excluded
 
     @staticmethod
-    def _sort_local_events(events):
+    def _clean_local_events(events, event_type="file"):
         """
-        Sorts local file events into DirEvents and FileEvents.
+        Takes local file events within the monitored period and cleans them up so that
+        there is only a single event per path.
+
+        :param events: Iterable of :class:`watchdog.FileSystemEvents`.
+        :param str event_type: "file" for file events or "dir" for directory events.
+            Defaults to "file".
+        :return: List of :class:`watchdog.FileSystemEvents`.
+        :rtype: list
+        """
+
+        all_src_paths = [e.src_path for e in events]
+        all_dest_paths = [e.dest_path for e in events if e.event_type == EVENT_TYPE_MOVED]
+
+        all_paths = all_src_paths + all_dest_paths
+
+        # Move events are difficult to combine with other event types
+        # = > split up moved events into deleted and created events, but only if the
+        # respective paths have any other events associated with them
+        new_events = []
+
+        for e in events:
+            if e.event_type == EVENT_TYPE_MOVED and len([p for p in all_paths if p in (e.src_path, e.dest_path)]) > 2:
+                e_del = FileDeletedEvent(e.src_path)
+                e_new = FileCreatedEvent(e.dest_path)
+                new_events.append(e_del)
+                new_events.append(e_new)
+            else:
+                new_events.append(e)
+
+        events = new_events.copy()
+
+        unique_paths = set(e.src_path for e in events)
+        histories = [[e for e in events if e.src_path == path] for path in unique_paths]
+
+        new_events.clear()
+
+        for h in histories:
+            if len(h) == 1:
+                new_events.append(h[0])
+            else:
+                path = h[0].src_path
+
+                if isinstance(h[0], FILE_EVENTS):
+                    CreatedEvent = FileCreatedEvent
+                    ModifiedEvent = FileModifiedEvent
+                    DeletedEvent = FileDeletedEvent
+                else:
+                    CreatedEvent = DirCreatedEvent
+                    ModifiedEvent = DirModifiedEvent
+                    DeletedEvent = DirDeletedEvent
+
+                n_created = len([e for e in h if e.event_type == EVENT_TYPE_CREATED])
+                n_deleted = len([e for e in h if e.event_type == EVENT_TYPE_DELETED])
+
+                if n_created > n_deleted:  # file created
+                    new_events.append(CreatedEvent(path))
+                if n_created < n_deleted:  # file was only temporary
+                    new_events.append(DeletedEvent(path))
+                elif n_deleted == n_created:
+                    if n_created == 0:  # file was modified
+                        new_events.append(ModifiedEvent(path))
+                    else:
+                        first_created = h.index(next(e for e in h if e.event_type == EVENT_TYPE_CREATED))
+                        first_deleted = h.index(next(e for e in h if e.event_type == EVENT_TYPE_DELETED))
+
+                        if first_deleted < first_created:  # file was modified
+                            new_events.append(ModifiedEvent(path))
+                        else: # file was only temporary
+                            pass
+
+        return new_events
+
+    @staticmethod
+    def _separate_event_types(events):
+        """
+        Sorts local events into DirEvents and FileEvents.
 
         :return: Tuple of (folders, files)
         :rtype: tuple
         """
 
-        folders = [x for x in events if isinstance(x, (DirCreatedEvent, DirMovedEvent,
-                                                       DirDeletedEvent))]
-        files = [x for x in events if x not in folders]
+        folders = [x for x in events if isinstance(x, DIR_EVENTS)]
+        files = [x for x in events if isinstance(x, FILE_EVENTS)]
 
         return folders, files
 
@@ -940,12 +989,12 @@ class UpDownSync(object):
 
         logger.debug("Beginning upload of local changes")
 
-        filtered_events, _ = self.filter_excluded_changes_local(events)
-        dir_events, file_events = self._sort_local_events(filtered_events)
+        # filtered_events, _ = self._filter_excluded_changes_local(events)
+        dir_events, file_events = self._separate_event_types(events)
 
         # update queues
-        for e in filtered_events:
-            self.queued_for_upload.put(getattr(e, "dest_path", e.src_path))
+        for e in events:
+            self.queued_for_upload.put(_get_dest_path(e))
 
         # apply directory events first (the do not require any upload)
         for event in dir_events:
@@ -986,7 +1035,7 @@ class UpDownSync(object):
         return [l for l in list1 if l not in list2]
 
     @staticmethod
-    def _is_moved_folder(x):
+    def _is_dir_moved(x):
         """Check for moved folders"""
         is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
         return is_moved_event and x.is_directory
@@ -995,10 +1044,12 @@ class UpDownSync(object):
     def _is_moved_child(x, parent):
         """Check for children of moved folders"""
         is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
-        return is_moved_event and is_child(x.src_path, parent.src_path)
+        return (is_moved_event and
+                is_child(x.src_path, parent.src_path) and
+                is_child(x.dest_path, parent.dest_path))
 
     @staticmethod
-    def _is_deleted_folder(x):
+    def _is_dir_deleted(x):
         """Check for deleted folders"""
         is_deleted_event = (x.event_type is EVENT_TYPE_DELETED)
         return is_deleted_event and x.is_directory
@@ -1009,46 +1060,13 @@ class UpDownSync(object):
         is_deleted_event = (x.event_type is EVENT_TYPE_DELETED)
         return is_deleted_event and is_child(x.src_path, parent.src_path)
 
-    @staticmethod
-    def _is_tmp_file(x, events):
-        """Check if file has already been deleted."""
-        is_created_event = (x.event_type is EVENT_TYPE_CREATED)
-        has_subsequent_deleted_event = (e.src_path == x.src_path for e in events)
-        return is_created_event and has_subsequent_deleted_event
-
-    @staticmethod
-    def _is_created(x):
-        """Check for created items."""
-        return x.event_type is EVENT_TYPE_CREATED
-
-    @staticmethod
-    def _is_modified_duplicate(x, original):
-        """Check for modified items that have just been created"""
-        is_modified_event = (x.event_type is EVENT_TYPE_MODIFIED)
-        is_duplicate = (x.src_path == original.src_path)
-        return is_modified_event and is_duplicate
-
-    @staticmethod
-    def _get_subsequent_deleted_event(event, all_events):
-        """Get any subsequent deleted event of the same item following `event`."""
-        return next((x for x in all_events if x.src_path == event.src_path and
-                     all_events.index(x) > all_events.index(event) and
-                     isinstance(x, FileDeletedEvent)), None)
-
-    @staticmethod
-    def _get_subsequent_created_event(event, all_events):
-        """Get any subsequent created event of the same item following `event`."""
-        return next((x for x in all_events if x.src_path == event.src_path and
-                     all_events.index(x) > all_events.index(event) and
-                     isinstance(x, FileCreatedEvent)), None)
-
     @catch_sync_issues(sync_errors, failed_uploads)
     def _apply_event(self, event):
         """Apply a local file event `event` to the remote Dropbox. Clear any related
         sync errors with the file. Any new MaestralApiErrors will be caught by the
         decorator."""
 
-        local_path = getattr(event, "dest_path", event.src_path)
+        local_path = _get_dest_path(event)
         remove_from_queue(self.queued_for_upload, local_path)
         self.clear_sync_error(local_path=local_path)
 
@@ -1859,7 +1877,7 @@ class MaestralMonitor(object):
             # do nothing if already running
             return
 
-        self.local_observer_thread = Observer()
+        self.local_observer_thread = Observer(timeout=0.1)
         self.local_observer_thread.schedule(
             self.file_handler, self.sync.dropbox_path, recursive=True
         )
@@ -2019,6 +2037,10 @@ class MaestralMonitor(object):
 # ========================================================================================
 # Helper functions
 # ========================================================================================
+
+
+def _get_dest_path(e):
+    return getattr(e, "dest_path", e.src_path)
 
 
 def get_local_hash(local_path):
