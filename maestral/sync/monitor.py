@@ -10,6 +10,7 @@ import os
 import os.path as osp
 import logging
 import time
+import platform
 from threading import Thread, Event, RLock
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import queue
@@ -21,7 +22,6 @@ import umsgpack
 from blinker import signal
 import dropbox
 from dropbox.files import DeletedMetadata, FileMetadata, FolderMetadata
-from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from watchdog.events import (EVENT_TYPE_CREATED, EVENT_TYPE_DELETED,
                              EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED)
@@ -29,7 +29,13 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              DirCreatedEvent, FileCreatedEvent,
                              DirDeletedEvent, FileDeletedEvent,
                              DirMovedEvent, FileMovedEvent)
-from watchdog.utils.dirsnapshot import DirectorySnapshot
+
+if platform.system() == "Darwin":
+    from .watchdog.fsevents import FSEventsObserver as Observer
+    from .watchdog.dirsnapshot import DirectorySnapshot
+else:
+    from watchdog.observers import Observer
+    from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 # maestral modules
 from maestral.config.main import CONF
