@@ -1,16 +1,19 @@
 ## v0.4.5-dev
 
+This release improves the sync reliability in case of rapid successive changes to the
+local Dropbox folder.
+
 #### Fixed:
 
 - Fixed multiple sync issues and corner cases with rapid successive file changes:
   The algorithm which converts successive changes of a local file to a single file event
   (created / deleted / modified / moved) for the Dropbox API has been simplified and
   improved.
+- Fixed an issue which could cause the watchdog thread to crash silently on case-sensitive
+  file systems when saving changes to a file.
 - Remove sip import because it may fail depending on how PyQt was installed.
-- Fixed an issue where desktop notifications would appear for certain implementations of
+- Fixed an issue where user notifications would not appear for certain implementations of
   'notify-send'.
-- Fixed an issue which could cause the watchdog thread to crash silently on case-sensitive 
-  file systems when saving changes to a file. 
 - Fixes an error when setting the log level from the CLI.
 
 
