@@ -44,9 +44,9 @@ from maestral.sync.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTE
                                      SYNC_ERROR, REV_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.sync.utils.content_hasher import DropboxContentHasher
 from maestral.sync.utils.notify import Notipy
-from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, CursorResetError,
-                                  RevFileError, DropboxDeletedError, DropboxAuthError,
-                                  ExcludedItemError, PathError)
+from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, SyncError,
+                                  CursorResetError, RevFileError, DropboxDeletedError,
+                                  DropboxAuthError, ExcludedItemError, PathError)
 from maestral.sync.utils.path import (is_child, path_exists_case_insensitive,
                                       delete_file_or_folder)
 
@@ -241,7 +241,7 @@ def catch_sync_issues(sync_errors=None, failed_items=None):
                 res = func(self, *args, **kwargs)
                 if res is None:
                     res = True
-            except MaestralApiError as exc:
+            except SyncError as exc:
                 logger.warning(SYNC_ERROR, exc_info=True)
                 file_name = os.path.basename(exc.dbx_path)
                 self.notify.send(f"Could not sync {file_name}")
@@ -252,6 +252,10 @@ def catch_sync_issues(sync_errors=None, failed_items=None):
                         sync_errors.put(exc)
                     if failed_items:
                         failed_items.put(args[0])
+                res = False
+
+            except MaestralApiError:
+                logger.error(SYNC_ERROR, exc_info=True)
                 res = False
 
             return res
