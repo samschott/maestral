@@ -42,11 +42,11 @@ def bytes_to_str(num, suffix='B'):
     :returns: Human readable string with decimal prefixes.
     :rtype: str
     """
-    for unit in ['','K','M','G','T','P','E','Z']:
+    for unit in ['','K','M','G']:
         if abs(num) < 1000.0:
             return f"{num:3.1f}{unit}{suffix}"
         num /= 1000.0
-    return f"{num:.1f}Y{suffix}"
+    return f"{num:.1f}T{suffix}"
 
 
 class SpaceUsage(dropbox.users.SpaceUsage):
