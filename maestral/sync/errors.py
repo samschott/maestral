@@ -6,7 +6,8 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 
-# external packages
+# KEEP FREE OF DROPBOX IMPORTS TO REDUCE MEMORY FOOTPRINT
+
 import requests
 
 
@@ -153,7 +154,7 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
     :returns: :class:`MaestralApiError` instance.
     :rtype: :class:`MaestralApiError`
     """
-    import dropbox
+    import dropbox  # import here to reduce memory usage if not needed
 
     err_type = MaestralApiError
 
