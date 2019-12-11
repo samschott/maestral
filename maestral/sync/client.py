@@ -63,6 +63,14 @@ def bytesto(value, unit, bsize=1024):
     return float(value) / bsize**a[unit.upper()]
 
 
+def bytes_to_str(num, suffix='B'):
+    for unit in ['','K','M','G','T','P','E','Z']:
+        if abs(num) < 1000.0:
+            return f"{num:3.1f}{unit}{suffix}"
+        num /= 1000.0
+    return f"{num:.1f}Y{suffix}"
+
+
 class SpaceUsage(dropbox.users.SpaceUsage):
 
     def allocation_type(self):
@@ -318,9 +326,8 @@ class MaestralApiClient(object):
             chunk_size = int(tobytes(chunk_size_mb, "MB"))
 
             unit = "GB" if file_size > tobytes(1000, "MB") else "MB"
-            file_size_unit = int(bytesto(file_size, unit))
-            chunk_size_unit = int(bytesto(chunk_size, unit))
-            uploaded_unit = 0
+            file_size_str = bytes_to_str(file_size)
+            uploaded = 0
 
             mtime = osp.getmtime(local_path)
             mtime_dt = datetime.datetime(*time.gmtime(mtime)[:6])
@@ -330,7 +337,7 @@ class MaestralApiClient(object):
                     md = self.dbx.files_upload(
                             f.read(), dbx_path, client_modified=mtime_dt, **kwargs)
                 else:
-                    logger.info(f"Uploading {uploaded_unit}/{file_size_unit}{unit}...")
+                    logger.info(f"Uploading {bytes_to_str(uploaded)}/{file_size_str}...")
                     session_start = self.dbx.files_upload_session_start(f.read(chunk_size))
                     cursor = dropbox.files.UploadSessionCursor(
                         session_id=session_start.session_id, offset=f.tell())
@@ -340,13 +347,13 @@ class MaestralApiClient(object):
                     while f.tell() < file_size:
                         if file_size - f.tell() <= chunk_size:
                             md = self.dbx.files_upload_session_finish(f.read(chunk_size), cursor, commit)
-                            logger.info(f"Uploading {file_size_unit}/{file_size_unit}{unit}...")
+                            logger.info(f"Uploading {bytes_to_str(uploaded)}/{file_size_str}...")
                         else:
                             # TODO: retry on incorrect offset
                             self.dbx.files_upload_session_append_v2(f.read(chunk_size), cursor)
                             cursor.offset = f.tell()
-                            uploaded_unit += chunk_size_unit
-                            logger.info(f"Uploading {uploaded_unit}/{file_size_unit}{unit}...")
+                            uploaded += chunk_size
+                            logger.info(f"Uploading {bytes_to_str(uploaded)}/{file_size_str}...")
         except dropbox.exceptions.DropboxException as exc:
             raise api_to_maestral_error(exc, dbx_path)
         except OS_FILE_ERRORS as exc:
