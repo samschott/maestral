@@ -33,37 +33,15 @@ _major_minor_version = ".".join(__version__.split(".")[:2])
 USER_AGENT = f"Maestral/v{_major_minor_version}"
 
 
-def tobytes(value, unit, bsize=1024):
-    """
-    Convert size from megabytes to bytes.
-
-    :param int value: Value in bytes.
-    :param str unit: Unit to convert to. 'KB' to 'EB' are supported.
-    :param int bsize: Conversion between bytes and next higher unit.
-    :returns: Converted value in units of `to`.
-    :rtype: float
-    """
-    a = {"KB": 1, "MB": 2, "GB": 3, "TB": 4, "PB": 5, "EB": 6}
-
-    return float(value) * bsize**a[unit.upper()]
-
-
-def bytesto(value, unit, bsize=1024):
-    """
-    Convert size from megabytes to bytes.
-
-    :param int value: Value in bytes.
-    :param str unit: Unit to convert to. 'KB' to 'EB' are supported.
-    :param int bsize: Conversion between bytes and next higher unit.
-    :returns: Converted value in units of `to`.
-    :rtype: float
-    """
-    a = {"KB": 1, "MB": 2, "GB": 3, "TB": 4, "PB": 5, "EB": 6}
-
-    return float(value) / bsize**a[unit.upper()]
-
-
 def bytes_to_str(num, suffix='B'):
+    """
+    Convert number to a human readable string with decimal prefix.
+
+    :param int num: Value in given unit.
+    :param str suffix: Unit suffix. Defaults to 'B'.
+    :returns: Human readable string with decimal prefixes.
+    :rtype: str
+    """
     for unit in ['','K','M','G','T','P','E','Z']:
         if abs(num) < 1000.0:
             return f"{num:3.1f}{unit}{suffix}"
@@ -97,13 +75,10 @@ class SpaceUsage(dropbox.users.SpaceUsage):
             used = self.allocation.get_team().used
             allocated = self.allocation.get_team().allocated
         else:
-            used_gb = bytesto(self.used, "GB")
-            return f"{used_gb:,}GB used"
+            return bytes_to_str(self.used)
 
-        percent = used / allocated * 100
-        alloc_gb = bytesto(allocated, "GB")
-        str_rep_usage = f"{percent:.1f}% of {alloc_gb:,}GB used"
-        return str_rep_usage
+        percent = used / allocated
+        return f"{percent:.1%} of {bytes_to_str(allocated)} used"
 
 
 def to_maestral_error():
@@ -320,12 +295,10 @@ class MaestralApiClient(object):
         """
 
         chunk_size_mb = min(chunk_size_mb, 150)
+        chunk_size = chunk_size_mb * 10**6  # convert to bytes
 
         try:
             file_size = osp.getsize(local_path)
-            chunk_size = int(tobytes(chunk_size_mb, "MB"))
-
-            unit = "GB" if file_size > tobytes(1000, "MB") else "MB"
             file_size_str = bytes_to_str(file_size)
             uploaded = 0
 
