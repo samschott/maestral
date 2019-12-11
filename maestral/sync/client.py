@@ -37,7 +37,7 @@ def bytes_to_str(num, suffix='B'):
     """
     Convert number to a human readable string with decimal prefix.
 
-    :param int num: Value in given unit.
+    :param float num: Value in given unit.
     :param str suffix: Unit suffix. Defaults to 'B'.
     :returns: Human readable string with decimal prefixes.
     :rtype: str
