@@ -223,8 +223,7 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
                             "verify on the Dropbox website if the move succeeded and try "
                             "again if it failed. This should happen very rarely.")
                     err_type = DropboxServerError
-                elif error.is_other():
-                    text = "An unexpected error occurred."
+
                 elif error.is_to():
                     to_error = error.get_to()
                     text, err_type = _get_write_error_msg(to_error)
@@ -240,9 +239,7 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
 
             if isinstance(error, dropbox.files.DeleteError):
                 title = "Could not delete item"
-                if error.is_other():
-                    text = "An unexpected error occurred."
-                elif error.is_path_lookup():
+                if error.is_path_lookup():
                     lookup_error = error.get_path_lookup()
                     text, err_type = _get_lookup_error_msg(lookup_error)
                 elif error.is_path_write():
@@ -257,9 +254,7 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
 
             if isinstance(error, dropbox.files.UploadError):
                 title = "Could not upload file"
-                if error.is_other():
-                    text = "An unexpected error occurred."
-                elif error.is_path():
+                if error.is_path():
                     write_error = error.get_path().reason  # returns UploadWriteFailed
                     text, err_type = _get_write_error_msg(write_error)
                 elif error.is_properties_error():
@@ -271,8 +266,6 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
                 if error.is_lookup_failed():
                     session_lookup_error = error.get_lookup_failed()
                     text, err_type = _get_session_lookup_error_msg(session_lookup_error)
-                elif error.is_other():
-                    text = "An unexpected error occurred."
                 elif error.is_path():
                     write_error = error.get_path()
                     text, err_type = _get_write_error_msg(write_error)
@@ -285,9 +278,7 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
 
             if isinstance(error, dropbox.files.DownloadError):
                 title = "Could not download file"
-                if error.is_other():
-                    text = "An unexpected error occurred."
-                elif error.is_path():
+                if error.is_path():
                     lookup_error = error.get_path()
                     text, err_type = _get_lookup_error_msg(lookup_error)
                 elif error.is_unsupported_file():
@@ -295,17 +286,13 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
 
             if isinstance(error, dropbox.files.ListFolderError):
                 title = "Could not list folder contents"
-                if error.is_other():
-                    text = "An unexpected error occurred."
-                elif error.is_path():
+                if error.is_path():
                     lookup_error = error.get_path()
                     text, err_type = _get_lookup_error_msg(lookup_error)
 
             if isinstance(exc.error, dropbox.files.ListFolderContinueError):
                 title = "Could not list folder contents"
-                if error.is_other():
-                    text = "An unexpected error occurred."
-                elif error.is_path():
+                if error.is_path():
                     lookup_error = error.get_path()
                     text, err_type = _get_lookup_error_msg(lookup_error)
                 elif error.is_reset():
@@ -315,9 +302,7 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
 
             if isinstance(exc.error, dropbox.files.ListFolderLongpollError):
                 title = "Could not get Dropbox changes"
-                if error.is_other():
-                    text = "An unexpected error occurred."
-                elif error.is_reset():
+                if error.is_reset():
                     text = ("Dropbox has reset its sync state. Please rebuild Maestra's "
                             "index to re-sync your Dropbox.")
                     err_type = CursorResetError
@@ -468,8 +453,6 @@ def _get_session_lookup_error_msg(session_lookup_error):
     elif session_lookup_error.is_not_found():
         text = ("The upload session ID was not found or has expired. "
                 "Upload sessions are valid for 48 hours.")
-    elif session_lookup_error.is_other():
-        text = "An unexpected error occurred."
     elif session_lookup_error.is_too_large():
         text = "You can only upload files up to 350 GB."
         err_type = FileSizeError
