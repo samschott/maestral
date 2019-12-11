@@ -15,26 +15,17 @@ import keyring
 from keyring.errors import KeyringLocked
 
 # maestral modules
-from maestral.sync.constants import IS_MACOS_BUNDLE
 from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
 from maestral.sync.oauth_implicit import DropboxOAuth2FlowImplicit
 from maestral.sync.errors import CONNECTION_ERRORS, DropboxAuthError
+from maestral.sync.utils import set_keyring_backend
 
-logger = logging.getLogger(__name__)
 
 APP_KEY = "2jmbq42w7vof78h"
 
-
-if IS_MACOS_BUNDLE:
-    import keyring.backends.OS_X
-    keyring.set_keyring(keyring.backends.OS_X.Keyring())
-else:
-    # get preferred keyring backends for platform, excluding the chainer backend
-    all_keyrings = keyring.backend.get_all_keyring()
-    preferred_kreyrings = [k for k in all_keyrings if not isinstance(k, keyring.backends.chainer.ChainerBackend)]
-
-    keyring.set_keyring(max(preferred_kreyrings, key=lambda x: x.priority))
+logger = logging.getLogger(__name__)
+set_keyring_backend()
 
 
 class OAuth2Session(object):
