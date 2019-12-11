@@ -306,11 +306,13 @@ class MaestralApiClient(object):
         :param str local_path: Path of local file to upload.
         :param str dbx_path: Path to save file on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_upload.
-        :param int chunk_size_mb: Maximum size for individual uploads in MB. If
-            the file size exceeds the chunk_size, an upload-session is created
-            instead.
+        :param int chunk_size_mb: Maximum size for individual uploads in MB. Must be
+            smaller than 150 MB.
         :returns: Metadata of uploaded file or `False` if upload failed.
         """
+
+        chunk_size_mb = min(chunk_size_mb, 150)
+
         try:
             file_size = osp.getsize(local_path)
             chunk_size = int(tobytes(chunk_size_mb, "MB"))
