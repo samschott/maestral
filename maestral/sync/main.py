@@ -46,7 +46,7 @@ from maestral.sync.utils.appdirs import get_log_path, get_cache_path, get_home_d
 from maestral.sync.utils.updates import check_update_available
 from maestral.sync.oauth import OAuth2Session
 from maestral.sync.errors import MaestralApiError
-from maestral.sync.errors import CONNECTION_ERRORS, SYNC_ERRORS
+from maestral.sync.errors import CONNECTION_ERRORS
 from maestral.config.main import CONF
 
 
@@ -309,14 +309,13 @@ class Maestral(object):
     @property
     def maestral_errors(self):
         """Returns a list of Maestral's errors as dicts. This does not include lost
-        internet connections, which only emit warnings, or file sync errors which
-        are tracked and cleared separately. Errors listed here must be acted upon for
-        Maestral to continue syncing.
+        internet connections or file sync errors which only emit warnings and are tracked
+        and cleared separately. Errors listed here must be acted upon for Maestral to
+        continue syncing.
         """
 
         maestral_errors = [r.exc_info[1] for r in ch_error.cached_records]
-        maestral_errors_dicts = [maestral_error_to_dict(e) for e in maestral_errors
-                                 if not isinstance(e, SYNC_ERRORS)]
+        maestral_errors_dicts = [maestral_error_to_dict(e) for e in maestral_errors]
         return maestral_errors_dicts
 
     @staticmethod
