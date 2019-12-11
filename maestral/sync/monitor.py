@@ -45,8 +45,8 @@ from maestral.sync.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTE
 from maestral.sync.utils.content_hasher import DropboxContentHasher
 from maestral.sync.utils.notify import Notipy
 from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, SyncError,
-                                  CursorResetError, RevFileError, DropboxDeletedError,
-                                  DropboxAuthError, ExcludedItemError, PathError)
+                                  RevFileError, DropboxDeletedError, DropboxAuthError,
+                                  ExcludedItemError, PathError)
 from maestral.sync.utils.path import (is_child, path_exists_case_insensitive,
                                       delete_file_or_folder)
 
@@ -252,10 +252,6 @@ def catch_sync_issues(sync_errors=None, failed_items=None):
                         sync_errors.put(exc)
                     if failed_items:
                         failed_items.put(args[0])
-                res = False
-
-            except MaestralApiError:
-                logger.error(SYNC_ERROR, exc_info=True)
                 res = False
 
             return res
@@ -1740,7 +1736,7 @@ def download_worker(sync, syncing, running, connected):
             disconnected_signal.send()
             logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
-        except CursorResetError:
+        except MaestralApiError:
             syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
             logger.error(SYNC_ERROR, exc_info=True)
@@ -1788,10 +1784,10 @@ def upload_worker(sync, syncing, running, connected):
             disconnected_signal.send()
             logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
-        except DropboxDeletedError:
+        except MaestralApiError:
             syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
-            logger.error("Dropbox folder has been moved or deleted.", exc_info=True)
+            logger.error(SYNC_ERROR, exc_info=True)
         except Exception:
             logger.error("Unexpected error", exc_info=True)
 
