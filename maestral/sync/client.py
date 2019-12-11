@@ -61,13 +61,6 @@ class SpaceUsage(dropbox.users.SpaceUsage):
 
     def __str__(self):
 
-        if self.allocation.is_team():
-            str_rep_usage_type = " (Team)"
-        else:
-            str_rep_usage_type = ""
-        return self.__repr__() + str_rep_usage_type
-
-    def __repr__(self):
         if self.allocation.is_individual():
             used = self.used
             allocated = self.allocation.get_individual().allocated
@@ -190,7 +183,7 @@ class MaestralApiClient(object):
         res.__class__ = SpaceUsage
 
         # save results to config
-        CONF.set("account", "usage", repr(res))
+        CONF.set("account", "usage", str(res))
         CONF.set("account", "usage_type", res.allocation_type())
 
         return res
