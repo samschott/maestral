@@ -31,6 +31,7 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              DirMovedEvent, FileMovedEvent)
 
 if platform.system() == "Darwin":
+    # use our own FSEvent observer to preserve the order of file system events
     from .watchdog.fsevents import FSEventsObserver as Observer
     from .watchdog.dirsnapshot import DirectorySnapshot
 else:
@@ -138,7 +139,6 @@ class FileEventHandler(FileSystemEventHandler):
     # TODO: The logic for ignoring moved events of children will no longer work when
     #   renaming the parent's moved event. This will throw sync errors when trying to
     #   apply those events, but they are only temporary and therefore tolerable for now.
-    # TODO: Check if this is the right place to handle case-conflicts.
     def rename_on_case_conflict(self, event):
         """
         Checks for other items in the same directory with same name but a different case.
