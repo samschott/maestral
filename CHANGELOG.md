@@ -1,11 +1,17 @@
 ## v0.4.5-dev
 
 This release improves the sync reliability in case of rapid successive changes to the
-local Dropbox folder.
+local Dropbox folder. It also improves error handling and includes other bug fixes.
+
+
+#### Changed:
+
+- Improved error handling: Notify the user when a file size exceeds the limit of 350 GB
+  and when an upload fails due to dropped network packages. Improved some error messages.
 
 #### Fixed:
 
-- Fixed multiple sync issues and corner cases with rapid successive file changes:
+- Fixed multiple sync issues and corner cases due to rapid and successive file changes:
   The algorithm which converts successive changes of a local file to a single file event
   (created / deleted / modified / moved) for the Dropbox API has been simplified and
   improved.
