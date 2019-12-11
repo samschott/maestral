@@ -309,7 +309,8 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
                     lookup_error = error.get_path()
                     text, err_type = _get_lookup_error_msg(lookup_error)
                 elif error.is_reset():
-                    text = "Cursor has been reset by Dropbox. Please try again."
+                    text = ("Dropbox has reset its sync state. Please rebuild Maestra's "
+                            "index to re-sync your Dropbox.")
                     err_type = CursorResetError
 
             if isinstance(exc.error, dropbox.files.ListFolderLongpollError):
@@ -317,7 +318,8 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
                 if error.is_other():
                     text = "An unexpected error occurred."
                 elif error.is_reset():
-                    text = "Cursor has been reset by Dropbox. Please try again."
+                    text = ("Dropbox has reset its sync state. Please rebuild Maestra's "
+                            "index to re-sync your Dropbox.")
                     err_type = CursorResetError
 
         if text is None:
