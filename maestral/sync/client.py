@@ -43,9 +43,9 @@ def bytes_to_str(num, suffix='B'):
     :rtype: str
     """
     for unit in ['','K','M','G']:
-        if abs(num) < 1000.0:
+        if abs(num) < 1024.0:
             return f"{num:3.1f}{unit}{suffix}"
-        num /= 1000.0
+        num /= 1024.0
     return f"{num:.1f}T{suffix}"
 
 
