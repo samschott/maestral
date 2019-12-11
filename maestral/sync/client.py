@@ -339,12 +339,11 @@ class MaestralApiClient(object):
 
                     while f.tell() < file_size:
                         if file_size - f.tell() <= chunk_size:
-                            md = self.dbx.files_upload_session_finish(
-                                f.read(chunk_size), cursor, commit)
+                            md = self.dbx.files_upload_session_finish(f.read(chunk_size), cursor, commit)
                             logger.info(f"Uploading {file_size_unit}/{file_size_unit}{unit}...")
                         else:
-                            self.dbx.files_upload_session_append_v2(
-                                f.read(chunk_size), cursor)
+                            # TODO: retry on incorrect offset
+                            self.dbx.files_upload_session_append_v2(f.read(chunk_size), cursor)
                             cursor.offset = f.tell()
                             uploaded_unit += chunk_size_unit
                             logger.info(f"Uploading {uploaded_unit}/{file_size_unit}{unit}...")
