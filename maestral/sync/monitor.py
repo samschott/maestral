@@ -427,7 +427,7 @@ class UpDownSync(object):
         """
 
         if not osp.isdir(self.dropbox_path):
-            raise DropboxDeletedError("Dropbox folder has been moved or deleted.")
+            raise DropboxDeletedError("Dropbox folder has been moved or deleted.", "")
 
     def to_dbx_path(self, local_path):
         """

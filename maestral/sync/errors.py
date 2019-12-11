@@ -15,11 +15,6 @@ CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please check " +
                         "your internet connection and try again later.")
 
 
-class DropboxDeletedError(Exception):
-    """Raised when the local Dropbox folder cannot be found."""
-    pass
-
-
 class MaestralApiError(Exception):
     """
     Base class for errors originating from the Dropbox API or the 'local API'.
@@ -101,6 +96,11 @@ class FileSizeError(SyncError):
 
 
 # fatal errors, require user action
+
+class DropboxDeletedError(MaestralApiError):
+    """Raised when the local Dropbox folder cannot be found."""
+    pass
+
 
 class RevFileError(MaestralApiError):
     """Raised when the rev file exists but cannot be read."""
