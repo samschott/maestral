@@ -10,7 +10,6 @@ Created on Wed Oct 31 16:23:13 2018
 
 import functools
 import logging
-import keyring.backends
 
 from maestral.sync.constants import DISCONNECTED, IS_MACOS_BUNDLE
 from maestral.sync.errors import CONNECTION_ERRORS, DropboxAuthError
@@ -62,8 +61,10 @@ def with_sync_paused(func):
 
 def set_keyring_backend():
     if IS_MACOS_BUNDLE:
+        import keyring.backends.OS_X
         keyring.set_keyring(keyring.backends.OS_X.Keyring())
     else:
+        import keyring.backends
         # get preferred keyring backends for platform, excluding the chainer backend
         all_keyrings = keyring.backend.get_all_keyring()
         preferred_kreyrings = [k for k in all_keyrings if not isinstance(k, keyring.backends.chainer.ChainerBackend)]
