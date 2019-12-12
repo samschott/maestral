@@ -177,13 +177,12 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
     """
     import dropbox  # import here to reduce memory usage if not needed
 
-    err_type = MaestralApiError
-
     # --------------------------- Dropbox API Errors -------------------------------------
     if isinstance(exc, dropbox.exceptions.ApiError):
 
-        err_type = SyncError
-        title = "Dropbox Error"
+        # may be replaced later
+        err_cls = SyncError
+        title = "Sync Error"
         text = None
 
         if hasattr(exc, "user_message_text") and exc.user_message_text is not None:
@@ -198,14 +197,14 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
                     text = "Shared folders can’t be copied."
                 elif error.is_cant_move_folder_into_itself():
                     text = "You cannot move a folder into itself."
-                    err_type = PathError
+                    err_cls = PathError
                 elif error.is_cant_move_shared_folder():
                     text = "You cannot move the shared folder to the given destination."
-                    err_type = PathError
+                    err_cls = PathError
                 elif error.is_cant_nest_shared_folder():
                     text = ("Your move operation would result in nested shared folders. "
                             "This is not allowed.")
-                    err_type = PathError
+                    err_cls = PathError
                 elif error.is_cant_transfer_ownership():
                     text = ("Your move operation would result in an ownership transfer. "
                             "Maestral does not currently support this. Please carry out "
@@ -213,26 +212,25 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
                 elif error.is_duplicated_or_nested_paths():
                     text = ("There are duplicated/nested paths among the target and "
                             "destination folders.")
-                    err_type = PathError
+                    err_cls = PathError
                 elif error.is_from_lookup():
                     lookup_error = error.get_from_lookup()
-                    text, err_type = _get_lookup_error_msg(lookup_error)
+                    text, err_cls = _get_lookup_error_msg(lookup_error)
                 elif error.is_from_write():
                     write_error = error.get_from_write()
-                    text, err_type = _get_write_error_msg(write_error)
+                    text, err_cls = _get_write_error_msg(write_error)
                 elif error.is_insufficient_quota():
                     text = ("You do not have enough space on Dropbox to move "
                             "or copy the files.")
-                    err_type = InsufficientSpaceError
+                    err_cls = InsufficientSpaceError
                 elif error.is_internal_error():
                     text = ("Something went wrong with the job on Dropbox’s end. Please "
                             "verify on the Dropbox website if the move succeeded and try "
-                            "again if it failed. This should happen very rarely.")
-                    err_type = DropboxServerError
-
+                            "again if it failed.")
+                    err_cls = DropboxServerError
                 elif error.is_to():
                     to_error = error.get_to()
-                    text, err_type = _get_write_error_msg(to_error)
+                    text, err_cls = _get_write_error_msg(to_error)
                 elif error.is_too_many_files():
                     text = ("There are more than 10,000 files and folders in one "
                             "request. Please try to move fewer items at once.")
@@ -241,16 +239,16 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
                 title = "Could not create folder"
                 if error.is_path():
                     write_error = error.get_path()
-                    text, err_type = _get_write_error_msg(write_error)
+                    text, err_cls = _get_write_error_msg(write_error)
 
             if isinstance(error, dropbox.files.DeleteError):
                 title = "Could not delete item"
                 if error.is_path_lookup():
                     lookup_error = error.get_path_lookup()
-                    text, err_type = _get_lookup_error_msg(lookup_error)
+                    text, err_cls = _get_lookup_error_msg(lookup_error)
                 elif error.is_path_write():
                     write_error = error.get_path_write()
-                    text, err_type = _get_write_error_msg(write_error)
+                    text, err_cls = _get_write_error_msg(write_error)
                 elif error.is_too_many_files():
                     text = ("There are more than 10,000 files and folders in one "
                             "request. Please try to delete fewer items at once.")
@@ -262,22 +260,20 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
                 title = "Could not upload file"
                 if error.is_path():
                     write_error = error.get_path().reason  # returns UploadWriteFailed
-                    text, err_type = _get_write_error_msg(write_error)
+                    text, err_cls = _get_write_error_msg(write_error)
                 elif error.is_properties_error():
-                    # this should not happen, we don't use property groups
-                    pass
+                    pass  # we currently do not use property groups
 
             if isinstance(error, dropbox.files.UploadSessionFinishError):
                 title = "Could not upload file"
                 if error.is_lookup_failed():
                     session_lookup_error = error.get_lookup_failed()
-                    text, err_type = _get_session_lookup_error_msg(session_lookup_error)
+                    text, err_cls = _get_session_lookup_error_msg(session_lookup_error)
                 elif error.is_path():
                     write_error = error.get_path()
-                    text, err_type = _get_write_error_msg(write_error)
+                    text, err_cls = _get_write_error_msg(write_error)
                 elif error.is_properties_error():
-                    # this should not happen, we don't use property groups
-                    pass
+                    pass  # we currently do not use property groups
                 elif error.is_too_many_write_operations():
                     text = ("There are too many write operations happening in your "
                             "Dropbox. Please retry uploading this file later.")
@@ -286,165 +282,167 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
                 title = "Could not download file"
                 if error.is_path():
                     lookup_error = error.get_path()
-                    text, err_type = _get_lookup_error_msg(lookup_error)
+                    text, err_cls = _get_lookup_error_msg(lookup_error)
                 elif error.is_unsupported_file():
-                    text = "This file type cannot be downloaded but only exported."
+                    text = "This file type cannot be downloaded but must be exported."
+                    err_cls = UnsupportedFileError
 
             if isinstance(error, dropbox.files.ListFolderError):
                 title = "Could not list folder contents"
                 if error.is_path():
                     lookup_error = error.get_path()
-                    text, err_type = _get_lookup_error_msg(lookup_error)
+                    text, err_cls = _get_lookup_error_msg(lookup_error)
 
             if isinstance(exc.error, dropbox.files.ListFolderContinueError):
                 title = "Could not list folder contents"
                 if error.is_path():
                     lookup_error = error.get_path()
-                    text, err_type = _get_lookup_error_msg(lookup_error)
+                    text, err_cls = _get_lookup_error_msg(lookup_error)
                 elif error.is_reset():
                     text = ("Dropbox has reset its sync state. Please rebuild Maestral's "
                             "index to re-sync your Dropbox.")
-                    err_type = CursorResetError
+                    err_cls = CursorResetError
 
             if isinstance(exc.error, dropbox.files.ListFolderLongpollError):
                 title = "Could not get Dropbox changes"
                 if error.is_reset():
                     text = ("Dropbox has reset its sync state. Please rebuild Maestral's "
                             "index to re-sync your Dropbox.")
-                    err_type = CursorResetError
+                    err_cls = CursorResetError
 
         if text is None:
-            text = ("An unexpected error occurred. Please contact the Maestral "
-                    "developer with the traceback information.")
+            text = ("An unexpected sync error occurred. Please contact the Maestral "
+                    "developer with the traceback information from the logs.")
 
     # ----------------------- Local read / write errors ----------------------------------
     elif isinstance(exc, PermissionError):
+        err_cls = InsufficientPermissionsError
         title = "Could not download file"
         text = "Insufficient read or write permissions for the download location."
-        err_type = InsufficientPermissionsError
     elif isinstance(exc, FileNotFoundError):
+        err_cls = PathError
         title = "Could not download file"
         text = "The given download path is invalid."
-        err_type = PathError
     elif isinstance(exc, IsADirectoryError):
+        err_cls = PathError
         title = "Could not download file"
         text = "The given download path is a directory."
-        err_type = PathError
 
     # ----------------------- Authentication errors --------------------------------------
     elif isinstance(exc, dropbox.exceptions.AuthError):
         error = exc.error
         if isinstance(error, dropbox.auth.AuthError) and error.is_expired_access_token():
+            err_cls = TokenExpiredError
             title = "Expired Dropbox access"
             text = ("Maestral's access to your Dropbox has expired. Please relink "
                     "to continue syncing.")
-            err_type = TokenExpiredError
         else:
+            err_cls = DropboxAuthError
             title = "Authentication error"
             text = ("Maestral's access to your Dropbox has been revoked. Please "
                     "relink to continue syncing.")
-            err_type = DropboxAuthError
 
     # -------------------------- OAuth2 flow errors --------------------------------------
     elif isinstance(exc, requests.HTTPError):
+        err_cls = DropboxAuthError
         title = "Authentication failed"
         text = "Please make sure that you entered the correct authentication code."
-        err_type = DropboxAuthError
     elif isinstance(exc, dropbox.oauth.BadStateException):
+        err_cls = DropboxAuthError
         title = "Authentication session expired."
         text = "The authentication session expired. Please try again."
-        err_type = DropboxAuthError
     elif isinstance(exc, dropbox.oauth.NotApprovedException):
+        err_cls = DropboxAuthError
         title = "Not approved error"
         text = "Please grant Maestral access to your Dropbox to start syncing."
-        err_type = DropboxAuthError
 
     # ----------------------------- Bad input errors -------------------------------------
     # should only occur due to user input from console scripts
     elif isinstance(exc, dropbox.exceptions.BadInputError):
         if ("The given OAuth 2 access token is malformed" in exc.message or
                 "Invalid authorization value in HTTP header" in exc.message):
+            err_cls = DropboxAuthError
             title = "Authentication failed"
             text = "Please make sure that you entered the correct authentication code."
-            err_type = DropboxAuthError
         else:
-            title = "Dropbox error"
+            err_cls = BadInputError
+            title = "Sync error"
             text = exc.message
-            err_type = BadInputError
 
     # -------------------------- Everything else -----------------------------------------
     else:
+        err_cls = MaestralApiError
         title = exc.args[0]
         text = None
 
-    return err_type(title, text, dbx_path=dbx_path, local_path=local_path)
+    return err_cls(title, text, dbx_path=dbx_path, local_path=local_path)
 
 
 def _get_write_error_msg(write_error):
 
     text = None
-    err_type = MaestralApiError
+    err_cls = SyncError
 
     if write_error.is_conflict():
         text = ("Could not write to the target path because another file or "
                 "folder was in the way.")
-        err_type = PathError
+        err_cls = PathError
     elif write_error.is_disallowed_name():
         text = "Dropbox will not save the file or folder because of its name."
-        err_type = PathError
+        err_cls = PathError
     elif write_error.is_insufficient_space():
         text = "You do not have enough space on Dropbox to move or copy the files."
-        err_type = InsufficientSpaceError
+        err_cls = InsufficientSpaceError
     elif write_error.is_malformed_path():
         text = ("The destination path is invalid. Paths may not end with a slash or "
                 "whitespace.")
-        err_type = PathError
+        err_cls = PathError
     elif write_error.is_no_write_permission():
         text = "You do not have permissions to write to the target location."
-        err_type = InsufficientPermissionsError
+        err_cls = InsufficientPermissionsError
     elif write_error.is_team_folder():
         text = "You cannot move or delete team folders through Maestral."
     elif write_error.is_too_many_write_operations():
         text = ("There are too many write operations in your Dropbox. Please "
                 "try again later.")
 
-    return text, err_type
+    return text, err_cls
 
 
 def _get_lookup_error_msg(lookup_error):
 
     text = None
-    err_type = MaestralApiError
+    err_cls = SyncError
 
     if lookup_error.is_malformed_path():
         text = ("The destination path is invalid. Paths may not end with a slash or "
                 "whitespace.")
-        err_type = PathError
+        err_cls = PathError
     elif lookup_error.is_not_file():
         text = "We were expecting a file, but the given path refers to a folder."
-        err_type = PathError
+        err_cls = PathError
     elif lookup_error.is_not_folder():
         text = "We were expecting a folder, but the given path refers to a file."
-        err_type = PathError
+        err_cls = PathError
     elif lookup_error.is_not_found():
         text = "There is nothing at the given path."
-        err_type = PathError
+        err_cls = PathError
     elif lookup_error.is_restricted_content():
         text = ("The file cannot be transferred because the content is restricted. For "
                 "example, sometimes there are legal restrictions due to copyright "
                 "claims.")
-        err_type = RestrictedContentError
+        err_cls = RestrictedContentError
     elif lookup_error.is_unsupported_content_type():
         text = "This file type is currently not supported for syncing."
-        err_type = UnsupportedFileError
+        err_cls = UnsupportedFileError
 
-    return text, err_type
+    return text, err_cls
 
 
 def _get_session_lookup_error_msg(session_lookup_error):
 
     text = None
-    err_type = MaestralApiError
+    err_cls = SyncError
 
     if session_lookup_error.is_closed():
         # happens when trying to append data to a closed session
@@ -461,9 +459,9 @@ def _get_session_lookup_error_msg(session_lookup_error):
                 "Upload sessions are valid for 48 hours.")
     elif session_lookup_error.is_too_large():
         text = "You can only upload files up to 350 GB."
-        err_type = FileSizeError
+        err_cls = FileSizeError
 
-    return text, err_type
+    return text, err_cls
 
 # connection errors are handled as warnings
 # sync errors only appear in the sync errors list
