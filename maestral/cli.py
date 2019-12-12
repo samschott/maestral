@@ -67,7 +67,7 @@ def stop_daemon_with_cli_feedback(config_name):
         click.echo("\rStopping Maestral...        " + KILLED)
 
 
-def check_for_updates():
+def _check_for_updates():
     """Checks if updates are available by reading the cached release number from the
     config file and notifies the user."""
     from maestral import __version__
@@ -134,7 +134,7 @@ with_config_opt = click.option(
 @click.group()
 def main():
     """Maestral Dropbox Client for Linux and macOS."""
-    check_for_updates()
+    _check_for_updates()
 
 
 @main.group()
