@@ -3,11 +3,16 @@
 This release improves the sync reliability in case of rapid successive changes to the
 local Dropbox folder. It also improves error handling and includes other bug fixes.
 
+##### Added:
+
+- Show an "info" system tray icon in case of sync issues.
 
 #### Changed:
 
 - Improved error handling: Notify the user when a file size exceeds the limit of 350 GB
   and when an upload fails due to dropped network packages. Improved some error messages.
+- Improved status notifications for large uploads: dynamically adapt unit to file size /
+  amount uploaded.
 
 #### Fixed:
 
