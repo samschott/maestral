@@ -110,7 +110,7 @@ def get_system_tray_icon(status, color=None, geometry=None):
     :param geometry: Tray icon geometry on screen. If given, this location will be used to
         to determine the system tray background color.
     """
-    assert status in ("idle", "syncing", "paused", "disconnected", "error")
+    assert status in ("idle", "syncing", "paused", "disconnected", "info", "error")
 
     gnome_version = _get_gnome_version()
     is_gnome3 = gnome_version is not None and gnome_version[0] >= 3

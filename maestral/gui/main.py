@@ -24,7 +24,7 @@ from PyQt5 import QtCore, QtWidgets
 from maestral.config.main import CONF
 from maestral.sync.utils import set_keyring_backend
 from maestral.sync.constants import (
-    IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, SYNC_ERROR,
+    IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, SYNC_ERROR, ERROR,
     IS_MACOS_BUNDLE,
 )
 from maestral.sync.daemon import (
@@ -69,13 +69,13 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         "settings_window", "sync_issues_window", "rebuild_dialog", "_progress_dialog",
         "update_ui_timer", "check_for_updates_timer",
         "statusAction", "accountEmailAction", "accountUsageAction", "pauseAction", "syncIssuesAction",
-        "autostart", "_current_icon", "_n_errors", "_progress_dialog",
+        "autostart", "_current_icon", "_n_sync_errors", "_progress_dialog",
     )
 
     def __init__(self):
         QtWidgets.QSystemTrayIcon.__init__(self)
 
-        self._n_errors = None
+        self._n_sync_errors = None
         self._current_icon = None
 
         self.settings_window = None
@@ -139,7 +139,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             PAUSED: "paused",
             STOPPED: "error",
             DISCONNECTED: "disconnected",
-            SYNC_ERROR: "error",
+            SYNC_ERROR: "info",
+            ERROR: "error",
         }
 
         if self.contextMenuVisible() and platform.system() == "Darwin":
@@ -431,13 +432,15 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def update_status(self):
         """Change icon according to status."""
 
-        n_errors = len(self.mdbx.sync_errors)
+        n_sync_errors = len(self.mdbx.sync_errors)
         status = self.mdbx.status
         is_paused = self.mdbx.paused
 
         # update icon
         if is_paused:
             new_icon = PAUSED
+        elif n_sync_errors > 0:
+            new_icon = SYNC_ERROR
         else:
             new_icon = status
 
@@ -445,8 +448,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         # update action texts
         if self.contextMenuVisible():
-            if n_errors > 0:
-                self.syncIssuesAction.setText("Show Sync Issues ({0})...".format(n_errors))
+            if n_sync_errors > 0:
+                self.syncIssuesAction.setText("Show Sync Issues ({0})...".format(n_sync_errors))
             else:
                 self.syncIssuesAction.setText("Show Sync Issues...")
 
@@ -458,14 +461,14 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.statusAction.setText(status_short)
 
         # update sync issues window
-        if n_errors != self._n_errors and _is_pyqt_obj(self.sync_issues_window):
+        if n_sync_errors != self._n_sync_errors and _is_pyqt_obj(self.sync_issues_window):
             self.sync_issues_window.reload()
 
         # update tooltip
         self.setToolTip(status)
 
         # cache _n_errors
-        self._n_errors = n_errors
+        self._n_sync_errors = n_sync_errors
 
     def update_error(self):
         errs = self.mdbx.maestral_errors
@@ -474,6 +477,8 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             return
         else:
             self.mdbx.clear_maestral_errors()
+
+        self.setIcon(ERROR)
 
         err = errs[-1]
 
@@ -505,8 +510,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def _stop_and_exec_relink_dialog(self, reason):
         from maestral.gui.relink_dialog import RelinkDialog
 
-        self.setIcon(SYNC_ERROR)
-
         if self.mdbx:
             self.mdbx.stop_sync()
         if self.pauseAction:
@@ -517,7 +520,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         relink_dialog.exec_()  # will perform quit / restart as appropriate
 
     def _stop_and_exec_error_dialog(self, title, message, exc_info=None):
-        self.setIcon(SYNC_ERROR)
 
         if self.mdbx:
             self.mdbx.stop_sync()
