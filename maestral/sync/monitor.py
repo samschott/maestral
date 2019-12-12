@@ -46,7 +46,7 @@ from maestral.sync.utils.content_hasher import DropboxContentHasher
 from maestral.sync.utils.notify import Notipy
 from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, SyncError,
                                   RevFileError, DropboxDeletedError, DropboxAuthError,
-                                  ExcludedItemError, PathError)
+                                  ExcludedItemError, PathError, InotifyError)
 from maestral.sync.utils.path import (is_child, path_exists_case_insensitive,
                                       delete_file_or_folder)
 
@@ -1903,8 +1903,24 @@ class MaestralMonitor(object):
 
         self.running.set()
 
+        try:
+            self.local_observer_thread.start()
+        except OSError as exc:
+            if "inotify" in exc.args[0]:
+                title = "Inotify limit reached"
+                msg = ("File changes for your Dropbox folder can't be tracked "
+                       "because it contains too many files. To fix this you "
+                       "need to increase the inotify limit in your system by adding the "
+                       "following line to /etc/sysctl.conf:\n\n "
+                       "fs.inotify.max_user_watches=524288")
+                new_exc = InotifyError(title, msg).with_traceback(exc.__traceback__)
+                exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
+                logger.error(title, exc_info=exc_info)
+                return
+            else:
+                raise exc
+
         self.connection_thread.start()
-        self.local_observer_thread.start()
         self.download_thread.start()
         self.upload_thread.start()
 
