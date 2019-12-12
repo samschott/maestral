@@ -3,16 +3,16 @@
 This release improves the sync reliability in case of rapid successive changes to the
 local Dropbox folder. It also improves error handling and includes other bug fixes.
 
-##### Added:
-
-- Show an "info" system tray icon in case of sync issues.
-
 #### Changed:
 
-- Improved error handling: Notify the user when a file size exceeds the limit of 350 GB
-  and when an upload fails due to dropped network packages. Improved some error messages.
-- Improved status notifications for large uploads: dynamically adapt unit to file size /
-  amount uploaded.
+- Show an "info" system tray icon in case of sync issues.
+- Notify the user when the local Dropbox folder contains too many items to watch and
+  recommend increasing the maximum number of inotify watches (Linux only).
+- Notify the user when an upload fails because a file exceeds the size limit of 350 GB.
+- Notify the user when an upload fails due to dropped network packages.
+- Improved some error messages.
+- Improved status notifications for large uploads: dynamically adapt the unit to show up
+  to four significant digits (e.g., "16MB/1.6GB" instead of "0/1.6GB").
 
 #### Fixed:
 
