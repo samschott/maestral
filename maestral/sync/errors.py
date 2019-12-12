@@ -97,6 +97,12 @@ class FileSizeError(SyncError):
 
 # fatal errors, require user action
 
+
+class InotifyError(MaestralApiError):
+    """Raised when the local Dropbox folder is too large to monitor with inotify."""
+    pass
+
+
 class DropboxDeletedError(MaestralApiError):
     """Raised when the local Dropbox folder cannot be found."""
     pass
