@@ -64,6 +64,16 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     PAUSE_TEXT = "Pause Syncing"
     RESUME_TEXT = "Resume Syncing"
 
+    icon_mapping = {
+        IDLE: "idle",
+        SYNCING: "syncing",
+        PAUSED: "paused",
+        STOPPED: "error",
+        DISCONNECTED: "disconnected",
+        SYNC_ERROR: "info",
+        ERROR: "error",
+    }
+
     __slots__ = (
         "icons", "menu", "recentFilesMenu",
         "settings_window", "sync_issues_window", "rebuild_dialog", "_progress_dialog",
@@ -130,26 +140,12 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         else:
             QtCore.QTimer.singleShot(1000, self.show_when_systray_available)
 
-    def load_tray_icons(self):
+    def load_tray_icons(self, color=None):
 
         icons = dict()
-        icon_mapping = {
-            IDLE: "idle",
-            SYNCING: "syncing",
-            PAUSED: "paused",
-            STOPPED: "error",
-            DISCONNECTED: "disconnected",
-            SYNC_ERROR: "info",
-            ERROR: "error",
-        }
 
-        if self.contextMenuVisible() and platform.system() == "Darwin":
-            color = "light"
-        else:
-            color = None
-
-        for key in icon_mapping:
-            icons[key] = get_system_tray_icon(icon_mapping[key], color=color)
+        for key in self.icon_mapping:
+            icons[key] = get_system_tray_icon(self.icon_mapping[key], color=color)
 
         return icons
 
@@ -439,7 +435,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         # update icon
         if is_paused:
             new_icon = PAUSED
-        elif n_sync_errors > 0:
+        elif n_sync_errors > 0 and status == IDLE:
             new_icon = SYNC_ERROR
         else:
             new_icon = status
@@ -482,13 +478,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         err = errs[-1]
 
-        if err["type"] in ("RevFileError", "BadInputError"):
+        if err["type"] in ("RevFileError", "BadInputError", "CursorResetError", "InotifyError"):
             title = err["title"]
             message = err["message"]
-            self._stop_and_exec_error_dialog(title, message)
-        elif err["type"] == "CursorResetError":
-            title = "Dropbox has reset its sync state."
-            message = 'Please go to "Rebuild index..." to re-sync your Dropbox.'
             self._stop_and_exec_error_dialog(title, message)
         elif err["type"] == "DropboxDeletedError":
             self.mdbx.stop_sync()
@@ -500,7 +492,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             from maestral.gui.relink_dialog import RelinkDialog
             self._stop_and_exec_relink_dialog(RelinkDialog.EXPIRED)
         else:
-            title = "An unexpected error occurred."
+            title = "An unexpected error occurred"
             message = ("Please restart Maestral to continue syncing and contact "
                        "the developer with the information below.")
             self._stop_and_exec_error_dialog(title, message, err["traceback"])
@@ -534,18 +526,16 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         self._context_menu_visible = True
 
         if platform.system() == "Darwin":
-            self.reload_icons()
+            self.icons = self.load_tray_icons("light")
+            self.setIcon(self._current_icon)
 
     @QtCore.pyqtSlot()
     def _onContextMenuAboutToHide(self):
         self._context_menu_visible = False
 
         if platform.system() == "Darwin":
-            self.reload_icons()
-
-    def reload_icons(self):
-        self.icons = self.load_tray_icons()
-        self.setIcon(self._current_icon)
+            self.icons = self.load_tray_icons()
+            self.setIcon(self._current_icon)
 
     def contextMenuVisible(self):
         return self._context_menu_visible
