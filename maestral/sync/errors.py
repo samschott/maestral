@@ -302,14 +302,14 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
                     lookup_error = error.get_path()
                     text, err_type = _get_lookup_error_msg(lookup_error)
                 elif error.is_reset():
-                    text = ("Dropbox has reset its sync state. Please rebuild Maestra's "
+                    text = ("Dropbox has reset its sync state. Please rebuild Maestral's "
                             "index to re-sync your Dropbox.")
                     err_type = CursorResetError
 
             if isinstance(exc.error, dropbox.files.ListFolderLongpollError):
                 title = "Could not get Dropbox changes"
                 if error.is_reset():
-                    text = ("Dropbox has reset its sync state. Please rebuild Maestra's "
+                    text = ("Dropbox has reset its sync state. Please rebuild Maestral's "
                             "index to re-sync your Dropbox.")
                     err_type = CursorResetError
 
