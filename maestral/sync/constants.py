@@ -27,7 +27,7 @@ PAUSED = "Syncing paused"
 STOPPED = "Syncing stopped"
 DISCONNECTED = "Connecting..."
 SYNC_ERROR = "Sync error"
-ERROR = "Error"
+ERROR = "Fatal error"
 
 # bundle detection
 IS_MACOS_BUNDLE = getattr(sys, "frozen", False) and platform.system() == "Darwin"

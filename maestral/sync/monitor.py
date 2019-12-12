@@ -41,7 +41,7 @@ else:
 # maestral modules
 from maestral.config.main import CONF
 from maestral.sync.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
-                                     SYNC_ERROR, REV_FILE, IS_FS_CASE_SENSITIVE)
+                                     SYNC_ERROR, ERROR, REV_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.sync.utils.content_hasher import DropboxContentHasher
 from maestral.sync.utils.notify import Notipy
 from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, SyncError,
@@ -423,7 +423,7 @@ class UpDownSync(object):
         """
 
         if not osp.isdir(self.dropbox_path):
-            title = "Dropbox folder has been moved or deleted."
+            title = "Dropbox folder has been moved or deleted"
             msg = ("Please move the Dropbox folder back to its original location "
                    "or restart Maestral to set up a new folder.")
             raise DropboxDeletedError(title, msg)
@@ -1742,7 +1742,7 @@ def download_worker(sync, syncing, running, connected):
         except MaestralApiError:
             syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
-            logger.error(SYNC_ERROR, exc_info=True)
+            logger.error(ERROR, exc_info=True)
         except Exception:
             logger.error("Unexpected error", exc_info=True)
 
@@ -1790,9 +1790,9 @@ def upload_worker(sync, syncing, running, connected):
         except MaestralApiError:
             syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
-            logger.error(SYNC_ERROR, exc_info=True)
+            logger.error(ERROR, exc_info=True)
         except Exception:
-            logger.error("Unexpected error", exc_info=True)
+            logger.error(ERROR, exc_info=True)
 
 
 # ========================================================================================
