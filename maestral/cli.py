@@ -84,6 +84,23 @@ def _check_for_updates():
                     fg="red")
 
 
+def _check_for_fatal_errors(m):
+    """Checks for fatal errors such as revoked Dropbox access, deleted Dropbox folder etc."""
+    maestral_err_list = m.maestral_errors
+
+    if len(maestral_err_list) > 0:
+
+        for err in maestral_err_list:
+            click.echo("")
+            click.secho(err["title"], fg="red")
+            click.echo(err["message"])
+            click.echo("")
+
+        return True
+    else:
+        return False
+
+
 # ========================================================================================
 # Command groups
 # ========================================================================================
@@ -270,6 +287,10 @@ def resume(config_name: str, running: bool):
 
     try:
         with MaestralProxy(config_name) as m:
+
+            if _check_for_fatal_errors(m):
+                return
+
             m.resume_sync()
         click.echo("Syncing resumed.")
     except Pyro5.errors.CommunicationError:
@@ -284,6 +305,9 @@ def status(config_name: str, running: bool):
 
     try:
         with MaestralProxy(config_name) as m:
+
+            _check_for_fatal_errors(m)
+
             n_errors = len(m.sync_errors)
             color = "red" if n_errors > 0 else "green"
             n_errors_str = click.style(str(n_errors), fg=color)
@@ -322,6 +346,9 @@ def activity(config_name: str, running: bool):
 
     try:
         with MaestralProxy(config_name) as m:
+
+            if _check_for_fatal_errors(m):
+                return
 
             import curses
             import time
@@ -389,15 +416,19 @@ def errors(config_name: str, running: bool):
 
     try:
         with MaestralProxy(config_name) as m:
-            err_list = m.sync_errors
-            if len(err_list) == 0:
+
+            _check_for_fatal_errors(m)
+
+            sync_err_list = m.sync_errors
+
+            if len(sync_err_list) == 0:
                 click.echo("No sync errors.")
             else:
-                max_path_length = max(len(err["dbx_path"]) for err in err_list)
+                max_path_length = max(len(err["dbx_path"]) for err in sync_err_list)
                 column_length = max(max_path_length, len("Relative path")) + 4
                 click.echo("")
                 click.echo("PATH".ljust(column_length) + "ERROR")
-                for err in err_list:
+                for err in sync_err_list:
                     c0 = "'{}'".format(err["dbx_path"]).ljust(column_length)
                     c1 = "{}. {}".format(err["title"], err["message"])
                     click.echo(c0 + c1)
