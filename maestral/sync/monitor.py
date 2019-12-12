@@ -423,7 +423,10 @@ class UpDownSync(object):
         """
 
         if not osp.isdir(self.dropbox_path):
-            raise DropboxDeletedError("Dropbox folder has been moved or deleted.", "")
+            title = "Dropbox folder has been moved or deleted."
+            msg = ("Please move the Dropbox folder back to its original location "
+                   "or restart Maestral to set up a new folder.")
+            raise DropboxDeletedError(title, msg)
 
     def to_dbx_path(self, local_path):
         """
