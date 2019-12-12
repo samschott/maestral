@@ -93,7 +93,7 @@ def _check_for_fatal_errors(m):
         for err in maestral_err_list:
             click.echo("")
             click.secho(err["title"], fg="red")
-            click.echo(err["message"])
+            click.secho(err["message"], fg="red")
             click.echo("")
 
         return True
@@ -417,7 +417,8 @@ def errors(config_name: str, running: bool):
     try:
         with MaestralProxy(config_name) as m:
 
-            _check_for_fatal_errors(m)
+            if _check_for_fatal_errors(m):
+                return
 
             sync_err_list = m.sync_errors
 
