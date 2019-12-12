@@ -14,7 +14,7 @@ sed -i "" "s/$OLD/$NEW/g" $SPEC_FILE
 
 echo "********************* BUILDING ************************"
 
-pyinstaller  -y --clean -w /Users/samschott/Documents/Python/maestral-dropbox/$SPEC_FILE
+python3 -OO -m PyInstaller  -y --clean -w /Users/samschott/Documents/Python/maestral-dropbox/$SPEC_FILE
 
 echo "*************** REMOVING QML MODULES ******************"
 
