@@ -183,10 +183,10 @@ class MaestralBackgroundTask(BackgroundTask):
         self.thread.start()
 
 
-class MaestralBackgroundTaskProgressDialog(QtWidgets.QDialog):
+class BackgroundTaskProgressDialog(QtWidgets.QDialog):
     """A progress dialog to show during long-running background tasks."""
 
-    def __init__(self, title, message="", cancel=True, parent=None, width = 450):
+    def __init__(self, title, message="", cancel=True, parent=None, width=450):
         super(self.__class__, self).__init__(parent=parent)
         self.setModal(True)
         self.setWindowModality(Qt.WindowModal)

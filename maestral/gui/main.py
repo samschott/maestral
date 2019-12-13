@@ -42,7 +42,7 @@ from maestral.gui.autostart import AutoStart
 from maestral.gui.utils import (
     UserDialog,
     MaestralBackgroundTask,
-    MaestralBackgroundTaskProgressDialog,
+    BackgroundTaskProgressDialog,
     elide_string,
 )
 
@@ -307,7 +307,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def on_check_for_updates_clicked(self):
 
         checker = MaestralBackgroundTask(self, "check_for_updates")
-        self._progress_dialog = MaestralBackgroundTaskProgressDialog("Checking for Updates")
+        self._progress_dialog = BackgroundTaskProgressDialog("Checking for Updates")
         self._progress_dialog.show()
         self._progress_dialog.rejected.connect(checker.sig_done.disconnect)
 
