@@ -41,7 +41,7 @@ else:
 # maestral modules
 from maestral.config.main import CONF
 from maestral.sync.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
-                                     SYNC_ERROR, ERROR, REV_FILE, IS_FS_CASE_SENSITIVE)
+                                     SYNC_ERROR, REV_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.sync.utils.content_hasher import DropboxContentHasher
 from maestral.sync.utils.notify import Notipy
 from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, SyncError,
@@ -498,6 +498,8 @@ class UpDownSync(object):
         :raises: RevFileError, PermissionError, OSError
         """
         rev_dict_cache = dict()
+        new_exc = None
+
         with self._rev_lock:
             try:
                 with open(self.rev_file_path, "rb") as f:
@@ -511,26 +513,22 @@ class UpDownSync(object):
                 title = "Corrupted index"
                 msg = "Maestral index has become corrupted. Please rebuild."
                 new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
+            except PermissionError as exc:
+                title = "Could not load index"
+                msg = ("Insufficient permissions for Dropbox folder. Please "
+                       "make sure that you have read and write permissions.")
+                new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
+            except OSError as exc:
+                title = "Could not load index"
+                msg = "Please resync your Dropbox to recreate the index."
+                new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
+
+            if new_exc:
                 if raise_exception:
                     raise new_exc
                 else:
                     exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
-                    logger.error(msg, exc_info=exc_info)
-            except PermissionError as exc:
-                title = "Permission denied"
-                msg = ("Insufficient permissions for Dropbox folder. Please "
-                       "make sure that you have read and write permissions.")
-                new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
-                if raise_exception:
-                    raise RevFileError(title, msg)
-                else:
-                    exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
-                    logger.error(msg, exc_info=exc_info)
-            except OSError as exc:
-                if raise_exception:
-                    raise exc
-                else:
-                    logger.error("Could not load revision index.", exc_info=True)
+                    logger.error(title, exc_info=exc_info)
 
             return rev_dict_cache
 
@@ -543,25 +541,28 @@ class UpDownSync(object):
             Defaults to ``False``.
         :raises: PermissionError, OSError
         """
+        new_exc = None
+
         with self._rev_lock:
             try:
                 with open(self.rev_file_path, "w+b") as f:
                     umsgpack.pack(self._rev_dict_cache, f)
             except PermissionError as exc:
-                title = "Permission denied"
+                title = "Could not save index"
                 msg = ("Insufficient permissions for Dropbox folder. Please "
                        "make sure that you have read and write permissions.")
                 new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
+            except OSError as exc:
+                title = "Could not save index"
+                msg = "Please check the logs for more information"
+                new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
+
+            if new_exc:
                 if raise_exception:
                     raise new_exc
                 else:
                     exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
-                    logger.error(msg, exc_info=exc_info)
-            except OSError as exc:
-                if raise_exception:
-                    raise exc
-                else:
-                    logger.error("Could not save revision index.", exc_info=True)
+                    logger.error(title, exc_info=exc_info)
 
     def get_rev_dict(self):
         """
@@ -889,14 +890,12 @@ class UpDownSync(object):
         return events_filtered, events_excluded
 
     @staticmethod
-    def _clean_local_events(events, event_type="file"):
+    def _clean_local_events(events):
         """
         Takes local file events within the monitored period and cleans them up so that
         there is only a single event per path.
 
         :param events: Iterable of :class:`watchdog.FileSystemEvents`.
-        :param str event_type: "file" for file events or "dir" for directory events.
-            Defaults to "file".
         :return: List of :class:`watchdog.FileSystemEvents`.
         :rtype: list
         """
@@ -1685,7 +1684,7 @@ def connection_helper(client, syncing, running, connected, check_interval=8):
         except DropboxAuthError as e:
             syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
-            logger.error(f"{e.title}: {e.message}", exc_info=True)
+            logger.error(e.title, exc_info=True)
 
 
 def download_worker(sync, syncing, running, connected):
@@ -1739,10 +1738,10 @@ def download_worker(sync, syncing, running, connected):
             disconnected_signal.send()
             logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
-        except MaestralApiError:
+        except MaestralApiError as e:
             syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
-            logger.error(ERROR, exc_info=True)
+            logger.error(e.title, exc_info=True)
         except Exception:
             logger.error("Unexpected error", exc_info=True)
 
@@ -1787,12 +1786,12 @@ def upload_worker(sync, syncing, running, connected):
             disconnected_signal.send()
             logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
-        except MaestralApiError:
+        except MaestralApiError as e:
             syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
-            logger.error(ERROR, exc_info=True)
+            logger.error(e.title, exc_info=True)
         except Exception:
-            logger.error(ERROR, exc_info=True)
+            logger.error("Unexpected error", exc_info=True)
 
 
 # ========================================================================================

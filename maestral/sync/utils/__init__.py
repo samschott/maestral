@@ -33,7 +33,7 @@ def handle_disconnect(func):
             logger.info(DISCONNECTED)
             return False
         except DropboxAuthError as e:
-            logger.exception("{0}: {1}".format(e.title, e.message))
+            logger.exception(e.title)
             return False
 
     return wrapper
