@@ -40,7 +40,10 @@ class MaestralApiError(Exception):
         self.local_path_dst = local_path_dst
 
     def __str__(self):
-        return "'{0}': {1}. {2}".format(self.dbx_path, self.title, self.message)
+        if self.dbx_path:
+            return f"'{self.dbx_path}': {self.title}. {self.message}"
+        else:
+            return f"{self.title}: {self.message}"
 
 # regular sync errors
 
