@@ -475,6 +475,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.mdbx.clear_maestral_errors()
 
         self.setIcon(ERROR)
+        self.pauseAction(self.RESUME_TEXT)
+        self.pauseAction.setEnabled(False)
+        self.statusAction.setText(self.mdbx.status)
 
         err = errs[-1]
 
@@ -483,8 +486,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             message = err["message"]
             self._stop_and_exec_error_dialog(title, message)
         elif err["type"] == "DropboxDeletedError":
-            self.mdbx.stop_sync()
-            self.restart()
+            self.restart()  # will launch into setup dialog
         elif err["type"] == "DropboxAuthError":
             from maestral.gui.relink_dialog import RelinkDialog
             self._stop_and_exec_relink_dialog(RelinkDialog.REVOKED)
@@ -496,27 +498,15 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             message = ("Please restart Maestral to continue syncing and contact "
                        "the developer with the information below.")
             self._stop_and_exec_error_dialog(title, message, err["traceback"])
-            self.pauseAction.setEnabled(False)
 
     @QtCore.pyqtSlot(int)
     def _stop_and_exec_relink_dialog(self, reason):
         from maestral.gui.relink_dialog import RelinkDialog
 
-        if self.mdbx:
-            self.mdbx.stop_sync()
-        if self.pauseAction:
-            self.pauseAction.setText("Start Syncing")
-            self.pauseAction.setEnabled(False)
-
         relink_dialog = RelinkDialog(self, reason)
         relink_dialog.exec_()  # will perform quit / restart as appropriate
 
     def _stop_and_exec_error_dialog(self, title, message, exc_info=None):
-
-        if self.mdbx:
-            self.mdbx.stop_sync()
-        if self.pauseAction:
-            self.pauseAction.setText("Start Syncing")
 
         error_dialog = UserDialog(title, message, exc_info)
         error_dialog.exec_()
