@@ -13,6 +13,7 @@ local Dropbox folder. It also improves error handling and includes other bug fix
 - Show fatal errors when using CLI.
 
 #### Changed:
+
 - Improved some error messages.
 - Improved status notifications for large uploads: dynamically adapt the unit to show up
   to four significant digits (e.g., "16MB/1.6GB" instead of "0/1.6GB").
@@ -29,7 +30,8 @@ local Dropbox folder. It also improves error handling and includes other bug fix
 - Fixed an issue where user notifications would not appear for certain implementations of
   'notify-send'.
 - Fixes an error when setting the log level from the CLI.
-
+- Fixes an error when relinking Maestral through the GUI after its Dropbox access has been
+  revoked.
 
 ## v0.4.4
 
