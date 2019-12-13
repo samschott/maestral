@@ -7,7 +7,6 @@ Created on Wed Oct 31 16:23:13 2018
 """
 
 # system imports
-import sys
 import logging
 
 # external packages
@@ -121,7 +120,7 @@ class RelinkDialog(QtWidgets.QDialog):
         )
         self.auth_task.sig_done.connect(self.on_verify_token_finished)
 
-    @QtCore.pyqtSlot(int)
+    @QtCore.pyqtSlot(object)
     def on_verify_token_finished(self, res):
 
         from maestral.sync.oauth import OAuth2Session
