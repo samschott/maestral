@@ -13,8 +13,33 @@ import re
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 _root = getattr(sys, '_MEIPASS', osp.dirname(osp.abspath(__file__)))
-
 _icon_provider = QtWidgets.QFileIconProvider()
+
+
+def _get_gnome_version():
+    gnome3_config_path = "/usr/share/gnome/gnome-version.xml"
+    gnome2_config_path = "/usr/share/gnome-about/gnome-version.xml"
+
+    xml = None
+
+    for path in (gnome2_config_path, gnome3_config_path):
+        if osp.isfile(path):
+            try:
+                with open(path, "r") as f:
+                    xml = f.read()
+            except OSError:
+                pass
+
+    if xml:
+        p = re.compile(r"<platform>(?P<maj>\d+)</platform>\s+<minor>"
+                       r"(?P<min>\d+)</minor>\s+<micro>(?P<mic>\d+)</micro>")
+        m = p.search(xml)
+        version = "{0}.{1}.{2}".format(m.group("maj"), m.group("min"), m.group("mic"))
+
+        return tuple(int(v) for v in version.split("."))
+    else:
+        return None
+
 
 APP_ICON_PATH = osp.join(_root, "maestral.png")
 TRAY_ICON_DIR_SVG = osp.join(_root, "tray-icons-svg")
@@ -39,7 +64,8 @@ THEME_DARK = "dark"
 THEME_LIGHT = "light"
 
 QT_VERSION_TUPLE = tuple(int(x) for x in QtCore.QT_VERSION_STR.split("."))
-
+GNOME_VERSION = _get_gnome_version()
+IS_GNOME3 = GNOME_VERSION is not None and GNOME_VERSION[0] >= 3
 
 def get_desktop():
     """
@@ -112,9 +138,6 @@ def get_system_tray_icon(status, color=None, geometry=None):
     """
     assert status in ("idle", "syncing", "paused", "disconnected", "info", "error")
 
-    gnome_version = _get_gnome_version()
-    is_gnome3 = gnome_version is not None and gnome_version[0] >= 3
-
     if DESKTOP == "cocoa":
         icon_color = color or "dark"
         is_mask = False if color else True
@@ -122,7 +145,7 @@ def get_system_tray_icon(status, color=None, geometry=None):
         icon = QtGui.QIcon(TRAY_ICON_PATH_SVG.format(status, icon_color))
         icon.setIsMask(is_mask)
 
-    elif DESKTOP == "gnome" and is_gnome3:
+    elif DESKTOP == "gnome" and IS_GNOME3:
         icon = QtGui.QIcon.fromTheme("maestral-icon-{}-symbolic".format(status))
         if not icon.name():  # icon was not found, fall back to our own
             icon_color = color or "light" if isDarkStatusBar(geometry) else "dark"
@@ -160,14 +183,14 @@ def statusBarTheme(icon_geometry=None):
 
         if not icon_geometry or icon_geometry.isEmpty():  # guess the location of the status bar
 
-            rec_screen = QtWidgets.QApplication.desktop().screenGeometry()  # screen size
-            rec_available = QtWidgets.QApplication.desktop().availableGeometry()  # available size
+            rec_screen = QtWidgets.QDesktopWidget().screenGeometry()  # screen size
+            rec_available = QtWidgets.QDesktopWidget().availableGeometry()  # available size
 
-            # convert to regions for subtraction
+            # convert to QRegion for subtraction
             region_screen = QtGui.QRegion(rec_screen)
             region_available = QtGui.QRegion(rec_available)
 
-            # subtract and convert back to rect
+            # subtract and convert back to QRect
             rects_diff = region_screen.subtracted(region_available).rects()
             if len(rects_diff) > 0:
                 # there seems to be a task bar
@@ -214,31 +237,6 @@ def rgb_to_luminance(r, g, b, base=256):
     argument should define the upper limit otherwise.
     """
     return (0.2126*r + 0.7152*g + 0.0722*b)/base
-
-
-def _get_gnome_version():
-    gnome3_config_path = "/usr/share/gnome/gnome-version.xml"
-    gnome2_config_path = "/usr/share/gnome-about/gnome-version.xml"
-
-    xml = None
-
-    for path in (gnome2_config_path, gnome3_config_path):
-        if osp.isfile(path):
-            try:
-                with open(path, "r") as f:
-                    xml = f.read()
-            except OSError:
-                pass
-
-    if xml:
-        p = re.compile(r"<platform>(?P<maj>\d+)</platform>\s+<minor>"
-                       r"(?P<min>\d+)</minor>\s+<micro>(?P<mic>\d+)</micro>")
-        m = p.search(xml)
-        version = "{0}.{1}.{2}".format(m.group("maj"), m.group("min"), m.group("mic"))
-
-        return tuple(int(v) for v in version.split("."))
-    else:
-        return None
 
 
 def _pixel_at(x, y):
