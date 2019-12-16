@@ -621,7 +621,7 @@ def run():
     maestral_gui = MaestralGuiApp()
     app.processEvents()  # refresh ui before loading the Maestral daemon
     maestral_gui.load_maestral()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":
