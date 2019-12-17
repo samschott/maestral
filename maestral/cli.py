@@ -527,8 +527,14 @@ def ls(dropbox_path: str, running: bool, config_name: str, list_all: bool):
 
     if _is_maestral_linked(config_name):
         from maestral.sync.daemon import MaestralProxy
+        from maestral.sync.errors import PathError
+
         with MaestralProxy(config_name, fallback=True) as m:
-            entries = m.list_folder(dropbox_path, recursive=False)
+            try:
+                entries = m.list_folder(dropbox_path, recursive=False)
+            except PathError:
+                click.echo(f"No such directory on Dropbox: '{dropbox_path}'")
+                return
 
             if not entries:
                 click.echo("Could not connect to Dropbox")
