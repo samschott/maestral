@@ -475,7 +475,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             self.mdbx.clear_maestral_errors()
 
         self.setIcon(ERROR)
-        self.pauseAction(self.RESUME_TEXT)
+        self.pauseAction.setText(self.RESUME_TEXT)
         self.pauseAction.setEnabled(False)
         self.statusAction.setText(self.mdbx.status)
 
