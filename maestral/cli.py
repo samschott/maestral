@@ -607,16 +607,18 @@ def rebuild_index(config_name: str, running: bool):
 
         import time
         from concurrent.futures import ThreadPoolExecutor
-        from maestral.sync.daemon import MaestralProxy
+        from maestral.sync.daemon import MaestralProxy, get_maestral_daemon_proxy
 
+        # use separate proxies to run the rebuilding and to get status updates
         with MaestralProxy(config_name, fallback=True) as m0:
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(m0.rebuild_index)
-                with MaestralProxy(config_name, fallback=True) as m1:
-                    while future.running():
-                        msg = ("\r" + m1.status).ljust(width)
-                        click.echo(msg, nl=False)
-                        time.sleep(1.0)
+                m1 = get_maestral_daemon_proxy(config_name, fallback=False)
+                while future.running():
+                    msg = ("\r" + m1.status).ljust(width)
+                    click.echo(msg, nl=False)
+                    time.sleep(1.0)
+                m1._pyroRelease()
 
         click.echo("\rRebuilding complete.".ljust(width))
 
