@@ -44,7 +44,7 @@ res1 = [
     FileMovedEvent(path(4), path(5)),
 ]
 
-# Difficult move cases:
+# Difficult move cases
 file_events_test2 = [
     # created + moved -> created
     FileCreatedEvent(path(1)),
