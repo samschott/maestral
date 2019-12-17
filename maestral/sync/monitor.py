@@ -201,6 +201,9 @@ class FileEventHandler(FileSystemEventHandler):
         :param event: Watchdog file event.
         """
 
+        if not self.syncing.is_set():
+            return
+
         # ignore files currently being downloaded
         if self.is_being_downloaded(event.src_path):
             return
@@ -218,9 +221,8 @@ class FileEventHandler(FileSystemEventHandler):
             self._renamed_items_cache.remove(event.src_path)
             return
 
-        if self.syncing.is_set():
-            self.local_file_event_queue.put(event)
-            logger.debug(f"Put into file event queue: {event}")
+        self.local_file_event_queue.put(event)
+        logger.debug(f"Put into file event queue: {event}")
 
 
 def catch_sync_issues(sync_errors=None, failed_items=None):
