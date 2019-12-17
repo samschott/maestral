@@ -1903,8 +1903,6 @@ class MaestralMonitor(object):
             name="Maestral uploader"
         )
 
-        self.running.set()
-
         try:
             self.local_observer_thread.start()
         except OSError as exc:
@@ -1921,6 +1919,8 @@ class MaestralMonitor(object):
                 return
             else:
                 raise exc
+
+        self.running.set()
 
         self.connection_thread.start()
         self.download_thread.start()
@@ -1970,7 +1970,7 @@ class MaestralMonitor(object):
         """Stops syncing and destroys worker threads."""
 
         if not self.running.is_set():
-            logger.debug("Syncing was already stopped")
+            logger.debug("Syncing is already stopped")
             return
 
         self._auto_resume_on_connect = False
