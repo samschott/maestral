@@ -534,17 +534,18 @@ def ls(dropbox_path: str, running: bool, config_name: str, list_all: bool):
                 click.echo("Could not connect to Dropbox")
                 return
 
-            excluded_status = (m.excluded_status(e["path_lower"]) for e in entries)
+            types = tuple("file" if e["type"] == "FileMetadata" else "folder" for e in entries)
+            shared_status = tuple("shared" if "sharing_info" in e else "private" for e in entries)
+            names = tuple(e["name"] for e in entries)
+            excluded_status = tuple(m.excluded_status(e["path_lower"]) for e in entries)
 
-            # display results
-            for e, ex in zip(entries, excluded_status):
-                if not ex == "included":
-                    excluded_str = click.style(" ({})".format(ex), bold=True)
-                else:
-                    excluded_str = ""
-                type_str = "Folder" if e["type"] == "FolderMetadata" else "File"
-                if not e["name"].startswith(".") or list_all:
-                    click.echo("{0}:\t{1}{2}".format(type_str, e["name"], excluded_str))
+            col0_width = max(len(t) for t in types) + 2
+            col1_width = max(len(t) for t in shared_status) + 2
+            col2_width = max(len(t) for t in names) + 2
+
+            for t, s, e, n in zip(types, shared_status, excluded_status, names):
+                if not n.startswith(".") or list_all:
+                    click.echo(t.ljust(col0_width) + s.ljust(col1_width) + n.ljust(col2_width) + e)
 
 
 @main.command()
