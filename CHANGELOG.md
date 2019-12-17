@@ -17,6 +17,8 @@ local Dropbox folder. It also improves error handling and includes other bug fix
 - Improved some error messages.
 - Improved status notifications for large uploads: dynamically adapt the unit to show up
   to four significant digits (e.g., "16MB/1.6GB" instead of "0/1.6GB").
+- Reduced memory footprint of macOS app by stripping docstrings (at least 5MB in dropbox
+  package only).
 
 #### Fixed:
 
