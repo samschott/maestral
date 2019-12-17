@@ -284,9 +284,10 @@ class MaestralProxy(object):
         return self.m
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if hasattr(self.m, "_pyroRelease"):
-            self.m._pyroRelease()
+        import Pyro5.client
 
+        if isinstance(self.m, Pyro5.client.Proxy):
+            self.m._pyroRelease()
         del self.m
 
 
