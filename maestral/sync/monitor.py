@@ -522,7 +522,7 @@ class UpDownSync(object):
                 new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
             except OSError as exc:
                 title = "Could not load index"
-                msg = "Please resync your Dropbox to recreate the index."
+                msg = "Please resync your Dropbox to rebuild the index."
                 new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
 
             if new_exc:
@@ -1910,10 +1910,9 @@ class MaestralMonitor(object):
         except OSError as exc:
             if "inotify" in exc.args[0]:
                 title = "Inotify limit reached"
-                msg = ("File changes for your Dropbox folder can't be tracked "
-                       "because it contains too many files. To fix this you "
-                       "need to increase the inotify limit in your system by adding the "
-                       "following line to /etc/sysctl.conf:\n\n "
+                msg = ("Changes to your Dropbox folder cannot be monitored because it "
+                       "contains too many items. Please increase the inotify limit in "
+                       "your system by adding the following line to /etc/sysctl.conf:\n\n"
                        "fs.inotify.max_user_watches=524288")
                 new_exc = InotifyError(title, msg).with_traceback(exc.__traceback__)
                 exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
