@@ -90,10 +90,15 @@ def _check_for_fatal_errors(m):
 
     if len(maestral_err_list) > 0:
 
+        import textwrap
+        width, height = click.get_terminal_size()
+
         for err in maestral_err_list:
+            wrapped_msg = textwrap.wrap(err["message"], width=min(width, 70))
+
             click.echo("")
             click.secho(err["title"], fg="red")
-            click.secho(err["message"], fg="red")
+            click.secho("\n".join(wrapped_msg), fg="red")
             click.echo("")
 
         return True
