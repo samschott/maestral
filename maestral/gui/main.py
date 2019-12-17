@@ -431,10 +431,13 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         n_sync_errors = len(self.mdbx.sync_errors)
         status = self.mdbx.status
         is_paused = self.mdbx.paused
+        is_stopped = self.mdbx.stopped
 
         # update icon
         if is_paused:
             new_icon = PAUSED
+        elif is_stopped:
+            new_icon = ERROR
         elif n_sync_errors > 0 and status == IDLE:
             new_icon = SYNC_ERROR
         else:
