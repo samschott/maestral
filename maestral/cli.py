@@ -594,7 +594,7 @@ def rebuild_index(config_name: str, running: bool):
         )
 
         message2 = textwrap.wrap(
-            "Rebuilding the index may take several minutes, depending on the size of  "
+            "Rebuilding the index may take several minutes, depending on the size of "
             "your Dropbox. Please do not modify any items in your local Dropbox folder "
             "during this process. Any changes to local files while rebuilding may be "
             "lost.",
