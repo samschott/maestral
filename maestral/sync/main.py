@@ -493,11 +493,6 @@ class Maestral(object):
         """Rebuilds the Maestral index and resumes syncing afterwards if it has been
         running."""
 
-        print("""
-Rebuilding the revision index. This process may
-take several minutes, depending on the size of your Dropbox.
-Any changes to local files during this process may be lost.""")
-
         self.monitor.rebuild_rev_file()
 
     def start_sync(self, overload=None):
