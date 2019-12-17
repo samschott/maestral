@@ -265,6 +265,11 @@ class Maestral(object):
         return not self.monitor._auto_resume_on_connect
 
     @property
+    def stopped(self):
+        """Bool indicating if syncing is stopped, for instance because of an exception."""
+        return not self.monitor.running.is_set()
+
+    @property
     def connected(self):
         """Bool indicating if Dropbox servers can be reached."""
         return self.monitor.connected.is_set()
