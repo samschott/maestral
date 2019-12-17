@@ -315,7 +315,12 @@ class MaestralApiClient(object):
                             md = self.dbx.files_upload_session_finish(f.read(chunk_size), cursor, commit)
                             logger.info(f"Uploading {bytes_to_str(uploaded)}/{file_size_str}...")
                         else:
-                            # TODO: retry on incorrect offset
+                            # Note: we currently do not support resuming interrupted uploads.
+                            # However, this can be achieved catching connection errors and
+                            # retrying until the upload succeeds. Incorrect offsets due to
+                            # a dropped package can be corrected by getting the right
+                            # offset from the resulting UploadSessionOffsetError and
+                            # resuming the upload from this point.
                             self.dbx.files_upload_session_append_v2(f.read(chunk_size), cursor)
                             cursor.offset = f.tell()
                             uploaded += chunk_size
