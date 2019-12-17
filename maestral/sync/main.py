@@ -698,7 +698,7 @@ Any changes to local files during this process may be lost.""")
 
         if dbx_path in excluded_items:
             return "excluded"
-        elif any(is_child(dbx_path, f) for f in excluded_items):
+        elif any(is_child(f, dbx_path) for f in excluded_items):
             return "partially excluded"
         else:
             return "included"
