@@ -1,11 +1,12 @@
 ## v0.4.5-dev
 
 This release improves the sync reliability in case of rapid successive changes to the
-local Dropbox folder. It also improves error handling and includes other bug fixes.
+local Dropbox folder. It also improves error handling and includes other bug fixes. This
+may be considered the first release candidate for a stable v1.0.0.
 
 #### Added:
 
-- Show an "info" system tray icon in case of sync issues.
+- Show a small bell on top of system tray icon in case of sync issues.
 - Notify the user when the local Dropbox folder contains too many items to watch and
   recommend increasing the maximum number of inotify watches (Linux only).
 - Notify the user when an upload fails because a file exceeds the size limit of 350 GB.
