@@ -606,21 +606,38 @@ def rebuild_index(config_name: str, running: bool):
         click.confirm("Do you want to continue?", abort=True)
 
         import time
+        import logging
+        import Pyro5.client
         from concurrent.futures import ThreadPoolExecutor
         from maestral.sync.daemon import MaestralProxy, get_maestral_daemon_proxy
 
-        # use separate proxies to run the rebuilding and to get status updates
-        with MaestralProxy(config_name, fallback=True) as m0:
+        m0 = get_maestral_daemon_proxy(config_name, fallback=True)
+
+        if not isinstance(m0, Pyro5.client.Proxy):
+            # rebuild in foreground
+            m0.rebuild_index()
+            click.echo("\rRebuilding complete.".ljust(width))
+
+        else:
+            # rebuild in separate thread
+            def rebuild_in_thread():
+                with MaestralProxy(config_name) as m1:
+                    m1.rebuild_index()
+
             with ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(m0.rebuild_index)
-                m1 = get_maestral_daemon_proxy(config_name, fallback=False)
+                future = executor.submit(rebuild_in_thread)
+                # get status updates while rebuilding
                 while future.running():
-                    msg = ("\r" + m1.status).ljust(width)
+                    msg = ("\r" + m0.status).ljust(width)
                     click.echo(msg, nl=False)
                     time.sleep(1.0)
-                m1._pyroRelease()
 
-        click.echo("\rRebuilding complete.".ljust(width))
+            if _check_for_fatal_errors(m0):
+                click.echo("\rRebuilding failed.".ljust(width))
+            else:
+                click.echo("\rRebuilding complete.".ljust(width))
+
+            del m0  # delete while still in scope
 
     else:
         click.echo("Maestral does not appear to be linked.")
