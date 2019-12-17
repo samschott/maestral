@@ -1875,7 +1875,7 @@ class MaestralMonitor(object):
 
         self._auto_resume_on_connect = True
 
-        if self.running.is_set() or self.syncing.is_set():
+        if self.running.is_set():
             # do nothing if already running
             return
 
@@ -2018,7 +2018,6 @@ class MaestralMonitor(object):
         logger.info("Rebuilding index...")
 
         was_running = self.running.is_set()
-        was_paused = not self.syncing.is_set()
 
         self.stop(blocking=True)  # stop all sync threads and wait for them to return
         try:
@@ -2043,12 +2042,11 @@ class MaestralMonitor(object):
 
         # Resume syncing. This will upload all changes which occurred
         # while rebuilding, including conflicting copies. Files that were
-        # deleted before re-indexing will be downloaded again. If restart==False,
-        # this should be done manually.
+        # deleted before re-indexing will be downloaded again. Files changes
+        # which occurred before the file was re-indexed will result in a conflicting
+        # copy.
         if was_running:
             self.start()
-        if was_paused:
-            self.pause()
 
 
 # ========================================================================================
