@@ -181,19 +181,12 @@ class Maestral(object):
 
         self.client = MaestralApiClient()
 
-        # periodically check for updates and refresh account info
-        self.update_thread = Thread(
-            name="Maestral update check",
-            target=self._periodic_refresh,
-            daemon=True,
-        )
-        self.update_thread.start()
-
         # monitor needs to be created before any decorators are called
         self.monitor = MaestralMonitor(self.client)
         self.sync = self.monitor.sync
 
         if run:
+
             if self.pending_dropbox_folder():
                 self.create_dropbox_directory()
                 self.set_excluded_folders()
@@ -201,25 +194,33 @@ class Maestral(object):
                 self.sync.last_cursor = ""
                 self.sync.last_sync = 0
 
+            # start syncing
             self.start_sync()
 
-            if NOTIFY_SOCKET and system_notifier:
+            if NOTIFY_SOCKET and system_notifier:  # notify systemd that we have started
                 logger.debug("Running as systemd notify service")
                 logger.debug(f"NOTIFY_SOCKET = {NOTIFY_SOCKET}")
-                system_notifier.notify("READY=1")  # notify systemd that we have started
+                system_notifier.notify("READY=1")
 
-            if IS_WATCHDOG and system_notifier:
+            if IS_WATCHDOG and system_notifier:  # notify systemd periodically if alive
                 logger.debug("Running as systemd watchdog service")
                 logger.debug(f"WATCHDOG_USEC = {WATCHDOG_USEC}")
                 logger.debug(f"WATCHDOG_PID = {WATCHDOG_PID}")
 
-                # notify systemd periodically that we are still alive
                 self.watchdog_thread = Thread(
                     name="Maestral watchdog",
                     target=self._periodic_watchdog,
                     daemon=True,
                 )
                 self.watchdog_thread.start()
+
+            # periodically check for updates and refresh account info
+            self.update_thread = Thread(
+                name="Maestral update check",
+                target=self._periodic_refresh,
+                daemon=True,
+            )
+            self.update_thread.start()
 
     @staticmethod
     def set_conf(section, name, value):
@@ -831,7 +832,10 @@ class Maestral(object):
         return self._daemon_running
 
     def __del__(self):
-        self.monitor.stop()
+        try:
+            self.monitor.stop()
+        except:
+            pass
 
     def __repr__(self):
         email = CONF.get("account", "email")
