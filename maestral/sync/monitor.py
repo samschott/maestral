@@ -1825,7 +1825,7 @@ def upload_worker(sync, syncing, running, connected):
                 sync.get_local_changes_while_inactive()  # get changes while inactive
 
             # wait for local changes
-            events, local_cursor = sync.wait_for_local_changes(timeout=2)
+            events, local_cursor = sync.wait_for_local_changes(timeout=5)
 
             if len(events) > 0:
                 # apply changes
