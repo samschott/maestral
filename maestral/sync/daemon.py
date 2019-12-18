@@ -267,7 +267,8 @@ def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
             maestral_daemon._pyroRelease()
 
     if fallback:
-        from maestral.sync.main import Maestral
+        from maestral.sync.main import Maestral, sh
+        sh.setLevel(logging.CRITICAL)
         m = Maestral(run=False)
         return m
     else:
