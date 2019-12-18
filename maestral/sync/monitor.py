@@ -2095,7 +2095,7 @@ class MaestralMonitor(object):
             os.unlink(self.sync.rev_file_path)  # delete rev file
         except OSError:
             pass
-        self.sync._rev_dict_cache = dict()
+        self.sync._rev_dict_cache.clear()
 
         # Re-download Dropbox from server. If a local file already exists, content hashes
         # are compared. If files are identical, the local rev will be set accordingly,
