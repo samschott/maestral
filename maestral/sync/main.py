@@ -493,9 +493,19 @@ class Maestral(object):
         this method with folders which have already been excluded.
 
         :param str dbx_path: Dropbox folder to exclude.
+        :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
         """
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
+
+        try:
+            md = self.client.get_metadata(dbx_path)
+        except CONNECTION_ERRORS:
+            raise ConnectionError("Cannot connect to Dropbox")
+
+        if not isinstance(md, files.FolderMetadata):
+            raise ValueError("No such folder on Dropbox: '{0}'".format(dbx_path))
 
         # add the path to excluded list
         excluded_folders = self.sync.excluded_folders
@@ -515,7 +525,6 @@ class Maestral(object):
         if osp.isdir(local_path_cased):
             shutil.rmtree(local_path_cased)
 
-    @handle_disconnect
     def include_folder(self, dbx_path):
         """
         Includes folder in sync and downloads in the background. It is safe to
@@ -523,15 +532,22 @@ class Maestral(object):
         will not be downloaded again.
 
         :param str dbx_path: Dropbox folder to include.
-        :return: ``True`` on success, ``False`` on failure.
-        :rtype: bool
-        :raises: ValueError if ``dbx_path`` is inside another excluded folder.
+        :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox or lies inside
+            another excluded folder.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
         """
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
 
+        try:
+            md = self.client.get_metadata(dbx_path)
+        except CONNECTION_ERRORS:
+            raise ConnectionError("Cannot connect to Dropbox")
+
         old_excluded_folders = self.sync.excluded_folders
 
+        if not isinstance(md, files.FolderMetadata):
+            raise ValueError("No such folder on Dropbox: '{0}'".format(dbx_path))
         for folder in old_excluded_folders:
             if is_child(dbx_path, folder):
                 raise ValueError("'{0}' lies inside the excluded folder '{1}'. "
@@ -572,8 +588,8 @@ class Maestral(object):
             return
 
         excluded_folders.remove(dbx_path)
-        self.sync.excluded_folders = excluded_folders
 
+        self.sync.excluded_folders = excluded_folders
         self.sync.queued_folder_downloads.put(dbx_path)
 
     @handle_disconnect
