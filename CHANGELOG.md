@@ -1,4 +1,4 @@
-## v0.4.5-dev
+## v0.4.5
 
 This release improves the sync reliability in case of rapid successive changes to the
 local Dropbox folder. It also improves error handling and includes other bug fixes. This
@@ -18,6 +18,7 @@ may be considered the first release candidate for a stable v1.0.0.
 - Improved some error messages.
 - Improved status notifications for large uploads: dynamically adapt the unit to show up
   to four significant digits (e.g., "16MB/1.6GB" instead of "0/1.6GB").
+- Improved formatting of `maestral ls` output.
 - Reduced memory footprint of macOS app by stripping docstrings (at least 5MB in dropbox
   package only).
 
