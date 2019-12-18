@@ -132,8 +132,8 @@ for h in (rfh, sh, ch_info, ch_error):
 class Maestral(object):
     """
     An open source Dropbox client for macOS and Linux to syncing a local folder
-    with your Dropbox account. All functions and properties return objects which can
-    safely serialized, i.e., pure Python types.
+    with your Dropbox account. All functions and properties return objects or
+    raise exceptions which can safely serialized, i.e., pure Python types.
     """
 
     _daemon_running = True  # for integration with Pyro
@@ -197,6 +197,7 @@ class Maestral(object):
         sh.setLevel(level_num)
         CONF.set("app", "log_level", level_num)
 
+    # TODO: this may raise a KeyringLocked error
     @staticmethod
     def pending_link():
         """Bool indicating if auth tokens are stored in the system's keychain."""
@@ -587,7 +588,7 @@ class Maestral(object):
         :param list folder_list: If given, list of excluded folder to set.
         :return: List of excluded folders.
         :rtype: list
-        :raises: :class:`MaestralApiError` if listing of top-level folders fails.
+        :raises: :class:`MaestralApiError`
         """
 
         if folder_list is None:
