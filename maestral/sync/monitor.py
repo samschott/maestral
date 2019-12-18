@@ -294,6 +294,13 @@ class UpDownSync(object):
     :param local_file_event_queue: Queue with local file-changed events.
     :param queue_uploading: Queue with files currently being uploaded.
     :param queue_downloading: Queue with files currently being downloaded.
+
+    :cvar failed_uploads: Queue with dbx file paths of failed uploads.
+    :cvar failed_downloads: Queue with dbx file paths of failed downloads.
+    :cvar sync_errors: Queue with full sync errors of all failed uploads / downloads.
+
+    :cvar queued_folder_downloads: Queue with folders to download which have been newly
+        included.
     """
 
     notify = Notipy()
@@ -307,6 +314,8 @@ class UpDownSync(object):
 
     queued_for_download = queue.Queue()
     queued_for_upload = queue.Queue()
+
+    queued_folder_downloads = queue.Queue()
 
     __slots__ = (
         "client",
@@ -1733,6 +1742,15 @@ def download_worker(sync, syncing, running, connected):
                         sync.apply_remote_changes(changes)
 
                         logger.info(IDLE)
+
+                # download manually queued folders
+                while not sync.queued_folder_downloads.empty():
+                    try:
+                        dbx_path = sync.queued_folder_downloads.get_nowait()
+                        sync.get_remote_dropbox(dbx_path)
+                        logger.info(IDLE)
+                    except queue.Empty:
+                        pass
 
         except CONNECTION_ERRORS:
             syncing.clear()
