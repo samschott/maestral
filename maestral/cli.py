@@ -13,10 +13,12 @@ startup time of individual CLI commands.
 
 # system imports
 import os
+import functools
 
 # external packages
 import click
 import Pyro5.errors
+
 
 OK = click.style("[OK]", fg="green")
 FAILED = click.style("[FAILED]", fg="red")
@@ -92,18 +94,44 @@ def _check_for_fatal_errors(m):
         import textwrap
         width, height = click.get_terminal_size()
 
-        for err in maestral_err_list:
-            wrapped_msg = textwrap.wrap(err["message"], width=min(width, 70))
+        err = maestral_err_list[0]
 
-            click.echo("")
-            click.secho(err["title"], fg="red")
-            click.secho("\n".join(wrapped_msg), fg="red")
-            click.echo("")
+        wrapped_msg = textwrap.wrap(err["message"], width=min(width, 70))
+
+        click.echo("\n")
+        click.secho(err["title"], fg="red")
+        click.secho("\n".join(wrapped_msg), fg="red")
+        click.echo("")
 
         return True
     else:
         return False
 
+
+def catch_maestral_errors(func):
+    """
+    Decorator that catches all MaestralApiErrors and prints them as a useful message to
+    the user.
+    """
+
+    from maestral.sync.errors import MaestralApiError
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except MaestralApiError as exc:
+            import textwrap
+            width, height = click.get_terminal_size()
+
+            wrapped_msg = textwrap.wrap(exc.message, width=min(width, 70))
+
+            click.echo("")
+            click.secho(exc.title, fg="red")
+            click.secho("\n".join(wrapped_msg), fg="red")
+            click.echo("")
+
+    return wrapper
 
 # ========================================================================================
 # Command groups
@@ -445,6 +473,7 @@ def errors(config_name: str, running: bool):
 
 @main.command()
 @with_config_opt
+@catch_maestral_errors
 def link(config_name: str, running: bool):
     """Links Maestral with your Dropbox account."""
 
@@ -462,6 +491,7 @@ def link(config_name: str, running: bool):
 
 @main.command()
 @with_config_opt
+@catch_maestral_errors
 def unlink(config_name: str, running: bool):
     """Unlinks your Dropbox account."""
 
@@ -518,6 +548,7 @@ def set_dir(config_name: str, new_path: str, running: bool):
 @click.argument("dropbox_path", type=click.Path(), default="")
 @click.option("-a", "list_all", is_flag=True, default=False,
               help="Include directory entries whose names begin with a dot (.).")
+@catch_maestral_errors
 def ls(dropbox_path: str, running: bool, config_name: str, list_all: bool):
     """Lists contents of a Dropbox directory."""
 
@@ -569,6 +600,7 @@ def account_info(config_name: str, running: bool):
 
 @main.command()
 @with_config_opt
+@catch_maestral_errors
 def rebuild_index(config_name: str, running: bool):
     """Rebuilds Maestral's index. May take several minutes."""
 
@@ -626,9 +658,7 @@ def rebuild_index(config_name: str, running: bool):
                     click.echo(msg, nl=False)
                     time.sleep(1.0)
 
-            if _check_for_fatal_errors(m0):
-                click.echo("\rRebuilding failed.".ljust(width))
-            else:
+            if not _check_for_fatal_errors(m0):
                 click.echo("\rRebuilding complete.".ljust(width))
 
             del m0  # delete while still in scope
@@ -665,6 +695,7 @@ def excluded_add(dropbox_path: str, config_name: str, running: bool):
 @excluded.command(name="remove")
 @with_config_opt
 @click.argument("dropbox_path", type=click.Path())
+@catch_maestral_errors
 def excluded_remove(dropbox_path: str, config_name: str, running: bool):
     """Removes a folder from the excluded list and re-syncs."""
 
