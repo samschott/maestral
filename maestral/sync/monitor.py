@@ -1775,24 +1775,19 @@ def download_worker_added_folder(sync, syncing, running, connected):
 
     while running.is_set():
 
-        syncing.wait()  # if not running, wait until resumed
+        syncing.wait()  # if paused, wait until resumed
 
         try:
+            with sync.lock:
+                dbx_path = sync.queued_folder_downloads.get()
 
-            # download manually queued folders
-            while not sync.queued_folder_downloads.empty():
-                with sync.lock:
-                    try:
-                        dbx_path = sync.queued_folder_downloads.get_nowait()
-                        sync.get_remote_dropbox(dbx_path)
-                        logger.info(IDLE)
+                if not running.is_set():  # if stopped, return
+                    sync.queued_folder_downloads.put(dbx_path)
+                    return
+                syncing.wait()  # if paused, wait until resumed
 
-                        if not running.is_set():  # if stopped, return
-                            return
-                        syncing.wait()  # if paused, wait until resumed
-
-                    except queue.Empty:
-                        pass
+                sync.get_remote_dropbox(dbx_path)
+                logger.info(IDLE)
 
         except CONNECTION_ERRORS:
             syncing.clear()
