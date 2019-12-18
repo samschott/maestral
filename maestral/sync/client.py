@@ -535,8 +535,7 @@ class MaestralApiClient(object):
     def list_remote_changes(self, last_cursor):
         """
         Lists changes to remote Dropbox since :param:`last_cursor`. Call this
-        after :method:`wait_for_remote_changes` returns `True`. Only remote changes
-        in currently synced folders will be returned by default.
+        after :method:`wait_for_remote_changes` returns ``True``.
 
         :param str last_cursor: Last to cursor to compare for changes.
         :returns: :class:`dropbox.files.ListFolderResult` instance.

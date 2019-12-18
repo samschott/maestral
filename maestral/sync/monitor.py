@@ -1722,10 +1722,13 @@ def download_worker(sync, syncing, running, connected):
                 with sync.lock:
                     sync.get_remote_dropbox()
             else:
-                # wait for remote changes (times out after 120 secs)
-                has_changes = sync.wait_for_remote_changes(sync.last_cursor, timeout=120)
+                # wait for remote changes
+                has_changes = sync.wait_for_remote_changes(sync.last_cursor, timeout=30)
 
-                syncing.wait()  # if not running, wait until resumed
+                if not running.is_set():  # if stopped, return
+                    return
+
+                syncing.wait()  # if paused, wait until resumed
 
                 # apply remote changes
                 if has_changes:
@@ -1743,12 +1746,51 @@ def download_worker(sync, syncing, running, connected):
 
                         logger.info(IDLE)
 
-                # download manually queued folders
-                while not sync.queued_folder_downloads.empty():
+        except CONNECTION_ERRORS:
+            syncing.clear()
+            connected.clear()
+            disconnected_signal.send()
+            logger.debug(DISCONNECTED, exc_info=True)
+            logger.info(DISCONNECTED)
+        except MaestralApiError as e:
+            syncing.clear()  # stop syncing
+            running.clear()  # shutdown threads
+            logger.error(e.title, exc_info=True)
+        except Exception:
+            logger.error("Unexpected error", exc_info=True)
+
+
+def download_worker_added_folder(sync, syncing, running, connected):
+    """
+    Worker to sync changes of remote Dropbox with local folder.
+
+    :param UpDownSync sync: Instance of :class:`UpDownSync`.
+    :param Event syncing: Event that indicates if workers are running or paused.
+    :param Event running: Event to shutdown local file event handler and worker threads.
+    :param Event connected: Event that indicates if a connection to Dropbox can be
+        established.
+    """
+
+    disconnected_signal = signal("disconnected_signal")
+
+    while running.is_set():
+
+        syncing.wait()  # if not running, wait until resumed
+
+        try:
+
+            # download manually queued folders
+            while not sync.queued_folder_downloads.empty():
+                with sync.lock:
                     try:
                         dbx_path = sync.queued_folder_downloads.get_nowait()
                         sync.get_remote_dropbox(dbx_path)
                         logger.info(IDLE)
+
+                        if not running.is_set():  # if stopped, return
+                            return
+                        syncing.wait()  # if paused, wait until resumed
+
                     except queue.Empty:
                         pass
 
@@ -1916,6 +1958,13 @@ class MaestralMonitor(object):
             name="Maestral downloader"
         )
 
+        self.download_thread_added_folder = Thread(
+            target=download_worker_added_folder,
+            daemon=True,
+            args=(self.sync, self.syncing, self.running, self.connected),
+            name="Maestral folder downloader"
+        )
+
         self.upload_thread = Thread(
             target=upload_worker,
             daemon=True,
@@ -1943,9 +1992,10 @@ class MaestralMonitor(object):
 
         self.connection_thread.start()
         self.download_thread.start()
+        self.download_thread_added_folder.start()
         self.upload_thread.start()
 
-        self.syncing.set()  # starts upload_thread and download_thread
+        self.syncing.set()  # starts processing in threads
 
         self.connected_signal.connect(self._resume_on_connect)
         self.disconnected_signal.connect(self._pause_on_disconnect)
@@ -2002,7 +2052,9 @@ class MaestralMonitor(object):
         self.running.clear()  # stops our own threads
 
         if blocking:
-            self.upload_thread.join()  # wait to finish (up to 2 sec)
+            # we don't join the download thread, because it may take up to 120 sec to stop
+            self.upload_thread.join()
+            self.download_thread_added_folder.join()
 
         logger.info(STOPPED)
 
@@ -2010,16 +2062,17 @@ class MaestralMonitor(object):
         """Returns ``True`` if all threads are alive, ``False`` otherwise."""
 
         try:
-            threads = [
+            threads = (
                 self.local_observer_thread,
                 self.upload_thread, self.download_thread,
-                self.connection_thread
-            ]
+                self.download_thread_added_folder,
+                self.connection_thread,
+            )
         except AttributeError:
             return False
 
-        base_threads_alive = [t.is_alive() for t in threads]
-        watchdog_emitters_alive = [e.is_alive() for e in self.local_observer_thread.emitters]
+        base_threads_alive = (t.is_alive() for t in threads)
+        watchdog_emitters_alive = (e.is_alive() for e in self.local_observer_thread.emitters)
 
         return all(base_threads_alive) and all(watchdog_emitters_alive)
 
