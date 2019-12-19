@@ -233,6 +233,7 @@ def gui(config_name):
 @click.option("--verbose", "-v", is_flag=True, default=False,
               help="Always prints logs to stdout.")
 @with_config_opt
+@catch_maestral_errors
 def start(config_name: str, foreground: bool, verbose: bool):
     """Starts the Maestral as a daemon."""
 
@@ -543,32 +544,32 @@ def ls(dropbox_path: str, config_name: str, list_all: bool):
         dropbox_path = "/" + dropbox_path
 
     if _is_maestral_linked(config_name):
-        from maestral.sync.main import Maestral
+        from maestral.sync.daemon import MaestralProxy
         from maestral.sync.errors import PathError
 
-        m = Maestral(run=False)
-        try:
-            entries = m.list_folder(dropbox_path, recursive=False)
-        except PathError:
-            click.echo("Error: no such directory on Dropbox: {}".format(dropbox_path))
-            return
+        with MaestralProxy(config_name, fallback=True) as m:
+            try:
+                entries = m.list_folder(dropbox_path, recursive=False)
+            except PathError:
+                click.echo("Error: no such directory on Dropbox: {}".format(dropbox_path))
+                return
 
-        if not entries:
-            click.echo("Could not connect to Dropbox")
-            return
+            if not entries:
+                click.echo("Could not connect to Dropbox")
+                return
 
-        types = tuple("file" if e["type"] == "FileMetadata" else "folder" for e in entries)
-        shared_status = tuple("shared" if "sharing_info" in e else "private" for e in entries)
-        names = tuple(e["name"] for e in entries)
-        excluded_status = tuple(m.excluded_status(e["path_lower"]) for e in entries)
+            types = tuple("file" if e["type"] == "FileMetadata" else "folder" for e in entries)
+            shared_status = tuple("shared" if "sharing_info" in e else "private" for e in entries)
+            names = tuple(e["name"] for e in entries)
+            excluded_status = tuple(m.excluded_status(e["path_lower"]) for e in entries)
 
-        col0_width = max(len(t) for t in types) + 2
-        col1_width = max(len(t) for t in shared_status) + 2
-        col2_width = max(len(t) for t in names) + 2
+            col0_width = max(len(t) for t in types) + 2
+            col1_width = max(len(t) for t in shared_status) + 2
+            col2_width = max(len(t) for t in names) + 2
 
-        for t, s, e, n in zip(types, shared_status, excluded_status, names):
-            if not n.startswith(".") or list_all:
-                click.echo(t.ljust(col0_width) + s.ljust(col1_width) + n.ljust(col2_width) + e)
+            for t, s, e, n in zip(types, shared_status, excluded_status, names):
+                if not n.startswith(".") or list_all:
+                    click.echo(t.ljust(col0_width) + s.ljust(col1_width) + n.ljust(col2_width) + e)
 
 
 @main.command()
