@@ -45,7 +45,6 @@ from maestral.sync.utils.appdirs import get_log_path, get_cache_path, get_home_d
 from maestral.sync.utils.updates import check_update_available
 from maestral.sync.oauth import OAuth2Session
 from maestral.sync.errors import MaestralApiError
-from maestral.sync.errors import CONNECTION_ERRORS
 from maestral.config.main import CONF
 
 
@@ -353,6 +352,7 @@ class Maestral(object):
 
         return dict(uploading=uploading, downloading=downloading)
 
+    # TODO: this may raise a MaestralApiError
     @handle_disconnect
     def get_account_info(self):
         """
@@ -366,6 +366,7 @@ class Maestral(object):
         res = self.client.get_account_info()
         return dropbox_stone_to_dict(res)
 
+    # TODO: this may raise a MaestralApiError
     @handle_disconnect
     def get_space_usage(self):
         """
@@ -403,15 +404,16 @@ class Maestral(object):
                 # delete current profile pic
                 self._delete_old_profile_pics()
 
+    # TODO: this may raise a MaestralApiError
     @handle_disconnect
     def list_folder(self, dbx_path, **kwargs):
         """
         List all items inside the folder given by :param:`dbx_path`.
 
         :param dbx_path: Path to folder on Dropbox.
-        :return: List of Dropbox item metadata as dicts.
+        :return: List of Dropbox item metadata as dicts or ``False`` if listing failed
+            due to connection issues.
         :rtype: list[dict]
-        :raises: :class:`MaestralApiError` if listing fails.
         """
         dbx_path = "" if dbx_path == "/" else dbx_path
         res = self.client.list_folder(dbx_path, **kwargs)
@@ -430,6 +432,7 @@ class Maestral(object):
                 except OSError:
                     pass
 
+    # TODO: this may raise a MaestralApiError
     def rebuild_index(self):
         """
         Rebuilds the Maestral index and resumes syncing afterwards if it has been
@@ -474,7 +477,7 @@ class Maestral(object):
         self.stop_sync()
         try:
             self.client.unlink()
-        except (CONNECTION_ERRORS, MaestralApiError):
+        except (ConnectionError, MaestralApiError):
             pass
 
         try:
@@ -499,10 +502,7 @@ class Maestral(object):
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
 
-        try:
-            md = self.client.get_metadata(dbx_path)
-        except CONNECTION_ERRORS:
-            raise ConnectionError("Cannot connect to Dropbox")
+        md = self.client.get_metadata(dbx_path)
 
         if not isinstance(md, files.FolderMetadata):
             raise ValueError("No such folder on Dropbox: '{0}'".format(dbx_path))
@@ -538,11 +538,7 @@ class Maestral(object):
         """
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
-
-        try:
-            md = self.client.get_metadata(dbx_path)
-        except CONNECTION_ERRORS:
-            raise ConnectionError("Cannot connect to Dropbox")
+        md = self.client.get_metadata(dbx_path)
 
         old_excluded_folders = self.sync.excluded_folders
 
