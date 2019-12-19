@@ -198,10 +198,16 @@ class Maestral(object):
         sh.setLevel(level_num)
         CONF.set("app", "log_level", level_num)
 
-    # TODO: this may raise a KeyringLocked error
     @staticmethod
     def pending_link():
-        """Bool indicating if auth tokens are stored in the system's keychain."""
+        """
+        Bool indicating if auth tokens are stored in the system's keychain. This may raise
+        a KeyringLocked exception if the user's keychain cannot be accessed. This
+        exception will not be deserialized by Pyro5. You should check if Maestral is
+        linked before instantiating a daemon.
+
+        :raises: :class:`keyring.errors.KeyringLocked`
+        """
         auth_session = OAuth2Session()
         return auth_session.load_token() is None
 
