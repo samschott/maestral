@@ -139,6 +139,23 @@ def catch_maestral_errors(func):
     return wrapper
 
 
+def format_table(columns, headers=None, spacing=2):
+
+    if headers:
+        for c, h in zip(columns, headers):
+            c.insert(0, h)
+
+    col_widths = tuple(max(len(l) for l in c) + spacing for c in columns)
+
+    n_rows = max(len(c) for c in columns)
+    rows = []
+
+    for i in range(n_rows):
+        rows.append("".join(c[i].ljust(w) for c, w in zip(columns, col_widths)))
+
+    return "\n".join(rows)
+
+
 # ========================================================================================
 # Command groups
 # ========================================================================================
@@ -458,14 +475,12 @@ def errors(config_name: str):
             if len(sync_err_list) == 0:
                 click.echo("No sync errors.")
             else:
-                max_path_length = max(len(err["dbx_path"]) for err in sync_err_list)
-                column_length = max(max_path_length, len("Relative path")) + 4
+                header = ("PATH", "ERROR")
+                col0 = list("'{}'".format(err["dbx_path"]) for err in sync_err_list)
+                col1 = list("{}. {}".format(err["title"], err["message"]) for err in sync_err_list)
+
                 click.echo("")
-                click.echo("PATH".ljust(column_length) + "ERROR")
-                for err in sync_err_list:
-                    c0 = "'{}'".format(err["dbx_path"]).ljust(column_length)
-                    c1 = "{}. {}".format(err["title"], err["message"])
-                    click.echo(c0 + c1)
+                click.echo(format_table([col0, col1], header, spacing=4))
                 click.echo("")
 
     except Pyro5.errors.CommunicationError:
@@ -568,25 +583,21 @@ def ls(dropbox_path: str, config_name: str, list_all: bool):
             try:
                 entries = m.list_folder(dropbox_path, recursive=False)
             except PathError:
-                click.echo("Error: no such directory on Dropbox: {}".format(dropbox_path))
+                click.echo("Error: No such directory on Dropbox: '{}'".format(dropbox_path))
                 return
 
             if not entries:
                 click.echo("Could not connect to Dropbox")
                 return
 
-            types = tuple("file" if e["type"] == "FileMetadata" else "folder" for e in entries)
-            shared_status = tuple("shared" if "sharing_info" in e else "private" for e in entries)
-            names = tuple(e["name"] for e in entries)
-            excluded_status = tuple(m.excluded_status(e["path_lower"]) for e in entries)
+            types = list("file" if e["type"] == "FileMetadata" else "folder" for e in entries)
+            shared_status = list("shared" if "sharing_info" in e else "private" for e in entries)
+            names = list(e["name"] for e in entries)
+            excluded_status = list(m.excluded_status(e["path_lower"]) for e in entries)
 
-            col0_width = max(len(t) for t in types) + 2
-            col1_width = max(len(t) for t in shared_status) + 2
-            col2_width = max(len(t) for t in names) + 2
-
-            for t, s, e, n in zip(types, shared_status, excluded_status, names):
-                if not n.startswith(".") or list_all:
-                    click.echo(t.ljust(col0_width) + s.ljust(col1_width) + n.ljust(col2_width) + e)
+            click.echo("")
+            click.echo(format_table([types, shared_status, names, excluded_status]))
+            click.echo("")
 
 
 @main.command()
@@ -676,10 +687,10 @@ def rebuild_index(config_name: str):
     else:
         click.echo("Maestral does not appear to be linked.")
 
+
 # ========================================================================================
 # Exclude commands
 # ========================================================================================
-
 
 @excluded.command(name="add")
 @with_config_opt
