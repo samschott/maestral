@@ -1778,16 +1778,15 @@ def download_worker_added_folder(sync, syncing, running, connected):
         syncing.wait()  # if paused, wait until resumed
 
         try:
+            dbx_path = sync.queued_folder_downloads.get()
+
+            if not running.is_set():  # if stopped, return
+                sync.queued_folder_downloads.put(dbx_path)
+                return
+            syncing.wait()  # if paused, wait until resumed
             with sync.lock:
-                dbx_path = sync.queued_folder_downloads.get()
-
-                if not running.is_set():  # if stopped, return
-                    sync.queued_folder_downloads.put(dbx_path)
-                    return
-                syncing.wait()  # if paused, wait until resumed
-
                 sync.get_remote_dropbox(dbx_path)
-                logger.info(IDLE)
+            logger.info(IDLE)
 
         except ConnectionError:
             syncing.clear()
