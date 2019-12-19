@@ -1688,14 +1688,16 @@ def connection_helper(client, syncing, running, connected, check_interval=8):
             if connected.is_set():
                 logger.debug(DISCONNECTED, exc_info=True)  # debug signal w/ traceback
                 logger.info(DISCONNECTED)  # info signal w/o traceback
-            syncing.clear()
-            connected.clear()
+            syncing.clear()     # pause syncing
+            connected.clear()   # set disconnected
             disconnected_signal.send()
             time.sleep(check_interval/2)
         except DropboxAuthError as e:
-            syncing.clear()  # stop syncing
+            syncing.clear()  # pause syncing
             running.clear()  # shutdown threads
             logger.error(e.title, exc_info=True)
+        except Exception:
+            logger.error("Unexpected error", exc_info=True)
 
 
 def download_worker(sync, syncing, running, connected):
