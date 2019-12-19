@@ -11,14 +11,17 @@ may be considered the first release candidate for a stable v1.0.0.
   recommend increasing the maximum number of inotify watches (Linux only).
 - Notify the user when an upload fails because a file exceeds the size limit of 350 GB.
 - Notify the user when an upload fails due to dropped network packages.
-- Show fatal errors when using CLI.
+- Added a command line option `maestral link -r` to relink to an existing account without
+  resetting the sync state. This is the equivalent of the GUI 'relink dialog'.
 
 #### Changed:
 
 - Improved some error messages.
+- Improved error handling in CLI: avoid printing full Python tracebacks to the console.
+  Print concise and actionable error messages instead if possible.
+- Improved formatting of `maestral ls` output.
 - Improved status notifications for large uploads: dynamically adapt the unit to show up
   to four significant digits (e.g., "16MB/1.6GB" instead of "0/1.6GB").
-- Improved formatting of `maestral ls` output.
 - Reduced memory footprint of macOS app by stripping docstrings (at least 5MB in dropbox
   package only).
 
