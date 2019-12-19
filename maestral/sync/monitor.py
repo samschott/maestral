@@ -44,8 +44,8 @@ from maestral.sync.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTE
                                      SYNC_ERROR, REV_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.sync.utils.content_hasher import DropboxContentHasher
 from maestral.sync.utils.notify import Notipy
-from maestral.sync.errors import (CONNECTION_ERRORS, MaestralApiError, SyncError,
-                                  RevFileError, DropboxDeletedError, DropboxAuthError,
+from maestral.sync.errors import (MaestralApiError, SyncError, RevFileError,
+                                  DropboxDeletedError, DropboxAuthError,
                                   ExcludedItemError, PathError, InotifyError)
 from maestral.sync.utils.path import (is_child, path_exists_case_insensitive,
                                       delete_file_or_folder)
@@ -1684,7 +1684,7 @@ def connection_helper(client, syncing, running, connected, check_interval=8):
                 connected.set()
                 connected_signal.send()
             time.sleep(check_interval)
-        except CONNECTION_ERRORS:
+        except ConnectionError:
             if connected.is_set():
                 logger.debug(DISCONNECTED, exc_info=True)  # debug signal w/ traceback
                 logger.info(DISCONNECTED)  # info signal w/o traceback
@@ -1746,7 +1746,7 @@ def download_worker(sync, syncing, running, connected):
 
                         logger.info(IDLE)
 
-        except CONNECTION_ERRORS:
+        except ConnectionError:
             syncing.clear()
             connected.clear()
             disconnected_signal.send()
@@ -1789,7 +1789,7 @@ def download_worker_added_folder(sync, syncing, running, connected):
                 sync.get_remote_dropbox(dbx_path)
                 logger.info(IDLE)
 
-        except CONNECTION_ERRORS:
+        except ConnectionError:
             syncing.clear()
             connected.clear()
             disconnected_signal.send()
@@ -1837,7 +1837,7 @@ def upload_worker(sync, syncing, running, connected):
                 # just update local cursor
                 if syncing.is_set():
                     sync.last_sync = local_cursor
-        except CONNECTION_ERRORS:
+        except ConnectionError:
             syncing.clear()
             connected.clear()
             disconnected_signal.send()
@@ -2101,7 +2101,7 @@ class MaestralMonitor(object):
             try:
                 self.sync.get_remote_dropbox(ignore_excluded=False)
                 completed = True
-            except CONNECTION_ERRORS:
+            except ConnectionError:
                 logger.info(DISCONNECTED)
 
         self.sync.last_sync = time.time()

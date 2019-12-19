@@ -18,7 +18,7 @@ from keyring.errors import KeyringLocked
 from maestral.config.main import CONF, SUBFOLDER
 from maestral.config.base import get_conf_path
 from maestral.sync.oauth_implicit import DropboxOAuth2FlowImplicit
-from maestral.sync.errors import CONNECTION_ERRORS, DropboxAuthError
+from maestral.sync.errors import DropboxAuthError
 from maestral.sync.utils import set_keyring_backend
 
 
@@ -85,7 +85,7 @@ class OAuth2Session(object):
             return self.Success
         except DropboxAuthError:
             return self.InvalidToken
-        except CONNECTION_ERRORS:
+        except ConnectionError:
             return self.ConnectionFailed
 
     def link(self):

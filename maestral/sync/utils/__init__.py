@@ -12,7 +12,7 @@ import functools
 import logging
 
 from maestral.sync.constants import DISCONNECTED, IS_MACOS_BUNDLE
-from maestral.sync.errors import CONNECTION_ERRORS, DropboxAuthError
+from maestral.sync.errors import DropboxAuthError
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ def handle_disconnect(func):
         try:
             res = func(*args, **kwargs)
             return res
-        except CONNECTION_ERRORS:
+        except ConnectionError:
             logger.info(DISCONNECTED)
             return False
         except DropboxAuthError as e:

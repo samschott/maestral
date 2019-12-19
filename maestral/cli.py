@@ -680,7 +680,6 @@ def excluded_add(dropbox_path: str, config_name: str):
     if _is_maestral_linked(config_name):
 
         from maestral.sync.daemon import MaestralProxy
-        from maestral.sync.errors import CONNECTION_ERRORS
 
         with MaestralProxy(config_name, fallback=True) as m:
             if _check_for_fatal_errors(m):
@@ -688,7 +687,7 @@ def excluded_add(dropbox_path: str, config_name: str):
             try:
                 m.exclude_folder(dropbox_path)
                 click.echo("Excluded directory '{}'.".format(dropbox_path))
-            except CONNECTION_ERRORS:
+            except ConnectionError:
                 click.echo("Could not connect to Dropbox.")
             except ValueError as e:
                 click.echo("Error: " + e.args[0])
@@ -712,7 +711,6 @@ def excluded_remove(dropbox_path: str, config_name: str):
     if _is_maestral_linked(config_name):
 
         from maestral.sync.daemon import MaestralProxy
-        from maestral.sync.errors import CONNECTION_ERRORS
 
         try:
             with MaestralProxy(config_name) as m:
@@ -721,7 +719,7 @@ def excluded_remove(dropbox_path: str, config_name: str):
                 try:
                     m.include_folder(dropbox_path)
                     click.echo("Included directory '{}'. Now downloading...".format(dropbox_path))
-                except CONNECTION_ERRORS:
+                except ConnectionError:
                     click.echo("Could not connect to Dropbox.")
                 except ValueError as e:
                     click.echo("Error: " + e.args[0])
