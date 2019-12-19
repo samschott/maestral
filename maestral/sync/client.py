@@ -103,6 +103,7 @@ def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
     """
 
     def decorator(func):
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
 
@@ -110,15 +111,13 @@ def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
             local_path = args[local_path_arg] if local_path_arg else None
 
             try:
-                res = func(*args, **kwargs)
+                return func(*args, **kwargs)
             except dropbox.exceptions.DropboxException as exc:
                 raise api_to_maestral_error(exc, dbx_path, local_path)
             except OS_FILE_ERRORS as exc:
                 raise os_to_maestral_error(exc, dbx_path, local_path)
             except CONNECTION_ERRORS:
                 raise ConnectionError("Cannot connect to Dropbox")
-
-            return res
 
         return wrapper
 
