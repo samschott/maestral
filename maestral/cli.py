@@ -245,6 +245,7 @@ def start(config_name: str, foreground: bool, verbose: bool):
         return
 
     from maestral.sync.main import Maestral, sh
+    old_level = sh.level
     sh.setLevel(logging.CRITICAL)
 
     # run setup if not yet linked
@@ -259,6 +260,7 @@ def start(config_name: str, foreground: bool, verbose: bool):
 
     if foreground:  # start daemon in foreground
         from maestral.sync.daemon import start_maestral_daemon
+        sh.setLevel(old_level)
         start_maestral_daemon(config_name)
     else:  # start daemon in subprocess
         start_daemon_subprocess_with_cli_feedback(config_name, log_to_console=verbose)
