@@ -37,7 +37,6 @@ from maestral.sync.monitor import MaestralMonitor
 from maestral.sync.utils import handle_disconnect, with_sync_paused
 from maestral.sync.utils.path import is_child, path_exists_case_insensitive
 from maestral.sync.constants import (
-    IDLE, DISCONNECTED,
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
 )
 from maestral.sync.client import MaestralApiClient
@@ -46,7 +45,6 @@ from maestral.sync.utils.appdirs import get_log_path, get_cache_path, get_home_d
 from maestral.sync.utils.updates import check_update_available
 from maestral.sync.oauth import OAuth2Session
 from maestral.sync.errors import MaestralApiError
-from maestral.sync.errors import CONNECTION_ERRORS, SYNC_ERRORS
 from maestral.config.main import CONF
 
 
@@ -127,52 +125,16 @@ for h in (rfh, sh, ch_info, ch_error):
 
 
 # ========================================================================================
-# Helper functions
-# ========================================================================================
-
-def folder_download_worker(monitor, dbx_path, callback=None):
-    """
-    Worker to download a whole Dropbox directory in the background.
-
-    :param class monitor: :class:`Monitor` instance.
-    :param str dbx_path: Path to directory on Dropbox.
-    :param callback: function to be called after download is complete
-    """
-    time.sleep(2)  # wait for pausing to take effect
-
-    with monitor.sync.lock:
-        completed = False
-        while not completed:
-            try:
-                monitor.sync.get_remote_dropbox(dbx_path)
-                logger.info(IDLE)
-
-                if dbx_path == "":
-                    monitor.sync.last_sync = time.time()
-                else:
-                    # remove folder from excluded list
-                    monitor.queue_downloading.queue.remove(
-                        monitor.sync.to_local_path(dbx_path))
-
-                time.sleep(1)
-                completed = True
-                if callback is not None:
-                    callback()
-
-            except CONNECTION_ERRORS:
-                logger.debug(DISCONNECTED, exc_info=True)
-                logger.info(DISCONNECTED)
-
-
-# ========================================================================================
 # Main API
 # ========================================================================================
 
 class Maestral(object):
     """
     An open source Dropbox client for macOS and Linux to syncing a local folder
-    with your Dropbox account. All functions and properties return objects which can
-    safely serialized, i.e., pure Python types.
+    with your Dropbox account. All functions and properties return objects or
+    raise exceptions which can safely serialized, i.e., pure Python types. The only
+    exception are MaestralApiErrors which have been registered explicitly with the Pyro5
+    serializer.
     """
 
     _daemon_running = True  # for integration with Pyro
@@ -181,19 +143,12 @@ class Maestral(object):
 
         self.client = MaestralApiClient()
 
-        # periodically check for updates and refresh account info
-        self.update_thread = Thread(
-            name="Maestral update check",
-            target=self._periodic_refresh,
-            daemon=True,
-        )
-        self.update_thread.start()
-
         # monitor needs to be created before any decorators are called
         self.monitor = MaestralMonitor(self.client)
         self.sync = self.monitor.sync
 
         if run:
+
             if self.pending_dropbox_folder():
                 self.create_dropbox_directory()
                 self.set_excluded_folders()
@@ -201,25 +156,33 @@ class Maestral(object):
                 self.sync.last_cursor = ""
                 self.sync.last_sync = 0
 
+            # start syncing
             self.start_sync()
 
-            if NOTIFY_SOCKET and system_notifier:
+            if NOTIFY_SOCKET and system_notifier:  # notify systemd that we have started
                 logger.debug("Running as systemd notify service")
                 logger.debug(f"NOTIFY_SOCKET = {NOTIFY_SOCKET}")
-                system_notifier.notify("READY=1")  # notify systemd that we have started
+                system_notifier.notify("READY=1")
 
-            if IS_WATCHDOG and system_notifier:
+            if IS_WATCHDOG and system_notifier:  # notify systemd periodically if alive
                 logger.debug("Running as systemd watchdog service")
                 logger.debug(f"WATCHDOG_USEC = {WATCHDOG_USEC}")
                 logger.debug(f"WATCHDOG_PID = {WATCHDOG_PID}")
 
-                # notify systemd periodically that we are still alive
                 self.watchdog_thread = Thread(
                     name="Maestral watchdog",
                     target=self._periodic_watchdog,
                     daemon=True,
                 )
                 self.watchdog_thread.start()
+
+            # periodically check for updates and refresh account info
+            self.update_thread = Thread(
+                name="Maestral update check",
+                target=self._periodic_refresh,
+                daemon=True,
+            )
+            self.update_thread.start()
 
     @staticmethod
     def set_conf(section, name, value):
@@ -237,7 +200,14 @@ class Maestral(object):
 
     @staticmethod
     def pending_link():
-        """Bool indicating if auth tokens are stored in the system's keychain."""
+        """
+        Bool indicating if auth tokens are stored in the system's keychain. This may raise
+        a KeyringLocked exception if the user's keychain cannot be accessed. This
+        exception will not be deserialized by Pyro5. You should check if Maestral is
+        linked before instantiating a daemon.
+
+        :raises: :class:`keyring.errors.KeyringLocked`
+        """
         auth_session = OAuth2Session()
         return auth_session.load_token() is None
 
@@ -263,6 +233,11 @@ class Maestral(object):
         """Bool indicating if syncing is paused by the user. This is set by calling
         :meth:`pause`."""
         return not self.monitor._auto_resume_on_connect
+
+    @property
+    def stopped(self):
+        """Bool indicating if syncing is stopped, for instance because of an exception."""
+        return not self.monitor.running.is_set()
 
     @property
     def connected(self):
@@ -294,7 +269,9 @@ class Maestral(object):
 
     @property
     def excluded_folders(self):
-        """Returns a list of excluded folders (read only)."""
+        """Returns a list of excluded folders (read only). Use :meth:`exclude_folder`,
+        :meth:`include_folder` or :meth:`set_excluded_folders` change which folders are
+        excluded from syncing."""
         return self.sync.excluded_folders
 
     @property
@@ -304,17 +281,16 @@ class Maestral(object):
         sync_errors_dicts = [maestral_error_to_dict(e) for e in sync_errors]
         return sync_errors_dicts
 
-    @staticmethod
-    def get_maestral_errors():
+    @property
+    def maestral_errors(self):
         """Returns a list of Maestral's errors as dicts. This does not include lost
-        internet connections, which only emit warnings, or file sync errors which
-        are tracked and cleared separately. Errors listed here must be acted upon for
-        Maestral to continue syncing.
+        internet connections or file sync errors which only emit warnings and are tracked
+        and cleared separately. Errors listed here must be acted upon for Maestral to
+        continue syncing.
         """
 
         maestral_errors = [r.exc_info[1] for r in ch_error.cached_records]
-        maestral_errors_dicts = [maestral_error_to_dict(e) for e in maestral_errors
-                                 if not isinstance(e, SYNC_ERRORS)]
+        maestral_errors_dicts = [maestral_error_to_dict(e) for e in maestral_errors]
         return maestral_errors_dicts
 
     @staticmethod
@@ -362,8 +338,9 @@ class Maestral(object):
 
     def get_activity(self):
         """
-        Returns a list of all file currently queued or being synced.
-        :return:
+        Returns a dictionary with lists of all file currently queued for or being synced.
+
+        :rtype: dict(list, list)
         """
         PathItem = namedtuple("PathItem", "local_path status")
         uploading = []
@@ -391,6 +368,7 @@ class Maestral(object):
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
+        :raises: :class:`MaestralApiError`
         """
         res = self.client.get_account_info()
         return dropbox_stone_to_dict(res)
@@ -410,8 +388,9 @@ class Maestral(object):
     @handle_disconnect
     def get_profile_pic(self):
         """
-        Download the user's profile picture from Dropbox. The picture saved in Maestral's
-        cache directory for retrieval when there is no internet connection.
+        Attempts to download the user's profile picture from Dropbox. The picture saved in
+        Maestral's cache directory for retrieval when there is no internet connection.
+        This function will fail silently in case of :class:`MaestralApiError`s.
 
         :returns: Path to saved profile picture or None if no profile picture is set.
         """
@@ -437,7 +416,8 @@ class Maestral(object):
         List all items inside the folder given by :param:`dbx_path`.
 
         :param dbx_path: Path to folder on Dropbox.
-        :return: List of Dropbox item metadata as dicts.
+        :return: List of Dropbox item metadata as dicts or ``False`` if listing failed
+            due to connection issues.
         :rtype: list[dict]
         """
         dbx_path = "" if dbx_path == "/" else dbx_path
@@ -457,40 +437,13 @@ class Maestral(object):
                 except OSError:
                     pass
 
-    @handle_disconnect
-    def get_remote_dropbox_async(self, dbx_path, callback=None):
-        """
-        Runs `sync.get_remote_dropbox` in the background, downloads the full
-        Dropbox folder `dbx_path` to the local drive. The folder is temporarily
-        excluded from the local observer to prevent duplicate uploads.
-
-        :param str dbx_path: Path to folder on Dropbox.
-        :param callback: Function to call after download.
-        """
-
-        is_root = dbx_path == ""
-        if not is_root:  # exclude only specific folder otherwise
-            self.monitor.queue_downloading.put(self.sync.to_local_path(dbx_path))
-
-        if callback == "start_sync":
-            callback = self.start_sync
-
-        self.download_thread = Thread(
-            target=folder_download_worker,
-            args=(self.monitor, dbx_path),
-            kwargs={"callback": callback},
-            name="MaestralFolderDownloader"
-        )
-        self.download_thread.start()
-
     def rebuild_index(self):
-        """Rebuilds the Maestral index and resumes syncing afterwards if it has been
-        running."""
+        """
+        Rebuilds the Maestral index and resumes syncing afterwards if it has been
+        running.
 
-        print("""
-Rebuilding the revision index. This process may
-take several minutes, depending on the size of your Dropbox.
-Any changes to local files during this process may be lost.""")
+        :raises: :class:`MaestralApiError`
+        """
 
         self.monitor.rebuild_rev_file()
 
@@ -520,13 +473,15 @@ Any changes to local files during this process may be lost.""")
 
     def unlink(self):
         """
-        Unlink the configured Dropbox account but leave all downloaded files
-        in place. All syncing metadata will be removed as well.
+        Unlinks the configured Dropbox account but leaves all downloaded files
+        in place. All syncing metadata will be removed as well. Connection and API errors
+        will be handled silently but the Dropbox access key will always be removed from
+        the user's PC.
         """
         self.stop_sync()
         try:
             self.client.unlink()
-        except CONNECTION_ERRORS:
+        except (ConnectionError, MaestralApiError):
             pass
 
         try:
@@ -545,9 +500,16 @@ Any changes to local files during this process may be lost.""")
         this method with folders which have already been excluded.
 
         :param str dbx_path: Dropbox folder to exclude.
+        :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
         """
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
+
+        md = self.client.get_metadata(dbx_path)
+
+        if not isinstance(md, files.FolderMetadata):
+            raise ValueError("No such folder on Dropbox: '{0}'".format(dbx_path))
 
         # add the path to excluded list
         excluded_folders = self.sync.excluded_folders
@@ -567,7 +529,6 @@ Any changes to local files during this process may be lost.""")
         if osp.isdir(local_path_cased):
             shutil.rmtree(local_path_cased)
 
-    @handle_disconnect
     def include_folder(self, dbx_path):
         """
         Includes folder in sync and downloads in the background. It is safe to
@@ -575,15 +536,18 @@ Any changes to local files during this process may be lost.""")
         will not be downloaded again.
 
         :param str dbx_path: Dropbox folder to include.
-        :return: ``True`` on success, ``False`` on failure.
-        :rtype: bool
-        :raises: ValueError if ``dbx_path`` is inside another excluded folder.
+        :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox or lies inside
+            another excluded folder.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
         """
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
+        md = self.client.get_metadata(dbx_path)
 
         old_excluded_folders = self.sync.excluded_folders
 
+        if not isinstance(md, files.FolderMetadata):
+            raise ValueError("No such folder on Dropbox: '{0}'".format(dbx_path))
         for folder in old_excluded_folders:
             if is_child(dbx_path, folder):
                 raise ValueError("'{0}' lies inside the excluded folder '{1}'. "
@@ -609,7 +573,7 @@ Any changes to local files during this process may be lost.""")
         # download folder contents from Dropbox
         logger.info(f"Downloading added folder '{dbx_path}'.")
         for folder in new_included_folders:
-            self.get_remote_dropbox_async(folder)
+            self.sync.queued_folder_downloads.put(folder)
 
     @handle_disconnect
     def _include_folder_without_subfolders(self, dbx_path):
@@ -624,9 +588,9 @@ Any changes to local files during this process may be lost.""")
             return
 
         excluded_folders.remove(dbx_path)
-        self.sync.excluded_folders = excluded_folders
 
-        self.get_remote_dropbox_async(dbx_path)
+        self.sync.excluded_folders = excluded_folders
+        self.sync.queued_folder_downloads.put(dbx_path)
 
     @handle_disconnect
     def set_excluded_folders(self, folder_list=None):
@@ -635,12 +599,12 @@ Any changes to local files during this process may be lost.""")
         level folder paths from Dropbox and asks user to include or exclude. Folders
         which are no in `folder_list` but exist on Dropbox will be downloaded.
 
-        On initial sync, this does not trigger any downloads. Call `get_remote_dropbox` or
-        `get_remote_dropbox_async` instead.
+        On initial sync, this does not trigger any downloads.
 
         :param list folder_list: If given, list of excluded folder to set.
         :return: List of excluded folders.
         :rtype: list
+        :raises: :class:`MaestralApiError`
         """
 
         if folder_list is None:
@@ -692,7 +656,7 @@ Any changes to local files during this process may be lost.""")
 
         if dbx_path in excluded_items:
             return "excluded"
-        elif any(is_child(dbx_path, f) for f in excluded_items):
+        elif any(is_child(f, dbx_path) for f in excluded_items):
             return "partially excluded"
         else:
             return "included"
@@ -776,15 +740,16 @@ Any changes to local files during this process may be lost.""")
             res = input(msg).strip("'\" ")
 
             dropbox_path = osp.expanduser(res or default)
-            old_path = CONF.get("main", "path")
+            old_path = osp.expanduser(CONF.get("main", "path"))
 
+            same_path = False
             try:
                 if osp.samefile(old_path, dropbox_path):
-                    return
+                    same_path = True
             except FileNotFoundError:
                 pass
 
-            if osp.exists(dropbox_path):
+            if osp.exists(dropbox_path) and not same_path:
                 msg = f"Directory '{dropbox_path}' already exist. Do you want to overwrite it?"
                 yes = click.confirm(msg)
                 if yes:
@@ -814,7 +779,7 @@ Any changes to local files during this process may be lost.""")
             time.sleep(60*60)  # 60 min
 
     def _periodic_watchdog(self):
-        while self.monitor.running.is_set():
+        while self.monitor._threads_alive():
             system_notifier.notify("WATCHDOG=1")
             time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
 
@@ -830,7 +795,10 @@ Any changes to local files during this process may be lost.""")
         return self._daemon_running
 
     def __del__(self):
-        self.monitor.stop()
+        try:
+            self.monitor.stop()
+        except:
+            pass
 
     def __repr__(self):
         email = CONF.get("account", "email")

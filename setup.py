@@ -54,7 +54,7 @@ setup(
         "Pyro5",
         "requests",
         "u-msgpack-python",
-        "watchdog",
+        "watchdog==0.9.0",
         "pyobjc;sys_platform=='darwin'"
     ],
     extras_require={
@@ -81,6 +81,7 @@ setup(
             'maestral/gui/resources/tray-icons-gnome/maestral-icon-disconnected-symbolic.svg',
             'maestral/gui/resources/tray-icons-gnome/maestral-icon-error-symbolic.svg',
             'maestral/gui/resources/tray-icons-gnome/maestral-icon-idle-symbolic.svg',
+            'maestral/gui/resources/tray-icons-gnome/maestral-icon-info-symbolic.svg',
             'maestral/gui/resources/tray-icons-gnome/maestral-icon-paused-symbolic.svg',
             'maestral/gui/resources/tray-icons-gnome/maestral-icon-syncing-symbolic.svg',
         ]),

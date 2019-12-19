@@ -183,10 +183,10 @@ class MaestralBackgroundTask(BackgroundTask):
         self.thread.start()
 
 
-class MaestralBackgroundTaskProgressDialog(QtWidgets.QDialog):
+class BackgroundTaskProgressDialog(QtWidgets.QDialog):
     """A progress dialog to show during long-running background tasks."""
 
-    def __init__(self, title, message="", cancel=True, parent=None, width = 450):
+    def __init__(self, title, message="", cancel=True, parent=None, width=450):
         super(self.__class__, self).__init__(parent=parent)
         self.setModal(True)
         self.setWindowModality(Qt.WindowModal)
@@ -568,7 +568,7 @@ class QProgressIndicator(QtWidgets.QWidget):
         self.setFocusPolicy(Qt.NoFocus)
 
     def animationDelay(self):
-        return self.delay
+        return self.m_delay
 
     def isAnimated(self):
         return self.m_timerId != -1
@@ -577,7 +577,7 @@ class QProgressIndicator(QtWidgets.QWidget):
         return self.m_displayedWhenStopped
 
     def getColor(self):
-        return self.color
+        return self.m_color
 
     def sizeHint(self):
         return QtCore.QSize(20, 20)
@@ -586,7 +586,7 @@ class QProgressIndicator(QtWidgets.QWidget):
         self.m_angle = 0
 
         if self.m_timerId == -1:
-            self.m_timerId = self.startTimer(self.m_delay)
+            self.m_timerId = self.startTimer(int(self.m_delay))
 
     def stopAnimation(self):
         if self.m_timerId != -1:

@@ -14,14 +14,14 @@ sed -i "" "s/$OLD/$NEW/g" $SPEC_FILE
 
 echo "********************* BUILDING ************************"
 
-pyinstaller  -y --clean -w /Users/samschott/Documents/Python/maestral-dropbox/$SPEC_FILE
+python3 -OO -m PyInstaller  -y --clean -w $SPEC_FILE
 
 echo "*************** REMOVING QML MODULES ******************"
 
-python3 /Users/samschott/Documents/Python/maestral-dropbox/post_build.py
+python3 post_build.py
 
 echo "********************** SIGNING ************************"
 
-codesign -s "Mac Developer: sam.schott@outlook.com (FJNXBRUVWL)" --deep dist/Maestral.app
+codesign -s "Apple Development: sam.schott@outlook.com (FJNXBRUVWL)" --deep dist/Maestral.app
 
 echo "*********************** DONE **************************"

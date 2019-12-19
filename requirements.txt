@@ -1,11 +1,11 @@
-click>=7.0
-dropbox>=9.4.0
+click >= 7.0
+dropbox >= 9.4.0
 watchdog
 blinker
 requests
 u-msgpack-python
-keyring>=19.0.0
-keyrings.alt>=3.0.0
-Pyro4
+keyring >= 19.0.0
+keyrings.alt >= 3.0.0
+Pyro5
 systemd-python
 sdnotify

@@ -160,6 +160,10 @@ class SettingsWindow(QtWidgets.QWidget):
         acc_mail = self.mdbx.get_conf("account", "email")
         acc_type = self.mdbx.get_conf("account", "type")
         acc_space_usage = self.mdbx.get_conf("account", "usage")
+        acc_space_usage_type = self.mdbx.get_conf("account", "usage_type")
+
+        if acc_space_usage_type == "team":
+            acc_space_usage += " (Team)"
 
         # if the display name is longer than 230 pixels, reduce font-size
         default_font = get_scaled_font(1.5)

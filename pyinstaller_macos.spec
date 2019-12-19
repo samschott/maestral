@@ -3,7 +3,8 @@
 block_cipher = None
 
 
-from maestral import __version__
+from maestral import __version__, __author__
+import time
 
 
 a = Analysis(['maestral/gui/main.py'],
@@ -50,9 +51,9 @@ app = BUNDLE(coll,
                 'NSHighResolutionCapable': 'True',
                 'NSRequiresAquaSystemAppearance': 'False',
                 'LSUIElement': '1',
-                'CFBundleVersion': '62',
+                'CFBundleVersion': '83',
                 'CFBundleShortVersionString': __version__,
-                'NSHumanReadableCopyright': 'Copyright © 2019 Sam Schott. All rights reserved.',
+                'NSHumanReadableCopyright': 'Copyright © {} {}. All rights reserved.'.format(time.strftime('%Y'), __author__),
                 'LSMinimumSystemVersion': '10.13.0',
                 },
 )
