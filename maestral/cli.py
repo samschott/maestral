@@ -31,13 +31,18 @@ def _is_maestral_linked(config_name):
     at any time.
     """
     os.environ["MAESTRAL_CONFIG"] = config_name
-    from maestral.sync.main import Maestral, sh
-    sh.setLevel(logging.CRITICAL)
-    if Maestral.pending_link():
-        click.echo("No Dropbox account linked.")
+    from maestral.sync.main import Maestral
+    from keyring.errors import KeyringLocked
+
+    try:
+        if Maestral.pending_link():
+            click.echo("No Dropbox account linked.")
+            return False
+        else:
+            return True
+    except KeyringLocked:
+        click.echo("Error: Cannot access user keyring to load Dropbox credentials.")
         return False
-    else:
-        return True
 
 
 def start_daemon_subprocess_with_cli_feedback(config_name, log_to_console=False):
@@ -244,12 +249,20 @@ def start(config_name: str, foreground: bool, verbose: bool):
         click.echo("Maestral daemon is already running.")
         return
 
+    from keyring.errors import KeyringLocked
     from maestral.sync.main import Maestral, sh
+
     old_level = sh.level
     sh.setLevel(logging.CRITICAL)
 
+    try:
+        pending_link = Maestral.pending_link()
+    except KeyringLocked:
+        click.echo("Error: Cannot access user keyring to load Dropbox credentials.")
+        return
+
     # run setup if not yet linked
-    if Maestral.pending_link() or Maestral.pending_dropbox_folder():
+    if pending_link or Maestral.pending_dropbox_folder():
         # run setup
         m = Maestral(run=False)
         m.create_dropbox_directory()
@@ -257,6 +270,8 @@ def start(config_name: str, foreground: bool, verbose: bool):
 
         m.sync.last_cursor = ""
         m.sync.last_sync = 0
+
+        del m
 
     if foreground:  # start daemon in foreground
         from maestral.sync.daemon import start_maestral_daemon
