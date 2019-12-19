@@ -1,4 +1,4 @@
-## v0.4.5
+## v0.5.0
 
 This release improves the sync reliability in case of rapid successive changes to the
 local Dropbox folder. It also improves error handling and includes other bug fixes. This
@@ -11,29 +11,28 @@ may be considered the first release candidate for a stable v1.0.0.
   recommend increasing the maximum number of inotify watches (Linux only).
 - Notify the user when an upload fails because a file exceeds the size limit of 350 GB.
 - Notify the user when an upload fails due to dropped network packages.
-- Added a command line option `maestral link -r` to relink to an existing account without
+- Adds a command line option `maestral link -r` to relink to an existing account without
   resetting the sync state. This is the equivalent of the GUI 'relink dialog'.
 
 #### Changed:
 
-- Improved some error messages.
-- Improved error handling in CLI: avoid printing full Python tracebacks to the console.
+- Refines some error messages.
+- Improves error handling in CLI: avoid printing full Python tracebacks to the console.
   Print concise and actionable error messages instead if possible.
-- Improved formatting of `maestral ls` output.
-- Improved status notifications for large uploads: dynamically adapt the unit to show up
+- Improves formatting of `maestral ls` output.
+- Improves status notifications for large uploads: dynamically adapt the unit to show up
   to four significant digits (e.g., "16MB/1.6GB" instead of "0/1.6GB").
-- Reduced memory footprint of macOS app by stripping docstrings (at least 5MB in dropbox
+- Reduces memory footprint of macOS app by stripping docstrings (at least 5MB in dropbox
   package only).
 
 #### Fixed:
 
-- Fixed multiple sync issues and corner cases due to rapid and successive file changes:
-  The algorithm which converts successive changes of a local file to a single file event
-  (created / deleted / modified / moved) for the Dropbox API has been simplified and
-  improved.
-- Fixed an issue which could cause the watchdog thread to crash silently on case-sensitive
+- Fixes multiple sync issues and corner cases due to rapid and successive file changes:
+  The algorithm which combines successive changes of a local file to a single file event
+  (created / deleted / modified / moved) has been simplified and improved.
+- Fixes an issue which could cause the watchdog thread to crash silently on case-sensitive
   file systems when saving changes to a file.
-- Remove sip import because it may fail depending on how PyQt was installed.
+- Removes sip import because it may fail depending on how PyQt was installed.
 - Fixed an issue where user notifications would not appear for certain implementations of
   'notify-send'.
 - Fixes an error when setting the log level from the CLI.
