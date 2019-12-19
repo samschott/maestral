@@ -15,9 +15,33 @@ import logging
 # external packages
 import Pyro5.errors
 from Pyro5 import server, client
+from Pyro5.serializers import SerpentSerializer
+
+# internal modules
+from maestral.sync.errors import MaestralApiError, SYNC_ERRORS, FATAL_ERRORS
+
 
 logger = logging.getLogger(__name__)
 URI = "PYRO:maestral.{0}@{1}"
+
+
+def serpent_deserialize_api_error(class_name, d):
+    import maestral.sync.errors
+    cls = eval(class_name)
+    e = cls(*d['args'])
+    for a_name, a_value in d['attributes'].items():
+        setattr(e, a_name, a_value)
+
+    return e
+
+
+# register MaestralApiErrors with serpent serializer
+
+for err_cls in list(SYNC_ERRORS) + list(FATAL_ERRORS) + [MaestralApiError]:
+    SerpentSerializer.register_dict_to_class(
+        err_cls.__module__ + "." + err_cls.__name__,
+        serpent_deserialize_api_error
+    )
 
 
 def _get_sock_name(config_name):

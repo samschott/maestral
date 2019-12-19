@@ -132,7 +132,9 @@ class Maestral(object):
     """
     An open source Dropbox client for macOS and Linux to syncing a local folder
     with your Dropbox account. All functions and properties return objects or
-    raise exceptions which can safely serialized, i.e., pure Python types.
+    raise exceptions which can safely serialized, i.e., pure Python types. The only
+    exception are MaestralApiErrors which have been registered explicitly with the Pyro5
+    serializer.
     """
 
     _daemon_running = True  # for integration with Pyro
