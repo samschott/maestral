@@ -475,7 +475,7 @@ def errors(config_name: str):
 @main.command()
 @with_config_opt
 @click.option("-r", "relink", is_flag=True, default=False,
-              help="Relink to the currently configured account.")
+              help="Relink to the current account. Keeps the sync state.")
 @catch_maestral_errors
 def link(config_name: str, relink: bool):
     """Links Maestral with your Dropbox account."""
