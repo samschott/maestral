@@ -15,13 +15,14 @@ import logging
 import functools
 
 # external packages
+import requests
 import dropbox
 
 # maestral modules
 from maestral.sync.oauth import OAuth2Session
 from maestral.config.main import CONF
 from maestral.sync.errors import api_to_maestral_error, os_to_maestral_error
-from maestral.sync.errors import OS_FILE_ERRORS, CONNECTION_ERRORS, CursorResetError
+from maestral.sync.errors import CursorResetError
 from maestral import __version__
 
 
@@ -32,6 +33,25 @@ SESSION = dropbox.dropbox.create_session()
 _major_minor_version = ".".join(__version__.split(".")[:2])
 USER_AGENT = f"Maestral/v{_major_minor_version}"
 
+
+CONNECTION_ERRORS = (
+    requests.exceptions.Timeout,
+    requests.exceptions.ConnectionError,
+    requests.exceptions.HTTPError,
+    requests.exceptions.ReadTimeout,
+    requests.exceptions.RetryError,
+    ConnectionError,
+)
+
+
+OS_FILE_ERRORS = (
+    FileExistsError,
+    FileNotFoundError,
+    InterruptedError,
+    IsADirectoryError,
+    NotADirectoryError,
+    PermissionError,
+)
 
 def bytes_to_str(num, suffix='B'):
     """

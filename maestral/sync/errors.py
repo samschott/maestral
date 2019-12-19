@@ -8,8 +8,6 @@ Created on Wed Oct 31 16:23:13 2018
 
 # KEEP FREE OF DROPBOX IMPORTS TO REDUCE MEMORY FOOTPRINT
 
-import requests
-
 
 CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please check " +
                         "your internet connection and try again later.")
@@ -178,6 +176,7 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
     :returns: :class:`MaestralApiError` instance.
     :rtype: :class:`MaestralApiError`
     """
+    import requests
     import dropbox  # import here to reduce memory usage if not needed
 
     # --------------------------- Dropbox API Errors -------------------------------------
@@ -470,24 +469,26 @@ def _get_session_lookup_error_msg(session_lookup_error):
 # sync errors only appear in the sync errors list
 # all other errors raise an error dialog in the GUI
 
-CONNECTION_ERRORS = (
-    requests.exceptions.Timeout,
-    requests.exceptions.ConnectionError,
-    requests.exceptions.HTTPError,
-    requests.exceptions.ReadTimeout,
-    requests.exceptions.RetryError,
-    ConnectionError,
-)
-
 SYNC_ERRORS = (
     SyncError,
+    InsufficientPermissionsError,
+    InsufficientSpaceError,
+    PathError,
+    ExcludedItemError,
+    DropboxServerError,
+    RestrictedContentError,
+    UnsupportedFileError,
+    FileSizeError,
 )
 
-OS_FILE_ERRORS = (
-    FileExistsError,
-    FileNotFoundError,
-    InterruptedError,
-    IsADirectoryError,
-    NotADirectoryError,
-    PermissionError,
+FATAL_ERRORS = (
+    InotifyError,
+    DropboxDeletedError,
+    RestrictedContentError,
+    RevFileError,
+    DropboxAuthError,
+    TokenExpiredError,
+    CursorResetError,
+    BadInputError,
 )
+
