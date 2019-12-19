@@ -740,15 +740,16 @@ class Maestral(object):
             res = input(msg).strip("'\" ")
 
             dropbox_path = osp.expanduser(res or default)
-            old_path = CONF.get("main", "path")
+            old_path = osp.expanduser(CONF.get("main", "path"))
 
+            same_path = False
             try:
                 if osp.samefile(old_path, dropbox_path):
-                    return
+                    same_path = True
             except FileNotFoundError:
                 pass
 
-            if osp.exists(dropbox_path):
+            if osp.exists(dropbox_path) and not same_path:
                 msg = f"Directory '{dropbox_path}' already exist. Do you want to overwrite it?"
                 yes = click.confirm(msg)
                 if yes:
