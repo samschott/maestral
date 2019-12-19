@@ -53,6 +53,7 @@ OS_FILE_ERRORS = (
     PermissionError,
 )
 
+
 def bytes_to_str(num, suffix='B'):
     """
     Convert number to a human readable string with decimal prefix.
@@ -235,7 +236,7 @@ class MaestralApiClient(object):
         try:
             md = self.dbx.files_get_metadata(dbx_path, **kwargs)
             logger.debug(f"Retrieved metadata for '{md.path_display}'")
-        except dropbox.exceptions.DropboxException as exc:
+        except dropbox.exceptions.ApiError as exc:
             # DropboxAPI error is only raised when the item does not exist on Dropbox
             # this is handled on a DEBUG level since we use call `get_metadata` to check
             # if a file exists
@@ -274,7 +275,6 @@ class MaestralApiClient(object):
         """
         # create local directory if not present
         dst_path_directory = osp.dirname(dst_path)
-
         os.makedirs(dst_path_directory, exist_ok=True)
 
         md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
@@ -488,6 +488,7 @@ class MaestralApiClient(object):
         entries_all = []
         for result in results:
             entries_all += result.entries
+
         results_flattened = dropbox.files.ListFolderResult(
             entries=entries_all, cursor=results[-1].cursor, has_more=False)
 
