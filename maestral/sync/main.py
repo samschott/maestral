@@ -354,7 +354,6 @@ class Maestral(object):
 
         return dict(uploading=uploading, downloading=downloading)
 
-    # TODO: this may raise a MaestralApiError
     @handle_disconnect
     def get_account_info(self):
         """
@@ -368,7 +367,6 @@ class Maestral(object):
         res = self.client.get_account_info()
         return dropbox_stone_to_dict(res)
 
-    # TODO: this may raise a MaestralApiError
     @handle_disconnect
     def get_space_usage(self):
         """
@@ -406,7 +404,6 @@ class Maestral(object):
                 # delete current profile pic
                 self._delete_old_profile_pics()
 
-    # TODO: this may raise a MaestralApiError
     @handle_disconnect
     def list_folder(self, dbx_path, **kwargs):
         """
@@ -434,7 +431,6 @@ class Maestral(object):
                 except OSError:
                     pass
 
-    # TODO: this may raise a MaestralApiError
     def rebuild_index(self):
         """
         Rebuilds the Maestral index and resumes syncing afterwards if it has been
