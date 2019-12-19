@@ -164,8 +164,8 @@ def start_maestral_daemon_thread(config_name="maestral"):
     )
     t.start()
 
-    # wait until the daemon has started, timeout after 2 sec
-    return _wait_for_startup(config_name, timeout=2)
+    # wait until the daemon has started, timeout after 6 sec
+    return _wait_for_startup(config_name, timeout=6)
 
 
 def start_maestral_daemon_process(config_name="maestral", log_to_console=False):
@@ -204,7 +204,7 @@ def start_maestral_daemon_process(config_name="maestral", log_to_console=False):
 
     t.start()
 
-    return _wait_for_startup(config_name, timeout=4)
+    return _wait_for_startup(config_name, timeout=8)
 
 
 def stop_maestral_daemon_process(config_name="maestral", timeout=10):
@@ -359,7 +359,7 @@ def get_maestral_pid(config_name):
         return pid
 
 
-def _wait_for_startup(config_name, timeout=4):
+def _wait_for_startup(config_name, timeout=8):
     """Waits for the daemon to start and verifies Pyro communication. Returns ``True`` if
     startup and communication succeeds within ``timeout``, ``False`` otherwise.
     """
