@@ -275,7 +275,10 @@ class MaestralApiClient(object):
         """
         # create local directory if not present
         dst_path_directory = osp.dirname(dst_path)
-        os.makedirs(dst_path_directory, exist_ok=True)
+        try:
+            os.makedirs(dst_path_directory)
+        except FileExistsError:
+            pass
 
         md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
 

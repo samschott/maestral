@@ -1624,7 +1624,10 @@ class UpDownSync(object):
             # If there’s already something else at the given path,
             # replace it but leave the children as they are.
 
-            os.makedirs(local_path, exist_ok=True)
+            try:
+                os.makedirs(local_path)
+            except FileExistsError:
+                pass
 
             # save revision metadata
             self.set_local_rev(entry.path_display, "folder")
