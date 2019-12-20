@@ -1,3 +1,11 @@
+## v0.5.1-dev
+
+#### Fixed:
+
+- Fixed an unexpected exception when attempting to create a directory that already exists.
+  Do not rely on the `exists_ok` parameter in `os.makedirs` but catch `FileExistsError`
+  explicitly (see https://bugs.python.org/issue13498).
+
 ## v0.5.0
 
 This release improves the sync reliability in case of rapid successive changes to the
