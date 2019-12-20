@@ -45,6 +45,7 @@ setup(
                     "gui/resources/*/*.png",
                     ],
             },
+    setup_requires=["wheel"],
     install_requires=[
         "blinker",
         "click>=7.0",
