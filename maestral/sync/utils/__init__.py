@@ -10,6 +10,7 @@ Created on Wed Oct 31 16:23:13 2018
 
 import functools
 import logging
+from typing import Callable, Any
 
 from maestral.sync.constants import DISCONNECTED, IS_MACOS_BUNDLE
 from maestral.sync.errors import DropboxAuthError
@@ -17,14 +18,14 @@ from maestral.sync.errors import DropboxAuthError
 logger = logging.getLogger(__name__)
 
 
-def handle_disconnect(func):
+def handle_disconnect(func: Callable) -> Callable:
     """
     Decorator which handles connection and auth errors during a function call and returns
     ``False`` if an error occurred.
     """
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs) -> Any:
         # pause syncing
         try:
             res = func(*args, **kwargs)
@@ -39,13 +40,13 @@ def handle_disconnect(func):
     return wrapper
 
 
-def with_sync_paused(func):
+def with_sync_paused(func: Callable) -> Callable:
     """
     Decorator which pauses syncing before a method call, resumes afterwards. This
     should only be used to decorate Maestral methods.
     """
     @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
+    def wrapper(self, *args, **kwargs) -> Any:
         # pause syncing
         resume = False
         if self.syncing:
@@ -59,7 +60,10 @@ def with_sync_paused(func):
     return wrapper
 
 
-def set_keyring_backend():
+def set_keyring_backend() -> None:
+    """Deterministically sets the keyring backend, depending on the platform. This means
+    not using the chainer backend, which may cycle through different backends if
+    available (e.g. KWallet and Gnome keyring)."""
     if IS_MACOS_BUNDLE:
         import keyring.backends.OS_X
         keyring.set_keyring(keyring.backends.OS_X.Keyring())

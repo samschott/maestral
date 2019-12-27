@@ -43,7 +43,7 @@ class DropboxOAuth2FlowImplicitBase(object):
 
         return self.build_url("/oauth2/authorize", params, WEB_HOST)
 
-    def build_path(self, target, params=None):
+    def build_path(self, target: str, params: dict=None) -> str:
         """Build the path component for an API URL.
 
         This method urlencodes the parameters, adds them
@@ -70,7 +70,7 @@ class DropboxOAuth2FlowImplicitBase(object):
         else:
             return target_path
 
-    def build_url(self, target, params=None, host=API_HOST):
+    def build_url(self, target: str, params: dict=None, host: str=API_HOST) -> str:
         """Build an API URL.
 
         This method adds scheme and hostname to the path
@@ -78,6 +78,7 @@ class DropboxOAuth2FlowImplicitBase(object):
 
         :param str target: A target url (e.g. "/files") to build upon.
         :param dict params: Optional dictionary of parameters (name to value).
+        :param str host: Host name, defaults to 'api.dropboxapi.com'.
         :return: The full API URL.
         :rtype: str
         """
@@ -94,8 +95,9 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
 
     REDIRECT_URI = "https://www.dropbox.com/1/oauth2/display_token"
 
-    def __init__(self, consumer_key, redirect_uri=REDIRECT_URI, session=None,
-                 csrf_token_session_key="dropbox-auth-csrf-token", locale=None):
+    def __init__(self, consumer_key: str, redirect_uri: str=REDIRECT_URI,
+                 session: dict=None, csrf_token_session_key: str="dropbox-auth-csrf-token",
+                 locale: str=None) -> None:
         """
         Construct an instance.
 
@@ -122,7 +124,7 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
             self.session = session
         self.csrf_token_session_key = csrf_token_session_key
 
-    def start(self, url_state=None):
+    def start(self, url_state: str=None) -> str:
         """
         Starts the OAuth 2 authorization process.
 
@@ -155,7 +157,7 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
         return self._get_authorize_url(self.redirect_uri, state)
 
     @staticmethod
-    def finish(access_token):
+    def finish(access_token: str) -> OAuth2FlowNoRedirectResult:
         """
         Finish OAuth Implicit Grant flow by verifying token and retrieving account info.
         """
@@ -168,9 +170,11 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
         return OAuth2FlowNoRedirectResult(access_token, res.account_id, "")
 
     @staticmethod
-    def invalidate_token(access_token):
+    def invalidate_token(access_token: str) -> None:
         """
         Invalidates :param:`access_token` with Dropbox. Call this when unlinking an app.
+
+        :raises: MaestralApiError
         """
         dbx = dropbox.Dropbox(access_token)
         try:

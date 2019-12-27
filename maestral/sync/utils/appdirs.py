@@ -15,7 +15,7 @@ from maestral.config.base import get_home_dir, get_conf_path
 logger = logging.getLogger(__name__)
 
 
-def get_log_path(subfolder=None, filename=None, create=True):
+def get_log_path(subfolder: str=None, filename: str=None, create: bool=True) -> str:
     """
     Returns the default log path for the platform. This will be:
 
@@ -50,7 +50,7 @@ def get_log_path(subfolder=None, filename=None, create=True):
     return log_path
 
 
-def get_cache_path(subfolder=None, filename=None, create=True):
+def get_cache_path(subfolder: str=None, filename: str=None, create: bool=True) -> str:
     """
     Returns the default cache path for the platform. This will be:
 
@@ -68,7 +68,7 @@ def get_cache_path(subfolder=None, filename=None, create=True):
         return get_log_path(subfolder, filename, create)
 
 
-def get_autostart_path(filename=None, create=True):
+def get_autostart_path(filename: str=None, create: bool=True) -> str:
     """
     Returns the default cache path for the platform. This will be:
 
@@ -91,7 +91,7 @@ def get_autostart_path(filename=None, create=True):
     return autostart_path
 
 
-def get_runtime_path(subfolder=None, filename=None, create=True):
+def get_runtime_path(subfolder: str=None, filename: str=None, create: bool=True) -> str:
     """
     Returns the default runtime directory for the platform. This will be:
 
