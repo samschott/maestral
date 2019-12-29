@@ -571,6 +571,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         # schedule restart after current process has quit
         pid = os.getpid()  # get ID of current process
         if IS_MACOS_BUNDLE:
+            # noinspection PyUnresolvedReferences
             launch_command = os.path.join(sys._MEIPASS, "main")
             Popen("lsof -p {0} +r 1 &>/dev/null; {0}".format(launch_command), shell=True)
         if platform.system() == "Darwin":
@@ -614,6 +615,7 @@ def _is_pyqt_obj(obj):
         return False
 
 
+# noinspection PyArgumentList
 def run():
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
