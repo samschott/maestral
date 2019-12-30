@@ -15,7 +15,6 @@ import time
 from threading import Thread
 import logging.handlers
 from collections import namedtuple, deque
-from typing import Union, List, Dict, Any, Optional
 
 # external packages
 import click
@@ -87,26 +86,26 @@ class CachedHandler(logging.Handler):
 
     :param int maxlen: Maximum number of records to store.
     """
-    def __init__(self, maxlen: Optional[int]=None) -> None:
+    def __init__(self, maxlen=None):
         logging.Handler.__init__(self)
         self.cached_records = deque([], maxlen)
 
-    def emit(self, record: logging.LogRecord) -> None:
+    def emit(self, record):
         self.format(record)
         self.cached_records.append(record)
         if NOTIFY_SOCKET and system_notifier:
             system_notifier.notify(f"STATUS={record.message}")
 
-    def getLastMessage(self) -> str:
+    def getLastMessage(self):
         if len(self.cached_records) > 0:
             return self.cached_records[-1].message
         else:
             return ""
 
-    def getAllMessages(self) -> List[str]:
+    def getAllMessages(self):
         return [r.message for r in self.cached_records]
 
-    def clear(self) -> None:
+    def clear(self):
         self.cached_records.clear()
 
 
@@ -140,7 +139,7 @@ class Maestral(object):
 
     _daemon_running = True  # for integration with Pyro
 
-    def __init__(self, run: bool=True) -> None:
+    def __init__(self, run=True):
 
         self.client = MaestralApiClient()
 
@@ -186,21 +185,21 @@ class Maestral(object):
             self.update_thread.start()
 
     @staticmethod
-    def set_conf(section: str, name: str, value: Any) -> Any:
+    def set_conf(section, name, value):
         CONF.set(section, name, value)
 
     @staticmethod
-    def get_conf(section: str, name: str) -> Any:
+    def get_conf(section, name):
         return CONF.get(section, name)
 
     @staticmethod
-    def set_log_level(level_num: int):
+    def set_log_level(level_num):
         rfh.setLevel(level_num)
         sh.setLevel(level_num)
         CONF.set("app", "log_level", level_num)
 
     @staticmethod
-    def pending_link() -> bool:
+    def pending_link():
         """
         Bool indicating if auth tokens are stored in the system's keychain. This may raise
         a KeyringLocked exception if the user's keychain cannot be accessed. This
@@ -213,77 +212,77 @@ class Maestral(object):
         return auth_session.load_token() is None
 
     @staticmethod
-    def pending_dropbox_folder() -> bool:
+    def pending_dropbox_folder():
         """Bool indicating if a local Dropbox directory has been set."""
         return not osp.isdir(CONF.get("main", "path"))
 
     @staticmethod
-    def pending_first_download() -> bool:
+    def pending_first_download():
         """Bool indicating if the initial download has already occurred.."""
         return (CONF.get("internal", "lastsync") == 0 or
                 CONF.get("internal", "cursor") == "")
 
     @property
-    def syncing(self) -> bool:
+    def syncing(self):
         """Bool indicating if Maestral is syncing. It will be ``True`` if syncing is
         not paused by the user *and* Maestral is connected to the internet."""
         return self.monitor.syncing.is_set()
 
     @property
-    def paused(self) -> bool:
+    def paused(self):
         """Bool indicating if syncing is paused by the user. This is set by calling
         :meth:`pause`."""
         return not self.monitor._auto_resume_on_connect
 
     @property
-    def stopped(self) -> bool:
+    def stopped(self):
         """Bool indicating if syncing is stopped, for instance because of an exception."""
         return not self.monitor.running.is_set()
 
     @property
-    def connected(self) -> bool:
+    def connected(self):
         """Bool indicating if Dropbox servers can be reached."""
         return self.monitor.connected.is_set()
 
     @property
-    def status(self) -> str:
+    def status(self):
         """Returns a string with the last status message. This can be displayed as
         information to the user but should not be relied on otherwise."""
         return ch_info.getLastMessage()
 
     @property
-    def notify(self) -> bool:
+    def notify(self):
         """Bool indicating if notifications are enabled or disabled."""
         return self.sync.notify.enabled
 
     @notify.setter
-    def notify(self, boolean: bool) -> None:
+    def notify(self, boolean):
         """Setter: Bool indicating if notifications are enabled."""
         self.sync.notify.enabled = boolean
 
     @property
-    def dropbox_path(self) -> str:
+    def dropbox_path(self):
         """Returns the path to the local Dropbox directory. Read only. Use
         :meth:`create_dropbox_directory` or :meth:`move_dropbox_directory` to set or
         change the Dropbox directory location instead. """
         return self.sync.dropbox_path
 
     @property
-    def excluded_folders(self) -> List[str]:
+    def excluded_folders(self):
         """Returns a list of excluded folders (read only). Use :meth:`exclude_folder`,
         :meth:`include_folder` or :meth:`set_excluded_folders` change which folders are
         excluded from syncing."""
         return self.sync.excluded_folders
 
     @property
-    def sync_errors(self) -> List[Dict[str]]:
+    def sync_errors(self):
         """Returns list containing the current sync errors as dicts."""
         sync_errors = list(self.sync.sync_errors.queue)
         sync_errors_dicts = [maestral_error_to_dict(e) for e in sync_errors]
         return sync_errors_dicts
 
     @property
-    def maestral_errors(self) -> List[Dict[str]]:
+    def maestral_errors(self):
         """Returns a list of Maestral's errors as dicts. This does not include lost
         internet connections or file sync errors which only emit warnings and are tracked
         and cleared separately. Errors listed here must be acted upon for Maestral to
@@ -295,20 +294,20 @@ class Maestral(object):
         return maestral_errors_dicts
 
     @staticmethod
-    def clear_maestral_errors() -> None:
+    def clear_maestral_errors():
         """Manually clears all Maestral errors. This should be used after they have been
         resolved by the user through the GUI or CLI.
         """
         ch_error.clear()
 
     @property
-    def account_profile_pic_path(self) -> str:
+    def account_profile_pic_path(self):
         """Returns the path of the current account's profile picture. There may not be
         an actual file at that path, if the user did not set a profile picture or the
         picture has not yet been downloaded."""
         return get_cache_path("maestral", CONFIG_NAME + "_profile_pic.jpeg")
 
-    def get_file_status(self, local_path: str) -> str:
+    def get_file_status(self, local_path):
         """
         Returns the sync status of an individual file.
 
@@ -337,7 +336,7 @@ class Maestral(object):
         else:
             return "unwatched"
 
-    def get_activity(self) -> Dict[List[str]]:
+    def get_activity(self):
         """
         Returns a dictionary with lists of all file currently queued for or being synced.
 
@@ -362,7 +361,7 @@ class Maestral(object):
         return dict(uploading=uploading, downloading=downloading)
 
     @handle_disconnect
-    def get_account_info(self) -> Dict[Union[str, bool]]:
+    def get_account_info(self):
         """
         Gets account information from Dropbox and returns it as a dictionary.
         The entries will either be of type ``str`` or ``bool``.
@@ -375,7 +374,7 @@ class Maestral(object):
         return dropbox_stone_to_dict(res)
 
     @handle_disconnect
-    def get_space_usage(self) -> Dict[Union[str, bool]]:
+    def get_space_usage(self):
         """
         Gets the space usage stored by Dropbox and returns it as a dictionary.
         The entries will either be of type ``str`` or ``bool``.
@@ -387,7 +386,7 @@ class Maestral(object):
         return dropbox_stone_to_dict(res)
 
     @handle_disconnect
-    def get_profile_pic(self) -> Union[str, None]:
+    def get_profile_pic(self):
         """
         Attempts to download the user's profile picture from Dropbox. The picture saved in
         Maestral's cache directory for retrieval when there is no internet connection.
@@ -412,7 +411,7 @@ class Maestral(object):
                 self._delete_old_profile_pics()
 
     @handle_disconnect
-    def list_folder(self, dbx_path, **kwargs) -> List[dict]:
+    def list_folder(self, dbx_path, **kwargs):
         """
         List all items inside the folder given by :param:`dbx_path`.
 
@@ -429,7 +428,7 @@ class Maestral(object):
         return entries
 
     @staticmethod
-    def _delete_old_profile_pics() -> None:
+    def _delete_old_profile_pics():
         # delete all old pictures
         for file in os.listdir(get_cache_path("maestral")):
             if file.startswith(CONFIG_NAME + "_profile_pic"):
@@ -438,7 +437,7 @@ class Maestral(object):
                 except OSError:
                     pass
 
-    def rebuild_index(self) -> None:
+    def rebuild_index(self):
         """
         Rebuilds the Maestral index and resumes syncing afterwards if it has been
         running.
@@ -448,31 +447,31 @@ class Maestral(object):
 
         self.monitor.rebuild_rev_file()
 
-    def start_sync(self, overload=None) -> None:
+    def start_sync(self, overload=None):
         """
         Creates syncing threads and starts syncing.
         """
         self.monitor.start()
 
-    def resume_sync(self, overload=None) -> None:
+    def resume_sync(self, overload=None):
         """
         Resumes the syncing threads if paused.
         """
         self.monitor.resume()
 
-    def pause_sync(self, overload=None) -> None:
+    def pause_sync(self, overload=None):
         """
         Pauses the syncing threads if running.
         """
         self.monitor.pause()
 
-    def stop_sync(self, overload=None) -> None:
+    def stop_sync(self, overload=None):
         """
         Stops the syncing threads if running, destroys observer thread.
         """
         self.monitor.stop()
 
-    def unlink(self) -> None:
+    def unlink(self):
         """
         Unlinks the configured Dropbox account but leaves all downloaded files
         in place. All syncing metadata will be removed as well. Connection and API errors
@@ -495,7 +494,7 @@ class Maestral(object):
 
         logger.info("Unlinked Dropbox account.")
 
-    def exclude_folder(self, dbx_path: str) -> None:
+    def exclude_folder(self, dbx_path):
         """
         Excludes folder from sync and deletes local files. It is safe to call
         this method with folders which have already been excluded.
@@ -530,7 +529,7 @@ class Maestral(object):
         if osp.isdir(local_path_cased):
             shutil.rmtree(local_path_cased)
 
-    def include_folder(self, dbx_path: str) -> None:
+    def include_folder(self, dbx_path):
         """
         Includes folder in sync and downloads in the background. It is safe to
         call this method with folders which have already been included, they
@@ -577,7 +576,7 @@ class Maestral(object):
             self.sync.queued_folder_downloads.put(folder)
 
     @handle_disconnect
-    def _include_folder_without_subfolders(self, dbx_path: str) -> None:
+    def _include_folder_without_subfolders(self, dbx_path):
         """Sets a folder to included without explicitly including its subfolders. This
         is to be used internally, when a folder has been removed from the excluded list,
         but some of its subfolders may have been added."""
@@ -594,7 +593,7 @@ class Maestral(object):
         self.sync.queued_folder_downloads.put(dbx_path)
 
     @handle_disconnect
-    def set_excluded_folders(self, folder_list: Optional[List[str]]=None) -> List[str]:
+    def set_excluded_folders(self, folder_list=None):
         """
         Sets the list of excluded folders to `folder_list`. If not given, gets all top
         level folder paths from Dropbox and asks user to include or exclude. Folders
@@ -641,7 +640,7 @@ class Maestral(object):
         return excluded_folders
 
     @staticmethod
-    def excluded_status(dbx_path: str) -> str:
+    def excluded_status(dbx_path):
         """
         Returns 'excluded', 'partially excluded' or 'included'. This function will not
         check if the item actually exists on Dropbox.
@@ -663,7 +662,7 @@ class Maestral(object):
             return "included"
 
     @with_sync_paused
-    def move_dropbox_directory(self, new_path: Optional[str]=None):
+    def move_dropbox_directory(self, new_path=None):
         """
         Change or set local dropbox directory. This moves all local files to
         the new location. If a file or folder already exists at this location,
@@ -703,7 +702,7 @@ class Maestral(object):
         self.sync.dropbox_path = new_path
 
     @with_sync_paused
-    def create_dropbox_directory(self, path: Optional[str]=None, overwrite: bool=True) -> None:
+    def create_dropbox_directory(self, path=None, overwrite=True):
         """
         Set a new local dropbox directory.
 
@@ -732,7 +731,7 @@ class Maestral(object):
         self.sync.dropbox_path = path
 
     @staticmethod
-    def _ask_for_path(default: str=osp.join("~", CONF.get("main", "default_dir_name"))) -> str:
+    def _ask_for_path(default=osp.join("~", CONF.get("main", "default_dir_name"))):
         """
         Asks for Dropbox path.
         """
@@ -760,14 +759,14 @@ class Maestral(object):
             else:
                 return dropbox_path
 
-    def to_local_path(self, dbx_path: str) -> str:
+    def to_local_path(self, dbx_path):
         return self.sync.to_local_path(dbx_path)
 
     @staticmethod
-    def check_for_updates() -> Dict[str]:
+    def check_for_updates():
         return check_update_available()
 
-    def _periodic_refresh(self) -> None:
+    def _periodic_refresh(self):
         while True:
             # update account info
             self.get_account_info()
@@ -779,12 +778,12 @@ class Maestral(object):
                 CONF.set("app", "latest_release", res["latest_release"])
             time.sleep(60*60)  # 60 min
 
-    def _periodic_watchdog(self) -> None:
+    def _periodic_watchdog(self):
         while self.monitor._threads_alive():
             system_notifier.notify("WATCHDOG=1")
             time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
 
-    def shutdown_pyro_daemon(self) -> None:
+    def shutdown_pyro_daemon(self):
         """Does nothing except for setting the _daemon_running flag to ``False``. This
         will be checked by Pyro periodically to shut down the daemon when requested."""
         self._daemon_running = False
@@ -792,16 +791,16 @@ class Maestral(object):
             # notify systemd that we are shutting down
             system_notifier.notify("STOPPING=1")
 
-    def _loop_condition(self) -> bool:
+    def _loop_condition(self):
         return self._daemon_running
 
-    def __del__(self) -> None:
+    def __del__(self):
         try:
             self.monitor.stop()
-        except Exception:
+        except:
             pass
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         email = CONF.get("account", "email")
         account_type = CONF.get("account", "type")
 

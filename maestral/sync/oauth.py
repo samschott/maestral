@@ -40,12 +40,12 @@ class OAuth2Session(object):
     InvalidToken = 1
     ConnectionFailed = 2
 
-    def __init__(self) -> None:
+    def __init__(self):
 
         self.account_id = CONF.get("account", "account_id")
         self.access_token = ""
 
-    def load_token(self) -> str:
+    def load_token(self):
         """
         Check if auth key has been saved.
 
@@ -62,14 +62,14 @@ class OAuth2Session(object):
             info = "Please make sure that your keyring is unlocked and restart Maestral."
             raise KeyringLocked(info)
 
-    def get_auth_url(self) -> str:
+    def get_auth_url(self):
         """Gets the auth URL to start the OAuth2 implicit grant flow."""
 
         self.auth_flow = DropboxOAuth2FlowImplicit(APP_KEY)
         authorize_url = self.auth_flow.start()
         return authorize_url
 
-    def verify_auth_token(self, token: str) -> int:
+    def verify_auth_token(self, token):
         """
         Verify the provided authorization token with Dropbox servers.
 
@@ -88,7 +88,7 @@ class OAuth2Session(object):
         except ConnectionError:
             return self.ConnectionFailed
 
-    def link(self) -> None:
+    def link(self):
         """Command line flow to get an auth key from Dropbox and save it in the system
         keyring."""
         authorize_url = self.get_auth_url()
@@ -108,7 +108,7 @@ class OAuth2Session(object):
 
         self.save_creds()
 
-    def save_creds(self) -> None:
+    def save_creds(self):
         """Saves auth key to system keyring."""
         CONF.set("account", "account_id", self.account_id)
         try:
@@ -118,7 +118,7 @@ class OAuth2Session(object):
             logger.error("Could not access the user keyring to save your authentication "
                          "token. Please make sure that the keyring is unlocked.")
 
-    def delete_creds(self) -> None:
+    def delete_creds(self):
         """Deletes auth key from system keyring."""
         CONF.set("account", "account_id", "")
         try:

@@ -15,19 +15,17 @@ startup time of individual CLI commands.
 import os
 import functools
 import logging
-from typing import Callable, Any, Sequence, List
 
 # external packages
 import click
 import Pyro5.errors
-import Pyro5.client
 
 OK = click.style("[OK]", fg="green")
 FAILED = click.style("[FAILED]", fg="red")
 KILLED = click.style("[KILLED]", fg="red")
 
 
-def _is_maestral_linked(config_name: str) -> bool:
+def _is_maestral_linked(config_name):
     """
     This does not create a Maestral instance and is therefore safe to call from anywhere
     at any time.
@@ -47,7 +45,7 @@ def _is_maestral_linked(config_name: str) -> bool:
         return False
 
 
-def start_daemon_subprocess_with_cli_feedback(config_name: str, log_to_console: bool=False) -> None:
+def start_daemon_subprocess_with_cli_feedback(config_name, log_to_console=False):
     """Wrapper around `daemon.start_maestral_daemon_process`
     with command line feedback."""
     from maestral.sync.daemon import start_maestral_daemon_process
@@ -60,7 +58,7 @@ def start_daemon_subprocess_with_cli_feedback(config_name: str, log_to_console: 
         click.echo("\rStarting Maestral...        " + FAILED)
 
 
-def stop_daemon_with_cli_feedback(config_name: str) -> None:
+def stop_daemon_with_cli_feedback(config_name):
     """Wrapper around `daemon.stop_maestral_daemon_process`
     with command line feedback."""
 
@@ -76,7 +74,7 @@ def stop_daemon_with_cli_feedback(config_name: str) -> None:
         click.echo("\rStopping Maestral...        " + KILLED)
 
 
-def _check_for_updates() -> None:
+def _check_for_updates():
     """Checks if updates are available by reading the cached release number from the
     config file and notifies the user."""
     from maestral import __version__
@@ -93,7 +91,7 @@ def _check_for_updates() -> None:
                     fg="red")
 
 
-def _check_for_fatal_errors(m: Pyro5.client.Proxy) -> bool:
+def _check_for_fatal_errors(m):
     """Checks for fatal errors such as revoked Dropbox access, deleted Dropbox folder etc."""
     maestral_err_list = m.maestral_errors
 
@@ -116,7 +114,7 @@ def _check_for_fatal_errors(m: Pyro5.client.Proxy) -> bool:
         return False
 
 
-def catch_maestral_errors(func: Callable) -> Callable:
+def catch_maestral_errors(func):
     """
     Decorator that catches all MaestralApiErrors and prints them as a useful message to
     the user instead of printing the full stacktrace to the console.
@@ -125,7 +123,7 @@ def catch_maestral_errors(func: Callable) -> Callable:
     from maestral.sync.errors import MaestralApiError
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs) -> Any:
+    def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except MaestralApiError as exc:
@@ -141,7 +139,7 @@ def catch_maestral_errors(func: Callable) -> Callable:
     return wrapper
 
 
-def format_table(columns: Sequence, headers: Sequence=None, spacing: int=2) -> str:
+def format_table(columns, headers=None, spacing=2):
 
     if headers:
         for c, h in zip(columns, headers):
@@ -162,7 +160,7 @@ def format_table(columns: Sequence, headers: Sequence=None, spacing: int=2) -> s
 # Command groups
 # ========================================================================================
 
-def _check_and_set_config(ctx: click.Context, param: str, value: str) -> str:
+def _check_and_set_config(ctx, param, value):
     """
     Checks if the selected config name, passed as :param:`value`, is valid and sets
     the environment variable `MAESTRAL_CONFIG` accordingly.
@@ -199,23 +197,23 @@ with_config_opt = click.option(
 
 
 @click.group()
-def main() -> None:
+def main():
     """Maestral Dropbox Client for Linux and macOS."""
     _check_for_updates()
 
 
 @main.group()
-def config() -> None:
+def config():
     """Manage different Maestral configuration environments."""
 
 
 @main.group()
-def log() -> None:
+def log():
     """View and manage Maestral's log."""
 
 
 @main.group()
-def excluded() -> None:
+def excluded():
     """View and manage excluded folders."""
 
 
@@ -224,7 +222,7 @@ def excluded() -> None:
 # ========================================================================================
 
 @main.command()
-def about() -> None:
+def about():
     """Returns the version number and other information."""
     import time
     from maestral import __url__
@@ -241,7 +239,7 @@ def about() -> None:
 
 @main.command()
 @with_config_opt
-def gui(config_name: str) -> None:
+def gui(config_name):
     """Runs Maestral with a GUI."""
     try:
         from maestral.gui.main import run
@@ -258,7 +256,7 @@ def gui(config_name: str) -> None:
               help="Always prints logs to stdout.")
 @with_config_opt
 @catch_maestral_errors
-def start(config_name: str, foreground: bool, verbose: bool) -> None:
+def start(config_name: str, foreground: bool, verbose: bool):
     """Starts the Maestral as a daemon."""
 
     from maestral.sync.daemon import get_maestral_pid
@@ -302,14 +300,14 @@ def start(config_name: str, foreground: bool, verbose: bool) -> None:
 
 @main.command()
 @with_config_opt
-def stop(config_name: str) -> None:
+def stop(config_name: str):
     """Stops the Maestral daemon."""
     stop_daemon_with_cli_feedback(config_name)
 
 
 @main.command()
 @with_config_opt
-def restart(config_name: str) -> None:
+def restart(config_name: str):
     """Restarts the Maestral daemon."""
     stop_daemon_with_cli_feedback(config_name)
     start_daemon_subprocess_with_cli_feedback(config_name)
@@ -317,7 +315,7 @@ def restart(config_name: str) -> None:
 
 @main.command()
 @with_config_opt
-def pause(config_name: str) -> None:
+def pause(config_name: str):
     """Pauses syncing."""
     from maestral.sync.daemon import MaestralProxy
 
@@ -331,7 +329,7 @@ def pause(config_name: str) -> None:
 
 @main.command()
 @with_config_opt
-def resume(config_name: str) -> None:
+def resume(config_name: str):
     """Resumes syncing."""
     from maestral.sync.daemon import MaestralProxy
 
@@ -347,7 +345,7 @@ def resume(config_name: str) -> None:
 
 @main.command()
 @with_config_opt
-def status(config_name: str) -> None:
+def status(config_name: str):
     """Returns the current status of the Maestral daemon."""
     from maestral.sync.daemon import MaestralProxy
 
@@ -373,7 +371,7 @@ def status(config_name: str) -> None:
 @main.command()
 @click.argument("local_path", type=click.Path(exists=True))
 @with_config_opt
-def file_status(config_name: str, local_path: str) -> None:
+def file_status(config_name: str, local_path: str):
     """Returns the current sync status of a given file or folder."""
     from maestral.sync.daemon import MaestralProxy
 
@@ -392,7 +390,7 @@ def file_status(config_name: str, local_path: str) -> None:
 
 @main.command()
 @with_config_opt
-def activity(config_name: str) -> None:
+def activity(config_name: str):
     """Live view of all items being synced."""
     from maestral.sync.daemon import MaestralProxy
 
@@ -462,7 +460,7 @@ def activity(config_name: str) -> None:
 
 @main.command()
 @with_config_opt
-def errors(config_name: str) -> None:
+def errors(config_name: str):
     """Lists all sync errors."""
     from maestral.sync.daemon import MaestralProxy
 
@@ -494,7 +492,7 @@ def errors(config_name: str) -> None:
 @click.option("-r", "relink", is_flag=True, default=False,
               help="Relink to the current account. Keeps the sync state.")
 @catch_maestral_errors
-def link(config_name: str, relink: bool) -> None:
+def link(config_name: str, relink: bool):
     """Links Maestral with your Dropbox account."""
 
     if relink or not _is_maestral_linked(config_name):
@@ -515,7 +513,7 @@ def link(config_name: str, relink: bool) -> None:
 @main.command()
 @with_config_opt
 @catch_maestral_errors
-def unlink(config_name: str) -> None:
+def unlink(config_name: str):
     """Unlinks your Dropbox account."""
 
     if _is_maestral_linked(config_name):
@@ -535,7 +533,7 @@ def unlink(config_name: str) -> None:
 @main.command()
 @with_config_opt
 @click.option("--yes/--no", "-Y/-N", default=True)
-def notify(config_name: str, yes: bool) -> None:
+def notify(config_name: str, yes: bool):
     """Enables or disables system notifications."""
     # This is safe to call, even if the GUI or daemon are running.
     from maestral.sync.daemon import MaestralProxy
@@ -550,7 +548,7 @@ def notify(config_name: str, yes: bool) -> None:
 @main.command()
 @with_config_opt
 @click.argument("new_path", required=False, type=click.Path(writable=True))
-def set_dir(config_name: str, new_path: str) -> None:
+def set_dir(config_name: str, new_path: str):
     """Change the location of your Dropbox folder."""
 
     if _is_maestral_linked(config_name):
@@ -571,7 +569,7 @@ def set_dir(config_name: str, new_path: str) -> None:
 @click.option("-a", "list_all", is_flag=True, default=False,
               help="Include directory entries whose names begin with a dot (.).")
 @catch_maestral_errors
-def ls(dropbox_path: str, config_name: str, list_all: bool) -> None:
+def ls(dropbox_path: str, config_name: str, list_all: bool):
     """Lists contents of a Dropbox directory."""
 
     if not dropbox_path.startswith("/"):
@@ -604,7 +602,7 @@ def ls(dropbox_path: str, config_name: str, list_all: bool) -> None:
 
 @main.command()
 @with_config_opt
-def account_info(config_name: str) -> None:
+def account_info(config_name: str):
     """Prints your Dropbox account information."""
 
     if _is_maestral_linked(config_name):
@@ -628,7 +626,7 @@ def account_info(config_name: str) -> None:
 @main.command()
 @with_config_opt
 @catch_maestral_errors
-def rebuild_index(config_name: str) -> None:
+def rebuild_index(config_name: str):
     """Rebuilds Maestral's index. May take several minutes."""
 
     if _is_maestral_linked(config_name):
@@ -698,7 +696,7 @@ def rebuild_index(config_name: str) -> None:
 @with_config_opt
 @click.argument("dropbox_path", type=click.Path())
 @catch_maestral_errors
-def excluded_add(dropbox_path: str, config_name: str) -> None:
+def excluded_add(dropbox_path: str, config_name: str):
     """Adds a folder to the excluded list and re-syncs."""
 
     if not dropbox_path.startswith("/"):
@@ -729,7 +727,7 @@ def excluded_add(dropbox_path: str, config_name: str) -> None:
 @with_config_opt
 @click.argument("dropbox_path", type=click.Path())
 @catch_maestral_errors
-def excluded_remove(dropbox_path: str, config_name: str) -> None:
+def excluded_remove(dropbox_path: str, config_name: str):
     """Removes a folder from the excluded list and re-syncs."""
 
     if not dropbox_path.startswith("/"):
@@ -760,7 +758,7 @@ def excluded_remove(dropbox_path: str, config_name: str) -> None:
 
 @excluded.command(name="list")
 @with_config_opt
-def excluded_list(config_name: str) -> None:
+def excluded_list(config_name: str):
     """Lists all excluded folders."""
 
     if _is_maestral_linked(config_name):
@@ -784,7 +782,7 @@ def excluded_list(config_name: str) -> None:
 
 @log.command()
 @with_config_opt
-def show(config_name: str) -> None:
+def show(config_name: str):
     """Prints Maestral's logs to the console."""
     from maestral.sync.utils.appdirs import get_log_path
 
@@ -803,7 +801,7 @@ def show(config_name: str) -> None:
 
 @log.command()
 @with_config_opt
-def clear(config_name: str) -> None:
+def clear(config_name: str):
     """Clears Maestral's log file."""
     from maestral.sync.utils.appdirs import get_log_path
 
@@ -830,7 +828,7 @@ def clear(config_name: str) -> None:
 @log.command()
 @click.argument('level_name', required=False, type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
 @with_config_opt
-def level(config_name: str, level_name: str) -> None:
+def level(config_name: str, level_name: str):
     """Gets or sets the log level. Changes will take effect after restart."""
     if level_name:
         from maestral.sync.daemon import MaestralProxy
@@ -852,7 +850,7 @@ def level(config_name: str, level_name: str) -> None:
 # Management of different configurations
 # ========================================================================================
 
-def list_configs() -> List[str]:
+def list_configs():
     """Lists all maestral configs"""
     from maestral.config.base import get_conf_path
     configs = []
@@ -865,7 +863,7 @@ def list_configs() -> List[str]:
 
 @config.command(name="add")
 @click.argument("name")
-def config_add(name: str) -> None:
+def config_add(name: str):
     """Set up and activate a fresh Maestral configuration."""
     if name in list_configs():
         click.echo("Configuration '{}' already exists.".format(name))
@@ -878,7 +876,7 @@ def config_add(name: str) -> None:
 
 
 @config.command(name="list")
-def config_list() -> None:
+def config_list():
     """List all Maestral configurations."""
     click.echo("Available Maestral configurations:")
     for c in list_configs():
@@ -887,7 +885,7 @@ def config_list() -> None:
 
 @config.command(name="remove")
 @click.argument("name")
-def config_remove(name: str) -> None:
+def config_remove(name: str):
     """Remove a Maestral configuration."""
     if name not in list_configs():
         click.echo("Configuration '{}' could not be found.".format(name))

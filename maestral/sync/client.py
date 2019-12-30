@@ -13,12 +13,10 @@ import time
 import datetime
 import logging
 import functools
-from typing import Union, Callable, Sequence, Any, Optional
 
 # external packages
 import requests
 import dropbox
-from dropbox import files, users
 
 # maestral modules
 from maestral.sync.oauth import OAuth2Session
@@ -26,10 +24,6 @@ from maestral.config.main import CONF
 from maestral.sync.errors import api_to_maestral_error, os_to_maestral_error
 from maestral.sync.errors import CursorResetError
 from maestral import __version__
-
-
-# define custom types
-Metadata = Union[dropbox.files.FileMetadata, dropbox.files.FolderMetadata, dropbox.files.DeletedMetadata]
 
 
 logger = logging.getLogger(__name__)
@@ -60,7 +54,7 @@ OS_FILE_ERRORS = (
 )
 
 
-def bytes_to_str(num: float, suffix: str='B') -> str:
+def bytes_to_str(num, suffix='B'):
     """
     Convert number to a human readable string with decimal prefix.
 
@@ -78,7 +72,7 @@ def bytes_to_str(num: float, suffix: str='B') -> str:
 
 class SpaceUsage(dropbox.users.SpaceUsage):
 
-    def allocation_type(self) -> str:
+    def allocation_type(self):
         if self.allocation.is_team():
             return "team"
         elif self.allocation.is_individual():
@@ -86,7 +80,7 @@ class SpaceUsage(dropbox.users.SpaceUsage):
         else:
             return ""
 
-    def __str__(self) -> str:
+    def __str__(self):
 
         if self.allocation.is_individual():
             used = self.used
@@ -101,7 +95,7 @@ class SpaceUsage(dropbox.users.SpaceUsage):
         return f"{percent:.1%} of {bytes_to_str(allocated)} used"
 
 
-def to_maestral_error(dbx_path_arg: Optional[int]=None, local_path_arg: Optional[int]=None) -> Callable:
+def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
     """
     Decorator that converts all OS_FILE_ERRORS and DropboxExceptions to MaestralApiErrors.
 
@@ -109,10 +103,10 @@ def to_maestral_error(dbx_path_arg: Optional[int]=None, local_path_arg: Optional
     :param int local_path_arg: Argument number to take as local_path_arg for exception.
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func):
 
         @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
+        def wrapper(*args, **kwargs):
 
             dbx_path = args[dbx_path_arg] if dbx_path_arg else None
             local_path = args[local_path_arg] if local_path_arg else None
@@ -147,7 +141,7 @@ class MaestralApiClient(object):
     SDK_VERSION = "2.0"
     _timeout = 60
 
-    def __init__(self, timeout: int=_timeout):
+    def __init__(self, timeout=_timeout):
 
         # get Dropbox session
         self.auth = OAuth2Session()
@@ -167,13 +161,13 @@ class MaestralApiClient(object):
         )
 
     @to_maestral_error()
-    def get_account_info(self, dbid: Optional[str]=None) -> users.FullAccount:
+    def get_account_info(self, dbid=None):
         """
-        Gets account information for the given account ID or the current account..
+        Gets current account information.
 
         :param str dbid: Dropbox ID of account. If not given, will get the info of our own
             account.
-        :returns: :class:`dropbox.users.FullAccount` instance or ``None`` if failed.
+        :returns: :class:`dropbox.users.FullAccount` instance or `None` if failed.
         :rtype: dropbox.users.FullAccount
         """
         if dbid:
@@ -201,7 +195,7 @@ class MaestralApiClient(object):
         return res
 
     @to_maestral_error()
-    def get_space_usage(self) -> SpaceUsage:
+    def get_space_usage(self):
         """
         Gets current account space usage.
 
@@ -220,7 +214,7 @@ class MaestralApiClient(object):
         return res
 
     @to_maestral_error()
-    def unlink(self) -> None:
+    def unlink(self):
         """
         Unlinks the Dropbox account and deletes local sync information.
         """
@@ -228,7 +222,7 @@ class MaestralApiClient(object):
         self.dbx.auth_token_revoke()  # should only raise auth errors
 
     @to_maestral_error(dbx_path_arg=1)
-    def get_metadata(self, dbx_path: str, **kwargs) -> Metadata:
+    def get_metadata(self, dbx_path, **kwargs):
         """
         Get metadata for Dropbox entry (file or folder). Returns `None` if no
         metadata is available. Keyword arguments are passed on to Dropbox SDK
@@ -252,7 +246,7 @@ class MaestralApiClient(object):
         return md
 
     @to_maestral_error(dbx_path_arg=1)
-    def list_revisions(self, dbx_path: str, mode: str="path", limit: int=10) -> files.ListRevisionsResult:
+    def list_revisions(self, dbx_path, mode="path", limit=10):
         """
         Lists all file revisions for the given file.
 
@@ -268,7 +262,7 @@ class MaestralApiClient(object):
         return self.dbx.files_list_revisions(dbx_path, mode=mode, limit=limit)
 
     @to_maestral_error(dbx_path_arg=1)
-    def download(self, dbx_path: str, dst_path: str, **kwargs) -> Metadata:
+    def download(self, dbx_path, dst_path, **kwargs):
         """
         Downloads file from Dropbox to our local folder.
 
@@ -293,7 +287,7 @@ class MaestralApiClient(object):
         return md
 
     @to_maestral_error(dbx_path_arg=2)
-    def upload(self, local_path: str, dbx_path: str, chunk_size_mb: int=5, **kwargs)  -> Metadata:
+    def upload(self, local_path, dbx_path, chunk_size_mb=5, **kwargs):
         """
         Uploads local file to Dropbox.
 
@@ -348,7 +342,7 @@ class MaestralApiClient(object):
         return md
 
     @to_maestral_error(dbx_path_arg=1)
-    def remove(self, dbx_path: str, **kwargs) -> Metadata:
+    def remove(self, dbx_path, **kwargs):
         """
         Removes file / folder from Dropbox.
 
@@ -367,7 +361,7 @@ class MaestralApiClient(object):
         return md
 
     @to_maestral_error(dbx_path_arg=2)
-    def move(self, dbx_path: str, new_path: str, **kwargs) -> Metadata:
+    def move(self, dbx_path, new_path, **kwargs):
         """
         Moves/renames files or folders on Dropbox.
 
@@ -391,7 +385,7 @@ class MaestralApiClient(object):
         return md
 
     @to_maestral_error(dbx_path_arg=1)
-    def make_dir(self, dbx_path: str, **kwargs) -> files.FolderMetadata:
+    def make_dir(self, dbx_path, **kwargs):
         """
         Creates folder on Dropbox.
 
@@ -408,7 +402,7 @@ class MaestralApiClient(object):
         return md
 
     @to_maestral_error(dbx_path_arg=1)
-    def get_latest_cursor(self, dbx_path: str, include_non_downloadable_files: bool=False, **kwargs) -> str:
+    def get_latest_cursor(self, dbx_path, include_non_downloadable_files=False, **kwargs):
         """
         Gets the latest cursor for the given folder and subfolders.
 
@@ -432,8 +426,8 @@ class MaestralApiClient(object):
         return res.cursor
 
     @to_maestral_error(dbx_path_arg=1)
-    def list_folder(self, dbx_path: str, retry: int=3, include_non_downloadable_files: bool=False,
-                    **kwargs) -> files.ListFolderResult:
+    def list_folder(self, dbx_path, retry=3, include_non_downloadable_files=False,
+                    **kwargs):
         """
         Lists contents of a folder on Dropbox as dictionary mapping unicode
         file names to FileMetadata|FolderMetadata entries.
@@ -484,7 +478,7 @@ class MaestralApiClient(object):
         return self.flatten_results(results)
 
     @staticmethod
-    def flatten_results(results: Sequence[files.ListFolderResult]) -> files.ListFolderResult:
+    def flatten_results(results):
         """
         Flattens a list of :class:`dropbox.files.ListFolderResult` instances
         and returns their entries only. Only the last cursor will be kept.
@@ -504,7 +498,7 @@ class MaestralApiClient(object):
         return results_flattened
 
     @to_maestral_error()
-    def wait_for_remote_changes(self, last_cursor: str, timeout: int=40) -> bool:
+    def wait_for_remote_changes(self, last_cursor, timeout=40):
         """
         Waits for remote changes since :param:`last_cursor`. Call this method
         after starting the Dropbox client and periodically to get the latest
@@ -542,7 +536,7 @@ class MaestralApiClient(object):
         return result.changes  # will be True or False
 
     @to_maestral_error()
-    def list_remote_changes(self, last_cursor: str) -> files.ListFolderResult:
+    def list_remote_changes(self, last_cursor):
         """
         Lists changes to remote Dropbox since :param:`last_cursor`. Call this
         after :method:`wait_for_remote_changes` returns ``True``.
