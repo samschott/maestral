@@ -58,7 +58,7 @@ DEFAULTS = [
     ('internal',  # section that saves the last-synced state
      {
          'cursor': '',  # remote cursor: represents last state synced from Dropbox
-         'lastsync': 0,  # local cursor: time-stamp of last upload
+         'lastsync': 0.0,  # local cursor: time-stamp of last upload
          'recent_changes': [],  # cached list of recent changes to display in GUI
      }
      ),
@@ -75,7 +75,7 @@ DEFAULTS = [
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = '9.0.0'
+CONF_VERSION = '9.1.0'
 
 
 def load_config(config_name):
