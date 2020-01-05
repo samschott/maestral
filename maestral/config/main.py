@@ -16,6 +16,7 @@ a full download on the next startup.
 
 import os
 from .user import UserConfig
+from .base import get_conf_path
 
 
 PACKAGE_NAME = os.getenv('MAESTRAL_CONFIG', 'maestral')
@@ -78,23 +79,33 @@ DEFAULTS = [
 CONF_VERSION = '9.1.0'
 
 
-def load_config(config_name):
-    global CONF
-    try:
-        CONF = UserConfig(
-            config_name, defaults=DEFAULTS, load=True,
-            version=CONF_VERSION, subfolder=SUBFOLDER, backup=True,
-            raw_mode=True
-        )
-    except Exception:
-        CONF = UserConfig(
-            config_name, defaults=DEFAULTS, load=False,
-            version=CONF_VERSION, subfolder=SUBFOLDER, backup=True,
-            raw_mode=True
-        )
+class MaestralConfig(object):
+    """Singleton config instance for Maestral"""
 
-    return CONF
+    _instances = {}
 
+    def __new__(cls, *args, **kwargs):
+        """
+        Create new instance for a new config name, otherwise return existing instance.
+        """
+        name = args[0]
 
-# Main configuration instance
-CONF = load_config(PACKAGE_NAME)
+        if name in cls._instances:
+            return cls._instances[args[0]]
+        else:
+            path = get_conf_path('maestral', create=True)
+            try:
+                conf = UserConfig(
+                    path, name, defaults=DEFAULTS, version=CONF_VERSION, load=True,
+                    backup=True, raw_mode=True, remove_obsolete=True
+                )
+            except OSError:
+                conf = UserConfig(
+                    path, name, defaults=DEFAULTS, version=CONF_VERSION, load=False,
+                    backup=True, raw_mode=True, remove_obsolete=True
+                )
+
+            conf._name = name
+
+            cls._instances[args[0]] = conf
+            return conf
