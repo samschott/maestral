@@ -43,13 +43,13 @@ def _is_maestral_linked(config_name):
         click.echo("Error: Cannot access user keyring to load Dropbox credentials.")
 
 
-def start_daemon_subprocess_with_cli_feedback(config_name, log_to_console=False):
+def start_daemon_subprocess_with_cli_feedback(config_name):
     """Wrapper around `daemon.start_maestral_daemon_process`
     with command line feedback."""
     from maestral.sync.daemon import start_maestral_daemon_process
 
     click.echo("Starting Maestral...", nl=False)
-    res = start_maestral_daemon_process(config_name, log_to_console=log_to_console)
+    res = start_maestral_daemon_process(config_name)
     if res:
         click.echo("\rStarting Maestral...        " + OK)
     else:
@@ -278,7 +278,7 @@ def start(config_name: str, foreground: bool, verbose: bool):
         from maestral.sync.daemon import start_maestral_daemon
         start_maestral_daemon(config_name)
     else:
-        start_daemon_subprocess_with_cli_feedback(config_name, log_to_console=verbose)
+        start_daemon_subprocess_with_cli_feedback(config_name)
 
 
 @main.command()

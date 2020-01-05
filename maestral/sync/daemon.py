@@ -164,7 +164,7 @@ def start_maestral_daemon_thread(config_name="maestral"):
     return _wait_for_startup(config_name, timeout=6)
 
 
-def start_maestral_daemon_process(config_name="maestral", log_to_console=False):
+def start_maestral_daemon_process(config_name="maestral"):
     """
     Starts the Maestral daemon as a separate process (by calling `start_maestral_daemon`).
     This command will create a new daemon on each run. Take care not to sync the same
@@ -173,14 +173,13 @@ def start_maestral_daemon_process(config_name="maestral", log_to_console=False):
     `config_name`.
 
     :param str config_name: The name of the Maestral configuration to use.
-    :param bool log_to_console: Do not suppress stdout if ``True``, defaults to ``False``.
     :returns: ``True`` if started, ``False`` otherwise.
     :rtype: bool
     """
     import subprocess
     import multiprocessing
 
-    STD_IN_OUT = None if log_to_console else subprocess.DEVNULL
+    STD_IN_OUT = subprocess.DEVNULL
 
     # use nested Popen and multiprocessing.Process to effectively create double fork
     # see Unix "double-fork magic"
