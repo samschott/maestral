@@ -30,19 +30,17 @@ def _is_maestral_linked(config_name):
     This does not create a Maestral instance and is therefore safe to call from anywhere
     at any time.
     """
-    os.environ["MAESTRAL_CONFIG"] = config_name
     from maestral.sync.main import Maestral
     from keyring.errors import KeyringLocked
 
     try:
-        if Maestral.pending_link():
+        if Maestral.pending_link(config_name):
             click.echo("No Dropbox account linked.")
             return False
         else:
             return True
     except KeyringLocked:
         click.echo("Error: Cannot access user keyring to load Dropbox credentials.")
-        return False
 
 
 def start_daemon_subprocess_with_cli_feedback(config_name, log_to_console=False):
@@ -78,9 +76,10 @@ def _check_for_updates():
     """Checks if updates are available by reading the cached release number from the
     config file and notifies the user."""
     from maestral import __version__
-    from maestral.config.main import CONF
+    from maestral.config.main import MaestralConfig
     from maestral.sync.utils.updates import check_version
 
+    CONF = MaestralConfig('maestral')
     latest_release = CONF.get("app", "latest_release")
 
     has_update = check_version(__version__, latest_release, '<')
@@ -162,25 +161,17 @@ def format_table(columns, headers=None, spacing=2):
 
 def _check_and_set_config(ctx, param, value):
     """
-    Checks if the selected config name, passed as :param:`value`, is valid and sets
-    the environment variable `MAESTRAL_CONFIG` accordingly.
+    Checks if the selected config name, passed as :param:`value`, is valid.
 
     :param ctx: Click context to be passed to command.
     :param param: Name of click parameter, in our case 'config_name'.
     :param value: Value  of click parameter, in our case the selected config.
     """
 
-    from maestral.config.main import load_config
-
     # check if valid config
     if value not in list_configs() and not value == "maestral":
         ctx.fail("Configuration '{}' does not exist. You can create new "
                  "configuration with 'maestral config add'.".format(value))
-
-    # set environment variable
-    os.environ["MAESTRAL_CONFIG"] = value
-    # reload config, in case it was already imported earlier
-    load_config(value)
 
     return value
 
@@ -243,7 +234,7 @@ def gui(config_name):
     """Runs Maestral with a GUI."""
     try:
         from maestral.gui.main import run
-        run()
+        run(config_name)
     except ImportError:
         click.echo("Error: PyQt5 is required to run the Maestral GUI. "
                    "Run `pip install pyqt5` to install it.")
@@ -266,22 +257,14 @@ def start(config_name: str, foreground: bool, verbose: bool):
         click.echo("Maestral daemon is already running.")
         return
 
-    from keyring.errors import KeyringLocked
-    from maestral.sync.main import Maestral, sh
+    from maestral.sync.main import Maestral
 
-    old_level = sh.level
-    sh.setLevel(logging.CRITICAL)
+    pending_link = not _is_maestral_linked(config_name)
+    pending_folder = Maestral.pending_dropbox_folder(config_name)
 
-    try:
-        pending_link = Maestral.pending_link()
-    except KeyringLocked:
-        click.echo("Error: Cannot access user keyring to load Dropbox credentials.")
-        return
-
-    # run setup if not yet linked
-    if pending_link or Maestral.pending_dropbox_folder():
-        # run setup
-        m = Maestral(run=False)
+    # run setup if not yet done
+    if pending_link or pending_folder:
+        m = Maestral(config_name, run=False)
         m.create_dropbox_directory()
         m.set_excluded_folders()
 
@@ -290,11 +273,11 @@ def start(config_name: str, foreground: bool, verbose: bool):
 
         del m
 
-    if foreground:  # start daemon in foreground
+    # start daemon
+    if foreground:
         from maestral.sync.daemon import start_maestral_daemon
-        sh.setLevel(old_level)
         start_maestral_daemon(config_name)
-    else:  # start daemon in subprocess
+    else:
         start_daemon_subprocess_with_cli_feedback(config_name, log_to_console=verbose)
 
 
@@ -518,16 +501,13 @@ def unlink(config_name: str):
 
     if _is_maestral_linked(config_name):
 
-        from maestral.sync.main import Maestral, sh
-        sh.setLevel(logging.CRITICAL)
+        from maestral.sync.main import Maestral
 
         stop_daemon_with_cli_feedback(config_name)
-        m = Maestral(run=False)
+        m = Maestral(config_name, run=False)
         m.unlink()
 
         click.echo("Unlinked Maestral.")
-    else:
-        click.echo("Maestral is not linked.")
 
 
 @main.command()
@@ -557,7 +537,7 @@ def set_dir(config_name: str, new_path: str):
         with MaestralProxy(config_name, fallback=True) as m:
             if not new_path:
                 # don't use the remote instance because we need console interaction
-                new_path = Maestral._ask_for_path()
+                new_path = Maestral._ask_for_path(config_name)
             m.move_dropbox_directory(new_path)
 
         click.echo("Dropbox folder moved to {}.".format(new_path))
@@ -606,14 +586,14 @@ def account_info(config_name: str):
     """Prints your Dropbox account information."""
 
     if _is_maestral_linked(config_name):
-        from maestral.config.main import CONF
+        from maestral.config.main import MaestralConfig
 
-        # we don't do ay exception handling here because we are only reading config values
+        conf = MaestralConfig(config_name)
 
-        email = CONF.get("account", "email")
-        account_type = CONF.get("account", "type").capitalize()
-        usage = CONF.get("account", "usage")
-        path = CONF.get("main", "path")
+        email = conf.get("account", "email")
+        account_type = conf.get("account", "type").capitalize()
+        usage = conf.get("account", "usage")
+        path = conf.get("main", "path")
 
         click.echo("")
         click.echo("Email:             {}".format(email))
@@ -763,10 +743,10 @@ def excluded_list(config_name: str):
 
     if _is_maestral_linked(config_name):
 
-        from maestral.config.main import CONF
+        from maestral.config.main import MaestralConfig
 
-        excluded_folders = CONF.get("main", "excluded_folders")
-
+        conf = MaestralConfig(config_name)
+        excluded_folders = conf.get("main", "excluded_folders")
         excluded_folders.sort()
 
         if len(excluded_folders) == 0:
@@ -839,9 +819,11 @@ def level(config_name: str, level_name: str):
         click.echo("Log level set to {}.".format(level_name))
     else:
         os.environ["MAESTRAL_CONFIG"] = config_name
-        from maestral.config.main import CONF
+        from maestral.config.main import MaestralConfig
 
-        level_num = CONF.get("app", "log_level")
+        conf = MaestralConfig(config_name)
+
+        level_num = conf.get("app", "log_level")
         level_name = logging.getLevelName(level_num)
         click.echo("Log level:  {}".format(level_name))
 
@@ -868,10 +850,9 @@ def config_add(name: str):
     if name in list_configs():
         click.echo("Configuration '{}' already exists.".format(name))
     else:
-        from maestral.config.main import load_config
-        load_config(name)
-        from maestral.config.main import CONF
-        CONF.set("main", "default_dir_name", "Dropbox ({})".format(name.capitalize()))
+        from maestral.config.main import MaestralConfig
+        conf = MaestralConfig(name)
+        conf.set("main", "default_dir_name", "Dropbox ({})".format(name.capitalize()))
         click.echo("Created configuration '{}'.".format(name))
 
 
