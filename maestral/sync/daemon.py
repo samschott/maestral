@@ -49,8 +49,6 @@ def _get_sock_name(config_name):
     Returns the unix socket location to be used for the config. This should default to
     the apps runtime directory + '/maestral/CONFIG_NAME.sock'.
     """
-    os.environ["MAESTRAL_CONFIG"] = config_name
-
     from maestral.sync.utils.appdirs import get_runtime_path
     return get_runtime_path("maestral", config_name + ".sock")
 
@@ -109,8 +107,6 @@ def start_maestral_daemon(config_name="maestral", run=True):
     :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
     """
 
-    os.environ["MAESTRAL_CONFIG"] = config_name
-
     from maestral.sync.main import Maestral
     sock_name = _get_sock_name(config_name)
 
@@ -130,7 +126,7 @@ def start_maestral_daemon(config_name="maestral", run=True):
         # removed, even when Maestral crashes for some reason
 
         ExposedMaestral = server.expose(Maestral)
-        m = ExposedMaestral(run=run)
+        m = ExposedMaestral(config_name, run=run)
 
         daemon.register(m, f"maestral.{config_name}")
         daemon.requestLoop(loopCondition=m._loop_condition)
@@ -273,8 +269,6 @@ def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
         ``fallback`` is ``False``.
     """
 
-    os.environ["MAESTRAL_CONFIG"] = config_name
-
     pid = get_maestral_pid(config_name)
 
     if pid:
@@ -291,9 +285,9 @@ def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
             maestral_daemon._pyroRelease()
 
     if fallback:
-        from maestral.sync.main import Maestral, sh
-        sh.setLevel(logging.CRITICAL)
-        m = Maestral(run=False)
+        from maestral.sync.main import Maestral
+        m = Maestral(config_name, run=False)
+        m._log_handler_stream.setLevel(logging.CRITICAL)
         return m
     else:
         raise Pyro5.errors.CommunicationError
@@ -400,9 +394,3 @@ def _check_pyro_communication(config_name, timeout=2):
 
     logger.error("Could communicate with Maestral daemon")
     return False
-
-
-if __name__ == "__main__":
-    conf = os.environ.get("MAESTRAL_CONFIG", "maestral")
-    start_maestral_daemon(conf)
-

@@ -20,7 +20,7 @@ import dropbox
 
 # maestral modules
 from maestral.sync.oauth import OAuth2Session
-from maestral.config.main import CONF
+from maestral.config.main import MaestralConfig
 from maestral.sync.errors import api_to_maestral_error, os_to_maestral_error
 from maestral.sync.errors import CursorResetError
 from maestral import __version__
@@ -141,10 +141,12 @@ class MaestralApiClient(object):
     SDK_VERSION = "2.0"
     _timeout = 60
 
-    def __init__(self, timeout=_timeout):
+    def __init__(self, config_name='maestral', timeout=_timeout):
+
+        self._conf = MaestralConfig(config_name)
 
         # get Dropbox session
-        self.auth = OAuth2Session()
+        self.auth = OAuth2Session(config_name)
         if not self.auth.load_token():
             self.auth.link()
         self._timeout = timeout
@@ -186,11 +188,11 @@ class MaestralApiClient(object):
             else:
                 account_type = ""
 
-            CONF.set("account", "account_id", res.account_id)
-            CONF.set("account", "email", res.email)
-            CONF.set("account", "display_name", res.name.display_name)
-            CONF.set("account", "abbreviated_name", res.name.abbreviated_name)
-            CONF.set("account", "type", account_type)
+            self._conf.set("account", "account_id", res.account_id)
+            self._conf.set("account", "email", res.email)
+            self._conf.set("account", "display_name", res.name.display_name)
+            self._conf.set("account", "abbreviated_name", res.name.abbreviated_name)
+            self._conf.set("account", "type", account_type)
 
         return res
 
@@ -208,8 +210,8 @@ class MaestralApiClient(object):
         res.__class__ = SpaceUsage
 
         # save results to config
-        CONF.set("account", "usage", str(res))
-        CONF.set("account", "usage_type", res.allocation_type())
+        self._conf.set("account", "usage", str(res))
+        self._conf.set("account", "usage_type", res.allocation_type())
 
         return res
 

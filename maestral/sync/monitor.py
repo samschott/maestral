@@ -39,7 +39,7 @@ else:
     from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 # maestral modules
-from maestral.config.main import CONF
+from maestral.config.main import MaestralConfig
 from maestral.sync.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                      SYNC_ERROR, REV_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.sync.utils.content_hasher import DropboxContentHasher
@@ -51,7 +51,6 @@ from maestral.sync.utils.path import (is_child, path_exists_case_insensitive,
                                       delete_file_or_folder)
 
 logger = logging.getLogger(__name__)
-
 
 DIR_EVENTS = (DirModifiedEvent, DirCreatedEvent, DirDeletedEvent, DirMovedEvent)
 FILE_EVENTS = (FileModifiedEvent, FileCreatedEvent, FileDeletedEvent, FileMovedEvent)
@@ -318,12 +317,14 @@ class UpDownSync(object):
     queued_folder_downloads = queue.Queue()
 
     __slots__ = (
-        "client",
-        "local_file_event_queue", "queue_uploading", "queue_downloading",
+        "client", "local_file_event_queue", "queue_uploading", "queue_downloading",
         "_dropbox_path", "_excluded_files", "_excluded_folders", "_rev_dict_cache",
+        "_conf",
     )
 
-    def __init__(self, client, local_file_event_queue, queue_uploading, queue_downloading):
+    def __init__(self, client, local_file_event_queue, queue_uploading, queue_downloading, config_name='maestral'):
+
+        self._conf = MaestralConfig(config_name)
 
         self.client = client
         self.local_file_event_queue = local_file_event_queue
@@ -331,9 +332,9 @@ class UpDownSync(object):
         self.queue_downloading = queue_downloading
 
         # load cached properties
-        self._dropbox_path = CONF.get("main", "path")
-        self._excluded_files = CONF.get("main", "excluded_files")
-        self._excluded_folders = CONF.get("main", "excluded_folders")
+        self._dropbox_path = self._conf.get("main", "path")
+        self._excluded_files = self._conf.get("main", "excluded_files")
+        self._excluded_folders = self._conf.get("main", "excluded_folders")
         self._rev_dict_cache = self._load_rev_dict_from_file()
 
     @property
@@ -354,32 +355,32 @@ class UpDownSync(object):
     def dropbox_path(self, path):
         """Setter: dropbox_path"""
         self._dropbox_path = path
-        CONF.set("main", "path", path)
+        self._conf.set("main", "path", path)
 
     @property
     def last_cursor(self):
         """Cursor from last sync with remote Dropbox. The value is updated and saved to
         the config file on every successful sync. Do not modify manually."""
-        return CONF.get("internal", "cursor")
+        return self._conf.get("internal", "cursor")
 
     @last_cursor.setter
     def last_cursor(self, cursor):
         """Setter: last_cursor"""
         logger.debug(f"Remote cursor saved: {cursor}")
-        CONF.set("internal", "cursor", cursor)
+        self._conf.set("internal", "cursor", cursor)
 
     @property
     def last_sync(self):
         """Time stamp from last sync with remote Dropbox. The value is updated and
         saved to config file on every successful sync. This should not be modified
         manually."""
-        return CONF.get("internal", "lastsync")
+        return self._conf.get("internal", "lastsync")
 
     @last_sync.setter
     def last_sync(self, last_sync):
         """Setter: last_cursor"""
         logger.debug(f"Local cursor saved: {last_sync}")
-        CONF.set("internal", "lastsync", last_sync)
+        self._conf.set("internal", "lastsync", last_sync)
 
     @property
     def excluded_files(self):
@@ -391,7 +392,7 @@ class UpDownSync(object):
     def excluded_files(self, files_list):
         """Setter: excluded_folders"""
         self._excluded_files = files_list
-        CONF.set("main", "excluded_files", files_list)
+        self._conf.set("main", "excluded_files", files_list)
 
     @property
     def excluded_folders(self):
@@ -406,7 +407,7 @@ class UpDownSync(object):
         """Setter: excluded_folders"""
         clean_list = self.clean_excluded_folder_list(folder_list)
         self._excluded_folders = clean_list
-        CONF.set("main", "excluded_folders", clean_list)
+        self._conf.set("main", "excluded_folders", clean_list)
 
     # ====================================================================================
     #  Helper functions
@@ -756,7 +757,7 @@ class UpDownSync(object):
         # get modified or added items
         for path in snapshot.paths:
             stats = snapshot.stat_info(path)
-            last_sync = CONF.get("internal", "lastsync")
+            last_sync = self._conf.get("internal", "lastsync")
             # check if item was created or modified since last sync
             dbx_path = self.to_dbx_path(path).lower()
 
@@ -1496,6 +1497,9 @@ class UpDownSync(object):
     def notify_user(self, changes):
         """Sends system notifications for files changed."""
 
+        if not self._conf.get("app", "notifications"):
+            return
+
         # get number of remote changes
         n_changed = len(changes.entries)
 
@@ -1507,7 +1511,7 @@ class UpDownSync(object):
             dbid_list = [md.sharing_info.modified_by for md in changes.entries]
             if all(dbid == dbid_list[0] for dbid in dbid_list):
                 # all files have been modified by the same user
-                if dbid_list[0] == CONF.get("account", "account_id"):
+                if dbid_list[0] == self._conf.get("account", "account_id"):
                     user_name = "You"
                 else:
                     account_info = self.client.get_account_info(dbid_list[0])
@@ -1647,15 +1651,14 @@ class UpDownSync(object):
 
             self.set_local_rev(entry.path_display, None)
 
-    @staticmethod
-    def _save_to_history(dbx_path):
+    def _save_to_history(self, dbx_path):
         # add new file to recent_changes
-        recent_changes = CONF.get("internal", "recent_changes")
+        recent_changes = self._conf.get("internal", "recent_changes")
         recent_changes.append(dbx_path)
         # eliminate duplicates
         recent_changes = list(OrderedDict.fromkeys(recent_changes))
         # save last 30 changes
-        CONF.set("internal", "recent_changes", recent_changes[-30:])
+        self._conf.set("internal", "recent_changes", recent_changes[-30:])
 
 
 # ========================================================================================
@@ -1743,8 +1746,7 @@ def download_worker(sync, syncing, running, connected):
                         changes = sync.list_remote_changes(sync.last_cursor)
 
                         # notify user about changes
-                        if CONF.get("app", "notifications"):
-                            sync.notify_user(changes)
+                        sync.notify_user(changes)
 
                         # apply remote changes to local Dropbox folder
                         sync.apply_remote_changes(changes)
@@ -1893,7 +1895,7 @@ class MaestralMonitor(object):
     connected_signal = signal("connected_signal")
     disconnected_signal = signal("disconnected_signal")
 
-    def __init__(self, client):
+    def __init__(self, client, config_name='maestral'):
 
         self._auto_resume_on_connect = False
 
@@ -1907,7 +1909,8 @@ class MaestralMonitor(object):
         )
 
         self.sync = UpDownSync(self.client, self.local_file_event_queue,
-                               self.queue_uploading, self.queue_downloading)
+                               self.queue_uploading, self.queue_downloading,
+                               config_name=config_name)
 
     @property
     def uploading(self):
