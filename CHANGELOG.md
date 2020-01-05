@@ -1,5 +1,11 @@
 ## v0.5.1-dev
 
+#### Changed:
+
+- Improved config management: Explicitly pass config name to classes which depend on a 
+  certain config, e.g., Maestral, MaestralMonitor, MaestralApiClient, etc.
+- Refactored config code: Adapted changes from Spyder4.
+
 #### Fixed:
 
 - Fixed an unexpected exception when attempting to create a directory that already exists.
