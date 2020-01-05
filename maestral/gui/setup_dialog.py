@@ -13,7 +13,7 @@ from PyQt5 import QtGui, QtCore, QtWidgets, uic
 from PyQt5.QtCore import QModelIndex, Qt
 
 # maestral modules
-from maestral.config.main import CONF
+from maestral.config.main import MaestralConfig
 from maestral.sync.main import Maestral
 from maestral.sync.utils import handle_disconnect
 from maestral.sync.utils.path import delete_file_or_folder
@@ -32,10 +32,13 @@ class SetupDialog(QtWidgets.QDialog):
 
     accepted = False
 
-    def __init__(self, pending_link=True, parent=None):
+    def __init__(self, config_name='maestral', pending_link=True, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(SETUP_DIALOG_PATH, self)
+
+        self._config_name = config_name
+        self._conf = MaestralConfig(config_name)
 
         self.app_icon = QtGui.QIcon(APP_ICON_PATH)
 
@@ -58,7 +61,7 @@ class SetupDialog(QtWidgets.QDialog):
             b.setMaximumWidth(width)
 
         # set up combobox
-        self.dropbox_location = osp.dirname(CONF.get("main", "path")) or get_home_dir()
+        self.dropbox_location = osp.dirname(self._conf.get("main", "path")) or get_home_dir()
         relative_path = self.rel_path(self.dropbox_location)
 
         folder_icon = get_native_item_icon(self.dropbox_location)
@@ -88,13 +91,13 @@ class SetupDialog(QtWidgets.QDialog):
         self.pushButtonClose.clicked.connect(self.on_accept_requested)
         self.selectAllCheckBox.clicked.connect(self.on_select_all_clicked)
 
-        default_dir_name = CONF.get("main", "default_dir_name")
+        default_dir_name = self._conf.get("main", "default_dir_name")
 
         self.labelDropboxPath.setText(self.labelDropboxPath.text().format(default_dir_name))
 
         # check if we are already authenticated, skip authentication if yes
         if not pending_link:
-            self.mdbx = Maestral(run=False)
+            self.mdbx = Maestral(self._config_name, run=False)
             self.mdbx.get_account_info()
             self.labelDropboxPath.setText("""
             <html><head/><body>
@@ -113,7 +116,7 @@ class SetupDialog(QtWidgets.QDialog):
             <p align="left">
             To unlink your Dropbox account from Maestral, click "Unlink" below.</p>
             </body></html>
-            """.format(Maestral.get_conf("main", "path"), default_dir_name))
+            """.format(self._conf.get("main", "path"), default_dir_name))
             self.pushButtonDropboxPathCalcel.setText("Quit")
             self.stackedWidget.setCurrentIndex(2)
             self.stackedWidgetButtons.setCurrentIndex(2)
@@ -154,7 +157,7 @@ class SetupDialog(QtWidgets.QDialog):
 
     @QtCore.pyqtSlot()
     def on_link(self):
-        self.auth_session = OAuth2Session()
+        self.auth_session = OAuth2Session(self._config_name)
         self.auth_url = self.auth_session.get_auth_url()
         prompt = self.labelAuthLink.text().format(self.auth_url)
         self.labelAuthLink.setText(prompt)
@@ -198,7 +201,7 @@ class SetupDialog(QtWidgets.QDialog):
             self.lineEditAuthCode.clear()  # clear since we might come back on unlink
 
             # start Maestral after linking to Dropbox account
-            self.mdbx = Maestral(run=False)
+            self.mdbx = Maestral(self._config_name, run=False)
             self.mdbx.get_account_info()
         elif res == OAuth2Session.InvalidToken:
             msg = "Please make sure that you entered the correct authentication token."
@@ -224,8 +227,8 @@ class SetupDialog(QtWidgets.QDialog):
         # apply dropbox path
         dropbox_path = osp.join(self.dropbox_location, self.mdbx.get_conf("main", "default_dir_name"))
         if osp.isdir(dropbox_path):
-            msg = ('The folder "%s" already exists. Would '
-                   'you like to keep using it?' % dropbox_path)
+            msg = ('The folder "{}" already exists. Would '
+                   'you like to keep using it?').format(dropbox_path)
             msg_box = UserDialog("Folder already exists", msg, parent=self)
             msg_box.setAcceptButtonName("Keep")
             msg_box.addSecondAcceptButton("Replace", icon="edit-clear")
@@ -371,8 +374,8 @@ class SetupDialog(QtWidgets.QDialog):
 
     # static method to create the dialog and return Maestral instance on success
     @staticmethod
-    def configureMaestral(pending_link=True, parent=None):
-        fsd = SetupDialog(pending_link, parent)
+    def configureMaestral(config_name='maestral', pending_link=True, parent=None):
+        fsd = SetupDialog(config_name, pending_link, parent)
         fsd.exec_()
 
         return fsd.accepted

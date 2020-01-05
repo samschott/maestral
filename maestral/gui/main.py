@@ -21,7 +21,7 @@ from keyring.errors import KeyringLocked
 from PyQt5 import QtCore, QtWidgets
 
 # maestral modules
-from maestral.config.main import CONF
+from maestral.config.main import MaestralConfig
 from maestral.sync.utils import set_keyring_backend
 from maestral.sync.constants import (
     IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, SYNC_ERROR, ERROR,
@@ -45,8 +45,6 @@ from maestral.gui.utils import (
     BackgroundTaskProgressDialog,
     elide_string,
 )
-
-CONFIG_NAME = os.environ.get("MAESTRAL_CONFIG", "maestral")
 
 logger = logging.getLogger(__name__)
 set_keyring_backend()
@@ -82,8 +80,11 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         "autostart", "_current_icon", "_n_sync_errors", "_progress_dialog",
     )
 
-    def __init__(self):
+    def __init__(self, config_name='maestral'):
         QtWidgets.QSystemTrayIcon.__init__(self)
+
+        self._config_name = config_name
+        self._conf = MaestralConfig(config_name)
 
         self._n_sync_errors = None
         self._current_icon = None
@@ -151,13 +152,13 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def load_maestral(self):
 
-        pending_link = not _is_linked()
-        pending_dbx_folder = not os.path.isdir(CONF.get("main", "path"))
+        pending_link = not _is_linked(self._conf)
+        pending_dbx_folder = not os.path.isdir(self._conf.get("main", "path"))
 
         if pending_link or pending_dbx_folder:
             from maestral.gui.setup_dialog import SetupDialog
             logger.info("Setting up Maestral...")
-            done = SetupDialog.configureMaestral(pending_link)
+            done = SetupDialog.configureMaestral(self._config_name, pending_link)
             if done:
                 logger.info("Successfully set up Maestral")
                 self.restart()
@@ -170,14 +171,14 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def _get_or_start_maestral_daemon(self):
 
-        pid = get_maestral_pid(CONFIG_NAME)
+        pid = get_maestral_pid(self._config_name)
         if pid:
             self._started = False
         else:
             if IS_MACOS_BUNDLE:
-                res = start_maestral_daemon_thread(CONFIG_NAME)
+                res = start_maestral_daemon_thread(self._config_name)
             else:
-                res = start_maestral_daemon_process(CONFIG_NAME)
+                res = start_maestral_daemon_process(self._config_name)
 
             if res is False:
                 error_dialog = UserDialog(
@@ -190,7 +191,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             else:
                 self._started = True
 
-        return get_maestral_daemon_proxy(CONFIG_NAME)
+        return get_maestral_daemon_proxy(self._config_name)
 
     def setup_ui_unlinked(self):
 
@@ -300,13 +301,13 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         if interval == 0:  # checks disabled
             return
         elif time.time() - last_update_check > interval:
-            checker = MaestralBackgroundTask(self, "check_for_updates")
+            checker = MaestralBackgroundTask(self, self.mdbx.config_name, "check_for_updates")
             checker.sig_done.connect(self._notify_updates_auto)
 
     @QtCore.pyqtSlot()
     def on_check_for_updates_clicked(self):
 
-        checker = MaestralBackgroundTask(self, "check_for_updates")
+        checker = MaestralBackgroundTask(self, self.mdbx.config_name, "check_for_updates")
         self._progress_dialog = BackgroundTaskProgressDialog("Checking for Updates")
         self._progress_dialog.show()
         self._progress_dialog.rejected.connect(checker.sig_done.disconnect)
@@ -556,7 +557,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         # stop sync daemon if we started it or ``stop_daemon==True``
         if stop_daemon and self.mdbx and not IS_MACOS_BUNDLE:
             self.mdbx._pyroRelease()
-            stop_maestral_daemon_process(CONFIG_NAME)
+            stop_maestral_daemon_process(self._config_name)
 
         # quit
         self.deleteLater()
@@ -576,22 +577,22 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             Popen("lsof -p {0} +r 1 &>/dev/null; {0}".format(launch_command), shell=True)
         if platform.system() == "Darwin":
             Popen("lsof -p {0} +r 1 &>/dev/null; maestral gui --config-name='{1}'".format(
-                pid, CONFIG_NAME), shell=True)
+                pid, self._config_name), shell=True)
         elif platform.system() == "Linux":
             Popen("tail --pid={0} -f /dev/null; maestral gui --config-name='{1}'".format(
-                pid, CONFIG_NAME), shell=True)
+                pid, self._config_name), shell=True)
 
         # quit Maestral
         self.quit(stop_daemon=True)
 
 
-def _is_linked():
+def _is_linked(conf):
     """
     Checks if auth key has been saved.
 
     :raises: ``KeyringLocked`` if the system keyring cannot be accessed.
     """
-    account_id = CONF.get("account", "account_id")
+    account_id = conf.get("account", "account_id")
     try:
         if account_id == "":
             access_token = None
@@ -616,14 +617,14 @@ def _is_pyqt_obj(obj):
 
 
 # noinspection PyArgumentList
-def run():
+def run(config_name='maestral'):
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
 
     app = QtWidgets.QApplication(["Maestral GUI"])
     app.setQuitOnLastWindowClosed(False)
 
-    maestral_gui = MaestralGuiApp()
+    maestral_gui = MaestralGuiApp(config_name)
     app.processEvents()  # refresh ui before loading the Maestral daemon
     maestral_gui.load_maestral()
     sys.exit(app.exec())

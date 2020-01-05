@@ -31,12 +31,13 @@ NEW_QT = LooseVersion(QtCore.QT_VERSION_STR) >= LooseVersion("5.11")
 
 class UnlinkDialog(QtWidgets.QDialog):
 
-    def __init__(self, restart_func, parent=None):
+    def __init__(self, mdbx, restart_func, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(UNLINK_DIALOG_PATH, self)
 
         self.restart_func = restart_func
+        self.mdbx = mdbx
         self.setModal(True)
 
         self.setWindowFlags(QtCore.Qt.Sheet)
@@ -53,7 +54,7 @@ class UnlinkDialog(QtWidgets.QDialog):
 
         self.buttonBox.setEnabled(False)
         self.progressIndicator.startAnimation()
-        self.unlink_thread = MaestralBackgroundTask(self, "unlink")
+        self.unlink_thread = MaestralBackgroundTask(self, self.mdbx.config_name, "unlink")
         self.unlink_thread.sig_done.connect(self.restart_func)
 
 
@@ -72,7 +73,7 @@ class SettingsWindow(QtWidgets.QWidget):
 
         self.mdbx = mdbx
         self.folders_dialog = FoldersDialog(self.mdbx, parent=self)
-        self.unlink_dialog = UnlinkDialog(self._parent.restart, parent=self)
+        self.unlink_dialog = UnlinkDialog(self.mdbx, self._parent.restart, parent=self)
 
         self.labelAccountName.setFont(get_scaled_font(1.5))
         self.labelAccountInfo.setFont(get_scaled_font(0.85))

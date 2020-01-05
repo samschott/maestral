@@ -6,9 +6,6 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 
-# system imports
-import os
-
 # external packages
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, QRect
@@ -129,9 +126,12 @@ class MaestralWorker(Worker):
     """A worker object for Maestral. It uses a separate Maestral proxy to prevent
     the main connection from blocking."""
 
+    def __init__(self, config_name='maestral', target=None, args=None, kwargs=None):
+        self.config_name = config_name
+        Worker.__init__(self, target, args, kwargs)
+
     def start(self):
-        config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
-        with MaestralProxy(config_name) as m:
+        with MaestralProxy(self.config_name) as m:
             func = m.__getattr__(self._target)
             res = func(*self._args, **self._kwargs)
         self.sig_done.emit(res)
@@ -172,10 +172,20 @@ class MaestralBackgroundTask(BackgroundTask):
     """A utility class to manage a worker thread. It uses a separate Maestral proxy
     to prevent the main connection from blocking."""
 
+    def __init__(self, parent=None, config_name='maestral', target=None, args=None, kwargs=None, autostart=True):
+        self.config_name = config_name
+        BackgroundTask.__init__(self, parent, target, args, kwargs, autostart)
+
     def start(self):
 
         self.thread = QtCore.QThread(self)
-        self.worker = MaestralWorker(target=self._target, args=self._args, kwargs=self._kwargs)
+        self.worker = MaestralWorker(
+            config_name=self.config_name,
+            target=self._target,
+            args=self._args,
+            kwargs=self._kwargs
+        )
+
         self.worker.sig_done.connect(self.sig_done.emit)
         self.worker.sig_done.connect(self.thread.quit)
         self.worker.moveToThread(self.thread)
