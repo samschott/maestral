@@ -92,7 +92,7 @@ def _delete_pid(config_name):
     logger.debug(f"Removed PID file '{pid_file}'.")
 
 
-def start_maestral_daemon(config_name="maestral", run=True):
+def start_maestral_daemon(config_name="maestral", run=True, log_to_stdout=False):
     """
     Wraps :class:`maestral.main.Maestral` as Pyro daemon object, creates a new instance
     and start Pyro's event loop to listen for requests on 'localhost'. This call will
@@ -105,6 +105,7 @@ def start_maestral_daemon(config_name="maestral", run=True):
 
     :param str config_name: The name of the Maestral configuration to use.
     :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
+    :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
     """
 
     from maestral.sync.main import Maestral
@@ -127,6 +128,7 @@ def start_maestral_daemon(config_name="maestral", run=True):
 
         ExposedMaestral = server.expose(Maestral)
         m = ExposedMaestral(config_name, run=run)
+        m.set_log_to_stdout(log_to_stdout)
 
         daemon.register(m, f"maestral.{config_name}")
         daemon.requestLoop(loopCondition=m._loop_condition)
