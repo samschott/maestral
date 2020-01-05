@@ -163,14 +163,15 @@ class Maestral(object):
         self._log_handler_file.setFormatter(log_fmt_long)
         self._log_handler_file.setLevel(log_level)
 
-        # log to stdout or journal (when launched from systemd)
+        # log to journal when launched from systemd
         if INVOCATION_ID and journal:
-            self._log_handler_stream = journal.JournalHandler()
-            self._log_handler_stream.setFormatter(log_fmt_short)
-        else:
-            self._log_handler_stream = logging.StreamHandler(sys.stdout)
-            self._log_handler_stream.setFormatter(log_fmt_long)
-        self._log_handler_stream.setLevel(log_level)
+            self._log_handler_journal = journal.JournalHandler()
+            self._log_handler_journal.setFormatter(log_fmt_short)
+
+        # log to stdout (disabled by default)
+        self._log_handler_stream = logging.StreamHandler(sys.stdout)
+        self._log_handler_stream.setFormatter(log_fmt_long)
+        self._log_handler_stream.setLevel(100)
 
         self._log_handler_info_cache = CachedHandler(maxlen=1)
         self._log_handler_info_cache.setLevel(logging.INFO)
@@ -188,6 +189,9 @@ class Maestral(object):
         mdbx_logger.addHandler(self._log_handler_info_cache)
         mdbx_logger.addHandler(self._log_handler_error_cache)
 
+        if INVOCATION_ID and journal:
+            mdbx_logger.addHandler(self._log_handler_journal)
+
     @property
     def config_name(self):
         return self._config_name
@@ -202,6 +206,14 @@ class Maestral(object):
         self._log_handler_file.setLevel(level_num)
         self._log_handler_stream.setLevel(level_num)
         self._conf.set("app", "log_level", level_num)
+
+    def set_log_to_stdout(self, enabled=True):
+
+        if enabled:
+            log_level = self._conf.get("app", "log_level")
+            self._log_handler_stream.setLevel(log_level)
+        else:
+            self._log_handler_stream.setLevel(100)
 
     @staticmethod
     def pending_link(config_name):
