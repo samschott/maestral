@@ -40,6 +40,9 @@ class DefaultsConfig(cp.ConfigParser):
     Class used to save defaults to a file and as base class for
     UserConfig
     """
+
+    _lock = RLock()
+
     def __init__(self, path, name):
         super(DefaultsConfig, self).__init__(interpolation=None)
         self._path = path
@@ -63,20 +66,21 @@ class DefaultsConfig(cp.ConfigParser):
 
         # See spyder-ide/spyder#1086 and spyder-ide/spyder#1242 for background
         # on why this method contains all the exception handling.
-        try:
-            # The "easy" way
-            self.__write_file(fpath)
-        except EnvironmentError:
-            try:
-                # The "delete and sleep" way
-                if osp.isfile(fpath):
-                    os.remove(fpath)
 
-                time.sleep(0.05)
+        with self._lock:
+            try:
+                # The "easy" way
                 self.__write_file(fpath)
-            except Exception:
-                logger.exception('Failed to write user configuration file to disk, with '
-                                 'the exception shown below')
+            except EnvironmentError:
+                try:
+                    # The "delete and sleep" way
+                    if osp.isfile(fpath):
+                        os.remove(fpath)
+
+                    time.sleep(0.05)
+                    self.__write_file(fpath)
+                except Exception:
+                    logger.exception('Failed to write user configuration file to disk')
 
     def __write_file(self, fpath):
         with open(fpath, 'w', encoding='utf-8') as configfile:
@@ -266,10 +270,12 @@ class UserConfig(DefaultsConfig):
 
     def _load_from_ini(self, fpath):
         """Load config from the associated .ini file found at `fpath`."""
-        try:
-            self.read(fpath, encoding='utf-8')
-        except cp.MissingSectionHeaderError:
-            logger.error('Warning: File contains no section headers.')
+
+        with self._lock:
+            try:
+                self.read(fpath, encoding='utf-8')
+            except cp.MissingSectionHeaderError:
+                logger.warning('File contains no section headers.')
 
     def _load_old_defaults(self, old_version):
         """Read old defaults."""
