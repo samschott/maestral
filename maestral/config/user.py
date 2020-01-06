@@ -188,8 +188,7 @@ class UserConfig(DefaultsConfig):
                 # If no defaults are defined set .ini file settings as default
                 self.set_as_defaults()
 
-    # --- Helpers and checkers
-    # ------------------------------------------------------------------------
+    # --- Helpers and checkers -----------------------------------------------------------
     @staticmethod
     def _get_minor_version(version):
         """Return the 'major.minor' components of the version."""
@@ -472,9 +471,9 @@ class UserConfig(DefaultsConfig):
             except (SyntaxError, ValueError):
                 pass
 
-        if type(default_value) is not type(value):
+        if default_value is not NoDefault and type(default_value) is not type(value):
             logger.warning(f'Inconsistent config type for [{section}][{option}]. '
-                           f'Expected {default_value.__class__.__name__} but got {value.__class__.__name__}')
+                           f'Expected {default_value.__class__.__name__} but got {value.__class__.__name__}.')
 
         return value
 
