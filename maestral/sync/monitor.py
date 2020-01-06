@@ -1181,7 +1181,7 @@ class UpDownSync(object):
 
             # check if file already exists with identical content
             md = self.client.get_metadata(dbx_path)
-            if md:
+            if isinstance(md, FileMetadata):
                 local_hash = get_local_hash(path)
                 if local_hash == md.content_hash:
                     # file hashes are identical, do not upload
@@ -1242,9 +1242,9 @@ class UpDownSync(object):
 
             self._wait_for_creation(path)
 
-            # check if file already exists with identical content
+            # check if item already exists with identical content
             md = self.client.get_metadata(dbx_path)
-            if md:
+            if isinstance(md, FileMetadata):
                 local_hash = get_local_hash(path)
                 if local_hash == md.content_hash:
                     # file hashes are identical, do not upload
@@ -1441,7 +1441,7 @@ class UpDownSync(object):
 
         # get metadata of remote file
         md = self.client.get_metadata(dbx_path)
-        if not md:
+        if not isinstance(md, FileMetadata):
             raise PathError(
                 "Could not download file",
                 "The file no longer exist on Dropbox",
