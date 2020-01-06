@@ -243,11 +243,9 @@ def gui(config_name):
 @main.command()
 @click.option("--foreground", "-f", is_flag=True, default=False,
               help="Starts Maestral in the foreground.")
-@click.option("--verbose", "-v", is_flag=True, default=False,
-              help="Always prints logs to stdout.")
 @with_config_opt
 @catch_maestral_errors
-def start(config_name: str, foreground: bool, verbose: bool):
+def start(config_name: str, foreground: bool):
     """Starts the Maestral as a daemon."""
 
     from maestral.sync.daemon import get_maestral_pid
