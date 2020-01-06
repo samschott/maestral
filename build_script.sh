@@ -8,7 +8,7 @@ NEW_BUILD=$(($OLD_BUILD+1))
 OLD="'CFBundleVersion': '$OLD_BUILD',"
 NEW="'CFBundleVersion': '$NEW_BUILD',"
 
-echo "*********** INCREMENTING BUILD NUMBER TO $NEW_BUILD ************"
+echo "*********** INCREMENTING BUILD NUMBER TO $NEW_BUILD ***********"
 
 sed -i "" "s/$OLD/$NEW/g" $SPEC_FILE
 
