@@ -11,13 +11,13 @@ It is based on the ConfigParser module present in the standard library.
 """
 
 import ast
-import io
 import os
 import os.path as osp
 import re
 import shutil
 import time
 import configparser as cp
+from threading import RLock
 import logging
 
 
@@ -48,15 +48,12 @@ class DefaultsConfig(cp.ConfigParser):
         if not osp.isdir(osp.dirname(self._path)):
             os.makedirs(osp.dirname(self._path))
 
-    def _set(self, section, option, value, verbose):
+    def _set(self, section, option, value):
         """Private set method"""
         if not self.has_section(section):
             self.add_section(section)
         if not isinstance(value, str):
             value = repr(value)
-        if verbose:
-            text = '[{}][{}] = {}'.format(section, option, value)
-            logger.debug(text)
 
         super(DefaultsConfig, self).set(section, option, value)
 
@@ -82,7 +79,7 @@ class DefaultsConfig(cp.ConfigParser):
                                  'the exception shown below')
 
     def __write_file(self, fpath):
-        with io.open(fpath, 'w', encoding='utf-8') as configfile:
+        with open(fpath, 'w', encoding='utf-8') as configfile:
             self.write(configfile)
 
     def get_config_fpath(self):
@@ -98,7 +95,7 @@ class DefaultsConfig(cp.ConfigParser):
         for section, options in defaults:
             for option in options:
                 new_value = options[option]
-                self._set(section, option, new_value, verbose=False)
+                self._set(section, option, new_value)
 
 
 # =============================================================================
@@ -131,7 +128,7 @@ class UserConfig(DefaultsConfig):
 
     Notes
     -----
-    The 'get' and 'set' arguments number and type differ from the overriden
+    The 'get' and 'set' arguments number and type differ from the overwritten
     methods. 'defaults' is an attribute and not a method.
     """
     DEFAULT_SECTION_NAME = 'main'
@@ -289,7 +286,7 @@ class UserConfig(DefaultsConfig):
             new_defaults.set_defaults(defaults)
             new_defaults._save()
 
-    def _update_defaults(self, defaults, old_version, verbose=False):
+    def _update_defaults(self, defaults, old_version):
         """Update defaults after a change in version."""
         old_defaults = self._load_old_defaults(old_version)
         for section, options in defaults:
@@ -301,7 +298,7 @@ class UserConfig(DefaultsConfig):
                     old_val = None
 
                 if old_val is None or str(new_value) != old_val:
-                    self._set(section, option, new_value, verbose)
+                    self._set(section, option, new_value)
 
     def _remove_deprecated_options(self, old_version):
         """
@@ -318,8 +315,7 @@ class UserConfig(DefaultsConfig):
                     except cp.NoSectionError:
                         self.remove_section(section)
 
-    # --- Compatibility API
-    # ------------------------------------------------------------------------
+    # --- Compatibility API --------------------------------------------------------------
 
     def get_previous_config_fpath(self):
         """Return the last configuration file used if found."""
@@ -379,8 +375,7 @@ class UserConfig(DefaultsConfig):
         """
         pass
 
-    # --- Public API
-    # ------------------------------------------------------------------------
+    # --- Public API ---------------------------------------------------------------------
     def get_version(self, version='0.0.0'):
         """Return configuration (not application!) version."""
         return self.get(self.DEFAULT_SECTION_NAME, 'version', version)
@@ -390,13 +385,13 @@ class UserConfig(DefaultsConfig):
         version = self._check_version(version)
         self.set(self.DEFAULT_SECTION_NAME, 'version', version, save=save)
 
-    def reset_to_defaults(self, save=True, verbose=False, section=None):
+    def reset_to_defaults(self, save=True, section=None):
         """Reset config to Default values."""
         for sec, options in self.defaults:
             if section == None or section == sec:
                 for option in options:
                     value = options[option]
-                    self._set(sec, option, value, verbose)
+                    self._set(sec, option, value)
         if save:
             self._save()
 
@@ -471,6 +466,10 @@ class UserConfig(DefaultsConfig):
             except (SyntaxError, ValueError):
                 pass
 
+        if type(default_value) is not type(value):
+            logger.warning(f'Inconsistent config type for [{section}][{option}]. '
+                           f'Expected {default_value.__class__.__name__} but got {value.__class__.__name__}')
+
         return value
 
     def set_default(self, section, option, default_value):
@@ -486,7 +485,7 @@ class UserConfig(DefaultsConfig):
             if sec == section:
                 options[option] = default_value
 
-    def set(self, section, option, value, verbose=False, save=True):
+    def set(self, section, option, value, save=True):
         """
         Set an `option` on a given `section`.
 
@@ -508,7 +507,7 @@ class UserConfig(DefaultsConfig):
         elif not isinstance(default_value, str):
             value = repr(value)
 
-        self._set(section, option, value, verbose)
+        self._set(section, option, value)
         if save:
             self._save()
 
