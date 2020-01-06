@@ -2,15 +2,21 @@
 
 #### Changed:
 
-- Improved config management: Explicitly pass config name to classes which depend on a 
+- Improved config management: Explicitly pass config name to classes which depend on a
   certain config, e.g., Maestral, MaestralMonitor, MaestralApiClient, etc.
-- Refactored config code: Adapted changes from Spyder4.
+- Refactored config code: Adapted changes from Spyder 4.0.
 
 #### Fixed:
 
 - Fixed an unexpected exception when attempting to create a directory that already exists.
   Do not rely on the `exists_ok` parameter in `os.makedirs` but catch `FileExistsError`
   explicitly (see https://bugs.python.org/issue13498).
+- Fixed an `AttributeError` when a local folder is replaced by file: the Dropbox metadata
+  of the folder will not have a content hash. This can occur when modifying a folder
+  structure programatically, for instance with git.
+- Fixed an `AttributeError` when a remote file has been replaced by a folder before its
+  changes could be downloaded: the Dropbox metadata of the folder will not have a content
+  hash.
 
 ## v0.5.0
 
