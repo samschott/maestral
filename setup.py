@@ -48,6 +48,7 @@ setup(
     setup_requires=["wheel"],
     install_requires=[
         "blinker",
+        "bugsnag",
         "click>=7.0",
         "dropbox>=9.4.0",
         "keyring>=19.0.0",

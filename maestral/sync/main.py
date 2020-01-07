@@ -10,6 +10,7 @@ Created on Wed Oct 31 16:23:13 2018
 import sys
 import os
 import os.path as osp
+import platform
 import shutil
 import time
 from threading import Thread
@@ -20,6 +21,8 @@ from collections import namedtuple, deque
 import click
 import requests
 from dropbox import files
+import bugsnag
+from bugsnag.handlers import BugsnagHandler
 
 try:
     from systemd import journal
@@ -33,6 +36,7 @@ except ImportError:
     system_notifier = None
 
 # maestral modules
+from maestral import __version__
 from maestral.sync.monitor import MaestralMonitor
 from maestral.sync.utils import handle_disconnect, with_sync_paused
 from maestral.sync.utils.path import is_child, path_exists_case_insensitive
@@ -50,9 +54,24 @@ from maestral.config.main import MaestralConfig
 
 logger = logging.getLogger(__name__)
 
-# ========================================================================================
-# Logging setup
-# ========================================================================================
+# set up error reporting but do not activate
+
+bugsnag.configure(
+    api_key="081c05e2bf9730d5f55bc35dea15c833",
+    app_version=__version__,
+    auto_notify=False,
+    auto_capture_sessions=False,
+)
+
+def callback(notification):
+    notification.add_tab(
+        "system",
+        {"platform": platform.platform(), "python": platform.python_version()}
+    )
+
+bugsnag.before_notify(callback)
+
+# helper classes
 
 class CachedHandler(logging.Handler):
     """
@@ -105,6 +124,7 @@ class Maestral(object):
         self._conf = MaestralConfig(self._config_name)
 
         self._setup_logging()
+        self.set_share_error_reports(self._conf.get("app", "share_error_reports"))
 
         self.client = MaestralApiClient(config_name=self._config_name)
         self.monitor = MaestralMonitor(self.client, config_name=self._config_name)
@@ -150,6 +170,8 @@ class Maestral(object):
     def _setup_logging(self):
 
         log_level = self._conf.get("app", "log_level")
+        mdbx_logger = logging.getLogger("maestral")
+        mdbx_logger.setLevel(logging.DEBUG)
 
         log_fmt_long = logging.Formatter(
             fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
@@ -162,35 +184,35 @@ class Maestral(object):
         self._log_handler_file = logging.handlers.RotatingFileHandler(rfh_log_file, maxBytes=10 ** 7, backupCount=1)
         self._log_handler_file.setFormatter(log_fmt_long)
         self._log_handler_file.setLevel(log_level)
+        mdbx_logger.addHandler(self._log_handler_file)
 
         # log to journal when launched from systemd
         if INVOCATION_ID and journal:
             self._log_handler_journal = journal.JournalHandler()
             self._log_handler_journal.setFormatter(log_fmt_short)
+            mdbx_logger.addHandler(self._log_handler_journal)
 
         # log to stdout (disabled by default)
         self._log_handler_stream = logging.StreamHandler(sys.stdout)
         self._log_handler_stream.setFormatter(log_fmt_long)
         self._log_handler_stream.setLevel(100)
+        mdbx_logger.addHandler(self._log_handler_stream)
 
+        # log to cached handlers for GUI and CLI
         self._log_handler_info_cache = CachedHandler(maxlen=1)
         self._log_handler_info_cache.setLevel(logging.INFO)
         self._log_handler_info_cache.setFormatter(log_fmt_short)
+        mdbx_logger.addHandler(self._log_handler_info_cache)
 
         self._log_handler_error_cache = CachedHandler()
         self._log_handler_error_cache.setLevel(logging.ERROR)
         self._log_handler_error_cache.setFormatter(log_fmt_short)
-
-        # add handlers
-        mdbx_logger = logging.getLogger("maestral")
-        mdbx_logger.setLevel(logging.DEBUG)
-        mdbx_logger.addHandler(self._log_handler_file)
-        mdbx_logger.addHandler(self._log_handler_stream)
-        mdbx_logger.addHandler(self._log_handler_info_cache)
         mdbx_logger.addHandler(self._log_handler_error_cache)
 
-        if INVOCATION_ID and journal:
-            mdbx_logger.addHandler(self._log_handler_journal)
+        # log to bugsnag (disabled by default)
+        self._log_handler_bugsnag = BugsnagHandler()
+        self._log_handler_bugsnag.setLevel(100)
+        mdbx_logger.addHandler(self._log_handler_bugsnag)
 
     @property
     def config_name(self):
@@ -214,6 +236,12 @@ class Maestral(object):
             self._log_handler_stream.setLevel(log_level)
         else:
             self._log_handler_stream.setLevel(100)
+
+    def set_share_error_reports(self, enabled):
+
+        bugsnag.configuration.auto_notify = enabled
+        bugsnag.configuration.auto_capture_sessions = enabled
+        self._log_handler_bugsnag.setLevel(logging.ERROR if enabled else 100)
 
     @staticmethod
     def pending_link(config_name):

@@ -4,6 +4,7 @@ click >= 7.0
 dropbox >= 9.4.0
 watchdog
 blinker
+bugsnag
 requests
 u-msgpack-python
 keyring >= 19.0.0
