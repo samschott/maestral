@@ -69,28 +69,32 @@ class SettingsWindow(QtWidgets.QWidget):
         self._parent = parent
         self.update_dark_mode()
         self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+
         self.adjustSize()
 
         self.mdbx = mdbx
         self.folders_dialog = FoldersDialog(self.mdbx, parent=self)
         self.unlink_dialog = UnlinkDialog(self.mdbx, self._parent.restart, parent=self)
+        self.autostart = AutoStart()
 
         self.labelAccountName.setFont(get_scaled_font(1.5))
         self.labelAccountInfo.setFont(get_scaled_font(0.85))
         self.labelSpaceUsage.setFont(get_scaled_font(0.85))
 
+        # fixes sizes of label and profile pic
+        self.labelAccountName.setMinimumHeight(self.labelAccountName.height())
         self._profile_pic_height = round(self.labelUserProfilePic.height() * 0.65)
 
         if platform.system() == "Darwin" and NEW_QT:
             self.spacerMacOS.setMinimumWidth(2)  # bug fix for macOS
             self.spacerMacOS.setMaximumWidth(2)  # bug fix for macOS
 
-        self.populate_gui()
+        self.refresh_gui()
 
         # update profile pic and account info periodically
         self.update_timer = QtCore.QTimer()
-        self.update_timer.timeout.connect(self.update_account_info_from_chache)
-        self.update_timer.start(1000*60*5)  # every 5 min
+        self.update_timer.timeout.connect(self.refresh_gui)
+        self.update_timer.start(5000)  # every 5 sec
 
         # connect callbacks
         self.pushButtonUnlink.clicked.connect(self.unlink_dialog.exec_)
@@ -113,10 +117,12 @@ class SettingsWindow(QtWidgets.QWidget):
         self.dropbox_folder_dialog.rejected.connect(
                 lambda: self.comboBoxDropboxPath.setCurrentIndex(0))
 
-    def populate_gui(self):
+    @QtCore.pyqtSlot()
+    def refresh_gui(self):
 
         # populate account info
-        self.update_account_info_from_chache()
+        self.set_profile_pic_from_cache()
+        self.set_account_info_from_cache()
 
         # populate sync section
         parent_dir = osp.split(self.mdbx.dropbox_path)[0]
@@ -129,7 +135,6 @@ class SettingsWindow(QtWidgets.QWidget):
         self.comboBoxDropboxPath.addItem(QtGui.QIcon(), "Other...")
 
         # populate app section
-        self.autostart = AutoStart()
         self.checkBoxStartup.setChecked(self.autostart.enabled)
         self.checkBoxNotifications.setChecked(self.mdbx.get_conf("app", "notifications"))
         update_interval = self.mdbx.get_conf("app", "update_notification_interval")
@@ -183,12 +188,6 @@ class SettingsWindow(QtWidgets.QWidget):
             acc_type_text = ""
         self.labelAccountInfo.setText(acc_mail + acc_type_text)
         self.labelSpaceUsage.setText(acc_space_usage)
-
-    @QtCore.pyqtSlot()
-    def update_account_info_from_chache(self):
-
-        self.set_profile_pic_from_cache()
-        self.set_account_info_from_cache()
 
     @QtCore.pyqtSlot(int)
     def on_combobox_path(self, idx):
