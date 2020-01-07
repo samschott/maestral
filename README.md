@@ -58,7 +58,6 @@ commands. The most important are:
 - `maestral pause|resume`: Pauses or resumes syncing.
 - `maestral status`: Gets the current status of Maestral.
 - `maestral file-status LOCAL_PATH`: Gets the sync status of an individual file or folder.
-- `maestral errors`: Lists all sync errors.
 - `maestral set-dir LOCAL_PATH`: Sets the location of your local Dropbox folder.
 - `maestral excluded add|remove|list`: Command group to manage excluded folders.
 - `maestral ls DROPBOX_PATH`: Lists the contents of a directory on Dropbox.
