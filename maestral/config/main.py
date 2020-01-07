@@ -50,14 +50,14 @@ DEFAULTS = [
     ('app',  # app settings
      {
          'notifications': True,  # enable / disable system tray notifications
-         'log_level': 20,  # log level for file log, defaults to INFO = 20
+         'log_level': 20,  # log level for file log, defaults to INFO
          'update_notification_last': 0.0,  # last notification about updates
          'update_notification_interval': 60*60*24*7,  # interval to check for updates (sec)
          'latest_release': '0.0.0',  # latest available release
-         'share_error_reports': False,  # automatically report errors with bugsnag
+         'analytics': False,  # automatically report crashes and errors with bugsnag
      }
      ),
-    ('internal',  # section that saves the last-synced state
+    ('internal',  # saved sync state
      {
          'cursor': '',  # remote cursor: represents last state synced from Dropbox
          'lastsync': 0.0,  # local cursor: time-stamp of last upload

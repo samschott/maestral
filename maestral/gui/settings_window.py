@@ -138,7 +138,7 @@ class SettingsWindow(QtWidgets.QWidget):
         # populate app section
         self.checkBoxStartup.setChecked(self.autostart.enabled)
         self.checkBoxNotifications.setChecked(self.mdbx.get_conf("app", "notifications"))
-        self.checkBoxAnalytics.setChecked(self.mdbx.get_conf("app", "share_error_reports"))
+        self.checkBoxAnalytics.setChecked(self.mdbx.get_conf("app", "analytics"))
         update_interval = self.mdbx.get_conf("app", "update_notification_interval")
         closest_key = min(
             self._update_interval_mapping,
@@ -224,7 +224,7 @@ class SettingsWindow(QtWidgets.QWidget):
 
     @QtCore.pyqtSlot(int)
     def on_analytics_clicked(self, state):
-        self.mdbx.set_conf("app", "share_error_reports", state == 2)
+        self.mdbx.set_conf("app", "analytics", state == 2)
         self.mdbx.set_share_error_reports(state == 2)
 
     @staticmethod

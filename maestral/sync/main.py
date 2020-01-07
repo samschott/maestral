@@ -124,7 +124,7 @@ class Maestral(object):
         self._conf = MaestralConfig(self._config_name)
 
         self._setup_logging()
-        self.set_share_error_reports(self._conf.get("app", "share_error_reports"))
+        self.set_share_error_reports(self._conf.get("app", "analytics"))
 
         self.client = MaestralApiClient(config_name=self._config_name)
         self.monitor = MaestralMonitor(self.client, config_name=self._config_name)

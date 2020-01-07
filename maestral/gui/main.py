@@ -516,7 +516,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         title = "An unexpected error occurred"
 
-        if self.mdbx.get_conf("app", "share_error_reports"):
+        if self.mdbx.get_conf("app", "analytics"):
             message = ("The error has been reported to the developers. "
                        "Please restart Maestral to continue syncing.")
             error_dialog = UserDialog(title, message, err["traceback"])
@@ -533,7 +533,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             res = error_dialog.exec_()
 
             if error_dialog.checkbox.isChecked():
-                self.mdbx.set_conf("app", "share_error_reports", True)
+                self.mdbx.set_conf("app", "analytics", True)
 
             if res == 1:
                 import bugsnag
