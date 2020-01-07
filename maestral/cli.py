@@ -656,6 +656,20 @@ def notifications(config_name: str, yes: bool):
     click.echo("{} system notifications.".format(enabled_str))
 
 
+@main.command(help_priority=17)
+@with_config_opt
+@click.option("--yes/--no", "-Y/-N", default=True)
+def analytics(config_name: str, yes: bool):
+    """Enables or disables sharing crash reports."""
+    # This is safe to call, even if the GUI or daemon are running.
+    from maestral.sync.daemon import MaestralProxy
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        m.set_share_error_reports(yes)
+
+    enabled_str = "Enabled" if yes else "Disabled"
+    click.echo("{} automatic crash reports.".format(enabled_str))
+
 
 @main.command(help_priority=19)
 @with_config_opt
