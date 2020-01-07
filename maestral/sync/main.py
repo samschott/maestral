@@ -243,6 +243,8 @@ class Maestral(object):
         bugsnag.configuration.auto_capture_sessions = enabled
         self._log_handler_bugsnag.setLevel(logging.ERROR if enabled else 100)
 
+        self._conf.set("app", "analytics", enabled)
+
     @staticmethod
     def pending_link(config_name):
         """
