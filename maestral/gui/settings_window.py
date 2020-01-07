@@ -82,7 +82,7 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelSpaceUsage.setFont(get_scaled_font(0.85))
 
         # fixes sizes of label and profile pic
-        self.labelAccountName.setMinimumHeight(self.labelAccountName.height())
+        self.labelAccountName.setFixedHeight(self.labelAccountName.height())
         self._profile_pic_height = round(self.labelUserProfilePic.height() * 0.65)
 
         if platform.system() == "Darwin" and NEW_QT:
