@@ -54,6 +54,7 @@ DEFAULTS = [
          'update_notification_last': 0.0,  # last notification about updates
          'update_notification_interval': 60*60*24*7,  # interval to check for updates (sec)
          'latest_release': '0.0.0',  # latest available release
+         'share_error_reports': False,  # automatically report errors with bugsnag
      }
      ),
     ('internal',  # section that saves the last-synced state
