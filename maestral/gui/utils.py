@@ -253,13 +253,21 @@ class BackgroundTaskProgressDialog(QtWidgets.QDialog):
 class UserDialog(QtWidgets.QDialog):
     """A template user dialog for Maestral. Shows a traceback if given in constructor."""
 
-    def __init__(self, title, message, details=None, parent=None):
+    def __init__(self, title, message, details=None, checkbox=None, parent=None):
+        """
+        A user dialog for Maestral.
+
+        :param str title: Title of dialog.
+        :param str message: Message.
+        :param str details: Optional details to show in a text view, e.g., traceback info.
+        :param str checkbox: Optional checkbox to show above dialog buttons.
+        :param QtWidget parent: Parent.
+        """
         super(self.__class__, self).__init__(parent=parent)
         self.setModal(True)
         self.setWindowModality(Qt.WindowModal)
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Sheet | Qt.WindowTitleHint |
                             Qt.CustomizeWindowHint)
-        self.setAttribute(Qt.WA_DeleteOnClose)
         self.setWindowTitle("")
         width = 550 if details else 450
         self.setFixedWidth(width)
@@ -291,6 +299,9 @@ class UserDialog(QtWidgets.QDialog):
             self.details.setText("".join(details))
             self.details.setOpenExternalLinks(True)
 
+        if checkbox:
+            self.checkbox = QtWidgets.QCheckBox(checkbox)
+
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
         self.buttonBox.accepted.connect(self.accept)
 
@@ -299,16 +310,22 @@ class UserDialog(QtWidgets.QDialog):
         self.gridLayout.addWidget(self.infoLabel, 1, 1, 1, 1)
         if details:
             self.gridLayout.addWidget(self.details, 2, 1, 1, 1)
-        self.gridLayout.addWidget(self.buttonBox, 3, 1, -1, -1)
+        if checkbox:
+            self.gridLayout.addWidget(self.checkbox, 3, 1, 1, 1)
+        self.gridLayout.addWidget(self.buttonBox, 4, 1, -1, -1)
 
         self.adjustSize()
 
     def setAcceptButtonName(self, name):
         self.buttonBox.buttons()[0].setText(name)
 
-    def addCancelButton(self, name="Cancel"):
+    def addCancelButton(self, name="Cancel", icon=None):
         self._cancelButton = self.buttonBox.addButton(QtWidgets.QDialogButtonBox.Cancel)
         self._cancelButton.setText(name)
+        if isinstance(icon, QtGui.QIcon):
+            self._cancelButton.setIcon(icon)
+        elif isinstance(icon, str):
+            self._cancelButton.setIcon(QtGui.QIcon.fromTheme(icon))
         self._cancelButton.clicked.connect(self.close)
 
     def setCancelButtonName(self, name):
