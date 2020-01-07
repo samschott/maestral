@@ -102,6 +102,7 @@ class SettingsWindow(QtWidgets.QWidget):
         self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.open)
         self.checkBoxStartup.stateChanged.connect(self.on_start_on_login_clicked)
         self.checkBoxNotifications.stateChanged.connect(self.on_notifications_clicked)
+        self.checkBoxAnalytics.stateChanged.connect(self.on_analytics_clicked)
         self.comboBoxUpdateInterval.currentIndexChanged.connect(
             self.on_combobox_update_interval)
         self.comboBoxDropboxPath.currentIndexChanged.connect(self.on_combobox_path)
@@ -137,6 +138,7 @@ class SettingsWindow(QtWidgets.QWidget):
         # populate app section
         self.checkBoxStartup.setChecked(self.autostart.enabled)
         self.checkBoxNotifications.setChecked(self.mdbx.get_conf("app", "notifications"))
+        self.checkBoxAnalytics.setChecked(self.mdbx.get_conf("app", "share_error_reports"))
         update_interval = self.mdbx.get_conf("app", "update_notification_interval")
         closest_key = min(
             self._update_interval_mapping,
@@ -219,6 +221,11 @@ class SettingsWindow(QtWidgets.QWidget):
     @QtCore.pyqtSlot(int)
     def on_notifications_clicked(self, state):
         self.mdbx.set_conf("app", "notifications", state == 2)
+
+    @QtCore.pyqtSlot(int)
+    def on_analytics_clicked(self, state):
+        self.mdbx.set_conf("app", "share_error_reports", state == 2)
+        self.mdbx.set_share_error_reports(state == 2)
 
     @staticmethod
     def rel_path(path):
