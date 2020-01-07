@@ -25,16 +25,18 @@ Maestral without a GUI.
 ## Installation
 
 A binary is provided for macOS High Sierra and higher and can be downloaded from the
-Releases tab. On other platforms, download and install the Python package from PyPI:
+Releases tab. On other platforms, please download and install the Python package from PyPI:
 ```console
 $ python3 -m pip install --upgrade maestral
 ```
-You can also install the latest beta:
-```console
-$ python3 -m pip install --upgrade --pre maestral
-```
 If you intend to use the graphical user interface, you also need to install PyQt5, either
-from PyPI or from your platforms package manager.
+from PyPI or from your platform's package manager.
+
+For the Maestral daemon to integrate with systemd, please install the systemd extra:
+```console
+$ python3 -m pip install --upgrade maestral[systemd]
+```
+Details on systemd integration are given in the [Wiki](https://github.com/SamSchott/maestral-dropbox/wiki/Systemd-Integration).
 
 ## Usage
 
