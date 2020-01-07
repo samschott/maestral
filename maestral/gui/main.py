@@ -21,6 +21,7 @@ from keyring.errors import KeyringLocked
 from PyQt5 import QtCore, QtWidgets
 
 # maestral modules
+from maestral import __version__
 from maestral.config.main import MaestralConfig
 from maestral.sync.utils import set_keyring_backend
 from maestral.sync.constants import (
@@ -37,7 +38,7 @@ from maestral.sync.daemon import (
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.sync_issues_window import SyncIssueWindow
 from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
-from maestral.gui.resources import get_system_tray_icon
+from maestral.gui.resources import get_system_tray_icon, DESKTOP
 from maestral.gui.autostart import AutoStart
 from maestral.gui.utils import (
     UserDialog,
@@ -486,9 +487,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         err = errs[-1]
 
         if err["type"] in ("RevFileError", "BadInputError", "CursorResetError", "InotifyError"):
-            title = err["title"]
-            message = err["message"]
-            self._stop_and_exec_error_dialog(title, message)
+            self.mdbx.stop_sync()
+            error_dialog = UserDialog(err["title"], err["message"])
+            error_dialog.exec_()
         elif err["type"] == "DropboxDeletedError":
             self.restart()  # will launch into setup dialog
         elif err["type"] == "DropboxAuthError":
@@ -498,22 +499,63 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             from maestral.gui.relink_dialog import RelinkDialog
             self._stop_and_exec_relink_dialog(RelinkDialog.EXPIRED)
         else:
-            title = "An unexpected error occurred"
-            message = ("Please restart Maestral to continue syncing and contact "
-                       "the developer with the information below.")
-            self._stop_and_exec_error_dialog(title, message, err["traceback"])
+            self._stop_and_exec_error_dialog(err)
 
-    @QtCore.pyqtSlot(int)
     def _stop_and_exec_relink_dialog(self, reason):
+
+        self.mdbx.stop_sync()
+
         from maestral.gui.relink_dialog import RelinkDialog
 
         relink_dialog = RelinkDialog(self, reason)
         relink_dialog.exec_()  # will perform quit / restart as appropriate
 
-    def _stop_and_exec_error_dialog(self, title, message, exc_info=None):
+    def _stop_and_exec_error_dialog(self, err):
 
-        error_dialog = UserDialog(title, message, exc_info)
-        error_dialog.exec_()
+        self.mdbx.stop_sync()
+
+        title = "An unexpected error occurred"
+
+        if self.mdbx.get_conf("app", "share_error_reports"):
+            message = ("The error has been reported to the developers. "
+                       "Please restart Maestral to continue syncing.")
+            error_dialog = UserDialog(title, message, err["traceback"])
+            error_dialog.exec_()
+
+        else:
+            message = ("You can send a report to the developers or open an issue on "
+                       "GitHub. Please restart Maestral to continue syncing.")
+            checkbox_text = "Always send error reports (can be changed in Settings)"
+            error_dialog = UserDialog(title, message, err["traceback"], checkbox_text)
+            error_dialog.setAcceptButtonName("Send to Developers")
+            error_dialog.addCancelButton("Don't send")
+
+            res = error_dialog.exec_()
+
+            if error_dialog.checkbox.isChecked():
+                self.mdbx.set_conf("app", "share_error_reports", True)
+
+            if res == 1:
+                import bugsnag
+                bugsnag.configure(
+                    api_key="081c05e2bf9730d5f55bc35dea15c833",
+                    app_version=__version__,
+                    auto_notify=False,
+                    auto_capture_sessions=False,
+                )
+                bugsnag.notify(
+                    RuntimeError(err["type"]),
+                    meta_data={
+                        "system":
+                            {
+                                "platform": platform.platform(),
+                                "python": platform.python_version(),
+                                "PyQt5": QtCore.PYQT_VERSION_STR,
+                                "desktop": DESKTOP,
+                            },
+                        "error": err,
+                    }
+                )
 
     @QtCore.pyqtSlot()
     def _onContextMenuAboutToShow(self):
