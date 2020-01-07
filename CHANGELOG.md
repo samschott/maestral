@@ -1,10 +1,22 @@
 ## v0.5.1-dev
 
+#### Added:
+
+- Added automatic crash and error reporting with bugsnag. This is _disabled_ by default
+  and can be enabled in the Settings pane or via `maestral analytics -Y`. The information
+  in the bugreport will contain a traceback, the Python version, basic platform
+  information (e.g, 'Darwin-19.2.0-x86_64-i386-64bit') and potentially the version of
+  PyQt5 and the user's desktop environment. No data which can identify the user will be
+  shared (no file names, Dropbox user names, locale, etc.). 
+  
+
 #### Changed:
 
-- Improved config management: Explicitly pass config name to classes which depend on a
-  certain config, e.g., Maestral, MaestralMonitor, MaestralApiClient, etc.
-- Refactored config code: Adapted changes from Spyder 4.0.
+- Improved configuration handling:
+    - Explicitly pass the config name to classes which depend on a certain configuration,
+      e.g., Maestral, MaestralMonitor, MaestralApiClient, etc.
+    - Refactored config code: Adapted changes from Spyder 4.0.
+- Changed order of commands returned by `maestral --help`
 
 #### Fixed:
 
@@ -12,11 +24,16 @@
   Do not rely on the `exists_ok` parameter in `os.makedirs` but catch `FileExistsError`
   explicitly (see https://bugs.python.org/issue13498).
 - Fixed an `AttributeError` when a local folder is replaced by file: the Dropbox metadata
-  of the folder will not have a content hash. This can occur when modifying a folder
+  of the folder will not have a content hash. This mostly occurs when modifying a folder
   structure programatically, for instance with git.
 - Fixed an `AttributeError` when a remote file has been replaced by a folder before its
   changes could be downloaded: the Dropbox metadata of the folder will not have a content
   hash.
+  
+#### Removed:
+
+- Removed the command `maestral errors` from the CLI. Any sync errors will now be listed
+  by `maestral status` if present.
 
 ## v0.5.0
 
