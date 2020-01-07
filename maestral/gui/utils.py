@@ -269,7 +269,7 @@ class UserDialog(QtWidgets.QDialog):
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Sheet | Qt.WindowTitleHint |
                             Qt.CustomizeWindowHint)
         self.setWindowTitle("")
-        width = 550 if details else 450
+        width = 600 if details else 450
         self.setFixedWidth(width)
 
         self.gridLayout = QtWidgets.QGridLayout()
