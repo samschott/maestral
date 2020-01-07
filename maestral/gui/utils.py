@@ -298,6 +298,7 @@ class UserDialog(QtWidgets.QDialog):
             self.details = QtWidgets.QTextBrowser(self)
             self.details.setText("".join(details))
             self.details.setOpenExternalLinks(True)
+            self.details.setLineWrapMode(QtWidgets.QTextBrowser.NoWrap)
 
         if checkbox:
             self.checkbox = QtWidgets.QCheckBox(checkbox)
