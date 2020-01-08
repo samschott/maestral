@@ -589,11 +589,11 @@ def rebuild_index(config_name: str):
         width, height = click.get_terminal_size()
 
         message1 = textwrap.wrap(
-            "If you encounter sync issues, please run 'maestral errors' to check for "
-            "incompatible file names, insufficient permissions or other issues which "
-            "should be resolved manually. After resolving them, please pause and resume "
-            "syncing. Only rebuild the index if you continue to have problems after "
-            "taking those steps.",
+            "If you encounter sync issues, please run 'maestral status' to check for "
+            "sync issues which can should be resolved manually, e.g., incompatible file "
+            "names or insufficient permissions. After resolving them, please pause and "
+            "resume syncing. Only rebuild the index if you continue to have problems "
+            "after taking those steps.",
             width=width,
         )
 
