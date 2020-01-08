@@ -1802,8 +1802,8 @@ def download_worker_added_folder(sync, syncing, running, connected):
             logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
         except MaestralApiError as e:
-            syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
+            syncing.clear()  # stop syncing
             logger.error(e.title, exc_info=True)
         except Exception:
             logger.error("Unexpected error", exc_info=True)
@@ -1850,8 +1850,8 @@ def upload_worker(sync, syncing, running, connected):
             logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
         except MaestralApiError as e:
-            syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
+            syncing.clear()  # stop syncing
             logger.error(e.title, exc_info=True)
         except Exception:
             logger.error("Unexpected error", exc_info=True)
@@ -2037,7 +2037,7 @@ class MaestralMonitor(object):
         self.syncing.set()  # resumes upload_thread, download_thread and file handler
         logger.info(IDLE)
 
-    def stop(self, overload=None, blocking=False):
+    def stop(self, overload=None):
         """Stops syncing and destroys worker threads."""
 
         if not self.running.is_set():
@@ -2052,11 +2052,7 @@ class MaestralMonitor(object):
         self.local_observer_thread.join()  # wait to finish
 
         self.running.clear()  # stops our own threads
-
-        if blocking:
-            # we don't join the download thread, because it may take up to 120 sec to stop
-            self.upload_thread.join()
-            self.download_thread_added_folder.join()
+        self.upload_thread.join()  # wait for uploads to terminate
 
         logger.info(STOPPED)
 
@@ -2092,7 +2088,7 @@ class MaestralMonitor(object):
 
         was_running = self.running.is_set()
 
-        self.stop(blocking=True)  # stop all sync threads and wait for them to return
+        self.stop()  # stop all sync threads
         try:
             os.unlink(self.sync.rev_file_path)  # delete rev file
         except OSError:
@@ -2118,6 +2114,7 @@ class MaestralMonitor(object):
         # deleted before re-indexing will be downloaded again. Files changes
         # which occurred before the file was re-indexed will result in a conflicting
         # copy.
+
         if was_running:
             self.start()
 
