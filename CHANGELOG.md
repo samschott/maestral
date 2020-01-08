@@ -2,13 +2,12 @@
 
 #### Added:
 
-- Added automatic crash and error reporting with bugsnag. This is _disabled_ by default
-  and can be enabled in the Settings pane or via `maestral analytics -Y`. The information
-  in the bugreport will contain a traceback, the Python version, basic platform
-  information (e.g, 'Darwin-19.2.0-x86_64-i386-64bit') and potentially the version of
-  PyQt5 and the user's desktop environment. No data which can identify the user will be
-  shared (no file names, Dropbox user names, locale, etc.). 
-  
+- Added automatic crash and error reporting with [bugsnag](https://www.bugsnag.com). This
+  is _disabled_ by default and can be enabled in the Settings pane or via `maestral
+  analytics -Y`. The information in the bug report will contain a traceback, the Python
+  version, basic platform information (e.g, 'Darwin-19.2.0-x86_64-i386-64bit') and
+  potentially the version of PyQt5 and the user's desktop environment. No personal
+  information will be shared (no file names, Dropbox user names, locale, etc.).
 
 #### Changed:
 
@@ -32,7 +31,9 @@
 - Fixed an `AttributeError` when a remote file has been replaced by a folder before its
   changes could be downloaded: the Dropbox metadata of the folder will not have a content
   hash.
-  
+- Fixed an bug introduced in v0.5.0 which would cause rebuilding the index to block
+  indefinitely.
+
 #### Removed:
 
 - Removed the command `maestral errors` from the CLI. Any sync errors will now be listed
