@@ -887,7 +887,7 @@ def list_configs():
 
 @config.command(name="list", help_priority=0)
 def config_list():
-    """List all Maestral configurations."""
+    """Lists all Maestral configurations."""
     click.echo("Available Maestral configurations:")
     for c in list_configs():
         click.echo('  ' + c)
@@ -896,7 +896,7 @@ def config_list():
 @config.command(name="add", help_priority=1)
 @click.argument("name")
 def config_add(name: str):
-    """Set up and activate a fresh Maestral configuration."""
+    """Sets up and activates a fresh Maestral configuration."""
     if name in list_configs():
         click.echo("Configuration '{}' already exists.".format(name))
     else:
@@ -909,7 +909,7 @@ def config_add(name: str):
 @config.command(name="remove", help_priority=2)
 @click.argument("name")
 def config_remove(name: str):
-    """Remove a Maestral configuration."""
+    """Removes a Maestral configuration."""
     if name not in list_configs():
         click.echo("Configuration '{}' could not be found.".format(name))
     else:
