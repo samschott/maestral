@@ -16,7 +16,10 @@
     - Explicitly pass the config name to classes which depend on a certain configuration,
       e.g., Maestral, MaestralMonitor, MaestralApiClient, etc.
     - Refactored config code: Adapted changes from Spyder 4.0.
-- Changed order of commands returned by `maestral --help`
+- Changed order of commands returned by `maestral --help`.
+- Fixed a crash of the GUI when closing the settings window shortly after closing the
+  "Chose folders to sync..." dialog. This was caused by QThreads being destroyed while
+  the threads were still running.
 
 #### Fixed:
 
