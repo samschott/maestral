@@ -226,10 +226,11 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     def setup_ui_linked(self):
 
-        self.autostart = None
-
         if not self.mdbx:
             return
+
+        self.autostart = None
+        self.settings_window = SettingsWindow(self, self.mdbx)
 
         self.setToolTip(IDLE)
 
@@ -379,12 +380,9 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     @QtCore.pyqtSlot()
     def on_settings_clicked(self):
-
-        self.settings_window = SettingsWindow(self, self.mdbx)
         self.settings_window.show()
         self.settings_window.raise_()
         self.settings_window.activateWindow()
-        self.settings_window.setAttribute(QtCore.Qt.WA_DeleteOnClose)
 
     @QtCore.pyqtSlot()
     def on_sync_issues_clicked(self):
@@ -396,7 +394,6 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
     @QtCore.pyqtSlot()
     def on_rebuild_clicked(self):
-
         self.rebuild_dialog = RebuildIndexDialog(self.mdbx)
         self.rebuild_dialog.show()
         self.rebuild_dialog.activateWindow()
