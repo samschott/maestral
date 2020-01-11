@@ -78,8 +78,8 @@ class SettingsWindow(QtWidgets.QWidget):
         self.autostart = AutoStart()
 
         self.labelAccountName.setFont(get_scaled_font(1.5))
-        self.labelAccountInfo.setFont(get_scaled_font(0.85))
-        self.labelSpaceUsage.setFont(get_scaled_font(0.85))
+        self.labelAccountInfo.setFont(get_scaled_font(0.9))
+        self.labelSpaceUsage.setFont(get_scaled_font(0.9))
 
         # fixes sizes of label and profile pic
         self.labelAccountName.setFixedHeight(self.labelAccountName.height())

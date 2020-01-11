@@ -259,7 +259,7 @@
         <widget class="QLabel" name="labelAccountInfo">
          <property name="font">
           <font>
-           <pointsize>11</pointsize>
+           <pointsize>12</pointsize>
           </font>
          </property>
          <property name="text">
@@ -271,7 +271,7 @@
         <widget class="QLabel" name="labelSpaceUsage">
          <property name="font">
           <font>
-           <pointsize>11</pointsize>
+           <pointsize>12</pointsize>
           </font>
          </property>
          <property name="text">
