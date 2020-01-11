@@ -264,11 +264,14 @@ def log():
 def gui(config_name):
     """Runs Maestral with a GUI."""
     try:
-        from maestral.gui.main import run
-        run(config_name)
+        import PyQt5
     except ImportError:
         click.echo("Error: PyQt5 is required to run the Maestral GUI. "
                    "Run `pip install pyqt5` to install it.")
+        return
+
+    from maestral.gui.main import run
+    run(config_name)
 
 
 @main.command(help_priority=1)
