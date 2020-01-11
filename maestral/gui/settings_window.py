@@ -85,9 +85,10 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelAccountName.setFixedHeight(self.labelAccountName.height())
         self._profile_pic_height = round(self.labelUserProfilePic.height() * 0.65)
 
-        if platform.system() == "Darwin" and NEW_QT:
-            self.spacerMacOS.setMinimumWidth(2)  # bug fix for macOS
-            self.spacerMacOS.setMaximumWidth(2)  # bug fix for macOS
+        if platform.system() == "Darwin":  # bug fixes for macOS
+            self.spacerMacOS.setFixedWidth(2 if NEW_QT else 0)
+            self.comboBoxUpdateInterval.setFocusPolicy(QtCore.Qt.NoFocus)
+            self.comboBoxDropboxPath.setFocusPolicy(QtCore.Qt.NoFocus)
 
         self.refresh_gui()
 
