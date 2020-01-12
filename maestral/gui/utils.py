@@ -296,7 +296,7 @@ class UserDialog(QtWidgets.QDialog):
 
         if details:
             self.details = QtWidgets.QTextBrowser(self)
-            self.details.setText("".join(details))
+            self.details.setText(details)
             self.details.setOpenExternalLinks(True)
             self.details.setLineWrapMode(QtWidgets.QTextBrowser.NoWrap)
 
