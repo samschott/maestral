@@ -10,7 +10,7 @@ import platform
 # external packages
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, QRect
-from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap, QWindow
+from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap
 
 # maestral modules
 from maestral.gui.resources import APP_ICON_PATH, rgb_to_luminance
@@ -25,6 +25,8 @@ LINE_COLOR_LIGHT = (213, 213, 213)
 _USER_DIALOG_ICON_SIZE = 70
 
 IS_MACOS = platform.system() == "Darwin"
+
+USE_MACOS_NATIVE_DIALOGS = False
 
 
 def elide_string(string, font=None, pixels=200, side="right"):
@@ -81,7 +83,7 @@ def icon_to_pixmap(icon, width, height=None):
         height = width
 
     is_hidpi = QtCore.QCoreApplication.testAttribute(Qt.AA_UseHighDpiPixmaps)
-    pr = QWindow().devicePixelRatio()
+    pr = QtWidgets.QApplication.instance().devicePixelRatio()
 
     if not is_hidpi:
         width = width*pr
@@ -420,7 +422,7 @@ def get_masked_image(path, size=64, overlay_text=""):
 
     # Convert the image to a pixmap and rescale it.  Take pixel ratio into
     # account to get a sharp image on retina displays:
-    pr = QWindow().devicePixelRatio()
+    pr = QtWidgets.QApplication.instance().devicePixelRatio()
     pm = QPixmap.fromImage(out_img)
     pm.setDevicePixelRatio(pr)
     size *= pr
@@ -436,7 +438,7 @@ class FaderWidget(QtWidgets.QWidget):
     def __init__(self, old_widget, new_widget, duration=300):
         QtWidgets.QWidget.__init__(self, new_widget)
 
-        pr = QWindow().devicePixelRatio()
+        pr = QtWidgets.QApplication.instance().devicePixelRatio()
         self.old_pixmap = QPixmap(new_widget.size()*pr)
         self.old_pixmap.setDevicePixelRatio(pr)
         old_widget.render(self.old_pixmap)
@@ -708,7 +710,7 @@ class QProgressIndicator(QtWidgets.QWidget):
 
 
 def show_dialog(title, message, details=None, level="info"):
-    if IS_MACOS:
+    if IS_MACOS and USE_MACOS_NATIVE_DIALOGS:
         from maestral.gui.macos_utils import native_dialog
         native_dialog(title, message, details=details, level=level)
     else:
@@ -724,7 +726,7 @@ def show_stacktrace_dialog(traceback, ask_share=False):
         message = ("A report has been sent to the developers. "
                    "Please restart Maestral to continue syncing.")
 
-        if IS_MACOS:
+        if IS_MACOS and USE_MACOS_NATIVE_DIALOGS:
             from maestral.gui.macos_utils import native_dialog
             native_dialog(title, message, details=traceback, level="error")
         else:
@@ -737,7 +739,7 @@ def show_stacktrace_dialog(traceback, ask_share=False):
 
         checkbox_text = "Always send error reports (can be changed in Settings)"
 
-        if IS_MACOS:
+        if IS_MACOS and USE_MACOS_NATIVE_DIALOGS:
             from maestral.gui.macos_utils import native_dialog
             share, ask_share = native_dialog(
                 title, message,
