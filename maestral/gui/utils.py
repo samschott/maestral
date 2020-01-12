@@ -705,3 +705,71 @@ class QProgressIndicator(QtWidgets.QWidget):
             self.setColor(self.m_light_color)
         else:
             self.setColor(self.m_dark_color)
+
+
+def show_dialog(title, message, details=None, level="info"):
+    if IS_MACOS:
+        from maestral.gui.macos_utils import native_dialog
+        native_dialog(title, message, details=details, level=level)
+    else:
+        UserDialog(title, message, details).exec_()
+
+
+def show_stacktrace_dialog(traceback, ask_share=False):
+
+    title = "An unexpected error occurred"
+
+    if not ask_share:
+
+        message = ("A report has been sent to the developers. "
+                   "Please restart Maestral to continue syncing.")
+
+        if IS_MACOS:
+            from maestral.gui.macos_utils import native_dialog
+            native_dialog(title, message, details=traceback, level="error")
+        else:
+            UserDialog(title, message, details=traceback).exec_()
+
+        return False, False
+    else:
+        message = ("You can send a report to the developers or open an issue on "
+                   "GitHub. Please restart Maestral to continue syncing.")
+
+        checkbox_text = "Always send error reports (can be changed in Settings)"
+
+        if IS_MACOS:
+            from maestral.gui.macos_utils import native_dialog
+            share, ask_share = native_dialog(
+                title, message,
+                details=traceback,
+                button_names=("Send to Developers", "Don't send"),
+                checkbox_text=checkbox_text,
+            )
+        else:
+            error_dialog = UserDialog(
+                title, message, details=traceback, checkbox=checkbox_text,
+                button_names=("Send to Developers", "Don't send")
+            )
+
+            share = error_dialog.exec_() == 1
+            ask_share = error_dialog.checkbox.isChecked()
+
+        return share, ask_share
+
+
+def show_update_dialog(latest_release, release_notes_html):
+
+    url_r = "https://github.com/samschott/maestral-dropbox/releases"
+    message = (
+        'Maestral v{0} is available. Please use your package manager to '
+        'update Maestral or go to the <a href=\"{1}\"><span '
+        'style="text-decoration: underline; color:#2874e1;">releases</span></a> '
+        'page to download the new version. '
+        '<div style="height:5px;font-size:5px;">&nbsp;<br></div>'
+        '<b>Release notes:</b>'
+    ).format(latest_release, url_r)
+    list_style = '<ul style="margin-top: 0px; margin-bottom: 0px; margin-left: -20px; ' \
+                 'margin-right: 0px; -qt-list-indent: 1;">'
+    styled_release_notes = release_notes_html.replace('<ul>', list_style)
+    update_dialog = UserDialog("Update available", message, styled_release_notes)
+    update_dialog.exec_()

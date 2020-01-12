@@ -41,10 +41,13 @@ from maestral.gui.rebuild_index_dialog import RebuildIndexDialog
 from maestral.gui.resources import get_system_tray_icon, DESKTOP
 from maestral.gui.autostart import AutoStart
 from maestral.gui.utils import (
-    UserDialog,
     MaestralBackgroundTask,
     BackgroundTaskProgressDialog,
     elide_string,
+    IS_MACOS,
+    show_stacktrace_dialog,
+    show_update_dialog,
+    show_dialog,
 )
 
 logger = logging.getLogger(__name__)
@@ -182,12 +185,10 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
                 res = start_maestral_daemon_process(self._config_name)
 
             if res is False:
-                error_dialog = UserDialog(
-                    "Could not start Maestral",
-                    "Could not start or connect to sync daemon. Please try again and " +
-                    "contact the developer if this issue persists."
-                )
-                error_dialog.exec_()
+                title = "Could not start Maestral"
+                message = ("Could not start or connect to sync daemon. Please try again "
+                           "and contact the developer if this issue persists.")
+                show_dialog(title, message, level="error")
                 self.quit()
             else:
                 self._started = True
@@ -321,39 +322,19 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def _notify_updates_user_requested(self, res):
 
         if res["error"]:
-            update_dialog = UserDialog("Could not check for updates", res["error"])
-            update_dialog.exec_()
+            show_dialog("Could not check for updates", res["error"], level="warning")
         elif res["update_available"]:
-            self._show_update_dialog(res)
+            show_update_dialog(res["latest_release"], res["release_notes"])
         elif not res["update_available"]:
             message = 'Maestral v{} is the newest version available.'.format(res["latest_release"])
-            update_dialog = UserDialog("You’re up-to-date!", message)
-            update_dialog.exec_()
+            show_dialog("You’re up-to-date!", message, level="info")
 
     @QtCore.pyqtSlot(dict)
     def _notify_updates_auto(self, res):
 
         if res["update_available"]:
             self.mdbx.set_conf("app", "update_notification_last", time.time())
-            self._show_update_dialog(res)
-
-    @staticmethod
-    def _show_update_dialog(res):
-        url_r = "https://github.com/samschott/maestral-dropbox/releases"
-        message = (
-            'Maestral v{0} is available. Please use your package manager to '
-            'update Maestral or go to the <a href=\"{1}\"><span '
-            'style="text-decoration: underline; color:#2874e1;">releases</span></a> '
-            'page to download the new version. '
-            '<div style="height:5px;font-size:5px;">&nbsp;<br></div>'
-            '<b>Release notes:</b>'
-        ).format(res["latest_release"], url_r)
-        list_style = '<ul style="margin-top: 0px; margin-bottom: 0px; margin-left: -20px; ' \
-                     'margin-right: 0px; -qt-list-indent: 1;">'
-        styled_release_notes = res["release_notes"].replace('<ul>', list_style)
-        update_dialog = UserDialog("Update available", message, styled_release_notes)
-        update_dialog.exec_()
-        update_dialog.deleteLater()
+            show_update_dialog(res["latest_release"], res["release_notes"])
 
     @QtCore.pyqtSlot()
     def on_website_clicked(self):
@@ -485,8 +466,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         if err["type"] in ("RevFileError", "BadInputError", "CursorResetError", "InotifyError"):
             self.mdbx.stop_sync()
-            error_dialog = UserDialog(err["title"], err["message"])
-            error_dialog.exec_()
+            show_dialog(err["title"], err["message"], level="error")
         elif err["type"] == "DropboxDeletedError":
             self.restart()  # will launch into setup dialog
         elif err["type"] == "DropboxAuthError":
@@ -511,54 +491,41 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
 
         self.mdbx.stop_sync()
 
-        title = "An unexpected error occurred"
+        share, auto_share = show_stacktrace_dialog(
+            err["traceback"],
+            ask_share=not self.mdbx.get_conf("app", "analytics")
+        )
 
-        if self.mdbx.get_conf("app", "analytics"):
-            message = ("A report has been sent to the developers. "
-                       "Please restart Maestral to continue syncing.")
-            error_dialog = UserDialog(title, message, err["traceback"])
-            error_dialog.exec_()
+        if share:
+            import bugsnag
+            bugsnag.configure(
+                api_key="081c05e2bf9730d5f55bc35dea15c833",
+                app_version=__version__,
+                auto_notify=False,
+                auto_capture_sessions=False,
+            )
+            bugsnag.notify(
+                RuntimeError(err["type"]),
+                meta_data={
+                    "system":
+                        {
+                            "platform": platform.platform(),
+                            "python": platform.python_version(),
+                            "PyQt5": QtCore.PYQT_VERSION_STR,
+                            "desktop": DESKTOP,
+                        },
+                    "error": err,
+                }
+            )
 
-        else:
-            message = ("You can send a report to the developers or open an issue on "
-                       "GitHub. Please restart Maestral to continue syncing.")
-            checkbox_text = "Always send error reports (can be changed in Settings)"
-            error_dialog = UserDialog(title, message, err["traceback"], checkbox_text)
-            error_dialog.setAcceptButtonName("Send to Developers")
-            error_dialog.addCancelButton("Don't send")
-
-            res = error_dialog.exec_()
-
-            if error_dialog.checkbox.isChecked():
-                self.mdbx.set_conf("app", "analytics", True)
-
-            if res == 1:
-                import bugsnag
-                bugsnag.configure(
-                    api_key="081c05e2bf9730d5f55bc35dea15c833",
-                    app_version=__version__,
-                    auto_notify=False,
-                    auto_capture_sessions=False,
-                )
-                bugsnag.notify(
-                    RuntimeError(err["type"]),
-                    meta_data={
-                        "system":
-                            {
-                                "platform": platform.platform(),
-                                "python": platform.python_version(),
-                                "PyQt5": QtCore.PYQT_VERSION_STR,
-                                "desktop": DESKTOP,
-                            },
-                        "error": err,
-                    }
-                )
+        if auto_share:
+            self.mdbx.set_conf("app", "analytics", True)
 
     @QtCore.pyqtSlot()
     def _onContextMenuAboutToShow(self):
         self._context_menu_visible = True
 
-        if platform.system() == "Darwin":
+        if IS_MACOS:
             self.icons = self.load_tray_icons("light")
             self.setIcon(self._current_icon)
 
@@ -566,7 +533,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
     def _onContextMenuAboutToHide(self):
         self._context_menu_visible = False
 
-        if platform.system() == "Darwin":
+        if IS_MACOS:
             self.icons = self.load_tray_icons()
             self.setIcon(self._current_icon)
 
@@ -574,7 +541,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         return self._context_menu_visible
 
     def setToolTip(self, text):
-        if not platform.system() == "Darwin":
+        if not IS_MACOS:
             # tray icons in macOS should not have tooltips
             QtWidgets.QSystemTrayIcon.setToolTip(self, text)
 
@@ -614,7 +581,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             # noinspection PyUnresolvedReferences
             launch_command = os.path.join(sys._MEIPASS, "main")
             Popen("lsof -p {0} +r 1 &>/dev/null; {0}".format(launch_command), shell=True)
-        if platform.system() == "Darwin":
+        elif IS_MACOS:
             Popen("lsof -p {0} +r 1 &>/dev/null; maestral gui --config-name='{1}'".format(
                 pid, self._config_name), shell=True)
         elif platform.system() == "Linux":
