@@ -253,7 +253,7 @@ class BackgroundTaskProgressDialog(QtWidgets.QDialog):
 class UserDialog(QtWidgets.QDialog):
     """A template user dialog for Maestral. Shows a traceback if given in constructor."""
 
-    def __init__(self, title, message, details=None, checkbox=None, parent=None):
+    def __init__(self, title, message, details=None, checkbox=None, parent=None, button_names=("Ok",)):
         """
         A user dialog for Maestral.
 
@@ -314,6 +314,20 @@ class UserDialog(QtWidgets.QDialog):
         if checkbox:
             self.gridLayout.addWidget(self.checkbox, 3, 1, 1, 1)
         self.gridLayout.addWidget(self.buttonBox, 4, 1, -1, -1)
+
+        if len(button_names) < 1:
+            ValueError("Dialog must have at least one button")
+
+        self.setAcceptButtonName(button_names[0])
+
+        if len(button_names) > 1:
+            self.addCancelButton(name=button_names[1])
+
+        if len(button_names) > 2:
+            self.addSecondAcceptButton(name=button_names[2])
+
+        if len(button_names) > 3:
+            ValueError("Dialog cannot have more than three buttons")
 
         self.adjustSize()
 
