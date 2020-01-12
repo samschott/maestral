@@ -32,7 +32,7 @@ def maestral_error_to_dict(err):
         type=err.__class__.__name__,
         inherits=[str(b) for b in err.__class__.__bases__],
         cause=err.__cause__,
-        traceback=traceback.format_exception(err.__class__, err, err.__traceback__)
+        traceback="".join(traceback.format_exception(err.__class__, err, err.__traceback__))
     )
     dictionary.update(err.__dict__)
 
