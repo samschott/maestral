@@ -171,10 +171,6 @@ def native_dialog(title, message, details=None, icon_path=APP_ICON_PATH, button_
     alert.setMessageText_(title)
     alert.setInformativeText_(message)
 
-    if checkbox_text:
-        alert.setShowsSuppressionButton_(True)
-        alert.suppressionButton().setTitle_(checkbox_text)
-
     if details:
         scroll = NSScrollView.alloc().initWithFrame_(NSMakeRect(0, 0, 500, 200))
         scroll.setHasVerticalScroller_(True)
@@ -190,6 +186,10 @@ def native_dialog(title, message, details=None, icon_path=APP_ICON_PATH, button_
 
         scroll.setDocumentView_(trace)
         alert.setAccessoryView_(scroll)
+
+    if checkbox_text:
+        alert.setShowsSuppressionButton_(True)
+        alert.suppressionButton().setTitle_(checkbox_text)
 
     for name in button_names:
         alert.addButtonWithTitle_(name)
