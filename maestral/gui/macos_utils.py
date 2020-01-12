@@ -58,7 +58,7 @@ class Appearances(enum.Enum):
 
 class VibrantWidget(QtWidgets.QWidget):
 
-    _material = NSVisualEffectMaterialUnderWindowBackground
+    _material = NSVisualEffectMaterialWindowBackground
     _appearance = None
 
     def __init__(self, parent=None):
