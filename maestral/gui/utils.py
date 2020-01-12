@@ -258,6 +258,8 @@ class BackgroundTaskProgressDialog(QtWidgets.QDialog):
 class UserDialog(QtWidgets.QDialog):
     """A template user dialog for Maestral. Shows a traceback if given in constructor."""
 
+    MINIMUM_BUTTON_SIZE = 85
+
     def __init__(self, title, message, details=None, checkbox=None, parent=None, button_names=("Ok",)):
         """
         A user dialog for Maestral.
@@ -274,7 +276,7 @@ class UserDialog(QtWidgets.QDialog):
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Sheet | Qt.WindowTitleHint |
                             Qt.CustomizeWindowHint)
         self.setWindowTitle("")
-        width = 600 if details else 450
+        width = 700 if details else 450
         self.setFixedWidth(width)
 
         self.gridLayout = QtWidgets.QGridLayout()
@@ -289,8 +291,7 @@ class UserDialog(QtWidgets.QDialog):
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
         self.infoLabel.setFixedWidth(width-150)
-        self.infoLabel.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
-                                     QtWidgets.QSizePolicy.MinimumExpanding)
+        self.infoLabel.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.MinimumExpanding)
         self.infoLabel.setWordWrap(True)
         self.infoLabel.setOpenExternalLinks(True)
 
@@ -303,7 +304,7 @@ class UserDialog(QtWidgets.QDialog):
             self.details = QtWidgets.QTextBrowser(self)
             self.details.setText(details)
             self.details.setOpenExternalLinks(True)
-            self.details.setLineWrapMode(QtWidgets.QTextBrowser.NoWrap)
+            # self.details.setLineWrapMode(QtWidgets.QTextBrowser.NoWrap)
 
         if checkbox:
             self.checkbox = QtWidgets.QCheckBox(checkbox)
@@ -335,6 +336,10 @@ class UserDialog(QtWidgets.QDialog):
             ValueError("Dialog cannot have more than three buttons")
 
         self.adjustSize()
+
+        for button in self.buttonBox.buttons():
+            if button.sizeHint().width() < self.MINIMUM_BUTTON_SIZE:
+                button.setFixedWidth(self.MINIMUM_BUTTON_SIZE)
 
     def setAcceptButtonName(self, name):
         self.buttonBox.buttons()[0].setText(name)
