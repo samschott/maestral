@@ -8,7 +8,6 @@ Created on Wed Oct 31 16:23:13 2018
 # system imports
 import os.path as osp
 import time
-import platform
 from distutils.version import LooseVersion
 
 # external packages
@@ -22,8 +21,8 @@ from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
                                     SETTINGS_WINDOW_PATH, APP_ICON_PATH, FACEHOLDER_PATH)
 from maestral.gui.utils import (get_scaled_font, isDarkWindow,
-                                LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap,
-                                get_masked_image, MaestralBackgroundTask)
+                                LINE_COLOR_DARK, LINE_COLOR_LIGHT, IS_MACOS,
+                                icon_to_pixmap, get_masked_image, MaestralBackgroundTask)
 
 
 NEW_QT = LooseVersion(QtCore.QT_VERSION_STR) >= LooseVersion("5.11")
@@ -85,7 +84,7 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelAccountName.setFixedHeight(self.labelAccountName.height())
         self._profile_pic_height = round(self.labelUserProfilePic.height() * 0.65)
 
-        if platform.system() == "Darwin":  # bug fixes for macOS
+        if IS_MACOS:  # bug fixes for macOS
             self.spacerMacOS.setFixedWidth(2 if NEW_QT else 0)
             self.comboBoxUpdateInterval.setFocusPolicy(QtCore.Qt.NoFocus)
             self.comboBoxDropboxPath.setFocusPolicy(QtCore.Qt.NoFocus)
