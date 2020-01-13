@@ -58,7 +58,7 @@ class Appearances(enum.Enum):
 
 class VibrantWidget(QtWidgets.QWidget):
 
-    _material = NSVisualEffectMaterialWindowBackground
+    _material = Materials.WindowBackground
     _appearance = None
 
     def __init__(self, parent=None):
@@ -72,7 +72,7 @@ class VibrantWidget(QtWidgets.QWidget):
         self._visualEffectView.setWantsLayer_(True)
         self._visualEffectView.setFrame_(frame)
         self._visualEffectView.setState_(NSVisualEffectStateActive)
-        self._visualEffectView.setMaterial_(self._material)
+        self._visualEffectView.setMaterial_(self._material.value)
         self._visualEffectView.setBlendingMode_(NSVisualEffectBlendingModeBehindWindow)
         self._visualEffectView.setWantsLayer_(True)
 
