@@ -97,15 +97,14 @@ class VibrantWidget(QtWidgets.QWidget):
     def material(self):
         return self._material
 
-    def setAppearance(self, appearance):
-        if not appearance in Appearances:
-            raise ValueError('Invalid appearance')
-        self._appearance = appearance
-        named_appearance = NSAppearance.appearanceNamed_(appearance.value)
-        self._native_window.setAppearance_(named_appearance)
+    # this is required to maintain the appearance
 
-    def appearance(self):
-        return self._appearance
+    def closeEvent(self, event):
+        event.ignore()
+        self.hide()
+
+    def close(self):
+        self.hide()
 
 
 # -- native AppKit sheet alerts ----------------------------------------------------------
