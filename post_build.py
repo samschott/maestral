@@ -8,6 +8,7 @@ items_to_remove = [
     'QtQml',
     'QtQuick',
     'QtNetwork',
+    'QtWebSockets',
     'PyQt5/Qt/translations',
     'PyQt5/Qt/plugins/imageformats/libqgif.dylib',
     'PyQt5/Qt/plugins/imageformats/libqtiff.dylib',
@@ -15,6 +16,7 @@ items_to_remove = [
     'PyQt5/Qt/plugins/platforms/libqwebgl.dylib',
     'PyQt5/Qt/plugins/platforms/libqoffscreen.dylib',
     'PyQt5/Qt/plugins/platforms/libqminimal.dylib',
+    'libsqlite3.0.dylib',
 ]
 
 print("Removing unneeded Qt modules...")
