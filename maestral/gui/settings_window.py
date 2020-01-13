@@ -35,11 +35,12 @@ class UnlinkDialog(QtWidgets.QDialog):
         # load user interface layout from .ui file
         uic.loadUi(UNLINK_DIALOG_PATH, self)
 
-        self.restart_func = restart_func
-        self.mdbx = mdbx
+        self.setWindowFlags(QtCore.Qt.Sheet)
+        self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.setModal(True)
 
-        self.setWindowFlags(QtCore.Qt.Sheet)
+        self.restart_func = restart_func
+        self.mdbx = mdbx
 
         self.buttonBox.buttons()[0].setText("Unlink")
         self.titleLabel.setFont(get_scaled_font(bold=True))
@@ -67,7 +68,7 @@ class SettingsWindow(QtWidgets.QWidget):
         uic.loadUi(SETTINGS_WINDOW_PATH, self)
         self._parent = parent
         self.update_dark_mode()
-        self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+        self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint)
 
         self.adjustSize()
 
@@ -85,9 +86,10 @@ class SettingsWindow(QtWidgets.QWidget):
         self._profile_pic_height = round(self.labelUserProfilePic.height() * 0.65)
 
         if IS_MACOS:  # bug fixes for macOS
-            self.spacerMacOS.setFixedWidth(2 if NEW_QT else 0)
-            self.comboBoxUpdateInterval.setFocusPolicy(QtCore.Qt.NoFocus)
-            self.comboBoxDropboxPath.setFocusPolicy(QtCore.Qt.NoFocus)
+            self.setAttribute(QtCore.Qt.WA_TranslucentBackground)  # allows for proper adjustment of window color in dark mode
+            self.spacerMacOS.setFixedWidth(2 if NEW_QT else 0)  # fix for combobox spacing in qt 5.11 and higher
+            self.comboBoxUpdateInterval.setFocusPolicy(QtCore.Qt.NoFocus)  # don't show combobox focus, it is offset
+            self.comboBoxDropboxPath.setFocusPolicy(QtCore.Qt.NoFocus)  # don't show combobox focus, it is offset
 
         self.refresh_gui()
 
