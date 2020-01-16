@@ -34,6 +34,8 @@
 - Fixed a crash of the GUI when closing the settings window shortly after closing the
   "Chose folders to sync..." dialog. This was caused by QThreads being destroyed while
   the threads were still running.
+- Fixed an issue where the local revision number of a file could be set to 'folder',
+  resulting in an exception from the Dropbox API.
 
 #### Removed:
 
