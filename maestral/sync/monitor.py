@@ -1185,12 +1185,12 @@ class UpDownSync(object):
                 local_hash = get_local_hash(path)
                 if local_hash == md.content_hash:
                     # file hashes are identical, do not upload
-                    self.set_local_rev(md.path_display, "folder")
+                    self.set_local_rev(md.path_display, md.rev)
                     return
 
             rev = self.get_local_rev(dbx_path)
             # if truly a new file
-            if rev is None:
+            if rev in (None, "folder"):
                 mode = dropbox.files.WriteMode("add")
             # or a 'false' new file event triggered by saving the file
             # e.g., some programs create backup files and then swap them
