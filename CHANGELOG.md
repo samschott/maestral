@@ -36,6 +36,8 @@
   the threads were still running.
 - Fixed an issue where the local revision number of a file could be set to 'folder',
   resulting in an exception from the Dropbox API.
+- Fixed a bug when the "relink dialog" (shown when Maestral's Dropbox access has expired)
+  might use the wrong Dropbox account when syncing multiple accounts.
 
 #### Removed:
 
