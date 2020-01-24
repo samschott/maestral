@@ -44,6 +44,8 @@ class OAuth2Session(object):
         self.account_id = self._conf.get("account", "account_id")
         self.access_token = ""
 
+        self.auth_flow = None
+
     def load_token(self):
         """
         Check if auth key has been saved.
@@ -76,6 +78,9 @@ class OAuth2Session(object):
             OAuth2Session.ConnectionFailed
         :rtype: int
         """
+
+        if not self.auth_flow:
+            raise RuntimeError('Auth flow not yet started. Please call \'get_auth_url\'.')
 
         try:
             self.oAuth2FlowResult = self.auth_flow.finish(token)
