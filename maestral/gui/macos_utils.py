@@ -74,7 +74,6 @@ class VibrantWidget(QtWidgets.QWidget):
         self._visualEffectView.setState_(NSVisualEffectStateActive)
         self._visualEffectView.setMaterial_(self._material.value)
         self._visualEffectView.setBlendingMode_(NSVisualEffectBlendingModeBehindWindow)
-        self._visualEffectView.setWantsLayer_(True)
 
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground, True)
         self.setWindowFlag(QtCore.Qt.FramelessWindowHint, True)

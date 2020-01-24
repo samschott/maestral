@@ -9,7 +9,6 @@ Created on Wed Oct 31 16:23:13 2018
 # system imports
 import os
 import urllib
-import shutil
 
 # external packages
 import click
