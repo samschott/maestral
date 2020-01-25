@@ -9,6 +9,6 @@ requests
 u-msgpack-python
 keyring >= 19.0.0
 keyrings.alt >= 3.0.0
-Pyro5 != 5.6
+Pyro5 >= 5.7
 systemd-python
 sdnotify
