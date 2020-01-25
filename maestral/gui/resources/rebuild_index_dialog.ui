@@ -78,7 +78,7 @@
    <item row="1" column="0" colspan="2">
     <widget class="QLabel" name="infoLabel">
      <property name="text">
-      <string>If you encounter sync issues, please open &quot;View Sync Issues...&quot; to check for incompatible file names, insufficient permissions or other issues which should be resolved manually. After resolving them, please pause and resume syncing. Only rebuild the index if you continue to have problems after taking those steps.
+      <string>If you encounter sync issues, please open &quot;Show Sync Issues...&quot; to check for incompatible file names, insufficient permissions or other issues which should be resolved manually. After resolving them, please pause and resume syncing. Only rebuild the index if you continue to have problems after taking those steps.
 
 Rebuilding the index may take several minutes, depending on the size of your Dropbox. Please do not modify any items in your local Dropbox folder during this process. Any changes to local files while rebuilding may be lost. </string>
      </property>
