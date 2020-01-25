@@ -3,8 +3,8 @@
 #### Added:
 
 - Added automatic crash and error reporting with [bugsnag](https://www.bugsnag.com). This
-  is _disabled_ by default and can be enabled in the Settings pane or via `maestral
-  analytics -Y`. The information in the bug report will contain a traceback, the Python
+  is *disabled* by default and can be enabled in the Settings pane or via `maestral
+  analytics -Y`. The information sent with the bug report contains a traceback, the Python
   version, basic platform information (e.g, 'Darwin-19.2.0-x86_64-i386-64bit') and
   potentially the version of PyQt5 and the user's desktop environment. No personal
   information will be shared (no file names, Dropbox user names, locale, etc.).
@@ -25,7 +25,7 @@
   explicitly (see https://bugs.python.org/issue13498).
 - Fixed an `AttributeError` when a local folder is replaced by file: the Dropbox metadata
   of the folder will not have a content hash. This mostly occurs when modifying a folder
-  structure programatically, for instance with git.
+  structure programmatically, for instance with git.
 - Fixed an `AttributeError` when a remote file has been replaced by a folder before its
   changes could be downloaded: the Dropbox metadata of the folder will not have a content
   hash.
@@ -38,6 +38,7 @@
   resulting in an exception from the Dropbox API.
 - Fixed a bug when the "relink dialog" (shown when Maestral's Dropbox access has expired)
   might use the wrong Dropbox account when syncing multiple accounts.
+- Fixed an issue with imports in Pyro5 5.7 which prevented the daemon from starting.
 
 #### Removed:
 
