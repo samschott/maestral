@@ -14,7 +14,7 @@ import logging
 
 # external packages
 import Pyro5.errors
-from Pyro5 import server, client
+from Pyro5.api import Daemon, Proxy, expose
 from Pyro5.serializers import SerpentSerializer
 
 # internal modules
@@ -118,7 +118,7 @@ def start_maestral_daemon(config_name="maestral", run=True, log_to_stdout=False)
     except FileNotFoundError:
         pass
 
-    daemon = server.Daemon(unixsocket=sock_name)
+    daemon = Daemon(unixsocket=sock_name)
 
     _write_pid(config_name)  # write PID to file
 
@@ -126,7 +126,7 @@ def start_maestral_daemon(config_name="maestral", run=True, log_to_stdout=False)
         # we wrap this in a try-except block to make sure that the PID file is always
         # removed, even when Maestral crashes for some reason
 
-        ExposedMaestral = server.expose(Maestral)
+        ExposedMaestral = expose(Maestral)
         m = ExposedMaestral(config_name, run=run)
         m.set_log_to_stdout(log_to_stdout)
 
@@ -278,7 +278,7 @@ def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
         sock_name = get_runtime_path("maestral", config_name + ".sock")
 
         sys.excepthook = Pyro5.errors.excepthook
-        maestral_daemon = client.Proxy(URI.format(config_name, "./u:" + sock_name))
+        maestral_daemon = Proxy(URI.format(config_name, "./u:" + sock_name))
         try:
             maestral_daemon._pyroBind()
             return maestral_daemon
@@ -379,7 +379,7 @@ def _check_pyro_communication(config_name, timeout=2):
     """
 
     sock_name = _get_sock_name(config_name)
-    maestral_daemon = client.Proxy(URI.format(config_name, "./u:" + sock_name))
+    maestral_daemon = Proxy(URI.format(config_name, "./u:" + sock_name))
 
     t0 = time.time()
     # wait until we can communicate with daemon, timeout after :param:`timeout`
