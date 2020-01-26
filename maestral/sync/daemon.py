@@ -178,24 +178,13 @@ def start_maestral_daemon_process(config_name="maestral"):
     :returns: ``True`` if started, ``False`` otherwise.
     :rtype: bool
     """
-    import subprocess
-    import multiprocessing
+    import multiprocessing as mp
 
-    STD_IN_OUT = subprocess.DEVNULL
+    mp.set_start_method('spawn')
 
-    # use nested Popen and multiprocessing.Process to effectively create double fork
-    # see Unix "double-fork magic"
-
-    def target(cc):
-        subprocess.Popen(
-            ["maestral", "start", "-f", "-c", cc],
-            stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
-        )
-
-    t = multiprocessing.Process(
-        target=target,
+    t = mp.Process(
+        target=start_maestral_daemon,
         args=(config_name, ),
-        daemon=True,
         name="Maestral daemon launcher",
     )
 
