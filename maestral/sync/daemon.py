@@ -44,7 +44,7 @@ for err_cls in list(SYNC_ERRORS) + list(FATAL_ERRORS) + [MaestralApiError]:
     )
 
 
-def _get_sock_name(config_name):
+def _sockpath_for_config(config_name):
     """
     Returns the unix socket location to be used for the config. This should default to
     the apps runtime directory + '/maestral/CONFIG_NAME.sock'.
@@ -53,12 +53,16 @@ def _get_sock_name(config_name):
     return get_runtime_path("maestral", config_name + ".sock")
 
 
+def _pidpath_for_config(config_name):
+    from maestral.sync.utils.appdirs import get_runtime_path
+    return get_runtime_path("maestral", config_name + ".pid")
+
+
 def _write_pid(config_name):
     """
     Writes the PID to the appropriate file for the given config name.
     """
-    from maestral.sync.utils.appdirs import get_runtime_path
-    pid_file = get_runtime_path("maestral", config_name + ".pid")
+    pid_file = _pidpath_for_config(config_name)
     with open(pid_file, "w") as f:
         f.write(str(os.getpid()))
 
@@ -70,8 +74,7 @@ def _read_pid(config_name):
     Reads and returns the PID of the current maestral daemon process from the appropriate
     file for the given config name.
     """
-    from maestral.sync.utils.appdirs import get_runtime_path
-    pid_file = get_runtime_path("maestral", config_name + ".pid")
+    pid_file = _pidpath_for_config(config_name)
     with open(pid_file, "r") as f:
         pid = f.read().split("\n")[0]  # ignore all new lines
     pid = int(pid)
@@ -85,10 +88,8 @@ def _delete_pid(config_name):
     """
     Deletes the PID file for the given config name.
     """
-    from maestral.sync.utils.appdirs import get_runtime_path
-    pid_file = get_runtime_path("maestral", config_name + ".pid")
-    os.unlink(pid_file)
-
+    pid_file = _pidpath_for_config(config_name)
+    os.unlink(_pidpath_for_config(config_name))
     logger.debug(f"Removed PID file '{pid_file}'.")
 
 
@@ -109,7 +110,7 @@ def start_maestral_daemon(config_name="maestral", run=True, log_to_stdout=False)
     """
 
     from maestral.sync.main import Maestral
-    sock_name = _get_sock_name(config_name)
+    sock_name = _sockpath_for_config(config_name)
 
     logger.debug(f"Starting Maestral daemon on socket '{sock_name}'")
 
@@ -156,13 +157,11 @@ def start_maestral_daemon_process(config_name="maestral"):
 
     mp.set_start_method('spawn')
 
-    t = mp.Process(
+    mp.Process(
         target=start_maestral_daemon,
         args=(config_name, ),
-        name="Maestral daemon launcher",
-    )
-
-    t.start()
+        name="Maestral Daemon",
+    ).start()
 
     return _wait_for_startup(config_name, timeout=8)
 
@@ -237,8 +236,7 @@ def get_maestral_proxy(config_name="maestral", fallback=False):
 
     if pid:
 
-        from maestral.sync.utils.appdirs import get_runtime_path
-        sock_name = get_runtime_path("maestral", config_name + ".sock")
+        sock_name = _sockpath_for_config(config_name)
 
         sys.excepthook = Pyro5.errors.excepthook
         maestral_daemon = Proxy(URI.format(config_name, "./u:" + sock_name))
@@ -341,7 +339,7 @@ def _check_pyro_communication(config_name, timeout=2):
     communication succeeds within ``timeout``, ``False`` otherwise.
     """
 
-    sock_name = _get_sock_name(config_name)
+    sock_name = _sockpath_for_config(config_name)
     maestral_daemon = Proxy(URI.format(config_name, "./u:" + sock_name))
 
     t0 = time.time()
