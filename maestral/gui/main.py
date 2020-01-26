@@ -511,7 +511,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
                         {
                             "platform": platform.platform(),
                             "python": platform.python_version(),
-                            "PyQt5": QtCore.PYQT_VERSION_STR,
+                            "gui": QtCore.PYQT_VERSION_STR,
                             "desktop": DESKTOP,
                         },
                     "error": err,
