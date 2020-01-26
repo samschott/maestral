@@ -33,7 +33,7 @@ from maestral.sync.daemon import (
     start_maestral_daemon_thread,
     stop_maestral_daemon_process,
     get_maestral_pid,
-    get_maestral_daemon_proxy,
+    get_maestral_proxy,
 )
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.sync_issues_window import SyncIssueWindow
@@ -193,7 +193,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
             else:
                 self._started = True
 
-        return get_maestral_daemon_proxy(self._config_name)
+        return get_maestral_proxy(self._config_name)
 
     def setup_ui_unlinked(self):
 

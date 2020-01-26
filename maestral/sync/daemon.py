@@ -245,7 +245,7 @@ def stop_maestral_daemon_process(config_name="maestral", timeout=10):
             return False
 
 
-def get_maestral_daemon_proxy(config_name="maestral", fallback=False):
+def get_maestral_proxy(config_name="maestral", fallback=False):
     """
     Returns a Pyro proxy of the a running Maestral instance. If ``fallback`` is
     ``True``, a new instance of Maestral will be returned when the daemon cannot be
@@ -287,7 +287,7 @@ class MaestralProxy(object):
     """A context manager to open and close a Proxy to the Maestral daemon."""
 
     def __init__(self, config_name="maestral", fallback=False):
-        self.m = get_maestral_daemon_proxy(config_name, fallback)
+        self.m = get_maestral_proxy(config_name, fallback)
 
     def __enter__(self):
         return self.m

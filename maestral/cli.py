@@ -616,9 +616,9 @@ def rebuild_index(config_name: str):
         import time
         import Pyro5.client
         from concurrent.futures import ThreadPoolExecutor
-        from maestral.sync.daemon import MaestralProxy, get_maestral_daemon_proxy
+        from maestral.sync.daemon import MaestralProxy, get_maestral_proxy
 
-        m0 = get_maestral_daemon_proxy(config_name, fallback=True)
+        m0 = get_maestral_proxy(config_name, fallback=True)
 
         def rebuild_in_thread():
             if isinstance(m0, Pyro5.client.Proxy):
