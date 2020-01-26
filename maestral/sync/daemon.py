@@ -140,32 +140,6 @@ def start_maestral_daemon(config_name="maestral", run=True, log_to_stdout=False)
         _delete_pid(config_name)  # remove PID file
 
 
-def start_maestral_daemon_thread(config_name="maestral"):
-    """
-    Starts the Maestral daemon in a thread (by calling `start_maestral_daemon`).
-    This command will create a new daemon on each run. Take care not to sync the same
-    directory with multiple instances of Meastral! You can use `get_maestral_process_info`
-    to check if either a Meastral gui or daemon is already running for the given
-    `config_name`.
-
-    :param str config_name: The name of the Maestral configuration to use.
-    :returns: ``True`` if started, ``False`` otherwise.
-    :rtype: bool
-    """
-    import threading
-
-    t = threading.Thread(
-        target=start_maestral_daemon,
-        args=(config_name, ),
-        daemon=True,
-        name="Maestral daemon",
-    )
-    t.start()
-
-    # wait until the daemon has started, timeout after 6 sec
-    return _wait_for_startup(config_name, timeout=6)
-
-
 def start_maestral_daemon_process(config_name="maestral"):
     """
     Starts the Maestral daemon as a separate process (by calling `start_maestral_daemon`).

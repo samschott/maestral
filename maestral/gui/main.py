@@ -30,7 +30,6 @@ from maestral.sync.constants import (
 )
 from maestral.sync.daemon import (
     start_maestral_daemon_process,
-    start_maestral_daemon_thread,
     stop_maestral_daemon_process,
     get_maestral_pid,
     get_maestral_proxy,
@@ -179,10 +178,7 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         if pid:
             self._started = False
         else:
-            if IS_MACOS_BUNDLE:
-                res = start_maestral_daemon_thread(self._config_name)
-            else:
-                res = start_maestral_daemon_process(self._config_name)
+            res = start_maestral_daemon_process(self._config_name)
 
             if res is False:
                 title = "Could not start Maestral"
