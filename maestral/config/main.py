@@ -15,6 +15,7 @@ a full download on the next startup.
 """
 
 import os
+import copy
 from .user import UserConfig
 from .base import get_conf_path
 
@@ -31,7 +32,7 @@ DEFAULTS = [
     ('main',  # main settings regarding folder locations etc
      {
          'path': '',  # dropbox folder location (parent folder)
-         'default_dir_name': 'Dropbox (Maestral)',  # default dropbox folder name
+         'default_dir_name': 'Dropbox ({})',  # default dropbox folder name
          'excluded_folders': [],  # files excluded from sync, currently not supported
          'excluded_files': [],  # folders excluded from sync, currently not supported
      }
@@ -94,15 +95,21 @@ class MaestralConfig(object):
         if name in cls._instances:
             return cls._instances[args[0]]
         else:
+            defaults = copy.deepcopy(DEFAULTS)
+            # set default dir name according to config
+            for sec, options in defaults:
+                if sec == 'main':
+                    options['default_dir_name'] = f'Dropbox ({name.title()})'
+
             path = get_conf_path('maestral', create=True)
             try:
                 conf = UserConfig(
-                    path, name, defaults=DEFAULTS, version=CONF_VERSION, load=True,
+                    path, name, defaults=defaults, version=CONF_VERSION, load=True,
                     backup=True, raw_mode=True, remove_obsolete=True
                 )
             except OSError:
                 conf = UserConfig(
-                    path, name, defaults=DEFAULTS, version=CONF_VERSION, load=False,
+                    path, name, defaults=defaults, version=CONF_VERSION, load=False,
                     backup=True, raw_mode=True, remove_obsolete=True
                 )
 

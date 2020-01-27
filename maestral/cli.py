@@ -907,7 +907,6 @@ def config_add(name: str):
     else:
         from maestral.config.main import MaestralConfig
         conf = MaestralConfig(name)
-        conf.set("main", "default_dir_name", "Dropbox ({})".format(name.capitalize()))
         click.echo("Created configuration '{}'.".format(name))
 
 

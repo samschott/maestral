@@ -393,7 +393,7 @@ class UserConfig(DefaultsConfig):
     def reset_to_defaults(self, save=True, section=None):
         """Reset config to Default values."""
         for sec, options in self.defaults:
-            if section == None or section == sec:
+            if section is None or section == sec:
                 for option in options:
                     value = options[option]
                     self._set(sec, option, value)
