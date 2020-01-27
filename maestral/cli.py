@@ -46,11 +46,11 @@ def _is_maestral_linked(config_name):
 def start_daemon_subprocess_with_cli_feedback(config_name):
     """Wrapper around `daemon.start_maestral_daemon_process`
     with command line feedback."""
-    from maestral.sync.daemon import start_maestral_daemon_process
+    from maestral.sync.daemon import start_maestral_daemon_process, Start
 
     click.echo("Starting Maestral...", nl=False)
     res = start_maestral_daemon_process(config_name)
-    if res:
+    if res == Start.Ok:
         click.echo("\rStarting Maestral...        " + OK)
     else:
         click.echo("\rStarting Maestral...        " + FAILED)
@@ -60,15 +60,15 @@ def stop_daemon_with_cli_feedback(config_name):
     """Wrapper around `daemon.stop_maestral_daemon_process`
     with command line feedback."""
 
-    from maestral.sync.daemon import stop_maestral_daemon_process
+    from maestral.sync.daemon import stop_maestral_daemon_process, Exit
 
     click.echo("Stopping Maestral...", nl=False)
-    success = stop_maestral_daemon_process(config_name)
-    if success is None:
-        click.echo("Maestral daemon is not running.")
-    elif success is True:
+    res = stop_maestral_daemon_process(config_name)
+    if res == Exit.Ok:
         click.echo("\rStopping Maestral...        " + OK)
-    else:
+    elif res == Exit.NotRunning:
+        click.echo("Maestral daemon is not running.")
+    elif res == Exit.Killed:
         click.echo("\rStopping Maestral...        " + KILLED)
 
 
@@ -327,6 +327,7 @@ def restart(config_name: str):
     """Restarts the Maestral daemon."""
     stop_daemon_with_cli_feedback(config_name)
     start_daemon_subprocess_with_cli_feedback(config_name)
+    os._exit(0)
 
 
 @main.command(help_priority=4)
