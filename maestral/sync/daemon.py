@@ -94,6 +94,32 @@ def is_pidfile_stale(pidfile):
     return result
 
 
+def get_maestral_pid(config_name):
+    """
+    Returns Maestral's PID if the daemon is running and responsive, ``None``
+    otherwise. If the daemon is unresponsive, it will be killed before returning.
+
+    :param str config_name: The name of the Maestral configuration to use.
+    :returns: The daemon's PID.
+    :rtype: int
+    """
+
+    lockfile = PIDLockFile(pidpath_for_config(config_name))
+    pid = lockfile.read_pid()
+
+    if pid:
+        try:
+            if not is_pidfile_stale(lockfile):
+                return pid
+        except OSError:
+            os.kill(pid, signal.SIGKILL)
+            logger.debug(f"Daemon process with PID {pid} is not responsive. Killed.")
+    else:
+        logger.debug("Could not find PID file")
+
+    lockfile.break_lock()
+
+
 def _wait_for_startup(config_name, timeout=8):
     """Waits for the daemon to start and verifies Pyro communication. Returns ``Start.Ok``
     if startup and communication succeeds within timeout, ``Start.Failed`` otherwise."""
@@ -316,29 +342,3 @@ class MaestralProxy(object):
             self.m._pyroRelease()
 
         del self.m
-
-
-def get_maestral_pid(config_name):
-    """
-    Returns Maestral's PID if the daemon is running and responsive, ``None``
-    otherwise. If the daemon is unresponsive, it will be killed before returning.
-
-    :param str config_name: The name of the Maestral configuration to use.
-    :returns: The daemon's PID.
-    :rtype: int
-    """
-
-    lockfile = PIDLockFile(pidpath_for_config(config_name))
-    pid = lockfile.read_pid()
-
-    if pid:
-        try:
-            if not is_pidfile_stale(lockfile):
-                return pid
-        except OSError:
-            os.kill(pid, signal.SIGKILL)
-            logger.debug(f"Daemon process with PID {pid} is not responsive. Killed.")
-    else:
-        logger.debug("Could not find PID file")
-
-    lockfile.break_lock()
