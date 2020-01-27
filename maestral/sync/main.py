@@ -131,41 +131,44 @@ class Maestral(object):
         self.sync = self.monitor.sync
 
         if run:
+            self.run()
 
-            if self.pending_dropbox_folder(config_name):
-                self.create_dropbox_directory()
-                self.set_excluded_folders()
+    def run(self):
 
-                self.sync.last_cursor = ""
-                self.sync.last_sync = 0
+        if self.pending_dropbox_folder(self._config_name):
+            self.create_dropbox_directory()
+            self.set_excluded_folders()
 
-            # start syncing
-            self.start_sync()
+            self.sync.last_cursor = ""
+            self.sync.last_sync = 0
 
-            if NOTIFY_SOCKET and system_notifier:  # notify systemd that we have started
-                logger.debug("Running as systemd notify service")
-                logger.debug(f"NOTIFY_SOCKET = {NOTIFY_SOCKET}")
-                system_notifier.notify("READY=1")
+        # start syncing
+        self.start_sync()
 
-            if IS_WATCHDOG and system_notifier:  # notify systemd periodically if alive
-                logger.debug("Running as systemd watchdog service")
-                logger.debug(f"WATCHDOG_USEC = {WATCHDOG_USEC}")
-                logger.debug(f"WATCHDOG_PID = {WATCHDOG_PID}")
+        if NOTIFY_SOCKET and system_notifier:  # notify systemd that we have started
+            logger.debug("Running as systemd notify service")
+            logger.debug(f"NOTIFY_SOCKET = {NOTIFY_SOCKET}")
+            system_notifier.notify("READY=1")
 
-                self.watchdog_thread = Thread(
-                    name="Maestral watchdog",
-                    target=self._periodic_watchdog,
-                    daemon=True,
-                )
-                self.watchdog_thread.start()
+        if IS_WATCHDOG and system_notifier:  # notify systemd periodically if alive
+            logger.debug("Running as systemd watchdog service")
+            logger.debug(f"WATCHDOG_USEC = {WATCHDOG_USEC}")
+            logger.debug(f"WATCHDOG_PID = {WATCHDOG_PID}")
 
-            # periodically check for updates and refresh account info
-            self.update_thread = Thread(
-                name="Maestral update check",
-                target=self._periodic_refresh,
+            self.watchdog_thread = Thread(
+                name="Maestral watchdog",
+                target=self._periodic_watchdog,
                 daemon=True,
             )
-            self.update_thread.start()
+            self.watchdog_thread.start()
+
+        # periodically check for updates and refresh account info
+        self.update_thread = Thread(
+            name="Maestral update check",
+            target=self._periodic_refresh,
+            daemon=True,
+        )
+        self.update_thread.start()
 
     def _setup_logging(self):
 
