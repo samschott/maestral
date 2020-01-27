@@ -53,6 +53,7 @@ setup(
         "dropbox>=9.4.0",
         "keyring>=19.0.0",
         "keyrings.alt>=3.0.0",
+        "lockfile",
         "Pyro5>=5.7",
         "requests",
         "u-msgpack-python",

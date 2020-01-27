@@ -1,14 +1,23 @@
-setuptools
-wheel
-click >= 7.0
-dropbox >= 9.4.0
-watchdog
-blinker
-bugsnag
-requests
-u-msgpack-python
-keyring >= 19.0.0
-keyrings.alt >= 3.0.0
-Pyro5 >= 5.7
-systemd-python
-sdnotify
+blinker==1.4
+bugsnag==3.6.0
+certifi==2019.11.28
+chardet==3.0.4
+Click==7.0
+dropbox==9.4.0
+idna==2.8
+importlib-metadata==1.4.0
+keyring==21.1.0
+keyrings.alt==3.4.0
+lockfile==0.12.2
+maestral==0.5.1.dev4
+pathtools==0.1.2
+pyobjc==6.1
+Pyro5==5.7
+requests==2.22.0
+serpent==1.30
+six==1.14.0
+u-msgpack-python==2.5.2
+urllib3==1.25.8
+watchdog==0.10.0
+WebOb==1.8.6
+zipp==2.1.0
