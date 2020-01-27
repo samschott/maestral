@@ -93,7 +93,7 @@ def _delete_pid(config_name):
     logger.debug(f"Removed PID file '{pid_file}'.")
 
 
-def start_maestral_daemon(config_name="maestral", run=True, log_to_stdout=False):
+def run_maestral_daemon(config_name="maestral", run=True, log_to_stdout=False):
     """
     Wraps :class:`maestral.main.Maestral` as Pyro daemon object, creates a new instance
     and start Pyro's event loop to listen for requests on 'localhost'. This call will
@@ -141,7 +141,7 @@ def start_maestral_daemon(config_name="maestral", run=True, log_to_stdout=False)
         _delete_pid(config_name)  # remove PID file
 
 
-def start_maestral_daemon_process(config_name="maestral"):
+def start_maestral_daemon_process(config_name="maestral", run=True):
     """
     Starts the Maestral daemon as a separate process (by calling `start_maestral_daemon`).
     This command will create a new daemon on each run. Take care not to sync the same
@@ -150,6 +150,7 @@ def start_maestral_daemon_process(config_name="maestral"):
     `config_name`.
 
     :param str config_name: The name of the Maestral configuration to use.
+    :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
     :returns: ``True`` if started, ``False`` otherwise.
     :rtype: bool
     """
@@ -158,8 +159,8 @@ def start_maestral_daemon_process(config_name="maestral"):
     mp.set_start_method('spawn')
 
     mp.Process(
-        target=start_maestral_daemon,
-        args=(config_name, ),
+        target=run_maestral_daemon,
+        args=(config_name, run),
         name="Maestral Daemon",
     ).start()
 

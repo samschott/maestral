@@ -307,8 +307,8 @@ def start(config_name: str, foreground: bool):
 
     # start daemon
     if foreground:
-        from maestral.sync.daemon import start_maestral_daemon
-        start_maestral_daemon(config_name, run=True, log_to_stdout=True)
+        from maestral.sync.daemon import run_maestral_daemon
+        run_maestral_daemon(config_name, run=True, log_to_stdout=True)
     else:
         start_daemon_subprocess_with_cli_feedback(config_name)
         os._exit(0)  # prevent multiprocessing from killing the daemon
