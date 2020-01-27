@@ -33,6 +33,7 @@ from maestral.sync.daemon import (
     stop_maestral_daemon_process,
     get_maestral_pid,
     get_maestral_proxy,
+    Start
 )
 from maestral.gui.settings_window import SettingsWindow
 from maestral.gui.sync_issues_window import SyncIssueWindow
@@ -180,13 +181,15 @@ class MaestralGuiApp(QtWidgets.QSystemTrayIcon):
         else:
             res = start_maestral_daemon_process(self._config_name)
 
-            if res is False:
+            if res == Start.Failed:
                 title = "Could not start Maestral"
                 message = ("Could not start or connect to sync daemon. Please try again "
                            "and contact the developer if this issue persists.")
                 show_dialog(title, message, level="error")
                 self.quit()
-            else:
+            elif res == Start.AlreadyRunning:
+                self._started = False
+            elif res == Start.Ok:
                 self._started = True
 
         return get_maestral_proxy(self._config_name)
