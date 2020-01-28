@@ -14,7 +14,8 @@ pathtools==0.1.2
 pyobjc==6.1
 Pyro5==5.7
 requests==2.22.0
-serpent==1.30
+rubicon-objc==0.3.1
+serpent==1.30.1
 six==1.14.0
 u-msgpack-python==2.5.2
 urllib3==1.25.8

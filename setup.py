@@ -56,9 +56,9 @@ setup(
         "lockfile",
         "Pyro5>=5.7",
         "requests",
+        "rubicon-objc>=0.3.1;sys_platform=='darwin'",
         "u-msgpack-python",
         "watchdog>=0.9.0",
-        "pyobjc;sys_platform=='darwin'"
     ],
     extras_require={
         "systemd": ["systemd-python", "sdnotify"],
