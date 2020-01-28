@@ -130,6 +130,14 @@ class Maestral(object):
         self.monitor = MaestralMonitor(self.client, config_name=self._config_name)
         self.sync = self.monitor.sync
 
+        # periodically check for updates and refresh account info
+        self.update_thread = Thread(
+            name="Maestral update check",
+            target=self._periodic_refresh,
+            daemon=True,
+        )
+        self.update_thread.start()
+
         if run:
             self.run()
 
@@ -161,14 +169,6 @@ class Maestral(object):
                 daemon=True,
             )
             self.watchdog_thread.start()
-
-        # periodically check for updates and refresh account info
-        self.update_thread = Thread(
-            name="Maestral update check",
-            target=self._periodic_refresh,
-            daemon=True,
-        )
-        self.update_thread.start()
 
     def _setup_logging(self):
 
