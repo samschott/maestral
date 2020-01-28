@@ -29,14 +29,13 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              DirCreatedEvent, FileCreatedEvent,
                              DirDeletedEvent, FileDeletedEvent,
                              DirMovedEvent, FileMovedEvent)
+from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 if platform.system() == "Darwin":
     # use our own FSEvent observer to preserve the order of file system events
-    from .watchdog.fsevents import FSEventsObserver as Observer
-    from .watchdog.dirsnapshot import DirectorySnapshot
+    from .watchdog.fsevents import OrderedFSEventsObserver as Observer
 else:
     from watchdog.observers import Observer
-    from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 # maestral modules
 from maestral.config.main import MaestralConfig
