@@ -130,10 +130,8 @@ def _wait_for_startup(config_name, timeout=8):
         pid = get_maestral_pid(config_name)
 
     if pid:
-        logger.debug("Maestral daemon started.")
         return _check_pyro_communication(config_name, timeout=int(timeout/2))
     else:
-        logger.error("Could not start Maestral daemon")
         return Start.Failed
 
 
@@ -253,14 +251,28 @@ def start_maestral_daemon_process(config_name="maestral", run=True):
     :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
     :returns: ``Start.Ok`` if successful, ``Start.Failed`` otherwise.
     """
+    import subprocess
+    from shlex import quote
     import multiprocessing as mp
 
-    mp.set_start_method("spawn")
+    STD_IN_OUT = subprocess.DEVNULL
+
+    # use nested Popen and multiprocessing.Process to effectively create double fork
+    # see Unix "double-fork magic"
+
+    def target(cc, r):
+        cc = quote(cc)
+        r = bool(r)
+        subprocess.Popen(
+            [sys.executable, "-c", f"from maestral.sync.daemon import run_maestral_daemon; run_maestral_daemon('{cc}', {r})"],
+            stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
+        )
 
     mp.Process(
-        target=run_maestral_daemon,
+        target=target,
         args=(config_name, run),
-        name="Maestral Daemon",
+        name="Maestral daemon launcher",
+        daemon=True,
     ).start()
 
     return _wait_for_startup(config_name, timeout=8)

@@ -311,7 +311,6 @@ def start(config_name: str, foreground: bool):
         run_maestral_daemon(config_name, run=True, log_to_stdout=True)
     else:
         start_daemon_subprocess_with_cli_feedback(config_name)
-        os._exit(0)  # prevent multiprocessing from killing the daemon
 
 
 @main.command(help_priority=2)
@@ -327,7 +326,6 @@ def restart(config_name: str):
     """Restarts the Maestral daemon."""
     stop_daemon_with_cli_feedback(config_name)
     start_daemon_subprocess_with_cli_feedback(config_name)
-    os._exit(0)
 
 
 @main.command(help_priority=4)
