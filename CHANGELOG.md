@@ -20,6 +20,8 @@
 
 #### Fixed:
 
+- Fixed an issue on macOS where some directory deletions could be ignored in case of rapid
+  successive deletions.
 - Fixed an unexpected exception when attempting to create a directory that already exists.
   Do not rely on the `exists_ok` parameter in `os.makedirs` but catch `FileExistsError`
   explicitly (see https://bugs.python.org/issue13498).
