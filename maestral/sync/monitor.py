@@ -221,7 +221,6 @@ class FileEventHandler(FileSystemEventHandler):
             return
 
         self.local_file_event_queue.put(event)
-        logger.debug(f"Put into file event queue: {event}")
 
 
 def catch_sync_issues(sync_errors=None, failed_items=None):
@@ -1219,8 +1218,7 @@ class UpDownSync(object):
         try:
             self.client.remove(dbx_path, parent_rev=local_rev)
         except PathError:
-            logger.debug("Could not delete '{0}': the item does not exist on Dropbox.",
-                         event.src_path)
+            logger.debug("Could not delete '%s': the item does not exist on Dropbox.", event.src_path)
         else:
             logger.debug("Deleted '%s' from Dropbox.", event.src_path)
 
@@ -1257,17 +1255,14 @@ class UpDownSync(object):
             if rev == "folder":
                 mode = dropbox.files.WriteMode("overwrite")
             elif not rev:
-                logger.warning("'%s' appears to have been modified"
-                               "but cannot find old revision.", event.src_path)
+                logger.debug("'%s' appears to have been modified but cannot "
+                             "find old revision.", event.src_path)
                 return
             else:
                 mode = dropbox.files.WriteMode("update", rev)
             md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
-            logger.debug("Modified file: %s (old rev: %s, new rev %s)",
-                         md.path_display, rev, md.rev)
             # save or update revision metadata
             self.set_local_rev(md.path_display, md.rev)
-
             logger.debug("Uploaded modified '%s' to Dropbox.", event.src_path)
 
     # ====================================================================================
@@ -2027,7 +2022,6 @@ class MaestralMonitor(object):
         """Resumes syncing."""
 
         if self.syncing.is_set():
-            logger.debug("Syncing was already running")
             return
 
         if not self._auto_resume_on_connect:
@@ -2041,7 +2035,6 @@ class MaestralMonitor(object):
         """Stops syncing and destroys worker threads."""
 
         if not self.running.is_set():
-            logger.debug("Syncing is already stopped")
             return
 
         self._auto_resume_on_connect = False
