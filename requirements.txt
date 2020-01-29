@@ -11,7 +11,6 @@ keyrings.alt==3.4.0
 lockfile==0.12.2
 maestral==0.5.1.dev4
 pathtools==0.1.2
-pyobjc==6.1
 Pyro5==5.7
 requests==2.22.0
 rubicon-objc==0.3.1
