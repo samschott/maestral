@@ -57,12 +57,12 @@ class Notipy(object):
     falls back to stdout."""
 
     def __init__(self):
-        self.implementation = self.__get_available_implementation()
+        self.implementation = self._get_available_implementation()
         self._with_app_name = True  # if True, use --app-name option for nofity-send
 
         if self.implementation == SupportedImplementations.notification_center:
-            self._nc = UNUserNotificationCenter.currentNotificationCenter
-            self._nc.requestAuthorizationWithOptions((1 << 2) | (1 << 1) | (1 << 0), completionHandler=self._nc_auth_callback)
+            self._nc = UNUserNotificationCenter.currentNotificationCenter()
+            self._nc.requestAuthorizationWithOptions((1 << 2) | (1 << 1) | (1 << 0), completionHandler=None)
             self._nc_identifier = 0
 
         elif self.implementation == SupportedImplementations.legacy_notification_center:
@@ -70,17 +70,17 @@ class Notipy(object):
 
     def send(self, message, title='Maestral'):
         if self.implementation == SupportedImplementations.notification_center:
-            self.__send_message_nc(title, message)
+            self._send_message_nc(title, message)
         elif self.implementation == SupportedImplementations.legacy_notification_center:
-            self.__send_message_nc_legacy(title, message)
+            self._send_message_nc_legacy(title, message)
         elif self.implementation == SupportedImplementations.osascript:
-            self.__send_message_macos_osascript(title, message)
+            self._send_message_macos_osascript(title, message)
         elif self.implementation == SupportedImplementations.notify_send:
-            self.__send_message_linux(title, message)
+            self._send_message_linux(title, message)
         else:
             print('{}: {}'.format(title, message))
 
-    def __send_message_nc(self, title, message, subtitle=None):
+    def _send_message_nc(self, title, message, subtitle=None):
 
         content = UNMutableNotificationContent.alloc().init()
         content.setTitle_(title)
@@ -88,27 +88,25 @@ class Notipy(object):
         if subtitle:
             content.setSubtitle_(subtitle)
         r = UNNotificationRequest.requestWithIdentifier(str(self._nc_identifier), content=content, trigger=None)
-        self._nc.addNotificationRequest(r, withCompletionHandler=self._nc_notify_callback)
+        self._nc.addNotificationRequest(r, withCompletionHandler=None)
 
         self._nc_identifier += 1
 
-    def __send_message_nc_legacy(self, title, message, subtitle=None):
-        # icon = Foundation.NSImage.alloc().initByReferencingFile(APP_ICON_PATH)
+    def _send_message_nc_legacy(self, title, message, subtitle=None):
         notification = NSUserNotification.alloc().init()
         notification.title = title
         if subtitle:
             notification.subtitle = subtitle
         notification.informativeText = message
-        # notification._identityImage = icon
-        # notification._identityImageHasBorder = 0
         notification.userInfo = {}
         notification.deliveryDate = NSDate.dateWithTimeInterval(0, sinceDate=NSDate.date())
         self._nc.scheduleNotification(notification)
 
-    def __send_message_macos_osascript(self, title, message):
+    @staticmethod
+    def _send_message_macos_osascript(title, message):
         subprocess.call(['osascript', '-e', 'display notification "{}" with title "{}"'.format(message, title)])
 
-    def __send_message_linux(self, title, message):
+    def _send_message_linux(self, title, message):
         if self._with_app_name:  # try passing --app-name option, diable if not supported
             r = subprocess.call(['notify-send', title, message, '-a', 'Maestral', '-i', APP_ICON_PATH])
             self._with_app_name = r == 0
@@ -117,28 +115,20 @@ class Notipy(object):
             subprocess.call(['notify-send', title, message, '-i', APP_ICON_PATH])
 
     @staticmethod
-    def __command_exists(command):
+    def _command_exists(command):
         return any(
             os.access(os.path.join(path, command), os.X_OK)
             for path in os.environ['PATH'].split(os.pathsep)
         )
 
-    def __get_available_implementation(self):
+    def _get_available_implementation(self):
         if IS_MACOS_BUNDLE and check_version(macos_version, '10.14.0', '>='):
+            # UNUserNotificationCenter is currently only supported from signed app bundles
             return SupportedImplementations.notification_center
         elif platform.system() == 'Darwin' and check_version(macos_version, '10.16.0', '<'):
             return SupportedImplementations.legacy_notification_center
-        elif self.__command_exists('osascript'):
+        elif self._command_exists('osascript'):
             return SupportedImplementations.osascript
-        elif self.__command_exists('notify-send'):
+        elif self._command_exists('notify-send'):
             return SupportedImplementations.notify_send
         return None
-
-    @staticmethod
-    def _nc_auth_callback(granted, err):
-        logger.debug('Granted: ', granted)
-        logger.debug('Error in authorization request: ', err)
-
-    @staticmethod
-    def _nc_notify_callback(err):
-        logger.debug('Error in notification callback:', err)

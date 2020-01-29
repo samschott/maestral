@@ -226,20 +226,19 @@ def start_maestral_daemon_thread(config_name="maestral", run=True):
     `config_name`.
 
     :param str config_name: The name of the Maestral configuration to use.
+    :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
     :returns: ``True`` if started, ``False`` otherwise.
     :rtype: bool
     """
     import threading
 
-    t = threading.Thread(
+    threading.Thread(
         target=run_maestral_daemon,
         args=(config_name, run),
-        daemon=True,
         name="Maestral daemon",
-    )
-    t.start()
+        daemon=True,
+    ).start()
 
-    # wait until the daemon has started, timeout after 6 sec
     return _wait_for_startup(config_name, timeout=6)
 
 
@@ -275,7 +274,7 @@ def start_maestral_daemon_process(config_name="maestral", run=True):
         daemon=True,
     ).start()
 
-    return _wait_for_startup(config_name, timeout=8)
+    return _wait_for_startup(config_name, timeout=6)
 
 
 def stop_maestral_daemon_process(config_name="maestral", timeout=10):
