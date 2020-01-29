@@ -5,6 +5,8 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+import platform
+
 # external packages
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, QRect
@@ -22,7 +24,7 @@ LINE_COLOR_LIGHT = (213, 213, 213)
 
 _USER_DIALOG_ICON_SIZE = 70
 
-USE_MACOS_NATIVE_DIALOGS = False
+IS_MACOS = platform.system() == "Darwin"
 
 
 def elide_string(string, font=None, pixels=200, side="right"):
