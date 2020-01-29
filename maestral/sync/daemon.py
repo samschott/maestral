@@ -128,6 +128,7 @@ def _wait_for_startup(config_name, timeout=8):
 
     while not pid and time.time() - t0 < timeout/2:
         pid = get_maestral_pid(config_name)
+        time.sleep(0.2)
 
     if pid:
         return _check_pyro_communication(config_name, timeout=int(timeout/2))
@@ -154,7 +155,7 @@ def _check_pyro_communication(config_name, timeout=2):
         finally:
             maestral_daemon._pyroRelease()
 
-    logger.error("Could communicate with Maestral daemon")
+    logger.error("Could not communicate with Maestral daemon")
     return Start.Failed
 
 
@@ -239,7 +240,7 @@ def start_maestral_daemon_thread(config_name="maestral", run=True):
         daemon=True,
     ).start()
 
-    return _wait_for_startup(config_name, timeout=6)
+    return _wait_for_startup(config_name, timeout=8)
 
 
 def start_maestral_daemon_process(config_name="maestral", run=True):
@@ -274,7 +275,7 @@ def start_maestral_daemon_process(config_name="maestral", run=True):
         daemon=True,
     ).start()
 
-    return _wait_for_startup(config_name, timeout=6)
+    return _wait_for_startup(config_name, timeout=8)
 
 
 def stop_maestral_daemon_process(config_name="maestral", timeout=10):
