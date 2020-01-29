@@ -3,21 +3,20 @@
 #### Added:
 
 - Added automatic crash and error reporting with [bugsnag](https://www.bugsnag.com). This
-  is *disabled* by default and can be enabled in the Settings pane or via `maestral
-  analytics -Y`. The information sent with the bug report contains a traceback, the Python
-  version, basic platform information (e.g, 'Darwin-19.2.0-x86_64-i386-64bit') and
-  potentially the version of PyQt5 and the user's desktop environment. No personal
-  information will be shared (no file names, Dropbox user names, locale, etc.).
+  is *disabled* by default and can be enabled in the Settings pane or with the command
+  `maestral analytics -Y`. The information sent with the bug report contains a traceback,
+  the Python version, basic platform information (e.g, 'Darwin-19.2.0-x86_64-i386-64bit')
+  and potentially the version of PyQt5 and the user's desktop environment. No personal
+  information will be shared.
 
 #### Changed:
 
-- Improved configuration handling:
-    - Explicitly pass the config name to classes which depend on a certain configuration,
-      e.g., Maestral, MaestralMonitor, MaestralApiClient, etc.
-    - Refactored config code: Adapted changes from Spyder 4.0.
-- Changed order of commands returned by `maestral --help`.
-- Update Settings pane when settings are changed through the command line.
-
+- Improved the code which handles multiple configurations: Explicitly pass the config name
+  to classes instead of keeping it as a global variable.
+- Changed order of commands returned by `maestral --help` from alphabetic to importance.
+- Sync errors will now be listed by `maestral status` if present.
+- Live updates to the Settings window when settings are changed from the command line.
+  
 #### Fixed:
 
 - Fixed an issue on macOS where some directory deletions could be ignored in case of rapid
@@ -44,8 +43,7 @@
 
 #### Removed:
 
-- Removed the command `maestral errors` from the CLI. Any sync errors will now be listed
-  by `maestral status` if present.
+- Removed the command `maestral errors` from the CLI.
 
 ## v0.5.0
 
