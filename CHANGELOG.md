@@ -13,7 +13,8 @@
 
 - Improved the code which handles multiple configurations: Explicitly pass the config name
   to classes instead of keeping it as a global variable.
-- Changed order of commands returned by `maestral --help` from alphabetic to importance.
+- Improved starting of the daemon: ensure that the right python executable is used.
+- Order of commands returned by `maestral --help` by importance instead of alphabetically.
 - Sync errors will now be listed by `maestral status` if present.
 - Live updates to the Settings window when settings are changed from the command line.
   
