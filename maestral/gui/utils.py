@@ -5,8 +5,6 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
-import platform
-
 # external packages
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, QRect
@@ -23,8 +21,6 @@ LINE_COLOR_DARK = (70, 70, 70)
 LINE_COLOR_LIGHT = (213, 213, 213)
 
 _USER_DIALOG_ICON_SIZE = 70
-
-IS_MACOS = platform.system() == "Darwin"
 
 USE_MACOS_NATIVE_DIALOGS = False
 
@@ -71,6 +67,7 @@ def get_scaled_font(scaling=1.0, bold=False, italic=False):
     return font
 
 
+# noinspection PyArgumentList
 def icon_to_pixmap(icon, width, height=None):
     """Converts a given icon to a pixmap. Automatically adjusts to high-DPI scaling.
 
@@ -198,6 +195,7 @@ class MaestralBackgroundTask(BackgroundTask):
         self.thread.start()
 
 
+# noinspection PyArgumentList
 class BackgroundTaskProgressDialog(QtWidgets.QDialog):
     """A progress dialog to show during long-running background tasks."""
 
@@ -715,11 +713,7 @@ class QProgressIndicator(QtWidgets.QWidget):
 
 
 def show_dialog(title, message, details=None, level="info"):
-    if IS_MACOS and USE_MACOS_NATIVE_DIALOGS:
-        from maestral.gui.macos_utils import native_dialog
-        native_dialog(title, message, details=details, level=level)
-    else:
-        UserDialog(title, message, details).exec_()
+    UserDialog(title, message, details).exec_()
 
 
 def show_stacktrace_dialog(traceback, ask_share=False):
@@ -731,11 +725,7 @@ def show_stacktrace_dialog(traceback, ask_share=False):
         message = ("A report has been sent to the developers. "
                    "Please restart Maestral to continue syncing.")
 
-        if IS_MACOS and USE_MACOS_NATIVE_DIALOGS:
-            from maestral.gui.macos_utils import native_dialog
-            native_dialog(title, message, details=traceback, level="error")
-        else:
-            UserDialog(title, message, details=traceback).exec_()
+        UserDialog(title, message, details=traceback).exec_()
 
         return False, False
     else:
@@ -744,22 +734,13 @@ def show_stacktrace_dialog(traceback, ask_share=False):
 
         checkbox_text = "Always send error reports (can be changed in Settings)"
 
-        if IS_MACOS and USE_MACOS_NATIVE_DIALOGS:
-            from maestral.gui.macos_utils import native_dialog
-            share, ask_share = native_dialog(
-                title, message,
-                details=traceback,
-                button_names=("Send to Developers", "Don't send"),
-                checkbox_text=checkbox_text,
-            )
-        else:
-            error_dialog = UserDialog(
-                title, message, details=traceback, checkbox=checkbox_text,
-                button_names=("Send to Developers", "Don't send")
-            )
+        error_dialog = UserDialog(
+            title, message, details=traceback, checkbox=checkbox_text,
+            button_names=("Send to Developers", "Don't send")
+        )
 
-            share = error_dialog.exec_() == 1
-            ask_share = error_dialog.checkbox.isChecked()
+        share = error_dialog.exec_() == 1
+        ask_share = error_dialog.checkbox.isChecked()
 
         return share, ask_share
 
