@@ -15,7 +15,9 @@ a full download on the next startup.
 """
 
 import os
+import copy
 from .user import UserConfig
+from .base import get_conf_path
 
 
 PACKAGE_NAME = os.getenv('MAESTRAL_CONFIG', 'maestral')
@@ -30,7 +32,7 @@ DEFAULTS = [
     ('main',  # main settings regarding folder locations etc
      {
          'path': '',  # dropbox folder location (parent folder)
-         'default_dir_name': 'Dropbox (Maestral)',  # default dropbox folder name
+         'default_dir_name': 'Dropbox ({})',  # default dropbox folder name
          'excluded_folders': [],  # files excluded from sync, currently not supported
          'excluded_files': [],  # folders excluded from sync, currently not supported
      }
@@ -49,16 +51,17 @@ DEFAULTS = [
     ('app',  # app settings
      {
          'notifications': True,  # enable / disable system tray notifications
-         'log_level': 20,  # log level for file log, defaults to INFO = 20
+         'log_level': 20,  # log level for file log, defaults to INFO
          'update_notification_last': 0.0,  # last notification about updates
          'update_notification_interval': 60*60*24*7,  # interval to check for updates (sec)
          'latest_release': '0.0.0',  # latest available release
+         'analytics': False,  # automatically report crashes and errors with bugsnag
      }
      ),
-    ('internal',  # section that saves the last-synced state
+    ('internal',  # saved sync state
      {
          'cursor': '',  # remote cursor: represents last state synced from Dropbox
-         'lastsync': 0,  # local cursor: time-stamp of last upload
+         'lastsync': 0.0,  # local cursor: time-stamp of last upload
          'recent_changes': [],  # cached list of recent changes to display in GUI
      }
      ),
@@ -75,26 +78,42 @@ DEFAULTS = [
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = '9.0.0'
+CONF_VERSION = '9.1.0'
 
 
-def load_config(config_name):
-    global CONF
-    try:
-        CONF = UserConfig(
-            config_name, defaults=DEFAULTS, load=True,
-            version=CONF_VERSION, subfolder=SUBFOLDER, backup=True,
-            raw_mode=True
-        )
-    except Exception:
-        CONF = UserConfig(
-            config_name, defaults=DEFAULTS, load=False,
-            version=CONF_VERSION, subfolder=SUBFOLDER, backup=True,
-            raw_mode=True
-        )
+class MaestralConfig(object):
+    """Singleton config instance for Maestral"""
 
-    return CONF
+    _instances = {}
 
+    def __new__(cls, *args, **kwargs):
+        """
+        Create new instance for a new config name, otherwise return existing instance.
+        """
+        name = args[0]
 
-# Main configuration instance
-CONF = load_config(PACKAGE_NAME)
+        if name in cls._instances:
+            return cls._instances[args[0]]
+        else:
+            defaults = copy.deepcopy(DEFAULTS)
+            # set default dir name according to config
+            for sec, options in defaults:
+                if sec == 'main':
+                    options['default_dir_name'] = f'Dropbox ({name.title()})'
+
+            path = get_conf_path('maestral', create=True)
+            try:
+                conf = UserConfig(
+                    path, name, defaults=defaults, version=CONF_VERSION, load=True,
+                    backup=True, raw_mode=True, remove_obsolete=True
+                )
+            except OSError:
+                conf = UserConfig(
+                    path, name, defaults=defaults, version=CONF_VERSION, load=False,
+                    backup=True, raw_mode=True, remove_obsolete=True
+                )
+
+            conf._name = name
+
+            cls._instances[args[0]] = conf
+            return conf

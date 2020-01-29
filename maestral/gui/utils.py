@@ -5,14 +5,12 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
-
-# system imports
-import os
+import platform
 
 # external packages
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, QRect
-from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap, QWindow
+from PyQt5.QtGui import QBrush, QImage, QPainter, QPixmap
 
 # maestral modules
 from maestral.gui.resources import APP_ICON_PATH, rgb_to_luminance
@@ -25,6 +23,8 @@ LINE_COLOR_DARK = (70, 70, 70)
 LINE_COLOR_LIGHT = (213, 213, 213)
 
 _USER_DIALOG_ICON_SIZE = 70
+
+IS_MACOS = platform.system() == "Darwin"
 
 
 def elide_string(string, font=None, pixels=200, side="right"):
@@ -69,6 +69,7 @@ def get_scaled_font(scaling=1.0, bold=False, italic=False):
     return font
 
 
+# noinspection PyArgumentList
 def icon_to_pixmap(icon, width, height=None):
     """Converts a given icon to a pixmap. Automatically adjusts to high-DPI scaling.
 
@@ -81,7 +82,7 @@ def icon_to_pixmap(icon, width, height=None):
         height = width
 
     is_hidpi = QtCore.QCoreApplication.testAttribute(Qt.AA_UseHighDpiPixmaps)
-    pr = QWindow().devicePixelRatio()
+    pr = QtWidgets.QApplication.instance().devicePixelRatio()
 
     if not is_hidpi:
         width = width*pr
@@ -129,9 +130,12 @@ class MaestralWorker(Worker):
     """A worker object for Maestral. It uses a separate Maestral proxy to prevent
     the main connection from blocking."""
 
+    def __init__(self, config_name='maestral', target=None, args=None, kwargs=None):
+        self.config_name = config_name
+        Worker.__init__(self, target, args, kwargs)
+
     def start(self):
-        config_name = os.getenv("MAESTRAL_CONFIG", "maestral")
-        with MaestralProxy(config_name) as m:
+        with MaestralProxy(self.config_name) as m:
             func = m.__getattr__(self._target)
             res = func(*self._args, **self._kwargs)
         self.sig_done.emit(res)
@@ -172,10 +176,20 @@ class MaestralBackgroundTask(BackgroundTask):
     """A utility class to manage a worker thread. It uses a separate Maestral proxy
     to prevent the main connection from blocking."""
 
+    def __init__(self, parent=None, config_name='maestral', target=None, args=None, kwargs=None, autostart=True):
+        self.config_name = config_name
+        BackgroundTask.__init__(self, parent, target, args, kwargs, autostart)
+
     def start(self):
 
         self.thread = QtCore.QThread(self)
-        self.worker = MaestralWorker(target=self._target, args=self._args, kwargs=self._kwargs)
+        self.worker = MaestralWorker(
+            config_name=self.config_name,
+            target=self._target,
+            args=self._args,
+            kwargs=self._kwargs
+        )
+
         self.worker.sig_done.connect(self.sig_done.emit)
         self.worker.sig_done.connect(self.thread.quit)
         self.worker.moveToThread(self.thread)
@@ -183,6 +197,7 @@ class MaestralBackgroundTask(BackgroundTask):
         self.thread.start()
 
 
+# noinspection PyArgumentList
 class BackgroundTaskProgressDialog(QtWidgets.QDialog):
     """A progress dialog to show during long-running background tasks."""
 
@@ -243,15 +258,25 @@ class BackgroundTaskProgressDialog(QtWidgets.QDialog):
 class UserDialog(QtWidgets.QDialog):
     """A template user dialog for Maestral. Shows a traceback if given in constructor."""
 
-    def __init__(self, title, message, details=None, parent=None):
+    MINIMUM_BUTTON_SIZE = 85
+
+    def __init__(self, title, message, details=None, checkbox=None, parent=None, button_names=("Ok",)):
+        """
+        A user dialog for Maestral.
+
+        :param str title: Title of dialog.
+        :param str message: Message.
+        :param str details: Optional details to show in a text view, e.g., traceback info.
+        :param str checkbox: Optional checkbox to show above dialog buttons.
+        :param QtWidget parent: Parent.
+        """
         super(self.__class__, self).__init__(parent=parent)
         self.setModal(True)
         self.setWindowModality(Qt.WindowModal)
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Sheet | Qt.WindowTitleHint |
                             Qt.CustomizeWindowHint)
-        self.setAttribute(Qt.WA_DeleteOnClose)
         self.setWindowTitle("")
-        width = 550 if details else 450
+        width = 700 if details else 450
         self.setFixedWidth(width)
 
         self.gridLayout = QtWidgets.QGridLayout()
@@ -266,8 +291,7 @@ class UserDialog(QtWidgets.QDialog):
         self.titleLabel.setFont(get_scaled_font(bold=True))
         self.infoLabel.setFont(get_scaled_font(scaling=0.9))
         self.infoLabel.setFixedWidth(width-150)
-        self.infoLabel.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
-                                     QtWidgets.QSizePolicy.MinimumExpanding)
+        self.infoLabel.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.MinimumExpanding)
         self.infoLabel.setWordWrap(True)
         self.infoLabel.setOpenExternalLinks(True)
 
@@ -278,8 +302,12 @@ class UserDialog(QtWidgets.QDialog):
 
         if details:
             self.details = QtWidgets.QTextBrowser(self)
-            self.details.setText("".join(details))
+            self.details.setText(details)
             self.details.setOpenExternalLinks(True)
+            # self.details.setLineWrapMode(QtWidgets.QTextBrowser.NoWrap)
+
+        if checkbox:
+            self.checkbox = QtWidgets.QCheckBox(checkbox)
 
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
         self.buttonBox.accepted.connect(self.accept)
@@ -289,16 +317,40 @@ class UserDialog(QtWidgets.QDialog):
         self.gridLayout.addWidget(self.infoLabel, 1, 1, 1, 1)
         if details:
             self.gridLayout.addWidget(self.details, 2, 1, 1, 1)
-        self.gridLayout.addWidget(self.buttonBox, 3, 1, -1, -1)
+        if checkbox:
+            self.gridLayout.addWidget(self.checkbox, 3, 1, 1, 1)
+        self.gridLayout.addWidget(self.buttonBox, 4, 1, -1, -1)
+
+        if len(button_names) < 1:
+            ValueError("Dialog must have at least one button")
+
+        self.setAcceptButtonName(button_names[0])
+
+        if len(button_names) > 1:
+            self.addCancelButton(name=button_names[1])
+
+        if len(button_names) > 2:
+            self.addSecondAcceptButton(name=button_names[2])
+
+        if len(button_names) > 3:
+            ValueError("Dialog cannot have more than three buttons")
 
         self.adjustSize()
+
+        for button in self.buttonBox.buttons():
+            if button.sizeHint().width() < self.MINIMUM_BUTTON_SIZE:
+                button.setFixedWidth(self.MINIMUM_BUTTON_SIZE)
 
     def setAcceptButtonName(self, name):
         self.buttonBox.buttons()[0].setText(name)
 
-    def addCancelButton(self, name="Cancel"):
+    def addCancelButton(self, name="Cancel", icon=None):
         self._cancelButton = self.buttonBox.addButton(QtWidgets.QDialogButtonBox.Cancel)
         self._cancelButton.setText(name)
+        if isinstance(icon, QtGui.QIcon):
+            self._cancelButton.setIcon(icon)
+        elif isinstance(icon, str):
+            self._cancelButton.setIcon(QtGui.QIcon.fromTheme(icon))
         self._cancelButton.clicked.connect(self.close)
 
     def setCancelButtonName(self, name):
@@ -375,7 +427,7 @@ def get_masked_image(path, size=64, overlay_text=""):
 
     # Convert the image to a pixmap and rescale it.  Take pixel ratio into
     # account to get a sharp image on retina displays:
-    pr = QWindow().devicePixelRatio()
+    pr = QtWidgets.QApplication.instance().devicePixelRatio()
     pm = QPixmap.fromImage(out_img)
     pm.setDevicePixelRatio(pr)
     size *= pr
@@ -391,7 +443,7 @@ class FaderWidget(QtWidgets.QWidget):
     def __init__(self, old_widget, new_widget, duration=300):
         QtWidgets.QWidget.__init__(self, new_widget)
 
-        pr = QWindow().devicePixelRatio()
+        pr = QtWidgets.QApplication.instance().devicePixelRatio()
         self.old_pixmap = QPixmap(new_widget.size()*pr)
         self.old_pixmap.setDevicePixelRatio(pr)
         old_widget.render(self.old_pixmap)
@@ -660,3 +712,54 @@ class QProgressIndicator(QtWidgets.QWidget):
             self.setColor(self.m_light_color)
         else:
             self.setColor(self.m_dark_color)
+
+
+def show_dialog(title, message, details=None, level="info"):
+    UserDialog(title, message, details).exec_()
+
+
+def show_stacktrace_dialog(traceback, ask_share=False):
+
+    title = "An unexpected error occurred"
+
+    if not ask_share:
+
+        message = ("A report has been sent to the developers. "
+                   "Please restart Maestral to continue syncing.")
+
+        UserDialog(title, message, details=traceback).exec_()
+
+        return False, False
+    else:
+        message = ("You can send a report to the developers or open an issue on "
+                   "GitHub. Please restart Maestral to continue syncing.")
+
+        checkbox_text = "Always send error reports (can be changed in Settings)"
+
+        error_dialog = UserDialog(
+            title, message, details=traceback, checkbox=checkbox_text,
+            button_names=("Send to Developers", "Don't send")
+        )
+
+        share = error_dialog.exec_() == 1
+        ask_share = error_dialog.checkbox.isChecked()
+
+        return share, ask_share
+
+
+def show_update_dialog(latest_release, release_notes_html):
+
+    url_r = "https://github.com/samschott/maestral-dropbox/releases"
+    message = (
+        'Maestral v{0} is available. Please use your package manager to '
+        'update Maestral or go to the <a href=\"{1}\"><span '
+        'style="text-decoration: underline; color:#2874e1;">releases</span></a> '
+        'page to download the new version. '
+        '<div style="height:5px;font-size:5px;">&nbsp;<br></div>'
+        '<b>Release notes:</b>'
+    ).format(latest_release, url_r)
+    list_style = '<ul style="margin-top: 0px; margin-bottom: 0px; margin-left: -20px; ' \
+                 'margin-right: 0px; -qt-list-indent: 1;">'
+    styled_release_notes = release_notes_html.replace('<ul>', list_style)
+    update_dialog = UserDialog("Update available", message, styled_release_notes)
+    update_dialog.exec_()

@@ -16,6 +16,7 @@ import tempfile
 
 
 def is_fs_case_sensitive():
+    # create a cased temp file and check if the lower case version exists
     with tempfile.NamedTemporaryFile(prefix='TmP') as tmp_file:
         return not os.path.exists(tmp_file.name.lower())
 

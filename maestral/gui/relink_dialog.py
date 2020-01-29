@@ -39,18 +39,18 @@ class RelinkDialog(QtWidgets.QDialog):
         from maestral.sync.oauth import OAuth2Session
 
         self._parent = parent
-        self.auth_session = OAuth2Session()
+        self.auth_session = OAuth2Session(self._parent.mdbx.config_name)
 
         self.setModal(True)
         self.setWindowFlags(Qt.WindowTitleHint | Qt.CustomizeWindowHint)
 
         # format text labels
         if reason is self.EXPIRED:
-            self.titleLabel.setText("Dropbox Access expired")
+            self.titleLabel.setText("Dropbox Access Expired")
             formatted_text = self.infoLabel.text().format(
                 "has expired", self.auth_session.get_auth_url())
         elif reason is self.REVOKED:
-            self.titleLabel.setText("Dropbox Access revoked")
+            self.titleLabel.setText("Dropbox Access Revoked")
             formatted_text = self.infoLabel.text().format(
                 "has been revoked", self.auth_session.get_auth_url())
         else:

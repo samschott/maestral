@@ -1,3 +1,50 @@
+## v0.5.1
+
+#### Added:
+
+- Added automatic crash and error reporting with [bugsnag](https://www.bugsnag.com). This
+  is *disabled* by default and can be enabled in the Settings pane or with the command
+  `maestral analytics -Y`. The information sent with the bug report contains a traceback,
+  the Python version, basic platform information (e.g, 'Darwin-19.2.0-x86_64-i386-64bit')
+  and potentially the version of PyQt5 and the user's desktop environment. No personal
+  information will be shared.
+
+#### Changed:
+
+- Improved the code which handles multiple configurations: Explicitly pass the config name
+  to classes instead of keeping it as a global variable.
+- Changed order of commands returned by `maestral --help` from alphabetic to importance.
+- Sync errors will now be listed by `maestral status` if present.
+- Live updates to the Settings window when settings are changed from the command line.
+  
+#### Fixed:
+
+- Fixed an issue on macOS where some directory deletions could be ignored in case of rapid
+  successive deletions.
+- Fixed an unexpected exception when attempting to create a directory that already exists.
+  Do not rely on the `exists_ok` parameter in `os.makedirs` but catch `FileExistsError`
+  explicitly (see https://bugs.python.org/issue13498).
+- Fixed an `AttributeError` when a local folder is replaced by file: the Dropbox metadata
+  of the folder will not have a content hash. This mostly occurs when modifying a folder
+  structure programmatically, for instance with git.
+- Fixed an `AttributeError` when a remote file has been replaced by a folder before its
+  changes could be downloaded: the Dropbox metadata of the folder will not have a content
+  hash.
+- Fixed an bug introduced in v0.5.0 which would cause rebuilding the index to block
+  indefinitely.
+- Fixed a crash of the GUI when closing the settings window shortly after closing the
+  "Chose folders to sync..." dialog. This was caused by QThreads being destroyed while
+  the threads were still running.
+- Fixed an issue where the local revision number of a file could be set to 'folder',
+  resulting in an exception from the Dropbox API.
+- Fixed a bug when the "relink dialog" (shown when Maestral's Dropbox access has expired)
+  might use the wrong Dropbox account when syncing multiple accounts.
+- Fixed an issue with imports in Pyro5 5.7 which prevented the daemon from starting.
+
+#### Removed:
+
+- Removed the command `maestral errors` from the CLI.
+
 ## v0.5.0
 
 This release improves the sync reliability in case of rapid successive changes to the

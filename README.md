@@ -25,16 +25,18 @@ Maestral without a GUI.
 ## Installation
 
 A binary is provided for macOS High Sierra and higher and can be downloaded from the
-Releases tab. On other platforms, download and install the Python package from PyPI:
+Releases tab. On other platforms, please download and install the Python package from PyPI:
 ```console
 $ python3 -m pip install --upgrade maestral
 ```
-You can also install the latest beta:
-```console
-$ python3 -m pip install --upgrade --pre maestral
-```
 If you intend to use the graphical user interface, you also need to install PyQt5, either
-from PyPI or from your platforms package manager.
+from PyPI or from your platform's package manager.
+
+For the Maestral daemon to integrate with systemd, please install the systemd extra:
+```console
+$ python3 -m pip install --upgrade maestral[systemd]
+```
+Details on systemd integration are given in the [Wiki](https://github.com/SamSchott/maestral-dropbox/wiki/Systemd-Integration).
 
 ## Usage
 
@@ -56,7 +58,6 @@ commands. The most important are:
 - `maestral pause|resume`: Pauses or resumes syncing.
 - `maestral status`: Gets the current status of Maestral.
 - `maestral file-status LOCAL_PATH`: Gets the sync status of an individual file or folder.
-- `maestral errors`: Lists all sync errors.
 - `maestral set-dir LOCAL_PATH`: Sets the location of your local Dropbox folder.
 - `maestral excluded add|remove|list`: Command group to manage excluded folders.
 - `maestral ls DROPBOX_PATH`: Lists the contents of a directory on Dropbox.
@@ -110,3 +111,7 @@ The following tasks could need your help:
 
 - The config module uses code from the [Spyder IDE](https://github.com/spyder-ide).
 - The MaestralApiClient is based on the work from [Orphilia](https://github.com/ksiazkowicz/orphilia-dropbox).
+- Error reporting is powered by [bugsnag](https://bugsnag.com):
+
+   <img src="https://global-uploads.webflow.com/5c741219fd0819540590e785/5c7fab2b4e3feefc6bd8f0ce_5c7e8ad810414d05694fe4d8_asset%203.svg" align="left" title="Bugsnag logo" height="30"><img src="https://global-uploads.webflow.com/5c741219fd0819540590e785/5c741219fd0819856890e790_asset%2039.svg" align="left" title="Bugsnag text" height="40">
+

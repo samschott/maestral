@@ -10,6 +10,7 @@ Created on Wed Oct 31 16:23:13 2018
 import sys
 import os
 import os.path as osp
+import platform
 import shutil
 import time
 from threading import Thread
@@ -20,6 +21,8 @@ from collections import namedtuple, deque
 import click
 import requests
 from dropbox import files
+import bugsnag
+from bugsnag.handlers import BugsnagHandler
 
 try:
     from systemd import journal
@@ -33,6 +36,7 @@ except ImportError:
     system_notifier = None
 
 # maestral modules
+from maestral import __version__
 from maestral.sync.monitor import MaestralMonitor
 from maestral.sync.utils import handle_disconnect, with_sync_paused
 from maestral.sync.utils.path import is_child, path_exists_case_insensitive
@@ -45,47 +49,37 @@ from maestral.sync.utils.appdirs import get_log_path, get_cache_path, get_home_d
 from maestral.sync.utils.updates import check_update_available
 from maestral.sync.oauth import OAuth2Session
 from maestral.sync.errors import MaestralApiError
-from maestral.config.main import CONF
+from maestral.config.main import MaestralConfig
 
-
-CONFIG_NAME = os.environ.get("MAESTRAL_CONFIG", "maestral")
-
-# ========================================================================================
-# Logging setup
-# ========================================================================================
 
 logger = logging.getLogger(__name__)
-log_fmt_long = logging.Formatter(
-    fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
+
+# set up error reporting but do not activate
+
+bugsnag.configure(
+    api_key="081c05e2bf9730d5f55bc35dea15c833",
+    app_version=__version__,
+    auto_notify=False,
+    auto_capture_sessions=False,
 )
-log_fmt_short = logging.Formatter(fmt="%(message)s")
-log_level = CONF.get("app", "log_level")
 
-# -- log to file -------------------------------------------------------------------------
-rfh_log_file = get_log_path("maestral", CONFIG_NAME + ".log")
-rfh = logging.handlers.RotatingFileHandler(rfh_log_file, maxBytes=10**7, backupCount=1)
-rfh.setFormatter(log_fmt_long)
-rfh.setLevel(log_level)
+def callback(notification):
+    notification.add_tab(
+        "system",
+        {"platform": platform.platform(), "python": platform.python_version()}
+    )
 
-# -- log to stdout or journal (when launched from systemd) -------------------------------
-if INVOCATION_ID and journal:
-    sh = journal.JournalHandler()
-    sh.setFormatter(log_fmt_short)
-else:
-    sh = logging.StreamHandler(sys.stdout)
-    sh.setFormatter(log_fmt_long)
+bugsnag.before_notify(callback)
 
-sh.setLevel(log_level)
+# helper classes
 
-
-# -- log to cached handlers --------------------------------------------------------------
 class CachedHandler(logging.Handler):
     """
     Handler which stores past records.
 
     :param int maxlen: Maximum number of records to store.
     """
+
     def __init__(self, maxlen=None):
         logging.Handler.__init__(self)
         self.cached_records = deque([], maxlen)
@@ -109,21 +103,6 @@ class CachedHandler(logging.Handler):
         self.cached_records.clear()
 
 
-ch_info = CachedHandler(maxlen=1)
-ch_info.setLevel(logging.INFO)
-ch_info.setFormatter(log_fmt_short)
-
-ch_error = CachedHandler()
-ch_error.setLevel(logging.ERROR)
-ch_error.setFormatter(log_fmt_short)
-
-# add handlers
-mdbx_logger = logging.getLogger("maestral")
-mdbx_logger.setLevel(logging.DEBUG)
-for h in (rfh, sh, ch_info, ch_error):
-    mdbx_logger.addHandler(h)
-
-
 # ========================================================================================
 # Main API
 # ========================================================================================
@@ -139,88 +118,165 @@ class Maestral(object):
 
     _daemon_running = True  # for integration with Pyro
 
-    def __init__(self, run=True):
+    def __init__(self, config_name='maestral', run=True):
 
-        self.client = MaestralApiClient()
+        self._config_name = config_name
+        self._conf = MaestralConfig(self._config_name)
 
-        # monitor needs to be created before any decorators are called
-        self.monitor = MaestralMonitor(self.client)
+        self._setup_logging()
+        self.set_share_error_reports(self._conf.get("app", "analytics"))
+
+        self.client = MaestralApiClient(config_name=self._config_name)
+        self.monitor = MaestralMonitor(self.client, config_name=self._config_name)
         self.sync = self.monitor.sync
 
+        # periodically check for updates and refresh account info
+        self.update_thread = Thread(
+            name="Maestral update check",
+            target=self._periodic_refresh,
+            daemon=True,
+        )
+        self.update_thread.start()
+
         if run:
+            self.run()
 
-            if self.pending_dropbox_folder():
-                self.create_dropbox_directory()
-                self.set_excluded_folders()
+    def run(self):
 
-                self.sync.last_cursor = ""
-                self.sync.last_sync = 0
+        if self.pending_dropbox_folder(self._config_name):
+            self.create_dropbox_directory()
+            self.set_excluded_folders()
 
-            # start syncing
-            self.start_sync()
+            self.sync.last_cursor = ""
+            self.sync.last_sync = 0
 
-            if NOTIFY_SOCKET and system_notifier:  # notify systemd that we have started
-                logger.debug("Running as systemd notify service")
-                logger.debug(f"NOTIFY_SOCKET = {NOTIFY_SOCKET}")
-                system_notifier.notify("READY=1")
+        # start syncing
+        self.start_sync()
 
-            if IS_WATCHDOG and system_notifier:  # notify systemd periodically if alive
-                logger.debug("Running as systemd watchdog service")
-                logger.debug(f"WATCHDOG_USEC = {WATCHDOG_USEC}")
-                logger.debug(f"WATCHDOG_PID = {WATCHDOG_PID}")
+        if NOTIFY_SOCKET and system_notifier:  # notify systemd that we have started
+            logger.debug("Running as systemd notify service")
+            logger.debug(f"NOTIFY_SOCKET = {NOTIFY_SOCKET}")
+            system_notifier.notify("READY=1")
 
-                self.watchdog_thread = Thread(
-                    name="Maestral watchdog",
-                    target=self._periodic_watchdog,
-                    daemon=True,
-                )
-                self.watchdog_thread.start()
+        if IS_WATCHDOG and system_notifier:  # notify systemd periodically if alive
+            logger.debug("Running as systemd watchdog service")
+            logger.debug(f"WATCHDOG_USEC = {WATCHDOG_USEC}")
+            logger.debug(f"WATCHDOG_PID = {WATCHDOG_PID}")
 
-            # periodically check for updates and refresh account info
-            self.update_thread = Thread(
-                name="Maestral update check",
-                target=self._periodic_refresh,
+            self.watchdog_thread = Thread(
+                name="Maestral watchdog",
+                target=self._periodic_watchdog,
                 daemon=True,
             )
-            self.update_thread.start()
+            self.watchdog_thread.start()
+
+    def _setup_logging(self):
+
+        log_level = self._conf.get("app", "log_level")
+        mdbx_logger = logging.getLogger("maestral")
+        mdbx_logger.setLevel(logging.DEBUG)
+
+        log_fmt_long = logging.Formatter(
+            fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
+        )
+        log_fmt_short = logging.Formatter(fmt="%(message)s")
+
+        # log to file
+        rfh_log_file = get_log_path("maestral", self._config_name + ".log")
+        self._log_handler_file = logging.handlers.RotatingFileHandler(rfh_log_file, maxBytes=10 ** 7, backupCount=1)
+        self._log_handler_file.setFormatter(log_fmt_long)
+        self._log_handler_file.setLevel(log_level)
+        mdbx_logger.addHandler(self._log_handler_file)
+
+        # log to journal when launched from systemd
+        if INVOCATION_ID and journal:
+            self._log_handler_journal = journal.JournalHandler()
+            self._log_handler_journal.setFormatter(log_fmt_short)
+            mdbx_logger.addHandler(self._log_handler_journal)
+
+        # log to stdout (disabled by default)
+        self._log_handler_stream = logging.StreamHandler(sys.stdout)
+        self._log_handler_stream.setFormatter(log_fmt_long)
+        self._log_handler_stream.setLevel(100)
+        mdbx_logger.addHandler(self._log_handler_stream)
+
+        # log to cached handlers for GUI and CLI
+        self._log_handler_info_cache = CachedHandler(maxlen=1)
+        self._log_handler_info_cache.setLevel(logging.INFO)
+        self._log_handler_info_cache.setFormatter(log_fmt_short)
+        mdbx_logger.addHandler(self._log_handler_info_cache)
+
+        self._log_handler_error_cache = CachedHandler()
+        self._log_handler_error_cache.setLevel(logging.ERROR)
+        self._log_handler_error_cache.setFormatter(log_fmt_short)
+        mdbx_logger.addHandler(self._log_handler_error_cache)
+
+        # log to bugsnag (disabled by default)
+        self._log_handler_bugsnag = BugsnagHandler()
+        self._log_handler_bugsnag.setLevel(100)
+        mdbx_logger.addHandler(self._log_handler_bugsnag)
+
+    @property
+    def config_name(self):
+        return self._config_name
+
+    def set_conf(self, section, name, value):
+        self._conf.set(section, name, value)
+
+    def get_conf(self, section, name):
+        return self._conf.get(section, name)
+
+    def set_log_level(self, level_num):
+        self._log_handler_file.setLevel(level_num)
+        self._log_handler_stream.setLevel(level_num)
+        self._conf.set("app", "log_level", level_num)
+
+    def set_log_to_stdout(self, enabled=True):
+
+        if enabled:
+            log_level = self._conf.get("app", "log_level")
+            self._log_handler_stream.setLevel(log_level)
+        else:
+            self._log_handler_stream.setLevel(100)
+
+    def set_share_error_reports(self, enabled):
+
+        bugsnag.configuration.auto_notify = enabled
+        bugsnag.configuration.auto_capture_sessions = enabled
+        self._log_handler_bugsnag.setLevel(logging.ERROR if enabled else 100)
+
+        self._conf.set("app", "analytics", enabled)
 
     @staticmethod
-    def set_conf(section, name, value):
-        CONF.set(section, name, value)
-
-    @staticmethod
-    def get_conf(section, name):
-        return CONF.get(section, name)
-
-    @staticmethod
-    def set_log_level(level_num):
-        rfh.setLevel(level_num)
-        sh.setLevel(level_num)
-        CONF.set("app", "log_level", level_num)
-
-    @staticmethod
-    def pending_link():
+    def pending_link(config_name):
         """
         Bool indicating if auth tokens are stored in the system's keychain. This may raise
         a KeyringLocked exception if the user's keychain cannot be accessed. This
         exception will not be deserialized by Pyro5. You should check if Maestral is
         linked before instantiating a daemon.
 
+        :param str config_name: Name of user config to check.
+
         :raises: :class:`keyring.errors.KeyringLocked`
         """
-        auth_session = OAuth2Session()
+        auth_session = OAuth2Session(config_name)
         return auth_session.load_token() is None
 
     @staticmethod
-    def pending_dropbox_folder():
-        """Bool indicating if a local Dropbox directory has been set."""
-        return not osp.isdir(CONF.get("main", "path"))
+    def pending_dropbox_folder(config_name):
+        """
+        Bool indicating if a local Dropbox directory has been set.
 
-    @staticmethod
-    def pending_first_download():
-        """Bool indicating if the initial download has already occurred.."""
-        return (CONF.get("internal", "lastsync") == 0 or
-                CONF.get("internal", "cursor") == "")
+        :param str config_name: Name of user config to check.
+        """
+        conf = MaestralConfig(config_name)
+        return not osp.isdir(conf.get("main", "path"))
+
+    def pending_first_download(self):
+        """Bool indicating if the initial download has already occurred."""
+        return (self._conf.get("internal", "lastsync") == 0 or
+                self._conf.get("internal", "cursor") == "")
 
     @property
     def syncing(self):
@@ -248,7 +304,7 @@ class Maestral(object):
     def status(self):
         """Returns a string with the last status message. This can be displayed as
         information to the user but should not be relied on otherwise."""
-        return ch_info.getLastMessage()
+        return self._log_handler_info_cache.getLastMessage()
 
     @property
     def notify(self):
@@ -289,23 +345,22 @@ class Maestral(object):
         continue syncing.
         """
 
-        maestral_errors = [r.exc_info[1] for r in ch_error.cached_records]
+        maestral_errors = [r.exc_info[1] for r in self._log_handler_error_cache.cached_records]
         maestral_errors_dicts = [maestral_error_to_dict(e) for e in maestral_errors]
         return maestral_errors_dicts
 
-    @staticmethod
-    def clear_maestral_errors():
+    def clear_maestral_errors(self):
         """Manually clears all Maestral errors. This should be used after they have been
         resolved by the user through the GUI or CLI.
         """
-        ch_error.clear()
+        self._log_handler_error_cache.clear()
 
     @property
     def account_profile_pic_path(self):
         """Returns the path of the current account's profile picture. There may not be
         an actual file at that path, if the user did not set a profile picture or the
         picture has not yet been downloaded."""
-        return get_cache_path("maestral", CONFIG_NAME + "_profile_pic.jpeg")
+        return get_cache_path("maestral", self._config_name + "_profile_pic.jpeg")
 
     def get_file_status(self, local_path):
         """
@@ -427,11 +482,10 @@ class Maestral(object):
 
         return entries
 
-    @staticmethod
-    def _delete_old_profile_pics():
+    def _delete_old_profile_pics(self):
         # delete all old pictures
         for file in os.listdir(get_cache_path("maestral")):
-            if file.startswith(CONFIG_NAME + "_profile_pic"):
+            if file.startswith(self._config_name + "_profile_pic"):
                 try:
                     os.unlink(osp.join(get_cache_path("maestral"), file))
                 except OSError:
@@ -489,8 +543,11 @@ class Maestral(object):
         except OSError:
             pass
 
-        CONF.reset_to_defaults()
-        CONF.set("main", "default_dir_name", f"Dropbox ({CONFIG_NAME.capitalize()})")
+        self.sync.dropbox_path = ""
+        self.sync.last_cursor = ""
+        self.sync.last_sync = 0.0
+
+        self._conf.reset_to_defaults()
 
         logger.info("Unlinked Dropbox account.")
 
@@ -639,8 +696,7 @@ class Maestral(object):
 
         return excluded_folders
 
-    @staticmethod
-    def excluded_status(dbx_path):
+    def excluded_status(self, dbx_path):
         """
         Returns 'excluded', 'partially excluded' or 'included'. This function will not
         check if the item actually exists on Dropbox.
@@ -652,7 +708,7 @@ class Maestral(object):
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
 
-        excluded_items = CONF.get("main", "excluded_folders") + CONF.get("main", "excluded_files")
+        excluded_items = self._conf.get("main", "excluded_folders") + self._conf.get("main", "excluded_files")
 
         if dbx_path in excluded_items:
             return "excluded"
@@ -674,9 +730,8 @@ class Maestral(object):
 
         # get old and new paths
         old_path = self.sync.dropbox_path
-        default_path = osp.join(get_home_dir(), CONF.get("main", "default_dir_name"))
         if new_path is None:
-            new_path = self._ask_for_path(default=default_path)
+            new_path = self._ask_for_path(self._config_name)
 
         try:
             if osp.samefile(old_path, new_path):
@@ -713,7 +768,7 @@ class Maestral(object):
         """
         # ask for new path
         if path is None:
-            path = self._ask_for_path()
+            path = self._ask_for_path(self._config_name)
 
         if overwrite:
             # remove any old items at the location
@@ -731,16 +786,21 @@ class Maestral(object):
         self.sync.dropbox_path = path
 
     @staticmethod
-    def _ask_for_path(default=osp.join("~", CONF.get("main", "default_dir_name"))):
+    def _ask_for_path(config_name):
         """
         Asks for Dropbox path.
         """
+
+        conf = MaestralConfig(config_name)
+
+        default = osp.join(get_home_dir(), conf.get("main", "default_dir_name"))
+
         while True:
             msg = f"Please give Dropbox folder location or press enter for default ['{default}']:"
             res = input(msg).strip("'\" ")
 
             dropbox_path = osp.expanduser(res or default)
-            old_path = osp.expanduser(CONF.get("main", "path"))
+            old_path = osp.expanduser(conf.get("main", "path"))
 
             same_path = False
             try:
@@ -775,7 +835,7 @@ class Maestral(object):
             # check for maestral updates
             res = self.check_for_updates()
             if not res["error"]:
-                CONF.set("app", "latest_release", res["latest_release"])
+                self._conf.set("app", "latest_release", res["latest_release"])
             time.sleep(60*60)  # 60 min
 
     def _periodic_watchdog(self):
@@ -801,7 +861,7 @@ class Maestral(object):
             pass
 
     def __repr__(self):
-        email = CONF.get("account", "email")
-        account_type = CONF.get("account", "type")
+        email = self._conf.get("account", "email")
+        account_type = self._conf.get("account", "type")
 
         return f"<{self.__class__}({email}, {account_type})>"

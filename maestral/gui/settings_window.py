@@ -8,7 +8,6 @@ Created on Wed Oct 31 16:23:13 2018
 # system imports
 import os.path as osp
 import time
-import platform
 from distutils.version import LooseVersion
 
 # external packages
@@ -22,8 +21,8 @@ from maestral.gui.folders_dialog import FoldersDialog
 from maestral.gui.resources import (get_native_item_icon, UNLINK_DIALOG_PATH,
                                     SETTINGS_WINDOW_PATH, APP_ICON_PATH, FACEHOLDER_PATH)
 from maestral.gui.utils import (get_scaled_font, isDarkWindow,
-                                LINE_COLOR_DARK, LINE_COLOR_LIGHT, icon_to_pixmap,
-                                get_masked_image, MaestralBackgroundTask)
+                                LINE_COLOR_DARK, LINE_COLOR_LIGHT, IS_MACOS,
+                                icon_to_pixmap, get_masked_image, MaestralBackgroundTask)
 
 
 NEW_QT = LooseVersion(QtCore.QT_VERSION_STR) >= LooseVersion("5.11")
@@ -31,15 +30,17 @@ NEW_QT = LooseVersion(QtCore.QT_VERSION_STR) >= LooseVersion("5.11")
 
 class UnlinkDialog(QtWidgets.QDialog):
 
-    def __init__(self, restart_func, parent=None):
+    def __init__(self, mdbx, restart_func, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         # load user interface layout from .ui file
         uic.loadUi(UNLINK_DIALOG_PATH, self)
 
-        self.restart_func = restart_func
+        self.setWindowFlags(QtCore.Qt.Sheet)
+        self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.setModal(True)
 
-        self.setWindowFlags(QtCore.Qt.Sheet)
+        self.restart_func = restart_func
+        self.mdbx = mdbx
 
         self.buttonBox.buttons()[0].setText("Unlink")
         self.titleLabel.setFont(get_scaled_font(bold=True))
@@ -53,7 +54,7 @@ class UnlinkDialog(QtWidgets.QDialog):
 
         self.buttonBox.setEnabled(False)
         self.progressIndicator.startAnimation()
-        self.unlink_thread = MaestralBackgroundTask(self, "unlink")
+        self.unlink_thread = MaestralBackgroundTask(self, self.mdbx.config_name, "unlink")
         self.unlink_thread.sig_done.connect(self.restart_func)
 
 
@@ -67,29 +68,35 @@ class SettingsWindow(QtWidgets.QWidget):
         uic.loadUi(SETTINGS_WINDOW_PATH, self)
         self._parent = parent
         self.update_dark_mode()
-        self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+        self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint)
+
         self.adjustSize()
 
         self.mdbx = mdbx
         self.folders_dialog = FoldersDialog(self.mdbx, parent=self)
-        self.unlink_dialog = UnlinkDialog(self._parent.restart, parent=self)
+        self.unlink_dialog = UnlinkDialog(self.mdbx, self._parent.restart, parent=self)
+        self.autostart = AutoStart()
 
         self.labelAccountName.setFont(get_scaled_font(1.5))
-        self.labelAccountInfo.setFont(get_scaled_font(0.85))
-        self.labelSpaceUsage.setFont(get_scaled_font(0.85))
+        self.labelAccountInfo.setFont(get_scaled_font(0.9))
+        self.labelSpaceUsage.setFont(get_scaled_font(0.9))
 
+        # fixes sizes of label and profile pic
+        self.labelAccountName.setFixedHeight(self.labelAccountName.height())
         self._profile_pic_height = round(self.labelUserProfilePic.height() * 0.65)
 
-        if platform.system() == "Darwin" and NEW_QT:
-            self.spacerMacOS.setMinimumWidth(2)  # bug fix for macOS
-            self.spacerMacOS.setMaximumWidth(2)  # bug fix for macOS
+        if IS_MACOS:  # bug fixes for macOS
+            self.setAttribute(QtCore.Qt.WA_TranslucentBackground)  # allows for proper adjustment of window color in dark mode
+            self.spacerMacOS.setFixedWidth(2 if NEW_QT else 0)  # fix for combobox spacing in qt 5.11 and higher
+            self.comboBoxUpdateInterval.setFocusPolicy(QtCore.Qt.NoFocus)  # don't show combobox focus, it is offset
+            self.comboBoxDropboxPath.setFocusPolicy(QtCore.Qt.NoFocus)  # don't show combobox focus, it is offset
 
-        self.populate_gui()
+        self.refresh_gui()
 
         # update profile pic and account info periodically
         self.update_timer = QtCore.QTimer()
-        self.update_timer.timeout.connect(self.update_account_info_from_chache)
-        self.update_timer.start(1000*60*5)  # every 5 min
+        self.update_timer.timeout.connect(self.refresh_gui)
+        self.update_timer.start(5000)  # every 5 sec
 
         # connect callbacks
         self.pushButtonUnlink.clicked.connect(self.unlink_dialog.exec_)
@@ -97,6 +104,7 @@ class SettingsWindow(QtWidgets.QWidget):
         self.pushButtonExcludedFolders.clicked.connect(self.folders_dialog.open)
         self.checkBoxStartup.stateChanged.connect(self.on_start_on_login_clicked)
         self.checkBoxNotifications.stateChanged.connect(self.on_notifications_clicked)
+        self.checkBoxAnalytics.stateChanged.connect(self.on_analytics_clicked)
         self.comboBoxUpdateInterval.currentIndexChanged.connect(
             self.on_combobox_update_interval)
         self.comboBoxDropboxPath.currentIndexChanged.connect(self.on_combobox_path)
@@ -112,10 +120,12 @@ class SettingsWindow(QtWidgets.QWidget):
         self.dropbox_folder_dialog.rejected.connect(
                 lambda: self.comboBoxDropboxPath.setCurrentIndex(0))
 
-    def populate_gui(self):
+    @QtCore.pyqtSlot()
+    def refresh_gui(self):
 
         # populate account info
-        self.update_account_info_from_chache()
+        self.set_profile_pic_from_cache()
+        self.set_account_info_from_cache()
 
         # populate sync section
         parent_dir = osp.split(self.mdbx.dropbox_path)[0]
@@ -128,9 +138,9 @@ class SettingsWindow(QtWidgets.QWidget):
         self.comboBoxDropboxPath.addItem(QtGui.QIcon(), "Other...")
 
         # populate app section
-        self.autostart = AutoStart()
         self.checkBoxStartup.setChecked(self.autostart.enabled)
         self.checkBoxNotifications.setChecked(self.mdbx.get_conf("app", "notifications"))
+        self.checkBoxAnalytics.setChecked(self.mdbx.get_conf("app", "analytics"))
         update_interval = self.mdbx.get_conf("app", "update_notification_interval")
         closest_key = min(
             self._update_interval_mapping,
@@ -183,12 +193,6 @@ class SettingsWindow(QtWidgets.QWidget):
         self.labelAccountInfo.setText(acc_mail + acc_type_text)
         self.labelSpaceUsage.setText(acc_space_usage)
 
-    @QtCore.pyqtSlot()
-    def update_account_info_from_chache(self):
-
-        self.set_profile_pic_from_cache()
-        self.set_account_info_from_cache()
-
     @QtCore.pyqtSlot(int)
     def on_combobox_path(self, idx):
         if idx == 2:
@@ -219,6 +223,11 @@ class SettingsWindow(QtWidgets.QWidget):
     @QtCore.pyqtSlot(int)
     def on_notifications_clicked(self, state):
         self.mdbx.set_conf("app", "notifications", state == 2)
+
+    @QtCore.pyqtSlot(int)
+    def on_analytics_clicked(self, state):
+        self.mdbx.set_conf("app", "analytics", state == 2)
+        self.mdbx.set_share_error_reports(state == 2)
 
     @staticmethod
     def rel_path(path):

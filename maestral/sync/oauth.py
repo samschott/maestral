@@ -7,7 +7,6 @@ Created on Wed Oct 31 16:23:13 2018
 """
 
 # system imports
-import os.path as osp
 import logging
 
 # external packages
@@ -15,8 +14,7 @@ import keyring
 from keyring.errors import KeyringLocked
 
 # maestral modules
-from maestral.config.main import CONF, SUBFOLDER
-from maestral.config.base import get_conf_path
+from maestral.config.main import MaestralConfig
 from maestral.sync.oauth_implicit import DropboxOAuth2FlowImplicit
 from maestral.sync.errors import DropboxAuthError
 from maestral.sync.utils import set_keyring_backend
@@ -33,17 +31,20 @@ class OAuth2Session(object):
     OAuth2Session provides OAuth2 login and token store.
     """
 
-    TOKEN_FILE = osp.join(get_conf_path(SUBFOLDER), "o2_store.txt")  # before v0.2.0
     oAuth2FlowResult = None
 
     Success = 0
     InvalidToken = 1
     ConnectionFailed = 2
 
-    def __init__(self):
+    def __init__(self, config_name='maestral'):
 
-        self.account_id = CONF.get("account", "account_id")
+        self._conf = MaestralConfig(config_name)
+
+        self.account_id = self._conf.get("account", "account_id")
         self.access_token = ""
+
+        self.auth_flow = None
 
     def load_token(self):
         """
@@ -78,6 +79,9 @@ class OAuth2Session(object):
         :rtype: int
         """
 
+        if not self.auth_flow:
+            raise RuntimeError('Auth flow not yet started. Please call \'get_auth_url\'.')
+
         try:
             self.oAuth2FlowResult = self.auth_flow.finish(token)
             self.access_token = self.oAuth2FlowResult.access_token
@@ -110,7 +114,7 @@ class OAuth2Session(object):
 
     def save_creds(self):
         """Saves auth key to system keyring."""
-        CONF.set("account", "account_id", self.account_id)
+        self._conf.set("account", "account_id", self.account_id)
         try:
             keyring.set_password("Maestral", self.account_id, self.access_token)
             print(" > Credentials written.")
@@ -120,7 +124,7 @@ class OAuth2Session(object):
 
     def delete_creds(self):
         """Deletes auth key from system keyring."""
-        CONF.set("account", "account_id", "")
+        self._conf.set("account", "account_id", "")
         try:
             keyring.delete_password("Maestral", self.account_id)
             print(" > Credentials removed.")

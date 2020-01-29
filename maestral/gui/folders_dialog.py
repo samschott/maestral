@@ -75,8 +75,8 @@ class TreeModel(QAbstractItemModel):
     def checkState(self, index):
         if not index.isValid():
             return QVariant()
-        item = index.internalPointer()
-        return item.checkState
+        else:
+            return index.internalPointer().checkState
 
     def setCheckState(self, index, value):
         if index.isValid():

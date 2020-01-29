@@ -63,9 +63,8 @@ def check_update_available(current_version=__version__):
     except HTTPError:
         error_msg = "Unable to retrieve information."
     except URLError:
-        error_msg = ('Unable to connect to the internet. '
-                     '<div style="height:5px;font-size:5px;">&nbsp;<br></div>'
-                     'Please make sure the connection is working properly.')
+        error_msg = ("Unable to connect to the internet. "
+                     "Please make sure the connection is working properly.")
     except Exception:
         error_msg = "Unable to check for updates."
 

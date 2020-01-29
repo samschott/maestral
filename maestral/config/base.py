@@ -6,15 +6,13 @@ This file only deals with non-GUI configuration features
 sip API incompatibility issue in spyder's non-gui modules)
 """
 
-from __future__ import division, absolute_import
-import sys
 import os
 import os.path as osp
 import shutil
 import platform
+import logging
 
-STDERR = sys.stderr
-
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Configuration paths
@@ -85,24 +83,13 @@ def get_conf_path(subfolder=None, filename=None, create=True):
     return conf_path
 
 
-def get_old_conf_path(subfolder=None, filename=None):
-    """Return absolute path to the config file with the specified filename."""
-    # Define conf_dir
-    conf_dir = osp.join(get_home_dir(), subfolder)
-
-    if filename is None:
-        return conf_dir
-    else:
-        return osp.join(conf_dir, filename)
-
-
 # =============================================================================
 # Reset config files
 # =============================================================================
 
 def reset_config_files(subfolder, saved_config_files):
     """Remove all config files"""
-    print("*** Reset settings to defaults ***", file=STDERR)
+    logger.info("*** Reset settings to defaults ***")
     for fname in saved_config_files:
         cfg_fname = get_conf_path(subfolder, fname)
         if osp.isfile(cfg_fname) or osp.islink(cfg_fname):
@@ -111,4 +98,4 @@ def reset_config_files(subfolder, saved_config_files):
             shutil.rmtree(cfg_fname)
         else:
             continue
-        print("removing:", cfg_fname, file=STDERR)
+        logger.debug(f"removing: {cfg_fname}")

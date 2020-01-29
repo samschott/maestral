@@ -83,7 +83,7 @@ class RebuildIndexDialog(QtWidgets.QDialog):
 
         self.statusLabel.setText("Indexing...")
 
-        self.rebuild_task = MaestralBackgroundTask(self, "rebuild_index")
+        self.rebuild_task = MaestralBackgroundTask(self, self.mdbx.config_name, "rebuild_index")
         self.rebuild_task.sig_done.connect(self.on_rebuild_done)
 
     @QtCore.pyqtSlot()

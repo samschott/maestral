@@ -38,7 +38,7 @@
    <item row="1" column="1" colspan="6">
     <widget class="QLabel" name="infoLabel">
      <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your Dropbox access {0}. To continue syncing, please click &lt;a href=&quot;{1}&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#2874e1;&quot;&gt;here&lt;/span&gt;&lt;/a&gt; to retrieve a new authorization token from Dropbox and enter it below.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your Dropbox access {0}. To continue syncing, please click &lt;a href=&quot;{1}&quot; style=&quot;color: rgb(68, 121, 251)&quot;&gt;here&lt;/a&gt; to retrieve a new authorization token from Dropbox and enter it below.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="wordWrap">
       <bool>true</bool>

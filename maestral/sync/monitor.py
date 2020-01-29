@@ -29,17 +29,16 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              DirCreatedEvent, FileCreatedEvent,
                              DirDeletedEvent, FileDeletedEvent,
                              DirMovedEvent, FileMovedEvent)
+from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 if platform.system() == "Darwin":
     # use our own FSEvent observer to preserve the order of file system events
-    from .watchdog.fsevents import FSEventsObserver as Observer
-    from .watchdog.dirsnapshot import DirectorySnapshot
+    from .watchdog.fsevents import OrderedFSEventsObserver as Observer
 else:
     from watchdog.observers import Observer
-    from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 # maestral modules
-from maestral.config.main import CONF
+from maestral.config.main import MaestralConfig
 from maestral.sync.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                      SYNC_ERROR, REV_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.sync.utils.content_hasher import DropboxContentHasher
@@ -51,7 +50,6 @@ from maestral.sync.utils.path import (is_child, path_exists_case_insensitive,
                                       delete_file_or_folder)
 
 logger = logging.getLogger(__name__)
-
 
 DIR_EVENTS = (DirModifiedEvent, DirCreatedEvent, DirDeletedEvent, DirMovedEvent)
 FILE_EVENTS = (FileModifiedEvent, FileCreatedEvent, FileDeletedEvent, FileMovedEvent)
@@ -222,7 +220,6 @@ class FileEventHandler(FileSystemEventHandler):
             return
 
         self.local_file_event_queue.put(event)
-        logger.debug(f"Put into file event queue: {event}")
 
 
 def catch_sync_issues(sync_errors=None, failed_items=None):
@@ -318,12 +315,14 @@ class UpDownSync(object):
     queued_folder_downloads = queue.Queue()
 
     __slots__ = (
-        "client",
-        "local_file_event_queue", "queue_uploading", "queue_downloading",
+        "client", "local_file_event_queue", "queue_uploading", "queue_downloading",
         "_dropbox_path", "_excluded_files", "_excluded_folders", "_rev_dict_cache",
+        "_conf",
     )
 
-    def __init__(self, client, local_file_event_queue, queue_uploading, queue_downloading):
+    def __init__(self, client, local_file_event_queue, queue_uploading, queue_downloading, config_name='maestral'):
+
+        self._conf = MaestralConfig(config_name)
 
         self.client = client
         self.local_file_event_queue = local_file_event_queue
@@ -331,9 +330,9 @@ class UpDownSync(object):
         self.queue_downloading = queue_downloading
 
         # load cached properties
-        self._dropbox_path = CONF.get("main", "path")
-        self._excluded_files = CONF.get("main", "excluded_files")
-        self._excluded_folders = CONF.get("main", "excluded_folders")
+        self._dropbox_path = self._conf.get("main", "path")
+        self._excluded_files = self._conf.get("main", "excluded_files")
+        self._excluded_folders = self._conf.get("main", "excluded_folders")
         self._rev_dict_cache = self._load_rev_dict_from_file()
 
     @property
@@ -354,32 +353,32 @@ class UpDownSync(object):
     def dropbox_path(self, path):
         """Setter: dropbox_path"""
         self._dropbox_path = path
-        CONF.set("main", "path", path)
+        self._conf.set("main", "path", path)
 
     @property
     def last_cursor(self):
         """Cursor from last sync with remote Dropbox. The value is updated and saved to
         the config file on every successful sync. Do not modify manually."""
-        return CONF.get("internal", "cursor")
+        return self._conf.get("internal", "cursor")
 
     @last_cursor.setter
     def last_cursor(self, cursor):
         """Setter: last_cursor"""
         logger.debug(f"Remote cursor saved: {cursor}")
-        CONF.set("internal", "cursor", cursor)
+        self._conf.set("internal", "cursor", cursor)
 
     @property
     def last_sync(self):
         """Time stamp from last sync with remote Dropbox. The value is updated and
         saved to config file on every successful sync. This should not be modified
         manually."""
-        return CONF.get("internal", "lastsync")
+        return self._conf.get("internal", "lastsync")
 
     @last_sync.setter
     def last_sync(self, last_sync):
         """Setter: last_cursor"""
         logger.debug(f"Local cursor saved: {last_sync}")
-        CONF.set("internal", "lastsync", last_sync)
+        self._conf.set("internal", "lastsync", last_sync)
 
     @property
     def excluded_files(self):
@@ -391,7 +390,7 @@ class UpDownSync(object):
     def excluded_files(self, files_list):
         """Setter: excluded_folders"""
         self._excluded_files = files_list
-        CONF.set("main", "excluded_files", files_list)
+        self._conf.set("main", "excluded_files", files_list)
 
     @property
     def excluded_folders(self):
@@ -406,7 +405,7 @@ class UpDownSync(object):
         """Setter: excluded_folders"""
         clean_list = self.clean_excluded_folder_list(folder_list)
         self._excluded_folders = clean_list
-        CONF.set("main", "excluded_folders", clean_list)
+        self._conf.set("main", "excluded_folders", clean_list)
 
     # ====================================================================================
     #  Helper functions
@@ -756,7 +755,7 @@ class UpDownSync(object):
         # get modified or added items
         for path in snapshot.paths:
             stats = snapshot.stat_info(path)
-            last_sync = CONF.get("internal", "lastsync")
+            last_sync = self._conf.get("internal", "lastsync")
             # check if item was created or modified since last sync
             dbx_path = self.to_dbx_path(path).lower()
 
@@ -1180,16 +1179,16 @@ class UpDownSync(object):
 
             # check if file already exists with identical content
             md = self.client.get_metadata(dbx_path)
-            if md:
+            if isinstance(md, FileMetadata):
                 local_hash = get_local_hash(path)
                 if local_hash == md.content_hash:
                     # file hashes are identical, do not upload
-                    self.set_local_rev(md.path_display, "folder")
+                    self.set_local_rev(md.path_display, md.rev)
                     return
 
             rev = self.get_local_rev(dbx_path)
             # if truly a new file
-            if rev is None:
+            if rev in (None, "folder"):
                 mode = dropbox.files.WriteMode("add")
             # or a 'false' new file event triggered by saving the file
             # e.g., some programs create backup files and then swap them
@@ -1218,8 +1217,7 @@ class UpDownSync(object):
         try:
             self.client.remove(dbx_path, parent_rev=local_rev)
         except PathError:
-            logger.debug("Could not delete '{0}': the item does not exist on Dropbox.",
-                         event.src_path)
+            logger.debug("Could not delete '%s': the item does not exist on Dropbox.", event.src_path)
         else:
             logger.debug("Deleted '%s' from Dropbox.", event.src_path)
 
@@ -1241,9 +1239,9 @@ class UpDownSync(object):
 
             self._wait_for_creation(path)
 
-            # check if file already exists with identical content
+            # check if item already exists with identical content
             md = self.client.get_metadata(dbx_path)
-            if md:
+            if isinstance(md, FileMetadata):
                 local_hash = get_local_hash(path)
                 if local_hash == md.content_hash:
                     # file hashes are identical, do not upload
@@ -1256,17 +1254,14 @@ class UpDownSync(object):
             if rev == "folder":
                 mode = dropbox.files.WriteMode("overwrite")
             elif not rev:
-                logger.warning("'%s' appears to have been modified"
-                               "but cannot find old revision.", event.src_path)
+                logger.debug("'%s' appears to have been modified but cannot "
+                             "find old revision.", event.src_path)
                 return
             else:
                 mode = dropbox.files.WriteMode("update", rev)
             md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
-            logger.debug("Modified file: %s (old rev: %s, new rev %s)",
-                         md.path_display, rev, md.rev)
             # save or update revision metadata
             self.set_local_rev(md.path_display, md.rev)
-
             logger.debug("Uploaded modified '%s' to Dropbox.", event.src_path)
 
     # ====================================================================================
@@ -1440,7 +1435,7 @@ class UpDownSync(object):
 
         # get metadata of remote file
         md = self.client.get_metadata(dbx_path)
-        if not md:
+        if not isinstance(md, FileMetadata):
             raise PathError(
                 "Could not download file",
                 "The file no longer exist on Dropbox",
@@ -1496,6 +1491,9 @@ class UpDownSync(object):
     def notify_user(self, changes):
         """Sends system notifications for files changed."""
 
+        if not self._conf.get("app", "notifications"):
+            return
+
         # get number of remote changes
         n_changed = len(changes.entries)
 
@@ -1507,7 +1505,7 @@ class UpDownSync(object):
             dbid_list = [md.sharing_info.modified_by for md in changes.entries]
             if all(dbid == dbid_list[0] for dbid in dbid_list):
                 # all files have been modified by the same user
-                if dbid_list[0] == CONF.get("account", "account_id"):
+                if dbid_list[0] == self._conf.get("account", "account_id"):
                     user_name = "You"
                 else:
                     account_info = self.client.get_account_info(dbid_list[0])
@@ -1624,7 +1622,10 @@ class UpDownSync(object):
             # If there’s already something else at the given path,
             # replace it but leave the children as they are.
 
-            os.makedirs(local_path, exist_ok=True)
+            try:
+                os.makedirs(local_path)
+            except FileExistsError:
+                pass
 
             # save revision metadata
             self.set_local_rev(entry.path_display, "folder")
@@ -1644,15 +1645,14 @@ class UpDownSync(object):
 
             self.set_local_rev(entry.path_display, None)
 
-    @staticmethod
-    def _save_to_history(dbx_path):
+    def _save_to_history(self, dbx_path):
         # add new file to recent_changes
-        recent_changes = CONF.get("internal", "recent_changes")
+        recent_changes = self._conf.get("internal", "recent_changes")
         recent_changes.append(dbx_path)
         # eliminate duplicates
         recent_changes = list(OrderedDict.fromkeys(recent_changes))
         # save last 30 changes
-        CONF.set("internal", "recent_changes", recent_changes[-30:])
+        self._conf.set("internal", "recent_changes", recent_changes[-30:])
 
 
 # ========================================================================================
@@ -1740,8 +1740,7 @@ def download_worker(sync, syncing, running, connected):
                         changes = sync.list_remote_changes(sync.last_cursor)
 
                         # notify user about changes
-                        if CONF.get("app", "notifications"):
-                            sync.notify_user(changes)
+                        sync.notify_user(changes)
 
                         # apply remote changes to local Dropbox folder
                         sync.apply_remote_changes(changes)
@@ -1797,8 +1796,8 @@ def download_worker_added_folder(sync, syncing, running, connected):
             logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
         except MaestralApiError as e:
-            syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
+            syncing.clear()  # stop syncing
             logger.error(e.title, exc_info=True)
         except Exception:
             logger.error("Unexpected error", exc_info=True)
@@ -1845,8 +1844,8 @@ def upload_worker(sync, syncing, running, connected):
             logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
         except MaestralApiError as e:
-            syncing.clear()  # stop syncing
             running.clear()  # shutdown threads
+            syncing.clear()  # stop syncing
             logger.error(e.title, exc_info=True)
         except Exception:
             logger.error("Unexpected error", exc_info=True)
@@ -1890,7 +1889,7 @@ class MaestralMonitor(object):
     connected_signal = signal("connected_signal")
     disconnected_signal = signal("disconnected_signal")
 
-    def __init__(self, client):
+    def __init__(self, client, config_name='maestral'):
 
         self._auto_resume_on_connect = False
 
@@ -1904,7 +1903,8 @@ class MaestralMonitor(object):
         )
 
         self.sync = UpDownSync(self.client, self.local_file_event_queue,
-                               self.queue_uploading, self.queue_downloading)
+                               self.queue_uploading, self.queue_downloading,
+                               config_name=config_name)
 
     @property
     def uploading(self):
@@ -2021,7 +2021,6 @@ class MaestralMonitor(object):
         """Resumes syncing."""
 
         if self.syncing.is_set():
-            logger.debug("Syncing was already running")
             return
 
         if not self._auto_resume_on_connect:
@@ -2031,11 +2030,10 @@ class MaestralMonitor(object):
         self.syncing.set()  # resumes upload_thread, download_thread and file handler
         logger.info(IDLE)
 
-    def stop(self, overload=None, blocking=False):
+    def stop(self, overload=None):
         """Stops syncing and destroys worker threads."""
 
         if not self.running.is_set():
-            logger.debug("Syncing is already stopped")
             return
 
         self._auto_resume_on_connect = False
@@ -2046,11 +2044,7 @@ class MaestralMonitor(object):
         self.local_observer_thread.join()  # wait to finish
 
         self.running.clear()  # stops our own threads
-
-        if blocking:
-            # we don't join the download thread, because it may take up to 120 sec to stop
-            self.upload_thread.join()
-            self.download_thread_added_folder.join()
+        self.upload_thread.join()  # wait for uploads to terminate
 
         logger.info(STOPPED)
 
@@ -2086,7 +2080,7 @@ class MaestralMonitor(object):
 
         was_running = self.running.is_set()
 
-        self.stop(blocking=True)  # stop all sync threads and wait for them to return
+        self.stop()  # stop all sync threads
         try:
             os.unlink(self.sync.rev_file_path)  # delete rev file
         except OSError:
@@ -2112,6 +2106,7 @@ class MaestralMonitor(object):
         # deleted before re-indexing will be downloaded again. Files changes
         # which occurred before the file was re-indexed will result in a conflicting
         # copy.
+
         if was_running:
             self.start()
 

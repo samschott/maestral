@@ -25,7 +25,7 @@ def is_child(path1, path2):
     assert isinstance(path1, str)
     assert isinstance(path2, str)
 
-    path2.rstrip(osp.sep)
+    path2 = path2.rstrip(osp.sep)
 
     return path1.startswith(path2 + osp.sep) and not path1 == path2
 
