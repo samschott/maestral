@@ -239,7 +239,7 @@ def start_maestral_daemon_thread(config_name="maestral", run=True):
         daemon=True,
     ).start()
 
-    return _wait_for_startup(config_name, timeout=6)
+    return _wait_for_startup(config_name, timeout=8)
 
 
 def start_maestral_daemon_process(config_name="maestral", run=True):
@@ -274,7 +274,7 @@ def start_maestral_daemon_process(config_name="maestral", run=True):
         daemon=True,
     ).start()
 
-    return _wait_for_startup(config_name, timeout=6)
+    return _wait_for_startup(config_name, timeout=8)
 
 
 def stop_maestral_daemon_process(config_name="maestral", timeout=10):
