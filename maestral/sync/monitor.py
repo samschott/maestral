@@ -42,7 +42,7 @@ from maestral.config.main import MaestralConfig
 from maestral.sync.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                      SYNC_ERROR, REV_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.sync.utils.content_hasher import DropboxContentHasher
-from maestral.sync.utils.notify import SystemNotifier
+from maestral.sync.utils.notify import desktop_notifier
 from maestral.sync.errors import (MaestralApiError, SyncError, RevFileError,
                                   DropboxDeletedError, DropboxAuthError,
                                   ExcludedItemError, PathError, InotifyError)
@@ -299,7 +299,6 @@ class UpDownSync(object):
         included.
     """
 
-    notify = SystemNotifier()
     lock = RLock()
 
     _rev_lock = RLock()
@@ -1535,9 +1534,9 @@ class UpDownSync(object):
                 change_type = "changed"
 
             if user_name:
-                self.notify.send(f"{user_name} {change_type} {file_name}")
+                desktop_notifier.send(f"{user_name} {change_type} {file_name}")
             else:
-                self.notify.send(f"{file_name} {change_type}")
+                desktop_notifier.send(f"{file_name} {change_type}")
 
         elif n_changed > 1:
             # for multiple changes, display user name if all equal
@@ -1546,9 +1545,9 @@ class UpDownSync(object):
             else:
                 change_type = "changed"
             if user_name:
-                self.notify.send(f"{user_name} {change_type} {n_changed} files")
+                desktop_notifier.send(f"{user_name} {change_type} {n_changed} files")
             else:
-                self.notify.send(f"{n_changed} files {change_type}")
+                desktop_notifier.send(f"{n_changed} files {change_type}")
 
     @staticmethod
     def _sort_remote_entries(result):

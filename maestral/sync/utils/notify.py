@@ -132,3 +132,6 @@ class SystemNotifier(object):
         elif self._command_exists('notify-send'):
             return SupportedImplementations.notify_send
         return None
+
+
+desktop_notifier = SystemNotifier()
