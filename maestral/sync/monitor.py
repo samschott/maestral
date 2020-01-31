@@ -241,8 +241,8 @@ def catch_sync_issues(sync_errors=None, failed_items=None):
                 if res is None:
                     res = True
             except SyncError as exc:
-                logger.warning(SYNC_ERROR, exc_info=True)
                 file_name = os.path.basename(exc.dbx_path)
+                logger.warning(f"Could not sync f{file_name}", exc_info=True)
                 if exc.dbx_path is not None:
                     if exc.local_path is None:
                         exc.local_path = self.to_local_path(exc.dbx_path)
@@ -517,7 +517,7 @@ class UpDownSync(object):
                 assert all(isinstance(key, str) for key in rev_dict_cache.keys())
                 assert all(isinstance(val, str) for val in rev_dict_cache.values())
             except (FileNotFoundError, IsADirectoryError):
-                logger.warning("Maestral index could not be found.")
+                logger.info("Maestral index could not be found.")
             except (AssertionError, umsgpack.InsufficientDataException) as exc:
                 title = "Corrupted index"
                 msg = "Maestral index has become corrupted. Please rebuild."
@@ -887,7 +887,8 @@ class UpDownSync(object):
                                "Dropbox but is excluded from syncing.")
                     exc = ExcludedItemError(title, message, dbx_path=dbx_path,
                                             local_path=local_path)
-                    logger.warning(SYNC_ERROR, exc_info=(type(exc), exc, None))
+                    basename = osp.basename(dbx_path)
+                    logger.warning(f"Could not upload {basename}", exc_info=(type(exc), exc, None))
                     self.sync_errors.put(exc)
                     self.failed_uploads.put(event)
                 events_excluded.append(event)
