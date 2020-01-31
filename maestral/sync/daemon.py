@@ -127,6 +127,8 @@ def _wait_for_startup(config_name, timeout=8):
     t0 = time.time()
     pid = None
 
+    logger.debug(f"Waiting for process with pid {pid} to start.")
+
     while not pid and time.time() - t0 < timeout/2:
         pid = get_maestral_pid(config_name)
         time.sleep(0.2)
