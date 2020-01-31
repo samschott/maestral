@@ -30,16 +30,17 @@ except ImportError:
     journal = None
 try:
     import sdnotify
-    system_notifier = sdnotify.SystemdNotifier()
+    sd_notifier = sdnotify.SystemdNotifier()
 except ImportError:
     sdnotify = None
-    system_notifier = None
+    sd_notifier = None
 
 # maestral modules
 from maestral import __version__
 from maestral.sync.monitor import MaestralMonitor
 from maestral.sync.utils import handle_disconnect, with_sync_paused
 from maestral.sync.utils.path import is_child, path_exists_case_insensitive
+from maestral.sync.utils.notify import desktop_notifier
 from maestral.sync.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
 )
@@ -71,11 +72,11 @@ def callback(notification):
 
 bugsnag.before_notify(callback)
 
-# helper classes
+
+# custom logging handlers
 
 class CachedHandler(logging.Handler):
-    """
-    Handler which stores past records.
+    """Handler which stores past records.
 
     :param int maxlen: Maximum number of records to store.
     """
@@ -87,8 +88,6 @@ class CachedHandler(logging.Handler):
     def emit(self, record):
         self.format(record)
         self.cached_records.append(record)
-        if NOTIFY_SOCKET and system_notifier:
-            system_notifier.notify(f"STATUS={record.message}")
 
     def getLastMessage(self):
         if len(self.cached_records) > 0:
@@ -101,6 +100,21 @@ class CachedHandler(logging.Handler):
 
     def clear(self):
         self.cached_records.clear()
+
+
+class SdNotificationHandler(logging.Handler):
+    """Handler which emits messages as systemd notifications."""
+
+    def emit(self, record):
+        sd_notifier.notify(f"STATUS={record.message}")
+
+
+class DesktopNotificationHandler(logging.Handler):
+    """Handler which emits messages as desktop notifications."""
+
+    def emit(self, record):
+        self.format(record)
+        desktop_notifier.send(record.message)
 
 
 # ========================================================================================
@@ -153,12 +167,12 @@ class Maestral(object):
         # start syncing
         self.start_sync()
 
-        if NOTIFY_SOCKET and system_notifier:  # notify systemd that we have started
+        if NOTIFY_SOCKET and sd_notifier:  # notify systemd that we have started
             logger.debug("Running as systemd notify service")
             logger.debug(f"NOTIFY_SOCKET = {NOTIFY_SOCKET}")
-            system_notifier.notify("READY=1")
+            sd_notifier.notify("READY=1")
 
-        if IS_WATCHDOG and system_notifier:  # notify systemd periodically if alive
+        if IS_WATCHDOG and sd_notifier:  # notify systemd periodically if alive
             logger.debug("Running as systemd watchdog service")
             logger.debug(f"WATCHDOG_USEC = {WATCHDOG_USEC}")
             logger.debug(f"WATCHDOG_PID = {WATCHDOG_PID}")
@@ -195,6 +209,12 @@ class Maestral(object):
             self._log_handler_journal.setFormatter(log_fmt_short)
             mdbx_logger.addHandler(self._log_handler_journal)
 
+        if NOTIFY_SOCKET and sd_notifier:
+            self._log_handler_sd = SdNotificationHandler()
+            self._log_handler_sd.setFormatter(log_fmt_short)
+            self._log_handler_info_cache.setLevel(logging.INFO)
+            mdbx_logger.addHandler(self._log_handler_info_cache)
+
         # log to stdout (disabled by default)
         self._log_handler_stream = logging.StreamHandler(sys.stdout)
         self._log_handler_stream.setFormatter(log_fmt_long)
@@ -211,6 +231,14 @@ class Maestral(object):
         self._log_handler_error_cache.setLevel(logging.ERROR)
         self._log_handler_error_cache.setFormatter(log_fmt_short)
         mdbx_logger.addHandler(self._log_handler_error_cache)
+
+        # log to desktop notifications
+        # 'file changed' events will be collated and sent as desktop
+        # notifications by the monitor directly, we don't handle them here
+        self._log_handler_desktop = DesktopNotificationHandler()
+        self._log_handler_desktop.setLevel(logging.WARNING)
+        self._log_handler_desktop.setFormatter(log_fmt_short)
+        mdbx_logger.addHandler(self._log_handler_desktop)
 
         # log to bugsnag (disabled by default)
         self._log_handler_bugsnag = BugsnagHandler()
@@ -840,16 +868,16 @@ class Maestral(object):
 
     def _periodic_watchdog(self):
         while self.monitor._threads_alive():
-            system_notifier.notify("WATCHDOG=1")
+            sd_notifier.notify("WATCHDOG=1")
             time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
 
     def shutdown_pyro_daemon(self):
         """Does nothing except for setting the _daemon_running flag to ``False``. This
         will be checked by Pyro periodically to shut down the daemon when requested."""
         self._daemon_running = False
-        if NOTIFY_SOCKET and system_notifier:
+        if NOTIFY_SOCKET and sd_notifier:
             # notify systemd that we are shutting down
-            system_notifier.notify("STOPPING=1")
+            sd_notifier.notify("STOPPING=1")
 
     def _loop_condition(self):
         return self._daemon_running
