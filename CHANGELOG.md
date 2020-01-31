@@ -16,6 +16,8 @@
 #### Fixed:
 
 - Correctly handle Dropbox server errors.
+- Set the log level for the systemd journal according to user settings instead of using 
+  logging.DEBUG.
 
 ## v0.5.2
 
