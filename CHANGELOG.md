@@ -1,3 +1,18 @@
+## v0.6.0-dev
+
+#### Changed:
+
+- Improved desktop notifications:
+
+  - Notify only for remote changes and not for those which originated locally. This
+    should significantly reduce the number of unwanted notifications - no one needs to be
+    notified that a file has changed when they themselves *just* changed it.
+  - Added notifications for logged errors: Serious errors such as revoked Dropbox access,
+    deleted Dropbox folder, etc, are currently only shown in the GUI as alert windows or
+    printed as red warnings when invoking any CLI command. Since notifications are
+    handled by the daemon, this currently means duplicate notifications when using the
+    GUI: a permanent alert window and a temporary desktop notification.
+
 ## v0.5.2
 
 #### Added:
@@ -17,7 +32,7 @@
 - Order of commands returned by `maestral --help` by importance instead of alphabetically.
 - Sync errors will now be listed by `maestral status` if present.
 - Live updates to the Settings window when settings are changed from the command line.
-  
+
 #### Fixed:
 
 - Fixed an issue on macOS where some directory deletions could be ignored in case of rapid
