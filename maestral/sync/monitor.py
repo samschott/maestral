@@ -1361,10 +1361,10 @@ class UpDownSync(object):
             return False
 
         # filter out excluded changes
-        changes_filtered, changes_excluded = self.filter_excluded_changes_remote(changes)
+        changes_included, changes_excluded = self.filter_excluded_changes_remote(changes)
 
         # update queue
-        for md in changes_filtered.entries:
+        for md in changes_included.entries:
             self.queued_for_download.put(self.to_local_path(md.path_display))
 
         # remove all deleted items from the excluded list
@@ -1374,13 +1374,13 @@ class UpDownSync(object):
             self.excluded_folders = new_excluded
 
         # sort changes into folders, files and deleted
-        folders, files, deleted = self._sort_remote_entries(changes_filtered)
+        folders, files, deleted = self._sort_remote_entries(changes_included)
 
         # sort according to path hierarchy
         # do not create sub-folder / file before parent exists
-        folders.sort(key=lambda x: len(x.path_display.split('/')))
-        files.sort(key=lambda x: len(x.path_display.split('/')))
-        deleted.sort(key=lambda x: len(x.path_display.split('/')))
+        folders.sort(key=lambda x: x.path_display.count('/'))
+        files.sort(key=lambda x: x.path_display.count('/'))
+        deleted.sort(key=lambda x: x.path_display.count('/'))
 
         # create local folders, start with top-level and work your way down
         for folder in folders:
@@ -1411,14 +1411,12 @@ class UpDownSync(object):
         with self.queue_downloading.mutex:
             self.queue_downloading.queue.clear()
 
-        if not all(success):
+        if all(success):
+            if save_cursor:
+                self.last_cursor = changes.cursor
+            return True
+        else:
             return False
-
-        # save cursor
-        if save_cursor:
-            self.last_cursor = changes.cursor
-
-        return True
 
     def check_download_conflict(self, dbx_path):
         """
@@ -1482,7 +1480,7 @@ class UpDownSync(object):
             #     upload comes through.
             # (b) The upload has not started yet. In this case, the local
             #     changes may be overwritten by the remote version if the
-            #     download completes before the upload starts. This is a bug.
+            #     download completes before the upload starts. This is an issue.
 
             logger.debug("Local file has rev %s, newer file on Dropbox has rev %s.",
                          local_rev, md.rev)
@@ -1502,7 +1500,7 @@ class UpDownSync(object):
 
         # find out who changed the file(s), get the name if its only a single user
         try:
-            dbid_list = [md.sharing_info.modified_by for md in changes.entries]
+            dbid_list = tuple(md.sharing_info.modified_by for md in changes.entries)
             if all(dbid == dbid_list[0] for dbid in dbid_list):
                 # all files have been modified by the same user
                 if dbid_list[0] == self._conf.get("account", "account_id"):
