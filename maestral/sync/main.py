@@ -209,7 +209,10 @@ class Maestral(object):
         if INVOCATION_ID and journal:
             self._log_handler_journal = journal.JournalHandler()
             self._log_handler_journal.setFormatter(log_fmt_short)
+            self._log_handler_journal.setLevel(log_level)
             mdbx_logger.addHandler(self._log_handler_journal)
+        else:
+            self._log_handler_journal = None
 
         # send systemd notifications when started as 'notify' daemon
         if NOTIFY_SOCKET and sd_notifier:
@@ -217,6 +220,8 @@ class Maestral(object):
             self._log_handler_sd.setFormatter(log_fmt_short)
             self._log_handler_sd.setLevel(logging.INFO)
             mdbx_logger.addHandler(self._log_handler_sd)
+        else:
+            self._log_handler_sd = None
 
         # log to stdout (disabled by default)
         self._log_handler_stream = logging.StreamHandler(sys.stdout)
@@ -261,6 +266,8 @@ class Maestral(object):
     def set_log_level(self, level_num):
         self._log_handler_file.setLevel(level_num)
         self._log_handler_stream.setLevel(level_num)
+        if self._log_handler_journal:
+            self._log_handler_journal.setLevel(level_num)
         self._conf.set("app", "log_level", level_num)
 
     def set_log_to_stdout(self, enabled=True):
