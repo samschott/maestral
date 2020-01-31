@@ -43,6 +43,7 @@ class MaestralApiError(Exception):
         else:
             return f"{self.title}: {self.message}"
 
+
 # regular sync errors
 
 class SyncError(MaestralApiError):
@@ -371,11 +372,19 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
             title = "Sync error"
             text = exc.message
 
+    # ---------------------- Internal Dropbox error --------------------------------------
+    elif isinstance(exc, dropbox.exceptions.InternalServerError):
+        err_cls = DropboxServerError
+        title = "Could not sync file"
+        text = ("Something went wrong with the job on Dropbox’s end. Please "
+                "verify on the Dropbox website if the move succeeded and try "
+                "again if it failed.")
+
     # -------------------------- Everything else -----------------------------------------
     else:
         err_cls = MaestralApiError
-        title = exc.args[0]
-        text = None
+        title = "An unexpected error occurred"
+        text = exc.args[0]
 
     return err_cls(title, text, dbx_path=dbx_path, local_path=local_path)
 
@@ -465,6 +474,7 @@ def _get_session_lookup_error_msg(session_lookup_error):
 
     return text, err_cls
 
+
 # connection errors are handled as warnings
 # sync errors only appear in the sync errors list
 # all other errors raise an error dialog in the GUI
@@ -491,4 +501,3 @@ FATAL_ERRORS = (
     CursorResetError,
     BadInputError,
 )
-
