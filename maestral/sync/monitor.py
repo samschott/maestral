@@ -536,12 +536,11 @@ class UpDownSync(object):
                 msg = "Please resync your Dropbox to rebuild the index."
                 new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
 
-            if new_exc:
-                if raise_exception:
-                    raise new_exc
-                else:
-                    exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
-                    logger.error(title, exc_info=exc_info)
+            if new_exc and raise_exception:
+                raise new_exc
+            elif new_exc:
+                exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
+                logger.error(title, exc_info=exc_info)
 
             return rev_dict_cache
 
@@ -570,12 +569,11 @@ class UpDownSync(object):
                 msg = "Please check the logs for more information"
                 new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
 
-            if new_exc:
-                if raise_exception:
-                    raise new_exc
-                else:
-                    exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
-                    logger.error(title, exc_info=exc_info)
+            if new_exc and raise_exception:
+                raise new_exc
+            elif new_exc:
+                exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
+                logger.error(title, exc_info=exc_info)
 
     def get_rev_dict(self):
         """
