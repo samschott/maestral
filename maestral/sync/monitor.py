@@ -40,7 +40,7 @@ else:
 # maestral modules
 from maestral.config.main import MaestralConfig
 from maestral.sync.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
-                                     SYNC_ERROR, REV_FILE, IS_FS_CASE_SENSITIVE)
+                                     REV_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.sync.utils.content_hasher import DropboxContentHasher
 from maestral.sync.utils.notify import desktop_notifier
 from maestral.sync.errors import (MaestralApiError, SyncError, RevFileError,
