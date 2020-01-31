@@ -50,7 +50,7 @@ class SupportedImplementations(Enum):
     legacy_notification_center = 'legacy-notification-center'
 
 
-class Notipy(object):
+class SystemNotifier(object):
     """Send native OS notifications to user.
 
     Relies on AppleScript on macOS and notify-send on linux, otherwise

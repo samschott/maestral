@@ -42,7 +42,7 @@ from maestral.config.main import MaestralConfig
 from maestral.sync.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                      SYNC_ERROR, REV_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.sync.utils.content_hasher import DropboxContentHasher
-from maestral.sync.utils.notify import Notipy
+from maestral.sync.utils.notify import SystemNotifier
 from maestral.sync.errors import (MaestralApiError, SyncError, RevFileError,
                                   DropboxDeletedError, DropboxAuthError,
                                   ExcludedItemError, PathError, InotifyError)
@@ -299,7 +299,7 @@ class UpDownSync(object):
         included.
     """
 
-    notify = Notipy()
+    notify = SystemNotifier()
     lock = RLock()
 
     _rev_lock = RLock()
