@@ -209,11 +209,12 @@ class Maestral(object):
             self._log_handler_journal.setFormatter(log_fmt_short)
             mdbx_logger.addHandler(self._log_handler_journal)
 
+        # send systemd notifications when started as 'notify' daemon
         if NOTIFY_SOCKET and sd_notifier:
             self._log_handler_sd = SdNotificationHandler()
             self._log_handler_sd.setFormatter(log_fmt_short)
-            self._log_handler_info_cache.setLevel(logging.INFO)
-            mdbx_logger.addHandler(self._log_handler_info_cache)
+            self._log_handler_sd.setLevel(logging.INFO)
+            mdbx_logger.addHandler(self._log_handler_sd)
 
         # log to stdout (disabled by default)
         self._log_handler_stream = logging.StreamHandler(sys.stdout)
@@ -223,13 +224,13 @@ class Maestral(object):
 
         # log to cached handlers for GUI and CLI
         self._log_handler_info_cache = CachedHandler(maxlen=1)
-        self._log_handler_info_cache.setLevel(logging.INFO)
         self._log_handler_info_cache.setFormatter(log_fmt_short)
+        self._log_handler_info_cache.setLevel(logging.INFO)
         mdbx_logger.addHandler(self._log_handler_info_cache)
 
         self._log_handler_error_cache = CachedHandler()
-        self._log_handler_error_cache.setLevel(logging.ERROR)
         self._log_handler_error_cache.setFormatter(log_fmt_short)
+        self._log_handler_error_cache.setLevel(logging.ERROR)
         mdbx_logger.addHandler(self._log_handler_error_cache)
 
         # log to desktop notifications
