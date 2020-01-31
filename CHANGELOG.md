@@ -12,6 +12,10 @@
     printed as red warnings when invoking any CLI command. Since notifications are
     handled by the daemon, this currently means duplicate notifications when using the
     GUI: a permanent alert window and a temporary desktop notification.
+    
+#### Fixed:
+
+- Correctly handle Dropbox server errors.
 
 ## v0.5.2
 
