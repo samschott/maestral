@@ -178,7 +178,7 @@ class FileEventHandler(FileSystemEventHandler):
             # rename newly created item
             self._renamed_items_cache.append(created_path)  # ignore temporarily
             os.rename(created_path, new_path)  # this will be picked up by watchdog
-            logger.info(f"Case conflict: renamed '{created_path}' to '{new_path}'")
+            logger.debug(f"Case conflict: renamed '{created_path}' to '{new_path}'")
 
             if isinstance(event, DirCreatedEvent):
                 return DirCreatedEvent(src_path=new_path)
@@ -243,7 +243,6 @@ def catch_sync_issues(sync_errors=None, failed_items=None):
             except SyncError as exc:
                 logger.warning(SYNC_ERROR, exc_info=True)
                 file_name = os.path.basename(exc.dbx_path)
-                self.notify.send(f"Could not sync {file_name}")
                 if exc.dbx_path is not None:
                     if exc.local_path is None:
                         exc.local_path = self.to_local_path(exc.dbx_path)
@@ -1353,8 +1352,8 @@ class UpDownSync(object):
         :param bool save_cursor: If True, :ivar:`last_cursor` will be updated
             from the last applied changes. Take care to only save a "global" and
             "recursive" cursor which represents the state of the entire Dropbox
-        :return: ``True`` on success, ``False`` otherwise.
-        :rtype: bool
+        :return: List of changes that were made to local files.
+        :rtype: list
         """
 
         if not changes:
@@ -1382,21 +1381,18 @@ class UpDownSync(object):
         files.sort(key=lambda x: x.path_display.count('/'))
         deleted.sort(key=lambda x: x.path_display.count('/'))
 
+        downloaded = []  # local list of all changes
+
         # create local folders, start with top-level and work your way down
         for folder in folders:
-            success = self._create_local_entry(folder)
-            if success is False:
-                return False
+            downloaded.append(self._create_local_entry(folder))
 
         # apply deleted items
         for item in deleted:
-            success = self._create_local_entry(item)
-            if success is False:
-                return False
+            downloaded.append(self._create_local_entry(item))
 
         # apply created files
         n_files = len(files)
-        success = []
         last_emit = time.time()
         with ThreadPoolExecutor(max_workers=15) as executor:
             fs = (executor.submit(self._create_local_entry, file) for file in files)
@@ -1405,18 +1401,16 @@ class UpDownSync(object):
                     # emit messages at maximum every second
                     logger.info(f"Downloading {n}/{n_files}...")
                     last_emit = time.time()
-                success += [f.result()]
+                downloaded.append(f.result())
 
         time.sleep(2)
         with self.queue_downloading.mutex:
             self.queue_downloading.queue.clear()
 
-        if all(success):
-            if save_cursor:
-                self.last_cursor = changes.cursor
-            return True
-        else:
-            return False
+        if all(downloaded) and save_cursor:
+            self.last_cursor = changes.cursor
+
+        return [entry for entry in downloaded if not isinstance(entry, bool)]
 
     def check_download_conflict(self, dbx_path):
         """
@@ -1487,20 +1481,24 @@ class UpDownSync(object):
             return 0
 
     def notify_user(self, changes):
-        """Sends system notifications for files changed."""
+        """
+        Sends system notifications for files changed.
+
+        :param list changes: List of Dropbox metadata which has been applied locally.
+        """
 
         if not self._conf.get("app", "notifications"):
             return
 
         # get number of remote changes
-        n_changed = len(changes.entries)
+        n_changed = len(changes)
 
         if n_changed == 0:
             return
 
         # find out who changed the file(s), get the name if its only a single user
         try:
-            dbid_list = tuple(md.sharing_info.modified_by for md in changes.entries)
+            dbid_list = tuple(md.sharing_info.modified_by for md in changes)
             if all(dbid == dbid_list[0] for dbid in dbid_list):
                 # all files have been modified by the same user
                 if dbid_list[0] == self._conf.get("account", "account_id"):
@@ -1516,7 +1514,7 @@ class UpDownSync(object):
         # notify user
         if n_changed == 1:
             # for a single change, display user name, file name and type of change
-            md = changes.entries[0]
+            md = changes[0]
             file_name = os.path.basename(md.path_display)
 
             if isinstance(md, DeletedMetadata):
@@ -1542,7 +1540,7 @@ class UpDownSync(object):
 
         elif n_changed > 1:
             # for multiple changes, display user name if all equal
-            if all(isinstance(x, DeletedMetadata) for x in changes.entries):
+            if all(isinstance(x, DeletedMetadata) for x in changes):
                 change_type = "removed"
             else:
                 change_type = "changed"
@@ -1575,6 +1573,8 @@ class UpDownSync(object):
         Creates local file / folder for remote entry.
 
         :param class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
+        :returns: Copy of metadata if the change was downloaded, ``True`` if the change
+            already existed locally and ``False`` if the download failed.
         :raises: MaestralApiError on failure.
         """
 
@@ -1613,6 +1613,7 @@ class UpDownSync(object):
             self.set_local_rev(md.path_display, md.rev)
 
             logger.debug(f"Created local file '{entry.path_display}'")
+            return entry
 
         elif isinstance(entry, FolderMetadata):
             # Store the new entry at the given path in your local state.
@@ -1624,11 +1625,10 @@ class UpDownSync(object):
                 os.makedirs(local_path)
             except FileExistsError:
                 pass
-
-            # save revision metadata
-            self.set_local_rev(entry.path_display, "folder")
-
-            logger.debug(f"Created local directory '{entry.path_display}'")
+            else:
+                logger.debug(f"Created local directory '{entry.path_display}'")
+                self.set_local_rev(entry.path_display, "folder")
+                return entry
 
         elif isinstance(entry, DeletedMetadata):
             # If your local state has something at the given path,
@@ -1636,12 +1636,13 @@ class UpDownSync(object):
             # given path, ignore this entry.
 
             success, err = delete_file_or_folder(local_path, return_error=True)
+            self.set_local_rev(entry.path_display, None)
+
             if success:
                 logger.debug(f"Deleted local item '{entry.path_display}'")
+                return entry
             else:
                 logger.debug(f"FileNotFoundError: {err}")
-
-            self.set_local_rev(entry.path_display, None)
 
     def _save_to_history(self, dbx_path):
         # add new file to recent_changes
@@ -1737,11 +1738,11 @@ def download_worker(sync, syncing, running, connected):
                         # get changes
                         changes = sync.list_remote_changes(sync.last_cursor)
 
-                        # notify user about changes
-                        sync.notify_user(changes)
-
                         # apply remote changes to local Dropbox folder
-                        sync.apply_remote_changes(changes)
+                        downloaded = sync.apply_remote_changes(changes)
+
+                        # notify user about changes
+                        sync.notify_user(downloaded)
 
                         logger.info(IDLE)
 
