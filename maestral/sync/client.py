@@ -63,7 +63,7 @@ def bytes_to_str(num, suffix='B'):
     :returns: Human readable string with decimal prefixes.
     :rtype: str
     """
-    for unit in ['','K','M','G']:
+    for unit in ('', 'K', 'M', 'G'):
         if abs(num) < 1024.0:
             return f"{num:3.1f}{unit}{suffix}"
         num /= 1024.0

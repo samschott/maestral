@@ -54,6 +54,10 @@ logger = logging.getLogger(__name__)
 DIR_EVENTS = (DirModifiedEvent, DirCreatedEvent, DirDeletedEvent, DirMovedEvent)
 FILE_EVENTS = (FileModifiedEvent, FileCreatedEvent, FileDeletedEvent, FileMovedEvent)
 
+EXCLUDED_FILE_NAMES = (
+    "desktop.ini",  "thumbs.db", ".ds_store", "icon\r", ".dropbox.attr", REV_FILE
+)
+
 
 # ========================================================================================
 # Syncing functionality
@@ -318,7 +322,8 @@ class UpDownSync(object):
         "_conf",
     )
 
-    def __init__(self, client, local_file_event_queue, queue_uploading, queue_downloading, config_name='maestral'):
+    def __init__(self, client, local_file_event_queue, queue_uploading, queue_downloading,
+                 config_name='maestral'):
 
         self._conf = MaestralConfig(config_name)
 
@@ -417,11 +422,11 @@ class UpDownSync(object):
         folder_list = set(f.lower().rstrip(osp.sep) for f in folder_list)
 
         # remove all children of excluded folders
-        clean_folders_list = list(folder_list)
+        clean_list = list(folder_list)
         for folder in folder_list:
-            clean_folders_list = [f for f in clean_folders_list if not is_child(f, folder)]
+            clean_list = [f for f in clean_list if not is_child(f, folder)]
 
-        return clean_folders_list
+        return clean_list
 
     def ensure_dropbox_folder_present(self):
         """
@@ -677,7 +682,7 @@ class UpDownSync(object):
         basename = osp.basename(dbx_path)
 
         # in excluded files?
-        test0 = basename in ["desktop.ini",  "thumbs.db", ".ds_store", "icon\r", ".dropbox.attr", REV_FILE]
+        test0 = basename in EXCLUDED_FILE_NAMES
 
         # is temporary file?
         # 1) office temporary files
@@ -887,7 +892,8 @@ class UpDownSync(object):
                     exc = ExcludedItemError(title, message, dbx_path=dbx_path,
                                             local_path=local_path)
                     basename = osp.basename(dbx_path)
-                    logger.warning(f"Could not upload {basename}", exc_info=(type(exc), exc, None))
+                    exc_info = (type(exc), exc, None)
+                    logger.warning(f"Could not upload {basename}", exc_info=exc_info)
                     self.sync_errors.put(exc)
                     self.failed_uploads.put(event)
                 events_excluded.append(event)
@@ -920,7 +926,8 @@ class UpDownSync(object):
         new_events = []
 
         for e in events:
-            if e.event_type == EVENT_TYPE_MOVED and len([p for p in all_paths if p in (e.src_path, e.dest_path)]) > 2:
+            if (e.event_type == EVENT_TYPE_MOVED and
+                    len([p for p in all_paths if p in (e.src_path, e.dest_path)]) > 2):
                 e_del = FileDeletedEvent(e.src_path)
                 e_new = FileCreatedEvent(e.dest_path)
                 new_events.append(e_del)
@@ -966,7 +973,7 @@ class UpDownSync(object):
 
                         if first_deleted < first_created:  # file was modified
                             new_events.append(ModifiedEvent(path))
-                        else: # file was only temporary
+                        else:  # file was only temporary
                             pass
 
         return new_events
@@ -1041,7 +1048,7 @@ class UpDownSync(object):
         :returns: Subtracted list.
         :rtype: list
         """
-        return [l for l in list1 if l not in list2]
+        return [item for item in list1 if item not in set(list2)]
 
     @staticmethod
     def _is_dir_moved(x):
@@ -1457,7 +1464,8 @@ class UpDownSync(object):
                 return 2  # files are already the same
 
         elif md.rev == local_rev:
-            # files have the same revision, trust that they are equal
+            # files have the same revision, trust that they are equal or
+            # that the local file is newer but has not yet been uploaded
             logger.debug("Local file is the same as on Dropbox (rev %s).", local_rev)
             return 2  # files are already the same
 
@@ -1582,7 +1590,9 @@ class UpDownSync(object):
 
         self.clear_sync_error(dbx_path=entry.path_display)
         remove_from_queue(self.queued_for_download, local_path)
-        self.queue_downloading.put(local_path)  # will be removed by FileSystemEventHandler
+        # put into downloading queue
+        # this will be cleared by the FileSystemEventHandler
+        self.queue_downloading.put(local_path)
 
         if isinstance(entry, FileMetadata):
             # Store the new entry at the given path in your local state.

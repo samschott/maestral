@@ -34,6 +34,7 @@ class Exit(enum.Enum):
     Killed = 1
     NotRunning = 2
 
+
 class Start(enum.Enum):
     Ok = 0
     Failed = 1
@@ -375,7 +376,7 @@ class MaestralProxy(object):
     def __enter__(self):
         return self.m
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, tb):
         if isinstance(self.m, Proxy):
             self.m._pyroRelease()
 

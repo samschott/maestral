@@ -46,7 +46,7 @@ class DropboxOAuth2FlowImplicitBase(object):
     def build_path(self, target, params=None):
         """Build the path component for an API URL.
 
-        This method urlencodes the parameters, adds them
+        This method url-encodes the parameters, adds them
         to the end of the target url, and puts a marker for the API
         version in front.
 
@@ -78,6 +78,7 @@ class DropboxOAuth2FlowImplicitBase(object):
 
         :param str target: A target url (e.g. "/files") to build upon.
         :param dict params: Optional dictionary of parameters (name to value).
+        :param str host: The host url.
         :return: The full API URL.
         :rtype: str
         """
@@ -89,7 +90,6 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
     OAuth 2 authorization helper.  Use this for client-side applications.
 
     DropboxOAuth2FlowImplicit will perform authorization through an implicit flow.
-
     """
 
     REDIRECT_URI = "https://www.dropbox.com/1/oauth2/display_token"

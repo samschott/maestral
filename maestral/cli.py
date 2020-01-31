@@ -5,10 +5,11 @@ Created on Fri Nov 30 13:51:32 2018
 
 @author: samschott
 
-This file defines the functions to configure and interact with Maestral from the command line.
+This file defines the functions to configure and interact
+with Maestral from the command line.
 
-We aim to import most packages locally in the functions that required them, in order to reduce the
-startup time of individual CLI commands.
+We aim to import most packages locally in the functions that required them,
+in order to reduce the startup time of individual CLI commands.
 """
 
 # system imports
@@ -91,7 +92,8 @@ def _check_for_updates():
 
 
 def _check_for_fatal_errors(m):
-    """Checks for fatal errors such as revoked Dropbox access, deleted Dropbox folder etc."""
+    """Checks for fatal errors such as revoked Dropbox access,
+    deleted Dropbox folder etc."""
     maestral_err_list = m.maestral_errors
 
     if len(maestral_err_list) > 0:
@@ -144,7 +146,7 @@ def format_table(columns, headers=None, spacing=2):
         for c, h in zip(columns, headers):
             c.insert(0, h)
 
-    col_widths = tuple(max(len(l) for l in c) + spacing for c in columns)
+    col_widths = tuple(max(len(line) for line in col) + spacing for col in columns)
 
     n_rows = max(len(c) for c in columns)
     rows = []
@@ -904,7 +906,7 @@ def config_add(name: str):
         click.echo("Configuration '{}' already exists.".format(name))
     else:
         from maestral.config.main import MaestralConfig
-        conf = MaestralConfig(name)
+        MaestralConfig(name)  # create instance to force file creation
         click.echo("Created configuration '{}'.".format(name))
 
 

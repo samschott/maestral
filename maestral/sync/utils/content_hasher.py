@@ -62,8 +62,7 @@ class DropboxContentHasher(object):
 
     def _finish(self):
         if self._overall_hasher is None:
-            raise AssertionError(
-                "can't use this object anymore; you already called digest() or hexdigest()")
+            raise AssertionError("can't use this object anymore; you already called digest() or hexdigest()")
 
         if self._block_pos > 0:
             self._overall_hasher.update(self._block_hasher.digest())

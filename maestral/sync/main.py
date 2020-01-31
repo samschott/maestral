@@ -64,11 +64,13 @@ bugsnag.configure(
     auto_capture_sessions=False,
 )
 
+
 def callback(notification):
     notification.add_tab(
         "system",
         {"platform": platform.platform(), "python": platform.python_version()}
     )
+
 
 bugsnag.before_notify(callback)
 
@@ -886,7 +888,7 @@ class Maestral(object):
     def __del__(self):
         try:
             self.monitor.stop()
-        except:
+        except Exception:
             pass
 
     def __repr__(self):
