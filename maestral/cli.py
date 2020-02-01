@@ -650,7 +650,8 @@ def rebuild_index(config_name: str):
 @with_config_opt
 @click.option("--yes/--no", "-Y/-N", default=True)
 def notifications(config_name: str, yes: bool):
-    """Enables or disables system notifications."""
+    """Enables or disables notifications for file changes. Notifications
+    for errors will always be enabled."""
     # This is safe to call, even if the GUI or daemon are running.
     from maestral.sync.daemon import MaestralProxy
 

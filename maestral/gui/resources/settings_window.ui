@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>612</width>
-    <height>445</height>
+    <width>620</width>
+    <height>450</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -109,7 +109,7 @@
      <item row="9" column="3">
       <widget class="QCheckBox" name="checkBoxNotifications">
        <property name="text">
-        <string>Enable system notifications</string>
+        <string>Enable notifications</string>
        </property>
        <property name="checked">
         <bool>true</bool>
