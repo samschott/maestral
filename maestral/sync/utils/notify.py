@@ -13,6 +13,7 @@ from enum import Enum
 from pathlib import Path
 import logging
 
+import click
 from maestral.sync.utils.updates import check_version
 from maestral.sync.constants import IS_MACOS_BUNDLE
 
@@ -56,19 +57,27 @@ class SystemNotifier(object):
     Relies on AppleScript on macOS and notify-send on linux, otherwise
     falls back to stdout."""
 
+    CRITICAL = 'critical'
+    NORMAL = 'normal'
+    LOW = 'low'
+
     def __init__(self):
         self.implementation = self._get_available_implementation()
         self._with_app_name = True  # if True, use --app-name option for nofity-send
+        self._initialize_notification_center()
 
+    def _initialize_notification_center(self):
         if self.implementation == SupportedImplementations.notification_center:
             self._nc = UNUserNotificationCenter.currentNotificationCenter()
-            self._nc.requestAuthorizationWithOptions((1 << 2) | (1 << 1) | (1 << 0), completionHandler=None)
+            self._nc.requestAuthorizationWithOptions(
+                (1 << 2) | (1 << 1) | (1 << 0), completionHandler=None
+            )
             self._nc_identifier = 0
 
         elif self.implementation == SupportedImplementations.legacy_notification_center:
             self._nc = NSUserNotificationCenter.defaultUserNotificationCenter
 
-    def send(self, message, title='Maestral'):
+    def send(self, message, title='Maestral', urgency=NORMAL):
         if self.implementation == SupportedImplementations.notification_center:
             self._send_message_nc(title, message)
         elif self.implementation == SupportedImplementations.legacy_notification_center:
@@ -76,18 +85,26 @@ class SystemNotifier(object):
         elif self.implementation == SupportedImplementations.osascript:
             self._send_message_macos_osascript(title, message)
         elif self.implementation == SupportedImplementations.notify_send:
-            self._send_message_linux(title, message)
+            self._send_message_linux(title, message, urgency)
         else:
-            print('{}: {}'.format(title, message))
+            self._send_message_stdout(title, message, urgency)
+
+    def _send_message_stdout(self, title, message, urgency):
+        output = '{}: {}'.format(title, message)
+        if urgency == self.CRITICAL:
+            output = click.style(output, bold=True, fg='red')
+        click.echo(output)
 
     def _send_message_nc(self, title, message, subtitle=None):
 
         content = UNMutableNotificationContent.alloc().init()
-        content.setTitle_(title)
-        content.setBody_(message)
+        content.title = title
+        content.body = message
         if subtitle:
-            content.setSubtitle_(subtitle)
-        r = UNNotificationRequest.requestWithIdentifier(str(self._nc_identifier), content=content, trigger=None)
+            content.subtitle = subtitle
+        r = UNNotificationRequest.requestWithIdentifier(
+            str(self._nc_identifier), content=content, trigger=None
+        )
         self._nc.addNotificationRequest(r, withCompletionHandler=None)
 
         self._nc_identifier += 1
@@ -104,15 +121,26 @@ class SystemNotifier(object):
 
     @staticmethod
     def _send_message_macos_osascript(title, message):
-        subprocess.call(['osascript', '-e', 'display notification "{}" with title "{}"'.format(message, title)])
+        subprocess.call([
+            'osascript', '-e',
+            'display notification "{}" with title "{}"'.format(message, title)
+        ])
 
-    def _send_message_linux(self, title, message):
-        if self._with_app_name:  # try passing --app-name option, diable if not supported
-            r = subprocess.call(['notify-send', title, message, '-a', 'Maestral', '-i', APP_ICON_PATH])
+    def _send_message_linux(self, title, message, urgency):
+        if self._with_app_name:  # try passing --app-name option, disable if not supported
+            r = subprocess.call([
+                'notify-send', title, message,
+                '-a', 'Maestral',
+                '-i', APP_ICON_PATH,
+                '-u', urgency
+            ])
             self._with_app_name = r == 0
 
         if not self._with_app_name:
-            subprocess.call(['notify-send', title, message, '-i', APP_ICON_PATH])
+            subprocess.call([
+                'notify-send', title, message,
+                '-i', APP_ICON_PATH, '-u', urgency
+            ])
 
     @staticmethod
     def _command_exists(command):
