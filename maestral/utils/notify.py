@@ -42,7 +42,7 @@ else:
 
 _root = getattr(sys, '_MEIPASS', Path(Path(__file__).parents[2], 'gui', 'resources'))
 logger = logging.getLogger(__name__)
-APP_ICON_PATH = os.path.join(_root, 'maestral.png')  # don't import from gui
+APP_ICON_PATH = os.path.join(_root, 'maestral.png')
 
 
 class SupportedImplementations(Enum):
