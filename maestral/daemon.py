@@ -266,7 +266,7 @@ def start_maestral_daemon_process(config_name="maestral", run=True):
         cc = quote(cc)
         r = bool(r)
         subprocess.Popen(
-            [sys.executable, "-c", f"from maestral.sync.daemon import run_maestral_daemon; run_maestral_daemon('{cc}', {r})"],
+            [sys.executable, "-c", f"from maestral.daemon import run_maestral_daemon; run_maestral_daemon('{cc}', {r})"],
             stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
         )
 

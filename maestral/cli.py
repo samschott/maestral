@@ -271,9 +271,10 @@ def gui(config_name):
             from maestral_cocoa.main import run
         else:
             from maestral_qt.main import run
-        run(config_name)
     except ImportError:
         click.echo("No maestral GUI installed. Please run 'pip3 install maestral[gui]'.")
+    else:
+        run(config_name)
 
 
 @main.command(help_priority=1)
