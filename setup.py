@@ -37,12 +37,7 @@ setup(
     packages=find_packages(),
     package_data={
             'maestral': [
-                    'gui/resources/*.ui',
-                    'gui/resources/*.icns',
-                    'gui/resources/*.png',
-                    'gui/resources/*.svg',
-                    'gui/resources/*/*.svg',
-                    'gui/resources/*/*.png',
+                    'resources/*.png',
                     ],
             },
     setup_requires=['wheel'],
@@ -61,8 +56,14 @@ setup(
         'watchdog>=0.9.0',
     ],
     extras_require={
-        'systemd': ['systemd-python', 'sdnotify'],
-        'gui': ['PyQt5>=5.9'],
+        'systemd': [
+            'systemd-python',
+            'sdnotify'
+        ],
+        'gui': [
+            'maestral_cocoa;sys_platform=="darwin"',
+            'maestral_qt;sys_platform=="linux"'
+        ],
     },
     zip_safe=False,
     entry_points={
