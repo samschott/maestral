@@ -7,7 +7,7 @@
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
-from maestral.sync.monitor import *
+from maestral.monitor import *
 
 
 def path(i):

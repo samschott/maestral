@@ -14,8 +14,9 @@ from pathlib import Path
 import logging
 
 import click
-from maestral.sync.utils.updates import check_version
-from maestral.sync.constants import IS_MACOS_BUNDLE
+
+from maestral.utils.updates import check_version
+from maestral.constants import IS_MACOS_BUNDLE
 
 if platform.system() == 'Darwin':
     macos_version, *_ = platform.mac_ver()

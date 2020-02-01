@@ -37,19 +37,19 @@ except ImportError:
 
 # maestral modules
 from maestral import __version__
-from maestral.sync.monitor import MaestralMonitor
-from maestral.sync.utils import handle_disconnect, with_sync_paused
-from maestral.sync.utils.path import is_child, path_exists_case_insensitive
-from maestral.sync.utils.notify import desktop_notifier
-from maestral.sync.constants import (
+from maestral.monitor import MaestralMonitor
+from maestral.utils import handle_disconnect, with_sync_paused
+from maestral.utils.path import is_child, path_exists_case_insensitive
+from maestral.utils.notify import desktop_notifier
+from maestral.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
 )
-from maestral.sync.client import MaestralApiClient
-from maestral.sync.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
-from maestral.sync.utils.appdirs import get_log_path, get_cache_path, get_home_dir
-from maestral.sync.utils.updates import check_update_available
-from maestral.sync.oauth import OAuth2Session
-from maestral.sync.errors import MaestralApiError
+from maestral.client import MaestralApiClient
+from maestral.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
+from maestral.utils.appdirs import get_log_path, get_cache_path, get_home_dir
+from maestral.utils.updates import check_update_available
+from maestral.oauth import OAuth2Session
+from maestral.errors import MaestralApiError
 from maestral.config.main import MaestralConfig
 
 

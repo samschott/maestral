@@ -39,15 +39,15 @@ else:
 
 # maestral modules
 from maestral.config.main import MaestralConfig
-from maestral.sync.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
-                                     REV_FILE, IS_FS_CASE_SENSITIVE)
-from maestral.sync.utils.content_hasher import DropboxContentHasher
-from maestral.sync.utils.notify import desktop_notifier
-from maestral.sync.errors import (MaestralApiError, SyncError, RevFileError,
-                                  DropboxDeletedError, DropboxAuthError,
-                                  ExcludedItemError, PathError, InotifyError)
-from maestral.sync.utils.path import (is_child, path_exists_case_insensitive,
-                                      delete_file_or_folder)
+from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
+                                REV_FILE, IS_FS_CASE_SENSITIVE)
+from maestral.errors import (MaestralApiError, SyncError, RevFileError,
+                             DropboxDeletedError, DropboxAuthError,
+                             ExcludedItemError, PathError, InotifyError)
+from maestral.utils.content_hasher import DropboxContentHasher
+from maestral.utils.notify import desktop_notifier
+from maestral.utils.path import (is_child, path_exists_case_insensitive,
+                                 delete_file_or_folder)
 
 logger = logging.getLogger(__name__)
 

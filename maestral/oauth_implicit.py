@@ -21,7 +21,7 @@ from dropbox.oauth import (
 )
 
 # maestral modules
-from maestral.sync.errors import api_to_maestral_error
+from maestral.errors import api_to_maestral_error
 
 logger = logging.getLogger(__name__)
 

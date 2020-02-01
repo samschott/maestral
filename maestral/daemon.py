@@ -22,7 +22,7 @@ from Pyro5.serializers import SerpentSerializer
 from lockfile.pidlockfile import PIDLockFile, AlreadyLocked
 
 # internal modules
-from maestral.sync.errors import MaestralApiError, SYNC_ERRORS, FATAL_ERRORS
+from maestral.errors import MaestralApiError, SYNC_ERRORS, FATAL_ERRORS
 
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,6 @@ class Start(enum.Enum):
 # ==== error serialization ===============================================================
 
 def serpent_deserialize_api_error(class_name, d):
-    import maestral.sync.errors
     cls = eval(class_name)
     e = cls(*d['args'])
     for a_name, a_value in d['attributes'].items():
@@ -67,12 +66,12 @@ def sockpath_for_config(config_name):
     Returns the unix socket location to be used for the config. This should default to
     the apps runtime directory + '/maestral/CONFIG_NAME.sock'.
     """
-    from maestral.sync.utils.appdirs import get_runtime_path
+    from maestral.utils.appdirs import get_runtime_path
     return get_runtime_path("maestral", config_name + ".sock")
 
 
 def pidpath_for_config(config_name):
-    from maestral.sync.utils.appdirs import get_runtime_path
+    from maestral.utils.appdirs import get_runtime_path
     return get_runtime_path("maestral", config_name + ".pid")
 
 
@@ -177,7 +176,7 @@ def run_maestral_daemon(config_name="maestral", run=True, log_to_stdout=False):
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
     """
 
-    from maestral.sync.main import Maestral
+    from maestral.main import Maestral
 
     sock_name = sockpath_for_config(config_name)
     pid_name = pidpath_for_config(config_name)
@@ -361,7 +360,7 @@ def get_maestral_proxy(config_name="maestral", fallback=False):
             maestral_daemon._pyroRelease()
 
     if fallback:
-        from maestral.sync.main import Maestral
+        from maestral.main import Maestral
         m = Maestral(config_name, run=False)
         m._log_handler_stream.setLevel(logging.CRITICAL)
         return m
