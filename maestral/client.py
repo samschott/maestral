@@ -19,11 +19,11 @@ import requests
 import dropbox
 
 # maestral modules
+from maestral import __version__
 from maestral.oauth import OAuth2Session
 from maestral.config.main import MaestralConfig
 from maestral.errors import api_to_maestral_error, os_to_maestral_error
 from maestral.errors import CursorResetError
-from maestral import __version__
 
 
 logger = logging.getLogger(__name__)
