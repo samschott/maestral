@@ -50,7 +50,7 @@ DEFAULTS = [
      ),
     ('app',  # app settings
      {
-         'notification_level': 'FILECHANGE',  # desktop notifications for file changes
+         'notification_level': 15,  # desktop notifications for file changes
          'log_level': 20,  # log level for file log, defaults to INFO
          'update_notification_last': 0.0,  # last notification about updates
          'update_notification_interval': 60*60*24*7,  # interval to check for updates, sec

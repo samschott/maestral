@@ -45,7 +45,7 @@ from maestral.errors import (MaestralApiError, SyncError, RevFileError,
                              DropboxDeletedError, DropboxAuthError,
                              ExcludedItemError, PathError, InotifyError)
 from maestral.utils.content_hasher import DropboxContentHasher
-from maestral.utils.notify import MaestralDesktopNotifier, Level
+from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import (is_child, path_exists_case_insensitive,
                                  delete_file_or_folder)
 
@@ -1494,7 +1494,7 @@ class UpDownSync(object):
         :param list changes: List of Dropbox metadata which has been applied locally.
         """
 
-        if self._conf.get("app", "notification_level") < Level.FILECHANGE:
+        if self._conf.get("app", "notification_level") < FILECHANGE:
             return
 
         # get number of remote changes
@@ -1556,7 +1556,7 @@ class UpDownSync(object):
             else:
                 msg = f"{n_changed} files {change_type}"
 
-        self.notifier.notify(msg, level=Level.FILECHANGE)
+        self.notifier.notify(msg, level=FILECHANGE)
 
     @staticmethod
     def _sort_remote_entries(result):

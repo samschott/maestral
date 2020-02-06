@@ -925,18 +925,19 @@ def config_remove(name: str):
 def notify_level(config_name: str, level_name: str):
     """Gets or sets the level for desktop notifications."""
     from maestral.daemon import MaestralProxy
+    from maestral.utils.notify import levelNameToNumber, levelNumberToName
 
     if level_name:
         with MaestralProxy(config_name, fallback=True) as m:
-            m.set_conf('app', 'notification_level', level_name)
+            m.set_conf('app', 'notification_level', levelNameToNumber(level_name))
 
         click.echo(f'Notification level set to {level_name}.')
 
     else:
         with MaestralProxy(config_name, fallback=True) as m:
-            level_name = m.get_conf('app', 'notification_level')
+            level_num = m.get_conf('app', 'notification_level')
 
-        click.echo(f'Notification level: {level_name}.')
+        click.echo(f'Notification level: {levelNumberToName(level_num)}.')
 
 
 @notify.command(name='snooze', help_priority=1)

@@ -54,18 +54,24 @@ class SupportedImplementations(Enum):
     legacy_notification_center = 'legacy-notification-center'
 
 
-class Level(Enum):
-    NONE = 100
-    ERROR = 40
-    SYNCISSUE = 30
-    FILECHANGE = 15
+NONE = 100
+ERROR = 40
+SYNCISSUE = 30
+FILECHANGE = 15
 
 
 _levelToName = {
-    Level.NONE.value: 'NONE',
-    Level.ERROR.value: 'ERROR',
-    Level.SYNCISSUE.value: 'SYNCISSUE',
-    Level.FILECHANGE.value: 'FILECHANGE',
+    NONE: 'NONE',
+    ERROR: 'ERROR',
+    SYNCISSUE: 'SYNCISSUE',
+    FILECHANGE: 'FILECHANGE',
+}
+
+_nameToLevel = {
+    'NONE': 100,
+    'ERROR': 40,
+    'SYNCISSUE': 30,
+    'FILECHANGE': 15,
 }
 
 
@@ -74,7 +80,7 @@ def levelNumberToName(number):
 
 
 def levelNameToNumber(name):
-    return getattr(Level, name).value
+    return _nameToLevel[name]
 
 
 class DesktopNotifier:
@@ -202,12 +208,12 @@ class MaestralDesktopNotifier(logging.Handler):
 
     @property
     def notify_level(self):
-        return getattr(Level, self._conf.get('app', 'notification_level'))
+        return self._conf.get('app', 'notification_level')
 
     @notify_level.setter
     def notify_level(self, level):
-        assert level in Level
-        self._conf.set('app', 'notification_level', level.value)
+        assert isinstance(level, int)
+        self._conf.set('app', 'notification_level', level)
 
     def snooze(self, minutes=30):
         self._snooze = time.time() + minutes*60
