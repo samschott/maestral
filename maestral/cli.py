@@ -923,7 +923,7 @@ def config_remove(name: str):
 @click.argument('level_name', required=False, type=click.Choice(['NONE', 'ERROR', 'SYNCISSUE', 'FILECHANGE']))
 @with_config_opt
 def notify_level(config_name: str, level_name: str):
-    """Gets or sets the level for desktop notify."""
+    """Gets or sets the level for desktop notifications."""
     from maestral.daemon import MaestralProxy
 
     if level_name:
@@ -943,13 +943,18 @@ def notify_level(config_name: str, level_name: str):
 @click.argument('minutes', type=click.IntRange(0, 24*60))
 @with_config_opt
 def notify_snooze(config_name: str, minutes: int):
-    """Snoozes desktop notify for n minutes."""
+    """Snoozes desktop notifications for given number of minutes."""
 
     from maestral.daemon import MaestralProxy
-    with MaestralProxy(config_name, fallback=True) as m:
-        m.snooze_notifications(minutes)
 
-    if minutes > 0:
-        click.echo(f'Notifications snoozed for {minutes} min. Set snooze to 0 min to reset.')
+    try:
+        with MaestralProxy(config_name) as m:
+            m.snooze_notifications(minutes)
+    except Pyro5.errors.CommunicationError:
+        click.echo('Maestral daemon is not running.')
     else:
-        click.echo(f'Notifications enabled.')
+        if minutes > 0:
+            click.echo(f'Notifications snoozed for {minutes} min. '
+                       'Set snooze to 0 to reset.')
+        else:
+            click.echo(f'Notifications enabled.')
