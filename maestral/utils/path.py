@@ -74,7 +74,7 @@ def path_exists_case_insensitive(path, root="/"):
         return local_paths[0]
 
 
-def delete_file_or_folder(path):
+def delete_file_or_folder(path, raise_error=False):
     """
     Deletes a file or folder at :param:`path`. Returns any caught
     exceptions on failure or None on success.
@@ -89,4 +89,7 @@ def delete_file_or_folder(path):
         except OSError as e:
             err = e
 
-    return err
+    if raise_error and err:
+        raise err
+    else:
+        return err
