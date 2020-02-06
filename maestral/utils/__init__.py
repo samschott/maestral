@@ -11,8 +11,8 @@ Created on Wed Oct 31 16:23:13 2018
 import functools
 import logging
 
-from maestral.sync.constants import DISCONNECTED, IS_MACOS_BUNDLE
-from maestral.sync.errors import DropboxAuthError
+from maestral.constants import DISCONNECTED, IS_MACOS_BUNDLE
+from maestral.errors import DropboxAuthError
 
 logger = logging.getLogger(__name__)
 

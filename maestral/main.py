@@ -37,19 +37,19 @@ except ImportError:
 
 # maestral modules
 from maestral import __version__
-from maestral.sync.monitor import MaestralMonitor
-from maestral.sync.utils import handle_disconnect, with_sync_paused
-from maestral.sync.utils.path import is_child, path_exists_case_insensitive
-from maestral.sync.utils.notify import desktop_notifier
-from maestral.sync.constants import (
+from maestral.monitor import MaestralMonitor
+from maestral.utils import handle_disconnect, with_sync_paused
+from maestral.utils.path import is_child, path_exists_case_insensitive, delete_file_or_folder
+from maestral.utils.notify import MaestralDesktopNotifier
+from maestral.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
 )
-from maestral.sync.client import MaestralApiClient
-from maestral.sync.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
-from maestral.sync.utils.appdirs import get_log_path, get_cache_path, get_home_dir
-from maestral.sync.utils.updates import check_update_available
-from maestral.sync.oauth import OAuth2Session
-from maestral.sync.errors import MaestralApiError
+from maestral.client import MaestralApiClient
+from maestral.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
+from maestral.utils.appdirs import get_log_path, get_cache_path, get_home_dir
+from maestral.utils.updates import check_update_available
+from maestral.oauth import OAuth2Session
+from maestral.errors import MaestralApiError
 from maestral.config.main import MaestralConfig
 
 
@@ -109,14 +109,6 @@ class SdNotificationHandler(logging.Handler):
 
     def emit(self, record):
         sd_notifier.notify(f"STATUS={record.message}")
-
-
-class DesktopNotificationHandler(logging.Handler):
-    """Handler which emits messages as desktop notifications."""
-
-    def emit(self, record):
-        self.format(record)
-        desktop_notifier.send(record.message)
 
 
 # ========================================================================================
@@ -243,9 +235,8 @@ class Maestral(object):
         # log to desktop notifications
         # 'file changed' events will be collated and sent as desktop
         # notifications by the monitor directly, we don't handle them here
-        self._log_handler_desktop = DesktopNotificationHandler()
+        self._log_handler_desktop = MaestralDesktopNotifier(self.config_name)
         self._log_handler_desktop.setLevel(logging.WARNING)
-        self._log_handler_desktop.setFormatter(log_fmt_short)
         mdbx_logger.addHandler(self._log_handler_desktop)
 
         # log to bugsnag (disabled by default)
@@ -285,6 +276,9 @@ class Maestral(object):
         self._log_handler_bugsnag.setLevel(logging.ERROR if enabled else 100)
 
         self._conf.set("app", "analytics", enabled)
+
+    def snooze_notifications(self, minutes):
+        self.sync.notifier.snooze(minutes)
 
     @staticmethod
     def pending_link(config_name):
@@ -758,7 +752,7 @@ class Maestral(object):
     @with_sync_paused
     def move_dropbox_directory(self, new_path=None):
         """
-        Change or set local dropbox directory. This moves all local files to
+        Move the local dropbox directory. This moves all local files to
         the new location. If a file or folder already exists at this location,
         it will be overwritten.
 
@@ -809,16 +803,14 @@ class Maestral(object):
             path = self._ask_for_path(self._config_name)
 
         if overwrite:
-            # remove any old items at the location
-            try:
-                shutil.rmtree(path)
-            except NotADirectoryError:
-                os.unlink(path)
-            except FileNotFoundError:
-                pass
+            delete_file_or_folder(path)
 
-        # create new folder
-        os.makedirs(path, exist_ok=True)
+        try:
+            # create new folder
+            os.makedirs(path, exist_ok=True)
+        except PermissionError:
+            click.echo('Insufficient permissions to create a directory here.')
+            return
 
         # update config file and client
         self.sync.dropbox_path = path
@@ -848,7 +840,8 @@ class Maestral(object):
                 pass
 
             if osp.exists(dropbox_path) and not same_path:
-                msg = f"Directory '{dropbox_path}' already exist. Do you want to overwrite it?"
+                msg = (f"Directory '{dropbox_path}' already exist. Do you want to "
+                       "overwrite it? Its content will be lost!")
                 yes = click.confirm(msg)
                 if yes:
                     return dropbox_path

@@ -16,6 +16,7 @@ in order to reduce the startup time of individual CLI commands.
 import os
 import functools
 import logging
+import platform
 
 # external packages
 import click
@@ -31,7 +32,7 @@ def _is_maestral_linked(config_name):
     This does not create a Maestral instance and is therefore safe to call from anywhere
     at any time.
     """
-    from maestral.sync.main import Maestral
+    from maestral.main import Maestral
     from keyring.errors import KeyringLocked
 
     try:
@@ -47,7 +48,7 @@ def _is_maestral_linked(config_name):
 def start_daemon_subprocess_with_cli_feedback(config_name):
     """Wrapper around `daemon.start_maestral_daemon_process`
     with command line feedback."""
-    from maestral.sync.daemon import start_maestral_daemon_process, Start
+    from maestral.daemon import start_maestral_daemon_process, Start
 
     click.echo("Starting Maestral...", nl=False)
     res = start_maestral_daemon_process(config_name)
@@ -61,7 +62,7 @@ def stop_daemon_with_cli_feedback(config_name):
     """Wrapper around `daemon.stop_maestral_daemon_process`
     with command line feedback."""
 
-    from maestral.sync.daemon import stop_maestral_daemon_process, Exit
+    from maestral.daemon import stop_maestral_daemon_process, Exit
 
     click.echo("Stopping Maestral...", nl=False)
     res = stop_maestral_daemon_process(config_name)
@@ -78,7 +79,7 @@ def _check_for_updates():
     config file and notifies the user."""
     from maestral import __version__
     from maestral.config.main import MaestralConfig
-    from maestral.sync.utils.updates import check_version
+    from maestral.utils.updates import check_version
 
     CONF = MaestralConfig('maestral')
     latest_release = CONF.get("app", "latest_release")
@@ -121,7 +122,7 @@ def catch_maestral_errors(func):
     the user instead of printing the full stacktrace to the console.
     """
 
-    from maestral.sync.errors import MaestralApiError
+    from maestral.errors import MaestralApiError
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -218,7 +219,7 @@ def _check_and_set_config(ctx, param, value):
     """
 
     # check if valid config
-    if value not in list_configs() and not value == "maestral":
+    if value not in _list_configs() and not value == "maestral":
         ctx.fail("Configuration '{}' does not exist. You can create new "
                  "configuration with 'maestral config add'.".format(value))
 
@@ -252,6 +253,12 @@ def config():
     """Manage different Maestral configuration environments."""
 
 
+@main.group(cls=SpecialHelpOrder, help_priority=16)
+@with_config_opt
+def notifications():
+    """Manage Desktop notifications."""
+
+
 @main.group(cls=SpecialHelpOrder, help_priority=18)
 def log():
     """View and manage Maestral's log."""
@@ -266,14 +273,14 @@ def log():
 def gui(config_name):
     """Runs Maestral with a GUI."""
     try:
-        import PyQt5
+        if platform.system() == "Darwin":
+            from maestral_cocoa.main import run
+        else:
+            from maestral_qt.main import run
     except ImportError:
-        click.echo("Error: PyQt5 is required to run the Maestral GUI. "
-                   "Run `pip install pyqt5` to install it.")
-        return
-
-    from maestral.gui.main import run
-    run(config_name)
+        click.echo("No maestral GUI installed. Please run 'pip3 install maestral[gui]'.")
+    else:
+        run(config_name)
 
 
 @main.command(help_priority=1)
@@ -284,14 +291,14 @@ def gui(config_name):
 def start(config_name: str, foreground: bool):
     """Starts the Maestral as a daemon."""
 
-    from maestral.sync.daemon import get_maestral_pid
+    from maestral.daemon import get_maestral_pid
 
     # do nothing if already running
     if get_maestral_pid(config_name):
         click.echo("Maestral daemon is already running.")
         return
 
-    from maestral.sync.main import Maestral
+    from maestral.main import Maestral
 
     pending_link = not _is_maestral_linked(config_name)
     pending_folder = Maestral.pending_dropbox_folder(config_name)
@@ -309,7 +316,7 @@ def start(config_name: str, foreground: bool):
 
     # start daemon
     if foreground:
-        from maestral.sync.daemon import run_maestral_daemon
+        from maestral.daemon import run_maestral_daemon
         run_maestral_daemon(config_name, run=True, log_to_stdout=True)
     else:
         start_daemon_subprocess_with_cli_feedback(config_name)
@@ -334,7 +341,7 @@ def restart(config_name: str):
 @with_config_opt
 def pause(config_name: str):
     """Pauses syncing."""
-    from maestral.sync.daemon import MaestralProxy
+    from maestral.daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
@@ -348,7 +355,7 @@ def pause(config_name: str):
 @with_config_opt
 def resume(config_name: str):
     """Resumes syncing."""
-    from maestral.sync.daemon import MaestralProxy
+    from maestral.daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
@@ -364,7 +371,7 @@ def resume(config_name: str):
 @with_config_opt
 def status(config_name: str):
     """Returns the current status of the Maestral daemon."""
-    from maestral.sync.daemon import MaestralProxy
+    from maestral.daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
@@ -400,7 +407,7 @@ def status(config_name: str):
 @with_config_opt
 def file_status(config_name: str, local_path: str):
     """Returns the current sync status of a given file or folder."""
-    from maestral.sync.daemon import MaestralProxy
+    from maestral.daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
@@ -419,7 +426,7 @@ def file_status(config_name: str, local_path: str):
 @with_config_opt
 def activity(config_name: str):
     """Live view of all items being synced."""
-    from maestral.sync.daemon import MaestralProxy
+    from maestral.daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
@@ -498,8 +505,8 @@ def ls(dropbox_path: str, config_name: str, list_all: bool):
         dropbox_path = "/" + dropbox_path
 
     if _is_maestral_linked(config_name):
-        from maestral.sync.daemon import MaestralProxy
-        from maestral.sync.errors import PathError
+        from maestral.daemon import MaestralProxy
+        from maestral.errors import PathError
 
         with MaestralProxy(config_name, fallback=True) as m:
             try:
@@ -531,8 +538,8 @@ def link(config_name: str, relink: bool):
     """Links Maestral with your Dropbox account."""
 
     if relink or not _is_maestral_linked(config_name):
-        from maestral.sync.oauth import OAuth2Session
-        from maestral.sync.daemon import get_maestral_pid
+        from maestral.oauth import OAuth2Session
+        from maestral.daemon import get_maestral_pid
 
         if get_maestral_pid(config_name):
             click.echo("Maestral is running. Please stop before linking.")
@@ -542,7 +549,8 @@ def link(config_name: str, relink: bool):
         auth.link()
 
     else:
-        click.echo("Maestral is already linked. Use the option '-r' to relink to the same account.")
+        click.echo("Maestral is already linked. Use the option "
+                   "'-r' to relink to the same account.")
 
 
 @main.command(help_priority=11)
@@ -554,7 +562,7 @@ def unlink(config_name: str):
 
     if _is_maestral_linked(config_name):
 
-        from maestral.sync.main import Maestral
+        from maestral.main import Maestral
 
         stop_daemon_with_cli_feedback(config_name)
         m = Maestral(config_name, run=False)
@@ -570,8 +578,8 @@ def set_dir(config_name: str, new_path: str):
     """Change the location of your Dropbox folder."""
 
     if _is_maestral_linked(config_name):
-        from maestral.sync.main import Maestral
-        from maestral.sync.daemon import MaestralProxy
+        from maestral.main import Maestral
+        from maestral.daemon import MaestralProxy
         with MaestralProxy(config_name, fallback=True) as m:
             if not new_path:
                 # don't use the remote instance because we need console interaction
@@ -617,7 +625,7 @@ def rebuild_index(config_name: str):
         import time
         import Pyro5.client
         from concurrent.futures import ThreadPoolExecutor
-        from maestral.sync.daemon import MaestralProxy, get_maestral_proxy
+        from maestral.daemon import MaestralProxy, get_maestral_proxy
 
         m0 = get_maestral_proxy(config_name, fallback=True)
 
@@ -648,18 +656,18 @@ def rebuild_index(config_name: str):
 
 @main.command(help_priority=16)
 @with_config_opt
-@click.option("--yes/--no", "-Y/-N", default=True)
-def notifications(config_name: str, yes: bool):
-    """Enables or disables notifications for file changes. Notifications
-    for errors will always be enabled."""
+# @click.option("--snooze", "-s", default=30, help="Snooze notifications for given minutes.")
+@click.argument('level_name', required=False, type=click.Choice(['NONE', 'ERROR', 'SYNCISSUE', 'FILECHANGE']))
+def notify_level(config_name: str, level_name: str, snooze: int):
+    """Set the level for desktop notifications."""
     # This is safe to call, even if the GUI or daemon are running.
-    from maestral.sync.daemon import MaestralProxy
+    from maestral.daemon import MaestralProxy
+    from maestral.utils.notify import Level
 
     with MaestralProxy(config_name, fallback=True) as m:
-        m.set_conf("app", "notifications", yes)
+        m.set_conf("app", "notification_level", getattr(Level, level_name).value)
 
-    enabled_str = "Enabled" if yes else "Disabled"
-    click.echo("{} system notifications.".format(enabled_str))
+    click.echo("Notification level set to {}.".format(level))
 
 
 @main.command(help_priority=17)
@@ -668,7 +676,7 @@ def notifications(config_name: str, yes: bool):
 def analytics(config_name: str, yes: bool):
     """Enables or disables sharing crash reports."""
     # This is safe to call, even if the GUI or daemon are running.
-    from maestral.sync.daemon import MaestralProxy
+    from maestral.daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
         m.set_share_error_reports(yes)
@@ -756,7 +764,7 @@ def excluded_add(dropbox_path: str, config_name: str):
 
     if _is_maestral_linked(config_name):
 
-        from maestral.sync.daemon import MaestralProxy
+        from maestral.daemon import MaestralProxy
 
         with MaestralProxy(config_name, fallback=True) as m:
             if _check_for_fatal_errors(m):
@@ -786,7 +794,7 @@ def excluded_remove(dropbox_path: str, config_name: str):
 
     if _is_maestral_linked(config_name):
 
-        from maestral.sync.daemon import MaestralProxy
+        from maestral.daemon import MaestralProxy
 
         try:
             with MaestralProxy(config_name) as m:
@@ -808,11 +816,11 @@ def excluded_remove(dropbox_path: str, config_name: str):
 # Log commands
 # ========================================================================================
 
-@log.command(help_priority=0)
+@log.command(name="show", help_priority=0)
 @with_config_opt
-def show(config_name: str):
+def log_show(config_name: str):
     """Prints Maestral's logs to the console."""
-    from maestral.sync.utils.appdirs import get_log_path
+    from maestral.utils.appdirs import get_log_path
 
     log_file = get_log_path("maestral", config_name + ".log")
 
@@ -827,11 +835,11 @@ def show(config_name: str):
         click.echo_via_pager("")
 
 
-@log.command(help_priority=1)
+@log.command(name="clear", help_priority=1)
 @with_config_opt
-def clear(config_name: str):
+def log_clear(config_name: str):
     """Clears Maestral's log file."""
-    from maestral.sync.utils.appdirs import get_log_path
+    from maestral.utils.appdirs import get_log_path
 
     log_dir = get_log_path("maestral")
     log_name = config_name + ".log"
@@ -853,13 +861,13 @@ def clear(config_name: str):
                    "manually".format(log_dir))
 
 
-@log.command(help_priority=2)
+@log.command(name="level", help_priority=2)
 @click.argument('level_name', required=False, type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
 @with_config_opt
-def level(config_name: str, level_name: str):
+def log_level(config_name: str, level_name: str):
     """Gets or sets the log level. Changes will take effect after restart."""
     if level_name:
-        from maestral.sync.daemon import MaestralProxy
+        from maestral.daemon import MaestralProxy
 
         level_num = logging._nameToLevel[level_name]
         with MaestralProxy(config_name, fallback=True) as m:
@@ -880,7 +888,7 @@ def level(config_name: str, level_name: str):
 # Management of different configurations
 # ========================================================================================
 
-def list_configs():
+def _list_configs():
     """Lists all maestral configs"""
     from maestral.config.base import get_conf_path
     configs = []
@@ -895,7 +903,7 @@ def list_configs():
 def config_list():
     """Lists all Maestral configurations."""
     click.echo("Available Maestral configurations:")
-    for c in list_configs():
+    for c in _list_configs():
         click.echo('  ' + c)
 
 
@@ -903,7 +911,7 @@ def config_list():
 @click.argument("name")
 def config_add(name: str):
     """Sets up and activates a fresh Maestral configuration."""
-    if name in list_configs():
+    if name in _list_configs():
         click.echo("Configuration '{}' already exists.".format(name))
     else:
         from maestral.config.main import MaestralConfig
@@ -915,7 +923,7 @@ def config_add(name: str):
 @click.argument("name")
 def config_remove(name: str):
     """Removes a Maestral configuration."""
-    if name not in list_configs():
+    if name not in _list_configs():
         click.echo("Configuration '{}' could not be found.".format(name))
     else:
         from maestral.config.base import get_conf_path
@@ -923,3 +931,41 @@ def config_remove(name: str):
             if file.startswith(name):
                 os.unlink(os.path.join(get_conf_path("maestral"), file))
         click.echo("Deleted configuration '{}'.".format(name))
+
+
+# ========================================================================================
+# Notifications commands
+# ========================================================================================
+
+@notifications.command(name="level", help_priority=0)
+@with_config_opt
+@click.argument('level_name', required=False, type=click.Choice(['NONE', 'ERROR', 'SYNCISSUE', 'FILECHANGE']))
+def notify_level(config_name: str, level_name: str, snooze: int):
+    """Gets or sets the level for desktop notifications."""
+    from maestral.daemon import MaestralProxy
+    from maestral.utils.notify import levelNameToNumber, levelNumberToName
+
+    if level_name:
+        with MaestralProxy(config_name, fallback=True) as m:
+            m.set_conf("app", "notification_level", levelNameToNumber(level_name))
+
+        click.echo("Notification level set to {}.".format(level_name))
+
+    else:
+        with MaestralProxy(config_name, fallback=True) as m:
+            level_num = m.get_conf("app", "notification_level")
+
+        click.echo("Notification level: {}.".format(levelNumberToName(level_num)))
+
+
+@notifications.command(name="snooze", help_priority=1)
+@with_config_opt
+@click.argument('minutes', type=click.IntRange(0, 24*60))
+def notify_snooze(config_name: str, minutes: int):
+    """Snoozes desktop notifications for n minutes."""
+
+    from maestral.daemon import MaestralProxy
+    with MaestralProxy(config_name, fallback=True) as m:
+        m.snooze_notifications(minutes)
+
+    click.echo("Notifications snoozed for {} min.".format(minutes))

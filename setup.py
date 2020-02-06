@@ -37,12 +37,7 @@ setup(
     packages=find_packages(),
     package_data={
             'maestral': [
-                    'gui/resources/*.ui',
-                    'gui/resources/*.icns',
-                    'gui/resources/*.png',
-                    'gui/resources/*.svg',
-                    'gui/resources/*/*.svg',
-                    'gui/resources/*/*.png',
+                    'resources/*.png',
                     ],
             },
     setup_requires=['wheel'],
@@ -61,8 +56,14 @@ setup(
         'watchdog>=0.9.0',
     ],
     extras_require={
-        'systemd': ['systemd-python', 'sdnotify'],
-        'gui': ['PyQt5>=5.9'],
+        'systemd': [
+            'systemd-python',
+            'sdnotify'
+        ],
+        'gui': [
+            'maestral_cocoa==0.1.0;sys_platform=="darwin"',
+            'maestral_qt==0.6.0;sys_platform=="linux"'
+        ],
     },
     zip_safe=False,
     entry_points={
@@ -79,18 +80,4 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3 :: Only',
     ],
-    data_files=[
-        ('share/icons/hicolor/scalable/status', [
-            'maestral/gui/resources/tray-icons-gnome/maestral-icon-disconnected-symbolic.svg',
-            'maestral/gui/resources/tray-icons-gnome/maestral-icon-error-symbolic.svg',
-            'maestral/gui/resources/tray-icons-gnome/maestral-icon-idle-symbolic.svg',
-            'maestral/gui/resources/tray-icons-gnome/maestral-icon-info-symbolic.svg',
-            'maestral/gui/resources/tray-icons-gnome/maestral-icon-paused-symbolic.svg',
-            'maestral/gui/resources/tray-icons-gnome/maestral-icon-syncing-symbolic.svg',
-        ]),
-        ('share/icons/hicolor/512x512/apps', [
-            'maestral/gui/resources/maestral.png',
-        ])
-    ]
-
 )

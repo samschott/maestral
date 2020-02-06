@@ -4,7 +4,7 @@ from watchdog.observers.fsevents import *
 from watchdog.events import EVENT_TYPE_DELETED, EVENT_TYPE_MOVED
 
 
-class OrderedFSFSEventsEmitter(FSEventsEmitter):
+class OrderedFSEventsEmitter(FSEventsEmitter):
 
     def queue_events(self, timeout):
         with self._lock:
@@ -58,4 +58,4 @@ class OrderedFSFSEventsEmitter(FSEventsEmitter):
 class OrderedFSEventsObserver(FSEventsObserver):
 
     def __init__(self, timeout=DEFAULT_OBSERVER_TIMEOUT):
-        BaseObserver.__init__(self, emitter_class=OrderedFSFSEventsEmitter, timeout=timeout)
+        BaseObserver.__init__(self, emitter_class=OrderedFSEventsEmitter, timeout=timeout)
