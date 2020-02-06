@@ -329,11 +329,14 @@ def stop(config_name: str):
 
 
 @main.command(help_priority=3)
+@click.option('--foreground', '-f', is_flag=True, default=False,
+              help='Starts Maestral in the foreground.')
 @with_config_opt
-def restart(config_name: str):
+@click.pass_context
+def restart(ctx, config_name: str,  foreground: bool):
     """Restarts the Maestral daemon."""
     stop_daemon_with_cli_feedback(config_name)
-    start_daemon_subprocess_with_cli_feedback(config_name)
+    ctx.forward(start)
 
 
 @main.command(help_priority=4)
@@ -941,7 +944,7 @@ def notify_level(config_name: str, level_name: str):
 
 
 @notify.command(name='snooze', help_priority=1)
-@click.argument('minutes', type=click.IntRange(0, 24*60))
+@click.argument('minutes', type=click.IntRange(min=0))
 @with_config_opt
 def notify_snooze(config_name: str, minutes: int):
     """Snoozes desktop notifications for given number of minutes."""

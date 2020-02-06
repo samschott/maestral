@@ -8,6 +8,8 @@
   snooze notifications for N minutes.
 - Support using an existing directory when setting up Maestral through the CLI. This was
   previously only supported in the GUI.
+- The CLI command `maestral restart` now supports restarting Maestral into the current
+  process instead of spawning a new process though the `--foreground` option.
 
 #### Changed:
 
@@ -32,6 +34,7 @@
 - Correctly handle Dropbox server errors.
 - Set the log level for the systemd journal according to user settings instead of using 
   logging.DEBUG.
+- When invoking `maestral restart`, run checks for Dropbox folder location and link status.
 
 ## v0.5.2
 
