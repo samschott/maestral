@@ -809,9 +809,9 @@ def excluded_remove(dropbox_path: str, config_name: str):
 # Log commands
 # ========================================================================================
 
-@log.command(help_priority=0)
+@log.command(name="show", help_priority=0)
 @with_config_opt
-def show(config_name: str):
+def log_show(config_name: str):
     """Prints Maestral's logs to the console."""
     from maestral.utils.appdirs import get_log_path
 
@@ -828,9 +828,9 @@ def show(config_name: str):
         click.echo_via_pager("")
 
 
-@log.command(help_priority=1)
+@log.command(name="clear", help_priority=1)
 @with_config_opt
-def clear(config_name: str):
+def log_clear(config_name: str):
     """Clears Maestral's log file."""
     from maestral.utils.appdirs import get_log_path
 
@@ -854,10 +854,10 @@ def clear(config_name: str):
                    "manually".format(log_dir))
 
 
-@log.command(help_priority=2)
+@log.command(name="level", help_priority=2)
 @click.argument('level_name', required=False, type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
 @with_config_opt
-def level(config_name: str, level_name: str):
+def log_level(config_name: str, level_name: str):
     """Gets or sets the log level. Changes will take effect after restart."""
     if level_name:
         from maestral.daemon import MaestralProxy
