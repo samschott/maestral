@@ -1,5 +1,14 @@
 ## v0.6.0-dev
 
+#### Added:
+
+- Support for different levels of desktop notifications (CLI only). You can now select
+  between FILECHANGE, SYNCISSUE, ERROR and NONE with `maestral notify LEVEL`.
+- Added an option to snooze notifications. In the CLI, use `maestral notify snooze N` to
+  snooze notifications for N minutes.
+- Support using an existing directory when setting up Maestral through the CLI. This was
+  previously only supported in the GUI.
+
 #### Changed:
 
 - Improved desktop notifications:
@@ -15,6 +24,8 @@
     
 - Renamed `set-dir` command to `move-dir` to emphasize that it moves the local Dropbox
   folder.
+- Renamed `maestral notifications` to `maestral notify`.
+- Split off GUI into separate python package (`maestral-qt`).
     
 #### Fixed:
 
