@@ -752,7 +752,7 @@ class Maestral(object):
     @with_sync_paused
     def move_dropbox_directory(self, new_path=None):
         """
-        Change or set local dropbox directory. This moves all local files to
+        Move the local dropbox directory. This moves all local files to
         the new location. If a file or folder already exists at this location,
         it will be overwritten.
 
@@ -803,16 +803,14 @@ class Maestral(object):
             path = self._ask_for_path(self._config_name)
 
         if overwrite:
-            # remove any old items at the location
-            try:
-                shutil.rmtree(path)
-            except NotADirectoryError:
-                os.unlink(path)
-            except FileNotFoundError:
-                pass
+            delete_file_or_folder(path)
 
-        # create new folder
-        os.makedirs(path, exist_ok=True)
+        try:
+            # create new folder
+            os.makedirs(path, exist_ok=True)
+        except PermissionError:
+            click.echo('Insufficient permissions to create a directory here.')
+            return
 
         # update config file and client
         self.sync.dropbox_path = path
@@ -842,7 +840,8 @@ class Maestral(object):
                 pass
 
             if osp.exists(dropbox_path) and not same_path:
-                msg = f"Directory '{dropbox_path}' already exist. Do you want to overwrite it?"
+                msg = (f"Directory '{dropbox_path}' already exist. Do you want to "
+                       "overwrite it? Its content will be lost!")
                 yes = click.confirm(msg)
                 if yes:
                     return dropbox_path

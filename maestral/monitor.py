@@ -1646,14 +1646,14 @@ class UpDownSync(object):
             # remove it and all its children. If there’s nothing at the
             # given path, ignore this entry.
 
-            success, err = delete_file_or_folder(local_path, return_error=True)
+            err = delete_file_or_folder(local_path)
             self.set_local_rev(entry.path_display, None)
 
-            if success:
+            if not err:
                 logger.debug(f"Deleted local item '{entry.path_display}'")
                 return entry
             else:
-                logger.debug(f"FileNotFoundError: {err}")
+                logger.debug(f"Delection failed: {err}")
 
     def _save_to_history(self, dbx_path):
         # add new file to recent_changes
