@@ -706,7 +706,7 @@ class Maestral(object):
             # paginate through top-level folders, ask to exclude
             for entry in result.entries:
                 if isinstance(entry, files.FolderMetadata):
-                    yes = click.confirm(f"Exclude '{entry.path_display}' from sync?")
+                    yes = click.confirm(f"Exclude '{entry.path_display}' from sync?", prompt_suffix='')
                     if yes:
                         excluded_folders.append(entry.path_lower)
         else:
@@ -752,30 +752,24 @@ class Maestral(object):
     @with_sync_paused
     def move_dropbox_directory(self, new_path=None):
         """
-        Move the local dropbox directory. This moves all local files to
-        the new location. If a file or folder already exists at this location,
-        it will be overwritten.
+        Sets the local Dropbox directory. This moves all local files to
+        the new location.
 
-        :param str new_path: Full path to local Dropbox folder. If not given, the
-            user will be prompted to input the path.
+        :param str new_path: Full path to local Dropbox folder. If not given, the user
+            will be prompted to input the path.
+        :raises: FileExistsError if a file or folder already exists at th new location.
         """
+
+        if osp.exists(new_path):
+            raise FileExistsError(f"Path '{new_path}' already exists.")
 
         # get old and new paths
         old_path = self.sync.dropbox_path
-        if new_path is None:
-            new_path = self._ask_for_path(self._config_name)
+        new_path = new_path or select_dbx_path_dialog(self._config_name)
 
         try:
             if osp.samefile(old_path, new_path):
                 return
-        except FileNotFoundError:
-            pass
-
-        # remove existing items at current location
-        try:
-            os.unlink(new_path)
-        except IsADirectoryError:
-            shutil.rmtree(new_path, ignore_errors=True)
         except FileNotFoundError:
             pass
 
@@ -789,66 +783,25 @@ class Maestral(object):
         self.sync.dropbox_path = new_path
 
     @with_sync_paused
-    def create_dropbox_directory(self, path=None, overwrite=True):
+    def create_dropbox_directory(self, path=None):
         """
-        Set a new local dropbox directory.
+        Creates a new Dropbox directory. Only call this during setup.
 
         :param str path: Full path to local Dropbox folder. If not given, the user will be
             prompted to input the path.
-        :param bool overwrite: If ``True``, any existing file or folder at ``new_path``
-            will be replaced.
         """
-        # ask for new path
-        if path is None:
-            path = self._ask_for_path(self._config_name)
-
-        if overwrite:
-            delete_file_or_folder(path)
+        path = path or select_dbx_path_dialog(self._config_name, allow_merge=True)
 
         try:
             # create new folder
             os.makedirs(path, exist_ok=True)
-        except PermissionError:
-            click.echo('Insufficient permissions to create a directory here.')
+        except OSError:
+            click.echo(f"Could not create directory '{path}'. Please check if you have "
+                       "permissions to write at this location.")
             return
 
         # update config file and client
         self.sync.dropbox_path = path
-
-    @staticmethod
-    def _ask_for_path(config_name):
-        """
-        Asks for Dropbox path.
-        """
-
-        conf = MaestralConfig(config_name)
-
-        default = osp.join(get_home_dir(), conf.get("main", "default_dir_name"))
-
-        while True:
-            msg = f"Please give Dropbox folder location or press enter for default ['{default}']:"
-            res = input(msg).strip("'\" ")
-
-            dropbox_path = osp.expanduser(res or default)
-            old_path = osp.expanduser(conf.get("main", "path"))
-
-            same_path = False
-            try:
-                if osp.samefile(old_path, dropbox_path):
-                    same_path = True
-            except FileNotFoundError:
-                pass
-
-            if osp.exists(dropbox_path) and not same_path:
-                msg = (f"Directory '{dropbox_path}' already exist. Do you want to "
-                       "overwrite it? Its content will be lost!")
-                yes = click.confirm(msg)
-                if yes:
-                    return dropbox_path
-                else:
-                    pass
-            else:
-                return dropbox_path
 
     def to_local_path(self, dbx_path):
         return self.sync.to_local_path(dbx_path)
@@ -896,3 +849,47 @@ class Maestral(object):
         account_type = self._conf.get("account", "type")
 
         return f"<{self.__class__}({email}, {account_type})>"
+
+
+def select_dbx_path_dialog(config_name, allow_merge=False):
+    """
+    Asks for Dropbox path.
+    """
+
+    conf = MaestralConfig(config_name)
+
+    default = osp.join(get_home_dir(), conf.get("main", "default_dir_name"))
+
+    while True:
+        res = click.prompt(
+            "Please give Dropbox folder location",
+            default=default,
+            type=click.Path(writable=True)
+        )
+
+        res = res.rstrip(osp.sep)
+
+        dropbox_path = osp.expanduser(res or default)
+        old_path = osp.expanduser(conf.get("main", "path"))
+
+        try:
+            same_path = osp.samefile(old_path, dropbox_path)
+        except FileNotFoundError:
+            same_path = False
+
+        if osp.exists(dropbox_path) and not same_path:
+            msg = (f"Directory '{dropbox_path}' already exist. Do you want to "
+                   "overwrite it? Its content will be lost!")
+            if click.confirm(msg, prompt_suffix=''):
+                err = delete_file_or_folder(dropbox_path)
+                if err:
+                    click.echo(f"Could not write to location '{dropbox_path}'. Please "
+                               "make sure that you have sufficient permissions.")
+                else:
+                    return dropbox_path
+            elif allow_merge:
+                msg = "Would you like to merge its content with your Dropbox?"
+                if click.confirm(msg, prompt_suffix=''):
+                    return dropbox_path
+        else:
+            return dropbox_path
