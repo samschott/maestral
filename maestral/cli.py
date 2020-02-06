@@ -219,7 +219,7 @@ def _check_and_set_config(ctx, param, value):
     """
 
     # check if valid config
-    if value not in list_configs() and not value == "maestral":
+    if value not in _list_configs() and not value == "maestral":
         ctx.fail("Configuration '{}' does not exist. You can create new "
                  "configuration with 'maestral config add'.".format(value))
 
@@ -881,7 +881,7 @@ def level(config_name: str, level_name: str):
 # Management of different configurations
 # ========================================================================================
 
-def list_configs():
+def _list_configs():
     """Lists all maestral configs"""
     from maestral.config.base import get_conf_path
     configs = []
@@ -896,7 +896,7 @@ def list_configs():
 def config_list():
     """Lists all Maestral configurations."""
     click.echo("Available Maestral configurations:")
-    for c in list_configs():
+    for c in _list_configs():
         click.echo('  ' + c)
 
 
@@ -904,7 +904,7 @@ def config_list():
 @click.argument("name")
 def config_add(name: str):
     """Sets up and activates a fresh Maestral configuration."""
-    if name in list_configs():
+    if name in _list_configs():
         click.echo("Configuration '{}' already exists.".format(name))
     else:
         from maestral.config.main import MaestralConfig
@@ -916,7 +916,7 @@ def config_add(name: str):
 @click.argument("name")
 def config_remove(name: str):
     """Removes a Maestral configuration."""
-    if name not in list_configs():
+    if name not in _list_configs():
         click.echo("Configuration '{}' could not be found.".format(name))
     else:
         from maestral.config.base import get_conf_path
