@@ -7,6 +7,7 @@ Created on Wed Oct 31 16:23:13 2018
 """
 import sys
 import os
+import time
 import subprocess
 import platform
 from enum import Enum
@@ -15,8 +16,9 @@ import logging
 
 import click
 
-from maestral.utils.updates import check_version
+from maestral.config.main import MaestralConfig
 from maestral.constants import IS_MACOS_BUNDLE
+from maestral.utils.updates import check_version
 
 if platform.system() == 'Darwin':
     macos_version, *_ = platform.mac_ver()
@@ -52,7 +54,30 @@ class SupportedImplementations(Enum):
     legacy_notification_center = 'legacy-notification-center'
 
 
-class SystemNotifier(object):
+class Level(Enum):
+    NONE = 100
+    ERROR = 40
+    SYNCISSUE = 30
+    FILECHANGE = 15
+
+
+_levelToName = {
+    Level.NONE.value: 'NONE',
+    Level.ERROR.value: 'ERROR',
+    Level.SYNCISSUE.value: 'SYNCISSUE',
+    Level.FILECHANGE.value: 'FILECHANGE',
+}
+
+
+def levelNumberToName(number):
+    return _levelToName[number]
+
+
+def levelNameToNumber(name):
+    return getattr(Level, name).value
+
+
+class DesktopNotifier:
     """Send native OS notifications to user.
 
     Relies on AppleScript on macOS and notify-send on linux, otherwise
@@ -78,7 +103,7 @@ class SystemNotifier(object):
         elif self.implementation == SupportedImplementations.legacy_notification_center:
             self._nc = NSUserNotificationCenter.defaultUserNotificationCenter
 
-    def send(self, message, title='Maestral', urgency=NORMAL):
+    def send(self, title,  message, urgency=NORMAL, icon_path=None):
         if self.implementation == SupportedImplementations.notification_center:
             self._send_message_nc(title, message)
         elif self.implementation == SupportedImplementations.legacy_notification_center:
@@ -86,7 +111,7 @@ class SystemNotifier(object):
         elif self.implementation == SupportedImplementations.osascript:
             self._send_message_macos_osascript(title, message)
         elif self.implementation == SupportedImplementations.notify_send:
-            self._send_message_linux(title, message, urgency)
+            self._send_message_linux(title, message, urgency, icon_path)
         else:
             self._send_message_stdout(title, message, urgency)
 
@@ -127,12 +152,13 @@ class SystemNotifier(object):
             'display notification "{}" with title "{}"'.format(message, title)
         ])
 
-    def _send_message_linux(self, title, message, urgency):
+    def _send_message_linux(self, title, message, urgency, icon_path):
+        icon_path = icon_path or ''
         if self._with_app_name:  # try passing --app-name option, disable if not supported
             r = subprocess.call([
                 'notify-send', title, message,
                 '-a', 'Maestral',
-                '-i', APP_ICON_PATH,
+                '-i', icon_path,
                 '-u', urgency
             ])
             self._with_app_name = r == 0
@@ -140,7 +166,7 @@ class SystemNotifier(object):
         if not self._with_app_name:
             subprocess.call([
                 'notify-send', title, message,
-                '-i', APP_ICON_PATH, '-u', urgency
+                '-i', icon_path, '-u', urgency
             ])
 
     @staticmethod
@@ -163,4 +189,42 @@ class SystemNotifier(object):
         return None
 
 
-desktop_notifier = SystemNotifier()
+system_notifier = DesktopNotifier()
+
+
+class MaestralDesktopNotifier(logging.Handler):
+
+    def __init__(self, config_name='maestral'):
+        super().__init__(format(logging.Formatter(fmt="%(message)s")))
+        self.setFormatter(logging.Formatter(fmt="%(message)s"))
+        self._conf = MaestralConfig(config_name)
+        self._snooze = 0
+
+    @property
+    def level(self):
+        return self._conf.get('app', 'notification_level')
+
+    @level.setter
+    def level(self, level):
+        assert level in Level
+        self._conf.set('app', 'notification_level', level.value)
+
+    def snooze(self, minutes=30):
+        self._snooze = time.time() + minutes*60
+
+    @property
+    def snoozed(self):
+        return time.time() < self._snooze
+
+    def notify(self, message, level):
+
+        if level >= self._conf.get('app', 'notification_level') and not self.snoozed:
+            system_notifier.send(
+                title='Maestral',
+                message=message,
+                icon_path=APP_ICON_PATH
+            )
+
+    def emit(self, record):
+        self.format(record)
+        self.notify(record.message, level=record.levelno)
