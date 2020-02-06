@@ -752,16 +752,14 @@ class Maestral(object):
     @with_sync_paused
     def move_dropbox_directory(self, new_path=None):
         """
-        Sets the local Dropbox directory. This moves all local files to
-        the new location.
+        Sets the local Dropbox directory. This moves all local files to the new location
+        and resumes syncing afterwards.
 
         :param str new_path: Full path to local Dropbox folder. If not given, the user
             will be prompted to input the path.
-        :raises: FileExistsError if a file or folder already exists at th new location.
+        :raises: ``FileExistsError`` if a file or folder already exists at the new
+            location.
         """
-
-        if osp.exists(new_path):
-            raise FileExistsError(f"Path '{new_path}' already exists.")
 
         # get old and new paths
         old_path = self.sync.dropbox_path
@@ -772,6 +770,9 @@ class Maestral(object):
                 return
         except FileNotFoundError:
             pass
+
+        if osp.exists(new_path):
+            raise FileExistsError(f"Path '{new_path}' already exists.")
 
         # move folder from old location or create a new one if no old folder exists
         if osp.isdir(old_path):
