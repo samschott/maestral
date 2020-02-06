@@ -220,8 +220,8 @@ def _check_and_set_config(ctx, param, value):
 
     # check if valid config
     if value not in _list_configs() and not value == "maestral":
-        ctx.fail("Configuration '{}' does not exist. You can create new "
-                 "configuration with 'maestral config add'.".format(value))
+        ctx.fail(f"Configuration '{value}' does not exist. You can create new "
+                 "configuration with 'maestral config add'.")
 
     return value
 
@@ -254,9 +254,8 @@ def config():
 
 
 @main.group(cls=SpecialHelpOrder, help_priority=16)
-@with_config_opt
-def notifications():
-    """Manage Desktop notifications."""
+def notify():
+    """Manage Desktop notify."""
 
 
 @main.group(cls=SpecialHelpOrder, help_priority=18)
@@ -453,8 +452,8 @@ def activity(config_name: str):
 
                     # create header
                     lines = [
-                        "Status: {}, Sync errors: {}".format(sync_status, n_errors),
-                        "Uploading: {}, Downloading: {}".format(len(up), len(down)),
+                        f"Status: {sync_status}, Sync errors: {n_errors}",
+                        f"Uploading: {len(up)}, Downloading: {len(down)}",
                         "",
                     ]
 
@@ -512,7 +511,7 @@ def ls(dropbox_path: str, config_name: str, list_all: bool):
             try:
                 entries = m.list_folder(dropbox_path, recursive=False)
             except PathError:
-                click.echo("Error: No such directory on Dropbox: '{}'".format(dropbox_path))
+                click.echo(f"Error: No such directory on Dropbox: '{dropbox_path}'")
                 return
 
             if not entries:
@@ -586,7 +585,7 @@ def set_dir(config_name: str, new_path: str):
                 new_path = Maestral._ask_for_path(config_name)
             m.move_dropbox_directory(new_path)
 
-        click.echo("Dropbox folder moved to {}.".format(new_path))
+        click.echo(f"Dropbox folder moved to {new_path}.")
 
 
 @main.command(help_priority=14)
@@ -654,22 +653,6 @@ def rebuild_index(config_name: str):
         click.echo("Maestral does not appear to be linked.")
 
 
-@main.command(help_priority=16)
-@with_config_opt
-# @click.option("--snooze", "-s", default=30, help="Snooze notifications for given minutes.")
-@click.argument('level_name', required=False, type=click.Choice(['NONE', 'ERROR', 'SYNCISSUE', 'FILECHANGE']))
-def notify_level(config_name: str, level_name: str, snooze: int):
-    """Set the level for desktop notifications."""
-    # This is safe to call, even if the GUI or daemon are running.
-    from maestral.daemon import MaestralProxy
-    from maestral.utils.notify import Level
-
-    with MaestralProxy(config_name, fallback=True) as m:
-        m.set_conf("app", "notification_level", getattr(Level, level_name).value)
-
-    click.echo("Notification level set to {}.".format(level))
-
-
 @main.command(help_priority=17)
 @with_config_opt
 @click.option("--yes/--no", "-Y/-N", default=True)
@@ -682,7 +665,7 @@ def analytics(config_name: str, yes: bool):
         m.set_share_error_reports(yes)
 
     enabled_str = "Enabled" if yes else "Disabled"
-    click.echo("{} automatic crash reports.".format(enabled_str))
+    click.echo(f"{enabled_str} automatic crash reports.")
 
 
 @main.command(help_priority=19)
@@ -771,7 +754,7 @@ def excluded_add(dropbox_path: str, config_name: str):
                 return
             try:
                 m.exclude_folder(dropbox_path)
-                click.echo("Excluded directory '{}'.".format(dropbox_path))
+                click.echo(f"Excluded directory '{dropbox_path}'.")
             except ConnectionError:
                 click.echo("Could not connect to Dropbox.")
             except ValueError as e:
@@ -802,7 +785,7 @@ def excluded_remove(dropbox_path: str, config_name: str):
                     return
                 try:
                     m.include_folder(dropbox_path)
-                    click.echo("Included directory '{}'. Now downloading...".format(dropbox_path))
+                    click.echo(f"Included directory '{dropbox_path}'. Now downloading...")
                 except ConnectionError:
                     click.echo("Could not connect to Dropbox.")
                 except ValueError as e:
@@ -830,7 +813,7 @@ def log_show(config_name: str):
                 text = f.read()
             click.echo_via_pager(text)
         except OSError:
-            click.echo("Could not open log file at '{}'".format(log_file))
+            click.echo(f"Could not open log file at '{log_file}'")
     else:
         click.echo_via_pager("")
 
@@ -857,8 +840,7 @@ def log_clear(config_name: str):
     except FileNotFoundError:
         click.echo("Cleared Maestral's log.")
     except OSError:
-        click.echo("Could not clear log at '{}'. Please try to delete it "
-                   "manually".format(log_dir))
+        click.echo(f"Could not clear log at '{log_dir}'. Please try to delete it manually")
 
 
 @log.command(name="level", help_priority=2)
@@ -872,7 +854,7 @@ def log_level(config_name: str, level_name: str):
         level_num = logging._nameToLevel[level_name]
         with MaestralProxy(config_name, fallback=True) as m:
             m.set_log_level(level_num)
-        click.echo("Log level set to {}.".format(level_name))
+        click.echo(f"Log level set to {level_name}.")
     else:
         os.environ["MAESTRAL_CONFIG"] = config_name
         from maestral.config.main import MaestralConfig
@@ -881,7 +863,7 @@ def log_level(config_name: str, level_name: str):
 
         level_num = conf.get("app", "log_level")
         level_name = logging.getLevelName(level_num)
-        click.echo("Log level:  {}".format(level_name))
+        click.echo(f"Log level:  {level_name}")
 
 
 # ========================================================================================
@@ -912,11 +894,11 @@ def config_list():
 def config_add(name: str):
     """Sets up and activates a fresh Maestral configuration."""
     if name in _list_configs():
-        click.echo("Configuration '{}' already exists.".format(name))
+        click.echo(f"Configuration '{name}' already exists.")
     else:
         from maestral.config.main import MaestralConfig
         MaestralConfig(name)  # create instance to force file creation
-        click.echo("Created configuration '{}'.".format(name))
+        click.echo(f"Created configuration '{name}'.")
 
 
 @config.command(name="remove", help_priority=2)
@@ -924,48 +906,51 @@ def config_add(name: str):
 def config_remove(name: str):
     """Removes a Maestral configuration."""
     if name not in _list_configs():
-        click.echo("Configuration '{}' could not be found.".format(name))
+        click.echo(f"Configuration '{name}' could not be found.")
     else:
         from maestral.config.base import get_conf_path
         for file in os.listdir(get_conf_path("maestral")):
             if file.startswith(name):
                 os.unlink(os.path.join(get_conf_path("maestral"), file))
-        click.echo("Deleted configuration '{}'.".format(name))
+        click.echo(f"Deleted configuration '{name}'.")
 
 
 # ========================================================================================
 # Notifications commands
 # ========================================================================================
 
-@notifications.command(name="level", help_priority=0)
-@with_config_opt
+@notify.command(name="level", help_priority=0)
 @click.argument('level_name', required=False, type=click.Choice(['NONE', 'ERROR', 'SYNCISSUE', 'FILECHANGE']))
-def notify_level(config_name: str, level_name: str, snooze: int):
-    """Gets or sets the level for desktop notifications."""
+@with_config_opt
+def notify_level(config_name: str, level_name: str):
+    """Gets or sets the level for desktop notify."""
     from maestral.daemon import MaestralProxy
     from maestral.utils.notify import levelNameToNumber, levelNumberToName
 
     if level_name:
         with MaestralProxy(config_name, fallback=True) as m:
-            m.set_conf("app", "notification_level", levelNameToNumber(level_name))
+            m.set_conf("app", "notification_level", level_name)
 
-        click.echo("Notification level set to {}.".format(level_name))
+        click.echo(f"Notification level set to {level_name}.")
 
     else:
         with MaestralProxy(config_name, fallback=True) as m:
-            level_num = m.get_conf("app", "notification_level")
+            level_name = m.get_conf("app", "notification_level")
 
-        click.echo("Notification level: {}.".format(levelNumberToName(level_num)))
+        click.echo(f"Notification level: {level_name}.")
 
 
-@notifications.command(name="snooze", help_priority=1)
-@with_config_opt
+@notify.command(name="snooze", help_priority=1)
 @click.argument('minutes', type=click.IntRange(0, 24*60))
+@with_config_opt
 def notify_snooze(config_name: str, minutes: int):
-    """Snoozes desktop notifications for n minutes."""
+    """Snoozes desktop notify for n minutes."""
 
     from maestral.daemon import MaestralProxy
     with MaestralProxy(config_name, fallback=True) as m:
         m.snooze_notifications(minutes)
 
-    click.echo("Notifications snoozed for {} min.".format(minutes))
+    if minutes > 0:
+        click.echo(f"Notifications snoozed for {minutes} min. Set snooze to 0 min to reset.")
+    else:
+        click.echo(f"Notifications enabled.")
