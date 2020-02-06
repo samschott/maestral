@@ -246,7 +246,7 @@ def catch_sync_issues(sync_errors=None, failed_items=None):
                     res = True
             except SyncError as exc:
                 file_name = os.path.basename(exc.dbx_path)
-                logger.warning(f"Could not sync f{file_name}", exc_info=True)
+                logger.warning(f"Could not sync {file_name}", exc_info=True)
                 if exc.dbx_path is not None:
                     if exc.local_path is None:
                         exc.local_path = self.to_local_path(exc.dbx_path)
