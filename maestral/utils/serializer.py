@@ -32,7 +32,9 @@ def maestral_error_to_dict(err):
         type=err.__class__.__name__,
         inherits=[str(b) for b in err.__class__.__bases__],
         cause=err.__cause__,
-        traceback="".join(traceback.format_exception(err.__class__, err, err.__traceback__))
+        traceback="".join(traceback.format_exception(err.__class__, err, err.__traceback__)),
+        title="An unexpected error occurred",
+        message="Please restart Maestral to continue syncing.",
     )
     dictionary.update(err.__dict__)
 
