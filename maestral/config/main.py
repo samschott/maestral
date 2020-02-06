@@ -50,10 +50,10 @@ DEFAULTS = [
      ),
     ('app',  # app settings
      {
-         'notifications': True,  # enable / disable system tray notifications
+         'notification_level': 'FILECHANGE',  # desktop notifications for file changes
          'log_level': 20,  # log level for file log, defaults to INFO
          'update_notification_last': 0.0,  # last notification about updates
-         'update_notification_interval': 60*60*24*7,  # interval to check for updates (sec)
+         'update_notification_interval': 60*60*24*7,  # interval to check for updates, sec
          'latest_release': '0.0.0',  # latest available release
          'analytics': False,  # automatically report crashes and errors with bugsnag
      }
@@ -78,7 +78,7 @@ DEFAULTS = [
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = '9.1.0'
+CONF_VERSION = '10.0.0'
 
 
 class MaestralConfig(object):

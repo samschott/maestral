@@ -1494,7 +1494,7 @@ class UpDownSync(object):
         :param list changes: List of Dropbox metadata which has been applied locally.
         """
 
-        if self._conf.get("app", "notifications") < Level.FILECHANGE:
+        if self._conf.get("app", "notification_level") < Level.FILECHANGE:
             return
 
         # get number of remote changes

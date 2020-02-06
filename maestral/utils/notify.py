@@ -195,17 +195,17 @@ system_notifier = DesktopNotifier()
 class MaestralDesktopNotifier(logging.Handler):
 
     def __init__(self, config_name='maestral'):
-        super().__init__(format(logging.Formatter(fmt="%(message)s")))
+        super().__init__()
         self.setFormatter(logging.Formatter(fmt="%(message)s"))
         self._conf = MaestralConfig(config_name)
         self._snooze = 0
 
     @property
-    def level(self):
-        return self._conf.get('app', 'notification_level')
+    def notify_level(self):
+        return getattr(Level, self._conf.get('app', 'notification_level'))
 
-    @level.setter
-    def level(self, level):
+    @notify_level.setter
+    def notify_level(self, level):
         assert level in Level
         self._conf.set('app', 'notification_level', level.value)
 
@@ -218,7 +218,7 @@ class MaestralDesktopNotifier(logging.Handler):
 
     def notify(self, message, level):
 
-        if level >= self._conf.get('app', 'notification_level') and not self.snoozed:
+        if level >= self.notify_level and not self.snoozed:
             system_notifier.send(
                 title='Maestral',
                 message=message,
