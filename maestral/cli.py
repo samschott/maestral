@@ -573,7 +573,7 @@ def unlink(config_name: str):
 @main.command(help_priority=12)
 @with_config_opt
 @click.argument('new_path', required=False, type=click.Path(writable=True))
-def set_dir(config_name: str, new_path: str):
+def move_dir(config_name: str, new_path: str):
     """Change the location of your Dropbox folder."""
 
     if _is_maestral_linked(config_name):

@@ -13,6 +13,9 @@
     handled by the daemon, this currently means duplicate notifications when using the
     GUI: a permanent alert window and a temporary desktop notification.
     
+- Renamed `set-dir` command to `move-dir` to emphasize that it moves the local Dropbox
+  folder.
+    
 #### Fixed:
 
 - Correctly handle Dropbox server errors.
