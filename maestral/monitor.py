@@ -45,7 +45,7 @@ from maestral.errors import (MaestralApiError, SyncError, RevFileError,
                              DropboxDeletedError, DropboxAuthError,
                              ExcludedItemError, PathError, InotifyError)
 from maestral.utils.content_hasher import DropboxContentHasher
-from maestral.utils.notify import desktop_notifier
+from maestral.utils.notify import MaestralDesktopNotifier, Level
 from maestral.utils.path import (is_child, path_exists_case_insensitive,
                                  delete_file_or_folder)
 
@@ -319,13 +319,14 @@ class UpDownSync(object):
     __slots__ = (
         "client", "local_file_event_queue", "queue_uploading", "queue_downloading",
         "_dropbox_path", "_excluded_files", "_excluded_folders", "_rev_dict_cache",
-        "_conf",
+        "_conf", "notifier"
     )
 
     def __init__(self, client, local_file_event_queue, queue_uploading, queue_downloading,
                  config_name='maestral'):
 
         self._conf = MaestralConfig(config_name)
+        self.notifier = MaestralDesktopNotifier(config_name)
 
         self.client = client
         self.local_file_event_queue = local_file_event_queue
@@ -1493,7 +1494,7 @@ class UpDownSync(object):
         :param list changes: List of Dropbox metadata which has been applied locally.
         """
 
-        if not self._conf.get("app", "notifications"):
+        if self._conf.get("app", "notifications") < Level.FILECHANGE:
             return
 
         # get number of remote changes
@@ -1540,20 +1541,22 @@ class UpDownSync(object):
                 change_type = "changed"
 
             if user_name:
-                desktop_notifier.send(f"{user_name} {change_type} {file_name}")
+                msg = f"{user_name} {change_type} {file_name}"
             else:
-                desktop_notifier.send(f"{file_name} {change_type}")
+                msg = f"{file_name} {change_type}"
 
-        elif n_changed > 1:
+        else:
             # for multiple changes, display user name if all equal
             if all(isinstance(x, DeletedMetadata) for x in changes):
                 change_type = "removed"
             else:
                 change_type = "changed"
             if user_name:
-                desktop_notifier.send(f"{user_name} {change_type} {n_changed} files")
+                msg = f"{user_name} {change_type} {n_changed} files"
             else:
-                desktop_notifier.send(f"{n_changed} files {change_type}")
+                msg = f"{n_changed} files {change_type}"
+
+        self.notifier.notify(msg, level=Level.FILECHANGE)
 
     @staticmethod
     def _sort_remote_entries(result):

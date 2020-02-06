@@ -253,6 +253,12 @@ def config():
     """Manage different Maestral configuration environments."""
 
 
+@main.group(cls=SpecialHelpOrder, help_priority=16)
+@with_config_opt
+def notifications():
+    """Manage Desktop notifications."""
+
+
 @main.group(cls=SpecialHelpOrder, help_priority=18)
 def log():
     """View and manage Maestral's log."""
@@ -543,7 +549,8 @@ def link(config_name: str, relink: bool):
         auth.link()
 
     else:
-        click.echo("Maestral is already linked. Use the option '-r' to relink to the same account.")
+        click.echo("Maestral is already linked. Use the option "
+                   "'-r' to relink to the same account.")
 
 
 @main.command(help_priority=11)
@@ -649,18 +656,18 @@ def rebuild_index(config_name: str):
 
 @main.command(help_priority=16)
 @with_config_opt
-@click.option("--yes/--no", "-Y/-N", default=True)
-def notifications(config_name: str, yes: bool):
-    """Enables or disables notifications for file changes. Notifications
-    for errors will always be enabled."""
+# @click.option("--snooze", "-s", default=30, help="Snooze notifications for given minutes.")
+@click.argument('level_name', required=False, type=click.Choice(['NONE', 'ERROR', 'SYNCISSUE', 'FILECHANGE']))
+def notify_level(config_name: str, level_name: str, snooze: int):
+    """Set the level for desktop notifications."""
     # This is safe to call, even if the GUI or daemon are running.
     from maestral.daemon import MaestralProxy
+    from maestral.utils.notify import Level
 
     with MaestralProxy(config_name, fallback=True) as m:
-        m.set_conf("app", "notifications", yes)
+        m.set_conf("app", "notification_level", getattr(Level, level_name).value)
 
-    enabled_str = "Enabled" if yes else "Disabled"
-    click.echo("{} system notifications.".format(enabled_str))
+    click.echo("Notification level set to {}.".format(level))
 
 
 @main.command(help_priority=17)
@@ -924,3 +931,41 @@ def config_remove(name: str):
             if file.startswith(name):
                 os.unlink(os.path.join(get_conf_path("maestral"), file))
         click.echo("Deleted configuration '{}'.".format(name))
+
+
+# ========================================================================================
+# Notifications commands
+# ========================================================================================
+
+@notifications.command(name="level", help_priority=0)
+@with_config_opt
+@click.argument('level_name', required=False, type=click.Choice(['NONE', 'ERROR', 'SYNCISSUE', 'FILECHANGE']))
+def notify_level(config_name: str, level_name: str, snooze: int):
+    """Gets or sets the level for desktop notifications."""
+    from maestral.daemon import MaestralProxy
+    from maestral.utils.notify import levelNameToNumber, levelNumberToName
+
+    if level_name:
+        with MaestralProxy(config_name, fallback=True) as m:
+            m.set_conf("app", "notification_level", levelNameToNumber(level_name))
+
+        click.echo("Notification level set to {}.".format(level_name))
+
+    else:
+        with MaestralProxy(config_name, fallback=True) as m:
+            level_num = m.get_conf("app", "notification_level")
+
+        click.echo("Notification level: {}.".format(levelNumberToName(level_num)))
+
+
+@notifications.command(name="snooze", help_priority=1)
+@with_config_opt
+@click.argument('minutes', type=click.IntRange(0, 24*60))
+def notify_snooze(config_name: str, minutes: int):
+    """Snoozes desktop notifications for n minutes."""
+
+    from maestral.daemon import MaestralProxy
+    with MaestralProxy(config_name, fallback=True) as m:
+        m.snooze_notifications(minutes)
+
+    click.echo("Notifications snoozed for {} min.".format(minutes))

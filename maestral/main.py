@@ -39,8 +39,8 @@ except ImportError:
 from maestral import __version__
 from maestral.monitor import MaestralMonitor
 from maestral.utils import handle_disconnect, with_sync_paused
-from maestral.utils.path import is_child, path_exists_case_insensitive
-from maestral.utils.notify import desktop_notifier
+from maestral.utils.path import is_child, path_exists_case_insensitive, delete_file_or_folder
+from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
 )
@@ -109,14 +109,6 @@ class SdNotificationHandler(logging.Handler):
 
     def emit(self, record):
         sd_notifier.notify(f"STATUS={record.message}")
-
-
-class DesktopNotificationHandler(logging.Handler):
-    """Handler which emits messages as desktop notifications."""
-
-    def emit(self, record):
-        self.format(record)
-        desktop_notifier.send(record.message)
 
 
 # ========================================================================================
@@ -243,9 +235,8 @@ class Maestral(object):
         # log to desktop notifications
         # 'file changed' events will be collated and sent as desktop
         # notifications by the monitor directly, we don't handle them here
-        self._log_handler_desktop = DesktopNotificationHandler()
+        self._log_handler_desktop = MaestralDesktopNotifier(self.config_name)
         self._log_handler_desktop.setLevel(logging.WARNING)
-        self._log_handler_desktop.setFormatter(log_fmt_short)
         mdbx_logger.addHandler(self._log_handler_desktop)
 
         # log to bugsnag (disabled by default)
@@ -285,6 +276,9 @@ class Maestral(object):
         self._log_handler_bugsnag.setLevel(logging.ERROR if enabled else 100)
 
         self._conf.set("app", "analytics", enabled)
+
+    def snooze_notifications(self, minutes):
+        self.sync.notifier.snooze(minutes)
 
     @staticmethod
     def pending_link(config_name):
