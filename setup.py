@@ -36,10 +36,10 @@ setup(
     long_description_content_type='text/markdown',
     packages=find_packages(),
     package_data={
-            'maestral': [
-                    'resources/*.png',
-                    ],
-            },
+        'maestral': [
+            'resources/*.png',
+            ],
+        },
     setup_requires=['wheel'],
     install_requires=[
         'blinker',
