@@ -237,7 +237,7 @@ class MaestralDesktopNotifier(logging.Handler):
     @property
     def snoozed(self):
         """Time in minutes that we will be snoozed"""
-        return max(0, round((self._snooze - time.time())/60))
+        return max(0.0, (self._snooze - time.time())/60)
 
     @snoozed.setter
     def snoozed(self, minutes=30):
