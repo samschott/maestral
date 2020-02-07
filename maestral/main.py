@@ -279,18 +279,22 @@ class Maestral(object):
 
     @property
     def notification_snooze(self):
+        """Snoozed time for desktop notifications in minutes."""
         return self.desktop_notifier.snoozed
 
     @notification_snooze.setter
     def notification_snooze(self, minutes):
+        """Setter: Snoozed time for desktop notifications in minutes."""
         self.desktop_notifier.snoozed = minutes
 
     @property
     def notification_level(self):
+        """Level for desktop notifications."""
         return self.desktop_notifier.notify_level
 
     @notification_level.setter
     def notification_level(self, level):
+        """Setter: Level for desktop notifications."""
         self.desktop_notifier.notify_level = level
 
     @staticmethod

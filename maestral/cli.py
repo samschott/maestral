@@ -947,7 +947,7 @@ def notify_level(config_name: str, level_name: str):
 @click.argument('minutes', type=click.IntRange(min=0))
 @with_config_opt
 def notify_snooze(config_name: str, minutes: int):
-    """Snoozes desktop notifications for given number of minutes."""
+    """Snoozes desktop notifications of file changes."""
 
     from maestral.daemon import MaestralProxy
 
