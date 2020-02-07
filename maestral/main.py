@@ -757,8 +757,7 @@ class Maestral(object):
 
         :param str new_path: Full path to local Dropbox folder. If not given, the user
             will be prompted to input the path.
-        :raises: ``FileExistsError`` if a file or folder already exists at the new
-            location.
+        :raises: ``OSError`` if moving the directory fails.
         """
 
         # get old and new paths
@@ -790,16 +789,12 @@ class Maestral(object):
 
         :param str path: Full path to local Dropbox folder. If not given, the user will be
             prompted to input the path.
+        :raises: ``OSError`` if creation fails
         """
         path = path or select_dbx_path_dialog(self._config_name, allow_merge=True)
 
-        try:
-            # create new folder
-            os.makedirs(path, exist_ok=True)
-        except OSError:
-            click.echo(f"Could not create directory '{path}'. Please check if you have "
-                       "permissions to write at this location.")
-            return
+        # create new folder
+        os.makedirs(path, exist_ok=True)
 
         # update config file and client
         self.sync.dropbox_path = path
