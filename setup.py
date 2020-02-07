@@ -61,8 +61,8 @@ setup(
             'sdnotify'
         ],
         'gui': [
-            'maestral_cocoa==0.1.0;sys_platform=="darwin"',
-            'maestral_qt==0.6.0;sys_platform=="linux"'
+            'maestral-cocoa==0.1.0;sys_platform=="darwin"',
+            'maestral-qt==0.6.0;sys_platform=="linux"'
         ],
     },
     zip_safe=False,
