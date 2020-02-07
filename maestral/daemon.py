@@ -362,7 +362,7 @@ def get_maestral_proxy(config_name="maestral", fallback=False):
     if fallback:
         from maestral.main import Maestral
         m = Maestral(config_name, run=False)
-        m._log_handler_stream.setLevel(logging.CRITICAL)
+        m.log_handler_stream.setLevel(logging.CRITICAL)
         return m
     else:
         raise Pyro5.errors.CommunicationError

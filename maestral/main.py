@@ -192,34 +192,34 @@ class Maestral(object):
 
         # log to file
         rfh_log_file = get_log_path("maestral", self._config_name + ".log")
-        self._log_handler_file = logging.handlers.RotatingFileHandler(rfh_log_file, maxBytes=10 ** 7, backupCount=1)
-        self._log_handler_file.setFormatter(log_fmt_long)
-        self._log_handler_file.setLevel(log_level)
-        mdbx_logger.addHandler(self._log_handler_file)
+        self.log_handler_file = logging.handlers.RotatingFileHandler(rfh_log_file, maxBytes=10 ** 7, backupCount=1)
+        self.log_handler_file.setFormatter(log_fmt_long)
+        self.log_handler_file.setLevel(log_level)
+        mdbx_logger.addHandler(self.log_handler_file)
 
         # log to journal when launched from systemd
         if INVOCATION_ID and journal:
-            self._log_handler_journal = journal.JournalHandler()
-            self._log_handler_journal.setFormatter(log_fmt_short)
-            self._log_handler_journal.setLevel(log_level)
-            mdbx_logger.addHandler(self._log_handler_journal)
+            self.log_handler_journal = journal.JournalHandler()
+            self.log_handler_journal.setFormatter(log_fmt_short)
+            self.log_handler_journal.setLevel(log_level)
+            mdbx_logger.addHandler(self.log_handler_journal)
         else:
-            self._log_handler_journal = None
+            self.log_handler_journal = None
 
         # send systemd notifications when started as 'notify' daemon
         if NOTIFY_SOCKET and sd_notifier:
-            self._log_handler_sd = SdNotificationHandler()
-            self._log_handler_sd.setFormatter(log_fmt_short)
-            self._log_handler_sd.setLevel(logging.INFO)
-            mdbx_logger.addHandler(self._log_handler_sd)
+            self.log_handler_sd = SdNotificationHandler()
+            self.log_handler_sd.setFormatter(log_fmt_short)
+            self.log_handler_sd.setLevel(logging.INFO)
+            mdbx_logger.addHandler(self.log_handler_sd)
         else:
-            self._log_handler_sd = None
+            self.log_handler_sd = None
 
         # log to stdout (disabled by default)
-        self._log_handler_stream = logging.StreamHandler(sys.stdout)
-        self._log_handler_stream.setFormatter(log_fmt_long)
-        self._log_handler_stream.setLevel(100)
-        mdbx_logger.addHandler(self._log_handler_stream)
+        self.log_handler_stream = logging.StreamHandler(sys.stdout)
+        self.log_handler_stream.setFormatter(log_fmt_long)
+        self.log_handler_stream.setLevel(100)
+        mdbx_logger.addHandler(self.log_handler_stream)
 
         # log to cached handlers for GUI and CLI
         self._log_handler_info_cache = CachedHandler(maxlen=1)
@@ -235,9 +235,9 @@ class Maestral(object):
         # log to desktop notifications
         # 'file changed' events will be collated and sent as desktop
         # notifications by the monitor directly, we don't handle them here
-        self._log_handler_desktop = MaestralDesktopNotifier(self.config_name)
-        self._log_handler_desktop.setLevel(logging.WARNING)
-        mdbx_logger.addHandler(self._log_handler_desktop)
+        self.desktop_notifier = MaestralDesktopNotifier(self.config_name)
+        self.desktop_notifier.setLevel(logging.WARNING)
+        mdbx_logger.addHandler(self.desktop_notifier)
 
         # log to bugsnag (disabled by default)
         self._log_handler_bugsnag = BugsnagHandler()
@@ -255,19 +255,19 @@ class Maestral(object):
         return self._conf.get(section, name)
 
     def set_log_level(self, level_num):
-        self._log_handler_file.setLevel(level_num)
-        self._log_handler_stream.setLevel(level_num)
-        if self._log_handler_journal:
-            self._log_handler_journal.setLevel(level_num)
+        self.log_handler_file.setLevel(level_num)
+        self.log_handler_stream.setLevel(level_num)
+        if self.log_handler_journal:
+            self.log_handler_journal.setLevel(level_num)
         self._conf.set("app", "log_level", level_num)
 
     def set_log_to_stdout(self, enabled=True):
 
         if enabled:
             log_level = self._conf.get("app", "log_level")
-            self._log_handler_stream.setLevel(log_level)
+            self.log_handler_stream.setLevel(log_level)
         else:
-            self._log_handler_stream.setLevel(100)
+            self.log_handler_stream.setLevel(100)
 
     def set_share_error_reports(self, enabled):
 
