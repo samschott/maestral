@@ -81,39 +81,38 @@ DEFAULTS = [
 CONF_VERSION = '10.0.0'
 
 
-class MaestralConfig(object):
+class MaestralConfig:
     """Singleton config instance for Maestral"""
 
     _instances = {}
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, config_name):
         """
         Create new instance for a new config name, otherwise return existing instance.
         """
-        name = args[0]
 
-        if name in cls._instances:
-            return cls._instances[args[0]]
+        if config_name in cls._instances:
+            return cls._instances[config_name]
         else:
             defaults = copy.deepcopy(DEFAULTS)
             # set default dir name according to config
             for sec, options in defaults:
                 if sec == 'main':
-                    options['default_dir_name'] = f'Dropbox ({name.title()})'
+                    options['default_dir_name'] = f'Dropbox ({config_name.title()})'
 
             path = get_conf_path('maestral', create=True)
             try:
                 conf = UserConfig(
-                    path, name, defaults=defaults, version=CONF_VERSION, load=True,
+                    path, config_name, defaults=defaults, version=CONF_VERSION, load=True,
                     backup=True, raw_mode=True, remove_obsolete=True
                 )
             except OSError:
                 conf = UserConfig(
-                    path, name, defaults=defaults, version=CONF_VERSION, load=False,
+                    path, config_name, defaults=defaults, version=CONF_VERSION, load=False,
                     backup=True, raw_mode=True, remove_obsolete=True
                 )
 
-            conf._name = name
+            conf._name = config_name
 
-            cls._instances[args[0]] = conf
+            cls._instances[config_name] = conf
             return conf
