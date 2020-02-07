@@ -932,15 +932,15 @@ def notify_level(config_name: str, level_name: str):
 
     if level_name:
         with MaestralProxy(config_name, fallback=True) as m:
-            m.set_conf('app', 'notification_level', levelNameToNumber(level_name))
+            m.notification_level = levelNameToNumber(level_name)
 
         click.echo(f'Notification level set to {level_name}.')
 
     else:
         with MaestralProxy(config_name, fallback=True) as m:
-            level_num = m.get_conf('app', 'notification_level')
+            level_name = levelNumberToName(m.notification_level)
 
-        click.echo(f'Notification level: {levelNumberToName(level_num)}.')
+        click.echo(f'Notification level: {level_name}.')
 
 
 @notify.command(name='snooze', help_priority=1)
@@ -953,7 +953,7 @@ def notify_snooze(config_name: str, minutes: int):
 
     try:
         with MaestralProxy(config_name) as m:
-            m.snooze_notifications(minutes)
+            m.notification_snooze = minutes
     except Pyro5.errors.CommunicationError:
         click.echo('Maestral daemon is not running.')
     else:

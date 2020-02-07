@@ -199,6 +199,11 @@ system_notifier = DesktopNotifier()
 
 
 class MaestralDesktopNotifier(logging.Handler):
+    """
+    Can be used as a standalone notifier or as a logging handler.
+    When used as a logging handler, the log level should be set with ``setLevel``. The
+    ``notify_level`` applied additionally to filter our custom levels, e.g., FILECHANGE.
+    """
 
     _instances = {}
 
@@ -229,13 +234,14 @@ class MaestralDesktopNotifier(logging.Handler):
         assert isinstance(level, int)
         self._conf.set('app', 'notification_level', level)
 
-    def snooze(self, minutes=30):
-        self._snooze = time.time() + minutes*60
-
     @property
     def snoozed(self):
         """Time in minutes that we will be snoozed"""
         return max(0, round((self._snooze - time.time())/60))
+
+    @snoozed.setter
+    def snoozed(self, minutes=30):
+        self._snooze = time.time() + minutes*60
 
     def notify(self, message, level):
 

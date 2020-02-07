@@ -277,12 +277,21 @@ class Maestral(object):
 
         self._conf.set("app", "analytics", enabled)
 
-    def snooze_notifications(self, minutes):
-        self.desktop_notifier.snooze(minutes)
+    @property
+    def notification_snooze(self):
+        return self.desktop_notifier.snoozed
+
+    @notification_snooze.setter
+    def notification_snooze(self, minutes):
+        self.desktop_notifier.snoozed = minutes
 
     @property
-    def notifications_snoozed(self):
-        return self.desktop_notifier.snoozed
+    def notification_level(self):
+        return self.desktop_notifier.notify_level
+
+    @notification_level.setter
+    def notification_level(self, level):
+        self.desktop_notifier.notify_level = level
 
     @staticmethod
     def pending_link(config_name):
