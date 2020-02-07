@@ -200,7 +200,21 @@ system_notifier = DesktopNotifier()
 
 class MaestralDesktopNotifier(logging.Handler):
 
-    def __init__(self, config_name='maestral'):
+    _instances = {}
+
+    def __new__(cls, config_name):
+        """
+        Create new instance for a new config name, otherwise return existing instance.
+        """
+
+        if config_name in cls._instances:
+            return cls._instances[config_name]
+        else:
+            instance = super().__new__(cls)
+            cls._instances[config_name] = instance
+            return instance
+
+    def __init__(self, config_name):
         super().__init__()
         self.setFormatter(logging.Formatter(fmt="%(message)s"))
         self._conf = MaestralConfig(config_name)
@@ -220,7 +234,8 @@ class MaestralDesktopNotifier(logging.Handler):
 
     @property
     def snoozed(self):
-        return time.time() < self._snooze
+        """Time in minutes that we will be snoozed"""
+        return max(0, round(self._snooze - time.time()))
 
     def notify(self, message, level):
 
