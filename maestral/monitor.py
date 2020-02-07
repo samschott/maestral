@@ -286,7 +286,7 @@ class InQueue(object):
         remove_from_queue(self.custom_queue, self.name)
 
 
-class UpDownSync(object):
+class UpDownSync:
     """
     Class that contains methods to sync local file events with Dropbox and vice versa.
 
@@ -317,18 +317,20 @@ class UpDownSync(object):
     queued_folder_downloads = queue.Queue()
 
     __slots__ = (
-        "client", "local_file_event_queue", "queue_uploading", "queue_downloading",
+        "client", "config_name",
+        "local_file_event_queue", "queue_uploading", "queue_downloading",
         "_dropbox_path", "_excluded_files", "_excluded_folders", "_rev_dict_cache",
         "_conf", "notifier"
     )
 
-    def __init__(self, client, local_file_event_queue, queue_uploading, queue_downloading,
-                 config_name='maestral'):
-
-        self._conf = MaestralConfig(config_name)
-        self.notifier = MaestralDesktopNotifier(config_name)
+    def __init__(self, client, local_file_event_queue, queue_uploading, queue_downloading):
 
         self.client = client
+        self.config_name = self.client.config_name
+
+        self._conf = MaestralConfig(self.config_name)
+        self.notifier = MaestralDesktopNotifier(self.config_name)
+
         self.local_file_event_queue = local_file_event_queue
         self.queue_uploading = queue_uploading
         self.queue_downloading = queue_downloading
@@ -1865,7 +1867,7 @@ def upload_worker(sync, syncing, running, connected):
 # Main Monitor class to start, stop and coordinate threads
 # ========================================================================================
 
-class MaestralMonitor(object):
+class MaestralMonitor:
     """
     Class to sync changes between Dropbox and a local folder. It creates four
     threads: `observer` to catch local file events, `upload_thread` to upload
@@ -1899,7 +1901,7 @@ class MaestralMonitor(object):
     connected_signal = signal("connected_signal")
     disconnected_signal = signal("disconnected_signal")
 
-    def __init__(self, client, config_name='maestral'):
+    def __init__(self, client):
 
         self._auto_resume_on_connect = False
 
@@ -1908,13 +1910,13 @@ class MaestralMonitor(object):
         self.running = Event()
 
         self.client = client
+        self.config_name = self.client.config_name
         self.file_handler = FileEventHandler(
             self.syncing, self.local_file_event_queue, self.queue_downloading
         )
 
         self.sync = UpDownSync(self.client, self.local_file_event_queue,
-                               self.queue_uploading, self.queue_downloading,
-                               config_name=config_name)
+                               self.queue_uploading, self.queue_downloading)
 
     @property
     def uploading(self):

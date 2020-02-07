@@ -134,8 +134,8 @@ class Maestral(object):
         self._setup_logging()
         self.set_share_error_reports(self._conf.get("app", "analytics"))
 
-        self.client = MaestralApiClient(config_name=self._config_name)
-        self.monitor = MaestralMonitor(self.client, config_name=self._config_name)
+        self.client = MaestralApiClient(self._config_name)
+        self.monitor = MaestralMonitor(self.client)
         self.sync = self.monitor.sync
 
         # periodically check for updates and refresh account info

@@ -143,6 +143,8 @@ class MaestralApiClient(object):
 
     def __init__(self, config_name='maestral', timeout=_timeout):
 
+        self.config_name = config_name
+
         self._conf = MaestralConfig(config_name)
 
         # get Dropbox session
