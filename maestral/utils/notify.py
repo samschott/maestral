@@ -245,7 +245,9 @@ class MaestralDesktopNotifier(logging.Handler):
 
     def notify(self, message, level):
 
-        if level >= self.notify_level and not self.snoozed:
+        ignore = (self.snoozed and level == FILECHANGE)
+
+        if level >= self.notify_level and not ignore:
             system_notifier.send(
                 title='Maestral',
                 message=message,
