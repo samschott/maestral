@@ -339,16 +339,6 @@ class Maestral(object):
         return self._log_handler_info_cache.getLastMessage()
 
     @property
-    def notify(self):
-        """Bool indicating if notifications are enabled or disabled."""
-        return self.sync.notify.enabled
-
-    @notify.setter
-    def notify(self, boolean):
-        """Setter: Bool indicating if notifications are enabled."""
-        self.sync.notify.enabled = boolean
-
-    @property
     def dropbox_path(self):
         """Returns the path to the local Dropbox directory. Read only. Use
         :meth:`create_dropbox_directory` or :meth:`move_dropbox_directory` to set or
