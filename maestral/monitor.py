@@ -112,7 +112,7 @@ class FileEventHandler(FileSystemEventHandler):
         any file events.
 
         :param str local_path: Local path to file.
-        :return: ``True`` if the file is currently being downloaded, ``False`` otherwise.
+        :returns: ``True`` if the file is currently being downloaded, ``False`` otherwise.
         :rtype: bool
         """
 
@@ -132,7 +132,7 @@ class FileEventHandler(FileSystemEventHandler):
         Checks if :param:`local_path` refers to our rev file.
 
         :param str local_path: Local path to file.
-        :return: ``True`` if yes, ``False`` otherwise.
+        :returns: ``True`` if yes, ``False`` otherwise.
         :rtype: bool
         """
 
@@ -449,7 +449,7 @@ class UpDownSync:
         Converts a local path to a path relative to the Dropbox folder.
 
         :param str local_path: Full path to file in local Dropbox folder.
-        :return: Relative path with respect to Dropbox folder.
+        :returns: Relative path with respect to Dropbox folder.
         :rtype: str
         :raises: ValueError if no path is specified or path is outside of local
             Dropbox folder.
@@ -488,7 +488,7 @@ class UpDownSync:
         casing on the local drive.
 
         :param str dbx_path: Path to file relative to Dropbox folder.
-        :return: Corresponding local path on drive.
+        :returns: Corresponding local path on drive.
         :rtype: str
         :raises: ValueError if no path is specified.
         """
@@ -583,7 +583,7 @@ class UpDownSync:
         Returns a copy of the revision index containing the revision
         numbers for all synced files and folders.
 
-        :return: Copy of revision index.
+        :returns: Copy of revision index.
         :rtype: dict
         """
         with self._rev_lock:
@@ -594,7 +594,7 @@ class UpDownSync:
         Gets revision number of local file.
 
         :param str dbx_path: Dropbox file path.
-        :return: Revision number as str or `None` if no local revision number
+        :returns: Revision number as str or `None` if no local revision number
             has been saved.
         :rtype: str
         """
@@ -668,7 +668,7 @@ class UpDownSync:
         Check if file is excluded from sync.
 
         :param str dbx_path: Path of folder on Dropbox.
-        :return: ``True`` or `False`.
+        :returns: ``True`` or `False`.
         :rtype: bool
         """
         dbx_path = dbx_path.lower()
@@ -699,7 +699,7 @@ class UpDownSync:
         Check if file has been excluded from sync by the user.
 
         :param str dbx_path: Path of folder on Dropbox.
-        :return: ``True`` or `False`.
+        :returns: ``True`` or `False`.
         :rtype: bool
         """
         dbx_path = dbx_path.lower()
@@ -741,7 +741,7 @@ class UpDownSync:
         Gets all local changes while app has not been running. Call this method
         on startup of `MaestralMonitor` to upload all local changes.
 
-        :return: Dictionary with all changes, keys are file paths relative to
+        :returns: Dictionary with all changes, keys are file paths relative to
             local Dropbox folder, entries are watchdog file changed events.
         :rtype: dict
         """
@@ -804,7 +804,7 @@ class UpDownSync:
         :param float timeout: If no changes are detected within timeout (sec), an empty
             list is returned.
         :param delay: Delay in sec to wait for subsequent changes that may be duplicates.
-        :return: (list of file events, time_stamp)
+        :returns: (list of file events, time_stamp)
         :rtype: (list, float)
         """
         self.ensure_dropbox_folder_present()
@@ -912,7 +912,7 @@ class UpDownSync:
         there is only a single event per path.
 
         :param events: Iterable of :class:`watchdog.FileSystemEvents`.
-        :return: List of :class:`watchdog.FileSystemEvents`.
+        :returns: List of :class:`watchdog.FileSystemEvents`.
         :rtype: list
         """
 
@@ -984,7 +984,7 @@ class UpDownSync:
         """
         Sorts local events into DirEvents and FileEvents.
 
-        :return: Tuple of (folders, files)
+        :returns: Tuple of (folders, files)
         :rtype: tuple
         """
 
@@ -999,7 +999,7 @@ class UpDownSync:
 
         :param list events: List of local file changes.
         :param float local_cursor: Time stamp of last event in `events`.
-        :return: ``True`` if all changes have been uploaded successfully, ``False``
+        :returns: ``True`` if all changes have been uploaded successfully, ``False``
             otherwise.
         :rtype: bool
         """
@@ -1285,7 +1285,7 @@ class UpDownSync:
 
         :param str dbx_path: Path to Dropbox folder. Defaults to root ("").
         :param bool ignore_excluded: If ``True``, do not index excluded folders.
-        :return: ``True`` on success, ``False`` otherwise.
+        :returns: ``True`` on success, ``False`` otherwise.
         :rtype: bool
         """
 
@@ -1334,7 +1334,7 @@ class UpDownSync:
         """Removes all excluded items from the given list of changes.
 
         :param changes: :class:`dropbox.files.ListFolderResult` instance.
-        :return: (changes_filtered, changes_discarded)
+        :returns: (changes_filtered, changes_discarded)
         :rtype: tuple[:class:`dropbox.files.ListFolderResult`]
         """
         # filter changes from non-excluded folders
@@ -1360,7 +1360,7 @@ class UpDownSync:
         :param bool save_cursor: If True, :ivar:`last_cursor` will be updated
             from the last applied changes. Take care to only save a "global" and
             "recursive" cursor which represents the state of the entire Dropbox
-        :return: List of changes that were made to local files.
+        :returns: List of changes that were made to local files.
         :rtype: list
         """
 
@@ -1426,7 +1426,7 @@ class UpDownSync:
         uploading ("check_upload_conflict") will be carried out by Dropbox itself.
 
         :param str dbx_path: Path of folder on Dropbox.
-        :return: 0 for no conflict, 1 for conflict, 2 if files are identical.
+        :returns: 0 for no conflict, 1 for conflict, 2 if files are identical.
         :rtype: int
         :raises: MaestralApiError if the Dropbox item does not exist.
         """
@@ -1566,7 +1566,7 @@ class UpDownSync:
         Sorts entries in :class:`dropbox.files.ListFolderResult` into
         FolderMetadata, FileMetadata and DeletedMetadata.
 
-        :return: Tuple of (folders, files, deleted) containing instances of
+        :returns: Tuple of (folders, files, deleted) containing instances of
             :class:`DeletedMetadata`, `:class:FolderMetadata`,
             and :class:`FileMetadata` respectively.
         :rtype: tuple

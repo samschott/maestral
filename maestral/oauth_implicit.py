@@ -52,7 +52,7 @@ class DropboxOAuth2FlowImplicitBase(object):
 
         :param str target: A target url (e.g. "/files") to build upon.
         :param dict params: Optional dictionary of parameters (name to value).
-        :return: The path and parameters components of an API URL.
+        :returns: The path and parameters components of an API URL.
         :rtype: str
         """
 
@@ -79,7 +79,7 @@ class DropboxOAuth2FlowImplicitBase(object):
         :param str target: A target url (e.g. "/files") to build upon.
         :param dict params: Optional dictionary of parameters (name to value).
         :param str host: The host url.
-        :return: The full API URL.
+        :returns: The full API URL.
         :rtype: str
         """
         return "https://%s%s" % (host, self.build_path(target, params))
@@ -140,7 +140,7 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
         :param str url_state: Any data that you would like to keep in the URL
             through the authorization process.  This exact value will be
             returned to you by :meth:`finish()`.
-        :return: The URL for a page on Dropbox's website.  This page will let
+        :returns: The URL for a page on Dropbox's website.  This page will let
             the user "approve" your app, which gives your app permission to
             access the user's Dropbox account. Tell the user to visit this URL
             and approve your app.

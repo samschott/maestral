@@ -74,7 +74,7 @@ class OAuth2Session(object):
         """
         Verify the provided authorization token with Dropbox servers.
 
-        :return: OAuth2Session.Success, OAuth2Session.InvalidToken, or
+        :returns: OAuth2Session.Success, OAuth2Session.InvalidToken, or
             OAuth2Session.ConnectionFailed
         :rtype: int
         """
