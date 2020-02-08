@@ -215,7 +215,7 @@ class MaestralDesktopNotifier(logging.Handler):
         if config_name in cls._instances:
             return cls._instances[config_name]
         else:
-            instance = super(MaestralDesktopNotifier, cls).__new__(cls)
+            instance = cls(config_name)
             cls._instances[config_name] = instance
             return instance
 
