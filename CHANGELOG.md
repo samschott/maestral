@@ -35,6 +35,7 @@
 - Set the log level for the systemd journal according to user settings instead of using 
   logging.DEBUG.
 - When invoking `maestral restart`, run checks for Dropbox folder location and link status.
+- Notify the user through the GUI when creating or moving the Dropbox directory fails.
 
 ## v0.5.2
 
