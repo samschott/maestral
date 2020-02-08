@@ -160,7 +160,7 @@ class Maestral(object):
         run as a systemd notify service.
         """
 
-        if self.pending_dropbox_folder():
+        if self.pending_dropbox_folder:
             self.create_dropbox_directory()
             self.set_excluded_folders()
 
@@ -316,10 +316,12 @@ class Maestral(object):
         """Setter: Level for desktop notifications."""
         self.desktop_notifier.notify_level = level
 
+    @property
     def pending_dropbox_folder(self):
         """Bool indicating if a local Dropbox directory has been created."""
         return not osp.isdir(self._conf.get("main", "path"))
 
+    @property
     def pending_first_download(self):
         """Bool indicating if the initial download has already occurred."""
         return (self._conf.get("internal", "lastsync") == 0 or
@@ -726,7 +728,7 @@ class Maestral(object):
         added_excluded_folders = set(excluded_folders) - set(old_excluded_folders)
         added_included_folders = set(old_excluded_folders) - set(excluded_folders)
 
-        if not self.pending_first_download():
+        if not self.pending_first_download:
             # apply changes
             for path in added_excluded_folders:
                 self.exclude_folder(path)
