@@ -48,7 +48,6 @@ from maestral.client import MaestralApiClient
 from maestral.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
 from maestral.utils.appdirs import get_log_path, get_cache_path, get_home_dir
 from maestral.utils.updates import check_update_available
-from maestral.oauth import OAuth2Session
 from maestral.errors import MaestralApiError
 from maestral.config.main import MaestralConfig
 
@@ -120,13 +119,20 @@ class Maestral(object):
 
     All methods and properties return objects or raise exceptions which can
     safely be serialized, i.e., pure Python types. The only exception are
-    MaestralApiErrors which have been registered explicitly with the serpent
-    serializer used by Pyro5.
+    MaestralApiErrors which need to be registered explicitly with the serpent
+    serializer used by Pyro5 in order to be transmitted to a frontend.
     """
 
     _daemon_running = True  # for integration with Pyro5
 
     def __init__(self, config_name='maestral', run=True):
+        """
+
+        :param str config_name: Name of maestral configuration to run. This will create
+            a new configuration file if none exists.
+        :param bool run: If ``True``, Maestral will start syncing immediately. Defaults to
+            ``True``.
+        """
 
         self._config_name = config_name
         self._conf = MaestralConfig(self._config_name)
@@ -150,8 +156,11 @@ class Maestral(object):
             self.run()
 
     def run(self):
+        """Runs setup if necessary, starts syncing, and starts systemd notifications if
+        run as a systemd notify service.
+        """
 
-        if self.pending_dropbox_folder(self._config_name):
+        if self.pending_dropbox_folder():
             self.create_dropbox_directory()
             self.set_excluded_folders()
 
@@ -179,6 +188,9 @@ class Maestral(object):
             self.watchdog_thread.start()
 
     def _setup_logging(self):
+        """Sets up logging to log files, status and error properties, desktop
+        notifications, the systemd journal if available, bugsnag if error reports are
+        enabled, and to stdout if requested."""
 
         log_level = self._conf.get("app", "log_level")
         mdbx_logger = logging.getLogger("maestral")
@@ -246,15 +258,20 @@ class Maestral(object):
 
     @property
     def config_name(self):
+        """The selected configuration."""
         return self._config_name
 
     def set_conf(self, section, name, value):
+        """Sets a configuration option."""
         self._conf.set(section, name, value)
 
     def get_conf(self, section, name):
+        """Gets a configuration option."""
         return self._conf.get(section, name)
 
     def set_log_level(self, level_num):
+        """Sets the log level for log files, the stream
+        handler and the systemd journal."""
         self.log_handler_file.setLevel(level_num)
         self.log_handler_stream.setLevel(level_num)
         if self.log_handler_journal:
@@ -262,6 +279,7 @@ class Maestral(object):
         self._conf.set("app", "log_level", level_num)
 
     def set_log_to_stdout(self, enabled=True):
+        """Enables or disables logging to stdout."""
 
         if enabled:
             log_level = self._conf.get("app", "log_level")
@@ -270,6 +288,7 @@ class Maestral(object):
             self.log_handler_stream.setLevel(100)
 
     def set_share_error_reports(self, enabled):
+        """Enables or disables logging of errors to bugsnag."""
 
         bugsnag.configuration.auto_notify = enabled
         bugsnag.configuration.auto_capture_sessions = enabled
@@ -297,30 +316,9 @@ class Maestral(object):
         """Setter: Level for desktop notifications."""
         self.desktop_notifier.notify_level = level
 
-    @staticmethod
-    def pending_link(config_name):
-        """
-        Bool indicating if auth tokens are stored in the system's keychain. This may raise
-        a KeyringLocked exception if the user's keychain cannot be accessed. This
-        exception will not be deserialized by Pyro5. You should check if Maestral is
-        linked before instantiating a daemon.
-
-        :param str config_name: Name of user config to check.
-
-        :raises: :class:`keyring.errors.KeyringLocked`
-        """
-        auth_session = OAuth2Session(config_name)
-        return auth_session.load_token() is None
-
-    @staticmethod
-    def pending_dropbox_folder(config_name):
-        """
-        Bool indicating if a local Dropbox directory has been set.
-
-        :param str config_name: Name of user config to check.
-        """
-        conf = MaestralConfig(config_name)
-        return not osp.isdir(conf.get("main", "path"))
+    def pending_dropbox_folder(self):
+        """Bool indicating if a local Dropbox directory has been created."""
+        return not osp.isdir(self._conf.get("main", "path"))
 
     def pending_first_download(self):
         """Bool indicating if the initial download has already occurred."""
@@ -405,8 +403,8 @@ class Maestral(object):
         """
         Returns the sync status of an individual file.
 
-        :param local_path: Path to file on the local drive.
-        :return: String indicating the sync status. Can be "uploading", "downloading",
+        :param str local_path: Path to file on the local drive.
+        :returns: String indicating the sync status. Can be "uploading", "downloading",
             "up to date", "error", or "unwatched" (for files outside of the Dropbox
             directory).
         :rtype: str
@@ -432,8 +430,10 @@ class Maestral(object):
 
     def get_activity(self):
         """
-        Returns a dictionary with lists of all file currently queued for or being synced.
+        Gets current upload / download activity.
 
+        :returns: A dictionary with lists of all files currently queued for or being
+            uploaded or downloaded.
         :rtype: dict(list, list)
         """
         PathItem = namedtuple("PathItem", "local_path status")
@@ -475,6 +475,7 @@ class Maestral(object):
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
+        :raises: :class:`MaestralApiError`
         """
         res = self.client.get_space_usage()
         return dropbox_stone_to_dict(res)
@@ -510,9 +511,10 @@ class Maestral(object):
         List all items inside the folder given by :param:`dbx_path`.
 
         :param dbx_path: Path to folder on Dropbox.
-        :return: List of Dropbox item metadata as dicts or ``False`` if listing failed
+        :returns: List of Dropbox item metadata as dicts or ``False`` if listing failed
             due to connection issues.
         :rtype: list[dict]
+        :raises: :class:`MaestralApiError`
         """
         dbx_path = "" if dbx_path == "/" else dbx_path
         res = self.client.list_folder(dbx_path, **kwargs)
@@ -698,7 +700,7 @@ class Maestral(object):
         On initial sync, this does not trigger any downloads.
 
         :param list folder_list: If given, list of excluded folder to set.
-        :return: List of excluded folders.
+        :returns: List of excluded folders.
         :rtype: list
         :raises: :class:`MaestralApiError`
         """
@@ -856,7 +858,13 @@ class Maestral(object):
 
 def select_dbx_path_dialog(config_name, allow_merge=False):
     """
-    Asks for Dropbox path.
+    A CLI dialog to ask for a local dropbox directory path.
+
+    :param str config_name: The configuration to use for the default folder name.
+    :param bool allow_merge: If ``True``, allows for selecting an existing path without
+        deleting it. Defaults to ``False``.
+    :returns: Path given by user.
+    :rtype: str
     """
 
     conf = MaestralConfig(config_name)

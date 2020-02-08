@@ -27,16 +27,16 @@ FAILED = click.style('[FAILED]', fg='red')
 KILLED = click.style('[KILLED]', fg='red')
 
 
-def _is_maestral_linked(config_name):
+def pending_link_cli(config_name):
     """
     This does not create a Maestral instance and is therefore safe to call from anywhere
     at any time.
     """
-    from maestral.main import Maestral
+    from maestral.utils import pending_link
     from keyring.errors import KeyringLocked
 
     try:
-        if Maestral.pending_link(config_name):
+        if pending_link(config_name):
             click.echo('No Dropbox account linked.')
             return False
         else:
@@ -291,6 +291,7 @@ def start(config_name: str, foreground: bool):
     """Starts the Maestral as a daemon."""
 
     from maestral.daemon import get_maestral_pid
+    from maestral.utils import pending_dropbox_folder
 
     # do nothing if already running
     if get_maestral_pid(config_name):
@@ -299,11 +300,8 @@ def start(config_name: str, foreground: bool):
 
     from maestral.main import Maestral
 
-    pending_link = not _is_maestral_linked(config_name)
-    pending_folder = Maestral.pending_dropbox_folder(config_name)
-
     # run setup if not yet done
-    if pending_link or pending_folder:
+    if pending_link_cli(config_name) or pending_dropbox_folder(config_name):
         m = Maestral(config_name, run=False)
         m.create_dropbox_directory()
         m.set_excluded_folders()
@@ -506,7 +504,7 @@ def ls(dropbox_path: str, config_name: str, list_all: bool):
     if not dropbox_path.startswith('/'):
         dropbox_path = '/' + dropbox_path
 
-    if _is_maestral_linked(config_name):
+    if pending_link_cli(config_name):
         from maestral.daemon import MaestralProxy
         from maestral.errors import PathError
 
@@ -539,7 +537,7 @@ def ls(dropbox_path: str, config_name: str, list_all: bool):
 def link(config_name: str, relink: bool):
     """Links Maestral with your Dropbox account."""
 
-    if relink or not _is_maestral_linked(config_name):
+    if relink or not pending_link_cli(config_name):
         from maestral.oauth import OAuth2Session
         from maestral.daemon import get_maestral_pid
 
@@ -562,7 +560,7 @@ def link(config_name: str, relink: bool):
 def unlink(config_name: str):
     """Unlinks your Dropbox account."""
 
-    if _is_maestral_linked(config_name):
+    if pending_link_cli(config_name):
 
         from maestral.main import Maestral
 
@@ -579,7 +577,7 @@ def unlink(config_name: str):
 def move_dir(config_name: str, new_path: str):
     """Change the location of your Dropbox folder."""
 
-    if _is_maestral_linked(config_name):
+    if pending_link_cli(config_name):
         from maestral.main import Maestral, select_dbx_path_dialog
         from maestral.daemon import MaestralProxy
 
@@ -597,7 +595,7 @@ def move_dir(config_name: str, new_path: str):
 def rebuild_index(config_name: str):
     """Rebuilds Maestral's index. May take several minutes."""
 
-    if _is_maestral_linked(config_name):
+    if pending_link_cli(config_name):
 
         import textwrap
 
@@ -676,7 +674,7 @@ def analytics(config_name: str, yes: bool):
 def account_info(config_name: str):
     """Prints your Dropbox account information."""
 
-    if _is_maestral_linked(config_name):
+    if pending_link_cli(config_name):
         from maestral.config.main import MaestralConfig
 
         conf = MaestralConfig(config_name)
@@ -719,7 +717,7 @@ def about():
 def excluded_list(config_name: str):
     """Lists all excluded folders."""
 
-    if _is_maestral_linked(config_name):
+    if pending_link_cli(config_name):
 
         from maestral.config.main import MaestralConfig
 
@@ -748,7 +746,7 @@ def excluded_add(dropbox_path: str, config_name: str):
         click.echo(click.style('Cannot exclude the root directory.', fg='red'))
         return
 
-    if _is_maestral_linked(config_name):
+    if pending_link_cli(config_name):
 
         from maestral.daemon import MaestralProxy
 
@@ -778,7 +776,7 @@ def excluded_remove(dropbox_path: str, config_name: str):
         click.echo(click.style('The root directory is always included.', fg='red'))
         return
 
-    if _is_maestral_linked(config_name):
+    if pending_link_cli(config_name):
 
         from maestral.daemon import MaestralProxy
 
