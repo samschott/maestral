@@ -38,9 +38,9 @@ def pending_link_cli(config_name):
     try:
         if pending_link(config_name):
             click.echo('No Dropbox account linked.')
-            return False
-        else:
             return True
+        else:
+            return False
     except KeyringLocked:
         click.echo('Error: Cannot access user keyring to load Dropbox credentials.')
 
