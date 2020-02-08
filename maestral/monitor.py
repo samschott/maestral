@@ -329,7 +329,7 @@ class UpDownSync:
         self.config_name = self.client.config_name
 
         self._conf = MaestralConfig(self.config_name)
-        self.notifier = MaestralDesktopNotifier(self.config_name)
+        self.notifier = MaestralDesktopNotifier.for_config(self.config_name)
 
         self.local_file_event_queue = local_file_event_queue
         self.queue_uploading = queue_uploading

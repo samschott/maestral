@@ -235,7 +235,7 @@ class Maestral(object):
         # log to desktop notifications
         # 'file changed' events will be collated and sent as desktop
         # notifications by the monitor directly, we don't handle them here
-        self.desktop_notifier = MaestralDesktopNotifier(self.config_name)
+        self.desktop_notifier = MaestralDesktopNotifier.for_config(self.config_name)
         self.desktop_notifier.setLevel(logging.WARNING)
         mdbx_logger.addHandler(self.desktop_notifier)
 

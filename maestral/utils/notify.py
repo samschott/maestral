@@ -202,20 +202,20 @@ class MaestralDesktopNotifier(logging.Handler):
     """
     Can be used as a standalone notifier or as a logging handler.
     When used as a logging handler, the log level should be set with ``setLevel``. The
-    ``notify_level`` applied additionally to filter our custom levels, e.g., FILECHANGE.
+    ``notify_level`` will be applied in addition to the log level.
     """
 
     _instances = {}
 
-    def __new__(cls, config_name):
-        """
-        Create new instance for a new config name, otherwise return existing instance.
-        """
+    @classmethod
+    def for_config(cls, config_name):
+        """Returns an existing instance for the config
+        or creates a new one if none exists."""
 
         if config_name in cls._instances:
             return cls._instances[config_name]
         else:
-            instance = super().__new__(cls)
+            instance = super(MaestralDesktopNotifier, cls).__new__(cls)
             cls._instances[config_name] = instance
             return instance
 
@@ -227,10 +227,12 @@ class MaestralDesktopNotifier(logging.Handler):
 
     @property
     def notify_level(self):
+        """Custom notification level."""
         return self._conf.get('app', 'notification_level')
 
     @notify_level.setter
     def notify_level(self, level):
+        """Setter: Custom notification level."""
         assert isinstance(level, int)
         self._conf.set('app', 'notification_level', level)
 
@@ -245,7 +247,7 @@ class MaestralDesktopNotifier(logging.Handler):
 
     def notify(self, message, level):
 
-        ignore = (self.snoozed and level == FILECHANGE)
+        ignore = self.snoozed and level == FILECHANGE
 
         if level >= self.notify_level and not ignore:
             system_notifier.send(
