@@ -116,15 +116,15 @@ class SdNotificationHandler(logging.Handler):
 # ========================================================================================
 
 class Maestral(object):
-    """
-    An open source Dropbox client for macOS and Linux to syncing a local folder
-    with your Dropbox account. All functions and properties return objects or
-    raise exceptions which can safely serialized, i.e., pure Python types. The only
-    exception are MaestralApiErrors which have been registered explicitly with the Pyro5
-    serializer.
+    """An open source Dropbox client for macOS and Linux.
+
+    All methods and properties return objects or raise exceptions which can
+    safely be serialized, i.e., pure Python types. The only exception are
+    MaestralApiErrors which have been registered explicitly with the serpent
+    serializer used by Pyro5.
     """
 
-    _daemon_running = True  # for integration with Pyro
+    _daemon_running = True  # for integration with Pyro5
 
     def __init__(self, config_name='maestral', run=True):
 
