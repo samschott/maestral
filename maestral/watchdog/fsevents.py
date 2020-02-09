@@ -1,7 +1,6 @@
 
 
 from watchdog.observers.fsevents import *
-from watchdog.events import EVENT_TYPE_DELETED, EVENT_TYPE_MOVED
 
 
 class OrderedFSEventsEmitter(FSEventsEmitter):
