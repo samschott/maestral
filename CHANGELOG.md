@@ -2,9 +2,13 @@
 
 #### Added:
 
-- Added native Cocoa GUI for macOS. This removed the PyQt5 dependency for macOS and
-  reduced the size of the bundled app from 50 MB to 15 MB. It also eliminates a few
-  inconsistencies in GUI appearance.
+- Added native Cocoa GUI for macOS. This removes the PyQt5 dependency for macOS and
+  reduces the size of the bundled app from 50 MB to 15 MB. It also eliminates a few
+  inconsistencies in GUI appearance. Especially the sync issues window looks a lot better
+  (hopefully you won't see it too often).
+- Added desktop notifications for errors: Serious errors such as revoked Dropbox access,
+  deleted Dropbox folder, etc, were previously only shown in the GUI as an alert window 
+  or printed as red warnings when invoking a CLI command.
 - Support for different levels of desktop notifications (CLI only). You can now select
   between FILECHANGE, SYNCISSUE, ERROR and NONE with `maestral notify LEVEL`.
 - Added an option to snooze notifications. In the CLI, use `maestral notify snooze N` to
@@ -13,24 +17,18 @@
   previously only supported in the GUI. Files and folders in the existing directory will
   be merged with your Dropbox.
 - The CLI command `maestral restart` now supports restarting Maestral into the current
-  process instead of spawning a new process by passing the `--foreground` option.
+  process instead of spawning a new process by passing the `--foreground` option. This can
+  be useful for systemd integration.
 
 #### Changed:
 
 - Split off GUI into separate python packages (`maestral-qt`, `maestral-cocoa`).
-- Improved desktop notifications:
-
-  - Notify only for remote changes and not for those which originated locally. This
-    should significantly reduce the number of unwanted notifications - no one needs to be
-    notified that a file has changed when they themselves *just* changed it.
-  - Added desktop notifications for errors: Serious errors such as revoked Dropbox access,
-    deleted Dropbox folder, etc, were previously only shown in the GUI as an alert window 
-    or printed as red warnings when invoking a CLI command.
-    
+- Notify only for remote changes and not for those which originated locally. This
+  should significantly reduce the number of unwanted notifications - no one needs to be
+  notified that a file has changed when they themselves *just* changed it.
 - Renamed `set-dir` command to `move-dir` to emphasize that it moves the local Dropbox
   folder to a new location.
 - Renamed `maestral notifications` to `maestral notify` for brevity.
-- Use atomic save to prevent corruption of sync index if Maestral crashes during a save.
 - Do not require a restart after setting up Maestral with the GUI.
     
 #### Fixed:
@@ -41,6 +39,8 @@
 - When invoking `maestral restart`, run checks for Dropbox folder location and link status.
 - Notify the user through the GUI when moving the Dropbox directory fails instead of
   silently keeping the old directory.
+- Use atomic save to prevent corruption of sync index if Maestral crashes or is killed
+  during a save.
 
 ## v0.5.2
 
