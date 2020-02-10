@@ -17,6 +17,7 @@
 
 #### Changed:
 
+- Split off GUI into separate python packages (`maestral-qt`, `maestral-cocoa`).
 - Improved desktop notifications:
 
   - Notify only for remote changes and not for those which originated locally. This
@@ -29,7 +30,8 @@
 - Renamed `set-dir` command to `move-dir` to emphasize that it moves the local Dropbox
   folder to a new location.
 - Renamed `maestral notifications` to `maestral notify` for brevity.
-- Split off GUI into separate python packages (`maestral-qt`, `maestral-cocoa`).
+- Use atomic save to prevent corruption of sync index if Maestral crashes during a save.
+- Do not require a restart after setting up Maestral with the GUI.
     
 #### Fixed:
 
