@@ -19,6 +19,7 @@ import functools
 
 # external packages
 import umsgpack
+from atomicwrites import atomic_write
 from blinker import signal
 import dropbox
 from dropbox.files import DeletedMetadata, FileMetadata, FolderMetadata
@@ -560,7 +561,7 @@ class UpDownSync:
 
         with self._rev_lock:
             try:
-                with open(self.rev_file_path, "w+b") as f:
+                with atomic_write(self.rev_file_path, mode="wb", overwrite=True) as f:
                     umsgpack.pack(self._rev_dict_cache, f)
             except PermissionError as exc:
                 title = "Could not save index"
