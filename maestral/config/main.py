@@ -33,8 +33,8 @@ DEFAULTS = [
      {
          'path': '',  # dropbox folder location (parent folder)
          'default_dir_name': 'Dropbox ({})',  # default dropbox folder name
-         'excluded_folders': [],  # files excluded from sync, currently not supported
-         'excluded_files': [],  # folders excluded from sync, currently not supported
+         'excluded_folders': [],  # folders excluded from sync
+         'excluded_files': [],  # files excluded from sync, currently not supported
      }
      ),
     ('account',  # info on linked Dropbox account, periodically updated from servers
