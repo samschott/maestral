@@ -21,6 +21,14 @@ def is_fs_case_sensitive():
         return not os.path.exists(tmp_file.name.lower())
 
 
+# app
+APP_NAME = "Maestral"
+BUNDLE_ID = "com.samschott.maestral"
+
+# sync
+REV_FILE = ".maestral"
+IS_FS_CASE_SENSITIVE = is_fs_case_sensitive()
+
 # state messages
 IDLE = "Up to date"
 SYNCING = "Syncing..."
@@ -40,7 +48,3 @@ NOTIFY_SOCKET = os.getenv("NOTIFY_SOCKET")
 WATCHDOG_PID = os.getenv("WATCHDOG_PID")
 WATCHDOG_USEC = os.getenv("WATCHDOG_USEC")
 IS_WATCHDOG = WATCHDOG_USEC and (WATCHDOG_PID is None or int(WATCHDOG_PID) == os.getpid())
-
-# other
-REV_FILE = ".maestral"
-IS_FS_CASE_SENSITIVE = is_fs_case_sensitive()
