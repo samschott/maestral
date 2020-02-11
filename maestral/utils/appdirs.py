@@ -21,7 +21,7 @@ def get_log_path(subfolder=None, filename=None, create=True):
 
         - macOS: "~/Library/Logs/SUBFOLDER/FILENAME"
         - Linux: "$XDG_CACHE_HOME/SUBFOLDER/FILENAME"
-        - fallback: "~/.cache/SUBFOLDER/FILENAME"
+        - fallback: "$HOME/.cache/SUBFOLDER/FILENAME"
 
     :param str subfolder: The subfolder for the app.
     :param str filename: The filename to append for the app.
@@ -56,7 +56,7 @@ def get_cache_path(subfolder=None, filename=None, create=True):
 
         - macOS: "~/Library/Application Support/SUBFOLDER/FILENAME"
         - Linux: "$XDG_CACHE_HOME/SUBFOLDER/FILENAME"
-        - fallback: "~/.cache/SUBFOLDER/FILENAME"
+        - fallback: "$HOME/.cache/SUBFOLDER/FILENAME"
 
     :param str subfolder: The subfolder for the app.
     :param str filename: The filename to append for the app.
@@ -70,11 +70,11 @@ def get_cache_path(subfolder=None, filename=None, create=True):
 
 def get_autostart_path(filename=None, create=True):
     """
-    Returns the default cache path for the platform. This will be:
+    Returns the default path for login items for the platform. This will be:
 
         - macOS: "~/Library/LaunchAgents/FILENAME"
         - Linux: "$XDG_CONFIG_HOME/autostart/FILENAME"
-        - fallback: "~/.config/autostart/FILENAME"
+        - fallback: "$HOME/.config/autostart/FILENAME"
 
     :param str filename: The filename to append for the app.
     :param bool create: If ``True``, the folder "<subfolder>" will be created on-demand.
@@ -93,22 +93,23 @@ def get_autostart_path(filename=None, create=True):
 
 def get_runtime_path(subfolder=None, filename=None, create=True):
     """
-    Returns the default runtime directory for the platform. This will be:
+    Returns the default runtime path for the platform. This will be:
 
-        - macOS: tempfile.gettempdir() + subfolder
+        - macOS: tempfile.gettempdir() + "SUBFOLDER/FILENAME"
         - Linux: "$XDG_RUNTIME_DIR/SUBFOLDER/FILENAME"
-        - fallback: "~/.cache/SUBFOLDER/FILENAME"
+        - fallback: "$HOME/.cache/SUBFOLDER/FILENAME"
 
     :param str subfolder: The subfolder for the app.
     :param str filename: The filename to append for the app.
     :param bool create: If ``True``, the folder "<subfolder>" will be created on-demand.
     """
-    fallback = get_cache_path()
+
     # if-defs for different platforms
     if platform.system() == "Darwin":
         import tempfile
         runtime_path = tempfile.gettempdir()
     else:
+        fallback = get_cache_path()
         runtime_path = os.environ.get("XDG_RUNTIME_DIR", fallback)
 
     # attach subfolder
