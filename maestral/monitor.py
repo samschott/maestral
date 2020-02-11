@@ -342,11 +342,7 @@ class UpDownSync:
         self._excluded_folders = self._conf.get("main", "excluded_folders")
         self._rev_dict_cache = self._load_rev_dict_from_file()
 
-    @property
-    def rev_file_path(self):
-        """Path to file with revision index (read only). This will a hidden file
-        '.maestral' in the user's Dropbox directory."""
-        return osp.join(self.dropbox_path, REV_FILE)
+    # ==== settings ======================================================================
 
     @property
     def dropbox_path(self):
@@ -361,31 +357,6 @@ class UpDownSync:
         """Setter: dropbox_path"""
         self._dropbox_path = path
         self._conf.set("main", "path", path)
-
-    @property
-    def last_cursor(self):
-        """Cursor from last sync with remote Dropbox. The value is updated and saved to
-        the config file on every successful sync. Do not modify manually."""
-        return self._conf.get("internal", "cursor")
-
-    @last_cursor.setter
-    def last_cursor(self, cursor):
-        """Setter: last_cursor"""
-        logger.debug(f"Remote cursor saved: {cursor}")
-        self._conf.set("internal", "cursor", cursor)
-
-    @property
-    def last_sync(self):
-        """Time stamp from last sync with remote Dropbox. The value is updated and
-        saved to config file on every successful sync. This should not be modified
-        manually."""
-        return self._conf.get("internal", "lastsync")
-
-    @last_sync.setter
-    def last_sync(self, last_sync):
-        """Setter: last_cursor"""
-        logger.debug(f"Local cursor saved: {last_sync}")
-        self._conf.set("internal", "lastsync", last_sync)
 
     @property
     def excluded_files(self):
@@ -414,95 +385,40 @@ class UpDownSync:
         self._excluded_folders = clean_list
         self._conf.set("main", "excluded_folders", clean_list)
 
-    # ====================================================================================
-    #  Helper functions
-    # ====================================================================================
+    # ==== sync state ====================================================================
 
-    @staticmethod
-    def clean_excluded_folder_list(folder_list):
-        """Removes all duplicates from the excluded folder list."""
+    @property
+    def last_cursor(self):
+        """Cursor from last sync with remote Dropbox. The value is updated and saved to
+        the config file on every successful sync. Do not modify manually."""
+        return self._conf.get("internal", "cursor")
 
-        # remove duplicate entries by creating set, strip trailing "/"
-        folder_list = set(f.lower().rstrip(osp.sep) for f in folder_list)
+    @last_cursor.setter
+    def last_cursor(self, cursor):
+        """Setter: last_cursor"""
+        logger.debug(f"Remote cursor saved: {cursor}")
+        self._conf.set("internal", "cursor", cursor)
 
-        # remove all children of excluded folders
-        clean_list = list(folder_list)
-        for folder in folder_list:
-            clean_list = [f for f in clean_list if not is_child(f, folder)]
+    @property
+    def last_sync(self):
+        """Time stamp from last sync with remote Dropbox. The value is updated and
+        saved to config file on every successful sync. This should not be modified
+        manually."""
+        return self._conf.get("internal", "lastsync")
 
-        return clean_list
+    @last_sync.setter
+    def last_sync(self, last_sync):
+        """Setter: last_cursor"""
+        logger.debug(f"Local cursor saved: {last_sync}")
+        self._conf.set("internal", "lastsync", last_sync)
 
-    def ensure_dropbox_folder_present(self):
-        """
-        Checks if the Dropbox folder still exists where we expect it to be.
+    # ==== Rev file management ===========================================================
 
-        :raises: DropboxDeletedError
-        """
-
-        if not osp.isdir(self.dropbox_path):
-            title = "Dropbox folder has been moved or deleted"
-            msg = ("Please move the Dropbox folder back to its original location "
-                   "or restart Maestral to set up a new folder.")
-            raise DropboxDeletedError(title, msg)
-
-    def to_dbx_path(self, local_path):
-        """
-        Converts a local path to a path relative to the Dropbox folder.
-
-        :param str local_path: Full path to file in local Dropbox folder.
-        :returns: Relative path with respect to Dropbox folder.
-        :rtype: str
-        :raises: ValueError if no path is specified or path is outside of local
-            Dropbox folder.
-        """
-
-        if not local_path:
-            raise ValueError("No path specified.")
-
-        dbx_root_list = osp.normpath(self.dropbox_path).split(osp.sep)
-        path_list = osp.normpath(local_path).split(osp.sep)
-
-        # Work out how much of the file path is shared by dropbox_path and path.
-        # noinspection PyTypeChecker
-        i = len(osp.commonprefix([dbx_root_list, path_list]))
-
-        if i == len(path_list):  # path corresponds to dropbox_path
-            return "/"
-        elif not i == len(dbx_root_list):  # path is outside of to dropbox_path
-            raise ValueError(f"Specified path '{local_path}' is not in Dropbox directory.")
-
-        return "/{}".format("/".join(path_list[i:]))
-
-    def to_local_path(self, dbx_path):
-        """
-        Converts a Dropbox path to the corresponding local path.
-
-        The `path_display` attribute returned by the Dropbox API only
-        guarantees correct casing of the basename (file name or folder name)
-        and not of the full path. This is because Dropbox itself is not case
-        sensitive and stores all paths in lowercase internally.
-
-        Therefore, if the parent directory is already present on the local
-        drive, it's casing is used. Otherwise, the casing given by the Dropbox
-        API metadata is used. This aims to preserve the correct casing of file and
-        folder names and prevents the creation of duplicate folders with different
-        casing on the local drive.
-
-        :param str dbx_path: Path to file relative to Dropbox folder.
-        :returns: Corresponding local path on drive.
-        :rtype: str
-        :raises: ValueError if no path is specified.
-        """
-
-        dbx_path = dbx_path.replace("/", osp.sep)
-        dbx_path_parent, dbx_path_basename,  = osp.split(dbx_path)
-
-        local_parent = path_exists_case_insensitive(dbx_path_parent, self.dropbox_path)
-
-        if local_parent == "":
-            return osp.join(self.dropbox_path, dbx_path.lstrip(osp.sep))
-        else:
-            return osp.join(local_parent, dbx_path_basename)
+    @property
+    def rev_file_path(self):
+        """Path to file with revision index (read only). This will a hidden file
+        '.maestral' in the user's Dropbox directory."""
+        return osp.join(self.dropbox_path, REV_FILE)
 
     def _load_rev_dict_from_file(self, raise_exception=False):
         """
@@ -637,6 +553,94 @@ class UpDownSync:
             # save changes to file
             self._save_rev_dict_to_file()
 
+    # ==== Helper functions ==============================================================
+
+    @staticmethod
+    def clean_excluded_folder_list(folder_list):
+        """Removes all duplicates from the excluded folder list."""
+
+        # remove duplicate entries by creating set, strip trailing "/"
+        folder_list = set(f.lower().rstrip(osp.sep) for f in folder_list)
+
+        # remove all children of excluded folders
+        clean_list = list(folder_list)
+        for folder in folder_list:
+            clean_list = [f for f in clean_list if not is_child(f, folder)]
+
+        return clean_list
+
+    def ensure_dropbox_folder_present(self):
+        """
+        Checks if the Dropbox folder still exists where we expect it to be.
+
+        :raises: DropboxDeletedError
+        """
+
+        if not osp.isdir(self.dropbox_path):
+            title = "Dropbox folder has been moved or deleted"
+            msg = ("Please move the Dropbox folder back to its original location "
+                   "or restart Maestral to set up a new folder.")
+            raise DropboxDeletedError(title, msg)
+
+    def to_dbx_path(self, local_path):
+        """
+        Converts a local path to a path relative to the Dropbox folder.
+
+        :param str local_path: Full path to file in local Dropbox folder.
+        :returns: Relative path with respect to Dropbox folder.
+        :rtype: str
+        :raises: ValueError if no path is specified or path is outside of local
+            Dropbox folder.
+        """
+
+        if not local_path:
+            raise ValueError("No path specified.")
+
+        dbx_root_list = osp.normpath(self.dropbox_path).split(osp.sep)
+        path_list = osp.normpath(local_path).split(osp.sep)
+
+        # Work out how much of the file path is shared by dropbox_path and path.
+        # noinspection PyTypeChecker
+        i = len(osp.commonprefix([dbx_root_list, path_list]))
+
+        if i == len(path_list):  # path corresponds to dropbox_path
+            return "/"
+        elif not i == len(dbx_root_list):  # path is outside of to dropbox_path
+            raise ValueError(f"Specified path '{local_path}' is not in Dropbox directory.")
+
+        return "/{}".format("/".join(path_list[i:]))
+
+    def to_local_path(self, dbx_path):
+        """
+        Converts a Dropbox path to the corresponding local path.
+
+        The `path_display` attribute returned by the Dropbox API only
+        guarantees correct casing of the basename (file name or folder name)
+        and not of the full path. This is because Dropbox itself is not case
+        sensitive and stores all paths in lowercase internally.
+
+        Therefore, if the parent directory is already present on the local
+        drive, it's casing is used. Otherwise, the casing given by the Dropbox
+        API metadata is used. This aims to preserve the correct casing of file and
+        folder names and prevents the creation of duplicate folders with different
+        casing on the local drive.
+
+        :param str dbx_path: Path to file relative to Dropbox folder.
+        :returns: Corresponding local path on drive.
+        :rtype: str
+        :raises: ValueError if no path is specified.
+        """
+
+        dbx_path = dbx_path.replace("/", osp.sep)
+        dbx_path_parent, dbx_path_basename,  = osp.split(dbx_path)
+
+        local_parent = path_exists_case_insensitive(dbx_path_parent, self.dropbox_path)
+
+        if local_parent == "":
+            return osp.join(self.dropbox_path, dbx_path.lstrip(osp.sep))
+        else:
+            return osp.join(local_parent, dbx_path_basename)
+
     def has_sync_errors(self):
         """Returns ``True`` in case of sync errors, ``False`` otherwise."""
         return self.sync_errors.qsize() > 0
@@ -712,9 +716,7 @@ class UpDownSync:
 
         return any((test0, test1))
 
-    # ====================================================================================
-    #  Upload sync
-    # ====================================================================================
+    # ==== Upload sync ===================================================================
 
     def get_local_changes_while_inactive(self):
         """
@@ -1272,9 +1274,7 @@ class UpDownSync:
             self.set_local_rev(md.path_display, md.rev)
             logger.debug("Uploaded modified '%s' to Dropbox.", event.src_path)
 
-    # ====================================================================================
-    #  Download sync
-    # ====================================================================================
+    # ==== Download sync =================================================================
 
     @catch_sync_issues(sync_errors)
     def get_remote_dropbox(self, dbx_path="", ignore_excluded=True):
