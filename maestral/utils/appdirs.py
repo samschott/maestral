@@ -125,3 +125,38 @@ def get_runtime_path(subfolder=None, filename=None, create=True):
         runtime_path = osp.join(runtime_path, filename)
 
     return runtime_path
+
+
+def get_state_path(subfolder=None, filename=None, create=True):
+    """
+    Returns the default path to save application states for the platform. This will be:
+
+        - macOS: "~/Library/Saved Application State/SUBFOLDER/FILENAME"
+        - Linux: "$XDG_DATA_DIR/SUBFOLDER/FILENAME"
+        - fallback: "$HOME/.local/share/SUBFOLDER/FILENAME"
+
+    :param str subfolder: The subfolder for the app.
+    :param str filename: The filename to append for the app.
+    :param bool create: If ``True``, the folder "<subfolder>" will be created on-demand.
+    """
+
+    # if-defs for different platforms
+    if platform.system() == "Darwin":
+        state_path = osp.join(get_home_dir(), "Saved Application State", "Logs")
+    else:
+        fallback = osp.join(get_home_dir(), ".local", "share")
+        state_path = os.environ.get("$XDG_DATA_DIR", fallback)
+
+    # attach subfolder
+    if subfolder:
+        state_path = osp.join(state_path, subfolder)
+
+    # create dir
+    if create:
+        os.makedirs(state_path, exist_ok=True)
+
+    # attach filename
+    if filename:
+        state_path = osp.join(state_path, filename)
+
+    return state_path
