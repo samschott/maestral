@@ -5,6 +5,7 @@ Created on Wed Oct 31 16:23:13 2018
 
 @author: samschott
 """
+import errno
 
 # KEEP FREE OF DROPBOX IMPORTS TO REDUCE MEMORY FOOTPRINT
 
@@ -58,7 +59,7 @@ class InsufficientPermissionsError(SyncError):
 
 
 class InsufficientSpaceError(SyncError):
-    """Raised when the Dropbox account has insufficient storage space."""
+    """Raised when the Dropbox account / local drive has insufficient storage space."""
     pass
 
 
@@ -93,15 +94,20 @@ class UnsupportedFileError(SyncError):
 
 class FileSizeError(SyncError):
     """Raised attempting to upload a file larger than 350 GB in an upload session, or
-    larger than 150 MB in a single upload."""
+    larger than 150 MB in a single upload. Also raised when attempting to download a file
+    which a size that exceeds file system's limit."""
     pass
 
 
 # fatal errors, require user action
 
-
 class InotifyError(MaestralApiError):
     """Raised when the local Dropbox folder is too large to monitor with inotify."""
+    pass
+
+
+class OutOfMemoryError(MaestralApiError):
+    """Raised when there is insufficient memory to complete an operation."""
     pass
 
 
@@ -152,16 +158,52 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
     :returns: :class:`MaestralApiError` instance.
     :rtype: :class:`MaestralApiError`
     """
-    title = "Could not access or create local item"
+
+    # The following error types should not typically be raised during normal syncing:
+    #
+    #     InterruptedError: Should not be typically be raised. Python will automatically
+    #       retry on interruption.
+    #     NotADirectoryError: Should not be typically be raised.
+    #     IsADirectoryError: Can be raised when calling `MaestralApiClient.upload` or
+    #       MaestralApiClient.download` with a local folder path. This will be a
+    #       MaestralApiError and not a SyncIssue.
+    #
+    # OSErrors raised by the client will always refer to attempts to upload / download a
+    # a local file.
+    #
+
     err_type = MaestralApiError
+    title = "Cannot upload or download file"
+
     if isinstance(exc, PermissionError):
+        err_type = InsufficientPermissionsError  # subclass of SyncError
         text = "Insufficient read or write permissions for this location."
-        err_type = InsufficientPermissionsError
     elif isinstance(exc, FileNotFoundError):
+        err_type = PathError  # subclass of SyncError
         text = "The given path does not exist."
-        err_type = PathError
+    elif isinstance(exc, FileExistsError):
+        err_type = PathError  # subclass of SyncError
+        title = "Could not download file"
+        text = "There already is an item at the given path."
+    elif exc.errno == errno.ENAMETOOLONG:
+        err_type = PathError  # subclass of SyncError
+        title = "Could not create local file"
+        text = "The file name (including path) is too long."
+    elif exc.errno == errno.EFBIG:
+        err_type = FileSizeError  # subclass of SyncError
+        title = "Could not download file"
+        text = "The file size too large."
+    elif exc.errno == errno.ENOSPC:
+        err_type = InsufficientSpaceError  # subclass of SyncError
+        title = "Could not download file"
+        text = "There is not enough space left on the selected drive."
+    elif exc.errno == errno.ENOMEM:
+        err_type = OutOfMemoryError  # subclass of MaestralApiError
+        text = "Out of memory. Please reduce the number of memory consuming processes."
+    elif isinstance(exc, IsADirectoryError):
+        text = "The given path refers to a folder."
     else:
-        text = None
+        text = exc.strerror
 
     return err_type(title, text, dbx_path=dbx_path, local_path=local_path)
 

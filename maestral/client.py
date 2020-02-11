@@ -44,16 +44,6 @@ CONNECTION_ERRORS = (
 )
 
 
-OS_FILE_ERRORS = (
-    FileExistsError,
-    FileNotFoundError,
-    InterruptedError,
-    IsADirectoryError,
-    NotADirectoryError,
-    PermissionError,
-)
-
-
 def bytes_to_str(num, suffix='B'):
     """
     Convert number to a human readable string with decimal prefix.
@@ -97,7 +87,7 @@ class SpaceUsage(dropbox.users.SpaceUsage):
 
 def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
     """
-    Decorator that converts all OS_FILE_ERRORS and DropboxExceptions to MaestralApiErrors.
+    Decorator that converts all OSError and DropboxExceptions to MaestralApiErrors.
 
     :param int dbx_path_arg: Argument number to take as dbx_path for exception.
     :param int local_path_arg: Argument number to take as local_path_arg for exception.
@@ -115,7 +105,7 @@ def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
                 return func(*args, **kwargs)
             except dropbox.exceptions.DropboxException as exc:
                 raise api_to_maestral_error(exc, dbx_path, local_path)
-            except OS_FILE_ERRORS as exc:
+            except OSError as exc:
                 raise os_to_maestral_error(exc, dbx_path, local_path)
             except CONNECTION_ERRORS:
                 raise ConnectionError("Cannot connect to Dropbox")
@@ -286,7 +276,8 @@ class MaestralApiClient(object):
 
         md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
 
-        logger.debug(f"File '{md.path_display}' (rev {md.rev}) was successfully downloaded as '{dst_path}'")
+        logger.debug(f"File '{md.path_display}' (rev {md.rev}) "
+                     f"was successfully downloaded as '{dst_path}'")
 
         return md
 
