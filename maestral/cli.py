@@ -873,7 +873,7 @@ def log_level(config_name: str, level_name: str):
 
 def _list_configs():
     """Lists all maestral configs"""
-    from maestral.config.base import get_conf_path
+    from maestral.utils.appdirs import get_conf_path
     configs = []
     for file in os.listdir(get_conf_path('maestral')):
         if file.endswith('.ini'):
@@ -909,7 +909,7 @@ def config_remove(name: str):
     if name not in _list_configs():
         click.echo(f'Configuration \'{name}\' could not be found.')
     else:
-        from maestral.config.base import get_conf_path
+        from maestral.utils.appdirs import get_conf_path
         for file in os.listdir(get_conf_path('maestral')):
             if file.startswith(name):
                 os.unlink(os.path.join(get_conf_path('maestral'), file))

@@ -16,8 +16,9 @@ a full download on the next startup.
 
 import os
 import copy
+
+from maestral.utils.appdirs import get_conf_path
 from .user import UserConfig
-from .base import get_conf_path
 
 
 PACKAGE_NAME = os.getenv('MAESTRAL_CONFIG', 'maestral')
