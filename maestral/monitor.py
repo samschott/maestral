@@ -1656,7 +1656,7 @@ class UpDownSync:
                 logger.debug(f"Deleted local item '{entry.path_display}'")
                 return entry
             else:
-                logger.debug(f"Delection failed: {err}")
+                logger.debug(f"Deletion failed: {err}")
 
     def _save_to_history(self, dbx_path):
         # add new file to recent_changes
