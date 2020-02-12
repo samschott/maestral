@@ -1,69 +1,107 @@
-"""
-Base configuration management
-"""
+
+import platform
 import os
 import os.path as osp
 
-from maestral.utils.appdirs import get_conf_path, get_state_path
-from .user import UserConfig
-from .main import MaestralState
+
+def get_home_dir():
+    """
+    Returns user home directory. This will be determined from the first
+    valid result out of (osp.expanduser("~"), $HOME, $USERPROFILE, $TMP).
+    """
+    try:
+        # expanduser() returns a raw byte string which needs to be
+        # decoded with the codec that the OS is using to represent
+        # file paths.
+        path = osp.expanduser("~")
+    except Exception:
+        path = ''
+
+    if osp.isdir(path):
+        return path
+    else:
+        # Get home from alternative locations
+        for env_var in ("HOME", "USERPROFILE", "TMP"):
+            # os.environ.get() returns a raw byte string which needs to be
+            # decoded with the codec that the OS is using to represent
+            # environment variables.
+            path = os.environ.get(env_var, '')
+            if osp.isdir(path):
+                return path
+            else:
+                path = ''
+
+        if not path:
+            raise RuntimeError("Please set the environment variable HOME to "
+                               "your user/home directory.")
 
 
-def list_configs():
-    """Lists all maestral configs"""
-    configs = []
-    for file in os.listdir(get_conf_path('maestral')):
-        if file.endswith('.ini'):
-            configs.append(os.path.splitext(os.path.basename(file))[0])
+def get_conf_path(subfolder=None, filename=None, create=True):
+    """
+    Returns the default config path for the platform. This will be:
 
-    return configs
+        - macOS: "~/Library/Application Support/<subfolder>/<filename>."
+        - Linux: "XDG_CONFIG_HOME/<subfolder>/<filename>"
+        - other: "~/.config/<subfolder>/<filename>"
+
+    :param str subfolder: The subfolder for the app.
+    :param str filename: The filename to append for the app.
+    :param bool create: If ``True``, the folder "<subfolder>" will be created on-demand.
+    """
+    if platform.system() == "Darwin":
+        conf_path = osp.join(get_home_dir(), "Library", "Application Support")
+    else:
+        fallback = osp.join(get_home_dir(), ".config")
+        conf_path = os.environ.get("XDG_CONFIG_HOME", fallback)
+
+    # attach subfolder
+    if subfolder:
+        conf_path = osp.join(conf_path, subfolder)
+
+    # create dir
+    if create:
+        os.makedirs(conf_path, exist_ok=True)
+
+    # attach filename
+    if filename:
+        conf_path = osp.join(conf_path, filename)
+
+    return conf_path
 
 
-# =============================================================================
-# Migrate user config
-# =============================================================================
+def get_state_path(subfolder=None, filename=None, create=True):
+    """
+    Returns the default path to save application states for the platform. This will be:
 
-def migrate_user_config(config_name):
-    config_path = get_conf_path('maestral', create=False)
-    config_fpath = get_conf_path('maestral', config_name, create=False)
-    state_fpath = get_state_path('maestral', config_name + '_state', create=False)
+        - macOS: "~/Library/Application Support/SUBFOLDER/FILENAME"
+        - Linux: "$XDG_DATA_DIR/SUBFOLDER/FILENAME"
+        - fallback: "$HOME/.local/share/SUBFOLDER/FILENAME"
 
-    old_version = '10.0.0'
+    Note: We do not use "~/Library/Saved Application State" on macOS since this folder is
+    reserved for user interface state and can be cleared by the user / system.
 
-    if osp.isfile(config_fpath) and not osp.isfile(state_fpath):
-        # load old config explicitly, not from factory to avoid caching
-        old_conf = UserConfig(
-            config_path, config_name, defaults=None, version=old_version,
-            load=True, backup=True, raw_mode=True, remove_obsolete=False
-        )
-        state = MaestralState(config_name)
+    :param str subfolder: The subfolder for the app.
+    :param str filename: The filename to append for the app.
+    :param bool create: If ``True``, the folder "<subfolder>" will be created on-demand.
+    """
 
-        # get values for moved settings
-        email = old_conf.get('account', 'email')
-        display_name = old_conf.get('account', 'display_name')
-        abbreviated_name = old_conf.get('account', 'abbreviated_name')
-        type = old_conf.get('account', 'type')
-        usage = old_conf.get('account', 'usage')
-        usage_type = old_conf.get('account', 'usage_type')
+    # if-defs for different platforms
+    if platform.system() == "Darwin":
+        state_path = osp.join(get_home_dir(), "Library", "Application Support")
+    else:
+        fallback = osp.join(get_home_dir(), ".local", "share")
+        state_path = os.environ.get("$XDG_DATA_DIR", fallback)
 
-        update_notification_last = old_conf.get('app', 'update_notification_last')
-        latest_release = old_conf.get('app', 'latest_release')
+    # attach subfolder
+    if subfolder:
+        state_path = osp.join(state_path, subfolder)
 
-        cursor = old_conf.get('internal', 'cursor')
-        lastsync = old_conf.get('internal', 'lastsync')
-        recent_changes = old_conf.get('internal', 'recent_changes')
+    # create dir
+    if create:
+        os.makedirs(state_path, exist_ok=True)
 
-        # set state values
-        state.set('account', 'email', email)
-        state.set('account', 'display_name', display_name)
-        state.set('account', 'abbreviated_name', abbreviated_name)
-        state.set('account', 'type', type)
-        state.set('account', 'usage', usage)
-        state.set('account', 'usage_type', usage_type)
+    # attach filename
+    if filename:
+        state_path = osp.join(state_path, filename)
 
-        state.set('app', 'update_notification_last', update_notification_last)
-        state.set('app', 'latest_release', latest_release)
-
-        state.set('sync', 'cursor', cursor)
-        state.set('sync', 'lastsync', lastsync)
-        state.set('sync', 'recent_changes', recent_changes)
+    return state_path
