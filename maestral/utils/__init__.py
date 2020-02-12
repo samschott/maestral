@@ -6,7 +6,7 @@ Created on Wed Oct 31 16:23:13 2018
 @author: samschott
 """
 
-# KEEP UTILS FREE OF DROPBOX IMPORTS TO REDUCE MEMORY FOOTPRINT
+# KEEP UTILS FREE OF DROPBOX AND REQUESTS IMPORT TO REDUCE MEMORY FOOTPRINT
 
 import os.path as osp
 import functools
@@ -77,9 +77,6 @@ def set_keyring_backend():
         keyring.set_keyring(max(preferred_kreyrings, key=lambda x: x.priority))
 
 
-set_keyring_backend()
-
-
 def pending_link(config_name):
     """
     Checks if auth key has been saved. This can be used by Maestral front ends to check
@@ -90,6 +87,7 @@ def pending_link(config_name):
     :rtype: bool
     :raises: ``KeyringLocked`` if the system keyring cannot be accessed.
     """
+
     conf = MaestralConfig(config_name)
     account_id = conf.get('account', 'account_id')
     try:
