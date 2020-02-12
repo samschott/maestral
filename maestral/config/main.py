@@ -9,12 +9,13 @@ Maestral configuration options
 """
 import os.path as osp
 import copy
+import logging
 
 from .base import get_conf_path, get_state_path
 from .user import UserConfig
 
-
-DEFAULT_DIR_NAME = 'maestral'
+logger = logging.getLogger(__name__)
+DIR_NAME = 'maestral'
 
 # =============================================================================
 #  Defaults
@@ -97,13 +98,16 @@ class MaestralConfig:
         if config_name in cls._instances:
             return cls._instances[config_name]
         else:
+            # perform migration here to avoid messing with a running daemon
+            migrate_user_config(config_name)
+
             defaults = copy.deepcopy(DEFAULTS)
             # set default dir name according to config
             for sec, options in defaults:
                 if sec == 'main':
                     options['default_dir_name'] = f'Dropbox ({config_name.title()})'
 
-            config_path = get_conf_path(DEFAULT_DIR_NAME, create=True)
+            config_path = get_conf_path(DIR_NAME, create=True)
 
             try:
                 conf = UserConfig(
@@ -133,7 +137,7 @@ class MaestralState:
         if config_name in cls._instances:
             return cls._instances[config_name]
         else:
-            state_path = get_state_path(DEFAULT_DIR_NAME, create=True)
+            state_path = get_state_path(DIR_NAME, create=True)
             filename = config_name + '_state'
 
             try:
@@ -158,13 +162,14 @@ class MaestralState:
 # =============================================================================
 
 def migrate_user_config(config_name):
-    config_path = get_conf_path(DEFAULT_DIR_NAME, create=False)
-    config_fpath = get_conf_path(DEFAULT_DIR_NAME, config_name, create=False)
-    state_fpath = get_state_path(DEFAULT_DIR_NAME, config_name + '_state', create=False)
+    config_path = get_conf_path(DIR_NAME, create=False)
+    config_fpath = get_conf_path(DIR_NAME, config_name + '.ini', create=False)
+    state_fpath = get_state_path(DIR_NAME, config_name + '_state.ini', create=False)
 
     old_version = '10.0.0'
 
     if osp.isfile(config_fpath) and not osp.isfile(state_fpath):
+        logger.info(f'Migrating user config for "{config_name}"')
         # load old config explicitly, not from factory to avoid caching
         old_conf = UserConfig(
             config_path, config_name, defaults=None, version=old_version,
