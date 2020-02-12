@@ -91,8 +91,8 @@ class DefaultsConfig(cp.ConfigParser):
         return osp.join(self._path, f'{self._name}.ini')
 
     def get_config_name(self):
-        """Return the ini file name this configuration is stored."""
-        return osp.splitext(osp.basename(self._path))[0]
+        """Return the ini file name where this configuration is stored."""
+        return self._name
 
     def set_defaults(self, defaults):
         """Set default values and save to defaults folder location."""
