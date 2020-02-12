@@ -1,7 +1,5 @@
 import sys
-import time
 from setuptools import setup, find_packages
-from setuptools.command.install import install
 
 from maestral import __version__
 
@@ -36,8 +34,12 @@ running_daemons = tuple(c for c in list_configs() if get_maestral_pid(c))
 
 if running_daemons:
     sys.stderr.write(f"""
-Maestral daemons with the following configs are running: {', '.join(running_daemons)}.
-Please stop the daemons before updating.
+Maestral daemons with the following configs are running:
+
+{', '.join(running_daemons)}
+
+Please stop the daemons before updating, you may otherwise not be able
+to use the new command line interface with the old daemon.
     """)
     sys.exit(1)
 
