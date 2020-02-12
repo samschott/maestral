@@ -203,7 +203,7 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
     elif isinstance(exc, IsADirectoryError):
         text = "The given path refers to a folder."
     else:
-        text = exc.strerror
+        return exc
 
     return err_type(title, text, dbx_path=dbx_path, local_path=local_path)
 
