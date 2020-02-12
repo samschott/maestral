@@ -1,5 +1,7 @@
 import sys
+import time
 from setuptools import setup, find_packages
+from setuptools.command.install import install
 
 from maestral import __version__
 
@@ -21,6 +23,22 @@ have pip >= 9.0 and setuptools >= 24.2, then try again:
     $ python3 -m pip install maestral
 
 """.format(*(REQUIRED_PYTHON + CURRENT_PYTHON)))
+    sys.exit(1)
+
+
+# check for running daemons before updating to prevent
+# incompatible versions of CLI / GUI and daemon
+from maestral.config.base import list_configs
+from maestral.daemon import get_maestral_pid
+
+
+running_daemons = tuple(c for c in list_configs() if get_maestral_pid(c))
+
+if running_daemons:
+    sys.stderr.write(f"""
+Maestral daemons with the following configs are running: {', '.join(running_daemons)}.
+Please stop the daemons before updating.
+    """)
     sys.exit(1)
 
 
