@@ -105,3 +105,13 @@ def get_state_path(subfolder=None, filename=None, create=True):
         state_path = osp.join(state_path, filename)
 
     return state_path
+
+
+def list_configs():
+    """Lists all maestral configs"""
+    configs = []
+    for file in os.listdir(get_conf_path('maestral')):
+        if file.endswith('.ini'):
+            configs.append(os.path.splitext(os.path.basename(file))[0])
+
+    return configs
