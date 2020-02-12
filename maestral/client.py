@@ -21,7 +21,7 @@ import dropbox
 # maestral modules
 from maestral import __version__
 from maestral.oauth import OAuth2Session
-from maestral.config.main import MaestralConfig
+from maestral.config import MaestralState
 from maestral.errors import api_to_maestral_error, os_to_maestral_error
 from maestral.errors import CursorResetError
 
@@ -135,7 +135,7 @@ class MaestralApiClient(object):
 
         self.config_name = config_name
 
-        self._conf = MaestralConfig(config_name)
+        self._state = MaestralState(config_name)
 
         # get Dropbox session
         self.auth = OAuth2Session(config_name)
@@ -180,11 +180,10 @@ class MaestralApiClient(object):
             else:
                 account_type = ""
 
-            self._conf.set("account", "account_id", res.account_id)
-            self._conf.set("account", "email", res.email)
-            self._conf.set("account", "display_name", res.name.display_name)
-            self._conf.set("account", "abbreviated_name", res.name.abbreviated_name)
-            self._conf.set("account", "type", account_type)
+            self._state.set("account", "email", res.email)
+            self._state.set("account", "display_name", res.name.display_name)
+            self._state.set("account", "abbreviated_name", res.name.abbreviated_name)
+            self._state.set("account", "type", account_type)
 
         return res
 
@@ -202,8 +201,8 @@ class MaestralApiClient(object):
         res.__class__ = SpaceUsage
 
         # save results to config
-        self._conf.set("account", "usage", str(res))
-        self._conf.set("account", "usage_type", res.allocation_type())
+        self._state.set("account", "usage", str(res))
+        self._state.set("account", "usage_type", res.allocation_type())
 
         return res
 

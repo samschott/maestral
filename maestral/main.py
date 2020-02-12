@@ -49,7 +49,7 @@ from maestral.utils.serializer import maestral_error_to_dict, dropbox_stone_to_d
 from maestral.utils.appdirs import get_log_path, get_cache_path, get_home_dir
 from maestral.utils.updates import check_update_available
 from maestral.errors import MaestralApiError
-from maestral.config.main import MaestralConfig
+from maestral.config import MaestralConfig, MaestralState
 
 
 logger = logging.getLogger(__name__)
@@ -136,6 +136,7 @@ class Maestral(object):
 
         self._config_name = config_name
         self._conf = MaestralConfig(self._config_name)
+        self._state = MaestralState(self._config_name)
 
         self._setup_logging()
         self.set_share_error_reports(self._conf.get("app", "analytics"))
@@ -269,6 +270,14 @@ class Maestral(object):
         """Gets a configuration option."""
         return self._conf.get(section, name)
 
+    def set_state(self, section, name, value):
+        """Sets a state value."""
+        self._state.set(section, name, value)
+
+    def get_state(self, section, name):
+        """Gets a state value."""
+        return self._state.get(section, name)
+
     def set_log_level(self, level_num):
         """Sets the log level for log files, the stream
         handler and the systemd journal."""
@@ -324,8 +333,8 @@ class Maestral(object):
     @property
     def pending_first_download(self):
         """Bool indicating if the initial download has already occurred."""
-        return (self._conf.get("internal", "lastsync") == 0 or
-                self._conf.get("internal", "cursor") == "")
+        return (self._state.get("sync", "lastsync") == 0 or
+                self._state.get("sync", "cursor") == "")
 
     @property
     def syncing(self):
@@ -591,6 +600,7 @@ class Maestral(object):
         self.sync.last_sync = 0.0
 
         self._conf.reset_to_defaults()
+        self._state.reset_to_defaults()
 
         logger.info("Unlinked Dropbox account.")
 
@@ -751,7 +761,8 @@ class Maestral(object):
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
 
-        excluded_items = self._conf.get("main", "excluded_folders") + self._conf.get("main", "excluded_files")
+        excluded_items = (self._conf.get("main", "excluded_folders") +
+                          self._conf.get("main", "excluded_files"))
 
         if dbx_path in excluded_items:
             return "excluded"
@@ -826,7 +837,7 @@ class Maestral(object):
             # check for maestral updates
             res = self.check_for_updates()
             if not res["error"]:
-                self._conf.set("app", "latest_release", res["latest_release"])
+                self._state.set("app", "latest_release", res["latest_release"])
             time.sleep(60*60)  # 60 min
 
     def _periodic_watchdog(self):
@@ -852,8 +863,8 @@ class Maestral(object):
             pass
 
     def __repr__(self):
-        email = self._conf.get("account", "email")
-        account_type = self._conf.get("account", "type")
+        email = self._state.get("account", "email")
+        account_type = self._state.get("account", "type")
 
         return f"<{self.__class__}({email}, {account_type})>"
 

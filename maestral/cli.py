@@ -22,6 +22,9 @@ import platform
 import click
 import Pyro5.errors
 
+# local imports
+from maestral.config import list_configs
+
 OK = click.style('[OK]', fg='green')
 FAILED = click.style('[FAILED]', fg='red')
 KILLED = click.style('[KILLED]', fg='red')
@@ -78,11 +81,11 @@ def _check_for_updates():
     """Checks if updates are available by reading the cached release number from the
     config file and notifies the user."""
     from maestral import __version__
-    from maestral.config.main import MaestralConfig
+    from maestral.config import MaestralState
     from maestral.utils.updates import check_version
 
-    CONF = MaestralConfig('maestral')
-    latest_release = CONF.get('app', 'latest_release')
+    state = MaestralState('maestral')
+    latest_release = state.get('app', 'latest_release')
 
     has_update = check_version(__version__, latest_release, '<')
 
@@ -219,7 +222,7 @@ def _check_and_set_config(ctx, param, value):
     """
 
     # check if valid config
-    if value not in _list_configs() and not value == 'maestral':
+    if value not in list_configs() and not value == 'maestral':
         ctx.fail(f'Configuration \'{value}\' does not exist. You can create new '
                  'configuration with \'maestral config add\'.')
 
@@ -380,8 +383,8 @@ def status(config_name: str):
             color = 'red' if n_errors > 0 else 'green'
             n_errors_str = click.style(str(n_errors), fg=color)
             click.echo('')
-            click.echo('Account:       {}'.format(m.get_conf('account', 'email')))
-            click.echo('Usage:         {}'.format(m.get_conf('account', 'usage')))
+            click.echo('Account:       {}'.format(m.get_state('account', 'email')))
+            click.echo('Usage:         {}'.format(m.get_state('account', 'usage')))
             click.echo('Status:        {}'.format(m.status))
             click.echo('Sync errors:   {}'.format(n_errors_str))
             click.echo('')
@@ -674,14 +677,15 @@ def analytics(config_name: str, yes: bool):
 def account_info(config_name: str):
     """Prints your Dropbox account information."""
 
-        from maestral.config.main import MaestralConfig
     if not pending_link_cli(config_name):
+        from maestral.config import MaestralConfig, MaestralState
 
         conf = MaestralConfig(config_name)
+        state = MaestralState(config_name)
 
-        email = conf.get('account', 'email')
-        account_type = conf.get('account', 'type').capitalize()
-        usage = conf.get('account', 'usage')
+        email = state.get('account', 'email')
+        account_type = state.get('account', 'type').capitalize()
+        usage = state.get('account', 'usage')
         path = conf.get('main', 'path')
 
         click.echo('')
@@ -719,7 +723,7 @@ def excluded_list(config_name: str):
 
     if not pending_link_cli(config_name):
 
-        from maestral.config.main import MaestralConfig
+        from maestral.config import MaestralConfig
 
         conf = MaestralConfig(config_name)
         excluded_folders = conf.get('main', 'excluded_folders')
@@ -858,7 +862,7 @@ def log_level(config_name: str, level_name: str):
         click.echo(f'Log level set to {level_name}.')
     else:
         os.environ['MAESTRAL_CONFIG'] = config_name
-        from maestral.config.main import MaestralConfig
+        from maestral.config import MaestralConfig
 
         conf = MaestralConfig(config_name)
 
@@ -871,22 +875,11 @@ def log_level(config_name: str, level_name: str):
 # Management of different configurations
 # ========================================================================================
 
-def _list_configs():
-    """Lists all maestral configs"""
-    from maestral.utils.appdirs import get_conf_path
-    configs = []
-    for file in os.listdir(get_conf_path('maestral')):
-        if file.endswith('.ini'):
-            configs.append(os.path.splitext(os.path.basename(file))[0])
-
-    return configs
-
-
 @config.command(name='list', help_priority=0)
 def config_list():
     """Lists all Maestral configurations."""
     click.echo('Available Maestral configurations:')
-    for c in _list_configs():
+    for c in list_configs():
         click.echo('  ' + c)
 
 
@@ -894,10 +887,10 @@ def config_list():
 @click.argument('name')
 def config_add(name: str):
     """Sets up and activates a fresh Maestral configuration."""
-    if name in _list_configs():
+    if name in list_configs():
         click.echo(f'Configuration \'{name}\' already exists.')
     else:
-        from maestral.config.main import MaestralConfig
+        from maestral.config import MaestralConfig
         MaestralConfig(name)  # create instance to force file creation
         click.echo(f'Created configuration \'{name}\'.')
 
@@ -906,7 +899,7 @@ def config_add(name: str):
 @click.argument('name')
 def config_remove(name: str):
     """Removes a Maestral configuration."""
-    if name not in _list_configs():
+    if name not in list_configs():
         click.echo(f'Configuration \'{name}\' could not be found.')
     else:
         from maestral.utils.appdirs import get_conf_path

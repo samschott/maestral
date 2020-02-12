@@ -16,7 +16,7 @@ import logging
 
 import click
 
-from maestral.config.main import MaestralConfig
+from maestral.config import MaestralConfig
 from maestral.constants import IS_MACOS_BUNDLE
 from maestral.utils.updates import check_version
 

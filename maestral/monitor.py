@@ -39,7 +39,7 @@ else:
     from watchdog.observers import Observer
 
 # maestral modules
-from maestral.config.main import MaestralConfig
+from maestral.config import MaestralConfig, MaestralState
 from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                 REV_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.errors import (MaestralApiError, SyncError, RevFileError,
@@ -321,7 +321,7 @@ class UpDownSync:
         "client", "config_name",
         "local_file_event_queue", "queue_uploading", "queue_downloading",
         "_dropbox_path", "_excluded_files", "_excluded_folders", "_rev_dict_cache",
-        "_conf", "notifier"
+        "_conf", "_state", "notifier"
     )
 
     def __init__(self, client, local_file_event_queue, queue_uploading, queue_downloading):
@@ -330,6 +330,7 @@ class UpDownSync:
         self.config_name = self.client.config_name
 
         self._conf = MaestralConfig(self.config_name)
+        self._state = MaestralState(self.config_name)
         self.notifier = MaestralDesktopNotifier.for_config(self.config_name)
 
         self.local_file_event_queue = local_file_event_queue
@@ -391,26 +392,26 @@ class UpDownSync:
     def last_cursor(self):
         """Cursor from last sync with remote Dropbox. The value is updated and saved to
         the config file on every successful sync. Do not modify manually."""
-        return self._conf.get("internal", "cursor")
+        return self._state.get("sync", "cursor")
 
     @last_cursor.setter
     def last_cursor(self, cursor):
         """Setter: last_cursor"""
         logger.debug(f"Remote cursor saved: {cursor}")
-        self._conf.set("internal", "cursor", cursor)
+        self._state.set("sync", "cursor", cursor)
 
     @property
     def last_sync(self):
         """Time stamp from last sync with remote Dropbox. The value is updated and
         saved to config file on every successful sync. This should not be modified
         manually."""
-        return self._conf.get("internal", "lastsync")
+        return self._state.get("sync", "lastsync")
 
     @last_sync.setter
     def last_sync(self, last_sync):
         """Setter: last_cursor"""
         logger.debug(f"Local cursor saved: {last_sync}")
-        self._conf.set("internal", "lastsync", last_sync)
+        self._state.set("sync", "lastsync", last_sync)
 
     # ==== Rev file management ===========================================================
 
@@ -762,7 +763,7 @@ class UpDownSync:
         # get modified or added items
         for path in snapshot.paths:
             stats = snapshot.stat_info(path)
-            last_sync = self._conf.get("internal", "lastsync")
+            last_sync = self._state.get("sync", "lastsync")
             # check if item was created or modified since last sync
             dbx_path = self.to_dbx_path(path).lower()
 
@@ -925,7 +926,7 @@ class UpDownSync:
         all_paths = all_src_paths + all_dest_paths
 
         # Move events are difficult to combine with other event types
-        # = > split up moved events into deleted and created events, but only if the
+        # -> split up moved events into deleted and created events, but only if the
         # respective paths have any other events associated with them
         new_events = []
 
@@ -1511,7 +1512,7 @@ class UpDownSync:
             dbid_list = tuple(md.sharing_info.modified_by for md in changes)
             if all(dbid == dbid_list[0] for dbid in dbid_list):
                 # all files have been modified by the same user
-                if dbid_list[0] == self._conf.get("account", "account_id"):
+                if dbid_list[0] == self._state.get("account", "account_id"):
                     user_name = "You"
                 else:
                     account_info = self.client.get_account_info(dbid_list[0])
@@ -1660,12 +1661,12 @@ class UpDownSync:
 
     def _save_to_history(self, dbx_path):
         # add new file to recent_changes
-        recent_changes = self._conf.get("internal", "recent_changes")
+        recent_changes = self._state.get("sync", "recent_changes")
         recent_changes.append(dbx_path)
         # eliminate duplicates
         recent_changes = list(OrderedDict.fromkeys(recent_changes))
         # save last 30 changes
-        self._conf.set("internal", "recent_changes", recent_changes[-30:])
+        self._state.set("sync", "recent_changes", recent_changes[-30:])
 
 
 # ========================================================================================

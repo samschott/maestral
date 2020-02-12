@@ -17,7 +17,7 @@ from keyring.errors import KeyringLocked
 
 from maestral.constants import DISCONNECTED, IS_MACOS_BUNDLE
 from maestral.errors import DropboxAuthError
-from maestral.config.main import MaestralConfig
+from maestral.config import MaestralConfig
 
 logger = logging.getLogger(__name__)
 
@@ -113,4 +113,4 @@ def pending_dropbox_folder(config_name):
     :rtype: bool
     """
     conf = MaestralConfig(config_name)
-    return not osp.isdir(conf.get("main", "path"))
+    return not osp.isdir(conf.get('main', 'path'))
