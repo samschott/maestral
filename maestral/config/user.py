@@ -63,7 +63,7 @@ class DefaultsConfig(cp.ConfigParser):
         super(DefaultsConfig, self).set(section, option, value)
 
     def _save(self):
-        """Save config into the associated .ini file."""
+        """Save config into the associated file."""
         fpath = self.get_config_fpath()
 
         # See spyder-ide/spyder#1086 and spyder-ide/spyder#1242 for background
@@ -90,7 +90,7 @@ class DefaultsConfig(cp.ConfigParser):
 
     def get_config_fpath(self):
         """Return the ini file where this configuration is stored."""
-        return osp.join(self._path, f'{self._name}.ini')
+        return osp.join(self._path, self._name)
 
     def get_config_name(self):
         """Return the ini file name where this configuration is stored."""
@@ -140,15 +140,16 @@ class UserConfig(DefaultsConfig):
     DEFAULT_SECTION_NAME = 'main'
 
     def __init__(self, path, name, defaults=None, load=True, version=None,
-                 backup=False, raw_mode=False, remove_obsolete=False):
+                 backup=False, raw_mode=False, remove_obsolete=False, suffix='.ini'):
         """UserConfig class, based on ConfigParser."""
-        super(UserConfig, self).__init__(path=path, name=name)
+        super(UserConfig, self).__init__(path=path, name=name + suffix)
 
         self._load = load
         self._version = self._check_version(version)
         self._backup = backup
         self._raw = 1 if raw_mode else 0
         self._remove_obsolete = remove_obsolete
+        self._suffix = suffix
 
         self._defaults_folder = 'defaults'
         self._backup_folder = 'backups'
@@ -193,7 +194,7 @@ class UserConfig(DefaultsConfig):
                 self.set_version(version, save=False)
 
             if defaults is None:
-                # If no defaults are defined set .ini file settings as default
+                # If no defaults are defined set file settings as default
                 self.set_as_defaults()
 
     # --- Helpers and checkers -----------------------------------------------------------
@@ -276,7 +277,7 @@ class UserConfig(DefaultsConfig):
             pass
 
     def _load_from_ini(self, fpath):
-        """Load config from the associated .ini file found at `fpath`."""
+        """Load config from the associated file found at `fpath`."""
 
         with self._lock:
             try:
@@ -288,7 +289,7 @@ class UserConfig(DefaultsConfig):
         """Read old defaults."""
         old_defaults = cp.ConfigParser()
         path, name = self.get_defaults_path_name_from_version(old_version)
-        old_defaults.read(osp.join(path, name + '.ini'))
+        old_defaults.read(osp.join(path, name + self._suffix))
         return old_defaults
 
     def _save_new_defaults(self, defaults):
@@ -315,11 +316,10 @@ class UserConfig(DefaultsConfig):
 
     def _remove_deprecated_options(self, old_version):
         """
-        Remove options which are present in the .ini file but not in defaults.
+        Remove options which are present in the file but not in defaults.
         """
-        old_defaults = self._load_old_defaults(old_version)
-        for section in old_defaults.sections():
-            for option, _ in old_defaults.items(section, raw=self._raw):
+        for section in self.sections():
+            for option, _ in self.items(section, raw=self._raw):
                 if self.get_default(section, option) is NoDefault:
                     try:
                         self.remove_option(section, option)
@@ -535,5 +535,5 @@ class UserConfig(DefaultsConfig):
         self._save()
 
     def cleanup(self):
-        """Remove .ini file associated to config."""
+        """Remove file associated to config."""
         os.remove(self.get_config_fpath())

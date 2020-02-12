@@ -15,7 +15,7 @@ from .base import get_conf_path, get_state_path
 from .user import UserConfig
 
 logger = logging.getLogger(__name__)
-DIR_NAME = 'maestral'
+CONFIG_DIR_NAME = 'maestral'
 
 # =============================================================================
 #  Defaults
@@ -85,76 +85,70 @@ CONF_VERSION = '11.0.0'
 # Factories
 # =============================================================================
 
-class MaestralConfig:
-    """Singleton config instance for Maestral"""
-
-    _instances = {}
-
-    def __new__(cls, config_name):
-        """
-        Create new instance for a new config name, otherwise return existing instance.
-        """
-
-        if config_name in cls._instances:
-            return cls._instances[config_name]
-        else:
-            # perform migration here to avoid messing with a running daemon
-            migrate_user_config(config_name)
-
-            defaults = copy.deepcopy(DEFAULTS)
-            # set default dir name according to config
-            for sec, options in defaults:
-                if sec == 'main':
-                    options['default_dir_name'] = f'Dropbox ({config_name.title()})'
-
-            config_path = get_conf_path(DIR_NAME, create=True)
-
-            try:
-                conf = UserConfig(
-                    config_path, config_name, defaults=defaults, version=CONF_VERSION,
-                    load=True, backup=True, raw_mode=True, remove_obsolete=True
-                )
-            except OSError:
-                conf = UserConfig(
-                    config_path, config_name, defaults=defaults, version=CONF_VERSION,
-                    load=False, backup=True, raw_mode=True, remove_obsolete=True
-                )
-
-            cls._instances[config_name] = conf
-            return conf
+_config_instances = {}
+_state_instances = {}
 
 
-class MaestralState:
-    """Singleton config instance for Maestral"""
+def MaestralConfig(config_name):
+    """
+    Return existing config instance of create a new one.
+    """
 
-    _instances = {}
+    global _config_instances
 
-    def __new__(cls, config_name):
-        """
-        Create new instance for a new config name, otherwise return existing instance.
-        """
+    if config_name in _config_instances:
+        return _config_instances[config_name]
+    else:
+        defaults = copy.deepcopy(DEFAULTS)
+        # set default dir name according to config
+        for sec, options in defaults:
+            if sec == 'main':
+                options['default_dir_name'] = f'Dropbox ({config_name.title()})'
 
-        if config_name in cls._instances:
-            return cls._instances[config_name]
-        else:
-            state_path = get_state_path(DIR_NAME, create=True)
-            filename = config_name + '_state'
+        config_path = get_conf_path(CONFIG_DIR_NAME, create=True)
 
-            try:
-                state = UserConfig(
-                    state_path, filename, defaults=DEFAULTS_STATE,
-                    version=CONF_VERSION, load=True, backup=True, raw_mode=True,
-                    remove_obsolete=True
-                )
-            except OSError:
-                state = UserConfig(
-                    state_path, filename, defaults=DEFAULTS_STATE,
-                    version=CONF_VERSION, load=False, backup=True, raw_mode=True,
-                    remove_obsolete=True
-                )
+        try:
+            conf = UserConfig(
+                config_path, config_name, defaults=defaults, version=CONF_VERSION,
+                load=True, backup=True, raw_mode=True, remove_obsolete=True
+            )
+        except OSError:
+            conf = UserConfig(
+                config_path, config_name, defaults=defaults, version=CONF_VERSION,
+                load=False, backup=True, raw_mode=True, remove_obsolete=True
+            )
 
-            cls._instances[config_name] = state
-            return state
+        _config_instances[config_name] = conf
+        return conf
+
+
+def MaestralState(config_name):
+    """
+    Return existing state instance of create a new one.
+    """
+
+    global _state_instances
+
+    if config_name in _state_instances:
+        return _state_instances[config_name]
+    else:
+        state_path = get_state_path(CONFIG_DIR_NAME, create=True)
+
+        try:
+            state = UserConfig(
+                state_path, config_name, defaults=DEFAULTS_STATE,
+                version=CONF_VERSION, load=True, backup=True, raw_mode=True,
+                remove_obsolete=True, suffix='.state'
+            )
+        except OSError:
+            state = UserConfig(
+                state_path, config_name, defaults=DEFAULTS_STATE,
+                version=CONF_VERSION, load=False, backup=True, raw_mode=True,
+                remove_obsolete=True, suffix='.state'
+            )
+
+        _state_instances[config_name] = state
+        return state
 
 
 # =============================================================================
@@ -162,9 +156,9 @@ class MaestralState:
 # =============================================================================
 
 def migrate_user_config(config_name):
-    config_path = get_conf_path(DIR_NAME, create=False)
-    config_fpath = get_conf_path(DIR_NAME, config_name + '.ini', create=False)
-    state_fpath = get_state_path(DIR_NAME, config_name + '_state.ini', create=False)
+    config_path = get_conf_path(CONFIG_DIR_NAME, create=False)
+    config_fpath = get_conf_path(CONFIG_DIR_NAME, config_name + '.ini', create=False)
+    state_fpath = get_state_path(CONFIG_DIR_NAME, config_name + '.state', create=False)
 
     old_version = '10.0.0'
 
