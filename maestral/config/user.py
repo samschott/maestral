@@ -23,6 +23,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 # =============================================================================
 # Auxiliary classes
 # =============================================================================
@@ -45,6 +46,7 @@ class DefaultsConfig(cp.ConfigParser):
 
     def __init__(self, path, name):
         super(DefaultsConfig, self).__init__(interpolation=None)
+
         self._path = path
         self._name = name
 
@@ -382,7 +384,7 @@ class UserConfig(DefaultsConfig):
         """
         Apply any patch to configuration values on version changes.
 
-        To be overriden if patches to configuration values are needed.
+        To be overwritten if patches to configuration values are needed.
         """
         pass
 
