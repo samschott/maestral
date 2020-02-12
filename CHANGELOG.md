@@ -30,6 +30,8 @@
   folder to a new location.
 - Renamed `maestral notifications` to `maestral notify` for brevity.
 - Do not require a restart after setting up Maestral with the GUI.
+- Removed saved state from the config file. Sync and application states are now saved
+  separately in '~/.local/share' on Linux and '~/Library/Application Support' on macOS.
     
 #### Fixed:
 
