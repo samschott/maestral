@@ -170,7 +170,13 @@ class UserConfig(DefaultsConfig):
             self._save_new_defaults(self.defaults)
 
             # Updating defaults only if major/minor version is different
-            if self._get_minor_version(version) != self._get_minor_version(old_version):
+            major_ver = self._get_major_version(version)
+            major_old_ver = self._get_major_version(self._old_version)
+
+            minor_ver = self._get_minor_version(version)
+            minor_old_ver = self._get_minor_version(self._old_version)
+
+            if minor_ver != minor_old_ver:
 
                 if backup:
                     self._make_backup(version=old_version)
@@ -178,7 +184,7 @@ class UserConfig(DefaultsConfig):
                 self.apply_configuration_patches(old_version=old_version)
 
                 # Remove deprecated options if major version has changed
-                if remove_obsolete:
+                if remove_obsolete or major_ver != major_old_ver:
                     self._remove_deprecated_options(old_version)
 
                 # Set new version number
