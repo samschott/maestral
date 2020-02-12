@@ -88,6 +88,8 @@ def pending_link(config_name):
     :raises: ``KeyringLocked`` if the system keyring cannot be accessed.
     """
 
+    set_keyring_backend()
+
     conf = MaestralConfig(config_name)
     account_id = conf.get('account', 'account_id')
     try:
