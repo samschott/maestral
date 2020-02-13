@@ -64,8 +64,28 @@ class InsufficientSpaceError(SyncError):
 
 
 class PathError(SyncError):
-    """Raised when there is an issue with the provided file / folder path. Refer to the
-    ``message``` attribute for details."""
+    """Raised when there is an issue with the provided file or folder path such as
+    invalid characters, too long file name, etc."""
+    pass
+
+
+class NotFoundError(SyncError):
+    """Raised when a file or folder is requested but does not exist."""
+    pass
+
+
+class ExistsError(SyncError):
+    """Raised when trying to create a file or folder which already exists."""
+    pass
+
+
+class IsAFolderError(SyncError):
+    """Raised when a file is required but a folder is provided."""
+    pass
+
+
+class NotAFolderError(SyncError):
+    """Raised when a folder is required but a file is provided."""
     pass
 
 
@@ -162,11 +182,11 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
     # The following error types should not typically be raised during normal syncing:
     #
     #     InterruptedError: Should not be typically be raised. Python will automatically
-    #       retry on interruption.
+    #         retry on interruption.
     #     NotADirectoryError: Should not be typically be raised.
     #     IsADirectoryError: Can be raised when calling `MaestralApiClient.upload` or
-    #       MaestralApiClient.download` with a local folder path. This will be a
-    #       MaestralApiError and not a SyncIssue.
+    #           MaestralApiClient.download` with a local folder path. This will be a
+    #           MaestralApiError and not a SyncIssue.
     #
     # OSErrors raised by the client will always refer to attempts to upload / download a
     # a local file.
@@ -179,10 +199,10 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
         err_type = InsufficientPermissionsError  # subclass of SyncError
         text = "Insufficient read or write permissions for this location."
     elif isinstance(exc, FileNotFoundError):
-        err_type = PathError  # subclass of SyncError
+        err_type = NotFoundError  # subclass of SyncError
         text = "The given path does not exist."
     elif isinstance(exc, FileExistsError):
-        err_type = PathError  # subclass of SyncError
+        err_type = ExistsError  # subclass of SyncError
         title = "Could not download file"
         text = "There already is an item at the given path."
     elif exc.errno == errno.ENAMETOOLONG:
@@ -242,7 +262,7 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
                     text = "Shared folders can’t be copied."
                 elif error.is_cant_move_folder_into_itself():
                     text = "You cannot move a folder into itself."
-                    err_cls = PathError
+                    err_cls = ExistsError
                 elif error.is_cant_move_shared_folder():
                     text = "You cannot move the shared folder to the given destination."
                     err_cls = PathError
@@ -254,6 +274,7 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
                     text = ("Your move operation would result in an ownership transfer. "
                             "Maestral does not currently support this. Please carry out "
                             "the move on the Dropbox website instead.")
+                    err_cls = PathError
                 elif error.is_duplicated_or_nested_paths():
                     text = ("There are duplicated/nested paths among the target and "
                             "destination folders.")
@@ -365,11 +386,11 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
         title = "Could not download file"
         text = "Insufficient read or write permissions for the download location."
     elif isinstance(exc, FileNotFoundError):
-        err_cls = PathError
+        err_cls = NotFoundError
         title = "Could not download file"
         text = "The given download path is invalid."
     elif isinstance(exc, IsADirectoryError):
-        err_cls = PathError
+        err_cls = IsAFolderError
         title = "Could not download file"
         text = "The given download path is a directory."
 
@@ -439,7 +460,7 @@ def _get_write_error_msg(write_error):
     if write_error.is_conflict():
         text = ("Could not write to the target path because another file or "
                 "folder was in the way.")
-        err_cls = PathError
+        err_cls = ExistsError
     elif write_error.is_disallowed_name():
         text = "Dropbox will not save the file or folder because of its name."
         err_cls = PathError
@@ -473,13 +494,13 @@ def _get_lookup_error_msg(lookup_error):
         err_cls = PathError
     elif lookup_error.is_not_file():
         text = "We were expecting a file, but the given path refers to a folder."
-        err_cls = PathError
+        err_cls = IsAFolderError
     elif lookup_error.is_not_folder():
         text = "We were expecting a folder, but the given path refers to a file."
-        err_cls = PathError
+        err_cls = NotAFolderError
     elif lookup_error.is_not_found():
         text = "There is nothing at the given path."
-        err_cls = PathError
+        err_cls = NotFoundError
     elif lookup_error.is_restricted_content():
         text = ("The file cannot be transferred because the content is restricted. For "
                 "example, sometimes there are legal restrictions due to copyright "
@@ -526,6 +547,10 @@ SYNC_ERRORS = (
     InsufficientPermissionsError,
     InsufficientSpaceError,
     PathError,
+    NotFoundError,
+    ExistsError,
+    IsAFolderError,
+    NotAFolderError,
     ExcludedItemError,
     DropboxServerError,
     RestrictedContentError,
@@ -542,4 +567,5 @@ FATAL_ERRORS = (
     TokenExpiredError,
     CursorResetError,
     BadInputError,
+    OutOfMemoryError,
 )
