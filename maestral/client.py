@@ -105,10 +105,11 @@ def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
                 return func(*args, **kwargs)
             except dropbox.exceptions.DropboxException as exc:
                 raise api_to_maestral_error(exc, dbx_path, local_path)
-            except OSError as exc:
-                raise os_to_maestral_error(exc, dbx_path, local_path)
+            # catch connection errors first, they may inherit from OSError
             except CONNECTION_ERRORS:
                 raise ConnectionError("Cannot connect to Dropbox")
+            except OSError as exc:
+                raise os_to_maestral_error(exc, dbx_path, local_path)
 
         return wrapper
 
