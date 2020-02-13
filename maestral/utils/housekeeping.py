@@ -25,12 +25,15 @@ def migrate_user_config(config_name):
     config_path = get_conf_path(CONFIG_DIR_NAME, create=False)
 
     # load old config explicitly, not from factory to avoid caching
-    old_conf = UserConfig(
-        config_path, config_name, defaults=None, load=True, backup=True,
-        raw_mode=True, remove_obsolete=False
-    )
+    try:
+        old_conf = UserConfig(
+            config_path, config_name, load=True, backup=False, raw_mode=True,
+            version='10.0.0'
+        )
+    except FileNotFoundError:
+        return
 
-    if LooseVersion(old_conf.get_version() < LooseVersion('11.0.0')):
+    if LooseVersion(old_conf._old_version) < LooseVersion('11.0.0'):
 
         state = MaestralState(config_name)
 
