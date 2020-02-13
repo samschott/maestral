@@ -13,6 +13,7 @@ from maestral.monitor import *
 def path(i):
     return f'test_{i}.txt'
 
+
 # Simple cases
 file_events_test0 = [
     # created + deleted -> None
