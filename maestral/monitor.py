@@ -44,7 +44,8 @@ from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                 REV_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.errors import (MaestralApiError, SyncError, RevFileError,
                              DropboxDeletedError, DropboxAuthError,
-                             ExcludedItemError, PathError, InotifyError)
+                             ExcludedItemError, PathError, InotifyError,
+                             NotFoundError)
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import (is_child, path_exists_case_insensitive,
@@ -1206,9 +1207,12 @@ class UpDownSync:
             # in to replace the files you are editing on the disk
             else:
                 mode = dropbox.files.WriteMode("update", rev)
-            md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
-            # save or update revision metadata
-            self.set_local_rev(md.path_display, md.rev)
+            try:
+                md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
+            except NotFoundError:
+                logger.debug("Could not upload '%s': the item does not exist.", event.src_path)
+            else:
+                self.set_local_rev(md.path_display, md.rev)
 
         logger.debug("Created '%s' on Dropbox.", event.src_path)
 
@@ -1229,8 +1233,6 @@ class UpDownSync:
             self.client.remove(dbx_path, parent_rev=local_rev)
         except PathError:
             logger.debug("Could not delete '%s': the item does not exist on Dropbox.", event.src_path)
-        else:
-            logger.debug("Deleted '%s' from Dropbox.", event.src_path)
 
         # remove revision metadata
         self.set_local_rev(dbx_path, None)
