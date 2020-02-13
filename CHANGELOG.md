@@ -35,6 +35,7 @@
     
 #### Fixed:
 
+- Fixed an issue where local file events could be ignored while a download is in progress.
 - Correctly handle additional error types: internal Dropbox server error, insufficient
   space on local drive, file name too long for local file system and out-of-memory error.
 - Set the log level for the systemd journal according to user settings instead of using 

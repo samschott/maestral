@@ -76,7 +76,7 @@ class TimedQueue(queue.Queue):
 
     def __init__(self):
         super(self.__class__, self).__init__()
-        self.update_time = 0
+        self.update_time = 0.0
 
     # Put a new item in the queue, remember time
     def _put(self, item):
@@ -119,26 +119,11 @@ class FileEventHandler(FileSystemEventHandler):
         """
 
         with self.queue_downloading.mutex:
-            queue_downloading = tuple(self.queue_downloading.queue)
-            for flagged_path in queue_downloading:
-                if local_path.lower() == flagged_path.lower():
-                    logger.debug(f"'{local_path}' is being downloaded, ignore.")
-                    self.queue_downloading.queue.remove(flagged_path)
-
+            if any(local_path.lower() == p.lower() for p in self.queue_downloading.queue):
+                self.queue_downloading.queue.remove(local_path)
                 return True
-        return False
-
-    @staticmethod
-    def is_rev_file(local_path):
-        """
-        Checks if :param:`local_path` refers to our rev file.
-
-        :param str local_path: Local path to file.
-        :returns: ``True`` if yes, ``False`` otherwise.
-        :rtype: bool
-        """
-
-        return osp.basename(local_path) == REV_FILE
+            else:
+                return False
 
     # TODO: The logic for ignoring moved events of children will no longer work when
     #   renaming the parent's moved event. This will throw sync errors when trying to
@@ -212,15 +197,11 @@ class FileEventHandler(FileSystemEventHandler):
         if self.is_being_downloaded(event.src_path):
             return
 
-        # ignore changes to the rev file
-        if self.is_rev_file(event.src_path):
-            return
-
         # rename target on case conflict
         if IS_FS_CASE_SENSITIVE:
             event = self.rename_on_case_conflict(event)
 
-        # ignore files which have been renamed
+        # ignore files which have just been renamed
         if event.src_path in self._renamed_items_cache:
             self._renamed_items_cache.remove(event.src_path)
             return
@@ -928,7 +909,7 @@ class UpDownSync:
 
         # Move events are difficult to combine with other event types
         # -> split up moved events into deleted and created events, but only if the
-        # respective paths have any other events associated with them
+        # respective paths have other events associated with them
         new_events = []
 
         for e in events:
