@@ -26,7 +26,8 @@ def dropbox_stone_to_dict(obj):
     return remove_tags(dictionary)
 
 
-def maestral_error_to_dict(err):
+def error_to_dict(err):
+    """"Converts an error to a dict of strings."""
 
     dictionary = dict(
         type=err.__class__.__name__,

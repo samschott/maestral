@@ -45,7 +45,7 @@ from maestral.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
 )
 from maestral.client import MaestralApiClient
-from maestral.utils.serializer import maestral_error_to_dict, dropbox_stone_to_dict
+from maestral.utils.serializer import error_to_dict, dropbox_stone_to_dict
 from maestral.utils.appdirs import get_log_path, get_cache_path, get_home_dir
 from maestral.utils.updates import check_update_available
 from maestral.errors import MaestralApiError
@@ -382,7 +382,7 @@ class Maestral(object):
     def sync_errors(self):
         """Returns list containing the current sync errors as dicts."""
         sync_errors = list(self.sync.sync_errors.queue)
-        sync_errors_dicts = [maestral_error_to_dict(e) for e in sync_errors]
+        sync_errors_dicts = [error_to_dict(e) for e in sync_errors]
         return sync_errors_dicts
 
     @property
@@ -394,7 +394,7 @@ class Maestral(object):
         """
 
         maestral_errors = [r.exc_info[1] for r in self._log_handler_error_cache.cached_records]
-        maestral_errors_dicts = [maestral_error_to_dict(e) for e in maestral_errors]
+        maestral_errors_dicts = [error_to_dict(e) for e in maestral_errors]
         return maestral_errors_dicts
 
     def clear_maestral_errors(self):
