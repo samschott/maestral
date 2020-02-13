@@ -6,3 +6,9 @@
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
+import platform
+
+if platform.system() == "Darwin":
+    from .fsevents import OrderedFSEventsObserver as Observer
+else:
+    from watchdog.observers import Observer

@@ -11,7 +11,6 @@ import os
 import os.path as osp
 import logging
 import time
-import platform
 from threading import Thread, Event, RLock
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import queue
@@ -25,36 +24,24 @@ from blinker import signal
 import dropbox
 from dropbox.files import DeletedMetadata, FileMetadata, FolderMetadata
 from watchdog.events import FileSystemEventHandler
-from watchdog.events import (
-    EVENT_TYPE_CREATED, EVENT_TYPE_DELETED, EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED
-)
-from watchdog.events import (
-    DirModifiedEvent, FileModifiedEvent, DirCreatedEvent, FileCreatedEvent,
-    DirDeletedEvent, FileDeletedEvent, DirMovedEvent, FileMovedEvent
-)
+from watchdog.events import (EVENT_TYPE_CREATED, EVENT_TYPE_DELETED,
+                             EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED)
+from watchdog.events import (DirModifiedEvent, FileModifiedEvent, DirCreatedEvent,
+                             FileCreatedEvent, DirDeletedEvent, FileDeletedEvent,
+                             DirMovedEvent, FileMovedEvent)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
-
-if platform.system() == "Darwin":
-    # use our own FSEvent observer to preserve the order of file system events
-    from .watchdog.fsevents import OrderedFSEventsObserver as Observer
-else:
-    from watchdog.observers import Observer
 
 # local imports
 from maestral.config import MaestralConfig, MaestralState
-from maestral.constants import (
-    IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, REV_FILE, IS_FS_CASE_SENSITIVE
-)
-from maestral.errors import (
-    MaestralApiError, RevFileError,
-    DropboxDeletedError, DropboxAuthError,
-    SyncError, ExcludedItemError, PathError, InotifyError, NotFoundError
-)
+from maestral.watchdog import Observer
+from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
+                                REV_FILE, IS_FS_CASE_SENSITIVE)
+from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError,
+                             DropboxAuthError, SyncError, ExcludedItemError,
+                             PathError, InotifyError, NotFoundError)
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
-from maestral.utils.path import (
-    is_child, path_exists_case_insensitive, delete_file_or_folder
-)
+from maestral.utils.path import is_child, path_exists_case_insensitive, delete_file_or_folder
 from maestral.utils.appdirs import get_state_path
 
 logger = logging.getLogger(__name__)
