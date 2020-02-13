@@ -187,7 +187,7 @@ class UserConfig(DefaultsConfig):
                 self.apply_configuration_patches(old_version=old_version)
 
                 # Remove deprecated options if major version has changed
-                if remove_obsolete or major_ver != major_old_ver:
+                if remove_obsolete and major_ver != major_old_ver:
                     self._remove_deprecated_options(old_version)
 
                 # Set new version number
