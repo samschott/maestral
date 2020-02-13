@@ -1,5 +1,3 @@
-
-
 from watchdog.observers.fsevents import *
 
 

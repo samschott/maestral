@@ -1,9 +1,10 @@
-# !/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Oct 31 16:23:13 2018
+@author: Sam Schott  (ss2151@cam.ac.uk)
 
-@author: samschott
+(c) Sam Schott; This work is licensed under a Creative Commons
+Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+
 """
 
 __version__ = "0.6.0-dev3"

@@ -10,8 +10,8 @@ with Maestral from the command line.
 
 We aim to import most packages locally in the functions that required them,
 in order to reduce the startup time of individual CLI commands.
-"""
 
+"""
 # system imports
 import os
 import functools

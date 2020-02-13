@@ -15,13 +15,13 @@ import signal
 import traceback
 import enum
 
-# external packages
+# external imports
 import Pyro5.errors
 from Pyro5.api import Daemon, Proxy, expose
 from Pyro5.serializers import SerpentSerializer
 from lockfile.pidlockfile import PIDLockFile, AlreadyLocked
 
-# internal modules
+# local imports
 from maestral.errors import MaestralApiError, SYNC_ERRORS, FATAL_ERRORS
 
 

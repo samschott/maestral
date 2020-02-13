@@ -1,9 +1,10 @@
-# !/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Oct 31 16:23:13 2018
+@author: Sam Schott  (ss2151@cam.ac.uk)
 
-@author: samschott
+(c) Sam Schott; This work is licensed under a Creative Commons
+Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+
 """
 # system imports
 import os
@@ -17,7 +18,7 @@ import queue
 from collections import OrderedDict
 import functools
 
-# external packages
+# external imports
 import umsgpack
 from atomicwrites import atomic_write
 from blinker import signal
@@ -39,7 +40,7 @@ if platform.system() == "Darwin":
 else:
     from watchdog.observers import Observer
 
-# maestral modules
+# local imports
 from maestral.config import MaestralConfig, MaestralState
 from maestral.constants import (
     IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, REV_FILE, IS_FS_CASE_SENSITIVE

@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+"""
+@author: Sam Schott  (ss2151@cam.ac.uk)
+
+(c) Sam Schott; This work is licensed under a Creative Commons
+Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+
+"""
 # system imports
 import json
 import re
@@ -6,7 +14,7 @@ from distutils.version import LooseVersion
 from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
 
-# maestral modules
+# local imports
 from maestral import __version__
 
 
