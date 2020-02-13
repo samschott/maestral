@@ -211,10 +211,11 @@ class UserConfig(DefaultsConfig):
     @staticmethod
     def _check_version(version):
         """Check version is compliant with format."""
-        regex_check = re.match(r'^(\d+).(\d+).(\d+)$', version)
-        if version is not None and regex_check is None:
-            raise ValueError('Version number {} is incorrect - must be in '
-                             'major.minor.micro format'.format(version))
+        if version is not None:
+            regex_check = re.match(r'^(\d+).(\d+).(\d+)$', version)
+            if regex_check is None:
+                raise ValueError('Version number {} is incorrect - must be in '
+                                 'major.minor.micro format'.format(version))
 
         return version
 
