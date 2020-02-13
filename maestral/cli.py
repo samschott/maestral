@@ -90,9 +90,10 @@ def _check_for_updates():
     has_update = check_version(__version__, latest_release, '<')
 
     if has_update:
-        click.secho('Maestral v{0} has been released, you have v{1}. Please use your '
-                    'package manager to update.'.format(latest_release, __version__),
-                    fg='red')
+        click.secho(
+            'Maestral v{0} has been released, you have v{1}. Please use your '
+            'package manager to update.'.format(latest_release, __version__), fg='red'
+        )
 
 
 def _check_for_fatal_errors(m):
@@ -675,23 +676,22 @@ def analytics(config_name: str, yes: bool):
 def account_info(config_name: str):
     """Prints your Dropbox account information."""
 
+    from maestral.daemon import MaestralProxy
+
     if not pending_link_cli(config_name):
-        from maestral.config import MaestralConfig, MaestralState
+        with MaestralProxy(config_name, fallback=True) as m:
 
-        conf = MaestralConfig(config_name)
-        state = MaestralState(config_name)
+            email = m.get_state('account', 'email')
+            account_type = m.get_state('account', 'type').capitalize()
+            usage = m.get_state('account', 'usage')
+            path = m.get_conf('main', 'path')
 
-        email = state.get('account', 'email')
-        account_type = state.get('account', 'type').capitalize()
-        usage = state.get('account', 'usage')
-        path = conf.get('main', 'path')
-
-        click.echo('')
-        click.echo('Email:             {}'.format(email))
-        click.echo('Account-type:      {}'.format(account_type))
-        click.echo('Usage:             {}'.format(usage))
-        click.echo('Dropbox location:  \'{}\''.format(path))
-        click.echo('')
+            click.echo('')
+            click.echo('Email:             {}'.format(email))
+            click.echo('Account-type:      {}'.format(account_type))
+            click.echo('Usage:             {}'.format(usage))
+            click.echo('Dropbox location:  \'{}\''.format(path))
+            click.echo('')
 
 
 @main.command(help_priority=20)
@@ -720,18 +720,18 @@ def excluded_list(config_name: str):
     """Lists all excluded folders."""
 
     if not pending_link_cli(config_name):
+        from maestral.daemon import MaestralProxy
 
-        from maestral.config import MaestralConfig
+        with MaestralProxy(config_name, fallback=True) as m:
 
-        conf = MaestralConfig(config_name)
-        excluded_folders = conf.get('main', 'excluded_folders')
-        excluded_folders.sort()
+            excluded_folders = m.get_conf('main', 'excluded_folders')
+            excluded_folders.sort()
 
-        if len(excluded_folders) == 0:
-            click.echo('No excluded folders.')
-        else:
-            for folder in excluded_folders:
-                click.echo(folder)
+            if len(excluded_folders) == 0:
+                click.echo('No excluded folders.')
+            else:
+                for folder in excluded_folders:
+                    click.echo(folder)
 
 
 @excluded.command(name='add', help_priority=1)
@@ -851,22 +851,18 @@ def log_clear(config_name: str):
 @with_config_opt
 def log_level(config_name: str, level_name: str):
     """Gets or sets the log level. Changes will take effect after restart."""
-    if level_name:
-        from maestral.daemon import MaestralProxy
 
-        level_num = logging._nameToLevel[level_name]
-        with MaestralProxy(config_name, fallback=True) as m:
+    from maestral.daemon import MaestralProxy
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        if level_name:
+            level_num = logging._nameToLevel[level_name]
             m.set_log_level(level_num)
-        click.echo(f'Log level set to {level_name}.')
-    else:
-        os.environ['MAESTRAL_CONFIG'] = config_name
-        from maestral.config import MaestralConfig
-
-        conf = MaestralConfig(config_name)
-
-        level_num = conf.get('app', 'log_level')
-        level_name = logging.getLevelName(level_num)
-        click.echo(f'Log level:  {level_name}')
+            click.echo(f'Log level set to {level_name}.')
+        else:
+            level_num = m.get_conf('app', 'log_level')
+            level_name = logging.getLevelName(level_num)
+            click.echo(f'Log level:  {level_name}')
 
 
 # ========================================================================================
