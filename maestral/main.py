@@ -48,9 +48,9 @@ from maestral.client import MaestralApiClient
 from maestral.utils.serializer import error_to_dict, dropbox_stone_to_dict
 from maestral.utils.appdirs import get_log_path, get_cache_path, get_home_dir
 from maestral.utils.updates import check_update_available
+from maestral.utils.housekeeping import migrate_maestral_index, migrate_user_config
 from maestral.errors import MaestralApiError
 from maestral.config import MaestralConfig, MaestralState
-
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +133,8 @@ class Maestral(object):
         :param bool run: If ``True``, Maestral will start syncing immediately. Defaults to
             ``True``.
         """
+        migrate_user_config(config_name)
+        migrate_maestral_index(config_name)
 
         self._config_name = config_name
         self._conf = MaestralConfig(self._config_name)
