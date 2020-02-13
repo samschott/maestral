@@ -62,7 +62,8 @@ DIR_EVENTS = (DirModifiedEvent, DirCreatedEvent, DirDeletedEvent, DirMovedEvent)
 FILE_EVENTS = (FileModifiedEvent, FileCreatedEvent, FileDeletedEvent, FileMovedEvent)
 
 EXCLUDED_FILE_NAMES = (
-    "desktop.ini",  "thumbs.db", ".ds_store", "icon\r", ".dropbox.attr", REV_FILE
+    "desktop.ini",  "thumbs.db", ".ds_store", "icon\r", ".dropbox.attr",
+    ".com.apple.timemachine.supported", REV_FILE
 )
 
 _rev_file_dir = get_state_path('maestral')
