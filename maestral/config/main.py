@@ -7,7 +7,6 @@
 """
 Maestral configuration options
 """
-import os.path as osp
 import copy
 import logging
 
@@ -149,54 +148,3 @@ def MaestralState(config_name):
 
         _state_instances[config_name] = state
         return state
-
-
-# =============================================================================
-# Migrate user config
-# =============================================================================
-
-def migrate_user_config(config_name):
-    config_path = get_conf_path(CONFIG_DIR_NAME, create=False)
-    config_fpath = get_conf_path(CONFIG_DIR_NAME, config_name + '.ini', create=False)
-    state_fpath = get_state_path(CONFIG_DIR_NAME, config_name + '.state', create=False)
-
-    old_version = '10.0.0'
-
-    if osp.isfile(config_fpath) and not osp.isfile(state_fpath):
-        logger.info(f'Migrating user config for "{config_name}"')
-        # load old config explicitly, not from factory to avoid caching
-        old_conf = UserConfig(
-            config_path, config_name, defaults=None, version=old_version,
-            load=True, backup=True, raw_mode=True, remove_obsolete=False
-        )
-        state = MaestralState(config_name)
-
-        # get values for moved settings
-        email = old_conf.get('account', 'email')
-        display_name = old_conf.get('account', 'display_name')
-        abbreviated_name = old_conf.get('account', 'abbreviated_name')
-        acc_type = old_conf.get('account', 'type')
-        usage = old_conf.get('account', 'usage')
-        usage_type = old_conf.get('account', 'usage_type')
-
-        update_notification_last = old_conf.get('app', 'update_notification_last')
-        latest_release = old_conf.get('app', 'latest_release')
-
-        cursor = old_conf.get('internal', 'cursor')
-        lastsync = old_conf.get('internal', 'lastsync')
-        recent_changes = old_conf.get('internal', 'recent_changes')
-
-        # set state values
-        state.set('account', 'email', email)
-        state.set('account', 'display_name', display_name)
-        state.set('account', 'abbreviated_name', abbreviated_name)
-        state.set('account', 'type', acc_type)
-        state.set('account', 'usage', usage)
-        state.set('account', 'usage_type', usage_type)
-
-        state.set('app', 'update_notification_last', update_notification_last)
-        state.set('app', 'latest_release', latest_release)
-
-        state.set('sync', 'cursor', cursor)
-        state.set('sync', 'lastsync', lastsync)
-        state.set('sync', 'recent_changes', recent_changes)

@@ -66,8 +66,6 @@ EXCLUDED_FILE_NAMES = (
     ".com.apple.timemachine.supported", REV_FILE
 )
 
-_rev_file_dir = get_state_path('maestral')
-
 
 # ========================================================================================
 # Syncing functionality
@@ -308,7 +306,7 @@ class UpDownSync:
     queued_folder_downloads = queue.Queue()
 
     __slots__ = (
-        "client", "config_name",
+        "client", "config_name", "rev_file_path",
         "local_file_event_queue", "queue_uploading", "queue_downloading",
         "_dropbox_path", "_excluded_files", "_excluded_folders", "_rev_dict_cache",
         "_conf", "_state", "notifier"
@@ -318,6 +316,7 @@ class UpDownSync:
 
         self.client = client
         self.config_name = self.client.config_name
+        self.rev_file_path = get_state_path("maestral", f"{self.config_name}.index")
 
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
@@ -331,7 +330,6 @@ class UpDownSync:
         self._dropbox_path = self._conf.get("main", "path")
         self._excluded_files = self._conf.get("main", "excluded_files")
         self._excluded_folders = self._conf.get("main", "excluded_folders")
-        self._migrate_rev_file()
         self._rev_dict_cache = self._load_rev_dict_from_file()
 
     # ==== settings ======================================================================
@@ -406,18 +404,6 @@ class UpDownSync:
 
     # ==== Rev file management ===========================================================
 
-    @property
-    def old_rev_file_path(self):
-        """Path to file with revision index (read only). This will a hidden file
-        '.maestral' in the user's Dropbox directory."""
-        return osp.join(self.dropbox_path, REV_FILE)
-
-    @property
-    def rev_file_path(self):
-        """Path to file with revision index (read only). This will a hidden file
-        '.maestral' in the user's Dropbox directory."""
-        return osp.join(_rev_file_dir, f"{self.config_name}.index")
-
     def _load_rev_dict_from_file(self, raise_exception=False):
         """
         Attempts to load Maestral's rev index from `rev_file_path`. The rev file will be
@@ -461,21 +447,6 @@ class UpDownSync:
                 logger.error(title, exc_info=exc_info)
 
             return rev_dict_cache
-
-    def _migrate_rev_file(self, raise_exception=True):
-        if osp.isfile(self.old_rev_file_path):
-            try:
-                os.rename(self.old_rev_file_path, self.rev_file_path)
-            except OSError as exc:
-                title = "Could not move index"
-                msg = ("Please move your maestral index manually from "
-                       f"'{self.old_rev_file_path}' to '{self.rev_file_path}'.")
-                new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
-                if raise_exception:
-                    raise new_exc
-                else:
-                    exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
-                    logger.error(title, exc_info=exc_info)
 
     def _save_rev_dict_to_file(self, raise_exception=False):
         """
