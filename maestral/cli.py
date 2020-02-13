@@ -498,10 +498,8 @@ def activity(config_name: str):
 @main.command(help_priority=9)
 @with_config_opt
 @click.argument('dropbox_path', type=click.Path(), default='')
-@click.option('-a', 'list_all', is_flag=True, default=False,
-              help='Include directory entries whose names begin with a dot (.).')
 @catch_maestral_errors
-def ls(dropbox_path: str, config_name: str, list_all: bool):
+def ls(dropbox_path: str, config_name: str):
     """Lists contents of a Dropbox directory."""
 
     if not dropbox_path.startswith('/'):

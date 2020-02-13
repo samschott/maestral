@@ -45,6 +45,11 @@
   silently keeping the old directory.
 - Use atomic save to prevent corruption of sync index if Maestral crashes or is killed
   during a save.
+  
+#### Removed:
+
+- Removed "-a" option from `maestral ls`. List all entries by default, even if they start
+  with a period.
 
 ## v0.5.2
 
