@@ -1212,7 +1212,7 @@ class UpDownSync:
 
         try:
             self.client.remove(dbx_path, parent_rev=local_rev)
-        except PathError:
+        except NotFoundError:
             logger.debug("Could not delete '%s': the item does not exist on Dropbox.", event.src_path)
 
         # remove revision metadata
