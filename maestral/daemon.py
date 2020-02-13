@@ -44,6 +44,8 @@ class Start(enum.Enum):
 # ==== error serialization ===============================================================
 
 def serpent_deserialize_api_error(class_name, d):
+    import maestral.errors
+
     cls = eval(class_name)
     e = cls(*d['args'])
     for a_name, a_value in d['attributes'].items():
