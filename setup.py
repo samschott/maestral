@@ -1,7 +1,6 @@
 import sys
 from setuptools import setup, find_packages
-
-from maestral import __version__
+from maestral import __version__, __author__, __url__
 
 CURRENT_PYTHON = sys.version_info[:2]
 REQUIRED_PYTHON = (3, 6)
@@ -43,14 +42,13 @@ to use the new command line interface with the old daemon.
     """)
     sys.exit(1)
 
-
 setup(
     name='maestral',
     version=__version__,
     description='Open-source Dropbox client for macOS and Linux.',
-    url='https://github.com/SamSchott/maestral',
+    url=__url__,
     author='Sam Schott',
-    author_email='ss2151@cam.ac.uk',
+    author_email=__author__,
     license='MIT',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
