@@ -61,7 +61,6 @@ setup(
     setup_requires=['wheel'],
     install_requires=[
         'atomicwrites',
-        'blinker',
         'bugsnag',
         'click>=7.0',
         'dropbox>=9.4.0',
