@@ -597,10 +597,6 @@ class Maestral(object):
         except OSError:
             pass
 
-        self.sync.dropbox_path = ""
-        self.sync.last_cursor = ""
-        self.sync.last_sync = 0.0
-
         self._conf.reset_to_defaults()
         self._state.reset_to_defaults()
 
