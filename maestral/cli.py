@@ -259,7 +259,7 @@ def config():
 
 @main.group(cls=SpecialHelpOrder, help_priority=16)
 def notify():
-    """Manage Desktop notify."""
+    """Manage Desktop notifications."""
 
 
 @main.group(cls=SpecialHelpOrder, help_priority=18)
