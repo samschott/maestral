@@ -30,7 +30,7 @@ def migrate_user_config(config_name):
             config_path, config_name, load=True, backup=False, raw_mode=True,
             version='10.0.0'
         )
-    except FileNotFoundError:
+    except OSError:
         return
 
     if LooseVersion(old_conf._old_version) < LooseVersion('11.0.0'):
