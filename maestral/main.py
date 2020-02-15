@@ -368,7 +368,7 @@ class Maestral(object):
     def paused(self):
         """Bool indicating if syncing is paused by the user. This is set by calling
         :meth:`pause`."""
-        return not self.monitor._auto_resume_on_connect
+        return self.monitor.paused_by_user.is_set()
 
     @property
     def stopped(self):

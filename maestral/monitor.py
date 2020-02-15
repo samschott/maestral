@@ -693,41 +693,31 @@ class UpDownSync:
 
     # ==== Upload sync ===================================================================
 
-    def get_local_changes_while_inactive(self):
+    def upload_local_changes_while_inactive(self):
         """
-        Collects changes while sync has not been running and puts them in the
-        `queue_upload`. Only file which occurred before calling this method will be
-        returned.
+        Collects changes while sync has not been running and uploads them to Dropbox.
+        Call this method when resuming sync.
         """
 
-        logger.info("Indexing...")
+        logger.info("Indexing local changes...")
 
         try:
-            events = self._get_local_changes_while_inactive()
+            events, local_cursor = self._get_local_changes_while_inactive()
         except FileNotFoundError:
             self.ensure_dropbox_folder_present()
             return
 
-        # queue changes for upload
-        for event in events:
-            self.local_file_event_queue.put(event)
-
-        logger.info(IDLE)
+        if len(events) > 0:
+            self.apply_local_changes(events, local_cursor)
+        else:
+            self.last_sync = local_cursor
 
     def _get_local_changes_while_inactive(self):
-        """
-        Gets all local changes while app has not been running. Call this method
-        on startup of `MaestralMonitor` to upload all local changes.
-
-        :returns: Dictionary with all changes, keys are file paths relative to
-            local Dropbox folder, entries are watchdog file changed events.
-        :rtype: dict
-        """
-
-        now = time.time()
 
         changes = []
+        now = time.time()
         snapshot = DirectorySnapshot(self.dropbox_path)
+
         # remove root entry from snapshot
         del snapshot._inode_to_path[snapshot.inode(self.dropbox_path)]
         del snapshot._stat_info[self.dropbox_path]
@@ -737,14 +727,13 @@ class UpDownSync:
         # get modified or added items
         for path in snapshot.paths:
             stats = snapshot.stat_info(path)
-            last_sync = self._state.get("sync", "lastsync")
             # check if item was created or modified since last sync
             dbx_path = self.to_dbx_path(path).lower()
 
             is_new = (self.get_local_rev(dbx_path) is None and
                       not self.is_excluded(dbx_path))
             is_modified = (self.get_local_rev(dbx_path) and
-                           now > max(stats.st_ctime, stats.st_mtime) > last_sync)
+                           now > max(stats.st_ctime, stats.st_mtime) > self.last_sync)
 
             if is_new:
                 if snapshot.isdir(path):
@@ -772,7 +761,7 @@ class UpDownSync:
         del snapshot
         del lowercase_snapshot_paths
 
-        return changes
+        return changes, now
 
     def wait_for_local_changes(self, timeout=2, delay=0.5):
         """
@@ -1253,7 +1242,7 @@ class UpDownSync:
     # ==== Download sync =================================================================
 
     @catch_sync_issues(sync_errors)
-    def get_remote_dropbox(self, dbx_path="", ignore_excluded=True):
+    def get_remote_dropbox(self, dbx_path="/", ignore_excluded=True):
         """
         Gets all files/folders from Dropbox and writes them to the local folder
         :ivar:`dropbox_path`. Call this method on first run of the Maestral. Indexing
@@ -1266,16 +1255,21 @@ class UpDownSync:
         :rtype: bool
         """
 
-        is_dbx_root = (dbx_path == "")
+        is_dbx_root = dbx_path in ("/", "")
         success = []
+
+        if is_dbx_root:
+            logger.info(f"Downloading your Dropbox")
+        else:
+            logger.info(f"Downloading folder {dbx_path}")
 
         if not any(folder.startswith(dbx_path) for folder in self.excluded_folders):
             # if there are no excluded subfolders, index and download all at once
             ignore_excluded = False
 
-        cursor = self.client.get_latest_cursor(dbx_path)  # get a global cursor
+        # get a cursor for the folder
+        cursor = self.client.get_latest_cursor(dbx_path)
 
-        logger.info("Indexing...")
         root_result = self.client.list_folder(dbx_path, recursive=(not ignore_excluded),
                                               include_deleted=False, limit=500)
 
@@ -1291,6 +1285,7 @@ class UpDownSync:
                     success.append(self.get_remote_dropbox(entry.path_display))
 
         if all(success) and is_dbx_root:
+            # save cursor for global download
             self.last_cursor = cursor
 
         logger.info("Up to date")
@@ -1649,7 +1644,8 @@ class UpDownSync:
 # Workers for upload, download and connection monitoring threads
 # ========================================================================================
 
-def connection_helper(sync, syncing, paused_by_user, running, connected, check_interval=4):
+def connection_helper(sync, syncing, paused_by_user, running, connected,
+                      startup_requested, startup_done, check_interval=4):
     """
     A worker which periodically checks the connection to Dropbox servers.
     This is done through inexpensive calls to :method:`client.get_space_usage`.
@@ -1662,6 +1658,8 @@ def connection_helper(sync, syncing, paused_by_user, running, connected, check_i
     :param Event running: Event to shutdown connection helper.
     :param Event connected: Event that indicates if we can connect to Dropbox.
     :param int check_interval: Time in seconds between connection checks.
+    :param Event startup_done: Cleared when functions to run on startup have finished.
+    :param Event startup_requested: Set when startup scripts have been requested.
     """
 
     while running.is_set():
@@ -1669,8 +1667,9 @@ def connection_helper(sync, syncing, paused_by_user, running, connected, check_i
             # use an inexpensive call to get_space_usage to test connection
             sync.client.get_space_usage()
             if not (connected.is_set() or paused_by_user.is_set()):
-                # resume syncing
                 sync.clear_all_sync_errors()
+                startup_requested.set()
+                startup_done.clear()
                 syncing.set()
             connected.set()
             time.sleep(check_interval)
@@ -1691,7 +1690,7 @@ def connection_helper(sync, syncing, paused_by_user, running, connected, check_i
             logger.error("Unexpected error", exc_info=True)
 
 
-def download_worker(sync, syncing, running, connected):
+def download_worker(sync, syncing, running, connected, startup_done):
     """
     Worker to sync changes of remote Dropbox with local folder.
 
@@ -1699,36 +1698,29 @@ def download_worker(sync, syncing, running, connected):
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
-
+    :param Event startup_done: Cleared when functions to run on startup have finished.
     """
 
     while running.is_set():
 
         syncing.wait()
+        startup_done.wait()
 
         try:
+            has_changes = sync.wait_for_remote_changes(sync.last_cursor, timeout=30)
 
-            if not sync.last_cursor:
-                # run the initial Dropbox download
+            if not (running.is_set() and syncing.is_set() and startup_done.is_set()):
+                continue
+
+            if has_changes:
                 with sync.lock:
-                    sync.get_remote_dropbox()
-            else:
-                has_changes = sync.wait_for_remote_changes(sync.last_cursor, timeout=30)
+                    logger.info(SYNCING)
 
-                if not running.is_set():
-                    return
+                    changes = sync.list_remote_changes(sync.last_cursor)
+                    downloaded = sync.apply_remote_changes(changes)
+                    sync.notify_user(downloaded)
 
-                syncing.wait()
-
-                if has_changes:
-                    with sync.lock:
-                        logger.info(SYNCING)
-
-                        changes = sync.list_remote_changes(sync.last_cursor)
-                        downloaded = sync.apply_remote_changes(changes)
-                        sync.notify_user(downloaded)
-
-                        logger.info(IDLE)
+                    logger.info(IDLE)
 
         except ConnectionError:
             syncing.clear()
@@ -1745,7 +1737,7 @@ def download_worker(sync, syncing, running, connected):
             logger.error("Unexpected error", exc_info=True)
 
 
-def download_worker_added_folder(sync, syncing, running, connected):
+def download_worker_added_folder(sync, syncing, running, connected, startup_done):
     """
     Worker to download folders which have been newly included in sync.
 
@@ -1753,22 +1745,69 @@ def download_worker_added_folder(sync, syncing, running, connected):
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
+    :param Event startup_done: Cleared when functions to run on startup have finished.
     """
 
     while running.is_set():
 
         syncing.wait()
+        startup_done.wait()
+
+        dbx_path = sync.queued_folder_downloads.get()
+
+        if not (running.is_set() and syncing.is_set() and startup_done.is_set()):
+            sync.queued_folder_downloads.put(dbx_path)
+            continue
 
         try:
-            dbx_path = sync.queued_folder_downloads.get()
-
-            if not running.is_set():
-                sync.queued_folder_downloads.put(dbx_path)
-                return
-            syncing.wait()
             with sync.lock:
                 sync.get_remote_dropbox(dbx_path)
             logger.info(IDLE)
+        except ConnectionError:
+            syncing.clear()
+            connected.clear()
+            sync.queued_folder_downloads.put(dbx_path)
+            logger.debug(DISCONNECTED, exc_info=True)
+            logger.info(DISCONNECTED)
+        except MaestralApiError as e:
+            running.clear()
+            syncing.clear()
+            logger.error(e.title, exc_info=True)
+        except Exception:
+            running.clear()
+            syncing.clear()
+            logger.error("Unexpected error", exc_info=True)
+
+
+def upload_worker(sync, syncing, running, connected, startup_done):
+    """
+    Worker to sync local changes to remote Dropbox.
+
+    :param UpDownSync sync: Instance of :class:`UpDownSync`.
+    :param Event syncing: Event that indicates if workers are running or paused.
+    :param Event running: Event to shutdown local file event handler and worker threads.
+    :param Event connected: Event that indicates if we can connect to Dropbox.
+    :param Event startup_done: Cleared when functions to run on startup have finished.
+    """
+
+    while running.is_set():
+
+        syncing.wait()
+        startup_done.wait()
+
+        try:
+            events, local_cursor = sync.wait_for_local_changes(timeout=5)
+
+            if not (running.is_set() and syncing.is_set() and startup_done.is_set()):
+                continue
+
+            if len(events) > 0:
+                with sync.lock:
+                    logger.info(SYNCING)
+                    sync.apply_local_changes(events, local_cursor)
+                    logger.info(IDLE)
+            else:
+                sync.last_sync = local_cursor
 
         except ConnectionError:
             syncing.clear()
@@ -1785,35 +1824,40 @@ def download_worker_added_folder(sync, syncing, running, connected):
             logger.error("Unexpected error", exc_info=True)
 
 
-def upload_worker(sync, syncing, running, connected):
+def startup_worker(sync, syncing, running, connected, startup_requested, startup_done):
     """
     Worker to sync local changes to remote Dropbox.
 
-    :param sync: Instance of :class:`UpDownSync`.
-    :param syncing: Event that indicates if workers are running or paused.
-    :param running: Event to shutdown local file event handler and worker threads.
+    :param UpDownSync sync: Instance of :class:`UpDownSync`.
+    :param Event syncing: Event that indicates if workers are running or paused.
+    :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
+    :param Event startup_done: Cleared when functions to run on startup have finished.
+    :param Event startup_requested: Set when startup scripts have been requested.
     """
-
-    sync.get_local_changes_while_inactive()
 
     while running.is_set():
 
+        startup_requested.wait()
+        syncing.wait()
+
         try:
-            if not syncing.is_set():
-                syncing.wait()
-                sync.get_local_changes_while_inactive()
+            with sync.lock:
+                # run / resume initial download
+                if not sync.last_cursor:
+                    sync.get_remote_dropbox()
 
-            events, local_cursor = sync.wait_for_local_changes(timeout=5)
+                if not (syncing.is_set() and running.is_set()):
+                    continue
 
-            if len(events) > 0:
-                with sync.lock:
-                    logger.info(SYNCING)
-                    sync.apply_local_changes(events, local_cursor)
-                    logger.info(IDLE)
-            else:
-                if syncing.is_set():
-                    sync.last_sync = local_cursor
+                # upload changes while inactive
+                sync.upload_local_changes_while_inactive()
+
+            startup_done.set()
+            startup_requested.clear()
+
+            logger.info(IDLE)
+
         except ConnectionError:
             syncing.clear()
             connected.clear()
@@ -1871,6 +1915,9 @@ class MaestralMonitor:
         self.running = Event()
         self.paused_by_user = Event()
 
+        self.startup_requested = Event()
+        self.startup_done = Event()
+
         self.client = client
         self.config_name = self.client.config_name
         self.file_handler = FileEventHandler(
@@ -1915,28 +1962,47 @@ class MaestralMonitor:
         self.connection_thread = Thread(
             target=connection_helper,
             daemon=True,
-            args=(self.sync, self.syncing, self.paused_by_user, self.running, self.connected),
+            args=(
+                self.sync, self.syncing, self.paused_by_user, self.running,
+                self.connected, self.startup_requested, self.startup_done
+            ),
             name="Maestral connection helper"
+        )
+
+        self.startup_thread = Thread(
+            target=startup_worker,
+            daemon=True,
+            args=(
+                self.sync, self.syncing, self.running, self.connected,
+                self.startup_requested, self.startup_done
+            ),
+            name="Maestral startup worker",
         )
 
         self.download_thread = Thread(
             target=download_worker,
             daemon=True,
-            args=(self.sync, self.syncing, self.running, self.connected),
+            args=(
+                self.sync, self.syncing, self.running, self.connected, self.startup_done
+            ),
             name="Maestral downloader"
         )
 
         self.download_thread_added_folder = Thread(
             target=download_worker_added_folder,
             daemon=True,
-            args=(self.sync, self.syncing, self.running, self.connected),
+            args=(
+                self.sync, self.syncing, self.running, self.connected, self.startup_done
+            ),
             name="Maestral folder downloader"
         )
 
         self.upload_thread = Thread(
             target=upload_worker,
             daemon=True,
-            args=(self.sync, self.syncing, self.running, self.connected),
+            args=(
+                self.sync, self.syncing, self.running, self.connected, self.startup_done
+            ),
             name="Maestral uploader"
         )
 
@@ -1957,13 +2023,14 @@ class MaestralMonitor:
                 raise exc
 
         self.running.set()
+        self.syncing.set()
+        self.startup_requested.set()
 
         self.connection_thread.start()
-        self.download_thread_added_folder.start()
+        self.startup_thread.start()
         self.upload_thread.start()
         self.download_thread.start()
-
-        self.syncing.set()
+        self.download_thread_added_folder.start()
 
         logger.info("Syncing started")
         logger.info(IDLE)
@@ -1977,9 +2044,14 @@ class MaestralMonitor:
 
     def resume(self):
         """Checks for changes while idle and starts syncing."""
-        self.sync.clear_all_sync_errors()
+
+        if self.syncing.is_set():
+            return
 
         self.paused_by_user.clear()
+        self.sync.clear_all_sync_errors()
+        self.startup_requested.set()
+        self.startup_done.clear()
         self.syncing.set()
 
         logger.info(IDLE)
@@ -1992,11 +2064,11 @@ class MaestralMonitor:
 
         logger.debug("Shutting down threads...")
 
-        self.local_observer_thread.stop()  # stop observer
-        self.local_observer_thread.join()  # wait to finish
+        self.local_observer_thread.stop()
+        self.local_observer_thread.join()
 
-        self.running.clear()  # stops our own threads
-        self.upload_thread.join()  # wait for uploads to terminate
+        self.running.clear()
+        self.upload_thread.join()
 
         logger.info(STOPPED)
 
@@ -2009,6 +2081,7 @@ class MaestralMonitor:
                 self.upload_thread, self.download_thread,
                 self.download_thread_added_folder,
                 self.connection_thread,
+                self.startup_thread
             )
         except AttributeError:
             return False
