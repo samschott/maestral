@@ -547,7 +547,7 @@ def link(config_name: str, relink: bool):
             click.echo('Maestral is running. Please stop before linking.')
             return
 
-        auth = OAuth2Session()
+        auth = OAuth2Session(config_name)
         auth.link()
 
     else:
