@@ -665,7 +665,7 @@ def analytics(config_name: str, yes: bool):
     from maestral.daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
-        m.set_share_error_reports(yes)
+        m.analytics = yes
 
     enabled_str = 'Enabled' if yes else 'Disabled'
     click.echo(f'{enabled_str} automatic crash reports.')
@@ -850,18 +850,16 @@ def log_clear(config_name: str):
 @click.argument('level_name', required=False, type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
 @with_config_opt
 def log_level(config_name: str, level_name: str):
-    """Gets or sets the log level. Changes will take effect after restart."""
+    """Gets or sets the log level."""
 
     from maestral.daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
         if level_name:
-            level_num = logging._nameToLevel[level_name]
-            m.set_log_level(level_num)
+            m.log_level = logging._nameToLevel[level_name]
             click.echo(f'Log level set to {level_name}.')
         else:
-            level_num = m.get_conf('app', 'log_level')
-            level_name = logging.getLevelName(level_num)
+            level_name = logging.getLevelName(m.log_level)
             click.echo(f'Log level:  {level_name}')
 
 
