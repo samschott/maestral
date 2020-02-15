@@ -411,6 +411,8 @@ class MaestralApiClient(object):
         :raises: :class:`MaestralApiError`
         """
 
+        dbx_path = "" if dbx_path == "/" else dbx_path
+
         res = self.dbx.files_list_folder_get_latest_cursor(
             dbx_path,
             include_non_downloadable_files=include_non_downloadable_files,
