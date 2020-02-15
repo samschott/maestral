@@ -209,8 +209,10 @@ def run_maestral_daemon(config_name="maestral", run=True, log_to_stdout=False):
 
         # start Maestral as Pyro server
         ExposedMaestral = expose(Maestral)
-        m = ExposedMaestral(config_name, run=run)
-        m.set_log_to_stdout(log_to_stdout)
+        m = ExposedMaestral(config_name, run=False)
+        m.log_to_stdout = log_to_stdout
+        if run:
+            m.run()
 
         daemon.register(m, f"maestral.{config_name}")
         daemon.requestLoop(loopCondition=m._loop_condition)
