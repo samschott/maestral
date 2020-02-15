@@ -123,10 +123,15 @@ class Maestral(object):
     serializer used by Pyro5 in order to be transmitted to a frontend.
     """
 
-    _daemon_running = True  # for integration with Pyro5
-    _log_to_stdout = False
+    # __slots__ = (
+    #     "_config_name", "_conf", "_state", "client", "monitor", "sync",
+    #     "update_thread", "watchdog_thread", "log_handler_file", "log_handler_journal",
+    #     "log_handler_sd", "log_handler_stream", "_log_handler_info_cache",
+    #     "_log_handler_error_cache", "_log_handler_bugsnag",
+    #     "_log_to_stdout", "desktop_notifier", "_daemon_running"
+    # )
 
-    def __init__(self, config_name='maestral', run=True):
+    def __init__(self, config_name='maestral', run=True, log_to_stdout=False):
         """
 
         :param str config_name: Name of maestral configuration to run. This will create
@@ -134,6 +139,10 @@ class Maestral(object):
         :param bool run: If ``True``, Maestral will start syncing immediately. Defaults to
             ``True``.
         """
+
+        self._daemon_running = True
+        self._log_to_stdout = log_to_stdout
+
         migrate_user_config(config_name)
         migrate_maestral_index(config_name)
 
@@ -154,8 +163,6 @@ class Maestral(object):
             daemon=True,
         )
         self.update_thread.start()
-
-        self.analytics = self._conf.get("app", "analytics")
 
         if run:
             self.run()
@@ -233,9 +240,10 @@ class Maestral(object):
             self.log_handler_sd = None
 
         # log to stdout (disabled by default)
+        level = log_level if self._log_to_stdout else 100
         self.log_handler_stream = logging.StreamHandler(sys.stdout)
         self.log_handler_stream.setFormatter(log_fmt_long)
-        self.log_handler_stream.setLevel(100)
+        self.log_handler_stream.setLevel(level)
         mdbx_logger.addHandler(self.log_handler_stream)
 
         # log to cached handlers for GUI and CLI
@@ -257,9 +265,12 @@ class Maestral(object):
         mdbx_logger.addHandler(self.desktop_notifier)
 
         # log to bugsnag (disabled by default)
+        level = logging.ERROR if self._conf.get("app", "analytics") else 100
         self._log_handler_bugsnag = BugsnagHandler()
-        self._log_handler_bugsnag.setLevel(100)
+        self._log_handler_bugsnag.setLevel(level)
         mdbx_logger.addHandler(self._log_handler_bugsnag)
+
+    # ==== methods to access config and saved state ======================================
 
     @property
     def config_name(self):
@@ -281,6 +292,22 @@ class Maestral(object):
     def get_state(self, section, name):
         """Gets a state value."""
         return self._state.get(section, name)
+
+    # ==== getters / setters for config with side effects ================================
+
+    @property
+    def dropbox_path(self):
+        """Returns the path to the local Dropbox directory. Read only. Use
+        :meth:`create_dropbox_directory` or :meth:`move_dropbox_directory` to set or
+        change the Dropbox directory location instead. """
+        return self.sync.dropbox_path
+
+    @property
+    def excluded_folders(self):
+        """Returns a list of excluded folders (read only). Use :meth:`exclude_folder`,
+        :meth:`include_folder` or :meth:`set_excluded_folders` change which folders are
+        excluded from syncing."""
+        return self.sync.excluded_folders
 
     @property
     def log_level(self):
@@ -305,12 +332,8 @@ class Maestral(object):
     def log_to_stdout(self, enabled=True):
         """Enables or disables logging to stdout."""
         self._log_to_stdout = enabled
-
-        if enabled:
-            log_level = self._conf.get("app", "log_level")
-            self.log_handler_stream.setLevel(log_level)
-        else:
-            self.log_handler_stream.setLevel(100)
+        level = self.log_level if enabled else 100
+        self.log_handler_stream.setLevel(level)
 
     @property
     def analytics(self):
@@ -346,6 +369,8 @@ class Maestral(object):
     def notification_level(self, level):
         """Setter: Level for desktop notifications."""
         self.desktop_notifier.notify_level = level
+
+    # ==== state information  ============================================================
 
     @property
     def pending_dropbox_folder(self):
@@ -385,20 +410,6 @@ class Maestral(object):
         """Returns a string with the last status message. This can be displayed as
         information to the user but should not be relied on otherwise."""
         return self._log_handler_info_cache.getLastMessage()
-
-    @property
-    def dropbox_path(self):
-        """Returns the path to the local Dropbox directory. Read only. Use
-        :meth:`create_dropbox_directory` or :meth:`move_dropbox_directory` to set or
-        change the Dropbox directory location instead. """
-        return self.sync.dropbox_path
-
-    @property
-    def excluded_folders(self):
-        """Returns a list of excluded folders (read only). Use :meth:`exclude_folder`,
-        :meth:`include_folder` or :meth:`set_excluded_folders` change which folders are
-        excluded from syncing."""
-        return self.sync.excluded_folders
 
     @property
     def sync_errors(self):
@@ -512,6 +523,8 @@ class Maestral(object):
         """
         res = self.client.get_space_usage()
         return dropbox_stone_to_dict(res)
+
+    # ==== control methods for front ends ================================================
 
     @handle_disconnect
     def get_profile_pic(self):
@@ -838,12 +851,45 @@ class Maestral(object):
         # update config file and client
         self.sync.dropbox_path = path
 
+    # ==== utility methods for front ends ================================================
+
     def to_local_path(self, dbx_path):
+        """
+        Converts a path relative to the Dropbox folder to a correctly cased local file
+        system path.
+
+        :param str dbx_path: Path relative to Dropbox root.
+        :returns: Corresponding path of a location in the local Dropbox folder.
+        :rtype: str
+        """
         return self.sync.to_local_path(dbx_path)
 
     @staticmethod
     def check_for_updates():
+        """
+        Checks if an update is available.
+
+        :returns: A dictionary with information about the latest release with the fields
+            ``update_available`` (bool), ``latest_release`` (str), ``release_notes`` (str)
+            and ``error`` (str or None).
+        :rtype: dict
+        """
         return check_update_available()
+
+    def shutdown_pyro_daemon(self):
+        """
+        Sets the ``_daemon_running`` flag to ``False``. This will be checked by Pyro5
+        periodically to shut down the daemon when requested.
+        """
+        self._daemon_running = False
+        if NOTIFY_SOCKET and sd_notifier:
+            # notify systemd that we are shutting down
+            sd_notifier.notify("STOPPING=1")
+
+    # ==== private methods ===============================================================
+
+    def _loop_condition(self):
+        return self._daemon_running
 
     def _periodic_refresh(self):
         while True:
@@ -861,17 +907,6 @@ class Maestral(object):
         while self.monitor._threads_alive():
             sd_notifier.notify("WATCHDOG=1")
             time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
-
-    def shutdown_pyro_daemon(self):
-        """Does nothing except for setting the _daemon_running flag to ``False``. This
-        will be checked by Pyro periodically to shut down the daemon when requested."""
-        self._daemon_running = False
-        if NOTIFY_SOCKET and sd_notifier:
-            # notify systemd that we are shutting down
-            sd_notifier.notify("STOPPING=1")
-
-    def _loop_condition(self):
-        return self._daemon_running
 
     def __del__(self):
         try:

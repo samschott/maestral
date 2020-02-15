@@ -94,8 +94,9 @@ class FileEventHandler(FileSystemEventHandler):
          downloaded. All entries in :ivar:`queue_downloading` should be temporary only.
     """
 
-    __slots__ = ("syncing", "local_file_event_queue", "queue_downloading",
-                 "_renamed_items_cache")
+    __slots__ = (
+        "syncing", "local_file_event_queue", "queue_downloading", "_renamed_items_cache"
+    )
 
     def __init__(self, syncing, local_file_event_queue, queue_downloading):
 
@@ -243,7 +244,7 @@ def catch_sync_issues(sync_errors=None, failed_items=None):
     return decorator
 
 
-class InQueue(object):
+class InQueue:
     """
     A context manager that puts `name` into `custom_queue` when entering the context and
     removes it when exiting, after an optional delay.

@@ -18,12 +18,18 @@ from urllib.error import URLError, HTTPError
 from maestral import __version__
 
 
-def has_newer_version(version, releases):
-    """Checks if there is an update available.
+API_URL = "https://api.github.com/repos/samschott/maestral-dropbox/releases"
 
-    It takes as arguments the current version, a list of valid cleaned releases in
-    chronological order, and the latest release.
-    Example: ['2.3.4', '2.3.3' ...]
+
+def has_newer_version(version, releases):
+    """Checks current version against a version list of releases to see if an update is
+    available.
+
+    :param str version: The current version.
+    :param list[str] releases: A list of valid cleaned releases in chronological order,
+        and the latest release.
+    :returns: The version string of the latest release if a newer release is available.
+    :rtype: str
     """
 
     # filter releases, only offer updates to stable versions
@@ -31,25 +37,29 @@ def has_newer_version(version, releases):
 
     latest_release = releases[-1]
 
-    return check_version(version, latest_release, '<'), latest_release
+    return latest_release if check_version(version, latest_release, '<') else None
 
 
 def check_update_available(current_version=__version__):
-    """Main method to check for update"""
+    """
+    Main method to check for updates.
 
-    url = "https://api.github.com/repos/samschott/maestral-dropbox/releases"
-    update_available = False
-    latest_release = current_version.strip("v")
+    :param str current_version: The current version.
+    :returns: A dictionary containing information about the latest release or an error
+        message if retrieving update information failed.
+    :rtype: dict
+    """
+    current_version = current_version.strip("v")
+    new_version = None
     release_notes = ""
-
     error_msg = None
 
     try:
         if hasattr(ssl, "_create_unverified_context"):
             context = ssl._create_unverified_context()
-            page = urlopen(url, context=context)
+            page = urlopen(API_URL, context=context)
         else:
-            page = urlopen(url)
+            page = urlopen(API_URL)
         try:
             data = page.read()
 
@@ -64,8 +74,7 @@ def check_update_available(current_version=__version__):
             releases_notes = list(reversed(releases_notes))
             release_notes = releases_notes[-1]
 
-            result = has_newer_version(latest_release, releases)
-            update_available, latest_release = result
+            new_version = has_newer_version(current_version, releases)
         except Exception:
             error_msg = "Unable to retrieve information."
     except HTTPError:
@@ -76,8 +85,8 @@ def check_update_available(current_version=__version__):
     except Exception:
         error_msg = "Unable to check for updates."
 
-    return {"update_available": update_available,
-            "latest_release": latest_release,
+    return {"update_available": bool(new_version),
+            "latest_release": new_version or current_version,
             "release_notes": release_notes,
             "error": error_msg}
 
