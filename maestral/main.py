@@ -549,7 +549,6 @@ class Maestral(object):
         :rtype: list[dict]
         :raises: :class:`MaestralApiError`
         """
-        dbx_path = "" if dbx_path == "/" else dbx_path
         res = self.client.list_folder(dbx_path, **kwargs)
 
         entries = [dropbox_stone_to_dict(e) for e in res.entries]

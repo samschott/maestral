@@ -439,6 +439,8 @@ class MaestralApiClient(object):
         :raises: :class:`MaestralApiError`
         """
 
+        dbx_path = "" if dbx_path == "/" else dbx_path
+
         results = []
 
         res = self.dbx.files_list_folder(
