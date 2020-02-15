@@ -124,6 +124,7 @@ class Maestral(object):
     """
 
     _daemon_running = True  # for integration with Pyro5
+    _log_to_stdout = False
 
     def __init__(self, config_name='maestral', run=True):
         """
@@ -141,7 +142,6 @@ class Maestral(object):
         self._state = MaestralState(self._config_name)
 
         self._setup_logging()
-        self.set_share_error_reports(self._conf.get("app", "analytics"))
 
         self.client = MaestralApiClient(self._config_name)
         self.monitor = MaestralMonitor(self.client)
@@ -154,6 +154,8 @@ class Maestral(object):
             daemon=True,
         )
         self.update_thread.start()
+
+        self.analytics = self._conf.get("app", "analytics")
 
         if run:
             self.run()
@@ -280,17 +282,29 @@ class Maestral(object):
         """Gets a state value."""
         return self._state.get(section, name)
 
-    def set_log_level(self, level_num):
-        """Sets the log level for log files, the stream
-        handler and the systemd journal."""
+    @property
+    def log_level(self):
+        """Log level for log files, the stream handler and the systemd journal."""
+        return self._conf.set("app", "log_level")
+
+    @log_level.setter
+    def log_level(self, level_num):
+        """Setter: Log level for log files, the stream handler and the systemd journal."""
         self.log_handler_file.setLevel(level_num)
-        self.log_handler_stream.setLevel(level_num)
         if self.log_handler_journal:
             self.log_handler_journal.setLevel(level_num)
+        if self.log_to_stdout:
+            self.log_handler_stream.setLevel(level_num)
         self._conf.set("app", "log_level", level_num)
 
-    def set_log_to_stdout(self, enabled=True):
+    @property
+    def log_to_stdout(self):
+        return self._log_to_stdout
+
+    @log_to_stdout.setter
+    def log_to_stdout(self, enabled=True):
         """Enables or disables logging to stdout."""
+        self._log_to_stdout = enabled
 
         if enabled:
             log_level = self._conf.get("app", "log_level")
@@ -298,8 +312,14 @@ class Maestral(object):
         else:
             self.log_handler_stream.setLevel(100)
 
-    def set_share_error_reports(self, enabled):
+    @property
+    def analytics(self):
         """Enables or disables logging of errors to bugsnag."""
+        return self._conf.get("app", "analytics")
+
+    @analytics.setter
+    def analytics(self, enabled):
+        """Setter: Enables or disables logging of errors to bugsnag."""
 
         bugsnag.configuration.auto_notify = enabled
         bugsnag.configuration.auto_capture_sessions = enabled
