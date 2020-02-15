@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 set_keyring_backend()
 
 
-class OAuth2Session(object):
+class OAuth2Session:
     """
     OAuth2Session provides OAuth2 login and token store.
     """

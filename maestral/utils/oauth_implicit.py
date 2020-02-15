@@ -27,7 +27,7 @@ from maestral.errors import api_to_maestral_error
 logger = logging.getLogger(__name__)
 
 
-class DropboxOAuth2FlowImplicitBase(object):
+class DropboxOAuth2FlowImplicitBase:
 
     def __init__(self, consumer_key, locale=None):
         self.consumer_key = consumer_key
