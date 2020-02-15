@@ -8,7 +8,7 @@
   (hopefully you won't see it too often).
 - Added desktop notifications for errors: Serious errors such as revoked Dropbox access,
   deleted Dropbox folder, etc, were previously only shown in the GUI as an alert window 
-  or printed as red warnings when invoking a CLI command.
+  or printed as warnings when invoking a CLI command.
 - Support for different levels of desktop notifications (CLI only). You can now select
   between FILECHANGE, SYNCISSUE, ERROR and NONE with `maestral notify LEVEL`.
 - Added an option to snooze notifications. In the CLI, use `maestral notify snooze N` to
@@ -17,34 +17,37 @@
   previously only supported in the GUI. Files and folders in the existing directory will
   be merged with your Dropbox.
 - The CLI command `maestral restart` now supports restarting Maestral into the current
-  process instead of spawning a new process by passing the `--foreground` option. This can
-  be useful for systemd integration.
+  process instead of spawning a new process. This is enabled by passing the `--foreground`
+  (`-f`) option and can be useful when restarting the daemon from systemd.
 
 #### Changed:
 
 - Split off GUI into separate python packages (`maestral-qt`, `maestral-cocoa`).
 - Notify only for remote changes and not for those which originated locally. This
-  should significantly reduce the number of unwanted notifications - no one needs to be
-  notified that a file has changed when they themselves *just* changed it.
+  should significantly reduce the number of unwanted notifications.
 - Renamed `set-dir` command to `move-dir` to emphasize that it moves the local Dropbox
   folder to a new location.
 - Renamed `maestral notifications` to `maestral notify` for brevity.
 - Do not require a restart after setting up Maestral with the GUI.
-- Removed saved state from the config file. Sync and application states are now saved
-  separately in '~/.local/share' on Linux and '~/Library/Application Support' on macOS.
-    
-#### Fixed:
-
-- Fixed an issue where local file events could be ignored while a download is in progress.
-- Correctly handle additional error types: internal Dropbox server error, insufficient
-  space on local drive, file name too long for local file system and out-of-memory error.
-- Set the log level for the systemd journal according to user settings instead of using 
-  logging.DEBUG.
-- When invoking `maestral restart`, run checks for Dropbox folder location and link status.
-- Notify the user through the GUI when moving the Dropbox directory fails instead of
-  silently keeping the old directory.
+- Removed sync and application state info from the config file. Sync and application
+  states are now  saved separately in '~/.local/share/maestral/CONFIG_NAME.state' on Linux
+  and '~/Library/Application Support/maestral/CONFIG_NAME.state' on macOS.
 - Use atomic save to prevent corruption of sync index if Maestral crashes or is killed
   during a save.
+- Moved the sync index to the same folder as the application state.
+
+#### Fixed:
+
+- Fixes an issue where local changes while maestral was not running could be overwritten 
+  by concurrent remote changes instead of resulting in a conflicting copy.
+- Fixes an issue where local file events could be ignored while a download is in progress.
+- Correctly handle additional error types: internal Dropbox server error, insufficient
+  space on local drive, file name too long for local file system and out-of-memory error.
+- Set the log level for the systemd journal according to user settings instead of always  
+  using logging.DEBUG.
+- Run checks for Dropbox folder location and link status when invoking `maestral restart`.
+- Notify the user through the GUI when moving the Dropbox directory fails instead of
+  silently keeping the old directory.
   
 #### Removed:
 
