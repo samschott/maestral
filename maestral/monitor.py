@@ -54,8 +54,8 @@ EXCLUDED_FILE_NAMES = (
 )
 
 # TODO:
-#  * check missing conflict resolution
-#  * check file modification during upload
+#  * Check resuming first download on interruption
+#  * Check conflict resolution on concurrent editing
 
 
 # ========================================================================================
@@ -1886,22 +1886,32 @@ class MaestralMonitor:
     remote changes, and `connection_thread` which periodically checks the
     connection to Dropbox servers.
 
-    :ivar local_observer_thread: Watchdog observer thread that detects local file
+    :param MaestralApiClient client: The Dropbox API client, a wrapper around the Dropbox
+        Python SDK.
+
+    :ivar Thread local_observer_thread: Watchdog observer thread that detects local file
         system events.
-    :ivar upload_thread: Thread that sorts uploads local changes.
-    :ivar download_thread: Thread to query for and download remote changes.
-    :ivar file_handler: Handler to queue file events from `observer` for upload.
-    :ivar sync: `UpDownSync` instance to coordinate syncing. This is the brain of
-        Maestral. It contains the logic to process local and remote file events and to
-        apply them while checking for conflicts.
+    :ivar Thread upload_thread: Thread that sorts uploads local changes.
+    :ivar Thread download_thread: Thread to query for and download remote changes.
+    :ivar Thread file_handler: Handler to queue file events from `observer` for upload.
+    :ivar UpDownSync sync: Object to coordinate syncing. This is the brain of Maestral.
+        It contains the logic to process local and remote file events and to apply them
+        while checking for conflicts.
 
-    :ivar connected: Event that is set when connected to Dropbox servers.
-    :ivar running: Event that is set when the threads are running.
-    :ivar syncing: Event that is set when syncing is not paused.
+    :ivar Event connected: Set when connected to Dropbox servers.
+    :ivar Event syncing: Set when sync is running.
+    :ivar Event running: Set when the sync threads are alive.
+    :ivar Event paused_by_user: Set when sync is paused by the user.
 
-    :cvar queue_downloading: Queue with *local file paths* that are being downloaded.
-    :cvar queue_uploading: Queue with *local file paths* that are being uploaded.
-    :cvar local_file_event_queue: Queue with *file events* to be uploaded.
+    :ivar Event startup_requested: Set when startup scripts have to be run after syncing
+        was inactive, for instance when Maestral is started, the internet connection is
+        reestablished or syncing is resumed after pausing.
+    :ivar Event startup_done: Set when startup scripts have completed. Sync threads will
+        wait for this event to be set.
+
+    :cvar Queue queue_downloading: Holds *local file paths* that are being downloaded.
+    :cvar Queue queue_uploading: Holds *local file paths* that are being uploaded.
+    :cvar TimedQueue local_file_event_queue: Holds *file events* to be uploaded.
     """
 
     queue_downloading = queue.Queue()
@@ -2054,7 +2064,6 @@ class MaestralMonitor:
         self.startup_requested.set()
         self.startup_done.clear()
         self.syncing.set()
-
         logger.info(IDLE)
 
     def stop(self):
