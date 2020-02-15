@@ -37,7 +37,7 @@ class OAuth2Session(object):
     InvalidToken = 1
     ConnectionFailed = 2
 
-    def __init__(self, config_name='maestral'):
+    def __init__(self, config_name):
 
         self._conf = MaestralConfig(config_name)
 
