@@ -39,7 +39,7 @@ except ImportError:
 from maestral import __version__
 from maestral.monitor import MaestralMonitor
 from maestral.utils import handle_disconnect, with_sync_paused
-from maestral.utils.path import is_child, path_exists_case_insensitive, delete_file_or_folder
+from maestral.utils.path import is_child, path_exists_case_insensitive, delete
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
@@ -922,7 +922,7 @@ def select_dbx_path_dialog(config_name, allow_merge=False):
             msg = (f"Directory '{dropbox_path}' already exist. Do you want to "
                    "overwrite it? Its content will be lost!")
             if click.confirm(msg, prompt_suffix=''):
-                err = delete_file_or_folder(dropbox_path)
+                err = delete(dropbox_path)
                 if err:
                     click.echo(f"Could not write to location '{dropbox_path}'. Please "
                                "make sure that you have sufficient permissions.")

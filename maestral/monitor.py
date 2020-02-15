@@ -40,7 +40,7 @@ from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError
                              PathError, InotifyError, NotFoundError)
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
-from maestral.utils.path import is_child, path_exists_case_insensitive, delete_file_or_folder
+from maestral.utils.path import is_child, path_exists_case_insensitive, delete
 from maestral.utils.appdirs import get_state_path
 
 logger = logging.getLogger(__name__)
@@ -1621,7 +1621,7 @@ class UpDownSync:
             # remove it and all its children. If there’s nothing at the
             # given path, ignore this entry.
 
-            err = delete_file_or_folder(local_path)
+            err = delete(local_path)
             self.set_local_rev(entry.path_display, None)
 
             if not err:
