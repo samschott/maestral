@@ -55,7 +55,7 @@ setup(
     packages=find_packages(),
     package_data={
         'maestral': [
-            'resources/*.png',
+            'resources/*',
             ],
         },
     setup_requires=['wheel'],
@@ -97,5 +97,8 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3 :: Only',
+    ],
+    data_files=[
+        ('share/systemd/user/', ['maestral/resources/maestral.service']),
     ],
 )
