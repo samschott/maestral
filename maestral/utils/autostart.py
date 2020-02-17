@@ -20,7 +20,7 @@ from maestral.constants import BUNDLE_ID
 
 
 _root = getattr(sys, '_MEIPASS', osp.dirname(osp.abspath(__file__)))
-_resources = osp.join(osp.basename(_root), 'resources')
+_resources = osp.join(osp.dirname(_root), 'resources')
 
 
 class SupportedImplementations(Enum):
@@ -123,7 +123,9 @@ class AutoStartSystemd(AutoStartBase):
 
     @property
     def enabled(self):
-        res = subprocess.call(['systemctl', '--user', '--quiet', 'is-enabled', self.service_name])
+        res = subprocess.call(
+            ['systemctl', '--user', '--quiet', 'is-enabled', self.service_name]
+        )
         return res == 0
 
 
@@ -147,36 +149,27 @@ class AutoStart:
             launch_command = 'maestral start -f -c=\'{}\''.format(config_name)
 
         if self.implementation == SupportedImplementations.launchd:
-            self._autostart = AutoStartLaunchd(config_name, launch_command)
+            self._impl = AutoStartLaunchd(config_name, launch_command)
         elif self.implementation == SupportedImplementations.xdg_desktop:
-            self._autostart = AutoStartXDGDesktop(config_name, launch_command)
+            self._impl = AutoStartXDGDesktop(config_name, launch_command)
+        elif self.implementation == SupportedImplementations.systemd:
+            self._impl = AutoStartSystemd(config_name, launch_command)
         else:
-            self._autostart = AutoStartBase(config_name, launch_command)
-
-    def enable(self):
-        """Deprecated. Use property instead."""
-        self._autostart.enable()
-
-    def disable(self):
-        """Deprecated. Use property instead."""
-        self._autostart.disable()
+            self._impl = AutoStartBase(config_name, launch_command)
 
     def toggle(self):
-        if self.enabled:
-            self.disable()
-        else:
-            self.enable()
+        self.enabled = not self.enabled
 
     @property
     def enabled(self):
-        return self._autostart.enabled
+        return self._impl.enabled
 
     @enabled.setter
     def enabled(self, yes):
         if yes:
-            self.enable()
+            self._impl.enable()
         else:
-            self.disable()
+            self._impl.disable()
 
     def _get_available_implementation(self):
         if self.system == 'Darwin':

@@ -247,22 +247,22 @@ def main():
     _check_for_updates()
 
 
-@main.group(cls=SpecialHelpOrder, help_priority=13)
+@main.group(cls=SpecialHelpOrder, help_priority=14)
 def excluded():
     """View and manage excluded folders."""
 
 
-@main.group(cls=SpecialHelpOrder, help_priority=15)
+@main.group(cls=SpecialHelpOrder, help_priority=16)
 def config():
     """Manage different Maestral configuration environments."""
 
 
-@main.group(cls=SpecialHelpOrder, help_priority=16)
+@main.group(cls=SpecialHelpOrder, help_priority=17)
 def notify():
     """Manage Desktop notifications."""
 
 
-@main.group(cls=SpecialHelpOrder, help_priority=18)
+@main.group(cls=SpecialHelpOrder, help_priority=19)
 def log():
     """View and manage Maestral's log."""
 
@@ -343,6 +343,28 @@ def restart(ctx, config_name: str,  foreground: bool):
 
 @main.command(help_priority=4)
 @with_config_opt
+@click.option('--yes', '-Y', is_flag=True, default=False)
+@click.option('--no', '-N', is_flag=True, default=False)
+def autostart(config_name: str, yes: bool, no: bool):
+    """Start the maestral daemon on log-in."""
+    from maestral.utils.autostart import AutoStart
+    auto_start = AutoStart(config_name)
+
+    if not auto_start.implementation:
+        click.echo('Autostart is currently not supported for your platform.\n' +
+                   'Autostart requires systemd on Linux or launchd on macOS.')
+
+    if yes or no:
+        auto_start.enabled = yes
+        enabled_str = 'Enabled' if yes else 'Disabled'
+        click.echo(f'{enabled_str} start on login.')
+    else:
+        enabled_str = 'enabled' if auto_start.enabled else 'disabled'
+        click.echo(f'Autostart is {enabled_str}.')
+
+
+@main.command(help_priority=5)
+@with_config_opt
 def pause(config_name: str):
     """Pauses syncing."""
     from maestral.daemon import MaestralProxy
@@ -355,7 +377,7 @@ def pause(config_name: str):
         click.echo('Maestral daemon is not running.')
 
 
-@main.command(help_priority=5)
+@main.command(help_priority=6)
 @with_config_opt
 def resume(config_name: str):
     """Resumes syncing."""
@@ -371,7 +393,7 @@ def resume(config_name: str):
         click.echo('Maestral daemon is not running.')
 
 
-@main.command(help_priority=6)
+@main.command(help_priority=7)
 @with_config_opt
 def status(config_name: str):
     """Returns the current status of the Maestral daemon."""
@@ -406,7 +428,7 @@ def status(config_name: str):
         click.echo('Maestral daemon is not running.')
 
 
-@main.command(help_priority=7)
+@main.command(help_priority=8)
 @click.argument('local_path', type=click.Path(exists=True))
 @with_config_opt
 def file_status(config_name: str, local_path: str):
@@ -426,7 +448,7 @@ def file_status(config_name: str, local_path: str):
         click.echo('unwatched')
 
 
-@main.command(help_priority=8)
+@main.command(help_priority=9)
 @with_config_opt
 def activity(config_name: str):
     """Live view of all items being synced."""
@@ -496,7 +518,7 @@ def activity(config_name: str):
         click.echo('Maestral daemon is not running.')
 
 
-@main.command(help_priority=9)
+@main.command(help_priority=910)
 @with_config_opt
 @click.argument('dropbox_path', type=click.Path(), default='')
 @catch_maestral_errors
@@ -531,7 +553,7 @@ def ls(dropbox_path: str, config_name: str):
             click.echo('')
 
 
-@main.command(help_priority=10)
+@main.command(help_priority=11)
 @with_config_opt
 @click.option('-r', 'relink', is_flag=True, default=False,
               help='Relink to the current account. Keeps the sync state.')
@@ -555,7 +577,7 @@ def link(config_name: str, relink: bool):
                    '\'-r\' to relink to the same account.')
 
 
-@main.command(help_priority=11)
+@main.command(help_priority=12)
 @with_config_opt
 @click.confirmation_option(prompt='Are you sure you want unlink your account?')
 @catch_maestral_errors
@@ -573,7 +595,7 @@ def unlink(config_name: str):
         click.echo('Unlinked Maestral.')
 
 
-@main.command(help_priority=12)
+@main.command(help_priority=13)
 @with_config_opt
 @click.argument('new_path', required=False, type=click.Path(writable=True))
 def move_dir(config_name: str, new_path: str):
@@ -591,7 +613,7 @@ def move_dir(config_name: str, new_path: str):
         click.echo(f'Dropbox folder moved to {new_path}.')
 
 
-@main.command(help_priority=14)
+@main.command(help_priority=15)
 @with_config_opt
 @catch_maestral_errors
 def rebuild_index(config_name: str):
@@ -656,22 +678,29 @@ def rebuild_index(config_name: str):
         click.echo('Maestral does not appear to be linked.')
 
 
-@main.command(help_priority=17)
+@main.command(help_priority=18)
 @with_config_opt
-@click.option('--yes/--no', '-Y/-N', default=True)
-def analytics(config_name: str, yes: bool):
-    """Enables or disables sharing crash reports."""
-    # This is safe to call, even if the GUI or daemon are running.
+@click.option('--yes', '-Y', is_flag=True, default=False)
+@click.option('--no', '-N', is_flag=True, default=False)
+def analytics(config_name: str, yes: bool, no: bool):
+    """Enables or disables sharing error reports."""
+    # This is safe to call regardless if the GUI or daemon are running.
     from maestral.daemon import MaestralProxy
 
-    with MaestralProxy(config_name, fallback=True) as m:
-        m.analytics = yes
+    if yes or no:
+        with MaestralProxy(config_name, fallback=True) as m:
+            m.analytics = yes
 
-    enabled_str = 'Enabled' if yes else 'Disabled'
-    click.echo(f'{enabled_str} automatic crash reports.')
+        enabled_str = 'Enabled' if yes else 'Disabled'
+        click.echo(f'{enabled_str} automatic error reports.')
+    else:
+        with MaestralProxy(config_name, fallback=True) as m:
+            state = m.analytics
+        enabled_str = 'enabled' if state else 'disabled'
+        click.echo(f'Automatic error reports are {enabled_str}.')
 
 
-@main.command(help_priority=19)
+@main.command(help_priority=20)
 @with_config_opt
 def account_info(config_name: str):
     """Prints your Dropbox account information."""
@@ -694,7 +723,7 @@ def account_info(config_name: str):
             click.echo('')
 
 
-@main.command(help_priority=20)
+@main.command(help_priority=21)
 def about():
     """Returns the version number and other information."""
     import time
