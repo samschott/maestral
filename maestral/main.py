@@ -28,12 +28,8 @@ try:
     from systemd import journal
 except ImportError:
     journal = None
-try:
-    import sdnotify
-    sd_notifier = sdnotify.SystemdNotifier()
-except ImportError:
-    sdnotify = None
-    sd_notifier = None
+
+import sdnotify
 
 # maestral modules
 from maestral import __version__
@@ -53,6 +49,7 @@ from maestral.errors import MaestralApiError
 from maestral.config import MaestralConfig, MaestralState
 
 logger = logging.getLogger(__name__)
+sd_notifier = sdnotify.SystemdNotifier()
 
 # set up error reporting but do not activate
 
@@ -182,12 +179,12 @@ class Maestral(object):
         # start syncing
         self.start_sync()
 
-        if NOTIFY_SOCKET and sd_notifier:  # notify systemd that we have started
+        if NOTIFY_SOCKET:  # notify systemd that we have started
             logger.debug("Running as systemd notify service")
             logger.debug(f"NOTIFY_SOCKET = {NOTIFY_SOCKET}")
             sd_notifier.notify("READY=1")
 
-        if IS_WATCHDOG and sd_notifier:  # notify systemd periodically if alive
+        if IS_WATCHDOG:  # notify systemd periodically if alive
             logger.debug("Running as systemd watchdog service")
             logger.debug(f"WATCHDOG_USEC = {WATCHDOG_USEC}")
             logger.debug(f"WATCHDOG_PID = {WATCHDOG_PID}")
@@ -231,7 +228,7 @@ class Maestral(object):
             self.log_handler_journal = None
 
         # send systemd notifications when started as 'notify' daemon
-        if NOTIFY_SOCKET and sd_notifier:
+        if NOTIFY_SOCKET:
             self.log_handler_sd = SdNotificationHandler()
             self.log_handler_sd.setFormatter(log_fmt_short)
             self.log_handler_sd.setLevel(logging.INFO)
@@ -882,7 +879,7 @@ class Maestral(object):
         periodically to shut down the daemon when requested.
         """
         self._daemon_running = False
-        if NOTIFY_SOCKET and sd_notifier:
+        if NOTIFY_SOCKET:
             # notify systemd that we are shutting down
             sd_notifier.notify("STOPPING=1")
 

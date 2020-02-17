@@ -70,13 +70,13 @@ setup(
         'Pyro5>=5.7',
         'requests',
         'rubicon-objc>=0.3.1;sys_platform=="darwin"',
+        'sdnotify',
         'u-msgpack-python',
         'watchdog>=0.9.0',
     ],
     extras_require={
-        'systemd': [
+        'syslog': [
             'systemd-python',
-            'sdnotify'
         ],
         'gui': [
             'maestral-cocoa==0.1.1-dev1;sys_platform=="darwin"',
