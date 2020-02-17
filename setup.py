@@ -100,5 +100,6 @@ setup(
     ],
     data_files=[
         ('share/systemd/user/', ['maestral/resources/maestral.service']),
+        ('share/icons/hicolor/512x512/apps', ['maestral/resources/maestral.png'])
     ],
 )
