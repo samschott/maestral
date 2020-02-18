@@ -406,13 +406,11 @@ class UpDownSync:
 
     def _load_rev_dict_from_file(self, raise_exception=False):
         """
-        Attempts to load Maestral's rev index from `rev_file_path`. The rev file will be
-        loaded using u-msgpack.
+        Loads Maestral's rev index from `rev_file_path` using u-msgpack.
 
         :param bool raise_exception: If ``True``, raises an exception when loading fails.
-            If ``False``, no exception is raised but an error message with exc_info is
-            logged.
-        :raises: RevFileError, PermissionError, OSError
+            If ``False``, an error message is logged instead.
+        :raises: RevFileError
         """
         rev_dict_cache = dict()
         new_exc = None
@@ -450,12 +448,11 @@ class UpDownSync:
 
     def _save_rev_dict_to_file(self, raise_exception=False):
         """
-        Attempts to save Maestral's rev index to `rev_file_path`. The rev file will be
-        saved using u-msgpack.
+        Save Maestral's rev index to `rev_file_path` using u-msgpack.
 
         :param bool raise_exception: If ``True``, raises an exception when saving fails.
-            Defaults to ``False``.
-        :raises: PermissionError, OSError
+            If ``False``, an error message is logged instead.
+        :raises: RevFileError
         """
         new_exc = None
 
@@ -1407,7 +1404,6 @@ class UpDownSync:
         uploading ("check_upload_conflict") will be carried out by Dropbox itself.
 
         :param str dbx_path: Path of folder on Dropbox.
-        :returns: 0 for no conflict, 1 for conflict, 2 if files are identical.
         :rtype: Conflict
         :raises: MaestralApiError if the Dropbox item does not exist.
         """
