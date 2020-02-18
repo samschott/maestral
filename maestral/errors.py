@@ -385,20 +385,6 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
             text = ("An unexpected sync error occurred. Please contact the Maestral "
                     "developer with the traceback information from the logs.")
 
-    # ----------------------- Local read / write errors ----------------------------------
-    elif isinstance(exc, PermissionError):
-        err_cls = InsufficientPermissionsError
-        title = "Could not download file"
-        text = "Insufficient read or write permissions for the download location."
-    elif isinstance(exc, FileNotFoundError):
-        err_cls = NotFoundError
-        title = "Could not download file"
-        text = "The given download path is invalid."
-    elif isinstance(exc, IsADirectoryError):
-        err_cls = IsAFolderError
-        title = "Could not download file"
-        text = "The given download path is a directory."
-
     # ----------------------- Authentication errors --------------------------------------
     elif isinstance(exc, dropbox.exceptions.AuthError):
         error = exc.error
