@@ -117,15 +117,17 @@ def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
 
 
 class MaestralApiClient(object):
-    """Client for Dropbox SDK.
+    """Client for the Dropbox SDK.
 
     This client defines basic methods to wrap Dropbox Python SDK calls, such as creating,
     moving, modifying and deleting files and folders on Dropbox and downloading files from
     Dropbox.
 
-    All Dropbox API errors are caught and handled here. ConnectionErrors will
-    be caught and handled by :class:`MaestralMonitor` instead.
+    All Dropbox SDK exceptions and :class:`OSError`s related to accessing or saving local
+    files will be caught and reraised as :class:`errors.MaestralApiError`s. Connection
+    errors from requests will be caught and reraised as :class:`ConnectionError`.
 
+    :param int config_name: Name of config file and state file to use.
     :param int timeout: Timeout for individual requests in sec. Defaults to 60 sec.
     """
 
@@ -193,8 +195,8 @@ class MaestralApiClient(object):
         """
         Gets current account space usage.
 
-        :returns: :class:`SpaceUsage` instance or `False` if failed.
-        :rtype: SpaceUsage
+        :returns: :class:`SpaceUsage` instance.
+        :rtype: :class:`SpaceUsage`
         """
         res = self.dbx.users_get_space_usage()
 
@@ -218,13 +220,14 @@ class MaestralApiClient(object):
     @to_maestral_error(dbx_path_arg=1)
     def get_metadata(self, dbx_path, **kwargs):
         """
-        Get metadata for Dropbox entry (file or folder). Returns `None` if no
-        metadata is available. Keyword arguments are passed on to Dropbox SDK
-        files_get_metadata call.
+        Gets metadata for an item on Dropbox or returns ``False`` if no metadata is
+        available. Keyword arguments are passed on to Dropbox SDK files_get_metadata call.
 
         :param str dbx_path: Path of folder on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
-        :returns: FileMetadata|FolderMetadata entries or `False` if failed.
+        :returns: Metadata of item at the given path.
+        :rtype: :class:`dropbox.files.FileMetadata` |
+            :class:`dropbox.files.FolderMetadata` | bool
         """
 
         try:
@@ -247,9 +250,9 @@ class MaestralApiClient(object):
         :param str dbx_path: Path to file on Dropbox.
         :param str mode: Must be "path" or "id". If "id", specify the Dropbox file ID
             instead of the file path to get revisions across move and rename events.
-            Defaults to "path".
-        :param int limit: Number of revisions to list. Defaults to 10.
-        :returns: :class:`dropbox.files.ListRevisionsResult` instance
+        :param int limit: Maximum number of revisions to list. Defaults to 10.
+        :returns: File revision history.
+        :rtype: :class:`dropbox.files.ListRevisionsResult`
         """
 
         mode = dropbox.files.ListRevisionsMode(mode)
@@ -261,11 +264,10 @@ class MaestralApiClient(object):
         Downloads file from Dropbox to our local folder.
 
         :param str dbx_path: Path to file on Dropbox.
-        :param str dst_path: Path to download destination.
+        :param str dst_path: Path to local download destination.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
-        :returns: :class:`FileMetadata` or
-            :class:`FolderMetadata` of downloaded item, `False`
-            if request fails or `None` if local copy is already in sync.
+        :returns: Metadata of downloaded item.
+        :rtype: :class:`dropbox.files.FileMetadata`
         """
         # create local directory if not present
         dst_path_directory = osp.dirname(dst_path)
@@ -289,9 +291,10 @@ class MaestralApiClient(object):
         :param str local_path: Path of local file to upload.
         :param str dbx_path: Path to save file on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_upload.
-        :param int chunk_size_mb: Maximum size for individual uploads in MB. Must be
-            smaller than 150 MB.
-        :returns: Metadata of uploaded file or `False` if upload failed.
+        :param int chunk_size_mb: Maximum size for individual uploads in MB. If larger
+            than 150 MB, it will be set to 150 MB.
+        :returns: Metadata of uploaded file.
+        :rtype: :class:`dropbox.files.FileMetadata`
         """
 
         chunk_size_mb = min(chunk_size_mb, 150)
@@ -359,13 +362,12 @@ class MaestralApiClient(object):
     @to_maestral_error(dbx_path_arg=1)
     def remove(self, dbx_path, **kwargs):
         """
-        Removes file / folder from Dropbox.
+        Removes a file / folder from Dropbox.
 
         :param str dbx_path: Path to file on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_delete_v2.
-        :returns: Metadata of deleted file or ``False`` if the file does not exist on
-            Dropbox.
-        :raises: :class:`MaestralApiError`.
+        :returns: Metadata of deleted item.
+        :rtype: :class:`dropbox.files.FileMetadata` | :class:`dropbox.files.FolderMetadata`
         """
         # try to move file (response will be metadata, probably)
         res = self.dbx.files_delete_v2(dbx_path, **kwargs)
@@ -378,13 +380,13 @@ class MaestralApiClient(object):
     @to_maestral_error(dbx_path_arg=2)
     def move(self, dbx_path, new_path, **kwargs):
         """
-        Moves/renames files or folders on Dropbox.
+        Moves / renames files or folders on Dropbox.
 
         :param str dbx_path: Path to file/folder on Dropbox.
         :param str new_path: New path on Dropbox to move to.
         :param kwargs: Keyword arguments for Dropbox SDK files_move_v2.
-        :returns: Metadata of moved file/folder.
-        :raises: :class:`MaestralApiError`
+        :returns: Metadata of moved item.
+        :rtype: :class:`dropbox.files.FileMetadata` | :class:`dropbox.files.FolderMetadata`
         """
         res = self.dbx.files_move_v2(
             dbx_path,
@@ -402,12 +404,12 @@ class MaestralApiClient(object):
     @to_maestral_error(dbx_path_arg=1)
     def make_dir(self, dbx_path, **kwargs):
         """
-        Creates folder on Dropbox.
+        Creates a folder on Dropbox.
 
         :param str dbx_path: Path o fDropbox folder.
         :param kwargs: Keyword arguments for Dropbox SDK files_create_folder_v2.
         :returns: Metadata of created folder.
-        :raises: :class:`MaestralApiError`
+        :rtype: :class:`dropbox.files.FolderMetadata`
         """
         res = self.dbx.files_create_folder_v2(dbx_path, **kwargs)
         md = res.metadata
@@ -424,11 +426,9 @@ class MaestralApiClient(object):
         :param str dbx_path: Path of folder on Dropbox.
         :param bool include_non_downloadable_files: If ``True``, files that cannot be
             downloaded (at the moment only G-suite files on Dropbox) will be included.
-            Defaults to ``False``.
         :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
         :returns: The latest cursor representing a state of a folder and its subfolders.
         :rtype: str
-        :raises: :class:`MaestralApiError`
         """
 
         dbx_path = "" if dbx_path == "/" else dbx_path
@@ -446,19 +446,15 @@ class MaestralApiClient(object):
     def list_folder(self, dbx_path, retry=3, include_non_downloadable_files=False,
                     **kwargs):
         """
-        Lists contents of a folder on Dropbox as dictionary mapping unicode
-        file names to FileMetadata|FolderMetadata entries.
+        Lists the contents of a folder on Dropbox.
 
         :param str dbx_path: Path of folder on Dropbox.
-        :param int retry: Number of times to try again call fails because cursor is
-            reset. Defaults to 3.
+        :param int retry: Number of times to try again call fails because cursor is reset.
         :param bool include_non_downloadable_files: If ``True``, files that cannot be
             downloaded (at the moment only G-suite files on Dropbox) will be included.
-            Defaults to ``False``.
         :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
-        :returns: :class:`dropbox.files.ListFolderResult` instance.
+        :returns: Content of given folder.
         :rtype: :class:`dropbox.files.ListFolderResult`
-        :raises: :class:`MaestralApiError`
         """
 
         dbx_path = "" if dbx_path == "/" else dbx_path
@@ -499,11 +495,10 @@ class MaestralApiClient(object):
     @staticmethod
     def flatten_results(results):
         """
-        Flattens a list of :class:`dropbox.files.ListFolderResult` instances
-        and returns their entries only. Only the last cursor will be kept.
+        Flattens a list of :class:`dropbox.files.ListFolderResult` instances to a single
+        instance with the cursor of the last entry in the list.
 
-        :param list results: List of :class:`dropbox.files.ListFolderResult`
-            instances.
+        :param list results: List of :class:`dropbox.files.ListFolderResult` instances.
         :returns: Single :class:`dropbox.files.ListFolderResult` instance.
         :rtype: :class:`dropbox.files.ListFolderResult`
         """
@@ -512,22 +507,21 @@ class MaestralApiClient(object):
             entries_all += result.entries
 
         results_flattened = dropbox.files.ListFolderResult(
-            entries=entries_all, cursor=results[-1].cursor, has_more=False)
+            entries=entries_all, cursor=results[-1].cursor, has_more=False
+        )
 
         return results_flattened
 
     @to_maestral_error()
     def wait_for_remote_changes(self, last_cursor, timeout=40):
         """
-        Waits for remote changes since :param:`last_cursor`. Call this method
-        after starting the Dropbox client and periodically to get the latest
-        updates.
+        Waits for remote changes since :param:`last_cursor`. Call this method after
+        starting the Dropbox client and periodically to get the latest updates.
 
         :param str last_cursor: Last to cursor to compare for changes.
         :param int timeout: Seconds to wait until timeout. Must be between 30 and 480.
         :returns: ``True`` if changes are available, ``False`` otherwise.
         :rtype: bool
-        :raises: :class:`MaestralApiError`
         """
 
         if not 30 <= timeout <= 480:
@@ -557,13 +551,12 @@ class MaestralApiClient(object):
     @to_maestral_error()
     def list_remote_changes(self, last_cursor):
         """
-        Lists changes to remote Dropbox since :param:`last_cursor`. Call this
-        after :method:`wait_for_remote_changes` returns ``True``.
+        Lists changes to remote Dropbox since :param:`last_cursor`. Call this after
+        :method:`wait_for_remote_changes` returns ``True``.
 
         :param str last_cursor: Last to cursor to compare for changes.
-        :returns: :class:`dropbox.files.ListFolderResult` instance.
+        :returns: Remote changes since given cursor.
         :rtype: :class:`dropbox.files.ListFolderResult`
-        :raises:
         """
 
         results = [self.dbx.files_list_folder_continue(last_cursor)]
