@@ -14,8 +14,13 @@ import platform
 import subprocess
 from enum import Enum
 
+try:
+    from importlib.metadata import files
+except ImportError:
+    from importlib_metadata import files
+
 from maestral import __version__
-from maestral.utils.appdirs import get_home_dir, get_conf_path
+from maestral.utils.appdirs import get_home_dir, get_conf_path, get_data_path
 from maestral.constants import BUNDLE_ID
 
 
@@ -32,9 +37,9 @@ class SupportedImplementations(Enum):
 
 class AutoStartBase:
 
-    def __init__(self, config_name, launch_command):
-        self.launch_command = launch_command
+    def __init__(self, config_name, gui):
         self.config_name = config_name
+        self.gui = gui
 
     def enable(self):
         pass
@@ -47,11 +52,80 @@ class AutoStartBase:
         return False
 
 
-class AutoStartLaunchd(AutoStartBase):
+class AutoStartMaestralBase(AutoStartBase):
 
-    def __init__(self, config_name, launch_command):
-        super().__init__(config_name, launch_command)
-        bundle_id = '{}.{}'.format(BUNDLE_ID, self.config_name)
+    def __init__(self, config_name, gui):
+        super().__init__(config_name, gui)
+
+        self.config_opt = f'-c \'{self.config_name}\''
+
+        if hasattr(sys, '_MEIPASS'):  # PyInstaller bundle
+            self.maestral_path = os.path.join(sys._MEIPASS, 'main')
+            self.start_cmd = f'{self.maestral_path} {self.config_opt}'
+            self.stop_cmd = ''
+        else:
+            self.maestral_path = self._get_maestral_command_path()
+
+            if self.gui:
+                self.start_cmd = f'{self.maestral_path} gui {self.config_opt}'
+                self.stop_cmd = ''
+            else:
+                self.start_cmd = f'{self.maestral_path} start -f {self.config_opt}'
+                self.stop_cmd = f'{self.maestral_path} stop {self.config_opt}'
+
+    @staticmethod
+    def _get_maestral_command_path():
+        console_script = next(p for p in files('maestral') if '/bin/maestral' in str(p))
+        return console_script.locate().resolve()
+
+
+class AutoStartSystemd(AutoStartMaestralBase):
+
+    def __init__(self, config_name, gui):
+        super().__init__(config_name, gui)
+
+        if self.gui:
+            raise ValueError('Systemd launching is not supported for the GUI. '
+                             'This may change in a future release.')
+
+        service_type = 'gui' if self.gui else 'daemon'
+        self.service_name = f'maestral-{service_type}@{self.config_name}.service'
+
+        with open(osp.join(_resources, 'maestral@.service'), 'r') as f:
+            unit_template = f.read()
+
+        filename = 'maestral-{}@.service'.format('gui' if self.gui else 'daemon')
+        self.destination = get_data_path(osp.join('systemd', 'user'), filename)
+        self.contents = unit_template.format(
+            start_cmd=f'{self.maestral_path} start -f',
+            stop_cmd=f'{self.maestral_path} stop',
+        )
+
+        with open(self.destination, 'w') as f:
+            f.write(self.contents)
+
+    def enable(self):
+        subprocess.run(['systemctl', '--user', 'enable', self.service_name])
+
+    def disable(self):
+        subprocess.run(['systemctl', '--user', 'disable', self.service_name])
+
+    @property
+    def enabled(self):
+        res = subprocess.call(
+            ['systemctl', '--user', '--quiet', 'is-enabled', self.service_name]
+        )
+        return res == 0
+
+
+class AutoStartLaunchd(AutoStartMaestralBase):
+
+    def __init__(self, config_name, gui):
+        super().__init__(config_name, gui)
+        if self.gui:
+            bundle_id = '{}-{}.{}'.format(BUNDLE_ID, 'gui', self.config_name)
+        else:
+            bundle_id = '{}-{}.{}'.format(BUNDLE_ID, 'daemon', self.config_name)
         filename = bundle_id + '.plist'
 
         with open(osp.join(_resources, 'com.samschott.maestral.plist'), 'r') as f:
@@ -59,7 +133,8 @@ class AutoStartLaunchd(AutoStartBase):
 
         self.destination = osp.join(get_home_dir(), 'Library', 'LaunchAgents', filename)
         self.contents = plist_template.format(
-            bundle_id=bundle_id, launch_command=launch_command
+            bundle_id=bundle_id,
+            start_cmd=self.start_cmd
         )
 
     def enable(self):
@@ -77,18 +152,23 @@ class AutoStartLaunchd(AutoStartBase):
         return os.path.isfile(self.destination)
 
 
-class AutoStartXDGDesktop(AutoStartBase):
+class AutoStartXDGDesktop(AutoStartMaestralBase):
 
-    def __init__(self, config_name, launch_command):
-        super().__init__(config_name, launch_command)
-        filename = 'maestral-{}.desktop'.format(config_name)
+    def __init__(self, config_name, gui):
+        super().__init__(config_name, gui)
+
+        if not gui:
+            raise ValueError('XDG Desktop entries are only supported to launch the GUI')
+
+        filename = f'maestral-{config_name}.desktop'
 
         with open(osp.join(_resources, 'maestral.desktop'), 'r') as f:
             desktop_entry_template = f.read()
 
-        self.destination = get_conf_path('autostart', filename, create=True)
+        self.destination = get_conf_path('autostart', filename)
         self.contents = desktop_entry_template.format(
-            version=__version__, launch_command=launch_command
+            version=__version__,
+            start_cmd=self.start_cmd
         )
 
     def enable(self):
@@ -109,26 +189,6 @@ class AutoStartXDGDesktop(AutoStartBase):
         return os.path.isfile(self.destination)
 
 
-class AutoStartSystemd(AutoStartBase):
-
-    def __init__(self, config_name, launch_command):
-        super().__init__(config_name, launch_command)
-        self.service_name = f'maestral@{self.config_name}.service'
-
-    def enable(self):
-        subprocess.run(['systemctl', '--user', 'enable', self.service_name])
-
-    def disable(self):
-        subprocess.run(['systemctl', '--user', 'disable', self.service_name])
-
-    @property
-    def enabled(self):
-        res = subprocess.call(
-            ['systemctl', '--user', '--quiet', 'is-enabled', self.service_name]
-        )
-        return res == 0
-
-
 class AutoStart:
     """Creates auto-start files in the appropriate system location to automatically
     start Maestral when the user logs in."""
@@ -141,21 +201,14 @@ class AutoStart:
 
         self.implementation = self._get_available_implementation()
 
-        if hasattr(sys, '_MEIPASS'):
-            launch_command = os.path.join(sys._MEIPASS, 'main')
-        elif self._gui:
-            launch_command = 'maestral gui -c=\'{}\''.format(config_name)
-        else:
-            launch_command = 'maestral start -f -c=\'{}\''.format(config_name)
-
         if self.implementation == SupportedImplementations.launchd:
-            self._impl = AutoStartLaunchd(config_name, launch_command)
+            self._impl = AutoStartLaunchd(config_name, gui)
         elif self.implementation == SupportedImplementations.xdg_desktop:
-            self._impl = AutoStartXDGDesktop(config_name, launch_command)
+            self._impl = AutoStartXDGDesktop(config_name, gui)
         elif self.implementation == SupportedImplementations.systemd:
-            self._impl = AutoStartSystemd(config_name, launch_command)
+            self._impl = AutoStartSystemd(config_name, gui)
         else:
-            self._impl = AutoStartBase(config_name, launch_command)
+            self._impl = AutoStartBase(config_name, gui)
 
     def toggle(self):
         self.enabled = not self.enabled
@@ -177,8 +230,8 @@ class AutoStart:
         elif self.system == 'Linux' and self._gui:
             return SupportedImplementations.xdg_desktop
         else:
-            res = subprocess.check_output(['ps', '-p', '1'])
-            if 'systemd' in str(res):
+            res = subprocess.check_output(['ps', '-p', '1']).decode()
+            if 'systemd' in res:
                 return SupportedImplementations.systemd
             else:
                 return None

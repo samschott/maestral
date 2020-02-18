@@ -8,7 +8,7 @@
 	<string>Interactive</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>{launch_command}</string>
+		<string>{start_cmd}</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>

@@ -64,6 +64,7 @@ setup(
         'bugsnag',
         'click>=7.0',
         'dropbox>=9.4.0',
+        'importlib_metadata;python_version<"3.8"'
         'keyring>=19.0.0',
         'keyrings.alt>=3.0.0',
         'lockfile',
@@ -99,7 +100,6 @@ setup(
         'Programming Language :: Python :: 3 :: Only',
     ],
     data_files=[
-        ('share/systemd/user/', ['maestral/resources/maestral@.service']),
         ('share/icons/hicolor/512x512/apps', ['maestral/resources/maestral.png'])
     ],
 )
