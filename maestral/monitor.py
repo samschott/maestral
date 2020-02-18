@@ -41,7 +41,7 @@ from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import is_child, path_exists_case_insensitive, delete
-from maestral.utils.appdirs import get_state_path
+from maestral.utils.appdirs import get_data_path
 
 logger = logging.getLogger(__name__)
 
@@ -308,7 +308,7 @@ class UpDownSync:
 
         self.client = client
         self.config_name = self.client.config_name
-        self.rev_file_path = get_state_path("maestral", f"{self.config_name}.index")
+        self.rev_file_path = get_data_path("maestral", f"{self.config_name}.index")
 
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)

@@ -16,7 +16,7 @@ from distutils.version import LooseVersion
 
 from maestral.config.main import CONFIG_DIR_NAME, MaestralConfig, MaestralState
 from maestral.config.user import UserConfig
-from maestral.config.base import get_conf_path, get_state_path
+from maestral.config.base import get_conf_path, get_data_path
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ def migrate_maestral_index(config_name):
     conf = MaestralConfig(config_name)
 
     old_rev_file_path = osp.join(conf.get('main', 'path'), '.maestral')
-    new_rev_file_path = get_state_path('maestral', f'{config_name}.index')
+    new_rev_file_path = get_data_path('maestral', f'{config_name}.index')
 
     if osp.isfile(old_rev_file_path) and not osp.isfile(new_rev_file_path):
         try:

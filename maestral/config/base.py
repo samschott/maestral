@@ -69,9 +69,9 @@ def get_conf_path(subfolder=None, filename=None, create=True):
     return conf_path
 
 
-def get_state_path(subfolder=None, filename=None, create=True):
+def get_data_path(subfolder=None, filename=None, create=True):
     """
-    Returns the default path to save application states for the platform. This will be:
+    Returns the default path to save application data for the platform. This will be:
 
         - macOS: "~/Library/Application Support/SUBFOLDER/FILENAME"
         - Linux: "$XDG_DATA_DIR/SUBFOLDER/FILENAME"

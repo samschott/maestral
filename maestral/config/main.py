@@ -10,7 +10,7 @@ Maestral configuration options
 import copy
 import logging
 
-from .base import get_conf_path, get_state_path
+from .base import get_conf_path, get_data_path
 from .user import UserConfig
 
 logger = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ def MaestralState(config_name):
     if config_name in _state_instances:
         return _state_instances[config_name]
     else:
-        state_path = get_state_path(CONFIG_DIR_NAME, create=True)
+        state_path = get_data_path(CONFIG_DIR_NAME, create=True)
 
         try:
             state = UserConfig(

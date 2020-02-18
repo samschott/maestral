@@ -10,11 +10,11 @@ import platform
 import os
 import os.path as osp
 
-from maestral.config.base import get_home_dir, get_conf_path, get_state_path
+from maestral.config.base import get_home_dir, get_conf_path, get_data_path
 
 
 __all__ = [
-    'get_home_dir', 'get_conf_path', 'get_state_path', 'get_log_path',
+    'get_home_dir', 'get_conf_path', 'get_data_path', 'get_log_path',
     'get_cache_path', 'get_autostart_path', 'get_runtime_path'
 ]
 
