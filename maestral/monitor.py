@@ -1626,6 +1626,10 @@ class UpDownSync:
             # remove it and all its children. If there’s nothing at the
             # given path, ignore this entry.
 
+            if not self.get_local_rev(entry.path_display):
+                # new local item has been created since remote was deleted
+                return
+
             err = delete(local_path)
             self.set_local_rev(entry.path_display, None)
 
