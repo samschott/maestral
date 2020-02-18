@@ -123,7 +123,7 @@ class AutoStartLaunchd(AutoStartMaestralBase):
     def __init__(self, config_name, gui):
         super().__init__(config_name, gui)
         if self.gui:
-            bundle_id = '{}-{}.{}'.format(BUNDLE_ID, 'gui', self.config_name)
+            bundle_id = '{}.{}'.format(BUNDLE_ID, self.config_name)
         else:
             bundle_id = '{}-{}.{}'.format(BUNDLE_ID, 'daemon', self.config_name)
         filename = bundle_id + '.plist'
