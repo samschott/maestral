@@ -345,6 +345,10 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
                     text = ("There are too many write operations happening in your "
                             "Dropbox. Please retry uploading this file later.")
 
+            if isinstance(error, dropbox.files.UploadSessionLookupError):
+                title = "Could not upload file"
+                text, err_cls = _get_session_lookup_error_msg(error)
+
             if isinstance(error, dropbox.files.DownloadError):
                 title = "Could not download file"
                 if error.is_path():
