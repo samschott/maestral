@@ -19,9 +19,10 @@ class MaestralApiError(Exception):
     """
     Base class for errors originating from the Dropbox API or the 'local API'.
 
-    :ivar str title: A short description of the error type.
+    :ivar str title: A short description of the error type. This can be used in a CLI or
+        GUI to give a short error summary.
     :ivar str message: A more verbose description which can include instructions on how to
-        proceed to handle the error.
+        proceed to fix the error.
     :ivar str dbx_path: Dropbox path of the file that caused the error.
     :ivar str dbx_path_dst: Dropbox destination path of the file that caused the error.
         This should be set for instance when error occurs when moving a file / folder.
@@ -46,27 +47,27 @@ class MaestralApiError(Exception):
             return f"{self.title}: {self.message}"
 
 
-# regular sync errors
+# ==== regular sync errors ===============================================================
 
 class SyncError(MaestralApiError):
-    """Raised for recoverable sync errors which show up as "Sync Issues"."""
+    """Base class for recoverable sync issues."""
     pass
 
 
 class InsufficientPermissionsError(SyncError):
-    """Raised when writing a file / folder fails due to insufficient permissions,
+    """Raised when accessing a file or folder fails due to insufficient permissions,
     both locally and on Dropbox servers."""
     pass
 
 
 class InsufficientSpaceError(SyncError):
-    """Raised when the Dropbox account / local drive has insufficient storage space."""
+    """Raised when the Dropbox account or local drive has insufficient storage space."""
     pass
 
 
 class PathError(SyncError):
     """Raised when there is an issue with the provided file or folder path such as
-    invalid characters, too long file name, etc."""
+    invalid characters, a too long file name, etc."""
     pass
 
 
@@ -101,26 +102,25 @@ class DropboxServerError(SyncError):
 
 
 class RestrictedContentError(SyncError):
-    """Raised for instance when trying add a file with a DMCA takedown notice to a
-    public folder."""
+    """Raised when trying to sync restricted content, for instance when adding a file with
+    a DMCA takedown notice to a public folder."""
     pass
 
 
 class UnsupportedFileError(SyncError):
     """Raised when this file type cannot be downloaded but only exported. This is the
-    case for G-suite files, e.g., google sheets on Dropbox cannot be downloaded but
-    must be exported as '.xlsx' files."""
+    case for G-suite files."""
     pass
 
 
 class FileSizeError(SyncError):
-    """Raised attempting to upload a file larger than 350 GB in an upload session, or
+    """Raised when attempting to upload a file larger than 350 GB in an upload session or
     larger than 150 MB in a single upload. Also raised when attempting to download a file
-    which a size that exceeds file system's limit."""
+    with a size that exceeds file system's limit."""
     pass
 
 
-# fatal errors, require user action
+# ==== fatal errors, require user action for syncing to continue =========================
 
 class InotifyError(MaestralApiError):
     """Raised when the local Dropbox folder is too large to monitor with inotify."""
@@ -143,8 +143,7 @@ class RevFileError(MaestralApiError):
 
 
 class DropboxAuthError(MaestralApiError):
-    """Raised when authentication fails. Refer to the ``message``` attribute for
-    details."""
+    """Raised when authentication fails."""
     pass
 
 
@@ -155,7 +154,7 @@ class TokenExpiredError(DropboxAuthError):
 
 class CursorResetError(MaestralApiError):
     """Raised when the cursor used for a longpoll or list-folder request has been
-    invalidated. Dropbox should very rarely invalidate a cursor. If this happens, a new
+    invalidated. Dropbox will very rarely invalidate a cursor. If this happens, a new
     cursor for the respective folder has to be obtained through files_list_folder. This
     may require re-syncing the entire Dropbox."""
     pass
@@ -167,31 +166,24 @@ class BadInputError(MaestralApiError):
     pass
 
 
-# conversion functions to generate error messages and types
+# ==== conversion functions to generate error messages and types =========================
 
 def os_to_maestral_error(exc, dbx_path=None, local_path=None):
     """
     Gets the OSError and tries to add a reasonably informative error message.
 
-    :param exc: Python Exception.
+    .. note::
+        The following exception types should not typically be raised during syncing:
+
+        InterruptedError: Python will automatically retry on interrupted connections.
+        NotADirectoryError: If raised, this likely a Maestral bug.
+        IsADirectoryError: If raised, this likely a Maestral bug.
+
+    :param OSError exc: Python Exception.
     :param str dbx_path: Dropbox path of file which triggered the error.
     :param str local_path: Local path of file which triggered the error.
-    :returns: :class:`MaestralApiError` instance.
-    :rtype: :class:`MaestralApiError`
+    :returns: :class:`MaestralApiError` instance or :class:`OSError` instance.
     """
-
-    # The following error types should not typically be raised during normal syncing:
-    #
-    #     InterruptedError: Should not be typically be raised. Python will automatically
-    #         retry on interruption.
-    #     NotADirectoryError: Should not be typically be raised.
-    #     IsADirectoryError: Can be raised when calling `MaestralApiClient.upload` or
-    #           MaestralApiClient.download` with a local folder path. This will be a
-    #           MaestralApiError and not a SyncIssue.
-    #
-    # OSErrors raised by the client will always refer to attempts to upload / download a
-    # a local file.
-    #
 
     err_type = MaestralApiError
     title = "Cannot upload or download file"
@@ -231,17 +223,18 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
 
 def api_to_maestral_error(exc, dbx_path=None, local_path=None):
     """
-    Gets the Dropbox API Error and tries to add a reasonably informative error
-    message from the mess which is the Python Dropbox SDK exception handling.
+    Converts a Dropbox SDK exception to a MaestralApiError and tries to add a reasonably
+    informative error title and message.
 
-    :param exc: :class:`dropbox.exceptions.ApiError` instance.
+    :param exc: :class:`dropbox.exceptions.DropboxException` instance.
     :param str dbx_path: Dropbox path of file which triggered the error.
     :param str local_path: Local path of file which triggered the error.
     :returns: :class:`MaestralApiError` instance.
     :rtype: :class:`MaestralApiError`
     """
+    # import here to reduce memory usage if not needed
     import requests
-    import dropbox  # import here to reduce memory usage if not needed
+    import dropbox
 
     # --------------------------- Dropbox API Errors -------------------------------------
     if isinstance(exc, dropbox.exceptions.ApiError):
