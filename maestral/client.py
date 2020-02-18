@@ -297,40 +297,60 @@ class MaestralApiClient(object):
         chunk_size_mb = min(chunk_size_mb, 150)
         chunk_size = chunk_size_mb * 10**6  # convert to bytes
 
-        file_size = osp.getsize(local_path)
-        file_size_str = bytes_to_str(file_size)
+        size = osp.getsize(local_path)
+        size_str = bytes_to_str(size)
         uploaded = 0
 
         mtime = osp.getmtime(local_path)
         mtime_dt = datetime.datetime(*time.gmtime(mtime)[:6])
 
         with open(local_path, "rb") as f:
-            if file_size <= chunk_size:
+            if size <= chunk_size:
                 md = self.dbx.files_upload(
-                        f.read(), dbx_path, client_modified=mtime_dt, **kwargs)
+                    f.read(), dbx_path, client_modified=mtime_dt, **kwargs
+                )
             else:
-                logger.info(f"Uploading {bytes_to_str(uploaded)}/{file_size_str}...")
+                # Note: we currently do not support resuming interrupted uploads. However,
+                # this could be achieved catching connection errors and retrying until the
+                # upload succeeds.
+                logger.info(f"Uploading {bytes_to_str(uploaded)}/{size_str}...")
                 session_start = self.dbx.files_upload_session_start(f.read(chunk_size))
                 cursor = dropbox.files.UploadSessionCursor(
-                    session_id=session_start.session_id, offset=f.tell())
+                    session_id=session_start.session_id,
+                    offset=f.tell()
+                )
                 commit = dropbox.files.CommitInfo(
-                        path=dbx_path, client_modified=mtime_dt, **kwargs)
+                        path=dbx_path, client_modified=mtime_dt, **kwargs
+                )
 
-                while f.tell() < file_size:
-                    if file_size - f.tell() <= chunk_size:
-                        md = self.dbx.files_upload_session_finish(f.read(chunk_size), cursor, commit)
-                        logger.info(f"Uploading {bytes_to_str(uploaded)}/{file_size_str}...")
-                    else:
-                        # Note: we currently do not support resuming interrupted uploads.
-                        # However, this can be achieved catching connection errors and
-                        # retrying until the upload succeeds. Incorrect offsets due to
-                        # a dropped package can be corrected by getting the right
-                        # offset from the resulting UploadSessionOffsetError and
-                        # resuming the upload from this point.
-                        self.dbx.files_upload_session_append_v2(f.read(chunk_size), cursor)
-                        cursor.offset = f.tell()
-                        uploaded += chunk_size
-                        logger.info(f"Uploading {bytes_to_str(uploaded)}/{file_size_str}...")
+                while f.tell() < size:
+                    try:
+                        if size - f.tell() <= chunk_size:
+                            md = self.dbx.files_upload_session_finish(
+                                f.read(chunk_size),
+                                cursor,
+                                commit
+                            )
+                            logger.info(f"Uploading {bytes_to_str(uploaded)}/{size_str}...")
+                        else:
+                            self.dbx.files_upload_session_append_v2(f.read(chunk_size), cursor)
+                            cursor.offset = f.tell()
+                            uploaded += chunk_size
+                            logger.info(f"Uploading {bytes_to_str(uploaded)}/{size_str}...")
+                    except dropbox.exceptions.DropboxException as exc:
+                        error = exc.error
+                        if isinstance(error, dropbox.files.UploadSessionFinishError) and error.is_lookup_failed():
+                            session_lookup_error = error.get_lookup_failed()
+                        elif isinstance(error, dropbox.files.UploadSessionLookupError):
+                            session_lookup_error = error
+                        else:
+                            raise exc
+
+                        if session_lookup_error.is_incorrect_offset():
+                            o = session_lookup_error.get_incorrect_offset().correct_offset
+                            f.seek(o)  # reset seek position
+                        else:
+                            raise exc
 
         logger.debug(f"File '{md.path_display}' (rev {md.rev}) uploaded to Dropbox")
 
