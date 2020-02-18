@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import queue
 from collections import OrderedDict
 import functools
+from enum import IntEnum
 
 # external imports
 import umsgpack
@@ -54,8 +55,15 @@ EXCLUDED_FILE_NAMES = (
 )
 
 # TODO:
-#  * Check resuming first download on interruption
 #  * Check conflict resolution on concurrent editing
+#  * Check handling of dropped packages on upload
+
+
+class Conflict(IntEnum):
+    RemoteNewer = 0
+    Conflict = 1
+    Identical = 2
+    LocalNewerOrIdentical = 2
 
 
 # ========================================================================================
@@ -1400,7 +1408,7 @@ class UpDownSync:
 
         :param str dbx_path: Path of folder on Dropbox.
         :returns: 0 for no conflict, 1 for conflict, 2 if files are identical.
-        :rtype: int
+        :rtype: Conflict
         :raises: MaestralApiError if the Dropbox item does not exist.
         """
         # get corresponding local path
@@ -1418,7 +1426,7 @@ class UpDownSync:
         # no conflict if local file does not exist yet
         if not osp.exists(local_path):
             logger.debug("Local file '%s' does not exist. No conflict.", dbx_path)
-            return 0
+            return Conflict.RemoteNewer
 
         local_rev = self.get_local_rev(dbx_path)
 
@@ -1431,17 +1439,17 @@ class UpDownSync:
 
             if not md.content_hash == local_hash:
                 logger.debug("Conflicting copy without rev.")
-                return 1  # files are conflicting
+                return Conflict.Conflict  # files are conflicting
             else:
                 logger.debug("Contents are equal. No conflict.")
                 self.set_local_rev(dbx_path, md.rev)  # update local rev
-                return 2  # files are already the same
+                return Conflict.Identical  # files are already the same
 
         elif md.rev == local_rev:
             # files have the same revision, trust that they are equal or
             # that the local file is newer but has not yet been uploaded
             logger.debug("Local file is the same as on Dropbox (rev %s).", local_rev)
-            return 2  # files are already the same
+            return Conflict.LocalNewerOrIdentical  # local file may be newer or identical
 
         elif md.rev != local_rev:
             # Dropbox server version has a different rev, must be newer.
@@ -1461,7 +1469,7 @@ class UpDownSync:
 
             logger.debug("Local file has rev %s, newer file on Dropbox has rev %s.",
                          local_rev, md.rev)
-            return 0
+            return Conflict.RemoteNewer
 
     def notify_user(self, changes):
         """
@@ -1579,28 +1587,24 @@ class UpDownSync:
 
             self._save_to_history(entry.path_display)
 
-            # check for sync conflicts
-            conflict = self.check_download_conflict(entry.path_display)
-            if conflict == 0:
-                # no conflict
-                pass
-            elif conflict == 1:
-                # conflict! rename local file
+            res = self.check_download_conflict(entry.path_display)
+            if res == Conflict.Conflict:
+                # rename local file and download remote
                 base, ext = osp.splitext(local_path)
                 new_local_file = "".join((base, " (conflicting copy)", ext))
                 os.rename(local_path, new_local_file)
-            elif conflict == 2:
-                # Dropbox file corresponds to local file => nothing to do
+            elif res in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
                 # rev number has been updated by `check_download_conflict`
+                # -> nothing to do
                 return
+            elif res == Conflict.RemoteNewer:
+                md = self.client.download(entry.path_display, local_path)
 
-            md = self.client.download(entry.path_display, local_path)
+                # save revision metadata
+                self.set_local_rev(md.path_display, md.rev)
 
-            # save revision metadata
-            self.set_local_rev(md.path_display, md.rev)
-
-            logger.debug(f"Created local file '{entry.path_display}'")
-            return entry
+                logger.debug(f"Created local file '{entry.path_display}'")
+                return entry
 
         elif isinstance(entry, FolderMetadata):
             # Store the new entry at the given path in your local state.
