@@ -64,7 +64,7 @@ setup(
         'bugsnag',
         'click>=7.0',
         'dropbox>=9.4.0',
-        'importlib_metadata;python_version<"3.8"'
+        'importlib_metadata;python_version<"3.8"',
         'keyring>=19.0.0',
         'keyrings.alt>=3.0.0',
         'lockfile',
