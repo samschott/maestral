@@ -23,30 +23,6 @@ have pip >= 9.0 and setuptools >= 24.2, then try again:
 """.format(*(REQUIRED_PYTHON + CURRENT_PYTHON)))
     sys.exit(1)
 
-
-# check for running daemons before updating to prevent
-# incompatible versions of CLI / GUI and daemon
-from maestral.config.base import list_configs
-from maestral.utils.appdirs import get_runtime_path
-
-running_daemons = []
-
-for config in list_configs():
-    pid_file = get_runtime_path("maestral", config + ".pid")
-    if osp.exists(pid_file):
-        running_daemons.append(config)
-
-if running_daemons:
-    sys.stderr.write(f"""
-Maestral daemons with the following configs are running:
-
-{', '.join(running_daemons)}
-
-Please stop the daemons before updating, you may otherwise not be able
-to use the new command line interface with the old daemon.
-    """)
-    sys.exit(1)
-
 setup(
     name='maestral',
     version=__version__,
