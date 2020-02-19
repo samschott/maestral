@@ -302,21 +302,19 @@ class MaestralApiClient(object):
 
         size = osp.getsize(local_path)
         size_str = bytes_to_str(size)
-        uploaded = 0
 
         mtime = osp.getmtime(local_path)
         mtime_dt = datetime.datetime(*time.gmtime(mtime)[:6])
 
-        with open(local_path, "rb") as f:
-            if size <= chunk_size:
+        if size <= chunk_size:
+            with open(local_path, "rb") as f:
                 md = self.dbx.files_upload(
                     f.read(), dbx_path, client_modified=mtime_dt, **kwargs
                 )
-            else:
-                # Note: we currently do not support resuming interrupted uploads. However,
-                # this could be achieved catching connection errors and retrying until the
-                # upload succeeds.
-                logger.info(f"Uploading {bytes_to_str(uploaded)}/{size_str}...")
+        else:
+            # Note: We currently do not support resuming interrupted uploads. Dropbox
+            # keeps upload sessions open for 48h so this could be done in the future.
+            with open(local_path, "rb") as f:
                 session_start = self.dbx.files_upload_session_start(f.read(chunk_size))
                 cursor = dropbox.files.UploadSessionCursor(
                     session_id=session_start.session_id,
@@ -334,12 +332,10 @@ class MaestralApiClient(object):
                                 cursor,
                                 commit
                             )
-                            logger.info(f"Uploading {bytes_to_str(uploaded)}/{size_str}...")
                         else:
                             self.dbx.files_upload_session_append_v2(f.read(chunk_size), cursor)
                             cursor.offset = f.tell()
-                            uploaded += chunk_size
-                            logger.info(f"Uploading {bytes_to_str(uploaded)}/{size_str}...")
+                        logger.info(f"Uploading {bytes_to_str(f.tell())}/{size_str}...")
                     except dropbox.exceptions.DropboxException as exc:
                         error = exc.error
                         if isinstance(error, dropbox.files.UploadSessionFinishError) and error.is_lookup_failed():
@@ -351,7 +347,9 @@ class MaestralApiClient(object):
 
                         if session_lookup_error.is_incorrect_offset():
                             o = session_lookup_error.get_incorrect_offset().correct_offset
-                            f.seek(o)  # reset seek position
+                            # reset position in file
+                            f.seek(o)
+                            cursor.offset = f.tell()
                         else:
                             raise exc
 
