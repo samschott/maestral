@@ -917,7 +917,7 @@ class UpDownSync:
 
         for h in histories:
             if len(h) == 1:
-                new_events.append(h[0])
+                new_events += h
             else:
                 path = h[0].src_path
 
@@ -1468,13 +1468,10 @@ class UpDownSync:
 
     def notify_user(self, changes):
         """
-        Sends system notifications for files changed.
+        Sends system notification for file changes.
 
         :param list changes: List of Dropbox metadata which has been applied locally.
         """
-
-        if self._conf.get("app", "notification_level") < FILECHANGE:
-            return
 
         # get number of remote changes
         n_changed = len(changes)
@@ -1482,24 +1479,25 @@ class UpDownSync:
         if n_changed == 0:
             return
 
+        user_name = None
+        change_type = "changed"
+
         # find out who changed the file(s), get the name if its only a single user
         try:
-            dbid_list = tuple(md.sharing_info.modified_by for md in changes)
-            if all(dbid == dbid_list[0] for dbid in dbid_list):
+            dbid_list = set(md.sharing_info.modified_by for md in changes)
+            if len(dbid_list) == 1:
                 # all files have been modified by the same user
-                if dbid_list[0] == self._conf.get("account", "account_id"):
+                dbid = dbid_list.pop()
+                if dbid == self._conf.get("account", "account_id"):
                     user_name = "You"
                 else:
-                    account_info = self.client.get_account_info(dbid_list[0])
+                    account_info = self.client.get_account_info(dbid)
                     user_name = account_info.name.display_name
-            else:
-                user_name = None
         except AttributeError:
-            user_name = None
+            pass
 
-        # notify user
         if n_changed == 1:
-            # for a single change, display user name, file name and type of change
+            # display user name, file name, and type of change
             md = changes[0]
             file_name = os.path.basename(md.path_display)
 
@@ -1512,28 +1510,22 @@ class UpDownSync:
                 else:
                     revs = self.client.list_revisions(md.path_lower, limit=2)
                     is_new_file = len(revs.entries) == 1
-                change_type = "added" if is_new_file else "changed"
+                change_type = "added" if is_new_file else change_type
 
             elif isinstance(md, FolderMetadata):
                 change_type = "added"
-            else:
-                change_type = "changed"
-
-            if user_name:
-                msg = f"{user_name} {change_type} {file_name}"
-            else:
-                msg = f"{file_name} {change_type}"
 
         else:
-            # for multiple changes, display user name if all equal
+            # display user name if unique, number of files, and type of change
             if all(isinstance(x, DeletedMetadata) for x in changes):
                 change_type = "removed"
-            else:
-                change_type = "changed"
-            if user_name:
-                msg = f"{user_name} {change_type} {n_changed} files"
-            else:
-                msg = f"{n_changed} files {change_type}"
+
+            file_name = f"{n_changed} files"
+
+        if user_name:
+            msg = f"{user_name} {change_type} {file_name}"
+        else:
+            msg = f"{file_name} {change_type}"
 
         self.notifier.notify(msg, level=FILECHANGE)
 
