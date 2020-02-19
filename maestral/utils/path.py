@@ -46,7 +46,7 @@ def path_exists_case_insensitive(path, root="/"):
     if not osp.isdir(root):
         raise ValueError("'{0}' is not a directory.".format(root))
 
-    if path in ["", "/"]:
+    if path in ("", "/"):
         return root
 
     path_list = path.lstrip(osp.sep).split(osp.sep)
