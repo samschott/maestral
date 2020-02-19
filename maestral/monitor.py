@@ -1466,7 +1466,7 @@ class UpDownSync:
                          local_rev, md.rev)
             return Conflict.RemoteNewer
 
-    def notify_user(self, changes):
+    def notify_user(self, changes):  # noqa: C901
         """
         Sends system notification for file changes.
 
@@ -1482,7 +1482,7 @@ class UpDownSync:
         user_name = None
         change_type = "changed"
 
-        # find out who changed the file(s), get the name if its only a single user
+        # find out who changed the item(s), get the use name if its only a single user
         try:
             dbid_list = set(md.sharing_info.modified_by for md in changes)
             if len(dbid_list) == 1:
@@ -1510,10 +1510,17 @@ class UpDownSync:
 
         else:
             # display user name if unique, number of files, and type of change
+            file_name = f"{n_changed} items"
+
             if all(isinstance(x, DeletedMetadata) for x in changes):
                 change_type = "removed"
-
-            file_name = f"{n_changed} files"
+            elif all(isinstance(x, FolderMetadata) for x in changes):
+                change_type = "added"
+                file_name = f"{n_changed} folders"
+            elif all(isinstance(x, FileMetadata) for x in changes):
+                file_name = f"{n_changed} files"
+                if not any(self.get_local_rev(x.path_lower) for x in changes):
+                    change_type = "added"
 
         if user_name:
             msg = f"{user_name} {change_type} {file_name}"
