@@ -110,7 +110,7 @@ def check_version(actver, version, cmp_op):
     # Hacks needed so that LooseVersion understands that (for example)
     # version = '3.0.0' is in fact bigger than actver = '3.0.0rc1'
     if (is_stable_version(version) and not is_stable_version(actver) and
-        actver.startswith(version) and version != actver):
+            actver.startswith(version) and version != actver):
         version = version + 'zz'
     elif (is_stable_version(actver) and not is_stable_version(version) and
           version.startswith(actver) and version != actver):

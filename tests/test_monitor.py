@@ -7,7 +7,10 @@
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
-from maestral.monitor import *
+from maestral.monitor import (
+    FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileMovedEvent,
+    UpDownSync
+)
 
 
 def path(i):
@@ -88,7 +91,7 @@ res3 = [
 
 # macOS safe-save event
 file_events_test4 = [
-    FileMovedEvent(path(1), path(1) + '.sb-b78ef837-dLht38'),  # move old version to backup
+    FileMovedEvent(path(1), path(1) + '.sb-b78ef837-dLht38'),  # move to backup
     FileCreatedEvent(path(1)),                                 # create new version
     FileDeletedEvent(path(1) + '.sb-b78ef837-dLht38'),         # delete backup
 ]
