@@ -1,11 +1,25 @@
 ## v0.6.0-dev
 
+This release improves desktop notifications: Notifications will now only appear for remote
+file changes and you can chose between different notification levels (CLI only) and snooze
+notifications temporarily. It also reintroduces the `maestral autostart` command to start
+the sync daemon on login (requires systemd on Linux). This works independently of the GUI
+option "Start on login".
+
+Finally, there have been significant changes in package structure: the GUI has been split
+off into a separate package `maestral-qt` and a native Cocoa GUI (`maestral-cocoa`) for
+macOS is currently in testing. It will likely be released with the next update. The GUI
+can be installed with the gui extra `pip3 install -U maestral[gui]` or manually with
+`pip3 install -U maestral-qt`.
+
+Other changes include improved error handling, cleaned up config files and some tweaks to
+CLI commands. As always, there are several bug fixes. Thank you for all your feedback!
+
 #### Added:
 
-- Added native Cocoa GUI for macOS. This removes the PyQt5 dependency for macOS and
-  reduces the size of the bundled app from 50 MB to 15 MB. It also eliminates a few
-  inconsistencies in GUI appearance. Especially the sync issues window looks a lot better
-  (hopefully you won't see it too often).
+- New CLI command `maestral autostart` to start the daemon on login. This requires systemd 
+  on Linux. The "Start on login" option of the GUI remains independent and the GUI will
+  attach to an existing daemon if it finds one.
 - Added desktop notifications for errors: Serious errors such as revoked Dropbox access,
   deleted Dropbox folder, etc, were previously only shown in the GUI as an alert window 
   or printed as warnings when invoking a CLI command.
@@ -18,21 +32,25 @@
   be merged with your Dropbox.
 - The CLI command `maestral restart` now supports restarting Maestral into the current
   process instead of spawning a new process. This is enabled by passing the `--foreground`
-  (`-f`) option and can be useful when restarting the daemon from systemd.
+  (`-f`) option.
+- Added a native Cocoa GUI for macOS. This removes the PyQt5 dependency for macOS and
+  reduces the size of the bundled app from 50 MB to 15 MB. It also eliminates a few
+  inconsistencies in GUI appearance. Especially the sync issues window looks a lot better
+  (hopefully you won't see it too often).
 
 #### Changed:
 
 - Split off GUI into separate python packages (`maestral-qt`, `maestral-cocoa`).
 - Notify only for remote changes and not for those which originated locally. This
   should significantly reduce the number of unwanted notifications.
-- Renamed `set-dir` command to `move-dir` to emphasize that it moves the local Dropbox
+- Renamed the `set-dir` command to `move-dir` to emphasize that it moves the local Dropbox
   folder to a new location.
 - Renamed `maestral notifications` to `maestral notify` for brevity.
 - Do not require a restart after setting up Maestral with the GUI.
 - Removed sync and application state info from the config file. Sync and application
   states are now  saved separately in '~/.local/share/maestral/CONFIG_NAME.state' on Linux
   and '~/Library/Application Support/maestral/CONFIG_NAME.state' on macOS.
-- Use atomic save to prevent corruption of sync index if Maestral crashes or is killed
+- Use atomic save to prevent corruption of the sync index if Maestral crashes or is killed
   during a save.
 - Moved the sync index to the same folder as the application state.
 
@@ -41,8 +59,11 @@
 - Fixes an issue where local changes while maestral was not running could be overwritten 
   by concurrent remote changes instead of resulting in a conflicting copy.
 - Fixes an issue where local file events could be ignored while a download is in progress.
+- Fixes an issue where a local item could be incorrectly deleted if it was created after
+  a remote item at the same location was deleted but before this deletion was synced.
 - Correctly handle additional error types: internal Dropbox server error, insufficient
   space on local drive, file name too long for local file system and out-of-memory error.
+- Resume upload after dropped packages instead of raising a sync issue.
 - Set the log level for the systemd journal according to user settings instead of always  
   using logging.DEBUG.
 - Run checks for Dropbox folder location and link status when invoking `maestral restart`.
