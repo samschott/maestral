@@ -137,12 +137,11 @@ class FileEventHandler(FileSystemEventHandler):
     def rename_on_case_conflict(self, event):
         """
         Checks for other items in the same directory with same name but a different case.
-        Will only run those check on Linux because Apple's APFS or journaled file systems
-        are not case sensitive.
+        Only needed for case sensitive file systems.
 
         :param event: Created or moved event.
-        :returns: Modified event if conflict detected and file has been
-            renamed, original event otherwise.
+        :returns: Modified event if conflict detected and file has been renamed, original
+            event otherwise.
         """
 
         if not (event.event_type is EVENT_TYPE_CREATED or event.event_type is
