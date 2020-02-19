@@ -12,3 +12,5 @@ if platform.system() == "Darwin":
     from .fsevents import OrderedFSEventsObserver as Observer
 else:
     from watchdog.observers import Observer
+
+__all__ = ["Observer"]

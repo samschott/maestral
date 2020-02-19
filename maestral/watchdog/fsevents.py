@@ -1,15 +1,18 @@
-from watchdog.observers.fsevents import *
+from watchdog.observers.fsevents import (
+    FSEventsEmitter, FSEventsObserver, DirectorySnapshot,
+    FileDeletedEvent, FileModifiedEvent, FileMovedEvent, FileCreatedEvent,
+    DirDeletedEvent, DirModifiedEvent, DirMovedEvent, DirCreatedEvent,
+    DEFAULT_OBSERVER_TIMEOUT, BaseObserver
+)
 
 
 class OrderedFSEventsEmitter(FSEventsEmitter):
 
     def queue_events(self, timeout):
         with self._lock:
-            if (not self.watch.is_recursive
-                    and self.watch.path not in self.pathnames):
+            if not self.watch.is_recursive and self.watch.path not in self.pathnames:
                 return
-            new_snapshot = DirectorySnapshot(self.watch.path,
-                                             self.watch.is_recursive)
+            new_snapshot = DirectorySnapshot(self.watch.path, self.watch.is_recursive)
             events = new_snapshot - self.snapshot
             self.snapshot = new_snapshot
 

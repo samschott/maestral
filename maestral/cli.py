@@ -602,7 +602,7 @@ def move_dir(config_name: str, new_path: str):
     """Change the location of your Dropbox folder."""
 
     if not pending_link_cli(config_name):
-        from maestral.main import Maestral, select_dbx_path_dialog
+        from maestral.main import select_dbx_path_dialog
         from maestral.daemon import MaestralProxy
 
         new_path = new_path or select_dbx_path_dialog(config_name, allow_merge=False)

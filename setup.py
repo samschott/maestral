@@ -1,5 +1,4 @@
 import sys
-import os.path as osp
 from setuptools import setup, find_packages
 from maestral import __version__, __author__, __url__
 
