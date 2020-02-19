@@ -1,4 +1,5 @@
 import sys
+import os.path as osp
 from setuptools import setup, find_packages
 from maestral import __version__, __author__, __url__
 
@@ -26,10 +27,14 @@ have pip >= 9.0 and setuptools >= 24.2, then try again:
 # check for running daemons before updating to prevent
 # incompatible versions of CLI / GUI and daemon
 from maestral.config.base import list_configs
-from maestral.daemon import get_maestral_pid
+from maestral.utils.appdirs import get_runtime_path
 
+running_daemons = []
 
-running_daemons = tuple(c for c in list_configs() if get_maestral_pid(c))
+for config in list_configs():
+    pid_file = get_runtime_path("maestral", config + ".pid")
+    if osp.exists(pid_file):
+        running_daemons.append(config)
 
 if running_daemons:
     sys.stderr.write(f"""
