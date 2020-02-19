@@ -1502,16 +1502,9 @@ class UpDownSync:
             file_name = os.path.basename(md.path_display)
 
             if isinstance(md, DeletedMetadata):
-                # file has been deleted from remote
                 change_type = "removed"
-            elif isinstance(md, FileMetadata):
-                if self.get_local_rev(md.path_lower):
-                    is_new_file = False
-                else:
-                    revs = self.client.list_revisions(md.path_lower, limit=2)
-                    is_new_file = len(revs.entries) == 1
-                change_type = "added" if is_new_file else change_type
-
+            elif isinstance(md, FileMetadata) and not self.get_local_rev(md.path_lower):
+                change_type = "added"
             elif isinstance(md, FolderMetadata):
                 change_type = "added"
 
