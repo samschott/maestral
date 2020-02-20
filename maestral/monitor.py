@@ -1397,7 +1397,7 @@ class UpDownSync:
 
         return [entry for entry in downloaded if not isinstance(entry, bool)]
 
-    def check_download_conflict(self, dbx_path):  # noqa: C901
+    def check_download_conflict(self, dbx_path):
         """
         Check if local item is conflicting with remote item. The equivalent check when
         uploading and item will be carried out by Dropbox itself.
@@ -1596,6 +1596,7 @@ class UpDownSync:
 
             if osp.isdir(local_path):
                 delete(local_path)
+
             md = self.client.download(entry.path_display, local_path)
 
             # save revision metadata
@@ -1626,10 +1627,6 @@ class UpDownSync:
             # If your local state has something at the given path,
             # remove it and all its children. If there’s nothing at the
             # given path, ignore this entry.
-
-            if not self.get_local_rev(entry.path_display):
-                # new local item has been created since remote was deleted
-                return
 
             err = delete(local_path)
             self.set_local_rev(entry.path_display, None)
