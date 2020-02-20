@@ -1430,21 +1430,6 @@ class UpDownSync:
             logger.debug("Local item is the same or newer than on Dropbox.")
             return Conflict.LocalNewerOrIdentical
 
-        elif not local_rev and osp.exists(local_path):
-            # We likely have a conflict: items with the same path have
-            # been modified on Dropbox and locally independent of each other.
-            # Check actual content first before declaring conflict.
-
-            local_hash = get_local_hash(local_path)
-
-            if remote_hash == local_hash:
-                logger.debug("Contents are equal. No conflict.")
-                self.set_local_rev(dbx_path, md.rev)  # update local rev
-                return Conflict.Identical
-            else:
-                logger.debug("Local item was created since last upload. Conflict.")
-                return Conflict.Conflict
-
         elif remote_rev != local_rev:
             # Dropbox server version has a different rev, likely is newer.
             # If the local version has been modified while sync was stopped,
@@ -1458,6 +1443,8 @@ class UpDownSync:
             # (b) The upload has not started yet. Manually check for conflict.
 
             if get_ctime(local_path) < self.last_sync:
+                # TODO: directory ctime is only changed when an inode
+                #  in the directory changes, not when file contents change
                 logger.debug("Remote item is newer.")
                 return Conflict.RemoteNewer
             elif not remote_rev:
@@ -1467,7 +1454,7 @@ class UpDownSync:
                 local_hash = get_local_hash(local_path)
                 if remote_hash == local_hash:
                     logger.debug("Contents are equal. No conflict.")
-                    self.set_local_rev(dbx_path, md.rev)  # update local rev
+                    self.set_local_rev(dbx_path, local_rev)  # update local rev
                     return Conflict.Identical
                 else:
                     logger.debug("Local item was created since last upload. Conflict.")
