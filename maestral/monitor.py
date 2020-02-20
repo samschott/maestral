@@ -1399,72 +1399,79 @@ class UpDownSync:
 
     def check_download_conflict(self, dbx_path):
         """
-        Check if local file is conflicting with remote file. The equivalent check when
-        uploading ("check_upload_conflict") will be carried out by Dropbox itself.
+        Check if local item is conflicting with remote item. The equivalent check when
+        uploading and item will be carried out by Dropbox itself.
 
-        :param str dbx_path: Path of folder on Dropbox.
+        Checks are carried out against our index, reflecting the latest sync state.
+
+        :param str dbx_path: Path of file on Dropbox.
         :rtype: Conflict
         :raises: MaestralApiError if the Dropbox item does not exist.
         """
-        # get corresponding local path
-        local_path = self.to_local_path(dbx_path)
 
-        # get metadata of remote file
-        md = self.client.get_metadata(dbx_path)
-        if not isinstance(md, FileMetadata):
-            raise PathError(
-                "Could not download file",
-                "The file no longer exist on Dropbox",
-                dbx_path=dbx_path
-            )
-
-        # no conflict if local file does not exist yet
-        if not osp.exists(local_path):
-            logger.debug("Local file '%s' does not exist. No conflict.", dbx_path)
-            return Conflict.RemoteNewer
+        # get metadata of remote item
+        md = self.client.get_metadata(dbx_path, include_deleted=True)
+        if isinstance(md, FileMetadata):
+            remote_rev = md.rev
+            remote_hash = md.content_hash
+        elif isinstance(md, FolderMetadata):
+            remote_rev = "folder"
+            remote_hash = "folder"
+        else:  # DeletedMetadata
+            remote_rev = None
+            remote_hash = None
 
         local_rev = self.get_local_rev(dbx_path)
+        local_path = self.to_local_path(dbx_path)
 
-        if local_rev is None:
-            # We likely have a conflict: files with the same name have been
-            # created on Dropbox and locally independent of each other.
+        if remote_rev == local_rev:
+            # Local change has the same rev. May be newer and
+            # not yet synced or identical. Don't overwrite.
+            logger.debug("Local item is the same or newer than on Dropbox.")
+            return Conflict.LocalNewerOrIdentical
+
+        elif not local_rev and osp.exists(local_path):
+            # We likely have a conflict: items with the same path have
+            # been modified on Dropbox and locally independent of each other.
             # Check actual content first before declaring conflict.
 
             local_hash = get_local_hash(local_path)
 
-            if not md.content_hash == local_hash:
-                logger.debug("Conflicting copy without rev.")
-                return Conflict.Conflict  # files are conflicting
-            else:
+            if remote_hash == local_hash:
                 logger.debug("Contents are equal. No conflict.")
                 self.set_local_rev(dbx_path, md.rev)  # update local rev
-                return Conflict.Identical  # files are already the same
+                return Conflict.Identical
+            else:
+                logger.debug("Local item was created since last upload. Conflict.")
+                return Conflict.Conflict
 
-        elif md.rev == local_rev:
-            # files have the same revision, trust that they are equal or
-            # that the local file is newer but has not yet been uploaded
-            logger.debug("Local file is the same as on Dropbox (rev %s).", local_rev)
-            return Conflict.LocalNewerOrIdentical  # local file may be newer or identical
-
-        elif md.rev != local_rev:
-            # Dropbox server version has a different rev, must be newer.
+        elif remote_rev != local_rev:
+            # Dropbox server version has a different rev, likely is newer.
             # If the local version has been modified while sync was stopped,
             # those changes will be uploaded before any downloads can begin.
             # Conflict resolution will then be handled by Dropbox.
             # If the local version has been modified while sync was running
             # but changes were not uploaded before the remote version was
-            # changed as well, either:
-            # (a) The upload of the changed file has already started. The
-            #     the remote version will be downloaded and overwrite the local
-            #     version, the Dropbox server will create a conflicting copy once
-            #     the upload comes through.
-            # (b) The upload has not started yet. In this case, the local
-            #     changes may be overwritten by the remote version if the
-            #     download completes before the upload starts. This is an issue.
+            # changed as well, the local ctime will be larger than last_sync:
+            # (a) The upload of the changed file has already started. Upload thread
+            #     will hold the lock and we won't be here checking for conflicts.
+            # (b) The upload has not started yet. Manually check for conflict.
 
-            logger.debug("Local file has rev %s, newer file on Dropbox has rev %s.",
-                         local_rev, md.rev)
-            return Conflict.RemoteNewer
+            if get_ctime(local_path) < self.last_sync:
+                logger.debug("Remote item is newer.")
+                return Conflict.RemoteNewer
+            elif not remote_rev:
+                logger.debug("Local item has been modified since remote deletion.")
+                return Conflict.LocalNewerOrIdentical
+            else:
+                local_hash = get_local_hash(local_path)
+                if remote_hash == local_hash:
+                    logger.debug("Contents are equal. No conflict.")
+                    self.set_local_rev(dbx_path, md.rev)  # update local rev
+                    return Conflict.Identical
+                else:
+                    logger.debug("Local item was created since last upload. Conflict.")
+                    return Conflict.Conflict
 
     def notify_user(self, changes):  # noqa: C901
         """
@@ -1566,6 +1573,19 @@ class UpDownSync:
         # this will be cleared by the FileSystemEventHandler
         self.queue_downloading.put(local_path)
 
+        conflict_check = self.check_download_conflict(entry.path_display)
+
+        if conflict_check == Conflict.Conflict:
+            # rename local item and get remote
+            base, ext = osp.splitext(local_path)
+            new_local_file = "".join((base, " (conflicting copy)", ext))
+            os.rename(local_path, new_local_file)
+        elif conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
+            # don't overwrite local item
+            return
+        elif conflict_check == Conflict.RemoteNewer:
+            pass
+
         if isinstance(entry, FileMetadata):
             # Store the new entry at the given path in your local state.
             # If the required parent folders don’t exist yet, create them.
@@ -1574,24 +1594,15 @@ class UpDownSync:
 
             self._save_to_history(entry.path_display)
 
-            res = self.check_download_conflict(entry.path_display)
-            if res == Conflict.Conflict:
-                # rename local file and download remote
-                base, ext = osp.splitext(local_path)
-                new_local_file = "".join((base, " (conflicting copy)", ext))
-                os.rename(local_path, new_local_file)
-            elif res in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
-                # rev number has been updated by `check_download_conflict`
-                # -> nothing to do
-                return
-            elif res == Conflict.RemoteNewer:
-                md = self.client.download(entry.path_display, local_path)
+            if osp.isdir(local_path):
+                delete(local_path)
+            md = self.client.download(entry.path_display, local_path)
 
-                # save revision metadata
-                self.set_local_rev(md.path_display, md.rev)
+            # save revision metadata
+            self.set_local_rev(md.path_display, md.rev)
 
-                logger.debug(f"Created local file '{entry.path_display}'")
-                return entry
+            logger.debug(f"Created local file '{entry.path_display}'")
+            return entry
 
         elif isinstance(entry, FolderMetadata):
             # Store the new entry at the given path in your local state.
@@ -1599,12 +1610,15 @@ class UpDownSync:
             # If there’s already something else at the given path,
             # replace it but leave the children as they are.
 
+            if osp.isfile(local_path):
+                delete(local_path)
+
             try:
                 os.makedirs(local_path)
             except FileExistsError:
                 pass
             else:
-                logger.debug(f"Created local directory '{entry.path_display}'")
+                logger.debug(f"Created local folder '{entry.path_display}'")
                 self.set_local_rev(entry.path_display, "folder")
                 return entry
 
@@ -2155,8 +2169,9 @@ def get_local_hash(local_path):
     Computes content hash of a local file.
 
     :param str local_path: Path to local file.
-    :returns: Content hash to compare with Dropbox's content hash, or an emtpy string if
-        the file cannot be read.
+    :returns: Content hash to compare with Dropbox's content hash,
+        or "folder" if the path points to a directory. ``None`` if there
+        is nothing at the path.
     :rtype: str
     """
 
@@ -2171,10 +2186,27 @@ def get_local_hash(local_path):
                 hasher.update(chunk)
 
         return str(hasher.hexdigest())
-    except OSError:
-        return ""
+    except IsADirectoryError:
+        return "folder"
+    except FileNotFoundError:
+        return None
     finally:
         del hasher
+
+
+def get_ctime(local_path):
+    """
+    Returns the ctime of a local item or -1.0 if there is nothing at the path.
+
+    :param str local_path:
+    :returns: Ctime or -1.0.
+    :rtype: float
+    """
+
+    try:
+        return os.stat(local_path).st_ctime
+    except FileNotFoundError:
+        return -1.0
 
 
 def remove_from_queue(q, item):
