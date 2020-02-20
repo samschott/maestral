@@ -176,8 +176,8 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
         The following exception types should not typically be raised during syncing:
 
         InterruptedError: Python will automatically retry on interrupted connections.
-        NotADirectoryError: If raised, this likely a Maestral bug.
-        IsADirectoryError: If raised, this likely a Maestral bug.
+        NotADirectoryError: If raised, this likely is a Maestral bug.
+        IsADirectoryError: If raised, this likely is a Maestral bug.
 
     :param OSError exc: Python Exception.
     :param str dbx_path: Dropbox path of file which triggered the error.
@@ -198,6 +198,12 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
         err_type = ExistsError  # subclass of SyncError
         title = "Could not download file"
         text = "There already is an item at the given path."
+    elif isinstance(exc, IsADirectoryError):
+        err_type = IsAFolderError  # subclass of SyncError
+        text = "The given path refers to a folder."
+    elif isinstance(exc, NotADirectoryError):
+        err_type = NotAFolderError  # subclass of SyncError
+        text = "The given path refers to a file."
     elif exc.errno == errno.ENAMETOOLONG:
         err_type = PathError  # subclass of SyncError
         title = "Could not create local file"
@@ -213,8 +219,6 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
     elif exc.errno == errno.ENOMEM:
         err_type = OutOfMemoryError  # subclass of MaestralApiError
         text = "Out of memory. Please reduce the number of memory consuming processes."
-    elif isinstance(exc, IsADirectoryError):
-        text = "The given path refers to a folder."
     else:
         return exc
 
