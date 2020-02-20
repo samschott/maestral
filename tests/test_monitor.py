@@ -135,8 +135,8 @@ def test_sync_cases():
     # TODO:
     #  * Remote file replaced with a folder (OK)
     #  * Remote folder replaced with a file (OK)
-    #  * Local file replaced with a folder (MAYBE)
-    #  * Local folder replaced with a file (MAYBE)
+    #  * Local file replaced with a folder (Dropbox always creates conflicting copy)
+    #  * Local folder replaced with a file (Dropbox always creates conflicting copy)
     #  * Remote and local items modified during sync pause (OK)
     #  * Remote and local items created during sync pause (OK)
     #  * Remote and local items deleted during sync pause (OK)
