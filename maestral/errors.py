@@ -225,7 +225,7 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
     return err_type(title, text, dbx_path=dbx_path, local_path=local_path)
 
 
-def api_to_maestral_error(exc, dbx_path=None, local_path=None):  # noqa: C901
+def api_to_maestral_error(exc, dbx_path=None, local_path=None):
     """
     Converts a Dropbox SDK exception to a MaestralApiError and tries to add a reasonably
     informative error title and message.

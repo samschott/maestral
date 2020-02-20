@@ -1401,7 +1401,7 @@ class UpDownSync:
 
         return [entry for entry in downloaded if not isinstance(entry, bool)], success
 
-    def check_download_conflict(self, dbx_path):  # noqa: C901
+    def check_download_conflict(self, dbx_path):
         """
         Check if local item is conflicting with remote item. The equivalent check when
         uploading and item will be carried out by Dropbox itself.
@@ -1464,7 +1464,7 @@ class UpDownSync:
                     logger.debug("Local item was created since last upload. Conflict.")
                     return Conflict.Conflict
 
-    def notify_user(self, changes):  # noqa: C901
+    def notify_user(self, changes):
         """
         Sends system notification for file changes.
 
