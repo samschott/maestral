@@ -714,8 +714,10 @@ class UpDownSync:
 
         if len(events) > 0:
             self.apply_local_changes(events, local_cursor)
+            logger.debug("Uploaded local changes while inactive")
         else:
             self.last_sync = local_cursor
+            logger.debug("No local changes while inactive")
 
     def _get_local_changes_while_inactive(self):
 
@@ -1280,7 +1282,8 @@ class UpDownSync:
 
         # download top-level folders / files first
         logger.info("Syncing...")
-        success.append(self.apply_remote_changes(root_result, save_cursor=False))
+        _, s = self.apply_remote_changes(root_result, save_cursor=False)
+        success.append(s)
 
         if ignore_excluded:
             # download sub-folders if not excluded
@@ -1292,8 +1295,6 @@ class UpDownSync:
         if all(success) and is_dbx_root:
             # save cursor for global download
             self.last_cursor = cursor
-
-        logger.info("Up to date")
 
         return all(success)
 
@@ -1337,8 +1338,9 @@ class UpDownSync:
         :param bool save_cursor: If True, :ivar:`last_cursor` will be updated
             from the last applied changes. Take care to only save a "global" and
             "recursive" cursor which represents the state of the entire Dropbox
-        :returns: List of changes that were made to local files.
-        :rtype: list
+        :returns: List of changes that were made to local files, bool indicating if all
+            download syncs were successful.
+        :rtype: list, bool
         """
 
         if not changes:
@@ -1392,10 +1394,12 @@ class UpDownSync:
         with self.queue_downloading.mutex:
             self.queue_downloading.queue.clear()
 
-        if all(downloaded) and save_cursor:
+        success = all(downloaded)
+
+        if success and save_cursor:
             self.last_cursor = changes.cursor
 
-        return [entry for entry in downloaded if not isinstance(entry, bool)]
+        return [entry for entry in downloaded if not isinstance(entry, bool)], success
 
     def check_download_conflict(self, dbx_path):
         """
@@ -1454,7 +1458,7 @@ class UpDownSync:
                 local_hash = get_local_hash(local_path)
                 if remote_hash == local_hash:
                     logger.debug("Contents are equal. No conflict.")
-                    self.set_local_rev(dbx_path, local_rev)  # update local rev
+                    self.set_local_rev(dbx_path, remote_rev)  # update local rev
                     return Conflict.Identical
                 else:
                     logger.debug("Local item was created since last upload. Conflict.")
@@ -1711,7 +1715,7 @@ def download_worker(sync, syncing, running, connected, startup_done):
                     logger.info(SYNCING)
 
                     changes = sync.list_remote_changes(sync.last_cursor)
-                    downloaded = sync.apply_remote_changes(changes)
+                    downloaded, _ = sync.apply_remote_changes(changes)
                     sync.notify_user(downloaded)
 
                     logger.info(IDLE)
@@ -2109,10 +2113,12 @@ class MaestralMonitor:
         was_running = self.running.is_set()
 
         self.stop()  # stop all sync threads
-        try:
-            os.unlink(self.sync.rev_file_path)  # delete rev file
-        except OSError:
-            pass
+
+        # reset sync state
+        # if Maestral is killed while rebuilding, this will trigger a new download
+        self.sync.last_sync = 0.0
+        self.sync.last_cursor = ""
+        delete(self.sync.rev_file_path)
         self.sync._rev_dict_cache.clear()
 
         # Re-download Dropbox from server. If a local file already exists, content hashes
