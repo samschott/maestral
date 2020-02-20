@@ -129,3 +129,36 @@ def test_clean_local_events():
     assert set(cleaned_file_events_test3) == set(res3)
     assert set(cleaned_file_events_test4) == set(res4)
     assert set(cleaned_file_events_test5) == set(res5)
+
+
+def test_sync_cases():
+    # TODO:
+    #  * Remote file replaced with a folder (OK)
+    #  * Remote folder replaced with a file (OK)
+    #  * Local file replaced with a folder (MAYBE)
+    #  * Local folder replaced with a file (MAYBE)
+    #  * Remote and local items modified during sync pause (OK)
+    #  * Remote and local items created during sync pause (OK)
+    #  * Remote and local items deleted during sync pause (OK)
+    #  * Local item created / modified -> registered for upload -> deleted before up: (OK)
+    #    Ok because FileNotFoundError will be caught silently.
+    #  * Local item created / modified -> uploaded -> deleted before re-download: (OK)
+    #    Will not be re-downloaded if rev is still in index.
+    #  * Local item created / modified -> uploaded -> modified before re-download: (OK)
+    #    Will not be re-downloaded if rev is the same.
+    #  * Local item deleted -> uploaded -> created before re-download: (OK)
+    #    Local rev == remote rev == None. Deletion will not be carried out.
+    #  * Remote item created -> registered -> local item created before download (OK):
+    #    Local rev is None but file exists => conflicting copy created.
+    #  * Remote item deleted -> registered -> local item created before download (OK):
+    #    Local rev == remote rev == None. Deletion will not be carried out.
+    #  * Remote item deleted -> registered -> local item deleted before download (OK):
+    #    Local rev exists: deletion will be carried out locally and fail silently.
+    #  * Remote item deleted -> registered -> local item modified before download (NOK):
+    #    Local rev != None, deletion will be carried out. Fix by comparing mtime and
+    #    keep local item if local_mtime > last_sync.
+    #  * Remote item modified -> registered -> local item modified before download (NOK):
+    #    Local rev != remote rev. Local changes will be lost. Fix by comparing mtime and
+    #    create conflicting copy if local_mtime > last_sync.
+
+    pass
