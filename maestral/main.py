@@ -309,7 +309,7 @@ class Maestral(object):
     @property
     def log_level(self):
         """Log level for log files, the stream handler and the systemd journal."""
-        return self._conf.set("app", "log_level")
+        return self._conf.get("app", "log_level")
 
     @log_level.setter
     def log_level(self, level_num):
