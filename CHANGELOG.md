@@ -53,6 +53,8 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
 - Use atomic save to prevent corruption of the sync index if Maestral crashes or is killed
   during a save.
 - Moved the sync index to the same folder as the application state.
+- Improved conflict detection and resolution when changing files which are currently being
+  uploaded or downloaded.
 
 #### Fixed:
 
