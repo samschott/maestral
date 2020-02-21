@@ -1844,8 +1844,12 @@ def startup_worker(sync, syncing, running, connected, startup_requested, startup
         try:
             with sync.lock:
                 # run / resume initial download
+                # local changes during this download will be registered
+                # by the local FileSystemObserver but only uploaded after
+                # `startup_done` has been set
                 if not sync.last_cursor:
                     sync.get_remote_dropbox()
+                    sync.last_sync = time.time()
 
                 if not (syncing.is_set() and running.is_set()):
                     continue
