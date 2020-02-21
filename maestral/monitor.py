@@ -125,11 +125,7 @@ class FileEventHandler(FileSystemEventHandler):
         """
 
         with self.queue_downloading.mutex:
-            if any(local_path.lower() == p.lower() for p in self.queue_downloading.queue):
-                self.queue_downloading.queue.remove(local_path)
-                return True
-            else:
-                return False
+            return any(local_path.lower() == p.lower() for p in self.queue_downloading.queue)
 
     # TODO: The logic for ignoring moved events of children will no longer work when
     #   renaming the parent's moved event. This will throw sync errors when trying to
@@ -1392,10 +1388,6 @@ class UpDownSync:
                     last_emit = time.time()
                 downloaded.append(f.result())
 
-        time.sleep(2)
-        with self.queue_downloading.mutex:
-            self.queue_downloading.queue.clear()
-
         success = all(downloaded)
 
         if success and save_cursor:
@@ -1560,24 +1552,22 @@ class UpDownSync:
 
         local_path = self.to_local_path(entry.path_display)
 
+        # book keeping
         self.clear_sync_error(dbx_path=entry.path_display)
         remove_from_queue(self.queued_for_download, local_path)
-        # put into downloading queue
-        # this will be cleared by the FileSystemEventHandler
-        self.queue_downloading.put(local_path)
 
         conflict_check = self.check_download_conflict(entry)
 
-        if conflict_check == Conflict.Conflict:
+        applied = None
+
+        if conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
+            return applied
+
+        elif conflict_check == Conflict.Conflict:
             # rename local item and get remote
             base, ext = osp.splitext(local_path)
             new_local_file = "".join((base, " (conflicting copy)", ext))
             os.rename(local_path, new_local_file)
-        elif conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
-            # don't overwrite local item
-            return
-        elif conflict_check == Conflict.RemoteNewer:
-            pass
 
         if isinstance(entry, FileMetadata):
             # Store the new entry at the given path in your local state.
@@ -1587,16 +1577,16 @@ class UpDownSync:
 
             self._save_to_history(entry.path_display)
 
-            if osp.isdir(local_path):
-                delete(local_path)
+            with InQueue(local_path, self.queue_downloading, delay=0.2):
 
-            md = self.client.download(entry.path_display, local_path)
+                if osp.isdir(local_path):
+                    delete(local_path)
 
-            # save revision metadata
-            self.set_local_rev(md.path_display, md.rev)
+                md = self.client.download(entry.path_display, local_path)
+                self.set_local_rev(md.path_display, md.rev)
 
             logger.debug(f"Created local file '{entry.path_display}'")
-            return entry
+            applied = entry
 
         elif isinstance(entry, FolderMetadata):
             # Store the new entry at the given path in your local state.
@@ -1604,31 +1594,36 @@ class UpDownSync:
             # If there’s already something else at the given path,
             # replace it but leave the children as they are.
 
-            if osp.isfile(local_path):
-                delete(local_path)
+            with InQueue(local_path, self.queue_downloading, delay=0.2):
 
-            try:
-                os.makedirs(local_path)
-            except FileExistsError:
-                pass
-            else:
-                logger.debug(f"Created local folder '{entry.path_display}'")
+                if osp.isfile(local_path):
+                    delete(local_path)
+
+                try:
+                    os.makedirs(local_path)
+                except FileExistsError:
+                    pass
                 self.set_local_rev(entry.path_display, "folder")
-                return entry
+
+            logger.debug(f"Created local folder: {entry.path_display}")
+            applied = entry
 
         elif isinstance(entry, DeletedMetadata):
             # If your local state has something at the given path,
             # remove it and all its children. If there’s nothing at the
             # given path, ignore this entry.
 
-            err = delete(local_path)
-            self.set_local_rev(entry.path_display, None)
+            with InQueue(local_path, self.queue_downloading, delay=0.2):
+                err = delete(local_path)
+                self.set_local_rev(entry.path_display, None)
 
             if not err:
                 logger.debug(f"Deleted local item '{entry.path_display}'")
-                return entry
+                applied = entry
             else:
                 logger.debug(f"Deletion failed: {err}")
+
+        return applied
 
     def _save_to_history(self, dbx_path):
         # add new file to recent_changes
