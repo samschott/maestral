@@ -686,16 +686,23 @@ def analytics(config_name: str, yes: bool, no: bool):
     """Enables or disables sharing error reports."""
     # This is safe to call regardless if the GUI or daemon are running.
     from maestral.daemon import MaestralProxy
+    from maestral.config.main import MaestralConfig
 
     if yes or no:
-        with MaestralProxy(config_name, fallback=True) as m:
-            m.analytics = yes
+        try:
+            with MaestralProxy(config_name) as m:
+                m.analytics = yes
+        except Pyro5.errors.CommunicationError:
+            MaestralConfig(config_name).set('app', 'analytics', yes)
 
         enabled_str = 'Enabled' if yes else 'Disabled'
         click.echo(f'{enabled_str} automatic error reports.')
     else:
-        with MaestralProxy(config_name, fallback=True) as m:
-            state = m.analytics
+        try:
+            with MaestralProxy(config_name) as m:
+                state = m.analytics
+        except Pyro5.errors.CommunicationError:
+            state = MaestralConfig(config_name).get('app', 'analytics')
         enabled_str = 'enabled' if state else 'disabled'
         click.echo(f'Automatic error reports are {enabled_str}.')
 
@@ -883,12 +890,22 @@ def log_level(config_name: str, level_name: str):
 
     from maestral.daemon import MaestralProxy
 
-    with MaestralProxy(config_name, fallback=True) as m:
+    try:
+        with MaestralProxy(config_name) as m:
+            if level_name:
+                m.log_level = logging._nameToLevel[level_name]
+                click.echo(f'Log level set to {level_name}.')
+            else:
+                level_name = logging.getLevelName(m.log_level)
+                click.echo(f'Log level:  {level_name}')
+    except Pyro5.errors.CommunicationError:
+        from maestral.config.main import MaestralConfig
+        conf = MaestralConfig(config_name)
         if level_name:
-            m.log_level = logging._nameToLevel[level_name]
+            conf.set('app', 'log_level', logging._nameToLevel[level_name])
             click.echo(f'Log level set to {level_name}.')
         else:
-            level_name = logging.getLevelName(m.log_level)
+            level_name = logging.getLevelName(conf.get('app', 'log_level'))
             click.echo(f'Log level:  {level_name}')
 
 
@@ -942,17 +959,23 @@ def notify_level(config_name: str, level_name: str):
     from maestral.daemon import MaestralProxy
     from maestral.utils.notify import levelNameToNumber, levelNumberToName
 
-    if level_name:
-        with MaestralProxy(config_name, fallback=True) as m:
-            m.notification_level = levelNameToNumber(level_name)
-
-        click.echo(f'Notification level set to {level_name}.')
-
-    else:
-        with MaestralProxy(config_name, fallback=True) as m:
-            level_name = levelNumberToName(m.notification_level)
-
-        click.echo(f'Notification level: {level_name}.')
+    try:
+        with MaestralProxy(config_name) as m:
+            if level_name:
+                m.notification_level = levelNameToNumber(level_name)
+                click.echo(f'Notification level set to {level_name}.')
+            else:
+                level_name = levelNumberToName(m.notification_level)
+                click.echo(f'Notification level: {level_name}.')
+    except Pyro5.errors.CommunicationError:
+        from maestral.config.main import MaestralConfig
+        conf = MaestralConfig(config_name)
+        if level_name:
+            conf.set('app', 'notification_level', levelNameToNumber(level_name))
+            click.echo(f'Notification level set to {level_name}.')
+        else:
+            level_name = levelNumberToName(conf.get('app', 'notification_level'))
+            click.echo(f'Notification level: {level_name}.')
 
 
 @notify.command(name='snooze', help_priority=1)
