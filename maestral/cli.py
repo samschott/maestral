@@ -353,6 +353,7 @@ def autostart(config_name: str, yes: bool, no: bool):
     if not auto_start.implementation:
         click.echo('Autostart is currently not supported for your platform.\n'
                    'Autostart requires systemd on Linux or launchd on macOS.')
+        return
 
     if yes or no:
         auto_start.enabled = yes
