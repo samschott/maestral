@@ -11,7 +11,7 @@ import errno
 # KEEP FREE OF DROPBOX IMPORTS TO REDUCE MEMORY FOOTPRINT
 
 
-CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please check " +
+CONNECTION_ERROR_MSG = ("Cannot connect to Dropbox servers. Please check "
                         "your internet connection and try again later.")
 
 
@@ -413,8 +413,8 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
     # ----------------------------- Bad input errors -------------------------------------
     # should only occur due to user input from console scripts
     elif isinstance(exc, dropbox.exceptions.BadInputError):
-        if ("The given OAuth 2 access token is malformed" in exc.message or
-                "Invalid authorization value in HTTP header" in exc.message):
+        if ("The given OAuth 2 access token is malformed" in exc.message
+                or "Invalid authorization value in HTTP header" in exc.message):
             err_cls = DropboxAuthError
             title = "Authentication failed"
             text = "Please make sure that you entered the correct authentication code."

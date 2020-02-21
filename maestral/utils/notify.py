@@ -110,7 +110,7 @@ class DesktopNotifier:
         elif self.implementation == SupportedImplementations.legacy_notification_center:
             self._nc = NSUserNotificationCenter.defaultUserNotificationCenter
 
-    def send(self, title,  message, urgency=NORMAL, icon_path=None):
+    def send(self, title, message, urgency=NORMAL, icon_path=None):
         if self.implementation == SupportedImplementations.notification_center:
             self._send_message_nc(title, message)
         elif self.implementation == SupportedImplementations.legacy_notification_center:
@@ -240,11 +240,11 @@ class MaestralDesktopNotifier(logging.Handler):
     @property
     def snoozed(self):
         """Time in minutes that we will be snoozed"""
-        return max(0.0, (self._snooze - time.time())/60)
+        return max(0.0, (self._snooze - time.time()) / 60)
 
     @snoozed.setter
     def snoozed(self, minutes=30):
-        self._snooze = time.time() + minutes*60
+        self._snooze = time.time() + minutes * 60
 
     def notify(self, message, level):
 

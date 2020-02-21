@@ -38,7 +38,7 @@ DEFAULTS = [
      {
          'notification_level': 15,  # desktop notification level
          'log_level': 20,
-         'update_notification_interval': 60*60*24*7,
+         'update_notification_interval': 60 * 60 * 24 * 7,
          'analytics': False,  # automatically report crashes and errors with bugsnag
      }
      ),

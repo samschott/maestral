@@ -377,8 +377,8 @@ class Maestral(object):
     @property
     def pending_first_download(self):
         """Bool indicating if the initial download has already occurred."""
-        return (self._state.get("sync", "lastsync") == 0 or
-                self._state.get("sync", "cursor") == "")
+        return (self._state.get("sync", "lastsync") == 0
+                or self._state.get("sync", "cursor") == "")
 
     @property
     def syncing(self):
@@ -788,8 +788,8 @@ class Maestral(object):
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
 
-        excluded_items = (self._conf.get("main", "excluded_folders") +
-                          self._conf.get("main", "excluded_files"))
+        excluded_items = (self._conf.get("main", "excluded_folders")
+                          + self._conf.get("main", "excluded_files"))
 
         if dbx_path in excluded_items:
             return "excluded"
@@ -898,7 +898,7 @@ class Maestral(object):
             res = self.check_for_updates()
             if not res["error"]:
                 self._state.set("app", "latest_release", res["latest_release"])
-            time.sleep(60*60)  # 60 min
+            time.sleep(60 * 60)  # 60 min
 
     def _periodic_watchdog(self):
         while self.monitor._threads_alive():

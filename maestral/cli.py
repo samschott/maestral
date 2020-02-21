@@ -335,7 +335,7 @@ def stop(config_name: str):
               help='Starts Maestral in the foreground.')
 @with_config_opt
 @click.pass_context
-def restart(ctx, config_name: str,  foreground: bool):
+def restart(ctx, config_name: str, foreground: bool):
     """Restarts the Maestral daemon."""
     stop_daemon_with_cli_feedback(config_name)
     ctx.forward(start)
@@ -351,7 +351,7 @@ def autostart(config_name: str, yes: bool, no: bool):
     auto_start = AutoStart(config_name)
 
     if not auto_start.implementation:
-        click.echo('Autostart is currently not supported for your platform.\n' +
+        click.echo('Autostart is currently not supported for your platform.\n'
                    'Autostart requires systemd on Linux or launchd on macOS.')
 
     if yes or no:

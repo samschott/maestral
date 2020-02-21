@@ -50,7 +50,7 @@ DIR_EVENTS = (DirModifiedEvent, DirCreatedEvent, DirDeletedEvent, DirMovedEvent)
 FILE_EVENTS = (FileModifiedEvent, FileCreatedEvent, FileDeletedEvent, FileMovedEvent)
 
 EXCLUDED_FILE_NAMES = (
-    "desktop.ini",  "thumbs.db", ".ds_store", "icon\r", ".dropbox.attr",
+    "desktop.ini", "thumbs.db", ".ds_store", "icon\r", ".dropbox.attr",
     ".com.apple.timemachine.supported", REV_FILE
 )
 
@@ -612,7 +612,7 @@ class UpDownSync:
         """
 
         dbx_path = dbx_path.replace("/", osp.sep)
-        dbx_path_parent, dbx_path_basename,  = osp.split(dbx_path)
+        dbx_path_parent, dbx_path_basename = osp.split(dbx_path)
 
         local_parent = path_exists_case_insensitive(dbx_path_parent, self.dropbox_path)
 
@@ -737,10 +737,9 @@ class UpDownSync:
             # check if item was created or modified since last sync
             dbx_path = self.to_dbx_path(path).lower()
 
-            is_new = (self.get_local_rev(dbx_path) is None and
-                      not self.is_excluded(dbx_path))
-            is_modified = (self.get_local_rev(dbx_path) and
-                           now > max(stats.st_ctime, stats.st_mtime) > self.last_sync)
+            is_new = not self.get_local_rev(dbx_path) and not self.is_excluded(dbx_path)
+            is_modified = (self.get_local_rev(dbx_path)
+                           and now > max(stats.st_ctime, stats.st_mtime) > self.last_sync)
 
             if is_new:
                 if snapshot.isdir(path):
@@ -901,12 +900,15 @@ class UpDownSync:
         new_events = []
 
         for e in events:
-            if (e.event_type == EVENT_TYPE_MOVED and
-                    len([p for p in all_paths if p in (e.src_path, e.dest_path)]) > 2):
-                e_del = FileDeletedEvent(e.src_path)
-                e_new = FileCreatedEvent(e.dest_path)
-                new_events.append(e_del)
-                new_events.append(e_new)
+            if e.event_type == EVENT_TYPE_MOVED:
+                related = tuple(p for p in all_paths if p in (e.src_path, e.dest_path))
+                if len(related) > 2:
+                    e_del = FileDeletedEvent(e.src_path)
+                    e_new = FileCreatedEvent(e.dest_path)
+                    new_events.append(e_del)
+                    new_events.append(e_new)
+                else:
+                    new_events.append(e)
             else:
                 new_events.append(e)
 
@@ -998,7 +1000,7 @@ class UpDownSync:
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
             fs = (executor.submit(self._apply_event, e) for e in file_events)
             n_files = len(file_events)
-            for f, n in zip(as_completed(fs), range(1, n_files+1)):
+            for f, n in zip(as_completed(fs), range(1, n_files + 1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
                     # emit message at maximum every second
                     logger.info(f"Uploading {n}/{n_files}...")
@@ -1035,9 +1037,9 @@ class UpDownSync:
     def _is_moved_child(x, parent):
         """Check for children of moved folders"""
         is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
-        return (is_moved_event and
-                is_child(x.src_path, parent.src_path) and
-                is_child(x.dest_path, parent.dest_path))
+        return (is_moved_event
+                and is_child(x.src_path, parent.src_path)
+                and is_child(x.dest_path, parent.dest_path))
 
     @staticmethod
     def _is_dir_deleted(x):
@@ -1383,7 +1385,7 @@ class UpDownSync:
         last_emit = time.time()
         with ThreadPoolExecutor(max_workers=15) as executor:
             fs = (executor.submit(self._create_local_entry, file) for file in files)
-            for f, n in zip(as_completed(fs), range(1, n_files+1)):
+            for f, n in zip(as_completed(fs), range(1, n_files + 1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
                     # emit messages at maximum every second
                     logger.info(f"Downloading {n}/{n_files}...")
@@ -1677,7 +1679,7 @@ def connection_helper(sync, syncing, paused_by_user, running, connected,
                 logger.info(DISCONNECTED)
             syncing.clear()
             connected.clear()
-            time.sleep(check_interval/2)
+            time.sleep(check_interval / 2)
         except DropboxAuthError as e:
             running.clear()
             syncing.clear()

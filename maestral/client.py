@@ -321,7 +321,7 @@ class MaestralApiClient(object):
                     offset=f.tell()
                 )
                 commit = dropbox.files.CommitInfo(
-                        path=dbx_path, client_modified=mtime_dt, **kwargs
+                    path=dbx_path, client_modified=mtime_dt, **kwargs
                 )
 
                 while f.tell() < size:
@@ -338,8 +338,8 @@ class MaestralApiClient(object):
                         logger.info(f"Uploading {bytes_to_str(f.tell())}/{size_str}...")
                     except dropbox.exceptions.DropboxException as exc:
                         error = exc.error
-                        if (isinstance(error, dropbox.files.UploadSessionFinishError) and
-                                error.is_lookup_failed()):
+                        if (isinstance(error, dropbox.files.UploadSessionFinishError)
+                                and error.is_lookup_failed()):
                             session_lookup_error = error.get_lookup_failed()
                         elif isinstance(error, dropbox.files.UploadSessionLookupError):
                             session_lookup_error = error

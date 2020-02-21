@@ -36,8 +36,8 @@ setup(
     package_data={
         'maestral': [
             'resources/*',
-            ],
-        },
+        ],
+    },
     setup_requires=['wheel'],
     install_requires=[
         'atomicwrites',
@@ -66,7 +66,7 @@ setup(
     },
     zip_safe=False,
     entry_points={
-      'console_scripts': ['maestral=maestral.cli:main'],
+        'console_scripts': ['maestral=maestral.cli:main'],
     },
     python_requires='>=3.6',
     classifiers=[

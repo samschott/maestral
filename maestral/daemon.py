@@ -131,12 +131,12 @@ def _wait_for_startup(config_name, timeout=8):
 
     logger.debug(f"Waiting for process with pid {pid} to start.")
 
-    while not pid and time.time() - t0 < timeout/2:
+    while not pid and time.time() - t0 < timeout / 2:
         pid = get_maestral_pid(config_name)
         time.sleep(0.2)
 
     if pid:
-        return _check_pyro_communication(config_name, timeout=int(timeout/2))
+        return _check_pyro_communication(config_name, timeout=int(timeout / 2))
     else:
         return Start.Failed
 
