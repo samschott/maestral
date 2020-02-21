@@ -567,6 +567,6 @@ class MaestralApiClient(object):
         # combine all results into one
         results = self.flatten_results(results)
 
-        logger.debug(f"Listed remote changes: {len(results.entries)} changes")
+        logger.debug(f"Listed remote changes: {results.entries}")
 
         return results

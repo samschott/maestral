@@ -1433,7 +1433,7 @@ class UpDownSync:
         if remote_rev == local_rev:
             # Local change has the same rev. May be newer and
             # not yet synced or identical. Don't overwrite.
-            logger.debug("Local item is the same or newer than on Dropbox.")
+            logger.debug(f"Local item is the same or newer than on Dropbox:  {dbx_path}")
             return Conflict.LocalNewerOrIdentical
 
         elif remote_rev != local_rev:
@@ -1451,19 +1451,19 @@ class UpDownSync:
             if get_ctime(local_path) < self.last_sync:
                 # TODO: directory ctime is only changed when an inode
                 #  in the directory changes, not when file contents change
-                logger.debug("Remote item is newer.")
+                logger.debug(f"Remote item is newer: {dbx_path}")
                 return Conflict.RemoteNewer
             elif not remote_rev:
-                logger.debug("Local item has been modified since remote deletion.")
+                logger.debug(f"Local item has been modified since remote deletion: {dbx_path}")
                 return Conflict.LocalNewerOrIdentical
             else:
                 local_hash = get_local_hash(local_path)
                 if remote_hash == local_hash:
-                    logger.debug("Contents are equal. No conflict.")
+                    logger.debug(f"Contents are equal. No conflict: {dbx_path}")
                     self.set_local_rev(dbx_path, remote_rev)  # update local rev
                     return Conflict.Identical
                 else:
-                    logger.debug("Local item was created since last upload. Conflict.")
+                    logger.debug(f"Local item was created since last upload. Conflict: {dbx_path}")
                     return Conflict.Conflict
 
     def notify_user(self, changes):
