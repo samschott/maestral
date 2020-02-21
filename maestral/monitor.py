@@ -1403,20 +1403,19 @@ class UpDownSync:
 
         return [entry for entry in downloaded if not isinstance(entry, bool)], success
 
-    def check_download_conflict(self, dbx_path):
+    def check_download_conflict(self, md):
         """
         Check if local item is conflicting with remote item. The equivalent check when
         uploading and item will be carried out by Dropbox itself.
 
         Checks are carried out against our index, reflecting the latest sync state.
 
-        :param str dbx_path: Path of file on Dropbox.
+        :param Metadata md: Dropbox SDK metadata.
         :rtype: Conflict
         :raises: MaestralApiError if the Dropbox item does not exist.
         """
 
         # get metadata of remote item
-        md = self.client.get_metadata(dbx_path, include_deleted=True)
         if isinstance(md, FileMetadata):
             remote_rev = md.rev
             remote_hash = md.content_hash
@@ -1427,8 +1426,9 @@ class UpDownSync:
             remote_rev = None
             remote_hash = None
 
-        local_rev = self.get_local_rev(dbx_path)
+        dbx_path = md.path_display
         local_path = self.to_local_path(dbx_path)
+        local_rev = self.get_local_rev(dbx_path)
 
         if remote_rev == local_rev:
             # Local change has the same rev. May be newer and
@@ -1566,7 +1566,7 @@ class UpDownSync:
         # this will be cleared by the FileSystemEventHandler
         self.queue_downloading.put(local_path)
 
-        conflict_check = self.check_download_conflict(entry.path_display)
+        conflict_check = self.check_download_conflict(entry)
 
         if conflict_check == Conflict.Conflict:
             # rename local item and get remote
