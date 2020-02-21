@@ -7,6 +7,6 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
 
-__version__ = "0.6.0-dev3"
+__version__ = "0.6.0-dev4"
 __author__ = "Sam Schott"
 __url__ = "https://github.com/SamSchott/maestral"
