@@ -25,8 +25,8 @@ Maestral daemons with the following configs are running:
 
 {', '.join(running_daemons)}
 
-Please stop the daemons before updating, you may otherwise not be able
-to use the new command line interface with the old daemon.
+Please stop the daemons before updating to ensure a clean upgrade
+of config files and compatibility been the CLI and daemon.
     """)
     sys.exit(1)
 

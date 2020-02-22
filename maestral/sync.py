@@ -32,7 +32,7 @@ from watchdog.utils.dirsnapshot import DirectorySnapshot
 from atomicwrites import atomic_write
 
 # local imports
-from maestral.config import MaestralConfig, MaestralState
+from maestral.config import MaestralConfig, MaestralState, list_configs
 from maestral.watchdog import Observer
 from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                 REV_FILE, IS_FS_CASE_SENSITIVE)
@@ -43,8 +43,12 @@ from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import is_child, path_exists_case_insensitive, delete
 from maestral.utils.appdirs import get_data_path
+from maestral.utils.housekeeping import migrate_maestral_index
 
 logger = logging.getLogger(__name__)
+
+for config_name in list_configs():
+    migrate_maestral_index(config_name)
 
 DIR_EVENTS = (DirModifiedEvent, DirCreatedEvent, DirDeletedEvent, DirMovedEvent)
 FILE_EVENTS = (FileModifiedEvent, FileCreatedEvent, FileDeletedEvent, FileMovedEvent)
@@ -54,10 +58,10 @@ EXCLUDED_FILE_NAMES = (
     ".com.apple.timemachine.supported", REV_FILE
 )
 
-# TODO:
-#  * Check conflict resolution on concurrent editing
-#  * Check handling of dropped packages on upload
 
+# ========================================================================================
+# Syncing functionality
+# ========================================================================================
 
 class Conflict(IntEnum):
     RemoteNewer = 0
@@ -65,10 +69,6 @@ class Conflict(IntEnum):
     Identical = 2
     LocalNewerOrIdentical = 2
 
-
-# ========================================================================================
-# Syncing functionality
-# ========================================================================================
 
 class TimedQueue(queue.Queue):
     """

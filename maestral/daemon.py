@@ -81,7 +81,7 @@ def pidpath_for_config(config_name):
 def is_pidfile_stale(pidfile):
     """
     Determine whether a PID file is stale. Returns ``True`` if the PID file is stale,
-    ``False`` otherwise. The PID file is “stale” if its contents are valid but do not
+    ``False`` otherwise. The PID file is stale if its contents are valid but do not
     match the PID of a currently-running process.
     """
     result = False
@@ -99,8 +99,7 @@ def is_pidfile_stale(pidfile):
 
 def get_maestral_pid(config_name):
     """
-    Returns Maestral's PID if the daemon is running and responsive, ``None``
-    otherwise. If the daemon is unresponsive, it will be killed before returning.
+    Returns Maestral's PID if the daemon is running, ``None`` otherwise.
 
     :param str config_name: The name of the Maestral configuration to use.
     :returns: The daemon's PID.
@@ -110,17 +109,10 @@ def get_maestral_pid(config_name):
     lockfile = PIDLockFile(pidpath_for_config(config_name))
     pid = lockfile.read_pid()
 
-    if pid:
-        try:
-            if not is_pidfile_stale(lockfile):
-                return pid
-        except OSError:
-            os.kill(pid, signal.SIGKILL)
-            logger.debug(f"Daemon process with PID {pid} is not responsive. Killed.")
+    if pid and not is_pidfile_stale(lockfile):
+        return pid
     else:
-        logger.debug("Could not find PID file")
-
-    lockfile.break_lock()
+        lockfile.break_lock()
 
 
 def _wait_for_startup(config_name, timeout=8):
@@ -331,6 +323,7 @@ def stop_maestral_daemon_process(config_name="maestral", timeout=10):
             lockfile.break_lock()
             return Exit.Killed
     else:
+        lockfile.break_lock()
         return Exit.NotRunning
 
 

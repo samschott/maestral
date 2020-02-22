@@ -184,9 +184,6 @@ class Maestral(object):
         self._daemon_running = True
         self._log_to_stdout = log_to_stdout
 
-        migrate_user_config(config_name)
-        migrate_maestral_index(config_name)
-
         self._config_name = config_name
         self._conf = MaestralConfig(self._config_name)
         self._state = MaestralState(self._config_name)
