@@ -14,13 +14,21 @@ def get_home_dir():
     try:
         path = osp.expanduser('~')
     except Exception:
-        fallback = os.environ.get('TMP', '')
-        fallback = os.environ.get('USERPROFILE', fallback)
-        path = os.environ.get('HOME', fallback)
+        path = ''
 
     if osp.isdir(path):
-        raise RuntimeError('Please set the environment variable HOME to your user/home'
-                           'directory.')
+        return path
+    else:
+        for env_var in ('HOME', 'USERPROFILE', 'TMP'):
+            path = os.environ.get(env_var, '')
+            if osp.isdir(path):
+                return path
+            else:
+                path = ''
+
+        if not path:
+            raise RuntimeError('Please set the environment variable HOME to '
+                               'your user/home directory.')
 
 
 _home_dir = get_home_dir()
