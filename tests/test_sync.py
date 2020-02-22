@@ -131,6 +131,11 @@ def test_clean_local_events():
     assert set(cleaned_file_events_test5) == set(res5)
 
 
+# Create a Dropbox test account to automate the below test.
+# We will not test individual methods of `maestral.sync` but rather ensure
+# an effective result: successful syncing and conflict resolution in
+# standard and challenging cases.
+
 def test_sync_cases():
     # TODO:
     #  * Remote file replaced with a folder (OK)
