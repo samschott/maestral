@@ -11,23 +11,23 @@ import shutil
 from os import path as osp
 
 
-def is_child(path1, path2):
+def is_child(path, parent):
     """
-    Checks if :param:`path1` semantically is inside folder :param:`path2`. Neither
-    path must refer to an actual item on the drive. This function is case sensitive.
+    Checks if :param:`path` semantically is inside :param:`parent`. Neither path needs to
+    refer to an actual item on the drive. This function is case sensitive.
 
-    :param str path1: Folder path.
-    :param str path2: Parent folder path.
-    :returns: ``True`` if :param:`path1` semantically is a subfolder of :param:`path2`,
-        ``False`` otherwise (including ``path1 == path2``.
+    :param str path: Item path.
+    :param str parent: Parent path.
+    :returns: ``True`` if :param:`path` semantically lies inside :param:`parent`,
+        ``False`` otherwise (including ``path == parent``).
     :rtype: bool
     """
-    assert isinstance(path1, str)
-    assert isinstance(path2, str)
+    assert isinstance(path, str)
+    assert isinstance(parent, str)
 
-    path2 = path2.rstrip(osp.sep)
+    parent = parent.rstrip(osp.sep)
 
-    return path1.startswith(path2 + osp.sep) and not path1 == path2
+    return path.startswith(parent + osp.sep) and not path == parent
 
 
 def path_exists_case_insensitive(path, root="/"):
