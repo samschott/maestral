@@ -930,7 +930,7 @@ def config_add(name: str):
         click.echo(f'Configuration \'{name}\' already exists.')
     else:
         from maestral.config import MaestralConfig
-        MaestralConfig(name)  # create instance to force file creation
+        MaestralConfig(name).save()
         click.echo(f'Created configuration \'{name}\'.')
 
 

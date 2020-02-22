@@ -62,7 +62,7 @@ class DefaultsConfig(cp.ConfigParser):
 
         super(DefaultsConfig, self).set(section, option, value)
 
-    def _save(self):
+    def save(self):
         """Save config into the associated file."""
         fpath = self.get_config_fpath()
 
@@ -299,7 +299,7 @@ class UserConfig(DefaultsConfig):
         new_defaults = DefaultsConfig(name=name, path=path)
         if not osp.isfile(new_defaults.get_config_fpath()):
             new_defaults.set_defaults(defaults)
-            new_defaults._save()
+            new_defaults.save()
 
     def _update_defaults(self, defaults, old_version):
         """Update defaults after a change in version."""
@@ -407,7 +407,7 @@ class UserConfig(DefaultsConfig):
                     value = options[option]
                     self._set(sec, option, value)
         if save:
-            self._save()
+            self.save()
 
     def set_as_defaults(self):
         """Set defaults from the current config."""
@@ -523,17 +523,17 @@ class UserConfig(DefaultsConfig):
 
         self._set(section, option, value)
         if save:
-            self._save()
+            self.save()
 
     def remove_section(self, section):
         """Remove `section` and all options within it."""
         super(UserConfig, self).remove_section(section)
-        self._save()
+        self.save()
 
     def remove_option(self, section, option):
         """Remove `option` from `section`."""
         super(UserConfig, self).remove_option(section, option)
-        self._save()
+        self.save()
 
     def cleanup(self):
         """Remove file associated to config."""
