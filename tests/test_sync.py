@@ -154,11 +154,11 @@ def test_sync_cases():
     #    Local rev == remote rev == None. Deletion will not be carried out.
     #  * Remote item deleted -> registered -> local item deleted before download (OK):
     #    Local rev exists: deletion will be carried out locally and fail silently.
-    #  * Remote item deleted -> registered -> local item modified before download (NOK):
+    #  * Remote item deleted -> registered -> local item modified before download (OK):
     #    Local rev != None, deletion will be carried out. Fix by comparing mtime and
     #    keep local item if local_mtime > last_sync.
-    #  * Remote item modified -> registered -> local item modified before download (NOK):
-    #    Local rev != remote rev. Local changes will be lost. Fix by comparing mtime and
-    #    create conflicting copy if local_mtime > last_sync.
+    #  * Remote item modified -> registered -> local item modified before download (OK):
+    #    Local rev != remote rev. Compare ctime and create conflicting copy if ctime >
+    #    last_sync and file contents are different.
 
     pass
