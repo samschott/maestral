@@ -2113,6 +2113,7 @@ class MaestralMonitor:
         was_running = self.running.is_set()
 
         self.stop()  # stop all sync threads
+        self.upload_thread.join()
 
         # reset sync state
         # if Maestral is killed while rebuilding, this will trigger a new download
