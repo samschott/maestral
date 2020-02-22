@@ -11,6 +11,7 @@ import os
 import time
 import subprocess
 import platform
+from packaging.version import Version
 from enum import Enum
 from pathlib import Path
 import logging
@@ -19,7 +20,6 @@ import click
 
 from maestral.config import MaestralConfig
 from maestral.constants import IS_MACOS_BUNDLE
-from maestral.utils.updates import check_version
 
 if platform.system() == 'Darwin':
     macos_version, *_ = platform.mac_ver()
@@ -212,10 +212,10 @@ class DesktopNotifier:
         )
 
     def _get_available_implementation(self):
-        if IS_MACOS_BUNDLE and check_version(macos_version, '10.14.0', '>='):
+        if IS_MACOS_BUNDLE and Version(macos_version) >= Version('10.14.0'):
             # UNUserNotificationCenter is only supported from signed app bundles
             return SupportedImplementations.notification_center
-        elif platform.system() == 'Darwin' and check_version(macos_version, '10.16.0', '<'):
+        elif platform.system() == 'Darwin' and Version(macos_version) < Version('10.16.0'):
             return SupportedImplementations.legacy_notification_center
         elif self._command_exists('osascript'):
             return SupportedImplementations.osascript

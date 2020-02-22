@@ -135,6 +135,7 @@ setup(
         'keyring>=19.0.0',
         'keyrings.alt>=3.0.0',
         'lockfile',
+        'packaging',
         'Pyro5>=5.7',
         'requests',
         'rubicon-objc>=0.3.1;sys_platform=="darwin"',
