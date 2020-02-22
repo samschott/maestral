@@ -130,3 +130,39 @@ def get_runtime_path(subfolder=None, filename=None, create=True):
         runtime_path = osp.join(runtime_path, filename)
 
     return runtime_path
+
+
+def get_old_runtime_path(subfolder=None, filename=None, create=True):
+    """
+    Returns the default runtime path for the platform. This will be:
+
+        - macOS: tempfile.gettempdir() + "SUBFOLDER/FILENAME"
+        - Linux: "$XDG_RUNTIME_DIR/SUBFOLDER/FILENAME"
+        - fallback: "$HOME/.cache/SUBFOLDER/FILENAME"
+
+    :param str subfolder: The subfolder for the app.
+    :param str filename: The filename to append for the app.
+    :param bool create: If ``True``, the folder "<subfolder>" will be created on-demand.
+    """
+
+    # if-defs for different platforms
+    if platform.system() == "Darwin":
+        import tempfile
+        runtime_path = tempfile.gettempdir()
+    else:
+        fallback = get_cache_path()
+        runtime_path = os.environ.get("XDG_RUNTIME_DIR", fallback)
+
+    # attach subfolder
+    if subfolder:
+        runtime_path = osp.join(runtime_path, subfolder)
+
+    # create dir
+    if create:
+        os.makedirs(runtime_path, exist_ok=True)
+
+    # attach filename
+    if filename:
+        runtime_path = osp.join(runtime_path, filename)
+
+    return runtime_path
