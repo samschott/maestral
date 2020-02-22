@@ -2076,7 +2076,6 @@ class MaestralMonitor:
         self.local_observer_thread.join()
 
         self.running.clear()
-        self.upload_thread.join()
 
         logger.info(STOPPED)
 
