@@ -53,25 +53,3 @@ def remove_tags(dictionary):
             new_dict[key] = remove_tags(value)
 
     return new_dict
-
-
-def flatten_dict(dictionary):
-
-    while any(isinstance(v, dict) for v in dictionary.values()):
-        dictionary = _flatten_dict_once(dictionary)
-
-    return dictionary
-
-
-def _flatten_dict_once(dictionary):
-
-    new_dict = dict(dictionary)
-
-    for key, val in dictionary.items():
-        if isinstance(val, dict):
-            for k, v in val.items():
-                new_key = "{}: {}".format(key, k)
-                new_dict[new_key] = v
-            del new_dict[key]
-
-    return new_dict
