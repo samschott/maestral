@@ -14,7 +14,7 @@ import os.path as osp
 import logging
 from distutils.version import LooseVersion
 
-from maestral.config.main import CONFIG_DIR_NAME, MaestralConfig, MaestralState
+from maestral.config.main import CONFIG_DIR_NAME, DEFAULTS, MaestralConfig, MaestralState
 from maestral.config.user import UserConfig
 from maestral.config.base import get_conf_path, get_data_path
 
@@ -28,7 +28,7 @@ def migrate_user_config(config_name):
     try:
         old_conf = UserConfig(
             config_path, config_name, load=True, backup=False, raw_mode=True,
-            version='10.0.0'
+            remove_obsolete=False, defaults=DEFAULTS, version='10.0.0'
         )
     except OSError:
         return
@@ -66,6 +66,9 @@ def migrate_user_config(config_name):
         state.set('sync', 'cursor', cursor)
         state.set('sync', 'lastsync', lastsync)
         state.set('sync', 'recent_changes', recent_changes)
+
+        old_conf.set_version('11.0.0')
+        old_conf._remove_deprecated_options('10.0.0')
 
         logger.info(f'Migrated user config "{config_name}"')
 
