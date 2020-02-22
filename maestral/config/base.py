@@ -4,6 +4,20 @@ import os
 import os.path as osp
 
 
+def _to_full_path(path, subfolder, filename, create):
+
+    if subfolder:
+        path = osp.join(path, subfolder)
+
+    if create:
+        os.makedirs(path, exist_ok=True)
+
+    if filename:
+        path = osp.join(path, filename)
+
+    return path
+
+
 def get_home_dir():
     """
     Returns user home directory. This will be determined from the first
@@ -54,19 +68,7 @@ def get_conf_path(subfolder=None, filename=None, create=True):
         fallback = osp.join(get_home_dir(), ".config")
         conf_path = os.environ.get("XDG_CONFIG_HOME", fallback)
 
-    # attach subfolder
-    if subfolder:
-        conf_path = osp.join(conf_path, subfolder)
-
-    # create dir
-    if create:
-        os.makedirs(conf_path, exist_ok=True)
-
-    # attach filename
-    if filename:
-        conf_path = osp.join(conf_path, filename)
-
-    return conf_path
+    return _to_full_path(conf_path, subfolder, filename, create)
 
 
 def get_data_path(subfolder=None, filename=None, create=True):
@@ -84,27 +86,13 @@ def get_data_path(subfolder=None, filename=None, create=True):
     :param str filename: The filename to append for the app.
     :param bool create: If ``True``, the folder "<subfolder>" will be created on-demand.
     """
-
-    # if-defs for different platforms
     if platform.system() == "Darwin":
         state_path = osp.join(get_home_dir(), "Library", "Application Support")
     else:
         fallback = osp.join(get_home_dir(), ".local", "share")
-        state_path = os.environ.get("$XDG_DATA_DIR", fallback)
+        state_path = os.environ.get("XDG_DATA_DIR", fallback)
 
-    # attach subfolder
-    if subfolder:
-        state_path = osp.join(state_path, subfolder)
-
-    # create dir
-    if create:
-        os.makedirs(state_path, exist_ok=True)
-
-    # attach filename
-    if filename:
-        state_path = osp.join(state_path, filename)
-
-    return state_path
+    return _to_full_path(state_path, subfolder, filename, create)
 
 
 def list_configs():
