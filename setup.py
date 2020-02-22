@@ -2,32 +2,14 @@ import sys
 import os
 from setuptools import setup, find_packages
 from maestral import __version__, __author__, __url__
+from maestral.config.base import list_configs
+from maestral.utils.appdirs import get_runtime_path, get_old_runtime_path
 
 CURRENT_PYTHON = sys.version_info[:2]
 REQUIRED_PYTHON = (3, 6)
 
-# This check and everything above must remain compatible with Python 2.7.
-if CURRENT_PYTHON < REQUIRED_PYTHON:
-    # noinspection PyStringFormat
-    sys.stderr.write("""
-==========================
-Unsupported Python version
-==========================
-Maestral requires Python {}.{} or higher, but you're trying to install
-it on Python {}.{}. This may be because you are using a version of pip
-that doesn't understand the python_requires classifier. Make sure you
-have pip >= 9.0 and setuptools >= 24.2, then try again:
-    $ python3 -m pip install --upgrade pip setuptools
-    $ python3 -m pip install maestral
-
-""".format(*(REQUIRED_PYTHON + CURRENT_PYTHON)))
-    sys.exit(1)
-
-
 # check for running daemons before updating to prevent
 # incompatible versions of CLI / GUI and daemon
-from maestral.config.base import list_configs
-from maestral.utils.appdirs import get_runtime_path, get_old_runtime_path
 
 running_daemons = []
 
