@@ -35,7 +35,7 @@ def pending_link_cli(config_name):
     This does not create a Maestral instance and is therefore safe to call from anywhere
     at any time.
     """
-    from maestral.utils import pending_link
+    from maestral.utils.backend import pending_link
     from keyring.errors import KeyringLocked
 
     try:
@@ -295,7 +295,7 @@ def start(config_name: str, foreground: bool):
     """Starts the Maestral as a daemon."""
 
     from maestral.daemon import get_maestral_pid
-    from maestral.utils import pending_dropbox_folder
+    from maestral.utils.backend import pending_dropbox_folder
 
     # do nothing if already running
     if get_maestral_pid(config_name):

@@ -127,7 +127,7 @@ class MaestralApiClient(object):
     files will be caught and reraised as :class:`errors.MaestralApiError`s. Connection
     errors from requests will be caught and reraised as :class:`ConnectionError`.
 
-    :param int config_name: Name of config file and state file to use.
+    :param str config_name: Name of config file and state file to use.
     :param int timeout: Timeout for individual requests in sec. Defaults to 60 sec.
     """
 

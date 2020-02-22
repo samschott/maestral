@@ -7,7 +7,7 @@
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
-from maestral.monitor import (
+from maestral.sync import (
     FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileMovedEvent,
     UpDownSync
 )

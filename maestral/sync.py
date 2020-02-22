@@ -20,7 +20,6 @@ from enum import IntEnum
 
 # external imports
 import umsgpack
-from atomicwrites import atomic_write
 import dropbox
 from dropbox.files import DeletedMetadata, FileMetadata, FolderMetadata
 from watchdog.events import FileSystemEventHandler
@@ -30,6 +29,7 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent, DirCreatedEven
                              FileCreatedEvent, DirDeletedEvent, FileDeletedEvent,
                              DirMovedEvent, FileMovedEvent)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
+from atomicwrites import atomic_write
 
 # local imports
 from maestral.config import MaestralConfig, MaestralState

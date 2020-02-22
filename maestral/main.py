@@ -7,6 +7,7 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
 # system imports
+import functools
 import sys
 import os
 import os.path as osp
@@ -33,20 +34,19 @@ import sdnotify
 
 # maestral modules
 from maestral import __version__
-from maestral.monitor import MaestralMonitor
-from maestral.utils import handle_disconnect, with_sync_paused
+from maestral.sync import MaestralMonitor
+from maestral.client import MaestralApiClient
+from maestral.errors import MaestralApiError, DropboxAuthError
+from maestral.config import MaestralConfig, MaestralState
 from maestral.utils.path import is_child, path_exists_case_insensitive, delete
 from maestral.utils.notify import MaestralDesktopNotifier
-from maestral.constants import (
-    INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
-)
-from maestral.client import MaestralApiClient
 from maestral.utils.serializer import error_to_dict, dropbox_stone_to_dict
 from maestral.utils.appdirs import get_log_path, get_cache_path, get_home_dir
 from maestral.utils.updates import check_update_available
 from maestral.utils.housekeeping import migrate_maestral_index, migrate_user_config
-from maestral.errors import MaestralApiError
-from maestral.config import MaestralConfig, MaestralState
+from maestral.constants import (
+    INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
+    DISCONNECTED)
 
 logger = logging.getLogger(__name__)
 sd_notifier = sdnotify.SystemdNotifier()
@@ -105,6 +105,50 @@ class SdNotificationHandler(logging.Handler):
 
     def emit(self, record):
         sd_notifier.notify(f"STATUS={record.message}")
+
+
+# decorators
+
+def handle_disconnect(func):
+    """
+    Decorator which handles connection and auth errors during a function call and returns
+    ``False`` if an error occurred.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # pause syncing
+        try:
+            res = func(*args, **kwargs)
+            return res
+        except ConnectionError:
+            logger.info(DISCONNECTED)
+            return False
+        except DropboxAuthError as e:
+            logger.exception(e.title)
+            return False
+
+    return wrapper
+
+
+def with_sync_paused(func):
+    """
+    Decorator which pauses syncing before a method call, resumes afterwards. This
+    should only be used to decorate Maestral methods.
+    """
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        # pause syncing
+        resume = False
+        if self.syncing:
+            self.pause_sync()
+            resume = True
+        ret = func(self, *args, **kwargs)
+        # resume syncing if previously paused
+        if resume:
+            self.resume_sync()
+        return ret
+    return wrapper
 
 
 # ========================================================================================

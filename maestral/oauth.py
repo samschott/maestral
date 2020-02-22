@@ -16,7 +16,7 @@ from keyring.errors import KeyringLocked
 # maestral modules
 from maestral.config import MaestralConfig
 from maestral.errors import DropboxAuthError
-from maestral.utils import set_keyring_backend
+from maestral.utils.backend import set_keyring_backend
 from maestral.utils.oauth_implicit import DropboxOAuth2FlowImplicit
 
 
