@@ -10,6 +10,7 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 import logging
 
 # external packages
+import click
 import keyring
 from keyring.errors import KeyringLocked
 
@@ -28,7 +29,13 @@ set_keyring_backend()
 
 class OAuth2Session:
     """
-    OAuth2Session provides OAuth2 login and token store.
+    OAuth2Session provides OAuth2 login and token store. To authenticate with Dropbox,
+    run ``get_auth_url`` first and direct the user to visit that URL and retrieve an auth
+    token. Verify the provided auth token with ``verify_auth_token`` and save it in the
+    system keyring together with the corresponding Dropbox ID by calling ``save_creds``.
+
+    The convenience method ``link`` runs through the above auth flow in a command line
+    user dialog.
     """
 
     oAuth2FlowResult = None
@@ -92,42 +99,45 @@ class OAuth2Session:
         except ConnectionError:
             return self.ConnectionFailed
 
-    def link(self):
-        """Command line flow to get an auth key from Dropbox and save it in the system
-        keyring."""
-        authorize_url = self.get_auth_url()
-        print("1. Go to: " + authorize_url)
-        print("2. Click \"Allow\" (you might have to log in first).")
-        print("3. Copy the authorization token.")
-
-        res = 1
-        while res > 0:
-            auth_code = input("Enter the authorization token here: ").strip()
-            res = self.verify_auth_token(auth_code)
-
-            if res == 1:
-                print("Invalid token. Please try again.")
-            elif res == 2:
-                print("Could not connect to Dropbox. Please try again.")
-
-        self.save_creds()
-
     def save_creds(self):
         """Saves auth key to system keyring."""
         self._conf.set("account", "account_id", self.account_id)
         try:
             keyring.set_password("Maestral", self.account_id, self.access_token)
-            print(" > Credentials written.")
+            click.echo(" > Credentials written.")
         except KeyringLocked:
             logger.error("Could not access the user keyring to save your authentication "
                          "token. Please make sure that the keyring is unlocked.")
+
+    def link(self):
+        """
+        Command line flow to get an auth key from Dropbox and save it in the system
+        keyring.
+        """
+        authorize_url = self.get_auth_url()
+        click.echo("1. Go to: " + authorize_url)
+        click.echo("2. Click \"Allow\" (you might have to log in first).")
+        click.echo("3. Copy the authorization token.")
+
+        res = self.InvalidToken
+        while res != self.Success:
+            auth_code = click.prompt("Enter the authorization token here", type=str)
+            auth_code = auth_code.strip()
+            res = self.verify_auth_token(auth_code)
+
+            if res == self.InvalidToken:
+                click.secho("Invalid token. Please try again.", fg='red')
+            elif res == self.ConnectionFailed:
+                click.secho("Could not connect to Dropbox. Please try again.", fg='red')
+
+        self.save_creds()
 
     def delete_creds(self):
         """Deletes auth key from system keyring."""
         self._conf.set("account", "account_id", "")
         try:
             keyring.delete_password("Maestral", self.account_id)
-            print(" > Credentials removed.")
+            click.echo(" > Credentials removed.")
         except KeyringLocked:
             logger.error("Could not access the user keyring to delete your authentication"
                          " token. Please make sure that the keyring is unlocked.")

@@ -47,12 +47,11 @@ class DropboxOAuth2FlowImplicitBase:
     def build_path(self, target, params=None):
         """Build the path component for an API URL.
 
-        This method url-encodes the parameters, adds them
-        to the end of the target url, and puts a marker for the API
-        version in front.
+        This method url-encodes the parameters, adds them to the end
+        of the target url, and puts a marker for the API version in front.
 
         :param str target: A target url (e.g. "/files") to build upon.
-        :param dict params: Optional dictionary of parameters (name to value).
+        :param dict params: Optional dictionary of parameters.
         :returns: The path and parameters components of an API URL.
         :rtype: str
         """
@@ -158,7 +157,13 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
     @staticmethod
     def finish(access_token):
         """
-        Finish OAuth Implicit Grant flow by verifying token and retrieving account info.
+        Finish OAuth Implicit Grant flow by verifying token and retrieving
+        account info.
+
+        :param str access_token: Dropbox API access token.
+        :returns: Authentication result containing access token and account id.
+        :rtype: :class:`dropbox.oauth.OAuth2FlowNoRedirectResult`
+        :raises: :class:`maestral.errors.MaestralApiError`
         """
         dbx = dropbox.Dropbox(access_token)
         try:
@@ -171,7 +176,11 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
     @staticmethod
     def invalidate_token(access_token):
         """
-        Invalidates :param:`access_token` with Dropbox. Call this when unlinking an app.
+        Invalidates :param:`access_token` with Dropbox. Call this when
+        unlinking an app.
+
+        :param str access_token: Dropbox API access token.
+        :raises: :class:`maestral.errors.MaestralApiError`
         """
         dbx = dropbox.Dropbox(access_token)
         try:
