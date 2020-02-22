@@ -12,7 +12,7 @@ import sys
 import os
 import os.path as osp
 import logging
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 from maestral.config.main import CONFIG_DIR_NAME, DEFAULTS, MaestralConfig, MaestralState
 from maestral.config.user import UserConfig
@@ -33,7 +33,7 @@ def migrate_user_config(config_name):
     except OSError:
         return
 
-    if LooseVersion(old_conf._old_version) < LooseVersion('11.0.0'):
+    if Version(old_conf._old_version) < Version('11.0.0'):
 
         state = MaestralState(config_name)
 
