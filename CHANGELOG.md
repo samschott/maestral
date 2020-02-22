@@ -71,6 +71,7 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
 - Run checks for Dropbox folder location and link status when invoking `maestral restart`.
 - Notify the user through the GUI when moving the Dropbox directory fails instead of
   silently keeping the old directory.
+- Fixes an issue where the XDG_DATA_DIR would not be respected in Linux.
   
 #### Removed:
 
