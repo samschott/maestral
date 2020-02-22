@@ -132,8 +132,8 @@ def handle_disconnect(func):
 
 def with_sync_paused(func):
     """
-    Decorator which pauses syncing before a method call, resumes afterwards. This
-    should only be used to decorate Maestral methods.
+    Decorator which pauses syncing before a method call, resumes afterwards. This should
+    only be used to decorate Maestral methods.
     """
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
@@ -157,28 +157,18 @@ def with_sync_paused(func):
 class Maestral(object):
     """An open source Dropbox client for macOS and Linux.
 
-    All methods and properties return objects or raise exceptions which can
-    safely be serialized, i.e., pure Python types. The only exception are
-    MaestralApiErrors which need to be registered explicitly with the serpent
-    serializer used by Pyro5 in order to be transmitted to a frontend.
+    All methods and properties return objects or raise exceptions which can safely be
+    serialized, i.e., pure Python types. The only exception are MaestralApiErrors which
+    need to be registered explicitly with the serpent serializer used by Pyro5 in order
+    to be transmitted to a frontend.
+
+    :param str config_name: Name of maestral configuration to run. This will create a new
+        configuration file if none exists.
+    :param bool run: If ``True``, Maestral will start syncing immediately. Defaults to
+        ``True``.
     """
 
-    # __slots__ = (
-    #     "_config_name", "_conf", "_state", "client", "monitor", "sync",
-    #     "update_thread", "watchdog_thread", "log_handler_file", "log_handler_journal",
-    #     "log_handler_sd", "log_handler_stream", "_log_handler_info_cache",
-    #     "_log_handler_error_cache", "_log_handler_bugsnag",
-    #     "_log_to_stdout", "desktop_notifier", "_daemon_running"
-    # )
-
     def __init__(self, config_name='maestral', run=True, log_to_stdout=False):
-        """
-
-        :param str config_name: Name of maestral configuration to run. This will create
-            a new configuration file if none exists.
-        :param bool run: If ``True``, Maestral will start syncing immediately. Defaults to
-            ``True``.
-        """
 
         self._daemon_running = True
         self._log_to_stdout = log_to_stdout
@@ -205,8 +195,9 @@ class Maestral(object):
             self.run()
 
     def run(self):
-        """Runs setup if necessary, starts syncing, and starts systemd notifications if
-        run as a systemd notify service.
+        """
+        Runs setup if necessary, starts syncing, and starts systemd notifications if run
+        as a systemd notify service.
         """
 
         if self.pending_dropbox_folder:
@@ -237,9 +228,11 @@ class Maestral(object):
             self.watchdog_thread.start()
 
     def _setup_logging(self):
-        """Sets up logging to log files, status and error properties, desktop
-        notifications, the systemd journal if available, bugsnag if error reports are
-        enabled, and to stdout if requested."""
+        """
+        Sets up logging to log files, status and error properties, desktop notifications,
+        the systemd journal if available, bugsnag if error reports are enabled, and to
+        stdout if requested.
+        """
 
         log_level = self._conf.get("app", "log_level")
         mdbx_logger = logging.getLogger("maestral")
@@ -253,7 +246,9 @@ class Maestral(object):
 
         # log to file
         rfh_log_file = get_log_path("maestral", self._config_name + ".log")
-        self.log_handler_file = logging.handlers.RotatingFileHandler(rfh_log_file, maxBytes=10 ** 7, backupCount=1)
+        self.log_handler_file = logging.handlers.RotatingFileHandler(
+            rfh_log_file, maxBytes=10 ** 7, backupCount=1
+        )
         self.log_handler_file.setFormatter(log_fmt_long)
         self.log_handler_file.setLevel(log_level)
         mdbx_logger.addHandler(self.log_handler_file)
@@ -341,9 +336,11 @@ class Maestral(object):
 
     @property
     def excluded_folders(self):
-        """Returns a list of excluded folders (read only). Use :meth:`exclude_folder`,
+        """
+        Returns a list of excluded folders (read only). Use :meth:`exclude_folder`,
         :meth:`include_folder` or :meth:`set_excluded_folders` change which folders are
-        excluded from syncing."""
+        excluded from syncing.
+        """
         return self.sync.excluded_folders
 
     @property
@@ -422,14 +419,16 @@ class Maestral(object):
 
     @property
     def syncing(self):
-        """Bool indicating if Maestral is syncing. It will be ``True`` if syncing is
-        not paused by the user *and* Maestral is connected to the internet."""
+        """
+        Bool indicating if Maestral is syncing. It will be ``True`` if syncing is not
+        paused by the user *and* Maestral is connected to the internet.
+        """
         return self.monitor.syncing.is_set()
 
     @property
     def paused(self):
-        """Bool indicating if syncing is paused by the user. This is set by calling
-        :meth:`pause`."""
+        """Bool indicating if syncing is paused by the user. This is set by
+        calling :meth:`pause`."""
         return self.monitor.paused_by_user.is_set()
 
     @property
@@ -444,8 +443,10 @@ class Maestral(object):
 
     @property
     def status(self):
-        """Returns a string with the last status message. This can be displayed as
-        information to the user but should not be relied on otherwise."""
+        """
+        Returns a string with the last status message. This can be displayed as
+        information to the user but should not be relied on otherwise.
+        """
         return self._log_handler_info_cache.getLastMessage()
 
     @property
@@ -457,9 +458,10 @@ class Maestral(object):
 
     @property
     def maestral_errors(self):
-        """Returns a list of Maestral's errors as dicts. This does not include lost
-        internet connections or file sync errors which only emit warnings and are tracked
-        and cleared separately. Errors listed here must be acted upon for Maestral to
+        """
+        Returns a list of Maestral's errors as dicts. This does not include lost internet
+        connections or file sync errors which only emit warnings and are tracked and
+        cleared separately. Errors listed here must be acted upon for Maestral to
         continue syncing.
         """
 
@@ -468,16 +470,19 @@ class Maestral(object):
         return maestral_errors_dicts
 
     def clear_maestral_errors(self):
-        """Manually clears all Maestral errors. This should be used after they have been
+        """
+        Manually clears all Maestral errors. This should be used after they have been
         resolved by the user through the GUI or CLI.
         """
         self._log_handler_error_cache.clear()
 
     @property
     def account_profile_pic_path(self):
-        """Returns the path of the current account's profile picture. There may not be
-        an actual file at that path, if the user did not set a profile picture or the
-        picture has not yet been downloaded."""
+        """
+        Returns the path of the current account's profile picture. There may not be an
+        actual file at that path, if the user did not set a profile picture or the
+        picture has not yet been downloaded.
+        """
         return get_cache_path("maestral", self._config_name + "_profile_pic.jpeg")
 
     def get_file_status(self, local_path):
@@ -538,8 +543,8 @@ class Maestral(object):
     @handle_disconnect
     def get_account_info(self):
         """
-        Gets account information from Dropbox and returns it as a dictionary.
-        The entries will either be of type ``str`` or ``bool``.
+        Gets account information from Dropbox and returns it as a dictionary. The entries
+        will either be of type ``str`` or ``bool``.
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
@@ -551,8 +556,8 @@ class Maestral(object):
     @handle_disconnect
     def get_space_usage(self):
         """
-        Gets the space usage stored by Dropbox and returns it as a dictionary.
-        The entries will either be of type ``str`` or ``bool``.
+        Gets the space usage stored by Dropbox and returns it as a dictionary. The
+        entries will either be of type ``str`` or ``bool``.
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
@@ -566,8 +571,8 @@ class Maestral(object):
     @handle_disconnect
     def get_profile_pic(self):
         """
-        Attempts to download the user's profile picture from Dropbox. The picture saved in
-        Maestral's cache directory for retrieval when there is no internet connection.
+        Attempts to download the user's profile picture from Dropbox. The picture saved
+        in Maestral's cache directory for retrieval when there is no internet connection.
         This function will fail silently in case of :class:`MaestralApiError`s.
 
         :returns: Path to saved profile picture or None if no profile picture is set.
@@ -650,10 +655,10 @@ class Maestral(object):
 
     def unlink(self):
         """
-        Unlinks the configured Dropbox account but leaves all downloaded files
-        in place. All syncing metadata will be removed as well. Connection and API errors
-        will be handled silently but the Dropbox access key will always be removed from
-        the user's PC.
+        Unlinks the configured Dropbox account but leaves all downloaded files in place.
+        All syncing metadata will be removed as well. Connection and API errors will be
+        handled silently but the Dropbox access key will always be removed from the
+        user's PC.
         """
         self.stop_sync()
         try:
@@ -673,8 +678,8 @@ class Maestral(object):
 
     def exclude_folder(self, dbx_path):
         """
-        Excludes folder from sync and deletes local files. It is safe to call
-        this method with folders which have already been excluded.
+        Excludes folder from sync and deletes local files. It is safe to call this method
+        with folders which have already been excluded.
 
         :param str dbx_path: Dropbox folder to exclude.
         :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox.
@@ -708,9 +713,9 @@ class Maestral(object):
 
     def include_folder(self, dbx_path):
         """
-        Includes folder in sync and downloads in the background. It is safe to
-        call this method with folders which have already been included, they
-        will not be downloaded again.
+        Includes folder in sync and downloads in the background. It is safe to call this
+        method with folders which have already been included, they will not be downloaded
+        again.
 
         :param str dbx_path: Dropbox folder to include.
         :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox or lies inside
@@ -754,9 +759,11 @@ class Maestral(object):
 
     @handle_disconnect
     def _include_folder_without_subfolders(self, dbx_path):
-        """Sets a folder to included without explicitly including its subfolders. This
-        is to be used internally, when a folder has been removed from the excluded list,
-        but some of its subfolders may have been added."""
+        """
+        Sets a folder to included without explicitly including its subfolders. This is to
+        be used internally, when a folder has been removed from the excluded list, but
+        some of its subfolders may have been added.
+        """
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
         excluded_folders = self.sync.excluded_folders
