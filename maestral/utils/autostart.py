@@ -29,7 +29,6 @@ _resources = osp.join(osp.dirname(_root), 'resources')
 
 
 class SupportedImplementations(Enum):
-    # sysv = 'sysv'
     systemd = 'systemd'
     launchd = 'launchd'
     xdg_desktop = 'xdg_desktop'
