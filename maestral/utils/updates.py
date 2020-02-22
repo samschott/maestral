@@ -8,10 +8,8 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 """
 # system imports
 import json
-import re
 import ssl
 from packaging.version import Version
-from distutils.version import LooseVersion
 from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
 
@@ -96,7 +94,7 @@ def is_stable_version(version):
     """
     Return true if version is stable.
 
-    Stable version examples: ``1.2``, ``1.3.4``, ``1.0.5``, ``1.0.5.post1``.
-    Non-stable version examples: ``1.3.4beta``, ``0.1.0rc1``, ``3.0.0dev0``.
+    Stable version examples: ``0.1.0``, ``1.2``, ``1.3.4``, ``1.0.5.post1``.
+    Non-stable version examples: ``1.3.4.beta``, ``0.1.0-rc1``, ``3.0.0dev0``.
     """
     return not Version(version).is_prerelease
