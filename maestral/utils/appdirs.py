@@ -101,7 +101,7 @@ def get_runtime_path(subfolder=None, filename=None, create=True):
     """
     Returns the default runtime path for the platform. This will be:
 
-        - macOS: tempfile.gettempdir() + "SUBFOLDER/FILENAME"
+        - macOS: "~/Library/Application Support/SUBFOLDER/FILENAME"
         - Linux: "$XDG_RUNTIME_DIR/SUBFOLDER/FILENAME"
         - fallback: "$HOME/.cache/SUBFOLDER/FILENAME"
 
@@ -112,8 +112,7 @@ def get_runtime_path(subfolder=None, filename=None, create=True):
 
     # if-defs for different platforms
     if platform.system() == "Darwin":
-        import tempfile
-        runtime_path = tempfile.gettempdir()
+        return get_conf_path(subfolder, filename, create)
     else:
         fallback = get_cache_path()
         runtime_path = os.environ.get("XDG_RUNTIME_DIR", fallback)
