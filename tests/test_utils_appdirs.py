@@ -8,7 +8,7 @@ from maestral.utils.appdirs import (
 )
 
 
-def test_macos_paths():
+def test_macos_dirs():
     platform.system = lambda: 'Darwin'
 
     assert get_conf_path(create=False) == get_home_dir() + '/Library/Application Support'
@@ -20,16 +20,8 @@ def test_macos_paths():
     assert get_autostart_path(create=False) == get_home_dir() + '/Library/LaunchAgents'
 
 
-def test_linux_paths():
+def test_linux_dirs():
     platform.system = lambda: 'Linux'
-
-    assert get_conf_path(create=False) == get_home_dir() + '/.config'
-    assert get_cache_path(create=False) == get_home_dir() + '/.cache'
-    assert get_data_path(create=False) == get_home_dir() + '/.local/share'
-    assert get_runtime_path(create=False) == get_home_dir() + '/.cache'
-    assert get_old_runtime_path(create=False) == get_home_dir() + '/.cache'
-    assert get_log_path(create=False) == get_home_dir() + '/.cache'
-    assert get_autostart_path(create=False) == get_home_dir() + '/.config/autostart'
 
     os.environ['XDG_CONFIG_HOME'] = '/xdg_config_home'
     os.environ['XDG_CACHE_HOME'] = '/xdg_cache_home'
@@ -43,3 +35,16 @@ def test_linux_paths():
     assert get_old_runtime_path(create=False) == '/xdg_runtime_dir'
     assert get_log_path(create=False) == '/xdg_cache_home'
     assert get_autostart_path(create=False) == '/xdg_config_home/autostart'
+
+    del os.environ['XDG_CONFIG_HOME']
+    del os.environ['XDG_CACHE_HOME']
+    del os.environ['XDG_DATA_DIR']
+    del os.environ['XDG_RUNTIME_DIR']
+
+    assert get_conf_path(create=False) == get_home_dir() + '/.config'
+    assert get_cache_path(create=False) == get_home_dir() + '/.cache'
+    assert get_data_path(create=False) == get_home_dir() + '/.local/share'
+    assert get_runtime_path(create=False) == get_home_dir() + '/.cache'
+    assert get_old_runtime_path(create=False) == get_home_dir() + '/.cache'
+    assert get_log_path(create=False) == get_home_dir() + '/.cache'
+    assert get_autostart_path(create=False) == get_home_dir() + '/.config/autostart'
