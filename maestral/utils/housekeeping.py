@@ -11,10 +11,13 @@ This module contains migration code to run after an update from < v0.6.0
 import sys
 import os
 import os.path as osp
+import copy
 import logging
 from packaging.version import Version
 
-from maestral.config.main import CONFIG_DIR_NAME, DEFAULTS, MaestralConfig, MaestralState
+from maestral.config.main import (
+    CONF_VERSION, CONFIG_DIR_NAME, DEFAULTS, MaestralConfig, MaestralState
+)
 from maestral.config.user import UserConfig
 from maestral.config.base import get_conf_path, get_data_path
 
@@ -24,11 +27,13 @@ logger = logging.getLogger(__name__)
 def migrate_user_config(config_name):
     config_path = get_conf_path(CONFIG_DIR_NAME, create=False)
 
+    defaults = copy.deepcopy(DEFAULTS)
+
     # load old config explicitly, not from factory to avoid caching
     try:
         old_conf = UserConfig(
             config_path, config_name, load=True, backup=False, raw_mode=True,
-            remove_obsolete=False, defaults=DEFAULTS, version='10.0.0'
+            remove_obsolete=False, defaults=defaults, version='10.0.0'
         )
     except OSError:
         return
@@ -67,7 +72,7 @@ def migrate_user_config(config_name):
         state.set('sync', 'lastsync', lastsync)
         state.set('sync', 'recent_changes', recent_changes)
 
-        old_conf.set_version('11.0.0')
+        old_conf.set_version(CONF_VERSION)
         old_conf._remove_deprecated_options('10.0.0')
 
         logger.info(f'Migrated user config "{config_name}"')
