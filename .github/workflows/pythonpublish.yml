@@ -1,8 +1,6 @@
 name: Upload Python Package
 
-on:
-  tag:
-    types: [created]
+on: [tags]
 
 jobs:
   deploy:
