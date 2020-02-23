@@ -1500,6 +1500,7 @@ class UpDownSync:
 
             if isinstance(md, DeletedMetadata):
                 change_type = "removed"
+            # TODO: this doesn't work because local_rev has already been set
             elif isinstance(md, FileMetadata) and not self.get_local_rev(md.path_lower):
                 change_type = "added"
             elif isinstance(md, FolderMetadata):
@@ -1516,6 +1517,7 @@ class UpDownSync:
                 file_name = f"{n_changed} folders"
             elif all(isinstance(x, FileMetadata) for x in changes):
                 file_name = f"{n_changed} files"
+                # TODO: this doesn't work because local_rev has already been set
                 if not any(self.get_local_rev(x.path_lower) for x in changes):
                     change_type = "added"
 
@@ -1666,7 +1668,7 @@ def connection_helper(sync, syncing, paused_by_user, running, connected,
         try:
             # use an inexpensive call to get_space_usage to test connection
             sync.client.get_space_usage()
-            if not (connected.is_set() or paused_by_user.is_set()):
+            if not connected.is_set() and not paused_by_user.is_set():
                 sync.clear_all_sync_errors()
                 startup_requested.set()
                 startup_done.clear()
@@ -1683,10 +1685,12 @@ def connection_helper(sync, syncing, paused_by_user, running, connected,
         except DropboxAuthError as e:
             running.clear()
             syncing.clear()
+            startup_done.set()
             logger.error(e.title, exc_info=True)
         except Exception:
             running.clear()
             syncing.clear()
+            startup_done.set()
             logger.error("Unexpected error", exc_info=True)
 
 
@@ -1730,10 +1734,12 @@ def download_worker(sync, syncing, running, connected, startup_done):
         except MaestralApiError as e:
             running.clear()
             syncing.clear()
+            startup_done.set()
             logger.error(e.title, exc_info=True)
         except Exception:
             running.clear()
             syncing.clear()
+            startup_done.set()
             logger.error("Unexpected error", exc_info=True)
 
 
@@ -1772,10 +1778,12 @@ def download_worker_added_folder(sync, syncing, running, connected, startup_done
         except MaestralApiError as e:
             running.clear()
             syncing.clear()
+            startup_done.set()
             logger.error(e.title, exc_info=True)
         except Exception:
             running.clear()
             syncing.clear()
+            startup_done.set()
             logger.error("Unexpected error", exc_info=True)
 
 
@@ -1817,10 +1825,12 @@ def upload_worker(sync, syncing, running, connected, startup_done):
         except MaestralApiError as e:
             running.clear()
             syncing.clear()
+            startup_done.set()
             logger.error(e.title, exc_info=True)
         except Exception:
             running.clear()
             syncing.clear()
+            startup_done.set()
             logger.error("Unexpected error", exc_info=True)
 
 
@@ -1870,10 +1880,12 @@ def startup_worker(sync, syncing, running, connected, startup_requested, startup
         except MaestralApiError as e:
             running.clear()
             syncing.clear()
+            startup_done.set()
             logger.error(e.title, exc_info=True)
         except Exception:
             running.clear()
             syncing.clear()
+            startup_done.set()
             logger.error("Unexpected error", exc_info=True)
 
 
@@ -1928,6 +1940,7 @@ class MaestralMonitor:
         self.syncing = Event()
         self.running = Event()
         self.paused_by_user = Event()
+        self.paused_by_user.set()
 
         self.startup_requested = Event()
         self.startup_done = Event()
@@ -1968,7 +1981,7 @@ class MaestralMonitor:
             # do nothing if already running
             return
 
-        self.running.set()
+        self.running = Event()  # create new event to let old threads shut down
 
         self.local_observer_thread = Observer(timeout=0.1)
         self.local_observer_thread.schedule(
@@ -2038,6 +2051,7 @@ class MaestralMonitor:
             else:
                 raise exc
 
+        self.running.set()
         self.syncing.set()
         self.connected.set()
         self.startup_requested.set()
@@ -2048,6 +2062,8 @@ class MaestralMonitor:
         self.upload_thread.start()
         self.download_thread.start()
         self.download_thread_added_folder.start()
+
+        self.paused_by_user.clear()
 
         logger.info("Syncing started")
         logger.info(IDLE)
@@ -2065,11 +2081,13 @@ class MaestralMonitor:
         if self.syncing.is_set():
             return
 
-        self.paused_by_user.clear()
         self.sync.clear_all_sync_errors()
+
         self.startup_requested.set()
         self.startup_done.clear()
         self.syncing.set()
+        self.paused_by_user.clear()
+
         logger.info(IDLE)
 
     def stop(self):
@@ -2081,10 +2099,16 @@ class MaestralMonitor:
         logger.debug("Shutting down threads...")
 
         self.running.clear()
+        self.syncing.clear()
+        self.paused_by_user.clear()
+        self.startup_requested.clear()
+        self.startup_done.set()
 
         self.local_observer_thread.stop()
         self.local_observer_thread.join()
         self.connection_thread.join()
+        self.upload_thread.join()
+        # self.download_thread.join()
 
         logger.info(STOPPED)
 
