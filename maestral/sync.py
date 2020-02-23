@@ -529,6 +529,11 @@ class UpDownSync:
             # save changes to file
             self._save_rev_dict_to_file()
 
+    def clear_rev_index(self):
+        with self._rev_lock:
+            self._rev_dict_cache.clear()
+            self._save_rev_dict_to_file()
+
     # ==== Helper functions ==============================================================
 
     @staticmethod
@@ -2105,11 +2110,12 @@ class MaestralMonitor:
     def rebuild_rev_file(self):
         """
         Rebuilds the rev file by comparing remote with local files and updating rev
-        numbers from the Dropbox server. Files are compared by their content hashes and
-        reindexing may take several minutes, depending on the size of your Dropbox. If
-        a file is modified during this process before it has been re-indexed,
-        any changes to will be flagged as sync conflicts. If a file is deleted before
-        it has been re-indexed, the deletion will be reversed.
+        numbers from the Dropbox server. Files are compared by their content hashes
+        and conflicting copies are created if the contents differ.
+        Reindexing may take several minutes, depending on the size of your Dropbox. If
+        a file is modified during this process before it has been re-indexed, any changes
+        to it will be flagged as sync conflicts. If a file is deleted before it has been
+        re-indexed, the deletion will be reversed.
         """
 
         logger.info("Rebuilding index...")
@@ -2123,8 +2129,7 @@ class MaestralMonitor:
         # if Maestral is killed while rebuilding, this will trigger a new download
         self.sync.last_sync = 0.0
         self.sync.last_cursor = ""
-        delete(self.sync.rev_file_path)
-        self.sync._rev_dict_cache.clear()
+        self.sync.clear_rev_index()
 
         # Re-download Dropbox from server. If a local file already exists, content hashes
         # are compared. If files are identical, the local rev will be set accordingly,
