@@ -304,7 +304,7 @@ def start(config_name: str, foreground: bool):
     # run setup if not yet done
     if pending_link_cli(config_name) or pending_dropbox_folder(config_name):
         m = Maestral(config_name, run=False)
-        m.reset_state()
+        m.reset_sync_state()
         m.create_dropbox_directory()
         m.set_excluded_folders()
 
