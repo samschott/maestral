@@ -16,7 +16,6 @@ in order to reduce the startup time of individual CLI commands.
 import os
 import functools
 import logging
-import platform
 
 # external packages
 import click
