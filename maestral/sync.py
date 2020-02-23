@@ -1833,8 +1833,8 @@ def startup_worker(sync, syncing, running, connected, startup_requested, startup
 
     while running.is_set():
 
-        startup_requested.wait()
         syncing.wait()
+        startup_requested.wait()
 
         try:
             with sync.lock:
@@ -1842,7 +1842,7 @@ def startup_worker(sync, syncing, running, connected, startup_requested, startup
                 # local changes during this download will be registered
                 # by the local FileSystemObserver but only uploaded after
                 # `startup_done` has been set
-                if not sync.last_cursor:
+                if sync.last_cursor == '':
                     sync.get_remote_dropbox()
                     sync.last_sync = time.time()
 
@@ -1963,6 +1963,8 @@ class MaestralMonitor:
             # do nothing if already running
             return
 
+        self.running.set()
+
         self.local_observer_thread = Observer(timeout=0.1)
         self.local_observer_thread.schedule(
             self.file_handler, self.sync.dropbox_path, recursive=True
@@ -2031,9 +2033,10 @@ class MaestralMonitor:
             else:
                 raise exc
 
-        self.running.set()
         self.syncing.set()
+        self.connected.set()
         self.startup_requested.set()
+        self.startup_done.clear()
 
         self.connection_thread.start()
         self.startup_thread.start()
@@ -2072,10 +2075,11 @@ class MaestralMonitor:
 
         logger.debug("Shutting down threads...")
 
+        self.running.clear()
+
         self.local_observer_thread.stop()
         self.local_observer_thread.join()
-
-        self.running.clear()
+        self.connection_thread.join()
 
         logger.info(STOPPED)
 
