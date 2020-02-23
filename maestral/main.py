@@ -680,6 +680,16 @@ class Maestral(object):
         """
         self.monitor.stop()
 
+    def reset_state(self):
+        """
+        Resets the sync index and state. Only call this to clean up leftover state
+        information if a Dropbox was improperly unlinked (e.g., auth token has been
+        manually deleted). Otherwise leave state management to Maestral.
+        """
+        self.sync.clear_rev_index()
+        delete(self.sync.rev_file_path)
+        self._state.reset_to_defaults()
+
     def unlink(self):
         """
         Unlinks the configured Dropbox account but leaves all downloaded files in place.
@@ -698,8 +708,8 @@ class Maestral(object):
         except OSError:
             pass
 
+        self.reset_state()
         self._conf.reset_to_defaults()
-        self._state.reset_to_defaults()
 
         logger.info("Unlinked Dropbox account.")
 
