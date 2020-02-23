@@ -148,8 +148,7 @@ setup(
             'systemd-python',
         ],
         'gui': [
-            'maestral-cocoa==0.1.1-dev1;sys_platform=="darwin"',
-            'maestral-qt==0.6.1-dev1;sys_platform=="linux"'
+            'maestral-qt>=0.6.1-dev1'
         ],
     },
     zip_safe=False,

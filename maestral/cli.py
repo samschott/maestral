@@ -276,10 +276,7 @@ def log():
 def gui(config_name):
     """Runs Maestral with a GUI."""
     try:
-        if platform.system() == 'Darwin':
-            from maestral_cocoa.main import run
-        else:
-            from maestral_qt.main import run
+        from maestral_qt.main import run
     except ImportError:
         click.echo('No maestral GUI installed. Please run \'pip3 install maestral[gui]\'.')
     else:
