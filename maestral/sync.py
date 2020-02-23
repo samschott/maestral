@@ -1500,9 +1500,10 @@ class UpDownSync:
 
             if isinstance(md, DeletedMetadata):
                 change_type = "removed"
-            # TODO: this doesn't work because local_rev has already been set
-            elif isinstance(md, FileMetadata) and not self.get_local_rev(md.path_lower):
-                change_type = "added"
+            elif isinstance(md, FileMetadata):
+                revs = self.client.list_revisions(md.path_lower, limit=2)
+                is_new_file = len(revs.entries) == 1
+                change_type = "added" if is_new_file else "changed"
             elif isinstance(md, FolderMetadata):
                 change_type = "added"
 
@@ -1517,9 +1518,6 @@ class UpDownSync:
                 file_name = f"{n_changed} folders"
             elif all(isinstance(x, FileMetadata) for x in changes):
                 file_name = f"{n_changed} files"
-                # TODO: this doesn't work because local_rev has already been set
-                if not any(self.get_local_rev(x.path_lower) for x in changes):
-                    change_type = "added"
 
         if user_name:
             msg = f"{user_name} {change_type} {file_name}"
