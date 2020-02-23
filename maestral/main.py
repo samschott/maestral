@@ -201,11 +201,8 @@ class Maestral(object):
         """
 
         if self.pending_dropbox_folder:
+            self.reset_state()
             self.create_dropbox_directory()
-            self.set_excluded_folders()
-
-            self.sync.last_cursor = ""
-            self.sync.last_sync = 0
 
         # start syncing
         self.start_sync()
@@ -689,6 +686,8 @@ class Maestral(object):
         self.sync.clear_rev_index()
         delete(self.sync.rev_file_path)
         self._state.reset_to_defaults()
+
+        logger.debug("Sync state reset")
 
     def unlink(self):
         """
