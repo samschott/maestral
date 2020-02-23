@@ -44,7 +44,7 @@ class MaestralApiError(Exception):
         if self.dbx_path:
             return f"'{self.dbx_path}': {self.title}. {self.message}"
         else:
-            return f"{self.title}: {self.message}"
+            return f"{self.title}. {self.message}"
 
 
 # ==== regular sync errors ===============================================================
