@@ -621,33 +621,60 @@ class Maestral(object):
 
     def rebuild_index(self):
         """
-        Rebuilds the Maestral index and resumes syncing afterwards if it has been
-        running.
+        Rebuilds the rev file by comparing remote with local files and updating rev
+        numbers from the Dropbox server. Files are compared by their content hashes
+        and conflicting copies are created if the contents differ.
+        Reindexing may take several minutes, depending on the size of your Dropbox. If
+        a file is modified during this process before it has been re-indexed, any changes
+        to it will be flagged as sync conflicts. If a file is deleted before it has been
+        re-indexed, the deletion will be reversed.
+        This call blocks until rebuilding is complete.
 
         :raises: :class:`MaestralApiError`
         """
 
         self.monitor.rebuild_rev_file()
 
-    def start_sync(self, overload=None):
+    def rebuild_index_async(self):
+        """
+        Same as :method:`rebuild_index` but performed asynchronously by using the sync
+        threads. File changes during the rebuild process will be queued for upload once
+        rebuilding has completed.
+
+        :raises: :class:`MaestralApiError`
+        """
+
+        self.pause_sync()
+
+        self.sync.last_sync = 0.0
+        self.sync.last_cursor = ""
+        self.sync.clear_rev_index()
+        self.sync.clear_all_sync_errors()
+
+        if self.stopped:
+            self.start_sync()
+        else:
+            self.resume_sync()
+
+    def start_sync(self):
         """
         Creates syncing threads and starts syncing.
         """
         self.monitor.start()
 
-    def resume_sync(self, overload=None):
+    def resume_sync(self):
         """
         Resumes the syncing threads if paused.
         """
         self.monitor.resume()
 
-    def pause_sync(self, overload=None):
+    def pause_sync(self):
         """
         Pauses the syncing threads if running.
         """
         self.monitor.pause()
 
-    def stop_sync(self, overload=None):
+    def stop_sync(self):
         """
         Stops the syncing threads if running, destroys observer thread.
         """
