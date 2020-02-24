@@ -710,8 +710,8 @@ class Maestral(object):
 
         self.sync.clear_rev_index()
         delete(self.sync.rev_file_path)
-        self._state.reset_to_defaults()
-        self._conf.reset_to_defaults()
+        self._conf.cleanup()
+        self._state.cleanup()
 
         logger.info("Unlinked Dropbox account.")
 
