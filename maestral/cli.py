@@ -223,8 +223,8 @@ def _check_config(ctx, param, value):
 
     # check if valid config
     if value not in list_configs() and not value == 'maestral':
-        ctx.fail(f'Configuration \'{value}\' does not exist. You can create new '
-                 'configuration with \'maestral config add\'.')
+        ctx.fail(f'Configuration \'{value}\' does not exist. You can list\n'
+                 'all existing configurations with \'maestral configs\'.')
 
     return value
 
@@ -236,7 +236,7 @@ with_existing_config = click.option(
     expose_value=True,
     metavar='NAME',
     callback=_check_config,
-    help='Run Maestral with the selected configuration.'
+    help='Select an existing configuration for the command.'
 )
 
 with_config = click.option(
@@ -245,7 +245,7 @@ with_config = click.option(
     is_eager=True,
     expose_value=True,
     metavar='NAME',
-    help='Run Maestral with the selected configuration.'
+    help='Run Maestral with the given configuration name.'
 )
 
 
@@ -258,11 +258,6 @@ def main():
 @main.group(cls=SpecialHelpOrder, help_priority=14)
 def excluded():
     """View and manage excluded folders."""
-
-
-@main.group(cls=SpecialHelpOrder, help_priority=16)
-def config():
-    """Manage different Maestral configuration environments."""
 
 
 @main.group(cls=SpecialHelpOrder, help_priority=17)
@@ -421,11 +416,11 @@ def status(config_name: str):
             sync_err_list = m.sync_errors
 
             if len(sync_err_list) > 0:
-                header = ('PATH', 'ERROR')
+                headers = ('PATH', 'ERROR')
                 col0 = list('\'{}\''.format(err['dbx_path']) for err in sync_err_list)
                 col1 = list('{}. {}'.format(err['title'], err['message']) for err in sync_err_list)
 
-                click.echo(format_table([col0, col1], header, spacing=4))
+                click.echo(format_table([col0, col1], headers, spacing=4))
                 click.echo('')
 
     except Pyro5.errors.CommunicationError:
@@ -682,6 +677,31 @@ def rebuild_index(config_name: str):
         click.echo('Maestral does not appear to be linked.')
 
 
+@main.command(help_priority=16)
+def configs():
+    """Lists all configured Dropbox accounts."""
+    from maestral.daemon import get_maestral_pid
+    from maestral.config.main import MaestralConfig, MaestralState
+    from maestral.utils.backend import remove_configuration
+
+    # clean up stale configs
+    config_names = list_configs()
+
+    for name in config_names:
+        dbid = MaestralConfig(name).get('account', 'account_id')
+        if dbid == '' and not get_maestral_pid(name):
+            remove_configuration(name)
+
+    # display remaining configs
+    config_names = list_configs()
+
+    col1 = tuple(f'   {c}:' for c in config_names)
+    col2 = tuple(MaestralState(c).get('account', 'email') for c in config_names)
+
+    click.echo('Configured Dropbox accounts:')
+    click.echo(format_table([col1, col2]))
+
+
 @main.command(help_priority=18)
 @with_existing_config
 @click.option('--yes', '-Y', is_flag=True, default=False)
@@ -911,54 +931,6 @@ def log_level(config_name: str, level_name: str):
         else:
             level_name = logging.getLevelName(conf.get('app', 'log_level'))
             click.echo(f'Log level:  {level_name}')
-
-
-# ========================================================================================
-# Configuration management
-# ========================================================================================
-
-@config.command(name='list', help_priority=0)
-def config_list():
-    """Lists all Maestral configurations."""
-    click.echo('Available Maestral configurations:')
-    for c in list_configs():
-        click.echo('  ' + c)
-
-
-@config.command(name='add', help_priority=1)
-@click.argument('name')
-def config_add(name: str):
-    """Sets up and activates a fresh Maestral configuration."""
-    if name in list_configs():
-        click.echo(f'Configuration \'{name}\' already exists.')
-    else:
-        from maestral.config import MaestralConfig
-        MaestralConfig(name).save()
-        click.echo(f'Created configuration \'{name}\'.')
-
-
-@config.command(name='remove', help_priority=2)
-@click.argument('name')
-def config_remove(name: str):
-    """Removes a Maestral configuration."""
-    from maestral.daemon import get_maestral_pid
-
-    if name not in list_configs():
-        click.echo(f'Configuration \'{name}\' could not be found.')
-    elif get_maestral_pid(name):
-        click.echo(f'Daemon for configuration \'{name}\' is running.\n'
-                    'Please stop first before removing the config.')
-    else:
-        from maestral.config.main import MaestralConfig, MaestralState
-        from maestral.utils.appdirs import get_data_path
-        from maestral.utils.path import delete
-
-        MaestralConfig(name).cleanup()
-        MaestralState(name).cleanup()
-        index_file = get_data_path('maestral', f'{name}.index')
-        delete(index_file)
-
-        click.echo(f'Removed configuration \'{name}\'.')
 
 
 # ========================================================================================
