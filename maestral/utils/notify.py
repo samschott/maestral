@@ -45,7 +45,7 @@ else:
 
 logger = logging.getLogger(__name__)
 
-_root = getattr(sys, '_MEIPASS', Path(Path(__file__).parents[2], 'gui', 'resources'))
+_root = getattr(sys, '_MEIPASS', Path(Path(__file__).parents[1], 'resources'))
 APP_ICON_PATH = os.path.join(_root, 'maestral.png')
 
 NONE = 100
