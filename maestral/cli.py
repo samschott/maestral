@@ -417,8 +417,8 @@ def status(config_name: str):
 
             if len(sync_err_list) > 0:
                 headers = ('PATH', 'ERROR')
-                col0 = list('\'{}\''.format(err['dbx_path']) for err in sync_err_list)
-                col1 = list('{}. {}'.format(err['title'], err['message']) for err in sync_err_list)
+                col0 = ['\'{}\''.format(err['dbx_path']) for err in sync_err_list]
+                col1 = ['{}. {}'.format(err['title'], err['message']) for err in sync_err_list]
 
                 click.echo(format_table([col0, col1], headers, spacing=4))
                 click.echo('')
@@ -542,10 +542,10 @@ def ls(dropbox_path: str, config_name: str):
                 click.echo('Could not connect to Dropbox')
                 return
 
-            types = list('file' if e['type'] == 'FileMetadata' else 'folder' for e in entries)
-            shared_status = list('shared' if 'sharing_info' in e else 'private' for e in entries)
-            names = list(e['name'] for e in entries)
-            excluded_status = list(m.excluded_status(e['path_lower']) for e in entries)
+            types = ['file' if e['type'] == 'FileMetadata' else 'folder' for e in entries]
+            shared_status = ['shared' if 'sharing_info' in e else 'private' for e in entries]
+            names = [e['name'] for e in entries]
+            excluded_status = [m.excluded_status(e['path_lower']) for e in entries]
 
             click.echo('')
             click.echo(format_table([types, shared_status, names, excluded_status]))
@@ -693,13 +693,12 @@ def configs():
             remove_configuration(name)
 
     # display remaining configs
-    config_names = list_configs()
+    names = list_configs()
+    emails = [MaestralState(c).get('account', 'email') for c in config_names]
 
-    col1 = tuple(f'   {c}:' for c in config_names)
-    col2 = tuple(MaestralState(c).get('account', 'email') for c in config_names)
-
-    click.echo('Configured Dropbox accounts:')
-    click.echo(format_table([col1, col2]))
+    click.echo('')
+    click.echo(format_table([names, emails], headers=['Config name', 'Account']))
+    click.echo('')
 
 
 @main.command(help_priority=18)
