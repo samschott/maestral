@@ -12,8 +12,10 @@ import keyring
 import keyring.backends
 from keyring.errors import KeyringLocked
 
-from maestral.config import MaestralConfig
+from maestral.config import MaestralConfig, MaestralState
 from maestral.constants import IS_MACOS_BUNDLE
+from maestral.utils.appdirs import get_data_path
+from maestral.utils.path import delete
 
 
 def set_keyring_backend():
@@ -66,3 +68,16 @@ def pending_dropbox_folder(config_name):
     """
     conf = MaestralConfig(config_name)
     return not osp.isdir(conf.get('main', 'path'))
+
+
+def remove_configuration(config_name):
+    """
+    Removes all config and state files associated with the given configuration.
+
+    :param str config_name: The configuration to remove.
+    """
+
+    MaestralConfig(config_name).cleanup()
+    MaestralState(config_name).cleanup()
+    index_file = get_data_path('maestral', f'{config_name}.index')
+    delete(index_file)
