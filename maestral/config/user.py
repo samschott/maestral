@@ -385,7 +385,7 @@ class UserConfig(DefaultsConfig):
         """
         Apply any patch to configuration values on version changes.
 
-        To be overwritten if patches to configuration values are needed.
+        To be overriden if patches to configuration values are needed.
         """
         pass
 
@@ -536,5 +536,5 @@ class UserConfig(DefaultsConfig):
         self.save()
 
     def cleanup(self):
-        """Remove file associated to config."""
+        """Remove files associated with config."""
         os.remove(self.get_config_fpath())
