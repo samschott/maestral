@@ -17,11 +17,11 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
 
 #### Added:
 
-- New CLI command `maestral autostart` to start the daemon on login. This requires systemd 
+- New CLI command `maestral autostart` to start the daemon on login. This requires systemd
   on Linux. The "Start on login" option of the GUI remains independent and the GUI will
   attach to an existing daemon if it finds one.
 - Added desktop notifications for errors: Serious errors such as revoked Dropbox access,
-  deleted Dropbox folder, etc, were previously only shown in the GUI as an alert window 
+  deleted Dropbox folder, etc, were previously only shown in the GUI as an alert window
   or printed as warnings when invoking a CLI command.
 - Support for different levels of desktop notifications (CLI only). You can now select
   between FILECHANGE, SYNCISSUE, ERROR and NONE with `maestral notify LEVEL`.
@@ -46,6 +46,14 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
 - Renamed the `set-dir` command to `move-dir` to emphasize that it moves the local Dropbox
   folder to a new location.
 - Renamed `maestral notifications` to `maestral notify` for brevity.
+- Configurations are now tied to a Dropbox account:
+    - New configurations are created by calling `maestral gui` or `maestral start` with a
+      new configuration name instead of using `maestral config add NEW_NAME`.
+    - A configuration is removed when unlinking a Dropbox account.
+- For app bundles on macOS, you can now pass a config option `--config-name` to the
+  bundle's executable ("Maestral.app/Contens/MacOS/main"). It will then use the specified
+  configuration if it already exsists or to create a new one.
+- `maestral config remove` will raise an error if the corresponding daemon is running.
 - Do not require a restart after setting up Maestral with the GUI.
 - Removed sync and application state info from the config file. Sync and application
   states are now  saved separately in '~/.local/share/maestral/CONFIG_NAME.state' on Linux
@@ -58,7 +66,7 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
 
 #### Fixed:
 
-- Fixes an issue where local changes while maestral was not running could be overwritten 
+- Fixes an issue where local changes while maestral was not running could be overwritten
   by concurrent remote changes instead of resulting in a conflicting copy.
 - Fixes an issue where local file events could be ignored while a download is in progress.
 - Fixes an issue where a local item could be incorrectly deleted if it was created after
@@ -66,17 +74,19 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
 - Correctly handle additional error types: internal Dropbox server error, insufficient
   space on local drive, file name too long for local file system and out-of-memory error.
 - Resume upload after dropped packages instead of raising a sync issue.
-- Set the log level for the systemd journal according to user settings instead of always  
+- Set the log level for the systemd journal according to user settings instead of always
   using logging.DEBUG.
 - Run checks for Dropbox folder location and link status when invoking `maestral restart`.
 - Notify the user through the GUI when moving the Dropbox directory fails instead of
   silently keeping the old directory.
 - Fixes an issue where the XDG_DATA_DIR would not be respected in Linux.
-  
+
 #### Removed:
 
 - Removed "-a" option from `maestral ls`. List all entries by default, even if they start
   with a period.
+- Removed the `maestral config` command group. Configurations are now created and deleted
+  on-demand and can be listed with `maestral configs`.
 
 ## v0.5.2
 
