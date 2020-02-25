@@ -25,6 +25,9 @@ from lockfile.pidlockfile import PIDLockFile, AlreadyLocked
 from maestral.errors import MaestralApiError, SYNC_ERRORS, FATAL_ERRORS
 
 
+_threads = dict()
+
+
 logger = logging.getLogger(__name__)
 URI = "PYRO:maestral.{0}@{1}"
 
@@ -91,7 +94,7 @@ def is_pidfile_stale(pidfile):
         try:
             os.kill(pidfile_pid, signal.SIG_DFL)
         except ProcessLookupError:
-            # The specified PID does not exist.
+            # the process does not exist.
             result = True
 
     return result
@@ -233,12 +236,15 @@ def start_maestral_daemon_thread(config_name="maestral", run=True):
     """
     import threading
 
-    threading.Thread(
+    t = threading.Thread(
         target=run_maestral_daemon,
         args=(config_name, run),
-        name="Maestral daemon",
+        name=f"maestral-daemon-{config_name}",
         daemon=True,
-    ).start()
+    )
+    t.start()
+
+    _threads[config_name] = t
 
     return _wait_for_startup(config_name, timeout=8)
 
@@ -294,41 +300,74 @@ def stop_maestral_daemon_process(config_name="maestral", timeout=10):
     lockfile = PIDLockFile(pidpath_for_config(config_name))
     pid = lockfile.read_pid()
 
-    if pid:
-        try:
-            # tell maestral daemon to shut down
-            with MaestralProxy(config_name) as m:
-                m.stop_sync()
-                m.shutdown_pyro_daemon()
-        except Pyro5.errors.CommunicationError:
-            logger.debug("Could not communicate with daemon")
-            try:
-                os.kill(pid, signal.SIGTERM)  # try to send SIGTERM to process
-                logger.debug("Terminating daemon process")
-            except ProcessLookupError:
-                logger.debug("Daemon was not running")
-                return Exit.NotRunning
-        finally:
-            # wait for maestral to carry out shutdown
-            logger.debug("Waiting for shutdown")
-            while timeout > 0:
-                try:
-                    os.kill(pid, 0)  # query if still running
-                except OSError:
-                    logger.debug("Daemon shut down")
-                    return Exit.Ok  # return True if not running anymore
-                else:
-                    time.sleep(0.2)  # wait for 0.2 sec and try again
-                    timeout -= 0.2
-
-            # send SIGKILL after timeout, delete PID file and return False
-            os.kill(pid, signal.SIGKILL)
-            logger.debug("Daemon process killed")
-            lockfile.break_lock()
-            return Exit.Killed
-    else:
+    if not pid or is_pidfile_stale(lockfile):
         lockfile.break_lock()
         return Exit.NotRunning
+
+    try:
+        # tell maestral daemon to shut down
+        with MaestralProxy(config_name) as m:
+            m.stop_sync()
+            m.shutdown_pyro_daemon()
+    except Pyro5.errors.CommunicationError:
+        logger.debug("Could not communicate with daemon")
+        try:
+            os.kill(pid, signal.SIGTERM)  # try to send SIGTERM to process
+            logger.debug("Terminating daemon process")
+        except ProcessLookupError:
+            logger.debug("Daemon was not running")
+            return Exit.NotRunning
+    finally:
+        # wait for maestral to carry out shutdown
+        logger.debug("Waiting for shutdown")
+        while timeout > 0:
+            try:
+                os.kill(pid, signal.SIG_DFL)  # query if still running
+            except ProcessLookupError:
+                logger.debug("Daemon shut down")
+                return Exit.Ok  # return True if not running anymore
+            else:
+                time.sleep(0.2)  # wait for 0.2 sec and try again
+                timeout -= 0.2
+
+        # send SIGKILL after timeout, delete PID file and return False
+        os.kill(pid, signal.SIGKILL)
+        logger.debug("Daemon process killed")
+        lockfile.break_lock()
+        return Exit.Killed
+
+
+def stop_maestral_daemon_thread(config_name="maestral", timeout=10):
+    """Stops maestral's thread.
+
+    This function tries to shut down Maestral gracefully. If it is not successful
+    within the given timeout, a TimeoutError is raised.
+
+    :param str config_name: The name of the Maestral configuration to use.
+    :param float timeout: Number of sec to wait for daemon to shut down before killing it.
+    :returns: ``Exit.Ok`` if successful,``Exit.NotRunning`` if the daemon was not running.
+    :raises: TimeoutError, Pyro5.errors.CommunicationError
+    """
+
+    logger.debug("Stopping thread")
+    lockfile = PIDLockFile(pidpath_for_config(config_name))
+    t = _threads[config_name]
+
+    if not t.is_alive():
+        lockfile.break_lock()
+        return Exit.NotRunning
+
+    # tell maestral daemon to shut down
+    with MaestralProxy(config_name) as m:
+        m.stop_sync()
+        m.shutdown_pyro_daemon()
+
+    # wait for maestral to carry out shutdown
+    t.join(timeout=timeout)
+    if t.is_alive():
+        raise TimeoutError('Could not stop Maestral thread')
+    else:
+        return Exit.Ok
 
 
 def get_maestral_proxy(config_name="maestral", fallback=False):
