@@ -694,7 +694,7 @@ def configs():
 
     # display remaining configs
     names = list_configs()
-    emails = [MaestralState(c).get('account', 'email') for c in config_names]
+    emails = [MaestralState(c).get('account', 'email') for c in names]
 
     click.echo('')
     click.echo(format_table([names, emails], headers=['Config name', 'Account']))
