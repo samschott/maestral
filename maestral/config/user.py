@@ -44,11 +44,12 @@ class DefaultsConfig(cp.ConfigParser):
 
     _lock = RLock()
 
-    def __init__(self, path, name):
+    def __init__(self, path, name, suffix):
         super(DefaultsConfig, self).__init__(interpolation=None)
 
         self._path = path
         self._name = name
+        self._suffix = suffix
 
         if not osp.isdir(osp.dirname(self._path)):
             os.makedirs(osp.dirname(self._path))
@@ -90,11 +91,7 @@ class DefaultsConfig(cp.ConfigParser):
 
     def get_config_fpath(self):
         """Return the ini file where this configuration is stored."""
-        return osp.join(self._path, self._name)
-
-    def get_config_name(self):
-        """Return the ini file name where this configuration is stored."""
-        return self._name
+        return osp.join(self._path, self._name + self._suffix)
 
     def set_defaults(self, defaults):
         """Set default values and save to defaults folder location."""
@@ -134,7 +131,7 @@ class UserConfig(DefaultsConfig):
 
     Notes
     -----
-    The 'get' and 'set' arguments number and type differ from the overwritten
+    The 'get' and 'set' arguments number and type differ from the reimplemented
     methods. 'defaults' is an attribute and not a method.
     """
     DEFAULT_SECTION_NAME = 'main'
@@ -142,14 +139,13 @@ class UserConfig(DefaultsConfig):
     def __init__(self, path, name, defaults=None, load=True, version=None,
                  backup=False, raw_mode=False, remove_obsolete=False, suffix='.ini'):
         """UserConfig class, based on ConfigParser."""
-        super(UserConfig, self).__init__(path=path, name=name + suffix)
+        super(UserConfig, self).__init__(path=path, name=name, suffix=suffix)
 
         self._load = load
         self._version = self._check_version(version)
         self._backup = backup
         self._raw = 1 if raw_mode else 0
         self._remove_obsolete = remove_obsolete
-        self._suffix = suffix
 
         self._defaults_folder = 'defaults'
         self._backup_folder = 'backups'
@@ -289,14 +285,14 @@ class UserConfig(DefaultsConfig):
     def _load_old_defaults(self, old_version):
         """Read old defaults."""
         old_defaults = cp.ConfigParser()
-        path, name = self.get_defaults_path_name_from_version(old_version)
-        old_defaults.read(osp.join(path, name + self._suffix))
+        fpath = self.get_defaults_fpath_from_version(old_version)
+        old_defaults.read(fpath)
         return old_defaults
 
     def _save_new_defaults(self, defaults):
         """Save new defaults."""
         path, name = self.get_defaults_path_name_from_version()
-        new_defaults = DefaultsConfig(name=name, path=path)
+        new_defaults = DefaultsConfig(path=path, name=name, suffix=self._suffix)
         if not osp.isfile(new_defaults.get_config_fpath()):
             new_defaults.set_defaults(defaults)
             new_defaults.save()
@@ -350,7 +346,7 @@ class UserConfig(DefaultsConfig):
         `old_version` can be used for checking compatibility whereas `version`
         relates to adding the version to the file name.
 
-        To be overriden if versions changed backup location.
+        To be reimplemented if versions changed backup location.
         """
         fpath = self.get_config_fpath()
         path = osp.join(osp.dirname(fpath), self._backup_folder)
@@ -358,34 +354,42 @@ class UserConfig(DefaultsConfig):
         if version is None:
             backup_fpath = '{}{}'.format(new_fpath, self._backup_suffix)
         else:
-            backup_fpath = "{}-{}{}".format(new_fpath, version,
-                                            self._backup_suffix)
+            backup_fpath = "{}-{}{}".format(new_fpath, version, self._backup_suffix)
         return backup_fpath
 
     def get_defaults_path_name_from_version(self, old_version=None):
         """
         Get defaults location based on version.
 
-        To be overriden if versions changed defaults location.
+        To be reimplemented if versions changed defaults location.
         """
         version = old_version if old_version else self._version
         defaults_path = osp.join(osp.dirname(self.get_config_fpath()),
                                  self._defaults_folder)
-        name = '{}-{}-{}'.format(
-            self._defaults_name_prefix,
-            self._name,
-            version,
-        )
+        if version is None:
+            name = '{}-{}'.format(self._defaults_name_prefix, self._name)
+        else:
+            name = '{}-{}-{}'.format(self._defaults_name_prefix, self._name, version)
         if not osp.isdir(defaults_path):
             os.makedirs(defaults_path)
 
         return defaults_path, name
 
+    def get_defaults_fpath_from_version(self, old_version=None):
+        """
+        Get defaults location based on version.
+
+        To be reimplemented if versions changed defaults location.
+        """
+        defaults_path, name = self.get_defaults_path_name_from_version(old_version)
+
+        return osp.join(defaults_path, name + self._suffix)
+
     def apply_configuration_patches(self, old_version=None):
         """
         Apply any patch to configuration values on version changes.
 
-        To be overriden if patches to configuration values are needed.
+        To be reimplemented if patches to configuration values are needed.
         """
         pass
 
@@ -537,4 +541,24 @@ class UserConfig(DefaultsConfig):
 
     def cleanup(self):
         """Remove files associated with config."""
-        os.remove(self.get_config_fpath())
+        fpath = self.get_config_fpath()
+
+        backup_path = osp.join(self._path, self._backup_folder)
+        defaults_path = osp.join(self._path, self._defaults_folder)
+
+        os.remove(fpath)
+
+        for file in os.scandir(backup_path):
+            if file.name.startswith(self._name):
+                os.remove(file.path)
+
+        for file in os.scandir(defaults_path):
+            if file.name.startswith(f'{self._defaults_name_prefix}-{self._name}'):
+                os.remove(file.path)
+
+        # clean up backup and defaults files from previous version of maestral
+        for file in os.scandir(self._path):
+            if file.is_file():
+                if (self._backup_suffix in file.name
+                        or self._defaults_name_prefix in file.name):
+                    os.remove(file.path)

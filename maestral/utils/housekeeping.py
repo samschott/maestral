@@ -11,14 +11,13 @@ This module contains migration code to run after an update from < v0.6.0
 import sys
 import os
 import os.path as osp
-import copy
 import logging
 from packaging.version import Version
 
 from maestral.config.main import (
-    CONF_VERSION, CONFIG_DIR_NAME, DEFAULTS, MaestralConfig, MaestralState
+    CONFIG_DIR_NAME, CONF_VERSION, MaestralConfig, MaestralState
 )
-from maestral.config.user import UserConfig
+from maestral.config.user import DefaultsConfig, UserConfig
 from maestral.config.base import get_conf_path, get_data_path
 
 logger = logging.getLogger(__name__)
@@ -27,18 +26,15 @@ logger = logging.getLogger(__name__)
 def migrate_user_config(config_name):
     config_path = get_conf_path(CONFIG_DIR_NAME, create=False)
 
-    defaults = copy.deepcopy(DEFAULTS)
-
-    # load old config explicitly, not from factory to avoid caching
+    # load old config non-destructively
     try:
-        old_conf = UserConfig(
-            config_path, config_name, load=True, backup=False, raw_mode=True,
-            remove_obsolete=False, defaults=defaults, version='10.0.0'
-        )
+        old_conf = DefaultsConfig(config_path, config_name, '.ini')
+        old_conf.read(osp.join(config_path, config_name + '.ini'), encoding='utf-8')
+        old_version = old_conf.get(UserConfig.DEFAULT_SECTION_NAME, 'version')
     except OSError:
         return
 
-    if Version(old_conf._old_version) < Version('11.0.0'):
+    if Version(old_version) < Version('11.0.0'):
 
         state = MaestralState(config_name)
 
@@ -72,8 +68,16 @@ def migrate_user_config(config_name):
         state.set('sync', 'lastsync', lastsync)
         state.set('sync', 'recent_changes', recent_changes)
 
-        old_conf.set_version(CONF_VERSION)
-        old_conf._remove_deprecated_options('10.0.0')
+        # load actual config to remove obsolete options
+        conf = MaestralConfig(config_name)
+        conf.set_version(CONF_VERSION, save=True)
+
+        # clean up backup and defaults files from previous version of maestral
+        for file in os.scandir(old_conf._path):
+            if file.is_file():
+                if (conf._backup_suffix in file.name
+                        or conf._defaults_name_prefix in file.name):
+                    os.remove(file.path)
 
         logger.info(f'Migrated user config "{config_name}"')
 
