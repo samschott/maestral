@@ -1447,7 +1447,8 @@ class UpDownSync:
 
             if get_ctime(local_path) < self.last_sync:
                 # TODO: directory ctime is only changed when an inode
-                #  in the directory changes, not when file contents change
+                #  in the directory changes, not when file contents change.
+                #  This is relevant when a file has been replaced by folder.
                 logger.debug(f"Remote item is newer: {dbx_path}")
                 return Conflict.RemoteNewer
             elif not remote_rev:
@@ -1582,7 +1583,7 @@ class UpDownSync:
 
             self._save_to_history(entry.path_display)
 
-            with InQueue(local_path, self.queue_downloading, delay=0.2):
+            with InQueue(local_path, self.queue_downloading, delay=0.5):
 
                 if osp.isdir(local_path):
                     delete(local_path)
@@ -1599,7 +1600,7 @@ class UpDownSync:
             # If there’s already something else at the given path,
             # replace it but leave the children as they are.
 
-            with InQueue(local_path, self.queue_downloading, delay=0.2):
+            with InQueue(local_path, self.queue_downloading, delay=0.5):
 
                 if osp.isfile(local_path):
                     delete(local_path)
@@ -1618,7 +1619,7 @@ class UpDownSync:
             # remove it and all its children. If there’s nothing at the
             # given path, ignore this entry.
 
-            with InQueue(local_path, self.queue_downloading, delay=0.2):
+            with InQueue(local_path, self.queue_downloading, delay=0.5):
                 err = delete(local_path)
                 self.set_local_rev(entry.path_display, None)
 
