@@ -2162,7 +2162,7 @@ class MaestralMonitor:
         completed = False
         while not completed:
             try:
-                self.sync.get_remote_dropbox(ignore_excluded=False)
+                self.sync.get_remote_dropbox(ignore_excluded=True)
                 completed = True
             except ConnectionError:
                 logger.info(DISCONNECTED)
