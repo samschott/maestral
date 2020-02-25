@@ -17,7 +17,7 @@ import enum
 
 # external imports
 import Pyro5.errors
-from Pyro5.api import Daemon, Proxy, expose
+from Pyro5.api import Daemon, Proxy, expose, oneway
 from Pyro5.serializers import SerpentSerializer
 from lockfile.pidlockfile import PIDLockFile, AlreadyLocked
 
@@ -202,6 +202,10 @@ def run_maestral_daemon(config_name="maestral", run=True, log_to_stdout=False):
 
         # start Maestral as Pyro server
         ExposedMaestral = expose(Maestral)
+        # mark stop_sync and shutdown_daemon as oneway methods
+        # so that they don't block on call
+        ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
+        ExposedMaestral.shutdown_pyro_daemon = oneway(ExposedMaestral.shutdown_pyro_daemon)
         m = ExposedMaestral(config_name, run=run, log_to_stdout=log_to_stdout)
 
         daemon.register(m, f"maestral.{config_name}")
