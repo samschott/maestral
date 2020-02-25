@@ -1995,7 +1995,7 @@ class MaestralMonitor:
                 self.sync, self.syncing, self.paused_by_user, self.running,
                 self.connected, self.startup_requested, self.startup_done
             ),
-            name="Maestral connection helper"
+            name=f"maestral-connection-helper-{self.config_name}"
         )
 
         self.startup_thread = Thread(
@@ -2005,7 +2005,7 @@ class MaestralMonitor:
                 self.sync, self.syncing, self.running, self.connected,
                 self.startup_requested, self.startup_done
             ),
-            name="Maestral startup worker",
+            name=f"maestral-startup-worker-{self.config_name}"
         )
 
         self.download_thread = Thread(
@@ -2014,7 +2014,7 @@ class MaestralMonitor:
             args=(
                 self.sync, self.syncing, self.running, self.connected, self.startup_done
             ),
-            name="Maestral downloader"
+            name=f"maestral-download-{self.config_name}"
         )
 
         self.download_thread_added_folder = Thread(
@@ -2023,7 +2023,7 @@ class MaestralMonitor:
             args=(
                 self.sync, self.syncing, self.running, self.connected, self.startup_done
             ),
-            name="Maestral folder downloader"
+            name=f"maestral-folder-download-{self.config_name}"
         )
 
         self.upload_thread = Thread(
@@ -2032,7 +2032,7 @@ class MaestralMonitor:
             args=(
                 self.sync, self.syncing, self.running, self.connected, self.startup_done
             ),
-            name="Maestral uploader"
+            name=f"maestral-upload-{self.config_name}"
         )
 
         try:
