@@ -1384,7 +1384,7 @@ class UpDownSync:
         # apply created files
         n_files = len(files)
         last_emit = time.time()
-        with ThreadPoolExecutor(max_workers=15) as executor:
+        with ThreadPoolExecutor(max_workers=6) as executor:
             fs = (executor.submit(self._create_local_entry, file) for file in files)
             for f, n in zip(as_completed(fs), range(1, n_files + 1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
