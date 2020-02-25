@@ -304,7 +304,7 @@ class UpDownSync:
         "client", "config_name", "rev_file_path",
         "local_file_event_queue", "queue_uploading", "queue_downloading",
         "_dropbox_path", "_excluded_files", "_excluded_folders", "_rev_dict_cache",
-        "_conf", "_state", "notifier"
+        "_conf", "_state", "notifier", "_last_sync_for_path"
     )
 
     def __init__(self, client, local_file_event_queue, queue_uploading, queue_downloading):
@@ -326,6 +326,7 @@ class UpDownSync:
         self._excluded_files = self._conf.get("main", "excluded_files")
         self._excluded_folders = self._conf.get("main", "excluded_folders")
         self._rev_dict_cache = self._load_rev_dict_from_file()
+        self._last_sync_for_path = dict()
 
     # ==== settings ======================================================================
 
@@ -375,7 +376,7 @@ class UpDownSync:
     @property
     def last_cursor(self):
         """Cursor from last sync with remote Dropbox. The value is updated and saved to
-        the config file on every successful sync. Do not modify manually."""
+        the config file on every successful download of remote changes."""
         return self._state.get("sync", "cursor")
 
     @last_cursor.setter
@@ -387,8 +388,7 @@ class UpDownSync:
     @property
     def last_sync(self):
         """Time stamp from last sync with remote Dropbox. The value is updated and
-        saved to config file on every successful sync. This should not be modified
-        manually."""
+        saved to the config file on every successful upload of local changes."""
         return self._state.get("sync", "lastsync")
 
     @last_sync.setter
@@ -1124,16 +1124,16 @@ class UpDownSync:
 
         # add new revs
         if isinstance(md, dropbox.files.FileMetadata):
-            self.set_local_rev(md.path_display, md.rev)
+            self.set_local_rev(md.path_lower, md.rev)
         # and revs of children if folder
         elif isinstance(md, dropbox.files.FolderMetadata):
-            self.set_local_rev(md.path_display, "folder")
+            self.set_local_rev(md.path_lower, "folder")
             result = self.client.list_folder(dbx_path_new, recursive=True)
             for md in result.entries:
                 if isinstance(md, dropbox.files.FileMetadata):
-                    self.set_local_rev(md.path_display, md.rev)
+                    self.set_local_rev(md.path_lower, md.rev)
                 elif isinstance(md, dropbox.files.FolderMetadata):
-                    self.set_local_rev(md.path_display, "folder")
+                    self.set_local_rev(md.path_lower, "folder")
 
         logger.debug("Moved '%s' to '%s' on Dropbox.", event.src_path, event.dest_path)
 
@@ -1155,7 +1155,7 @@ class UpDownSync:
                 md = self.client.make_dir(dbx_path)
 
             # save or update revision metadata
-            self.set_local_rev(md.path_display, "folder")
+            self.set_local_rev(md.path_lower, "folder")
 
         elif not event.is_directory:
 
@@ -1167,7 +1167,7 @@ class UpDownSync:
                 local_hash = get_local_hash(path)
                 if local_hash == md.content_hash:
                     # file hashes are identical, do not upload
-                    self.set_local_rev(md.path_display, md.rev)
+                    self.set_local_rev(md.path_lower, md.rev)
                     return
 
             rev = self.get_local_rev(dbx_path)
@@ -1184,7 +1184,7 @@ class UpDownSync:
             except NotFoundError:
                 logger.debug("Could not upload '%s': the item does not exist.", event.src_path)
             else:
-                self.set_local_rev(md.path_display, md.rev)
+                self.set_local_rev(md.path_lower, md.rev)
 
         logger.debug("Created '%s' on Dropbox.", event.src_path)
 
@@ -1230,7 +1230,7 @@ class UpDownSync:
                 local_hash = get_local_hash(path)
                 if local_hash == md.content_hash:
                     # file hashes are identical, do not upload
-                    self.set_local_rev(md.path_display, md.rev)
+                    self.set_local_rev(md.path_lower, md.rev)
                     logger.debug("Modification of '%s' detected but file content is "
                                  "the same as on Dropbox.", event.src_path)
                     return
@@ -1246,7 +1246,7 @@ class UpDownSync:
                 mode = dropbox.files.WriteMode("update", rev)
             md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
             # save or update revision metadata
-            self.set_local_rev(md.path_display, md.rev)
+            self.set_local_rev(md.path_lower, md.rev)
             logger.debug("Uploaded modified '%s' to Dropbox.", event.src_path)
 
     # ==== Download sync =================================================================
@@ -1445,10 +1445,9 @@ class UpDownSync:
             #     will hold the lock and we won't be here checking for conflicts.
             # (b) The upload has not started yet. Manually check for conflict.
 
-            if get_ctime(local_path) < self.last_sync:
-                # TODO: directory ctime is only changed when an inode
-                #  in the directory changes, not when file contents change.
-                #  This is relevant when a file has been replaced by folder.
+            last_sync_for_path = self._last_sync_for_path.get(dbx_path.lower(), 0.0)
+
+            if get_ctime(local_path) <= max(self.last_sync, last_sync_for_path):
                 logger.debug(f"Remote item is newer: {dbx_path}")
                 return Conflict.RemoteNewer
             elif not remote_rev:
@@ -1589,7 +1588,8 @@ class UpDownSync:
                     delete(local_path)
 
                 md = self.client.download(entry.path_display, local_path)
-                self.set_local_rev(md.path_display, md.rev)
+                self._last_sync_for_path[entry.path_lower] = osp.getctime(local_path)
+                self.set_local_rev(md.path_lower, md.rev)
 
             logger.debug(f"Created local file '{entry.path_display}'")
             applied = entry
@@ -1609,7 +1609,8 @@ class UpDownSync:
                     os.makedirs(local_path)
                 except FileExistsError:
                     pass
-                self.set_local_rev(entry.path_display, "folder")
+                self._last_sync_for_path[entry.path_lower] = osp.getctime(local_path)
+                self.set_local_rev(entry.path_lower, "folder")
 
             logger.debug(f"Created local folder: {entry.path_display}")
             applied = entry
@@ -1621,7 +1622,7 @@ class UpDownSync:
 
             with InQueue(local_path, self.queue_downloading, delay=0.5):
                 err = delete(local_path)
-                self.set_local_rev(entry.path_display, None)
+                self.set_local_rev(entry.path_lower, None)
 
             if not err:
                 logger.debug(f"Deleted local item '{entry.path_display}'")
