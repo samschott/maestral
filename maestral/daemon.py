@@ -36,12 +36,13 @@ class Exit(enum.Enum):
     Ok = 0
     Killed = 1
     NotRunning = 2
+    Failed = 3
 
 
 class Start(enum.Enum):
     Ok = 0
-    Failed = 1
-    AlreadyRunning = 2
+    AlreadyRunning = 1
+    Failed = 2
 
 
 # ==== error serialization ===============================================================
@@ -345,8 +346,8 @@ def stop_maestral_daemon_thread(config_name="maestral", timeout=10):
 
     :param str config_name: The name of the Maestral configuration to use.
     :param float timeout: Number of sec to wait for daemon to shut down before killing it.
-    :returns: ``Exit.Ok`` if successful,``Exit.NotRunning`` if the daemon was not running.
-    :raises: TimeoutError, Pyro5.errors.CommunicationError
+    :returns: ``Exit.Ok`` if successful,``Exit.NotRunning`` if the daemon was not running,
+        ``Exit.Failed`` if it could not be stopped within  timeout.
     """
 
     logger.debug("Stopping thread")
@@ -358,14 +359,17 @@ def stop_maestral_daemon_thread(config_name="maestral", timeout=10):
         return Exit.NotRunning
 
     # tell maestral daemon to shut down
-    with MaestralProxy(config_name) as m:
-        m.stop_sync()
-        m.shutdown_pyro_daemon()
+    try:
+        with MaestralProxy(config_name) as m:
+            m.stop_sync()
+            m.shutdown_pyro_daemon()
+    except Pyro5.errors.CommunicationError:
+        return Exit.Failed
 
     # wait for maestral to carry out shutdown
     t.join(timeout=timeout)
     if t.is_alive():
-        raise TimeoutError('Could not stop Maestral thread')
+        return Exit.Failed
     else:
         return Exit.Ok
 
