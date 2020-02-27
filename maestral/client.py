@@ -104,19 +104,19 @@ def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
             try:
                 return func(*args, **kwargs)
             except dropbox.exceptions.DropboxException as exc:
-                raise api_to_maestral_error(exc, dbx_path, local_path)
+                raise api_to_maestral_error(exc, dbx_path, local_path) from exc
             # catch connection errors first, they may inherit from OSError
             except CONNECTION_ERRORS:
                 raise ConnectionError("Cannot connect to Dropbox")
             except OSError as exc:
-                raise os_to_maestral_error(exc, dbx_path, local_path)
+                raise os_to_maestral_error(exc, dbx_path, local_path) from exc
 
         return wrapper
 
     return decorator
 
 
-class MaestralApiClient(object):
+class MaestralApiClient:
     """Client for the Dropbox SDK.
 
     This client defines basic methods to wrap Dropbox Python SDK calls, such as creating,
@@ -483,7 +483,7 @@ class MaestralApiClient(object):
                     self.list_folder(dbx_path, include_non_downloadable_files, **kwargs)
                 else:
                     self._retry_count = 0
-                    raise new_exc
+                    raise exc
 
         logger.debug(f"Listed contents of folder '{dbx_path}'")
 
