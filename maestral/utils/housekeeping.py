@@ -11,6 +11,7 @@ This module contains migration code to run after an update from < v0.6.0
 import sys
 import os
 import os.path as osp
+import ast
 import logging
 from packaging.version import Version
 
@@ -52,6 +53,11 @@ def migrate_user_config(config_name):
         cursor = old_conf.get('internal', 'cursor')
         lastsync = old_conf.get('internal', 'lastsync')
         recent_changes = old_conf.get('internal', 'recent_changes')
+
+        # convert non-string types
+        update_notification_last = float(update_notification_last)
+        lastsync = float(lastsync)
+        recent_changes = ast.literal_eval(recent_changes)
 
         # set state values
         state.set('account', 'email', email)
