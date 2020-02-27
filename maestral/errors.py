@@ -41,10 +41,7 @@ class MaestralApiError(Exception):
         self.local_path_dst = local_path_dst
 
     def __str__(self):
-        if self.dbx_path:
-            return f"'{self.dbx_path}': {self.title}. {self.message}"
-        else:
-            return f"{self.title}. {self.message}"
+        return ". ".join([self.title, self.message])
 
 
 # ==== regular sync errors ===============================================================
@@ -185,44 +182,43 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
     :returns: :class:`MaestralApiError` instance or :class:`OSError` instance.
     """
 
-    err_type = MaestralApiError
     title = "Cannot upload or download file"
 
     if isinstance(exc, PermissionError):
-        err_type = InsufficientPermissionsError  # subclass of SyncError
+        err_cls = InsufficientPermissionsError  # subclass of SyncError
         text = "Insufficient read or write permissions for this location."
     elif isinstance(exc, FileNotFoundError):
-        err_type = NotFoundError  # subclass of SyncError
+        err_cls = NotFoundError  # subclass of SyncError
         text = "The given path does not exist."
     elif isinstance(exc, FileExistsError):
-        err_type = ExistsError  # subclass of SyncError
+        err_cls = ExistsError  # subclass of SyncError
         title = "Could not download file"
         text = "There already is an item at the given path."
     elif isinstance(exc, IsADirectoryError):
-        err_type = IsAFolderError  # subclass of SyncError
+        err_cls = IsAFolderError  # subclass of SyncError
         text = "The given path refers to a folder."
     elif isinstance(exc, NotADirectoryError):
-        err_type = NotAFolderError  # subclass of SyncError
+        err_cls = NotAFolderError  # subclass of SyncError
         text = "The given path refers to a file."
     elif exc.errno == errno.ENAMETOOLONG:
-        err_type = PathError  # subclass of SyncError
+        err_cls = PathError  # subclass of SyncError
         title = "Could not create local file"
         text = "The file name (including path) is too long."
     elif exc.errno == errno.EFBIG:
-        err_type = FileSizeError  # subclass of SyncError
+        err_cls = FileSizeError  # subclass of SyncError
         title = "Could not download file"
         text = "The file size too large."
     elif exc.errno == errno.ENOSPC:
-        err_type = InsufficientSpaceError  # subclass of SyncError
+        err_cls = InsufficientSpaceError  # subclass of SyncError
         title = "Could not download file"
         text = "There is not enough space left on the selected drive."
     elif exc.errno == errno.ENOMEM:
-        err_type = OutOfMemoryError  # subclass of MaestralApiError
+        err_cls = OutOfMemoryError  # subclass of MaestralApiError
         text = "Out of memory. Please reduce the number of memory consuming processes."
     else:
         return exc
 
-    return err_type(title, text, dbx_path=dbx_path, local_path=local_path)
+    return err_cls(title, text, dbx_path=dbx_path, local_path=local_path)
 
 
 def api_to_maestral_error(exc, dbx_path=None, local_path=None):
@@ -246,7 +242,8 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
         # may be replaced later
         err_cls = SyncError
         title = "Sync Error"
-        text = None
+        text = ("An unexpected sync error occurred. Please contact the Maestral "
+                "developer with the traceback information from the logs.")
 
         if hasattr(exc, "user_message_text") and exc.user_message_text is not None:
             # if the error contains a user message, pass it on (this rarely happens)
@@ -377,10 +374,6 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
                     text = ("Dropbox has reset its sync state. Please rebuild Maestral's "
                             "index to re-sync your Dropbox.")
                     err_cls = CursorResetError
-
-        if text is None:
-            text = ("An unexpected sync error occurred. Please contact the Maestral "
-                    "developer with the traceback information from the logs.")
 
     # ----------------------- Authentication errors --------------------------------------
     elif isinstance(exc, dropbox.exceptions.AuthError):
