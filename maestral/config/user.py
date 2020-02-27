@@ -23,6 +23,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 # =============================================================================
 # Auxiliary classes
 # =============================================================================
@@ -43,10 +44,12 @@ class DefaultsConfig(cp.ConfigParser):
 
     _lock = RLock()
 
-    def __init__(self, path, name):
+    def __init__(self, path, name, suffix):
         super(DefaultsConfig, self).__init__(interpolation=None)
+
         self._path = path
         self._name = name
+        self._suffix = suffix
 
         if not osp.isdir(osp.dirname(self._path)):
             os.makedirs(osp.dirname(self._path))
@@ -60,8 +63,8 @@ class DefaultsConfig(cp.ConfigParser):
 
         super(DefaultsConfig, self).set(section, option, value)
 
-    def _save(self):
-        """Save config into the associated .ini file."""
+    def save(self):
+        """Save config into the associated file."""
         fpath = self.get_config_fpath()
 
         # See spyder-ide/spyder#1086 and spyder-ide/spyder#1242 for background
@@ -88,11 +91,7 @@ class DefaultsConfig(cp.ConfigParser):
 
     def get_config_fpath(self):
         """Return the ini file where this configuration is stored."""
-        return osp.join(self._path, f'{self._name}.ini')
-
-    def get_config_name(self):
-        """Return the ini file name this configuration is stored."""
-        return osp.splitext(osp.basename(self._path))[0]
+        return osp.join(self._path, self._name + self._suffix)
 
     def set_defaults(self, defaults):
         """Set default values and save to defaults folder location."""
@@ -132,15 +131,15 @@ class UserConfig(DefaultsConfig):
 
     Notes
     -----
-    The 'get' and 'set' arguments number and type differ from the overwritten
+    The 'get' and 'set' arguments number and type differ from the reimplemented
     methods. 'defaults' is an attribute and not a method.
     """
     DEFAULT_SECTION_NAME = 'main'
 
     def __init__(self, path, name, defaults=None, load=True, version=None,
-                 backup=False, raw_mode=False, remove_obsolete=False):
+                 backup=False, raw_mode=False, remove_obsolete=False, suffix='.ini'):
         """UserConfig class, based on ConfigParser."""
-        super(UserConfig, self).__init__(path=path, name=name)
+        super(UserConfig, self).__init__(path=path, name=name, suffix=suffix)
 
         self._load = load
         self._version = self._check_version(version)
@@ -170,7 +169,13 @@ class UserConfig(DefaultsConfig):
             self._save_new_defaults(self.defaults)
 
             # Updating defaults only if major/minor version is different
-            if self._get_minor_version(version) != self._get_minor_version(old_version):
+            major_ver = self._get_major_version(version)
+            major_old_ver = self._get_major_version(self._old_version)
+
+            minor_ver = self._get_minor_version(version)
+            minor_old_ver = self._get_minor_version(self._old_version)
+
+            if minor_ver != minor_old_ver:
 
                 if backup:
                     self._make_backup(version=old_version)
@@ -178,14 +183,14 @@ class UserConfig(DefaultsConfig):
                 self.apply_configuration_patches(old_version=old_version)
 
                 # Remove deprecated options if major version has changed
-                if remove_obsolete:
+                if remove_obsolete and major_ver != major_old_ver:
                     self._remove_deprecated_options(old_version)
 
                 # Set new version number
                 self.set_version(version, save=False)
 
             if defaults is None:
-                # If no defaults are defined set .ini file settings as default
+                # If no defaults are defined set file settings as default
                 self.set_as_defaults()
 
     # --- Helpers and checkers -----------------------------------------------------------
@@ -202,10 +207,11 @@ class UserConfig(DefaultsConfig):
     @staticmethod
     def _check_version(version):
         """Check version is compliant with format."""
-        regex_check = re.match(r'^(\d+).(\d+).(\d+)$', version)
-        if version is not None and regex_check is None:
-            raise ValueError('Version number {} is incorrect - must be in '
-                             'major.minor.micro format'.format(version))
+        if version is not None:
+            regex_check = re.match(r'^(\d+).(\d+).(\d+)$', version)
+            if regex_check is None:
+                raise ValueError('Version number {} is incorrect - must be in '
+                                 'major.minor.micro format'.format(version))
 
         return version
 
@@ -268,28 +274,28 @@ class UserConfig(DefaultsConfig):
             pass
 
     def _load_from_ini(self, fpath):
-        """Load config from the associated .ini file found at `fpath`."""
+        """Load config from the associated file found at `fpath`."""
 
         with self._lock:
             try:
                 self.read(fpath, encoding='utf-8')
             except cp.MissingSectionHeaderError:
-                logger.warning('File contains no section headers.')
+                logger.error('File contains no section headers.')
 
     def _load_old_defaults(self, old_version):
         """Read old defaults."""
         old_defaults = cp.ConfigParser()
-        path, name = self.get_defaults_path_name_from_version(old_version)
-        old_defaults.read(osp.join(path, name + '.ini'))
+        fpath = self.get_defaults_fpath_from_version(old_version)
+        old_defaults.read(fpath)
         return old_defaults
 
     def _save_new_defaults(self, defaults):
         """Save new defaults."""
         path, name = self.get_defaults_path_name_from_version()
-        new_defaults = DefaultsConfig(name=name, path=path)
+        new_defaults = DefaultsConfig(path=path, name=name, suffix=self._suffix)
         if not osp.isfile(new_defaults.get_config_fpath()):
             new_defaults.set_defaults(defaults)
-            new_defaults._save()
+            new_defaults.save()
 
     def _update_defaults(self, defaults, old_version):
         """Update defaults after a change in version."""
@@ -307,11 +313,10 @@ class UserConfig(DefaultsConfig):
 
     def _remove_deprecated_options(self, old_version):
         """
-        Remove options which are present in the .ini file but not in defaults.
+        Remove options which are present in the file but not in defaults.
         """
-        old_defaults = self._load_old_defaults(old_version)
-        for section in old_defaults.sections():
-            for option, _ in old_defaults.items(section, raw=self._raw):
+        for section in self.sections():
+            for option, _ in self.items(section, raw=self._raw):
                 if self.get_default(section, option) is NoDefault:
                     try:
                         self.remove_option(section, option)
@@ -341,7 +346,7 @@ class UserConfig(DefaultsConfig):
         `old_version` can be used for checking compatibility whereas `version`
         relates to adding the version to the file name.
 
-        To be overriden if versions changed backup location.
+        To be reimplemented if versions changed backup location.
         """
         fpath = self.get_config_fpath()
         path = osp.join(osp.dirname(fpath), self._backup_folder)
@@ -349,34 +354,42 @@ class UserConfig(DefaultsConfig):
         if version is None:
             backup_fpath = '{}{}'.format(new_fpath, self._backup_suffix)
         else:
-            backup_fpath = "{}-{}{}".format(new_fpath, version,
-                                            self._backup_suffix)
+            backup_fpath = "{}-{}{}".format(new_fpath, version, self._backup_suffix)
         return backup_fpath
 
     def get_defaults_path_name_from_version(self, old_version=None):
         """
         Get defaults location based on version.
 
-        To be overriden if versions changed defaults location.
+        To be reimplemented if versions changed defaults location.
         """
         version = old_version if old_version else self._version
         defaults_path = osp.join(osp.dirname(self.get_config_fpath()),
                                  self._defaults_folder)
-        name = '{}-{}-{}'.format(
-            self._defaults_name_prefix,
-            self._name,
-            version,
-        )
+        if version is None:
+            name = '{}-{}'.format(self._defaults_name_prefix, self._name)
+        else:
+            name = '{}-{}-{}'.format(self._defaults_name_prefix, self._name, version)
         if not osp.isdir(defaults_path):
             os.makedirs(defaults_path)
 
         return defaults_path, name
 
+    def get_defaults_fpath_from_version(self, old_version=None):
+        """
+        Get defaults location based on version.
+
+        To be reimplemented if versions changed defaults location.
+        """
+        defaults_path, name = self.get_defaults_path_name_from_version(old_version)
+
+        return osp.join(defaults_path, name + self._suffix)
+
     def apply_configuration_patches(self, old_version=None):
         """
         Apply any patch to configuration values on version changes.
 
-        To be overriden if patches to configuration values are needed.
+        To be reimplemented if patches to configuration values are needed.
         """
         pass
 
@@ -398,7 +411,7 @@ class UserConfig(DefaultsConfig):
                     value = options[option]
                     self._set(sec, option, value)
         if save:
-            self._save()
+            self.save()
 
     def set_as_defaults(self):
         """Set defaults from the current config."""
@@ -472,8 +485,9 @@ class UserConfig(DefaultsConfig):
                 pass
 
         if default_value is not NoDefault and type(default_value) is not type(value):
-            logger.warning(f'Inconsistent config type for [{section}][{option}]. '
-                           f'Expected {default_value.__class__.__name__} but got {value.__class__.__name__}.')
+            logger.error(f'Inconsistent config type for [{section}][{option}]. '
+                         f'Expected {default_value.__class__.__name__} but '
+                         f'got {value.__class__.__name__}.')
 
         return value
 
@@ -509,23 +523,47 @@ class UserConfig(DefaultsConfig):
             value = float(value)
         elif isinstance(default_value, int):
             value = int(value)
+        # elif isinstance(default_value, list):
+        #     value = list(value)
+        # elif isinstance(default_value, tuple):
+        #     value = tuple(value)
         elif not isinstance(default_value, str):
             value = repr(value)
 
         self._set(section, option, value)
         if save:
-            self._save()
+            self.save()
 
     def remove_section(self, section):
         """Remove `section` and all options within it."""
         super(UserConfig, self).remove_section(section)
-        self._save()
+        self.save()
 
     def remove_option(self, section, option):
         """Remove `option` from `section`."""
         super(UserConfig, self).remove_option(section, option)
-        self._save()
+        self.save()
 
     def cleanup(self):
-        """Remove .ini file associated to config."""
-        os.remove(self.get_config_fpath())
+        """Remove files associated with config."""
+        fpath = self.get_config_fpath()
+
+        backup_path = osp.join(self._path, self._backup_folder)
+        defaults_path = osp.join(self._path, self._defaults_folder)
+
+        os.remove(fpath)
+
+        for file in os.scandir(backup_path):
+            if file.name.startswith(self._name):
+                os.remove(file.path)
+
+        for file in os.scandir(defaults_path):
+            if file.name.startswith(f'{self._defaults_name_prefix}-{self._name}'):
+                os.remove(file.path)
+
+        # clean up backup and defaults files from previous version of maestral
+        for file in os.scandir(self._path):
+            if file.is_file():
+                if (self._backup_suffix in file.name
+                        or self._defaults_name_prefix in file.name):
+                    os.remove(file.path)

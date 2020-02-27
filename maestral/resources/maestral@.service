@@ -1,0 +1,15 @@
+[Unit]
+Description = Maestral daemon for the config %I
+Documentation = "https://github.com/SamSchott/maestral-dropbox/wiki"
+
+[Service]
+Type = notify
+NotifyAccess = exec
+ExecStart = {start_cmd} -c %i
+ExecStop = {stop_cmd} -c %i
+RestartSec = 1
+Restart = on-failure
+WatchdogSec = 30s
+
+[Install]
+WantedBy=default.target

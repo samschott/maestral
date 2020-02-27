@@ -1,0 +1,15 @@
+[Desktop Entry]
+Version = {version}
+Type = Application
+Name = Maestral
+Icon = maestral
+GenericName=File Synchroniser
+Comment = Sync your files with Dropbox
+Exec = {start_cmd}
+Hidden = false
+Terminal = false
+Type = Application
+Categories = Network;FileTransfer;
+StartupNotify = false
+X-GNOME-Autostart-enabled = true
+X-DBUS-ServiceName = maestral

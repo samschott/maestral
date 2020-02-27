@@ -1,3 +1,99 @@
+## v0.6.1
+
+This release improves desktop notifications: Notifications will now only appear for remote
+file changes and you can chose between different notification levels (CLI only) and snooze
+notifications temporarily. It also reintroduces the `maestral autostart` command to start
+the sync daemon on login (requires systemd on Linux). This works independently of the GUI
+option "Start on login".
+
+There have also been significant changes in package structure: the GUI has been split
+off into a separate package `maestral-qt` which will be installed with the gui extra
+`pip3 install -U maestral[gui]` or directly with `pip3 install -U maestral-qt`. A native
+Cocoa GUI (`maestral-cocoa`) for macOS is currently in testing and will likely be released
+with the next update.
+
+Other changes include improved error handling, cleaned up config files and some tweaks to
+CLI commands. As always, there are several bug fixes. Thank you for all your feedback!
+
+#### Added:
+
+- New CLI command `maestral autostart` to start the daemon on login. This requires systemd
+  on Linux. The "Start on login" option of the GUI remains independent and the GUI will
+  attach to an existing daemon if it finds one.
+- Added desktop notifications for errors: Serious errors such as revoked Dropbox access,
+  deleted Dropbox folder, etc, were previously only shown in the GUI as an alert window
+  or printed as warnings when invoking a CLI command.
+- Support for different levels of desktop notifications (CLI only). You can now select
+  between FILECHANGE, SYNCISSUE, ERROR and NONE with `maestral notify LEVEL`.
+- Added an option to snooze notifications. In the CLI, use `maestral notify snooze N` to
+  snooze notifications for N minutes. In the GUI, use the "Snooze Notifications" menu.
+- Support using an existing directory when setting up Maestral through the CLI. This was
+  previously only supported in the GUI. Files and folders in the existing directory will
+  be merged with your Dropbox.
+- The CLI command `maestral restart` now supports restarting Maestral into the current
+  process instead of spawning a new process. This is enabled by passing the `--foreground`
+  (`-f`) option.
+- Added a native Cocoa GUI for macOS. This removes the PyQt5 dependency for macOS and
+  reduces the size of the bundled app from 50 MB to 15 MB. It also eliminates a few
+  inconsistencies in GUI appearance. Especially the sync issues window looks a lot better
+  (hopefully you won't see it too often).
+
+#### Changed:
+
+- Split off GUI into separate python packages (`maestral-qt`, `maestral-cocoa`).
+- Notify only for remote changes and not for those which originated locally. This
+  should significantly reduce the number of unwanted notifications.
+- Renamed `maestral notifications` to `maestral notify` for brevity.
+- Renamed the `set-dir` command to `move-dir` to emphasize that it moves the local Dropbox
+  folder to a new location.
+- Configurations are now tied to a Dropbox account:
+    - New configurations are now created on-demand when calling `maestral gui` or  
+      `maestral start` with a new configuration name.
+    - A configuration is automatically removed when unlinking a Dropbox account.
+    - All configurations can be listed together with the account emails with
+      `maestral configs`. This replaces `maestral config list`.
+- For app bundles on macOS, you can now pass a config option `--config-name` to the
+  bundle's executable ("Maestral.app/Contents/MacOS/main"). It will then use the specified
+  configuration if it already exists or to create a new one.
+- The GUI no longer restarts after completing the setup dialog.
+- Removed sync and application state info from the config file. Sync and application
+  states are now  saved separately in '~/.local/share/maestral/CONFIG_NAME.state' on Linux
+  and '~/Library/Application Support/maestral/CONFIG_NAME.state' on macOS.
+- Use atomic save to prevent corruption of the sync index if Maestral crashes or is killed
+  during a save.
+- Moved the sync index to the same folder as the application state.
+- Improved conflict detection and resolution when changing files which are currently being
+  uploaded or downloaded.
+
+#### Fixed:
+
+- Fixes an issue where local changes while maestral was not running could be overwritten
+  by remote changes instead of resulting in a conflicting copy.
+- Fixes an issue where local file events could be ignored while a download is in progress.
+- Fixes an issue where a new local file could be incorrectly deleted if it was created 
+  just after a remote item at the same path was deleted.
+- Fixes an issue where `maestral stop` and `maestral restart` would not interrupt running
+  sync jobs but instead wait for them to be completed. Now, aborted jobs will be resumed
+  when starting Maestral again.
+- Correctly handle when a folder is replaced by a file and vice versa.
+- Correctly handle additional error types: internal Dropbox server error, insufficient
+  space on local drive, file name too long for local file system and out-of-memory error.
+- Automatically resume upload in case of dropped packages instead of raising a sync issue.
+- Set the log level for the systemd journal according to user settings instead of always
+  using logging.DEBUG.
+- Run checks for Dropbox folder location and link status when invoking `maestral restart`.
+- Notify the user through the GUI when moving the Dropbox directory fails instead of
+  silently keeping the old directory.
+- Fixes an issue where the environment variable XDG_DATA_DIR would not be respected in
+  Linux.
+
+#### Removed:
+
+- Removed "-a" option from `maestral ls`. List all entries by default, even if they start
+  with a period.
+- Removed the `maestral config` command group. Configurations are now created and deleted
+  on-demand and can be listed with `maestral configs`.
+
 ## v0.5.2
 
 #### Added:
@@ -17,7 +113,7 @@
 - Order of commands returned by `maestral --help` by importance instead of alphabetically.
 - Sync errors will now be listed by `maestral status` if present.
 - Live updates to the Settings window when settings are changed from the command line.
-  
+
 #### Fixed:
 
 - Fixed an issue on macOS where some directory deletions could be ignored in case of rapid

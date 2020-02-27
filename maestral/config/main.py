@@ -1,45 +1,46 @@
-# -*- coding: utf-8 -*-
-#
-# Copyright © Spyder Project Contributors
-# Licensed under the terms of the MIT License
-# (see spyder/__init__.py for details)
-
 """
 Maestral configuration options
-
-Note: The 'account' section is used for internal purposes only to store some
-basic information on the user account between connections. The 'internal'
-section saves cursors and time-stamps for the last synced Dropbox state and
-local state, respectively. Resetting those to the default values will trigger
-a full download on the next startup.
 """
-
-import os
 import copy
+import logging
+
+from .base import get_conf_path, get_data_path
 from .user import UserConfig
-from .base import get_conf_path
 
-
-PACKAGE_NAME = os.getenv('MAESTRAL_CONFIG', 'maestral')
-SUBFOLDER = 'maestral'
-
+logger = logging.getLogger(__name__)
+CONFIG_DIR_NAME = 'maestral'
 
 # =============================================================================
 #  Defaults
 # =============================================================================
 
 DEFAULTS = [
-    ('main',  # main settings regarding folder locations etc
+    ('main',
      {
-         'path': '',  # dropbox folder location (parent folder)
+         'path': '',  # dropbox folder location
          'default_dir_name': 'Dropbox ({})',  # default dropbox folder name
-         'excluded_folders': [],  # files excluded from sync, currently not supported
-         'excluded_files': [],  # folders excluded from sync, currently not supported
+         'excluded_folders': [],  # folders excluded from sync
+         'excluded_files': [],  # files excluded from sync, currently not used
      }
      ),
-    ('account',  # info on linked Dropbox account, periodically updated from servers
+    ('account',
      {
-         'account_id': '',
+         'account_id': '',  # dropbox account id, must match the saved account key
+     }
+     ),
+    ('app',
+     {
+         'notification_level': 15,  # desktop notification level
+         'log_level': 20,
+         'update_notification_interval': 60 * 60 * 24 * 7,
+         'analytics': False,  # automatically report crashes and errors with bugsnag
+     }
+     ),
+]
+
+DEFAULTS_STATE = [
+    ('account',  # account state, periodically updated from dropbox servers
+     {
          'email': '',
          'display_name': '',
          'abbreviated_name': '',
@@ -48,29 +49,21 @@ DEFAULTS = [
          'usage_type': '',
      }
      ),
-    ('app',  # app settings
+    ('app',  # app state
      {
-         'notifications': True,  # enable / disable system tray notifications
-         'log_level': 20,  # log level for file log, defaults to INFO
-         'update_notification_last': 0.0,  # last notification about updates
-         'update_notification_interval': 60*60*24*7,  # interval to check for updates (sec)
-         'latest_release': '0.0.0',  # latest available release
-         'analytics': False,  # automatically report crashes and errors with bugsnag
+         'update_notification_last': 0.0,
+         'latest_release': '0.0.0',
      }
      ),
-    ('internal',  # saved sync state
+    ('sync',  # sync state, updated by monitor
      {
-         'cursor': '',  # remote cursor: represents last state synced from Dropbox
+         'cursor': '',  # remote cursor: represents last state synced from dropbox
          'lastsync': 0.0,  # local cursor: time-stamp of last upload
-         'recent_changes': [],  # cached list of recent changes to display in GUI
+         'recent_changes': [],  # cached list of recent changes to display in GUI / CLI
      }
      ),
 ]
 
-
-# =============================================================================
-# Config instance
-# =============================================================================
 # IMPORTANT NOTES:
 # 1. If you want to *change* the default value of a current option, you need to
 #    do a MINOR update in config version, e.g. from 3.0.0 to 3.1.0
@@ -78,42 +71,74 @@ DEFAULTS = [
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = '9.1.0'
+CONF_VERSION = '11.0.0'
 
 
-class MaestralConfig(object):
-    """Singleton config instance for Maestral"""
+# =============================================================================
+# Factories
+# =============================================================================
 
-    _instances = {}
+_config_instances = {}
+_state_instances = {}
 
-    def __new__(cls, *args, **kwargs):
-        """
-        Create new instance for a new config name, otherwise return existing instance.
-        """
-        name = args[0]
 
-        if name in cls._instances:
-            return cls._instances[args[0]]
-        else:
-            defaults = copy.deepcopy(DEFAULTS)
-            # set default dir name according to config
-            for sec, options in defaults:
-                if sec == 'main':
-                    options['default_dir_name'] = f'Dropbox ({name.title()})'
+def MaestralConfig(config_name):
+    """
+    Return existing config instance of create a new one.
+    """
 
-            path = get_conf_path('maestral', create=True)
-            try:
-                conf = UserConfig(
-                    path, name, defaults=defaults, version=CONF_VERSION, load=True,
-                    backup=True, raw_mode=True, remove_obsolete=True
-                )
-            except OSError:
-                conf = UserConfig(
-                    path, name, defaults=defaults, version=CONF_VERSION, load=False,
-                    backup=True, raw_mode=True, remove_obsolete=True
-                )
+    global _config_instances
 
-            conf._name = name
+    if config_name in _config_instances:
+        return _config_instances[config_name]
+    else:
+        defaults = copy.deepcopy(DEFAULTS)
+        # set default dir name according to config
+        for sec, options in defaults:
+            if sec == 'main':
+                options['default_dir_name'] = f'Dropbox ({config_name.title()})'
 
-            cls._instances[args[0]] = conf
-            return conf
+        config_path = get_conf_path(CONFIG_DIR_NAME, create=True)
+
+        try:
+            conf = UserConfig(
+                config_path, config_name, defaults=defaults, version=CONF_VERSION,
+                load=True, backup=True, raw_mode=True, remove_obsolete=True
+            )
+        except OSError:
+            conf = UserConfig(
+                config_path, config_name, defaults=defaults, version=CONF_VERSION,
+                load=False, backup=True, raw_mode=True, remove_obsolete=True
+            )
+
+        _config_instances[config_name] = conf
+        return conf
+
+
+def MaestralState(config_name):
+    """
+    Return existing state instance of create a new one.
+    """
+
+    global _state_instances
+
+    if config_name in _state_instances:
+        return _state_instances[config_name]
+    else:
+        state_path = get_data_path(CONFIG_DIR_NAME, create=True)
+
+        try:
+            state = UserConfig(
+                state_path, config_name, defaults=DEFAULTS_STATE,
+                version=CONF_VERSION, load=True, backup=True, raw_mode=True,
+                remove_obsolete=True, suffix='.state'
+            )
+        except OSError:
+            state = UserConfig(
+                state_path, config_name, defaults=DEFAULTS_STATE,
+                version=CONF_VERSION, load=False, backup=True, raw_mode=True,
+                remove_obsolete=True, suffix='.state'
+            )
+
+        _state_instances[config_name] = state
+        return state
