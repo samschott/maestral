@@ -6,11 +6,11 @@ notifications temporarily. It also reintroduces the `maestral autostart` command
 the sync daemon on login (requires systemd on Linux). This works independently of the GUI
 option "Start on login".
 
-Finally, there have been significant changes in package structure: the GUI has been split
-off into a separate package `maestral-qt` and a native Cocoa GUI (`maestral-cocoa`) for
-macOS is currently in testing. It will likely be released with the next update. The GUI
-can be installed with the gui extra `pip3 install -U maestral[gui]` or manually with
-`pip3 install -U maestral-qt`.
+There have also been significant changes in package structure: the GUI has been split
+off into a separate package `maestral-qt` which will be installed with the gui extra
+`pip3 install -U maestral[gui]` or directly with `pip3 install -U maestral-qt`. A native
+Cocoa GUI (`maestral-cocoa`) for macOS is currently in testing and will likely be released
+with the next update.
 
 Other changes include improved error handling, cleaned up config files and some tweaks to
 CLI commands. As always, there are several bug fixes. Thank you for all your feedback!
@@ -43,18 +43,19 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
 - Split off GUI into separate python packages (`maestral-qt`, `maestral-cocoa`).
 - Notify only for remote changes and not for those which originated locally. This
   should significantly reduce the number of unwanted notifications.
+- Renamed `maestral notifications` to `maestral notify` for brevity.
 - Renamed the `set-dir` command to `move-dir` to emphasize that it moves the local Dropbox
   folder to a new location.
-- Renamed `maestral notifications` to `maestral notify` for brevity.
 - Configurations are now tied to a Dropbox account:
-    - New configurations are created by calling `maestral gui` or `maestral start` with a
-      new configuration name instead of using `maestral config add NEW_NAME`.
-    - A configuration is removed when unlinking a Dropbox account.
+    - New configurations are now created on-demand when calling `maestral gui` or  
+      `maestral start` with a new configuration name.
+    - A configuration is automatically removed when unlinking a Dropbox account.
+    - All configurations can be listed together with the account emails with
+      `maestral configs`. This replaces `maestral config list`.
 - For app bundles on macOS, you can now pass a config option `--config-name` to the
-  bundle's executable ("Maestral.app/Contens/MacOS/main"). It will then use the specified
-  configuration if it already exsists or to create a new one.
-- `maestral config remove` will raise an error if the corresponding daemon is running.
-- Do not require a restart after setting up Maestral with the GUI.
+  bundle's executable ("Maestral.app/Contents/MacOS/main"). It will then use the specified
+  configuration if it already exists or to create a new one.
+- The GUI no longer restarts after completing the setup dialog.
 - Removed sync and application state info from the config file. Sync and application
   states are now  saved separately in '~/.local/share/maestral/CONFIG_NAME.state' on Linux
   and '~/Library/Application Support/maestral/CONFIG_NAME.state' on macOS.
@@ -71,6 +72,9 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
 - Fixes an issue where local file events could be ignored while a download is in progress.
 - Fixes an issue where a local item could be incorrectly deleted if it was created after
   a remote item at the same location was deleted but before this deletion was synced.
+- Fixes an issue where `maestral stop` and `maestral restart` would not interrupt running
+  sync jobs but instead wait for them to be completed. Now, aborted jobs will be resumed
+  when starting Maestral again.
 - Correctly handle additional error types: internal Dropbox server error, insufficient
   space on local drive, file name too long for local file system and out-of-memory error.
 - Resume upload after dropped packages instead of raising a sync issue.
