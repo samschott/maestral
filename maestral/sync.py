@@ -290,6 +290,7 @@ class UpDownSync:
     lock = RLock()
 
     _rev_lock = RLock()
+    _last_sync_lock = RLock()
 
     failed_uploads = queue.Queue()
     failed_downloads = queue.Queue()
@@ -396,6 +397,14 @@ class UpDownSync:
         """Setter: last_cursor"""
         logger.debug(f"Local cursor saved: {last_sync}")
         self._state.set("sync", "lastsync", last_sync)
+
+    def get_last_sync_for_path(self, dbx_path):
+        with self._last_sync_lock:
+            return max(self._last_sync_for_path.get(dbx_path.lower(), 0.0), self.last_sync)
+
+    def set_last_sync_for_path(self, dbx_path, last_sync):
+        with self._last_sync_lock:
+            self._last_sync_for_path[dbx_path.lower()] = last_sync
 
     # ==== Rev file management ===========================================================
 
@@ -1445,9 +1454,7 @@ class UpDownSync:
             #     will hold the lock and we won't be here checking for conflicts.
             # (b) The upload has not started yet. Manually check for conflict.
 
-            last_sync_for_path = self._last_sync_for_path.get(dbx_path.lower(), 0.0)
-
-            if get_ctime(local_path) <= max(self.last_sync, last_sync_for_path):
+            if get_ctime(local_path) <= self.get_last_sync_for_path(dbx_path):
                 logger.debug(f"Remote item is newer: {dbx_path}")
                 return Conflict.RemoteNewer
             elif not remote_rev:
@@ -1588,7 +1595,7 @@ class UpDownSync:
                     delete(local_path)
 
                 md = self.client.download(entry.path_display, local_path)
-                self._last_sync_for_path[entry.path_lower] = osp.getctime(local_path)
+                self.set_last_sync_for_path(md.path_lower, get_ctime(local_path))
                 self.set_local_rev(md.path_lower, md.rev)
 
             logger.debug(f"Created local file '{entry.path_display}'")
@@ -1609,7 +1616,7 @@ class UpDownSync:
                     os.makedirs(local_path)
                 except FileExistsError:
                     pass
-                self._last_sync_for_path[entry.path_lower] = osp.getctime(local_path)
+                self.set_last_sync_for_path(entry.path_lower, get_ctime(local_path))
                 self.set_local_rev(entry.path_lower, "folder")
 
             logger.debug(f"Created local folder: {entry.path_display}")
