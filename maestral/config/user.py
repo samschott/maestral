@@ -523,10 +523,10 @@ class UserConfig(DefaultsConfig):
             value = float(value)
         elif isinstance(default_value, int):
             value = int(value)
-        elif isinstance(default_value, list):
-            value = list(value)
-        elif isinstance(default_value, tuple):
-            value = tuple(value)
+        # elif isinstance(default_value, list):
+        #     value = list(value)
+        # elif isinstance(default_value, tuple):
+        #     value = tuple(value)
         elif not isinstance(default_value, str):
             value = repr(value)
 
