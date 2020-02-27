@@ -280,7 +280,7 @@ class UserConfig(DefaultsConfig):
             try:
                 self.read(fpath, encoding='utf-8')
             except cp.MissingSectionHeaderError:
-                logger.warning('File contains no section headers.')
+                logger.error('File contains no section headers.')
 
     def _load_old_defaults(self, old_version):
         """Read old defaults."""
@@ -485,8 +485,9 @@ class UserConfig(DefaultsConfig):
                 pass
 
         if default_value is not NoDefault and type(default_value) is not type(value):
-            logger.warning(f'Inconsistent config type for [{section}][{option}]. '
-                           f'Expected {default_value.__class__.__name__} but got {value.__class__.__name__}.')
+            logger.error(f'Inconsistent config type for [{section}][{option}]. '
+                         f'Expected {default_value.__class__.__name__} but '
+                         f'got {value.__class__.__name__}.')
 
         return value
 
@@ -522,6 +523,10 @@ class UserConfig(DefaultsConfig):
             value = float(value)
         elif isinstance(default_value, int):
             value = int(value)
+        elif isinstance(default_value, list):
+            value = list(value)
+        elif isinstance(default_value, tuple):
+            value = tuple(value)
         elif not isinstance(default_value, str):
             value = repr(value)
 
