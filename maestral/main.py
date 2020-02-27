@@ -16,7 +16,6 @@ import shutil
 import time
 from threading import Thread
 import logging.handlers
-import traceback
 from collections import namedtuple, deque
 
 # external packages
@@ -63,9 +62,14 @@ bugsnag.configure(
 
 def bugsnag_global_callback(notification):
     notification.add_tab(
-        "system",
-        {"platform": platform.platform(), "python": platform.python_version()}
+        "system", {
+            "platform": platform.platform(),
+            "python": platform.python_version()
+        }
     )
+    cause = notification.exception.__cause__
+    if cause:
+        notification.add_tab("original exception", error_to_dict(cause))
 
 
 bugsnag.before_notify(bugsnag_global_callback)
@@ -105,31 +109,6 @@ class SdNotificationHandler(logging.Handler):
 
     def emit(self, record):
         sd_notifier.notify(f"STATUS={record.message}")
-
-
-class CustomBugsnagHandler(BugsnagHandler):
-
-    def __init__(self, api_key=None, client=None, extra_fields=None):
-        super().__init__(api_key, client, extra_fields)
-        self.add_callback(self.extract_error_cause)
-
-    def extract_error_cause(self, record, options):
-
-        if "meta_data" not in options:
-            options["meta_data"] = {}
-
-        if record.exc_info and record.exc_info.__cause__:
-            cause = record.exc_info.__cause__
-            options["meta_data"]["original error"] = {
-                "cause": cause.__class__.__name__,
-                "inherits": [b.__name__ for b in cause.__class__.__bases__],
-                "traceback": "".join(
-                    traceback.format_exception(
-                        cause.__class__, cause,
-                        cause.__traceback__
-                    )
-                ),
-            }
 
 
 # decorators
@@ -320,7 +299,7 @@ class Maestral(object):
         mdbx_logger.addHandler(self.desktop_notifier)
 
         # log to bugsnag (disabled by default)
-        self._log_handler_bugsnag = CustomBugsnagHandler()
+        self._log_handler_bugsnag = BugsnagHandler()
         self._log_handler_bugsnag.setLevel(100)
         mdbx_logger.addHandler(self._log_handler_bugsnag)
 
