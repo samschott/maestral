@@ -148,7 +148,7 @@ setup(
             'systemd-python',
         ],
         'gui': [
-            'maestral-qt>=0.6.1-dev1'
+            'maestral-qt>=0.6.1'
         ],
     },
     zip_safe=False,

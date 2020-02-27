@@ -1,4 +1,4 @@
-## v0.6.0-dev
+## v0.6.1
 
 This release improves desktop notifications: Notifications will now only appear for remote
 file changes and you can chose between different notification levels (CLI only) and snooze
@@ -68,22 +68,24 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
 #### Fixed:
 
 - Fixes an issue where local changes while maestral was not running could be overwritten
-  by concurrent remote changes instead of resulting in a conflicting copy.
+  by remote changes instead of resulting in a conflicting copy.
 - Fixes an issue where local file events could be ignored while a download is in progress.
-- Fixes an issue where a local item could be incorrectly deleted if it was created after
-  a remote item at the same location was deleted but before this deletion was synced.
+- Fixes an issue where a new local file could be incorrectly deleted if it was created 
+  just after a remote item at the same path was deleted.
 - Fixes an issue where `maestral stop` and `maestral restart` would not interrupt running
   sync jobs but instead wait for them to be completed. Now, aborted jobs will be resumed
   when starting Maestral again.
+- Correctly handle when a folder is replaced by a file and vice versa.
 - Correctly handle additional error types: internal Dropbox server error, insufficient
   space on local drive, file name too long for local file system and out-of-memory error.
-- Resume upload after dropped packages instead of raising a sync issue.
+- Automatically resume upload in case of dropped packages instead of raising a sync issue.
 - Set the log level for the systemd journal according to user settings instead of always
   using logging.DEBUG.
 - Run checks for Dropbox folder location and link status when invoking `maestral restart`.
 - Notify the user through the GUI when moving the Dropbox directory fails instead of
   silently keeping the old directory.
-- Fixes an issue where the XDG_DATA_DIR would not be respected in Linux.
+- Fixes an issue where the environment variable XDG_DATA_DIR would not be respected in
+  Linux.
 
 #### Removed:
 
