@@ -19,6 +19,7 @@ import functools
 from enum import IntEnum
 
 # external imports
+import pathspec
 import umsgpack
 import dropbox
 from dropbox.files import DeletedMetadata, FileMetadata, FolderMetadata
@@ -35,7 +36,7 @@ from atomicwrites import atomic_write
 from maestral.config import MaestralConfig, MaestralState, list_configs
 from maestral.watchdog import Observer
 from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
-                                EXCLUDED_FILE_NAMES, IS_FS_CASE_SENSITIVE)
+                                EXCLUDED_FILE_NAMES, IGNORE_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError,
                              DropboxAuthError, SyncError, ExcludedItemError,
                              PathError, InotifyError, NotFoundError)
@@ -352,6 +353,7 @@ class UpDownSync:
         self._dropbox_path = self._conf.get("main", "path")
         self._excluded_items = self._conf.get("main", "excluded_items")
         self._rev_dict_cache = self._load_rev_dict_from_file()
+        self._mignore_rules = self._load_mignore_rules_form_file()
         self._last_sync_for_path = dict()
 
     # ==== settings ======================================================================
@@ -419,7 +421,7 @@ class UpDownSync:
         with self._last_sync_lock:
             self._last_sync_for_path[dbx_path.lower()] = last_sync
 
-    # ==== Rev file management ===========================================================
+    # ==== rev file management ===========================================================
 
     def _load_rev_dict_from_file(self, raise_exception=False):
         """
@@ -556,7 +558,26 @@ class UpDownSync:
             self._rev_dict_cache.clear()
             self._save_rev_dict_to_file()
 
-    # ==== Helper functions ==============================================================
+    # ==== mignore management ============================================================
+
+    @property
+    def mignore_path(self):
+        return osp.join(self.dropbox_path, IGNORE_FILE)
+
+    @property
+    def mignore_rules(self):
+        return self._mignore_rules
+
+    def _load_mignore_rules_form_file(self):
+        try:
+            with open(self.mignore_path, "r") as f:
+                spec = f.read()
+        except FileNotFoundError:
+            spec = ""
+        spec = spec.lower()  # convert all patterns to lower case
+        return pathspec.PathSpec.from_lines("gitwildmatch", spec.splitlines())
+
+    # ==== helper functions ==============================================================
 
     @staticmethod
     def clean_excluded_items_list(folder_list):
