@@ -1304,7 +1304,7 @@ class UpDownSync:
                         entry.path_display):
                     success.append(self.get_remote_dropbox(entry.path_display))
 
-        if all(success) and is_dbx_root:
+        if is_dbx_root:
             # save cursor for global download
             self.last_cursor = cursor
 
