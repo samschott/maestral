@@ -354,8 +354,8 @@ class UpDownSync:
     @excluded_files.setter
     def excluded_files(self, files_list):
         """Setter: excluded_folders"""
-        self._excluded_files = files_list
-        self._conf.set("main", "excluded_files", files_list)
+        self._excluded_files = list(set(files_list))
+        self._conf.set("main", "excluded_files", self._excluded_files)
 
     @property
     def excluded_folders(self):
