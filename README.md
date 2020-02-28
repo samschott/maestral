@@ -98,7 +98,7 @@ The following tasks could need your help:
 - [ ] A native GTK frontend. Maestral currently uses PyQt5.
 - [ ] Package for non-macOS platforms.
 
-## Warning:
+## Warning
 
 - Maestral is still in beta status. Even though highly unlikely, using it may potentially
   result in loss of data.
