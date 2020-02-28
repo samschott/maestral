@@ -29,14 +29,13 @@ Releases tab. On other platforms, please download and install the Python package
 ```console
 $ python3 -m pip install --upgrade maestral
 ```
-If you intend to use the graphical user interface, you also need to install PyQt5, either
-from PyPI or from your platform's package manager.
-
-For the Maestral daemon to integrate with systemd, please install the systemd extra:
+If you intend to use the graphical user interface, you also need to specify the GUI option
+during installation. This will install the `maestral-qt` frontend and `PyQt5`:
 ```console
-$ python3 -m pip install --upgrade maestral[systemd]
+$ python3 -m pip install --upgrade maestral[gui]
 ```
-Details on systemd integration are given in the [Wiki](https://github.com/SamSchott/maestral-dropbox/wiki/Systemd-Integration).
+More detailed installation instructions are given in the
+[Wiki](https://github.com/SamSchott/maestral-dropbox/wiki/Installation-Requirements).
 
 ## Usage
 
@@ -56,27 +55,35 @@ commands. The most important are:
 - `maestral gui`: Starts the Maestral GUI. Creates a sync daemon if not already running.
 - `maestral start|stop`: Starts or stops the Maestral sync daemon.
 - `maestral pause|resume`: Pauses or resumes syncing.
+- `maestral autostart`: Sets the daemon to start on log in.
 - `maestral status`: Gets the current status of Maestral.
 - `maestral file-status LOCAL_PATH`: Gets the sync status of an individual file or folder.
-- `maestral set-dir LOCAL_PATH`: Sets the location of your local Dropbox folder.
 - `maestral excluded add|remove|list`: Command group to manage excluded folders.
 - `maestral ls DROPBOX_PATH`: Lists the contents of a directory on Dropbox.
-- `maestral log show|clear|level`: Command group to manage logging.
+- `maestral notify snooze N`: Snoozes desktop notifications for N minutes.
 
 Maestral currently supports the syncing of multiple Dropbox accounts by running multiple
-instances. This needs to be configured from the command line. For example, before running
-`maestral gui`, one can set up a new configuration with `maestral config new`. The
-configuration name should then be given as command line option `--config-name` before
-running maestral. For example:
+instances with different configuration files. This needs to be configured from the
+command line by passing the option `--config-name` to `maestral start` or `maestral gui`.
+Maestral will then select an existing config with the given name or create a new one.
+For example:
 
-```shell
-$ maestral config add "personal"
-$ maestral config add "work"
-$ maestral gui --config-name="personal"
-$ maestral gui --config-name="work"
+```console
+$ maestral start --config-name="personal"
+$ maestral start --config-name="work"
 ```
 This will start two instances of Maestral, syncing a private and a work account,
-respectively. Multiple Maestral daemons are supported as well.
+respectively. Configs will be automatically cleared when unlinking an account and you can
+list all currently linked accounts with `maestral configs`:
+
+```console
+$ maestral configs
+
+Config name  Account
+personal     user@gmail.com
+work         user@mycorp.org
+
+```
 
 By default, the Dropbox folder names will contain the capitalised config-name in braces.
 In the above case, this will be "Dropbox (Personal)" and "Dropbox (Work)".
@@ -88,8 +95,8 @@ The following tasks could need your help:
 - [ ] Write tests for Maestral.
 - [ ] Detect and warn in case of unsupported Dropbox folder locations (network drives,
       external hard drives, etc).
-- [ ] Native Cocoa and GTK interfaces. Maestral currently uses PyQt5.
-- [ ] Packaging: improve packing for macOS (reduce app size) and package for other platforms.
+- [ ] A native GTK frontend. Maestral currently uses PyQt5.
+- [ ] Package for non-macOS platforms.
 
 ## Warning:
 
