@@ -1378,9 +1378,9 @@ class UpDownSync:
 
         # sort according to path hierarchy
         # do not create sub-folder / file before parent exists
-        folders.sort(key=lambda x: x.path_display.count('/'))
-        files.sort(key=lambda x: x.path_display.count('/'))
-        deleted.sort(key=lambda x: x.path_display.count('/'))
+        folders.sort(key=lambda x: x.path_display.count("/"))
+        files.sort(key=lambda x: x.path_display.count("/"))
+        deleted.sort(key=lambda x: x.path_display.count("/"))
 
         downloaded = []  # local list of all changes
 
@@ -1866,7 +1866,7 @@ def startup_worker(sync, syncing, running, connected, startup_requested, startup
                 # local changes during this download will be registered
                 # by the local FileSystemObserver but only uploaded after
                 # `startup_done` has been set
-                if sync.last_cursor == '':
+                if sync.last_cursor == "":
                     sync.get_remote_dropbox()
                     sync.last_sync = time.time()
 
@@ -2140,52 +2140,31 @@ class MaestralMonitor:
 
         return all(base_threads_alive) and all(watchdog_emitters_alive)
 
-    def rebuild_rev_file(self):
+    def rebuild_index(self):
         """
         Rebuilds the rev file by comparing remote with local files and updating rev
-        numbers from the Dropbox server. Files are compared by their content hashes
-        and conflicting copies are created if the contents differ.
-        Reindexing may take several minutes, depending on the size of your Dropbox. If
-        a file is modified during this process before it has been re-indexed, any changes
-        to it will be flagged as sync conflicts. If a file is deleted before it has been
-        re-indexed, the deletion will be reversed.
+        numbers from the Dropbox server. Files are compared by their content hashes and
+        conflicting copies are created if the contents differ. File changes during the
+        rebuild process will be queued and uploaded once rebuilding has completed.
+
+        Rebuilding will be performed asynchronously.
+
+        :raises: :class:`MaestralApiError`
         """
 
         logger.info("Rebuilding index...")
 
-        was_running = self.running.is_set()
+        self.pause()
 
-        self.stop()  # stop all sync threads
-        self.upload_thread.join()
-
-        # reset sync state
-        # if Maestral is killed while rebuilding, this will trigger a new download
         self.sync.last_sync = 0.0
         self.sync.last_cursor = ""
         self.sync.clear_rev_index()
+        self.sync.clear_all_sync_errors()
 
-        # Re-download Dropbox from server. If a local file already exists, content hashes
-        # are compared. If files are identical, the local rev will be set accordingly,
-        # otherwise a conflicting copy will be created.
-
-        completed = False
-        while not completed:
-            try:
-                self.sync.get_remote_dropbox(ignore_excluded=True)
-                completed = True
-            except ConnectionError:
-                logger.info(DISCONNECTED)
-
-        self.sync.last_sync = time.time()
-
-        # Resume syncing. This will upload all changes which occurred
-        # while rebuilding, including conflicting copies. Files that were
-        # deleted before re-indexing will be downloaded again. Files changes
-        # which occurred before the file was re-indexed will result in a conflicting
-        # copy.
-
-        if was_running:
+        if not self.running.is_set():
             self.start()
+        else:
+            self.resume()
 
 
 # ========================================================================================
