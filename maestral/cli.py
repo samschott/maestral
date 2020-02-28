@@ -750,13 +750,16 @@ def excluded_list(config_name: str):
         with MaestralProxy(config_name, fallback=True) as m:
 
             excluded_folders = m.get_conf('main', 'excluded_folders')
-            excluded_folders.sort()
+            excluded_files = m.get_conf('main', 'excluded_files')
+
+            all_excluded = excluded_folders + excluded_files
+            all_excluded.sort()
 
             if len(excluded_folders) == 0:
-                click.echo('No excluded folders.')
+                click.echo('No excluded files or folders.')
             else:
-                for folder in excluded_folders:
-                    click.echo(folder)
+                for item in all_excluded:
+                    click.echo(item)
 
 
 @excluded.command(name='add', help_priority=1)
@@ -764,7 +767,7 @@ def excluded_list(config_name: str):
 @click.argument('dropbox_path', type=click.Path())
 @catch_maestral_errors
 def excluded_add(dropbox_path: str, config_name: str):
-    """Adds a folder to the excluded list and re-syncs."""
+    """Adds a file or folder to the excluded list and re-syncs."""
 
     if not dropbox_path.startswith('/'):
         dropbox_path = '/' + dropbox_path
@@ -781,8 +784,8 @@ def excluded_add(dropbox_path: str, config_name: str):
             if _check_for_fatal_errors(m):
                 return
             try:
-                m.exclude_folder(dropbox_path)
-                click.echo(f'Excluded directory \'{dropbox_path}\'.')
+                m.exclude_item(dropbox_path)
+                click.echo(f'Excluded \'{dropbox_path}\'.')
             except ConnectionError:
                 click.echo('Could not connect to Dropbox.')
             except ValueError as e:
@@ -794,7 +797,7 @@ def excluded_add(dropbox_path: str, config_name: str):
 @click.argument('dropbox_path', type=click.Path())
 @catch_maestral_errors
 def excluded_remove(dropbox_path: str, config_name: str):
-    """Removes a folder from the excluded list and re-syncs."""
+    """Removes a file or folder from the excluded list and re-syncs."""
 
     if not dropbox_path.startswith('/'):
         dropbox_path = '/' + dropbox_path
@@ -812,8 +815,8 @@ def excluded_remove(dropbox_path: str, config_name: str):
                 if _check_for_fatal_errors(m):
                     return
                 try:
-                    m.include_folder(dropbox_path)
-                    click.echo(f'Included directory \'{dropbox_path}\'. Now downloading...')
+                    m.include_item(dropbox_path)
+                    click.echo(f'Included \'{dropbox_path}\'. Now downloading...')
                 except ConnectionError:
                     click.echo('Could not connect to Dropbox.')
                 except ValueError as e:
