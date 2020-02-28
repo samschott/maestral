@@ -1369,9 +1369,9 @@ class UpDownSync:
         _, _, deleted_excluded = self._sort_remote_entries(changes_excluded)
         for d in deleted_excluded:
             new_excluded_folders = [f for f in self.excluded_folders if not f.startswith(d.path_lower)]
-            self.excluded_folders = new_excluded
+            self.excluded_folders = new_excluded_folders
             new_excluded_files = [f for f in self.excluded_files if not f.startswith(d.path_lower)]
-            self.excluded_files = excluded_files
+            self.excluded_files = new_excluded_files
 
         # sort changes into folders, files and deleted
         folders, files, deleted = self._sort_remote_entries(changes_included)
