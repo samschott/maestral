@@ -283,7 +283,8 @@ class UpDownSync:
     :cvar failed_downloads: Queue with dbx file paths of failed downloads.
     :cvar sync_errors: Queue with full sync errors of all failed uploads / downloads.
 
-    :cvar queued_folder_downloads: Queue with folders to download which have been newly
+    :cvar queued_newly_included_downloads: Queue with folders to download which have
+    been newly
         included.
     """
 
@@ -299,7 +300,7 @@ class UpDownSync:
     queued_for_download = queue.Queue()
     queued_for_upload = queue.Queue()
 
-    queued_folder_downloads = queue.Queue()
+    queued_newly_included_downloads = queue.Queue()
 
     __slots__ = (
         "client", "config_name", "rev_file_path",
@@ -615,7 +616,8 @@ class UpDownSync:
         folder names and prevents the creation of duplicate folders with different
         casing on the local drive.
 
-        :param str dbx_path: Path to file relative to Dropbox folder.
+        :param str dbx_path: Path to file relative to Dropbox folder. The basename must be
+            provided with correct casing.
         :returns: Corresponding local path on drive.
         :rtype: str
         :raises: ValueError if no path is specified.
@@ -1262,7 +1264,7 @@ class UpDownSync:
     # ==== Download sync =================================================================
 
     @catch_sync_issues(sync_errors)
-    def get_remote_dropbox(self, dbx_path="/", ignore_excluded=True):
+    def get_remote_folder(self, dbx_path="/", ignore_excluded=True):
         """
         Gets all files/folders from Dropbox and writes them to the local folder
         :ivar:`dropbox_path`. Call this method on first run of the Maestral. Indexing
@@ -1281,7 +1283,7 @@ class UpDownSync:
         if is_dbx_root:
             logger.info(f"Downloading your Dropbox")
         else:
-            logger.info(f"Downloading folder {dbx_path}")
+            logger.info(f"Downloading {dbx_path}")
 
         if not any(folder.startswith(dbx_path) for folder in self.excluded_folders):
             # if there are no excluded subfolders, index and download all at once
@@ -1303,13 +1305,22 @@ class UpDownSync:
             for entry in root_result.entries:
                 if isinstance(entry, FolderMetadata) and not self.is_excluded_by_user(
                         entry.path_display):
-                    success.append(self.get_remote_dropbox(entry.path_display))
+                    success.append(self.get_remote_folder(entry.path_display))
 
         if is_dbx_root:
             # save cursor for global download
             self.last_cursor = cursor
 
         return all(success)
+
+    @catch_sync_issues(sync_errors)
+    def get_remote_item(self, dbx_path):
+        md = self.client.get_metadata(dbx_path)
+
+        if isinstance(md, dropbox.files.FileMetadata):
+            self._create_local_entry(dbx_path)
+        elif isinstance(md, dropbox.files.FolderMetadata):
+            self.get_remote_folder(dbx_path)
 
     @catch_sync_issues()
     def wait_for_remote_changes(self, last_cursor, timeout=40):
@@ -1753,9 +1764,9 @@ def download_worker(sync, syncing, running, connected, startup_done):
             logger.error("Unexpected error", exc_info=True)
 
 
-def download_worker_added_folder(sync, syncing, running, connected, startup_done):
+def download_worker_added_item(sync, syncing, running, connected, startup_done):
     """
-    Worker to download folders which have been newly included in sync.
+    Worker to download items which have been newly included in sync.
 
     :param UpDownSync sync: Instance of :class:`UpDownSync`.
     :param Event syncing: Event that indicates if workers are running or paused.
@@ -1769,20 +1780,20 @@ def download_worker_added_folder(sync, syncing, running, connected, startup_done
         syncing.wait()
         startup_done.wait()
 
-        dbx_path = sync.queued_folder_downloads.get()
+        dbx_path = sync.queued_newly_included_downloads.get()
 
         if not (running.is_set() and syncing.is_set() and startup_done.is_set()):
-            sync.queued_folder_downloads.put(dbx_path)
+            sync.queued_newly_included_downloads.put(dbx_path)
             continue
 
         try:
             with sync.lock:
-                sync.get_remote_dropbox(dbx_path)
+                sync.get_remote_item(dbx_path)
             logger.info(IDLE)
         except ConnectionError:
             syncing.clear()
             connected.clear()
-            sync.queued_folder_downloads.put(dbx_path)
+            sync.queued_newly_included_downloads.put(dbx_path)
             logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
         except MaestralApiError as e:
@@ -1868,7 +1879,7 @@ def startup_worker(sync, syncing, running, connected, startup_requested, startup
                 # by the local FileSystemObserver but only uploaded after
                 # `startup_done` has been set
                 if sync.last_cursor == "":
-                    sync.get_remote_dropbox()
+                    sync.get_remote_folder()
                     sync.last_sync = time.time()
 
                 if not (syncing.is_set() and running.is_set()):
@@ -2028,7 +2039,7 @@ class MaestralMonitor:
         )
 
         self.download_thread_added_folder = Thread(
-            target=download_worker_added_folder,
+            target=download_worker_added_item,
             daemon=True,
             args=(
                 self.sync, self.syncing, self.running, self.connected, self.startup_done

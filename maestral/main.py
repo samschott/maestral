@@ -698,30 +698,167 @@ class Maestral(object):
 
         logger.info("Unlinked Dropbox account.")
 
-    def exclude_folder(self, dbx_path):
+    def exclude_item(self, dbx_path):
         """
-        Excludes folder from sync and deletes local files. It is safe to call this method
-        with folders which have already been excluded.
+        Excludes a file or folder from sync and deletes the local item. It is safe to call
+        this method with items which have already been excluded.
 
-        :param str dbx_path: Dropbox folder to exclude.
+        :param str dbx_path: Dropbox file or folder to exclude.
         :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         """
 
-        dbx_path = dbx_path.lower().rstrip(osp.sep)
+        md = self.client.get_metadata(dbx_path)
+
+        if isinstance(md, files.FileMetadata):
+            self.exclude_file(md)
+        elif isinstance(md, files.FolderMetadata):
+            self.exclude_folder(md)
+        else:
+            raise ValueError("No such file / folder on Dropbox: '{0}'".format(dbx_path))
+
+    def include_item(self, dbx_path):
+        """
+        Includes a file or folder to sync and downloads it from Dropbox. It is safe to
+        call this method with items which have already been included.
+
+        :param str dbx_path: Dropbox file or folder to include.
+        :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox or lies inside
+            an excluded folder.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        """
 
         md = self.client.get_metadata(dbx_path)
+
+        if isinstance(md, files.FileMetadata):
+            self.include_file(md)
+        elif isinstance(md, files.FolderMetadata):
+            self.include_folder(md)
+        else:
+            raise ValueError("No such file / folder on Dropbox: '{0}'".format(dbx_path))
+
+    def exclude_file(self, dbx_path_or_metadata):
+        """
+        Excludes a file from sync and deletes it locally. It is safe to call this method
+        with files which have already been excluded.
+
+        :param dbx_path_or_metadata: Dropbox file to exclude.
+        :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        """
+
+        # input validation
+        if isinstance(dbx_path_or_metadata, str):
+            dbx_path = dbx_path_or_metadata
+            md = self.client.get_metadata(dbx_path)
+        elif isinstance(dbx_path_or_metadata, files.Metadata):
+            md = dbx_path_or_metadata
+            dbx_path = dbx_path_or_metadata.path_display
+        else:
+            raise ValueError('First argument must either be a path or Dropbox metadata')
+
+        if not isinstance(md, files.FileMetadata):
+            raise ValueError("No such file on Dropbox: '{0}'".format(dbx_path))
+
+        dbx_path = dbx_path.lower()
+
+        # add the path to excluded list
+        if self.sync.is_excluded_by_user(dbx_path):
+            logger.info("File was already excluded, nothing to do.")
+            return
+
+        excluded_files = self.sync.excluded_files
+        excluded_files.append(dbx_path)
+
+        self.sync.excluded_files = excluded_files
+        self.sync.set_local_rev(dbx_path, None)
+
+        # remove folder from local drive
+        local_path = self.sync.to_local_path(dbx_path)
+        local_path_cased = path_exists_case_insensitive(local_path)
+        delete(local_path_cased)
+        logger.info(f"Deleted '{local_path_cased}'.")
+
+    def include_file(self, dbx_path_or_metadata):
+        """
+        Includes a file in sync and downloads in the background. It is safe to call this
+        method with files which have already been included, they will not be downloaded
+        again.
+
+        :param dbx_path_or_metadata: Dropbox file to include.
+        :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox or lies inside
+            an excluded folder.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        """
+
+        # input validation
+        if isinstance(dbx_path_or_metadata, str):
+            dbx_path = dbx_path_or_metadata
+            md = self.client.get_metadata(dbx_path)
+        elif isinstance(dbx_path_or_metadata, files.Metadata):
+            md = dbx_path_or_metadata
+            dbx_path = dbx_path_or_metadata.path_display
+        else:
+            raise ValueError('First argument must either be a path or Dropbox metadata')
+
+        if not isinstance(md, files.FileMetadata):
+            raise ValueError("No such file on Dropbox: '{0}'".format(dbx_path))
+
+        dbx_path = dbx_path.lower()
+
+        if not isinstance(md, files.FileMetadata):
+            raise ValueError("No such file on Dropbox: '{0}'".format(dbx_path))
+
+        excluded_files = self.sync.excluded_files
+
+        if dbx_path not in excluded_files:
+            logger.info("File was already included, nothing to do.")
+            return
+
+        for folder in self.sync.excluded_folders:
+            if is_child(dbx_path, folder):
+                raise ValueError("'{0}' lies inside the excluded folder '{1}'. "
+                                 "Please include '{1}' first.".format(dbx_path, folder))
+
+        excluded_files.remove(dbx_path)
+        self.sync.excluded_files = excluded_files
+
+        # download folder contents from Dropbox
+        logger.info(f"Downloading added file '{dbx_path}'.")
+        self.sync.queued_newly_included_downloads.put(dbx_path)
+
+    def exclude_folder(self, dbx_path_or_metadata):
+        """
+        Excludes folder from sync and deletes local files. It is safe to call this method
+        with folders which have already been excluded.
+
+        :param dbx_path_or_metadata: Dropbox folder to exclude.
+        :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        """
+
+        # input validation
+        if isinstance(dbx_path_or_metadata, str):
+            dbx_path = dbx_path_or_metadata
+            md = self.client.get_metadata(dbx_path)
+        elif isinstance(dbx_path_or_metadata, files.Metadata):
+            md = dbx_path_or_metadata
+            dbx_path = dbx_path_or_metadata.path_display
+        else:
+            raise ValueError('First argument must either be a path or Dropbox metadata')
 
         if not isinstance(md, files.FolderMetadata):
             raise ValueError("No such folder on Dropbox: '{0}'".format(dbx_path))
 
+        dbx_path = dbx_path.lower().rstrip(osp.sep)
+
         # add the path to excluded list
-        excluded_folders = self.sync.excluded_folders
-        if dbx_path not in excluded_folders:
-            excluded_folders.append(dbx_path)
-        else:
+        if self.sync.is_excluded_by_user(dbx_path):
             logger.info("Folder was already excluded, nothing to do.")
             return
+
+        excluded_folders = self.sync.excluded_folders
+        excluded_folders.append(dbx_path)
 
         self.sync.excluded_folders = excluded_folders
         self.sync.set_local_rev(dbx_path, None)
@@ -729,29 +866,38 @@ class Maestral(object):
         # remove folder from local drive
         local_path = self.sync.to_local_path(dbx_path)
         local_path_cased = path_exists_case_insensitive(local_path)
-        logger.info(f"Deleting folder '{local_path_cased}'.")
-        if osp.isdir(local_path_cased):
-            shutil.rmtree(local_path_cased)
+        delete(local_path_cased)
+        logger.info(f"Deleted '{local_path_cased}'.")
 
-    def include_folder(self, dbx_path):
+    def include_folder(self, dbx_path_or_metadata):
         """
         Includes folder in sync and downloads in the background. It is safe to call this
         method with folders which have already been included, they will not be downloaded
         again.
 
-        :param str dbx_path: Dropbox folder to include.
+        :param dbx_path_or_metadata: Dropbox folder to include.
         :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox or lies inside
             another excluded folder.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         """
 
-        dbx_path = dbx_path.lower().rstrip(osp.sep)
-        md = self.client.get_metadata(dbx_path)
-
-        old_excluded_folders = self.sync.excluded_folders
+        # input validation
+        if isinstance(dbx_path_or_metadata, str):
+            dbx_path = dbx_path_or_metadata
+            md = self.client.get_metadata(dbx_path)
+        elif isinstance(dbx_path_or_metadata, files.Metadata):
+            md = dbx_path_or_metadata
+            dbx_path = dbx_path_or_metadata.path_display
+        else:
+            raise ValueError('First argument must either be a path or Dropbox metadata')
 
         if not isinstance(md, files.FolderMetadata):
             raise ValueError("No such folder on Dropbox: '{0}'".format(dbx_path))
+
+        dbx_path = dbx_path.lower().rstrip(osp.sep)
+
+        old_excluded_folders = self.sync.excluded_folders
+
         for folder in old_excluded_folders:
             if is_child(dbx_path, folder):
                 raise ValueError("'{0}' lies inside the excluded folder '{1}'. "
@@ -777,7 +923,7 @@ class Maestral(object):
         # download folder contents from Dropbox
         logger.info(f"Downloading added folder '{dbx_path}'.")
         for folder in new_included_folders:
-            self.sync.queued_folder_downloads.put(folder)
+            self.sync.queued_newly_included_downloads.put(folder)
 
     @handle_disconnect
     def _include_folder_without_subfolders(self, dbx_path):
@@ -796,14 +942,14 @@ class Maestral(object):
         excluded_folders.remove(dbx_path)
 
         self.sync.excluded_folders = excluded_folders
-        self.sync.queued_folder_downloads.put(dbx_path)
+        self.sync.queued_newly_included_downloads.put(dbx_path)
 
     @handle_disconnect
     def set_excluded_folders(self, folder_list=None):
         """
         Sets the list of excluded folders to `folder_list`. If not given, gets all top
         level folder paths from Dropbox and asks user to include or exclude. Folders
-        which are no in `folder_list` but exist on Dropbox will be downloaded.
+        which are no in `folder_list` but were previously excluded will be downloaded.
 
         On initial sync, this does not trigger any downloads.
 
