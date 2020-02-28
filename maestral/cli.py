@@ -618,63 +618,29 @@ def move_dir(config_name: str, new_path: str):
 def rebuild_index(config_name: str):
     """Rebuilds Maestral's index. May take several minutes."""
 
-    if not pending_link_cli(config_name):
-
+    try:
         import textwrap
+        from maestral.daemon import MaestralProxy
 
-        width, height = click.get_terminal_size()
+        with MaestralProxy(config_name) as m:
 
-        message1 = textwrap.wrap(
-            'If you encounter sync issues, please run \'maestral status\' to check for '
-            'sync issues which can should be resolved manually, e.g., incompatible file '
-            'names or insufficient permissions. After resolving them, please pause and '
-            'resume syncing. Only rebuild the index if you continue to have problems '
-            'after taking those steps.',
-            width=width,
-        )
+            width, height = click.get_terminal_size()
 
-        message2 = textwrap.wrap(
-            'Rebuilding the index may take several minutes, depending on the size of '
-            'your Dropbox. Please do not modify any items in your local Dropbox folder '
-            'during this process. Any changes to local files while rebuilding may be '
-            'lost.',
-            width=width
-        )
+            msg = textwrap.wrap(
+                'Rebuilding the index may take several minutes, depending on the size of '
+                'your Dropbox. Any changes to local files will be synced once rebuilding '
+                'has completed. If you stop the daemon during the process, rebuilding '
+                'will start again on the next launch.',
+                width=width
+            )
 
-        click.echo('\n'.join(message1) + '\n')
-        click.echo('\n'.join(message2) + '\n')
-        click.confirm('Do you want to continue?', abort=True)
+            click.echo('\n'.join(msg) + '\n')
+            click.confirm('Do you want to continue?', abort=True)
 
-        import time
-        import Pyro5.client
-        from concurrent.futures import ThreadPoolExecutor
-        from maestral.daemon import MaestralProxy, get_maestral_proxy
+            m.rebuild_index()
 
-        m0 = get_maestral_proxy(config_name, fallback=True)
-
-        def rebuild_in_thread():
-            if isinstance(m0, Pyro5.client.Proxy):
-                # rebuild index from separate proxy
-                with MaestralProxy(config_name) as m1:
-                    m1.rebuild_index()
-            else:
-                # rebuild index with main instance
-                m0.rebuild_index()
-
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(rebuild_in_thread)
-            while future.running():  # get status updates while rebuilding
-                msg = ('\r' + m0.status).ljust(width)
-                click.echo(msg, nl=False)
-                time.sleep(1.0)
-
-        future.result()  # this will raise any errors during rebuilding
-        click.echo('\rRebuilding complete.'.ljust(width))
-
-        del m0  # delete while still in scope
-
-    else:
-        click.echo('Maestral does not appear to be linked.')
+    except Pyro5.errors.CommunicationError:
+        click.echo('Maestral daemon is not running.')
 
 
 @main.command(help_priority=16)
