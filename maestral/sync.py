@@ -767,11 +767,12 @@ class UpDownSync:
         # get deleted items
         rev_dict_copy = self.get_rev_dict()
         for path in rev_dict_copy:
-            if self.to_local_path(path).lower() not in lowercase_snapshot_paths:
+            local_path = self.to_local_path(path)
+            if local_path.lower() not in lowercase_snapshot_paths:
                 if rev_dict_copy[path] == "folder":
-                    event = DirDeletedEvent(self.to_local_path(path))
+                    event = DirDeletedEvent(local_path)
                 else:
-                    event = FileDeletedEvent(self.to_local_path(path))
+                    event = FileDeletedEvent(local_path)
                 changes.append(event)
 
         del snapshot
