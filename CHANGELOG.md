@@ -1,3 +1,30 @@
+## v0.6.2-dev
+
+
+#### Added:
+
+- Officially support excluding files from sync. This uses the same interface as excluding 
+  folders. Excluded files will be removed from the local Dropbox folder.
+  
+#### Changed:
+
+- Replaced the `excluded_files` and `excluded_folders` settings from the config file with
+  a unified `excluded_items` setting.
+- Renamed `Maestral.exclude_folder` to `Maestral.exclude_item`,
+ `Maestral.include_folder` to `Maestral.inlcude_item`, and `Maestral.set_excluded_folders`
+ to `Maestral.set_excluded_items`.
+
+#### Fixed:
+
+- Fixes missing cursor and resulting `dropbox.stone_validators.ValidationError` if a
+  sync error occurred during the initial sync.
+- Wait until all sync activity has stopped before moving the Dropbox folder. This avoids
+  errors when trying to convert local to dropbox paths and vice versa during the move.
+
+#### Removed:
+
+- Removed the `excluded_files` and `excluded_folders` settings from the config file.
+
 ## v0.6.1
 
 This release improves desktop notifications: Notifications will now only appear for remote
