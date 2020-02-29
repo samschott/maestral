@@ -583,8 +583,9 @@ class UpDownSync:
 
         if i == len(path_list):  # path corresponds to dropbox_path
             return "/"
-        elif not i == len(dbx_root_list):  # path is outside of to dropbox_path
-            raise ValueError(f"Specified path '{local_path}' is not in Dropbox directory.")
+        elif i != len(dbx_root_list):  # path is outside of to dropbox_path
+            raise ValueError(f"Specified path '{local_path}' is outside of Dropbox "
+                             f"directory '{self.dropbox_path}'.")
 
         return "/{}".format("/".join(path_list[i:]))
 
