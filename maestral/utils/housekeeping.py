@@ -26,11 +26,12 @@ logger = logging.getLogger(__name__)
 
 def migrate_user_config(config_name):
     config_path = get_conf_path(CONFIG_DIR_NAME, create=False)
+    config_fname = osp.join(config_path, config_name + '.ini')
 
     # load old config non-destructively
     try:
         old_conf = DefaultsConfig(config_path, config_name, '.ini')
-        old_conf.read(osp.join(config_path, config_name + '.ini'), encoding='utf-8')
+        old_conf.read(config_fname, encoding='utf-8')
         old_version = old_conf.get(UserConfig.DEFAULT_SECTION_NAME, 'version')
     except OSError:
         return
