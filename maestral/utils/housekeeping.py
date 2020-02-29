@@ -38,9 +38,9 @@ def migrate_user_config(config_name):
 
     if Version(old_version) < Version('11.0.0'):
 
-        state = MaestralState(config_name)
-
         # get values for moved settings
+        excluded_folders = old_conf.get('main', 'excluded_folders')
+
         email = old_conf.get('account', 'email')
         display_name = old_conf.get('account', 'display_name')
         abbreviated_name = old_conf.get('account', 'abbreviated_name')
@@ -59,8 +59,10 @@ def migrate_user_config(config_name):
         update_notification_last = float(update_notification_last)
         lastsync = float(lastsync)
         recent_changes = ast.literal_eval(recent_changes)
+        excluded_folders = ast.literal_eval(excluded_folders)
 
         # set state values
+        state = MaestralState(config_name)
         state.set('account', 'email', email)
         state.set('account', 'display_name', display_name)
         state.set('account', 'abbreviated_name', abbreviated_name)
@@ -75,9 +77,9 @@ def migrate_user_config(config_name):
         state.set('sync', 'lastsync', lastsync)
         state.set('sync', 'recent_changes', recent_changes)
 
-        # load actual config to remove obsolete options
+        # load actual config to remove obsolete options and add moved ones
         conf = MaestralConfig(config_name)
-        conf.set_version(CONF_VERSION, save=True)
+        conf.set('main', 'excluded_items', excluded_folders)
 
         # clean up backup and defaults files from previous version of maestral
         for file in os.scandir(old_conf._path):
@@ -87,6 +89,12 @@ def migrate_user_config(config_name):
                     os.remove(file.path)
 
         logger.info(f'Migrated user config "{config_name}"')
+
+    elif Version(old_version) < Version('12.0.0'):
+        excluded_folders = old_conf.get('main', 'excluded_folders')
+        excluded_folders = ast.literal_eval(excluded_folders)
+        conf = MaestralConfig(config_name)
+        conf.set('main', 'excluded_items', excluded_folders)
 
 
 def migrate_maestral_index(config_name):
