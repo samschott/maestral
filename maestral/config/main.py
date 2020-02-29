@@ -19,8 +19,7 @@ DEFAULTS = [
      {
          'path': '',  # dropbox folder location
          'default_dir_name': 'Dropbox ({})',  # default dropbox folder name
-         'excluded_folders': [],  # folders excluded from sync
-         'excluded_files': [],  # files excluded from sync, currently not used
+         'excluded_items': [],  # files and folders excluded from sync
      }
      ),
     ('account',
@@ -71,7 +70,7 @@ DEFAULTS_STATE = [
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = '11.0.0'
+CONF_VERSION = '12.0.0'
 
 
 # =============================================================================

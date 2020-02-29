@@ -305,7 +305,7 @@ class UpDownSync:
     __slots__ = (
         "client", "config_name", "rev_file_path",
         "local_file_event_queue", "queue_uploading", "queue_downloading",
-        "_dropbox_path", "_excluded_files", "_excluded_folders", "_rev_dict_cache",
+        "_dropbox_path", "_excluded_items", "_rev_dict_cache",
         "_conf", "_state", "notifier", "_last_sync_for_path"
     )
 
@@ -325,8 +325,7 @@ class UpDownSync:
 
         # load cached properties
         self._dropbox_path = self._conf.get("main", "path")
-        self._excluded_files = self._conf.get("main", "excluded_files")
-        self._excluded_folders = self._conf.get("main", "excluded_folders")
+        self._excluded_items = self._conf.get("main", "excluded_items")
         self._rev_dict_cache = self._load_rev_dict_from_file()
         self._last_sync_for_path = dict()
 
@@ -347,31 +346,19 @@ class UpDownSync:
         self._conf.set("main", "path", path)
 
     @property
-    def excluded_files(self):
-        """List containing all files excluded from sync. Changes are saved to the
-        config file."""
-        return self._excluded_files
-
-    @excluded_files.setter
-    def excluded_files(self, files_list):
-        """Setter: excluded_folders"""
-        self._excluded_files = list(set(files_list))
-        self._conf.set("main", "excluded_files", self._excluded_files)
-
-    @property
-    def excluded_folders(self):
+    def excluded_items(self):
         """List containing all folders excluded from sync. Changes are saved to the
         config file. If a parent folder is excluded, its children will automatically be
         removed from the list. If only children are given but not the parent folder,
         any new items added to the parent will be synced."""
-        return self._excluded_folders
+        return self._excluded_items
 
-    @excluded_folders.setter
-    def excluded_folders(self, folder_list):
-        """Setter: excluded_folders"""
+    @excluded_items.setter
+    def excluded_items(self, folder_list):
+        """Setter: excluded_items"""
         clean_list = self.clean_excluded_folder_list(folder_list)
-        self._excluded_folders = clean_list
-        self._conf.set("main", "excluded_folders", clean_list)
+        self._excluded_items = clean_list
+        self._conf.set("main", "excluded_items", clean_list)
 
     # ==== sync state ====================================================================
 
@@ -701,12 +688,7 @@ class UpDownSync:
         """
         dbx_path = dbx_path.lower()
 
-        # in excluded files?
-        test0 = dbx_path in self.excluded_files
-        # in excluded folders?
-        test1 = any(dbx_path == f or is_child(dbx_path, f) for f in self.excluded_folders)
-
-        return any((test0, test1))
+        return any(dbx_path == f or is_child(dbx_path, f) for f in self.excluded_items)
 
     # ==== Upload sync ===================================================================
 
@@ -1285,7 +1267,7 @@ class UpDownSync:
         else:
             logger.info(f"Downloading {dbx_path}")
 
-        if not any(folder.startswith(dbx_path) for folder in self.excluded_folders):
+        if not any(folder.startswith(dbx_path) for folder in self.excluded_items):
             # if there are no excluded subfolders, index and download all at once
             ignore_excluded = False
 
@@ -1318,7 +1300,7 @@ class UpDownSync:
         md = self.client.get_metadata(dbx_path)
 
         if isinstance(md, dropbox.files.FileMetadata):
-            self._create_local_entry(dbx_path)
+            self._create_local_entry(md)
         elif isinstance(md, dropbox.files.FolderMetadata):
             self.get_remote_folder(dbx_path)
 
@@ -1380,10 +1362,8 @@ class UpDownSync:
         # remove all deleted items from the excluded list
         _, _, deleted_excluded = self._sort_remote_entries(changes_excluded)
         for d in deleted_excluded:
-            new_excluded_folders = [f for f in self.excluded_folders if not f.startswith(d.path_lower)]
-            self.excluded_folders = new_excluded_folders
-            new_excluded_files = [f for f in self.excluded_files if not f.startswith(d.path_lower)]
-            self.excluded_files = new_excluded_files
+            new_excluded = [f for f in self.excluded_items if not f.startswith(d.path_lower)]
+            self.excluded_items = new_excluded
 
         # sort changes into folders, files and deleted
         folders, files, deleted = self._sort_remote_entries(changes_included)
