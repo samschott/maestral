@@ -309,7 +309,7 @@ def start(config_name: str, foreground: bool):
         m = Maestral(config_name, run=False)
         m.reset_sync_state()
         m.create_dropbox_directory()
-        m.set_excluded_folders()
+        m.set_excluded_items()
 
         del m
 

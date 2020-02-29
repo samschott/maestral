@@ -802,21 +802,21 @@ class Maestral(object):
         self.sync.queued_newly_included_downloads.put(dbx_path)
 
     @handle_disconnect
-    def set_excluded_folders(self, folder_list=None):
+    def set_excluded_items(self, items=None):
         """
-        Sets the list of excluded folders to `folder_list`. If not given, gets all top
-        level folder paths from Dropbox and asks user to include or exclude. Folders
-        which are no in `folder_list` but were previously excluded will be downloaded.
+        Sets the list of excluded files or folders. If not given, gets all top level
+        folder paths from Dropbox and asks user to include or exclude. Items which are
+        no in ``items`` but were previously excluded will be downloaded.
 
         On initial sync, this does not trigger any downloads.
 
-        :param list folder_list: If given, list of excluded folder to set.
+        :param list items: If given, list of excluded files or folders to set.
         :raises: :class:`MaestralApiError`
         """
 
-        if folder_list is None:
+        if items is None:
 
-            excluded_folders = []
+            excluded_items = []
 
             # get all top-level Dropbox folders
             result = self.client.list_folder("", recursive=False)
@@ -827,23 +827,23 @@ class Maestral(object):
                     yes = click.confirm(f"Exclude '{entry.path_display}' from sync?",
                                         prompt_suffix="")
                     if yes:
-                        excluded_folders.append(entry.path_lower)
+                        excluded_items.append(entry.path_lower)
         else:
-            excluded_folders = self.sync.clean_excluded_folder_list(folder_list)
+            excluded_items = self.sync.clean_excluded_folder_list(items)
 
-        old_excluded_folders = self.sync.excluded_items
+        old_excluded_items = self.sync.excluded_items
 
-        added_excluded_folders = set(excluded_folders) - set(old_excluded_folders)
-        added_included_folders = set(old_excluded_folders) - set(excluded_folders)
+        added_excluded_items = set(excluded_items) - set(old_excluded_items)
+        added_included_items = set(old_excluded_items) - set(excluded_items)
 
         if not self.pending_first_download:
             # apply changes
-            for path in added_excluded_folders:
+            for path in added_excluded_items:
                 self.exclude_item(path)
-            for path in added_included_folders:
+            for path in added_included_items:
                 self._include_item_without_children(path)
 
-        self.sync.excluded_items = excluded_folders
+        self.sync.excluded_items = excluded_items
 
     def excluded_status(self, dbx_path):
         """
