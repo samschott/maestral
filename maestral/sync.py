@@ -35,7 +35,7 @@ from atomicwrites import atomic_write
 from maestral.config import MaestralConfig, MaestralState, list_configs
 from maestral.watchdog import Observer
 from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
-                                REV_FILE, IS_FS_CASE_SENSITIVE)
+                                EXCLUDED_FILE_NAMES, IS_FS_CASE_SENSITIVE)
 from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError,
                              DropboxAuthError, SyncError, ExcludedItemError,
                              PathError, InotifyError, NotFoundError)
@@ -52,11 +52,6 @@ for config_name in list_configs():
 
 DIR_EVENTS = (DirModifiedEvent, DirCreatedEvent, DirDeletedEvent, DirMovedEvent)
 FILE_EVENTS = (FileModifiedEvent, FileCreatedEvent, FileDeletedEvent, FileMovedEvent)
-
-EXCLUDED_FILE_NAMES = (
-    "desktop.ini", "thumbs.db", ".ds_store", "icon\r", ".dropbox.attr",
-    ".com.apple.timemachine.supported", REV_FILE
-)
 
 
 # ========================================================================================

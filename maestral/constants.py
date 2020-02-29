@@ -28,6 +28,11 @@ BUNDLE_ID = "com.samschott.maestral"
 REV_FILE = ".maestral"
 IS_FS_CASE_SENSITIVE = is_fs_case_sensitive()
 
+EXCLUDED_FILE_NAMES = (
+    "desktop.ini", "thumbs.db", ".ds_store", "icon\r", ".dropbox.attr",
+    ".com.apple.timemachine.supported", REV_FILE
+)
+
 # state messages
 IDLE = "Up to date"
 SYNCING = "Syncing..."
