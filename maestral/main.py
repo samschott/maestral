@@ -432,7 +432,7 @@ class Maestral(object):
     def paused(self):
         """Bool indicating if syncing is paused by the user. This is set by
         calling :meth:`pause`."""
-        return self.monitor.paused_by_user.is_set()
+        return self.monitor.paused_by_user.is_set() and not self.sync.lock.locked()
 
     @property
     def stopped(self):
