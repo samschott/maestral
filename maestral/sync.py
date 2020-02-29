@@ -739,6 +739,25 @@ class UpDownSync:
 
         return any(dbx_path == f or is_child(dbx_path, f) for f in self.excluded_items)
 
+    def is_mignore(self, event):
+        """
+        Check if local file change has been excluded by an mignore pattern.
+
+        :param FileMovedEvent event: Local file event.
+        :returns: ``True`` or `False`.
+        :rtype: bool
+        """
+        if event.event_type == EVENT_TYPE_MOVED:
+            return False
+
+        dbx_path = self.to_dbx_path(event.src_path)
+        relative_path = dbx_path.lstrip("/")
+
+        if event.is_directory:
+            relative_path += "/"
+
+        return self.mignore_rules.match_file(relative_path) and not self.get_local_rev(dbx_path)
+
     # ==== Upload sync ===================================================================
 
     def upload_local_changes_while_inactive(self):
@@ -900,12 +919,12 @@ class UpDownSync:
 
             if self.is_excluded(dbx_path):  # is excluded?
                 events_excluded.append(event)
-            elif self.is_excluded_by_user(dbx_path):  # is excluded by user?
+            elif self.is_excluded_by_user(dbx_path):  # is excluded from download by user?
                 if event.event_type is EVENT_TYPE_DELETED:
                     self.clear_sync_error(local_path, dbx_path)
                 else:
                     title = "Could not upload"
-                    message = ("Another item with the same name already exists on "
+                    message = ("An item with the same path already exists on "
                                "Dropbox but is excluded from syncing.")
                     exc = ExcludedItemError(title, message, dbx_path=dbx_path,
                                             local_path=local_path)
@@ -913,6 +932,8 @@ class UpDownSync:
                     exc_info = (type(exc), exc, None)
                     logger.warning(f"Could not upload {basename}", exc_info=exc_info)
                     self.sync_errors.put(exc)
+                events_excluded.append(event)
+            elif self.is_mignore(event):  # is excluded from upload by mignore?
                 events_excluded.append(event)
             else:
                 events_filtered.append(event)
