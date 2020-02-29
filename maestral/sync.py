@@ -11,7 +11,7 @@ import os
 import os.path as osp
 import logging
 import time
-from threading import Thread, Event, RLock
+from threading import Thread, Event, Lock, RLock
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import queue
 from collections import OrderedDict
@@ -288,7 +288,7 @@ class UpDownSync:
         included.
     """
 
-    lock = RLock()
+    lock = Lock()
 
     _rev_lock = RLock()
     _last_sync_lock = RLock()
