@@ -237,6 +237,10 @@ class UserConfig(DefaultsConfig):
         if defaults is not None:
             self.reset_to_defaults(save=False)
 
+        for sec, options in defaults:
+            if sec == self.DEFAULT_SECTION_NAME:
+                options['version'] = self._version
+
         return defaults
 
     @classmethod
