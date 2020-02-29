@@ -2075,6 +2075,7 @@ class MaestralMonitor:
 
         self.paused_by_user.set()
         self.syncing.clear()
+        self._wait_for_idle()
         logger.info(PAUSED)
 
     def resume(self):
@@ -2106,13 +2107,18 @@ class MaestralMonitor:
         self.startup_requested.clear()
         self.startup_done.set()
 
+        self._wait_for_idle()
+
         self.local_observer_thread.stop()
         self.local_observer_thread.join()
         self.connection_thread.join()
         self.upload_thread.join()
-        # self.download_thread.join()
 
         logger.info(STOPPED)
+
+    def _wait_for_idle(self):
+        self.sync.lock.acquire()
+        self.sync.lock.release()
 
     def _threads_alive(self):
         """Returns ``True`` if all threads are alive, ``False`` otherwise."""
