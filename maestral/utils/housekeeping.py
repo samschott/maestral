@@ -16,7 +16,7 @@ import logging
 from packaging.version import Version
 
 from maestral.config.main import (
-    CONFIG_DIR_NAME, CONF_VERSION, MaestralConfig, MaestralState
+    CONFIG_DIR_NAME, MaestralConfig, MaestralState
 )
 from maestral.config.user import DefaultsConfig, UserConfig
 from maestral.config.base import get_conf_path, get_data_path
