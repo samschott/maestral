@@ -1286,7 +1286,7 @@ class UpDownSync:
                                               include_deleted=False, limit=500)
 
         # download top-level folders / files first
-        logger.info("Syncing...")
+        logger.info(SYNCING)
         _, s = self.apply_remote_changes(root_result, save_cursor=False)
         success.append(s)
 
@@ -1408,7 +1408,7 @@ class UpDownSync:
         success = all(downloaded)
 
         if save_cursor:
-            self.last_sync = changes.cursor
+            self.last_cursor = changes.cursor
         if save_cursor and success:
             self.last_successful_cursor = changes.cursor
 
