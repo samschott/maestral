@@ -338,10 +338,10 @@ class Maestral(object):
         return self.sync.dropbox_path
 
     @property
-    def excluded_folders(self):
+    def excluded_items(self):
         """
-        Returns a list of excluded folders (read only). Use :meth:`exclude_folder`,
-        :meth:`include_folder` or :meth:`set_excluded_folders` change which folders are
+        Returns a list of excluded folders (read only). Use :meth:`exclude_item`,
+        :meth:`include_item` or :meth:`set_excluded_items` to change which items are
         excluded from syncing.
         """
         return self.sync.excluded_items
@@ -721,10 +721,10 @@ class Maestral(object):
             logger.info("Folder was already excluded, nothing to do.")
             return
 
-        excluded_folders = self.sync.excluded_items
-        excluded_folders.append(dbx_path)
+        excluded_items = self.sync.excluded_items
+        excluded_items.append(dbx_path)
 
-        self.sync.excluded_items = excluded_folders
+        self.sync.excluded_items = excluded_items
         self.sync.set_local_rev(dbx_path, None)
 
         # remove folder from local drive
@@ -753,52 +753,52 @@ class Maestral(object):
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
 
-        old_excluded_folders = self.sync.excluded_items
+        old_excluded_items = self.sync.excluded_items
 
-        for folder in old_excluded_folders:
+        for folder in old_excluded_items:
             if is_child(dbx_path, folder):
                 raise ValueError("'{0}' lies inside the excluded folder '{1}'. "
                                  "Please include '{1}' first.".format(dbx_path, folder))
 
-        # Get folders which will need to be downloaded, do not attempt to download
-        # subfolders of `dbx_path` which were already included.
-        # `new_included_folders` will either be empty (`dbx_path` was already
-        # included), just contain `dbx_path` itself (the whole folder was excluded) or
-        # only contain subfolders of `dbx_path` (`dbx_path` was partially included).
-        new_included_folders = tuple(x for x in old_excluded_folders if
+        # Get items which will need to be downloaded, do not attempt to download
+        # children of `dbx_path` which were already included.
+        # `new_included_items` will either be empty (`dbx_path` was already
+        # included), just contain `dbx_path` itself (the item was fully excluded) or
+        # only contain children of `dbx_path` (`dbx_path` was partially included).
+        new_included_items = tuple(x for x in old_excluded_items if
                                      x == dbx_path or is_child(x, dbx_path))
 
-        if new_included_folders:
+        if new_included_items:
             # remove `dbx_path` or all excluded children from the excluded list
-            excluded_folders = list(set(old_excluded_folders) - set(new_included_folders))
+            excluded_items = list(set(old_excluded_items) - set(new_included_items))
         else:
             logger.info("Folder was already included, nothing to do.")
             return
 
-        self.sync.excluded_items = excluded_folders
+        self.sync.excluded_items = excluded_items
 
-        # download folder contents from Dropbox
+        # download items from Dropbox
         logger.info(f"Downloading added folder '{dbx_path}'.")
-        for folder in new_included_folders:
+        for folder in new_included_items:
             self.sync.queued_newly_included_downloads.put(folder)
 
     @handle_disconnect
     def _include_item_without_children(self, dbx_path):
         """
-        Sets a folder to included without explicitly including its subfolders. This is to
-        be used internally, when a folder has been removed from the excluded list, but
-        some of its subfolders may have been added.
+        Include an item without explicitly including its children. This should be used
+        when an item has been removed from the excluded list, but some of its children may
+        have been added.
         """
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
-        excluded_folders = self.sync.excluded_items
+        excluded_items = self.sync.excluded_items
 
-        if dbx_path not in excluded_folders:
+        if dbx_path not in excluded_items:
             return
 
-        excluded_folders.remove(dbx_path)
+        excluded_items.remove(dbx_path)
 
-        self.sync.excluded_items = excluded_folders
+        self.sync.excluded_items = excluded_items
         self.sync.queued_newly_included_downloads.put(dbx_path)
 
     @handle_disconnect
@@ -829,7 +829,7 @@ class Maestral(object):
                     if yes:
                         excluded_items.append(entry.path_lower)
         else:
-            excluded_items = self.sync.clean_excluded_folder_list(items)
+            excluded_items = self.sync.clean_excluded_items_list(items)
 
         old_excluded_items = self.sync.excluded_items
 
@@ -857,8 +857,7 @@ class Maestral(object):
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
 
-        excluded_items = (self._conf.get("main", "excluded_folders")
-                          + self._conf.get("main", "excluded_files"))
+        excluded_items = self._conf.get("main", "excluded_items")
 
         if dbx_path in excluded_items:
             return "excluded"
