@@ -685,9 +685,10 @@ class UpDownSync:
         :param str dbx_path: Path to file on Dropbox.
         """
         assert local_path or dbx_path
+        if not dbx_path:
+            dbx_path = self.to_dbx_path(local_path)
+
         if self.has_sync_errors():
-            if not dbx_path:
-                dbx_path = self.to_dbx_path(local_path)
             for error in list(self.sync_errors.queue):
                 if error.dbx_path.lower() == dbx_path.lower():
                     remove_from_queue(self.sync_errors, error)
