@@ -287,7 +287,7 @@ def catch_sync_issues(func):
                 if exc.local_path is None:
                     exc.local_path = self.to_local_path(exc.dbx_path)
                 self.sync_errors.put(exc)
-                if isinstance(args[0], dropbox.files.FileMetadata):
+                if isinstance(args[0], dropbox.files.Metadata):
                     self.retry_downloads.add(exc.dbx_path)
 
             res = False
@@ -1775,6 +1775,7 @@ def download_worker_added_item(sync, syncing, running, connected, startup_done):
 
         dbx_path = sync.queued_newly_included_downloads.get()
         # add dbx_path to `retry_downloads` in case we are interrupted during download
+        # this will be cleared automatically when the item is downloaded
         sync.retry_downloads.add(dbx_path)
 
         if not (running.is_set() and syncing.is_set() and startup_done.is_set()):
@@ -1784,7 +1785,6 @@ def download_worker_added_item(sync, syncing, running, connected, startup_done):
         try:
             with sync.lock:
                 sync.get_remote_item(dbx_path)
-                sync.retry_downloads.discard(dbx_path)
             logger.info(IDLE)
         except ConnectionError:
             syncing.clear()
