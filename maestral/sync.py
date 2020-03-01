@@ -269,6 +269,34 @@ class RetryDownloads(abc.MutableSet):
             self._state.set(self.option_section, self.option_name, list(retry_downloads))
 
 
+def catch_sync_issues(func):
+    """
+    Decorator that catches all SyncErrors and logs them.
+    """
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            res = func(self, *args, **kwargs)
+            if res is None:
+                res = True
+        except SyncError as exc:
+            file_name = os.path.basename(exc.dbx_path)
+            logger.warning(f"Could not sync {file_name}", exc_info=True)
+            if exc.dbx_path is not None:
+                if exc.local_path is None:
+                    exc.local_path = self.to_local_path(exc.dbx_path)
+                self.sync_errors.put(exc)
+                if isinstance(args[0], dropbox.files.FileMetadata):
+                    self.retry_downloads.add(exc.dbx_path)
+
+            res = False
+
+        return res
+
+    return wrapper
+
+
 class UpDownSync:
     """
     Class that contains methods to sync local file events with Dropbox and vice versa.
@@ -311,33 +339,6 @@ class UpDownSync:
         self._excluded_items = self._conf.get("main", "excluded_items")
         self._rev_dict_cache = self._load_rev_dict_from_file()
         self._last_sync_for_path = dict()
-
-    def catch_sync_issues(self, func):
-        """
-        Decorator that catches all SyncErrors and logs them.
-        """
-
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            try:
-                res = func(*args, **kwargs)
-                if res is None:
-                    res = True
-            except SyncError as exc:
-                file_name = os.path.basename(exc.dbx_path)
-                logger.warning(f"Could not sync {file_name}", exc_info=True)
-                if exc.dbx_path is not None:
-                    if exc.local_path is None:
-                        exc.local_path = self.to_local_path(exc.dbx_path)
-                    self.sync_errors.put(exc)
-                    if isinstance(args[0], dropbox.files.FileMetadata):
-                        self.retry_downloads.add(exc.dbx_path)
-
-                res = False
-
-            return res
-
-        return wrapper
 
     # ==== settings ======================================================================
 
