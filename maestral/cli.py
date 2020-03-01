@@ -278,12 +278,15 @@ def log():
 @with_config
 def gui(config_name):
     """Runs Maestral with a GUI."""
-    try:
-        from maestral_qt.main import run
-    except ImportError:
+
+    import importlib.util
+
+    if not importlib.util.find_spec('maestral_qt'):
         click.echo('No maestral GUI installed. Please run \'pip3 install maestral[gui]\'.')
-    else:
-        run(config_name)
+        return
+
+    from maestral_qt.main import run
+    run(config_name)
 
 
 @main.command(help_priority=1)
