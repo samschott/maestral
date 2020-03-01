@@ -57,7 +57,6 @@ DEFAULTS_STATE = [
     ('sync',  # sync state, updated by monitor
      {
          'cursor': '',  # remote cursor: represents last state synced from dropbox
-         'successful_cursor': '',  # last cursor without sync errors
          'lastsync': 0.0,  # local cursor: time-stamp of last upload
          'recent_changes': [],  # cached list of recent changes to display in GUI / CLI
      }
