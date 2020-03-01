@@ -229,6 +229,13 @@ class InQueue:
 
 
 class RetryDownloads(abc.MutableSet):
+    """
+    A wrapper for the saved state `retry_downloads` that implements a MutableSet
+    interface. All given paths are stored in lower-case, reflecting Dropbox's
+    insensitive file system.
+
+    :param str config_name: Name of config.
+    """
 
     option_section = "sync"
     option_name = "retry_downloads"
@@ -253,7 +260,7 @@ class RetryDownloads(abc.MutableSet):
             return len(self._state.get(self.option_section, self.option_name))
 
     def discard(self, dbx_path):
-        dbx_path = dbx_path.lower()
+        dbx_path = dbx_path.lower().rstrip(osp.sep)
         with self._lock:
             retry_downloads = self._state.get(self.option_section, self.option_name)
             retry_downloads = set(retry_downloads)
@@ -261,12 +268,19 @@ class RetryDownloads(abc.MutableSet):
             self._state.set(self.option_section, self.option_name, list(retry_downloads))
 
     def add(self, dbx_path):
-        dbx_path = dbx_path.lower()
+        dbx_path = dbx_path.lower().rstrip(osp.sep)
         with self._lock:
             retry_downloads = self._state.get(self.option_section, self.option_name)
             retry_downloads = set(retry_downloads)
             retry_downloads.add(dbx_path)
             self._state.set(self.option_section, self.option_name, list(retry_downloads))
+
+    def clear(self):
+        with self._lock:
+            self._state.set(self.option_section, self.option_name, [])
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}(retry_list={list(self)})>"
 
 
 def catch_sync_issues(func):
