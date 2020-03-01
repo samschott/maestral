@@ -351,6 +351,7 @@ class UpDownSync:
 
         # load cached properties
         self._dropbox_path = self._conf.get("main", "path")
+        self._mignore_path = osp.join(self._dropbox_path, IGNORE_FILE)
         self._excluded_items = self._conf.get("main", "excluded_items")
         self._rev_dict_cache = self._load_rev_dict_from_file()
         self._mignore_rules = self._load_mignore_rules_form_file()
@@ -370,6 +371,7 @@ class UpDownSync:
     def dropbox_path(self, path):
         """Setter: dropbox_path"""
         self._dropbox_path = path
+        self._mignore_path = osp.join(self._dropbox_path, IGNORE_FILE)
         self._conf.set("main", "path", path)
 
     @property
@@ -495,7 +497,7 @@ class UpDownSync:
                 exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
                 logger.error(title, exc_info=exc_info)
 
-    def get_rev_dict(self):
+    def get_rev_index(self):
         """
         Returns a copy of the revision index containing the revision
         numbers for all synced files and folders.
@@ -562,13 +564,16 @@ class UpDownSync:
 
     @property
     def mignore_path(self):
-        return osp.join(self.dropbox_path, IGNORE_FILE)
+        return self._mignore_path
 
     @property
     def mignore_rules(self):
+        if get_ctime(self.mignore_path) > self._mignore_load_time:
+            self._mignore_rules = self._load_mignore_rules_form_file()
         return self._mignore_rules
 
     def _load_mignore_rules_form_file(self):
+        self._mignore_load_time = time.time()
         try:
             with open(self.mignore_path, "r") as f:
                 spec = f.read()
@@ -756,7 +761,8 @@ class UpDownSync:
         if event.is_directory:
             relative_path += "/"
 
-        return self.mignore_rules.match_file(relative_path) and not self.get_local_rev(dbx_path)
+        return (self.mignore_rules.match_file(relative_path)
+                and not self.get_local_rev(dbx_path))
 
     # ==== Upload sync ===================================================================
 
@@ -817,7 +823,7 @@ class UpDownSync:
                 changes.append(event)
 
         # get deleted items
-        rev_dict_copy = self.get_rev_dict()
+        rev_dict_copy = self.get_rev_index()
         for path in rev_dict_copy:
             local_path = self.to_local_path(path)
             if local_path.lower() not in lowercase_snapshot_paths:
