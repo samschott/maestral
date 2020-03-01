@@ -205,43 +205,6 @@ class FileEventHandler(FileSystemEventHandler):
         self.local_file_event_queue.put(event)
 
 
-def catch_sync_issues(sync_errors=None, failed_items=None):
-    """
-    Decorator that catches all MaestralApiErrors and logs them. This should only be used
-    to decorate UpDownSync methods.
-
-    :param sync_errors: Queue for sync errors.
-    :param failed_items: Queue for failed syc items themselves. These will be passed as
-        the second argument of ``func`` and will be either a watchdog Event (for uploads)
-        or a Dropbox metadata item (for downloads).
-    """
-
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            try:
-                res = func(self, *args, **kwargs)
-                if res is None:
-                    res = True
-            except SyncError as exc:
-                file_name = os.path.basename(exc.dbx_path)
-                logger.warning(f"Could not sync {file_name}", exc_info=True)
-                if exc.dbx_path is not None:
-                    if exc.local_path is None:
-                        exc.local_path = self.to_local_path(exc.dbx_path)
-                    if sync_errors:
-                        sync_errors.put(exc)
-                    if failed_items:
-                        failed_items.put(args[0])
-                res = False
-
-            return res
-
-        return wrapper
-
-    return decorator
-
-
 class InQueue:
     """
     A context manager that puts `name` into `custom_queue` when entering the context and
@@ -323,6 +286,33 @@ class UpDownSync:
         self._excluded_items = self._conf.get("main", "excluded_items")
         self._rev_dict_cache = self._load_rev_dict_from_file()
         self._last_sync_for_path = dict()
+
+    def catch_sync_issues(self, func):
+        """
+        Decorator that catches all SyncErrors and logs them.
+        """
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                res = func(*args, **kwargs)
+                if res is None:
+                    res = True
+            except SyncError as exc:
+                file_name = os.path.basename(exc.dbx_path)
+                logger.warning(f"Could not sync {file_name}", exc_info=True)
+                if exc.dbx_path is not None:
+                    if exc.local_path is None:
+                        exc.local_path = self.to_local_path(exc.dbx_path)
+                    self.sync_errors.put(exc)
+                    if isinstance(args[0], dropbox.files.FileMetadata):
+                        self.failed_downloads.put(exc.dbx_path)
+
+                res = False
+
+            return res
+
+        return wrapper
 
     # ==== settings ======================================================================
 
@@ -1056,7 +1046,7 @@ class UpDownSync:
         is_deleted_event = (x.event_type is EVENT_TYPE_DELETED)
         return is_deleted_event and is_child(x.src_path, parent.src_path)
 
-    @catch_sync_issues(sync_errors, failed_uploads)
+    @catch_sync_issues
     def _apply_event(self, event):
         """Apply a local file event `event` to the remote Dropbox. Clear any related
         sync errors with the file. Any new MaestralApiErrors will be caught by the
@@ -1253,7 +1243,7 @@ class UpDownSync:
 
     # ==== Download sync =================================================================
 
-    @catch_sync_issues(sync_errors)
+    @catch_sync_issues
     def get_remote_folder(self, dbx_path="/", ignore_excluded=True):
         """
         Gets all files/folders from Dropbox and writes them to the local folder
@@ -1304,21 +1294,28 @@ class UpDownSync:
 
         return all(success)
 
-    @catch_sync_issues(sync_errors)
     def get_remote_item(self, dbx_path):
+        """
+        Downloads a remote file or folder and updates its local rev and the revs of its
+        children.
+
+        :param str dbx_path: Dropbox path to file or folder.
+        :return: ``True`` on success, ``False`` otherwise.
+        :rtype: bool
+        """
         md = self.client.get_metadata(dbx_path)
 
         if isinstance(md, dropbox.files.FileMetadata):
-            self._create_local_entry(md)
+            return self._create_local_entry(md)
         elif isinstance(md, dropbox.files.FolderMetadata):
-            self.get_remote_folder(dbx_path)
+            return self.get_remote_folder(dbx_path)
 
-    @catch_sync_issues()
+    @catch_sync_issues
     def wait_for_remote_changes(self, last_cursor, timeout=40):
         """Wraps MaestralApiClient.wait_for_remote_changes and catches sync errors."""
         return self.client.wait_for_remote_changes(last_cursor, timeout=timeout)
 
-    @catch_sync_issues()
+    @catch_sync_issues
     def list_remote_changes(self, last_cursor):
         """Wraps ``MaestralApiClient.list_remove_changes`` and catches sync errors."""
         return self.client.list_remote_changes(last_cursor)
@@ -1556,7 +1553,7 @@ class UpDownSync:
 
         return folders, files, deleted
 
-    @catch_sync_issues(sync_errors, failed_downloads)
+    @catch_sync_issues
     def _create_local_entry(self, entry):
         """
         Creates local file / folder for remote entry.
