@@ -14,7 +14,7 @@ import time
 from threading import Thread, Event, Lock, RLock
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import queue
-from collections import OrderedDict
+from collections import abc, OrderedDict
 import functools
 from enum import IntEnum
 
@@ -47,8 +47,8 @@ from maestral.utils.housekeeping import migrate_maestral_index
 
 logger = logging.getLogger(__name__)
 
-for config_name in list_configs():
-    migrate_maestral_index(config_name)
+for c in list_configs():
+    migrate_maestral_index(c)
 
 DIR_EVENTS = (DirModifiedEvent, DirCreatedEvent, DirDeletedEvent, DirMovedEvent)
 FILE_EVENTS = (FileModifiedEvent, FileCreatedEvent, FileDeletedEvent, FileMovedEvent)
@@ -228,6 +228,47 @@ class InQueue:
         remove_from_queue(self.custom_queue, self.name)
 
 
+class RetryDownloads(abc.MutableSet):
+
+    option_section = "sync"
+    option_name = "retry_downloads"
+
+    _lock = RLock()
+
+    def __init__(self, config_name):
+        super().__init__()
+        self._config_name = config_name
+        self._state = MaestralState(config_name)
+
+    def __iter__(self):
+        with self._lock:
+            return iter(self._state.get(self.option_section, self.option_name))
+
+    def __contains__(self, dbx_path):
+        with self._lock:
+            return dbx_path in self._state.get(self.option_section, self.option_name)
+
+    def __len__(self):
+        with self._lock:
+            return len(self._state.get(self.option_section, self.option_name))
+
+    def discard(self, dbx_path):
+        dbx_path = dbx_path.lower()
+        with self._lock:
+            retry_downloads = self._state.get(self.option_section, self.option_name)
+            retry_downloads = set(retry_downloads)
+            retry_downloads.discard(dbx_path)
+            self._state.set(self.option_section, self.option_name, list(retry_downloads))
+
+    def add(self, dbx_path):
+        dbx_path = dbx_path.lower()
+        with self._lock:
+            retry_downloads = self._state.get(self.option_section, self.option_name)
+            retry_downloads = set(retry_downloads)
+            retry_downloads.add(dbx_path)
+            self._state.set(self.option_section, self.option_name, list(retry_downloads))
+
+
 class UpDownSync:
     """
     Class that contains methods to sync local file events with Dropbox and vice versa.
@@ -236,36 +277,12 @@ class UpDownSync:
     :param local_file_event_queue: Queue with local file-changed events.
     :param queue_uploading: Queue with files currently being uploaded.
     :param queue_downloading: Queue with files currently being downloaded.
-
-    :cvar failed_uploads: Queue with file events of failed uploads.
-    :cvar failed_downloads: Queue with dbx metadata of failed downloads.
-    :cvar sync_errors: Queue with full sync errors of all failed uploads / downloads.
-
-    :cvar queued_newly_included_downloads: Queue with folders to download which have
-    been newly
-        included.
     """
 
     lock = Lock()
 
     _rev_lock = RLock()
     _last_sync_lock = RLock()
-
-    failed_uploads = queue.Queue()
-    failed_downloads = queue.Queue()
-    sync_errors = queue.Queue()
-
-    queued_for_download = queue.Queue()
-    queued_for_upload = queue.Queue()
-
-    queued_newly_included_downloads = queue.Queue()
-
-    __slots__ = (
-        "client", "config_name", "rev_file_path",
-        "local_file_event_queue", "queue_uploading", "queue_downloading",
-        "_dropbox_path", "_excluded_items", "_rev_dict_cache",
-        "_conf", "_state", "notifier", "_last_sync_for_path"
-    )
 
     def __init__(self, client, local_file_event_queue, queue_uploading, queue_downloading):
 
@@ -277,7 +294,15 @@ class UpDownSync:
         self._state = MaestralState(self.config_name)
         self.notifier = MaestralDesktopNotifier.for_config(self.config_name)
 
+        self.sync_errors = queue.Queue()
+
         self.local_file_event_queue = local_file_event_queue
+        self.queued_newly_included_downloads = queue.Queue()
+
+        self.retry_downloads = RetryDownloads(self.config_name)
+
+        self.queued_for_download = queue.Queue()
+        self.queued_for_upload = queue.Queue()
         self.queue_uploading = queue_uploading
         self.queue_downloading = queue_downloading
 
@@ -306,7 +331,7 @@ class UpDownSync:
                         exc.local_path = self.to_local_path(exc.dbx_path)
                     self.sync_errors.put(exc)
                     if isinstance(args[0], dropbox.files.FileMetadata):
-                        self.failed_downloads.put(exc.dbx_path)
+                        self.retry_downloads.add(exc.dbx_path)
 
                 res = False
 
@@ -626,15 +651,13 @@ class UpDownSync:
                 if error.dbx_path.lower() == dbx_path.lower():
                     remove_from_queue(self.sync_errors, error)
 
+        self.retry_downloads.discard(dbx_path)
+
     def clear_all_sync_errors(self):
         """Clears all sync errors."""
-        if self.has_sync_errors():
-            with self.sync_errors.mutex:
-                self.sync_errors.queue.clear()
-            with self.failed_downloads.mutex:
-                self.failed_downloads.queue.clear()
-            with self.failed_uploads.mutex:
-                self.failed_uploads.queue.clear()
+        with self.sync_errors.mutex:
+            self.sync_errors.queue.clear()
+        self.retry_downloads.clear()
 
     @staticmethod
     def is_excluded(dbx_path):
@@ -854,7 +877,6 @@ class UpDownSync:
                     exc_info = (type(exc), exc, None)
                     logger.warning(f"Could not upload {basename}", exc_info=exc_info)
                     self.sync_errors.put(exc)
-                    self.failed_uploads.put(event)
                 events_excluded.append(event)
             else:
                 events_filtered.append(event)
@@ -1288,12 +1310,12 @@ class UpDownSync:
         :return: ``True`` on success, ``False`` otherwise.
         :rtype: bool
         """
-        md = self.client.get_metadata(dbx_path)
+        md = self.client.get_metadata(dbx_path, include_deleted=True)
 
-        if isinstance(md, dropbox.files.FileMetadata):
-            return self._create_local_entry(md)
-        elif isinstance(md, dropbox.files.FolderMetadata):
+        if isinstance(md, dropbox.files.FolderMetadata):
             return self.get_remote_folder(dbx_path)
+        else:  # FileMetadata or DeletedMetadata
+            return self._create_local_entry(md)
 
     @catch_sync_issues
     def wait_for_remote_changes(self, last_cursor, timeout=40):
@@ -1661,7 +1683,6 @@ def connection_helper(sync, syncing, paused_by_user, running, connected,
             # use an inexpensive call to get_space_usage to test connection
             sync.client.get_space_usage()
             if not connected.is_set() and not paused_by_user.is_set():
-                sync.clear_all_sync_errors()
                 startup_requested.set()
                 startup_done.clear()
                 syncing.set()
@@ -1752,6 +1773,8 @@ def download_worker_added_item(sync, syncing, running, connected, startup_done):
         startup_done.wait()
 
         dbx_path = sync.queued_newly_included_downloads.get()
+        # add dbx_path to `retry_downloads` in case we are interrupted during download
+        sync.retry_downloads.add(dbx_path)
 
         if not (running.is_set() and syncing.is_set() and startup_done.is_set()):
             sync.queued_newly_included_downloads.put(dbx_path)
@@ -1760,11 +1783,11 @@ def download_worker_added_item(sync, syncing, running, connected, startup_done):
         try:
             with sync.lock:
                 sync.get_remote_item(dbx_path)
+                sync.retry_downloads.discard(dbx_path)
             logger.info(IDLE)
         except ConnectionError:
             syncing.clear()
             connected.clear()
-            sync.queued_newly_included_downloads.put(dbx_path)
             logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
         except MaestralApiError as e:
@@ -1850,6 +1873,7 @@ def startup_worker(sync, syncing, running, connected, startup_requested, startup
                 # by the local FileSystemObserver but only uploaded after
                 # `startup_done` has been set
                 if sync.last_cursor == "":
+                    sync.clear_all_sync_errors()
                     sync.get_remote_folder()
                     sync.last_sync = time.time()
 
@@ -1858,6 +1882,10 @@ def startup_worker(sync, syncing, running, connected, startup_requested, startup
 
                 # upload changes while inactive
                 sync.upload_local_changes_while_inactive()
+
+                # retry failed / interrupted downloads
+                for dbx_path in list(sync.retry_downloads):
+                    sync.get_remote_item(dbx_path)
 
             startup_done.set()
             startup_requested.clear()
@@ -2074,8 +2102,6 @@ class MaestralMonitor:
         if self.syncing.is_set():
             return
 
-        self.sync.clear_all_sync_errors()
-
         self.startup_requested.set()
         self.startup_done.clear()
         self.syncing.set()
@@ -2148,7 +2174,6 @@ class MaestralMonitor:
         self.sync.last_sync = 0.0
         self.sync.last_cursor = ""
         self.sync.clear_rev_index()
-        self.sync.clear_all_sync_errors()
 
         if not self.running.is_set():
             self.start()
