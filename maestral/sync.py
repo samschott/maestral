@@ -360,19 +360,6 @@ class UpDownSync:
         logger.debug(f"Remote cursor saved: {cursor}")
 
     @property
-    def last_successful_cursor(self):
-        """Cursor from last fully successful sync with remote Dropbox. The value is
-        updated and saved to the config file on every successful download of remote
-        changes."""
-        return self._state.get("sync", "successful_cursor")
-
-    @last_successful_cursor.setter
-    def last_successful_cursor(self, cursor):
-        """Setter: last_successful_cursor."""
-        self._state.set("sync", "successful_cursor", cursor)
-        logger.debug(f"Remote successful cursor saved: {cursor}")
-
-    @property
     def last_sync(self):
         """Time stamp from last sync with remote Dropbox. The value is updated and
         saved to the config file on every successful upload of local changes."""
@@ -1289,8 +1276,6 @@ class UpDownSync:
 
         if is_dbx_root:
             self.last_cursor = cursor
-        if is_dbx_root and self.failed_downloads.empty():
-            self.last_successful_cursor = cursor
 
         return all(success)
 
@@ -1406,8 +1391,6 @@ class UpDownSync:
 
         if save_cursor:
             self.last_cursor = changes.cursor
-        if save_cursor and success:
-            self.last_successful_cursor = changes.cursor
 
         return [entry for entry in downloaded if not isinstance(entry, bool)], success
 
@@ -1862,9 +1845,6 @@ def startup_worker(sync, syncing, running, connected, startup_requested, startup
 
         try:
             with sync.lock:
-                # reset cursor to last successful sync cursor
-                sync.last_cursor = sync.last_successful_cursor
-
                 # run / resume initial download
                 # local changes during this download will be registered
                 # by the local FileSystemObserver but only uploaded after
