@@ -3,6 +3,7 @@ import os
 import os.path as osp
 import platform
 import tempfile
+import importlib.util
 from setuptools import setup, find_packages
 from maestral import __version__, __author__, __url__
 
@@ -109,6 +110,32 @@ of config files and compatibility been the CLI and daemon.
 
 # proceed with actual install
 
+gui_requires = ['maestral-qt>=0.6.2.dev3']
+
+install_requires = [
+    'atomicwrites',
+    'bugsnag',
+    'click>=7.0',
+    'dropbox>=9.4.0',
+    'importlib_metadata;python_version<"3.8"',
+    'keyring>=19.0.0',
+    'keyrings.alt>=3.0.0',
+    'lockfile',
+    'packaging',
+    'pathspec',
+    'Pyro5>=5.7',
+    'requests',
+    'rubicon-objc>=0.3.1;sys_platform=="darwin"',
+    'sdnotify',
+    'u-msgpack-python',
+    'watchdog>=0.9.0',
+]
+
+# if GUI is installed, always update it as well
+if importlib.util.find_spec('maestral_qt'):
+    install_requires += gui_requires
+
+
 setup(
     name='maestral',
     version=__version__,
@@ -126,31 +153,12 @@ setup(
         ],
     },
     setup_requires=['wheel'],
-    install_requires=[
-        'atomicwrites',
-        'bugsnag',
-        'click>=7.0',
-        'dropbox>=9.4.0',
-        'importlib_metadata;python_version<"3.8"',
-        'keyring>=19.0.0',
-        'keyrings.alt>=3.0.0',
-        'lockfile',
-        'packaging',
-        'pathspec',
-        'Pyro5>=5.7',
-        'requests',
-        'rubicon-objc>=0.3.1;sys_platform=="darwin"',
-        'sdnotify',
-        'u-msgpack-python',
-        'watchdog>=0.9.0',
-    ],
+    install_requires=install_requires,
     extras_require={
         'syslog': [
             'systemd-python',
         ],
-        'gui': [
-            'maestral-qt>=0.6.1'
-        ],
+        'gui': gui_requires,
     },
     zip_safe=False,
     entry_points={
