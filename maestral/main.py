@@ -44,7 +44,8 @@ from maestral.utils.serializer import error_to_dict, dropbox_stone_to_dict
 from maestral.utils.appdirs import get_log_path, get_cache_path, get_home_dir
 from maestral.utils.updates import check_update_available
 from maestral.constants import (
-    INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG, DISCONNECTED
+    INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
+    IDLE, DISCONNECTED
 )
 
 logger = logging.getLogger(__name__)
@@ -708,6 +709,8 @@ class Maestral(object):
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         """
 
+        logger.info(f"Excluding '{dbx_path}'.")
+
         # input validation
         md = self.client.get_metadata(dbx_path)
 
@@ -730,8 +733,12 @@ class Maestral(object):
         # remove folder from local drive
         local_path = self.sync.to_local_path(dbx_path)
         local_path_cased = path_exists_case_insensitive(local_path)
-        delete(local_path_cased)
-        logger.info(f"Deleted '{local_path_cased}'.")
+        if local_path_cased:
+            delete(local_path_cased)
+
+        self.sync.clear_sync_error(dbx_path=dbx_path)
+
+        logger.info(IDLE)
 
     def include_item(self, dbx_path):
         """
@@ -744,6 +751,8 @@ class Maestral(object):
             another excluded folder.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         """
+
+        logger.info(f"Including '{dbx_path}'.")
 
         # input validation
         md = self.client.get_metadata(dbx_path)
