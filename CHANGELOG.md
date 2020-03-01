@@ -1,11 +1,24 @@
 ## v0.6.2-dev
 
+This release enables excluding individual files from syncing, introduces support for an
+".mignore" file with the same concept as [gitignore](https://git-scm.com/docs/gitignore) 
+and fixes an issue with immediately retrying failed downloads.
 
 #### Added:
 
-- Officially support excluding files from sync. This uses the same interface as excluding 
+- Officially support excluding files from sync. This uses the same interface as excluding
   folders. Excluded files will be removed from the local Dropbox folder.
-  
+- Use an optional ".mignore" file to specify files that Maestral should ignore. The
+  ".mignore" file must be saved in the local Dropbox folder. When excluding files or
+  folders with selective sync (`maestral exclude`), they will be removed from the local
+  folder and kept in the cloud only. The ".mignore" file enabled the opposite: files or
+  folders which exists locally will not be uploaded to Dropbox. It uses the same syntax
+  as [gitignore files](https://git-scm.com/docs/gitignore) and, similar to gitignore,
+  files which are already tracked by Maestral will not be affected. When a file is
+  excluded by mignore and a file with the same name is created in the cloud, the remote
+  file will be downloaded and included in syncing. If the contents differ, a conflicting
+  copy is created and both the copy and the original file will be included in syncing.
+
 #### Changed:
 
 - Replaced the `excluded_files` and `excluded_folders` settings from the config file with
@@ -76,7 +89,7 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
 - Renamed the `set-dir` command to `move-dir` to emphasize that it moves the local Dropbox
   folder to a new location.
 - Configurations are now tied to a Dropbox account:
-    - New configurations are now created on-demand when calling `maestral gui` or  
+    - New configurations are now created on-demand when calling `maestral gui` or
       `maestral start` with a new configuration name.
     - A configuration is automatically removed when unlinking a Dropbox account.
     - All configurations can be listed together with the account emails with
@@ -99,7 +112,7 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
 - Fixes an issue where local changes while maestral was not running could be overwritten
   by remote changes instead of resulting in a conflicting copy.
 - Fixes an issue where local file events could be ignored while a download is in progress.
-- Fixes an issue where a new local file could be incorrectly deleted if it was created 
+- Fixes an issue where a new local file could be incorrectly deleted if it was created
   just after a remote item at the same path was deleted.
 - Fixes an issue where `maestral stop` and `maestral restart` would not interrupt running
   sync jobs but instead wait for them to be completed. Now, aborted jobs will be resumed
