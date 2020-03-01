@@ -26,7 +26,7 @@ BUNDLE_ID = "com.samschott.maestral"
 
 # sync
 REV_FILE = ".maestral"
-IGNORE_FILE = ".mignore"
+MIGNORE_FILE = ".mignore"
 IS_FS_CASE_SENSITIVE = is_fs_case_sensitive()
 
 EXCLUDED_FILE_NAMES = (
