@@ -766,7 +766,7 @@ class Maestral(object):
         # included), just contain `dbx_path` itself (the item was fully excluded) or
         # only contain children of `dbx_path` (`dbx_path` was partially included).
         new_included_items = tuple(x for x in old_excluded_items if
-                                     x == dbx_path or is_child(x, dbx_path))
+                                   x == dbx_path or is_child(x, dbx_path))
 
         if new_included_items:
             # remove `dbx_path` or all excluded children from the excluded list
