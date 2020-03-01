@@ -36,7 +36,7 @@ from atomicwrites import atomic_write
 from maestral.config import MaestralConfig, MaestralState, list_configs
 from maestral.watchdog import Observer
 from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
-                                EXCLUDED_FILE_NAMES, IGNORE_FILE, IS_FS_CASE_SENSITIVE)
+                                EXCLUDED_FILE_NAMES, MIGNORE_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError,
                              DropboxAuthError, SyncError, ExcludedItemError,
                              PathError, InotifyError, NotFoundError)
@@ -351,7 +351,7 @@ class UpDownSync:
 
         # load cached properties
         self._dropbox_path = self._conf.get("main", "path")
-        self._mignore_path = osp.join(self._dropbox_path, IGNORE_FILE)
+        self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._excluded_items = self._conf.get("main", "excluded_items")
         self._rev_dict_cache = self._load_rev_dict_from_file()
         self._mignore_rules = self._load_mignore_rules_form_file()
@@ -371,7 +371,7 @@ class UpDownSync:
     def dropbox_path(self, path):
         """Setter: dropbox_path"""
         self._dropbox_path = path
-        self._mignore_path = osp.join(self._dropbox_path, IGNORE_FILE)
+        self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._conf.set("main", "path", path)
 
     @property
