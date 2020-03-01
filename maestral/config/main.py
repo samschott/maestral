@@ -58,6 +58,7 @@ DEFAULTS_STATE = [
      {
          'cursor': '',  # remote cursor: represents last state synced from dropbox
          'lastsync': 0.0,  # local cursor: time-stamp of last upload
+         'retry_downloads': [],  # incomplete or failed downloads to retry on next sync
          'recent_changes': [],  # cached list of recent changes to display in GUI / CLI
      }
      ),
