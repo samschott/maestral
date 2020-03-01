@@ -341,7 +341,7 @@ class UpDownSync:
     @excluded_items.setter
     def excluded_items(self, folder_list):
         """Setter: excluded_items"""
-        clean_list = self.clean_excluded_folder_list(folder_list)
+        clean_list = self.clean_excluded_items_list(folder_list)
         self._excluded_items = clean_list
         self._conf.set("main", "excluded_items", clean_list)
 
@@ -519,7 +519,7 @@ class UpDownSync:
     # ==== Helper functions ==============================================================
 
     @staticmethod
-    def clean_excluded_folder_list(folder_list):
+    def clean_excluded_items_list(folder_list):
         """Removes all duplicates from the excluded folder list."""
 
         # remove duplicate entries by creating set, strip trailing "/"

@@ -742,23 +742,20 @@ def about():
 @excluded.command(name='list', help_priority=0)
 @with_existing_config
 def excluded_list(config_name: str):
-    """Lists all excluded folders."""
+    """Lists all excluded files and folders."""
 
     if not pending_link_cli(config_name):
         from maestral.daemon import MaestralProxy
 
         with MaestralProxy(config_name, fallback=True) as m:
 
-            excluded_folders = m.get_conf('main', 'excluded_folders')
-            excluded_files = m.get_conf('main', 'excluded_files')
+            excluded_items = m.excluded_items
+            excluded_items.sort()
 
-            all_excluded = excluded_folders + excluded_files
-            all_excluded.sort()
-
-            if len(excluded_folders) == 0:
+            if len(excluded_items) == 0:
                 click.echo('No excluded files or folders.')
             else:
-                for item in all_excluded:
+                for item in excluded_items:
                     click.echo(item)
 
 
