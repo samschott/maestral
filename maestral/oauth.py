@@ -16,12 +16,10 @@ from keyring.errors import KeyringLocked
 
 # maestral modules
 from maestral.config import MaestralConfig
+from maestral.constants import DROPBOX_APP_KEY
 from maestral.errors import DropboxAuthError
 from maestral.utils.backend import set_keyring_backend
 from maestral.utils.oauth_implicit import DropboxOAuth2FlowImplicit
-
-
-APP_KEY = "2jmbq42w7vof78h"
 
 logger = logging.getLogger(__name__)
 set_keyring_backend()
@@ -73,7 +71,7 @@ class OAuth2Session:
     def get_auth_url(self):
         """Gets the auth URL to start the OAuth2 implicit grant flow."""
 
-        self.auth_flow = DropboxOAuth2FlowImplicit(APP_KEY)
+        self.auth_flow = DropboxOAuth2FlowImplicit(DROPBOX_APP_KEY)
         authorize_url = self.auth_flow.start()
         return authorize_url
 
