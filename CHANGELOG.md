@@ -16,6 +16,8 @@
 
 #### Fixed:
 
+- Don't immediately retry when a download fails. Instead, save failed downloads and retry
+  only on pause / resume or restart.
 - Fixes missing cursor and resulting `dropbox.stone_validators.ValidationError` if a
   sync error occurred during the initial sync.
 - Wait until all sync activity has stopped before moving the Dropbox folder. This avoids
