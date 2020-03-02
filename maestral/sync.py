@@ -568,12 +568,12 @@ class UpDownSync:
 
     @property
     def mignore_rules(self):
-        if get_ctime(self.mignore_path) > self._mignore_load_time:
+        if get_ctime(self.mignore_path) != self._mignore_ctime_loaded:
             self._mignore_rules = self._load_mignore_rules_form_file()
         return self._mignore_rules
 
     def _load_mignore_rules_form_file(self):
-        self._mignore_load_time = time.time()
+        self._mignore_ctime_loaded = get_ctime(self.mignore_path)
         try:
             with open(self.mignore_path, "r") as f:
                 spec = f.read()
