@@ -1,22 +1,12 @@
 import sys
-import os
 import os.path as osp
 import importlib.util
 from setuptools import setup, find_packages
 from maestral import __version__, __author__, __url__
-from maestral.utils.appdirs import get_conf_path, get_runtime_path, get_old_runtime_path
-
+from maestral.utils.appdirs import get_runtime_path, get_old_runtime_path
+from maestral.config.base import list_configs
 
 # abort install if there are running daemons
-def list_configs():
-    configs = []
-    for file in os.listdir(get_conf_path('maestral')):
-        if file.endswith('.ini'):
-            configs.append(os.path.splitext(os.path.basename(file))[0])
-
-    return configs
-
-
 running_daemons = []
 
 for config in list_configs():
