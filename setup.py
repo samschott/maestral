@@ -127,6 +127,7 @@ install_requires = [
     'requests',
     'rubicon-objc>=0.3.1;sys_platform=="darwin"',
     'sdnotify',
+    'setuptools',
     'u-msgpack-python',
     'watchdog>=0.9.0',
 ]
