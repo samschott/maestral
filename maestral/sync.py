@@ -44,12 +44,9 @@ from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import is_child, path_exists_case_insensitive, delete
 from maestral.utils.appdirs import get_data_path
-from maestral.utils.housekeeping import migrate_maestral_index
 
 logger = logging.getLogger(__name__)
 
-for c in list_configs():
-    migrate_maestral_index(c)
 
 DIR_EVENTS = (DirModifiedEvent, DirCreatedEvent, DirDeletedEvent, DirMovedEvent)
 FILE_EVENTS = (FileModifiedEvent, FileCreatedEvent, FileDeletedEvent, FileMovedEvent)

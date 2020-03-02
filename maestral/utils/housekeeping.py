@@ -19,7 +19,7 @@ from maestral.config.main import (
     CONFIG_DIR_NAME, MaestralConfig, MaestralState
 )
 from maestral.config.user import DefaultsConfig, UserConfig
-from maestral.config.base import get_conf_path, get_data_path
+from maestral.config.base import get_conf_path, get_data_path, list_configs
 
 logger = logging.getLogger(__name__)
 
@@ -114,3 +114,9 @@ def migrate_maestral_index(config_name):
 
             sys.stderr.write(title + '\n' + msg)
             sys.exit(1)
+
+
+def run_housekeeping():
+    for config_name in list_configs():
+        migrate_user_config(config_name)
+        migrate_maestral_index(config_name)
