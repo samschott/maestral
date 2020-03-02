@@ -46,7 +46,7 @@ class OAuth2Session:
 
         self._conf = MaestralConfig(config_name)
 
-        self.account_id = self._conf.get("account", "account_id")
+        self.account_id = self._conf.get('account', 'account_id')
         self.access_token = ""
 
         self.auth_flow = None
@@ -57,15 +57,15 @@ class OAuth2Session:
 
         :raises: ``KeyringLocked`` if the system keyring cannot be accessed.
         """
-        logger.debug("Using keyring: %s" % keyring.get_keyring())
+        logger.debug(f'Using keyring: {keyring.get_keyring()}')
         try:
             if self.account_id == "":
                 self.access_token = None
             else:
-                self.access_token = keyring.get_password("Maestral", self.account_id)
+                self.access_token = keyring.get_password('Maestral', self.account_id)
             return self.access_token
         except KeyringLocked:
-            info = "Please make sure that your keyring is unlocked and restart Maestral."
+            info = 'Please make sure that your keyring is unlocked and restart Maestral.'
             raise KeyringLocked(info)
 
     def get_auth_url(self):
@@ -85,7 +85,7 @@ class OAuth2Session:
         """
 
         if not self.auth_flow:
-            raise RuntimeError('Auth flow not yet started. Please call \'get_auth_url\'.')
+            raise RuntimeError('Auth flow not yet started. Please call "get_auth_url".')
 
         try:
             self.oAuth2FlowResult = self.auth_flow.finish(token)
@@ -99,13 +99,13 @@ class OAuth2Session:
 
     def save_creds(self):
         """Saves auth key to system keyring."""
-        self._conf.set("account", "account_id", self.account_id)
+        self._conf.set('account', 'account_id', self.account_id)
         try:
-            keyring.set_password("Maestral", self.account_id, self.access_token)
-            click.echo(" > Credentials written.")
+            keyring.set_password('Maestral', self.account_id, self.access_token)
+            click.echo(' > Credentials written.')
         except KeyringLocked:
-            logger.error("Could not access the user keyring to save your authentication "
-                         "token. Please make sure that the keyring is unlocked.")
+            logger.error('Could not access the user keyring to save your authentication '
+                         'token. Please make sure that the keyring is unlocked.')
 
     def link(self):
         """
@@ -113,29 +113,29 @@ class OAuth2Session:
         keyring.
         """
         authorize_url = self.get_auth_url()
-        click.echo("1. Go to: " + authorize_url)
-        click.echo("2. Click \"Allow\" (you might have to log in first).")
-        click.echo("3. Copy the authorization token.")
+        click.echo('1. Go to: ' + authorize_url)
+        click.echo('2. Click "Allow" (you might have to log in first).')
+        click.echo('3. Copy the authorization token.')
 
         res = self.InvalidToken
         while res != self.Success:
-            auth_code = click.prompt("Enter the authorization token here", type=str)
+            auth_code = click.prompt('Enter the authorization token here', type=str)
             auth_code = auth_code.strip()
             res = self.verify_auth_token(auth_code)
 
             if res == self.InvalidToken:
-                click.secho("Invalid token. Please try again.", fg='red')
+                click.secho('Invalid token. Please try again.', fg='red')
             elif res == self.ConnectionFailed:
-                click.secho("Could not connect to Dropbox. Please try again.", fg='red')
+                click.secho('Could not connect to Dropbox. Please try again.', fg='red')
 
         self.save_creds()
 
     def delete_creds(self):
         """Deletes auth key from system keyring."""
-        self._conf.set("account", "account_id", "")
+        self._conf.set('account', 'account_id', "")
         try:
-            keyring.delete_password("Maestral", self.account_id)
-            click.echo(" > Credentials removed.")
+            keyring.delete_password('Maestral', self.account_id)
+            click.echo(' > Credentials removed.')
         except KeyringLocked:
-            logger.error("Could not access the user keyring to delete your authentication"
-                         " token. Please make sure that the keyring is unlocked.")
+            logger.error('Could not access the user keyring to delete your authentication'
+                         ' token. Please make sure that the keyring is unlocked.')
