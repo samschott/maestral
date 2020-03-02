@@ -43,6 +43,7 @@ from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import error_to_dict, dropbox_stone_to_dict
 from maestral.utils.appdirs import get_log_path, get_cache_path, get_home_dir
 from maestral.utils.updates import check_update_available
+from maestral.utils.housekeeping import run_housekeeping
 from maestral.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
     BUGSNAG_API_KEY, IDLE, DISCONNECTED,
@@ -74,6 +75,8 @@ def bugsnag_global_callback(notification):
 
 
 bugsnag.before_notify(bugsnag_global_callback)
+
+run_housekeeping()
 
 
 # custom logging handlers
