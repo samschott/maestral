@@ -52,7 +52,7 @@ syslog_requires = ['systemd-python']
 
 # if GUI is installed, always update it as well
 try:
-    import maestral_qt
+    import maestral_qt  # noqa: F401
 except ImportError:
     pass
 else:
