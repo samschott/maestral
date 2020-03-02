@@ -17,7 +17,7 @@ from urllib.error import URLError, HTTPError
 from maestral import __version__
 
 
-API_URL = "https://api.github.com/repos/samschott/maestral-dropbox/releases"
+API_URL = 'https://api.github.com/repos/samschott/maestral-dropbox/releases'
 
 
 def get_newer_version(version, releases):
@@ -48,13 +48,13 @@ def check_update_available(current_version=__version__):
         message if retrieving update information failed.
     :rtype: dict
     """
-    current_version = current_version.strip("v")
+    current_version = current_version.strip('v')
     new_version = None
     release_notes = ""
     error_msg = None
 
     try:
-        if hasattr(ssl, "_create_unverified_context"):
+        if hasattr(ssl, '_create_unverified_context'):
             context = ssl._create_unverified_context()
             page = urlopen(API_URL, context=context)
         else:
@@ -66,28 +66,28 @@ def check_update_available(current_version=__version__):
                 data = data.decode()
             data = json.loads(data)
 
-            releases = [item["tag_name"].replace("v", "") for item in data]
+            releases = [item['tag_name'].replace('v', '') for item in data]
             releases = list(reversed(releases))
 
-            releases_notes = [item["body"] for item in data]
+            releases_notes = [item['body'] for item in data]
             releases_notes = list(reversed(releases_notes))
             release_notes = releases_notes[-1]
 
             new_version = get_newer_version(current_version, releases)
         except Exception:
-            error_msg = "Unable to retrieve information."
+            error_msg = 'Unable to retrieve information.'
     except HTTPError:
-        error_msg = "Unable to retrieve information."
+        error_msg = 'Unable to retrieve information.'
     except URLError:
-        error_msg = ("Unable to connect to the internet. "
-                     "Please make sure the connection is working properly.")
+        error_msg = ('Unable to connect to the internet. '
+                     'Please make sure the connection is working properly.')
     except Exception:
-        error_msg = "Unable to check for updates."
+        error_msg = 'Unable to check for updates.'
 
-    return {"update_available": bool(new_version),
-            "latest_release": new_version or current_version,
-            "release_notes": release_notes,
-            "error": error_msg}
+    return {'update_available': bool(new_version),
+            'latest_release': new_version or current_version,
+            'release_notes': release_notes,
+            'error': error_msg}
 
 
 def is_stable_version(version):

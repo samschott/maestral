@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 
 # create single requests session for all clients
 SESSION = dropbox.dropbox.create_session()
-_major_minor_version = ".".join(__version__.split(".")[:2])
-USER_AGENT = f"Maestral/v{_major_minor_version}"
+_major_minor_version = '.'.join(__version__.split('.')[:2])
+USER_AGENT = f'Maestral/v{_major_minor_version}'
 
 
 CONNECTION_ERRORS = (
@@ -55,20 +55,20 @@ def bytes_to_str(num, suffix='B'):
     """
     for unit in ('', 'K', 'M', 'G'):
         if abs(num) < 1024.0:
-            return f"{num:3.1f}{unit}{suffix}"
+            return f'{num:3.1f}{unit}{suffix}'
         num /= 1024.0
-    return f"{num:.1f}T{suffix}"
+    return f'{num:.1f}T{suffix}'
 
 
 class SpaceUsage(dropbox.users.SpaceUsage):
 
     def allocation_type(self):
         if self.allocation.is_team():
-            return "team"
+            return 'team'
         elif self.allocation.is_individual():
-            return "individual"
+            return 'individual'
         else:
-            return ""
+            return ''
 
     def __str__(self):
 
@@ -82,7 +82,7 @@ class SpaceUsage(dropbox.users.SpaceUsage):
             return bytes_to_str(self.used)
 
         percent = used / allocated
-        return f"{percent:.1%} of {bytes_to_str(allocated)} used"
+        return f'{percent:.1%} of {bytes_to_str(allocated)} used'
 
 
 def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
@@ -107,7 +107,7 @@ def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
                 raise api_to_maestral_error(exc, dbx_path, local_path) from exc
             # catch connection errors first, they may inherit from OSError
             except CONNECTION_ERRORS:
-                raise ConnectionError("Cannot connect to Dropbox")
+                raise ConnectionError('Cannot connect to Dropbox')
             except OSError as exc:
                 raise os_to_maestral_error(exc, dbx_path, local_path) from exc
 
@@ -131,7 +131,7 @@ class MaestralApiClient:
     :param int timeout: Timeout for individual requests in sec. Defaults to 60 sec.
     """
 
-    SDK_VERSION = "2.0"
+    SDK_VERSION = '2.0'
     _timeout = 60
 
     def __init__(self, config_name='maestral', timeout=_timeout):
@@ -175,18 +175,18 @@ class MaestralApiClient:
         if not dbid:
             # save our own account info to config
             if res.account_type.is_basic():
-                account_type = "basic"
+                account_type = 'basic'
             elif res.account_type.is_business():
-                account_type = "business"
+                account_type = 'business'
             elif res.account_type.is_pro():
-                account_type = "pro"
+                account_type = 'pro'
             else:
-                account_type = ""
+                account_type = ''
 
-            self._state.set("account", "email", res.email)
-            self._state.set("account", "display_name", res.name.display_name)
-            self._state.set("account", "abbreviated_name", res.name.abbreviated_name)
-            self._state.set("account", "type", account_type)
+            self._state.set('account', 'email', res.email)
+            self._state.set('account', 'display_name', res.name.display_name)
+            self._state.set('account', 'abbreviated_name', res.name.abbreviated_name)
+            self._state.set('account', 'type', account_type)
 
         return res
 
@@ -204,8 +204,8 @@ class MaestralApiClient:
         res.__class__ = SpaceUsage
 
         # save results to config
-        self._state.set("account", "usage", str(res))
-        self._state.set("account", "usage_type", res.allocation_type())
+        self._state.set('account', 'usage', str(res))
+        self._state.set('account', 'usage_type', res.allocation_type())
 
         return res
 
@@ -232,23 +232,23 @@ class MaestralApiClient:
 
         try:
             md = self.dbx.files_get_metadata(dbx_path, **kwargs)
-            logger.debug(f"Retrieved metadata for '{md.path_display}'")
+            logger.debug(f'Retrieved metadata for "{md.path_display}"')
         except dropbox.exceptions.ApiError as exc:
             # DropboxAPI error is only raised when the item does not exist on Dropbox
             # this is handled on a DEBUG level since we use call `get_metadata` to check
             # if a file exists
-            logger.debug(f"Could not get metadata for '{dbx_path}': {exc}")
+            logger.debug(f'Could not get metadata for "{dbx_path}": {exc}')
             md = False
 
         return md
 
     @to_maestral_error(dbx_path_arg=1)
-    def list_revisions(self, dbx_path, mode="path", limit=10):
+    def list_revisions(self, dbx_path, mode='path', limit=10):
         """
         Lists all file revisions for the given file.
 
         :param str dbx_path: Path to file on Dropbox.
-        :param str mode: Must be "path" or "id". If "id", specify the Dropbox file ID
+        :param str mode: Must be 'path' or 'id'. If 'id', specify the Dropbox file ID
             instead of the file path to get revisions across move and rename events.
         :param int limit: Maximum number of revisions to list. Defaults to 10.
         :returns: File revision history.
@@ -278,8 +278,8 @@ class MaestralApiClient:
 
         md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
 
-        logger.debug(f"File '{md.path_display}' (rev {md.rev}) "
-                     f"was successfully downloaded as '{dst_path}'")
+        logger.debug(f'File "{md.path_display}" (rev {md.rev}) '
+                     f'was successfully downloaded as "{dst_path}"')
 
         return md
 
@@ -307,14 +307,14 @@ class MaestralApiClient:
         mtime_dt = datetime.datetime(*time.gmtime(mtime)[:6])
 
         if size <= chunk_size:
-            with open(local_path, "rb") as f:
+            with open(local_path, 'rb') as f:
                 md = self.dbx.files_upload(
                     f.read(), dbx_path, client_modified=mtime_dt, **kwargs
                 )
         else:
             # Note: We currently do not support resuming interrupted uploads. Dropbox
             # keeps upload sessions open for 48h so this could be done in the future.
-            with open(local_path, "rb") as f:
+            with open(local_path, 'rb') as f:
                 session_start = self.dbx.files_upload_session_start(f.read(chunk_size))
                 cursor = dropbox.files.UploadSessionCursor(
                     session_id=session_start.session_id,
@@ -335,7 +335,7 @@ class MaestralApiClient:
                         else:
                             self.dbx.files_upload_session_append_v2(f.read(chunk_size), cursor)
                             cursor.offset = f.tell()
-                        logger.info(f"Uploading {bytes_to_str(f.tell())}/{size_str}...")
+                        logger.info(f'Uploading {bytes_to_str(f.tell())}/{size_str}...')
                     except dropbox.exceptions.DropboxException as exc:
                         error = exc.error
                         if (isinstance(error, dropbox.files.UploadSessionFinishError)
@@ -354,7 +354,7 @@ class MaestralApiClient:
                         else:
                             raise exc
 
-        logger.debug(f"File '{md.path_display}' (rev {md.rev}) uploaded to Dropbox")
+        logger.debug(f'File "{md.path_display}" (rev {md.rev}) uploaded to Dropbox')
 
         return md
 
@@ -372,7 +372,7 @@ class MaestralApiClient:
         res = self.dbx.files_delete_v2(dbx_path, **kwargs)
         md = res.metadata
 
-        logger.debug(f"Item '{dbx_path}' removed from Dropbox")
+        logger.debug(f'Item "{dbx_path}" removed from Dropbox')
 
         return md
 
@@ -396,7 +396,7 @@ class MaestralApiClient:
         )
         md = res.metadata
 
-        logger.debug(f"Item moved from '{dbx_path}' to '{md.path_display}' on Dropbox")
+        logger.debug(f'Item moved from "{dbx_path}" to "{md.path_display}" on Dropbox')
 
         return md
 
@@ -413,7 +413,7 @@ class MaestralApiClient:
         res = self.dbx.files_create_folder_v2(dbx_path, **kwargs)
         md = res.metadata
 
-        logger.debug(f"Created folder '{md.path_display}' on Dropbox")
+        logger.debug(f'Created folder "{md.path_display}" on Dropbox')
 
         return md
 
@@ -430,7 +430,7 @@ class MaestralApiClient:
         :rtype: str
         """
 
-        dbx_path = "" if dbx_path == "/" else dbx_path
+        dbx_path = '' if dbx_path == '/' else dbx_path
 
         res = self.dbx.files_list_folder_get_latest_cursor(
             dbx_path,
@@ -456,7 +456,7 @@ class MaestralApiClient:
         :rtype: :class:`dropbox.files.ListFolderResult`
         """
 
-        dbx_path = "" if dbx_path == "/" else dbx_path
+        dbx_path = '' if dbx_path == '/' else dbx_path
 
         results = []
 
@@ -471,7 +471,7 @@ class MaestralApiClient:
 
         while results[-1].has_more:
             idx += len(results[-1].entries)
-            logger.info(f"Indexing {idx}...")
+            logger.info(f'Indexing {idx}...')
             try:
                 more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
                 results.append(more_results)
@@ -485,7 +485,7 @@ class MaestralApiClient:
                     self._retry_count = 0
                     raise exc
 
-        logger.debug(f"Listed contents of folder '{dbx_path}'")
+        logger.debug(f'Listed contents of folder "{dbx_path}"')
 
         self._retry_count = 0
 
@@ -524,9 +524,9 @@ class MaestralApiClient:
         """
 
         if not 30 <= timeout <= 480:
-            raise ValueError("Timeout must be in range [30, 480]")
+            raise ValueError('Timeout must be in range [30, 480]')
 
-        logger.debug(f"Waiting for remote changes since cursor:\n{last_cursor}")
+        logger.debug(f'Waiting for remote changes since cursor:\n{last_cursor}')
 
         # honour last request to back off
         if self._last_longpoll is not None:
@@ -541,7 +541,7 @@ class MaestralApiClient:
         else:
             self._backoff = 0
 
-        logger.debug(f"Detected remote changes: {result.changes}")
+        logger.debug(f'Detected remote changes: {result.changes}')
 
         self._last_longpoll = time.time()
 
@@ -567,6 +567,6 @@ class MaestralApiClient:
         # combine all results into one
         results = self.flatten_results(results)
 
-        logger.debug(f"Listed remote changes: {results.entries}")
+        logger.debug(f'Listed remote changes: {results.entries}')
 
         return results

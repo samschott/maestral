@@ -30,7 +30,7 @@ def is_child(path, parent):
     return path.startswith(parent + osp.sep) and not path == parent
 
 
-def path_exists_case_insensitive(path, root="/"):
+def path_exists_case_insensitive(path, root='/'):
     """
     Checks if a `path` exists in given `root` directory, similar to
     `os.path.exists` but case-insensitive. If there are multiple
@@ -44,9 +44,9 @@ def path_exists_case_insensitive(path, root="/"):
     """
 
     if not osp.isdir(root):
-        raise ValueError("'{0}' is not a directory.".format(root))
+        raise ValueError(f'\'{root}\' is not a directory.')
 
-    if path in ("", "/"):
+    if path in ('', '/'):
         return root
 
     path_list = path.lstrip(osp.sep).split(osp.sep)

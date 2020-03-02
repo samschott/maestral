@@ -20,7 +20,7 @@ def _remove_tags(dictionary):
     new_dict = dict(dictionary)
 
     for key, value in dictionary.items():
-        if key == ".tag":
+        if key == '.tag':
             del new_dict[key]
         elif isinstance(value, dict):
             new_dict[key] = _remove_tags(value)
@@ -46,8 +46,8 @@ def error_to_dict(err):
 
     :param Exception err: Exception to convert.
     :returns: Dictionary where all keys are strings and all items are native Python types.
-        The following keys will always be present but may contain emtpy strings: "type",
-        "inherits", "title", "traceback", "title", and "message".
+        The following keys will always be present but may contain emtpy strings: 'type',
+        'inherits', 'title', 'traceback', 'title', and 'message'.
     :rtype: dict
     """
 
@@ -55,8 +55,8 @@ def error_to_dict(err):
         type=err.__class__.__name__,
         inherits=[b.__name__ for b in err.__class__.__bases__],
         traceback="".join(traceback.format_exception(err.__class__, err, err.__traceback__)),
-        title="An unexpected error occurred",
-        message="Please restart Maestral to continue syncing.",
+        title='An unexpected error occurred',
+        message='Please restart Maestral to continue syncing.',
     )
     for name, value in err.__dict__.items():
         dictionary[str(name)] = str(value)
