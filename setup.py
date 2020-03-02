@@ -7,6 +7,7 @@ from maestral import __version__, __author__, __url__
 from maestral.utils.appdirs import get_conf_path, get_runtime_path, get_old_runtime_path
 
 
+# abort install if there are running daemons
 def list_configs():
     configs = []
     for file in os.listdir(get_conf_path('maestral')):
