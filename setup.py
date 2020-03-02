@@ -1,6 +1,5 @@
 import sys
 import os.path as osp
-import importlib.util
 from setuptools import setup, find_packages
 from maestral import __version__, __author__, __url__
 from maestral.utils.appdirs import get_runtime_path, get_old_runtime_path
@@ -28,9 +27,6 @@ of config files and compatibility been the CLI and daemon.
 
 
 # proceed with actual install
-
-gui_requires = ['maestral-qt>=0.6.2.dev3']
-
 install_requires = [
     'atomicwrites',
     'bugsnag',
@@ -51,8 +47,15 @@ install_requires = [
     'watchdog>=0.9.0',
 ]
 
+gui_requires = ['maestral-qt>=0.6.2.dev3']
+syslog_requires = ['systemd-python']
+
 # if GUI is installed, always update it as well
-if importlib.util.find_spec('maestral_qt'):
+try:
+    import maestral_qt
+except ImportError:
+    pass
+else:
     install_requires += gui_requires
 
 
@@ -75,10 +78,8 @@ setup(
     setup_requires=['wheel'],
     install_requires=install_requires,
     extras_require={
-        'syslog': [
-            'systemd-python',
-        ],
         'gui': gui_requires,
+        'syslog': syslog_requires,
     },
     zip_safe=False,
     entry_points={
