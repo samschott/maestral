@@ -160,6 +160,10 @@ def _check_pyro_communication(config_name, timeout=2):
     return Start.Failed
 
 
+def sigterm_handler(signal_number, frame):
+    sys.exit()
+
+
 # ==== main functions to manage daemon ===================================================
 
 def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
@@ -174,13 +178,16 @@ def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
     :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
     """
-
+    import threading
     from maestral.main import Maestral
 
     sock_name = sockpath_for_config(config_name)
     pid_name = pidpath_for_config(config_name)
 
     lockfile = PIDLockFile(pid_name)
+
+    if threading.current_thread() is threading.main_thread():
+        signal.signal(signal.SIGTERM, sigterm_handler)
 
     # acquire PID lock file
 
@@ -196,7 +203,7 @@ def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
     logger.debug(f'Starting Maestral daemon on socket "{sock_name}"')
 
     try:
-        # clean up old socket, create new one
+        # clean up old socket
         try:
             os.remove(sock_name)
         except FileNotFoundError:
@@ -206,8 +213,8 @@ def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
 
         # start Maestral as Pyro server
         ExposedMaestral = expose(Maestral)
-        # mark stop_sync and shutdown_daemon as oneway methods
-        # so that they don't block on call
+        # mark stop_sync and shutdown_daemon as one way
+        # methods so that they don't block on call
         ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
         ExposedMaestral.pause_sync = oneway(ExposedMaestral.pause_sync)
         ExposedMaestral.shutdown_pyro_daemon = oneway(ExposedMaestral.shutdown_pyro_daemon)
@@ -218,8 +225,10 @@ def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
         daemon.close()
     except Exception:
         traceback.print_exc()
+    except (KeyboardInterrupt, SystemExit):
+        logger.info('Received system exit')
+        sys.exit(0)
     finally:
-        # remove PID lock
         lockfile.release()
 
 
@@ -247,6 +256,9 @@ def start_maestral_daemon_thread(config_name='maestral', run=True):
     t.start()
 
     _threads[config_name] = t
+
+    if threading.current_thread() is threading.main_thread():
+        signal.signal(signal.SIGTERM, sigterm_handler)
 
     return _wait_for_startup(config_name, timeout=8)
 
