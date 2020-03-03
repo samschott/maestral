@@ -1924,16 +1924,16 @@ def startup_worker(sync, syncing, running, connected, startup_requested, paused_
                 if not running.is_set():
                     return
 
+                # retry failed / interrupted downloads
+                logger.info('Checking for pending downloads...')
+                for dbx_path in list(sync.retry_downloads):
+                    sync.get_remote_item(dbx_path)
+
                 # upload changes while inactive
                 sync.upload_local_changes_while_inactive()
 
                 if not running.is_set():
                     return
-
-                # retry failed / interrupted downloads
-                logger.info('Checking for pending downloads...')
-                for dbx_path in list(sync.retry_downloads):
-                    sync.get_remote_item(dbx_path)
 
             startup_requested.clear()
 
