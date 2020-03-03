@@ -88,20 +88,18 @@ class FileEventHandler(FileSystemEventHandler):
     by :class:`upload_worker`. This acts as a translation layer between
     `watchdog.Observer` and :class:`upload_worker`.
 
-    :ivar syncing: Event that needs to be set for file events to be passed on.
-    :ivar local_file_event_queue: Queue with unprocessed local file events.
-    :ivar queue_downloading: Deque with files to be ignored. This is primarily used to
-         exclude files and folders from monitoring if they are currently being
+    :ivar Event syncing: Set when syncing is running.
+    :ivar Event startup_requested: Set when startup is running.
+    :ivar Queue local_file_event_queue: Queue with unprocessed local file events.
+    :ivar Queue queue_downloading: Queue with files to be ignored. This is primarily used
+         to exclude files and folders from monitoring if they are currently being
          downloaded. All entries in :ivar:`queue_downloading` should be temporary only.
     """
 
-    __slots__ = (
-        'syncing', 'local_file_event_queue', 'queue_downloading', '_renamed_items_cache'
-    )
-
-    def __init__(self, syncing, local_file_event_queue, queue_downloading):
+    def __init__(self, syncing, startup_requested, local_file_event_queue, queue_downloading):
 
         self.syncing = syncing
+        self.startup_requested = startup_requested
         self.local_file_event_queue = local_file_event_queue
         self.queue_downloading = queue_downloading
 
@@ -184,7 +182,8 @@ class FileEventHandler(FileSystemEventHandler):
         :param event: Watchdog file event.
         """
 
-        if not self.syncing.is_set():
+        if not (self.syncing.is_set() or self.startup_requested.is_set()):
+            # ignore events if we are not during startup or sync
             return
 
         # ignore files currently being downloaded
@@ -801,11 +800,12 @@ class UpDownSync:
         for path in snapshot.paths:
             stats = snapshot.stat_info(path)
             # check if item was created or modified since last sync
+            # but before we started the FileEventHandler (~now)
             dbx_path = self.to_dbx_path(path).lower()
+            ctime_check = now > stats.st_ctime > self.get_last_sync_for_path(dbx_path)
 
-            is_new = not self.get_local_rev(dbx_path) and not self.is_excluded(dbx_path)
-            is_modified = (self.get_local_rev(dbx_path)
-                           and now > max(stats.st_ctime, stats.st_mtime) > self.last_sync)
+            is_new = not self.get_local_rev(dbx_path) and ctime_check
+            is_modified = self.get_local_rev(dbx_path) and ctime_check
 
             if is_new:
                 if snapshot.isdir(path):
@@ -1517,7 +1517,7 @@ class UpDownSync:
             # Conflict resolution will then be handled by Dropbox.
             # If the local version has been modified while sync was running
             # but changes were not uploaded before the remote version was
-            # changed as well, the local ctime will be larger than last_sync:
+            # changed as well, the local ctime will be newer than last_sync:
             # (a) The upload of the changed file has already started. Upload thread
             #     will hold the lock and we won't be here checking for conflicts.
             # (b) The upload has not started yet. Manually check for conflict.
