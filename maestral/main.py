@@ -194,7 +194,7 @@ class Maestral(object):
 
         # periodically check for updates and refresh account info
         self.update_thread = Thread(
-            name='Maestral update check',
+            name='maestral-update-check',
             target=self._periodic_refresh,
             daemon=True,
         )
@@ -227,7 +227,7 @@ class Maestral(object):
             logger.debug(f'WATCHDOG_PID = {WATCHDOG_PID}')
 
             self.watchdog_thread = Thread(
-                name='Maestral watchdog',
+                name='maestral-watchdog',
                 target=self._periodic_watchdog,
                 daemon=True,
             )

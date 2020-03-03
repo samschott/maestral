@@ -279,7 +279,7 @@ def start_maestral_daemon_process(config_name='maestral', run=True):
     mp.Process(
         target=target,
         args=(config_name, run),
-        name='Maestral daemon launcher',
+        name='maestral-daemon-launcher',
         daemon=True,
     ).start()
 
