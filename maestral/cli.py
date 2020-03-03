@@ -22,7 +22,11 @@ import click
 import Pyro5.errors
 
 # local imports
-from maestral.config import list_configs
+from maestral.config import MaestralConfig, MaestralState, list_configs
+from maestral.utils.housekeeping import run_housekeeping
+
+
+run_housekeeping()
 
 OK = click.style('[OK]', fg='green')
 FAILED = click.style('[FAILED]', fg='red')
@@ -81,7 +85,6 @@ def _check_for_updates():
     config file and notifies the user."""
     from packaging.version import Version
     from maestral import __version__
-    from maestral.config import MaestralState
 
     state = MaestralState('maestral')
     latest_release = state.get('app', 'latest_release')
@@ -650,7 +653,6 @@ def rebuild_index(config_name: str):
 def configs():
     """Lists all configured Dropbox accounts."""
     from maestral.daemon import get_maestral_pid
-    from maestral.config.main import MaestralConfig, MaestralState
     from maestral.utils.backend import remove_configuration
 
     # clean up stale configs
@@ -678,7 +680,6 @@ def analytics(config_name: str, yes: bool, no: bool):
     """Enables or disables sharing error reports."""
     # This is safe to call regardless if the GUI or daemon are running.
     from maestral.daemon import MaestralProxy
-    from maestral.config.main import MaestralConfig
 
     if yes or no:
         try:
@@ -891,7 +892,6 @@ def log_level(config_name: str, level_name: str):
                 level_name = logging.getLevelName(m.log_level)
                 click.echo(f'Log level:  {level_name}')
     except Pyro5.errors.CommunicationError:
-        from maestral.config.main import MaestralConfig
         conf = MaestralConfig(config_name)
         if level_name:
             conf.set('app', 'log_level', logging._nameToLevel[level_name])
@@ -922,7 +922,6 @@ def notify_level(config_name: str, level_name: str):
                 level_name = levelNumberToName(m.notification_level)
                 click.echo(f'Notification level: {level_name}.')
     except Pyro5.errors.CommunicationError:
-        from maestral.config.main import MaestralConfig
         conf = MaestralConfig(config_name)
         if level_name:
             conf.set('app', 'notification_level', levelNameToNumber(level_name))
