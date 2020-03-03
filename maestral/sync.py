@@ -1722,7 +1722,7 @@ class UpDownSync:
 # ========================================================================================
 
 def connection_helper(sync, syncing, paused_by_user, running, connected,
-                      startup_requested, startup_done, check_interval=4):
+                      startup_requested, check_interval=4):
     """
     A worker which periodically checks the connection to Dropbox servers.
     This is done through inexpensive calls to :method:`client.get_space_usage`.
@@ -1735,18 +1735,15 @@ def connection_helper(sync, syncing, paused_by_user, running, connected,
     :param Event running: Event to shutdown connection helper.
     :param Event connected: Event that indicates if we can connect to Dropbox.
     :param int check_interval: Time in seconds between connection checks.
-    :param Event startup_done: Cleared when functions to run on startup have finished.
     :param Event startup_requested: Set when startup scripts have been requested.
     """
 
     while running.is_set():
         try:
-            # use an inexpensive call to get_space_usage to test connection
+            # use an inexpensive call to `get_space_usage` to test connection
             sync.client.get_space_usage()
             if not connected.is_set() and not paused_by_user.is_set():
                 startup_requested.set()
-                startup_done.clear()
-                syncing.set()
             connected.set()
             time.sleep(check_interval)
         except ConnectionError:
@@ -1759,16 +1756,14 @@ def connection_helper(sync, syncing, paused_by_user, running, connected,
         except DropboxAuthError as e:
             running.clear()
             syncing.clear()
-            startup_done.set()
             logger.error(e.title, exc_info=True)
         except Exception:
             running.clear()
             syncing.clear()
-            startup_done.set()
             logger.error('Unexpected error', exc_info=True)
 
 
-def download_worker(sync, syncing, running, connected, startup_done):
+def download_worker(sync, syncing, running, connected):
     """
     Worker to sync changes of remote Dropbox with local folder.
 
@@ -1776,18 +1771,16 @@ def download_worker(sync, syncing, running, connected, startup_done):
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
-    :param Event startup_done: Cleared when functions to run on startup have finished.
     """
 
     while running.is_set():
 
         syncing.wait()
-        startup_done.wait()
 
         try:
             has_changes = sync.wait_for_remote_changes(sync.last_cursor, timeout=30)
 
-            if not (running.is_set() and syncing.is_set() and startup_done.is_set()):
+            if not (running.is_set() and syncing.is_set()):
                 continue
 
             if has_changes:
@@ -1808,16 +1801,14 @@ def download_worker(sync, syncing, running, connected, startup_done):
         except MaestralApiError as e:
             running.clear()
             syncing.clear()
-            startup_done.set()
             logger.error(e.title, exc_info=True)
         except Exception:
             running.clear()
             syncing.clear()
-            startup_done.set()
             logger.error('Unexpected error', exc_info=True)
 
 
-def download_worker_added_item(sync, syncing, running, connected, startup_done):
+def download_worker_added_item(sync, syncing, running, connected):
     """
     Worker to download items which have been newly included in sync.
 
@@ -1825,20 +1816,18 @@ def download_worker_added_item(sync, syncing, running, connected, startup_done):
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
-    :param Event startup_done: Cleared when functions to run on startup have finished.
     """
 
     while running.is_set():
 
         syncing.wait()
-        startup_done.wait()
 
         dbx_path = sync.queued_newly_included_downloads.get()
         # add dbx_path to `retry_downloads` in case we are interrupted during download
         # this will be cleared automatically when the item is downloaded
         sync.retry_downloads.add(dbx_path)
 
-        if not (running.is_set() and syncing.is_set() and startup_done.is_set()):
+        if not (running.is_set() and syncing.is_set()):
             sync.queued_newly_included_downloads.put(dbx_path)
             continue
 
@@ -1854,16 +1843,14 @@ def download_worker_added_item(sync, syncing, running, connected, startup_done):
         except MaestralApiError as e:
             running.clear()
             syncing.clear()
-            startup_done.set()
             logger.error(e.title, exc_info=True)
         except Exception:
             running.clear()
             syncing.clear()
-            startup_done.set()
             logger.error('Unexpected error', exc_info=True)
 
 
-def upload_worker(sync, syncing, running, connected, startup_done):
+def upload_worker(sync, syncing, running, connected):
     """
     Worker to sync local changes to remote Dropbox.
 
@@ -1871,18 +1858,16 @@ def upload_worker(sync, syncing, running, connected, startup_done):
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
-    :param Event startup_done: Cleared when functions to run on startup have finished.
     """
 
     while running.is_set():
 
         syncing.wait()
-        startup_done.wait()
 
         try:
             events, local_cursor = sync.wait_for_local_changes(timeout=5)
 
-            if not (running.is_set() and syncing.is_set() and startup_done.is_set()):
+            if not (running.is_set() and syncing.is_set()):
                 continue
 
             if len(events) > 0:
@@ -1901,16 +1886,14 @@ def upload_worker(sync, syncing, running, connected, startup_done):
         except MaestralApiError as e:
             running.clear()
             syncing.clear()
-            startup_done.set()
             logger.error(e.title, exc_info=True)
         except Exception:
             running.clear()
             syncing.clear()
-            startup_done.set()
             logger.error('Unexpected error', exc_info=True)
 
 
-def startup_worker(sync, syncing, running, connected, startup_requested, startup_done):
+def startup_worker(sync, syncing, running, connected, startup_requested, paused_by_user):
     """
     Worker to sync local changes to remote Dropbox.
 
@@ -1918,14 +1901,14 @@ def startup_worker(sync, syncing, running, connected, startup_requested, startup
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
-    :param Event startup_done: Cleared when functions to run on startup have finished.
-    :param Event startup_requested: Set when startup scripts have been requested.
+    :param Event startup_requested: Set when we should run startup routines.
+    :param Event paused_by_user: Set when syncing has been paused by the user.
     """
 
     while running.is_set():
 
-        syncing.wait()
         startup_requested.wait()
+        assert not syncing.is_set()
 
         try:
             with sync.lock:
@@ -1938,18 +1921,24 @@ def startup_worker(sync, syncing, running, connected, startup_requested, startup
                     sync.get_remote_folder()
                     sync.last_sync = time.time()
 
-                if not (syncing.is_set() and running.is_set()):
-                    continue
+                if not running.is_set():
+                    return
 
                 # upload changes while inactive
                 sync.upload_local_changes_while_inactive()
 
+                if not running.is_set():
+                    return
+
                 # retry failed / interrupted downloads
+                logger.info('Checking for pending downloads...')
                 for dbx_path in list(sync.retry_downloads):
                     sync.get_remote_item(dbx_path)
 
-            startup_done.set()
             startup_requested.clear()
+
+            if not paused_by_user.is_set():
+                syncing.set()
 
             logger.info(IDLE)
 
@@ -1961,12 +1950,10 @@ def startup_worker(sync, syncing, running, connected, startup_requested, startup
         except MaestralApiError as e:
             running.clear()
             syncing.clear()
-            startup_done.set()
             logger.error(e.title, exc_info=True)
         except Exception:
             running.clear()
             syncing.clear()
-            startup_done.set()
             logger.error('Unexpected error', exc_info=True)
 
 
@@ -2074,7 +2061,7 @@ class MaestralMonitor:
             daemon=True,
             args=(
                 self.sync, self.syncing, self.paused_by_user, self.running,
-                self.connected, self.startup_requested, self.startup_done
+                self.connected, self.startup_requested,
             ),
             name=f'maestral-connection-helper-{self.config_name}'
         )
@@ -2084,7 +2071,7 @@ class MaestralMonitor:
             daemon=True,
             args=(
                 self.sync, self.syncing, self.running, self.connected,
-                self.startup_requested, self.startup_done
+                self.startup_requested, self.paused_by_user
             ),
             name=f'maestral-startup-worker-{self.config_name}'
         )
@@ -2093,7 +2080,7 @@ class MaestralMonitor:
             target=download_worker,
             daemon=True,
             args=(
-                self.sync, self.syncing, self.running, self.connected, self.startup_done
+                self.sync, self.syncing, self.running, self.connected,
             ),
             name=f'maestral-download-{self.config_name}'
         )
@@ -2102,7 +2089,7 @@ class MaestralMonitor:
             target=download_worker_added_item,
             daemon=True,
             args=(
-                self.sync, self.syncing, self.running, self.connected, self.startup_done
+                self.sync, self.syncing, self.running, self.connected,
             ),
             name=f'maestral-folder-download-{self.config_name}'
         )
@@ -2111,7 +2098,7 @@ class MaestralMonitor:
             target=upload_worker,
             daemon=True,
             args=(
-                self.sync, self.syncing, self.running, self.connected, self.startup_done
+                self.sync, self.syncing, self.running, self.connected,
             ),
             name=f'maestral-upload-{self.config_name}'
         )
@@ -2133,10 +2120,9 @@ class MaestralMonitor:
                 raise exc
 
         self.running.set()
-        self.syncing.set()
+        self.syncing.clear()
         self.connected.set()
         self.startup_requested.set()
-        self.startup_done.clear()
 
         self.connection_thread.start()
         self.startup_thread.start()
@@ -2145,9 +2131,6 @@ class MaestralMonitor:
         self.download_thread_added_folder.start()
 
         self.paused_by_user.clear()
-
-        logger.info('Syncing started')
-        logger.info(IDLE)
 
     def pause(self):
         """Pauses syncing."""
@@ -2160,15 +2143,11 @@ class MaestralMonitor:
     def resume(self):
         """Checks for changes while idle and starts syncing."""
 
-        if self.syncing.is_set():
+        if not self.paused_by_user.is_set():
             return
 
         self.startup_requested.set()
-        self.startup_done.clear()
-        self.syncing.set()
         self.paused_by_user.clear()
-
-        logger.info(IDLE)
 
     def stop(self):
         """Stops syncing and destroys worker threads."""
@@ -2182,7 +2161,6 @@ class MaestralMonitor:
         self.syncing.clear()
         self.paused_by_user.clear()
         self.startup_requested.clear()
-        self.startup_done.set()
 
         self._wait_for_idle()
 
