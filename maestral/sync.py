@@ -1213,8 +1213,8 @@ class UpDownSync:
         if event.is_directory:
             # check if directory is not yet on Dropbox, else leave alone
             md = self.client.get_metadata(dbx_path)
-            if not md:
-                md = self.client.make_dir(dbx_path)
+            if not isinstance(md, dropbox.files.FolderMetadata):
+                md = self.client.make_dir(dbx_path, autorename=True)
 
             # save or update revision metadata
             self.set_local_rev(md.path_lower, 'folder')
