@@ -1,7 +1,7 @@
 ## v0.6.2-dev
 
 This release enables excluding individual files from syncing, introduces support for an
-".mignore" file with the same concept as [gitignore](https://git-scm.com/docs/gitignore) 
+".mignore" file with the same concept as [gitignore](https://git-scm.com/docs/gitignore)
 and fixes an issue with immediately retrying failed downloads.
 
 #### Added:
@@ -23,16 +23,16 @@ and fixes an issue with immediately retrying failed downloads.
 
 - Replaced the `excluded_files` and `excluded_folders` settings from the config file with
   a unified `excluded_items` setting.
-- Renamed `Maestral.exclude_folder` to `Maestral.exclude_item`,
- `Maestral.include_folder` to `Maestral.inlcude_item`, and `Maestral.set_excluded_folders`
- to `Maestral.set_excluded_items`.
+- Renamed `Maestral.exclude_folder` to `Maestral.exclude_item`, `Maestral.include_folder`
+  to `Maestral.inlcude_item`, and `Maestral.set_excluded_folders` to
+  `Maestral.set_excluded_items`.
 
 #### Fixed:
 
 - Don't immediately retry when a download fails. Instead, save failed downloads and retry
   only on pause / resume or restart.
-- Fixes missing cursor and resulting `dropbox.stone_validators.ValidationError` if a
-  sync error occurred during the initial sync.
+- Fixes missing cursor and resulting `dropbox.stone_validators.ValidationError` during
+  sync startup.
 - Wait until all sync activity has stopped before moving the Dropbox folder. This avoids
   errors when trying to convert local to dropbox paths and vice versa during the move.
 
