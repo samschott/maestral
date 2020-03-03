@@ -68,6 +68,26 @@ for err_cls in list(SYNC_ERRORS) + list(FATAL_ERRORS) + [MaestralApiError]:
 
 # ==== helpers for daemon management =====================================================
 
+
+def _sigterm_handler(signal_number, frame):
+    sys.exit()
+
+
+def _send_term(pid):
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+
+
+def _process_exists(pid):
+    try:
+        os.kill(pid, signal.SIG_DFL)
+        return True
+    except ProcessLookupError:
+        return False
+
+
 def sockpath_for_config(config_name):
     """
     Returns the unix socket location to be used for the config. This should default to
@@ -90,15 +110,11 @@ def is_pidfile_stale(pidfile):
     """
     result = False
 
-    pidfile_pid = pidfile.read_pid()
-    if pidfile_pid is not None:
-        try:
-            os.kill(pidfile_pid, signal.SIG_DFL)
-        except ProcessLookupError:
-            # the process does not exist.
-            result = True
-
-    return result
+    pid = pidfile.read_pid()
+    if pid:
+        return not _process_exists(pid)
+    else:
+        return result
 
 
 def get_maestral_pid(config_name):
@@ -160,10 +176,6 @@ def _check_pyro_communication(config_name, timeout=2):
     return Start.Failed
 
 
-def sigterm_handler(signal_number, frame):
-    sys.exit()
-
-
 # ==== main functions to manage daemon ===================================================
 
 def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
@@ -187,7 +199,7 @@ def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
     lockfile = PIDLockFile(pid_name)
 
     if threading.current_thread() is threading.main_thread():
-        signal.signal(signal.SIGTERM, sigterm_handler)
+        signal.signal(signal.SIGTERM, _sigterm_handler)
 
     # acquire PID lock file
 
@@ -258,7 +270,7 @@ def start_maestral_daemon_thread(config_name='maestral', run=True):
     _threads[config_name] = t
 
     if threading.current_thread() is threading.main_thread():
-        signal.signal(signal.SIGTERM, sigterm_handler)
+        signal.signal(signal.SIGTERM, _sigterm_handler)
 
     return _wait_for_startup(config_name, timeout=8)
 
@@ -314,41 +326,41 @@ def stop_maestral_daemon_process(config_name='maestral', timeout=10):
     lockfile = PIDLockFile(pidpath_for_config(config_name))
     pid = lockfile.read_pid()
 
-    if not pid or is_pidfile_stale(lockfile):
-        lockfile.break_lock()
-        return Exit.NotRunning
-
     try:
-        # tell maestral daemon to shut down
-        with MaestralProxy(config_name) as m:
-            m.stop_sync()
-            m.shutdown_pyro_daemon()
-    except Pyro5.errors.CommunicationError:
-        logger.debug('Could not communicate with daemon')
-        try:
-            os.kill(pid, signal.SIGTERM)  # try to send SIGTERM to process
-            logger.debug('Terminating daemon process')
-        except ProcessLookupError:
-            logger.debug('Daemon was not running')
+        if not pid or not _process_exists(pid):
             return Exit.NotRunning
-    finally:
-        # wait for maestral to carry out shutdown
-        logger.debug('Waiting for shutdown')
-        while timeout > 0:
-            try:
-                os.kill(pid, signal.SIG_DFL)  # query if still running
-            except ProcessLookupError:
-                logger.debug('Daemon shut down')
-                return Exit.Ok  # return True if not running anymore
-            else:
-                time.sleep(0.2)  # wait for 0.2 sec and try again
-                timeout -= 0.2
 
-        # send SIGKILL after timeout, delete PID file and return False
-        os.kill(pid, signal.SIGKILL)
-        logger.debug('Daemon process killed')
+        try:
+            with MaestralProxy(config_name) as m:
+                m.stop_sync()
+                m.shutdown_pyro_daemon()
+        except Pyro5.errors.CommunicationError:
+            logger.debug('Could not communicate with daemon, sending SIGTERM')
+            _send_term(pid)
+        finally:
+            logger.debug('Waiting for shutdown')
+            while timeout > 0:
+                if not _process_exists(pid):
+                    logger.debug('Daemon shut down')
+                    return Exit.Ok
+                else:
+                    time.sleep(0.2)
+                    timeout -= 0.2
+
+            # send SIGTERM after timeout and delete PID file
+            _send_term(pid)
+
+            time.sleep(1)
+
+            if not _process_exists(pid):
+                logger.debug('Daemon shut down')
+                return Exit.Ok
+            else:
+                os.kill(pid, signal.SIGKILL)
+                logger.debug('Daemon killed')
+                return Exit.Killed
+    finally:
         lockfile.break_lock()
-        return Exit.Killed
 
 
 def stop_maestral_daemon_thread(config_name='maestral', timeout=10):
