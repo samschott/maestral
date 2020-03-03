@@ -75,7 +75,7 @@ class AutoStartMaestralBase(AutoStartBase):
     @staticmethod
     def _get_maestral_command_path():
         console_script = next(p for p in files('maestral') if '/bin/maestral' in str(p))
-        pex_path = next([path for path in sys.path if path.endswith('.pex')], None)
+        pex_path = next(iter(path for path in sys.path if path.endswith('.pex')), None)
 
         return pex_path or console_script.locate().resolve()
 
