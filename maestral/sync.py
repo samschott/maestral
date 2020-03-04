@@ -1486,19 +1486,17 @@ class UpDownSync:
 
         downloaded = []  # local list of all changes
 
-        if folders:
-            logger.info('Creating folders...')
-
-        # create local folders, start with top-level and work your way down
-        for folder in folders:
-            downloaded.append(self._create_local_entry(folder))
-
+        # apply deleted items
         if deleted:
             logger.info('Applying deletions...')
-
-        # apply deleted items
         for item in deleted:
             downloaded.append(self._create_local_entry(item))
+
+        # create local folders, start with top-level and work your way down
+        if folders:
+            logger.info('Creating folders...')
+        for folder in folders:
+            downloaded.append(self._create_local_entry(folder))
 
         # apply created files
         n_files = len(files)
