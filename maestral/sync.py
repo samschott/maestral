@@ -296,7 +296,7 @@ def catch_sync_issues(func):
                 if exc.local_path is None:
                     exc.local_path = self.to_local_path(exc.dbx_path)
                 self.sync_errors.put(exc)
-                if isinstance(args[0], dropbox.files.Metadata):
+                if any(isinstance(a, dropbox.files.Metadata) for a in args):
                     self.retry_downloads.add(exc.dbx_path)
 
             res = False
@@ -988,9 +988,8 @@ class UpDownSync:
         all_paths = all_src_paths + all_dest_paths
 
         # Move events are difficult to combine with other event types
-        # -> split up moved events into deleted and created events, but only if the
-        # respective paths have other events associated with them or if they are included
-        # in mignore
+        # -> split up moved events into deleted and created events if at least one
+        # of the paths has other events associated with it or is excluded from sync
         new_events = []
 
         for e in events:
@@ -1037,9 +1036,11 @@ class UpDownSync:
                 n_created = len([e for e in h if e.event_type == EVENT_TYPE_CREATED])
                 n_deleted = len([e for e in h if e.event_type == EVENT_TYPE_DELETED])
 
-                if n_created > n_deleted:  # file created
+                # TODO: possible to only check first + last event?
+
+                if n_created > n_deleted:  # file was created
                     new_events.append(CreatedEvent(path))
-                if n_created < n_deleted:  # file was only temporary
+                if n_created < n_deleted:  # file was deleted
                     new_events.append(DeletedEvent(path))
                 elif n_deleted == n_created:
                     if n_created == 0:  # file was modified
@@ -1086,7 +1087,7 @@ class UpDownSync:
         for e in events:
             self.queued_for_upload.put(_get_dest_path(e))
 
-        # apply directory events first (the do not require any upload)
+        # apply directory events first (they do not require any upload)
         for event in dir_events:
             self._apply_event(event)
 
