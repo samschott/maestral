@@ -114,14 +114,26 @@ res5 = [
 ]
 
 
+class DummyUpDownSync(UpDownSync):
+
+    def __init__(self):
+        pass
+
+    def _split_mignore(self, event):
+        return False
+
+
+# TODO: test splitting mignore paths
 def test_clean_local_events():
 
-    cleaned_file_events_test0 = UpDownSync._clean_local_events(file_events_test0)
-    cleaned_file_events_test1 = UpDownSync._clean_local_events(file_events_test1)
-    cleaned_file_events_test2 = UpDownSync._clean_local_events(file_events_test2)
-    cleaned_file_events_test3 = UpDownSync._clean_local_events(file_events_test3)
-    cleaned_file_events_test4 = UpDownSync._clean_local_events(file_events_test4)
-    cleaned_file_events_test5 = UpDownSync._clean_local_events(file_events_test5)
+    sync = DummyUpDownSync()
+
+    cleaned_file_events_test0 = sync._clean_local_events(file_events_test0)
+    cleaned_file_events_test1 = sync._clean_local_events(file_events_test1)
+    cleaned_file_events_test2 = sync._clean_local_events(file_events_test2)
+    cleaned_file_events_test3 = sync._clean_local_events(file_events_test3)
+    cleaned_file_events_test4 = sync._clean_local_events(file_events_test4)
+    cleaned_file_events_test5 = sync._clean_local_events(file_events_test5)
 
     assert set(cleaned_file_events_test0) == set(res0)
     assert set(cleaned_file_events_test1) == set(res1)
