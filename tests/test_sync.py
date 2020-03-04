@@ -122,6 +122,9 @@ class DummyUpDownSync(UpDownSync):
     def _split_mignore(self, event):
         return False
 
+    def is_excluded(self, dbx_path):
+        return False
+
 
 # TODO: test splitting mignore paths
 def test_clean_local_events():
