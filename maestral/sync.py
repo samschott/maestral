@@ -88,18 +88,18 @@ class FileEventHandler(FileSystemEventHandler):
     by :class:`upload_worker`. This acts as a translation layer between
     `watchdog.Observer` and :class:`upload_worker`.
 
-    :ivar Event syncing: Set when syncing is running.
-    :ivar Event startup_requested: Set when startup is running.
-    :ivar Queue local_file_event_queue: Queue with unprocessed local file events.
-    :ivar Queue queue_downloading: Queue with files to be ignored. This is primarily used
+    :param Event syncing: Set when syncing is running.
+    :param Event startup: Set when startup is running.
+    :param Queue local_file_event_queue: Queue with unprocessed local file events.
+    :param Queue queue_downloading: Queue with files to be ignored. This is primarily used
          to exclude files and folders from monitoring if they are currently being
          downloaded. All entries in :ivar:`queue_downloading` should be temporary only.
     """
 
-    def __init__(self, syncing, startup_requested, local_file_event_queue, queue_downloading):
+    def __init__(self, syncing, startup, local_file_event_queue, queue_downloading):
 
         self.syncing = syncing
-        self.startup_requested = startup_requested
+        self.startup = startup
         self.local_file_event_queue = local_file_event_queue
         self.queue_downloading = queue_downloading
 
@@ -182,7 +182,7 @@ class FileEventHandler(FileSystemEventHandler):
         :param event: Watchdog file event.
         """
 
-        if not (self.syncing.is_set() or self.startup_requested.is_set()):
+        if not (self.syncing.is_set() or self.startup.is_set()):
             # ignore events if we are not during startup or sync
             return
 
@@ -808,7 +808,8 @@ class UpDownSync:
             dbx_path = self.to_dbx_path(path).lower()
             ctime_check = now > stats.st_ctime > self.get_last_sync_for_path(dbx_path)
 
-            is_new = not self.get_local_rev(dbx_path) and ctime_check
+            # always upload untracked items, check ctime of tracked items
+            is_new = not self.get_local_rev(dbx_path)
             is_modified = self.get_local_rev(dbx_path) and ctime_check
 
             if is_new:
@@ -1733,7 +1734,7 @@ class UpDownSync:
 # ========================================================================================
 
 def connection_helper(sync, syncing, paused_by_user, running, connected,
-                      startup_requested, check_interval=4):
+                      startup, check_interval=4):
     """
     A worker which periodically checks the connection to Dropbox servers.
     This is done through inexpensive calls to :method:`client.get_space_usage`.
@@ -1746,7 +1747,7 @@ def connection_helper(sync, syncing, paused_by_user, running, connected,
     :param Event running: Event to shutdown connection helper.
     :param Event connected: Event that indicates if we can connect to Dropbox.
     :param int check_interval: Time in seconds between connection checks.
-    :param Event startup_requested: Set when startup scripts have been requested.
+    :param Event startup: Set when startup scripts have been requested.
     """
 
     while running.is_set():
@@ -1754,7 +1755,7 @@ def connection_helper(sync, syncing, paused_by_user, running, connected,
             # use an inexpensive call to `get_space_usage` to test connection
             sync.client.get_space_usage()
             if not connected.is_set() and not paused_by_user.is_set():
-                startup_requested.set()
+                startup.set()
             connected.set()
             time.sleep(check_interval)
         except ConnectionError:
@@ -1904,7 +1905,7 @@ def upload_worker(sync, syncing, running, connected):
             logger.error('Unexpected error', exc_info=True)
 
 
-def startup_worker(sync, syncing, running, connected, startup_requested, paused_by_user):
+def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
     """
     Worker to sync local changes to remote Dropbox.
 
@@ -1912,13 +1913,13 @@ def startup_worker(sync, syncing, running, connected, startup_requested, paused_
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
-    :param Event startup_requested: Set when we should run startup routines.
+    :param Event startup: Set when we should run startup routines.
     :param Event paused_by_user: Set when syncing has been paused by the user.
     """
 
     while running.is_set():
 
-        startup_requested.wait()
+        startup.wait()
         assert not syncing.is_set()
 
         try:
@@ -1926,7 +1927,7 @@ def startup_worker(sync, syncing, running, connected, startup_requested, paused_
                 # run / resume initial download
                 # local changes during this download will be registered
                 # by the local FileSystemObserver but only uploaded after
-                # `startup_done` has been set
+                # `syncing` has been set
                 if sync.last_cursor == '':
                     sync.clear_all_sync_errors()
                     sync.get_remote_folder()
@@ -1950,10 +1951,10 @@ def startup_worker(sync, syncing, running, connected, startup_requested, paused_
                 if not running.is_set():
                     continue
 
-            startup_requested.clear()
-
             if not paused_by_user.is_set():
                 syncing.set()
+
+            startup.clear()
 
             logger.info(IDLE)
 
@@ -1971,7 +1972,7 @@ def startup_worker(sync, syncing, running, connected, startup_requested, paused_
             syncing.clear()
             logger.error('Unexpected error', exc_info=True)
 
-    startup_requested.clear()
+    startup.clear()
 
 
 # ========================================================================================
@@ -1999,15 +2000,12 @@ class MaestralMonitor:
         while checking for conflicts.
 
     :ivar Event connected: Set when connected to Dropbox servers.
+    :ivar Event startup: Set when startup scripts have to be run after syncing
+        was inactive, for instance when Maestral is started, the internet connection is
+        reestablished or syncing is resumed after pausing.
     :ivar Event syncing: Set when sync is running.
     :ivar Event running: Set when the sync threads are alive.
     :ivar Event paused_by_user: Set when sync is paused by the user.
-
-    :ivar Event startup_requested: Set when startup scripts have to be run after syncing
-        was inactive, for instance when Maestral is started, the internet connection is
-        reestablished or syncing is resumed after pausing.
-    :ivar Event startup_done: Set when startup scripts have completed. Sync threads will
-        wait for this event to be set.
 
     :cvar Queue queue_downloading: Holds *local file paths* that are being downloaded.
     :cvar Queue queue_uploading: Holds *local file paths* that are being uploaded.
@@ -2027,13 +2025,12 @@ class MaestralMonitor:
         self.paused_by_user = Event()
         self.paused_by_user.set()
 
-        self.startup_requested = Event()
-        self.startup_done = Event()
+        self.startup = Event()
 
         self.client = client
         self.config_name = self.client.config_name
         self.file_handler = FileEventHandler(
-            self.syncing, self.startup_requested,
+            self.syncing, self.startup,
             self.local_file_event_queue, self.queue_downloading
         )
 
@@ -2079,7 +2076,7 @@ class MaestralMonitor:
             daemon=True,
             args=(
                 self.sync, self.syncing, self.paused_by_user, self.running,
-                self.connected, self.startup_requested,
+                self.connected, self.startup,
             ),
             name=f'maestral-connection-helper'
         )
@@ -2089,7 +2086,7 @@ class MaestralMonitor:
             daemon=True,
             args=(
                 self.sync, self.syncing, self.running, self.connected,
-                self.startup_requested, self.paused_by_user
+                self.startup, self.paused_by_user
             ),
             name=f'maestral-startup-worker'
         )
@@ -2140,7 +2137,7 @@ class MaestralMonitor:
         self.running.set()
         self.syncing.clear()
         self.connected.set()
-        self.startup_requested.set()
+        self.startup.set()
 
         self.connection_thread.start()
         self.startup_thread.start()
@@ -2164,7 +2161,7 @@ class MaestralMonitor:
         if not self.paused_by_user.is_set():
             return
 
-        self.startup_requested.set()
+        self.startup.set()
         self.paused_by_user.clear()
 
     def stop(self):
@@ -2178,7 +2175,7 @@ class MaestralMonitor:
         self.running.clear()
         self.syncing.clear()
         self.paused_by_user.clear()
-        self.startup_requested.clear()
+        self.startup.clear()
 
         self._wait_for_idle()
 
