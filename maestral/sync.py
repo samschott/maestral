@@ -995,7 +995,8 @@ class UpDownSync:
         for e in events:
             if e.event_type == EVENT_TYPE_MOVED:
                 related = tuple(p for p in all_paths if p in (e.src_path, e.dest_path))
-                if len(related) > 2 or self._split_mignore(e):
+                if (len(related) > 2 or self._split_mignore(e)
+                    or self.is_excluded(e.src_path) or self.is_excluded(e.dest_path)):
 
                     if e.is_directory:
                         CreatedEvent = DirCreatedEvent
