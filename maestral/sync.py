@@ -256,18 +256,18 @@ class SyncStateSet(abc.MutableSet):
     def discard(self, dbx_path):
         dbx_path = dbx_path.lower().rstrip(osp.sep)
         with self._lock:
-            retry_downloads = self._state.get(self.section, self.option)
-            retry_downloads = set(retry_downloads)
-            retry_downloads.discard(dbx_path)
-            self._state.set(self.section, self.option, list(retry_downloads))
+            state_list = self._state.get(self.section, self.option)
+            state_list = set(state_list)
+            state_list.discard(dbx_path)
+            self._state.set(self.section, self.option, list(state_list))
 
     def add(self, dbx_path):
         dbx_path = dbx_path.lower().rstrip(osp.sep)
         with self._lock:
-            retry_downloads = self._state.get(self.section, self.option)
-            retry_downloads = set(retry_downloads)
-            retry_downloads.add(dbx_path)
-            self._state.set(self.section, self.option, list(retry_downloads))
+            state_list = self._state.get(self.section, self.option)
+            state_list = set(state_list)
+            state_list.add(dbx_path)
+            self._state.set(self.section, self.option, list(state_list))
 
     def clear(self):
         with self._lock:
@@ -297,7 +297,7 @@ def catch_sync_issues(func):
                     exc.local_path = self.to_local_path(exc.dbx_path)
                 self.sync_errors.put(exc)
                 if any(isinstance(a, Metadata) for a in args):
-                    self.retry_downloads.add(exc.dbx_path)
+                    self.download_errors.add(exc.dbx_path)
 
             res = False
 
