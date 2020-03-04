@@ -232,12 +232,12 @@ class MaestralApiClient:
 
         try:
             md = self.dbx.files_get_metadata(dbx_path, **kwargs)
-            logger.debug(f'Retrieved metadata for "{md.path_display}"')
+            logger.debug('Retrieved metadata for "%s"', md.path_display)
         except dropbox.exceptions.ApiError as exc:
             # DropboxAPI error is only raised when the item does not exist on Dropbox
             # this is handled on a DEBUG level since we use call `get_metadata` to check
             # if a file exists
-            logger.debug(f'Could not get metadata for "{dbx_path}": {exc}')
+            logger.debug('Could not get metadata for "%s": %s', dbx_path, exc)
             md = False
 
         return md
@@ -278,8 +278,8 @@ class MaestralApiClient:
 
         md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
 
-        logger.debug(f'File "{md.path_display}" (rev {md.rev}) '
-                     f'was successfully downloaded as "{dst_path}"')
+        logger.debug('File "%s" (rev %s) was successfully downloaded as "%s"',
+                     md.path_display, md.rev, dst_path)
 
         return md
 
@@ -354,7 +354,7 @@ class MaestralApiClient:
                         else:
                             raise exc
 
-        logger.debug(f'File "{md.path_display}" (rev {md.rev}) uploaded to Dropbox')
+        logger.debug('File "%s" (rev %s) uploaded to Dropbox', md.path_display, md.rev)
 
         return md
 
@@ -372,7 +372,7 @@ class MaestralApiClient:
         res = self.dbx.files_delete_v2(dbx_path, **kwargs)
         md = res.metadata
 
-        logger.debug(f'Item "{dbx_path}" removed from Dropbox')
+        logger.debug('Item "%s" removed from Dropbox', dbx_path)
 
         return md
 
@@ -396,7 +396,7 @@ class MaestralApiClient:
         )
         md = res.metadata
 
-        logger.debug(f'Item moved from "{dbx_path}" to "{md.path_display}" on Dropbox')
+        logger.debug('Item moved from "%s" to "%s" on Dropbox', dbx_path, md.path_display)
 
         return md
 
@@ -413,7 +413,7 @@ class MaestralApiClient:
         res = self.dbx.files_create_folder_v2(dbx_path, **kwargs)
         md = res.metadata
 
-        logger.debug(f'Created folder "{md.path_display}" on Dropbox')
+        logger.debug('Created folder "%s" on Dropbox', md.path_display)
 
         return md
 
@@ -485,7 +485,7 @@ class MaestralApiClient:
                     self._retry_count = 0
                     raise exc
 
-        logger.debug(f'Listed contents of folder "{dbx_path}"')
+        logger.debug('Listed contents of folder "%s"', dbx_path)
 
         self._retry_count = 0
 
@@ -526,7 +526,7 @@ class MaestralApiClient:
         if not 30 <= timeout <= 480:
             raise ValueError('Timeout must be in range [30, 480]')
 
-        logger.debug(f'Waiting for remote changes since cursor:\n{last_cursor}')
+        logger.debug('Waiting for remote changes since cursor:\n%s', last_cursor)
 
         # honour last request to back off
         if self._last_longpoll is not None:
@@ -541,7 +541,7 @@ class MaestralApiClient:
         else:
             self._backoff = 0
 
-        logger.debug(f'Detected remote changes: {result.changes}')
+        logger.debug('Detected remote changes: %s', result.changes)
 
         self._last_longpoll = time.time()
 
@@ -567,6 +567,10 @@ class MaestralApiClient:
         # combine all results into one
         results = self.flatten_results(results)
 
-        logger.debug(f'Listed remote changes: {results.entries}')
+        logger.debug('Listed remote changes:\n%s', iter_to_str(results.entries))
 
         return results
+
+
+def iter_to_str(iterable):
+    return '\n'.join(str(e) for e in iterable)
