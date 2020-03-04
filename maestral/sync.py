@@ -1700,7 +1700,7 @@ class UpDownSync:
 
             self._save_to_history(entry.path_display)
 
-            with InQueue(local_path, self.queue_downloading, delay=0.5):
+            with InQueue(local_path, self.queue_downloading, delay=1):
 
                 if osp.isdir(local_path):
                     delete(local_path)
@@ -1718,7 +1718,7 @@ class UpDownSync:
             # If there’s already something else at the given path,
             # replace it but leave the children as they are.
 
-            with InQueue(local_path, self.queue_downloading, delay=0.5):
+            with InQueue(local_path, self.queue_downloading, delay=1):
 
                 if osp.isfile(local_path):
                     delete(local_path)
@@ -1738,7 +1738,7 @@ class UpDownSync:
             # remove it and all its children. If there’s nothing at the
             # given path, ignore this entry.
 
-            with InQueue(local_path, self.queue_downloading, delay=0.5):
+            with InQueue(local_path, self.queue_downloading, delay=1):
                 err = delete(local_path)
                 self.set_local_rev(entry.path_lower, None)
 
