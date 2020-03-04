@@ -48,10 +48,6 @@ from maestral.utils.appdirs import get_data_path
 logger = logging.getLogger(__name__)
 
 
-DIR_EVENTS = (DirModifiedEvent, DirCreatedEvent, DirDeletedEvent, DirMovedEvent)
-FILE_EVENTS = (FileModifiedEvent, FileCreatedEvent, FileDeletedEvent, FileMovedEvent)
-
-
 # ========================================================================================
 # Syncing functionality
 # ========================================================================================
@@ -751,21 +747,44 @@ class UpDownSync:
         """
         Check if local file change has been excluded by an mignore pattern.
 
-        :param FileMovedEvent event: Local file event.
-        :returns: ``True`` or `False`.
+        :param event: Local file event.
+        :returns: ``True`` or ``False``.
         :rtype: bool
+        :raises: ValueError if given a FileMovedEvent or DirMovedEvent
         """
-        if event.event_type == EVENT_TYPE_MOVED:
+        if len(self.mignore_rules.patterns) == 0:
             return False
 
+        if event.event_type == EVENT_TYPE_MOVED:
+            raise ValueError('Cannot check moved events,'
+                             'split into created and deleted events first.')
+
         dbx_path = self.to_dbx_path(event.src_path)
+
+        return (self._is_mignore_path(dbx_path, is_dir=event.is_directory)
+                and not self.get_local_rev(dbx_path))
+
+    def _split_mignore(self, event):
+        if len(self.mignore_rules.patterns) == 0:
+            return False
+
+        if event.event_type != EVENT_TYPE_MOVED:
+            raise ValueError('Can only split moved events.')
+
+        dbx_src_path = self.to_dbx_path(event.src_path)
+        dbx_dest_path = self.to_dbx_path(event.dest_path)
+
+        return (self._is_mignore_path(dbx_src_path, event.is_directory)
+                or self._is_mignore_path(dbx_dest_path, event.is_directory))
+
+    def _is_mignore_path(self, dbx_path, is_dir=False):
+
         relative_path = dbx_path.lstrip('/')
 
-        if event.is_directory:
+        if is_dir:
             relative_path += '/'
 
-        return (self.mignore_rules.match_file(relative_path)
-                and not self.get_local_rev(dbx_path))
+        return self.mignore_rules.match_file(relative_path)
 
     # ==== Upload sync ===================================================================
 
@@ -953,8 +972,7 @@ class UpDownSync:
 
         return events_filtered, events_excluded
 
-    @staticmethod
-    def _clean_local_events(events):
+    def _clean_local_events(self, events):
         """
         Takes local file events within the monitored period and cleans them up so that
         there is only a single event per path.
@@ -971,17 +989,24 @@ class UpDownSync:
 
         # Move events are difficult to combine with other event types
         # -> split up moved events into deleted and created events, but only if the
-        # respective paths have other events associated with them
+        # respective paths have other events associated with them or if they are included
+        # in mignore
         new_events = []
 
         for e in events:
             if e.event_type == EVENT_TYPE_MOVED:
                 related = tuple(p for p in all_paths if p in (e.src_path, e.dest_path))
-                if len(related) > 2:
-                    e_del = FileDeletedEvent(e.src_path)
-                    e_new = FileCreatedEvent(e.dest_path)
-                    new_events.append(e_del)
-                    new_events.append(e_new)
+                if len(related) > 2 or self._split_mignore(e):
+
+                    if e.is_directory:
+                        CreatedEvent = DirCreatedEvent
+                        DeletedEvent = DirDeletedEvent
+                    else:
+                        CreatedEvent = FileCreatedEvent
+                        DeletedEvent = FileDeletedEvent
+
+                    new_events.append(DeletedEvent(e.src_path))
+                    new_events.append(CreatedEvent(e.dest_path))
                 else:
                     new_events.append(e)
             else:
@@ -1000,14 +1025,14 @@ class UpDownSync:
             else:
                 path = h[0].src_path
 
-                if isinstance(h[-1], FILE_EVENTS):  # final item is a file
-                    CreatedEvent = FileCreatedEvent
-                    ModifiedEvent = FileModifiedEvent
-                    DeletedEvent = FileDeletedEvent
-                else:  # final item is a directory
+                if h[-1].is_directory:
                     CreatedEvent = DirCreatedEvent
                     ModifiedEvent = DirModifiedEvent
                     DeletedEvent = DirDeletedEvent
+                else:
+                    CreatedEvent = FileCreatedEvent
+                    ModifiedEvent = FileModifiedEvent
+                    DeletedEvent = FileDeletedEvent
 
                 n_created = len([e for e in h if e.event_type == EVENT_TYPE_CREATED])
                 n_deleted = len([e for e in h if e.event_type == EVENT_TYPE_DELETED])
@@ -1039,8 +1064,8 @@ class UpDownSync:
         :rtype: tuple
         """
 
-        folders = [x for x in events if isinstance(x, DIR_EVENTS)]
-        files = [x for x in events if isinstance(x, FILE_EVENTS)]
+        folders = [e for e in events if e.is_directory]
+        files = [e for e in events if not e.is_directory]
 
         return folders, files
 
