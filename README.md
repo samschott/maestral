@@ -117,7 +117,7 @@ The following tasks could need your help:
 # Acknowledgements
 
 - The config module uses code from the [Spyder IDE](https://github.com/spyder-ide)
-- The MaestralApiClient is based on the work from [Orphilia](https://github.com/ksiazkowicz/orphilia-dropbox)
+- The MaestralApiClient is based on work from [Orphilia](https://github.com/ksiazkowicz/orphilia-dropbox)
 - Error reporting is powered by bugsnag:
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <a href="https://bugsnag.com"> <img src="https://global-uploads.webflow.com/5c741219fd0819540590e785/5c741219fd0819856890e790_asset%2039.svg" title="Bugsnag text" height="20"></a>
