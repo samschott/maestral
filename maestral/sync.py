@@ -22,7 +22,7 @@ from enum import IntEnum
 import pathspec
 import umsgpack
 import dropbox
-from dropbox.files import DeletedMetadata, FileMetadata, FolderMetadata
+from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata
 from watchdog.events import FileSystemEventHandler
 from watchdog.events import (EVENT_TYPE_CREATED, EVENT_TYPE_DELETED,
                              EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED)
@@ -296,7 +296,7 @@ def catch_sync_issues(func):
                 if exc.local_path is None:
                     exc.local_path = self.to_local_path(exc.dbx_path)
                 self.sync_errors.put(exc)
-                if any(isinstance(a, dropbox.files.Metadata) for a in args):
+                if any(isinstance(a, Metadata) for a in args):
                     self.retry_downloads.add(exc.dbx_path)
 
             res = False
@@ -1219,16 +1219,16 @@ class UpDownSync:
             self.set_local_rev(dbx_path_old, None)
 
         # add new revs
-        if isinstance(md, dropbox.files.FileMetadata):
+        if isinstance(md, FileMetadata):
             self.set_local_rev(md.path_lower, md.rev)
         # and revs of children if folder
-        elif isinstance(md, dropbox.files.FolderMetadata):
+        elif isinstance(md, FolderMetadata):
             self.set_local_rev(md.path_lower, 'folder')
             result = self.client.list_folder(dbx_path_new, recursive=True)
             for md in result.entries:
-                if isinstance(md, dropbox.files.FileMetadata):
+                if isinstance(md, FileMetadata):
                     self.set_local_rev(md.path_lower, md.rev)
-                elif isinstance(md, dropbox.files.FolderMetadata):
+                elif isinstance(md, FolderMetadata):
                     self.set_local_rev(md.path_lower, 'folder')
 
         logger.debug('Moved "%s" to "%s" on Dropbox.', event.src_path, event.dest_path)
@@ -1248,7 +1248,7 @@ class UpDownSync:
         self._wait_for_creation(local_path)
 
         if event.is_directory:
-            if isinstance(md_old, dropbox.files.FolderMetadata):
+            if isinstance(md_old, FolderMetadata):
                 # nothing to do
                 md_new = md_old
             else:
@@ -1439,7 +1439,7 @@ class UpDownSync:
         """
         md = self.client.get_metadata(dbx_path, include_deleted=True)
 
-        if isinstance(md, dropbox.files.FolderMetadata):
+        if isinstance(md, FolderMetadata):
             return self.get_remote_folder(dbx_path)
         else:  # FileMetadata or DeletedMetadata
             return self._create_local_entry(md)
