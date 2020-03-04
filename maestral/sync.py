@@ -116,7 +116,8 @@ class FileEventHandler(FileSystemEventHandler):
         """
 
         with self.queue_downloading.mutex:
-            return any(local_path.lower() == p.lower() for p in self.queue_downloading.queue)
+            return any(local_path.lower() == p.lower()
+                       for p in self.queue_downloading.queue)
 
     # TODO: The logic for ignoring moved events of children will no longer work when
     #   renaming the parent's moved event. This will throw sync errors when trying to
@@ -161,7 +162,7 @@ class FileEventHandler(FileSystemEventHandler):
             # rename newly created item
             self._renamed_items_cache.append(created_path)  # ignore temporarily
             os.rename(created_path, new_path)  # this will be picked up by watchdog
-            logger.debug(f'Case conflict: renamed "{created_path}" to "{new_path}"')
+            logger.debug('Case conflict: renamed "%s" to "%s"', created_path, new_path)
 
             if isinstance(event, DirCreatedEvent):
                 return DirCreatedEvent(src_path=new_path)
@@ -294,7 +295,7 @@ def catch_sync_issues(func):
                 res = True
         except SyncError as exc:
             file_name = os.path.basename(exc.dbx_path)
-            logger.warning(f'Could not sync {file_name}', exc_info=True)
+            logger.warning('Could not sync %s', file_name, exc_info=True)
             if exc.dbx_path is not None:
                 if exc.local_path is None:
                     exc.local_path = self.to_local_path(exc.dbx_path)
@@ -401,7 +402,7 @@ class UpDownSync:
     def last_cursor(self, cursor):
         """Setter: last_cursor"""
         self._state.set('sync', 'cursor', cursor)
-        logger.debug(f'Remote cursor saved: {cursor}')
+        logger.debug('Remote cursor saved: %s', cursor)
 
     @property
     def last_sync(self):
@@ -412,12 +413,13 @@ class UpDownSync:
     @last_sync.setter
     def last_sync(self, last_sync):
         """Setter: last_cursor"""
-        logger.debug(f'Local cursor saved: {last_sync}')
+        logger.debug('Local cursor saved: %s', last_sync)
         self._state.set('sync', 'lastsync', last_sync)
 
     def get_last_sync_for_path(self, dbx_path):
         with self._last_sync_lock:
-            return max(self._last_sync_for_path.get(dbx_path.lower(), 0.0), self.last_sync)
+            return max(self._last_sync_for_path.get(dbx_path.lower(), 0.0),
+                       self.last_sync)
 
     def set_last_sync_for_path(self, dbx_path, last_sync):
         with self._last_sync_lock:
@@ -871,7 +873,7 @@ class UpDownSync:
         # save timestamp
         local_cursor = t0
 
-        logger.debug(f'Retrieved local file events:\n{iter_to_str(events)}')
+        logger.debug('Retrieved local file events:\n%s', iter_to_str(events))
 
         # clean up events to provide only one event per path
         events = self._clean_local_events(events)
@@ -903,7 +905,7 @@ class UpDownSync:
 
             events = self._list_diff(events, child_deleted_events)
 
-        logger.debug(f'Cleaned up local file events:\n{iter_to_str(events)}')
+        logger.debug('Cleaned up local file events:\n%s', iter_to_str(events))
 
         return events, local_cursor
 
@@ -939,7 +941,7 @@ class UpDownSync:
                                             local_path=local_path)
                     basename = osp.basename(dbx_path)
                     exc_info = (type(exc), exc, None)
-                    logger.warning(f'Could not upload {basename}', exc_info=exc_info)
+                    logger.warning('Could not upload ', basename, exc_info=exc_info)
                     self.sync_errors.put(exc)
                 events_excluded.append(event)
             elif self.is_mignore(event):  # is excluded from upload by mignore?
@@ -947,7 +949,7 @@ class UpDownSync:
             else:
                 events_filtered.append(event)
 
-        logger.debug(f'Events to discard:\n{iter_to_str(events_excluded)}')
+        logger.debug('Events to discard:\n%s', iter_to_str(events_excluded))
 
         return events_filtered, events_excluded
 
@@ -1249,7 +1251,8 @@ class UpDownSync:
             try:
                 md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
             except NotFoundError:
-                logger.debug('Could not upload "%s": the item does not exist.', event.src_path)
+                logger.debug('Could not upload "%s": the item does not exist.',
+                             event.src_path)
             else:
                 self.set_local_rev(md.path_lower, md.rev)
 
@@ -1271,7 +1274,8 @@ class UpDownSync:
         try:
             self.client.remove(dbx_path, parent_rev=local_rev)
         except (NotFoundError, PathError):
-            logger.debug('Could not delete "%s": the item does not exist on Dropbox.', event.src_path)
+            logger.debug('Could not delete "%s": the item does not exist on Dropbox.',
+                         event.src_path)
 
         # remove revision metadata
         self.set_local_rev(dbx_path, None)
@@ -1336,9 +1340,9 @@ class UpDownSync:
         success = []
 
         if is_dbx_root:
-            logger.info(f'Downloading your Dropbox')
+            logger.info('Downloading your Dropbox')
         else:
-            logger.info(f'Downloading {dbx_path}')
+            logger.info('Downloading %s', dbx_path)
 
         if not any(folder.startswith(dbx_path) for folder in self.excluded_items):
             # if there are no excluded subfolders, index and download all at once
@@ -1442,7 +1446,8 @@ class UpDownSync:
         # remove all deleted items from the excluded list
         _, _, deleted_excluded = self._sort_remote_entries(changes_excluded)
         for d in deleted_excluded:
-            new_excluded = [f for f in self.excluded_items if not f.startswith(d.path_lower)]
+            new_excluded = [f for f in self.excluded_items
+                            if not f.startswith(d.path_lower)]
             self.excluded_items = new_excluded
 
         # sort changes into folders, files and deleted
@@ -1457,14 +1462,14 @@ class UpDownSync:
         downloaded = []  # local list of all changes
 
         if folders:
-            logger.info('Creating folders')
+            logger.info('Creating folders...')
 
         # create local folders, start with top-level and work your way down
         for folder in folders:
             downloaded.append(self._create_local_entry(folder))
 
         if deleted:
-            logger.info('Applying deletions')
+            logger.info('Applying deletions...')
 
         # apply deleted items
         for item in deleted:
@@ -1519,7 +1524,8 @@ class UpDownSync:
         if remote_rev == local_rev:
             # Local change has the same rev. May be newer and
             # not yet synced or identical. Don't overwrite.
-            logger.debug(f'Local item is the same or newer than on Dropbox:  {dbx_path}')
+            logger.debug('Conflict: Local item "%s" is the same or newer than on'
+                         'Dropbox', dbx_path)
             return Conflict.LocalNewerOrIdentical
 
         elif remote_rev != local_rev:
@@ -1535,19 +1541,21 @@ class UpDownSync:
             # (b) The upload has not started yet. Manually check for conflict.
 
             if get_ctime(local_path) <= self.get_last_sync_for_path(dbx_path):
-                logger.debug(f'Remote item is newer: {dbx_path}')
+                logger.debug('No conflict: remote item "%s" is newer', dbx_path)
                 return Conflict.RemoteNewer
             elif not remote_rev:
-                logger.debug(f'Local item has been modified since remote deletion: {dbx_path}')
+                logger.debug('Conflict: Local item "%s" has been modified since remote'
+                             'deletion', dbx_path)
                 return Conflict.LocalNewerOrIdentical
             else:
                 local_hash = get_local_hash(local_path)
                 if remote_hash == local_hash:
-                    logger.debug(f'Contents are equal. No conflict: {dbx_path}')
+                    logger.debug('No conflict: contents are equal (%s)', dbx_path)
                     self.set_local_rev(dbx_path, remote_rev)  # update local rev
                     return Conflict.Identical
                 else:
-                    logger.debug(f'Local item was created since last upload. Conflict: {dbx_path}')
+                    logger.debug('Conflict: local item "%" was created since last upload',
+                                 dbx_path)
                     return Conflict.Conflict
 
     def notify_user(self, changes):
@@ -1678,7 +1686,7 @@ class UpDownSync:
                 self.set_last_sync_for_path(md.path_lower, get_ctime(local_path))
                 self.set_local_rev(md.path_lower, md.rev)
 
-            logger.debug(f'Created local file "{entry.path_display}"')
+            logger.debug('Created local file "%s"', entry.path_display)
             applied = entry
 
         elif isinstance(entry, FolderMetadata):
@@ -1699,7 +1707,7 @@ class UpDownSync:
                 self.set_last_sync_for_path(entry.path_lower, get_ctime(local_path))
                 self.set_local_rev(entry.path_lower, 'folder')
 
-            logger.debug(f'Created local folder: {entry.path_display}')
+            logger.debug('Created local folder "%s"', entry.path_display)
             applied = entry
 
         elif isinstance(entry, DeletedMetadata):
@@ -1712,10 +1720,10 @@ class UpDownSync:
                 self.set_local_rev(entry.path_lower, None)
 
             if not err:
-                logger.debug(f'Deleted local item "{entry.path_display}"')
+                logger.debug('Deleted local item "%s"', entry.path_display)
                 applied = entry
             else:
-                logger.debug(f'Deletion failed: {err}')
+                logger.debug('Deletion failed: %s', err)
 
         return applied
 
@@ -2078,7 +2086,7 @@ class MaestralMonitor:
                 self.sync, self.syncing, self.paused_by_user, self.running,
                 self.connected, self.startup,
             ),
-            name=f'maestral-connection-helper'
+            name='maestral-connection-helper'
         )
 
         self.startup_thread = Thread(
@@ -2088,7 +2096,7 @@ class MaestralMonitor:
                 self.sync, self.syncing, self.running, self.connected,
                 self.startup, self.paused_by_user
             ),
-            name=f'maestral-startup-worker'
+            name='maestral-startup-worker'
         )
 
         self.download_thread = Thread(
@@ -2097,7 +2105,7 @@ class MaestralMonitor:
             args=(
                 self.sync, self.syncing, self.running, self.connected,
             ),
-            name=f'maestral-download'
+            name='maestral-download'
         )
 
         self.download_thread_added_folder = Thread(
@@ -2106,7 +2114,7 @@ class MaestralMonitor:
             args=(
                 self.sync, self.syncing, self.running, self.connected,
             ),
-            name=f'maestral-folder-download'
+            name='maestral-folder-download'
         )
 
         self.upload_thread = Thread(
@@ -2115,7 +2123,7 @@ class MaestralMonitor:
             args=(
                 self.sync, self.syncing, self.running, self.connected,
             ),
-            name=f'maestral-upload'
+            name='maestral-upload'
         )
 
         try:
@@ -2170,7 +2178,7 @@ class MaestralMonitor:
         if not self.running.is_set():
             return
 
-        logger.debug('Shutting down threads...')
+        logger.info('Shutting down threads...')
 
         self.running.clear()
         self.syncing.clear()

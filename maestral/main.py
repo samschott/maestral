@@ -218,13 +218,13 @@ class Maestral(object):
 
         if NOTIFY_SOCKET:  # notify systemd that we have started
             logger.debug('Running as systemd notify service')
-            logger.debug(f'NOTIFY_SOCKET = {NOTIFY_SOCKET}')
+            logger.debug('NOTIFY_SOCKET = %s', NOTIFY_SOCKET)
             sd_notifier.notify('READY=1')
 
         if IS_WATCHDOG:  # notify systemd periodically if alive
             logger.debug('Running as systemd watchdog service')
-            logger.debug(f'WATCHDOG_USEC = {WATCHDOG_USEC}')
-            logger.debug(f'WATCHDOG_PID = {WATCHDOG_PID}')
+            logger.debug('WATCHDOG_USEC = %s', WATCHDOG_USEC)
+            logger.debug('WATCHDOG_PID = %s', WATCHDOG_PID)
 
             self.watchdog_thread = Thread(
                 name='maestral-watchdog',
@@ -712,8 +712,6 @@ class Maestral(object):
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         """
 
-        logger.info(f'Excluding "{dbx_path}".')
-
         # input validation
         md = self.client.get_metadata(dbx_path)
 
@@ -724,7 +722,7 @@ class Maestral(object):
 
         # add the path to excluded list
         if self.sync.is_excluded_by_user(dbx_path):
-            logger.info(f'"{dbx_path}" was already excluded')
+            logger.info('%s was already excluded', dbx_path)
             logger.info(IDLE)
             return
 
@@ -733,7 +731,7 @@ class Maestral(object):
 
         self.sync.excluded_items = excluded_items
 
-        logger.info(f'"{dbx_path}" excluded from sync')
+        logger.info('Excluded %s', dbx_path)
 
         self._remove_after_excluded(dbx_path)
 
@@ -763,8 +761,6 @@ class Maestral(object):
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         """
 
-        logger.info(f'Including "{dbx_path}".')
-
         # input validation
         md = self.client.get_metadata(dbx_path)
 
@@ -792,12 +788,12 @@ class Maestral(object):
             # remove `dbx_path` or all excluded children from the excluded list
             excluded_items = list(set(old_excluded_items) - set(new_included_items))
         else:
-            logger.info(f'"{dbx_path}" was already included')
+            logger.info('%s was already included', dbx_path)
             return
 
         self.sync.excluded_items = excluded_items
 
-        logger.info(f'"{dbx_path}" included in sync')
+        logger.info('Included %s', dbx_path)
 
         # download items from Dropbox
         for folder in new_included_items:
@@ -843,11 +839,11 @@ class Maestral(object):
         if not self.pending_first_download:
             # apply changes
             for path in added_excluded_items:
-                logger.info(f'"{path}" excluded from sync')
+                logger.info('Excluded %s', path)
                 self._remove_after_excluded(path)
             for path in added_included_items:
                 if not self.sync.is_excluded_by_user(path):
-                    logger.info(f'"{path}" included in sync')
+                    logger.info('Included %s', path)
                     self.sync.queued_newly_included_downloads.put(path)
 
     def excluded_status(self, dbx_path):
