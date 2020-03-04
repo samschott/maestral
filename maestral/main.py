@@ -724,13 +724,25 @@ class Maestral(object):
 
         # add the path to excluded list
         if self.sync.is_excluded_by_user(dbx_path):
-            logger.info('Folder was already excluded, nothing to do.')
+            logger.info(f'"{dbx_path}" was already excluded')
+            logger.info(IDLE)
             return
 
         excluded_items = self.sync.excluded_items
         excluded_items.append(dbx_path)
 
         self.sync.excluded_items = excluded_items
+
+        logger.info(f'"{dbx_path}" excluded from sync')
+
+        self._remove_after_excluded(dbx_path)
+
+        logger.info(IDLE)
+
+    def _remove_after_excluded(self, dbx_path):
+
+        # bookkeeping
+        self.sync.clear_sync_error(dbx_path=dbx_path)
         self.sync.set_local_rev(dbx_path, None)
 
         # remove folder from local drive
@@ -738,10 +750,6 @@ class Maestral(object):
         local_path_cased = path_exists_case_insensitive(local_path)
         if local_path_cased:
             delete(local_path_cased)
-
-        self.sync.clear_sync_error(dbx_path=dbx_path)
-
-        logger.info(IDLE)
 
     def include_item(self, dbx_path):
         """
@@ -784,34 +792,16 @@ class Maestral(object):
             # remove `dbx_path` or all excluded children from the excluded list
             excluded_items = list(set(old_excluded_items) - set(new_included_items))
         else:
-            logger.info('Folder was already included, nothing to do.')
+            logger.info(f'"{dbx_path}" was already included')
             return
 
         self.sync.excluded_items = excluded_items
+
+        logger.info(f'"{dbx_path}" included in sync')
 
         # download items from Dropbox
-        logger.info(f'Downloading added folder "{dbx_path}".')
         for folder in new_included_items:
             self.sync.queued_newly_included_downloads.put(folder)
-
-    @handle_disconnect
-    def _include_item_without_children(self, dbx_path):
-        """
-        Include an item without explicitly including its children. This should be used
-        when an item has been removed from the excluded list, but some of its children may
-        have been added.
-        """
-
-        dbx_path = dbx_path.lower().rstrip(osp.sep)
-        excluded_items = self.sync.excluded_items
-
-        if dbx_path not in excluded_items:
-            return
-
-        excluded_items.remove(dbx_path)
-
-        self.sync.excluded_items = excluded_items
-        self.sync.queued_newly_included_downloads.put(dbx_path)
 
     @handle_disconnect
     def set_excluded_items(self, items=None):
@@ -848,14 +838,17 @@ class Maestral(object):
         added_excluded_items = set(excluded_items) - set(old_excluded_items)
         added_included_items = set(old_excluded_items) - set(excluded_items)
 
+        self.sync.excluded_items = excluded_items
+
         if not self.pending_first_download:
             # apply changes
             for path in added_excluded_items:
-                self.exclude_item(path)
+                logger.info(f'"{path}" excluded from sync')
+                self._remove_after_excluded(path)
             for path in added_included_items:
-                self._include_item_without_children(path)
-
-        self.sync.excluded_items = excluded_items
+                if not self.sync.is_excluded_by_user(path):
+                    logger.info(f'"{path}" included in sync')
+                    self.sync.queued_newly_included_downloads.put(path)
 
     def excluded_status(self, dbx_path):
         """
