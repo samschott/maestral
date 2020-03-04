@@ -1507,6 +1507,7 @@ class UpDownSync:
             self.excluded_items = new_excluded
 
         # sort changes into folders, files and deleted
+        changes_included = self._clean_remote_changes(changes_included)
         folders, files, deleted = self._sort_remote_entries(changes_included)
 
         # sort according to path hierarchy
@@ -1692,6 +1693,47 @@ class UpDownSync:
         deleted = [x for x in result.entries if isinstance(x, DeletedMetadata)]
 
         return folders, files, deleted
+
+    @staticmethod
+    def _clean_remote_changes(changes):
+        """
+        Takes remote file events since last sync and cleans them up so that there is only
+        a single event per path.
+
+        Dropbox will sometimes report multiple changes per path. Once such instance is
+        when sharing a folder: ``files/list_folder/continue`` will report the shared
+        folder and its children as deleted and then created because the folder *is*
+        actually deleted from the user's Dropbox and recreated as a shared folder which
+        then gets mounted to the user's Dropbox. Ideally, we want to deal with this
+        without re-downloading all its contents.
+
+        :param changes: :class:`dropbox.files.ListFolderResult`
+        :returns: Cleaned up changes with a single Metadata entry per path.
+        :rtype: :class:`dropbox.files.ListFolderResult`
+        """
+
+        # Note: we won't have to deal with modified or moved events,
+        # Dropbox only reports DeletedMetadata or FileMetadata / FolderMetadata
+
+        all_paths = [e.path_lower for e in changes.entries]
+
+        unique_paths = list(OrderedDict.fromkeys(all_paths))
+        histories = [[e for e in changes.entries if e.path_lower == path]
+                     for path in unique_paths]
+
+        new_entries = []
+
+        for h in histories:
+            # Dropbox guarantees that applying events in the provided order
+            # will reproduce the state in the cloud. We therefore combine:
+            # deleted, ..., modified -> modified
+            # modified, ..., deleted -> deleted
+            # modified, ..., modified -> modified
+            new_entries.append(h[-1])
+
+        changes.entries = new_entries
+
+        return changes
 
     @catch_sync_issues
     def _create_local_entry(self, entry):
