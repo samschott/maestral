@@ -1187,7 +1187,7 @@ class UpDownSync:
 
     def _on_moved(self, event):
         """
-        Call when local file is moved.
+        Call when local item is moved.
 
         :param event: Watchdog file event.
         :raises: MaestralApiError on failure.
@@ -1233,59 +1233,69 @@ class UpDownSync:
 
     def _on_created(self, event):
         """
-        Call when local file is created.
+        Call when local item is created.
 
         :param class event: Watchdog file event.
         :raises: MaestralApiError on failure.
         """
 
-        path = event.src_path
-        dbx_path = self.to_dbx_path(path)
+        local_path = event.src_path
+        dbx_path = self.to_dbx_path(local_path)
+
+        md_old = self.client.get_metadata(dbx_path)
+        self._wait_for_creation(local_path)
 
         if event.is_directory:
-            # check if directory is not yet on Dropbox, else leave alone
-            md = self.client.get_metadata(dbx_path)
-            if not isinstance(md, dropbox.files.FolderMetadata):
-                md = self.client.make_dir(dbx_path, autorename=True)
+            if isinstance(md_old, dropbox.files.FolderMetadata):
+                # nothing to do
+                md_new = md_old
+            else:
+                md_new = self.client.make_dir(dbx_path, autorename=True)
 
             # save or update revision metadata
-            self.set_local_rev(md.path_lower, 'folder')
+            self.set_local_rev(md_new.path_lower, 'folder')
 
-        elif not event.is_directory:
-
-            self._wait_for_creation(path)
-
+        else:
             # check if file already exists with identical content
-            md = self.client.get_metadata(dbx_path)
-            if isinstance(md, FileMetadata):
-                local_hash = get_local_hash(path)
-                if local_hash == md.content_hash:
+            if isinstance(md_old, FileMetadata):
+                local_hash = get_local_hash(local_path)
+                if local_hash == md_old.content_hash:
                     # file hashes are identical, do not upload
-                    self.set_local_rev(md.path_lower, md.rev)
+                    self.set_local_rev(md_old.path_lower, md_old.rev)
                     return
 
             rev = self.get_local_rev(dbx_path)
-            # if truly a new file
-            if rev in (None, 'folder'):
+            if not rev:  # truly a new file
                 mode = dropbox.files.WriteMode('add')
-            # or a 'false' new file event triggered by saving the file
-            # e.g., some programs create backup files and then swap them
-            # in to replace the files you are editing on the disk
-            else:
+            elif rev == 'folder':  # folder replaced by file
+                mode = dropbox.files.WriteMode('overwrite')
+            else:  # modified file
                 mode = dropbox.files.WriteMode('update', rev)
             try:
-                md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
+                md_new = self.client.upload(local_path, dbx_path,
+                                            autorename=True, mode=mode)
             except NotFoundError:
                 logger.debug('Could not upload "%s": the item does not exist.',
                              event.src_path)
-            else:
-                self.set_local_rev(md.path_lower, md.rev)
+                return
+
+            # save or update revision metadata
+            self.set_local_rev(md_new.path_lower, md_new.rev)
+
+        if md_new.path_lower != dbx_path.lower() and md_old:
+            # created conflict => move local item and fetch original
+            local_path_new = self.to_local_path(md_new.path_display)
+            delete(local_path_new)
+            os.rename(local_path, local_path_new)
+            self._create_local_entry(md_old)
+
+            logger.debug('Upload conflict "%s" handled by Dropbox.', event.src_path)
 
         logger.debug('Created "%s" on Dropbox.', event.src_path)
 
     def _on_deleted(self, event):
         """
-        Call when local file is deleted.
+        Call when local item is deleted.
 
         :param class event: Watchdog file event.
         :raises: MaestralApiError on failure.
@@ -1307,26 +1317,26 @@ class UpDownSync:
 
     def _on_modified(self, event):
         """
-        Call when local file is modified.
+        Call when local item is modified.
 
         :param class event: Watchdog file event.
         :raises: MaestralApiError on failure.
         """
 
-        path = event.src_path
-        dbx_path = self.to_dbx_path(path)
+        local_path = event.src_path
+        dbx_path = self.to_dbx_path(local_path)
 
         if not event.is_directory:  # ignore directory modified events
 
-            self._wait_for_creation(path)
+            self._wait_for_creation(local_path)
 
             # check if item already exists with identical content
-            md = self.client.get_metadata(dbx_path)
-            if isinstance(md, FileMetadata):
-                local_hash = get_local_hash(path)
-                if local_hash == md.content_hash:
+            md_old = self.client.get_metadata(dbx_path)
+            if isinstance(md_old, FileMetadata):
+                local_hash = get_local_hash(local_path)
+                if local_hash == md_old.content_hash:
                     # file hashes are identical, do not upload
-                    self.set_local_rev(md.path_lower, md.rev)
+                    self.set_local_rev(md_old.path_lower, md_old.rev)
                     logger.debug('Modification of "%s" detected but file content is '
                                  'the same as on Dropbox.', event.src_path)
                     return
@@ -1337,13 +1347,32 @@ class UpDownSync:
             elif not rev:
                 logger.debug('"%s" appears to have been modified but cannot '
                              'find old revision.', event.src_path)
-                return
+                mode = dropbox.files.WriteMode('add')
             else:
                 mode = dropbox.files.WriteMode('update', rev)
-            md = self.client.upload(path, dbx_path, autorename=True, mode=mode)
-            # save or update revision metadata
-            self.set_local_rev(md.path_lower, md.rev)
-            logger.debug('Uploaded modified "%s" to Dropbox.', event.src_path)
+
+            try:
+                md_new = self.client.upload(local_path, dbx_path,
+                                            autorename=True, mode=mode)
+            except NotFoundError:
+                logger.debug('Could not upload "%s": the item does not exist.',
+                             event.src_path)
+                return
+
+            # save new rev
+            self.set_local_rev(md_new.path_lower, md_new.rev)
+
+            if md_new.path_lower != dbx_path.lower():
+                # created conflict => move local file and fetch original
+                local_path_new = self.to_local_path(md_new.path_display)
+                delete(local_path_new)
+                os.rename(local_path, local_path_new)
+                self._create_local_entry(md_old)
+
+                logger.debug('Upload conflict "%s" handled by Dropbox.', event.src_path)
+
+            else:
+                logger.debug('Uploaded modified "%s" to Dropbox.', event.src_path)
 
     # ==== Download sync =================================================================
 
@@ -1481,7 +1510,7 @@ class UpDownSync:
         # sort according to path hierarchy
         # do not create sub-folder / file before parent exists
         folders.sort(key=lambda x: x.path_display.count('/'))
-        files.sort(key=lambda x: x.path_display.count('/'))
+        # files.sort(key=lambda x: x.path_display.count('/'))  # not really necessary?
         deleted.sort(key=lambda x: x.path_display.count('/'))
 
         downloaded = []  # local list of all changes
