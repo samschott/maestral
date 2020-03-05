@@ -2395,19 +2395,20 @@ def get_ctime(local_path):
         return -1.0
 
 
-def remove_from_queue(q, item):
+def remove_from_queue(q, *items):
     """
     Tries to remove an item from a queue.
 
     :param Queue q: Queue to remove item from.
-    :param item: Item to remove
+    :param items: Items to remove
     """
 
     with q.mutex:
-        try:
-            q.queue.remove(item)
-        except ValueError:
-            pass
+        for item in items:
+            try:
+                q.queue.remove(item)
+            except ValueError:
+                pass
 
 
 def iter_to_str(iterable):
