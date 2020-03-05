@@ -801,6 +801,7 @@ class UpDownSync:
 
         try:
             events, local_cursor = self._get_local_changes_while_inactive()
+            logger.debug('Retrieved local changes:\n%s', iter_to_str(events))
         except FileNotFoundError:
             self.ensure_dropbox_folder_present()
             return
@@ -833,8 +834,9 @@ class UpDownSync:
             ctime_check = now > stats.st_ctime > self.get_last_sync_for_path(dbx_path)
 
             # always upload untracked items, check ctime of tracked items
-            is_new = not self.get_local_rev(dbx_path)
-            is_modified = self.get_local_rev(dbx_path) and ctime_check
+            rev = self.get_local_rev(dbx_path)
+            is_new = not rev
+            is_modified = rev and ctime_check
 
             if is_new:
                 if snapshot.isdir(path):
@@ -982,7 +984,7 @@ class UpDownSync:
             else:
                 events_filtered.append(event)
 
-        logger.debug('Events to discard:\n%s', iter_to_str(events_excluded))
+        logger.debug('Events to keep:\n%s', iter_to_str(events_filtered))
 
         return events_filtered, events_excluded
 
