@@ -204,8 +204,12 @@ def test_sync_cases():
     # TODO:
     #  * Remote file replaced with a folder (OK)
     #  * Remote folder replaced with a file (OK)
-    #  * Local file replaced with a folder (Dropbox always creates conflicting copy)
-    #  * Local folder replaced with a file (Dropbox always creates conflicting copy)
+    #  * Local file replaced with a folder (OK):
+    #    Checking server-modified time of file and only delete if older. Otherwise, let
+    #    Dropbox handle creating a conflicting copy.
+    #  * Local folder replaced with a file (NOK):
+    #    Possible data loss on conflict, could solve by checking folder for changes since
+    #    last cursor before deletion.
     #  * Remote and local items modified during sync pause (OK)
     #  * Remote and local items created during sync pause (OK)
     #  * Remote and local items deleted during sync pause (OK)
