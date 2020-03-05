@@ -1452,7 +1452,8 @@ class UpDownSync:
     @catch_sync_issues
     def list_remote_changes(self, last_cursor):
         """Wraps ``MaestralApiClient.list_remove_changes`` and catches sync errors."""
-        return self.client.list_remote_changes(last_cursor)
+        changes = self.client.list_remote_changes(last_cursor)
+        return self._clean_remote_changes(changes)
 
     def filter_excluded_changes_remote(self, changes):
         """Removes all excluded items from the given list of changes.
@@ -1507,7 +1508,6 @@ class UpDownSync:
             self.excluded_items = new_excluded
 
         # sort changes into folders, files and deleted
-        changes_included = self._clean_remote_changes(changes_included)
         folders, files, deleted = self._sort_remote_entries(changes_included)
 
         # sort according to path hierarchy
