@@ -9,10 +9,11 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 # system imports
 import os
 import os.path as osp
+from stat import S_ISDIR
 import shutil
 import logging
 import time
-from threading import Thread, Event, Lock, RLock
+from threading import Thread, Timer, Event, Lock, RLock
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import queue
 from collections import abc, OrderedDict
@@ -219,8 +220,12 @@ class InQueue:
         self.custom_queue.put(self.name)
 
     def __exit__(self, err_type, err_value, err_traceback):
-        time.sleep(self._delay)
-        remove_from_queue(self.custom_queue, self.name)
+        self._timer = Timer(
+            self._delay,
+            remove_from_queue,
+            args=(self.custom_queue, self.name)
+        )
+        self._timer.start()
 
 
 class SyncStateSet(abc.MutableSet):
@@ -1056,8 +1061,12 @@ class UpDownSync:
                         new_events.append(FileDeletedEvent(path))
                 else:
 
-                    first_created_idx = h.index(next(e for e in h if e.event_type == EVENT_TYPE_CREATED))
-                    first_deleted_idx = h.index(next(e for e in h if e.event_type == EVENT_TYPE_DELETED))
+                    first_created_idx = h.index(
+                        next(iter(e for e in h if e.event_type == EVENT_TYPE_CREATED), -1)
+                    )
+                    first_deleted_idx = h.index(
+                        next(iter(e for e in h if e.event_type == EVENT_TYPE_DELETED), -1)
+                    )
 
                     if n_created == 0 or first_deleted_idx < first_created_idx:
                         # item was modified
@@ -1421,12 +1430,30 @@ class UpDownSync:
         path = event.src_path
         dbx_path = self.to_dbx_path(path)
         local_rev = self.get_local_rev(dbx_path)
-        local_rev = None if local_rev == 'folder' else local_rev
+        is_folder = local_rev == 'folder'
+
+        md = self.client.get_metadata(dbx_path, include_deleted=True)
+
+        if is_folder and isinstance(md, FileMetadata):
+            # don't delete a remote file if it was modified since last sync
+            if md.server_modified.timestamp() >= self.get_last_sync_for_path(dbx_path):
+                self.set_local_rev(dbx_path, None)
+                return
+
+        if not is_folder and isinstance(md, FolderMetadata):
+            # don't delete a remote folder if we were expecting a file
+            # TODO: Delete the folder if its children did not change since last sync.
+            #   Is there a way of achieving this without listing the folder or listing
+            #   all changes and checking when they occurred?
+            self.set_local_rev(dbx_path, None)
+            return
 
         try:
-            self.client.remove(dbx_path, parent_rev=local_rev)
+            # will only perform delete if Dropbox rev matches local_rev
+            # fails if local_rev
+            self.client.remove(dbx_path, parent_rev=local_rev if not is_folder else None)
         except (NotFoundError, PathError):
-            logger.debug('Could not delete "%s": the item does not exist on Dropbox',
+            logger.debug('Could not delete "%s": the item no longer exists on Dropbox',
                          dbx_path)
 
         # remove revision metadata
@@ -2471,7 +2498,8 @@ def get_local_hash(local_path):
 
 def get_ctime(local_path):
     """
-    Returns the ctime of a local item or -1.0 if there is nothing at the path.
+    Returns the ctime of a local item or -1.0 if there is nothing at the path. If the item
+    is a directory, return the largest ctime of itself and its children.
 
     :param str local_path:
     :returns: Ctime or -1.0.
