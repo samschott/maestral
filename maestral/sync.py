@@ -1205,8 +1205,11 @@ class UpDownSync:
         decorator."""
 
         local_path = get_dest_path(event)
+        # book keeping
         remove_from_queue(self.queued_for_upload, local_path)
-        self.clear_sync_error(local_path=local_path)
+        self.clear_sync_error(local_path=event.src_path)
+        if local_path != event.src_path:
+            self.clear_sync_error(local_path=event.src_path)
 
         with InQueue(local_path, self.queue_uploading):
             # apply event
