@@ -870,7 +870,8 @@ class UpDownSync:
 
         :param float timeout: If no changes are detected within timeout (sec), an empty
             list is returned.
-        :param delay: Delay in sec to wait for subsequent changes that may be duplicates.
+        :param float delay: Delay in sec to wait for subsequent changes that may be
+            duplicates.
         :returns: (list of file events, time_stamp)
         :rtype: (list, float)
         """
@@ -1446,9 +1447,20 @@ class UpDownSync:
             return self._create_local_entry(md)
 
     @catch_sync_issues
-    def wait_for_remote_changes(self, last_cursor, timeout=40):
-        """Wraps MaestralApiClient.wait_for_remote_changes and catches sync errors."""
-        return self.client.wait_for_remote_changes(last_cursor, timeout=timeout)
+    def wait_for_remote_changes(self, last_cursor, timeout=40, delay=2):
+        """
+        Wraps MaestralApiClient.wait_for_remote_changes and catches sync errors.
+
+        :param str last_cursor: Cursor form last sync.
+        :param int timeout: Timeout in seconds before returning even if there are no
+            changes. Dropbox adds random jitter of up to 30 sec to this value.
+        :param float delay: Delay in sec to wait for subsequent changes that may be
+            duplicates. This delay is typically only necessary folders are shared /
+            un-shared with other Dropbox accounts.
+        """
+        has_changes = self.client.wait_for_remote_changes(last_cursor, timeout=timeout)
+        time.sleep(delay)
+        return has_changes
 
     @catch_sync_issues
     def list_remote_changes(self, last_cursor):
