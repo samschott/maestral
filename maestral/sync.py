@@ -1077,18 +1077,21 @@ class UpDownSync:
         return new_events
 
     @staticmethod
-    def _separate_event_types(events):
+    def _separate_local_event_types(events):
         """
-        Sorts local events into DirEvents and FileEvents.
+        Sorts local events into folder, files, deleted.
 
-        :returns: Tuple of (folders, files)
+        :returns: Tuple of (folders, files, deleted)
         :rtype: tuple
         """
 
-        folders = [e for e in events if e.is_directory]
-        files = [e for e in events if not e.is_directory]
+        folders = [e for e in events if e.is_directory
+                   and e.event_type != EVENT_TYPE_DELETED]
+        files = [e for e in events if not e.is_directory
+                 and e.event_type != EVENT_TYPE_DELETED]
+        deleted = [e for e in events if e.event_type == EVENT_TYPE_DELETED]
 
-        return folders, files
+        return folders, files, deleted
 
     def apply_local_changes(self, events, local_cursor):
         """
@@ -1101,13 +1104,21 @@ class UpDownSync:
         logger.debug('Beginning upload of local changes')
 
         events, _ = self._filter_excluded_changes_local(events)
-        dir_events, file_events = self._separate_event_types(events)
+        dir_events, file_events, deleted_events = self._separate_local_event_types(events)
+
+        # sort events (might not be necessary)
+        dir_events.sort(key=lambda x: x.path_display.count('/'))
+        deleted_events.sort(key=lambda x: x.path_display.count('/'), reverse=True)
 
         # update queues
         for e in events:
             self.queued_for_upload.put(get_dest_path(e))
 
-        # apply directory events first (they do not require any upload)
+        # apply deleted events first, folder created events second
+        # neither event type requires an actual upload
+        for event in deleted_events:
+            self._apply_event(event)
+
         for event in dir_events:
             self._apply_event(event)
 
