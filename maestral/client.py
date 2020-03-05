@@ -363,7 +363,7 @@ class MaestralApiClient:
         :returns: Metadata of deleted item.
         :rtype: :class:`dropbox.files.FileMetadata` | :class:`dropbox.files.FolderMetadata`
         """
-        # try to move file (response will be metadata, probably)
+        # try to remove file (response will be metadata, probably)
         res = self.dbx.files_delete_v2(dbx_path, **kwargs)
         md = res.metadata
 
