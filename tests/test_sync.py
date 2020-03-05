@@ -9,6 +9,7 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 """
 from maestral.sync import (
     FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileMovedEvent,
+    DirCreatedEvent, DirDeletedEvent, DirMovedEvent,
     UpDownSync
 )
 
@@ -114,6 +115,52 @@ res5 = [
 ]
 
 
+# type changes
+file_events_test6 = [
+    # keep as is
+    FileDeletedEvent(path(1)),
+    DirCreatedEvent(path(1)),
+    # keep as is
+    DirDeletedEvent(path(2)),
+    FileCreatedEvent(path(2)),
+]
+
+res6 = [
+    # keep as is
+    FileDeletedEvent(path(1)),
+    DirCreatedEvent(path(1)),
+    # keep as is
+    DirDeletedEvent(path(2)),
+    FileCreatedEvent(path(2)),
+]
+
+
+# difficult type changes
+file_events_test7 = [
+    # convert to FileDeleted -> DirCreated
+    FileModifiedEvent(path(1)),
+    FileDeletedEvent(path(1)),
+    FileCreatedEvent(path(1)),
+    FileDeletedEvent(path(1)),
+    DirCreatedEvent(path(1)),
+    # convert to FileDeleted(path1) -> DirCreated(path2)
+    FileModifiedEvent(path(1)),
+    FileDeletedEvent(path(1)),
+    FileCreatedEvent(path(1)),
+    FileDeletedEvent(path(1)),
+    DirCreatedEvent(path(1)),
+    DirMovedEvent(path(1), path(2)),
+]
+
+res7 = [
+    FileDeletedEvent(path(1)),
+    DirCreatedEvent(path(1)),
+
+    FileDeletedEvent(path(1)),
+    DirCreatedEvent(path(2)),
+]
+
+
 class DummyUpDownSync(UpDownSync):
 
     def __init__(self):
@@ -137,6 +184,7 @@ def test_clean_local_events():
     cleaned_file_events_test3 = sync._clean_local_events(file_events_test3)
     cleaned_file_events_test4 = sync._clean_local_events(file_events_test4)
     cleaned_file_events_test5 = sync._clean_local_events(file_events_test5)
+    cleaned_file_events_test6 = sync._clean_local_events(file_events_test6)
 
     assert set(cleaned_file_events_test0) == set(res0)
     assert set(cleaned_file_events_test1) == set(res1)
@@ -144,6 +192,7 @@ def test_clean_local_events():
     assert set(cleaned_file_events_test3) == set(res3)
     assert set(cleaned_file_events_test4) == set(res4)
     assert set(cleaned_file_events_test5) == set(res5)
+    assert set(cleaned_file_events_test6) == set(res6)
 
 
 # Create a Dropbox test account to automate the below test.
