@@ -415,14 +415,16 @@ class UpDownSync:
 
     def get_last_sync_for_path(self, dbx_path):
         with self._last_sync_lock:
-            return max(self._last_sync_for_path.get(dbx_path.lower(), 0.0), self.last_sync)
+            dbx_path = dbx_path.lower()
+            return max(self._last_sync_for_path.get(dbx_path, 0.0), self.last_sync)
 
     def set_last_sync_for_path(self, dbx_path, last_sync):
         with self._last_sync_lock:
+            dbx_path = dbx_path.lower()
             if last_sync == 0.0:
-                del self._last_sync_for_path[dbx_path.lower()]
+                del self._last_sync_for_path[dbx_path]
             else:
-                self._last_sync_for_path[dbx_path.lower()] = last_sync
+                self._last_sync_for_path[dbx_path] = last_sync
 
     # ==== rev file management ===========================================================
 
@@ -614,7 +616,8 @@ class UpDownSync:
 
     def to_dbx_path(self, local_path):
         """
-        Converts a local path to a path relative to the Dropbox folder.
+        Converts a local path to a path relative to the Dropbox folder. Casing of the
+        given ``local_path`` will be preserved.
 
         :param str local_path: Full path to file in local Dropbox folder.
         :returns: Relative path with respect to Dropbox folder.
@@ -645,19 +648,16 @@ class UpDownSync:
         """
         Converts a Dropbox path to the corresponding local path.
 
-        The `path_display` attribute returned by the Dropbox API only
-        guarantees correct casing of the basename (file name or folder name)
-        and not of the full path. This is because Dropbox itself is not case
-        sensitive and stores all paths in lowercase internally.
+        The ``path_display`` attribute returned by the Dropbox API only guarantees correct
+        casing of the basename (file name or folder name) and not of the full path. This
+        is because Dropbox itself is not case sensitive and stores all paths in lowercase
+        internally. To the extend where parent directories of ``dbx_path`` are already
+        present on the local drive, their casing is used. Otherwise, the casing from
+        ``dbx_path`` is used. This aims to preserve the correct casing of file and folder
+        names and prevents the creation of duplicate folders with different casing on the
+        local drive.
 
-        Therefore, if the parent directory is already present on the local
-        drive, it's casing is used. Otherwise, the casing given by the Dropbox
-        API metadata is used. This aims to preserve the correct casing of file and
-        folder names and prevents the creation of duplicate folders with different
-        casing on the local drive.
-
-        :param str dbx_path: Path to file relative to Dropbox folder. The basename must be
-            provided with correct casing.
+        :param str dbx_path: Path to file relative to Dropbox folder.
         :returns: Corresponding local path on drive.
         :rtype: str
         :raises: ValueError if no path is specified.
@@ -851,10 +851,11 @@ class UpDownSync:
 
         # get deleted items
         rev_dict_copy = self.get_rev_index()
-        for path in rev_dict_copy:
-            local_path = self.to_local_path(path)
+        for p in rev_dict_copy:
+            # warning: local_path may not be correctly cased
+            local_path = self.to_local_path(p)
             if local_path.lower() not in lowercase_snapshot_paths:
-                if rev_dict_copy[path] == 'folder':
+                if rev_dict_copy[p] == 'folder':
                     event = DirDeletedEvent(local_path)
                 else:
                     event = FileDeletedEvent(local_path)
@@ -1277,9 +1278,6 @@ class UpDownSync:
             else:
                 md_new = self.client.make_dir(dbx_path, autorename=True)
 
-            # save or update revision metadata
-            self.set_local_rev(md_new.path_lower, 'folder')
-
         else:
             # check if file already exists with identical content
             if isinstance(md_old, FileMetadata):
@@ -1319,7 +1317,8 @@ class UpDownSync:
             logger.debug('Upload conflict "%s" handled by Dropbox, created "%s"',
                          dbx_path, md_new.path_lower)
         else:
-            self.set_local_rev(md_new.path_lower, md_new.rev)
+            rev = getattr(md_new, 'rev', 'folder')
+            self.set_local_rev(md_new.path_lower, rev)
             logger.debug('Created "%s" on Dropbox', dbx_path)
 
     def _on_modified(self, event):
@@ -1625,8 +1624,8 @@ class UpDownSync:
             remote_rev = None
             remote_hash = None
 
-        dbx_path = md.path_display
-        local_path = self.to_local_path(dbx_path)
+        dbx_path = md.path_lower
+        local_path = self.to_local_path(md.path_display)
         local_rev = self.get_local_rev(dbx_path)
 
         if remote_rev == local_rev:
@@ -1792,7 +1791,7 @@ class UpDownSync:
         """
         Creates local file / folder for remote entry.
 
-        :param class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
+        :param Metadata class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
         :returns: Copy of metadata if the change was downloaded, ``True`` if the change
             already existed locally and ``False`` if the download failed.
         :raises: MaestralApiError on failure.
