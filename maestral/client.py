@@ -567,10 +567,12 @@ class MaestralApiClient:
         # combine all results into one
         results = self.flatten_results(results)
 
-        logger.debug('Listed remote changes:\n%s', iter_to_str(results.entries))
+        logger.debug('Listed remote changes:\n%s', entries_to_str(results.entries))
 
         return results
 
 
-def iter_to_str(iterable):
-    return '\n'.join(str(e) for e in iterable)
+def entries_to_str(entries):
+    str_reps = [f'<{e.__class__.__name__}(path_display={e.path_display})>'
+                for e in entries]
+    return '\n'.join(str_reps)

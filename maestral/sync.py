@@ -35,6 +35,7 @@ from atomicwrites import atomic_write
 # local imports
 from maestral.config import MaestralConfig, MaestralState
 from maestral.watchdog import Observer
+from maestral.client import entries_to_str
 from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                 EXCLUDED_FILE_NAMES, MIGNORE_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError,
@@ -1579,8 +1580,7 @@ class UpDownSync:
         if remote_rev == local_rev:
             # Local change has the same rev. May be newer and
             # not yet synced or identical. Don't overwrite.
-            logger.debug('Conflict: Local item "%s" is the same or newer than on'
-                         'Dropbox', dbx_path)
+            logger.debug('Local item "%s" is the same or newer than on Dropbox', dbx_path)
             return Conflict.LocalNewerOrIdentical
 
         elif remote_rev != local_rev:
@@ -1599,7 +1599,7 @@ class UpDownSync:
                 logger.debug('No conflict: remote item "%s" is newer', dbx_path)
                 return Conflict.RemoteNewer
             elif not remote_rev:
-                logger.debug('Conflict: Local item "%s" has been modified since remote'
+                logger.debug('Conflict: Local item "%s" has been modified since remote '
                              'deletion', dbx_path)
                 return Conflict.LocalNewerOrIdentical
             else:
@@ -1732,6 +1732,8 @@ class UpDownSync:
             new_entries.append(h[-1])
 
         changes.entries = new_entries
+
+        logger.debug('Cleaned remote changes:\n%s', entries_to_str(new_entries))
 
         return changes
 
