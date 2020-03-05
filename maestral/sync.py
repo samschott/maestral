@@ -1310,7 +1310,7 @@ class UpDownSync:
             try:
                 os.rename(local_path, local_path_cc)
                 self.set_local_rev(md_old.path_lower, None)
-                self.set_local_rev(md_new.path_lower, md_new.rev)
+                self._set_local_rev_recursive(md_new)
             except FileNotFoundError:
                 self.set_local_rev(md_old.path_lower, None)
             self._create_local_entry(md_old)
