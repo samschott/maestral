@@ -843,11 +843,20 @@ class UpDownSync:
                     event = FileCreatedEvent(path)
                 changes.append(event)
             elif is_modified:
-                if snapshot.isdir(path):
+                if snapshot.isdir(path) and rev == 'folder':
                     event = DirModifiedEvent(path)
-                else:
+                    changes.append(event)
+                elif not snapshot.isdir(path) and rev != 'folder':
                     event = FileModifiedEvent(path)
-                changes.append(event)
+                    changes.append(event)
+                elif snapshot.isdir(path):
+                    event0 = FileDeletedEvent(path)
+                    event1 = DirCreatedEvent(path)
+                    changes += [event0, event1]
+                elif not snapshot.isdir(path):
+                    event0 = DirDeletedEvent(path)
+                    event1 = FileCreatedEvent(path)
+                    changes += [event0, event1]
 
         # get deleted items
         rev_dict_copy = self.get_rev_index()
@@ -1030,35 +1039,40 @@ class UpDownSync:
             else:
                 path = h[0].src_path
 
-                if h[-1].is_directory:
-                    CreatedEvent = DirCreatedEvent
-                    ModifiedEvent = DirModifiedEvent
-                    DeletedEvent = DirDeletedEvent
-                else:
-                    CreatedEvent = FileCreatedEvent
-                    ModifiedEvent = FileModifiedEvent
-                    DeletedEvent = FileDeletedEvent
-
                 n_created = len([e for e in h if e.event_type == EVENT_TYPE_CREATED])
                 n_deleted = len([e for e in h if e.event_type == EVENT_TYPE_DELETED])
 
-                # TODO: possible to only check first + last event?
-
-                if n_created > n_deleted:  # file was created
-                    new_events.append(CreatedEvent(path))
-                if n_created < n_deleted:  # file was deleted
-                    new_events.append(DeletedEvent(path))
-                elif n_deleted == n_created:
-                    if n_created == 0:  # file was modified
-                        new_events.append(ModifiedEvent(path))
+                if n_created > n_deleted:  # item was created
+                    if h[-1].is_directory:
+                        new_events.append(DirCreatedEvent(path))
                     else:
-                        first_created = h.index(next(e for e in h if e.event_type == EVENT_TYPE_CREATED))
-                        first_deleted = h.index(next(e for e in h if e.event_type == EVENT_TYPE_DELETED))
+                        new_events.append(FileCreatedEvent(path))
+                if n_created < n_deleted:  # item was deleted
+                    if h[0].is_directory:
+                        new_events.append(DirDeletedEvent(path))
+                    else:
+                        new_events.append(FileDeletedEvent(path))
+                else:
 
-                        if first_deleted < first_created:  # file was modified
-                            new_events.append(ModifiedEvent(path))
-                        else:  # file was only temporary
-                            pass
+                    first_created_idx = h.index(next(e for e in h if e.event_type == EVENT_TYPE_CREATED))
+                    first_deleted_idx = h.index(next(e for e in h if e.event_type == EVENT_TYPE_DELETED))
+
+                    if n_created == 0 or first_deleted_idx < first_created_idx:
+                        # item was modified
+                        if h[0].is_directory and h[-1].is_directory:
+                            new_events.append(DirModifiedEvent(path))
+                        elif not h[0].is_directory and not h[-1].is_directory:
+                            new_events.append(FileModifiedEvent(path))
+                        elif h[0].is_directory:
+                            new_events.append(DirDeletedEvent(path))
+                            new_events.append(FileCreatedEvent(path))
+                        elif h[1].is_directory:
+                            new_events.append(FileDeletedEvent(path))
+                            new_events.append(DirCreatedEvent(path))
+
+                    else:
+                        # item was only temporary
+                        pass
 
         return new_events
 
