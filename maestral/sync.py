@@ -772,12 +772,22 @@ class UpDownSync:
         return (self._is_mignore_path(dbx_path, is_dir=event.is_directory)
                 and not self.get_local_rev(dbx_path))
 
-    def _split_mignore(self, event):
-        if len(self.mignore_rules.patterns) == 0:
-            return False
+    def _should_split_excluded(self, event):
 
         if event.event_type != EVENT_TYPE_MOVED:
             raise ValueError('Can only split moved events')
+
+        if (self.is_excluded(event.src_path)
+                or self.is_excluded(event.dest_path)
+                or self.is_excluded_by_user(event.src_path)
+                or self.is_excluded_by_user(event.dest_path)):
+            return True
+        else:
+            return self._should_split_mignore(event)
+
+    def _should_split_mignore(self, event):
+        if len(self.mignore_rules.patterns) == 0:
+            return False
 
         dbx_src_path = self.to_dbx_path(event.src_path)
         dbx_dest_path = self.to_dbx_path(event.dest_path)
@@ -970,7 +980,7 @@ class UpDownSync:
 
             if self.is_excluded(dbx_path):  # is excluded?
                 events_excluded.append(event)
-            elif self.is_excluded_by_user(dbx_path):  # is excluded from download by user?
+            elif self.is_excluded_by_user(dbx_path):  # is excluded by selective sync?
                 if event.event_type is EVENT_TYPE_DELETED:
                     self.clear_sync_error(local_path, dbx_path)
                 else:
@@ -984,7 +994,7 @@ class UpDownSync:
                     logger.warning('Could not upload ', basename, exc_info=exc_info)
                     self.sync_errors.put(exc)
                 events_excluded.append(event)
-            elif self.is_mignore(event):  # is excluded from upload by mignore?
+            elif self.is_mignore(event):  # is excluded by mignore?
                 events_excluded.append(event)
             else:
                 events_filtered.append(event)
@@ -1016,8 +1026,7 @@ class UpDownSync:
         for e in events:
             if e.event_type == EVENT_TYPE_MOVED:
                 related = tuple(p for p in all_paths if p in (e.src_path, e.dest_path))
-                if (len(related) > 2 or self._split_mignore(e)
-                        or self.is_excluded(e.src_path) or self.is_excluded(e.dest_path)):
+                if len(related) > 2 or self._should_split_excluded(e):
 
                     if e.is_directory:
                         CreatedEvent = DirCreatedEvent

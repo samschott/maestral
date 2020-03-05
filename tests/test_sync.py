@@ -166,7 +166,7 @@ class DummyUpDownSync(UpDownSync):
     def __init__(self):
         pass
 
-    def _split_mignore(self, event):
+    def _should_split_excluded(self, event):
         return False
 
     def is_excluded(self, dbx_path):
