@@ -1680,19 +1680,16 @@ class UpDownSync:
         user_name = None
         change_type = 'changed'
 
-        # find out who changed the item(s), get the use name if its only a single user
-        try:
-            dbid_list = set(md.sharing_info.modified_by for md in changes)
-            if len(dbid_list) == 1:
-                # all files have been modified by the same user
-                dbid = dbid_list.pop()
-                if dbid == self._conf.get('account', 'account_id'):
-                    user_name = 'You'
-                else:
-                    account_info = self.client.get_account_info(dbid)
-                    user_name = account_info.name.display_name
-        except AttributeError:
-            pass
+        # find out who changed the item(s), get the user name if its only a single user
+        dbid_list = set(self._get_modified_by_dbid(md) for md in changes)
+        if len(dbid_list) == 1:
+            # all files have been modified by the same user
+            dbid = dbid_list.pop()
+            if dbid == self._conf.get('account', 'account_id'):
+                user_name = 'You'
+            else:
+                account_info = self.client.get_account_info(dbid)
+                user_name = account_info.name.display_name
 
         if n_changed == 1:
             # display user name, file name, and type of change
@@ -1726,6 +1723,21 @@ class UpDownSync:
             msg = f'{file_name} {change_type}'
 
         self.notifier.notify(msg, level=FILECHANGE)
+
+    def _get_modified_by_dbid(self, md):
+        """
+        Returns the Dropbox ID of the user who modified a shared item or our own ID if the
+        item was not shared.
+
+        :param Metadata md: Dropbox file, folder or deleted metadata
+        :return: Dropbox ID
+        :rtype: str
+        """
+
+        try:
+            return md.sharing_info.modified_by
+        except AttributeError:
+            return self._conf.get('account', 'account_id')
 
     @staticmethod
     def _sort_remote_entries(result):
