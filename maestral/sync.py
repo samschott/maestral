@@ -1156,9 +1156,6 @@ class UpDownSync:
 
         if all(success):
             self.last_sync = local_cursor  # save local cursor
-            logger.debug('Upload of local changes succeeded')
-        else:
-            logger.debug('Sync issues during upload')
 
     @staticmethod
     def _list_diff(list1, list2):
@@ -1727,7 +1724,7 @@ class UpDownSync:
                     self.set_local_rev(dbx_path, remote_rev)  # update local rev
                     return Conflict.Identical
                 else:
-                    logger.debug('Conflict: local item "%" was created since last upload',
+                    logger.debug('Conflict: local item "%s" was created since last upload',
                                  dbx_path)
                     return Conflict.Conflict
 
