@@ -1566,20 +1566,18 @@ class UpDownSync:
             self.queued_for_download.put(self.to_local_path(md.path_display))
 
         # remove all deleted items from the excluded list
-        _, _, deleted_excluded = self._sort_remote_entries(changes_excluded)
+        _, _, deleted_excluded = self._separate_remote_entry_types(changes_excluded)
         for d in deleted_excluded:
             new_excluded = [f for f in self.excluded_items
                             if not f.startswith(d.path_lower)]
             self.excluded_items = new_excluded
 
         # sort changes into folders, files and deleted
-        folders, files, deleted = self._sort_remote_entries(changes_included)
+        folders, files, deleted = self._separate_remote_entry_types(changes_included)
 
         # sort according to path hierarchy
         # do not create sub-folder / file before parent exists
         folders.sort(key=lambda x: x.path_display.count('/'))
-        # files.sort(key=lambda x: x.path_display.count('/'))  # not really necessary?
-        # do not delete parent before child was deleted
         deleted.sort(key=lambda x: x.path_display.count('/'), reverse=True)
 
         downloaded = []  # local list of all changes
@@ -1754,7 +1752,7 @@ class UpDownSync:
             return self._conf.get('account', 'account_id')
 
     @staticmethod
-    def _sort_remote_entries(result):
+    def _separate_remote_entry_types(result):
         """
         Sorts entries in :class:`dropbox.files.ListFolderResult` into
         FolderMetadata, FileMetadata and DeletedMetadata.
