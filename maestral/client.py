@@ -232,12 +232,12 @@ class MaestralApiClient:
 
         try:
             md = self.dbx.files_get_metadata(dbx_path, **kwargs)
-            logger.debug('Retrieved metadata for "%s"', md.path_display)
+            # logger.debug('Retrieved metadata for "%s"', md.path_display)
         except dropbox.exceptions.ApiError as exc:
             # DropboxAPI error is only raised when the item does not exist on Dropbox
             # this is handled on a DEBUG level since we use call `get_metadata` to check
             # if a file exists
-            logger.debug('Could not get metadata for "%s": %s', dbx_path, exc)
+            # logger.debug('Could not get metadata for "%s": %s', dbx_path, exc)
             md = False
 
         return md
@@ -474,8 +474,6 @@ class MaestralApiClient:
                     self._retry_count = 0
                     raise exc
 
-        logger.debug('Listed contents of folder "%s"', dbx_path)
-
         self._retry_count = 0
 
         return self.flatten_results(results)
@@ -515,8 +513,6 @@ class MaestralApiClient:
         if not 30 <= timeout <= 480:
             raise ValueError('Timeout must be in range [30, 480]')
 
-        logger.debug('Waiting for remote changes since cursor:\n%s', last_cursor)
-
         # honour last request to back off
         if self._last_longpoll is not None:
             while time.time() - self._last_longpoll < self._backoff:
@@ -529,8 +525,6 @@ class MaestralApiClient:
             self._backoff = result.backoff + 5
         else:
             self._backoff = 0
-
-        logger.debug('Detected remote changes: %s', result.changes)
 
         self._last_longpoll = time.time()
 

@@ -1459,8 +1459,10 @@ class UpDownSync:
             duplicates. This delay is typically only necessary folders are shared /
             un-shared with other Dropbox accounts.
         """
+        logger.debug('Waiting for remote changes since cursor:\n%s', last_cursor)
         has_changes = self.client.wait_for_remote_changes(last_cursor, timeout=timeout)
         time.sleep(delay)
+        logger.debug('Detected remote changes: %s', has_changes)
         return has_changes
 
     @catch_sync_issues
