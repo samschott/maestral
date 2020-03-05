@@ -1515,7 +1515,8 @@ class UpDownSync:
         # do not create sub-folder / file before parent exists
         folders.sort(key=lambda x: x.path_display.count('/'))
         # files.sort(key=lambda x: x.path_display.count('/'))  # not really necessary?
-        deleted.sort(key=lambda x: x.path_display.count('/'))
+        # do not delete parent before child was deleted
+        deleted.sort(key=lambda x: x.path_display.count('/'), reverse=True)
 
         downloaded = []  # local list of all changes
 
