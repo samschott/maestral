@@ -278,9 +278,6 @@ class MaestralApiClient:
 
         md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
 
-        logger.debug('File "%s" (rev %s) was successfully downloaded as "%s"',
-                     md.path_display, md.rev, dst_path)
-
         return md
 
     @to_maestral_error(dbx_path_arg=2)
@@ -354,8 +351,6 @@ class MaestralApiClient:
                         else:
                             raise exc
 
-        logger.debug('File "%s" (rev %s) uploaded to Dropbox', md.path_display, md.rev)
-
         return md
 
     @to_maestral_error(dbx_path_arg=1)
@@ -371,8 +366,6 @@ class MaestralApiClient:
         # try to move file (response will be metadata, probably)
         res = self.dbx.files_delete_v2(dbx_path, **kwargs)
         md = res.metadata
-
-        logger.debug('Item "%s" removed from Dropbox', dbx_path)
 
         return md
 
@@ -396,8 +389,6 @@ class MaestralApiClient:
         )
         md = res.metadata
 
-        logger.debug('Item moved from "%s" to "%s" on Dropbox', dbx_path, md.path_display)
-
         return md
 
     @to_maestral_error(dbx_path_arg=1)
@@ -412,8 +403,6 @@ class MaestralApiClient:
         """
         res = self.dbx.files_create_folder_v2(dbx_path, **kwargs)
         md = res.metadata
-
-        logger.debug('Created folder "%s" on Dropbox', md.path_display)
 
         return md
 
@@ -567,12 +556,4 @@ class MaestralApiClient:
         # combine all results into one
         results = self.flatten_results(results)
 
-        logger.debug('Listed remote changes:\n%s', entries_to_str(results.entries))
-
         return results
-
-
-def entries_to_str(entries):
-    str_reps = [f'<{e.__class__.__name__}(path_display={e.path_display})>'
-                for e in entries]
-    return '\n'.join(str_reps)

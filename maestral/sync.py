@@ -443,7 +443,7 @@ class UpDownSync:
                 assert all(isinstance(key, str) for key in rev_dict_cache.keys())
                 assert all(isinstance(val, str) for val in rev_dict_cache.values())
             except (FileNotFoundError, IsADirectoryError):
-                logger.info('Maestral index could not be found.')
+                logger.info('Maestral index could not be found')
             except (AssertionError, umsgpack.InsufficientDataException) as exc:
                 title = 'Corrupted index'
                 msg = 'Maestral index has become corrupted. Please rebuild.'
@@ -622,7 +622,7 @@ class UpDownSync:
         """
 
         if not local_path:
-            raise ValueError('No path specified.')
+            raise ValueError('No path specified')
 
         dbx_root_list = osp.normpath(self.dropbox_path).split(osp.sep)
         path_list = osp.normpath(local_path).split(osp.sep)
@@ -635,7 +635,7 @@ class UpDownSync:
             return '/'
         elif i != len(dbx_root_list):  # path is outside of to dropbox_path
             raise ValueError(f'Specified path "{local_path}" is outside of Dropbox '
-                             f'directory "{self.dropbox_path}".')
+                             f'directory "{self.dropbox_path}"')
 
         return '/{}'.format('/'.join(path_list[i:]))
 
@@ -758,7 +758,7 @@ class UpDownSync:
 
         if event.event_type == EVENT_TYPE_MOVED:
             raise ValueError('Cannot check moved events,'
-                             'split into created and deleted events first.')
+                             'split into created and deleted events first')
 
         dbx_path = self.to_dbx_path(event.src_path)
 
@@ -770,7 +770,7 @@ class UpDownSync:
             return False
 
         if event.event_type != EVENT_TYPE_MOVED:
-            raise ValueError('Can only split moved events.')
+            raise ValueError('Can only split moved events')
 
         dbx_src_path = self.to_dbx_path(event.src_path)
         dbx_dest_path = self.to_dbx_path(event.dest_path)
@@ -1233,7 +1233,7 @@ class UpDownSync:
                 elif isinstance(md, FolderMetadata):
                     self.set_local_rev(md.path_lower, 'folder')
 
-        logger.debug('Moved "%s" to "%s" on Dropbox.', event.src_path, event.dest_path)
+        logger.debug('Moved "%s" to "%s" on Dropbox', dbx_path_old, dbx_path_new)
 
     def _on_created(self, event):
         """
@@ -1279,7 +1279,7 @@ class UpDownSync:
                 md_new = self.client.upload(local_path, dbx_path,
                                             autorename=True, mode=mode)
             except NotFoundError:
-                logger.debug('Could not upload "%s": the item does not exist.',
+                logger.debug('Could not upload "%s": the item does not exist',
                              event.src_path)
                 return
 
@@ -1293,9 +1293,10 @@ class UpDownSync:
             os.rename(local_path, local_path_new)
             self._create_local_entry(md_old)
 
-            logger.debug('Upload conflict "%s" handled by Dropbox.', event.src_path)
-
-        logger.debug('Created "%s" on Dropbox.', event.src_path)
+            logger.debug('Upload conflict "%s" handled by Dropbox, created "%s"',
+                         dbx_path, md_new.path_lower)
+        else:
+            logger.debug('Created "%s" on Dropbox', dbx_path)
 
     def _on_deleted(self, event):
         """
@@ -1313,8 +1314,8 @@ class UpDownSync:
         try:
             self.client.remove(dbx_path, parent_rev=local_rev)
         except (NotFoundError, PathError):
-            logger.debug('Could not delete "%s": the item does not exist on Dropbox.',
-                         event.src_path)
+            logger.debug('Could not delete "%s": the item does not exist on Dropbox',
+                         dbx_path)
 
         # remove revision metadata
         self.set_local_rev(dbx_path, None)
@@ -1342,7 +1343,7 @@ class UpDownSync:
                     # file hashes are identical, do not upload
                     self.set_local_rev(md_old.path_lower, md_old.rev)
                     logger.debug('Modification of "%s" detected but file content is '
-                                 'the same as on Dropbox.', event.src_path)
+                                 'the same as on Dropbox', dbx_path)
                     return
 
             rev = self.get_local_rev(dbx_path)
@@ -1350,7 +1351,7 @@ class UpDownSync:
                 mode = dropbox.files.WriteMode('overwrite')
             elif not rev:
                 logger.debug('"%s" appears to have been modified but cannot '
-                             'find old revision.', event.src_path)
+                             'find old revision', dbx_path)
                 mode = dropbox.files.WriteMode('add')
             else:
                 mode = dropbox.files.WriteMode('update', rev)
@@ -1359,8 +1360,7 @@ class UpDownSync:
                 md_new = self.client.upload(local_path, dbx_path,
                                             autorename=True, mode=mode)
             except NotFoundError:
-                logger.debug('Could not upload "%s": the item does not exist.',
-                             event.src_path)
+                logger.debug('Could not upload "%s": the item does not exist', dbx_path)
                 return
 
             # save new rev
@@ -1373,10 +1373,11 @@ class UpDownSync:
                 os.rename(local_path, local_path_new)
                 self._create_local_entry(md_old)
 
-                logger.debug('Upload conflict "%s" handled by Dropbox.', event.src_path)
+                logger.debug('Upload conflict "%s" renamed to "%s" by Dropbox',
+                             md_old.path_lower, md_new.path_lower)
 
             else:
-                logger.debug('Uploaded modified "%s" to Dropbox.', event.src_path)
+                logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
 
     # ==== Download sync =================================================================
 
@@ -1466,7 +1467,10 @@ class UpDownSync:
     def list_remote_changes(self, last_cursor):
         """Wraps ``MaestralApiClient.list_remove_changes`` and catches sync errors."""
         changes = self.client.list_remote_changes(last_cursor)
-        return self._clean_remote_changes(changes)
+        logger.debug('Listed remote changes:\n%s', entries_to_str(changes.entries))
+        clean_changes = self._clean_remote_changes(changes)
+        logger.debug('Cleaned remote changes:\n%s', entries_to_str(clean_changes.entries))
+        return clean_changes
 
     def filter_excluded_changes_remote(self, changes):
         """Removes all excluded items from the given list of changes.
@@ -1745,8 +1749,6 @@ class UpDownSync:
             new_entries.append(h[-1])
 
         changes.entries = new_entries
-
-        logger.debug('Cleaned remote changes:\n%s', entries_to_str(new_entries))
 
         return changes
 
@@ -2426,3 +2428,9 @@ def remove_from_queue(q, *items):
 
 def iter_to_str(iterable):
     return '\n'.join(str(e) for e in iterable)
+
+
+def entries_to_str(entries):
+    str_reps = [f'<{e.__class__.__name__}(path_display={e.path_display})>'
+                for e in entries]
+    return '\n'.join(str_reps)
