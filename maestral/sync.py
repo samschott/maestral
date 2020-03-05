@@ -1109,8 +1109,8 @@ class UpDownSync:
         dir_events, file_events, deleted_events = self._separate_local_event_types(events)
 
         # sort events (might not be necessary)
-        dir_events.sort(key=lambda x: x.path_display.count('/'))
-        deleted_events.sort(key=lambda x: x.path_display.count('/'), reverse=True)
+        dir_events.sort(key=lambda x: x.src_path.count('/'))
+        deleted_events.sort(key=lambda x: x.src_path.count('/'), reverse=True)
 
         # update queues
         for e in events:
