@@ -414,12 +414,14 @@ class UpDownSync:
 
     def get_last_sync_for_path(self, dbx_path):
         with self._last_sync_lock:
-            return max(self._last_sync_for_path.get(dbx_path.lower(), 0.0),
-                       self.last_sync)
+            return max(self._last_sync_for_path.get(dbx_path.lower(), 0.0), self.last_sync)
 
     def set_last_sync_for_path(self, dbx_path, last_sync):
         with self._last_sync_lock:
-            self._last_sync_for_path[dbx_path.lower()] = last_sync
+            if last_sync == 0.0:
+                del self._last_sync_for_path[dbx_path.lower()]
+            else:
+                self._last_sync_for_path[dbx_path.lower()] = last_sync
 
     # ==== rev file management ===========================================================
 
@@ -1196,43 +1198,62 @@ class UpDownSync:
         :raises: MaestralApiError on failure.
         """
 
-        dbx_path_old = self.to_dbx_path(event.src_path)
-        dbx_path_new = self.to_dbx_path(event.dest_path)
+        local_path_from = event.src_path
+        local_path_to = event.dest_path
+
+        dbx_path_from = self.to_dbx_path(local_path_from)
+        dbx_path_to = self.to_dbx_path(local_path_to)
+
+        self.set_local_rev(dbx_path_from, None)
 
         # does item exist on Dropbox?
-        md_old = self.client.get_metadata(dbx_path_old)
+        md_from_old = self.client.get_metadata(dbx_path_from)
 
-        if not md_old:
+        if not md_from_old:
             # If not on Dropbox, e.g., because its old name was invalid,
             # create it instead of moving it.
             if isinstance(event, DirMovedEvent):
-                new_event = DirCreatedEvent(event.dest_path)
+                new_event = DirCreatedEvent(local_path_to)
             else:
-                new_event = FileCreatedEvent(event.dest_path)
-            self._on_created(new_event)
-            # remove old revs
-            self.set_local_rev(dbx_path_old, None)
-            return
+                new_event = FileCreatedEvent(local_path_to)
+            return self._on_created(new_event)
         else:
             # otherwise, just move it
-            md = self.client.move(dbx_path_old, dbx_path_new)
-            # remove old revs
-            self.set_local_rev(dbx_path_old, None)
+            md_to_new = self.client.move(dbx_path_from, dbx_path_to, autorename=True)
 
-        # add new revs
+        # handle conflicts
+        if md_to_new.path_lower != dbx_path_to.lower():
+            # created conflict => move local item and fetch original
+            local_path_to_cc = self.to_local_path(md_to_new.path_display)
+            delete(local_path_to_cc)
+            try:
+                os.rename(local_path_to, local_path_to_cc)
+                self.set_local_rev(dbx_path_to, None)
+                self._set_local_rev_recursive(md_to_new)
+            except FileNotFoundError:
+                self.set_local_rev(dbx_path_to, None)
+
+            self.get_remote_item(dbx_path_to)
+
+            logger.debug('Upload conflict "%s" handled by Dropbox, created "%s"',
+                         dbx_path_to, md_to_new.path_display)
+
+        else:
+            self._set_local_rev_recursive(md_to_new)
+            logger.debug('Moved "%s" to "%s" on Dropbox', dbx_path_from, dbx_path_to)
+
+    def _set_local_rev_recursive(self, md):
+
         if isinstance(md, FileMetadata):
             self.set_local_rev(md.path_lower, md.rev)
-        # and revs of children if folder
         elif isinstance(md, FolderMetadata):
             self.set_local_rev(md.path_lower, 'folder')
-            result = self.client.list_folder(dbx_path_new, recursive=True)
+            result = self.client.list_folder(md.path_lower, recursive=True)
             for md in result.entries:
                 if isinstance(md, FileMetadata):
                     self.set_local_rev(md.path_lower, md.rev)
                 elif isinstance(md, FolderMetadata):
                     self.set_local_rev(md.path_lower, 'folder')
-
-        logger.debug('Moved "%s" to "%s" on Dropbox', dbx_path_old, dbx_path_new)
 
     def _on_created(self, event):
         """
@@ -1282,42 +1303,23 @@ class UpDownSync:
                              event.src_path)
                 return
 
-            # save or update revision metadata
-            self.set_local_rev(md_new.path_lower, md_new.rev)
-
         if md_new.path_lower != dbx_path.lower() and md_old:
             # created conflict => move local item and fetch original
-            local_path_new = self.to_local_path(md_new.path_display)
-            delete(local_path_new)
-            os.rename(local_path, local_path_new)
+            local_path_cc = self.to_local_path(md_new.path_display)
+            delete(local_path_cc)
+            try:
+                os.rename(local_path, local_path_cc)
+                self.set_local_rev(md_old.path_lower, None)
+                self.set_local_rev(md_new.path_lower, md_new.rev)
+            except FileNotFoundError:
+                self.set_local_rev(md_old.path_lower, None)
             self._create_local_entry(md_old)
 
             logger.debug('Upload conflict "%s" handled by Dropbox, created "%s"',
                          dbx_path, md_new.path_lower)
         else:
+            self.set_local_rev(md_new.path_lower, md_new.rev)
             logger.debug('Created "%s" on Dropbox', dbx_path)
-
-    def _on_deleted(self, event):
-        """
-        Call when local item is deleted.
-
-        :param class event: Watchdog file event.
-        :raises: MaestralApiError on failure.
-        """
-
-        path = event.src_path
-        dbx_path = self.to_dbx_path(path)
-        local_rev = self.get_local_rev(dbx_path)
-        local_rev = None if local_rev == 'folder' else local_rev
-
-        try:
-            self.client.remove(dbx_path, parent_rev=local_rev)
-        except (NotFoundError, PathError):
-            logger.debug('Could not delete "%s": the item does not exist on Dropbox',
-                         dbx_path)
-
-        # remove revision metadata
-        self.set_local_rev(dbx_path, None)
 
     def _on_modified(self, event):
         """
@@ -1327,10 +1329,10 @@ class UpDownSync:
         :raises: MaestralApiError on failure.
         """
 
-        local_path = event.src_path
-        dbx_path = self.to_dbx_path(local_path)
-
         if not event.is_directory:  # ignore directory modified events
+
+            local_path = event.src_path
+            dbx_path = self.to_dbx_path(local_path)
 
             self._wait_for_creation(local_path)
 
@@ -1362,21 +1364,46 @@ class UpDownSync:
                 logger.debug('Could not upload "%s": the item does not exist', dbx_path)
                 return
 
-            # save new rev
-            self.set_local_rev(md_new.path_lower, md_new.rev)
-
-            if md_new.path_lower != dbx_path.lower():
+            if md_new.path_lower != dbx_path.lower() and md_old:
                 # created conflict => move local file and fetch original
-                local_path_new = self.to_local_path(md_new.path_display)
-                delete(local_path_new)
-                os.rename(local_path, local_path_new)
+                local_path_cc = self.to_local_path(md_new.path_display)
+                delete(local_path_cc)
+                try:
+                    os.rename(local_path, local_path_cc)
+                    self.set_local_rev(md_old.path_lower, None)
+                    self.set_local_rev(md_new.path_lower, md_new.rev)
+                except FileNotFoundError:
+                    self.set_local_rev(md_old.path_lower, None)
                 self._create_local_entry(md_old)
 
                 logger.debug('Upload conflict "%s" renamed to "%s" by Dropbox',
                              md_old.path_lower, md_new.path_lower)
 
             else:
+                self.set_local_rev(md_new.path_lower, md_new.rev)
                 logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
+
+    def _on_deleted(self, event):
+        """
+        Call when local item is deleted.
+
+        :param class event: Watchdog file event.
+        :raises: MaestralApiError on failure.
+        """
+
+        path = event.src_path
+        dbx_path = self.to_dbx_path(path)
+        local_rev = self.get_local_rev(dbx_path)
+        local_rev = None if local_rev == 'folder' else local_rev
+
+        try:
+            self.client.remove(dbx_path, parent_rev=local_rev)
+        except (NotFoundError, PathError):
+            logger.debug('Could not delete "%s": the item does not exist on Dropbox',
+                         dbx_path)
+
+        # remove revision metadata
+        self.set_local_rev(dbx_path, None)
 
     # ==== Download sync =================================================================
 
@@ -1832,6 +1859,7 @@ class UpDownSync:
             with InQueue(local_path, self.queue_downloading, delay=1):
                 err = delete(local_path)
                 self.set_local_rev(entry.path_lower, None)
+                self.set_last_sync_for_path(entry.path_lower, 0.0)
 
             if not err:
                 logger.debug('Deleted local item "%s"', entry.path_display)
@@ -1847,7 +1875,6 @@ class UpDownSync:
         recent_changes.append(dbx_path)
         # eliminate duplicates
         recent_changes = list(OrderedDict.fromkeys(recent_changes))
-        # save last 30 changes
         self._state.set('sync', 'recent_changes', recent_changes[-self._max_history:])
 
 
