@@ -1460,18 +1460,24 @@ class UpDownSync:
         """
         Downloads a remote file or folder and updates its local rev and the revs of its
         children. If the remote item no longer exists, the corresponding local item will
-        be deleted.
+        be deleted. Given paths will be added to the (persistent) pending_downloads list
+        for the duration of the download so that they will be resumed in case Maestral
+        is terminated during the download.
 
         :param str dbx_path: Dropbox path to file or folder.
         :return: ``True`` on success, ``False`` otherwise.
         :rtype: bool
         """
+        self.pending_downloads.add(dbx_path)
         md = self.client.get_metadata(dbx_path, include_deleted=True)
 
         if isinstance(md, FolderMetadata):
-            return self.get_remote_folder(dbx_path)
+            res = self.get_remote_folder(dbx_path)
         else:  # FileMetadata or DeletedMetadata
-            return self._create_local_entry(md)
+            res = self._create_local_entry(md)
+
+        self.pending_downloads.discard(dbx_path)
+        return res
 
     @catch_sync_issues
     def wait_for_remote_changes(self, last_cursor, timeout=40, delay=2):
@@ -1763,8 +1769,8 @@ class UpDownSync:
         all_paths = [e.path_lower for e in changes.entries]
 
         unique_paths = list(OrderedDict.fromkeys(all_paths))
-        histories = [[e for e in changes.entries if e.path_lower == path]
-                     for path in unique_paths]
+        histories = [[e for e in changes.entries if e.path_lower == unique_path]
+                     for unique_path in unique_paths]
 
         new_entries = []
 
@@ -1984,17 +1990,14 @@ def download_worker_added_item(sync, syncing, running, connected):
         syncing.wait()
 
         dbx_path = sync.queued_newly_included_downloads.get()
-        # add dbx_path to `retry_downloads` in case we are interrupted during download
-        # this will be cleared automatically when the item is downloaded
-        sync.pending_downloads.add(dbx_path)
 
         if not (running.is_set() and syncing.is_set()):
+            sync.pending_downloads.add(dbx_path)
             continue
 
         try:
             with sync.lock:
                 sync.get_remote_item(dbx_path)
-                sync.pending_downloads.discard(dbx_path)
             logger.info(IDLE)
         except ConnectionError:
             syncing.clear()
@@ -2092,7 +2095,6 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
 
                 for dbx_path in list(sync.pending_downloads):
                     sync.get_remote_item(dbx_path)
-                    sync.pending_downloads.discard(dbx_path)
 
                 # upload changes while inactive
                 sync.upload_local_changes_while_inactive()
