@@ -9,6 +9,7 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 # system imports
 import os
 import os.path as osp
+import shutil
 import logging
 import time
 from threading import Thread, Event, Lock, RLock
@@ -157,7 +158,7 @@ class FileEventHandler(FileSystemEventHandler):
                 i += 1
             # rename newly created item
             self._renamed_items_cache.append(created_path)  # ignore temporarily
-            os.rename(created_path, new_path)  # this will be picked up by watchdog
+            shutil.move(created_path, new_path)  # this will be picked up by watchdog
             logger.debug('Case conflict: renamed "%s" to "%s"', created_path, new_path)
 
             if isinstance(event, DirCreatedEvent):
@@ -1227,7 +1228,7 @@ class UpDownSync:
             local_path_to_cc = self.to_local_path(md_to_new.path_display)
             delete(local_path_to_cc)
             try:
-                os.rename(local_path_to, local_path_to_cc)
+                shutil.move(local_path_to, local_path_to_cc)
                 self.set_local_rev(dbx_path_to, None)
                 self._set_local_rev_recursive(md_to_new)
             except FileNotFoundError:
@@ -1308,7 +1309,7 @@ class UpDownSync:
             local_path_cc = self.to_local_path(md_new.path_display)
             delete(local_path_cc)
             try:
-                os.rename(local_path, local_path_cc)
+                shutil.move(local_path, local_path_cc)
                 self.set_local_rev(md_old.path_lower, None)
                 self._set_local_rev_recursive(md_new)
             except FileNotFoundError:
@@ -1369,7 +1370,7 @@ class UpDownSync:
                 local_path_cc = self.to_local_path(md_new.path_display)
                 delete(local_path_cc)
                 try:
-                    os.rename(local_path, local_path_cc)
+                    shutil.move(local_path, local_path_cc)
                     self.set_local_rev(md_old.path_lower, None)
                     self.set_local_rev(md_new.path_lower, md_new.rev)
                 except FileNotFoundError:
@@ -1814,7 +1815,7 @@ class UpDownSync:
             # rename local item and get remote
             base, ext = osp.splitext(local_path)
             new_local_file = ''.join((base, ' (conflicting copy)', ext))
-            os.rename(local_path, new_local_file)
+            shutil.move(local_path, new_local_file)
 
         if isinstance(entry, FileMetadata):
             # Store the new entry at the given path in your local state.
