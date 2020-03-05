@@ -26,6 +26,7 @@ and fixes an issue with immediately retrying failed downloads.
 - Renamed `Maestral.exclude_folder` to `Maestral.exclude_item`, `Maestral.include_folder`
   to `Maestral.inlcude_item`, and `Maestral.set_excluded_folders` to
   `Maestral.set_excluded_items`.
+- Speed up creation of local folders.
 
 #### Fixed:
 
@@ -35,6 +36,15 @@ and fixes an issue with immediately retrying failed downloads.
   sync startup.
 - Wait until all sync activity has stopped before moving the Dropbox folder. This avoids
   errors when trying to convert local to dropbox paths and vice versa during the move.
+- Fixes an issue which would prevent some conflicting copies created by Dropbox from being
+  downloaded.
+- Correctly handle when a local item is renamed to an always excluded file name such as 
+  ".DS_STORE": the item is now deleted from Dropbox.
+- Fixes an issue where sharing an existing folder from the Dropbox website would result in
+  the folder being deleted locally. This is because Dropbox actually removes the shared
+  folder from the user's Dropbox and then re-mounts it as a shared drive / file system. We
+  handle this correctly now by leaving the local folder alone or deleting and
+  re-downloading it, depending on the time elapsed between removal and re-mounting.
 
 #### Removed:
 
