@@ -1236,6 +1236,13 @@ class UpDownSync:
         """
         Call when local item is moved.
 
+        Keep in mind that we may be moving a whole tree of items. But its better deal
+        with the complexity than to delete and re-uploading everything. Thankfully, in
+        case of directories, we always process the top-level first. Trying to move the
+        children will then be delegated to `on_create` (because the old item no longer
+        lives on Dropbox) and that won't upload anything because file contents have
+        remained the same.
+
         :param event: Watchdog file event.
         :raises: MaestralApiError on failure.
         """
@@ -1248,20 +1255,18 @@ class UpDownSync:
 
         self.set_local_rev(dbx_path_from, None)
 
-        # does item exist on Dropbox?
         md_from_old = self.client.get_metadata(dbx_path_from)
 
+        # If not on Dropbox, e.g., because its old name was invalid,
+        # create it instead of moving it.
         if not md_from_old:
-            # If not on Dropbox, e.g., because its old name was invalid,
-            # create it instead of moving it.
             if isinstance(event, DirMovedEvent):
                 new_event = DirCreatedEvent(local_path_to)
             else:
                 new_event = FileCreatedEvent(local_path_to)
             return self._on_created(new_event)
-        else:
-            # otherwise, just move it
-            md_to_new = self.client.move(dbx_path_from, dbx_path_to, autorename=True)
+
+        md_to_new = self.client.move(dbx_path_from, dbx_path_to, autorename=True)
 
         # handle conflicts
         if md_to_new.path_lower != dbx_path_to.lower():
