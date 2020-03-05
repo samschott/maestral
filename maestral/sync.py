@@ -2507,7 +2507,15 @@ def get_ctime(local_path):
     """
 
     try:
-        return os.stat(local_path).st_ctime
+        stat = os.stat(local_path)
+        if S_ISDIR(stat.st_mode):
+            ctime = stat.st_ctime
+            with os.scandir(local_path) as it:
+                for entry in it:
+                    ctime = max(ctime, entry.stat().st_ctime)
+            return ctime
+        else:
+            return os.stat(local_path).st_ctime
     except FileNotFoundError:
         return -1.0
 
