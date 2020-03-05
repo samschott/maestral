@@ -427,7 +427,10 @@ class UpDownSync:
         with self._last_sync_lock:
             dbx_path = dbx_path.lower()
             if last_sync == 0.0:
-                del self._last_sync_for_path[dbx_path]
+                try:
+                    del self._last_sync_for_path[dbx_path]
+                except KeyError:
+                    pass
             else:
                 self._last_sync_for_path[dbx_path] = last_sync
 
