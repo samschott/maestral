@@ -133,7 +133,7 @@ class FileEventHandler(FileSystemEventHandler):
             return event
 
         # get the created items path (src_path or dest_path)
-        created_path = _get_dest_path(event)
+        created_path = get_dest_path(event)
 
         # get all other items in the same directory
         try:
@@ -947,7 +947,7 @@ class UpDownSync:
 
         for event in events:
 
-            local_path = _get_dest_path(event)
+            local_path = get_dest_path(event)
             dbx_path = self.to_dbx_path(local_path)
 
             if self.is_excluded(dbx_path):  # is excluded?
@@ -1089,7 +1089,7 @@ class UpDownSync:
 
         # update queues
         for e in events:
-            self.queued_for_upload.put(_get_dest_path(e))
+            self.queued_for_upload.put(get_dest_path(e))
 
         # apply directory events first (they do not require any upload)
         for event in dir_events:
@@ -1159,7 +1159,7 @@ class UpDownSync:
         sync errors with the file. Any new MaestralApiErrors will be caught by the
         decorator."""
 
-        local_path = _get_dest_path(event)
+        local_path = get_dest_path(event)
         remove_from_queue(self.queued_for_upload, local_path)
         self.clear_sync_error(local_path=local_path)
 
@@ -2391,8 +2391,15 @@ class MaestralMonitor:
 # ========================================================================================
 
 
-def _get_dest_path(e):
-    return getattr(e, 'dest_path', e.src_path)
+def get_dest_path(event):
+    """
+    Returns dest_path or src_path of local FileEvent
+
+    :param FileEvent event: Watchdog file event.
+    :return:
+    :rtype: str
+    """
+    return getattr(event, 'dest_path', event.src_path)
 
 
 def get_local_hash(local_path):
