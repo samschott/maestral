@@ -35,7 +35,6 @@ from atomicwrites import atomic_write
 # local imports
 from maestral.config import MaestralConfig, MaestralState
 from maestral.watchdog import Observer
-from maestral.client import entries_to_str
 from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                 EXCLUDED_FILE_NAMES, MIGNORE_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError,
@@ -998,7 +997,7 @@ class UpDownSync:
             if e.event_type == EVENT_TYPE_MOVED:
                 related = tuple(p for p in all_paths if p in (e.src_path, e.dest_path))
                 if (len(related) > 2 or self._split_mignore(e)
-                    or self.is_excluded(e.src_path) or self.is_excluded(e.dest_path)):
+                        or self.is_excluded(e.src_path) or self.is_excluded(e.dest_path)):
 
                     if e.is_directory:
                         CreatedEvent = DirCreatedEvent

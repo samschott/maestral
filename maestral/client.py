@@ -233,7 +233,7 @@ class MaestralApiClient:
         try:
             md = self.dbx.files_get_metadata(dbx_path, **kwargs)
             # logger.debug('Retrieved metadata for "%s"', md.path_display)
-        except dropbox.exceptions.ApiError as exc:
+        except dropbox.exceptions.ApiError:
             # DropboxAPI error is only raised when the item does not exist on Dropbox
             # this is handled on a DEBUG level since we use call `get_metadata` to check
             # if a file exists
