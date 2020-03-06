@@ -697,7 +697,7 @@ class UpDownSync:
     def clear_sync_error(self, local_path=None, dbx_path=None):
         """
         Clears all sync errors related to the item defined by :param:`local_path`
-        or :param:`local_path.
+        or :param:`dbx_path.
 
         :param str local_path: Path to local file.
         :param str dbx_path: Path to file on Dropbox.
@@ -1240,7 +1240,7 @@ class UpDownSync:
         try:
             while True:
                 size1 = osp.getsize(path)
-                time.sleep(0.5)
+                time.sleep(0.2)
                 size2 = osp.getsize(path)
                 if size1 == size2:
                     return
@@ -1431,7 +1431,8 @@ class UpDownSync:
                              queue=self.queue_downloading, delay=1.0):
                     delete(local_path_cc)
                     try:
-                        shutil.move(local_path, local_path_cc)
+                        # will only rename *files* here, we ignore folder modified events
+                        os.rename(local_path, local_path_cc)
                         self.set_local_rev(md_old.path_lower, None)
                         self.set_local_rev(md_new.path_lower, md_new.rev)
                     except FileNotFoundError:
