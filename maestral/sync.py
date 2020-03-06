@@ -1144,17 +1144,17 @@ class UpDownSync:
         # apply deleted events first, folder created events second
         # neither event type requires an actual upload
         for event in deleted_events:
-            self._apply_event(event)
+            self._create_remote_entry(event)
 
         for event in dir_events:
-            self._apply_event(event)
+            self._create_remote_entry(event)
 
         # apply file events in parallel
         num_threads = os.cpu_count() * 2
         success = []
         last_emit = time.time()
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            fs = (executor.submit(self._apply_event, e) for e in file_events)
+            fs = (executor.submit(self._create_remote_entry, e) for e in file_events)
             n_files = len(file_events)
             for f, n in zip(as_completed(fs), range(1, n_files + 1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
@@ -1205,7 +1205,7 @@ class UpDownSync:
         return is_deleted_event and is_child(x.src_path, parent.src_path)
 
     @catch_sync_issues
-    def _apply_event(self, event):
+    def _create_remote_entry(self, event):
         """Apply a local file event `event` to the remote Dropbox. Clear any related
         sync errors with the file. Any new MaestralApiErrors will be caught by the
         decorator."""
