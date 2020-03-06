@@ -51,10 +51,10 @@ logger = logging.getLogger(__name__)
 
 
 # TODO:
-#  * periodic resync: 
+#  * periodic resync: break into small chunks to reduce downtime for user, aim for a full
+#    resync every weak
 #  * fix excluding local file events: check if delay of 1 sec really is required, consider
 #    lower memory usage alternatives (parallel downloads of binned deletions and folders?)
-#
 
 
 # ========================================================================================
