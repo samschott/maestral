@@ -15,7 +15,7 @@ import logging
 import time
 from threading import Thread, Timer, Event, Lock, RLock
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import queue
+from queue import Queue, Empty
 from collections import abc, OrderedDict
 import functools
 from enum import IntEnum
@@ -50,6 +50,13 @@ from maestral.utils.appdirs import get_data_path
 logger = logging.getLogger(__name__)
 
 
+# TODO:
+#  * periodic resync: 
+#  * fix excluding local file events: check if delay of 1 sec really is required, consider
+#    lower memory usage alternatives (parallel downloads of binned deletions and folders?)
+#
+
+
 # ========================================================================================
 # Syncing functionality
 # ========================================================================================
@@ -61,7 +68,7 @@ class Conflict(IntEnum):
     LocalNewerOrIdentical = 2
 
 
-class TimedQueue(queue.Queue):
+class TimedQueue(Queue):
     """
     A queue that remembers the time of the last put.
 
@@ -114,7 +121,8 @@ class FileEventHandler(FileSystemEventHandler):
         """
 
         with self.queue_downloading.mutex:
-            return any(local_path.lower() == p.lower()
+            local_path = local_path.lower()
+            return any(local_path == p.lower() or is_child(local_path, p.lower())
                        for p in self.queue_downloading.queue)
 
     # TODO: The logic for ignoring moved events of children will no longer work when
@@ -206,24 +214,25 @@ class InQueue:
     A context manager that puts `name` into `custom_queue` when entering the context and
     removes it when exiting, after an optional delay.
     """
-    def __init__(self, name, custom_queue, delay=0):
+    def __init__(self, *names, queue=Queue(), delay=0):
         """
-        :param str name: Item to put in queue.
-        :param custom_queue: Instance of :class:`queue.Queue`.
+        :param str names: Items to put in queue.
+        :param queue: Instance of :class:`Queue`.
         :param float delay: Delay before removing item from queue. Defaults to 0.
         """
-        self.name = name
-        self.custom_queue = custom_queue
+        self.names = names
+        self.queue = queue
         self._delay = delay
 
     def __enter__(self):
-        self.custom_queue.put(self.name)
+        for name in self.names:
+            self.queue.put(name)
 
     def __exit__(self, err_type, err_value, err_traceback):
         self._timer = Timer(
             self._delay,
             remove_from_queue,
-            args=(self.custom_queue, self.name)
+            args=(self.queue, *self.names)
         )
         self._timer.start()
 
@@ -339,16 +348,16 @@ class UpDownSync:
         self._state = MaestralState(self.config_name)
         self.notifier = MaestralDesktopNotifier.for_config(self.config_name)
 
-        self.sync_errors = queue.Queue()
+        self.sync_errors = Queue()
 
         self.local_file_event_queue = local_file_event_queue
-        self.queued_newly_included_downloads = queue.Queue()
+        self.queued_newly_included_downloads = Queue()
 
         self.download_errors = SyncStateSet(self.config_name, 'sync', 'download_errors')
         self.pending_downloads = SyncStateSet(self.config_name, 'sync', 'pending_downloads')
 
-        self.queued_for_download = queue.Queue()
-        self.queued_for_upload = queue.Queue()
+        self.queued_for_download = Queue()
+        self.queued_for_upload = Queue()
         self.queue_uploading = queue_uploading
         self.queue_downloading = queue_downloading
 
@@ -910,7 +919,7 @@ class UpDownSync:
         self.ensure_dropbox_folder_present()
         try:
             events = [self.local_file_event_queue.get(timeout=timeout)]
-        except queue.Empty:
+        except Empty:
             return [], time.time()
 
         # keep collecting events until no more changes happen for at least `delay` sec
@@ -919,7 +928,7 @@ class UpDownSync:
         while has_more:
             try:
                 events.append(self.local_file_event_queue.get(timeout=delay))
-            except queue.Empty:
+            except Empty:
                 has_more = False
                 t0 = time.time()
 
@@ -1201,19 +1210,22 @@ class UpDownSync:
         sync errors with the file. Any new MaestralApiErrors will be caught by the
         decorator."""
 
-        local_path = get_dest_path(event)
-        # book keeping
-        remove_from_queue(self.queued_for_upload, local_path)
-        self.clear_sync_error(local_path=event.src_path)
-        if local_path != event.src_path:
-            self.clear_sync_error(local_path=event.src_path)
+        local_path_from = event.src_path
+        local_path_to = get_dest_path(event)
 
-        with InQueue(local_path, self.queue_uploading):
-            # apply event
+        # book keeping
+        remove_from_queue(self.queued_for_upload, local_path_to)
+        self.clear_sync_error(local_path=local_path_to)
+        if local_path_to != local_path_from:
+            remove_from_queue(self.queued_for_upload, local_path_from)
+            self.clear_sync_error(local_path=local_path_from)
+
+        with InQueue(local_path_to, queue=self.queue_uploading):
             if event.event_type is EVENT_TYPE_CREATED:
                 self._on_created(event)
             elif event.event_type is EVENT_TYPE_MOVED:
-                self._on_moved(event)
+                with InQueue(local_path_from, queue=self.queue_uploading):
+                    self._on_moved(event)
             elif event.event_type is EVENT_TYPE_MODIFIED:
                 self._on_modified(event)
             elif event.event_type is EVENT_TYPE_DELETED:
@@ -1275,13 +1287,15 @@ class UpDownSync:
         if md_to_new.path_lower != dbx_path_to.lower():
             # created conflict => move local item and fetch original
             local_path_to_cc = self.to_local_path(md_to_new.path_display)
-            delete(local_path_to_cc)
-            try:
-                shutil.move(local_path_to, local_path_to_cc)
-                self.set_local_rev(dbx_path_to, None)
-                self._set_local_rev_recursive(md_to_new)
-            except FileNotFoundError:
-                self.set_local_rev(dbx_path_to, None)
+            with InQueue(local_path_to, local_path_to_cc,
+                         queue=self.queue_downloading, delay=1.0):
+                delete(local_path_to_cc)
+                try:
+                    shutil.move(local_path_to, local_path_to_cc)
+                    self.set_local_rev(dbx_path_to, None)
+                    self._set_local_rev_recursive(md_to_new)
+                except FileNotFoundError:
+                    self.set_local_rev(dbx_path_to, None)
 
             self.get_remote_item(dbx_path_to)
 
@@ -1321,8 +1335,8 @@ class UpDownSync:
 
         if event.is_directory:
             if isinstance(md_old, FolderMetadata):
-                # nothing to do
-                md_new = md_old
+                self.set_local_rev(dbx_path, 'folder')
+                return
             else:
                 md_new = self.client.make_dir(dbx_path, autorename=True)
 
@@ -1353,13 +1367,16 @@ class UpDownSync:
         if md_new.path_lower != dbx_path.lower() and md_old:
             # created conflict => move local item and fetch original
             local_path_cc = self.to_local_path(md_new.path_display)
-            delete(local_path_cc)
-            try:
-                shutil.move(local_path, local_path_cc)
-                self.set_local_rev(md_old.path_lower, None)
-                self._set_local_rev_recursive(md_new)
-            except FileNotFoundError:
-                self.set_local_rev(md_old.path_lower, None)
+            with InQueue(local_path, local_path_cc,
+                         queue=self.queue_downloading, delay=1.0):
+                delete(local_path_cc)
+                try:
+                    shutil.move(local_path, local_path_cc)
+                    self.set_local_rev(md_old.path_lower, None)
+                    self._set_local_rev_recursive(md_new)
+                except FileNotFoundError:
+                    self.set_local_rev(md_old.path_lower, None)
+
             self._create_local_entry(md_old)
 
             logger.debug('Upload conflict "%s" handled by Dropbox, created "%s"',
@@ -1415,13 +1432,16 @@ class UpDownSync:
             if md_new.path_lower != dbx_path.lower() and md_old:
                 # created conflict => move local file and fetch original
                 local_path_cc = self.to_local_path(md_new.path_display)
-                delete(local_path_cc)
-                try:
-                    shutil.move(local_path, local_path_cc)
-                    self.set_local_rev(md_old.path_lower, None)
-                    self.set_local_rev(md_new.path_lower, md_new.rev)
-                except FileNotFoundError:
-                    self.set_local_rev(md_old.path_lower, None)
+                with InQueue(local_path, local_path_cc,
+                             queue=self.queue_downloading, delay=1.0):
+                    delete(local_path_cc)
+                    try:
+                        shutil.move(local_path, local_path_cc)
+                        self.set_local_rev(md_old.path_lower, None)
+                        self.set_local_rev(md_new.path_lower, md_new.rev)
+                    except FileNotFoundError:
+                        self.set_local_rev(md_old.path_lower, None)
+
                 self._create_local_entry(md_old)
 
                 logger.debug('Upload conflict "%s" renamed to "%s" by Dropbox',
@@ -1433,7 +1453,8 @@ class UpDownSync:
 
     def _on_deleted(self, event):
         """
-        Call when local item is deleted.
+        Call when local item is deleted. We try not to delete remote items which have been
+        modified since the last sync.
 
         :param class event: Watchdog file event.
         :raises: MaestralApiError on failure.
@@ -1442,31 +1463,40 @@ class UpDownSync:
         path = event.src_path
         dbx_path = self.to_dbx_path(path)
         local_rev = self.get_local_rev(dbx_path)
+        is_file = local_rev != 'folder'
         is_folder = local_rev == 'folder'
 
         md = self.client.get_metadata(dbx_path, include_deleted=True)
 
         if is_folder and isinstance(md, FileMetadata):
+            logger.debug('Expected folder at "%s" but found a file instead, checking '
+                         'which one is newer', md.path_display)
             # don't delete a remote file if it was modified since last sync
             if md.server_modified.timestamp() >= self.get_last_sync_for_path(dbx_path):
+                logger.debug('Skipping deletion: remote item "%s" has been modified '
+                             'since last sync', md.path_display)
                 self.set_local_rev(dbx_path, None)
                 return
 
-        if not is_folder and isinstance(md, FolderMetadata):
+        if is_file and isinstance(md, FolderMetadata):
             # don't delete a remote folder if we were expecting a file
             # TODO: Delete the folder if its children did not change since last sync.
             #   Is there a way of achieving this without listing the folder or listing
             #   all changes and checking when they occurred?
+            logger.debug('Skipping deletion: expected file at "%s" but found a '
+                         'folder instead', md.path_display)
             self.set_local_rev(dbx_path, None)
             return
 
         try:
             # will only perform delete if Dropbox rev matches local_rev
-            # fails if local_rev
-            self.client.remove(dbx_path, parent_rev=local_rev if not is_folder else None)
-        except (NotFoundError, PathError):
+            self.client.remove(dbx_path, parent_rev=local_rev if is_file else None)
+        except NotFoundError:
             logger.debug('Could not delete "%s": the item no longer exists on Dropbox',
                          dbx_path)
+        except PathError:
+            logger.debug('Could not delete "%s": the item has been changed '
+                         'since last sync', dbx_path)
 
         # remove revision metadata
         self.set_local_rev(dbx_path, None)
@@ -1900,7 +1930,7 @@ class UpDownSync:
 
             self._save_to_history(entry.path_display)
 
-            with InQueue(local_path, self.queue_downloading, delay=1):
+            with InQueue(local_path, queue=self.queue_downloading, delay=1):
 
                 if osp.isdir(local_path):
                     delete(local_path)
@@ -1918,7 +1948,7 @@ class UpDownSync:
             # If there’s already something else at the given path,
             # replace it but leave the children as they are.
 
-            with InQueue(local_path, self.queue_downloading, delay=1):
+            with InQueue(local_path, queue=self.queue_downloading, delay=1):
 
                 if osp.isfile(local_path):
                     delete(local_path)
@@ -1938,7 +1968,7 @@ class UpDownSync:
             # remove it and all its children. If there’s nothing at the
             # given path, ignore this entry.
 
-            with InQueue(local_path, self.queue_downloading, delay=1):
+            with InQueue(local_path, queue=self.queue_downloading, delay=1):
                 err = delete(local_path)
                 self.set_local_rev(entry.path_lower, None)
                 self.set_last_sync_for_path(entry.path_lower, 0.0)
@@ -2239,8 +2269,8 @@ class MaestralMonitor:
     :cvar TimedQueue local_file_event_queue: Holds *file events* to be uploaded.
     """
 
-    queue_downloading = queue.Queue()
-    queue_uploading = queue.Queue()
+    queue_downloading = Queue()
+    queue_uploading = Queue()
 
     local_file_event_queue = TimedQueue()
 

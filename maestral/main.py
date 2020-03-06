@@ -34,8 +34,8 @@ import sdnotify
 
 # maestral modules
 from maestral import __version__
-from maestral.sync import MaestralMonitor
 from maestral.client import MaestralApiClient
+from maestral.sync import MaestralMonitor, InQueue
 from maestral.errors import MaestralApiError, DropboxAuthError
 from maestral.config import MaestralConfig, MaestralState
 from maestral.utils.path import is_child, path_exists_case_insensitive, delete
@@ -747,7 +747,8 @@ class Maestral(object):
         local_path = self.sync.to_local_path(dbx_path)
         local_path_cased = path_exists_case_insensitive(local_path)
         if local_path_cased:
-            delete(local_path_cased)
+            with InQueue(local_path_cased, queue=self.sync.queue_downloading, delay=1.0):
+                delete(local_path_cased)
 
     def include_item(self, dbx_path):
         """
