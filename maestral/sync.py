@@ -1285,7 +1285,7 @@ class UpDownSync:
 
         # handle conflicts
         if md_to_new.path_lower != dbx_path_to.lower():
-            # created conflict => move local item and fetch original
+            # created conflict => move local item to mirror remote
             local_path_to_cc = self.to_local_path(md_to_new.path_display)
             with InQueue(local_path_to, local_path_to_cc,
                          queue=self.queue_downloading, delay=1.0):
@@ -1296,8 +1296,6 @@ class UpDownSync:
                     self._set_local_rev_recursive(md_to_new)
                 except FileNotFoundError:
                     self.set_local_rev(dbx_path_to, None)
-
-            self.get_remote_item(dbx_path_to)
 
             logger.debug('Upload conflict "%s" handled by Dropbox, created "%s"',
                          dbx_path_to, md_to_new.path_display)
@@ -1365,10 +1363,9 @@ class UpDownSync:
                 return
 
         if md_new.path_lower != dbx_path.lower() and md_old:
-            # created conflict => move local item and fetch original
+            # created conflict => move local item to reflect dropbox changes
             local_path_cc = self.to_local_path(md_new.path_display)
-            with InQueue(local_path, local_path_cc,
-                         queue=self.queue_downloading, delay=1.0):
+            with InQueue(local_path, queue=self.queue_downloading, delay=1.0):
                 delete(local_path_cc)
                 try:
                     shutil.move(local_path, local_path_cc)
@@ -1376,8 +1373,6 @@ class UpDownSync:
                     self._set_local_rev_recursive(md_new)
                 except FileNotFoundError:
                     self.set_local_rev(md_old.path_lower, None)
-
-            self._create_local_entry(md_old)
 
             logger.debug('Upload conflict "%s" handled by Dropbox, created "%s"',
                          dbx_path, md_new.path_lower)
@@ -1430,7 +1425,7 @@ class UpDownSync:
                 return
 
             if md_new.path_lower != dbx_path.lower() and md_old:
-                # created conflict => move local file and fetch original
+                # created conflict => move local item to reflect dropbox changes
                 local_path_cc = self.to_local_path(md_new.path_display)
                 with InQueue(local_path, local_path_cc,
                              queue=self.queue_downloading, delay=1.0):
@@ -1441,8 +1436,6 @@ class UpDownSync:
                         self.set_local_rev(md_new.path_lower, md_new.rev)
                     except FileNotFoundError:
                         self.set_local_rev(md_old.path_lower, None)
-
-                self._create_local_entry(md_old)
 
                 logger.debug('Upload conflict "%s" renamed to "%s" by Dropbox',
                              md_old.path_lower, md_new.path_lower)
