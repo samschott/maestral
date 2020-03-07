@@ -985,7 +985,7 @@ class Maestral(object):
         email = self._state.get('account', 'email')
         account_type = self._state.get('account', 'type')
 
-        return f'<{self.__class__}({email}, {account_type})>'
+        return f'<{self.__class__.__name__}({email}, {account_type})>'
 
 
 def select_dbx_path_dialog(config_name, allow_merge=False):
