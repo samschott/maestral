@@ -237,7 +237,7 @@ class InQueue:
         self._timer.start()
 
 
-class SyncStateSet(abc.MutableSet):
+class MaestralStateWrapper(abc.MutableSet):
     """
     A wrapper for a list in the saved state that implements a MutableSet interface. All
     given paths are stored in lower-case, reflecting Dropbox's insensitive file system.
@@ -326,9 +326,9 @@ class UpDownSync:
     Class that contains methods to sync local file events with Dropbox and vice versa.
 
     :param client: MaestralApiClient client instance.
-    :param local_file_event_queue: Queue with local file-changed events.
-    :param queue_uploading: Queue with files currently being uploaded.
-    :param queue_downloading: Queue with files currently being downloaded.
+    :param TimedQueue local_file_event_queue: Queue with local file-changed events.
+    :param Queue queue_uploading: Queue with files currently being uploaded.
+    :param Queue queue_downloading: Queue with files currently being downloaded.
     """
 
     lock = Lock()
@@ -348,18 +348,18 @@ class UpDownSync:
         self._state = MaestralState(self.config_name)
         self.notifier = MaestralDesktopNotifier.for_config(self.config_name)
 
-        self.sync_errors = Queue()
+        self.sync_errors = Queue()  # entries must be `SyncIssue`s
 
-        self.local_file_event_queue = local_file_event_queue
-        self.queued_newly_included_downloads = Queue()
+        self.local_file_event_queue = local_file_event_queue  # watchdog file events
+        self.queued_newly_included_downloads = Queue()  # entries must be `local_path`
 
-        self.download_errors = SyncStateSet(self.config_name, 'sync', 'download_errors')
-        self.pending_downloads = SyncStateSet(self.config_name, 'sync', 'pending_downloads')
+        self.download_errors = MaestralStateWrapper(self.config_name, 'sync', 'download_errors')
+        self.pending_downloads = MaestralStateWrapper(self.config_name, 'sync', 'pending_downloads')
 
-        self.queued_for_download = Queue()
-        self.queued_for_upload = Queue()
-        self.queue_uploading = queue_uploading
-        self.queue_downloading = queue_downloading
+        self.queued_for_download = Queue()  # entries must be `local_path`
+        self.queued_for_upload = Queue()  # entries must be `local_path`
+        self.queue_uploading = queue_uploading  # entries must be `local_path`
+        self.queue_downloading = queue_downloading  # entries must be `local_path`
 
         # load cached properties
         self._dropbox_path = self._conf.get('main', 'path')
@@ -1576,7 +1576,7 @@ class UpDownSync:
 
         :param str last_cursor: Cursor form last sync.
         :param int timeout: Timeout in seconds before returning even if there are no
-            changes. Dropbox adds random jitter of up to 30 sec to this value.
+            changes. Dropbox adds random jitter of up to 90 sec to this value.
         :param float delay: Delay in sec to wait for subsequent changes that may be
             duplicates. This delay is typically only necessary folders are shared /
             un-shared with other Dropbox accounts.
@@ -2045,7 +2045,7 @@ def download_worker(sync, syncing, running, connected):
         syncing.wait()
 
         try:
-            has_changes = sync.wait_for_remote_changes(sync.last_cursor, timeout=30)
+            has_changes = sync.wait_for_remote_changes(sync.last_cursor)
 
             if not (running.is_set() and syncing.is_set()):
                 continue
