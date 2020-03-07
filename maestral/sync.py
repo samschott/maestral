@@ -922,21 +922,17 @@ class UpDownSync:
         self.ensure_dropbox_folder_present()
         try:
             events = [self.local_file_event_queue.get(timeout=timeout)]
+            local_cursor = time.time()
         except Empty:
             return [], time.time()
 
-        # keep collecting events until no more changes happen
-        t0 = time.time()
-        has_more = True
-        while has_more:
+        # keep collecting events until idle for `delay`
+        while True:
             try:
                 events.append(self.local_file_event_queue.get(timeout=delay))
+                local_cursor = time.time()
             except Empty:
-                has_more = False
-                t0 = time.time()
-
-        # save timestamp
-        local_cursor = t0
+                break
 
         logger.debug('Retrieved local file events:\n%s', iter_to_str(events))
 
@@ -950,8 +946,6 @@ class UpDownSync:
         :param events: List of file events.
         :returns: (``events_filtered``, ``events_excluded``)
         """
-
-        logger.debug('Filtering excluded items from local file events')
 
         events_filtered = []
         events_excluded = []
@@ -982,7 +976,7 @@ class UpDownSync:
             else:
                 events_filtered.append(event)
 
-        logger.debug('Events to keep:\n%s', iter_to_str(events_filtered))
+        logger.debug('Filtered local file events:\n%s', iter_to_str(events_filtered))
 
         return events_filtered, events_excluded
 
@@ -1007,7 +1001,7 @@ class UpDownSync:
         # Move events are difficult to combine with other event types
         # -> split up moved events into deleted and created events if at least one
         # of the paths has other events associated with it or is excluded from sync
-        new_events = []
+        split_events = []
 
         for e in events:
             if e.event_type == EVENT_TYPE_MOVED:
@@ -1021,23 +1015,22 @@ class UpDownSync:
                         CreatedEvent = FileCreatedEvent
                         DeletedEvent = FileDeletedEvent
 
-                    new_events.append(DeletedEvent(e.src_path))
-                    new_events.append(CreatedEvent(e.dest_path))
+                    split_events.append(DeletedEvent(e.src_path))
+                    split_events.append(CreatedEvent(e.dest_path))
                 else:
-                    new_events.append(e)
+                    split_events.append(e)
             else:
-                new_events.append(e)
+                split_events.append(e)
 
-        events = new_events.copy()
+        unique_paths = set(e.src_path for e in split_events)
+        histories = [[e for e in split_events if e.src_path == path]
+                     for path in unique_paths]
 
-        unique_paths = set(e.src_path for e in events)
-        histories = [[e for e in events if e.src_path == path] for path in unique_paths]
-
-        new_events.clear()
+        unique_events = []
 
         for h in histories:
             if len(h) == 1:
-                new_events += h
+                unique_events += h
             else:
                 path = h[0].src_path
 
@@ -1046,14 +1039,14 @@ class UpDownSync:
 
                 if n_created > n_deleted:  # item was created
                     if h[-1].is_directory:
-                        new_events.append(DirCreatedEvent(path))
+                        unique_events.append(DirCreatedEvent(path))
                     else:
-                        new_events.append(FileCreatedEvent(path))
+                        unique_events.append(FileCreatedEvent(path))
                 if n_created < n_deleted:  # item was deleted
                     if h[0].is_directory:
-                        new_events.append(DirDeletedEvent(path))
+                        unique_events.append(DirDeletedEvent(path))
                     else:
-                        new_events.append(FileDeletedEvent(path))
+                        unique_events.append(FileDeletedEvent(path))
                 else:
 
                     first_created_idx = next(iter(i for i, e in enumerate(h) if e.event_type == EVENT_TYPE_CREATED), -1)
@@ -1062,49 +1055,53 @@ class UpDownSync:
                     if n_created == 0 or first_deleted_idx < first_created_idx:
                         # item was modified
                         if h[0].is_directory and h[-1].is_directory:
-                            new_events.append(DirModifiedEvent(path))
+                            unique_events.append(DirModifiedEvent(path))
                         elif not h[0].is_directory and not h[-1].is_directory:
-                            new_events.append(FileModifiedEvent(path))
+                            unique_events.append(FileModifiedEvent(path))
                         elif h[0].is_directory:
-                            new_events.append(DirDeletedEvent(path))
-                            new_events.append(FileCreatedEvent(path))
+                            unique_events.append(DirDeletedEvent(path))
+                            unique_events.append(FileCreatedEvent(path))
                         elif h[1].is_directory:
-                            new_events.append(FileDeletedEvent(path))
-                            new_events.append(DirCreatedEvent(path))
+                            unique_events.append(FileDeletedEvent(path))
+                            unique_events.append(DirCreatedEvent(path))
                     else:
                         # item was only temporary
                         pass
 
         # REMOVE DIR_MODIFIED_EVENTS
-        new_events = [e for e in new_events if not isinstance(e, DirModifiedEvent)]
+        cleaned_events = [e for e in unique_events if not isinstance(e, DirModifiedEvent)]
 
         # COMBINE MOVED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
-        dir_moved_events = [e for e in new_events if isinstance(e, DirMovedEvent)]
+        dir_moved_events = [e for e in cleaned_events if isinstance(e, DirMovedEvent)]
 
         if len(dir_moved_events) > 0:
             child_move_events = []
 
             for parent_event in dir_moved_events:
-                children = [x for x in new_events if self._is_moved_child(x, parent_event)]
+                children = [x for x in cleaned_events if self._is_moved_child(x, parent_event)]
                 child_move_events += children
 
-            new_events = self._list_diff(new_events, child_move_events)
+            cleaned_events = self._list_diff(cleaned_events, child_move_events)
 
         # COMBINE DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
-        dir_deleted_events = [e for e in new_events if isinstance(e, DirDeletedEvent)]
+        dir_deleted_events = [e for e in cleaned_events if isinstance(e, DirDeletedEvent)]
 
         if len(dir_deleted_events) > 0:
             child_deleted_events = []
 
             for parent_event in dir_deleted_events:
-                children = [x for x in new_events if self._is_deleted_child(x, parent_event)]
+                children = [x for x in cleaned_events if self._is_deleted_child(x, parent_event)]
                 child_deleted_events += children
 
-            new_events = self._list_diff(new_events, child_deleted_events)
+            cleaned_events = self._list_diff(cleaned_events, child_deleted_events)
 
-        logger.debug('Cleaned up local file events:\n%s', iter_to_str(new_events))
+        logger.debug('Cleaned up local file events:\n%s', iter_to_str(cleaned_events))
 
-        return new_events
+        del events
+        del split_events
+        del unique_events
+
+        return cleaned_events
 
     @staticmethod
     def _separate_local_event_types(events):
@@ -1130,8 +1127,6 @@ class UpDownSync:
         :param list events: List of local file changes.
         :param float local_cursor: Time stamp of last event in `events`.
         """
-
-        logger.debug('Beginning upload of local changes')
 
         events, _ = self._filter_excluded_changes_local(events)
         dir_events, file_events, deleted_events = self._separate_local_event_types(events)
@@ -1240,7 +1235,8 @@ class UpDownSync:
     def _wait_for_creation(path):
         """
         Wait for a file at a path to be created or modified.
-        :param str path: absolute path to file
+
+        :param str path: Absolute path to file
         """
         try:
             while True:
@@ -1488,7 +1484,7 @@ class UpDownSync:
             return
 
         try:
-            # will only perform delete if Dropbox rev matches local_rev
+            # will only perform delete if Dropbox remote rev matches `local_rev`
             self.client.remove(dbx_path, parent_rev=local_rev if is_file else None)
         except NotFoundError:
             logger.debug('Could not delete "%s": the item no longer exists on Dropbox',
