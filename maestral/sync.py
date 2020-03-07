@@ -68,25 +68,6 @@ class Conflict(IntEnum):
     LocalNewerOrIdentical = 2
 
 
-class TimedQueue(Queue):
-    """
-    A queue that remembers the time of the last put.
-
-    :ivar update_time: Time of the last put.
-    """
-
-    __slots__ = ('update_time',)
-
-    def __init__(self):
-        super(self.__class__, self).__init__()
-        self.update_time = 0.0
-
-    # Put a new item in the queue, remember time
-    def _put(self, item):
-        self.queue.append(item)
-        self.update_time = time.time()
-
-
 class FileEventHandler(FileSystemEventHandler):
     """
     Handles captured file events and adds them to :ivar:`local_q` to be processed
@@ -326,7 +307,7 @@ class UpDownSync:
     Class that contains methods to sync local file events with Dropbox and vice versa.
 
     :param client: MaestralApiClient client instance.
-    :param TimedQueue local_file_event_queue: Queue with local file-changed events.
+    :param Queue local_file_event_queue: Queue with local file-changed events.
     :param Queue queue_uploading: Queue with files currently being uploaded.
     :param Queue queue_downloading: Queue with files currently being downloaded.
     """
@@ -2264,15 +2245,10 @@ class MaestralMonitor:
     :ivar Event running: Set when the sync threads are alive.
     :ivar Event paused_by_user: Set when sync is paused by the user.
 
-    :cvar Queue queue_downloading: Holds *local file paths* that are being downloaded.
-    :cvar Queue queue_uploading: Holds *local file paths* that are being uploaded.
-    :cvar TimedQueue local_file_event_queue: Holds *file events* to be uploaded.
+    :ivar Queue queue_downloading: Holds *local file paths* that are being downloaded.
+    :ivar Queue queue_uploading: Holds *local file paths* that are being uploaded.
+    :ivar Queue local_file_event_queue: Holds *file events* to be uploaded.
     """
-
-    queue_downloading = Queue()
-    queue_uploading = Queue()
-
-    local_file_event_queue = TimedQueue()
 
     def __init__(self, client):
 
@@ -2283,6 +2259,11 @@ class MaestralMonitor:
         self.paused_by_user.set()
 
         self.startup = Event()
+
+        self.queue_downloading = Queue()
+        self.queue_uploading = Queue()
+
+        self.local_file_event_queue = Queue()
 
         self.client = client
         self.config_name = self.client.config_name
