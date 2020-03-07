@@ -49,6 +49,7 @@ from maestral.utils.appdirs import get_data_path
 
 logger = logging.getLogger(__name__)
 
+_IGNORE_DELAY = 1.0
 
 # TODO:
 #  * periodic resync: break into small chunks to reduce downtime for user, aim for a full
@@ -1270,7 +1271,7 @@ class UpDownSync:
             # created conflict => move local item to mirror remote
             local_path_to_cc = self.to_local_path(md_to_new.path_display)
             with InQueue(local_path_to, local_path_to_cc,
-                         queue=self.queue_downloading, delay=1.0):
+                         queue=self.queue_downloading, delay=_IGNORE_DELAY):
                 delete(local_path_to_cc)
                 try:
                     shutil.move(local_path_to, local_path_to_cc)
@@ -1347,7 +1348,7 @@ class UpDownSync:
         if md_new.path_lower != dbx_path.lower():
             # created conflict => move local item to reflect dropbox changes
             local_path_cc = self.to_local_path(md_new.path_display)
-            with InQueue(local_path, queue=self.queue_downloading, delay=1.0):
+            with InQueue(local_path, queue=self.queue_downloading, delay=_IGNORE_DELAY):
                 delete(local_path_cc)
                 try:
                     shutil.move(local_path, local_path_cc)
@@ -1410,7 +1411,7 @@ class UpDownSync:
                 # created conflict => move local item to reflect dropbox changes
                 local_path_cc = self.to_local_path(md_new.path_display)
                 with InQueue(local_path, local_path_cc,
-                             queue=self.queue_downloading, delay=1.0):
+                             queue=self.queue_downloading, delay=_IGNORE_DELAY):
                     delete(local_path_cc)
                     try:
                         # will only rename *files* here, we ignore folder modified events
@@ -1906,7 +1907,7 @@ class UpDownSync:
 
             self._save_to_history(entry.path_display)
 
-            with InQueue(local_path, queue=self.queue_downloading, delay=1):
+            with InQueue(local_path, queue=self.queue_downloading, delay=_IGNORE_DELAY):
 
                 if osp.isdir(local_path):
                     delete(local_path)
@@ -1924,7 +1925,7 @@ class UpDownSync:
             # If there’s already something else at the given path,
             # replace it but leave the children as they are.
 
-            with InQueue(local_path, queue=self.queue_downloading, delay=1):
+            with InQueue(local_path, queue=self.queue_downloading, delay=_IGNORE_DELAY):
 
                 if osp.isfile(local_path):
                     delete(local_path)
@@ -1944,7 +1945,7 @@ class UpDownSync:
             # remove it and all its children. If there’s nothing at the
             # given path, ignore this entry.
 
-            with InQueue(local_path, queue=self.queue_downloading, delay=1):
+            with InQueue(local_path, queue=self.queue_downloading, delay=_IGNORE_DELAY):
                 err = delete(local_path)
                 self.set_local_rev(entry.path_lower, None)
                 self.set_last_sync_for_path(entry.path_lower, 0.0)
