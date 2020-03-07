@@ -1364,17 +1364,17 @@ class UpDownSync:
                              event.src_path)
                 return
 
-        if md_new.path_lower != dbx_path.lower() and md_old:
+        if md_new.path_lower != dbx_path.lower():
             # created conflict => move local item to reflect dropbox changes
             local_path_cc = self.to_local_path(md_new.path_display)
             with InQueue(local_path, queue=self.queue_downloading, delay=1.0):
                 delete(local_path_cc)
                 try:
                     shutil.move(local_path, local_path_cc)
-                    self.set_local_rev(md_old.path_lower, None)
+                    self.set_local_rev(dbx_path, None)
                     self._set_local_rev_recursive(md_new)
                 except FileNotFoundError:
-                    self.set_local_rev(md_old.path_lower, None)
+                    self.set_local_rev(dbx_path, None)
 
             logger.debug('Upload conflict "%s" handled by Dropbox, created "%s"',
                          dbx_path, md_new.path_lower)
@@ -1426,7 +1426,7 @@ class UpDownSync:
                 logger.debug('Could not upload "%s": the item does not exist', dbx_path)
                 return
 
-            if md_new.path_lower != dbx_path.lower() and md_old:
+            if md_new.path_lower != dbx_path.lower():
                 # created conflict => move local item to reflect dropbox changes
                 local_path_cc = self.to_local_path(md_new.path_display)
                 with InQueue(local_path, local_path_cc,
@@ -1435,13 +1435,13 @@ class UpDownSync:
                     try:
                         # will only rename *files* here, we ignore folder modified events
                         os.rename(local_path, local_path_cc)
-                        self.set_local_rev(md_old.path_lower, None)
+                        self.set_local_rev(dbx_path, None)
                         self.set_local_rev(md_new.path_lower, md_new.rev)
                     except FileNotFoundError:
-                        self.set_local_rev(md_old.path_lower, None)
+                        self.set_local_rev(dbx_path, None)
 
                 logger.debug('Upload conflict "%s" renamed to "%s" by Dropbox',
-                             md_old.path_lower, md_new.path_lower)
+                             dbx_path, md_new.path_lower)
 
             else:
                 self.set_local_rev(md_new.path_lower, md_new.rev)
@@ -2200,6 +2200,11 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
 
                 # upload changes while inactive
                 sync.upload_local_changes_while_inactive()
+
+                # enforce immediate check for remote changes
+                changes = sync.list_remote_changes(sync.last_cursor)
+                downloaded, _ = sync.apply_remote_changes(changes)
+                sync.notify_user(downloaded)
 
                 if not running.is_set():
                     continue
