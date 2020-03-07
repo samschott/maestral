@@ -831,6 +831,7 @@ class UpDownSync:
         try:
             events, local_cursor = self._get_local_changes_while_inactive()
             logger.debug('Retrieved local changes:\n%s', iter_to_str(events))
+            events = self._clean_local_events(events)
         except FileNotFoundError:
             self.ensure_dropbox_folder_present()
             return
