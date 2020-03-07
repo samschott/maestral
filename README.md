@@ -22,6 +22,12 @@ memory (100 MB vs 800 MB for a medium sized Dropbox on macOS). The memory usage 
 depend on the size of your synced Dropbox folder and can be further reduced when running
 Maestral without a GUI.
 
+Maestral uses the public Dropbox API which, unlike their own client, does not support 
+syncing only those parts of a file which changed ("binary diff"). Maestral therefore may
+use more bandwidth that the official client. However, it will never upload or download a
+file if it already exists with the same content locally and in the cloud and it will
+sync moved files or folders without transferring any files whenever possible.
+
 ## Installation
 
 A binary is provided for macOS High Sierra and higher and can be downloaded from the
