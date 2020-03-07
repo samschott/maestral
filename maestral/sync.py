@@ -708,7 +708,9 @@ class UpDownSync:
 
         if self.has_sync_errors():
             for error in list(self.sync_errors.queue):
-                if error.dbx_path.lower() == dbx_path.lower():
+                equal = error.dbx_path.lower() == dbx_path.lower()
+                child = is_child(error.dbx_path.lower(), dbx_path.lower())
+                if equal or child:
                     remove_from_queue(self.sync_errors, error)
 
         self.download_errors.discard(dbx_path)
