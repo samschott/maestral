@@ -44,7 +44,7 @@ from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError
                              PathError, InotifyError, NotFoundError)
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
-from maestral.utils.path import is_child, path_exists_case_insensitive, delete
+from maestral.utils.path import is_child, path_exists_case_insensitive, delete, get_ctime
 from maestral.utils.appdirs import get_data_path
 
 logger = logging.getLogger(__name__)
@@ -2518,30 +2518,6 @@ def get_local_hash(local_path):
         return None
     finally:
         del hasher
-
-
-def get_ctime(local_path):
-    """
-    Returns the ctime of a local item or -1.0 if there is nothing at the path. If the item
-    is a directory, return the largest ctime of itself and its children.
-
-    :param str local_path:
-    :returns: Ctime or -1.0.
-    :rtype: float
-    """
-
-    try:
-        stat = os.stat(local_path)
-        if S_ISDIR(stat.st_mode):
-            ctime = stat.st_ctime
-            with os.scandir(local_path) as it:
-                for entry in it:
-                    ctime = max(ctime, entry.stat().st_ctime)
-            return ctime
-        else:
-            return os.stat(local_path).st_ctime
-    except FileNotFoundError:
-        return -1.0
 
 
 def remove_from_queue(q, *items):

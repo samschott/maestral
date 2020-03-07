@@ -7,8 +7,9 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
 import os
-import shutil
 from os import path as osp
+import shutil
+from stat import S_ISDIR
 
 
 def is_child(path, parent):
@@ -93,3 +94,27 @@ def delete(path, raise_error=False):
         raise err
     else:
         return err
+
+
+def get_ctime(local_path):
+    """
+    Returns the ctime of a local item or -1.0 if there is nothing at the path. If the item
+    is a directory, return the largest ctime of itself and its children.
+
+    :param str local_path:
+    :returns: Ctime or -1.0.
+    :rtype: float
+    """
+
+    try:
+        stat = os.stat(local_path)
+        if S_ISDIR(stat.st_mode):
+            ctime = stat.st_ctime
+            with os.scandir(local_path) as it:
+                for entry in it:
+                    ctime = max(ctime, entry.stat().st_ctime)
+            return ctime
+        else:
+            return os.stat(local_path).st_ctime
+    except FileNotFoundError:
+        return -1.0
