@@ -38,7 +38,7 @@ from maestral.client import MaestralApiClient
 from maestral.sync import MaestralMonitor, InQueue
 from maestral.errors import MaestralApiError, DropboxAuthError
 from maestral.config import MaestralConfig, MaestralState
-from maestral.utils.path import is_child, path_exists_case_insensitive, delete
+from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import error_to_dict, dropbox_stone_to_dict
 from maestral.utils.appdirs import get_log_path, get_cache_path, get_home_dir
@@ -745,7 +745,7 @@ class Maestral(object):
 
         # remove folder from local drive
         local_path = self.sync.to_local_path(dbx_path)
-        local_path_cased = path_exists_case_insensitive(local_path)
+        local_path_cased = to_cased_path(local_path)
         if local_path_cased:
             with InQueue(local_path_cased, queue=self.sync.queue_downloading, delay=1.0):
                 delete(local_path_cased)

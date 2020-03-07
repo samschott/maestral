@@ -1,15 +1,17 @@
 import os
 import tempfile
-from maestral.utils.path import path_exists_case_insensitive, is_child, delete
+from maestral.utils.path import (
+    path_exists_case_insensitive, to_cased_path, is_child, delete
+)
 
 
 def test_path_exists_case_insensitive():
     # choose a path which exists on all Unix systems
     path = '/usr/local/share'
 
-    assert path_exists_case_insensitive(path) == path
-    assert path_exists_case_insensitive(path.title()) == path
-    assert path_exists_case_insensitive(path.upper()) == path
+    assert to_cased_path(path) == path
+    assert to_cased_path(path.title()) == path
+    assert to_cased_path(path.upper()) == path
 
     # choose a random path that likely does not exist
     path = '/usr/local/share/test_folder/path_928'

@@ -33,19 +33,19 @@ def is_child(path, parent):
 
 def path_exists_case_insensitive(path, root='/'):
     """
-    Checks if a `path` exists in given `root` directory, similar to
-    `os.path.exists` but case-insensitive. If there are multiple
-    case-insensitive matches, the first one is returned. If there is no match,
-    an empty string is returned.
+    Checks if a `path` exists in given `root` directory, similar to `os.path.exists` but
+    case-insensitive. A list of all case-insensitive matches is returned.
 
-    :param str path: Relative path of item to find in the `root` directory.
-    :param str root: Directory where we will look for `path`.
-    :return: Absolute and case-sensitive path to search result on hard drive.
-    :rtype: str
+    :param str path: Path relative to the `root` directory.
+    :param str root: Directory where we will look for `path`. There are significant
+        performance improvements if a root directory with a small tree is given.
+    :return: List of absolute and case-sensitive to search results.
+    :rtype: list[str]
+    :raises: NotADirectoryError if ``root`` is not a valid directory.
     """
 
     if not osp.isdir(root):
-        raise ValueError(f'\'{root}\' is not a directory.')
+        raise NotADirectoryError(f'\'{root}\' is not a directory.')
 
     if path in ('', '/'):
         return root
@@ -69,10 +69,57 @@ def path_exists_case_insensitive(path, root='/'):
         if i == len(path_list_lower):
             break
 
-    if len(local_paths) == 0:
-        return ''
+    return local_paths
+
+
+def to_cased_path(path, root='/'):
+    """
+    Returns a cased version of the given path, if exists in the given root directory,
+    or an empty string otherwise.
+
+    :param str path:
+    :param str root: Parent directory to search in.
+    :returns: Absolute and cased version of given path or empty string.
+    :rtype: str
+    """
+
+    path_list = path_exists_case_insensitive(path, root)
+
+    if len(path_list) > 0:
+        return path_list[0]
     else:
-        return local_paths[0]
+        return ''
+
+
+def generate_cc_name(path, suffix='conflicting copy'):
+    """
+    Generates a path for a conflicting copy of ``path``. The file name is created by
+    inserting the given ``suffix`` between the the filename and extension. For instance:
+
+        'my_file.txt' -> 'my_file (conflicting copy).txt'
+
+    If a file with the resulting path already exists (case-insensitive!), we additionally
+    append an integer number, for instance:
+
+        'my_file.txt' -> 'my_file (conflicting copy 1).txt'
+
+    :param str path: Original path name.
+    :param str suffix: Suffix to use. Defaults to 'conflicting copy'.
+    :returns: New path.
+    :rtype: str
+    """
+
+    dirname, basename = osp.split(path)
+    filename, ext = osp.splitext(basename)
+
+    i = 0
+    cc_candidate = f'{filename} ({suffix}){ext}'
+
+    while path_exists_case_insensitive(cc_candidate, dirname):
+        i += 1
+        cc_candidate = f'{filename} ({suffix} {i}){ext}'
+
+    return osp.join(dirname, cc_candidate)
 
 
 def delete(path, raise_error=False):

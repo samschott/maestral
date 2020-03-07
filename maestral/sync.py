@@ -9,7 +9,6 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 # system imports
 import os
 import os.path as osp
-from stat import S_ISDIR
 import shutil
 import logging
 import time
@@ -44,7 +43,10 @@ from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError
                              PathError, InotifyError, NotFoundError)
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
-from maestral.utils.path import is_child, path_exists_case_insensitive, delete, get_ctime
+from maestral.utils.path import (
+    generate_cc_name, path_exists_case_insensitive, to_cased_path,
+    delete, get_ctime, is_child
+)
 from maestral.utils.appdirs import get_data_path
 
 logger = logging.getLogger(__name__)
@@ -110,7 +112,8 @@ class FileEventHandler(FileSystemEventHandler):
     # TODO: The logic for ignoring moved events of children will no longer work when
     #   renaming the parent's moved event. This will throw sync errors when trying to
     #   apply those events, but they are only temporary and therefore tolerable for now.
-    def rename_on_case_conflict(self, event):
+    @staticmethod
+    def rename_on_case_conflict(event):
         """
         Checks for other items in the same directory with same name but a different case.
         Only needed for case sensitive file systems.
@@ -124,44 +127,18 @@ class FileEventHandler(FileSystemEventHandler):
                 EVENT_TYPE_MOVED):
             return event
 
-        # get the created items path (src_path or dest_path)
+        # get the created path (src_path or dest_path)
         created_path = get_dest_path(event)
+        dirname, basename = osp.split(created_path)
 
-        # get all other items in the same directory
-        try:
-            parent_dir = osp.dirname(created_path)
-            other_items = [osp.join(parent_dir, file) for file in os.listdir(parent_dir)]
-            other_items.remove(created_path)
-        except (FileNotFoundError, ValueError):
-            # ValueError is raised when created_path is no longer in directory
-            # FileNotFoundError is raised when directory no longer exists
+        # check number paths with the same case
+        if len(path_exists_case_insensitive(basename, root=dirname)) < 2:
             return event
-
-        # check if we have any conflicting names with different cases
-        if any(p.lower() == created_path.lower() for p in other_items):
-            # try to find a unique new name of the form '(case conflict)'
-            # or '(case conflict 1)'
-            base, ext = osp.splitext(created_path)
-            new_path = f'{base} (case conflict){ext}'
-            i = 1
-            while any(p.lower() == new_path.lower() for p in other_items):
-                new_path = f'{base} (case conflict {i}){ext}'
-                i += 1
-            # rename newly created item
-            self._renamed_items_cache.append(created_path)  # ignore temporarily
-            shutil.move(created_path, new_path)  # this will be picked up by watchdog
-            logger.debug('Case conflict: renamed "%s" to "%s"', created_path, new_path)
-
-            if isinstance(event, DirCreatedEvent):
-                return DirCreatedEvent(src_path=new_path)
-            elif isinstance(event, FileCreatedEvent):
-                return FileCreatedEvent(src_path=new_path)
-            elif isinstance(event, DirMovedEvent):
-                return DirMovedEvent(src_path=event.src_path, dest_path=new_path)
-            elif isinstance(event, FileMovedEvent):
-                return FileMovedEvent(src_path=event.src_path, dest_path=new_path)
-
-        return event
+        else:
+            # rename item, this will be picked up by watchdog
+            cc_path = generate_cc_name(created_path, suffix='case conflict')
+            shutil.move(created_path, cc_path)
+            logger.debug('Case conflict: renamed "%s" to "%s"', created_path, cc_path)
 
     def on_any_event(self, event):
         """
@@ -182,11 +159,6 @@ class FileEventHandler(FileSystemEventHandler):
         # rename target on case conflict
         if IS_FS_CASE_SENSITIVE:
             event = self.rename_on_case_conflict(event)
-
-        # ignore files which have just been renamed
-        if event.src_path in self._renamed_items_cache:
-            self._renamed_items_cache.remove(event.src_path)
-            return
 
         self.local_file_event_queue.put(event)
 
@@ -665,7 +637,7 @@ class UpDownSync:
         dbx_path = dbx_path.replace('/', osp.sep)
         dbx_path_parent, dbx_path_basename = osp.split(dbx_path)
 
-        local_parent = path_exists_case_insensitive(dbx_path_parent, self.dropbox_path)
+        local_parent = to_cased_path(dbx_path_parent, self.dropbox_path)
 
         if local_parent == '':
             return osp.join(self.dropbox_path, dbx_path.lstrip(osp.sep))
@@ -1728,11 +1700,11 @@ class UpDownSync:
                 local_hash = get_local_hash(local_path)
                 if remote_hash == local_hash:
                     logger.debug('No conflict: contents are equal (%s)', dbx_path)
-                    self.set_local_rev(dbx_path, remote_rev)  # update local rev
+                    self.set_local_rev(dbx_path, remote_rev)
                     return Conflict.Identical
                 else:
-                    logger.debug('Conflict: local item "%s" was created since last upload',
-                                 dbx_path)
+                    logger.debug('Conflict: local item "%s" was created since '
+                                 'last upload', dbx_path)
                     return Conflict.Conflict
 
     def notify_user(self, changes):
@@ -1894,10 +1866,8 @@ class UpDownSync:
             return applied
 
         elif conflict_check == Conflict.Conflict:
-            # rename local item and get remote
-            base, ext = osp.splitext(local_path)
-            new_local_file = ''.join((base, ' (conflicting copy)', ext))
-            shutil.move(local_path, new_local_file)
+            new_local_path = generate_cc_name(local_path)
+            shutil.move(local_path, new_local_path)
 
         if isinstance(entry, FileMetadata):
             # Store the new entry at the given path in your local state.
