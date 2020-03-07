@@ -922,7 +922,7 @@ class UpDownSync:
         except Empty:
             return [], time.time()
 
-        # keep collecting events until no more changes happen for at least `delay` sec
+        # keep collecting events until no more changes happen
         t0 = time.time()
         has_more = True
         while has_more:
@@ -937,39 +937,7 @@ class UpDownSync:
 
         logger.debug('Retrieved local file events:\n%s', iter_to_str(events))
 
-        # clean up events to provide only one event per path
-        events = self._clean_local_events(events)
-
-        # REMOVE DIR_MODIFIED_EVENTS
-        events = [e for e in events if not isinstance(e, DirModifiedEvent)]
-
-        # COMBINE 'MOVED' EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
-        dir_moved_events = [e for e in events if self._is_dir_moved(e)]
-
-        if len(dir_moved_events) > 0:
-            child_move_events = []
-
-            for parent_event in dir_moved_events:
-                children = [x for x in events if self._is_moved_child(x, parent_event)]
-                child_move_events += children
-
-            events = self._list_diff(events, child_move_events)
-
-        # COMBINE 'DELETED' EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
-        dir_deleted_events = [x for x in events if self._is_dir_deleted(x)]
-
-        if len(dir_deleted_events) > 0:
-            child_deleted_events = []
-
-            for parent_event in dir_deleted_events:
-                children = [x for x in events if self._is_deleted_child(x, parent_event)]
-                child_deleted_events += children
-
-            events = self._list_diff(events, child_deleted_events)
-
-        logger.debug('Cleaned up local file events:\n%s', iter_to_str(events))
-
-        return events, local_cursor
+        return self._clean_local_events(events), local_cursor
 
     def _filter_excluded_changes_local(self, events):
         """
@@ -1018,12 +986,15 @@ class UpDownSync:
     def _clean_local_events(self, events):
         """
         Takes local file events within the monitored period and cleans them up so that
-        there is only a single event per path.
+        there is only a single event per path. Collapses moved and deleted events of
+        folders with those of their children.
 
         :param events: Iterable of :class:`watchdog.FileSystemEvents`.
         :returns: List of :class:`watchdog.FileSystemEvents`.
         :rtype: list
         """
+
+        # COMBINE EVENTS TO ONE EVENT PER PATH
 
         all_src_paths = [e.src_path for e in events]
         all_dest_paths = [e.dest_path for e in events if e.event_type == EVENT_TYPE_MOVED]
@@ -1100,6 +1071,35 @@ class UpDownSync:
                     else:
                         # item was only temporary
                         pass
+
+        # REMOVE DIR_MODIFIED_EVENTS
+        new_events = [e for e in new_events if not isinstance(e, DirModifiedEvent)]
+
+        # COMBINE MOVED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
+        dir_moved_events = [e for e in new_events if isinstance(e, DirMovedEvent)]
+
+        if len(dir_moved_events) > 0:
+            child_move_events = []
+
+            for parent_event in dir_moved_events:
+                children = [x for x in new_events if self._is_moved_child(x, parent_event)]
+                child_move_events += children
+
+            new_events = self._list_diff(new_events, child_move_events)
+
+        # COMBINE DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
+        dir_deleted_events = [e for e in new_events if isinstance(e, DirDeletedEvent)]
+
+        if len(dir_deleted_events) > 0:
+            child_deleted_events = []
+
+            for parent_event in dir_deleted_events:
+                children = [x for x in new_events if self._is_deleted_child(x, parent_event)]
+                child_deleted_events += children
+
+            new_events = self._list_diff(new_events, child_deleted_events)
+
+        logger.debug('Cleaned up local file events:\n%s', iter_to_str(new_events))
 
         return new_events
 
@@ -1179,29 +1179,31 @@ class UpDownSync:
         return [item for item in list1 if item not in set(list2)]
 
     @staticmethod
-    def _is_dir_moved(x):
-        """Check for moved folders"""
-        is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
-        return is_moved_event and x.is_directory
-
-    @staticmethod
     def _is_moved_child(x, parent):
-        """Check for children of moved folders"""
+        """
+        Check for children of moved folders
+
+        :param FileSystemEvent x: Any file system event.
+        :param DirMovedEvent parent: Moved folder event.
+        :returns: True if ``x`` is a child of the moved ``parent``, ``False`` otherwise.
+        :rtype: bool
+        """
         is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
         return (is_moved_event
                 and is_child(x.src_path, parent.src_path)
                 and is_child(x.dest_path, parent.dest_path))
 
     @staticmethod
-    def _is_dir_deleted(x):
-        """Check for deleted folders"""
-        is_deleted_event = (x.event_type is EVENT_TYPE_DELETED)
-        return is_deleted_event and x.is_directory
-
-    @staticmethod
     def _is_deleted_child(x, parent):
-        """Check for children of deleted folders"""
-        is_deleted_event = (x.event_type is EVENT_TYPE_DELETED)
+        """
+        Check for children of deleted folders
+
+        :param FileSystemEvent x: Any file system event.
+        :param DirDeletedEvent parent: Deleted folder event.
+        :returns: True if ``x`` is a child of the deleted ``parent``, ``False`` otherwise.
+        :rtype: bool
+        """
+        is_deleted_event = (x.event_type == EVENT_TYPE_DELETED)
         return is_deleted_event and is_child(x.src_path, parent.src_path)
 
     @catch_sync_issues
