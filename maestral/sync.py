@@ -165,30 +165,35 @@ class FileEventHandler(FileSystemEventHandler):
 
 class InQueue:
     """
-    A context manager that puts `name` into `custom_queue` when entering the context and
-    removes it when exiting, after an optional delay.
+    A context manager that puts `items` into `queue` when entering the context and
+    removes them when exiting, after an optional delay.
     """
-    def __init__(self, *names, queue=Queue(), delay=0):
+
+    def __init__(self, *items, queue=Queue(), delay=0):
         """
-        :param str names: Items to put in queue.
+        :param iterable items: Items to put in queue.
         :param queue: Instance of :class:`Queue`.
         :param float delay: Delay before removing item from queue. Defaults to 0.
         """
-        self.names = names
+        self.items = items
         self.queue = queue
         self._delay = delay
 
     def __enter__(self):
-        for name in self.names:
-            self.queue.put(name)
+        for item in self.items:
+            self.queue.put(item)
 
     def __exit__(self, err_type, err_value, err_traceback):
-        self._timer = Timer(
-            self._delay,
-            remove_from_queue,
-            args=(self.queue, *self.names)
-        )
-        self._timer.start()
+
+        if self._delay > 0:
+            self._timer = Timer(
+                self._delay,
+                remove_from_queue,
+                args=(self.queue, *self.items)
+            )
+            self._timer.start()
+        else:
+            remove_from_queue(self.queue, *self.items)
 
 
 class MaestralStateWrapper(abc.MutableSet):
