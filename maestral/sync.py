@@ -1143,11 +1143,12 @@ class UpDownSync:
         dir_events, file_events, deleted_events = self._separate_local_event_types(events)
 
         # sort events (might not be necessary)
-        dir_events.sort(key=lambda x: x.src_path.count('/'))
         deleted_events.sort(key=lambda x: x.src_path.count('/'))
+        dir_events.sort(key=lambda x: x.src_path.count('/'))
+        file_events.sort(key=lambda x: x.src_path.count('/'))
 
         # update queues
-        for e in events:
+        for e in deleted_events + dir_events + file_events:
             self.queued_for_upload.put(get_dest_path(e))
 
         # apply deleted events first, folder created events second
@@ -1606,7 +1607,8 @@ class UpDownSync:
         if isinstance(md, FolderMetadata):
             res = self.get_remote_folder(dbx_path)
         else:  # FileMetadata or DeletedMetadata
-            res = self._create_local_entry(md)
+            with InQueue(self.queue_downloading):
+                res = self._create_local_entry(md)
 
         self.pending_downloads.discard(dbx_path)
         return res
@@ -1679,10 +1681,6 @@ class UpDownSync:
         # filter out excluded changes
         changes_included, changes_excluded = self.filter_excluded_changes_remote(changes)
 
-        # update queue
-        for md in changes_included.entries:
-            self.queued_for_download.put(self.to_local_path(md.path_display))
-
         # remove all deleted items from the excluded list
         _, _, deleted_excluded = self._separate_remote_entry_types(changes_excluded)
         for d in deleted_excluded:
@@ -1695,8 +1693,12 @@ class UpDownSync:
 
         # sort according to path hierarchy
         # do not create sub-folder / file before parent exists
-        folders.sort(key=lambda x: x.path_display.count('/'))
         deleted.sort(key=lambda x: x.path_display.count('/'))
+        folders.sort(key=lambda x: x.path_display.count('/'))
+        files.sort(key=lambda x: x.path_display.count('/'))
+
+        for md in deleted + folders + files:
+            self.queued_for_download.put(md)
 
         downloaded = []  # local list of all changes
 
@@ -2344,22 +2346,22 @@ class MaestralMonitor:
     @property
     def uploading(self):
         """Returns a list of all items currently uploading."""
-        return tuple(self.sync.queue_uploading.queue)
+        return list(self.sync.queue_uploading.queue)
 
     @property
     def downloading(self):
         """Returns a list of all items currently downloading."""
-        return tuple(self.sync.queue_downloading.queue)
+        return list(self.sync.queue_downloading.queue)
 
     @property
     def queued_for_upload(self):
         """Returns a list of all items queued for upload."""
-        return tuple(self.sync.queued_for_upload.queue)
+        return list(self.sync.queued_for_upload.queue)
 
     @property
     def queued_for_download(self):
         """Returns a list of all items queued for download."""
-        return tuple(self.sync.queued_for_download.queue)
+        return list(self.sync.queued_for_download.queue)
 
     def start(self):
         """Creates observer threads and starts syncing."""
