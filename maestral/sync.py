@@ -393,7 +393,7 @@ class UpDownSync:
         # load cached properties
         self._dropbox_path = self._conf.get('main', 'path')
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
-        self.rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
+        self._rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
         self._rev_dict_cache = self._load_rev_dict_from_file()
         self._excluded_items = self._conf.get('main', 'excluded_items')
         self._mignore_rules = self._load_mignore_rules_form_file()
@@ -403,10 +403,11 @@ class UpDownSync:
 
     @property
     def dropbox_path(self):
-        """Path to local Dropbox folder, as loaded from the config file. Before changing
-        :ivar`dropbox_path`, make sure that all syncing is paused. Make sure to move
-        the local Dropbox directory before resuming the sync. Changes are saved to the
-        config file."""
+        """
+        Path to local Dropbox folder, as loaded from the config file. Before changing
+        :ivar`dropbox_path`, make sure that syncing is paused. Move the dropbox folder to
+        the new location before resuming the sync. Changes are saved to the config file.
+        """
         return self._dropbox_path
 
     @dropbox_path.setter
@@ -417,11 +418,17 @@ class UpDownSync:
         self._conf.set('main', 'path', path)
 
     @property
+    def rev_file_path(self):
+        """Path to sync index with rev numbers (read only)"""
+        return self._rev_file_path
+
+    @property
     def excluded_items(self):
         """List containing all folders excluded from sync. Changes are saved to the
         config file. If a parent folder is excluded, its children will automatically be
         removed from the list. If only children are given but not the parent folder,
-        any new items added to the parent will be synced."""
+        any new items added to the parent will be synced. Change this property *before*
+        downloading newly included items or deleting excluded items."""
         return self._excluded_items
 
     @excluded_items.setter
@@ -679,13 +686,13 @@ class UpDownSync:
         dbx_root_list = osp.normpath(self.dropbox_path).split(osp.sep)
         path_list = osp.normpath(local_path).split(osp.sep)
 
-        # Work out how much of the file path is shared by dropbox_path and path.
+        # Work out how much of the file path is shared by dropbox_path and path
         # noinspection PyTypeChecker
         i = len(osp.commonprefix([dbx_root_list, path_list]))
 
         if i == len(path_list):  # path corresponds to dropbox_path
             return '/'
-        elif i != len(dbx_root_list):  # path is outside of to dropbox_path
+        elif i != len(dbx_root_list):  # path is outside of dropbox_path
             raise ValueError(f'Specified path "{local_path}" is outside of Dropbox '
                              f'directory "{self.dropbox_path}"')
 
@@ -752,24 +759,31 @@ class UpDownSync:
         self.download_errors.clear()
 
     @staticmethod
-    def is_excluded(dbx_path):
+    def is_excluded(path):
         """
-        Check if file is excluded from sync.
+        Check if file is excluded from sync. Certain file names are always excluded from
+        syncing, following the Dropbox support article:
 
-        :param str dbx_path: Path of folder on Dropbox.
+        https://help.dropbox.com/installs-integrations/sync-uploads/files-not-syncing
+
+        The include file system files such as 'desktop.ini' and '.DS_Store' and some
+        temporary files. This is determined by the basename alone and `is_excluded`
+        therefore accepts both relative and absolute paths.
+
+        :param str path: Path of folder.
         :returns: ``True`` or `False`.
         :rtype: bool
         """
-        dbx_path = dbx_path.lower()
+        path = path.lower()
 
         # is root folder?
-        if dbx_path in ['/', '']:
+        if path in ['/', '']:
             return True
 
         # information about excluded files:
         # https://help.dropbox.com/installs-integrations/sync-uploads/files-not-syncing
 
-        basename = osp.basename(dbx_path)
+        basename = osp.basename(path)
 
         # in excluded files?
         test0 = basename in EXCLUDED_FILE_NAMES
@@ -1132,7 +1146,7 @@ class UpDownSync:
 
         return folders, files, deleted
 
-    def handle_case_conflict(self, event):
+    def _handle_case_conflict(self, event):
         """
         Checks for other items in the same directory with same name but a different
         case. Renames items if necessary.Only needed for case sensitive file systems.
@@ -1164,7 +1178,7 @@ class UpDownSync:
         else:
             return False
 
-    def handle_selective_sync_conflict(self, event):
+    def _handle_selective_sync_conflict(self, event):
         """
         Checks for other items in the same directory with same name but a different
         case. Only needed for case sensitive file systems.
@@ -1359,9 +1373,9 @@ class UpDownSync:
 
         self.set_local_rev(dbx_path_from, None)
 
-        if self.handle_selective_sync_conflict(event):
+        if self._handle_selective_sync_conflict(event):
             return
-        if self.handle_case_conflict(event):
+        if self._handle_case_conflict(event):
             return
 
         md_from_old = self.client.get_metadata(dbx_path_from)
@@ -1421,9 +1435,9 @@ class UpDownSync:
         local_path = event.src_path
         dbx_path = self.to_dbx_path(local_path)
 
-        if self.handle_selective_sync_conflict(event):
+        if self._handle_selective_sync_conflict(event):
             return
-        if self.handle_case_conflict(event):
+        if self._handle_case_conflict(event):
             return
 
         md_old = self.client.get_metadata(dbx_path)
@@ -1703,7 +1717,7 @@ class UpDownSync:
         logger.debug('Cleaned remote changes:\n%s', entries_to_str(clean_changes.entries))
         return clean_changes
 
-    def filter_excluded_changes_remote(self, changes):
+    def _filter_excluded_changes_remote(self, changes):
         """Removes all excluded items from the given list of changes.
 
         :param changes: :class:`dropbox.files.ListFolderResult` instance.
@@ -1742,7 +1756,7 @@ class UpDownSync:
             return False
 
         # filter out excluded changes
-        changes_included, changes_excluded = self.filter_excluded_changes_remote(changes)
+        changes_included, changes_excluded = self._filter_excluded_changes_remote(changes)
 
         # remove all deleted items from the excluded list
         _, _, deleted_excluded = self._separate_remote_entry_types(changes_excluded)
@@ -1796,7 +1810,7 @@ class UpDownSync:
 
         return [entry for entry in downloaded if not isinstance(entry, bool)], success
 
-    def check_download_conflict(self, md):
+    def _check_download_conflict(self, md):
         """
         Check if local item is conflicting with remote item. The equivalent check when
         uploading and item will be carried out by Dropbox itself.
@@ -2012,7 +2026,7 @@ class UpDownSync:
 
         with InQueue(self.queue_downloading, entry.path_display):
 
-            conflict_check = self.check_download_conflict(entry)
+            conflict_check = self._check_download_conflict(entry)
 
             applied = None
 
@@ -2040,7 +2054,7 @@ class UpDownSync:
 
                     # re-check for conflict and move the conflict
                     # out of the way if anything has changed
-                    if self.check_download_conflict(entry) == Conflict.Conflict:
+                    if self._check_download_conflict(entry) == Conflict.Conflict:
                         new_local_path = generate_cc_name(local_path)
                         shutil.move(local_path, new_local_path)
 
@@ -2050,7 +2064,7 @@ class UpDownSync:
                     # move the downloaded file to its destination
                     os.replace(tmp_fname, local_path)
 
-                self.set_last_sync_for_path(entry.path_lower, get_ctime(local_path))
+                self.set_last_sync_for_path(entry.path_lower, self._get_ctime(local_path))
                 self.set_local_rev(entry.path_lower, md.rev)
 
                 logger.debug('Created local file "%s"', entry.path_display)
@@ -2073,7 +2087,7 @@ class UpDownSync:
                     except FileExistsError:
                         pass
 
-                self.set_last_sync_for_path(entry.path_lower, get_ctime(local_path))
+                self.set_last_sync_for_path(entry.path_lower, self._get_ctime(local_path))
                 self.set_local_rev(entry.path_lower, 'folder')
 
                 logger.debug('Created local folder "%s"', entry.path_display)
