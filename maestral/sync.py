@@ -1327,7 +1327,7 @@ class UpDownSync:
                 self.set_local_rev(dbx_path_to, None)
 
             logger.info('Upload conflict: renamed "%s" to "%s"',
-                         dbx_path_to, md_to_new.path_display)
+                        dbx_path_to, md_to_new.path_display)
 
         else:
             self._set_local_rev_recursive(md_to_new)
