@@ -76,10 +76,10 @@ class InQueue:
     removes them when exiting, after an optional delay.
     """
 
-    def __init__(self, *items, queue=Queue()):
+    def __init__(self, queue, *items):
         """
-        :param iterable items: Items to put in queue.
         :param queue: Instance of :class:`Queue`.
+        :param iterable items: Items to put in queue.
         """
         self.items = items
         self.queue = queue
@@ -319,7 +319,7 @@ class UpDownSync:
         self.queued_newly_included_downloads = Queue()  # entries are local_paths
 
         # the following queues are only for monitoring / user info
-        # and are expected to contain correctly cased local paths
+        # and are expected to contain correctly cased local paths or Dropbox paths
         self.queued_for_download = Queue()
         self.queued_for_upload = Queue()
         self.queue_uploading = Queue()
@@ -1245,11 +1245,11 @@ class UpDownSync:
             remove_from_queue(self.queued_for_upload, local_path_from)
             self.clear_sync_error(local_path=local_path_from)
 
-        with InQueue(local_path_to, queue=self.queue_uploading):
+        with InQueue(self.queue_uploading, local_path_to):
             if event.event_type is EVENT_TYPE_CREATED:
                 self._on_created(event)
             elif event.event_type is EVENT_TYPE_MOVED:
-                with InQueue(local_path_from, queue=self.queue_uploading):
+                with InQueue(self.queue_uploading, local_path_from):
                     self._on_moved(event)
             elif event.event_type is EVENT_TYPE_MODIFIED:
                 self._on_modified(event)
@@ -1607,7 +1607,7 @@ class UpDownSync:
         if isinstance(md, FolderMetadata):
             res = self.get_remote_folder(dbx_path)
         else:  # FileMetadata or DeletedMetadata
-            with InQueue(self.queue_downloading):
+            with InQueue(self.queue_downloading, md.path_display):
                 res = self._create_local_entry(md)
 
         self.pending_downloads.discard(dbx_path)
@@ -1698,7 +1698,7 @@ class UpDownSync:
         files.sort(key=lambda x: x.path_display.count('/'))
 
         for md in deleted + folders + files:
-            self.queued_for_download.put(md)
+            self.queued_for_download.put(md.path_display)
 
         downloaded = []  # local list of all changes
 
@@ -1945,9 +1945,9 @@ class UpDownSync:
 
         # book keeping
         self.clear_sync_error(dbx_path=entry.path_display)
-        remove_from_queue(self.queued_for_download, local_path)
+        remove_from_queue(self.queued_for_download, entry.path_display)
 
-        with InQueue(self.queue_downloading, local_path):
+        with InQueue(self.queue_downloading, entry.path_display):
 
             conflict_check = self.check_download_conflict(entry)
 
