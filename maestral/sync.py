@@ -31,7 +31,7 @@ from watchdog.events import (EVENT_TYPE_CREATED, EVENT_TYPE_DELETED,
                              EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED)
 from watchdog.events import (DirModifiedEvent, FileModifiedEvent, DirCreatedEvent,
                              FileCreatedEvent, DirDeletedEvent, FileDeletedEvent,
-                             DirMovedEvent, FileSystemEvent)
+                             DirMovedEvent)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 from atomicwrites import atomic_write
 
