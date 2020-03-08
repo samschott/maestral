@@ -132,9 +132,7 @@ class FileEventHandler(FileSystemEventHandler):
         dirname, basename = osp.split(created_path)
 
         # check number paths with the same case
-        if len(path_exists_case_insensitive(basename, root=dirname)) < 2:
-            return event
-        else:
+        if len(path_exists_case_insensitive(basename, root=dirname)) > 1:
             # rename item, this will be picked up by watchdog
             cc_path = generate_cc_name(created_path, suffix='case conflict')
             shutil.move(created_path, cc_path)

@@ -48,7 +48,7 @@ def path_exists_case_insensitive(path, root='/'):
         raise NotADirectoryError(f'\'{root}\' is not a directory.')
 
     if path in ('', '/'):
-        return root
+        return [root]
 
     path_list = path.lstrip(osp.sep).split(osp.sep)
     path_list_lower = [x.lower() for x in path_list]
@@ -57,10 +57,10 @@ def path_exists_case_insensitive(path, root='/'):
     local_paths = []
     for root, dirs, files in os.walk(root):
         for d in list(dirs):
-            if not d.lower() == path_list_lower[i]:
+            if d.lower() != path_list_lower[i]:
                 dirs.remove(d)
         for f in list(files):
-            if not f.lower() == path_list_lower[i]:
+            if f.lower() != path_list_lower[i]:
                 files.remove(f)
 
         local_paths = [osp.join(root, name) for name in dirs + files]
