@@ -59,6 +59,71 @@ logger = logging.getLogger(__name__)
 #    resync every weak
 
 
+# ==== Notes on event processing =========================================================
+#
+# Remote events come in three types, DeletedMetadata, FolderMetadata and FileMetadata. The
+# Dropbox API does not differentiate between created, moved or modified events. Maestral
+# processes the events as follows:
+#
+#   1) `_clean_remote_changes`: Combine multiple events per file path into one. This is
+#      rarely necessary, Dropbox typically already provides a only single event per path
+#      but this is not guaranteed and may change. One exception is sharing a folder: This
+#      is done by removing the folder from Dropbox and re-mounting it as a shared folder
+#      and produces at least one DeletedMetadata and one FolderMetadata event. If querying
+#      for changes *during* this process, multiple DeletedMetadata events may be returned.
+#   2) `filter_excluded_changes_remote`: Filters out events that occurred for files or
+#      folders excluded by selective sync as well as hard-coded file names which are
+#      always excluded (e.g., `.DS_Store`).
+#   3) `apply_remote_changes`: Sorts all events hierarchically, with top-level events
+#      coming first. Deleted and folder events are processed in order, file events in
+#      parallel with up to 6 worker threads.
+#   4) `_create_local_entry`: Checks for sync conflicts by comparing the file version, as
+#      determined from its rev number, with our locally saved rev. We assign folders a rev
+#      of 'folder' and deleted / non-existent items a rev of None. If revs are equal, the
+#      local item is the same or newer as an Dropbox, no download / deletion occurs. If
+#      revs are different, we compare content hashes. Folders are assigned a hash of
+#      'folder'. If hashes are equal, no download occurs. Finally we check if the local
+#      item has been modified since the last download sync. In case of a folder, we take
+#      newest change of any of its children. If the local item has not been modified since
+#      the last sync, it will be overridden. Otherwise, we create a conflicting copy.
+#
+# Local file events come in eight types: For both files and folders we collect created,
+# moved, modified and deleted events. They are processed as follows:
+#
+#   1) `FSEventHandler`: Our file system event handler tries to discard any events that
+#      originate from Maestral itself, e.g., from downloads. In case of a moved event, if
+#      only one of the two paths should be ignored at this stage, the event will be split
+#      into a deleted event (old path) and a created event (new path) and one of the two
+#      will be ignored.
+#   2) We wait until no new changes happen for at least 1.0 sec.
+#   3) `_filter_excluded_changes_local`: Filters out events ignored by a `.mignore`
+#      pattern as well as hard-coded file names which are always excluded.
+#   4) `_clean_local_events`: Cleans up local events in two stages. First, multiple events
+#     per path are combined into a single event to reproduce the file changes. Second,
+#     when a whole folder is moved or deleted, we discard the moved and deleted events of
+#     its children.
+#   4) `apply_local_changes`: Sort local changes hierarchically and apply events in the
+#      order of deleted, folders and files. File uploads will be carrier out in parallel
+#      with up to 6 threads. Conflict resolution and upload / move / deletion will be
+#      handled by `_create_remote_entry` as follows:
+#   5) Conflict resolution: For created and moved events, we check if the new path has
+#      been excluded by the user with selective sync but still exists on Dropbox. If yes,
+#      it will be renamed by appending "(selective sync conflict)". On case-sensitive
+#      file systems, we check if the new path differs only in casing from an existing
+#      path. If yes, it will be renamed by appending "(case conflict)". If a file has been
+#      replaced with a folder or vice versa, check if any un-synced changes will be lost
+#      replacing the remote item. Create a conflicting copy if necessary. Dropbox does not
+#      handle conflict resolution for us in this case.
+#   7) For created or modified files, check if the local content hash equals the remote
+#      content hash. If yes, we don't upload but update our rev number.
+#   8) Upload the changes, specify the rev which we want to replace / delete. If the
+#      remote item is newer (different rev), Dropbox will handle conflict resolution.
+#   9) Confirm the successful upload and check if Dropbox has renamed the item to a
+#      conflicting copy. In the latter case, apply those changes locally.
+#  10) Update local revs with the new revs assigned by Dropbox.
+#
+
+
 # ========================================================================================
 # Syncing functionality
 # ========================================================================================
@@ -1160,10 +1225,9 @@ class UpDownSync:
             self._create_remote_entry(event)
 
         # apply file events in parallel
-        num_threads = os.cpu_count() * 2
         success = []
         last_emit = time.time()
-        with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        with ThreadPoolExecutor(max_workers=6) as executor:
             fs = (executor.submit(self._create_remote_entry, e) for e in file_events)
             n_files = len(file_events)
             for f, n in zip(as_completed(fs), range(1, n_files + 1)):
