@@ -12,10 +12,12 @@ import os.path as osp
 import shutil
 import logging
 import time
-from threading import Thread, Timer, Event, Lock, RLock
+import tempfile
+from threading import Thread, Event, Lock, RLock
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
 from collections import abc, OrderedDict
+from contextlib import contextmanager
 import functools
 from enum import IntEnum
 
@@ -29,7 +31,7 @@ from watchdog.events import (EVENT_TYPE_CREATED, EVENT_TYPE_DELETED,
                              EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED)
 from watchdog.events import (DirModifiedEvent, FileModifiedEvent, DirCreatedEvent,
                              FileCreatedEvent, DirDeletedEvent, FileDeletedEvent,
-                             DirMovedEvent, FileMovedEvent)
+                             DirMovedEvent, FileSystemEvent)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 from atomicwrites import atomic_write
 
@@ -45,13 +47,12 @@ from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import (
     generate_cc_name, path_exists_case_insensitive, to_cased_path,
-    delete, get_ctime, is_child
+    delete, get_ctime, is_child, is_equal_or_child
 )
 from maestral.utils.appdirs import get_data_path
 
 logger = logging.getLogger(__name__)
 
-_IGNORE_DELAY = 1.0
 
 # TODO:
 #  * periodic resync: break into small chunks to reduce downtime for user, aim for a full
@@ -71,43 +72,116 @@ class Conflict(IntEnum):
     LocalNewerOrIdentical = 2
 
 
-class FileEventHandler(FileSystemEventHandler):
+class InQueue:
     """
-    Handles captured file events and adds them to :ivar:`local_q` to be processed
-    by :class:`upload_worker`. This acts as a translation layer between
-    `watchdog.Observer` and :class:`upload_worker`.
+    A context manager that puts `items` into `queue` when entering the context and
+    removes them when exiting, after an optional delay.
+    """
+
+    def __init__(self, *items, queue=Queue()):
+        """
+        :param iterable items: Items to put in queue.
+        :param queue: Instance of :class:`Queue`.
+        """
+        self.items = items
+        self.queue = queue
+
+    def __enter__(self):
+        for item in self.items:
+            self.queue.put(item)
+
+    def __exit__(self, err_type, err_value, err_traceback):
+        remove_from_queue(self.queue, *self.items)
+
+
+class FSEventHandler(FileSystemEventHandler):
+    """
+    Handles captured file events and adds them to UpDownSync's file event queue to be
+    uploaded by :class:`upload_worker`. This acts as a translation layer between
+    `watchdog.Observer` and :class:`UpDownSync`.
 
     :param Event syncing: Set when syncing is running.
     :param Event startup: Set when startup is running.
-    :param Queue local_file_event_queue: Queue with unprocessed local file events.
-    :param Queue queue_downloading: Queue with files to be ignored. This is primarily used
-         to exclude files and folders from monitoring if they are currently being
-         downloaded. All entries in :ivar:`queue_downloading` should be temporary only.
+    :param UpDownSync sync: UpDownSync instance.
     """
 
-    def __init__(self, syncing, startup, local_file_event_queue, queue_downloading):
+    _ignore_timeout = 1.0
+
+    def __init__(self, syncing, startup, sync):
 
         self.syncing = syncing
         self.startup = startup
-        self.local_file_event_queue = local_file_event_queue
-        self.queue_downloading = queue_downloading
+        self.sync = sync
+        self.sync.fs_events = self
 
-        self._renamed_items_cache = []
+        self._ignored_paths = set()
+        self._ignored_paths_expiring = set()
+        self._mutex = Lock()
 
-    def is_being_downloaded(self, local_path):
+        self.local_file_event_queue = Queue()
+
+    @contextmanager
+    def ignore(self, *local_paths):
+
+        with self._mutex:
+            for path in local_paths:
+                self._ignored_paths.add(path)
+
+        try:
+            yield
+        finally:
+            with self._mutex:
+                for path in local_paths:
+                    ttl = time.time() + self._ignore_timeout
+                    self._ignored_paths_expiring.add((ttl, path))
+                    self._ignored_paths.discard(path)
+
+    def prune_ignored(self, event):
         """
-        Checks if a file is currently being downloaded and should therefore not trigger
-        any file events.
+        Checks if a file system event's path has been explicitly ignored, for instance
+        because it was likely triggered by a download. Split moved events if necessary and
+        return the event to keep.
 
-        :param str local_path: Local path to file.
-        :returns: ``True`` if the file is currently being downloaded, ``False`` otherwise.
-        :rtype: bool
+        :param FileSystemEvent event: Local file system event.
+        :returns: Event to keep or none.
+        :rtype: FileSystemEvent
         """
+        with self._mutex:
 
-        with self.queue_downloading.mutex:
-            local_path = local_path.lower()
-            return any(local_path == p.lower() or is_child(local_path, p.lower())
-                       for p in self.queue_downloading.queue)
+            now = time.time()
+
+            # prune expired paths
+            for ttl, p in self._ignored_paths_expiring.copy():
+                if ttl < now:
+                    self._ignored_paths_expiring.discard((ttl, p))
+
+            survived_paths = set(p for _, p in self._ignored_paths_expiring)
+            ignored_paths = self._ignored_paths.union(survived_paths)
+
+        if len(ignored_paths) == 0:
+            return event
+
+        if event.event_type == EVENT_TYPE_MOVED:
+            src_path = event.src_path
+            dest_path = event.dest_path
+
+            ignored_src = any(is_equal_or_child(src_path, p) for p in ignored_paths)
+            ignored_dest = any(is_equal_or_child(dest_path, p) for p in ignored_paths)
+
+            if ignored_src and ignored_dest:
+                return
+            elif ignored_dest:
+                return split_fs_event(event)[0]
+            elif ignored_src:
+                return split_fs_event(event)[1]
+            else:
+                return event
+
+        else:
+            src_path = event.src_path
+            ignored_src = any(is_equal_or_child(src_path, p) for p in ignored_paths)
+
+            return None if ignored_src else event
 
     # TODO: The logic for ignoring moved events of children will no longer work when
     #   renaming the parent's moved event. This will throw sync errors when trying to
@@ -123,9 +197,8 @@ class FileEventHandler(FileSystemEventHandler):
             event otherwise.
         """
 
-        if not (event.event_type is EVENT_TYPE_CREATED or event.event_type is
-                EVENT_TYPE_MOVED):
-            return event
+        if event.event_type not in (EVENT_TYPE_CREATED, EVENT_TYPE_MOVED):
+            return
 
         # get the created path (src_path or dest_path)
         created_path = get_dest_path(event)
@@ -150,48 +223,16 @@ class FileEventHandler(FileSystemEventHandler):
             # ignore events if we are not during startup or sync
             return
 
-        # ignore files currently being downloaded
-        if self.is_being_downloaded(event.src_path):
+        # check for ignored paths, split moved events if necessary
+        event = self.prune_ignored(event)
+        if not event:
             return
 
         # rename target on case conflict
         if IS_FS_CASE_SENSITIVE:
-            event = self.rename_on_case_conflict(event)
+            self.rename_on_case_conflict(event)
 
         self.local_file_event_queue.put(event)
-
-
-class InQueue:
-    """
-    A context manager that puts `items` into `queue` when entering the context and
-    removes them when exiting, after an optional delay.
-    """
-
-    def __init__(self, *items, queue=Queue(), delay=0):
-        """
-        :param iterable items: Items to put in queue.
-        :param queue: Instance of :class:`Queue`.
-        :param float delay: Delay before removing item from queue. Defaults to 0.
-        """
-        self.items = items
-        self.queue = queue
-        self._delay = delay
-
-    def __enter__(self):
-        for item in self.items:
-            self.queue.put(item)
-
-    def __exit__(self, err_type, err_value, err_traceback):
-
-        if self._delay > 0:
-            self._timer = Timer(
-                self._delay,
-                remove_from_queue,
-                args=(self.queue, *self.items)
-            )
-            self._timer.start()
-        else:
-            remove_from_queue(self.queue, *self.items)
 
 
 class MaestralStateWrapper(abc.MutableSet):
@@ -283,9 +324,6 @@ class UpDownSync:
     Class that contains methods to sync local file events with Dropbox and vice versa.
 
     :param client: MaestralApiClient client instance.
-    :param Queue local_file_event_queue: Queue with local file-changed events.
-    :param Queue queue_uploading: Queue with files currently being uploaded.
-    :param Queue queue_downloading: Queue with files currently being downloaded.
     """
 
     lock = Lock()
@@ -295,34 +333,40 @@ class UpDownSync:
 
     _max_history = 30
 
-    def __init__(self, client, local_file_event_queue, queue_uploading, queue_downloading):
+    def __init__(self, client):
 
         self.client = client
         self.config_name = self.client.config_name
-        self.rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
+        self.fs_events = None
 
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
         self.notifier = MaestralDesktopNotifier.for_config(self.config_name)
 
-        self.sync_errors = Queue()  # entries must be `SyncIssue`s
+        self.download_errors = MaestralStateWrapper(
+            self.config_name, section='sync', option='download_errors'
+        )
+        self.pending_downloads = MaestralStateWrapper(
+            self.config_name, section='sync', option='pending_downloads'
+        )
 
-        self.local_file_event_queue = local_file_event_queue  # watchdog file events
-        self.queued_newly_included_downloads = Queue()  # entries must be `local_path`
+        # queues used for internal communication
+        self.sync_errors = Queue()  # entries are `SyncIssue` instances
+        self.queued_newly_included_downloads = Queue()  # entries are local_paths
 
-        self.download_errors = MaestralStateWrapper(self.config_name, 'sync', 'download_errors')
-        self.pending_downloads = MaestralStateWrapper(self.config_name, 'sync', 'pending_downloads')
-
-        self.queued_for_download = Queue()  # entries must be `local_path`
-        self.queued_for_upload = Queue()  # entries must be `local_path`
-        self.queue_uploading = queue_uploading  # entries must be `local_path`
-        self.queue_downloading = queue_downloading  # entries must be `local_path`
+        # the following queues are only for monitoring / user info
+        # and are expected to contain correctly cased local paths
+        self.queued_for_download = Queue()
+        self.queued_for_upload = Queue()
+        self.queue_uploading = Queue()
+        self.queue_downloading = Queue()
 
         # load cached properties
         self._dropbox_path = self._conf.get('main', 'path')
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
-        self._excluded_items = self._conf.get('main', 'excluded_items')
+        self.rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
         self._rev_dict_cache = self._load_rev_dict_from_file()
+        self._excluded_items = self._conf.get('main', 'excluded_items')
         self._mignore_rules = self._load_mignore_rules_form_file()
         self._last_sync_for_path = dict()
 
@@ -640,7 +684,7 @@ class UpDownSync:
         dbx_path = dbx_path.replace('/', osp.sep)
         dbx_path_parent, dbx_path_basename = osp.split(dbx_path)
 
-        local_parent = to_cased_path(dbx_path_parent, self.dropbox_path)
+        local_parent = to_cased_path(dbx_path_parent, root=self.dropbox_path)
 
         if local_parent == '':
             return osp.join(self.dropbox_path, dbx_path.lstrip(osp.sep))
@@ -864,7 +908,7 @@ class UpDownSync:
 
         return changes, now
 
-    def wait_for_local_changes(self, timeout=2, delay=0.5):
+    def wait_for_local_changes(self, timeout=5, delay=1):
         """
         Waits for local file changes. Returns a list of local changes, filtered to
         avoid duplicates.
@@ -878,7 +922,7 @@ class UpDownSync:
         """
         self.ensure_dropbox_folder_present()
         try:
-            events = [self.local_file_event_queue.get(timeout=timeout)]
+            events = [self.fs_events.local_file_event_queue.get(timeout=timeout)]
             local_cursor = time.time()
         except Empty:
             return [], time.time()
@@ -886,7 +930,7 @@ class UpDownSync:
         # keep collecting events until idle for `delay`
         while True:
             try:
-                events.append(self.local_file_event_queue.get(timeout=delay))
+                events.append(self.fs_events.local_file_event_queue.get(timeout=delay))
                 local_cursor = time.time()
             except Empty:
                 break
@@ -964,16 +1008,7 @@ class UpDownSync:
             if e.event_type == EVENT_TYPE_MOVED:
                 related = tuple(p for p in all_paths if p in (e.src_path, e.dest_path))
                 if len(related) > 2 or self._should_split_excluded(e):
-
-                    if e.is_directory:
-                        CreatedEvent = DirCreatedEvent
-                        DeletedEvent = DirDeletedEvent
-                    else:
-                        CreatedEvent = FileCreatedEvent
-                        DeletedEvent = FileDeletedEvent
-
-                    split_events.append(DeletedEvent(e.src_path))
-                    split_events.append(CreatedEvent(e.dest_path))
+                    split_events.extend(split_fs_event(e))
                 else:
                     split_events.append(e)
             else:
@@ -1035,7 +1070,8 @@ class UpDownSync:
             child_move_events = []
 
             for parent_event in dir_moved_events:
-                children = [x for x in cleaned_events if self._is_moved_child(x, parent_event)]
+                children = [x for x in cleaned_events
+                            if self._is_moved_child(x, parent_event)]
                 child_move_events += children
 
             cleaned_events = self._list_diff(cleaned_events, child_move_events)
@@ -1047,7 +1083,8 @@ class UpDownSync:
             child_deleted_events = []
 
             for parent_event in dir_deleted_events:
-                children = [x for x in cleaned_events if self._is_deleted_child(x, parent_event)]
+                children = [x for x in cleaned_events
+                            if self._is_deleted_child(x, parent_event)]
                 child_deleted_events += children
 
             cleaned_events = self._list_diff(cleaned_events, child_deleted_events)
@@ -1245,15 +1282,14 @@ class UpDownSync:
         if md_to_new.path_lower != dbx_path_to.lower():
             # created conflict => move local item to mirror remote
             local_path_to_cc = self.to_local_path(md_to_new.path_display)
-            with InQueue(local_path_to, local_path_to_cc,
-                         queue=self.queue_downloading, delay=_IGNORE_DELAY):
-                delete(local_path_to_cc)
-                try:
-                    shutil.move(local_path_to, local_path_to_cc)
-                    self.set_local_rev(dbx_path_to, None)
-                    self._set_local_rev_recursive(md_to_new)
-                except FileNotFoundError:
-                    self.set_local_rev(dbx_path_to, None)
+
+            delete(local_path_to_cc)
+            try:
+                shutil.move(local_path_to, local_path_to_cc)
+                self.set_local_rev(dbx_path_to, None)
+                self._set_local_rev_recursive(md_to_new)
+            except FileNotFoundError:
+                self.set_local_rev(dbx_path_to, None)
 
             logger.debug('Upload conflict "%s" handled by Dropbox, created "%s"',
                          dbx_path_to, md_to_new.path_display)
@@ -1323,14 +1359,14 @@ class UpDownSync:
         if md_new.path_lower != dbx_path.lower():
             # created conflict => move local item to reflect dropbox changes
             local_path_cc = self.to_local_path(md_new.path_display)
-            with InQueue(local_path, queue=self.queue_downloading, delay=_IGNORE_DELAY):
-                delete(local_path_cc)
-                try:
+            try:
+                with self.fs_events.ignore(local_path, local_path_cc):
+                    delete(local_path_cc)
                     shutil.move(local_path, local_path_cc)
-                    self.set_local_rev(dbx_path, None)
-                    self._set_local_rev_recursive(md_new)
-                except FileNotFoundError:
-                    self.set_local_rev(dbx_path, None)
+                self.set_local_rev(dbx_path, None)
+                self._set_local_rev_recursive(md_new)
+            except FileNotFoundError:
+                self.set_local_rev(dbx_path, None)
 
             logger.debug('Upload conflict "%s" handled by Dropbox, created "%s"',
                          dbx_path, md_new.path_lower)
@@ -1385,16 +1421,16 @@ class UpDownSync:
             if md_new.path_lower != dbx_path.lower():
                 # created conflict => move local item to reflect dropbox changes
                 local_path_cc = self.to_local_path(md_new.path_display)
-                with InQueue(local_path, local_path_cc,
-                             queue=self.queue_downloading, delay=_IGNORE_DELAY):
-                    delete(local_path_cc)
-                    try:
-                        # will only rename *files* here, we ignore folder modified events
+
+                try:
+                    # will only rename *files* here, we ignore folder modified events
+                    with self.fs_events.ignore(local_path, local_path_cc):
+                        delete(local_path_cc)
                         os.rename(local_path, local_path_cc)
-                        self.set_local_rev(dbx_path, None)
-                        self.set_local_rev(md_new.path_lower, md_new.rev)
-                    except FileNotFoundError:
-                        self.set_local_rev(dbx_path, None)
+                    self.set_local_rev(dbx_path, None)
+                    self.set_local_rev(md_new.path_lower, md_new.rev)
+                except FileNotFoundError:
+                    self.set_local_rev(dbx_path, None)
 
                 logger.debug('Upload conflict "%s" renamed to "%s" by Dropbox',
                              dbx_path, md_new.path_lower)
@@ -1513,7 +1549,7 @@ class UpDownSync:
         is terminated during the download.
 
         :param str dbx_path: Dropbox path to file or folder.
-        :return: ``True`` on success, ``False`` otherwise.
+        :returns: ``True`` on success, ``False`` otherwise.
         :rtype: bool
         """
         self.pending_downloads.add(dbx_path)
@@ -1861,75 +1897,93 @@ class UpDownSync:
         self.clear_sync_error(dbx_path=entry.path_display)
         remove_from_queue(self.queued_for_download, local_path)
 
-        conflict_check = self.check_download_conflict(entry)
+        with InQueue(self.queue_downloading, local_path):
 
-        applied = None
+            conflict_check = self.check_download_conflict(entry)
 
-        if conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
-            return applied
+            applied = None
 
-        elif conflict_check == Conflict.Conflict:
-            new_local_path = generate_cc_name(local_path)
-            shutil.move(local_path, new_local_path)
+            if conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
+                return applied
 
-        if isinstance(entry, FileMetadata):
-            # Store the new entry at the given path in your local state.
-            # If the required parent folders don’t exist yet, create them.
-            # If there’s already something else at the given path,
-            # replace it and remove all its children.
+            elif conflict_check == Conflict.Conflict:
+                new_local_path = generate_cc_name(local_path)
+                with self.fs_events.ignore(local_path):
+                    shutil.move(local_path, new_local_path)
 
-            self._save_to_history(entry.path_display)
+            if isinstance(entry, FileMetadata):
+                # Store the new entry at the given path in your local state.
+                # If the required parent folders don’t exist yet, create them.
+                # If there’s already something else at the given path,
+                # replace it and remove all its children.
 
-            with InQueue(local_path, queue=self.queue_downloading, delay=_IGNORE_DELAY):
+                # we download to a temporary file first (this may take some time)
+                with tempfile.NamedTemporaryFile(delete=False) as f:
+                    tmp_fname = f.name
 
-                if osp.isdir(local_path):
-                    delete(local_path)
+                md = self.client.download(f'rev:{entry.rev}', tmp_fname)
 
-                md = self.client.download(entry.path_display, local_path)
-                self.set_last_sync_for_path(md.path_lower, get_ctime(local_path))
-                self.set_local_rev(md.path_lower, md.rev)
+                with self.fs_events.ignore(local_path):
 
-            logger.debug('Created local file "%s"', entry.path_display)
-            applied = entry
+                    # re-check for conflict and move the conflict
+                    # out of the way if anything has changed
+                    if self.check_download_conflict(entry) == Conflict.Conflict:
+                        new_local_path = generate_cc_name(local_path)
+                        shutil.move(local_path, new_local_path)
 
-        elif isinstance(entry, FolderMetadata):
-            # Store the new entry at the given path in your local state.
-            # If the required parent folders don’t exist yet, create them.
-            # If there’s already something else at the given path,
-            # replace it but leave the children as they are.
+                    if osp.isdir(local_path):
+                        delete(local_path)
 
-            with InQueue(local_path, queue=self.queue_downloading, delay=_IGNORE_DELAY):
+                    # move the downloaded file to its destination
+                    os.replace(tmp_fname, local_path)
 
-                if osp.isfile(local_path):
-                    delete(local_path)
+                self.set_last_sync_for_path(entry.path_lower, get_ctime(local_path))
+                self.set_local_rev(entry.path_lower, md.rev)
 
-                try:
-                    os.makedirs(local_path)
-                except FileExistsError:
-                    pass
+                logger.debug('Created local file "%s"', entry.path_display)
+                self._save_to_history(entry.path_display)
+                applied = entry
+
+            elif isinstance(entry, FolderMetadata):
+                # Store the new entry at the given path in your local state.
+                # If the required parent folders don’t exist yet, create them.
+                # If there’s already something else at the given path,
+                # replace it but leave the children as they are.
+
+                with self.fs_events.ignored(local_path):
+
+                    if osp.isfile(local_path):
+                        delete(local_path)
+
+                    try:
+                        os.makedirs(local_path)
+                    except FileExistsError:
+                        pass
+
                 self.set_last_sync_for_path(entry.path_lower, get_ctime(local_path))
                 self.set_local_rev(entry.path_lower, 'folder')
 
-            logger.debug('Created local folder "%s"', entry.path_display)
-            applied = entry
-
-        elif isinstance(entry, DeletedMetadata):
-            # If your local state has something at the given path,
-            # remove it and all its children. If there’s nothing at the
-            # given path, ignore this entry.
-
-            with InQueue(local_path, queue=self.queue_downloading, delay=_IGNORE_DELAY):
-                err = delete(local_path)
-                self.set_local_rev(entry.path_lower, None)
-                self.set_last_sync_for_path(entry.path_lower, 0.0)
-
-            if not err:
-                logger.debug('Deleted local item "%s"', entry.path_display)
+                logger.debug('Created local folder "%s"', entry.path_display)
                 applied = entry
-            else:
-                logger.debug('Deletion failed: %s', err)
 
-        return applied
+            elif isinstance(entry, DeletedMetadata):
+                # If your local state has something at the given path,
+                # remove it and all its children. If there’s nothing at the
+                # given path, ignore this entry.
+
+                with self.fs_events.ignore(local_path):
+                    err = delete(local_path)
+
+                self.set_local_rev(entry.path_lower, None)
+                self.set_last_sync_for_path(entry.path_lower, time.time())
+
+                if not err:
+                    logger.debug('Deleted local item "%s"', entry.path_display)
+                    applied = entry
+                else:
+                    logger.debug('Deletion failed: %s', err)
+
+            return applied
 
     def _save_to_history(self, dbx_path):
         # add new file to recent_changes
@@ -2221,10 +2275,13 @@ class MaestralMonitor:
 
     :ivar Queue queue_downloading: Holds *local file paths* that are being downloaded.
     :ivar Queue queue_uploading: Holds *local file paths* that are being uploaded.
-    :ivar Queue local_file_event_queue: Holds *file events* to be uploaded.
     """
 
     def __init__(self, client):
+
+        self.client = client
+        self.config_name = self.client.config_name
+        self.sync = UpDownSync(self.client)
 
         self.connected = Event()
         self.syncing = Event()
@@ -2234,30 +2291,17 @@ class MaestralMonitor:
 
         self.startup = Event()
 
-        self.queue_downloading = Queue()
-        self.queue_uploading = Queue()
-
-        self.local_file_event_queue = Queue()
-
-        self.client = client
-        self.config_name = self.client.config_name
-        self.file_handler = FileEventHandler(
-            self.syncing, self.startup,
-            self.local_file_event_queue, self.queue_downloading
-        )
-
-        self.sync = UpDownSync(self.client, self.local_file_event_queue,
-                               self.queue_uploading, self.queue_downloading)
+        self.fs_event_handler = FSEventHandler(self.syncing, self.startup, self.sync)
 
     @property
     def uploading(self):
         """Returns a list of all items currently uploading."""
-        return tuple(self.queue_uploading.queue)
+        return tuple(self.sync.queue_uploading.queue)
 
     @property
     def downloading(self):
         """Returns a list of all items currently downloading."""
-        return tuple(self.queue_downloading.queue)
+        return tuple(self.sync.queue_downloading.queue)
 
     @property
     def queued_for_upload(self):
@@ -2279,8 +2323,9 @@ class MaestralMonitor:
         self.running = Event()  # create new event to let old threads shut down
 
         self.local_observer_thread = Observer(timeout=0.1)
-        self.local_observer_thread.schedule(
-            self.file_handler, self.sync.dropbox_path, recursive=True
+        self.local_observer_thread.setName('maestral-fsobserver')
+        self._watch = self.local_observer_thread.schedule(
+            self.fs_event_handler, self.sync.dropbox_path, recursive=True
         )
 
         self.connection_thread = Thread(
@@ -2417,7 +2462,8 @@ class MaestralMonitor:
             return False
 
         base_threads_alive = (t.is_alive() for t in threads)
-        watchdog_emitters_alive = (e.is_alive() for e in self.local_observer_thread.emitters)
+        watchdog_emitters_alive = (e.is_alive() for e
+                                   in self.local_observer_thread.emitters)
 
         return all(base_threads_alive) and all(watchdog_emitters_alive)
 
@@ -2461,6 +2507,24 @@ def get_dest_path(event):
     :rtype: str
     """
     return getattr(event, 'dest_path', event.src_path)
+
+
+def split_fs_event(event):
+    """
+    Splits a given FileSystemEvent into Deleted and Created events of the same type.
+    :param FileMovedEvent, DirMovedEvent event: Original event.
+    :returns: Tuple of deleted and created events.
+    :rtype: tuple
+    """
+
+    if event.is_directory:
+        CreatedEvent = DirCreatedEvent
+        DeletedEvent = DirDeletedEvent
+    else:
+        CreatedEvent = FileCreatedEvent
+        DeletedEvent = FileDeletedEvent
+
+    return DeletedEvent(event.src_path), CreatedEvent(event.dest_path)
 
 
 def get_local_hash(local_path):

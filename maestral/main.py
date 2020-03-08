@@ -35,7 +35,7 @@ import sdnotify
 # maestral modules
 from maestral import __version__
 from maestral.client import MaestralApiClient
-from maestral.sync import MaestralMonitor, InQueue
+from maestral.sync import MaestralMonitor
 from maestral.errors import MaestralApiError, DropboxAuthError
 from maestral.config import MaestralConfig, MaestralState
 from maestral.utils.path import is_child, to_cased_path, delete
@@ -743,15 +743,16 @@ class Maestral(object):
 
     def _remove_after_excluded(self, dbx_path):
 
-        # bookkeeping
+        # book keeping
         self.sync.clear_sync_error(dbx_path=dbx_path)
         self.sync.set_local_rev(dbx_path, None)
 
         # remove folder from local drive
         local_path = self.sync.to_local_path(dbx_path)
+        # dbx_path will be lower-case, we there explicitly run `to_cased_path`
         local_path_cased = to_cased_path(local_path)
         if local_path_cased:
-            with InQueue(local_path_cased, queue=self.sync.queue_downloading, delay=1.0):
+            with self.monitor.fs_event_handler.ignore(local_path_cased):
                 delete(local_path_cased)
 
     def include_item(self, dbx_path):
