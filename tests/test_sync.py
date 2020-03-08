@@ -7,11 +7,11 @@
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
-from maestral.sync import (
+from watchdog.events import (
     FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileMovedEvent,
     DirCreatedEvent, DirDeletedEvent, DirMovedEvent,
-    UpDownSync
 )
+from maestral.sync import UpDownSync
 
 
 def path(i):
