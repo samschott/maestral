@@ -12,10 +12,10 @@ import shutil
 from stat import S_ISDIR
 
 
-def is_child(path, parent):
+def is_equal_or_child(path, parent):
     """
-    Checks if :param:`path` semantically is inside :param:`parent`. Neither path needs to
-    refer to an actual item on the drive. This function is case sensitive.
+    Checks if ``path`` semantically is inside ``parent`` or equals ``parent``. Neither
+    path needs to refer to an actual item on the drive. This function is case sensitive.
 
     :param str path: Item path.
     :param str parent: Parent path.
@@ -23,12 +23,29 @@ def is_child(path, parent):
         ``False`` otherwise (including ``path == parent``).
     :rtype: bool
     """
-    assert isinstance(path, str)
-    assert isinstance(parent, str)
 
     parent = parent.rstrip(osp.sep)
+    path = path.rstrip(osp.sep)
 
-    return path.startswith(parent + osp.sep) and not path == parent
+    return path.startswith(parent)
+
+
+def is_child(path, parent):
+    """
+    Checks if :param:`path` semantically is inside :param:`parent`. Neither path needs to
+    refer to an actual item on the drive. This function is case sensitive.
+
+    :param str path: Item path.
+    :param str parent: Parent path.
+    :returns: ``True`` if :param:`path` semantically lies inside :param:`parent` or
+        ``path == parent``, ``False`` otherwise.
+    :rtype: bool
+    """
+
+    parent = parent.rstrip(osp.sep) + os.sep
+    path = path.rstrip(osp.sep)
+
+    return path.startswith(parent)
 
 
 def path_exists_case_insensitive(path, root='/'):
