@@ -1249,8 +1249,7 @@ class UpDownSync:
             if event.event_type is EVENT_TYPE_CREATED:
                 self._on_created(event)
             elif event.event_type is EVENT_TYPE_MOVED:
-                with InQueue(self.queue_uploading, local_path_from):
-                    self._on_moved(event)
+                self._on_moved(event)
             elif event.event_type is EVENT_TYPE_MODIFIED:
                 self._on_modified(event)
             elif event.event_type is EVENT_TYPE_DELETED:
