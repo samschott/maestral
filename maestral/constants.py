@@ -25,13 +25,13 @@ APP_NAME = 'Maestral'
 BUNDLE_ID = 'com.samschott.maestral'
 
 # sync
-REV_FILE = '.maestral'
+OLD_REV_FILE = '.maestral'
 MIGNORE_FILE = '.mignore'
 IS_FS_CASE_SENSITIVE = is_fs_case_sensitive()
 
 EXCLUDED_FILE_NAMES = (
     'desktop.ini', 'thumbs.db', '.ds_store', 'icon\r', '.dropbox.attr',
-    '.com.apple.timemachine.supported', REV_FILE
+    '.com.apple.timemachine.supported', OLD_REV_FILE
 )
 
 # state messages
