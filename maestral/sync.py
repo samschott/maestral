@@ -72,6 +72,9 @@ logger = logging.getLogger(__name__)
 #      is done by removing the folder from Dropbox and re-mounting it as a shared folder
 #      and produces at least one DeletedMetadata and one FolderMetadata event. If querying
 #      for changes *during* this process, multiple DeletedMetadata events may be returned.
+#      If a File / Folder event implies a type changes, e.g., replacing a folder with a
+#      file, we explicitly generate the necessary DeletedMetadata here to simplify
+#      conflict resolution.
 #   2) `filter_excluded_changes_remote`: Filters out events that occurred for files or
 #      folders excluded by selective sync as well as hard-coded file names which are
 #      always excluded (e.g., `.DS_Store`).
@@ -100,9 +103,10 @@ logger = logging.getLogger(__name__)
 #   3) `_filter_excluded_changes_local`: Filters out events ignored by a `.mignore`
 #      pattern as well as hard-coded file names which are always excluded.
 #   4) `_clean_local_events`: Cleans up local events in two stages. First, multiple events
-#     per path are combined into a single event to reproduce the file changes. Second,
-#     when a whole folder is moved or deleted, we discard the moved and deleted events of
-#     its children.
+#      per path are combined into a single event to reproduce the file changes. The only
+#      exceptions is when the item type changes from file to folder or vice versa: in this
+#      case, both deleted and created events are kept. Second, when a whole folder is
+#      moved or deleted, we discard the moved and deleted events of its children.
 #   4) `apply_local_changes`: Sort local changes hierarchically and apply events in the
 #      order of deleted, folders and files. File uploads will be carrier out in parallel
 #      with up to 6 threads. Conflict resolution and upload / move / deletion will be
@@ -1870,8 +1874,8 @@ class UpDownSync:
                     self.set_local_rev(dbx_path, remote_rev)
                     return Conflict.Identical
                 else:
-                    logger.debug('Conflict: local item "%s" was created since '
-                                 'last upload', dbx_path)
+                    logger.debug('Conflict: local item "%s" was has been modified since '
+                                 'last sync', dbx_path)
                     return Conflict.Conflict
 
     def _get_ctime(self, local_path, ignore_excluded=True):
