@@ -14,9 +14,16 @@ def test_path_exists_case_insensitive():
     assert to_cased_path(path.upper()) == path
 
     # choose a random path that likely does not exist
+    root = '/'
     path = '/usr/local/share/test_folder/path_928'
     if not os.path.exists(path):
-        assert not path_exists_case_insensitive(path)
+        assert len(path_exists_case_insensitive(path, root)) == 0
+
+    # choose a random parent that likely does not exist
+    root = '/test_folder/path_928'
+    path = '/usr'
+    if not os.path.exists(root):
+        assert len(path_exists_case_insensitive(path, root)) == 0
 
 
 def test_is_child():
@@ -32,6 +39,7 @@ def test_delete():
     assert os.path.isfile(test_file.name)
     delete(test_file.name)
     assert not os.path.exists(test_file.name)
+    test_file.close()
 
     # test deleting directory
     test_dir = tempfile.TemporaryDirectory()
