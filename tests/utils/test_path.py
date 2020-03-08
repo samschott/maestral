@@ -39,7 +39,6 @@ def test_delete():
     assert os.path.isfile(test_file.name)
     delete(test_file.name)
     assert not os.path.exists(test_file.name)
-    test_file.close()
 
     # test deleting directory
     test_dir = tempfile.TemporaryDirectory()
