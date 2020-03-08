@@ -1,7 +1,7 @@
 ## v0.6.2-dev
 
 This release enables excluding individual files from syncing, introduces support for an
-".mignore" file with the same concept as [gitignore](https://git-scm.com/docs/gitignore)
+".mignore" file with the same syntax as [gitignore](https://git-scm.com/docs/gitignore)
 and fixes an issue with immediately retrying failed downloads.
 
 #### Added:
@@ -27,13 +27,16 @@ and fixes an issue with immediately retrying failed downloads.
   to `Maestral.inlcude_item`, and `Maestral.set_excluded_folders` to
   `Maestral.set_excluded_items`.
 - Speed up creation of local folders.
+- When trying to create a file / folder items with the same path as an item excluded by
+  selective sync, the new item is now renamed by appending "selective sync conflict"
+  instead of raising a sync issue. This is closer the behaviour of the official client.
+- Improved the reliability of locally renaming conflicting folders.
 
 #### Fixed:
 
 - Don't immediately retry when a download fails. Instead, save failed downloads and retry
   only on pause / resume or restart.
-- Fixes missing cursor and resulting `dropbox.stone_validators.ValidationError` during
-  sync startup.
+- Fixes missing cursor and resulting unexpected `ValidationError` during sync startup.
 - Wait until all sync activity has stopped before moving the Dropbox folder. This avoids
   errors when trying to convert local to dropbox paths and vice versa during the move.
 - Fixes an issue which would prevent some conflicting copies created by Dropbox from being
@@ -45,6 +48,8 @@ and fixes an issue with immediately retrying failed downloads.
   folder from the user's Dropbox and then re-mounts it as a shared drive / file system. We
   handle this correctly now by leaving the local folder alone or deleting and
   re-downloading it, depending on the time elapsed between removal and re-mounting.
+- Improves conflict resolution when a folder has been been replaced with a file or vice
+  versa and both the local and remote item have un-synced changes.
 
 #### Removed:
 
