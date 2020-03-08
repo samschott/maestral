@@ -526,23 +526,27 @@ class Maestral(object):
         Gets current upload / download activity.
 
         :returns: A dictionary with lists of all files currently queued for or being
-            uploaded or downloaded.
+            uploaded or downloaded. Paths are given relative to the Dropbox folder.
         :rtype: dict(list, list)
         """
-        PathItem = namedtuple('PathItem', 'local_path status')
+        PathItem = namedtuple('PathItem', 'path status')
         uploading = []
         downloading = []
 
         for path in self.monitor.uploading:
+            path.lstrip(self.dropbox_path)
             uploading.append(PathItem(path, 'uploading'))
 
         for path in self.monitor.queued_for_upload:
+            path.lstrip(self.dropbox_path)
             uploading.append(PathItem(path, 'queued'))
 
         for path in self.monitor.downloading:
+            path.lstrip(self.dropbox_path)
             downloading.append(PathItem(path, 'downloading'))
 
         for path in self.monitor.queued_for_download:
+            path.lstrip(self.dropbox_path)
             downloading.append(PathItem(path, 'queued'))
 
         return dict(uploading=uploading, downloading=downloading)
