@@ -9,6 +9,7 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 # system imports
 import os
 import os.path as osp
+from stat import S_ISDIR
 import shutil
 import logging
 import time
@@ -47,7 +48,7 @@ from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import (
     generate_cc_name, path_exists_case_insensitive, to_cased_path,
-    delete, get_ctime, is_child, is_equal_or_child
+    delete, is_child, is_equal_or_child
 )
 from maestral.utils.appdirs import get_data_path
 
@@ -625,12 +626,12 @@ class UpDownSync:
 
     @property
     def mignore_rules(self):
-        if get_ctime(self.mignore_path) != self._mignore_ctime_loaded:
+        if self._get_ctime(self.mignore_path) != self._mignore_ctime_loaded:
             self._mignore_rules = self._load_mignore_rules_form_file()
         return self._mignore_rules
 
     def _load_mignore_rules_form_file(self):
-        self._mignore_ctime_loaded = get_ctime(self.mignore_path)
+        self._mignore_ctime_loaded = self._get_ctime(self.mignore_path)
         try:
             with open(self.mignore_path, 'r') as f:
                 spec = f.read()
@@ -1855,7 +1856,7 @@ class UpDownSync:
             #     will hold the lock and we won't be here checking for conflicts.
             # (b) The upload has not started yet. Manually check for conflict.
 
-            if get_ctime(local_path) <= self.get_last_sync_for_path(dbx_path):
+            if self._get_ctime(local_path) <= self.get_last_sync_for_path(dbx_path):
                 logger.debug('No conflict: remote item "%s" is newer', dbx_path)
                 return Conflict.RemoteNewer
             elif not remote_rev:
@@ -1872,6 +1873,35 @@ class UpDownSync:
                     logger.debug('Conflict: local item "%s" was created since '
                                  'last upload', dbx_path)
                     return Conflict.Conflict
+
+    def _get_ctime(self, local_path, ignore_excluded=True):
+        """
+        Returns the ctime of a local item or -1.0 if there is nothing at the path. If
+        the item is a directory, return the largest ctime of itself and its children.
+
+        :param str local_path: Path to file on local drive. Can be of any type that is
+            accepted by ``os.stat`` and ``os.scandir``.
+        :param bool ignore_excluded: If ``True``, the ctimes of children for which
+            :func:`is_excluded` evaluates to ``True`` are disregarded. This is only
+            relevant if ``local_path`` points to a directory and has no effect if it
+            points to a path.
+        :returns: Ctime or -1.0.
+        :rtype: float
+        """
+        try:
+            stat = os.stat(local_path)
+            if S_ISDIR(stat.st_mode):
+                ctime = stat.st_ctime
+                with os.scandir(local_path) as it:
+                    for entry in it:
+                        ignore = ignore_excluded and self.is_excluded(entry.name)
+                        if not ignore:
+                            ctime = max(ctime, entry.stat().st_ctime)
+                return ctime
+            else:
+                return os.stat(local_path).st_ctime
+        except FileNotFoundError:
+            return -1.0
 
     def notify_user(self, changes):
         """
