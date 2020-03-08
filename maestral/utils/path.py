@@ -9,7 +9,6 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 import os
 from os import path as osp
 import shutil
-from stat import S_ISDIR
 
 
 def is_child(path, parent):
