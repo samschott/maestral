@@ -12,24 +12,6 @@ import shutil
 from stat import S_ISDIR
 
 
-def is_equal_or_child(path, parent):
-    """
-    Checks if ``path`` semantically is inside ``parent`` or equals ``parent``. Neither
-    path needs to refer to an actual item on the drive. This function is case sensitive.
-
-    :param str path: Item path.
-    :param str parent: Parent path.
-    :returns: ``True`` if :param:`path` semantically lies inside :param:`parent`,
-        ``False`` otherwise (including ``path == parent``).
-    :rtype: bool
-    """
-
-    parent = parent.rstrip(osp.sep)
-    path = path.rstrip(osp.sep)
-
-    return path.startswith(parent)
-
-
 def is_child(path, parent):
     """
     Checks if :param:`path` semantically is inside :param:`parent`. Neither path needs to
@@ -48,6 +30,21 @@ def is_child(path, parent):
     return path.startswith(parent)
 
 
+def is_equal_or_child(path, parent):
+    """
+    Checks if ``path`` semantically is inside ``parent`` or equals ``parent``. Neither
+    path needs to refer to an actual item on the drive. This function is case sensitive.
+
+    :param str path: Item path.
+    :param str parent: Parent path.
+    :returns: ``True`` if :param:`path` semantically lies inside :param:`parent`,
+        ``False`` otherwise (including ``path == parent``).
+    :rtype: bool
+    """
+
+    return is_child(path, parent) or path == parent
+
+
 def path_exists_case_insensitive(path, root='/'):
     """
     Checks if a `path` exists in given `root` directory, similar to `os.path.exists` but
@@ -58,11 +55,10 @@ def path_exists_case_insensitive(path, root='/'):
         performance improvements if a root directory with a small tree is given.
     :return: List of absolute and case-sensitive to search results.
     :rtype: list[str]
-    :raises: NotADirectoryError if ``root`` is not a valid directory.
     """
 
     if not osp.isdir(root):
-        raise NotADirectoryError(f'\'{root}\' is not a directory.')
+        return []
 
     if path in ('', '/'):
         return [root]

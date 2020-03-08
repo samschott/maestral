@@ -41,8 +41,8 @@ from maestral.watchdog import Observer
 from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                 EXCLUDED_FILE_NAMES, MIGNORE_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError,
-                             DropboxAuthError, SyncError, ExcludedItemError,
-                             PathError, InotifyError, NotFoundError)
+                             DropboxAuthError, SyncError, PathError, InotifyError,
+                             NotFoundError)
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import (
@@ -57,8 +57,6 @@ logger = logging.getLogger(__name__)
 # TODO:
 #  * periodic resync: break into small chunks to reduce downtime for user, aim for a full
 #    resync every weak
-#  * fix excluding local file events: check if delay of 1 sec really is required, consider
-#    lower memory usage alternatives (parallel downloads of binned deletions and folders?)
 
 
 # ========================================================================================
@@ -106,6 +104,7 @@ class FSEventHandler(FileSystemEventHandler):
     """
 
     _ignore_timeout = 1.0
+    _hard_timeout = 60
 
     def __init__(self, syncing, startup, sync):
 
@@ -114,8 +113,7 @@ class FSEventHandler(FileSystemEventHandler):
         self.sync = sync
         self.sync.fs_events = self
 
-        self._ignored_paths = set()
-        self._ignored_paths_expiring = set()
+        self._ignored_paths = dict()
         self._mutex = Lock()
 
         self.local_file_event_queue = Queue()
@@ -124,8 +122,9 @@ class FSEventHandler(FileSystemEventHandler):
     def ignore(self, *local_paths):
 
         with self._mutex:
+            now = time.time()
             for path in local_paths:
-                self._ignored_paths.add(path)
+                self._ignored_paths[path] = now + self._hard_timeout
 
         try:
             yield
@@ -133,8 +132,15 @@ class FSEventHandler(FileSystemEventHandler):
             with self._mutex:
                 for path in local_paths:
                     ttl = time.time() + self._ignore_timeout
-                    self._ignored_paths_expiring.add((ttl, path))
-                    self._ignored_paths.discard(path)
+                    self._ignored_paths[path] = ttl
+
+    def _expire_ignored_paths(self):
+
+        with self._mutex:
+            now = time.time()
+            for path, ttl in self._ignored_paths.copy().items():
+                if ttl < now:
+                    self._ignored_paths.pop(path)
 
     def prune_ignored(self, event):
         """
@@ -146,70 +152,33 @@ class FSEventHandler(FileSystemEventHandler):
         :returns: Event to keep or none.
         :rtype: FileSystemEvent
         """
-        with self._mutex:
 
-            now = time.time()
+        self._expire_ignored_paths()
 
-            # prune expired paths
-            for ttl, p in self._ignored_paths_expiring.copy():
-                if ttl < now:
-                    self._ignored_paths_expiring.discard((ttl, p))
-
-            survived_paths = set(p for _, p in self._ignored_paths_expiring)
-            ignored_paths = self._ignored_paths.union(survived_paths)
-
-        if len(ignored_paths) == 0:
+        if len(self._ignored_paths) == 0:
             return event
 
         if event.event_type == EVENT_TYPE_MOVED:
             src_path = event.src_path
             dest_path = event.dest_path
 
-            ignored_src = any(is_equal_or_child(src_path, p) for p in ignored_paths)
-            ignored_dest = any(is_equal_or_child(dest_path, p) for p in ignored_paths)
+            ignore_src = any(is_equal_or_child(src_path, p) for p in self._ignored_paths)
+            ignore_dest = any(is_equal_or_child(dest_path, p) for p in self._ignored_paths)
 
-            if ignored_src and ignored_dest:
+            if ignore_src and ignore_dest:
                 return
-            elif ignored_dest:
-                return split_fs_event(event)[0]
-            elif ignored_src:
+            elif ignore_src:
                 return split_fs_event(event)[1]
+            elif ignore_dest:
+                return split_fs_event(event)[0]
             else:
                 return event
 
         else:
             src_path = event.src_path
-            ignored_src = any(is_equal_or_child(src_path, p) for p in ignored_paths)
+            ignore_src = any(is_equal_or_child(src_path, p) for p in self._ignored_paths)
 
-            return None if ignored_src else event
-
-    # TODO: The logic for ignoring moved events of children will no longer work when
-    #   renaming the parent's moved event. This will throw sync errors when trying to
-    #   apply those events, but they are only temporary and therefore tolerable for now.
-    @staticmethod
-    def rename_on_case_conflict(event):
-        """
-        Checks for other items in the same directory with same name but a different case.
-        Only needed for case sensitive file systems.
-
-        :param event: Created or moved event.
-        :returns: Modified event if conflict detected and file has been renamed, original
-            event otherwise.
-        """
-
-        if event.event_type not in (EVENT_TYPE_CREATED, EVENT_TYPE_MOVED):
-            return
-
-        # get the created path (src_path or dest_path)
-        created_path = get_dest_path(event)
-        dirname, basename = osp.split(created_path)
-
-        # check number paths with the same case
-        if len(path_exists_case_insensitive(basename, root=dirname)) > 1:
-            # rename item, this will be picked up by watchdog
-            cc_path = generate_cc_name(created_path, suffix='case conflict')
-            shutil.move(created_path, cc_path)
-            logger.debug('Case conflict: renamed "%s" to "%s"', created_path, cc_path)
+            return None if ignore_src else event
 
     def on_any_event(self, event):
         """
@@ -219,20 +188,15 @@ class FSEventHandler(FileSystemEventHandler):
         :param event: Watchdog file event.
         """
 
+        # ignore events if we are not during startup or sync
         if not (self.syncing.is_set() or self.startup.is_set()):
-            # ignore events if we are not during startup or sync
             return
 
         # check for ignored paths, split moved events if necessary
         event = self.prune_ignored(event)
-        if not event:
-            return
 
-        # rename target on case conflict
-        if IS_FS_CASE_SENSITIVE:
-            self.rename_on_case_conflict(event)
-
-        self.local_file_event_queue.put(event)
+        if event:
+            self.local_file_event_queue.put(event)
 
 
 class MaestralStateWrapper(abc.MutableSet):
@@ -787,29 +751,6 @@ class UpDownSync:
         return (self._is_mignore_path(dbx_path, is_dir=event.is_directory)
                 and not self.get_local_rev(dbx_path))
 
-    def _should_split_excluded(self, event):
-
-        if event.event_type != EVENT_TYPE_MOVED:
-            raise ValueError('Can only split moved events')
-
-        if (self.is_excluded(event.src_path)
-                or self.is_excluded(event.dest_path)
-                or self.is_excluded_by_user(event.src_path)
-                or self.is_excluded_by_user(event.dest_path)):
-            return True
-        else:
-            return self._should_split_mignore(event)
-
-    def _should_split_mignore(self, event):
-        if len(self.mignore_rules.patterns) == 0:
-            return False
-
-        dbx_src_path = self.to_dbx_path(event.src_path)
-        dbx_dest_path = self.to_dbx_path(event.dest_path)
-
-        return (self._is_mignore_path(dbx_src_path, event.is_directory)
-                or self._is_mignore_path(dbx_dest_path, event.is_directory))
-
     def _is_mignore_path(self, dbx_path, is_dir=False):
 
         relative_path = dbx_path.lstrip('/')
@@ -958,20 +899,6 @@ class UpDownSync:
 
             if self.is_excluded(dbx_path):  # is excluded?
                 events_excluded.append(event)
-            elif self.is_excluded_by_user(dbx_path):  # is excluded by selective sync?
-                if event.event_type is EVENT_TYPE_DELETED:
-                    self.clear_sync_error(local_path, dbx_path)
-                else:
-                    title = 'Could not upload'
-                    message = ('An item with the same path already exists on '
-                               'Dropbox but is excluded from syncing.')
-                    exc = ExcludedItemError(title, message, dbx_path=dbx_path,
-                                            local_path=local_path)
-                    basename = osp.basename(dbx_path)
-                    exc_info = (type(exc), exc, None)
-                    logger.warning('Could not upload ', basename, exc_info=exc_info)
-                    self.sync_errors.put(exc)
-                events_excluded.append(event)
             elif self.is_mignore(event):  # is excluded by mignore?
                 events_excluded.append(event)
             else:
@@ -1097,6 +1024,32 @@ class UpDownSync:
 
         return cleaned_events
 
+    def _should_split_excluded(self, event):
+
+        if event.event_type != EVENT_TYPE_MOVED:
+            raise ValueError('Can only split moved events')
+
+        dbx_src_path = self.to_dbx_path(event.src_path)
+        dbx_dest_path = self.to_dbx_path(event.dest_path)
+
+        if (self.is_excluded(event.src_path)
+                or self.is_excluded(event.dest_path)
+                or self.is_excluded_by_user(dbx_src_path)
+                or self.is_excluded_by_user(dbx_dest_path)):
+            return True
+        else:
+            return self._should_split_mignore(event)
+
+    def _should_split_mignore(self, event):
+        if len(self.mignore_rules.patterns) == 0:
+            return False
+
+        dbx_src_path = self.to_dbx_path(event.src_path)
+        dbx_dest_path = self.to_dbx_path(event.dest_path)
+
+        return (self._is_mignore_path(dbx_src_path, event.is_directory)
+                or self._is_mignore_path(dbx_dest_path, event.is_directory))
+
     @staticmethod
     def _separate_local_event_types(events):
         """
@@ -1114,6 +1067,70 @@ class UpDownSync:
 
         return folders, files, deleted
 
+    def handle_case_conflict(self, event):
+        """
+        Checks for other items in the same directory with same name but a different
+        case. Renames items if necessary.Only needed for case sensitive file systems.
+
+        :param FileSystemEvent event: Created or moved event.
+        :returns: ``True`` or ``False
+        :rtype: bool
+        """
+
+        if not IS_FS_CASE_SENSITIVE:
+            return False
+
+        if event.event_type not in (EVENT_TYPE_CREATED, EVENT_TYPE_MOVED):
+            return False
+
+        # get the created path (src_path or dest_path)
+        dest_path = get_dest_path(event)
+        dirname, basename = osp.split(dest_path)
+
+        # check number of paths with the same case
+        if len(path_exists_case_insensitive(basename, root=dirname)) > 1:
+
+            dest_path_cc = generate_cc_name(dest_path, suffix='case conflict')
+            with self.fs_events.ignore(dest_path):
+                shutil.move(dest_path, dest_path_cc)
+            logger.info('Case conflict: renamed "%s" to "%s"', dest_path, dest_path_cc)
+
+            return True
+        else:
+            return False
+
+    def handle_selective_sync_conflict(self, event):
+        """
+        Checks for other items in the same directory with same name but a different
+        case. Only needed for case sensitive file systems.
+
+        :param FileSystemEvent event: Created or moved event.
+        :returns: ``True`` or ``False
+        :rtype: bool
+        """
+
+        if event.event_type not in (EVENT_TYPE_CREATED, EVENT_TYPE_MOVED):
+            return False
+
+        local_path = get_dest_path(event)
+        dbx_path = self.to_dbx_path(local_path)
+
+        if self.is_excluded_by_user(dbx_path):
+            local_path_cc = generate_cc_name(local_path,
+                                             suffix='selective sync conflict')
+            try:
+                with self.fs_events.ignore(local_path):
+                    shutil.move(local_path, local_path_cc)
+            except FileNotFoundError:
+                pass
+            else:
+                logger.info('Selective sync conflict: renamed "%s" to "%s"',
+                            local_path, local_path_cc)
+
+            return True
+        else:
+            return False
+
     def apply_local_changes(self, events, local_cursor):
         """
         Applies locally detected events to remote Dropbox.
@@ -1127,7 +1144,7 @@ class UpDownSync:
 
         # sort events (might not be necessary)
         dir_events.sort(key=lambda x: x.src_path.count('/'))
-        deleted_events.sort(key=lambda x: x.src_path.count('/'), reverse=True)
+        deleted_events.sort(key=lambda x: x.src_path.count('/'))
 
         # update queues
         for e in events:
@@ -1169,6 +1186,19 @@ class UpDownSync:
         :rtype: list
         """
         return [item for item in list1 if item not in set(list2)]
+
+    @staticmethod
+    def _is_created_child(x, parent):
+        """
+        Check for children of created folders
+
+        :param FileSystemEvent x: Any file system event.
+        :param DirMovedEvent parent: Moved folder event.
+        :returns: True if ``x`` is a child of the created ``parent``, ``False`` otherwise.
+        :rtype: bool
+        """
+        is_created_event = (x.event_type is EVENT_TYPE_CREATED)
+        return is_created_event and is_child(x.src_path, parent.src_path)
 
     @staticmethod
     def _is_moved_child(x, parent):
@@ -1265,6 +1295,11 @@ class UpDownSync:
 
         self.set_local_rev(dbx_path_from, None)
 
+        if self.handle_selective_sync_conflict(event):
+            return
+        if self.handle_case_conflict(event):
+            return
+
         md_from_old = self.client.get_metadata(dbx_path_from)
 
         # If not on Dropbox, e.g., because its old name was invalid,
@@ -1278,7 +1313,7 @@ class UpDownSync:
 
         md_to_new = self.client.move(dbx_path_from, dbx_path_to, autorename=True)
 
-        # handle conflicts
+        # handle remote conflicts
         if md_to_new.path_lower != dbx_path_to.lower():
             # created conflict => move local item to mirror remote
             local_path_to_cc = self.to_local_path(md_to_new.path_display)
@@ -1291,7 +1326,7 @@ class UpDownSync:
             except FileNotFoundError:
                 self.set_local_rev(dbx_path_to, None)
 
-            logger.debug('Upload conflict "%s" handled by Dropbox, created "%s"',
+            logger.info('Upload conflict: renamed "%s" to "%s"',
                          dbx_path_to, md_to_new.path_display)
 
         else:
@@ -1322,6 +1357,11 @@ class UpDownSync:
         local_path = event.src_path
         dbx_path = self.to_dbx_path(local_path)
 
+        if self.handle_selective_sync_conflict(event):
+            return
+        if self.handle_case_conflict(event):
+            return
+
         md_old = self.client.get_metadata(dbx_path)
         self._wait_for_creation(local_path)
 
@@ -1342,11 +1382,14 @@ class UpDownSync:
                     return
 
             rev = self.get_local_rev(dbx_path)
-            if not rev:  # truly a new file
+            if not rev:
+                # add a new file, let Dropbox rename it if something is in the way
                 mode = dropbox.files.WriteMode('add')
-            elif rev == 'folder':  # folder replaced by file
+            elif rev == 'folder':
+                # try to overwrite the destination
                 mode = dropbox.files.WriteMode('overwrite')
-            else:  # modified file
+            else:
+                # try to update the given rev, create conflict otherwise
                 mode = dropbox.files.WriteMode('update', rev)
             try:
                 md_new = self.client.upload(local_path, dbx_path,
@@ -1368,7 +1411,7 @@ class UpDownSync:
             except FileNotFoundError:
                 self.set_local_rev(dbx_path, None)
 
-            logger.debug('Upload conflict "%s" handled by Dropbox, created "%s"',
+            logger.debug('Upload conflict: renamed "%s" to "%s"',
                          dbx_path, md_new.path_lower)
         else:
             rev = getattr(md_new, 'rev', 'folder')
@@ -1450,6 +1493,11 @@ class UpDownSync:
 
         path = event.src_path
         dbx_path = self.to_dbx_path(path)
+
+        if self.is_excluded_by_user(dbx_path):
+            logger.debug('Not deleting "%s": is excluded by selective sync', dbx_path)
+            return
+
         local_rev = self.get_local_rev(dbx_path)
         is_file = local_rev != 'folder'
         is_folder = local_rev == 'folder'
@@ -1648,7 +1696,7 @@ class UpDownSync:
         # sort according to path hierarchy
         # do not create sub-folder / file before parent exists
         folders.sort(key=lambda x: x.path_display.count('/'))
-        deleted.sort(key=lambda x: x.path_display.count('/'), reverse=True)
+        deleted.sort(key=lambda x: x.path_display.count('/'))
 
         downloaded = []  # local list of all changes
 
@@ -1950,7 +1998,7 @@ class UpDownSync:
                 # If there’s already something else at the given path,
                 # replace it but leave the children as they are.
 
-                with self.fs_events.ignored(local_path):
+                with self.fs_events.ignore(local_path):
 
                     if osp.isfile(local_path):
                         delete(local_path)

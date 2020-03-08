@@ -852,6 +852,8 @@ class Maestral(object):
                     logger.info('Included %s', path)
                     self.sync.queued_newly_included_downloads.put(path)
 
+        logger.info(IDLE)
+
     def excluded_status(self, dbx_path):
         """
         Returns 'excluded', 'partially excluded' or 'included'. This function will not
