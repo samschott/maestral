@@ -1996,8 +1996,7 @@ class UpDownSync:
 
         return folders, files, deleted
 
-    @staticmethod
-    def _clean_remote_changes(changes):
+    def _clean_remote_changes(self, changes):
         """
         Takes remote file events since last sync and cleans them up so that there is only
         a single event per path.
@@ -2026,12 +2025,24 @@ class UpDownSync:
         new_entries = []
 
         for h in histories:
+            last_event = h[-1]
+            was_dir = self.get_local_rev(last_event.path_lower) == 'folder'
+
             # Dropbox guarantees that applying events in the provided order
-            # will reproduce the state in the cloud. We therefore combine:
-            # deleted, ..., modified -> modified
-            # modified, ..., deleted -> deleted
-            # modified, ..., modified -> modified
-            new_entries.append(h[-1])
+            # will reproduce the state in the cloud. We therefore keep only
+            # the last event, unless there is a change in item type.
+            if (was_dir and isinstance(last_event, FileMetadata)
+                    or not was_dir and isinstance(last_event, FolderMetadata)):
+                deleted_event = DeletedMetadata(
+                    name=last_event.name,
+                    path_lower=last_event.path_lower,
+                    path_display=last_event.path_display,
+                    parent_shared_folder_id=last_event.parent_shared_folder_id
+                )
+                new_entries.append(deleted_event)
+                new_entries.append(last_event)
+            else:
+                new_entries.append(last_event)
 
         changes.entries = new_entries
 
