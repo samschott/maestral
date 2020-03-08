@@ -46,7 +46,7 @@ from maestral.utils.updates import check_update_available
 from maestral.utils.housekeeping import run_housekeeping
 from maestral.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
-    BUGSNAG_API_KEY, IDLE, DISCONNECTED,
+    BUGSNAG_API_KEY, IDLE, DISCONNECTED, FileStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -503,23 +503,23 @@ class Maestral(object):
         :rtype: str
         """
         if not self.syncing:
-            return 'unwatched'
+            return FileStatus.Unwatched.value
 
         try:
             dbx_path = self.sync.to_dbx_path(local_path)
         except ValueError:
-            return 'unwatched'
+            return FileStatus.Unwatched.value
 
         if local_path in self.monitor.queued_for_upload:
-            return 'uploading'
+            return FileStatus.Uploading.value
         elif local_path in self.monitor.queued_for_download:
-            return 'downloading'
+            return FileStatus.Downloading.value
         elif any(local_path == err['local_path'] for err in self.sync_errors):
-            return 'error'
+            return FileStatus.Error.value
         elif self.sync.get_local_rev(dbx_path):
-            return 'up to date'
+            return FileStatus.Synced.value
         else:
-            return 'unwatched'
+            return FileStatus.Unwatched.value
 
     def get_activity(self):
         """

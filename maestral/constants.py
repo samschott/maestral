@@ -12,6 +12,7 @@ import os
 import platform
 import sys
 import tempfile
+from enum import Enum
 
 
 def is_fs_case_sensitive():
@@ -42,6 +43,16 @@ STOPPED = 'Syncing stopped'
 DISCONNECTED = 'Connecting...'
 SYNC_ERROR = 'Sync error'
 ERROR = 'Fatal error'
+
+
+# file status enum
+class FileStatus(Enum):
+    Unwatched = 'unwatched'
+    Uploading = 'uploading'
+    Downloading = 'downloading'
+    Error = 'error'
+    Synced = 'up to date'
+
 
 # bundle detection
 IS_MACOS_BUNDLE = getattr(sys, 'frozen', False) and platform.system() == 'Darwin'
