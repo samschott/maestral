@@ -86,7 +86,7 @@ file_events_test3 = [
 ]
 
 res3 = [
-    FileModifiedEvent(path(1)),    # modified file
+    FileModifiedEvent(path(1)),       # modified file
     FileCreatedEvent(path(1) + '~'),  # backup
 ]
 
