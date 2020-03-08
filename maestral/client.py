@@ -162,10 +162,10 @@ class MaestralApiClient:
         """
         Gets current account information.
 
-        :param str dbid: Dropbox ID of account. If not given, will get the info of our own
-            account.
-        :returns: :class:`dropbox.users.FullAccount` instance or `None` if failed.
-        :rtype: dropbox.users.FullAccount
+        :param str dbid: Dropbox ID of account. If not given, will get the info of the
+            currently linked account.
+        :returns: Account info.
+        :rtype: :class:`dropbox.users.FullAccount`
         """
         if dbid:
             res = self.dbx.users_get_account(dbid)
@@ -225,22 +225,17 @@ class MaestralApiClient:
 
         :param str dbx_path: Path of folder on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
-        :returns: Metadata of item at the given path.
-        :rtype: :class:`dropbox.files.FileMetadata` |
-            :class:`dropbox.files.FolderMetadata` | bool
+        :returns: Metadata of item at the given path or ``None``.
+        :rtype: :class:`dropbox.files.Metadata`
         """
 
         try:
-            md = self.dbx.files_get_metadata(dbx_path, **kwargs)
-            # logger.debug('Retrieved metadata for "%s"', md.path_display)
+            return self.dbx.files_get_metadata(dbx_path, **kwargs)
         except dropbox.exceptions.ApiError:
             # DropboxAPI error is only raised when the item does not exist on Dropbox
             # this is handled on a DEBUG level since we use call `get_metadata` to check
             # if a file exists
-            # logger.debug('Could not get metadata for "%s": %s', dbx_path, exc)
-            md = False
-
-        return md
+            pass
 
     @to_maestral_error(dbx_path_arg=1)
     def list_revisions(self, dbx_path, mode='path', limit=10):
@@ -330,7 +325,10 @@ class MaestralApiClient:
                                 commit
                             )
                         else:
-                            self.dbx.files_upload_session_append_v2(f.read(chunk_size), cursor)
+                            self.dbx.files_upload_session_append_v2(
+                                f.read(chunk_size),
+                                cursor
+                            )
                             cursor.offset = f.tell()
                         logger.info(f'Uploading {bytes_to_str(f.tell())}/{size_str}...')
                     except dropbox.exceptions.DropboxException as exc:
@@ -361,7 +359,7 @@ class MaestralApiClient:
         :param str dbx_path: Path to file on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_delete_v2.
         :returns: Metadata of deleted item.
-        :rtype: :class:`dropbox.files.FileMetadata` | :class:`dropbox.files.FolderMetadata`
+        :rtype: :class:`dropbox.files.Metadata`
         """
         # try to remove file (response will be metadata, probably)
         res = self.dbx.files_delete_v2(dbx_path, **kwargs)
@@ -378,7 +376,7 @@ class MaestralApiClient:
         :param str new_path: New path on Dropbox to move to.
         :param kwargs: Keyword arguments for Dropbox SDK files_move_v2.
         :returns: Metadata of moved item.
-        :rtype: :class:`dropbox.files.FileMetadata` | :class:`dropbox.files.FolderMetadata`
+        :rtype: :class:`dropbox.files.Metadata`
         """
         res = self.dbx.files_move_v2(
             dbx_path,
