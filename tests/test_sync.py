@@ -201,7 +201,8 @@ def test_clean_local_events():
 # standard and challenging cases.
 
 def test_sync_cases():
-    # TODO:
+    # Currently those tests are performed manually with the following test cases:
+    #
     #  * Remote file replaced with a folder (OK): Check mtime and create CC of local file
     #    if necessary.
     #  * Remote folder replaced with a file (OK):
