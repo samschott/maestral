@@ -38,6 +38,7 @@ install_requires = [
     'lockfile',
     'packaging',
     'pathspec',
+    'psutil',
     'Pyro5>=5.7',
     'requests',
     'rubicon-objc>=0.3.1;sys_platform=="darwin"',

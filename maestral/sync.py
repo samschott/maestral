@@ -23,6 +23,7 @@ import functools
 from enum import IntEnum
 
 # external imports
+import psutil
 import pathspec
 import umsgpack
 import dropbox
@@ -53,6 +54,8 @@ from maestral.utils.path import (
 from maestral.utils.appdirs import get_data_path
 
 logger = logging.getLogger(__name__)
+
+_max_cpu_percent = 45.0
 
 
 # TODO:
@@ -1246,7 +1249,7 @@ class UpDownSync:
         # apply file events in parallel
         success = []
         last_emit = time.time()
-        with ThreadPoolExecutor(max_workers=6) as executor:
+        with ThreadPoolExecutor() as executor:
             fs = (executor.submit(self._create_remote_entry, e) for e in file_events)
             n_files = len(file_events)
             for f, n in zip(as_completed(fs), range(1, n_files + 1)):
@@ -1317,6 +1320,8 @@ class UpDownSync:
         """Apply a local file event `event` to the remote Dropbox. Clear any related
         sync errors with the file. Any new MaestralApiErrors will be caught by the
         decorator."""
+
+        slow_down()
 
         local_path_from = event.src_path
         local_path_to = get_dest_path(event)
@@ -1799,7 +1804,7 @@ class UpDownSync:
         # apply created files
         n_files = len(files)
         last_emit = time.time()
-        with ThreadPoolExecutor(max_workers=6) as executor:
+        with ThreadPoolExecutor() as executor:
             fs = (executor.submit(self._create_local_entry, file) for file in files)
             for f, n in zip(as_completed(fs), range(1, n_files + 1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
@@ -2062,6 +2067,8 @@ class UpDownSync:
             already existed locally and ``False`` if the download failed.
         :raises: MaestralApiError on failure.
         """
+
+        slow_down()
 
         local_path = self.to_local_path(entry.path_display)
 
@@ -2668,6 +2675,17 @@ class MaestralMonitor:
 # ========================================================================================
 # Helper functions
 # ========================================================================================
+
+p = psutil.Process(os.getpid())
+
+
+def slow_down(max_cpu_percent=_max_cpu_percent):
+    """Wait until CPU usage is below limit"""
+    cpu_usage = psutil.cpu_percent()
+
+    while cpu_usage > max_cpu_percent:
+        time.sleep(0.5)
+        cpu_usage = psutil.cpu_percent()
 
 
 def get_dest_path(event):

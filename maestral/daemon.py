@@ -212,6 +212,10 @@ def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
             logger.debug(f'Maestral already running')
             return
 
+    # Nice ourselves give other processes priority. We will likely only
+    # have significant CPU usage in case of many concurrent downloads.
+    os.nice(10)
+
     logger.debug(f'Starting Maestral daemon on socket "{sock_name}"')
 
     try:
