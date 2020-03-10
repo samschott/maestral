@@ -14,8 +14,9 @@ import shutil
 import logging
 import time
 import tempfile
-from threading import Thread, Event, Lock, RLock
+import random
 import json
+from threading import Thread, Event, Lock, RLock
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
 from collections import abc, OrderedDict
@@ -55,8 +56,6 @@ from maestral.utils.path import (
 from maestral.utils.appdirs import get_data_path
 
 logger = logging.getLogger(__name__)
-
-_max_cpu_percent = 45.0
 
 
 # TODO:
@@ -487,6 +486,14 @@ class UpDownSync:
         clean_list = self.clean_excluded_items_list(folder_list)
         self._excluded_items = clean_list
         self._conf.set('main', 'excluded_items', clean_list)
+
+    @property
+    def max_cpu_percent(self):
+        return self._conf.get('app', 'max_cpu_percent') * os.cpu_count()
+
+    @max_cpu_percent.setter
+    def max_cpu_percent(self, percent):
+        self._conf.set('app', 'max_cpu_percent', percent // os.cpu_count())
 
     # ==== sync state ====================================================================
 
@@ -943,6 +950,12 @@ class UpDownSync:
 
         return self.mignore_rules.match_file(relative_path)
 
+    def _slow_down(self):
+
+        cpu_usage = p.cpu_percent(0.5)
+        while cpu_usage > self.max_cpu_percent:
+            cpu_usage = p.cpu_percent(0.5 + 2 * random.random())
+
     # ==== Upload sync ===================================================================
 
     def upload_local_changes_while_inactive(self):
@@ -1097,8 +1110,8 @@ class UpDownSync:
         there is only a single event per path. Collapses moved and deleted events of
         folders with those of their children.
 
-        :param events: Iterable of :class:`watchdog.FileSystemEvents`.
-        :returns: List of :class:`watchdog.FileSystemEvents`.
+        :param events: Iterable of :class:`fsevents.FileSystemEvents`.
+        :returns: List of :class:`fsevents.FileSystemEvents`.
         :rtype: list
         """
 
@@ -1419,11 +1432,16 @@ class UpDownSync:
 
     @catch_sync_issues
     def _create_remote_entry(self, event):
-        """Apply a local file event `event` to the remote Dropbox. Clear any related
+        """
+        Applies a local file event `event` to the remote Dropbox. Clears any related
         sync errors with the file. Any new MaestralApiErrors will be caught by the
-        decorator."""
+        decorator.
 
-        slow_down()
+        :param FileSystemEvent event: Watchdog file system event.
+        :raises: MaestralApiError on failure.
+        """
+
+        self._slow_down()
 
         local_path_from = event.src_path
         local_path_to = get_dest_path(event)
@@ -1858,13 +1876,15 @@ class UpDownSync:
         if deleted:
             logger.info('Applying deletions...')
         for item in deleted:
-            downloaded.append(self._create_local_entry(item))
+            res = self._create_local_entry(item)
+            downloaded.append(res)
 
         # create local folders, start with top-level and work your way down
         if folders:
             logger.info('Creating folders...')
         for folder in folders:
-            downloaded.append(self._create_local_entry(folder))
+            res = self._create_local_entry(folder)
+            downloaded.append(res)
 
         # apply created files
         n_files = len(files)
@@ -2129,13 +2149,13 @@ class UpDownSync:
         """
         Creates local file / folder for remote entry.
 
-        :param Metadata class entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
+        :param Metadata entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
         :returns: Copy of metadata if the change was downloaded, ``True`` if the change
             already existed locally and ``False`` if the download failed.
         :raises: MaestralApiError on failure.
         """
 
-        slow_down()
+        self._slow_down()
 
         local_path = self.to_local_path(entry.path_display)
 
@@ -2757,15 +2777,6 @@ class MaestralMonitor:
 # ========================================================================================
 
 p = psutil.Process(os.getpid())
-
-
-def slow_down(max_cpu_percent=_max_cpu_percent):
-    """Wait until CPU usage is below limit"""
-    cpu_usage = psutil.cpu_percent()
-
-    while cpu_usage > max_cpu_percent:
-        time.sleep(0.5)
-        cpu_usage = psutil.cpu_percent()
 
 
 def get_dest_path(event):

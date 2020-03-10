@@ -29,10 +29,11 @@ DEFAULTS = [
      ),
     ('app',
      {
-         'notification_level': 15,  # desktop notification level
-         'log_level': 20,
-         'update_notification_interval': 60 * 60 * 24 * 7,
-         'analytics': False,  # automatically report crashes and errors with bugsnag
+         'notification_level': 15,  # desktop notification level, default to FILECHANGE
+         'log_level': 20,  # log level for journal and file, default to INFO
+         'update_notification_interval': 60 * 60 * 24 * 7,  # default to weekly
+         'analytics': False,  # automatic errors reports with bugsnag, default to disabled
+         'max_cpu_percent': 20.0,  # max usage target per cpu core, default to 20%
      }
      ),
 ]
