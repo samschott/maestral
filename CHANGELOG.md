@@ -50,6 +50,8 @@ and fixes an issue with immediately retrying failed downloads.
   re-downloading it, depending on the time elapsed between removal and re-mounting.
 - Improves conflict resolution when a folder has been been replaced with a file or vice
   versa and both the local and remote item have un-synced changes.
+- Fixes an issue where `maestral stop` would block until all pending syncs have completed.
+  This could potentially take a *very* long time for large downloads.
 
 #### Removed:
 
