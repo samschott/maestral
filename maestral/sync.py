@@ -407,6 +407,7 @@ class UpDownSync:
     _last_sync_lock = RLock()
 
     _max_history = 30
+    _num_threads = min(32, os.cpu_count() + 4)
 
     def __init__(self, client):
 
@@ -1348,7 +1349,7 @@ class UpDownSync:
         # apply file events in parallel
         success = []
         last_emit = time.time()
-        with ThreadPoolExecutor() as executor:
+        with ThreadPoolExecutor(max_workers=self._num_threads) as executor:
             fs = (executor.submit(self._create_remote_entry, e) for e in file_events)
             n_files = len(file_events)
             for f, n in zip(as_completed(fs), range(1, n_files + 1)):
@@ -1868,7 +1869,7 @@ class UpDownSync:
         # apply created files
         n_files = len(files)
         last_emit = time.time()
-        with ThreadPoolExecutor() as executor:
+        with ThreadPoolExecutor(max_workers=self._num_threads) as executor:
             fs = (executor.submit(self._create_local_entry, file) for file in files)
             for f, n in zip(as_completed(fs), range(1, n_files + 1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
