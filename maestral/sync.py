@@ -1403,20 +1403,8 @@ class UpDownSync:
 
         # handle remote conflicts
         if md_to_new.path_lower != dbx_path_to.lower():
-            # created conflict => move local item to mirror remote
-            local_path_to_cc = self.to_local_path(md_to_new.path_display)
-
-            delete(local_path_to_cc)
-            try:
-                shutil.move(local_path_to, local_path_to_cc)
-                self.set_local_rev(dbx_path_to, None)
-                self._set_local_rev_recursive(md_to_new)
-            except FileNotFoundError:
-                self.set_local_rev(dbx_path_to, None)
-
             logger.info('Upload conflict: renamed "%s" to "%s"',
                         dbx_path_to, md_to_new.path_display)
-
         else:
             self._set_local_rev_recursive(md_to_new)
             logger.debug('Moved "%s" to "%s" on Dropbox', dbx_path_from, dbx_path_to)
@@ -1488,17 +1476,6 @@ class UpDownSync:
                 return
 
         if md_new.path_lower != dbx_path.lower():
-            # created conflict => move local item to reflect dropbox changes
-            local_path_cc = self.to_local_path(md_new.path_display)
-            try:
-                with self.fs_events.ignore(local_path, local_path_cc):
-                    delete(local_path_cc)
-                    shutil.move(local_path, local_path_cc)
-                self.set_local_rev(dbx_path, None)
-                self._set_local_rev_recursive(md_new)
-            except FileNotFoundError:
-                self.set_local_rev(dbx_path, None)
-
             logger.debug('Upload conflict: renamed "%s" to "%s"',
                          dbx_path, md_new.path_lower)
         else:
@@ -1550,22 +1527,8 @@ class UpDownSync:
                 return
 
             if md_new.path_lower != dbx_path.lower():
-                # created conflict => move local item to reflect dropbox changes
-                local_path_cc = self.to_local_path(md_new.path_display)
-
-                try:
-                    # will only rename *files* here, we ignore folder modified events
-                    with self.fs_events.ignore(local_path, local_path_cc):
-                        delete(local_path_cc)
-                        os.rename(local_path, local_path_cc)
-                    self.set_local_rev(dbx_path, None)
-                    self.set_local_rev(md_new.path_lower, md_new.rev)
-                except FileNotFoundError:
-                    self.set_local_rev(dbx_path, None)
-
                 logger.debug('Upload conflict "%s" renamed to "%s" by Dropbox',
                              dbx_path, md_new.path_lower)
-
             else:
                 self.set_local_rev(md_new.path_lower, md_new.rev)
                 logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
