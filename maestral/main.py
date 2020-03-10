@@ -22,6 +22,7 @@ from collections import namedtuple, deque
 import click
 import requests
 from dropbox import files
+from watchdog.events import EVENT_TYPE_DELETED
 import bugsnag
 from bugsnag.handlers import BugsnagHandler
 
@@ -750,10 +751,12 @@ class Maestral(object):
         # remove folder from local drive
         local_path = self.sync.to_local_path(dbx_path)
         # dbx_path will be lower-case, we there explicitly run `to_cased_path`
-        local_path_cased = to_cased_path(local_path)
-        if local_path_cased:
-            with self.monitor.fs_event_handler.ignore(local_path_cased):
-                delete(local_path_cased)
+        local_path = to_cased_path(local_path)
+        if local_path:
+            with self.monitor.fs_event_handler.ignore(local_path,
+                                                      recursive=osp.isdir(local_path),
+                                                      event_types=(EVENT_TYPE_DELETED,)):
+                delete(local_path)
 
     def include_item(self, dbx_path):
         """
