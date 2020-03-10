@@ -15,6 +15,7 @@ import logging
 import time
 import tempfile
 from threading import Thread, Event, Lock, RLock
+import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
 from collections import abc, OrderedDict
@@ -438,8 +439,11 @@ class UpDownSync:
         # load cached properties
         self._dropbox_path = self._conf.get('main', 'path')
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
+
         self._rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
-        self._rev_dict_cache = self._load_rev_dict_from_file()
+        self._rev_dict_cache = dict()
+        self._migrate_rev_dict()
+        self._load_rev_dict_from_file()
         self._excluded_items = self._conf.get('main', 'excluded_items')
         self._mignore_rules = self._load_mignore_rules_form_file()
         self._last_sync_for_path = dict()
@@ -527,77 +531,128 @@ class UpDownSync:
 
     # ==== rev file management ===========================================================
 
+    @contextmanager
+    def _handle_rev_read_exceptions(self, raise_exception=False):
+
+        title = None
+        new_exc = None
+
+        try:
+            yield
+        except (FileNotFoundError, IsADirectoryError):
+            logger.info('Maestral index could not be found')
+        except json.decoder.JSONDecodeError as exc:
+            title = 'Corrupted index'
+            msg = 'Maestral index has become corrupted. Please rebuild.'
+            new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
+        except PermissionError as exc:
+            title = 'Could not load index'
+            msg = (f'Insufficient permissions for "{self.rev_file_path}". Please '
+                   'make sure that you have read and write permissions.')
+            new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
+        except OSError as exc:
+            title = 'Could not load index'
+            msg = 'Please resync your Dropbox to rebuild the index.'
+            new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
+
+        if new_exc and raise_exception:
+            raise new_exc
+        elif new_exc:
+            exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
+            logger.error(title, exc_info=exc_info)
+
+    @contextmanager
+    def _handle_rev_write_exceptions(self, raise_exception=False):
+
+        title = None
+        new_exc = None
+
+        try:
+            yield
+        except PermissionError as exc:
+            title = 'Could not save index'
+            msg = (f'Insufficient permissions for "{self.rev_file_path}". Please '
+                   'make sure that you have read and write permissions.')
+            new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
+        except OSError as exc:
+            title = 'Could not save index'
+            msg = 'Please check the logs for more information'
+            new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
+
+        if new_exc and raise_exception:
+            raise new_exc
+        elif new_exc:
+            exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
+            logger.error(title, exc_info=exc_info)
+
+    def _migrate_rev_dict(self):
+        try:
+            with self._handle_rev_read_exceptions():
+                with open(self.rev_file_path, 'rb') as f:
+                    self._rev_dict_cache = umsgpack.unpack(f)
+            assert isinstance(self._rev_dict_cache, dict)
+        except (AssertionError, umsgpack.InsufficientDataException):
+            self._rev_dict_cache = dict()
+        else:
+            self._save_rev_dict_to_file()
+
     def _load_rev_dict_from_file(self, raise_exception=False):
         """
         Loads Maestral's rev index from `rev_file_path` using u-msgpack.
 
         :param bool raise_exception: If ``True``, raises an exception when loading fails.
             If ``False``, an error message is logged instead.
-        :raises: RevFileError
+        :raises: RevFileError if ``raise_exception`` is ``True``.
         """
-        rev_dict_cache = dict()
-        new_exc = None
-
         with self._rev_lock:
-            try:
-                with open(self.rev_file_path, 'rb') as f:
-                    rev_dict_cache = umsgpack.unpack(f)
-                assert isinstance(rev_dict_cache, dict)
-                assert all(isinstance(key, str) for key in rev_dict_cache.keys())
-                assert all(isinstance(val, str) for val in rev_dict_cache.values())
-            except (FileNotFoundError, IsADirectoryError):
-                logger.info('Maestral index could not be found')
-            except (AssertionError, umsgpack.InsufficientDataException) as exc:
-                title = 'Corrupted index'
-                msg = 'Maestral index has become corrupted. Please rebuild.'
-                new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
-            except PermissionError as exc:
-                title = 'Could not load index'
-                msg = ('Insufficient permissions for Dropbox folder. Please '
-                       'make sure that you have read and write permissions.')
-                new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
-            except OSError as exc:
-                title = 'Could not load index'
-                msg = 'Please resync your Dropbox to rebuild the index.'
-                new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
+            self._rev_dict_cache.clear()
+            with self._handle_rev_read_exceptions(raise_exception):
+                with open(self.rev_file_path, 'r') as f:
+                    for line in f:
+                        try:
+                            entry = json.loads(line.strip('\n'))
+                            self._rev_dict_cache.update(entry)
+                        except json.decoder.JSONDecodeError as exc:
+                            if line.endswith('\n'):
+                                raise exc
+                            else:
+                                # last line of file, likely an interrupted write
+                                pass
 
-            if new_exc and raise_exception:
-                raise new_exc
-            elif new_exc:
-                exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
-                logger.error(title, exc_info=exc_info)
-
-            return rev_dict_cache
+            # clean up empty revs
+            for path, rev in self._rev_dict_cache.copy().items():
+                if not rev:
+                    del self._rev_dict_cache[path]
 
     def _save_rev_dict_to_file(self, raise_exception=False):
         """
-        Save Maestral's rev index to `rev_file_path` using u-msgpack.
+        Save Maestral's rev index to `rev_file_path`.
 
         :param bool raise_exception: If ``True``, raises an exception when saving fails.
             If ``False``, an error message is logged instead.
-        :raises: RevFileError
+        :raises: RevFileError if ``raise_exception`` is ``True``.
         """
-        new_exc = None
+        with self._rev_lock:
+            with self._handle_rev_write_exceptions(raise_exception):
+                with atomic_write(self.rev_file_path, mode='w', overwrite=True) as f:
+                    for path, rev in self._rev_dict_cache.items():
+                        f.write(json.dumps({path: rev}) + '\n')
+
+    def _append_rev_to_file(self, path, rev, raise_exception=False):
+        """
+        Appends a new line with '{path}: {rev}\n' to the rev file. This is quicker than
+        saving the entire rev index. When loading the rev file, older entries will be
+        overwritten with newer ones and all entries with rev == None will be discarded.
+
+        :param str path: Path for rev.
+        :param str, None rev: Dropbox rev number.
+        :raises: RevFileError if ``raise_exception`` is ``True``.
+        """
 
         with self._rev_lock:
-            try:
-                with atomic_write(self.rev_file_path, mode='wb', overwrite=True) as f:
-                    umsgpack.pack(self._rev_dict_cache, f)
-            except PermissionError as exc:
-                title = 'Could not save index'
-                msg = ('Insufficient permissions for Dropbox folder. Please '
-                       'make sure that you have read and write permissions.')
-                new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
-            except OSError as exc:
-                title = 'Could not save index'
-                msg = 'Please check the logs for more information'
-                new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
-
-            if new_exc and raise_exception:
-                raise new_exc
-            elif new_exc:
-                exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
-                logger.error(title, exc_info=exc_info)
+            with self._handle_rev_write_exceptions(raise_exception):
+                with open(self.rev_file_path, mode='a') as f:
+                    f.write(json.dumps({path: rev}) + '\n')
 
     def get_rev_index(self):
         """
@@ -608,7 +663,7 @@ class UpDownSync:
         :rtype: dict
         """
         with self._rev_lock:
-            return dict(self._rev_dict_cache)
+            return self._rev_dict_cache.copy()
 
     def get_local_rev(self, dbx_path):
         """
@@ -645,17 +700,20 @@ class UpDownSync:
                 for path in dict(self._rev_dict_cache):
                     if path.startswith(dbx_path):
                         self._rev_dict_cache.pop(path, None)
+                        self._append_rev_to_file(path, None)
             else:
                 # add entry
                 self._rev_dict_cache[dbx_path] = rev
+                self._append_rev_to_file(dbx_path, rev)
                 # set all parent revs to 'folder'
                 dirname = osp.dirname(dbx_path)
                 while dirname != '/':
                     self._rev_dict_cache[dirname] = 'folder'
+                    self._append_rev_to_file(dirname, 'folder')
                     dirname = osp.dirname(dirname)
 
-            # save changes to file
-            self._save_rev_dict_to_file()
+    def clean_rev_file(self):
+        self._save_rev_dict_to_file()
 
     def clear_rev_index(self):
         with self._rev_lock:
@@ -1303,6 +1361,8 @@ class UpDownSync:
         if all(success):
             self.last_sync = local_cursor  # save local cursor
 
+        self.clean_rev_file()
+
     @staticmethod
     def _list_diff(list1, list2):
         """
@@ -1821,6 +1881,8 @@ class UpDownSync:
 
         if save_cursor:
             self.last_cursor = changes.cursor
+
+        self.clean_rev_file()
 
         return [entry for entry in downloaded if not isinstance(entry, bool)], success
 
