@@ -39,7 +39,7 @@ from atomicwrites import atomic_write
 
 # local imports
 from maestral.config import MaestralConfig, MaestralState
-from maestral.watchdog import Observer
+from maestral.fsevents import Observer
 from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                 EXCLUDED_FILE_NAMES, MIGNORE_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError,
