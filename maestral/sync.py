@@ -176,8 +176,7 @@ class FSEventHandler(FileSystemEventHandler):
     :param UpDownSync sync: UpDownSync instance.
     """
 
-    _ignore_timeout = 1.0
-    _hard_timeout = 60
+    _ignore_timeout = 2
 
     def __init__(self, syncing, startup, sync):
 
@@ -186,72 +185,110 @@ class FSEventHandler(FileSystemEventHandler):
         self.sync = sync
         self.sync.fs_events = self
 
-        self._ignored_paths = dict()
+        self._ignored_paths = list()
         self._mutex = Lock()
 
         self.local_file_event_queue = Queue()
 
     @contextmanager
-    def ignore(self, *local_paths):
+    def ignore(self, *local_paths,
+               event_types=(EVENT_TYPE_MOVED, EVENT_TYPE_DELETED, EVENT_TYPE_CREATED),
+               recursive=False):
 
         with self._mutex:
             now = time.time()
+            new_ignores = list()
             for path in local_paths:
-                self._ignored_paths[path] = now + self._hard_timeout
+                new_ignores.append(
+                    dict(
+                        path=path,
+                        start_time=now,
+                        ttl=None,
+                        event_types=event_types,
+                        recursive=recursive,
+                    )
+                )
+            self._ignored_paths.extend(new_ignores)
 
         try:
             yield
         finally:
             with self._mutex:
-                for path in local_paths:
-                    ttl = time.time() + self._ignore_timeout
-                    self._ignored_paths[path] = ttl
+                for ignore in new_ignores:
+                    ignore['ttl'] = time.time() + self._ignore_timeout
 
     def _expire_ignored_paths(self):
 
         with self._mutex:
             now = time.time()
-            for path, ttl in self._ignored_paths.copy().items():
-                if ttl < now:
-                    self._ignored_paths.pop(path)
+            for ignore in self._ignored_paths.copy():
+                ttl = ignore['ttl']
+                if ttl and ttl < now:
+                    self._ignored_paths.remove(ignore)
 
     def prune_ignored(self, event):
         """
-        Checks if a file system event's path has been explicitly ignored, for instance
-        because it was likely triggered by a download. Split moved events if necessary and
-        return the event to keep.
+        Checks if a file system event should been explicitly ignored because it was likely
+        triggered by Maestral. Split moved events if necessary and return the event to
+        keep.
 
         :param FileSystemEvent event: Local file system event.
-        :returns: Event to keep or none.
-        :rtype: FileSystemEvent
+        :returns: Event to keep, can be None.
+        :rtype: FileSystemEvent|None
         """
 
         self._expire_ignored_paths()
 
-        if len(self._ignored_paths) == 0:
-            return event
+        for ignore in self._ignored_paths:
+            path = ignore['path']
+            event_types = ignore['event_types']
+            recursive = ignore['recursive']
+            start_time = ignore['start_time']
 
-        if event.event_type == EVENT_TYPE_MOVED:
-            src_path = event.src_path
-            dest_path = event.dest_path
+            if event.event_type in event_types and (not event.is_directory or recursive):
 
-            ignore_src = any(is_equal_or_child(src_path, p) for p in self._ignored_paths)
-            ignore_dest = any(is_equal_or_child(dest_path, p) for p in self._ignored_paths)
+                if (not event.event_type == EVENT_TYPE_DELETED
+                        and self.sync.get_ctime(get_dest_path(event)) < start_time):
+                    # event occurred before exclusion started
+                    return event
 
-            if ignore_src and ignore_dest:
-                return
-            elif ignore_src:
-                return split_fs_event(event)[1]
-            elif ignore_dest:
-                return split_fs_event(event)[0]
-            else:
-                return event
+                if event.event_type == EVENT_TYPE_MOVED:
+                    # check for source and destination path
+                    src_path = event.src_path
+                    dest_path = event.dest_path
 
-        else:
-            src_path = event.src_path
-            ignore_src = any(is_equal_or_child(src_path, p) for p in self._ignored_paths)
+                    if recursive:
+                        ignore_src = is_equal_or_child(src_path, path)
+                        ignore_dest = is_equal_or_child(dest_path, path)
+                    else:
+                        ignore_src = src_path == path
+                        ignore_dest = dest_path == path
 
-            return None if ignore_src else event
+                    if ignore_src and ignore_dest:
+                        if not recursive:
+                            self._ignored_paths.remove(ignore)
+                        return None
+                    elif ignore_src:
+                        if not recursive:
+                            self._ignored_paths.remove(ignore)
+                        return split_fs_event(event)[1]
+                    elif ignore_dest:
+                        if not recursive:
+                            self._ignored_paths.remove(ignore)
+                        return split_fs_event(event)[0]
+
+                else:
+                    if recursive:
+                        ignore_src = is_equal_or_child(event.src_path, path)
+                    else:
+                        ignore_src = event.src_path == path
+
+                    if ignore_src:
+                        if not recursive:
+                            self._ignored_paths.remove(ignore)
+                        return None
+
+        return event
 
     def on_any_event(self, event):
         """
@@ -633,12 +670,12 @@ class UpDownSync:
 
     @property
     def mignore_rules(self):
-        if self._get_ctime(self.mignore_path) != self._mignore_ctime_loaded:
+        if self.get_ctime(self.mignore_path) != self._mignore_ctime_loaded:
             self._mignore_rules = self._load_mignore_rules_form_file()
         return self._mignore_rules
 
     def _load_mignore_rules_form_file(self):
-        self._mignore_ctime_loaded = self._get_ctime(self.mignore_path)
+        self._mignore_ctime_loaded = self.get_ctime(self.mignore_path)
         try:
             with open(self.mignore_path, 'r') as f:
                 spec = f.read()
@@ -1178,7 +1215,9 @@ class UpDownSync:
         if len(path_exists_case_insensitive(basename, root=dirname)) > 1:
 
             dest_path_cc = generate_cc_name(dest_path, suffix='case conflict')
-            with self.fs_events.ignore(dest_path):
+            with self.fs_events.ignore(dest_path, recursive=osp.isdir(dest_path),
+                                       event_types=(EVENT_TYPE_DELETED,
+                                                    EVENT_TYPE_MOVED)):
                 shutil.move(dest_path, dest_path_cc)
             logger.info('Case conflict: renamed "%s" to "%s"', dest_path, dest_path_cc)
 
@@ -1206,7 +1245,9 @@ class UpDownSync:
             local_path_cc = generate_cc_name(local_path,
                                              suffix='selective sync conflict')
             try:
-                with self.fs_events.ignore(local_path):
+                with self.fs_events.ignore(local_path, recursive=osp.isdir(local_path),
+                                           event_types=(EVENT_TYPE_DELETED,
+                                                        EVENT_TYPE_MOVED)):
                     shutil.move(local_path, local_path_cc)
             except FileNotFoundError:
                 pass
@@ -1828,7 +1869,7 @@ class UpDownSync:
             #     will hold the lock and we won't be here checking for conflicts.
             # (b) The upload has not started yet. Manually check for conflict.
 
-            if self._get_ctime(local_path) <= self.get_last_sync_for_path(dbx_path):
+            if self.get_ctime(local_path) <= self.get_last_sync_for_path(dbx_path):
                 logger.debug('No conflict: remote item "%s" is newer', dbx_path)
                 return Conflict.RemoteNewer
             elif not remote_rev:
@@ -1846,7 +1887,7 @@ class UpDownSync:
                                  'last sync', dbx_path)
                     return Conflict.Conflict
 
-    def _get_ctime(self, local_path, ignore_excluded=True):
+    def get_ctime(self, local_path, ignore_excluded=True):
         """
         Returns the ctime of a local item or -1.0 if there is nothing at the path. If
         the item is a directory, return the largest ctime of itself and its children.
@@ -2050,7 +2091,9 @@ class UpDownSync:
 
             elif conflict_check == Conflict.Conflict:
                 new_local_path = generate_cc_name(local_path)
-                with self.fs_events.ignore(local_path):
+                with self.fs_events.ignore(local_path, recursive=osp.isdir(local_path),
+                                           event_types=(EVENT_TYPE_DELETED,
+                                                        EVENT_TYPE_MOVED)):
                     shutil.move(local_path, new_local_path)
 
             if isinstance(entry, FileMetadata):
@@ -2065,21 +2108,29 @@ class UpDownSync:
 
                 md = self.client.download(f'rev:{entry.rev}', tmp_fname)
 
-                with self.fs_events.ignore(local_path):
-
-                    # re-check for conflict and move the conflict
-                    # out of the way if anything has changed
-                    if self._check_download_conflict(entry) == Conflict.Conflict:
-                        new_local_path = generate_cc_name(local_path)
+                # re-check for conflict and move the conflict
+                # out of the way if anything has changed
+                if self._check_download_conflict(entry) == Conflict.Conflict:
+                    new_local_path = generate_cc_name(local_path)
+                    with self.fs_events.ignore(local_path,
+                                               recursive=osp.isdir(local_path),
+                                               event_types=(EVENT_TYPE_DELETED,
+                                                            EVENT_TYPE_MOVED)):
                         shutil.move(local_path, new_local_path)
 
-                    if osp.isdir(local_path):
+                if osp.isdir(local_path):
+                    with self.fs_events.ignore(local_path,
+                                               recursive=osp.isdir(local_path),
+                                               event_types=(EVENT_TYPE_DELETED,)):
                         delete(local_path)
 
-                    # move the downloaded file to its destination
+                # move the downloaded file to its destination
+                with self.fs_events.ignore(local_path,
+                                           event_types=(EVENT_TYPE_DELETED,
+                                                        EVENT_TYPE_CREATED)):
                     os.replace(tmp_fname, local_path)
 
-                self.set_last_sync_for_path(entry.path_lower, self._get_ctime(local_path))
+                self.set_last_sync_for_path(entry.path_lower, self.get_ctime(local_path))
                 self.set_local_rev(entry.path_lower, md.rev)
 
                 logger.debug('Created local file "%s"', entry.path_display)
@@ -2092,17 +2143,19 @@ class UpDownSync:
                 # If there’s already something else at the given path,
                 # replace it but leave the children as they are.
 
-                with self.fs_events.ignore(local_path):
-
-                    if osp.isfile(local_path):
+                if osp.isfile(local_path):
+                    with self.fs_events.ignore(local_path,
+                                               event_types=(EVENT_TYPE_DELETED,)):
                         delete(local_path)
 
-                    try:
+                try:
+                    with self.fs_events.ignore(local_path,  # typically not recursive
+                                               event_types=(EVENT_TYPE_CREATED,)):
                         os.makedirs(local_path)
-                    except FileExistsError:
-                        pass
+                except FileExistsError:
+                    pass
 
-                self.set_last_sync_for_path(entry.path_lower, self._get_ctime(local_path))
+                self.set_last_sync_for_path(entry.path_lower, self.get_ctime(local_path))
                 self.set_local_rev(entry.path_lower, 'folder')
 
                 logger.debug('Created local folder "%s"', entry.path_display)
@@ -2113,7 +2166,8 @@ class UpDownSync:
                 # remove it and all its children. If there’s nothing at the
                 # given path, ignore this entry.
 
-                with self.fs_events.ignore(local_path):
+                with self.fs_events.ignore(local_path, recursive=osp.isdir(local_path),
+                                           event_types=(EVENT_TYPE_DELETED, )):
                     err = delete(local_path)
 
                 self.set_local_rev(entry.path_lower, None)
