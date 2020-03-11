@@ -16,6 +16,7 @@ import time
 import tempfile
 import random
 import json
+import threading
 from threading import Thread, Event, Lock, RLock
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
@@ -952,9 +953,10 @@ class UpDownSync:
 
     def _slow_down(self):
 
-        cpu_usage = p.cpu_percent(0.5)
-        while cpu_usage > self.max_cpu_percent:
-            cpu_usage = p.cpu_percent(0.5 + 2 * random.random())
+        if 'pool' in threading.current_thread().name:
+            cpu_usage = p.cpu_percent(0.1)
+            while cpu_usage > self.max_cpu_percent:
+                cpu_usage = p.cpu_percent(0.5 + 2 * random.random())
 
     # ==== Upload sync ===================================================================
 
@@ -1362,7 +1364,8 @@ class UpDownSync:
         # apply file events in parallel
         success = []
         last_emit = time.time()
-        with ThreadPoolExecutor(max_workers=self._num_threads) as executor:
+        with ThreadPoolExecutor(max_workers=self._num_threads,
+                                thread_name_prefix='maestral-upload-pool') as executor:
             fs = (executor.submit(self._create_remote_entry, e) for e in file_events)
             n_files = len(file_events)
             for f, n in zip(as_completed(fs), range(1, n_files + 1)):
@@ -1889,7 +1892,8 @@ class UpDownSync:
         # apply created files
         n_files = len(files)
         last_emit = time.time()
-        with ThreadPoolExecutor(max_workers=self._num_threads) as executor:
+        with ThreadPoolExecutor(max_workers=self._num_threads,
+                                thread_name_prefix='maestral-download-pool') as executor:
             fs = (executor.submit(self._create_local_entry, file) for file in files)
             for f, n in zip(as_completed(fs), range(1, n_files + 1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
