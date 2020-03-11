@@ -18,6 +18,8 @@ and fixes an issue with immediately retrying failed downloads.
   excluded by mignore and a file with the same name is created in the cloud, the remote
   file will be downloaded and included in syncing. If the contents differ, a conflicting
   copy is created and both the copy and the original file will be included in syncing.
+- Added config option "max_cpu_percent" per CPU core to adjust the target maximum CPU
+  usage. Maestral will aim to remain below that percentage but this is not guaranteed.
 
 #### Changed:
 
@@ -31,6 +33,8 @@ and fixes an issue with immediately retrying failed downloads.
   selective sync, the new item is now renamed by appending "selective sync conflict"
   instead of raising a sync issue. This is closer the behaviour of the official client.
 - Improved the reliability of locally renaming conflicting folders.
+- Significant performance improvements when downloading files.
+- Introduced periodic reindexing.
 
 #### Fixed:
 
@@ -41,7 +45,7 @@ and fixes an issue with immediately retrying failed downloads.
   errors when trying to convert local to dropbox paths and vice versa during the move.
 - Fixes an issue which would prevent some conflicting copies created by Dropbox from being
   downloaded.
-- Correctly handle when a local item is renamed to an always excluded file name such as 
+- Correctly handle when a local item is renamed to an always excluded file name such as
   ".DS_STORE": the item is now deleted from Dropbox.
 - Fixes an issue where sharing an existing folder from the Dropbox website would result in
   the folder being deleted locally. This is because Dropbox actually removes the shared
