@@ -59,11 +59,6 @@ from maestral.utils.appdirs import get_data_path
 logger = logging.getLogger(__name__)
 
 
-# TODO:
-#  * periodic resync: break into small chunks to reduce downtime for user, aim for a full
-#    resync every weak
-
-
 # ==== Notes on event processing =========================================================
 #
 # Remote events come in three types, DeletedMetadata, FolderMetadata and FileMetadata. The
