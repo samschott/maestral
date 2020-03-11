@@ -1450,11 +1450,9 @@ class UpDownSync:
         local_path_to = get_dest_path(event)
 
         # book keeping
-        remove_from_queue(self.queued_for_upload, local_path_to)
+        remove_from_queue(self.queued_for_upload, local_path_from, local_path_to)
         self.clear_sync_error(local_path=local_path_to)
-        if local_path_to != local_path_from:
-            remove_from_queue(self.queued_for_upload, local_path_from)
-            self.clear_sync_error(local_path=local_path_from)
+        self.clear_sync_error(local_path=local_path_from)
 
         with InQueue(self.queue_uploading, local_path_to):
             if event.event_type is EVENT_TYPE_CREATED:
@@ -1599,6 +1597,17 @@ class UpDownSync:
                 return
 
         if md_new.path_lower != dbx_path.lower():
+            local_path_cc = self.to_local_path(md_new.path_display)
+            with self.fs_events.ignore(local_path, local_path_cc,
+                                       recursive=osp.isdir(local_path)):
+                try:
+                    shutil.move(local_path, local_path_cc)
+                except OSError:
+                    delete(local_path)
+
+            # Delete revs of old path but don't set revs for new path here. This will
+            # force conflict resolution on download in case of intermittent changes.
+            self.set_local_rev(dbx_path, None)
             logger.debug('Upload conflict: renamed "%s" to "%s"',
                          dbx_path, md_new.path_lower)
         else:
@@ -1650,7 +1659,17 @@ class UpDownSync:
                 return
 
             if md_new.path_lower != dbx_path.lower():
-                logger.debug('Upload conflict "%s" renamed to "%s" by Dropbox',
+                local_path_cc = self.to_local_path(md_new.path_display)
+                with self.fs_events.ignore(local_path, local_path_cc):
+                    try:
+                        os.rename(local_path, local_path_cc)
+                    except OSError:
+                        delete(local_path)
+
+                # Delete revs of old path but don't set revs for new path here. This will
+                # force conflict resolution on download in case of intermittent changes.
+                self.set_local_rev(dbx_path, None)
+                logger.debug('Upload conflict: renamed "%s" to "%s"',
                              dbx_path, md_new.path_lower)
             else:
                 self.set_local_rev(md_new.path_lower, md_new.rev)
@@ -1956,23 +1975,23 @@ class UpDownSync:
             #     will hold the lock and we won't be here checking for conflicts.
             # (b) The upload has not started yet. Manually check for conflict.
 
-            if self.get_ctime(local_path) <= self.get_last_sync_for_path(dbx_path):
+            local_hash = get_local_hash(local_path)
+
+            if remote_hash == local_hash:
+                logger.debug('No conflict: contents are equal (%s)', dbx_path)
+                self.set_local_rev(dbx_path, remote_rev)
+                return Conflict.Identical
+            elif self.get_ctime(local_path) <= self.get_last_sync_for_path(dbx_path):
                 logger.debug('No conflict: remote item "%s" is newer', dbx_path)
                 return Conflict.RemoteNewer
             elif not remote_rev:
-                logger.debug('Conflict: Local item "%s" has been modified since remote '
+                logger.debug('Local item "%s" has been modified since remote '
                              'deletion', dbx_path)
                 return Conflict.LocalNewerOrIdentical
             else:
-                local_hash = get_local_hash(local_path)
-                if remote_hash == local_hash:
-                    logger.debug('No conflict: contents are equal (%s)', dbx_path)
-                    self.set_local_rev(dbx_path, remote_rev)
-                    return Conflict.Identical
-                else:
-                    logger.debug('Conflict: local item "%s" was has been modified since '
-                                 'last sync', dbx_path)
-                    return Conflict.Conflict
+                logger.debug('Conflict: local item "%s" has been modified since '
+                             'last sync', dbx_path)
+                return Conflict.Conflict
 
     def get_ctime(self, local_path, ignore_excluded=True):
         """
