@@ -1796,6 +1796,7 @@ class UpDownSync:
 
         if is_dbx_root:
             self.last_cursor = cursor
+            self.last_reindex = time.time()
 
         return all(success)
 
@@ -2321,45 +2322,45 @@ class UpDownSync:
 # Workers for upload, download and connection monitoring threads
 # ========================================================================================
 
-def connection_helper(sync, syncing, paused_by_user, running, connected,
-                      startup, check_interval=4):
+def helper(mm):
     """
-    A worker which periodically checks the connection to Dropbox servers.
-    This is done through inexpensive calls to :method:`client.get_space_usage`.
-    If the connection is lost, ``connection_helper`` pauses all syncing until a
-    connection can be reestablished.
+    A worker for periodic maintenance:
+     1) Updates the current space usage by calling :method:`client.get_space_usage`. This
+        doubles as a check for the connection to Dropbox servers.
+     2) Pauses syncing when the connection is lost and resumes syncing when reconnected
+        and syncing has not been paused by the user.
+     3) Triggers weekly reindexing.
 
-    :param UpDownSync sync: UpDownSync instance.
-    :param Event syncing: Event that indicates if workers are running or paused.
-    :param Event paused_by_user: Set if the syncing was paused by the user.
-    :param Event running: Event to shutdown connection helper.
-    :param Event connected: Event that indicates if we can connect to Dropbox.
-    :param int check_interval: Time in seconds between connection checks.
-    :param Event startup: Set when startup scripts have been requested.
+    :param MaestralMonitor mm: MaestralMonitor instance.
     """
 
-    while running.is_set():
+    while mm.running.is_set():
         try:
             # use an inexpensive call to `get_space_usage` to test connection
-            sync.client.get_space_usage()
-            if not connected.is_set() and not paused_by_user.is_set():
-                startup.set()
-            connected.set()
-            time.sleep(check_interval)
+            mm.sync.client.get_space_usage()
+            mm.connected.set()
+            if not mm.connected.is_set() and not mm.paused_by_user.is_set():
+                mm.startup.set()
+            # rebuild the index periodically
+            elif (time.time() - mm.sync.last_reindex > mm.reindex_interval
+                    and mm.idle_time > 20 * 60):
+                mm.rebuild_index()
+
+            time.sleep(mm.connection_check_interval)
         except ConnectionError:
-            if connected.is_set():
+            if mm.connected.is_set():
                 logger.debug(DISCONNECTED, exc_info=True)
                 logger.info(DISCONNECTED)
-            syncing.clear()
-            connected.clear()
-            time.sleep(check_interval / 2)
+            mm.syncing.clear()
+            mm.connected.clear()
+            time.sleep(mm.connection_check_interval / 2)
         except DropboxAuthError as e:
-            running.clear()
-            syncing.clear()
+            mm.running.clear()
+            mm.syncing.clear()
             logger.error(e.title, exc_info=True)
         except Exception:
-            running.clear()
-            syncing.clear()
+            mm.running.clear()
+            mm.syncing.clear()
             logger.error('Unexpected error', exc_info=True)
 
 
@@ -2600,6 +2601,9 @@ class MaestralMonitor:
     :ivar Queue queue_uploading: Holds *local file paths* that are being uploaded.
     """
 
+    connection_check_interval = 4
+    reindex_interval = 60 * 60 * 24 * 7
+
     def __init__(self, client):
 
         self.client = client
@@ -2615,6 +2619,8 @@ class MaestralMonitor:
         self.startup = Event()
 
         self.fs_event_handler = FSEventHandler(self.syncing, self.startup, self.sync)
+
+        self._startup_time = None
 
     @property
     def uploading(self):
@@ -2651,14 +2657,11 @@ class MaestralMonitor:
             self.fs_event_handler, self.sync.dropbox_path, recursive=True
         )
 
-        self.connection_thread = Thread(
-            target=connection_helper,
+        self.helper_thread = Thread(
+            target=helper,
             daemon=True,
-            args=(
-                self.sync, self.syncing, self.paused_by_user, self.running,
-                self.connected, self.startup,
-            ),
-            name='maestral-connection-helper'
+            args=(self,),
+            name='maestral-helper'
         )
 
         self.startup_thread = Thread(
@@ -2719,13 +2722,15 @@ class MaestralMonitor:
         self.connected.set()
         self.startup.set()
 
-        self.connection_thread.start()
+        self.helper_thread.start()
         self.startup_thread.start()
         self.upload_thread.start()
         self.download_thread.start()
         self.download_thread_added_folder.start()
 
         self.paused_by_user.clear()
+
+        self._startup_time = time.time()
 
     def pause(self):
         """Pauses syncing."""
@@ -2761,7 +2766,7 @@ class MaestralMonitor:
 
         self.local_observer_thread.stop()
         self.local_observer_thread.join()
-        self.connection_thread.join()
+        self.helper_thread.join()
         self.upload_thread.join()
 
         logger.info(STOPPED)
