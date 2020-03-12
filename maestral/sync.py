@@ -2602,7 +2602,6 @@ class MaestralMonitor:
     """
 
     connection_check_interval = 4
-    reindex_interval = 60 * 60 * 24 * 7
 
     def __init__(self, client):
 
@@ -2621,6 +2620,7 @@ class MaestralMonitor:
         self.fs_event_handler = FSEventHandler(self.syncing, self.startup, self.sync)
 
         self._startup_time = None
+        self.reindex_interval = self.sync._conf.get('sync', 'reindex_interval')
 
     @property
     def uploading(self):
