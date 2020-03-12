@@ -172,7 +172,7 @@ def format_table(rows=None, columns=None, headers=None, padding_right=2):
     n = 3
     sum_col_widths = sum(w**n for w in col_widths)
     subtract = max([sum(col_widths) - available_width, 0])
-    col_widths = tuple(round(w - subtract*w**n/sum_col_widths) for w in col_widths)
+    col_widths = tuple(round(w - subtract * w**n / sum_col_widths) for w in col_widths)
 
     wrapped_columns = []
 
