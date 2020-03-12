@@ -445,7 +445,7 @@ class UpDownSync:
         self._mignore_rules = self._load_mignore_rules_form_file()
         self._last_sync_for_path = dict()
 
-        self._max_cpu_percent = self._conf.get('app', 'max_cpu_percent') * _cpu_count
+        self._max_cpu_percent = self._conf.get('sync', 'max_cpu_percent') * _cpu_count
 
     # ==== settings ======================================================================
 

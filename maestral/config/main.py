@@ -33,9 +33,14 @@ DEFAULTS = [
          'log_level': 20,  # log level for journal and file, default to INFO
          'update_notification_interval': 60 * 60 * 24 * 7,  # default to weekly
          'analytics': False,  # automatic errors reports with bugsnag, default to disabled
-         'max_cpu_percent': 20.0,  # max usage target per cpu core, default to 20%
      }
      ),
+    ('sync',
+     {
+         'reindex_interval': 60 * 60 * 24 * 7,  # default to weekly
+         'max_cpu_percent': 20.0,  # max usage target per cpu core, default to 20%
+     }
+     )
 ]
 
 DEFAULTS_STATE = [
