@@ -211,7 +211,7 @@ class Maestral(object):
         """
 
         if self.pending_dropbox_folder:
-            self.reset_sync_state()
+            self.monitor.reset_sync_state()
             self.create_dropbox_directory()
 
         # start syncing
@@ -431,7 +431,7 @@ class Maestral(object):
         Bool indicating if Maestral is syncing. It will be ``True`` if syncing is not
         paused by the user *and* Maestral is connected to the internet.
         """
-        return self.monitor.syncing.is_set()
+        return self.monitor.syncing.is_set() or self.monitor.startup.is_set()
 
     @property
     def paused(self):
@@ -442,7 +442,7 @@ class Maestral(object):
     @property
     def stopped(self):
         """Bool indicating if syncing is stopped, for instance because of an exception."""
-        return not self.monitor.running.is_set()
+        return not self.monitor.running.is_set() and not self.sync.lock.locked()
 
     @property
     def connected(self):
@@ -675,12 +675,8 @@ class Maestral(object):
         information if a Dropbox was improperly unlinked (e.g., auth token has been
         manually deleted). Otherwise leave state management to Maestral.
         """
-        self.sync.last_cursor = ''
-        self.sync.last_sync = 0.0
-        self.sync.clear_rev_index()
-        delete(self.sync.rev_file_path)
 
-        logger.debug('Sync state reset')
+        self.monitor.reset_sync_state()
 
     def unlink(self):
         """

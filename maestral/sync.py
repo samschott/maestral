@@ -440,7 +440,7 @@ class UpDownSync:
         self._rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
         self._rev_dict_cache = dict()
         self._migrate_rev_dict()
-        self._load_rev_dict_from_file()
+        self._load_rev_dict_from_file(raise_exception=True)
         self._excluded_items = self._conf.get('main', 'excluded_items')
         self._mignore_rules = self._load_mignore_rules_form_file()
         self._last_sync_for_path = dict()
@@ -500,7 +500,6 @@ class UpDownSync:
 
         return clean_list
 
-
     @property
     def max_cpu_percent(self):
         """Maximum CPU usage for parallel downloads or uploads in percent of the total
@@ -542,10 +541,18 @@ class UpDownSync:
         logger.debug('Local cursor saved: %s', last_sync)
         self._state.set('sync', 'lastsync', last_sync)
 
+    @property
+    def last_reindex(self):
+        return self._state.get('sync', 'last_reindex')
+
+    @last_reindex.setter
+    def last_reindex(self, time_stamp):
+        self._state.set('sync', 'last_reindex', time_stamp)
+
     def get_last_sync_for_path(self, dbx_path):
         with self._last_sync_lock:
             dbx_path = dbx_path.lower()
-            return max(self._last_sync_for_path.get(dbx_path, 0.0), self.last_sync)
+            return self._last_sync_for_path.get(dbx_path, None) or self.last_sync
 
     def set_last_sync_for_path(self, dbx_path, last_sync):
         with self._last_sync_lock:
@@ -560,6 +567,72 @@ class UpDownSync:
 
     # ==== rev file management ===========================================================
 
+    def get_rev_index(self):
+        """
+        Returns a copy of the revision index containing the revision
+        numbers for all synced files and folders.
+
+        :returns: Copy of revision index.
+        :rtype: dict
+        """
+        with self._rev_lock:
+            return self._rev_dict_cache.copy()
+
+    def get_local_rev(self, dbx_path):
+        """
+        Gets revision number of local file.
+
+        :param str dbx_path: Dropbox file path.
+        :returns: Revision number as str or `None` if no local revision number
+            has been saved.
+        :rtype: str
+        """
+        with self._rev_lock:
+            dbx_path = dbx_path.lower()
+            rev = self._rev_dict_cache.get(dbx_path, None)
+
+            return rev
+
+    def set_local_rev(self, dbx_path, rev):
+        """
+        Saves revision number `rev` for local file. If `rev` is `None`, the
+        entry for the file is removed.
+
+        :param str dbx_path: Relative Dropbox file path.
+        :param rev: Revision number as string or `None`.
+        """
+        with self._rev_lock:
+            dbx_path = dbx_path.lower()
+
+            if rev == self._rev_dict_cache.get(dbx_path, None):
+                # rev is already set, nothing to do
+                return
+
+            if rev is None:
+                # remove entry and all its children revs
+                for path in dict(self._rev_dict_cache):
+                    if path.startswith(dbx_path):
+                        self._rev_dict_cache.pop(path, None)
+                        self._append_rev_to_file(path, None)
+            else:
+                # add entry
+                self._rev_dict_cache[dbx_path] = rev
+                self._append_rev_to_file(dbx_path, rev)
+                # set all parent revs to 'folder'
+                dirname = osp.dirname(dbx_path)
+                while dirname != '/':
+                    self._rev_dict_cache[dirname] = 'folder'
+                    self._append_rev_to_file(dirname, 'folder')
+                    dirname = osp.dirname(dirname)
+
+    def clean_rev_file(self):
+        self._save_rev_dict_to_file()
+
+    def clear_rev_index(self):
+        with self._rev_lock:
+            self._rev_dict_cache.clear()
+            self._save_rev_dict_to_file()
+
     @contextmanager
     def _handle_rev_read_exceptions(self, raise_exception=False):
 
@@ -570,10 +643,10 @@ class UpDownSync:
             yield
         except (FileNotFoundError, IsADirectoryError):
             logger.info('Maestral index could not be found')
-        except json.decoder.JSONDecodeError as exc:
-            title = 'Corrupted index'
-            msg = 'Maestral index has become corrupted. Please rebuild.'
-            new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
+            # reset sync state
+            self.last_sync = 0.0
+            self._rev_dict_cache = dict()
+            self.last_cursor = ''
         except PermissionError as exc:
             title = 'Could not load index'
             msg = (f'Insufficient permissions for "{self.rev_file_path}". Please '
@@ -683,72 +756,6 @@ class UpDownSync:
                 with open(self.rev_file_path, mode='a') as f:
                     f.write(json.dumps({path: rev}) + '\n')
 
-    def get_rev_index(self):
-        """
-        Returns a copy of the revision index containing the revision
-        numbers for all synced files and folders.
-
-        :returns: Copy of revision index.
-        :rtype: dict
-        """
-        with self._rev_lock:
-            return self._rev_dict_cache.copy()
-
-    def get_local_rev(self, dbx_path):
-        """
-        Gets revision number of local file.
-
-        :param str dbx_path: Dropbox file path.
-        :returns: Revision number as str or `None` if no local revision number
-            has been saved.
-        :rtype: str
-        """
-        with self._rev_lock:
-            dbx_path = dbx_path.lower()
-            rev = self._rev_dict_cache.get(dbx_path, None)
-
-            return rev
-
-    def set_local_rev(self, dbx_path, rev):
-        """
-        Saves revision number `rev` for local file. If `rev` is `None`, the
-        entry for the file is removed.
-
-        :param str dbx_path: Relative Dropbox file path.
-        :param rev: Revision number as string or `None`.
-        """
-        with self._rev_lock:
-            dbx_path = dbx_path.lower()
-
-            if rev == self._rev_dict_cache.get(dbx_path, None):
-                # rev is already set, nothing to do
-                return
-
-            if rev is None:
-                # remove entry and all its children revs
-                for path in dict(self._rev_dict_cache):
-                    if path.startswith(dbx_path):
-                        self._rev_dict_cache.pop(path, None)
-                        self._append_rev_to_file(path, None)
-            else:
-                # add entry
-                self._rev_dict_cache[dbx_path] = rev
-                self._append_rev_to_file(dbx_path, rev)
-                # set all parent revs to 'folder'
-                dirname = osp.dirname(dbx_path)
-                while dirname != '/':
-                    self._rev_dict_cache[dirname] = 'folder'
-                    self._append_rev_to_file(dirname, 'folder')
-                    dirname = osp.dirname(dirname)
-
-    def clean_rev_file(self):
-        self._save_rev_dict_to_file()
-
-    def clear_rev_index(self):
-        with self._rev_lock:
-            self._rev_dict_cache.clear()
-            self._save_rev_dict_to_file()
-
     # ==== mignore management ============================================================
 
     @property
@@ -772,20 +779,6 @@ class UpDownSync:
         return pathspec.PathSpec.from_lines('gitwildmatch', spec.splitlines())
 
     # ==== helper functions ==============================================================
-
-    @staticmethod
-    def clean_excluded_items_list(folder_list):
-        """Removes all duplicates from the excluded folder list."""
-
-        # remove duplicate entries by creating set, strip trailing '/'
-        folder_list = set(f.lower().rstrip(osp.sep) for f in folder_list)
-
-        # remove all children of excluded folders
-        clean_list = list(folder_list)
-        for folder in folder_list:
-            clean_list = [f for f in clean_list if not is_child(f, folder)]
-
-        return clean_list
 
     def ensure_dropbox_folder_present(self):
         """
@@ -1055,11 +1048,11 @@ class UpDownSync:
 
         # get deleted items
         rev_dict_copy = self.get_rev_index()
-        for p in rev_dict_copy:
+        for path in rev_dict_copy:
             # warning: local_path may not be correctly cased
-            local_path = self.to_local_path(p)
+            local_path = self.to_local_path(path)
             if local_path.lower() not in lowercase_snapshot_paths:
-                if rev_dict_copy[p] == 'folder':
+                if rev_dict_copy[path] == 'folder':
                     event = DirDeletedEvent(local_path)
                 else:
                     event = FileDeletedEvent(local_path)
@@ -1459,12 +1452,14 @@ class UpDownSync:
     @catch_sync_issues
     def _create_remote_entry(self, event):
         """
-        Applies a local file event `event` to the remote Dropbox. Clears any related
-        sync errors with the file. Any new MaestralApiErrors will be caught by the
-        decorator.
+        Applies a local file system event to the remote Dropbox and clears any existing
+        sync errors belonging to that path. `:class:`MaestralApiError`s will be caught
+        and logged as appropriate.
 
         :param FileSystemEvent event: Watchdog file system event.
-        :raises: MaestralApiError on failure.
+        :returns: ``True`` on success, ``False`` in case of a handled
+            :class:`MaestralApiError`s.
+        :rtype: bool
         """
 
         self._slow_down()
@@ -1515,8 +1510,8 @@ class UpDownSync:
         lives on Dropbox) and that won't upload anything because file contents have
         remained the same.
 
-        :param event: Watchdog file event.
-        :raises: MaestralApiError on failure.
+        :param FilSystemEvent event: Watchdog file system event.
+        :raises: :class:`MaestralApiError` on failure.
         """
 
         local_path_from = event.src_path
@@ -1570,8 +1565,8 @@ class UpDownSync:
         """
         Call when local item is created.
 
-        :param class event: Watchdog file event.
-        :raises: MaestralApiError on failure.
+        :param FileSystemEvent event: Watchdog file system event.
+        :raises: :class:`MaestralApiError` on failure.
         """
 
         local_path = event.src_path
@@ -1642,8 +1637,8 @@ class UpDownSync:
         """
         Call when local item is modified.
 
-        :param class event: Watchdog file event.
-        :raises: MaestralApiError on failure.
+        :param FileSystemEvent event: Watchdog file system event.
+        :raises: :class:`MaestralApiError` on failure.
         """
 
         if not event.is_directory:  # ignore directory modified events
@@ -1703,8 +1698,8 @@ class UpDownSync:
         Call when local item is deleted. We try not to delete remote items which have been
         modified since the last sync.
 
-        :param class event: Watchdog file event.
-        :raises: MaestralApiError on failure.
+        :param FileSystemEvent event: Watchdog file system event.
+        :raises: :class:`MaestralApiError` on failure.
         """
 
         path = event.src_path
@@ -1887,7 +1882,7 @@ class UpDownSync:
             'recursive' cursor which represents the state of the entire Dropbox
         :returns: List of changes that were made to local files, bool indicating if all
             download syncs were successful.
-        :rtype: list, bool
+        :rtype: (list, bool)
         """
 
         if not changes:
@@ -1955,14 +1950,15 @@ class UpDownSync:
 
     def _check_download_conflict(self, md):
         """
-        Check if local item is conflicting with remote item. The equivalent check when
-        uploading and item will be carried out by Dropbox itself.
+        Check if a local item is conflicting with remote change. The equivalent check when
+        uploading and a change will be carried out by Dropbox itself.
 
         Checks are carried out against our index, reflecting the latest sync state.
 
         :param Metadata md: Dropbox SDK metadata.
-        :rtype: Conflict
-        :raises: MaestralApiError if the Dropbox item does not exist.
+        :returns: Conflict check result.
+        :rtype: :class:`Conflict`
+        :raises: :class:`MaestralApiError` if the Dropbox item does not exist.
         """
 
         # get metadata of remote item
@@ -2193,12 +2189,14 @@ class UpDownSync:
     @catch_sync_issues
     def _create_local_entry(self, entry):
         """
-        Creates local file / folder for remote entry.
+        Applies a file change from Dropbox servers to the local Dropbox folder.
+        :class:`MaestralApiError`s will be caught and logged as appropriate.
 
         :param Metadata entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
-        :returns: Copy of metadata if the change was downloaded, ``True`` if the change
-            already existed locally and ``False`` if the download failed.
-        :raises: MaestralApiError on failure.
+        :returns: Copy of the Dropbox metadata if the changes was applied locally,
+            ``True`` if the change already existed locally and ``False`` in case of
+            :class:`MaestralApiError`s, for instance caused by sync issues.
+        :rtype: Metadata, bool
         """
 
         self._slow_down()
@@ -2768,29 +2766,27 @@ class MaestralMonitor:
 
         logger.info(STOPPED)
 
-    def _wait_for_idle(self):
-        self.sync.lock.acquire()
-        self.sync.lock.release()
+    @property
+    def idle_time(self):
+        """Returns the idle time in seconds since the last file change or zero if syncing
+        is not running."""
+        if len(self.sync._last_sync_for_path) > 0:
+            return time.time() - max(self.sync._last_sync_for_path.values())
+        elif self.syncing.is_set():
+            return time.time() - self._startup_time
+        else:
+            return 0.0
 
-    def _threads_alive(self):
-        """Returns ``True`` if all threads are alive, ``False`` otherwise."""
+    def reset_sync_state(self):
 
-        try:
-            threads = (
-                self.local_observer_thread,
-                self.upload_thread, self.download_thread,
-                self.download_thread_added_folder,
-                self.connection_thread,
-                self.startup_thread
-            )
-        except AttributeError:
-            return False
+        if self.syncing.is_set() or self.startup.is_set() or self.sync.lock.locked():
+            raise RuntimeError('Cannot reset sync state while syncing.')
 
-        base_threads_alive = (t.is_alive() for t in threads)
-        watchdog_emitters_alive = (e.is_alive() for e
-                                   in self.local_observer_thread.emitters)
+        self.sync.last_cursor = ''
+        self.sync.last_sync = 0.0
+        self.sync.clear_rev_index()
 
-        return all(base_threads_alive) and all(watchdog_emitters_alive)
+        logger.debug('Sync state reset')
 
     def rebuild_index(self):
         """
@@ -2808,7 +2804,6 @@ class MaestralMonitor:
 
         self.pause()
 
-        self.sync.last_sync = 0.0
         self.sync.last_cursor = ''
         self.sync.clear_rev_index()
 
@@ -2817,6 +2812,29 @@ class MaestralMonitor:
         else:
             self.resume()
 
+    def _wait_for_idle(self):
+        self.sync.lock.acquire()
+        self.sync.lock.release()
+
+    def _threads_alive(self):
+        """Returns ``True`` if all threads are alive, ``False`` otherwise."""
+
+        try:
+            threads = (
+                self.local_observer_thread,
+                self.upload_thread, self.download_thread,
+                self.download_thread_added_folder,
+                self.helper_thread,
+                self.startup_thread
+            )
+        except AttributeError:
+            return False
+
+        base_threads_alive = (t.is_alive() for t in threads)
+        watchdog_emitters_alive = (e.is_alive() for e
+                                   in self.local_observer_thread.emitters)
+
+        return all(base_threads_alive) and all(watchdog_emitters_alive)
 
 # ========================================================================================
 # Helper functions
