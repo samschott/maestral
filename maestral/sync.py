@@ -57,7 +57,8 @@ from maestral.utils.path import (
 from maestral.utils.appdirs import get_data_path
 
 logger = logging.getLogger(__name__)
-
+_process = psutil.Process(os.getpid())
+_cpu_count = os.cpu_count()
 
 # ==== Notes on event processing =========================================================
 #
@@ -444,6 +445,8 @@ class UpDownSync:
         self._mignore_rules = self._load_mignore_rules_form_file()
         self._last_sync_for_path = dict()
 
+        self._max_cpu_percent = self._conf.get('app', 'max_cpu_percent') * _cpu_count
+
     # ==== settings ======================================================================
 
     @property
@@ -483,13 +486,35 @@ class UpDownSync:
         self._excluded_items = clean_list
         self._conf.set('main', 'excluded_items', clean_list)
 
+    @staticmethod
+    def clean_excluded_items_list(folder_list):
+        """Removes all duplicates from the excluded folder list."""
+
+        # remove duplicate entries by creating set, strip trailing '/'
+        folder_list = set(f.lower().rstrip(osp.sep) for f in folder_list)
+
+        # remove all children of excluded folders
+        clean_list = list(folder_list)
+        for folder in folder_list:
+            clean_list = [f for f in clean_list if not is_child(f, folder)]
+
+        return clean_list
+
+
     @property
     def max_cpu_percent(self):
-        return self._conf.get('app', 'max_cpu_percent') * os.cpu_count()
+        """Maximum CPU usage for parallel downloads or uploads in percent of the total
+        available CPU time. Individual workers in a thread pool will pause until the
+        usage drops below this value. Single tasks such as indexing changes while
+        inactive may still use more CPU time. Setting this to 100% means that no limits
+        on CPU usage will be applied."""
+        return self._max_cpu_percent
 
     @max_cpu_percent.setter
     def max_cpu_percent(self, percent):
-        self._conf.set('app', 'max_cpu_percent', percent // os.cpu_count())
+        """Setter: max_cpu_percent."""
+        self._max_cpu_percent = percent
+        self._conf.set('app', 'max_cpu_percent', percent // _cpu_count)
 
     # ==== sync state ====================================================================
 
@@ -948,10 +973,13 @@ class UpDownSync:
 
     def _slow_down(self):
 
+        if self._max_cpu_percent == 100:
+            return
+
         if 'pool' in threading.current_thread().name:
-            cpu_usage = p.cpu_percent(0.1)
-            while cpu_usage > self.max_cpu_percent:
-                cpu_usage = p.cpu_percent(0.5 + 2 * random.random())
+            cpu_usage = _process.cpu_percent(0.1)
+            while cpu_usage > self._max_cpu_percent:
+                cpu_usage = _process.cpu_percent(0.5 + 2 * random.random())
 
     # ==== Upload sync ===================================================================
 
@@ -2793,8 +2821,6 @@ class MaestralMonitor:
 # ========================================================================================
 # Helper functions
 # ========================================================================================
-
-p = psutil.Process(os.getpid())
 
 
 def get_dest_path(event):
