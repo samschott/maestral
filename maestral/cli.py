@@ -149,7 +149,7 @@ def catch_maestral_errors(func):
 
 def format_table(rows=None, columns=None, headers=None, padding_right=2):
 
-    if (rows and comlumns) or not (rows or columns):
+    if (rows and columns) or not (rows or columns):
         raise ValueError('Must give either rows or columns as input.')
 
     import textwrap
