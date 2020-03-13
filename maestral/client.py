@@ -22,7 +22,7 @@ import dropbox
 from maestral import __version__
 from maestral.oauth import OAuth2Session
 from maestral.config import MaestralState
-from maestral.errors import api_to_maestral_error, os_to_maestral_error
+from maestral.errors import dropbox_to_maestral_error, os_to_maestral_error
 from maestral.errors import CursorResetError
 
 
@@ -104,7 +104,7 @@ def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
             try:
                 return func(*args, **kwargs)
             except dropbox.exceptions.DropboxException as exc:
-                raise api_to_maestral_error(exc, dbx_path, local_path) from exc
+                raise dropbox_to_maestral_error(exc, dbx_path, local_path) from exc
             # catch connection errors first, they may inherit from OSError
             except CONNECTION_ERRORS:
                 raise ConnectionError('Cannot connect to Dropbox')
@@ -465,7 +465,7 @@ class MaestralApiClient:
                 more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
                 results.append(more_results)
             except dropbox.exceptions.DropboxException as exc:
-                new_exc = api_to_maestral_error(exc, dbx_path)
+                new_exc = dropbox_to_maestral_error(exc, dbx_path)
                 if isinstance(new_exc, CursorResetError) and self._retry_count < retry:
                     # retry up to three times, then raise
                     self._retry_count += 1

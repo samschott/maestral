@@ -221,7 +221,7 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
     return err_cls(title, text, dbx_path=dbx_path, local_path=local_path)
 
 
-def api_to_maestral_error(exc, dbx_path=None, local_path=None):
+def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
     """
     Converts a Dropbox SDK exception to a MaestralApiError and tries to add a reasonably
     informative error title and message.
@@ -245,135 +245,131 @@ def api_to_maestral_error(exc, dbx_path=None, local_path=None):
         text = ('An unexpected sync error occurred. Please contact the Maestral '
                 'developer with the traceback information from the logs.')
 
-        if hasattr(exc, 'user_message_text') and exc.user_message_text is not None:
-            # if the error contains a user message, pass it on (this rarely happens)
-            text = exc.user_message_text
-        else:
-            # otherwise, analyze the error ourselves and select title and message
-            error = exc.error
-            if isinstance(error, dropbox.files.RelocationError):
-                title = 'Could not move folder'
-                if error.is_cant_copy_shared_folder():
-                    text = 'Shared folders can’t be copied.'
-                elif error.is_cant_move_folder_into_itself():
-                    text = 'You cannot move a folder into itself.'
-                    err_cls = ExistsError
-                elif error.is_cant_move_shared_folder():
-                    text = 'You cannot move the shared folder to the given destination.'
-                    err_cls = PathError
-                elif error.is_cant_nest_shared_folder():
-                    text = ('Your move operation would result in nested shared folders. '
-                            'This is not allowed.')
-                    err_cls = PathError
-                elif error.is_cant_transfer_ownership():
-                    text = ('Your move operation would result in an ownership transfer. '
-                            'Maestral does not currently support this. Please carry out '
-                            'the move on the Dropbox website instead.')
-                    err_cls = PathError
-                elif error.is_duplicated_or_nested_paths():
-                    text = ('There are duplicated/nested paths among the target and '
-                            'destination folders.')
-                    err_cls = PathError
-                elif error.is_from_lookup():
-                    lookup_error = error.get_from_lookup()
-                    text, err_cls = _get_lookup_error_msg(lookup_error)
-                elif error.is_from_write():
-                    write_error = error.get_from_write()
-                    text, err_cls = _get_write_error_msg(write_error)
-                elif error.is_insufficient_quota():
-                    text = ('You do not have enough space on Dropbox to move '
-                            'or copy the files.')
-                    err_cls = InsufficientSpaceError
-                elif error.is_internal_error():
-                    text = ('Something went wrong with the job on Dropbox’s end. Please '
-                            'verify on the Dropbox website if the move succeeded and try '
-                            'again if it failed.')
-                    err_cls = DropboxServerError
-                elif error.is_to():
-                    to_error = error.get_to()
-                    text, err_cls = _get_write_error_msg(to_error)
-                elif error.is_too_many_files():
-                    text = ('There are more than 10,000 files and folders in one '
-                            'request. Please try to move fewer items at once.')
+        error = exc.error
+        if isinstance(error, dropbox.files.RelocationError):
+            title = 'Could not move folder'
+            if error.is_cant_copy_shared_folder():
+                text = 'Shared folders can’t be copied.'
+            elif error.is_cant_move_folder_into_itself():
+                text = 'You cannot move a folder into itself.'
+                err_cls = ExistsError
+            elif error.is_cant_move_shared_folder():
+                text = 'You cannot move the shared folder to the given destination.'
+                err_cls = PathError
+            elif error.is_cant_nest_shared_folder():
+                text = ('Your move operation would result in nested shared folders. '
+                        'This is not allowed.')
+                err_cls = PathError
+            elif error.is_cant_transfer_ownership():
+                text = ('Your move operation would result in an ownership transfer. '
+                        'Maestral does not currently support this. Please carry out '
+                        'the move on the Dropbox website instead.')
+                err_cls = PathError
+            elif error.is_duplicated_or_nested_paths():
+                text = ('There are duplicated/nested paths among the target and '
+                        'destination folders.')
+                err_cls = PathError
+            elif error.is_from_lookup():
+                lookup_error = error.get_from_lookup()
+                text, err_cls = _get_lookup_error_msg(lookup_error)
+            elif error.is_from_write():
+                write_error = error.get_from_write()
+                text, err_cls = _get_write_error_msg(write_error)
+            elif error.is_insufficient_quota():
+                text = ('You do not have enough space on Dropbox to move '
+                        'or copy the files.')
+                err_cls = InsufficientSpaceError
+            elif error.is_internal_error():
+                text = ('Something went wrong with the job on Dropbox’s end. Please '
+                        'verify on the Dropbox website if the move succeeded and try '
+                        'again if it failed.')
+                err_cls = DropboxServerError
+            elif error.is_to():
+                to_error = error.get_to()
+                text, err_cls = _get_write_error_msg(to_error)
+            elif error.is_too_many_files():
+                text = ('There are more than 10,000 files and folders in one '
+                        'request. Please try to move fewer items at once.')
 
-            if isinstance(error, dropbox.files.CreateFolderError):
-                title = 'Could not create folder'
-                if error.is_path():
-                    write_error = error.get_path()
-                    text, err_cls = _get_write_error_msg(write_error)
+        if isinstance(error, (dropbox.files.CreateFolderError,
+                              dropbox.files.CreateFolderEntryError)):
+            title = 'Could not create folder'
+            if error.is_path():
+                write_error = error.get_path()
+                text, err_cls = _get_write_error_msg(write_error)
 
-            if isinstance(error, dropbox.files.DeleteError):
-                title = 'Could not delete item'
-                if error.is_path_lookup():
-                    lookup_error = error.get_path_lookup()
-                    text, err_cls = _get_lookup_error_msg(lookup_error)
-                elif error.is_path_write():
-                    write_error = error.get_path_write()
-                    text, err_cls = _get_write_error_msg(write_error)
-                elif error.is_too_many_files():
-                    text = ('There are more than 10,000 files and folders in one '
-                            'request. Please try to delete fewer items at once.')
-                elif error.is_too_many_write_operations():
-                    text = ('There are too many write operations happening in your '
-                            'Dropbox. Please retry deleting this file later.')
+        if isinstance(error, dropbox.files.DeleteError):
+            title = 'Could not delete item'
+            if error.is_path_lookup():
+                lookup_error = error.get_path_lookup()
+                text, err_cls = _get_lookup_error_msg(lookup_error)
+            elif error.is_path_write():
+                write_error = error.get_path_write()
+                text, err_cls = _get_write_error_msg(write_error)
+            elif error.is_too_many_files():
+                text = ('There are more than 10,000 files and folders in one '
+                        'request. Please try to delete fewer items at once.')
+            elif error.is_too_many_write_operations():
+                text = ('There are too many write operations happening in your '
+                        'Dropbox. Please retry deleting this file later.')
 
-            if isinstance(error, dropbox.files.UploadError):
-                title = 'Could not upload file'
-                if error.is_path():
-                    write_error = error.get_path().reason  # returns UploadWriteFailed
-                    text, err_cls = _get_write_error_msg(write_error)
-                elif error.is_properties_error():
-                    pass  # we currently do not use property groups
+        if isinstance(error, dropbox.files.UploadError):
+            title = 'Could not upload file'
+            if error.is_path():
+                write_error = error.get_path().reason  # returns UploadWriteFailed
+                text, err_cls = _get_write_error_msg(write_error)
+            elif error.is_properties_error():
+                pass  # we currently do not use property groups
 
-            if isinstance(error, dropbox.files.UploadSessionFinishError):
-                title = 'Could not upload file'
-                if error.is_lookup_failed():
-                    session_lookup_error = error.get_lookup_failed()
-                    text, err_cls = _get_session_lookup_error_msg(session_lookup_error)
-                elif error.is_path():
-                    write_error = error.get_path()
-                    text, err_cls = _get_write_error_msg(write_error)
-                elif error.is_properties_error():
-                    pass  # we currently do not use property groups
-                elif error.is_too_many_write_operations():
-                    text = ('There are too many write operations happening in your '
-                            'Dropbox. Please retry uploading this file later.')
+        if isinstance(error, dropbox.files.UploadSessionFinishError):
+            title = 'Could not upload file'
+            if error.is_lookup_failed():
+                session_lookup_error = error.get_lookup_failed()
+                text, err_cls = _get_session_lookup_error_msg(session_lookup_error)
+            elif error.is_path():
+                write_error = error.get_path()
+                text, err_cls = _get_write_error_msg(write_error)
+            elif error.is_properties_error():
+                pass  # we currently do not use property groups
+            elif error.is_too_many_write_operations():
+                text = ('There are too many write operations happening in your '
+                        'Dropbox. Please retry uploading this file later.')
 
-            if isinstance(error, dropbox.files.UploadSessionLookupError):
-                title = 'Could not upload file'
-                text, err_cls = _get_session_lookup_error_msg(error)
+        if isinstance(error, dropbox.files.UploadSessionLookupError):
+            title = 'Could not upload file'
+            text, err_cls = _get_session_lookup_error_msg(error)
 
-            if isinstance(error, dropbox.files.DownloadError):
-                title = 'Could not download file'
-                if error.is_path():
-                    lookup_error = error.get_path()
-                    text, err_cls = _get_lookup_error_msg(lookup_error)
-                elif error.is_unsupported_file():
-                    text = 'This file type cannot be downloaded but must be exported.'
-                    err_cls = UnsupportedFileError
+        if isinstance(error, dropbox.files.DownloadError):
+            title = 'Could not download file'
+            if error.is_path():
+                lookup_error = error.get_path()
+                text, err_cls = _get_lookup_error_msg(lookup_error)
+            elif error.is_unsupported_file():
+                text = 'This file type cannot be downloaded but must be exported.'
+                err_cls = UnsupportedFileError
 
-            if isinstance(error, dropbox.files.ListFolderError):
-                title = 'Could not list folder contents'
-                if error.is_path():
-                    lookup_error = error.get_path()
-                    text, err_cls = _get_lookup_error_msg(lookup_error)
+        if isinstance(error, dropbox.files.ListFolderError):
+            title = 'Could not list folder contents'
+            if error.is_path():
+                lookup_error = error.get_path()
+                text, err_cls = _get_lookup_error_msg(lookup_error)
 
-            if isinstance(exc.error, dropbox.files.ListFolderContinueError):
-                title = 'Could not list folder contents'
-                if error.is_path():
-                    lookup_error = error.get_path()
-                    text, err_cls = _get_lookup_error_msg(lookup_error)
-                elif error.is_reset():
-                    text = ('Dropbox has reset its sync state. Please rebuild '
-                            'Maestral\'s index to re-sync your Dropbox.')
-                    err_cls = CursorResetError
+        if isinstance(exc.error, dropbox.files.ListFolderContinueError):
+            title = 'Could not list folder contents'
+            if error.is_path():
+                lookup_error = error.get_path()
+                text, err_cls = _get_lookup_error_msg(lookup_error)
+            elif error.is_reset():
+                text = ('Dropbox has reset its sync state. Please rebuild '
+                        'Maestral\'s index to re-sync your Dropbox.')
+                err_cls = CursorResetError
 
-            if isinstance(exc.error, dropbox.files.ListFolderLongpollError):
-                title = 'Could not get Dropbox changes'
-                if error.is_reset():
-                    text = ('Dropbox has reset its sync state. Please rebuild '
-                            'Maestral\'s index to re-sync your Dropbox.')
-                    err_cls = CursorResetError
+        if isinstance(exc.error, dropbox.files.ListFolderLongpollError):
+            title = 'Could not get Dropbox changes'
+            if error.is_reset():
+                text = ('Dropbox has reset its sync state. Please rebuild '
+                        'Maestral\'s index to re-sync your Dropbox.')
+                err_cls = CursorResetError
 
     # ----------------------- Authentication errors --------------------------------------
     elif isinstance(exc, dropbox.exceptions.AuthError):

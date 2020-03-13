@@ -22,7 +22,7 @@ from dropbox.oauth import (
 )
 
 # maestral modules
-from maestral.errors import api_to_maestral_error
+from maestral.errors import dropbox_to_maestral_error
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +169,7 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
         try:
             res = dbx.users_get_current_account()
         except dropbox.exceptions.DropboxException as exc:
-            raise api_to_maestral_error(exc)
+            raise dropbox_to_maestral_error(exc)
 
         return OAuth2FlowNoRedirectResult(access_token, res.account_id, '')
 
@@ -186,4 +186,4 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
         try:
             dbx.auth_token_revoke()
         except dropbox.exceptions.DropboxException as exc:
-            raise api_to_maestral_error(exc)
+            raise dropbox_to_maestral_error(exc)
