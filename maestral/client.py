@@ -303,6 +303,7 @@ class MaestralApiClient:
                 md = self.dbx.files_upload(
                     f.read(), dbx_path, client_modified=mtime_dt, **kwargs
                 )
+            return md
         else:
             # Note: We currently do not support resuming interrupted uploads. Dropbox
             # keeps upload sessions open for 48h so this could be done in the future.
@@ -316,7 +317,7 @@ class MaestralApiClient:
                     path=dbx_path, client_modified=mtime_dt, **kwargs
                 )
 
-                while f.tell() < size:
+                while True:
                     try:
                         if size - f.tell() <= chunk_size:
                             md = self.dbx.files_upload_session_finish(
@@ -324,6 +325,9 @@ class MaestralApiClient:
                                 cursor,
                                 commit
                             )
+
+                            return md
+
                         else:
                             self.dbx.files_upload_session_append_v2(
                                 f.read(chunk_size),
@@ -348,8 +352,6 @@ class MaestralApiClient:
                             cursor.offset = f.tell()
                         else:
                             raise exc
-
-        return md
 
     @to_maestral_error(dbx_path_arg=1)
     def remove(self, dbx_path, **kwargs):
@@ -394,7 +396,7 @@ class MaestralApiClient:
         """
         Creates a folder on Dropbox.
 
-        :param str dbx_path: Path o fDropbox folder.
+        :param str dbx_path: Path of Dropbox folder.
         :param kwargs: Keyword arguments for Dropbox SDK files_create_folder_v2.
         :returns: Metadata of created folder.
         :rtype: :class:`dropbox.files.FolderMetadata`
