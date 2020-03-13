@@ -1361,9 +1361,9 @@ class UpDownSync:
         dir_events, file_events, deleted_events = self._separate_local_event_types(events)
 
         # sort events (might not be necessary)
-        deleted_events.sort(key=lambda x: x.src_path.count('/'))
-        dir_events.sort(key=lambda x: x.src_path.count('/'))
-        file_events.sort(key=lambda x: x.src_path.count('/'))
+        # deleted_events.sort(key=lambda x: x.src_path.count('/'))
+        # dir_events.sort(key=lambda x: x.src_path.count('/'))
+        # file_events.sort(key=lambda x: x.src_path.count('/'))
 
         # update queues
         for e in deleted_events + dir_events + file_events:
@@ -1374,8 +1374,9 @@ class UpDownSync:
         for event in deleted_events:
             self._create_remote_entry(event)
 
-        for event in dir_events:
-            self._create_remote_entry(event)
+        remove_from_queue(self.queued_for_upload, *dir_events)
+        with InQueue(self.queue_uploading, *dir_events):
+            self._on_created_folders_batch(dir_events)
 
         # apply file events in parallel
         success = []
@@ -1570,12 +1571,13 @@ class UpDownSync:
         """
 
         local_path = event.src_path
-        dbx_path = self.to_dbx_path(local_path)
 
         if self._handle_selective_sync_conflict(event):
             return
         if self._handle_case_conflict(event):
             return
+
+        dbx_path = self.to_dbx_path(local_path)
 
         md_old = self.client.get_metadata(dbx_path)
         self._wait_for_creation(local_path)
@@ -1632,6 +1634,59 @@ class UpDownSync:
             rev = getattr(md_new, 'rev', 'folder')
             self.set_local_rev(md_new.path_lower, rev)
             logger.debug('Created "%s" on Dropbox', dbx_path)
+
+    def _on_created_folders_batch(self, events):
+        """
+
+        :param list[DirCreatedEvent] events: List of directory creates events.
+        :return:
+        """
+        local_paths = []
+        dbx_paths = []
+
+        for e in events:
+            local_path = e.src_path
+            dbx_path = self.to_dbx_path(local_path)
+            if not e.is_directory:
+                raise ValueError('All events must be of type '
+                                 'watchdog.events.DirCreatedEvent')
+
+            if (not self._handle_case_conflict(e)
+                    and not self._handle_selective_sync_conflict(e)):
+
+                md_old = self.client.get_metadata(dbx_path)
+                if isinstance(md_old, FolderMetadata):
+                    self.set_local_rev(dbx_path, 'folder')
+
+                local_paths.append(local_path)
+                dbx_paths.append(dbx_path)
+
+        res_list = self.client.make_dirs(dbx_paths, autorename=True)
+
+        for res, local_path, dbx_path in zip(res_list, dbx_paths, local_paths):
+            if isinstance(res, Metadata):
+                if res.path_lower != dbx_path.lower():
+                    local_path_cc = self.to_local_path(res.path_display)
+                    with self.fs_events.ignore(local_path, local_path_cc,
+                                               recursive=osp.isdir(local_path)):
+                        try:
+                            shutil.move(local_path, local_path_cc)
+                        except OSError:
+                            delete(local_path)
+
+                    # Delete revs of old path but don't set revs for new path here. This
+                    # will force conflict resolution on download in case of intermittent
+                    # changes.
+                    self.set_local_rev(dbx_path, None)
+                    logger.debug('Upload conflict: renamed "%s" to "%s"',
+                                 dbx_path, res.path_lower)
+                else:
+                    self.set_local_rev(res.path_lower, 'folder')
+                    logger.debug('Created "%s" on Dropbox', dbx_path)
+
+            elif isinstance(res, SyncError):
+                res.local_path = local_path
+                self.sync_errors.put(res)
 
     def _on_modified(self, event):
         """

@@ -289,7 +289,7 @@ class MaestralApiClient:
         :rtype: :class:`dropbox.files.FileMetadata`
         """
 
-        chunk_size_mb = min(chunk_size_mb, 150)
+        chunk_size_mb = clamp(chunk_size_mb, 0.1, 150)
         chunk_size = chunk_size_mb * 10**6  # convert to bytes
 
         size = osp.getsize(local_path)
@@ -405,6 +405,68 @@ class MaestralApiClient:
         md = res.metadata
 
         return md
+
+    @to_maestral_error()
+    def make_dirs(self, dbx_paths, batch_size=900, **kwargs):
+        """
+        Creates multiple folders on Dropbox in a batch job.
+
+        :param list[str] dbx_paths: List of dropbox folder paths.
+        :param int batch_size: Number of folders to create in each batch. Dropbox allows
+            batches of up to 1,000 folders. Larger values will be capped automatically.
+        :param kwargs: Keyword arguments for Dropbox SDK files_create_folder_batch.
+        :returns: List of Metadata for created folders or SyncError for failures.
+        :rtype: list
+        """
+        batch_size = clamp(batch_size, 1, 1000)
+        check_interval = round(0.5 + batch_size/1000, 2)
+
+        entries = []
+        result_list = []
+
+        # up two ~ 1,000 entries allowed per batch according to
+        # https://www.dropbox.com/developers/reference/data-ingress-guide
+        for chunk in chunks(dbx_paths, n=batch_size):
+            res = self.dbx.files_create_folder_batch(chunk, **kwargs)
+            if res.is_complete():
+                batch_res = res.get_complete()
+                entries.extend(batch_res.entries)
+            elif res.is_async_job_id():
+                async_job_id = res.get_async_job_id()
+
+                res = self.dbx.files_create_folder_batch_check(async_job_id)
+
+                while res.is_in_progress():
+                    time.sleep(check_interval)
+                    res = self.dbx.files_create_folder_batch_check(async_job_id)
+
+                if res.is_complete():
+                    batch_res = res.get_complete()
+                    entries.extend(batch_res.entries)
+                elif res.is_failure():
+                    error = res.get_failed()
+                    if error.is_too_many_files():
+                        res_list = self.make_dirs(
+                            chunk,
+                            batch_size=round(batch_size/2),
+                            **kwargs
+                        )
+                        result_list.extend(res_list)
+
+        for i, entry in enumerate(entries):
+            if entry.is_success():
+                result_list.append(entry.get_success().metadata)
+            elif entry.is_failure():
+                exc = dropbox.exceptions.ApiError(
+                    error=entry.get_failure(),
+                    user_message_text=None,
+                    user_message_locale=None,
+                    request_id=None,
+                )
+                sync_err = dropbox_to_maestral_error(exc, dbx_path=dbx_paths[i])
+                result_list.append(sync_err)
+
+        return result_list
 
     @to_maestral_error(dbx_path_arg=1)
     def get_latest_cursor(self, dbx_path, include_non_downloadable_files=False, **kwargs):
@@ -551,3 +613,13 @@ class MaestralApiClient:
         results = self.flatten_results(results)
 
         return results
+
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
+
+def clamp(n, minn, maxn):
+    return max(min(maxn, n), minn)
