@@ -7,7 +7,7 @@
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
-import time
+import timeit
 from watchdog.events import (
     FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileMovedEvent,
     DirCreatedEvent, DirDeletedEvent, DirMovedEvent,
@@ -218,6 +218,7 @@ def test_clean_local_events():
     cleaned_file_events_test6 = sync._clean_local_events(file_events_test6)
     cleaned_file_events_test7 = sync._clean_local_events(file_events_test7)
     cleaned_file_events_test8 = sync._clean_local_events(file_events_test8)
+    cleaned_file_events_test9 = sync._clean_local_events(file_events_test9)
 
     assert set(cleaned_file_events_test0) == set(res0)
     assert set(cleaned_file_events_test1) == set(res1)
@@ -228,19 +229,13 @@ def test_clean_local_events():
     assert set(cleaned_file_events_test6) == set(res6)
     assert set(cleaned_file_events_test7) == set(res7)
     assert set(cleaned_file_events_test8) == set(res8)
+    assert set(cleaned_file_events_test9) == set(res9)
 
     n_loops = 4
-    max_sec_per_loop = 5  # CI may be slow
+    duration = timeit.timeit('sync._clean_local_events(file_events_test9)',
+                             globals=globals(), number=n_loops)
 
-    start_time = time.time()
-
-    for i in range(n_loops):
-        cleaned_file_events_test9 = sync._clean_local_events(file_events_test9)
-
-    duration_per_loop = (time.time() - start_time) / n_loops
-
-    assert duration_per_loop < max_sec_per_loop
-    assert set(cleaned_file_events_test9) == set(res9)
+    assert duration / 4 < 3  # less than 3 sec per call
 
 
 # Create a Dropbox test account to automate the below test.
