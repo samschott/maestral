@@ -2,17 +2,19 @@
 
 This release enables excluding individual files from syncing, introduces support for an
 ".mignore" file with the same syntax as [gitignore](https://git-scm.com/docs/gitignore)
-and fixes an issue with immediately retrying failed downloads.
+and fixes an issue which lead to continuously retrying failed downloads. It also contains
+significant performance improvements to indexing, reduces the CPU usage when syncing a
+large number of files and introduces weekly re-indexing.
 
 #### Added:
 
-- Officially support excluding files from sync. This uses the same interface as excluding
-  folders. Excluded files will be removed from the local Dropbox folder.
-- Use an optional ".mignore" file to specify files that Maestral should ignore. The
+- Support excluding files from sync. This uses the same 'selective sync' interface as 
+  excluding folders. Excluded files will be removed from the local Dropbox folder.
+- Introduces an ".mignore" file to specify files that Maestral should ignore. The
   ".mignore" file must be saved in the local Dropbox folder. When excluding files or
   folders with selective sync (`maestral exclude`), they will be removed from the local
-  folder and kept in the cloud only. The ".mignore" file enabled the opposite: files or
-  folders which exists locally will not be uploaded to Dropbox. It uses the same syntax
+  folder and kept in the cloud only. The ".mignore" file enabled the reverse: files or
+  folders which exist locally will not be uploaded to Dropbox. It uses the same syntax
   as [gitignore files](https://git-scm.com/docs/gitignore) and, similar to gitignore,
   files which are already tracked by Maestral will not be affected. When a file is
   excluded by mignore and a file with the same name is created in the cloud, the remote
