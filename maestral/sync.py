@@ -190,7 +190,7 @@ class FSEventHandler(FileSystemEventHandler):
     @contextmanager
     def ignore(self, *local_paths,
                event_types=(EVENT_TYPE_MOVED, EVENT_TYPE_DELETED, EVENT_TYPE_CREATED),
-               recursive=False):
+               recursive=False, is_dir=False):
 
         with self._mutex:
             now = time.time()
@@ -203,6 +203,7 @@ class FSEventHandler(FileSystemEventHandler):
                         ttl=None,
                         event_types=event_types,
                         recursive=recursive,
+                        is_dir=is_dir or recursive,
                     )
                 )
             self._ignored_paths.extend(new_ignores)
@@ -240,9 +241,10 @@ class FSEventHandler(FileSystemEventHandler):
             path = ignore['path']
             event_types = ignore['event_types']
             recursive = ignore['recursive']
+            is_dir = ignore['is_dir']
             start_time = ignore['start_time']
 
-            if event.event_type in event_types and (not event.is_directory or recursive):
+            if event.event_type in event_types and event.is_directory == is_dir:
 
                 if (not event.event_type == EVENT_TYPE_DELETED
                         and self.sync.get_ctime(get_dest_path(event)) < start_time):
@@ -1372,10 +1374,18 @@ class UpDownSync:
 
         if dir_events:
             logger.info('Uploading folders...')
+            dir_created_events = [e for e in dir_events
+                                  if e.event_type == EVENT_TYPE_CREATED]
+            dir_moved_events = [e for e in dir_events
+                                if e.event_type == EVENT_TYPE_MOVED]
             dir_paths = tuple(e.src_path for e in dir_events)
             remove_from_queue(self.queued_for_upload, *dir_paths)
+            # apply created dirs as batch
             with InQueue(self.queue_uploading, *dir_paths):
-                self._on_created_folders_batch(dir_events)
+                self._on_created_folders_batch(dir_created_events)
+            # apply moved dirs separately
+            for event in dir_moved_events:
+                self._create_remote_entry(event)
 
         # apply file events in parallel
         success = []
@@ -2332,7 +2342,7 @@ class UpDownSync:
                         delete(local_path)
 
                 try:
-                    with self.fs_events.ignore(local_path,  # typically not recursive
+                    with self.fs_events.ignore(local_path, is_dir=True,
                                                event_types=(EVENT_TYPE_CREATED,)):
                         os.makedirs(local_path)
                 except FileExistsError:
