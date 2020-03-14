@@ -15,7 +15,7 @@ from maestral.sync import UpDownSync
 
 
 def path(i):
-    return f'test_{i}.txt'
+    return f'/test {i}'
 
 
 # Simple cases
@@ -144,20 +144,42 @@ file_events_test7 = [
     FileDeletedEvent(path(1)),
     DirCreatedEvent(path(1)),
     # convert to FileDeleted(path1) -> DirCreated(path2)
-    FileModifiedEvent(path(1)),
-    FileDeletedEvent(path(1)),
-    FileCreatedEvent(path(1)),
-    FileDeletedEvent(path(1)),
-    DirCreatedEvent(path(1)),
-    DirMovedEvent(path(1), path(2)),
+    FileModifiedEvent(path(2)),
+    FileDeletedEvent(path(2)),
+    FileCreatedEvent(path(2)),
+    FileDeletedEvent(path(2)),
+    DirCreatedEvent(path(2)),
+    DirMovedEvent(path(2), path(3)),
 ]
 
 res7 = [
     FileDeletedEvent(path(1)),
     DirCreatedEvent(path(1)),
 
-    FileDeletedEvent(path(1)),
-    DirCreatedEvent(path(2)),
+    FileDeletedEvent(path(2)),
+    DirCreatedEvent(path(3)),
+]
+
+
+# event hierarchies
+file_events_test8 = [
+    # convert to a single DirDeleted
+    DirDeletedEvent(path(1)),
+    FileDeletedEvent(path(1) + '/file1.txt'),
+    FileDeletedEvent(path(1) + '/file2.txt'),
+    DirDeletedEvent(path(1) + '/sub'),
+    FileDeletedEvent(path(1) + '/sub/file3.txt'),
+    # convert to a single DirMoved
+    DirMovedEvent(path(2), path(3)),
+    FileMovedEvent(path(2) + '/file1.txt', path(3) + '/file1.txt'),
+    FileMovedEvent(path(2) + '/file2.txt', path(3) + '/file2.txt'),
+    DirMovedEvent(path(2) + '/sub', path(3) + '/sub'),
+    FileMovedEvent(path(2) + '/sub/file3.txt', path(3) + '/sub/file3.txt'),
+]
+
+res8 = [
+    DirDeletedEvent(path(1)),
+    DirMovedEvent(path(2), path(3)),
 ]
 
 
@@ -185,6 +207,8 @@ def test_clean_local_events():
     cleaned_file_events_test4 = sync._clean_local_events(file_events_test4)
     cleaned_file_events_test5 = sync._clean_local_events(file_events_test5)
     cleaned_file_events_test6 = sync._clean_local_events(file_events_test6)
+    cleaned_file_events_test7 = sync._clean_local_events(file_events_test7)
+    cleaned_file_events_test8 = sync._clean_local_events(file_events_test8)
 
     assert set(cleaned_file_events_test0) == set(res0)
     assert set(cleaned_file_events_test1) == set(res1)
@@ -193,6 +217,8 @@ def test_clean_local_events():
     assert set(cleaned_file_events_test4) == set(res4)
     assert set(cleaned_file_events_test5) == set(res5)
     assert set(cleaned_file_events_test6) == set(res6)
+    assert set(cleaned_file_events_test7) == set(res7)
+    assert set(cleaned_file_events_test8) == set(res8)
 
 
 # Create a Dropbox test account to automate the below test.
