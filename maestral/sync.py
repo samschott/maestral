@@ -403,7 +403,7 @@ class UpDownSync:
     _last_sync_lock = RLock()
 
     _max_history = 30
-    _num_threads = min(32, os.cpu_count() + 4)
+    _num_threads = min(32, os.cpu_count()*3)
 
     def __init__(self, client):
 
