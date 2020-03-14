@@ -33,9 +33,9 @@ and fixes an issue with immediately retrying failed downloads.
   selective sync, the new item is now renamed by appending "selective sync conflict"
   instead of raising a sync issue. This is closer the behaviour of the official client.
 - Improved the reliability of locally renaming conflicting folders.
-- Significant performance improvements to indexing. Indexing a remote Dropbox with 20,000
-  to 30,000 files and comparing it a local folder now takes ~ 5 min, depending on on the
-  average file size.
+- Significant performance improvements to indexing and file event processing. Indexing a 
+  remote Dropbox with 20,000 to 30,000 files and comparing it a local folder now takes 
+  ~ 5 min, depending on on the average file size.
 - Introduced periodic reindexing every week. This has been made possible by the above
   performance improvements.
 
