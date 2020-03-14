@@ -2390,14 +2390,13 @@ def helper(mm):
         try:
             # use an inexpensive call to `get_space_usage` to test connection
             mm.sync.client.get_space_usage()
-            mm.connected.set()
             if not mm.connected.is_set() and not mm.paused_by_user.is_set():
                 mm.startup.set()
             # rebuild the index periodically
             elif (time.time() - mm.sync.last_reindex > mm.reindex_interval
                     and mm.idle_time > 20 * 60):
                 mm.rebuild_index()
-
+            mm.connected.set()
             time.sleep(mm.connection_check_interval)
         except ConnectionError:
             if mm.connected.is_set():
