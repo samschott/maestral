@@ -419,7 +419,7 @@ class MaestralApiClient:
         :rtype: list
         """
         batch_size = clamp(batch_size, 1, 1000)
-        check_interval = round(0.5 + batch_size/1000, 2)
+        check_interval = round(0.5 + batch_size / 1000, 2)
 
         entries = []
         result_list = []
@@ -448,7 +448,7 @@ class MaestralApiClient:
                     if error.is_too_many_files():
                         res_list = self.make_dirs(
                             chunk,
-                            batch_size=round(batch_size/2),
+                            batch_size=round(batch_size / 2),
                             **kwargs
                         )
                         result_list.extend(res_list)
