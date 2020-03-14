@@ -1196,6 +1196,9 @@ class UpDownSync:
                     # item was only temporary
                     pass
 
+        # event order does not matter anymore from this point because we have already
+        # consolidated events for every path
+
         # REMOVE DIR_MODIFIED_EVENTS
         cleaned_events = set(e for e in unique_events if not isinstance(e, DirModifiedEvent))
 
@@ -1204,26 +1207,26 @@ class UpDownSync:
         dir_moved_events.sort(key=lambda x: x.src_path.count('/'))
 
         if len(dir_moved_events) > 0:
-            child_move_events = []
+            child_move_events = set()
 
             for parent_event in dir_moved_events:
-                children = [x for x in cleaned_events
-                            if self._is_moved_child(x, parent_event)]
-                child_move_events.extend(children)
-                cleaned_events = self._list_diff(cleaned_events, child_move_events)
+                children = set(x for x in cleaned_events
+                               if self._is_moved_child(x, parent_event))
+                child_move_events.update(children)
+                cleaned_events -= child_move_events
 
         # COMBINE DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
         dir_deleted_events = [e for e in cleaned_events if isinstance(e, DirDeletedEvent)]
         dir_deleted_events.sort(key=lambda x: x.src_path.count('/'))
 
         if len(dir_deleted_events) > 0:
-            child_deleted_events = []
+            child_deleted_events = set()
 
             for parent_event in dir_deleted_events:
                 children = set(x for x in cleaned_events
                                if self._is_deleted_child(x, parent_event))
-                child_deleted_events.extend(children)
-                cleaned_events = self._list_diff(cleaned_events, child_deleted_events)
+                child_deleted_events.update(children)
+                cleaned_events -= child_deleted_events
 
         logger.debug('Cleaned up local file events:\n%s', iter_to_str(cleaned_events))
 
@@ -1399,7 +1402,7 @@ class UpDownSync:
         Subtracts elements of `list2` from `list1` while preserving the order of `list1`.
 
         :param list list1: List to subtract from.
-        :param list list2: List of elements to subtract.
+        :param iterable list2: Iterable of elements to subtract.
         :returns: Subtracted list.
         :rtype: list
         """
