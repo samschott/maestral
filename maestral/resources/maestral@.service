@@ -8,8 +8,6 @@ NotifyAccess = exec
 ExecStart = {start_cmd} -c %i
 ExecStop = {stop_cmd} -c %i
 ExecStopPost=/usr/bin/env bash -c "if [ $SERVICE_RESULT!=success ]; then notify-send Maestral 'Daemon failed'; fi"
-RestartSec = 1
-Restart = on-failure
 WatchdogSec = 30s
 
 [Install]
