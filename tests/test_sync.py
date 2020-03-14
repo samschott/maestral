@@ -232,8 +232,8 @@ def test_clean_local_events():
     assert set(cleaned_file_events_test9) == set(res9)
 
     n_loops = 4
-    duration = timeit.timeit('sync._clean_local_events(file_events_test9)',
-                             globals=globals(), number=n_loops)
+    duration = timeit.timeit(lambda: sync._clean_local_events(file_events_test9),
+                             number=n_loops)
 
     assert duration / 4 < 3  # less than 3 sec per call
 
