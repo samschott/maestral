@@ -415,7 +415,8 @@ class MaestralApiClient:
         :param int batch_size: Number of folders to create in each batch. Dropbox allows
             batches of up to 1,000 folders. Larger values will be capped automatically.
         :param kwargs: Keyword arguments for Dropbox SDK files_create_folder_batch.
-        :returns: List of Metadata for created folders or SyncError for failures.
+        :returns: List of Metadata for created folders or SyncError for failures. Entries
+            will be in the same order as given paths.
         :rtype: list
         """
         batch_size = clamp(batch_size, 1, 1000)
