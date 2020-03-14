@@ -6,10 +6,16 @@
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
-import platform
+from watchdog.utils import platform
+from watchdog.utils import UnsupportedLibc
 
-if platform.system() == "Darwin":
+if platform.is_darwin():
     from .fsevents import OrderedFSEventsObserver as Observer
+elif platform.is_linux():
+    try:
+        from watchdog.observers.inotify import InotifyObserver as Observer
+    except UnsupportedLibc:
+        from .polling import OrderedPollingObserver as Observer
 else:
     from watchdog.observers import Observer
 
