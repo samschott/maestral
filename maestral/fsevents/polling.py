@@ -13,11 +13,6 @@ from watchdog.observers.polling import (
     DEFAULT_OBSERVER_TIMEOUT, BaseObserver
 )
 
-try:
-    from os import scandir
-except ImportError:
-    from os import listdir as scandir
-
 
 class OrderedPollingEmitter(PollingEmitter):
     """
