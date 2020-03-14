@@ -7,180 +7,12 @@
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
+import time
 from watchdog.events import (
     FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileMovedEvent,
     DirCreatedEvent, DirDeletedEvent, DirMovedEvent,
 )
 from maestral.sync import UpDownSync
-
-
-def path(i):
-    return f'/test {i}'
-
-
-# Simple cases
-file_events_test0 = [
-    # created + deleted -> None
-    FileCreatedEvent(path(1)),
-    FileDeletedEvent(path(1)),
-    # deleted + created -> modified
-    FileDeletedEvent(path(2)),
-    FileCreatedEvent(path(2)),
-]
-
-res0 = [
-    # created + deleted -> None
-    # deleted + created -> modified
-    FileModifiedEvent(path(2))
-]
-
-# Single file events, keep as is
-file_events_test1 = [
-    FileModifiedEvent(path(1)),
-    FileCreatedEvent(path(2)),
-    FileDeletedEvent(path(3)),
-    FileMovedEvent(path(4), path(5)),
-]
-
-res1 = [
-    FileModifiedEvent(path(1)),
-    FileCreatedEvent(path(2)),
-    FileDeletedEvent(path(3)),
-    FileMovedEvent(path(4), path(5)),
-]
-
-# Difficult move cases
-file_events_test2 = [
-    # created + moved -> created
-    FileCreatedEvent(path(1)),
-    FileMovedEvent(path(1), path(2)),
-    # moved + deleted -> deleted
-    FileMovedEvent(path(1), path(4)),
-    FileDeletedEvent(path(4)),
-    # moved + moved back -> modified
-    FileMovedEvent(path(5), path(6)),
-    FileMovedEvent(path(6), path(5)),
-    # moved + moved -> deleted + created (this is currently not handled as a single moved)
-    FileMovedEvent(path(7), path(8)),
-    FileMovedEvent(path(8), path(9)),
-]
-
-res2 = [
-    # created + moved -> created
-    FileCreatedEvent(path(2)),
-    # moved + deleted -> deleted
-    FileDeletedEvent(path(1)),
-    # moved + moved back -> modified
-    FileModifiedEvent(path(5)),
-    # moved + moved -> deleted + created (this is currently not handled as a single moved)
-    FileDeletedEvent(path(7)),
-    FileCreatedEvent(path(9)),
-]
-
-# Gedit save event
-file_events_test3 = [
-    FileCreatedEvent('.gedit-save-UR4EC0'),         # save new version to tmp file
-    FileModifiedEvent('.gedit-save-UR4EC0'),        # modify tmp file
-    FileMovedEvent(path(1), path(1) + '~'),         # move old version to backup
-    FileMovedEvent('.gedit-save-UR4EC0', path(1)),  # replace old version with tmp file
-]
-
-res3 = [
-    FileModifiedEvent(path(1)),       # modified file
-    FileCreatedEvent(path(1) + '~'),  # backup
-]
-
-# macOS safe-save event
-file_events_test4 = [
-    FileMovedEvent(path(1), path(1) + '.sb-b78ef837-dLht38'),  # move to backup
-    FileCreatedEvent(path(1)),                                 # create new version
-    FileDeletedEvent(path(1) + '.sb-b78ef837-dLht38'),         # delete backup
-]
-
-res4 = [
-    FileModifiedEvent(path(1)),  # modified file
-]
-
-# Word on macOS created event
-file_events_test5 = [
-    FileCreatedEvent(path(1)),
-    FileDeletedEvent(path(1)),
-    FileCreatedEvent(path(1)),
-    FileCreatedEvent('~$' + path(1)),
-]
-
-res5 = [
-    FileCreatedEvent(path(1)),         # created file
-    FileCreatedEvent('~$' + path(1)),  # backup (will be deleted when file is closed)
-]
-
-
-# type changes
-file_events_test6 = [
-    # keep as is
-    FileDeletedEvent(path(1)),
-    DirCreatedEvent(path(1)),
-    # keep as is
-    DirDeletedEvent(path(2)),
-    FileCreatedEvent(path(2)),
-]
-
-res6 = [
-    # keep as is
-    FileDeletedEvent(path(1)),
-    DirCreatedEvent(path(1)),
-    # keep as is
-    DirDeletedEvent(path(2)),
-    FileCreatedEvent(path(2)),
-]
-
-
-# difficult type changes
-file_events_test7 = [
-    # convert to FileDeleted -> DirCreated
-    FileModifiedEvent(path(1)),
-    FileDeletedEvent(path(1)),
-    FileCreatedEvent(path(1)),
-    FileDeletedEvent(path(1)),
-    DirCreatedEvent(path(1)),
-    # convert to FileDeleted(path1) -> DirCreated(path2)
-    FileModifiedEvent(path(2)),
-    FileDeletedEvent(path(2)),
-    FileCreatedEvent(path(2)),
-    FileDeletedEvent(path(2)),
-    DirCreatedEvent(path(2)),
-    DirMovedEvent(path(2), path(3)),
-]
-
-res7 = [
-    FileDeletedEvent(path(1)),
-    DirCreatedEvent(path(1)),
-
-    FileDeletedEvent(path(2)),
-    DirCreatedEvent(path(3)),
-]
-
-
-# event hierarchies
-file_events_test8 = [
-    # convert to a single DirDeleted
-    DirDeletedEvent(path(1)),
-    FileDeletedEvent(path(1) + '/file1.txt'),
-    FileDeletedEvent(path(1) + '/file2.txt'),
-    DirDeletedEvent(path(1) + '/sub'),
-    FileDeletedEvent(path(1) + '/sub/file3.txt'),
-    # convert to a single DirMoved
-    DirMovedEvent(path(2), path(3)),
-    FileMovedEvent(path(2) + '/file1.txt', path(3) + '/file1.txt'),
-    FileMovedEvent(path(2) + '/file2.txt', path(3) + '/file2.txt'),
-    DirMovedEvent(path(2) + '/sub', path(3) + '/sub'),
-    FileMovedEvent(path(2) + '/sub/file3.txt', path(3) + '/sub/file3.txt'),
-]
-
-res8 = [
-    DirDeletedEvent(path(1)),
-    DirMovedEvent(path(2), path(3)),
-]
 
 
 class DummyUpDownSync(UpDownSync):
@@ -195,8 +27,185 @@ class DummyUpDownSync(UpDownSync):
         return False
 
 
-# TODO: test splitting mignore paths
 def test_clean_local_events():
+
+    def path(i):
+        return f'/test {i}'
+
+    # Simple cases
+    file_events_test0 = [
+        # created + deleted -> None
+        FileCreatedEvent(path(1)),
+        FileDeletedEvent(path(1)),
+        # deleted + created -> modified
+        FileDeletedEvent(path(2)),
+        FileCreatedEvent(path(2)),
+    ]
+
+    res0 = [
+        # created + deleted -> None
+        # deleted + created -> modified
+        FileModifiedEvent(path(2))
+    ]
+
+    # Single file events, keep as is
+    file_events_test1 = [
+        FileModifiedEvent(path(1)),
+        FileCreatedEvent(path(2)),
+        FileDeletedEvent(path(3)),
+        FileMovedEvent(path(4), path(5)),
+    ]
+
+    res1 = [
+        FileModifiedEvent(path(1)),
+        FileCreatedEvent(path(2)),
+        FileDeletedEvent(path(3)),
+        FileMovedEvent(path(4), path(5)),
+    ]
+
+    # Difficult move cases
+    file_events_test2 = [
+        # created + moved -> created
+        FileCreatedEvent(path(1)),
+        FileMovedEvent(path(1), path(2)),
+        # moved + deleted -> deleted
+        FileMovedEvent(path(1), path(4)),
+        FileDeletedEvent(path(4)),
+        # moved + moved back -> modified
+        FileMovedEvent(path(5), path(6)),
+        FileMovedEvent(path(6), path(5)),
+        # moved + moved -> deleted + created (this is currently not handled as a single
+        # moved)
+        FileMovedEvent(path(7), path(8)),
+        FileMovedEvent(path(8), path(9)),
+    ]
+
+    res2 = [
+        # created + moved -> created
+        FileCreatedEvent(path(2)),
+        # moved + deleted -> deleted
+        FileDeletedEvent(path(1)),
+        # moved + moved back -> modified
+        FileModifiedEvent(path(5)),
+        # moved + moved -> deleted + created (this is currently not handled as a single
+        # moved)
+        FileDeletedEvent(path(7)),
+        FileCreatedEvent(path(9)),
+    ]
+
+    # Gedit save event
+    file_events_test3 = [
+        FileCreatedEvent('.gedit-save-UR4EC0'),  # save new version to tmp file
+        FileModifiedEvent('.gedit-save-UR4EC0'),  # modify tmp file
+        FileMovedEvent(path(1), path(1) + '~'),  # move old version to backup
+        FileMovedEvent('.gedit-save-UR4EC0', path(1)),
+        # replace old version with tmp file
+    ]
+
+    res3 = [
+        FileModifiedEvent(path(1)),  # modified file
+        FileCreatedEvent(path(1) + '~'),  # backup
+    ]
+
+    # macOS safe-save event
+    file_events_test4 = [
+        FileMovedEvent(path(1), path(1) + '.sb-b78ef837-dLht38'),  # move to backup
+        FileCreatedEvent(path(1)),  # create new version
+        FileDeletedEvent(path(1) + '.sb-b78ef837-dLht38'),  # delete backup
+    ]
+
+    res4 = [
+        FileModifiedEvent(path(1)),  # modified file
+    ]
+
+    # Word on macOS created event
+    file_events_test5 = [
+        FileCreatedEvent(path(1)),
+        FileDeletedEvent(path(1)),
+        FileCreatedEvent(path(1)),
+        FileCreatedEvent('~$' + path(1)),
+    ]
+
+    res5 = [
+        FileCreatedEvent(path(1)),  # created file
+        FileCreatedEvent('~$' + path(1)),  # backup (will be deleted when file is closed)
+    ]
+
+    # simple type changes
+    file_events_test6 = [
+        # keep as is
+        FileDeletedEvent(path(1)),
+        DirCreatedEvent(path(1)),
+        # keep as is
+        DirDeletedEvent(path(2)),
+        FileCreatedEvent(path(2)),
+    ]
+
+    res6 = [
+        # keep as is
+        FileDeletedEvent(path(1)),
+        DirCreatedEvent(path(1)),
+        # keep as is
+        DirDeletedEvent(path(2)),
+        FileCreatedEvent(path(2)),
+    ]
+
+    # difficult type changes
+    file_events_test7 = [
+        # convert to FileDeleted -> DirCreated
+        FileModifiedEvent(path(1)),
+        FileDeletedEvent(path(1)),
+        FileCreatedEvent(path(1)),
+        FileDeletedEvent(path(1)),
+        DirCreatedEvent(path(1)),
+        # convert to FileDeleted(path1) -> DirCreated(path2)
+        FileModifiedEvent(path(2)),
+        FileDeletedEvent(path(2)),
+        FileCreatedEvent(path(2)),
+        FileDeletedEvent(path(2)),
+        DirCreatedEvent(path(2)),
+        DirMovedEvent(path(2), path(3)),
+    ]
+
+    res7 = [
+        FileDeletedEvent(path(1)),
+        DirCreatedEvent(path(1)),
+
+        FileDeletedEvent(path(2)),
+        DirCreatedEvent(path(3)),
+    ]
+
+    # event hierarchies
+    file_events_test8 = [
+        # convert to a single DirDeleted
+        DirDeletedEvent(path(1)),
+        FileDeletedEvent(path(1) + '/file1.txt'),
+        FileDeletedEvent(path(1) + '/file2.txt'),
+        DirDeletedEvent(path(1) + '/sub'),
+        FileDeletedEvent(path(1) + '/sub/file3.txt'),
+        # convert to a single DirMoved
+        DirMovedEvent(path(2), path(3)),
+        FileMovedEvent(path(2) + '/file1.txt', path(3) + '/file1.txt'),
+        FileMovedEvent(path(2) + '/file2.txt', path(3) + '/file2.txt'),
+        DirMovedEvent(path(2) + '/sub', path(3) + '/sub'),
+        FileMovedEvent(path(2) + '/sub/file3.txt', path(3) + '/sub/file3.txt'),
+    ]
+
+    res8 = [
+        DirDeletedEvent(path(1)),
+        DirMovedEvent(path(2), path(3)),
+    ]
+
+    # performance test
+    file_events_test9 = [DirDeletedEvent(n * path(1)) for n in range(1, 5000)]
+    file_events_test9 += [FileDeletedEvent(n * path(1) + '.txt') for n in range(1, 3000)]
+    file_events_test9 += [FileCreatedEvent(path(n)) for n in range(2, 1000)]
+
+    res9 = [
+        DirDeletedEvent(path(1)),
+        FileDeletedEvent(path(1) + '.txt')
+    ]
+    res9 += [FileCreatedEvent(path(n)) for n in range(2, 1000)]
 
     sync = DummyUpDownSync()
 
@@ -219,6 +228,19 @@ def test_clean_local_events():
     assert set(cleaned_file_events_test6) == set(res6)
     assert set(cleaned_file_events_test7) == set(res7)
     assert set(cleaned_file_events_test8) == set(res8)
+
+    n_loops = 4
+    max_sec_per_loop = 5  # CI may be slow
+
+    start_time = time.time()
+
+    for i in range(n_loops):
+        cleaned_file_events_test9 = sync._clean_local_events(file_events_test9)
+
+    duration_per_loop = (time.time() - start_time) / n_loops
+
+    assert duration_per_loop < max_sec_per_loop
+    assert set(cleaned_file_events_test9) == set(res9)
 
 
 # Create a Dropbox test account to automate the below test.
