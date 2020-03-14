@@ -20,7 +20,7 @@ import threading
 from threading import Thread, Event, Lock, RLock
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
-from collections import abc, OrderedDict
+from collections import abc, OrderedDict, Counter
 from contextlib import contextmanager
 import functools
 from enum import IntEnum
@@ -1099,7 +1099,7 @@ class UpDownSync:
         Checks for and removes file events referring to items which are excluded from
         syncing.
 
-        :param events: List of file events.
+        :param list events: List of file events.
         :returns: (``events_filtered``, ``events_excluded``)
         """
 
@@ -1134,11 +1134,8 @@ class UpDownSync:
         """
 
         # COMBINE EVENTS TO ONE EVENT PER PATH
-
-        all_src_paths = [e.src_path for e in events]
-        all_dest_paths = [e.dest_path for e in events if e.event_type == EVENT_TYPE_MOVED]
-
-        all_paths = all_src_paths + all_dest_paths
+        all_paths = list(e.src_path for e in events)
+        all_paths += [e.dest_path for e in events if e.event_type == EVENT_TYPE_MOVED]
 
         # Move events are difficult to combine with other event types
         # -> split up moved events into deleted and created events if at least one
@@ -1155,57 +1152,56 @@ class UpDownSync:
             else:
                 split_events.append(e)
 
-        unique_paths = set(e.src_path for e in split_events)
+        counts = Counter(all_paths)
+        duplicate_paths = set(k for k, v in counts.items() if v > 1)
         histories = [[e for e in split_events if e.src_path == path]
-                     for path in unique_paths]
+                     for path in duplicate_paths]
 
-        unique_events = []
+        unique_events = [e for e in split_events if e.src_path not in duplicate_paths]
 
         for h in histories:
-            if len(h) == 1:
-                unique_events += h
-            else:
-                path = h[0].src_path
+            path = h[0].src_path
 
-                n_created = len([e for e in h if e.event_type == EVENT_TYPE_CREATED])
-                n_deleted = len([e for e in h if e.event_type == EVENT_TYPE_DELETED])
+            n_created = len([e for e in h if e.event_type == EVENT_TYPE_CREATED])
+            n_deleted = len([e for e in h if e.event_type == EVENT_TYPE_DELETED])
 
-                if n_created > n_deleted:  # item was created
-                    if h[-1].is_directory:
-                        unique_events.append(DirCreatedEvent(path))
-                    else:
-                        unique_events.append(FileCreatedEvent(path))
-                if n_created < n_deleted:  # item was deleted
-                    if h[0].is_directory:
-                        unique_events.append(DirDeletedEvent(path))
-                    else:
-                        unique_events.append(FileDeletedEvent(path))
+            if n_created > n_deleted:  # item was created
+                if h[-1].is_directory:
+                    unique_events.append(DirCreatedEvent(path))
                 else:
+                    unique_events.append(FileCreatedEvent(path))
+            if n_created < n_deleted:  # item was deleted
+                if h[0].is_directory:
+                    unique_events.append(DirDeletedEvent(path))
+                else:
+                    unique_events.append(FileDeletedEvent(path))
+            else:
 
-                    first_created_idx = next(iter(i for i, e in enumerate(h) if e.event_type == EVENT_TYPE_CREATED), -1)
-                    first_deleted_idx = next(iter(i for i, e in enumerate(h) if e.event_type == EVENT_TYPE_DELETED), -1)
+                first_created_idx = next(iter(i for i, e in enumerate(h) if e.event_type == EVENT_TYPE_CREATED), -1)
+                first_deleted_idx = next(iter(i for i, e in enumerate(h) if e.event_type == EVENT_TYPE_DELETED), -1)
 
-                    if n_created == 0 or first_deleted_idx < first_created_idx:
-                        # item was modified
-                        if h[0].is_directory and h[-1].is_directory:
-                            unique_events.append(DirModifiedEvent(path))
-                        elif not h[0].is_directory and not h[-1].is_directory:
-                            unique_events.append(FileModifiedEvent(path))
-                        elif h[0].is_directory:
-                            unique_events.append(DirDeletedEvent(path))
-                            unique_events.append(FileCreatedEvent(path))
-                        elif h[1].is_directory:
-                            unique_events.append(FileDeletedEvent(path))
-                            unique_events.append(DirCreatedEvent(path))
-                    else:
-                        # item was only temporary
-                        pass
+                if n_created == 0 or first_deleted_idx < first_created_idx:
+                    # item was modified
+                    if h[0].is_directory and h[-1].is_directory:
+                        unique_events.append(DirModifiedEvent(path))
+                    elif not h[0].is_directory and not h[-1].is_directory:
+                        unique_events.append(FileModifiedEvent(path))
+                    elif h[0].is_directory:
+                        unique_events.append(DirDeletedEvent(path))
+                        unique_events.append(FileCreatedEvent(path))
+                    elif h[-1].is_directory:
+                        unique_events.append(FileDeletedEvent(path))
+                        unique_events.append(DirCreatedEvent(path))
+                else:
+                    # item was only temporary
+                    pass
 
         # REMOVE DIR_MODIFIED_EVENTS
-        cleaned_events = [e for e in unique_events if not isinstance(e, DirModifiedEvent)]
+        cleaned_events = set(e for e in unique_events if not isinstance(e, DirModifiedEvent))
 
         # COMBINE MOVED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
         dir_moved_events = [e for e in cleaned_events if isinstance(e, DirMovedEvent)]
+        dir_moved_events.sort(key=lambda x: x.src_path.count('/'))
 
         if len(dir_moved_events) > 0:
             child_move_events = []
@@ -1213,22 +1209,21 @@ class UpDownSync:
             for parent_event in dir_moved_events:
                 children = [x for x in cleaned_events
                             if self._is_moved_child(x, parent_event)]
-                child_move_events += children
-
-            cleaned_events = self._list_diff(cleaned_events, child_move_events)
+                child_move_events.extend(children)
+                cleaned_events = self._list_diff(cleaned_events, child_move_events)
 
         # COMBINE DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
         dir_deleted_events = [e for e in cleaned_events if isinstance(e, DirDeletedEvent)]
+        dir_deleted_events.sort(key=lambda x: x.src_path.count('/'))
 
         if len(dir_deleted_events) > 0:
             child_deleted_events = []
 
             for parent_event in dir_deleted_events:
-                children = [x for x in cleaned_events
-                            if self._is_deleted_child(x, parent_event)]
-                child_deleted_events += children
-
-            cleaned_events = self._list_diff(cleaned_events, child_deleted_events)
+                children = set(x for x in cleaned_events
+                               if self._is_deleted_child(x, parent_event))
+                child_deleted_events.extend(children)
+                cleaned_events = self._list_diff(cleaned_events, child_deleted_events)
 
         logger.debug('Cleaned up local file events:\n%s', iter_to_str(cleaned_events))
 
@@ -1236,7 +1231,7 @@ class UpDownSync:
         del split_events
         del unique_events
 
-        return cleaned_events
+        return list(cleaned_events)
 
     def _should_split_excluded(self, event):
 
@@ -1353,17 +1348,12 @@ class UpDownSync:
         """
         Applies locally detected events to remote Dropbox.
 
-        :param list events: List of local file changes.
+        :param iterable events: List of local file changes.
         :param float local_cursor: Time stamp of last event in `events`.
         """
 
         events, _ = self._filter_excluded_changes_local(events)
         dir_events, file_events, deleted_events = self._separate_local_event_types(events)
-
-        # sort events (might not be necessary)
-        # deleted_events.sort(key=lambda x: x.src_path.count('/'))
-        # dir_events.sort(key=lambda x: x.src_path.count('/'))
-        # file_events.sort(key=lambda x: x.src_path.count('/'))
 
         # update queues
         for e in deleted_events + dir_events + file_events:
@@ -1371,12 +1361,18 @@ class UpDownSync:
 
         # apply deleted events first, folder created events second
         # neither event type requires an actual upload
+        if deleted_events:
+            logger.info('Uploading deletions...')
+
         for event in deleted_events:
             self._create_remote_entry(event)
 
-        remove_from_queue(self.queued_for_upload, *dir_events)
-        with InQueue(self.queue_uploading, *dir_events):
-            self._on_created_folders_batch(dir_events)
+        if dir_events:
+            logger.info('Uploading folders...')
+            dir_paths = tuple(e.src_path for e in dir_events)
+            remove_from_queue(self.queued_for_upload, *dir_paths)
+            with InQueue(self.queue_uploading, *dir_paths):
+                self._on_created_folders_batch(dir_events)
 
         # apply file events in parallel
         success = []
@@ -2212,11 +2208,12 @@ class UpDownSync:
 
         all_paths = [e.path_lower for e in changes.entries]
 
-        unique_paths = list(OrderedDict.fromkeys(all_paths))
-        histories = [[e for e in changes.entries if e.path_lower == unique_path]
-                     for unique_path in unique_paths]
+        counts = Counter(all_paths)
+        duplicate_paths = set(k for k, v in counts.items() if v > 1)
+        histories = [[e for e in changes.entries if e.path_lower == path]
+                     for path in duplicate_paths]
 
-        new_entries = []
+        new_entries = [e for e in changes.entries if e.path_lower not in duplicate_paths]
 
         for h in histories:
             last_event = h[-1]
