@@ -235,7 +235,8 @@ def test_clean_local_events():
     duration = timeit.timeit(lambda: sync._clean_local_events(file_events_test9),
                              number=n_loops)
 
-    assert duration / 4 < 3  # less than 3 sec per call
+    # less than 5 sec per call, accommodate slow CI servers
+    assert duration / 4 < 5
 
 
 # Create a Dropbox test account to automate the below test.
