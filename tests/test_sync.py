@@ -246,6 +246,8 @@ def test_clean_local_events():
 def test_sync_cases():
     # Currently those tests are performed manually with the following test cases:
     #
+    # CC = conflicting copy
+    #
     #  * Remote file replaced with a folder (OK): Check mtime and create CC of local file
     #    if necessary.
     #  * Remote folder replaced with a file (OK):
@@ -255,8 +257,9 @@ def test_sync_cases():
     #    Check server-modified time of file and only delete if older. Otherwise, let
     #    Dropbox handle creating a CC.
     #  * Local folder replaced with a file (NOK):
-    #    Possible data loss on conflict, could solve by checking folder for changes since
-    #    last cursor before deletion.
+    #    Remote folder is currently not checked for unsynced changes but a CC is created
+    #    by default. We could recurse through all remote files and check for unsynced
+    #    changes.
     #  * Remote and local items modified during sync pause (OK)
     #  * Remote and local items created during sync pause (OK)
     #  * Remote and local items deleted during sync pause (OK)
@@ -280,8 +283,6 @@ def test_sync_cases():
     #  * Remote item modified -> registered -> local item modified before download (OK):
     #    Local rev != remote rev. Compare ctime and create CC if ctime > last_sync and
     #    file contents are different.
-    #
-    #  Note: CC = conflicting copy
     #
 
     pass
