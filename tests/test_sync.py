@@ -197,8 +197,8 @@ def test_clean_local_events():
     ]
 
     # performance test
-    file_events_test9 = [DirDeletedEvent(n * path(1)) for n in range(1, 5000)]
-    file_events_test9 += [FileDeletedEvent(n * path(1) + '.txt') for n in range(1, 3000)]
+    file_events_test9 = [DirDeletedEvent(n * path(1)) for n in range(1, 10000)]
+    file_events_test9 += [FileDeletedEvent(n * path(1) + '.txt') for n in range(1, 1000)]
     file_events_test9 += [FileCreatedEvent(path(n)) for n in range(2, 1000)]
 
     res9 = [
@@ -235,6 +235,8 @@ def test_clean_local_events():
     duration = timeit.timeit(lambda: sync._clean_local_events(file_events_test9),
                              number=n_loops)
 
+    print(f'# Performance test:')
+    print(f'time per loop: {duration / 4} sec')
     # less than 5 sec per call, accommodate slow CI servers
     assert duration / 4 < 5
 
