@@ -1109,9 +1109,11 @@ class UpDownSync:
             local_path = get_dest_path(event)
             dbx_path = self.to_dbx_path(local_path)
 
-            if self.is_excluded(dbx_path):  # is excluded?
+            if self.is_excluded(dbx_path):
                 events_excluded.append(event)
-            elif self.is_mignore(event):  # is excluded by mignore?
+            elif self.is_mignore(event):
+                # moved events with an ignored path are
+                # already split into deleted, created pairs
                 events_excluded.append(event)
             else:
                 events_filtered.append(event)
