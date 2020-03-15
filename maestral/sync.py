@@ -1669,7 +1669,7 @@ class UpDownSync:
 
         res_list = self.client.make_dirs(dbx_paths, autorename=True)
 
-        for res, local_path, dbx_path in zip(res_list, dbx_paths, local_paths):
+        for res, dbx_path, local_path in zip(res_list, dbx_paths, local_paths):
             if isinstance(res, Metadata):
                 if res.path_lower != dbx_path.lower():
                     local_path_cc = self.to_local_path(res.path_display)
