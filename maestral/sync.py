@@ -36,7 +36,7 @@ from watchdog.events import (EVENT_TYPE_CREATED, EVENT_TYPE_DELETED,
                              EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED)
 from watchdog.events import (DirModifiedEvent, FileModifiedEvent, DirCreatedEvent,
                              FileCreatedEvent, DirDeletedEvent, FileDeletedEvent,
-                             DirMovedEvent)
+                             DirMovedEvent, FileMovedEvent)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 from atomicwrites import atomic_write
 
@@ -270,11 +270,11 @@ class FSEventHandler(FileSystemEventHandler):
                     elif ignore_src:
                         if not recursive:
                             self._ignored_paths.remove(ignore)
-                        return split_fs_event(event)[1]
+                        return split_moved_event(event)[1]
                     elif ignore_dest:
                         if not recursive:
                             self._ignored_paths.remove(ignore)
-                        return split_fs_event(event)[0]
+                        return split_moved_event(event)[0]
 
                 else:
                     if recursive:
@@ -1136,30 +1136,30 @@ class UpDownSync:
         """
 
         # COMBINE EVENTS TO ONE EVENT PER PATH
-        all_paths = list(e.src_path for e in events)
-        all_paths += [e.dest_path for e in events if e.event_type == EVENT_TYPE_MOVED]
 
-        # Move events are difficult to combine with other event types
-        # -> split up moved events into deleted and created events if at least one
-        # of the paths has other events associated with it or is excluded from sync
-        split_events = []
-
-        for e in events:
-            if e.event_type == EVENT_TYPE_MOVED:
-                related = tuple(p for p in all_paths if p in (e.src_path, e.dest_path))
-                if len(related) > 2 or self._should_split_excluded(e):
-                    split_events.extend(split_fs_event(e))
-                else:
-                    split_events.append(e)
-            else:
-                split_events.append(e)
+        # Move events are difficult to combine with other event types, we split them into
+        # deleted and created events and recombine them later if none of the paths has
+        # other events associated with it or is excluded from sync.
 
         histories = dict()
-        for event in split_events:
-            try:
-                histories[event.src_path].append(event)
-            except KeyError:
-                histories[event.src_path] = [event]
+        for i, event in enumerate(events):
+            if event.event_type == EVENT_TYPE_MOVED:
+                deleted, created = split_moved_event(event)
+                deleted.id = i
+                created.id = i
+                try:
+                    histories[deleted.src_path].append(deleted)
+                except KeyError:
+                    histories[deleted.src_path] = [deleted]
+                try:
+                    histories[created.src_path].append(created)
+                except KeyError:
+                    histories[created.src_path] = [created]
+            else:
+                try:
+                    histories[event.src_path].append(event)
+                except KeyError:
+                    histories[event.src_path] = [event]
 
         unique_events = []
 
@@ -1208,6 +1208,30 @@ class UpDownSync:
 
         # REMOVE DIR_MODIFIED_EVENTS
         cleaned_events = set(e for e in unique_events if not isinstance(e, DirModifiedEvent))
+
+        # recombine moved events
+        moved_events = dict()
+        for event in unique_events:
+            if hasattr(event, 'id'):
+                try:
+                    moved_events[event.id].append(event)
+                except KeyError:
+                    moved_events[event.id] = [event]
+
+        for event_list in moved_events.values():
+            if len(event_list) == 2:
+                src_path = next(e.src_path for e in event_list
+                                if e.event_type == EVENT_TYPE_DELETED)
+                dest_path = next(e.src_path for e in event_list
+                                 if e.event_type == EVENT_TYPE_CREATED)
+                if event_list[0].is_directory:
+                    new_event = DirMovedEvent(src_path, dest_path)
+                else:
+                    new_event = FileMovedEvent(src_path, dest_path)
+
+                if not self._should_split_excluded(new_event):
+                    cleaned_events.difference_update(event_list)
+                    cleaned_events.add(new_event)
 
         # COMBINE MOVED AND DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
 
@@ -1260,7 +1284,6 @@ class UpDownSync:
         logger.debug('Cleaned up local file events:\n%s', iter_to_str(cleaned_events))
 
         del events
-        del split_events
         del unique_events
 
         return list(cleaned_events)
@@ -2202,9 +2225,9 @@ class UpDownSync:
 
         new_entries = []
 
-        for h in histories:
+        for h in histories.values():
             if len(h) == 1:
-                new_entries.append(h)
+                new_entries.extend(h)
             else:
                 last_event = h[-1]
                 was_dir = self.get_local_rev(last_event.path_lower) == 'folder'
@@ -2899,7 +2922,7 @@ def get_dest_path(event):
     return getattr(event, 'dest_path', event.src_path)
 
 
-def split_fs_event(event):
+def split_moved_event(event):
     """
     Splits a given FileSystemEvent into Deleted and Created events of the same type.
     :param FileMovedEvent, DirMovedEvent event: Original event.
