@@ -2246,34 +2246,37 @@ class UpDownSync:
         # Note: we won't have to deal with modified or moved events,
         # Dropbox only reports DeletedMetadata or FileMetadata / FolderMetadata
 
-        all_paths = [e.path_lower for e in changes.entries]
+        histories = dict()
+        for entry in changes.entries:
+            try:
+                histories[entry.path_lower].append(entry)
+            except KeyError:
+                histories[entry.path_lower] = [entry]
 
-        counts = Counter(all_paths)
-        duplicate_paths = set(k for k, v in counts.items() if v > 1)
-        histories = [[e for e in changes.entries if e.path_lower == path]
-                     for path in duplicate_paths]
-
-        new_entries = [e for e in changes.entries if e.path_lower not in duplicate_paths]
+        new_entries = []
 
         for h in histories:
-            last_event = h[-1]
-            was_dir = self.get_local_rev(last_event.path_lower) == 'folder'
-
-            # Dropbox guarantees that applying events in the provided order
-            # will reproduce the state in the cloud. We therefore keep only
-            # the last event, unless there is a change in item type.
-            if (was_dir and isinstance(last_event, FileMetadata)
-                    or not was_dir and isinstance(last_event, FolderMetadata)):
-                deleted_event = DeletedMetadata(
-                    name=last_event.name,
-                    path_lower=last_event.path_lower,
-                    path_display=last_event.path_display,
-                    parent_shared_folder_id=last_event.parent_shared_folder_id
-                )
-                new_entries.append(deleted_event)
-                new_entries.append(last_event)
+            if len(h) == 1:
+                new_entries.append(h)
             else:
-                new_entries.append(last_event)
+                last_event = h[-1]
+                was_dir = self.get_local_rev(last_event.path_lower) == 'folder'
+
+                # Dropbox guarantees that applying events in the provided order
+                # will reproduce the state in the cloud. We therefore keep only
+                # the last event, unless there is a change in item type.
+                if (was_dir and isinstance(last_event, FileMetadata)
+                        or not was_dir and isinstance(last_event, FolderMetadata)):
+                    deleted_event = DeletedMetadata(
+                        name=last_event.name,
+                        path_lower=last_event.path_lower,
+                        path_display=last_event.path_display,
+                        parent_shared_folder_id=last_event.parent_shared_folder_id
+                    )
+                    new_entries.append(deleted_event)
+                    new_entries.append(last_event)
+                else:
+                    new_entries.append(last_event)
 
         changes.entries = new_entries
 
