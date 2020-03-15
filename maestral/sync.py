@@ -20,7 +20,7 @@ import threading
 from threading import Thread, Event, Lock, RLock
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
-from collections import abc, OrderedDict, Counter
+from collections import abc, OrderedDict
 from contextlib import contextmanager
 import functools
 from enum import IntEnum
@@ -1432,18 +1432,6 @@ class UpDownSync:
             self.last_sync = local_cursor  # save local cursor
 
         self.clean_rev_file()
-
-    @staticmethod
-    def _list_diff(list1, list2):
-        """
-        Subtracts elements of `list2` from `list1` while preserving the order of `list1`.
-
-        :param list list1: List to subtract from.
-        :param iterable list2: Iterable of elements to subtract.
-        :returns: Subtracted list.
-        :rtype: list
-        """
-        return [item for item in list1 if item not in set(list2)]
 
     @staticmethod
     def _is_created_child(x, parent):
