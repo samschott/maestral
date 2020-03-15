@@ -198,14 +198,14 @@ def test_clean_local_events():
 
     # performance test
     file_events_test9 = [DirDeletedEvent(n * path(1)) for n in range(1, 10000)]
-    file_events_test9 += [FileDeletedEvent(n * path(1) + '.txt') for n in range(1, 1000)]
-    file_events_test9 += [FileCreatedEvent(path(n)) for n in range(2, 1000)]
+    file_events_test9 += [FileDeletedEvent(n * path(1) + '.txt') for n in range(1, 5000)]
+    file_events_test9 += [FileCreatedEvent(path(n)) for n in range(2, 5000)]
 
     res9 = [
         DirDeletedEvent(path(1)),
         FileDeletedEvent(path(1) + '.txt')
     ]
-    res9 += [FileCreatedEvent(path(n)) for n in range(2, 1000)]
+    res9 += [FileCreatedEvent(path(n)) for n in range(2, 5000)]
 
     sync = DummyUpDownSync()
 
@@ -235,10 +235,7 @@ def test_clean_local_events():
     duration = timeit.timeit(lambda: sync._clean_local_events(file_events_test9),
                              number=n_loops)
 
-    print(f'# Performance test:')
-    print(f'time per loop: {duration / 4} sec')
-    # less than 5 sec per call, accommodate slow CI servers
-    assert duration / 4 < 5
+    assert duration < n_loops  # less than 1 sec per call
 
 
 # Create a Dropbox test account to automate the below test.
