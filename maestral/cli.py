@@ -372,7 +372,7 @@ def stop(config_name: str):
 @click.pass_context
 def restart(ctx, config_name: str, foreground: bool):
     """Restarts the Maestral daemon."""
-    stop_daemon_with_cli_feedback(config_name)
+    ctx.forward(stop)
     ctx.forward(start)
 
 
