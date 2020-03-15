@@ -2296,7 +2296,8 @@ class UpDownSync:
                 # replace it and remove all its children.
 
                 # we download to a temporary file first (this may take some time)
-                with tempfile.NamedTemporaryFile(delete=False) as f:
+                with tempfile.NamedTemporaryFile(prefix='maestral_download_',
+                                                 delete=False) as f:
                     tmp_fname = f.name
 
                 md = self.client.download(f'rev:{entry.rev}', tmp_fname)
@@ -2321,7 +2322,7 @@ class UpDownSync:
                 with self.fs_events.ignore(local_path,
                                            event_types=(EVENT_TYPE_DELETED,
                                                         EVENT_TYPE_CREATED)):
-                    os.replace(tmp_fname, local_path)
+                    shutil.move(tmp_fname, local_path)
 
                 self.set_last_sync_for_path(entry.path_lower, self.get_ctime(local_path))
                 self.set_local_rev(entry.path_lower, md.rev)
