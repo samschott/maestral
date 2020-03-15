@@ -777,7 +777,6 @@ class UpDownSync:
                 spec = f.read()
         except FileNotFoundError:
             spec = ''
-        spec = spec.lower()  # convert all patterns to lower case
         return pathspec.PathSpec.from_lines('gitwildmatch', spec.splitlines())
 
     # ==== helper functions ==============================================================
