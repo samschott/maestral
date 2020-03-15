@@ -948,10 +948,6 @@ class UpDownSync:
         if len(self.mignore_rules.patterns) == 0:
             return False
 
-        if event.event_type == EVENT_TYPE_MOVED:
-            raise ValueError('Cannot check moved events,'
-                             'split into created and deleted events first')
-
         dbx_path = self.to_dbx_path(event.src_path)
 
         return (self._is_mignore_path(dbx_path, is_dir=event.is_directory)
