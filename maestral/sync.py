@@ -1154,49 +1154,54 @@ class UpDownSync:
             else:
                 split_events.append(e)
 
-        counts = Counter(all_paths)
-        duplicate_paths = set(k for k, v in counts.items() if v > 1)
-        histories = [[e for e in split_events if e.src_path == path]
-                     for path in duplicate_paths]
+        histories = dict()
+        for event in split_events:
+            try:
+                histories[event.src_path].append(event)
+            except KeyError:
+                histories[event.src_path] = [event]
 
-        unique_events = [e for e in split_events if e.src_path not in duplicate_paths]
+        unique_events = []
 
-        for h in histories:
-            path = h[0].src_path
-
-            n_created = len([e for e in h if e.event_type == EVENT_TYPE_CREATED])
-            n_deleted = len([e for e in h if e.event_type == EVENT_TYPE_DELETED])
-
-            if n_created > n_deleted:  # item was created
-                if h[-1].is_directory:
-                    unique_events.append(DirCreatedEvent(path))
-                else:
-                    unique_events.append(FileCreatedEvent(path))
-            if n_created < n_deleted:  # item was deleted
-                if h[0].is_directory:
-                    unique_events.append(DirDeletedEvent(path))
-                else:
-                    unique_events.append(FileDeletedEvent(path))
+        for h in histories.values():
+            if len(h) == 1:
+                unique_events.append(h[0])
             else:
+                path = h[0].src_path
 
-                first_created_idx = next(iter(i for i, e in enumerate(h) if e.event_type == EVENT_TYPE_CREATED), -1)
-                first_deleted_idx = next(iter(i for i, e in enumerate(h) if e.event_type == EVENT_TYPE_DELETED), -1)
+                n_created = len([e for e in h if e.event_type == EVENT_TYPE_CREATED])
+                n_deleted = len([e for e in h if e.event_type == EVENT_TYPE_DELETED])
 
-                if n_created == 0 or first_deleted_idx < first_created_idx:
-                    # item was modified
-                    if h[0].is_directory and h[-1].is_directory:
-                        unique_events.append(DirModifiedEvent(path))
-                    elif not h[0].is_directory and not h[-1].is_directory:
-                        unique_events.append(FileModifiedEvent(path))
-                    elif h[0].is_directory:
-                        unique_events.append(DirDeletedEvent(path))
-                        unique_events.append(FileCreatedEvent(path))
-                    elif h[-1].is_directory:
-                        unique_events.append(FileDeletedEvent(path))
+                if n_created > n_deleted:  # item was created
+                    if h[-1].is_directory:
                         unique_events.append(DirCreatedEvent(path))
+                    else:
+                        unique_events.append(FileCreatedEvent(path))
+                if n_created < n_deleted:  # item was deleted
+                    if h[0].is_directory:
+                        unique_events.append(DirDeletedEvent(path))
+                    else:
+                        unique_events.append(FileDeletedEvent(path))
                 else:
-                    # item was only temporary
-                    pass
+
+                    first_created_idx = next(iter(i for i, e in enumerate(h) if e.event_type == EVENT_TYPE_CREATED), -1)
+                    first_deleted_idx = next(iter(i for i, e in enumerate(h) if e.event_type == EVENT_TYPE_DELETED), -1)
+
+                    if n_created == 0 or first_deleted_idx < first_created_idx:
+                        # item was modified
+                        if h[0].is_directory and h[-1].is_directory:
+                            unique_events.append(DirModifiedEvent(path))
+                        elif not h[0].is_directory and not h[-1].is_directory:
+                            unique_events.append(FileModifiedEvent(path))
+                        elif h[0].is_directory:
+                            unique_events.append(DirDeletedEvent(path))
+                            unique_events.append(FileCreatedEvent(path))
+                        elif h[-1].is_directory:
+                            unique_events.append(FileDeletedEvent(path))
+                            unique_events.append(DirCreatedEvent(path))
+                    else:
+                        # item was only temporary
+                        pass
 
         # event order does not matter anymore from this point because we have already
         # consolidated events for every path
@@ -1204,31 +1209,53 @@ class UpDownSync:
         # REMOVE DIR_MODIFIED_EVENTS
         cleaned_events = set(e for e in unique_events if not isinstance(e, DirModifiedEvent))
 
-        # COMBINE MOVED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
-        dir_moved_events = [e for e in cleaned_events if isinstance(e, DirMovedEvent)]
-        dir_moved_events.sort(key=lambda x: x.src_path.count('/'))
+        # COMBINE MOVED AND DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
 
-        if len(dir_moved_events) > 0:
-            child_move_events = set()
+        # Avoid nested iterations over all events here, they are on the order of O(n^2)
+        # which becomes costly then the user moves or deletes folder with a large number
+        # of children. Benchmark: aim to stay below 1 sec for 20,000 nested events on
+        # representative laptops.
 
-            for parent_event in dir_moved_events:
-                children = set(x for x in cleaned_events
-                               if self._is_moved_child(x, parent_event))
-                child_move_events.update(children)
-                cleaned_events -= child_move_events
+        # 1) combine moved events of folders and their children into one event
+        dir_moved_paths = set((e.src_path, e.dest_path) for e in cleaned_events
+                              if isinstance(e, DirMovedEvent))
 
-        # COMBINE DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
-        dir_deleted_events = [e for e in cleaned_events if isinstance(e, DirDeletedEvent)]
-        dir_deleted_events.sort(key=lambda x: x.src_path.count('/'))
+        if len(dir_moved_paths) > 0:
+            child_moved_events = dict()
+            for path in dir_moved_paths:
+                child_moved_events[path] = []
 
-        if len(dir_deleted_events) > 0:
-            child_deleted_events = set()
+            for event in cleaned_events:
+                if event.event_type == EVENT_TYPE_MOVED:
+                    try:
+                        dirnames = (osp.dirname(event.src_path),
+                                    osp.dirname(event.dest_path))
+                        child_moved_events[dirnames].append(event)
+                    except KeyError:
+                        pass
 
-            for parent_event in dir_deleted_events:
-                children = set(x for x in cleaned_events
-                               if self._is_deleted_child(x, parent_event))
-                child_deleted_events.update(children)
-                cleaned_events -= child_deleted_events
+            for event_list in child_moved_events.values():
+                cleaned_events.difference_update(event_list)
+
+        # 2) combine deleted events of folders and their children to one event
+        dir_deleted_paths = set(e.src_path for e in cleaned_events
+                                if isinstance(e, DirDeletedEvent))
+
+        if len(dir_deleted_paths) > 0:
+            child_deleted_events = dict()
+            for path in dir_deleted_paths:
+                child_deleted_events[path] = []
+
+            for event in cleaned_events:
+                if event.event_type == EVENT_TYPE_DELETED:
+                    try:
+                        dirname = osp.dirname(event.src_path)
+                        child_deleted_events[dirname].append(event)
+                    except KeyError:
+                        pass
+
+            for event_list in child_deleted_events.values():
+                cleaned_events.difference_update(event_list)
 
         logger.debug('Cleaned up local file events:\n%s', iter_to_str(cleaned_events))
 
