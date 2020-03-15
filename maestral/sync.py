@@ -1433,47 +1433,6 @@ class UpDownSync:
 
         self.clean_rev_file()
 
-    @staticmethod
-    def _is_created_child(x, parent):
-        """
-        Check for children of created folders
-
-        :param FileSystemEvent x: Any file system event.
-        :param DirMovedEvent parent: Moved folder event.
-        :returns: True if ``x`` is a child of the created ``parent``, ``False`` otherwise.
-        :rtype: bool
-        """
-        is_created_event = (x.event_type is EVENT_TYPE_CREATED)
-        return is_created_event and is_child(x.src_path, parent.src_path)
-
-    @staticmethod
-    def _is_moved_child(x, parent):
-        """
-        Check for children of moved folders
-
-        :param FileSystemEvent x: Any file system event.
-        :param DirMovedEvent parent: Moved folder event.
-        :returns: True if ``x`` is a child of the moved ``parent``, ``False`` otherwise.
-        :rtype: bool
-        """
-        is_moved_event = (x.event_type is EVENT_TYPE_MOVED)
-        return (is_moved_event
-                and is_child(x.src_path, parent.src_path)
-                and is_child(x.dest_path, parent.dest_path))
-
-    @staticmethod
-    def _is_deleted_child(x, parent):
-        """
-        Check for children of deleted folders
-
-        :param FileSystemEvent x: Any file system event.
-        :param DirDeletedEvent parent: Deleted folder event.
-        :returns: True if ``x`` is a child of the deleted ``parent``, ``False`` otherwise.
-        :rtype: bool
-        """
-        is_deleted_event = (x.event_type == EVENT_TYPE_DELETED)
-        return is_deleted_event and is_child(x.src_path, parent.src_path)
-
     @catch_sync_issues
     def _create_remote_entry(self, event):
         """
