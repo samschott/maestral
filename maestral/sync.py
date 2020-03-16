@@ -1904,9 +1904,9 @@ class UpDownSync:
     def list_remote_changes(self, last_cursor):
         """Wraps ``MaestralApiClient.list_remove_changes`` and catches sync errors."""
         changes = self.client.list_remote_changes(last_cursor)
-        logger.debug('Listed remote changes:\n%s', pprint.pformat(changes.entries))
+        logger.debug('Listed remote changes:\n%s', entries_to_str(changes.entries))
         clean_changes = self._clean_remote_changes(changes)
-        logger.debug('Cleaned remote changes:\n%s', pprint.pformat(clean_changes.entries))
+        logger.debug('Cleaned remote changes:\n%s', entries_to_str(clean_changes.entries))
         return clean_changes
 
     def _filter_excluded_changes_remote(self, changes):
@@ -2987,4 +2987,4 @@ def remove_from_queue(q, *items):
 def entries_to_str(entries):
     str_reps = [f'<{e.__class__.__name__}(path_display={e.path_display})>'
                 for e in entries]
-    return pprint.pformat(str_reps)
+    return '[' + ',\n '.join(str_reps) + ']'
