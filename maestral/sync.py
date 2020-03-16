@@ -1524,8 +1524,6 @@ class UpDownSync:
         dbx_path_from = self.to_dbx_path(local_path_from)
         dbx_path_to = self.to_dbx_path(local_path_to)
 
-        self.set_local_rev(dbx_path_from, None)
-
         if self._handle_selective_sync_conflict(event):
             return
         if self._handle_case_conflict(event):
