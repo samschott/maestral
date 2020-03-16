@@ -2,7 +2,7 @@
 
 This release enables excluding individual files from syncing, introduces support for an
 ".mignore" file with the same syntax as [gitignore](https://git-scm.com/docs/gitignore)
-and fixes an issue which lead to continuously retrying failed downloads. It also contains
+and fixes an issue which led to continuously retrying failed downloads. It also contains
 significant performance improvements to indexing, reduces the CPU usage when syncing a
 large number of files and introduces weekly re-indexing.
 
@@ -13,28 +13,24 @@ large number of files and introduces weekly re-indexing.
 - Introduces an ".mignore" file to specify files that Maestral should ignore. The
   ".mignore" file must be saved in the local Dropbox folder. When excluding files or
   folders with selective sync (`maestral exclude`), they will be removed from the local
-  folder and kept in the cloud only. The ".mignore" file enabled the reverse: files or
+  folder and kept in the cloud only. The ".mignore" file enables the reverse: files or
   folders which exist locally will not be uploaded to Dropbox. It uses the same syntax
   as [gitignore files](https://git-scm.com/docs/gitignore) and, similar to gitignore,
-  files which are already tracked by Maestral will not be affected. When a file is
-  excluded by mignore and a file with the same name is created in the cloud, the remote
-  file will be downloaded and included in syncing. If the contents differ, a conflicting
-  copy is created and both the copy and the original file will be included in syncing.
-- Added config option "max_cpu_percent" per CPU core to adjust the target maximum CPU
-  usage. Maestral will aim to remain below that percentage but this is not guaranteed.
+  files which are already tracked by Maestral will not be affected. More details are given
+  in the [Wiki](https://github.com/SamSchott/maestral-dropbox/wiki/mignore).
+- Added a config option "max_cpu_percent" to adjust the target maximum CPU usage per CPU
+  core. This defaults to 20%, i.e., 80% total for a quad core CPU. Maestral will aim to
+  remain below that percentage but this is not guaranteed.
 
 #### Changed:
 
 - Replaced the `excluded_files` and `excluded_folders` settings from the config file with
   a unified `excluded_items` setting.
-- Renamed `Maestral.exclude_folder` to `Maestral.exclude_item`, `Maestral.include_folder`
-  to `Maestral.inlcude_item`, and `Maestral.set_excluded_folders` to
-  `Maestral.set_excluded_items`.
+- Renamed methods which exclude / include folders to `exclude_item` etc.
 - Speed up creation of local folders.
-- When trying to create a file / folder items with the same path as an item excluded by
+- When trying to create a file or folder with the same path as an item excluded by
   selective sync, the new item is now renamed by appending "selective sync conflict"
   instead of raising a sync issue. This is closer the behaviour of the official client.
-- Improved the reliability of locally renaming conflicting folders.
 - Significant performance improvements to indexing and file event processing. Indexing a 
   remote Dropbox with 20,000 to 30,000 files and comparing it a local folder now takes 
   ~ 5 min, depending on on the average file size.
@@ -60,11 +56,13 @@ large number of files and introduces weekly re-indexing.
 - Improves conflict resolution when a folder has been been replaced with a file or vice
   versa and both the local and remote item have un-synced changes.
 - Fixes an issue where `maestral stop` would block until all pending syncs have completed.
-  This could potentially take a *very* long time for large downloads.
+  This could potentially take a *very* long time for large downloads. Instead, any
+  interrupted downloads will be restarted on next launch.
 
 #### Removed:
 
 - Removed the `excluded_files` and `excluded_folders` settings from the config file.
+  Entries from `excluded_folders` will be migrated to the `excluded_items` setting.
 
 ## v0.6.1
 
