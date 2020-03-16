@@ -16,14 +16,14 @@ import time
 import tempfile
 import random
 import json
-import threading
-from threading import Thread, Event, Lock, RLock
+from threading import Thread, Event, Lock, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
-from collections import abc, OrderedDict
+from collections import abc
 from contextlib import contextmanager
 import functools
 from enum import IntEnum
+import pprint
 
 # external imports
 import psutil
@@ -966,7 +966,7 @@ class UpDownSync:
         if self._max_cpu_percent == 100:
             return
 
-        if 'pool' in threading.current_thread().name:
+        if 'pool' in current_thread().name:
             cpu_usage = _process.cpu_percent(0.1)
             while cpu_usage > self._max_cpu_percent:
                 cpu_usage = _process.cpu_percent(0.5 + 2 * random.random())
@@ -983,7 +983,7 @@ class UpDownSync:
 
         try:
             events, local_cursor = self._get_local_changes_while_inactive()
-            logger.debug('Retrieved local changes:\n%s', iter_to_str(events))
+            logger.debug('Retrieved local changes:\n%s', pprint.pformat(events))
             events = self._clean_local_events(events)
         except FileNotFoundError:
             self.ensure_dropbox_folder_present()
@@ -1087,7 +1087,7 @@ class UpDownSync:
             except Empty:
                 break
 
-        logger.debug('Retrieved local file events:\n%s', iter_to_str(events))
+        logger.debug('Retrieved local file events:\n%s', pprint.pformat(events))
 
         return self._clean_local_events(events), local_cursor
 
@@ -1117,7 +1117,7 @@ class UpDownSync:
             else:
                 events_filtered.append(event)
 
-        logger.debug('Filtered local file events:\n%s', iter_to_str(events_filtered))
+        logger.debug('Filtered local file events:\n%s', pprint.pformat(events_filtered))
 
         return events_filtered, events_excluded
 
@@ -1278,7 +1278,7 @@ class UpDownSync:
             for event_list in child_deleted_events.values():
                 cleaned_events.difference_update(event_list)
 
-        logger.debug('Cleaned up local file events:\n%s', iter_to_str(cleaned_events))
+        logger.debug('Cleaned up local file events:\n%s', pprint.pformat(cleaned_events))
 
         del events
         del unique_events
@@ -1541,6 +1541,8 @@ class UpDownSync:
             return self._on_created(new_event)
 
         md_to_new = self.client.move(dbx_path_from, dbx_path_to, autorename=True)
+
+        self.set_local_rev(dbx_path_from, None)
 
         # handle remote conflicts
         if md_to_new.path_lower != dbx_path_to.lower():
@@ -1902,9 +1904,9 @@ class UpDownSync:
     def list_remote_changes(self, last_cursor):
         """Wraps ``MaestralApiClient.list_remove_changes`` and catches sync errors."""
         changes = self.client.list_remote_changes(last_cursor)
-        logger.debug('Listed remote changes:\n%s', entries_to_str(changes.entries))
+        logger.debug('Listed remote changes:\n%s', pprint.pformat(changes.entries))
         clean_changes = self._clean_remote_changes(changes)
-        logger.debug('Cleaned remote changes:\n%s', entries_to_str(clean_changes.entries))
+        logger.debug('Cleaned remote changes:\n%s', pprint.pformat(clean_changes.entries))
         return clean_changes
 
     def _filter_excluded_changes_remote(self, changes):
@@ -2036,7 +2038,8 @@ class UpDownSync:
         if remote_rev == local_rev:
             # Local change has the same rev. May be newer and
             # not yet synced or identical. Don't overwrite.
-            logger.debug('Local item "%s" is the same or newer than on Dropbox', dbx_path)
+            logger.debug('Equal revs for "%s": local item is the same or newer '
+                         'than on Dropbox', dbx_path)
             return Conflict.LocalNewerOrIdentical
 
         elif remote_rev != local_rev:
@@ -2054,19 +2057,19 @@ class UpDownSync:
             local_hash = get_local_hash(local_path)
 
             if remote_hash == local_hash:
-                logger.debug('No conflict: contents are equal (%s)', dbx_path)
+                logger.debug('Equal content hashes for "%s": no conflict', dbx_path)
                 self.set_local_rev(dbx_path, remote_rev)
                 return Conflict.Identical
             elif self.get_ctime(local_path) <= self.get_last_sync_for_path(dbx_path):
-                logger.debug('No conflict: remote item "%s" is newer', dbx_path)
+                logger.debug('Ctime is older than last sync for "%s": remote item '
+                             'is newer', dbx_path)
                 return Conflict.RemoteNewer
             elif not remote_rev:
-                logger.debug('Local item "%s" has been modified since remote '
-                             'deletion', dbx_path)
+                logger.debug('No remote rev for "%s": Local item has been modified '
+                             'since remote deletion', dbx_path)
                 return Conflict.LocalNewerOrIdentical
             else:
-                logger.debug('Conflict: local item "%s" has been modified since '
-                             'last sync', dbx_path)
+                logger.debug('Ctime is newer than last sync for "%s": conflict', dbx_path)
                 return Conflict.Conflict
 
     def get_ctime(self, local_path, ignore_excluded=True):
@@ -2375,7 +2378,7 @@ class UpDownSync:
         recent_changes = self._state.get('sync', 'recent_changes')
         recent_changes.append(dbx_path)
         # eliminate duplicates
-        recent_changes = list(OrderedDict.fromkeys(recent_changes))
+        recent_changes = list(dict.fromkeys(recent_changes))
         self._state.set('sync', 'recent_changes', recent_changes[-self._max_history:])
 
 
@@ -2901,10 +2904,10 @@ class MaestralMonitor:
 
         return all(base_threads_alive) and all(watchdog_emitters_alive)
 
+
 # ========================================================================================
 # Helper functions
 # ========================================================================================
-
 
 def get_dest_path(event):
     """
@@ -2981,11 +2984,7 @@ def remove_from_queue(q, *items):
                 pass
 
 
-def iter_to_str(iterable):
-    return '\n'.join(str(e) for e in iterable)
-
-
 def entries_to_str(entries):
     str_reps = [f'<{e.__class__.__name__}(path_display={e.path_display})>'
                 for e in entries]
-    return '\n'.join(str_reps)
+    return pprint.pformat(str_reps)
