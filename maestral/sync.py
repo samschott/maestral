@@ -2719,6 +2719,8 @@ class MaestralMonitor:
         self._watch = self.local_observer_thread.schedule(
             self.fs_event_handler, self.sync.dropbox_path, recursive=True
         )
+        for emitter in self.local_observer_thread.emitters:
+            emitter.setName('maestral-fsemitter')
 
         self.helper_thread = Thread(
             target=helper,
@@ -2734,7 +2736,7 @@ class MaestralMonitor:
                 self.sync, self.syncing, self.running, self.connected,
                 self.startup, self.paused_by_user
             ),
-            name='maestral-startup-worker'
+            name='maestral-sync-startup'
         )
 
         self.download_thread = Thread(
