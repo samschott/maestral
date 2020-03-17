@@ -695,8 +695,9 @@ class UpDownSync:
             with self._handle_rev_read_exceptions():
                 with open(self.rev_file_path, 'rb') as f:
                     self._rev_dict_cache = umsgpack.unpack(f)
-            assert isinstance(self._rev_dict_cache, dict)
-        except (AssertionError, umsgpack.InsufficientDataException):
+            if not isinstance(self._rev_dict_cache, dict):
+                self._rev_dict_cache = dict()
+        except umsgpack.InsufficientDataException:
             self._rev_dict_cache = dict()
         else:
             self._save_rev_dict_to_file()
@@ -866,7 +867,9 @@ class UpDownSync:
         :param str local_path: Path to local file.
         :param str dbx_path: Path to file on Dropbox.
         """
-        assert local_path or dbx_path
+        if not (local_path or dbx_path):
+            raise ValueError('Either local_path or dbx_path must be given.')
+
         if not dbx_path:
             dbx_path = self.to_dbx_path(local_path)
 
@@ -2575,7 +2578,6 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
     while running.is_set():
 
         startup.wait()
-        assert not syncing.is_set()
 
         try:
             with sync.lock:
