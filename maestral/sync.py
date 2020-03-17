@@ -695,12 +695,12 @@ class UpDownSync:
             with self._handle_rev_read_exceptions():
                 with open(self.rev_file_path, 'rb') as f:
                     self._rev_dict_cache = umsgpack.unpack(f)
-            if not isinstance(self._rev_dict_cache, dict):
-                self._rev_dict_cache = dict()
+            if isinstance(self._rev_dict_cache, dict):
+                self._save_rev_dict_to_file()
         except umsgpack.InsufficientDataException:
-            self._rev_dict_cache = dict()
-        else:
-            self._save_rev_dict_to_file()
+            pass
+
+        self._rev_dict_cache = dict()
 
     def _load_rev_dict_from_file(self, raise_exception=False):
         """
