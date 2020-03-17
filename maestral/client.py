@@ -444,7 +444,7 @@ class MaestralApiClient:
                 if res.is_complete():
                     batch_res = res.get_complete()
                     entries.extend(batch_res.entries)
-                elif res.is_failure():
+                elif res.is_failed():
                     error = res.get_failed()
                     if error.is_too_many_files():
                         res_list = self.make_dirs(
