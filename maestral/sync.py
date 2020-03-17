@@ -12,6 +12,7 @@ import os.path as osp
 from stat import S_ISDIR
 import shutil
 import logging
+import gc
 import time
 import tempfile
 import random
@@ -2457,6 +2458,8 @@ def download_worker(sync, syncing, running, connected):
 
                     logger.info(IDLE)
 
+                gc.collect()
+
         except ConnectionError:
             syncing.clear()
             connected.clear()
@@ -2495,6 +2498,7 @@ def download_worker_added_item(sync, syncing, running, connected):
         try:
             with sync.lock:
                 sync.get_remote_item(dbx_path)
+                gc.collect()
             logger.info(IDLE)
         except ConnectionError:
             syncing.clear()
@@ -2536,6 +2540,8 @@ def upload_worker(sync, syncing, running, connected):
                     logger.info(SYNCING)
                     sync.apply_local_changes(events, local_cursor)
                     logger.info(IDLE)
+
+                gc.collect()
             else:
                 sync.last_sync = local_cursor
 
@@ -2603,6 +2609,8 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
 
                 if not running.is_set():
                     continue
+
+                gc.collect()
 
             if not paused_by_user.is_set():
                 syncing.set()
