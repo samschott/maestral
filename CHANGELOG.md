@@ -25,7 +25,8 @@ large number of files and introduces weekly re-indexing.
 #### Changed:
 
 - Replaced the `excluded_files` and `excluded_folders` settings from the config file with
-  a unified `excluded_items` setting.
+  a unified `excluded_items` setting. Entries from `excluded_folders` will be migrated to
+  the `excluded_items` setting.
 - Renamed methods which exclude / include folders to `exclude_item` etc.
 - Speed up creation of local folders.
 - When trying to create a file or folder with the same path as an item excluded by
@@ -62,7 +63,6 @@ large number of files and introduces weekly re-indexing.
 #### Removed:
 
 - Removed the `excluded_files` and `excluded_folders` settings from the config file.
-  Entries from `excluded_folders` will be migrated to the `excluded_items` setting.
 
 ## v0.6.1
 
