@@ -282,7 +282,8 @@ class MaestralApiClient:
         with open(dst_path, 'wb') as f:
             with contextlib.closing(http_resp):
                 for c in http_resp.iter_content(chunksize):
-                    logger.info(f'Downloading {bytes_to_str(downloaded)}/{size_str}...')
+                    if md.size > 5 * 10 ** 6:  # 5 MB
+                        logger.info(f'Downloading {bytes_to_str(downloaded)}/{size_str}...')
                     f.write(c)
                     downloaded += chunksize
 
