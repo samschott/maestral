@@ -497,7 +497,8 @@ class Maestral(object):
         """
         Returns the sync status of an individual file.
 
-        :param str local_path: Path to file on the local drive.
+        :param str local_path: Path to file on the local drive. May be relative to the
+            current working directory.
         :returns: String indicating the sync status. Can be 'uploading', 'downloading',
             'up to date', 'error', or 'unwatched' (for files outside of the Dropbox
             directory).
@@ -505,6 +506,8 @@ class Maestral(object):
         """
         if not self.syncing:
             return FileStatus.Unwatched.value
+
+        local_path = osp.abspath(local_path)
 
         try:
             dbx_path = self.sync.to_dbx_path(local_path)
