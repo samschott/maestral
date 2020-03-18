@@ -1394,31 +1394,33 @@ class UpDownSync:
 
         events, _ = self._filter_excluded_changes_local(events)
 
-        dir_created_events = [e for e in events if e.is_directory
-                              and e.event_type == EVENT_TYPE_CREATED]
-        dir_moved_events = [e for e in events if e.is_directory
-                            and e.event_type == EVENT_TYPE_MOVED]
-        file_events = [e for e in events if not e.is_directory
-                       and e.event_type != EVENT_TYPE_DELETED]
-        deleted_events = [e for e in events if e.event_type == EVENT_TYPE_DELETED]
+        sorted_events = dict(deleted=[], dir_created=[], dir_moved=[], file=[])
+        for e in events:
+            if e.event_type == EVENT_TYPE_DELETED:
+                sorted_events['deleted'].append(e)
+            elif e.is_directory and e.event_type == EVENT_TYPE_CREATED:
+                sorted_events['dir_created'].append(e)
+            elif e.is_directory and e.event_type == EVENT_TYPE_MOVED:
+                sorted_events['dir_moved'].append(e)
+            elif not e.is_directory and e.event_type != EVENT_TYPE_DELETED:
+                sorted_events['file'].append(e)
 
         # update queues
-        for e in itertools.chain(deleted_events, dir_moved_events,
-                                 dir_created_events, file_events):
+        for e in itertools.chain(*sorted_events.values()):
             self.queued_for_upload.put(get_dest_path(e))
 
         # apply deleted events first, folder moved events second
         # neither event type requires an actual upload
-        if deleted_events:
+        if sorted_events['deleted']:
             logger.info('Uploading deletions...')
 
-        for event in deleted_events:
+        for event in sorted_events['deleted']:
             self._create_remote_entry(event)
 
-        if dir_moved_events:
+        if sorted_events['dir_moved']:
             logger.info('Moving folders...')
 
-        for event in dir_moved_events:
+        for event in sorted_events['dir_moved']:
             self._create_remote_entry(event)
 
         # apply file and created folder events in parallel since order does not matter
@@ -1426,9 +1428,9 @@ class UpDownSync:
         last_emit = time.time()
         with ThreadPoolExecutor(max_workers=self._num_threads,
                                 thread_name_prefix='maestral-upload-pool') as executor:
-            fs = (executor.submit(self._create_remote_entry, e)
-                  for e in dir_created_events + file_events)
-            n_files = len(file_events)
+            fs = (executor.submit(self._create_remote_entry, e) for e in
+                  itertools.chain(sorted_events['file'], sorted_events['dir_created']))
+            n_files = len(sorted_events['file']) + len(sorted_events['dir_created'])
             for f, n in zip(as_completed(fs), range(1, n_files + 1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
                     # emit message at maximum every second
@@ -2178,12 +2180,17 @@ class UpDownSync:
             and :class:`FileMetadata` respectively.
         :rtype: tuple
         """
+        sorted = dict(folders=[], files=[], deleted=[])
 
-        folders = [x for x in result.entries if isinstance(x, FolderMetadata)]
-        files = [x for x in result.entries if isinstance(x, FileMetadata)]
-        deleted = [x for x in result.entries if isinstance(x, DeletedMetadata)]
+        for x in result.entries:
+            if isinstance(x, FolderMetadata):
+                sorted['folders'].append(x)
+            elif isinstance(x, FileMetadata):
+                sorted['files'].append(x)
+            elif isinstance(x, DeletedMetadata):
+                sorted['deleted'].append(x)
 
-        return folders, files, deleted
+        return sorted['folders'], sorted['files'], sorted['deleted']
 
     def _clean_remote_changes(self, changes):
         """
