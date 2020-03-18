@@ -13,6 +13,7 @@ import time
 import datetime
 import logging
 import functools
+import contextlib
 
 # external packages
 import requests
@@ -271,7 +272,19 @@ class MaestralApiClient:
         except FileExistsError:
             pass
 
-        md = self.dbx.files_download_to_file(dst_path, dbx_path, **kwargs)
+        md, http_resp = self.dbx.files_download(dbx_path, **kwargs)
+
+        chunksize = 2 ** 16
+        size_str = bytes_to_str(md.size)
+
+        downloaded = 0
+
+        with open(dst_path, 'wb') as f:
+            with contextlib.closing(http_resp):
+                for c in http_resp.iter_content(chunksize):
+                    logger.info(f'Downloading {bytes_to_str(downloaded)}/{size_str}...')
+                    f.write(c)
+                    downloaded += chunksize
 
         return md
 
@@ -369,6 +382,59 @@ class MaestralApiClient:
 
         return md
 
+    @to_maestral_error()
+    def remove_batch(self, dbx_paths, batch_size=900):
+        """
+        Delete multiple items on Dropbox in a batch job.
+
+        :param list[str] dbx_paths: List of dropbox paths to delete.
+        :param int batch_size: Number of folders to create in each batch. Dropbox allows
+            batches of up to 1,000 folders. Larger values will be capped automatically.
+        :returns: List of Metadata for created folders or SyncError for failures. Entries
+            will be in the same order as given paths.
+        :rtype: list
+        """
+        batch_size = clamp(batch_size, 1, 1000)
+        check_interval = round(0.5 + batch_size / 1000, 2)
+
+        entries = []
+        result_list = []
+
+        # up two ~ 1,000 entries allowed per batch according to
+        # https://www.dropbox.com/developers/reference/data-ingress-guide
+        for chunk in chunks(dbx_paths, n=batch_size):
+            res = self.dbx.files_delete_batch(chunk)
+            if res.is_complete():
+                batch_res = res.get_complete()
+                entries.extend(batch_res.entries)
+            elif res.is_async_job_id():
+                async_job_id = res.get_async_job_id()
+
+                res = self.dbx.files_delete_batch_check(async_job_id)
+
+                while res.is_in_progress():
+                    time.sleep(check_interval)
+                    res = self.dbx.files_delete_batch_check(async_job_id)
+
+                if res.is_complete():
+                    batch_res = res.get_complete()
+                    entries.extend(batch_res.entries)
+
+        for i, entry in enumerate(entries):
+            if entry.is_success():
+                result_list.append(entry.get_success().metadata)
+            elif entry.is_failure():
+                exc = dropbox.exceptions.ApiError(
+                    error=entry.get_failure(),
+                    user_message_text=None,
+                    user_message_locale=None,
+                    request_id=None,
+                )
+                sync_err = dropbox_to_maestral_error(exc, dbx_path=dbx_paths[i])
+                result_list.append(sync_err)
+
+        return result_list
+
     @to_maestral_error(dbx_path_arg=2)
     def move(self, dbx_path, new_path, **kwargs):
         """
@@ -407,7 +473,7 @@ class MaestralApiClient:
         return md
 
     @to_maestral_error()
-    def make_dirs(self, dbx_paths, batch_size=900, **kwargs):
+    def make_dir_batch(self, dbx_paths, batch_size=900, **kwargs):
         """
         Creates multiple folders on Dropbox in a batch job.
 
@@ -447,7 +513,7 @@ class MaestralApiClient:
                 elif res.is_failed():
                     error = res.get_failed()
                     if error.is_too_many_files():
-                        res_list = self.make_dirs(
+                        res_list = self.make_dir_batch(
                             chunk,
                             batch_size=round(batch_size / 2),
                             **kwargs
