@@ -1395,7 +1395,7 @@ class UpDownSync:
         events, _ = self._filter_excluded_changes_local(events)
 
         dir_created_events = [e for e in events if e.is_directory
-                              and e.event_type != EVENT_TYPE_CREATED]
+                              and e.event_type == EVENT_TYPE_CREATED]
         dir_moved_events = [e for e in events if e.is_directory
                             and e.event_type == EVENT_TYPE_MOVED]
         file_events = [e for e in events if not e.is_directory
@@ -1759,12 +1759,12 @@ class UpDownSync:
             return
 
         local_rev = self.get_local_rev(dbx_path)
-        is_file = local_rev != 'folder'
-        is_folder = local_rev == 'folder'
+        is_file = not event.is_directory
+        is_directory = event.is_directory
 
         md = self.client.get_metadata(dbx_path, include_deleted=True)
 
-        if is_folder and isinstance(md, FileMetadata):
+        if is_directory and isinstance(md, FileMetadata):
             logger.debug('Expected folder at "%s" but found a file instead, checking '
                          'which one is newer', md.path_display)
             # don't delete a remote file if it was modified since last sync
