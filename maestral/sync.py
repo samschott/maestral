@@ -21,6 +21,7 @@ from threading import Thread, Event, Lock, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
 from collections import abc
+import itertools
 from contextlib import contextmanager
 import functools
 from enum import IntEnum
@@ -1315,23 +1316,6 @@ class UpDownSync:
         return (self._is_mignore_path(dbx_src_path, event.is_directory)
                 or self._is_mignore_path(dbx_dest_path, event.is_directory))
 
-    @staticmethod
-    def _separate_local_event_types(events):
-        """
-        Sorts local events into folder, files, deleted.
-
-        :returns: Tuple of (folders, files, deleted)
-        :rtype: tuple
-        """
-
-        folders = [e for e in events if e.is_directory
-                   and e.event_type != EVENT_TYPE_DELETED]
-        files = [e for e in events if not e.is_directory
-                 and e.event_type != EVENT_TYPE_DELETED]
-        deleted = [e for e in events if e.event_type == EVENT_TYPE_DELETED]
-
-        return folders, files, deleted
-
     def _handle_case_conflict(self, event):
         """
         Checks for other items in the same directory with same name but a different
@@ -1409,13 +1393,21 @@ class UpDownSync:
         """
 
         events, _ = self._filter_excluded_changes_local(events)
-        dir_events, file_events, deleted_events = self._separate_local_event_types(events)
+
+        dir_created_events = [e for e in events if e.is_directory
+                              and e.event_type != EVENT_TYPE_CREATED]
+        dir_moved_events = [e for e in events if e.is_directory
+                            and e.event_type == EVENT_TYPE_MOVED]
+        file_events = [e for e in events if not e.is_directory
+                       and e.event_type != EVENT_TYPE_DELETED]
+        deleted_events = [e for e in events if e.event_type == EVENT_TYPE_DELETED]
 
         # update queues
-        for e in deleted_events + dir_events + file_events:
+        for e in itertools.chain(deleted_events, dir_moved_events,
+                                 dir_created_events, file_events):
             self.queued_for_upload.put(get_dest_path(e))
 
-        # apply deleted events first, folder created events second
+        # apply deleted events first, folder moved events second
         # neither event type requires an actual upload
         if deleted_events:
             logger.info('Uploading deletions...')
@@ -1423,27 +1415,19 @@ class UpDownSync:
         for event in deleted_events:
             self._create_remote_entry(event)
 
-        if dir_events:
-            logger.info('Uploading folders...')
-            dir_created_events = [e for e in dir_events
-                                  if e.event_type == EVENT_TYPE_CREATED]
-            dir_moved_events = [e for e in dir_events
-                                if e.event_type == EVENT_TYPE_MOVED]
-            dir_paths = tuple(e.src_path for e in dir_events)
-            remove_from_queue(self.queued_for_upload, *dir_paths)
-            # apply created dirs as batch
-            with InQueue(self.queue_uploading, *dir_paths):
-                self._on_created_folders_batch(dir_created_events)
-            # apply moved dirs separately
-            for event in dir_moved_events:
-                self._create_remote_entry(event)
+        if dir_moved_events:
+            logger.info('Moving folders...')
 
-        # apply file events in parallel
+        for event in dir_moved_events:
+            self._create_remote_entry(event)
+
+        # apply file and created folder events in parallel since order does not matter
         success = []
         last_emit = time.time()
         with ThreadPoolExecutor(max_workers=self._num_threads,
                                 thread_name_prefix='maestral-upload-pool') as executor:
-            fs = (executor.submit(self._create_remote_entry, e) for e in file_events)
+            fs = (executor.submit(self._create_remote_entry, e)
+                  for e in dir_created_events + file_events)
             n_files = len(file_events)
             for f, n in zip(as_completed(fs), range(1, n_files + 1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
@@ -1644,6 +1628,9 @@ class UpDownSync:
 
     def _on_created_folders_batch(self, events):
         """
+        Creates multiple folders on Dropbox in a batch request. We currently don't use
+        this because folders are created in parallel anyways and we perform conflict
+        checks before uploading each folder.
 
         :param list[DirCreatedEvent] events: List of directory creates events.
         :return:
@@ -1668,7 +1655,7 @@ class UpDownSync:
                 local_paths.append(local_path)
                 dbx_paths.append(dbx_path)
 
-        res_list = self.client.make_dirs(dbx_paths, autorename=True)
+        res_list = self.client.make_dir_batch(dbx_paths, autorename=True)
 
         for res, dbx_path, local_path in zip(res_list, dbx_paths, local_paths):
             if isinstance(res, Metadata):
