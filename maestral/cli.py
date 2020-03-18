@@ -48,7 +48,8 @@ def pending_link_cli(config_name):
         else:
             return False
     except KeyringLocked:
-        click.echo('Error: Cannot access user keyring to load Dropbox credentials.')
+        raise click.ClickException('Cannot access user keyring'
+                                   'to load Dropbox credentials.')
 
 
 def start_daemon_subprocess_with_cli_feedback(config_name):
@@ -162,7 +163,6 @@ def format_table(rows=None, columns=None, headers=None, padding_right=2):
 
     # transpose columns to get rows and vice versa
     columns = list(columns) if columns else list(map(list, zip(*rows)))
-    rows = list(rows) if rows else list(map(list, zip(*columns)))
 
     terminal_width, terminal_height = click.get_terminal_size()
     available_width = terminal_width - padding_right * len(columns)
@@ -198,7 +198,6 @@ def format_table(rows=None, columns=None, headers=None, padding_right=2):
 # ========================================================================================
 # Command groups
 # ========================================================================================
-
 
 class SpecialHelpOrder(click.Group):
 
@@ -316,8 +315,8 @@ def gui(config_name):
     import importlib.util
 
     if not importlib.util.find_spec('maestral_qt'):
-        click.echo('No maestral GUI installed. Please run \'pip3 install maestral[gui]\'.')
-        return
+        raise click.ClickException('No maestral GUI installed. Please run '
+                                   '\'pip3 install maestral[gui]\'.')
 
     from maestral_qt.main import run
     run(config_name)
@@ -554,7 +553,7 @@ def activity(config_name: str):
         click.echo('Maestral daemon is not running.')
 
 
-@main.command(help_priority=910)
+@main.command(help_priority=10)
 @with_existing_config
 @click.argument('dropbox_path', type=click.Path(), default='')
 @catch_maestral_errors
@@ -572,12 +571,11 @@ def ls(dropbox_path: str, config_name: str):
             try:
                 entries = m.list_folder(dropbox_path, recursive=False)
             except PathError:
-                click.echo(f'Error: No such directory on Dropbox: \'{dropbox_path}\'')
-                return
+                raise click.ClickException(f'No such directory on '
+                                           f'Dropbox: \'{dropbox_path}\'')
 
             if not entries:
-                click.echo('Could not connect to Dropbox')
-                return
+                raise click.ClickException('Could not connect to Dropbox')
 
             types = ['file' if e['type'] == 'FileMetadata' else 'folder' for e in entries]
             shared_status = ['shared' if 'sharing_info' in e else 'private' for e in entries]
@@ -819,9 +817,9 @@ def excluded_add(dropbox_path: str, config_name: str):
                 m.exclude_item(dropbox_path)
                 click.echo(f'Excluded \'{dropbox_path}\'.')
             except ConnectionError:
-                click.echo('Could not connect to Dropbox.')
+                raise click.ClickException('Could not connect to Dropbox.')
             except ValueError as e:
-                click.echo('Error: ' + e.args[0])
+                raise click.ClickException(e.args[0])
 
 
 @excluded.command(name='remove', help_priority=2)
@@ -850,12 +848,13 @@ def excluded_remove(dropbox_path: str, config_name: str):
                     m.include_item(dropbox_path)
                     click.echo(f'Included \'{dropbox_path}\'. Now downloading...')
                 except ConnectionError:
-                    click.echo('Could not connect to Dropbox.')
+                    raise click.ClickException('Could not connect to Dropbox.')
                 except ValueError as e:
-                    click.echo('Error: ' + e.args[0])
+                    raise click.ClickException(e.args[0])
 
         except Pyro5.errors.CommunicationError:
-            click.echo('Maestral daemon must be running to download folders.')
+            raise click.ClickException('Maestral daemon must be running '
+                                       'to download folders.')
 
 
 # ========================================================================================
@@ -876,7 +875,7 @@ def log_show(config_name: str):
                 text = f.read()
             click.echo_via_pager(text)
         except OSError:
-            click.echo(f'Could not open log file at \'{log_file}\'')
+            raise click.ClickException(f'Could not open log file at \'{log_file}\'')
     else:
         click.echo_via_pager('')
 
@@ -903,11 +902,13 @@ def log_clear(config_name: str):
     except FileNotFoundError:
         click.echo('Cleared Maestral\'s log.')
     except OSError:
-        click.echo(f'Could not clear log at \'{log_dir}\'. Please try to delete it manually')
+        raise click.ClickException(f'Could not clear log at \'{log_dir}\'. '
+                                   f'Please try to delete it manually')
 
 
 @log.command(name='level', help_priority=2)
-@click.argument('level_name', required=False, type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
+@click.argument('level_name', required=False,
+                type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
 @with_existing_config
 def log_level(config_name: str, level_name: str):
     """Gets or sets the log level."""
@@ -921,7 +922,7 @@ def log_level(config_name: str, level_name: str):
                 click.echo(f'Log level set to {level_name}.')
             else:
                 level_name = logging.getLevelName(m.log_level)
-                click.echo(f'Log level:  {level_name}')
+                click.echo(f'Log level: {level_name}')
     except Pyro5.errors.CommunicationError:
         conf = MaestralConfig(config_name)
         if level_name:
@@ -929,7 +930,7 @@ def log_level(config_name: str, level_name: str):
             click.echo(f'Log level set to {level_name}.')
         else:
             level_name = logging.getLevelName(conf.get('app', 'log_level'))
-            click.echo(f'Log level:  {level_name}')
+            click.echo(f'Log level: {level_name}')
 
 
 # ========================================================================================
@@ -937,7 +938,8 @@ def log_level(config_name: str, level_name: str):
 # ========================================================================================
 
 @notify.command(name='level', help_priority=0)
-@click.argument('level_name', required=False, type=click.Choice(['NONE', 'ERROR', 'SYNCISSUE', 'FILECHANGE']))
+@click.argument('level_name', required=False,
+                type=click.Choice(['NONE', 'ERROR', 'SYNCISSUE', 'FILECHANGE']))
 @with_existing_config
 def notify_level(config_name: str, level_name: str):
     """Gets or sets the level for desktop notifications."""
