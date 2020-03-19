@@ -1,10 +1,13 @@
 ## v0.6.2
 
-This release enables excluding individual files from syncing, introduces support for an
-".mignore" file with the same syntax as [gitignore](https://git-scm.com/docs/gitignore)
-and fixes an issue which led to continuously retrying failed downloads. It also contains
-significant performance improvements to indexing, reduces the CPU usage when syncing a
-large number of files and introduces weekly re-indexing.
+This release enables excluding individual files from syncing and fixes an issue which led
+to continuously retrying failed downloads. It also contains significant performance
+improvements to indexing, reduces the CPU usage when syncing a large number of files and
+introduces weekly re-indexing.
+
+This release also introduces support for an ".mignore" file with the same syntax as
+[gitignore](https://git-scm.com/docs/gitignore). This feature is considered 'alpha' and
+may change in the future. Feedback is welcome.
 
 #### Added:
 
