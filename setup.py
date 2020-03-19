@@ -1,92 +1,11 @@
 import sys
-import os
 import os.path as osp
-import platform
-import tempfile
 from setuptools import setup, find_packages
 from maestral import __version__, __author__, __url__
+from maestral.utils.appdirs import get_runtime_path, get_old_runtime_path
+from maestral.config.base import list_configs
 
-
-# check for running daemons before updating to prevent
-# incompatible versions of CLI / GUI and daemon
-
-def get_home_dir():
-    try:
-        path = osp.expanduser('~')
-    except Exception:
-        path = ''
-
-    if osp.isdir(path):
-        return path
-    else:
-        for env_var in ('HOME', 'USERPROFILE', 'TMP'):
-            path = os.environ.get(env_var, '')
-            if osp.isdir(path):
-                return path
-            else:
-                path = ''
-
-        if not path:
-            raise RuntimeError('Please set the environment variable HOME to '
-                               'your user/home directory.')
-
-
-_home_dir = get_home_dir()
-
-
-def _to_full_path(path, subfolder, filename, create):
-
-    if subfolder:
-        path = osp.join(path, subfolder)
-
-    if create:
-        os.makedirs(path, exist_ok=True)
-
-    if filename:
-        path = osp.join(path, filename)
-
-    return path
-
-
-def get_conf_path(subfolder=None, filename=None, create=True):
-    if platform.system() == 'Darwin':
-        conf_path = osp.join(get_home_dir(), 'Library', 'Application Support')
-    else:
-        fallback = osp.join(get_home_dir(), '.config')
-        conf_path = os.environ.get('XDG_CONFIG_HOME', fallback)
-
-    return _to_full_path(conf_path, subfolder, filename, create)
-
-
-def get_runtime_path(subfolder=None, filename=None, create=True):
-    if platform.system() == 'Darwin':
-        runtime_path = get_conf_path(create=False)
-    else:
-        fallback = os.environ.get('XDG_CACHE_HOME', osp.join(_home_dir, '.cache'))
-        runtime_path = os.environ.get('XDG_RUNTIME_DIR', fallback)
-
-    return _to_full_path(runtime_path, subfolder, filename, create)
-
-
-def get_old_runtime_path(subfolder=None, filename=None, create=True):
-    if platform.system() == 'Darwin':
-        runtime_path = tempfile.gettempdir()
-    else:
-        fallback = os.environ.get('XDG_CACHE_HOME', osp.join(_home_dir, '.cache'))
-        runtime_path = os.environ.get('XDG_RUNTIME_DIR', fallback)
-
-    return _to_full_path(runtime_path, subfolder, filename, create)
-
-
-def list_configs():
-    configs = []
-    for file in os.listdir(get_conf_path('maestral')):
-        if file.endswith('.ini'):
-            configs.append(os.path.splitext(os.path.basename(file))[0])
-
-    return configs
-
-
+# abort install if there are running daemons
 running_daemons = []
 
 for config in list_configs():
@@ -108,6 +27,38 @@ of config files and compatibility been the CLI and daemon.
 
 
 # proceed with actual install
+install_requires = [
+    'atomicwrites',
+    'bugsnag',
+    'click>=7.1.1',
+    'dropbox>=9.4.0',
+    'importlib_metadata;python_version<"3.8"',
+    'keyring>=19.0.0',
+    'keyrings.alt>=3.0.0',
+    'lockfile',
+    'packaging',
+    'pathspec',
+    'psutil',
+    'Pyro5>=5.7',
+    'requests',
+    'rubicon-objc>=0.3.1;sys_platform=="darwin"',
+    'sdnotify',
+    'setuptools',
+    'u-msgpack-python',
+    'watchdog>=0.9.0',
+]
+
+gui_requires = ['maestral-qt>=0.6.2']
+syslog_requires = ['systemd-python']
+
+# if GUI is installed, always update it as well
+try:
+    import maestral_qt  # noqa: F401
+except ImportError:
+    pass
+else:
+    install_requires += gui_requires
+
 
 setup(
     name='maestral',
@@ -126,30 +77,10 @@ setup(
         ],
     },
     setup_requires=['wheel'],
-    install_requires=[
-        'atomicwrites',
-        'bugsnag',
-        'click>=7.0',
-        'dropbox>=9.4.0',
-        'importlib_metadata;python_version<"3.8"',
-        'keyring>=19.0.0',
-        'keyrings.alt>=3.0.0',
-        'lockfile',
-        'packaging',
-        'Pyro5>=5.7',
-        'requests',
-        'rubicon-objc>=0.3.1;sys_platform=="darwin"',
-        'sdnotify',
-        'u-msgpack-python',
-        'watchdog>=0.9.0',
-    ],
+    install_requires=install_requires,
     extras_require={
-        'syslog': [
-            'systemd-python',
-        ],
-        'gui': [
-            'maestral-qt>=0.6.1'
-        ],
+        'gui': gui_requires,
+        'syslog': syslog_requires,
     },
     zip_safe=False,
     entry_points={

@@ -16,30 +16,31 @@ import logging
 from packaging.version import Version
 
 from maestral.config.main import (
-    CONFIG_DIR_NAME, CONF_VERSION, MaestralConfig, MaestralState
+    CONFIG_DIR_NAME, MaestralConfig, MaestralState
 )
 from maestral.config.user import DefaultsConfig, UserConfig
-from maestral.config.base import get_conf_path, get_data_path
+from maestral.config.base import get_conf_path, get_data_path, list_configs
 
 logger = logging.getLogger(__name__)
 
 
 def migrate_user_config(config_name):
     config_path = get_conf_path(CONFIG_DIR_NAME, create=False)
+    config_fname = osp.join(config_path, config_name + '.ini')
 
     # load old config non-destructively
     try:
         old_conf = DefaultsConfig(config_path, config_name, '.ini')
-        old_conf.read(osp.join(config_path, config_name + '.ini'), encoding='utf-8')
+        old_conf.read(config_fname, encoding='utf-8')
         old_version = old_conf.get(UserConfig.DEFAULT_SECTION_NAME, 'version')
     except OSError:
         return
 
     if Version(old_version) < Version('11.0.0'):
 
-        state = MaestralState(config_name)
-
         # get values for moved settings
+        excluded_folders = old_conf.get('main', 'excluded_folders')
+
         email = old_conf.get('account', 'email')
         display_name = old_conf.get('account', 'display_name')
         abbreviated_name = old_conf.get('account', 'abbreviated_name')
@@ -58,8 +59,10 @@ def migrate_user_config(config_name):
         update_notification_last = float(update_notification_last)
         lastsync = float(lastsync)
         recent_changes = ast.literal_eval(recent_changes)
+        excluded_folders = ast.literal_eval(excluded_folders)
 
         # set state values
+        state = MaestralState(config_name)
         state.set('account', 'email', email)
         state.set('account', 'display_name', display_name)
         state.set('account', 'abbreviated_name', abbreviated_name)
@@ -74,9 +77,9 @@ def migrate_user_config(config_name):
         state.set('sync', 'lastsync', lastsync)
         state.set('sync', 'recent_changes', recent_changes)
 
-        # load actual config to remove obsolete options
+        # load actual config to remove obsolete options and add moved ones
         conf = MaestralConfig(config_name)
-        conf.set_version(CONF_VERSION, save=True)
+        conf.set('main', 'excluded_items', excluded_folders)
 
         # clean up backup and defaults files from previous version of maestral
         for file in os.scandir(old_conf._path):
@@ -86,6 +89,12 @@ def migrate_user_config(config_name):
                     os.remove(file.path)
 
         logger.info(f'Migrated user config "{config_name}"')
+
+    elif Version(old_version) < Version('12.0.0'):
+        excluded_folders = old_conf.get('main', 'excluded_folders')
+        excluded_folders = ast.literal_eval(excluded_folders)
+        conf = MaestralConfig(config_name)
+        conf.set('main', 'excluded_items', excluded_folders)
 
 
 def migrate_maestral_index(config_name):
@@ -105,3 +114,9 @@ def migrate_maestral_index(config_name):
 
             sys.stderr.write(title + '\n' + msg)
             sys.exit(1)
+
+
+def run_housekeeping():
+    for config_name in list_configs():
+        migrate_user_config(config_name)
+        migrate_maestral_index(config_name)

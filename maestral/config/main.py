@@ -19,8 +19,7 @@ DEFAULTS = [
      {
          'path': '',  # dropbox folder location
          'default_dir_name': 'Dropbox ({})',  # default dropbox folder name
-         'excluded_folders': [],  # folders excluded from sync
-         'excluded_files': [],  # files excluded from sync, currently not used
+         'excluded_items': [],  # files and folders excluded from sync
      }
      ),
     ('account',
@@ -30,12 +29,18 @@ DEFAULTS = [
      ),
     ('app',
      {
-         'notification_level': 15,  # desktop notification level
-         'log_level': 20,
-         'update_notification_interval': 60 * 60 * 24 * 7,
-         'analytics': False,  # automatically report crashes and errors with bugsnag
+         'notification_level': 15,  # desktop notification level, default to FILECHANGE
+         'log_level': 20,  # log level for journal and file, default to INFO
+         'update_notification_interval': 60 * 60 * 24 * 7,  # default to weekly
+         'analytics': False,  # automatic errors reports with bugsnag, default to disabled
      }
      ),
+    ('sync',
+     {
+         'reindex_interval': 60 * 60 * 24 * 7,  # default to weekly
+         'max_cpu_percent': 20.0,  # max usage target per cpu core, default to 20%
+     }
+     )
 ]
 
 DEFAULTS_STATE = [
@@ -59,6 +64,9 @@ DEFAULTS_STATE = [
      {
          'cursor': '',  # remote cursor: represents last state synced from dropbox
          'lastsync': 0.0,  # local cursor: time-stamp of last upload
+         'last_reindex': 0.0,  # time-stamp of full last reindexing
+         'download_errors': [],  # failed downloads to retry on next sync
+         'pending_downloads': [],  # incomplete downloads to retry on next sync
          'recent_changes': [],  # cached list of recent changes to display in GUI / CLI
      }
      ),
@@ -71,7 +79,7 @@ DEFAULTS_STATE = [
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = '11.0.0'
+CONF_VERSION = '12.0.0'
 
 
 # =============================================================================

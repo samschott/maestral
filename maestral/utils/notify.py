@@ -8,6 +8,7 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 """
 import sys
 import os
+import shutil
 import time
 import subprocess
 import platform
@@ -205,21 +206,15 @@ class DesktopNotifier:
         self._impl.send(title, message, urgency, icon_path)
 
     @staticmethod
-    def _command_exists(command):
-        return any(
-            os.access(os.path.join(path, command), os.X_OK)
-            for path in os.environ['PATH'].split(os.pathsep)
-        )
-
-    def _get_available_implementation(self):
+    def _get_available_implementation():
         if IS_MACOS_BUNDLE and Version(macos_version) >= Version('10.14.0'):
             # UNUserNotificationCenter is only supported from signed app bundles
             return SupportedImplementations.notification_center
         elif platform.system() == 'Darwin' and Version(macos_version) < Version('10.16.0'):
             return SupportedImplementations.legacy_notification_center
-        elif self._command_exists('osascript'):
+        elif shutil.which('osascript'):
             return SupportedImplementations.osascript
-        elif self._command_exists('notify-send'):
+        elif shutil.which('notify-send'):
             return SupportedImplementations.notify_send
         return None
 
@@ -251,7 +246,7 @@ class MaestralDesktopNotifier(logging.Handler):
 
     def __init__(self, config_name):
         super().__init__()
-        self.setFormatter(logging.Formatter(fmt="%(message)s"))
+        self.setFormatter(logging.Formatter(fmt='%(message)s'))
         self._conf = MaestralConfig(config_name)
         self._snooze = 0
 

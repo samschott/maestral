@@ -1,20 +1,46 @@
-from watchdog.observers.fsevents import (
-    FSEventsEmitter, FSEventsObserver, DirectorySnapshot,
+# -*- coding: utf-8 -*-
+"""
+@author: Sam Schott  (ss2151@cam.ac.uk)
+
+(c) Sam Schott; This work is licensed under a Creative Commons
+Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+
+"""
+from watchdog.observers.polling import (
+    PollingEmitter, PollingObserver, DirectorySnapshotDiff,
     FileDeletedEvent, FileModifiedEvent, FileMovedEvent, FileCreatedEvent,
     DirDeletedEvent, DirModifiedEvent, DirMovedEvent, DirCreatedEvent,
     DEFAULT_OBSERVER_TIMEOUT, BaseObserver
 )
 
 
-class OrderedFSEventsEmitter(FSEventsEmitter):
+class OrderedPollingEmitter(PollingEmitter):
+    """
+    Platform-independent emitter that polls a directory to detect file
+    system changes.
+    """
 
     def queue_events(self, timeout):
+        # We don't want to hit the disk continuously.
+        # timeout behaves like an interval for polling emitters.
+        if self.stopped_event.wait(timeout):
+            return
+
         with self._lock:
-            if not self.watch.is_recursive and self.watch.path not in self.pathnames:
+            if not self.should_keep_running():
                 return
-            new_snapshot = DirectorySnapshot(self.watch.path, self.watch.is_recursive)
-            events = new_snapshot - self.snapshot
-            self.snapshot = new_snapshot
+
+            # Get event diff between fresh snapshot and previous snapshot.
+            # Update snapshot.
+            try:
+                new_snapshot = self._take_snapshot()
+            except OSError:
+                self.queue_event(DirDeletedEvent(self.watch.path))
+                self.stop()
+                return
+
+            events = DirectorySnapshotDiff(self._snapshot, new_snapshot)
+            self._snapshot = new_snapshot
 
             # Files.
             for src_path in events.files_deleted:
@@ -37,7 +63,7 @@ class OrderedFSEventsEmitter(FSEventsEmitter):
                 self.queue_event(DirCreatedEvent(src_path))
 
 
-class OrderedFSEventsObserver(FSEventsObserver):
+class OrderedPollingObserver(PollingObserver):
 
     def __init__(self, timeout=DEFAULT_OBSERVER_TIMEOUT):
-        BaseObserver.__init__(self, emitter_class=OrderedFSEventsEmitter, timeout=timeout)
+        BaseObserver.__init__(self, emitter_class=OrderedPollingEmitter, timeout=timeout)

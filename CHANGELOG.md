@@ -1,3 +1,72 @@
+## v0.6.2
+
+This release enables excluding individual files from syncing and fixes an issue which led
+to continuously retrying failed downloads. It also contains significant performance
+improvements to indexing, reduces the CPU usage when syncing a large number of files and
+introduces weekly re-indexing.
+
+This release also introduces support for an ".mignore" file with the same syntax as
+[gitignore](https://git-scm.com/docs/gitignore). This feature is considered 'alpha' and
+may change in the future. Feedback is welcome.
+
+#### Added:
+
+- Support excluding files from sync. This uses the same 'selective sync' interface as
+  excluding folders. Excluded files will be removed from the local Dropbox folder.
+- Introduces an ".mignore" file to specify files that Maestral should ignore. The
+  ".mignore" file must be saved in the local Dropbox folder. When excluding files or
+  folders with selective sync (`maestral exclude`), they will be removed from the local
+  folder and kept in the cloud only. The ".mignore" file enables the reverse: files or
+  folders which exist locally will not be uploaded to Dropbox. It uses the same syntax
+  as [gitignore files](https://git-scm.com/docs/gitignore) and, similar to gitignore,
+  files which are already tracked by Maestral will not be affected. More details are given
+  in the [Wiki](https://github.com/SamSchott/maestral-dropbox/wiki/mignore).
+- Added a config option "max_cpu_percent" to adjust the target maximum CPU usage per CPU
+  core. This defaults to 20%, i.e., 80% total for a quad core CPU. Maestral will aim to
+  remain below that percentage but this is not guaranteed.
+
+#### Changed:
+
+- Replaced the `excluded_files` and `excluded_folders` settings from the config file with
+  a unified `excluded_items` setting. Entries from `excluded_folders` will be migrated to
+  the `excluded_items` setting.
+- Renamed methods which exclude / include folders to `exclude_item` etc.
+- Speed up creation of local folders.
+- When trying to create a file or folder with the same path as an item excluded by
+  selective sync, the new item is now renamed by appending "selective sync conflict"
+  instead of raising a sync issue. This is closer the behaviour of the official client.
+- Significant performance improvements to indexing and file event processing. Indexing a
+  remote Dropbox with 20,000 to 30,000 files and comparing it a local folder now takes
+  ~ 5 min, depending on on the average file size.
+- Introduced periodic reindexing every week. This has been made possible by the above
+  performance improvements.
+
+#### Fixed:
+
+- Don't immediately retry when a download fails. Instead, save failed downloads and retry
+  only on pause / resume or restart.
+- Fixes missing cursor and resulting unexpected `ValidationError` during sync startup.
+- Wait until all sync activity has stopped before moving the Dropbox folder. This avoids
+  errors when trying to convert local to dropbox paths and vice versa during the move.
+- Fixes an issue which would prevent some conflicting copies created by Dropbox from being
+  downloaded.
+- Correctly handle when a local item is renamed to an always excluded file name such as
+  ".DS_STORE": the item is now deleted from Dropbox.
+- Fixes an issue where sharing an existing folder from the Dropbox website would result in
+  the folder being deleted locally. This is because Dropbox actually removes the shared
+  folder from the user's Dropbox and then re-mounts it as a shared drive / file system. We
+  handle this correctly now by leaving the local folder alone or deleting and
+  re-downloading it, depending on the time elapsed between removal and re-mounting.
+- Improves conflict resolution when a folder has been been replaced with a file or vice
+  versa and both the local and remote item have un-synced changes.
+- Fixes an issue where `maestral stop` would block until all pending syncs have completed.
+  This could potentially take a *very* long time for large downloads. Instead, any
+  interrupted downloads will be restarted on next launch.
+
+#### Removed:
+
+- Removed the `excluded_files` and `excluded_folders` settings from the config file.
+
 ## v0.6.1
 
 This release improves desktop notifications: Notifications will now only appear for remote
@@ -47,7 +116,7 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
 - Renamed the `set-dir` command to `move-dir` to emphasize that it moves the local Dropbox
   folder to a new location.
 - Configurations are now tied to a Dropbox account:
-    - New configurations are now created on-demand when calling `maestral gui` or  
+    - New configurations are now created on-demand when calling `maestral gui` or
       `maestral start` with a new configuration name.
     - A configuration is automatically removed when unlinking a Dropbox account.
     - All configurations can be listed together with the account emails with
@@ -70,7 +139,7 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
 - Fixes an issue where local changes while maestral was not running could be overwritten
   by remote changes instead of resulting in a conflicting copy.
 - Fixes an issue where local file events could be ignored while a download is in progress.
-- Fixes an issue where a new local file could be incorrectly deleted if it was created 
+- Fixes an issue where a new local file could be incorrectly deleted if it was created
   just after a remote item at the same path was deleted.
 - Fixes an issue where `maestral stop` and `maestral restart` would not interrupt running
   sync jobs but instead wait for them to be completed. Now, aborted jobs will be resumed

@@ -145,4 +145,6 @@ Temporary Items
 .idea/encodings.xml
 *.iml
 *.xml
-maestral/gui/resources/app_icon_svg/*
+
+# custom excluded items
+app_icon/

@@ -9,6 +9,7 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 import sys
 import os
 import os.path as osp
+import shutil
 import stat
 import platform
 import subprocess
@@ -41,10 +42,10 @@ class AutoStartBase:
         self.gui = gui
 
     def enable(self):
-        pass
+        raise NotImplementedError('No supported implementation')
 
     def disable(self):
-        pass
+        raise NotImplementedError('No supported implementation')
 
     @property
     def enabled(self):
@@ -63,7 +64,7 @@ class AutoStartMaestralBase(AutoStartBase):
             self.start_cmd = f'{self.maestral_path} {self.config_opt}'
             self.stop_cmd = ''
         else:
-            self.maestral_path = self._get_maestral_command_path()
+            self.maestral_path = self.get_maestral_command_path()
 
             if self.gui:
                 self.start_cmd = f'{self.maestral_path} gui {self.config_opt}'
@@ -73,9 +74,30 @@ class AutoStartMaestralBase(AutoStartBase):
                 self.stop_cmd = f'{self.maestral_path} stop {self.config_opt}'
 
     @staticmethod
-    def _get_maestral_command_path():
+    def get_maestral_command_path():
+        # try to get location of console script from package metadata
         console_script = next(p for p in files('maestral') if '/bin/maestral' in str(p))
-        return console_script.locate().resolve()
+        path = console_script.locate().resolve()
+        if not osp.isfile(path):
+            # if not found, check our PATH for maestral command
+            path = shutil.which('maestral')
+
+        return path
+
+    def enable(self):
+        if self.maestral_path:
+            self._enable()
+        else:
+            raise OSError('Could not find path of maestral executable')
+
+    def disable(self):
+        self._disable()
+
+    def _enable(self):
+        raise NotImplementedError()
+
+    def _disable(self):
+        raise NotImplementedError()
 
 
 class AutoStartSystemd(AutoStartMaestralBase):
@@ -103,10 +125,10 @@ class AutoStartSystemd(AutoStartMaestralBase):
         with open(self.destination, 'w') as f:
             f.write(self.contents)
 
-    def enable(self):
+    def _enable(self):
         subprocess.run(['systemctl', '--user', 'enable', self.service_name])
 
-    def disable(self):
+    def _disable(self):
         subprocess.run(['systemctl', '--user', 'disable', self.service_name])
 
     @property
@@ -136,11 +158,11 @@ class AutoStartLaunchd(AutoStartMaestralBase):
             start_cmd=self.start_cmd
         )
 
-    def enable(self):
+    def _enable(self):
         with open(self.destination, 'w+') as f:
             f.write(self.contents)
 
-    def disable(self):
+    def _disable(self):
         try:
             os.unlink(self.destination)
         except FileNotFoundError:
@@ -170,14 +192,14 @@ class AutoStartXDGDesktop(AutoStartMaestralBase):
             start_cmd=self.start_cmd
         )
 
-    def enable(self):
+    def _enable(self):
         with open(self.destination, 'w+') as f:
             f.write(self.contents)
 
         st = os.stat(self.destination)
         os.chmod(self.destination, st.st_mode | stat.S_IEXEC)
 
-    def disable(self):
+    def _disable(self):
         try:
             os.unlink(self.destination)
         except FileNotFoundError:
@@ -218,12 +240,17 @@ class AutoStart:
 
     @enabled.setter
     def enabled(self, yes):
+
+        if self.enabled == yes:
+            return
+
         if yes:
             self._impl.enable()
         else:
             self._impl.disable()
 
     def _get_available_implementation(self):
+
         if self.system == 'Darwin':
             return SupportedImplementations.launchd
         elif self.system == 'Linux' and self._gui:

@@ -22,6 +22,7 @@ from collections import namedtuple, deque
 import click
 import requests
 from dropbox import files
+from watchdog.events import EVENT_TYPE_DELETED
 import bugsnag
 from bugsnag.handlers import BugsnagHandler
 
@@ -34,17 +35,19 @@ import sdnotify
 
 # maestral modules
 from maestral import __version__
-from maestral.sync import MaestralMonitor
 from maestral.client import MaestralApiClient
+from maestral.sync import MaestralMonitor
 from maestral.errors import MaestralApiError, DropboxAuthError
 from maestral.config import MaestralConfig, MaestralState
-from maestral.utils.path import is_child, path_exists_case_insensitive, delete
+from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import error_to_dict, dropbox_stone_to_dict
 from maestral.utils.appdirs import get_log_path, get_cache_path, get_home_dir
 from maestral.utils.updates import check_update_available
+from maestral.utils.housekeeping import run_housekeeping
 from maestral.constants import (
-    INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG, DISCONNECTED
+    INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
+    BUGSNAG_API_KEY, IDLE, DISCONNECTED, FileStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,7 +56,7 @@ sd_notifier = sdnotify.SystemdNotifier()
 # set up error reporting but do not activate
 
 bugsnag.configure(
-    api_key="081c05e2bf9730d5f55bc35dea15c833",
+    api_key=BUGSNAG_API_KEY,
     app_version=__version__,
     auto_notify=False,
     auto_capture_sessions=False,
@@ -62,17 +65,19 @@ bugsnag.configure(
 
 def bugsnag_global_callback(notification):
     notification.add_tab(
-        "system", {
-            "platform": platform.platform(),
-            "python": platform.python_version()
+        'system', {
+            'platform': platform.platform(),
+            'python': platform.python_version()
         }
     )
     cause = notification.exception.__cause__
     if cause:
-        notification.add_tab("original exception", error_to_dict(cause))
+        notification.add_tab('original exception', error_to_dict(cause))
 
 
 bugsnag.before_notify(bugsnag_global_callback)
+
+run_housekeeping()
 
 
 # custom logging handlers
@@ -95,7 +100,7 @@ class CachedHandler(logging.Handler):
         if len(self.cached_records) > 0:
             return self.cached_records[-1].message
         else:
-            return ""
+            return ''
 
     def getAllMessages(self):
         return [r.message for r in self.cached_records]
@@ -108,7 +113,7 @@ class SdNotificationHandler(logging.Handler):
     """Handler which emits messages as systemd notifications."""
 
     def emit(self, record):
-        sd_notifier.notify(f"STATUS={record.message}")
+        sd_notifier.notify(f'STATUS={record.message}')
 
 
 # decorators
@@ -190,7 +195,7 @@ class Maestral(object):
 
         # periodically check for updates and refresh account info
         self.update_thread = Thread(
-            name="Maestral update check",
+            name='maestral-update-check',
             target=self._periodic_refresh,
             daemon=True,
         )
@@ -206,24 +211,24 @@ class Maestral(object):
         """
 
         if self.pending_dropbox_folder:
-            self.reset_sync_state()
+            self.monitor.reset_sync_state()
             self.create_dropbox_directory()
 
         # start syncing
         self.start_sync()
 
         if NOTIFY_SOCKET:  # notify systemd that we have started
-            logger.debug("Running as systemd notify service")
-            logger.debug(f"NOTIFY_SOCKET = {NOTIFY_SOCKET}")
-            sd_notifier.notify("READY=1")
+            logger.debug('Running as systemd notify service')
+            logger.debug('NOTIFY_SOCKET = %s', NOTIFY_SOCKET)
+            sd_notifier.notify('READY=1')
 
         if IS_WATCHDOG:  # notify systemd periodically if alive
-            logger.debug("Running as systemd watchdog service")
-            logger.debug(f"WATCHDOG_USEC = {WATCHDOG_USEC}")
-            logger.debug(f"WATCHDOG_PID = {WATCHDOG_PID}")
+            logger.debug('Running as systemd watchdog service')
+            logger.debug('WATCHDOG_USEC = %s', WATCHDOG_USEC)
+            logger.debug('WATCHDOG_PID = %s', WATCHDOG_PID)
 
             self.watchdog_thread = Thread(
-                name="Maestral watchdog",
+                name='maestral-watchdog',
                 target=self._periodic_watchdog,
                 daemon=True,
             )
@@ -236,18 +241,18 @@ class Maestral(object):
         stdout if requested.
         """
 
-        log_level = self._conf.get("app", "log_level")
-        mdbx_logger = logging.getLogger("maestral")
+        log_level = self._conf.get('app', 'log_level')
+        mdbx_logger = logging.getLogger('maestral')
         mdbx_logger.setLevel(logging.DEBUG)
 
         log_fmt_long = logging.Formatter(
-            fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S"
+            fmt='%(asctime)s %(name)s %(levelname)s: %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
         )
-        log_fmt_short = logging.Formatter(fmt="%(message)s")
+        log_fmt_short = logging.Formatter(fmt='%(message)s')
 
         # log to file
-        rfh_log_file = get_log_path("maestral", self._config_name + ".log")
+        rfh_log_file = get_log_path('maestral', self._config_name + '.log')
         self.log_handler_file = logging.handlers.RotatingFileHandler(
             rfh_log_file, maxBytes=10 ** 7, backupCount=1
         )
@@ -303,7 +308,7 @@ class Maestral(object):
         self._log_handler_bugsnag.setLevel(100)
         mdbx_logger.addHandler(self._log_handler_bugsnag)
 
-        self.analytics = self._conf.get("app", "analytics")
+        self.analytics = self._conf.get('app', 'analytics')
 
     # ==== methods to access config and saved state ======================================
 
@@ -338,18 +343,18 @@ class Maestral(object):
         return self.sync.dropbox_path
 
     @property
-    def excluded_folders(self):
+    def excluded_items(self):
         """
-        Returns a list of excluded folders (read only). Use :meth:`exclude_folder`,
-        :meth:`include_folder` or :meth:`set_excluded_folders` change which folders are
+        Returns a list of excluded folders (read only). Use :meth:`exclude_item`,
+        :meth:`include_item` or :meth:`set_excluded_items` to change which items are
         excluded from syncing.
         """
-        return self.sync.excluded_folders
+        return self.sync.excluded_items
 
     @property
     def log_level(self):
         """Log level for log files, the stream handler and the systemd journal."""
-        return self._conf.get("app", "log_level")
+        return self._conf.get('app', 'log_level')
 
     @log_level.setter
     def log_level(self, level_num):
@@ -359,7 +364,7 @@ class Maestral(object):
             self.log_handler_journal.setLevel(level_num)
         if self.log_to_stdout:
             self.log_handler_stream.setLevel(level_num)
-        self._conf.set("app", "log_level", level_num)
+        self._conf.set('app', 'log_level', level_num)
 
     @property
     def log_to_stdout(self):
@@ -375,7 +380,7 @@ class Maestral(object):
     @property
     def analytics(self):
         """Enables or disables logging of errors to bugsnag."""
-        return self._conf.get("app", "analytics")
+        return self._conf.get('app', 'analytics')
 
     @analytics.setter
     def analytics(self, enabled):
@@ -385,7 +390,7 @@ class Maestral(object):
         bugsnag.configuration.auto_capture_sessions = enabled
         self._log_handler_bugsnag.setLevel(logging.ERROR if enabled else 100)
 
-        self._conf.set("app", "analytics", enabled)
+        self._conf.set('app', 'analytics', enabled)
 
     @property
     def notification_snooze(self):
@@ -412,13 +417,13 @@ class Maestral(object):
     @property
     def pending_dropbox_folder(self):
         """Bool indicating if a local Dropbox directory has been created."""
-        return not osp.isdir(self._conf.get("main", "path"))
+        return not osp.isdir(self._conf.get('main', 'path'))
 
     @property
     def pending_first_download(self):
         """Bool indicating if the initial download has already occurred."""
-        return (self._state.get("sync", "lastsync") == 0
-                or self._state.get("sync", "cursor") == "")
+        return (self._state.get('sync', 'lastsync') == 0
+                or self._state.get('sync', 'cursor') == '')
 
     @property
     def syncing(self):
@@ -426,18 +431,18 @@ class Maestral(object):
         Bool indicating if Maestral is syncing. It will be ``True`` if syncing is not
         paused by the user *and* Maestral is connected to the internet.
         """
-        return self.monitor.syncing.is_set()
+        return self.monitor.syncing.is_set() or self.monitor.startup.is_set()
 
     @property
     def paused(self):
         """Bool indicating if syncing is paused by the user. This is set by
         calling :meth:`pause`."""
-        return self.monitor.paused_by_user.is_set()
+        return self.monitor.paused_by_user.is_set() and not self.sync.lock.locked()
 
     @property
     def stopped(self):
         """Bool indicating if syncing is stopped, for instance because of an exception."""
-        return not self.monitor.running.is_set()
+        return not self.monitor.running.is_set() and not self.sync.lock.locked()
 
     @property
     def connected(self):
@@ -486,60 +491,67 @@ class Maestral(object):
         actual file at that path, if the user did not set a profile picture or the
         picture has not yet been downloaded.
         """
-        return get_cache_path("maestral", self._config_name + "_profile_pic.jpeg")
+        return get_cache_path('maestral', self._config_name + '_profile_pic.jpeg')
 
     def get_file_status(self, local_path):
         """
         Returns the sync status of an individual file.
 
-        :param str local_path: Path to file on the local drive.
-        :returns: String indicating the sync status. Can be "uploading", "downloading",
-            "up to date", "error", or "unwatched" (for files outside of the Dropbox
+        :param str local_path: Path to file on the local drive. May be relative to the
+            current working directory.
+        :returns: String indicating the sync status. Can be 'uploading', 'downloading',
+            'up to date', 'error', or 'unwatched' (for files outside of the Dropbox
             directory).
         :rtype: str
         """
         if not self.syncing:
-            return "unwatched"
+            return FileStatus.Unwatched.value
+
+        local_path = osp.abspath(local_path)
 
         try:
             dbx_path = self.sync.to_dbx_path(local_path)
         except ValueError:
-            return "unwatched"
+            return FileStatus.Unwatched.value
 
         if local_path in self.monitor.queued_for_upload:
-            return "uploading"
+            return FileStatus.Uploading.value
         elif local_path in self.monitor.queued_for_download:
-            return "downloading"
-        elif any(local_path == err["local_path"] for err in self.sync_errors):
-            return "error"
+            return FileStatus.Downloading.value
+        elif any(local_path == err['local_path'] for err in self.sync_errors):
+            return FileStatus.Error.value
         elif self.sync.get_local_rev(dbx_path):
-            return "up to date"
+            return FileStatus.Synced.value
         else:
-            return "unwatched"
+            return FileStatus.Unwatched.value
 
     def get_activity(self):
         """
         Gets current upload / download activity.
 
         :returns: A dictionary with lists of all files currently queued for or being
-            uploaded or downloaded.
+            uploaded or downloaded. Paths are given relative to the Dropbox folder.
         :rtype: dict(list, list)
         """
-        PathItem = namedtuple("PathItem", "local_path status")
+        PathItem = namedtuple('PathItem', 'path status')
         uploading = []
         downloading = []
 
         for path in self.monitor.uploading:
-            uploading.append(PathItem(path, "uploading"))
+            path.lstrip(self.dropbox_path)
+            uploading.append(PathItem(path, 'uploading'))
 
         for path in self.monitor.queued_for_upload:
-            uploading.append(PathItem(path, "queued"))
+            path.lstrip(self.dropbox_path)
+            uploading.append(PathItem(path, 'queued'))
 
         for path in self.monitor.downloading:
-            downloading.append(PathItem(path, "downloading"))
+            path.lstrip(self.dropbox_path)
+            downloading.append(PathItem(path, 'downloading'))
 
         for path in self.monitor.queued_for_download:
-            downloading.append(PathItem(path, "queued"))
+            path.lstrip(self.dropbox_path)
+            downloading.append(PathItem(path, 'queued'))
 
         return dict(uploading=uploading, downloading=downloading)
 
@@ -589,7 +601,7 @@ class Maestral(object):
             if res.profile_photo_url:
                 # download current profile pic
                 res = requests.get(res.profile_photo_url)
-                with open(self.account_profile_pic_path, "wb") as f:
+                with open(self.account_profile_pic_path, 'wb') as f:
                     f.write(res.content)
                 return self.account_profile_pic_path
             else:
@@ -615,49 +627,26 @@ class Maestral(object):
 
     def _delete_old_profile_pics(self):
         # delete all old pictures
-        for file in os.listdir(get_cache_path("maestral")):
-            if file.startswith(self._config_name + "_profile_pic"):
+        for file in os.listdir(get_cache_path('maestral')):
+            if file.startswith(self._config_name + '_profile_pic'):
                 try:
-                    os.unlink(osp.join(get_cache_path("maestral"), file))
+                    os.unlink(osp.join(get_cache_path('maestral'), file))
                 except OSError:
                     pass
 
     def rebuild_index(self):
         """
         Rebuilds the rev file by comparing remote with local files and updating rev
-        numbers from the Dropbox server. Files are compared by their content hashes
-        and conflicting copies are created if the contents differ.
-        Reindexing may take several minutes, depending on the size of your Dropbox. If
-        a file is modified during this process before it has been re-indexed, any changes
-        to it will be flagged as sync conflicts. If a file is deleted before it has been
-        re-indexed, the deletion will be reversed.
-        This call blocks until rebuilding is complete.
+        numbers from the Dropbox server. Files are compared by their content hashes and
+        conflicting copies are created if the contents differ. File changes during the
+        rebuild process will be queued and uploaded once rebuilding has completed.
+
+        Rebuilding will be performed asynchronously.
 
         :raises: :class:`MaestralApiError`
         """
 
-        self.monitor.rebuild_rev_file()
-
-    def rebuild_index_async(self):
-        """
-        Same as :method:`rebuild_index` but performed asynchronously by using the sync
-        threads. File changes during the rebuild process will be queued for upload once
-        rebuilding has completed.
-
-        :raises: :class:`MaestralApiError`
-        """
-
-        self.pause_sync()
-
-        self.sync.last_sync = 0.0
-        self.sync.last_cursor = ""
-        self.sync.clear_rev_index()
-        self.sync.clear_all_sync_errors()
-
-        if self.stopped:
-            self.start_sync()
-        else:
-            self.resume_sync()
+        self.monitor.rebuild_index()
 
     def start_sync(self):
         """
@@ -689,12 +678,8 @@ class Maestral(object):
         information if a Dropbox was improperly unlinked (e.g., auth token has been
         manually deleted). Otherwise leave state management to Maestral.
         """
-        self.sync.last_cursor = ''
-        self.sync.last_sync = 0.0
-        self.sync.clear_rev_index()
-        delete(self.sync.rev_file_path)
 
-        logger.debug("Sync state reset")
+        self.monitor.reset_sync_state()
 
     def unlink(self):
         """
@@ -719,154 +704,157 @@ class Maestral(object):
         self._conf.cleanup()
         self._state.cleanup()
 
-        logger.info("Unlinked Dropbox account.")
+        logger.info('Unlinked Dropbox account.')
 
-    def exclude_folder(self, dbx_path):
+    def exclude_item(self, dbx_path):
         """
-        Excludes folder from sync and deletes local files. It is safe to call this method
-        with folders which have already been excluded.
+        Excludes file or folder from sync and deletes it locally. It is safe to call this
+        method with items which have already been excluded.
 
-        :param str dbx_path: Dropbox folder to exclude.
+        :param str dbx_path: Dropbox path of item to exclude.
         :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         """
 
-        dbx_path = dbx_path.lower().rstrip(osp.sep)
-
+        # input validation
         md = self.client.get_metadata(dbx_path)
 
-        if not isinstance(md, files.FolderMetadata):
-            raise ValueError("No such folder on Dropbox: '{0}'".format(dbx_path))
+        if not md:
+            raise ValueError(f'"{dbx_path}" does not exist on Dropbox')
+
+        dbx_path = dbx_path.lower().rstrip(osp.sep)
 
         # add the path to excluded list
-        excluded_folders = self.sync.excluded_folders
-        if dbx_path not in excluded_folders:
-            excluded_folders.append(dbx_path)
-        else:
-            logger.info("Folder was already excluded, nothing to do.")
+        if self.sync.is_excluded_by_user(dbx_path):
+            logger.info('%s was already excluded', dbx_path)
+            logger.info(IDLE)
             return
 
-        self.sync.excluded_folders = excluded_folders
+        excluded_items = self.sync.excluded_items
+        excluded_items.append(dbx_path)
+
+        self.sync.excluded_items = excluded_items
+
+        logger.info('Excluded %s', dbx_path)
+
+        self._remove_after_excluded(dbx_path)
+
+        logger.info(IDLE)
+
+    def _remove_after_excluded(self, dbx_path):
+
+        # book keeping
+        self.sync.clear_sync_error(dbx_path=dbx_path)
         self.sync.set_local_rev(dbx_path, None)
 
         # remove folder from local drive
         local_path = self.sync.to_local_path(dbx_path)
-        local_path_cased = path_exists_case_insensitive(local_path)
-        logger.info(f"Deleting folder '{local_path_cased}'.")
-        if osp.isdir(local_path_cased):
-            shutil.rmtree(local_path_cased)
+        # dbx_path will be lower-case, we there explicitly run `to_cased_path`
+        local_path = to_cased_path(local_path)
+        if local_path:
+            with self.monitor.fs_event_handler.ignore(local_path,
+                                                      recursive=osp.isdir(local_path),
+                                                      event_types=(EVENT_TYPE_DELETED,)):
+                delete(local_path)
 
-    def include_folder(self, dbx_path):
+    def include_item(self, dbx_path):
         """
-        Includes folder in sync and downloads in the background. It is safe to call this
-        method with folders which have already been included, they will not be downloaded
-        again.
+        Includes file or folder in sync and downloads in the background. It is safe to
+        call this method with items which have already been included, they will not be
+        downloaded again.
 
-        :param str dbx_path: Dropbox folder to include.
+        :param str dbx_path: Dropbox path of item to include.
         :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox or lies inside
             another excluded folder.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         """
 
-        dbx_path = dbx_path.lower().rstrip(osp.sep)
+        # input validation
         md = self.client.get_metadata(dbx_path)
 
-        old_excluded_folders = self.sync.excluded_folders
-
-        if not isinstance(md, files.FolderMetadata):
-            raise ValueError("No such folder on Dropbox: '{0}'".format(dbx_path))
-        for folder in old_excluded_folders:
-            if is_child(dbx_path, folder):
-                raise ValueError("'{0}' lies inside the excluded folder '{1}'. "
-                                 "Please include '{1}' first.".format(dbx_path, folder))
-
-        # Get folders which will need to be downloaded, do not attempt to download
-        # subfolders of `dbx_path` which were already included.
-        # `new_included_folders` will either be empty (`dbx_path` was already
-        # included), just contain `dbx_path` itself (the whole folder was excluded) or
-        # only contain subfolders of `dbx_path` (`dbx_path` was partially included).
-        new_included_folders = tuple(x for x in old_excluded_folders if
-                                     x == dbx_path or is_child(x, dbx_path))
-
-        if new_included_folders:
-            # remove `dbx_path` or all excluded children from the excluded list
-            excluded_folders = list(set(old_excluded_folders) - set(new_included_folders))
-        else:
-            logger.info("Folder was already included, nothing to do.")
-            return
-
-        self.sync.excluded_folders = excluded_folders
-
-        # download folder contents from Dropbox
-        logger.info(f"Downloading added folder '{dbx_path}'.")
-        for folder in new_included_folders:
-            self.sync.queued_folder_downloads.put(folder)
-
-    @handle_disconnect
-    def _include_folder_without_subfolders(self, dbx_path):
-        """
-        Sets a folder to included without explicitly including its subfolders. This is to
-        be used internally, when a folder has been removed from the excluded list, but
-        some of its subfolders may have been added.
-        """
+        if not md:
+            raise ValueError(f'"{dbx_path}" does not exist on Dropbox')
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
-        excluded_folders = self.sync.excluded_folders
 
-        if dbx_path not in excluded_folders:
+        old_excluded_items = self.sync.excluded_items
+
+        for folder in old_excluded_items:
+            if is_child(dbx_path, folder):
+                raise ValueError(f'"{dbx_path}" lies inside the excluded folder '
+                                 f'"{folder}". Please include "{folder}" first.')
+
+        # Get items which will need to be downloaded, do not attempt to download
+        # children of `dbx_path` which were already included.
+        # `new_included_items` will either be empty (`dbx_path` was already
+        # included), just contain `dbx_path` itself (the item was fully excluded) or
+        # only contain children of `dbx_path` (`dbx_path` was partially included).
+        new_included_items = tuple(x for x in old_excluded_items if
+                                   x == dbx_path or is_child(x, dbx_path))
+
+        if new_included_items:
+            # remove `dbx_path` or all excluded children from the excluded list
+            excluded_items = list(set(old_excluded_items) - set(new_included_items))
+        else:
+            logger.info('%s was already included', dbx_path)
             return
 
-        excluded_folders.remove(dbx_path)
+        self.sync.excluded_items = excluded_items
 
-        self.sync.excluded_folders = excluded_folders
-        self.sync.queued_folder_downloads.put(dbx_path)
+        logger.info('Included %s', dbx_path)
+
+        # download items from Dropbox
+        for folder in new_included_items:
+            self.sync.queued_newly_included_downloads.put(folder)
 
     @handle_disconnect
-    def set_excluded_folders(self, folder_list=None):
+    def set_excluded_items(self, items=None):
         """
-        Sets the list of excluded folders to `folder_list`. If not given, gets all top
-        level folder paths from Dropbox and asks user to include or exclude. Folders
-        which are no in `folder_list` but exist on Dropbox will be downloaded.
+        Sets the list of excluded files or folders. If not given, gets all top level
+        folder paths from Dropbox and asks user to include or exclude. Items which are
+        no in ``items`` but were previously excluded will be downloaded.
 
         On initial sync, this does not trigger any downloads.
 
-        :param list folder_list: If given, list of excluded folder to set.
-        :returns: List of excluded folders.
-        :rtype: list
+        :param list items: If given, list of excluded files or folders to set.
         :raises: :class:`MaestralApiError`
         """
 
-        if folder_list is None:
+        if items is None:
 
-            excluded_folders = []
+            excluded_items = []
 
             # get all top-level Dropbox folders
-            result = self.client.list_folder("", recursive=False)
+            result = self.client.list_folder('/', recursive=False)
 
             # paginate through top-level folders, ask to exclude
             for entry in result.entries:
                 if isinstance(entry, files.FolderMetadata):
-                    yes = click.confirm(f"Exclude '{entry.path_display}' from sync?", prompt_suffix='')
+                    yes = click.confirm(f'Exclude "{entry.path_display}" from sync?',
+                                        prompt_suffix='')
                     if yes:
-                        excluded_folders.append(entry.path_lower)
+                        excluded_items.append(entry.path_lower)
         else:
-            excluded_folders = self.sync.clean_excluded_folder_list(folder_list)
+            excluded_items = self.sync.clean_excluded_items_list(items)
 
-        old_excluded_folders = self.sync.excluded_folders
+        old_excluded_items = self.sync.excluded_items
 
-        added_excluded_folders = set(excluded_folders) - set(old_excluded_folders)
-        added_included_folders = set(old_excluded_folders) - set(excluded_folders)
+        added_excluded_items = set(excluded_items) - set(old_excluded_items)
+        added_included_items = set(old_excluded_items) - set(excluded_items)
+
+        self.sync.excluded_items = excluded_items
 
         if not self.pending_first_download:
             # apply changes
-            for path in added_excluded_folders:
-                self.exclude_folder(path)
-            for path in added_included_folders:
-                self._include_folder_without_subfolders(path)
+            for path in added_excluded_items:
+                logger.info('Excluded %s', path)
+                self._remove_after_excluded(path)
+            for path in added_included_items:
+                if not self.sync.is_excluded_by_user(path):
+                    logger.info('Included %s', path)
+                    self.sync.queued_newly_included_downloads.put(path)
 
-        self.sync.excluded_folders = excluded_folders
-
-        return excluded_folders
+        logger.info(IDLE)
 
     def excluded_status(self, dbx_path):
         """
@@ -880,15 +868,14 @@ class Maestral(object):
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
 
-        excluded_items = (self._conf.get("main", "excluded_folders")
-                          + self._conf.get("main", "excluded_files"))
+        excluded_items = self._conf.get('main', 'excluded_items')
 
         if dbx_path in excluded_items:
-            return "excluded"
+            return 'excluded'
         elif any(is_child(f, dbx_path) for f in excluded_items):
-            return "partially excluded"
+            return 'partially excluded'
         else:
-            return "included"
+            return 'included'
 
     @with_sync_paused
     def move_dropbox_directory(self, new_path=None):
@@ -912,7 +899,7 @@ class Maestral(object):
             pass
 
         if osp.exists(new_path):
-            raise FileExistsError(f"Path '{new_path}' already exists.")
+            raise FileExistsError(f'Path "{new_path}" already exists.')
 
         # move folder from old location or create a new one if no old folder exists
         if osp.isdir(old_path):
@@ -973,7 +960,7 @@ class Maestral(object):
         self._daemon_running = False
         if NOTIFY_SOCKET:
             # notify systemd that we are shutting down
-            sd_notifier.notify("STOPPING=1")
+            sd_notifier.notify('STOPPING=1')
 
     # ==== private methods ===============================================================
 
@@ -988,13 +975,13 @@ class Maestral(object):
             self.get_profile_pic()
             # check for maestral updates
             res = self.check_for_updates()
-            if not res["error"]:
-                self._state.set("app", "latest_release", res["latest_release"])
+            if not res['error']:
+                self._state.set('app', 'latest_release', res['latest_release'])
             time.sleep(60 * 60)  # 60 min
 
     def _periodic_watchdog(self):
         while self.monitor._threads_alive():
-            sd_notifier.notify("WATCHDOG=1")
+            sd_notifier.notify('WATCHDOG=1')
             time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
 
     def __del__(self):
@@ -1004,10 +991,10 @@ class Maestral(object):
             pass
 
     def __repr__(self):
-        email = self._state.get("account", "email")
-        account_type = self._state.get("account", "type")
+        email = self._state.get('account', 'email')
+        account_type = self._state.get('account', 'type')
 
-        return f"<{self.__class__}({email}, {account_type})>"
+        return f'<{self.__class__.__name__}({email}, {account_type})>'
 
 
 def select_dbx_path_dialog(config_name, allow_merge=False):
@@ -1023,11 +1010,11 @@ def select_dbx_path_dialog(config_name, allow_merge=False):
 
     conf = MaestralConfig(config_name)
 
-    default = osp.join(get_home_dir(), conf.get("main", "default_dir_name"))
+    default = osp.join(get_home_dir(), conf.get('main', 'default_dir_name'))
 
     while True:
         res = click.prompt(
-            "Please give Dropbox folder location",
+            'Please give Dropbox folder location',
             default=default,
             type=click.Path(writable=True)
         )
@@ -1035,7 +1022,7 @@ def select_dbx_path_dialog(config_name, allow_merge=False):
         res = res.rstrip(osp.sep)
 
         dropbox_path = osp.expanduser(res or default)
-        old_path = osp.expanduser(conf.get("main", "path"))
+        old_path = osp.expanduser(conf.get('main', 'path'))
 
         try:
             same_path = osp.samefile(old_path, dropbox_path)
@@ -1043,17 +1030,17 @@ def select_dbx_path_dialog(config_name, allow_merge=False):
             same_path = False
 
         if osp.exists(dropbox_path) and not same_path:
-            msg = (f"Directory '{dropbox_path}' already exist. Do you want to "
-                   "overwrite it? Its content will be lost!")
+            msg = (f'Directory "{dropbox_path}" already exist. Do you want to '
+                   'overwrite it? Its content will be lost!')
             if click.confirm(msg, prompt_suffix=''):
                 err = delete(dropbox_path)
                 if err:
-                    click.echo(f"Could not write to location '{dropbox_path}'. Please "
-                               "make sure that you have sufficient permissions.")
+                    click.echo(f'Could not write to location "{dropbox_path}". Please '
+                               'make sure that you have sufficient permissions.')
                 else:
                     return dropbox_path
             elif allow_merge:
-                msg = "Would you like to merge its content with your Dropbox?"
+                msg = 'Would you like to merge its content with your Dropbox?'
                 if click.confirm(msg, prompt_suffix=''):
                     return dropbox_path
         else:
