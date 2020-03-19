@@ -30,7 +30,7 @@ of config files and compatibility been the CLI and daemon.
 install_requires = [
     'atomicwrites',
     'bugsnag',
-    'click>=7.0',
+    'click>=7.1.1',
     'dropbox>=9.4.0',
     'importlib_metadata;python_version<"3.8"',
     'keyring>=19.0.0',
@@ -48,7 +48,7 @@ install_requires = [
     'watchdog>=0.9.0',
 ]
 
-gui_requires = ['maestral-qt>=0.6.2.dev4']
+gui_requires = ['maestral-qt>=0.6.2']
 syslog_requires = ['systemd-python']
 
 # if GUI is installed, always update it as well
