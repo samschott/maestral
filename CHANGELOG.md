@@ -1,4 +1,4 @@
-## v0.6.2-dev
+## v0.6.2
 
 This release enables excluding individual files from syncing, introduces support for an
 ".mignore" file with the same syntax as [gitignore](https://git-scm.com/docs/gitignore)
