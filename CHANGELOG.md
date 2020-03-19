@@ -8,7 +8,7 @@ large number of files and introduces weekly re-indexing.
 
 #### Added:
 
-- Support excluding files from sync. This uses the same 'selective sync' interface as 
+- Support excluding files from sync. This uses the same 'selective sync' interface as
   excluding folders. Excluded files will be removed from the local Dropbox folder.
 - Introduces an ".mignore" file to specify files that Maestral should ignore. The
   ".mignore" file must be saved in the local Dropbox folder. When excluding files or
@@ -32,8 +32,8 @@ large number of files and introduces weekly re-indexing.
 - When trying to create a file or folder with the same path as an item excluded by
   selective sync, the new item is now renamed by appending "selective sync conflict"
   instead of raising a sync issue. This is closer the behaviour of the official client.
-- Significant performance improvements to indexing and file event processing. Indexing a 
-  remote Dropbox with 20,000 to 30,000 files and comparing it a local folder now takes 
+- Significant performance improvements to indexing and file event processing. Indexing a
+  remote Dropbox with 20,000 to 30,000 files and comparing it a local folder now takes
   ~ 5 min, depending on on the average file size.
 - Introduced periodic reindexing every week. This has been made possible by the above
   performance improvements.
