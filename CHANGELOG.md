@@ -11,6 +11,8 @@ Bug fix release.
   an old Dropbox folder. The labels 'Replace' and 'Cancel' where switched.
 - Fixes an issue where the option 'Unlink & Quit' in the 'Revoked Access' error dialog 
   would do nothing.
+- Fixes an issue with Dropbox Metadata no longer being hashable from v9.5 of the
+  Dropbox SDK.
 
 
 ## v0.6.2
