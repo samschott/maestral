@@ -1,7 +1,10 @@
 ## v0.6.3.dev
 
-Bug fix release.
+This is a bug fix release.
 
+##### Changed:
+
+- Show release notes from all releases since last update in update dialog.
 
 ##### Fixed:
 
