@@ -16,9 +16,9 @@ import subprocess
 from enum import Enum
 
 try:
-    from importlib.metadata import files, PackagePath
+    from importlib.metadata import files
 except ImportError:
-    from importlib_metadata import files, PackagePath
+    from importlib_metadata import files
 
 from maestral import __version__
 from maestral.utils.appdirs import get_home_dir, get_conf_path, get_data_path
