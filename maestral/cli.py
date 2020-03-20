@@ -48,7 +48,7 @@ def pending_link_cli(config_name):
         else:
             return False
     except KeyringLocked:
-        raise click.ClickException('Cannot access user keyring'
+        raise click.ClickException('Cannot access user keyring '
                                    'to load Dropbox credentials.')
 
 
