@@ -11,10 +11,10 @@ Maestral is an open-source Dropbox client written in Python. The project's main 
 provide a client for platforms and file systems that are no longer directly supported by
 Dropbox.
 
-Currently, Maestral does not support Dropbox Paper, the management of Dropbox teams and
+Maestral currently does not support Dropbox Paper, the management of Dropbox teams and
 the management of shared folder settings. If you need any of this functionality, please
-use the Dropbox website or the official client. As of version 0.3.0, Maestral does
-support the syncing of multiple Dropbox accounts.
+use the Dropbox website or the official client. Maestral does support the syncing of
+multiple Dropbox accounts and excluding local files from sync with a ".mignore" file.
 
 The focus on "simple" file syncing does come with advantages: on macOS, the Maestral App
 bundle is 80% smaller than the official Dropbox app (50 MB vs 290 MB) and uses much less
