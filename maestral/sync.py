@@ -1909,10 +1909,14 @@ class UpDownSync:
         :returns: (changes_filtered, changes_discarded)
         :rtype: tuple[:class:`dropbox.files.ListFolderResult`]
         """
-        # filter changes from non-excluded folders
-        entries_filtered = [e for e in changes.entries if not self.is_excluded_by_user(
-            e.path_lower) or self.is_excluded(e.path_lower)]
-        entries_discarded = list(set(changes.entries) - set(entries_filtered))
+        entries_filtered = []
+        entries_discarded = []
+
+        for e in changes.entries:
+            if self.is_excluded_by_user(e.path_lower) or self.is_excluded(e.path_lower):
+                entries_discarded.append(e)
+            else:
+                entries_filtered.append(e)
 
         changes_filtered = dropbox.files.ListFolderResult(
             entries=entries_filtered, cursor=changes.cursor, has_more=False)
