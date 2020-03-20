@@ -16,9 +16,9 @@ import subprocess
 from enum import Enum
 
 try:
-    from importlib.metadata import files
+    from importlib.metadata import files, PackagePath
 except ImportError:
-    from importlib_metadata import files
+    from importlib_metadata import files, PackagePath
 
 from maestral import __version__
 from maestral.utils.appdirs import get_home_dir, get_conf_path, get_data_path
@@ -76,10 +76,15 @@ class AutoStartMaestralBase(AutoStartBase):
     @staticmethod
     def get_maestral_command_path():
         # try to get location of console script from package metadata
-        console_script = next(p for p in files('maestral') if '/bin/maestral' in str(p))
-        path = console_script.locate().resolve()
+        # fall back to 'which' otherwise
+        try:
+            pkg_path = next(p for p in files('maestral')
+                            if str(p).endswith('/bin/maestral'))
+            path = pkg_path.locate().resolve()
+        except StopIteration:
+            path = ''
+
         if not osp.isfile(path):
-            # if not found, check our PATH for maestral command
             path = shutil.which('maestral')
 
         return path
