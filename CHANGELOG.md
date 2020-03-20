@@ -1,3 +1,18 @@
+## v0.6.3.dev
+
+Bug fix release.
+
+
+##### Fixed:
+
+- Fixed a `StopIteration` exception on startup when the location of the maestral CLI
+  script cannot be found in the package metadata.
+- Fixed incorrect labels during the setup dialog when choosing whether to replace or keep
+  an old Dropbox folder. The labels 'Replace' and 'Cancel' where switched.
+- Fixes an issue where the option 'Unlink & Quit' in the 'Revoked Access' error dialog 
+  would do nothing.
+
+
 ## v0.6.2
 
 This release enables excluding individual files from syncing and fixes an issue which led
