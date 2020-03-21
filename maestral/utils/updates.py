@@ -67,7 +67,7 @@ def check_update_available(current_version=__version__):
             data = json.loads(data)
 
             releases = [item['tag_name'].replace('v', '') for item in data]
-            release_notes = ['## ' + item['tag_name'] + '\n\n' + item['body']
+            release_notes = ['### ' + item['tag_name'] + '\n\n' + item['body']
                              for item in data]
 
             try:
