@@ -153,3 +153,30 @@ def delete(path, raise_error=False):
         raise err
     else:
         return err
+
+
+def move(src_path, dest_path, raise_error=False):
+    """
+    Moves a file or folder from `source_path`. Creates parent
+    directories of target path if necessary.
+    """
+    err = None
+
+    try:
+        shutil.move(src_path, dest_path)
+    except FileNotFoundError as exc:
+        if src_path in exc.filename:
+            # don't raise of source path no longer exists
+            pass
+        elif dest_path in exc.filename2:
+            # make target directory and try again
+            dirname = os.path.dirname(dest_path)
+            os.makedirs(dirname, exist_ok=True)
+            move(src_path, dest_path)
+        else:
+            err = exc
+
+    if raise_error and err:
+        raise err
+    else:
+        return err
