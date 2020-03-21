@@ -5,16 +5,19 @@ This is a bug fix release.
 ##### Changed:
 
 - Show release notes from all releases since last update in update dialog.
+- Use our own method instead of the `psuitl` package to determine the CPU usage. This
+  eliminates the `psuitl` dependency which can be difficult to install on some systems. 
 
 ##### Fixed:
 
-- Fixed a `StopIteration` exception on startup when the location of the maestral CLI
+- Fixed a StopIteration exception on startup when the location of the maestral CLI
   script cannot be found in the package metadata.
-- Fixed incorrect labels during the setup dialog when choosing whether to replace or keep
+- Fixes an error when restarting the daemon with the 'foreground' option.
+- Fixed incorrect labels during the setup dialog when choosing whether `to replace or keep
   an old Dropbox folder. The labels 'Replace' and 'Cancel' where switched.
 - Fixes an issue where the option 'Unlink & Quit' in the 'Revoked Access' error dialog 
   would do nothing.
-- Fixes an issue with Dropbox Metadata no longer being hashable from v9.5 of the
+- Fixes an issue with Dropbox Metadata no longer being hashable from v9.5 o`f the
   Dropbox SDK.
 
 
