@@ -1,3 +1,9 @@
+## v0.6.4.dev
+
+#### Fixed:
+
+- Properly handle errors when moving files, for instance for sync conflicts.
+
 ## v0.6.3
 
 This release fixes a critical error introduced when updating to v9.5 of the Dropbox Python
