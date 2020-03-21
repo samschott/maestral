@@ -1,6 +1,7 @@
 ## v0.6.3.dev
 
-This is a bug fix release.
+This release fixes a critical error introduced when updating to v9.5 of the Dropbox Python 
+SDK which prevents any remote changes from being downloaded.
 
 ##### Changed:
 
@@ -10,15 +11,15 @@ This is a bug fix release.
 
 ##### Fixed:
 
+- Fixes an issue with downloads failing because Dropbox Metadata is longer hashable from 
+  v9.5 of the Dropbox Python SDK.
 - Fixed a StopIteration exception on startup when the location of the maestral CLI
   script cannot be found in the package metadata.
-- Fixes an error when restarting the daemon with the 'foreground' option.
-- Fixed incorrect labels during the setup dialog when choosing whether `to replace or keep
-  an old Dropbox folder. The labels 'Replace' and 'Cancel' where switched.
-- Fixes an issue where the option 'Unlink & Quit' in the 'Revoked Access' error dialog 
+- Fixes an error when restarting the daemon with the "foreground" option.
+- Fixed incorrect button labels in the setup dialog when choosing whether to replace or 
+  keep an old Dropbox folder. The labels "Replace" and "Cancel" where switched.
+- Fixes an bug where the option "Unlink & Quit" in the "Revoked Access" error dialog 
   would do nothing.
-- Fixes an issue with Dropbox Metadata no longer being hashable from v9.5 o`f the
-  Dropbox SDK.
 
 
 ## v0.6.2
