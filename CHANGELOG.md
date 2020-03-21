@@ -1,4 +1,4 @@
-## v0.6.3.dev
+## v0.6.3
 
 This release fixes a critical error introduced when updating to v9.5 of the Dropbox Python 
 SDK which prevents any remote changes from being downloaded.
