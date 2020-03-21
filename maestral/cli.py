@@ -48,7 +48,7 @@ def pending_link_cli(config_name):
         else:
             return False
     except KeyringLocked:
-        raise click.ClickException('Cannot access user keyring'
+        raise click.ClickException('Cannot access user keyring '
                                    'to load Dropbox credentials.')
 
 
@@ -371,7 +371,7 @@ def stop(config_name: str):
 @click.pass_context
 def restart(ctx, config_name: str, foreground: bool):
     """Restarts the Maestral daemon."""
-    ctx.forward(stop)
+    stop_daemon_with_cli_feedback(config_name)
     ctx.forward(start)
 
 

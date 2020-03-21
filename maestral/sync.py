@@ -11,6 +11,7 @@ import os
 import os.path as osp
 from stat import S_ISDIR
 import shutil
+import resource
 import logging
 import gc
 import time
@@ -28,7 +29,6 @@ from enum import IntEnum
 import pprint
 
 # external imports
-import psutil
 import pathspec
 import umsgpack
 import dropbox
@@ -59,8 +59,9 @@ from maestral.utils.path import (
 from maestral.utils.appdirs import get_data_path
 
 logger = logging.getLogger(__name__)
-_process = psutil.Process(os.getpid())
+
 _cpu_count = os.cpu_count()
+
 
 # ==== Notes on event processing =========================================================
 #
@@ -129,7 +130,6 @@ _cpu_count = os.cpu_count()
 #      conflicting copy. In the latter case, apply those changes locally.
 #  10) Update local revs with the new revs assigned by Dropbox.
 #
-
 
 # ========================================================================================
 # Syncing functionality
@@ -972,9 +972,9 @@ class UpDownSync:
             return
 
         if 'pool' in current_thread().name:
-            cpu_usage = _process.cpu_percent(0.1)
+            cpu_usage = cpu_usage_percent()
             while cpu_usage > self._max_cpu_percent:
-                cpu_usage = _process.cpu_percent(0.5 + 2 * random.random())
+                cpu_usage = cpu_usage_percent(0.5 + 2 * random.random())
 
     # ==== Upload sync ===================================================================
 
@@ -1909,10 +1909,14 @@ class UpDownSync:
         :returns: (changes_filtered, changes_discarded)
         :rtype: tuple[:class:`dropbox.files.ListFolderResult`]
         """
-        # filter changes from non-excluded folders
-        entries_filtered = [e for e in changes.entries if not self.is_excluded_by_user(
-            e.path_lower) or self.is_excluded(e.path_lower)]
-        entries_discarded = list(set(changes.entries) - set(entries_filtered))
+        entries_filtered = []
+        entries_discarded = []
+
+        for e in changes.entries:
+            if self.is_excluded_by_user(e.path_lower) or self.is_excluded(e.path_lower):
+                entries_discarded.append(e)
+            else:
+                entries_filtered.append(e)
 
         changes_filtered = dropbox.files.ListFolderResult(
             entries=entries_filtered, cursor=changes.cursor, has_more=False)
@@ -2994,3 +2998,46 @@ def entries_to_str(entries):
     str_reps = [f'<{e.__class__.__name__}(path_display={e.path_display})>'
                 for e in entries]
     return '[' + ',\n '.join(str_reps) + ']'
+
+
+def cpu_usage_percent(interval=0.1):
+    """Returns a float representing the current process CPU
+    utilization as a percentage. This copies the similar
+    method from psutil.
+
+    Compares process times to system CPU times elapsed before
+    and after the interval (blocking). It is recommended for
+    accuracy that this function be called with at least 0.1
+    seconds between calls.
+
+    A value > 100.0 can be returned in case of processes running
+    multiple threads on different CPU cores.
+
+    The returned value is explicitly NOT split evenly between
+    all available logical CPUs. This means that a busy loop process
+    running on a system with 2 logical CPUs will be reported as
+    having 100% CPU utilization instead of 50%.
+    """
+
+    if not interval > 0:
+        raise ValueError(f'interval is not positive (got {interval!r})')
+
+    def timer():
+        return time.monotonic() * _cpu_count
+
+    st1 = timer()
+    rt1 = resource.getrusage(resource.RUSAGE_SELF)
+    time.sleep(interval)
+    st2 = timer()
+    rt2 = resource.getrusage(resource.RUSAGE_SELF)
+
+    delta_proc = (rt2.ru_utime - rt1.ru_utime) + (rt2.ru_stime - rt1.ru_stime)
+    delta_time = st2 - st1
+
+    try:
+        overall_cpus_percent = ((delta_proc / delta_time) * 100)
+    except ZeroDivisionError:
+        return 0.0
+    else:
+        single_cpu_percent = overall_cpus_percent * _cpu_count
+        return round(single_cpu_percent, 1)

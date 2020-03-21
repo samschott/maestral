@@ -1,3 +1,27 @@
+## v0.6.3
+
+This release fixes a critical error introduced when updating to v9.5 of the Dropbox Python 
+SDK which prevents any remote changes from being downloaded.
+
+##### Changed:
+
+- Show release notes from all releases since last update in update dialog.
+- Use our own method instead of the `psuitl` package to determine the CPU usage. This
+  eliminates the `psuitl` dependency which can be difficult to install on some systems. 
+
+##### Fixed:
+
+- Fixes an issue with downloads failing because Dropbox Metadata is longer hashable from 
+  v9.5 of the Dropbox Python SDK.
+- Fixed a StopIteration exception on startup when the location of the maestral CLI
+  script cannot be found in the package metadata.
+- Fixes an error when restarting the daemon with the "foreground" option.
+- Fixed incorrect button labels in the setup dialog when choosing whether to replace or 
+  keep an old Dropbox folder. The labels "Replace" and "Cancel" where switched.
+- Fixes an bug where the option "Unlink & Quit" in the "Revoked Access" error dialog 
+  would do nothing.
+
+
 ## v0.6.2
 
 This release enables excluding individual files from syncing and fixes an issue which led

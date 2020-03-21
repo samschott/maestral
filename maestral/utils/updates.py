@@ -50,7 +50,7 @@ def check_update_available(current_version=__version__):
     """
     current_version = current_version.strip('v')
     new_version = None
-    release_notes = ""
+    update_release_notes = ''
     error_msg = None
 
     try:
@@ -67,11 +67,18 @@ def check_update_available(current_version=__version__):
             data = json.loads(data)
 
             releases = [item['tag_name'].replace('v', '') for item in data]
-            releases = list(reversed(releases))
+            release_notes = ['### ' + item['tag_name'] + '\n\n' + item['body']
+                             for item in data]
 
-            releases_notes = [item['body'] for item in data]
-            releases_notes = list(reversed(releases_notes))
-            release_notes = releases_notes[-1]
+            try:
+                current_release_index = releases.index(current_version)
+            except ValueError:
+                # if current release cannot be found online, just
+                # show release notes from newest release w/o history
+                current_release_index = 1
+
+            update_release_notes = release_notes[0:current_release_index]
+            update_release_notes = '\n'.join(update_release_notes)
 
             new_version = get_newer_version(current_version, releases)
         except Exception:
@@ -86,7 +93,7 @@ def check_update_available(current_version=__version__):
 
     return {'update_available': bool(new_version),
             'latest_release': new_version or current_version,
-            'release_notes': release_notes,
+            'release_notes': update_release_notes,
             'error': error_msg}
 
 
