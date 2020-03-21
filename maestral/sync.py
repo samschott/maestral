@@ -10,7 +10,6 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 import os
 import os.path as osp
 from stat import S_ISDIR
-import shutil
 import resource
 import logging
 import gc
@@ -49,12 +48,12 @@ from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                 EXCLUDED_FILE_NAMES, MIGNORE_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError,
                              DropboxAuthError, SyncError, PathError, InotifyError,
-                             NotFoundError)
+                             NotFoundError, os_to_maestral_error)
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import (
     generate_cc_name, path_exists_case_insensitive, to_cased_path,
-    delete, is_child, is_equal_or_child
+    move, delete, is_child, is_equal_or_child
 )
 from maestral.utils.appdirs import get_data_path
 
@@ -1343,7 +1342,10 @@ class UpDownSync:
             with self.fs_events.ignore(dest_path, recursive=osp.isdir(dest_path),
                                        event_types=(EVENT_TYPE_DELETED,
                                                     EVENT_TYPE_MOVED)):
-                shutil.move(dest_path, dest_path_cc)
+                exc = move(dest_path, dest_path_cc)
+                if exc:
+                    raise os_to_maestral_error(exc, local_path=dest_path_cc)
+
             logger.info('Case conflict: renamed "%s" to "%s"', dest_path, dest_path_cc)
 
             return True
@@ -1369,17 +1371,15 @@ class UpDownSync:
         if self.is_excluded_by_user(dbx_path):
             local_path_cc = generate_cc_name(local_path,
                                              suffix='selective sync conflict')
-            try:
-                with self.fs_events.ignore(local_path, recursive=osp.isdir(local_path),
-                                           event_types=(EVENT_TYPE_DELETED,
-                                                        EVENT_TYPE_MOVED)):
-                    shutil.move(local_path, local_path_cc)
-            except FileNotFoundError:
-                pass
-            else:
-                logger.info('Selective sync conflict: renamed "%s" to "%s"',
-                            local_path, local_path_cc)
 
+            with self.fs_events.ignore(local_path, recursive=osp.isdir(local_path),
+                                       event_types=(EVENT_TYPE_DELETED, EVENT_TYPE_MOVED)):
+                exc = move(local_path, local_path_cc)
+                if exc:
+                    raise os_to_maestral_error(exc, local_path=local_path_cc)
+
+            logger.info('Selective sync conflict: renamed "%s" to "%s"',
+                        local_path, local_path_cc)
             return True
         else:
             return False
@@ -1605,7 +1605,7 @@ class UpDownSync:
                 md_new = self.client.upload(local_path, dbx_path,
                                             autorename=True, mode=mode)
             except NotFoundError:
-                logger.debug('Could not upload "%s": the item does not exist',
+                logger.debug('Could not upload "%s":pip install  the item does not exist',
                              event.src_path)
                 return
 
@@ -1613,10 +1613,10 @@ class UpDownSync:
             local_path_cc = self.to_local_path(md_new.path_display)
             with self.fs_events.ignore(local_path, local_path_cc,
                                        recursive=osp.isdir(local_path)):
-                try:
-                    shutil.move(local_path, local_path_cc)
-                except OSError:
-                    delete(local_path)
+                exc = move(local_path, local_path_cc)
+                if exc:
+                    raise os_to_maestral_error(exc, local_path=local_path_cc,
+                                               dbx_path=md_new.path_display)
 
             # Delete revs of old path but don't set revs for new path here. This will
             # force conflict resolution on download in case of intermittent changes.
@@ -1665,10 +1665,10 @@ class UpDownSync:
                     local_path_cc = self.to_local_path(res.path_display)
                     with self.fs_events.ignore(local_path, local_path_cc,
                                                recursive=osp.isdir(local_path)):
-                        try:
-                            shutil.move(local_path, local_path_cc)
-                        except OSError:
-                            delete(local_path)
+                        exc = move(local_path, local_path_cc)
+                        if exc:
+                            raise os_to_maestral_error(exc, local_path=local_path_cc,
+                                                       dbx_path=res.path_display)
 
                     # Delete revs of old path but don't set revs for new path here. This
                     # will force conflict resolution on download in case of intermittent
@@ -2282,12 +2282,15 @@ class UpDownSync:
             if conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
                 return applied
 
-            elif conflict_check == Conflict.Conflict:
+            elif conflict_check == Conflict.Conflict and isinstance(entry, FolderMetadata):
+                # only move folders here, file will be moved after download is complete
                 new_local_path = generate_cc_name(local_path)
                 with self.fs_events.ignore(local_path, recursive=osp.isdir(local_path),
                                            event_types=(EVENT_TYPE_DELETED,
                                                         EVENT_TYPE_MOVED)):
-                    shutil.move(local_path, new_local_path)
+                    exc = move(local_path, new_local_path)
+                    if exc:
+                        raise os_to_maestral_error(exc, local_path=new_local_path)
 
             if isinstance(entry, FileMetadata):
                 # Store the new entry at the given path in your local state.
@@ -2310,7 +2313,9 @@ class UpDownSync:
                                                recursive=osp.isdir(local_path),
                                                event_types=(EVENT_TYPE_DELETED,
                                                             EVENT_TYPE_MOVED)):
-                        shutil.move(local_path, new_local_path)
+                        exc = move(local_path, new_local_path)
+                        if exc:
+                            raise os_to_maestral_error(exc, local_path=new_local_path)
 
                 if osp.isdir(local_path):
                     with self.fs_events.ignore(local_path,
@@ -2322,7 +2327,10 @@ class UpDownSync:
                 with self.fs_events.ignore(local_path,
                                            event_types=(EVENT_TYPE_DELETED,
                                                         EVENT_TYPE_CREATED)):
-                    shutil.move(tmp_fname, local_path)
+                    exc = move(tmp_fname, local_path)
+                    if exc:
+                        raise os_to_maestral_error(exc, dbx_path=entry.path_display,
+                                                   local_path=local_path)
 
                 self.set_last_sync_for_path(entry.path_lower, self.get_ctime(local_path))
                 self.set_local_rev(entry.path_lower, md.rev)
