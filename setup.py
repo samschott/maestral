@@ -31,7 +31,7 @@ install_requires = [
     'atomicwrites',
     'bugsnag',
     'click>=7.1.1',
-    'dropbox>=9.4.0',
+    'dropbox>=9.4.0, <=9.5.0',
     'importlib_metadata;python_version<"3.8"',
     'keyring>=19.0.0',
     'keyrings.alt>=3.0.0',
@@ -47,7 +47,7 @@ install_requires = [
     'watchdog>=0.9.0',
 ]
 
-gui_requires = ['maestral-qt>=0.6.2']
+gui_requires = ['maestral-qt==0.6.3']
 syslog_requires = ['systemd-python']
 
 # if GUI is installed, always update it as well
