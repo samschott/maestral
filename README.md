@@ -98,11 +98,9 @@ In the above case, this will be "Dropbox (Personal)" and "Dropbox (Work)".
 
 The following tasks could need your help:
 
+- [ ] Packaging for non-macOS platforms.
 - [ ] Write tests for Maestral.
-- [ ] Detect and warn in case of unsupported Dropbox folder locations (network drives,
-      external hard drives, etc).
 - [ ] A native GTK frontend. Maestral currently uses PyQt5.
-- [ ] Package for non-macOS platforms.
 
 ## Warning
 
