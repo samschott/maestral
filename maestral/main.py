@@ -164,7 +164,7 @@ def with_sync_paused(func):
 # Main API
 # ========================================================================================
 
-class Maestral(object):
+class Maestral:
     """An open source Dropbox client for macOS and Linux.
 
     All methods and properties return objects or raise exceptions which can safely be
