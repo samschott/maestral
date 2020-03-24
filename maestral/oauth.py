@@ -57,9 +57,6 @@ class OAuth2Session:
 
         :raises: ``KeyringLocked`` if the system keyring cannot be accessed.
         """
-        if isinstance(self.keyring, keyrings.alt.file.PlaintextKeyring):
-            logger.warning('No supported keyring backend found, '
-                           'Dropbox credentials stored in plain text.')
         logger.debug(f'Using keyring: {self.keyring}')
 
         try:
@@ -107,6 +104,9 @@ class OAuth2Session:
         try:
             self.keyring.set_password('Maestral', self.account_id, self.access_token)
             click.echo(' > Credentials written.')
+            if isinstance(self.keyring, keyrings.alt.file.PlaintextKeyring):
+                click.echo(' > Warning: No supported keyring found, '
+                           'Dropbox credentials stored in plain text.')
         except KeyringLocked:
             logger.error('Could not access the user keyring to save your authentication '
                          'token. Please make sure that the keyring is unlocked.')
