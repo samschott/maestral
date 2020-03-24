@@ -890,7 +890,8 @@ class Maestral:
 
         # get old and new paths
         old_path = self.sync.dropbox_path
-        new_path = new_path or select_dbx_path_dialog(self._config_name)
+        new_path = new_path or select_dbx_path_dialog(self._config_name,
+                                                      allow_merge=False)
 
         try:
             if osp.samefile(old_path, new_path):
@@ -1022,26 +1023,31 @@ def select_dbx_path_dialog(config_name, allow_merge=False):
         res = res.rstrip(osp.sep)
 
         dropbox_path = osp.expanduser(res or default)
-        old_path = osp.expanduser(conf.get('main', 'path'))
 
-        try:
-            same_path = osp.samefile(old_path, dropbox_path)
-        except FileNotFoundError:
-            same_path = False
+        if osp.exists(dropbox_path):
+            if allow_merge:
+                choice = click.prompt(
+                    text=(f'Directory "{dropbox_path}" already exists. Do you want to '
+                          f'replace it or merge its content with your Dropbox?'),
+                    type=click.Choice(['replace', 'merge', 'cancel'])
+                )
+            else:
+                replace = click.confirm(
+                    text=(f'Directory "{dropbox_path}" already exists. Do you want to '
+                          f'replace it? Its content will be lost!'),
+                    prompt_suffix=''
+                )
+                choice = 'replace' if replace else 'cancel'
 
-        if osp.exists(dropbox_path) and not same_path:
-            msg = (f'Directory "{dropbox_path}" already exist. Do you want to '
-                   'overwrite it? Its content will be lost!')
-            if click.confirm(msg, prompt_suffix=''):
+            if choice == 'replace':
                 err = delete(dropbox_path)
                 if err:
                     click.echo(f'Could not write to location "{dropbox_path}". Please '
                                'make sure that you have sufficient permissions.')
                 else:
                     return dropbox_path
-            elif allow_merge:
-                msg = 'Would you like to merge its content with your Dropbox?'
-                if click.confirm(msg, prompt_suffix=''):
-                    return dropbox_path
+            elif choice == 'merge':
+                return dropbox_path
+
         else:
             return dropbox_path
