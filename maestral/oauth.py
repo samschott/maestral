@@ -11,18 +11,17 @@ import logging
 
 # external packages
 import click
-import keyring
 from keyring.errors import KeyringLocked
+import keyrings.alt
 
 # maestral modules
 from maestral.config import MaestralConfig
 from maestral.constants import DROPBOX_APP_KEY
 from maestral.errors import DropboxAuthError
-from maestral.utils.backend import set_keyring_backend
+from maestral.utils.backend import get_keyring_backend
 from maestral.utils.oauth_implicit import DropboxOAuth2FlowImplicit
 
 logger = logging.getLogger(__name__)
-set_keyring_backend()
 
 
 class OAuth2Session:
@@ -44,6 +43,7 @@ class OAuth2Session:
 
     def __init__(self, config_name):
 
+        self.keyring = get_keyring_backend(config_name)
         self._conf = MaestralConfig(config_name)
 
         self.account_id = self._conf.get('account', 'account_id')
@@ -57,12 +57,16 @@ class OAuth2Session:
 
         :raises: ``KeyringLocked`` if the system keyring cannot be accessed.
         """
-        logger.debug(f'Using keyring: {keyring.get_keyring()}')
+        if isinstance(self.keyring, keyrings.alt.file.PlaintextKeyring):
+            logger.warning('No supported keyring backend found, '
+                           'Dropbox credentials stored in plain text.')
+        logger.debug(f'Using keyring: {self.keyring}')
+
         try:
-            if self.account_id == "":
+            if self.account_id == '':
                 self.access_token = None
             else:
-                self.access_token = keyring.get_password('Maestral', self.account_id)
+                self.access_token = self.keyring.get_password('Maestral', self.account_id)
             return self.access_token
         except KeyringLocked:
             info = 'Please make sure that your keyring is unlocked and restart Maestral.'
@@ -101,7 +105,7 @@ class OAuth2Session:
         """Saves auth key to system keyring."""
         self._conf.set('account', 'account_id', self.account_id)
         try:
-            keyring.set_password('Maestral', self.account_id, self.access_token)
+            self.keyring.set_password('Maestral', self.account_id, self.access_token)
             click.echo(' > Credentials written.')
         except KeyringLocked:
             logger.error('Could not access the user keyring to save your authentication '
@@ -134,7 +138,7 @@ class OAuth2Session:
         """Deletes auth key from system keyring."""
         self._conf.set('account', 'account_id', "")
         try:
-            keyring.delete_password('Maestral', self.account_id)
+            self.keyring.delete_password('Maestral', self.account_id)
             click.echo(' > Credentials removed.')
         except KeyringLocked:
             logger.error('Could not access the user keyring to delete your authentication'

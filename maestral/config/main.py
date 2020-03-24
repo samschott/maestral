@@ -33,6 +33,7 @@ DEFAULTS = [
          'log_level': 20,  # log level for journal and file, default to INFO
          'update_notification_interval': 60 * 60 * 24 * 7,  # default to weekly
          'analytics': False,  # automatic errors reports with bugsnag, default to disabled
+         'keyring': 'automatic',  # keychain backend to use for credential storage
      }
      ),
     ('sync',

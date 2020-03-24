@@ -7,10 +7,12 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
 from os import path as osp
+import logging
 
-import keyring
 import keyring.backends
+from keyring.core import load_keyring
 from keyring.errors import KeyringLocked
+import keyrings.alt
 
 from maestral.config import MaestralConfig, MaestralState
 from maestral.constants import IS_MACOS_BUNDLE
@@ -18,17 +20,45 @@ from maestral.utils.appdirs import get_data_path
 from maestral.utils.path import delete
 
 
-def set_keyring_backend():
-    if IS_MACOS_BUNDLE:
-        import keyring.backends.OS_X
-        keyring.set_keyring(keyring.backends.OS_X.Keyring())
-    else:
-        import keyring.backends
-        # get preferred keyring backends for platform, excluding the chainer backend
-        all_keyrings = keyring.backend.get_all_keyring()
-        preferred_kreyrings = [k for k in all_keyrings if not isinstance(k, keyring.backends.chainer.ChainerBackend)]
+logger = logging.getLogger(__name__)
 
-        keyring.set_keyring(max(preferred_kreyrings, key=lambda x: x.priority))
+
+_supported_keyring_backends = (
+    keyring.backends.OS_X.Keyring,
+    keyring.backends.SecretService.Keyring,
+    keyring.backends.kwallet.DBusKeyring,
+    keyring.backends.kwallet.DBusKeyringKWallet4,
+    keyrings.alt.file.PlaintextKeyring
+)
+
+
+def get_keyring_backend(config_name):
+    """
+    Choose the most secure of the available and supported keyring backends or
+    use the backend specified in the config file (if valid).
+
+    :param str config_name: The config name.
+    """
+
+    import keyring.backends
+
+    conf = MaestralConfig(config_name)
+    keyring_name = conf.get('app', 'keyring').strip()
+
+    if IS_MACOS_BUNDLE:
+        ring = keyring.backends.OS_X.Keyring()
+    else:
+        try:
+            ring = load_keyring(keyring_name)
+        except Exception:
+            # get preferred keyring backends for platform
+            available_rings = keyring.backend.get_all_keyring()
+            supported_rings = [k for k in available_rings
+                               if isinstance(k, _supported_keyring_backends)]
+
+            ring = max(supported_rings, key=lambda x: x.priority)
+
+    return ring
 
 
 def pending_link(config_name):
@@ -42,7 +72,7 @@ def pending_link(config_name):
     :raises: ``KeyringLocked`` if the system keyring cannot be accessed.
     """
 
-    set_keyring_backend()
+    ring = get_keyring_backend(config_name)
 
     conf = MaestralConfig(config_name)
     account_id = conf.get('account', 'account_id')
@@ -50,7 +80,7 @@ def pending_link(config_name):
         if account_id == '':
             access_token = None
         else:
-            access_token = keyring.get_password('Maestral', account_id)
+            access_token = ring.get_password('Maestral', account_id)
         return access_token is None
     except KeyringLocked:
         info = 'Please make sure that your keyring is unlocked and restart Maestral.'
