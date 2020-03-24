@@ -613,20 +613,21 @@ def link(config_name: str, relink: bool):
 
 @main.command(help_priority=12)
 @existing_config_option
-@click.confirmation_option(prompt='Are you sure you want unlink your account?')
 @catch_maestral_errors
 def unlink(config_name: str):
     """Unlinks your Dropbox account."""
 
     if not pending_link_cli(config_name):
 
-        from maestral.main import Maestral
+        if click.confirm('Are you sure you want unlink your account?'):
 
-        stop_daemon_with_cli_feedback(config_name)
-        m = Maestral(config_name, run=False)
-        m.unlink()
+            from maestral.main import Maestral
 
-        click.echo('Unlinked Maestral.')
+            stop_daemon_with_cli_feedback(config_name)
+            m = Maestral(config_name, run=False)
+            m.unlink()
+
+            click.echo('Unlinked Maestral.')
 
 
 @main.command(help_priority=13)
