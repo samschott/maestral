@@ -1,5 +1,17 @@
 ## v0.6.4.dev
 
+#### Added:
+
+- Config option to set the keyring backend. This defaults to 'automatic' but can be used
+  to specify a preferred backend such as `keyrings.backends.kwallet.DBusKeyring`. Waring:
+  You will need to migrate your credentials manually to the new keyring.
+  
+#### Changed:
+
+- Fall back to plain text credential storage if neither Gnome Keyring, KWallet or any
+  other storage implementing the Secret Service API can be found. A user warning is issued
+  in this case.
+
 #### Fixed:
 
 - Properly handle errors when moving files, for instance for sync conflicts.
