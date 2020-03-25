@@ -5,7 +5,7 @@
 - Config option to set the keyring backend. This defaults to 'automatic' but can be used
   to specify a preferred backend such as `keyrings.backends.kwallet.DBusKeyring`. Waring:
   You will need to migrate your credentials manually to the new keyring.
-  
+
 #### Changed:
 
 - Fall back to plain text credential storage if neither Gnome Keyring, KWallet or any
