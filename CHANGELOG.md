@@ -3,13 +3,13 @@
 This release fixes a critical error introduced when updating to v9.5 of the Dropbox Python
 SDK which prevented any remote changes from being downloaded.
 
-##### Changed:
+#### Changed:
 
 - Show release notes from all releases since last update in update dialog.
 - Use our own method instead of the `psuitl` package to determine the CPU usage. This
-  eliminates the `psuitl` dependency which can be difficult to install on some systems. 
+  eliminates the `psuitl` dependency which can be difficult to install on some systems.
 
-##### Fixed:
+#### Fixed:
 
 - Fixes an issue with downloads failing because Dropbox Metadata is longer hashable from
   v9.5 of the Dropbox Python SDK.
