@@ -1,0 +1,39 @@
+name: maestral
+base: core18 # the base snap is the execution environment for this snap
+version: '0.1' # just for humans, typically '1.2+git' or '1.3.2'
+summary: Single-line elevator pitch for your amazing snap # 79 char long summary
+description: |
+  This is my-snap's description. You have a paragraph or two to tell the
+  most important story about your snap. Keep it under 100 words though,
+  we live in tweetspace and your description wants to look good in the snap
+  store.
+
+grade: stable
+confinement: strict
+
+apps:
+  maestral:
+    command: maestral
+    desktop: share/applications/maestral.desktop
+    extensions:
+      - kde-neon
+    plugs:
+      - home
+      - network
+      - unity7
+
+parts:
+  maestral:
+    source: .
+    plugin: python
+    python-version: python3
+    python-packages:
+      - maestral-qt
+    build-snaps:
+      - kde-frameworks-5-core18-sdk
+    stage-packages:
+      # Use the version from the repo to avoid the xcb not found error
+      - python3-pyqt5
+    override-prime: |
+      snapcraftctl prime
+      sed -i 's|Icon=maestral|Icon=${SNAP}/usr/share/icons/hicolor/512x512/apps/maestral.png|g' share/applications/maestral.desktop
