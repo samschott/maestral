@@ -68,7 +68,6 @@ for err_cls in list(SYNC_ERRORS) + list(FATAL_ERRORS) + [MaestralApiError]:
 
 # ==== helpers for daemon management =====================================================
 
-
 def _sigterm_handler(signal_number, frame):
     sys.exit()
 
