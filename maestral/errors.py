@@ -88,11 +88,6 @@ class NotAFolderError(SyncError):
     pass
 
 
-class ExcludedItemError(SyncError):
-    """Raised when an item which is excluded form syncing is created locally."""
-    pass
-
-
 class DropboxServerError(SyncError):
     """Raised in case of internal Dropbox errors."""
     pass
@@ -528,7 +523,6 @@ SYNC_ERRORS = (
     ExistsError,
     IsAFolderError,
     NotAFolderError,
-    ExcludedItemError,
     DropboxServerError,
     RestrictedContentError,
     UnsupportedFileError,
