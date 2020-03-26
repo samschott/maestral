@@ -74,8 +74,8 @@ def test_clean_local_events():
         # moved + moved back -> modified
         FileMovedEvent(path(5), path(6)),
         FileMovedEvent(path(6), path(5)),
-        # moved + moved -> deleted + created (this is currently not handled as a single
-        # moved)
+        # moved + moved -> deleted + created
+        # (this is currently not handled as a single moved)
         FileMovedEvent(path(7), path(8)),
         FileMovedEvent(path(8), path(9)),
     ]
@@ -87,31 +87,30 @@ def test_clean_local_events():
         FileDeletedEvent(path(1)),
         # moved + moved back -> modified
         FileModifiedEvent(path(5)),
-        # moved + moved -> deleted + created (this is currently not handled as a single
-        # moved)
+        # moved + moved -> deleted + created
+        # (this is currently not handled as a single moved)
         FileDeletedEvent(path(7)),
         FileCreatedEvent(path(9)),
     ]
 
     # Gedit save event
     file_events_test3 = [
-        FileCreatedEvent('.gedit-save-UR4EC0'),  # save new version to tmp file
+        FileCreatedEvent('.gedit-save-UR4EC0'),   # save new version to tmp file
         FileModifiedEvent('.gedit-save-UR4EC0'),  # modify tmp file
-        FileMovedEvent(path(1), path(1) + '~'),  # move old version to backup
-        FileMovedEvent('.gedit-save-UR4EC0', path(1)),
-        # replace old version with tmp file
+        FileMovedEvent(path(1), path(1) + '~'),   # move old version to backup
+        FileMovedEvent('.gedit-save-UR4EC0', path(1)),  # replace old version with tmp
     ]
 
     res3 = [
-        FileModifiedEvent(path(1)),  # modified file
+        FileModifiedEvent(path(1)),       # modified file
         FileCreatedEvent(path(1) + '~'),  # backup
     ]
 
     # macOS safe-save event
     file_events_test4 = [
         FileMovedEvent(path(1), path(1) + '.sb-b78ef837-dLht38'),  # move to backup
-        FileCreatedEvent(path(1)),  # create new version
-        FileDeletedEvent(path(1) + '.sb-b78ef837-dLht38'),  # delete backup
+        FileCreatedEvent(path(1)),                                 # create new version
+        FileDeletedEvent(path(1) + '.sb-b78ef837-dLht38'),         # delete backup
     ]
 
     res4 = [
@@ -127,8 +126,8 @@ def test_clean_local_events():
     ]
 
     res5 = [
-        FileCreatedEvent(path(1)),  # created file
-        FileCreatedEvent('~$' + path(1)),  # backup (will be deleted when file is closed)
+        FileCreatedEvent(path(1)),         # created file
+        FileCreatedEvent('~$' + path(1)),  # backup
     ]
 
     # simple type changes
@@ -200,11 +199,12 @@ def test_clean_local_events():
     # 15,000 nested deleted events (10,000 folders, 5,000 files)
     # 15,000 nested moved events (10,000 folders, 5,000 files)
     # 4,995 unrelated created events
-    file_events_test9 = [DirDeletedEvent(n * path(1)) for n in range(1, 10000)]
-    file_events_test9 += [FileDeletedEvent(n * path(1) + '.txt') for n in range(1, 5000)]
-    file_events_test9 += [DirMovedEvent(n * path(2), n * path(3)) for n in range(1, 10000)]
-    file_events_test9 += [FileMovedEvent(n * path(2) + '.txt', n * path(3) + '.txt') for n in range(1, 5000)]
-    file_events_test9 += [FileCreatedEvent(path(n)) for n in range(5, 5000)]
+    file_events_test9 = [DirDeletedEvent(n * path(1)) for n in range(1, 10001)]
+    file_events_test9 += [FileDeletedEvent(n * path(1) + '.txt') for n in range(1, 5001)]
+    file_events_test9 += [DirMovedEvent(n * path(2), n * path(3)) for n in range(1, 10001)]
+    file_events_test9 += [FileMovedEvent(n * path(2) + '.txt', n * path(3) + '.txt')
+                          for n in range(1, 5001)]
+    file_events_test9 += [FileCreatedEvent(path(n)) for n in range(5, 5001)]
 
     res9 = [
         DirDeletedEvent(path(1)),
@@ -212,7 +212,7 @@ def test_clean_local_events():
         FileDeletedEvent(path(1) + '.txt'),
         FileMovedEvent(path(2) + '.txt', path(3) + '.txt'),
     ]
-    res9 += [FileCreatedEvent(path(n)) for n in range(5, 5000)]
+    res9 += [FileCreatedEvent(path(n)) for n in range(5, 5001)]
 
     sync = DummyUpDownSync()
 
