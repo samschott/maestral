@@ -16,6 +16,7 @@ in order to reduce the startup time of individual CLI commands.
 import os
 import functools
 import logging
+import textwrap
 
 # external packages
 import click
@@ -106,11 +107,9 @@ def _check_for_fatal_errors(m):
 
     if len(maestral_err_list) > 0:
 
-        import textwrap
         width, height = click.get_terminal_size()
 
         err = maestral_err_list[0]
-
         wrapped_msg = textwrap.fill(err['message'], width=width)
 
         click.echo('')
@@ -136,7 +135,6 @@ def catch_maestral_errors(func):
         try:
             return func(*args, **kwargs)
         except MaestralApiError as exc:
-            import textwrap
             width, height = click.get_terminal_size()
             wrapped_msg = textwrap.fill(exc.message, width=width)
 
@@ -152,8 +150,6 @@ def format_table(rows=None, columns=None, headers=None, padding_right=2):
 
     if (rows and columns) or not (rows or columns):
         raise ValueError('Must give either rows or columns as input.')
-
-    import textwrap
 
     if headers and rows:
         rows.insert(0, list(headers))
