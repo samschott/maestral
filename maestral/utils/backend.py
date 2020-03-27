@@ -12,7 +12,7 @@ import logging
 import keyring.backends
 from keyring.core import load_keyring
 from keyring.errors import KeyringLocked
-import keyrings.alt
+import keyrings.alt.file
 
 from maestral.config import MaestralConfig, MaestralState
 from maestral.constants import IS_MACOS_BUNDLE
