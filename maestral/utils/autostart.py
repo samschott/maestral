@@ -27,7 +27,7 @@ from maestral.constants import BUNDLE_ID
 
 
 def resource_path(name):
-    return pkg_resources.resource_filename('maestral', name)
+    return pkg_resources.resource_filename('maestral', 'resources/' + name)
 
 
 class SupportedImplementations(Enum):

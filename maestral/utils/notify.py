@@ -44,7 +44,7 @@ else:
 
 logger = logging.getLogger(__name__)
 
-APP_ICON_PATH = pkg_resources.resource_filename('maestral', 'maestral.png')
+APP_ICON_PATH = pkg_resources.resource_filename('maestral', 'resources/maestral.png')
 
 NONE = 100
 ERROR = 40
