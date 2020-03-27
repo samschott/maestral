@@ -23,6 +23,14 @@ apps:
   maestral-qt:
     command: maestral gui
     desktop: share/applications/maestral.desktop
+    environment:
+      # Correct the TMPDIR path for Chromium Framework/Electron to
+      # ensure libappindicator has readable resources
+      TMPDIR: $XDG_RUNTIME_DIR
+      # Coerce XDG_CURRENT_DESKTOP to Unity so that App Indicators
+      # are used and do not fall back to Notification Area applets
+      # or disappear completely.
+      XDG_CURRENT_DESKTOP: Unity:Unity7
     extensions:
       - kde-neon
     plugs:
@@ -48,6 +56,12 @@ parts:
       snapcraftctl build
     override-prime: |
       snapcraftctl prime
-      # Temporary fix
-      sed -i '0,/Type = Application/ s|||' share/applications/maestral.desktop
       sed -i 's|Icon = maestral|Icon=${SNAP}/share/icons/hicolor/512x512/apps/maestral.png|g' share/applications/maestral.desktop
+  cleanup:
+    after: [maestral, maestral-qt]
+    plugin: nil
+    build-snaps: [ kde-frameworks-5-core18 ]
+    override-prime: |
+        set -eux
+        cd /snap/kde-frameworks-5-core18/current
+        find . -type f,l -exec rm -f $SNAPCRAFT_PRIME/{} \;
