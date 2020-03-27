@@ -6,15 +6,13 @@
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
-import sys
-import os
 import shutil
 import time
 import subprocess
 import platform
 from packaging.version import Version
 from enum import Enum
-from pathlib import Path
+import pkg_resources
 import logging
 
 import click
@@ -46,8 +44,7 @@ else:
 
 logger = logging.getLogger(__name__)
 
-_root = getattr(sys, '_MEIPASS', Path(Path(__file__).parents[1], 'resources'))
-APP_ICON_PATH = os.path.join(_root, 'maestral.png')
+APP_ICON_PATH = pkg_resources.resource_filename('maestral', 'maestral.png')
 
 NONE = 100
 ERROR = 40
