@@ -334,14 +334,27 @@ def start(config_name: str, foreground: bool):
         click.echo('Maestral daemon is already running.')
         return
 
-    from maestral.main import Maestral
-
     # run setup if not yet done
     if pending_link_cli(config_name) or pending_dropbox_folder(config_name):
+
+        from maestral.main import Maestral
+
         m = Maestral(config_name, run=False)
         m.reset_sync_state()
         m.create_dropbox_directory()
-        m.set_excluded_items()
+
+        exclude_folders_q = click.confirm(
+            'Would you like to exclude any folders from syncing?',
+            default=False,
+            prompt_suffix=' '
+        )
+
+        if exclude_folders_q:
+            click.echo(
+                'Please choose which top-level folders to exclude. You can exclude\n'
+                'individual files or subfolders later with "maestral excluded add".'
+            )
+            m.set_excluded_items()
 
         del m
 
