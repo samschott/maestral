@@ -14,7 +14,15 @@ confinement: strict
 apps:
   maestral:
     command: maestral
-    # desktop: share/applications/maestral.desktop
+    extensions:
+      - kde-neon
+    plugs:
+      - home
+      - network
+      - unity7
+  maestral-qt:
+    command: maestral gui
+    desktop: share/applications/maestral.desktop
     extensions:
       - kde-neon
     plugs:
@@ -27,19 +35,19 @@ parts:
     source: .
     plugin: python
     python-version: python3
-    # python-packages:
-    #   - maestral-qt
     stage-packages:
       # Use the version from the repo to avoid the xcb not found error
       - python3-pyqt5
-    override-pull: |
-      snapcraftctl pull
-      sed -i 's|Icon=maestral|Icon=${SNAP}/usr/share/icons/hicolor/512x512/apps/maestral.png|g' maestral/resources/maestral.desktop
   maestral-qt:
     source: https://github.com/SamSchott/maestral-qt.git
     plugin: python
     python-version: python3
-    override-pull: |
-      snapcraftctl pull
+    override-build: |
       sed -i "s|'PyQt5.*||g" setup.py
       sed -i "s|'maestral==.*||g" setup.py
+      snapcraftctl build
+    override-prime: |
+      snapcraftctl prime
+      # Temporary fix
+      sed -i '0,/Type = Application/ s|||' share/applications/maestral.desktop
+      sed -i 's|Icon = maestral|Icon=${SNAP}/share/icons/hicolor/512x512/apps/maestral.png|g' share/applications/maestral.desktop
