@@ -812,7 +812,7 @@ class Maestral:
         """
         Sets the list of excluded files or folders. If not given, gets all top level
         folder paths from Dropbox and asks user to include or exclude. Items which are
-        no in ``items`` but were previously excluded will be downloaded.
+        not in ``items`` but were previously excluded will be downloaded.
 
         On initial sync, this does not trigger any downloads.
 
@@ -831,7 +831,7 @@ class Maestral:
             for entry in result.entries:
                 if isinstance(entry, files.FolderMetadata):
                     yes = click.confirm(f'Exclude "{entry.path_display}" from sync?',
-                                        prompt_suffix='')
+                                        prompt_suffix=' ')
                     if yes:
                         excluded_items.append(entry.path_lower)
         else:
@@ -1035,7 +1035,7 @@ def select_dbx_path_dialog(config_name, allow_merge=False):
                 replace = click.confirm(
                     text=(f'Directory "{dropbox_path}" already exists. Do you want to '
                           f'replace it? Its content will be lost!'),
-                    prompt_suffix=''
+                    prompt_suffix=' '
                 )
                 choice = 'replace' if replace else 'cancel'
 
