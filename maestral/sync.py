@@ -614,7 +614,7 @@ class UpDownSync:
             if rev is None:
                 # remove entry and all its children revs
                 for path in dict(self._rev_dict_cache):
-                    if path.startswith(dbx_path):
+                    if is_equal_or_child(path, dbx_path):
                         self._rev_dict_cache.pop(path, None)
                         self._append_rev_to_file(path, None)
             else:
@@ -937,7 +937,7 @@ class UpDownSync:
         """
         dbx_path = dbx_path.lower()
 
-        return any(dbx_path == f or is_child(dbx_path, f) for f in self.excluded_items)
+        return any(is_equal_or_child(dbx_path, path) for path in self.excluded_items)
 
     def is_mignore(self, event):
         """
@@ -1815,7 +1815,8 @@ class UpDownSync:
         :rtype: bool
         """
 
-        is_dbx_root = dbx_path in ('/', '')
+        dbx_path = dbx_path or '/'
+        is_dbx_root = dbx_path == '/'
         success = []
 
         if is_dbx_root:
@@ -1823,7 +1824,7 @@ class UpDownSync:
         else:
             logger.info('Downloading %s', dbx_path)
 
-        if not any(folder.startswith(dbx_path) for folder in self.excluded_items):
+        if not any(is_child(folder, dbx_path) for folder in self.excluded_items):
             # if there are no excluded subfolders, index and download all at once
             ignore_excluded = False
 
@@ -1950,8 +1951,8 @@ class UpDownSync:
         # remove all deleted items from the excluded list
         _, _, deleted_excluded = self._separate_remote_entry_types(changes_excluded)
         for d in deleted_excluded:
-            new_excluded = [f for f in self.excluded_items
-                            if not f.startswith(d.path_lower)]
+            new_excluded = [item for item in self.excluded_items
+                            if not is_equal_or_child(item, d.path_lower)]
             self.excluded_items = new_excluded
 
         # sort changes into folders, files and deleted

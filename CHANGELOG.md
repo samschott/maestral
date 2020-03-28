@@ -15,6 +15,7 @@
 #### Fixed:
 
 - Properly handle errors when moving files, for instance for sync conflicts.
+- Fixes an issue where some files could accidentally become un-indexed.
 
 ## v0.6.3
 
