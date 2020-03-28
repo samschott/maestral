@@ -93,18 +93,15 @@ class DesktopNotifierBase:
         On Linux, this should correspond to the application name in a desktop entry. On
         macOS, this field is discarded and the app is identified by the bundle id of the
         sending program (e.g., Python).
-    :param int notification_limit: Maximum number of notifications to keep
-        in the system's notification center. This may be ignored by some
-        implementations.
+    :param int notification_limit: Maximum number of notifications to keep in the system's
+        notification center. This may be ignored by some implementations.
     """
 
     CRITICAL = 'critical'
     NORMAL = 'normal'
     LOW = 'low'
 
-    notification_limit = 10
-
-    def __init__(self, app_name='', notification_limit=10):
+    def __init__(self, app_name='', notification_limit=5):
         self.app_name = app_name
         self.notification_limit = notification_limit
 
