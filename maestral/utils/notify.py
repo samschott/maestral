@@ -25,10 +25,6 @@ if platform.system() == 'Darwin':
     from ctypes import cdll, util
     from rubicon.objc import ObjCClass
 
-    appkit = cdll.LoadLibrary(util.find_library('AppKit'))
-    foundation = cdll.LoadLibrary(util.find_library('Foundation'))
-    core_graphics = cdll.LoadLibrary(util.find_library('CoreGraphics'))
-    core_text = cdll.LoadLibrary(util.find_library('CoreText'))
     uns = cdll.LoadLibrary(util.find_library('UserNotifications'))
 
     UNUserNotificationCenter = ObjCClass('UNUserNotificationCenter')
