@@ -80,6 +80,7 @@ class SupportedImplementations(Enum):
     legacy_notification_center = 'legacy-notification-center'
     notify_send = 'notify-send'
     freedesktop_dbus = 'org.freedesktop.Notifications'
+    stdout = 'stdout'
 
 
 class DesktopNotifierBase:
@@ -204,13 +205,13 @@ class DesktopNotifierNotifySend(DesktopNotifierBase):
             ])
 
 
-class DesktopNotifierFreedesktopDbus(DesktopNotifierBase):
+class DesktopNotifierFreedesktopDBus(DesktopNotifierBase):
 
     def __init__(self, app_name):
         super().__init__(app_name)
         connection = connect_and_authenticate(bus='SESSION')
-        self.proxy = Proxy(FreedesktopNotificationsInterface(), connection)
-        self._past_notification_ids = deque([0]*self.notification_limit)
+        self.proxy = Proxy(FreedesktopNotifications(), connection)
+        self._past_notification_ids = deque([0] * self.notification_limit)
 
     def send(self, title, message, urgency=DesktopNotifierBase.NORMAL, icon_path=None):
 
@@ -248,6 +249,8 @@ class DesktopNotifier:
             self._impl = DesktopNotifierLegacyNC(app_name)
         elif self.implementation == SupportedImplementations.osascript:
             self._impl = DesktopNotifierOsaScript(app_name)
+        elif self.implementation == SupportedImplementations.freedesktop_dbus:
+            self._impl = DesktopNotifierFreedesktopDBus(app_name)
         elif self.implementation == SupportedImplementations.notify_send:
             self._impl = DesktopNotifierNotifySend(app_name)
         else:
@@ -260,16 +263,31 @@ class DesktopNotifier:
     def _get_available_implementation():
         macos_version, *_ = platform.mac_ver()
 
-        if IS_MACOS_BUNDLE and Version(macos_version) >= Version('10.14.0'):
-            # UNUserNotificationCenter is only supported from signed app bundles
-            return SupportedImplementations.notification_center
-        elif platform.system() == 'Darwin' and Version(macos_version) < Version('10.16.0'):
-            return SupportedImplementations.legacy_notification_center
-        elif shutil.which('osascript'):
-            return SupportedImplementations.osascript
-        elif shutil.which('notify-send'):
-            return SupportedImplementations.notify_send
-        return None
+        if platform.system() == 'Darwin':
+            if IS_MACOS_BUNDLE and Version(macos_version) >= Version('10.14.0'):
+                # UNUserNotificationCenter is only supported from signed app bundles
+                return SupportedImplementations.notification_center
+            elif Version(macos_version) < Version('10.16.0'):
+                # deprecated but still works
+                return SupportedImplementations.legacy_notification_center
+            elif shutil.which('osascript'):
+                # fallback
+                return SupportedImplementations.osascript
+        elif platform.system() == 'Linux':
+            try:
+                connection = connect_and_authenticate(bus='SESSION')
+                proxy = Proxy(FreedesktopNotifications(), connection)
+                notification_server_info = proxy.GetServerInformation()
+                connection.close()
+            except Exception:
+                notification_server_info = None
+
+            if notification_server_info:
+                return SupportedImplementations.freedesktop_dbus
+            elif shutil.which('notify-send'):
+                return SupportedImplementations.notify_send
+
+        return SupportedImplementations.stdout
 
 
 system_notifier = DesktopNotifier(app_name='Maestral')
