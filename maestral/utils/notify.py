@@ -14,6 +14,7 @@ from packaging.version import Version
 from enum import Enum
 import pkg_resources
 import logging
+from collections import deque
 
 import click
 
@@ -104,15 +105,32 @@ class SupportedImplementations(Enum):
 
 
 class DesktopNotifierBase:
+    """
+    Base class for desktop notifications. Notification levels CRITICAL,
+    NORMAL and LOW may be used by some implementations to determine how
+    a notification is displayed.
+
+    :param str app_name: Name to identify the application in the notification center.
+        On Linux, this should correspond to the application name in a desktop entry. On
+        macOS, this field is discarded and the app is identified by the bundle id of the
+        sending program (e.g., Python).
+    :param int notification_limit: Maximum number of notifications to keep
+        in the system's notification center. This may be ignored by some
+        implementations.
+    """
 
     CRITICAL = 'critical'
     NORMAL = 'normal'
     LOW = 'low'
 
-    def __init__(self, app_name=''):
-        self._app_name = app_name
+    notification_limit = 10
+
+    def __init__(self, app_name='', notification_limit=10):
+        self.app_name = app_name
+        self.notification_limit = notification_limit
 
     def send(self, title, message, urgency=NORMAL, icon_path=None):
+        """Some arguments may be ignored, depending on the implementation."""
         raise NotImplementedError()
 
 
@@ -138,8 +156,6 @@ class DesktopNotifierNC(DesktopNotifierBase):
 
     def send(self, title, message, urgency=DesktopNotifierBase.NORMAL, icon_path=None):
 
-        self._last_notification_id += 1
-
         content = UNMutableNotificationContent.alloc().init()
         content.title = title
         content.body = message
@@ -154,6 +170,9 @@ class DesktopNotifierNC(DesktopNotifierBase):
             notification_request,
             withCompletionHandler=None
         )
+
+        self._last_notification_id += 1
+        self._last_notification_id %= self.notification_limit
 
 
 class DesktopNotifierLegacyNC(DesktopNotifierBase):
@@ -194,7 +213,7 @@ class DesktopNotifierNotifySend(DesktopNotifierBase):
         if self._with_app_name:  # try passing --app-name option
             r = subprocess.call([
                 'notify-send', title, message,
-                '-a', self._app_name,
+                '-a', self.app_name,
                 '-i', icon_path,
                 '-u', urgency
             ])
@@ -213,22 +232,24 @@ class DesktopNotifierFreedesktopDbus(DesktopNotifierBase):
         super().__init__(app_name)
         connection = connect_and_authenticate(bus='SESSION')
         self.proxy = Proxy(FreedesktopNotificationsInterface(), connection)
-        self._last_notification_id = 0
+        self._past_notification_ids = deque([0]*self.notification_limit)
 
     def send(self, title, message, urgency=DesktopNotifierBase.NORMAL, icon_path=None):
 
+        replace_id = self._past_notification_ids.popleft()
+
         resp = self.proxy.Notify(
-            self._app_name,
-            0,  # Not replacing any previous notification
-            APP_ICON_PATH,  # Icon
-            title,  # Summary
+            self.app_name,
+            replace_id,
+            APP_ICON_PATH,
+            title,
             message,
             [],  # Actions
             {},  # Hints
             -1,  # expire_timeout (-1 = default)
         )
 
-        self._last_notification_id = resp[0]
+        self._past_notification_ids.append(resp[0])
 
 
 class DesktopNotifier:
