@@ -340,15 +340,20 @@ class MaestralDesktopNotifier(logging.Handler):
     def snoozed(self, minutes):
         self._snooze = time.time() + minutes * 60
 
-    def notify(self, message, level):
+    def notify(self, message, level=FILECHANGE):
 
         ignore = self.snoozed and level == FILECHANGE
+        if level == ERROR:
+            urgency = system_notifier.CRITICAL
+        else:
+            urgency = system_notifier.NORMAL
 
         if level >= self.notify_level and not ignore:
             system_notifier.send(
                 title='Maestral',
                 message=message,
-                icon_path=APP_ICON_PATH
+                icon_path=APP_ICON_PATH,
+                urgency=urgency
             )
 
     def emit(self, record):
