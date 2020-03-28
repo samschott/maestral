@@ -830,8 +830,7 @@ class Maestral:
             # paginate through top-level folders, ask to exclude
             for entry in result.entries:
                 if isinstance(entry, files.FolderMetadata):
-                    yes = click.confirm(f'Exclude "{entry.path_display}" from sync?',
-                                        prompt_suffix=' ')
+                    yes = click.confirm(f'Exclude "{entry.path_display}" from sync?')
                     if yes:
                         excluded_items.append(entry.path_lower)
         else:
@@ -1035,7 +1034,6 @@ def select_dbx_path_dialog(config_name, allow_merge=False):
                 replace = click.confirm(
                     text=(f'Directory "{dropbox_path}" already exists. Do you want to '
                           f'replace it? Its content will be lost!'),
-                    prompt_suffix=' '
                 )
                 choice = 'replace' if replace else 'cancel'
 

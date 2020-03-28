@@ -346,7 +346,6 @@ def start(config_name: str, foreground: bool):
         exclude_folders_q = click.confirm(
             'Would you like to exclude any folders from syncing?',
             default=False,
-            prompt_suffix=' '
         )
 
         if exclude_folders_q:
