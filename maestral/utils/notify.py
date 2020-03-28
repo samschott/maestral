@@ -37,30 +37,8 @@ if platform.system() == 'Darwin':
     NSDate = ObjCClass('NSDate')
 
 elif platform.system() == 'Linux':
-    from jeepney import MessageGenerator, new_method_call
     from jeepney.integrate.blocking import Proxy, connect_and_authenticate
-
-    class FreedesktopNotificationsInterface(MessageGenerator):
-        interface = 'org.freedesktop.Notifications'
-
-        def __init__(self, object_path='/org/freedesktop/Notifications',
-                     bus_name='org.freedesktop.Notifications'):
-            super().__init__(object_path=object_path, bus_name=bus_name)
-
-        def Notify(self, arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7):
-            return new_method_call(self, 'Notify', 'susssasa{sv}i',
-                                   (arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6,
-                                    arg_7))
-
-        def CloseNotification(self, arg_0):
-            return new_method_call(self, 'CloseNotification', 'u',
-                                   (arg_0,))
-
-        def GetCapabilities(self):
-            return new_method_call(self, 'GetCapabilities')
-
-        def GetServerInformation(self):
-            return new_method_call(self, 'GetServerInformation')
+    from maestral.utils.dbus_interfaces import FreedesktopNotifications
 
 
 logger = logging.getLogger(__name__)
