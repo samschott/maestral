@@ -35,7 +35,6 @@ apps:
 
 environment:
   XDG_CURRENT_DESKTOP: Unity:Unity7
-  # TMPDIR: $XDG_RUNTIME_DIR
   LC_ALL: C.UTF-8
   LANG: C.UTF-8
   QT_QPA_PLATFORMTHEME: gtk3
