@@ -13,8 +13,8 @@
 - Limit the number of notifications to keep in the notification center. This will only
   work for some desktop environments.
 - Fall back to plain text credential storage if neither Gnome Keyring, KWallet or any
-  other storage implementing the Secret Service API can be found. A user warning is issued
-  in this case.
+  other storage implementing the Secret Service API can be found. A warning is shown when
+  plain text storage is used.
 
 #### Fixed:
 
