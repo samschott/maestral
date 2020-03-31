@@ -262,10 +262,12 @@ class Maestral:
 
         # log to journal when launched from systemd
         if INVOCATION_ID and journal:
-            self.log_handler_journal = journal.JournalHandler()
+            self.log_handler_journal = journal.JournalHandler(
+                SYSLOG_IDENTIFIER='maestral'
+            )
+            mdbx_logger.addHandler(self.log_handler_journal)
             self.log_handler_journal.setFormatter(log_fmt_short)
             self.log_handler_journal.setLevel(log_level)
-            mdbx_logger.addHandler(self.log_handler_journal)
         else:
             self.log_handler_journal = None
 
