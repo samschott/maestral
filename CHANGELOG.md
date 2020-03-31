@@ -21,6 +21,8 @@
 - Properly handle errors when moving files, for instance for sync conflicts.
 - Fixes an issue where some files could accidentally become un-indexed, resulting in
   incorrect conflict resolution.
+- Fixes an issue with macOS app bundles where the migration of configuration files was 
+  omitted after an update. This would result in a failure to start the daemon.
 
 ## v0.6.3
 
