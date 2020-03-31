@@ -26,8 +26,8 @@ from maestral.utils.appdirs import get_home_dir, get_conf_path, get_data_path
 from maestral.constants import BUNDLE_ID
 
 
-def resource_path(name):
-    return pkg_resources.resource_filename('maestral', 'resources/' + name)
+_resources = getattr(sys, '_MEIPASS',
+                     pkg_resources.resource_filename('maestral', 'resources'))
 
 
 class SupportedImplementations(Enum):
@@ -118,7 +118,7 @@ class AutoStartSystemd(AutoStartMaestralBase):
         service_type = 'gui' if self.gui else 'daemon'
         self.service_name = f'maestral-{service_type}@{self.config_name}.service'
 
-        with open(resource_path('maestral@.service'), 'r') as f:
+        with open(osp.join(_resources, 'maestral@.service'), 'r') as f:
             unit_template = f.read()
 
         filename = 'maestral-{}@.service'.format('gui' if self.gui else 'daemon')
@@ -155,7 +155,7 @@ class AutoStartLaunchd(AutoStartMaestralBase):
             bundle_id = '{}-{}.{}'.format(BUNDLE_ID, 'daemon', self.config_name)
         filename = bundle_id + '.plist'
 
-        with open(resource_path('com.samschott.maestral.plist'), 'r') as f:
+        with open(osp.join(_resources, 'com.samschott.maestral.plist'), 'r') as f:
             plist_template = f.read()
 
         self.destination = osp.join(get_home_dir(), 'Library', 'LaunchAgents', filename)
@@ -189,7 +189,7 @@ class AutoStartXDGDesktop(AutoStartMaestralBase):
 
         filename = f'maestral-{config_name}.desktop'
 
-        with open(resource_path('maestral.desktop'), 'r') as f:
+        with open(osp.join(_resources, 'maestral.desktop'), 'r') as f:
             desktop_entry_template = f.read()
 
         self.destination = get_conf_path('autostart', filename)

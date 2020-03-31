@@ -6,6 +6,8 @@
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
+import sys
+import os
 import shutil
 import time
 import subprocess
@@ -43,7 +45,9 @@ elif platform.system() == 'Linux':
 
 logger = logging.getLogger(__name__)
 
-APP_ICON_PATH = pkg_resources.resource_filename('maestral', 'resources/maestral.png')
+_resources = getattr(sys, '_MEIPASS',
+                     pkg_resources.resource_filename('maestral', 'resources'))
+APP_ICON_PATH = os.path.join(_resources, 'maestral.png')
 
 NONE = 100
 ERROR = 40
