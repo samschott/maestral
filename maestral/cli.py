@@ -360,7 +360,9 @@ def start(config_name: str, foreground: bool):
     # start daemon
     if foreground:
         from maestral.daemon import run_maestral_daemon
-        run_maestral_daemon(config_name, run=True, log_to_stdout=True)
+        from maestral.constants import INVOCATION_ID
+        # don't log to stdout if started from systemd
+        run_maestral_daemon(config_name, run=True, log_to_stdout=not INVOCATION_ID)
     else:
         start_daemon_subprocess_with_cli_feedback(config_name)
 
