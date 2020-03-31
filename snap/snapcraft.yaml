@@ -22,6 +22,7 @@ apps:
       - network
       - unity7
       - opengl
+
   maestral-qt:
     command: maestral gui
     desktop: share/applications/maestral.desktop
@@ -34,10 +35,10 @@ apps:
       - opengl
 
 environment:
-  XDG_CURRENT_DESKTOP: Unity:Unity7
   LC_ALL: C.UTF-8
   LANG: C.UTF-8
   QT_QPA_PLATFORMTHEME: gtk3
+  XDG_CURRENT_DESKTOP: "Unity:$XDG_CURRENT_DESKTOP"
 
 parts:
   maestral:
@@ -62,6 +63,7 @@ parts:
     override-prime: |
       snapcraftctl prime
       sed -i 's|Icon = maestral|Icon=${SNAP}/share/icons/hicolor/512x512/apps/maestral.png|g' share/applications/maestral.desktop
+
   cleanup:
     after: [maestral, maestral-qt]
     plugin: nil
