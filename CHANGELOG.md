@@ -47,6 +47,7 @@ SDK which prevented any remote changes from being downloaded.
   keep an old Dropbox folder. The labels "Replace" and "Cancel" where switched.
 - Fixes a bug where the option "Unlink & Quit" in the "Revoked Access" error dialog would
   unlink but not quit Maestral.
+- Fixes an issue where stdout would end up in the systemd journal.
 
 ## v0.6.2
 
