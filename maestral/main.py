@@ -176,6 +176,9 @@ class Maestral:
         configuration file if none exists.
     :param bool run: If ``True``, Maestral will start syncing immediately. Defaults to
         ``True``.
+    :param bool log_to_stdout: If ``True``, Maestral will print log messages to stdout.
+        When started as a systemd services, this can result in duplicate log messages.
+        Defaults to ``False``.
     """
 
     def __init__(self, config_name='maestral', run=True, log_to_stdout=False):
