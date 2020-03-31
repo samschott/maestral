@@ -265,13 +265,17 @@ class Maestral:
         mdbx_logger.addHandler(self.log_handler_file)
 
         # log to journal when launched from systemd
-        if INVOCATION_ID and journal:
-            self.log_handler_journal = journal.JournalHandler(
-                SYSLOG_IDENTIFIER='maestral'
-            )
-            mdbx_logger.addHandler(self.log_handler_journal)
+        if INVOCATION_ID:
+            if journal:
+                self.log_handler_journal = journal.JournalHandler(
+                    SYSLOG_IDENTIFIER='maestral'
+                )
+            else:
+                # stdout is often redirected to journal
+                self.log_handler_journal = logging.StreamHandler(sys.stdout)
             self.log_handler_journal.setFormatter(log_fmt_journal)
             self.log_handler_journal.setLevel(log_level)
+            mdbx_logger.addHandler(self.log_handler_journal)
         else:
             self.log_handler_journal = None
 
