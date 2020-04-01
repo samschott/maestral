@@ -48,6 +48,7 @@ SDK which prevented any remote changes from being downloaded.
 - Fixes a bug where the option "Unlink & Quit" in the "Revoked Access" error dialog would
   unlink but not quit Maestral.
 - Fixes an issue where stdout would end up in the systemd journal.
+- Fixed a bug where XDG_DATA_HOME was ignored.
 
 ## v0.6.2
 
