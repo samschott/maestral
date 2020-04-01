@@ -12,4 +12,4 @@ from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 hiddenimports = collect_submodules('keyrings.alt')
 
 # keyring uses entrypoints to read keyring.backends from metadata file entry_points.txt.
-datas = copy_metadata('keyrings.alt') 
+datas = copy_metadata('keyrings.alt')

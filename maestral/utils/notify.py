@@ -6,8 +6,6 @@
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
-import sys
-import os
 import shutil
 import time
 import subprocess
