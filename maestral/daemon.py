@@ -299,8 +299,12 @@ def start_maestral_daemon_process(config_name='maestral', run=True, log_to_stdou
     def target(cc, r):
         cc = quote(cc)
         r = bool(r)
+
+        cmd = (f'import maestral.daemon; '
+               f'maestral.daemon.run_maestral_daemon("{cc}", {r}, {log_to_stdout})')
+
         subprocess.Popen(
-            [sys.executable, '-c', f'import maestral.daemon; maestral.daemon.run_maestral_daemon("{cc}", {r}, {log_to_stdout})'],
+            [sys.executable, '-c', cmd],
             stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
         )
 
