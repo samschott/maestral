@@ -5,6 +5,8 @@
 - Config option to set the keyring backend. This defaults to 'automatic' but can be used
   to specify a preferred backend such as `keyrings.backends.kwallet.DBusKeyring`. Waring:
   You will need to migrate your credentials manually to the new keyring.
+- Added a `--verbose` flag to `maestral start` and `maestral restart` commands to print
+  log output to stdout.
 
 #### Changed:
 
@@ -16,6 +18,7 @@
   other storage implementing the Secret Service API can be found. A warning is shown when
   plain text storage is used.
 - Settings and setup windows are no longer always kept on top in Linux.
+- `maestral start --foreground` no longer prints log messages to stdout by default. 
 
 #### Fixed:
 
