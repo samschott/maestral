@@ -1,5 +1,5 @@
 
-Maestral
+Main API
 ========
 
 .. automodule:: main

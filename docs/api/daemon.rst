@@ -1,6 +1,6 @@
 
-Maestral
-========
+Daemon
+======
 
 .. automodule:: daemon
    :members:

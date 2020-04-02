@@ -1,6 +1,6 @@
 
-Utils
-=======
+maestral.utils
+==============
 
 .. toctree::
    :maxdepth: 2

@@ -1,6 +1,6 @@
 
-Maestral
-========
+Errors
+======
 
 .. automodule:: errors
    :members:

@@ -1,6 +1,6 @@
 
-Sync
-====
+Sync module
+===========
 
 .. automodule:: sync
    :members:

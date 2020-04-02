@@ -1,6 +1,6 @@
 
-Maestral
-========
+OAuth
+=====
 
 .. automodule:: oauth
    :members:

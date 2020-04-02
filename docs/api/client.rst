@@ -1,6 +1,6 @@
 
-Maestral
-========
+Dropbox API client
+==================
 
 .. automodule:: client
    :members:
