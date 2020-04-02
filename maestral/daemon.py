@@ -247,7 +247,7 @@ def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
         lockfile.release()
 
 
-def start_maestral_daemon_thread(config_name='maestral', run=True):
+def start_maestral_daemon_thread(config_name='maestral', run=True, log_to_stdout=False):
     """
     Starts the Maestral daemon in a thread (by calling `start_maestral_daemon`).
     This command will create a new daemon on each run. Take care not to sync the same
@@ -257,14 +257,14 @@ def start_maestral_daemon_thread(config_name='maestral', run=True):
 
     :param str config_name: The name of the Maestral configuration to use.
     :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
-    :returns: ``True`` if started, ``False`` otherwise.
-    :rtype: bool
+    :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
+    :returns: ``Start.Ok`` if successful, ``Start.Failed`` otherwise.
     """
     import threading
 
     t = threading.Thread(
         target=run_maestral_daemon,
-        args=(config_name, run),
+        args=(config_name, run, log_to_stdout),
         name=f'maestral-daemon-{config_name}',
         daemon=True,
     )
@@ -278,12 +278,13 @@ def start_maestral_daemon_thread(config_name='maestral', run=True):
     return _wait_for_startup(config_name, timeout=8)
 
 
-def start_maestral_daemon_process(config_name='maestral', run=True):
+def start_maestral_daemon_process(config_name='maestral', run=True, log_to_stdout=False):
     """
     Starts the Maestral daemon as a separate process (by calling `start_maestral_daemon`).
 
     :param str config_name: The name of the Maestral configuration to use.
     :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
+    :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
     :returns: ``Start.Ok`` if successful, ``Start.Failed`` otherwise.
     """
     import subprocess
@@ -292,14 +293,14 @@ def start_maestral_daemon_process(config_name='maestral', run=True):
 
     STD_IN_OUT = subprocess.DEVNULL
 
-    # use nested Popen and multiprocessing.Process to effectively create double fork
+    # use nested Popen and multiprocessing.Process to effectively create double fork`
     # see Unix 'double-fork magic'
 
     def target(cc, r):
         cc = quote(cc)
         r = bool(r)
         subprocess.Popen(
-            [sys.executable, '-c', f'import maestral.daemon; maestral.daemon.run_maestral_daemon("{cc}", {r})'],
+            [sys.executable, '-c', f'import maestral.daemon; maestral.daemon.run_maestral_daemon("{cc}", {r}, {log_to_stdout})'],
             stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
         )
 
