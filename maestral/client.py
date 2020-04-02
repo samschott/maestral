@@ -88,7 +88,8 @@ class SpaceUsage(dropbox.users.SpaceUsage):
 
 def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
     """
-    Decorator that converts all OSError and DropboxExceptions to MaestralApiErrors.
+    Decorator that converts instances of :class:`OSError` and :class:`DropboxException`
+    to :class:`MaestralApiError`.
 
     :param int dbx_path_arg: Argument number to take as dbx_path for exception.
     :param int local_path_arg: Argument number to take as local_path_arg for exception.
@@ -124,9 +125,10 @@ class MaestralApiClient:
     moving, modifying and deleting files and folders on Dropbox and downloading files from
     Dropbox.
 
-    All Dropbox SDK exceptions and :class:`OSError`s related to accessing or saving local
-    files will be caught and reraised as :class:`errors.MaestralApiError`s. Connection
-    errors from requests will be caught and reraised as :class:`ConnectionError`.
+    All Dropbox SDK exceptions and :class:`OSError` instances if related to accessing or
+    saving local files will be caught and reraised as a :class:`errors.MaestralApiError`.
+    Connection errors from requests will be caught and reraised as
+    :class:`ConnectionError`.
 
     :param str config_name: Name of config file and state file to use.
     :param int timeout: Timeout for individual requests in sec. Defaults to 60 sec.
@@ -684,7 +686,6 @@ class MaestralApiClient:
 
 
 def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 

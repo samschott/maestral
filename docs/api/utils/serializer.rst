@@ -2,6 +2,6 @@
 Serializer helpers
 ==================
 
-.. automodule:: serializer
+.. automodule:: utils.serializer
    :members:
    :show-inheritance:

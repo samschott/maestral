@@ -2,6 +2,6 @@
 Path handling
 =============
 
-.. automodule:: path
+.. automodule:: utils.path
    :members:
    :show-inheritance:

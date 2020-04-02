@@ -2,6 +2,6 @@
 Update checks
 =============
 
-.. automodule:: updates
+.. automodule:: utils.updates
    :members:
    :show-inheritance:

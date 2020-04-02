@@ -2,6 +2,6 @@
 Autostart
 =========
 
-.. automodule:: autostart
+.. automodule:: utils.autostart
    :members:
    :show-inheritance:

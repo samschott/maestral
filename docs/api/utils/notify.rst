@@ -2,6 +2,6 @@
 Desktop notifications
 =====================
 
-.. automodule:: notify
+.. automodule:: utils.notify
    :members:
    :show-inheritance:

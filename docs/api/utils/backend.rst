@@ -2,6 +2,6 @@
 Backend functions
 =================
 
-.. automodule:: backend
+.. automodule:: utils.backend
    :members:
    :show-inheritance:

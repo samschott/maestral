@@ -33,6 +33,7 @@ URI = 'PYRO:maestral.{0}@{1}'
 
 
 class Exit(enum.Enum):
+    """Enumeration of daemon exit results."""
     Ok = 0
     Killed = 1
     NotRunning = 2
@@ -40,6 +41,7 @@ class Exit(enum.Enum):
 
 
 class Start(enum.Enum):
+    """Enumeration of daemon start results."""
     Ok = 0
     AlreadyRunning = 1
     Failed = 2
@@ -48,15 +50,23 @@ class Start(enum.Enum):
 # ==== error serialization ===============================================================
 
 def serpent_deserialize_api_error(class_name, d):
+    """
+    Deserializes a :class:`errors.MaestralApiError`.
+
+    :param str class_name: Name of class to deserialize.
+    :param dict d: Dictionary of serialized class.
+    :returns: Class instance.
+    :rtype: :class:`errors.MaestralApiError`
+    """
     # import maestral errors for evaluation
     import maestral.errors  # noqa: F401
 
     cls = eval(class_name)
-    e = cls(*d['args'])
+    err = cls(*d['args'])
     for a_name, a_value in d['attributes'].items():
-        setattr(e, a_name, a_value)
+        setattr(err, a_name, a_value)
 
-    return e
+    return err
 
 
 for err_cls in list(SYNC_ERRORS) + list(FATAL_ERRORS) + [MaestralApiError]:
@@ -179,9 +189,9 @@ def _check_pyro_communication(config_name, timeout=2):
 
 def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
     """
-    Wraps :class:`maestral.main.Maestral` as Pyro daemon object, creates a new instance
-    and start Pyro's event loop to listen for requests on a unix domain socket. This call
-    will block until the event loop shuts down.
+    Wraps :class:`main.Maestral` as Pyro daemon object, creates a new instance and starts
+    Pyro's event loop to listen for requests on a unix domain socket. This call will block
+    until the event loop shuts down.
 
     This command will return silently if the daemon is already running.
 
@@ -250,16 +260,17 @@ def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
 
 def start_maestral_daemon_thread(config_name='maestral', run=True, log_to_stdout=False):
     """
-    Starts the Maestral daemon in a thread (by calling `start_maestral_daemon`).
+    Starts the Maestral daemon in a thread (by calling :func:`start_maestral_daemon`).
     This command will create a new daemon on each run. Take care not to sync the same
-    directory with multiple instances of Meastral! You can use `get_maestral_process_info`
-    to check if either a Meastral gui or daemon is already running for the given
-    `config_name`.
+    directory with multiple instances of Meastral! You can use
+    :func:`get_maestral_process_info` to check if either a Meastral gui or daemon is
+    already running for the given ``config_name``.
 
     :param str config_name: The name of the Maestral configuration to use.
     :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
-    :returns: ``Start.Ok`` if successful, ``Start.Failed`` otherwise.
+    :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
+        already running or ``Start.Failed`` if startup failed.
     """
     import threading
 
@@ -281,7 +292,8 @@ def start_maestral_daemon_thread(config_name='maestral', run=True, log_to_stdout
 
 def start_maestral_daemon_process(config_name='maestral', run=True, log_to_stdout=False):
     """
-    Starts the Maestral daemon as a separate process (by calling `start_maestral_daemon`).
+    Starts the Maestral daemon as a separate process by calling
+    :func:`start_maestral_daemon`.
 
     .. warning::
         This function assumes that ``sys.executable`` points to the Python executable and
@@ -290,7 +302,8 @@ def start_maestral_daemon_process(config_name='maestral', run=True, log_to_stdou
     :param str config_name: The name of the Maestral configuration to use.
     :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
-    :returns: ``Start.Ok`` if successful, ``Start.Failed`` otherwise.
+    :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
+        already running or ``Start.Failed`` if startup failed.
     """
     import subprocess
     from shlex import quote
@@ -324,10 +337,10 @@ def start_maestral_daemon_process(config_name='maestral', run=True, log_to_stdou
 
 
 def stop_maestral_daemon_process(config_name='maestral', timeout=10):
-    """Stops maestral by finding its PID and shutting it down.
+    """Stops a maestral daemon process by finding its PID and shutting it down.
 
     This function first tries to shut down Maestral gracefully. If this fails, it will
-    send SIGTERM. If that fails as well, it will send SIGKILL.
+    send SIGTERM. If that fails as well, it will send SIGKILL to the process.
 
     :param str config_name: The name of the Maestral configuration to use.
     :param float timeout: Number of sec to wait for daemon to shut down before killing it.
@@ -377,15 +390,12 @@ def stop_maestral_daemon_process(config_name='maestral', timeout=10):
 
 
 def stop_maestral_daemon_thread(config_name='maestral', timeout=10):
-    """Stops maestral's thread.
-
-    This function tries to shut down Maestral gracefully. If it is not successful
-    within the given timeout, a TimeoutError is raised.
+    """Stops a maestral daemon thread without killing the parent process.
 
     :param str config_name: The name of the Maestral configuration to use.
     :param float timeout: Number of sec to wait for daemon to shut down before killing it.
     :returns: ``Exit.Ok`` if successful,``Exit.NotRunning`` if the daemon was not running,
-        ``Exit.Failed`` if it could not be stopped within  timeout.
+        ``Exit.Failed`` if it could not be stopped within timeout.
     """
 
     logger.debug('Stopping thread')
@@ -414,9 +424,7 @@ def stop_maestral_daemon_thread(config_name='maestral', timeout=10):
 
 def get_maestral_proxy(config_name='maestral', fallback=False):
     """
-    Returns a Pyro proxy of the a running Maestral instance. If ``fallback`` is
-    ``True``, a new instance of Maestral will be returned when the daemon cannot be
-    reached.
+    Returns a Pyro proxy of the a running Maestral instance.
 
     :param str config_name: The name of the Maestral configuration to use.
     :param bool fallback: If ``True``, a new instance of Maestral will be returned when
@@ -449,7 +457,7 @@ def get_maestral_proxy(config_name='maestral', fallback=False):
 
 
 class MaestralProxy(object):
-    """A context manager to open and close a Proxy to the Maestral daemon."""
+    """A context manager to open and close a proxy to the Maestral daemon."""
 
     def __init__(self, config_name='maestral', fallback=False):
         self.m = get_maestral_proxy(config_name, fallback)

@@ -2,6 +2,6 @@
 Housekeeping
 ============
 
-.. automodule:: housekeeping
+.. automodule:: utils.housekeeping
    :members:
    :show-inheritance:

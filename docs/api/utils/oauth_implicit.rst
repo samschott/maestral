@@ -2,6 +2,6 @@
 OAuth implicit flow
 ===================
 
-.. automodule:: oauth_implicit
+.. automodule:: utils.oauth_implicit
    :members:
    :show-inheritance:

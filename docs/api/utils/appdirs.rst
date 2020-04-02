@@ -2,6 +2,6 @@
 App directories
 ===============
 
-.. automodule:: appdirs
+.. automodule:: utils.appdirs
    :members:
    :show-inheritance:

@@ -2,6 +2,6 @@
 Content hasher
 ==============
 
-.. automodule:: content_hasher
+.. automodule:: utils.content_hasher
    :members:
    :show-inheritance:

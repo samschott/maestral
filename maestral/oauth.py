@@ -30,7 +30,6 @@ class OAuth2Session:
     run ``get_auth_url`` first and direct the user to visit that URL and retrieve an auth
     token. Verify the provided auth token with ``verify_auth_token`` and save it in the
     system keyring together with the corresponding Dropbox ID by calling ``save_creds``.
-
     The convenience method ``link`` runs through the above auth flow in a command line
     user dialog.
     """
@@ -53,8 +52,10 @@ class OAuth2Session:
 
     def load_token(self):
         """
-        Check if auth key has been saved.
+        Load auth token from system keyring.
 
+        :returns: Auth token.
+        :rtype: str
         :raises: ``KeyringLocked`` if the system keyring cannot be accessed.
         """
         logger.debug(f'Using keyring: {self.keyring}')
@@ -70,7 +71,12 @@ class OAuth2Session:
             raise KeyringLocked(info)
 
     def get_auth_url(self):
-        """Gets the auth URL to start the OAuth2 implicit grant flow."""
+        """
+        Gets the auth URL to start the OAuth2 implicit grant flow.
+
+        :returns: Dropbox auth URL.
+        :rtype: str
+        """
 
         self.auth_flow = DropboxOAuth2FlowImplicit(DROPBOX_APP_KEY)
         authorize_url = self.auth_flow.start()
@@ -80,8 +86,8 @@ class OAuth2Session:
         """
         Verify the provided authorization token with Dropbox servers.
 
-        :returns: OAuth2Session.Success, OAuth2Session.InvalidToken, or
-            OAuth2Session.ConnectionFailed
+        :returns: :attr:`Success`, :attr:`OAuth2Session.InvalidToken`, or
+            :attr:`OAuth2Session.ConnectionFailed`.
         :rtype: int
         """
 

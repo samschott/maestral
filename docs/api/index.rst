@@ -9,9 +9,8 @@ This section gives an overview of Maestral's modules:
 
    maestral.main <main>
    maestral.sync <sync>
-   maestral.client <sync>
+   maestral.client <client>
    maestral.oauth <oauth>
    maestral.errors <errors>
-   maestral.cli <cli>
    maestral.daemon <daemon>
    utils/index
