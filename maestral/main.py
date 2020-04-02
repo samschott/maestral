@@ -252,7 +252,6 @@ class Maestral:
             fmt='%(asctime)s %(name)s %(levelname)s: %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
-        log_fmt_journal = logging.Formatter(fmt='%(levelname)s: %(message)s')
         log_fmt_short = logging.Formatter(fmt='%(message)s')
 
         # log to file
@@ -269,7 +268,7 @@ class Maestral:
             self.log_handler_journal = journal.JournalHandler(
                 SYSLOG_IDENTIFIER='maestral'
             )
-            self.log_handler_journal.setFormatter(log_fmt_journal)
+            self.log_handler_journal.setFormatter(log_fmt_short)
             self.log_handler_journal.setLevel(log_level)
             mdbx_logger.addHandler(self.log_handler_journal)
         else:
