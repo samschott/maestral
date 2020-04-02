@@ -283,6 +283,10 @@ def start_maestral_daemon_process(config_name='maestral', run=True, log_to_stdou
     """
     Starts the Maestral daemon as a separate process (by calling `start_maestral_daemon`).
 
+    .. warning::
+        This function assumes that ``sys.executable`` points to the Python executable and
+        will not work for instance from Pyinstaller executables.
+
     :param str config_name: The name of the Maestral configuration to use.
     :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
