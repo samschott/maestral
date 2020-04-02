@@ -53,6 +53,12 @@ class AutoStartBase:
 
 
 class AutoStartMaestralBase(AutoStartBase):
+    """
+    Base class for autostart backends.
+
+    :param str config_name: Name of the config to start.
+    :param bool gui: ``True`` if we are starting a GUI, ``False`` otherwise.
+    """
 
     def __init__(self, config_name, gui):
         super().__init__(config_name, gui)
@@ -75,6 +81,9 @@ class AutoStartMaestralBase(AutoStartBase):
 
     @staticmethod
     def get_maestral_command_path():
+        """
+        Returns the path to the maestral executable.
+        """
         # try to get location of console script from package metadata
         # fall back to 'which' otherwise
         try:
@@ -90,23 +99,44 @@ class AutoStartMaestralBase(AutoStartBase):
         return path
 
     def enable(self):
+        """
+        Enables the autostart.
+
+        :raises: :class:`OSError` if the Maestral executable could not be found.
+        """
         if self.maestral_path:
             self._enable()
         else:
             raise OSError('Could not find path of maestral executable')
 
     def disable(self):
+        """
+        Disables the autostart.
+        """
         self._disable()
 
     def _enable(self):
+        """Private method to enable autostart. This should be overridden in a subclass."""
         raise NotImplementedError()
 
     def _disable(self):
+        """Private method to disable autostart. This should be overridden in a
+        subclass."""
+        raise NotImplementedError()
+
+    @property
+    def enabled(self):
+        """True if autostart is enabled. This should be overridden in a subclass."""
         raise NotImplementedError()
 
 
 class AutoStartSystemd(AutoStartMaestralBase):
+    """
+    Autostart backend for systemd. Used to start a GUI or daemon on macOS.
 
+    :param str config_name: Name of the config to start.
+    :param bool gui: ``True`` if we are starting a GUI, ``False`` otherwise.
+    """
     def __init__(self, config_name, gui):
         super().__init__(config_name, gui)
 
@@ -145,6 +175,12 @@ class AutoStartSystemd(AutoStartMaestralBase):
 
 
 class AutoStartLaunchd(AutoStartMaestralBase):
+    """
+    Autostart backend for launchd. Used to start a GUI or daemon on macOS.
+
+    :param str config_name: Name of the config to start.
+    :param bool gui: ``True`` if we are starting a GUI, ``False`` otherwise.
+    """
 
     def __init__(self, config_name, gui):
         super().__init__(config_name, gui)
@@ -179,6 +215,14 @@ class AutoStartLaunchd(AutoStartMaestralBase):
 
 
 class AutoStartXDGDesktop(AutoStartMaestralBase):
+    """
+    Autostart backend for XDG desktop entries. Used to start a GUI on user login for most
+    Linux desktops.
+
+    :param str config_name: Name of the config to start.
+    :param bool gui: ``True`` if we are starting a GUI. If ``False``, a
+        :class:`ValueError` is raised.
+    """
 
     def __init__(self, config_name, gui):
         super().__init__(config_name, gui)
@@ -217,7 +261,8 @@ class AutoStartXDGDesktop(AutoStartMaestralBase):
 
 class AutoStart:
     """Creates auto-start files in the appropriate system location to automatically
-    start Maestral when the user logs in."""
+    start Maestral when the user logs in. Different backends are used depending on the
+    platform and if we want to start a GUI or a daemon / service."""
 
     system = platform.system()
 
@@ -237,14 +282,17 @@ class AutoStart:
             self._impl = AutoStartBase(config_name, gui)
 
     def toggle(self):
+        """Toggles autostart on or off."""
         self.enabled = not self.enabled
 
     @property
     def enabled(self):
+        """True if autostart is enabled."""
         return self._impl.enabled
 
     @enabled.setter
     def enabled(self, yes):
+        """Setter: True if autostart is enabled."""
 
         if self.enabled == yes:
             return
@@ -255,6 +303,7 @@ class AutoStart:
             self._impl.disable()
 
     def _get_available_implementation(self):
+        """Returns the supported implementation depending on the platform."""
 
         if self.system == 'Darwin':
             return SupportedImplementations.launchd
