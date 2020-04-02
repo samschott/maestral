@@ -15,17 +15,8 @@ confinement: strict
 apps:
   maestral:
     command: maestral
-    extensions:
-      - kde-neon
-    plugs:
-      - home
-      - network
-      - unity7
-      - opengl
-
-  maestral-qt:
-    command: maestral gui
     desktop: share/applications/maestral.desktop
+    autostart: maestral-maestral.desktop
     extensions:
       - kde-neon
     plugs:
@@ -51,12 +42,14 @@ parts:
     override-pull: |
       snapcraftctl pull
       snapcraftctl set-version $(grep version maestral/__init__.py | cut -d'"' -f2)
+      sed -i "s|Exec = {start_cmd}|Exec = maestral gui -c 'maestral'|g" maestral/resources/maestral.desktop
 
   maestral-qt:
     source: https://github.com/SamSchott/maestral-qt.git
     plugin: python
     python-version: python3
     override-build: |
+      sed -i 's|Exec = maestral_qt|Exec = maestral gui|g' maestral_qt/resources/maestral.desktop
       sed -i "s|'PyQt5.*||g" setup.py
       sed -i "s|'maestral==.*||g" setup.py
       snapcraftctl build
