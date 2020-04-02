@@ -226,13 +226,14 @@ def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
 
         daemon = Daemon(unixsocket=sock_name)
 
-        # start Maestral as Pyro server
+        # expose maestral as Pyro server
+        # convert selected methods to one way calls so that they don't block
         ExposedMaestral = expose(Maestral)
-        # mark stop_sync and shutdown_daemon as one way
-        # methods so that they don't block on call
+
         ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
         ExposedMaestral.pause_sync = oneway(ExposedMaestral.pause_sync)
         ExposedMaestral.shutdown_pyro_daemon = oneway(ExposedMaestral.shutdown_pyro_daemon)
+
         m = ExposedMaestral(config_name, run=run, log_to_stdout=log_to_stdout)
 
         daemon.register(m, f'maestral.{config_name}')
