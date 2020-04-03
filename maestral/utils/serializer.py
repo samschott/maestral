@@ -40,7 +40,7 @@ def dropbox_stone_to_dict(obj):
 
 
 def error_to_dict(err):
-    """"
+    """
     Converts an exception to a dict. Keys will be strings and entries are native Python
     types.
 

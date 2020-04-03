@@ -136,8 +136,8 @@ def generate_cc_name(path, suffix='conflicting copy'):
 
 def delete(path, raise_error=False):
     """
-    Deletes a file or folder at :param:`path`. Returns any caught
-    exceptions on failure or None on success.
+    Deletes a file or folder at ``path``. Exceptions are either raised or returned if
+    ``raise_error`` is False.
     """
     err = None
 
@@ -159,7 +159,7 @@ def move(src_path, dest_path, raise_error=False):
     """
     Moves a file or folder from ``src_path`` to ``dest_path``. If either the source or
     the destination path no longer exist, this function does nothing. Any other
-    exceptions are either raised or returned if `raise_error` is False.
+    exceptions are either raised or returned if ``raise_error`` is False.
     """
     err = None
 
