@@ -158,7 +158,7 @@ class FSEventHandler(FileSystemEventHandler):
                 if ttl and ttl < now:
                     self._ignored_paths.remove(ignore)
 
-    def prune_ignored(self, event):
+    def _prune_ignored(self, event):
         """
         Checks if a file system event should been explicitly ignored because it was likely
         triggered by Maestral. Split moved events if necessary and returns the event to
@@ -236,7 +236,7 @@ class FSEventHandler(FileSystemEventHandler):
             return
 
         # check for ignored paths, split moved events if necessary
-        event = self.prune_ignored(event)
+        event = self._prune_ignored(event)
 
         if event:
             self.local_file_event_queue.put(event)
@@ -345,8 +345,8 @@ class UpDownSync:
          events may be returned. If a File / Folder event implies a type changes, e.g.,
          replacing a folder with a file, we explicitly generate the necessary
          DeletedMetadata here to simplify conflict resolution.
-      2) ``filter_excluded_changes_remote``: Filters out events that occurred for files or
-         folders excluded by selective sync as well as hard-coded file names which are
+      2) ``_filter_excluded_changes_remote``: Filters out events that occurred for files
+         or folders excluded by selective sync as well as hard-coded file names which are
          always excluded (e.g., `.DS_Store`).
       3) ``apply_remote_changes``: Sorts all events hierarchically, with top-level events
          coming first. Deleted and folder events are processed in order, file events in
@@ -371,9 +371,9 @@ class UpDownSync:
          will be split into a deleted event (old path) and a created event (new path) and
          one of the two will be ignored.
       2) We wait until no new changes happen for at least 1.0 sec.
-      3) ``filter_excluded_changes_local``: Filters out events ignored by a `.mignore`
+      3) ``_filter_excluded_changes_local``: Filters out events ignored by a `.mignore`
          pattern as well as hard-coded file names which are always excluded.
-      4) ``clean_local_events``: Cleans up local events in two stages. First, multiple
+      4) ``_clean_local_events``: Cleans up local events in two stages. First, multiple
          events per path are combined into a single event to reproduce the file changes.
          The only exceptions is when the item type changes from file to folder or vice
          versa: in this case, both deleted and created events are kept. Second, when a
@@ -645,7 +645,7 @@ class UpDownSync:
                     self._append_rev_to_file(dirname, 'folder')
                     dirname = osp.dirname(dirname)
 
-    def clean_rev_file(self):
+    def _clean_and_save_rev_file(self):
         """Cleans the revision index from duplicate entries and keeps only the last entry
         for any individual path. Then saves the index to the drive."""
         self._save_rev_dict_to_file()
@@ -1116,7 +1116,7 @@ class UpDownSync:
 
         return self._clean_local_events(events), local_cursor
 
-    def filter_excluded_changes_local(self, events):
+    def _filter_excluded_changes_local(self, events):
         """
         Checks for and removes file events referring to items which are excluded from
         syncing.
@@ -1462,7 +1462,7 @@ class UpDownSync:
         if all(success):
             self.last_sync = local_cursor  # save local cursor
 
-        self.clean_rev_file()
+        self._clean_and_save_rev_file()
 
     @catch_sync_issues
     def create_remote_entry(self, event):
@@ -1930,7 +1930,7 @@ class UpDownSync:
         logger.debug('Cleaned remote changes:\n%s', entries_to_str(clean_changes.entries))
         return clean_changes
 
-    def filter_excluded_changes_remote(self, changes):
+    def _filter_excluded_changes_remote(self, changes):
         """Removes all excluded items from the given list of changes.
 
         :param changes: :class:`dropbox.files.ListFolderResult` instance.
@@ -1973,7 +1973,7 @@ class UpDownSync:
             return False
 
         # filter out excluded changes
-        changes_included, changes_excluded = self.filter_excluded_changes_remote(changes)
+        changes_included, changes_excluded = self._filter_excluded_changes_remote(changes)
 
         # remove all deleted items from the excluded list
         _, _, deleted_excluded = self._separate_remote_entry_types(changes_excluded)
@@ -2028,11 +2028,11 @@ class UpDownSync:
         if save_cursor:
             self.last_cursor = changes.cursor
 
-        self.clean_rev_file()
+        self._clean_and_save_rev_file()
 
         return [entry for entry in downloaded if not isinstance(entry, bool)], success
 
-    def _check_download_conflict(self, md):
+    def check_download_conflict(self, md):
         """
         Check if a local item is conflicting with remote change. The equivalent check when
         uploading and a change will be carried out by Dropbox itself.
@@ -2302,7 +2302,7 @@ class UpDownSync:
 
         with InQueue(self.queue_downloading, entry.path_display):
 
-            conflict_check = self._check_download_conflict(entry)
+            conflict_check = self.check_download_conflict(entry)
 
             applied = None
 
@@ -2334,7 +2334,7 @@ class UpDownSync:
 
                 # re-check for conflict and move the conflict
                 # out of the way if anything has changed
-                if self._check_download_conflict(entry) == Conflict.Conflict:
+                if self.check_download_conflict(entry) == Conflict.Conflict:
                     new_local_path = generate_cc_name(local_path)
                     with self.fs_events.ignore(local_path,
                                                recursive=osp.isdir(local_path),
