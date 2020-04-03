@@ -88,8 +88,8 @@ class SpaceUsage(dropbox.users.SpaceUsage):
 
 def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
     """
-    Decorator that converts instances of :class:`OSError` and :class:`DropboxException`
-    to :class:`MaestralApiError`.
+    Decorator that converts instances of :class:`OSError` and
+    :class:`dropbox.exceptions.DropboxException` to :class:`errors.MaestralApiError`.
 
     :param int dbx_path_arg: Argument number to take as dbx_path for exception.
     :param int local_path_arg: Argument number to take as local_path_arg for exception.
@@ -617,7 +617,7 @@ class MaestralApiClient:
         instance with the cursor of the last entry in the list.
 
         :param list results: List of :class:`dropbox.files.ListFolderResult` instances.
-        :returns: Single :class:`dropbox.files.ListFolderResult` instance.
+        :returns: Flattened list folder result.
         :rtype: :class:`dropbox.files.ListFolderResult`
         """
         entries_all = []
@@ -633,7 +633,7 @@ class MaestralApiClient:
     @to_maestral_error()
     def wait_for_remote_changes(self, last_cursor, timeout=40):
         """
-        Waits for remote changes since :param:`last_cursor`. Call this method after
+        Waits for remote changes since ``last_cursor``. Call this method after
         starting the Dropbox client and periodically to get the latest updates.
 
         :param str last_cursor: Last to cursor to compare for changes.
@@ -665,7 +665,7 @@ class MaestralApiClient:
     @to_maestral_error()
     def list_remote_changes(self, last_cursor):
         """
-        Lists changes to remote Dropbox since :param:`last_cursor`. Call this after
+        Lists changes to remote Dropbox since ``last_cursor``. Call this after
         :method:`wait_for_remote_changes` returns ``True``.
 
         :param str last_cursor: Last to cursor to compare for changes.

@@ -77,7 +77,8 @@ class Conflict(IntEnum):
 class InQueue:
     """
     A context manager that puts ``items`` into ``queue`` when entering the context and
-    removes them when exiting, after an optional delay.
+    removes them when exiting. This is used by maestral to keep track of uploads and
+    downloads.
     """
 
     def __init__(self, queue, *items):
@@ -125,6 +126,23 @@ class FSEventHandler(FileSystemEventHandler):
     def ignore(self, *local_paths,
                event_types=(EVENT_TYPE_MOVED, EVENT_TYPE_DELETED, EVENT_TYPE_CREATED),
                recursive=False, is_dir=False):
+        """
+        A context manager to ignore file events related to the given paths. Once a
+        matching event has been registered, further file events for the corresponding path
+        will no longer be ignored. If no matching event occurs before leaving the context,
+        the paths will be ignored for 2 sec after leaving then context and then discarded.
+        This accounts for possibly delays in the emission of local file system events.
+
+        This context manager is used to filter out file system events caused by maestral
+        itself, for instance during a download or when moving a conflict.
+
+        :param list local_paths: Local paths to ignore.
+        :param iterable event_types: Event types that should be ignored. Members should be
+            'moved', 'deleted' or 'created'.
+        :param bool recursive: True if all events of child paths (of the same type) should
+            be ignored as well.
+        :param bool is_dir: True if only directory events should be ignored.
+        """
 
         with self._mutex:
             now = time.time()
@@ -150,6 +168,7 @@ class FSEventHandler(FileSystemEventHandler):
                     ignore['ttl'] = time.time() + self._ignore_timeout
 
     def _expire_ignored_paths(self):
+        """Removes all expired ignore entries."""
 
         with self._mutex:
             now = time.time()
@@ -225,8 +244,8 @@ class FSEventHandler(FileSystemEventHandler):
 
     def on_any_event(self, event):
         """
-        Callback on any event. Checks if the system file event should be ignored for any
-        reason. If not, adds it to the queue for events to upload.
+        Callback on any event. Checks if the system file event should be ignored. If not,
+        adds it to the queue for events to upload.
 
         :param event: Watchdog file event.
         """
@@ -399,7 +418,7 @@ class UpDownSync:
          conflicting copy. In the latter case, apply those changes locally.
       10) Update local revs with the new revs assigned by Dropbox.
 
-    :param client: MaestralApiClient client instance.
+    :param MaestralApiClient client: Dropbox API client instance.
     """
 
     lock = Lock()
@@ -493,7 +512,14 @@ class UpDownSync:
 
     @staticmethod
     def clean_excluded_items_list(folder_list):
-        """Removes all duplicates from the excluded folder list."""
+        """
+        Removes all duplicates and children of excluded items from the excluded items
+        list.
+
+        :param list folder_list: Items to exclude.
+        :returns: Cleaned up items.
+        :rtype: list[str]
+        """
 
         # remove duplicate entries by creating set, strip trailing '/'
         folder_list = set(f.lower().rstrip(osp.sep) for f in folder_list)
@@ -509,9 +535,9 @@ class UpDownSync:
     def max_cpu_percent(self):
         """Maximum CPU usage for parallel downloads or uploads in percent of the total
         available CPU time. Individual workers in a thread pool will pause until the
-        usage drops below this value. Single-threaded tasks such as indexing file changes
-        may still use more CPU time. Setting this to 100% means that no limits on CPU
-        usage will be applied."""
+        usage drops below this value. Tasks in the main thread such as indexing file
+        changes may still use more CPU time. Setting this to 100% means that no limits on
+        CPU usage will be applied."""
         return self._max_cpu_percent
 
     @max_cpu_percent.setter
@@ -542,18 +568,19 @@ class UpDownSync:
 
     @last_sync.setter
     def last_sync(self, last_sync):
-        """Setter: last_cursor"""
+        """Setter: last_sync"""
         logger.debug('Local cursor saved: %s', last_sync)
         self._state.set('sync', 'lastsync', last_sync)
 
     @property
     def last_reindex(self):
-        """Time stamp of last indexing."""
+        """Time stamp of last indexing. This is used to determine when the next full
+        indexing should take place."""
         return self._state.get('sync', 'last_reindex')
 
     @last_reindex.setter
     def last_reindex(self, time_stamp):
-        """Setter: Time stamp of last indexing."""
+        """Setter: last_reindex."""
         self._state.set('sync', 'last_reindex', time_stamp)
 
     def get_last_sync_for_path(self, dbx_path):
@@ -619,7 +646,7 @@ class UpDownSync:
         entry for the file is removed.
 
         :param str dbx_path: Path relative to Dropbox folder.
-        :param rev: Revision number as string or ``None``.
+        :param str, None rev: Revision number as string or ``None``.
         """
         with self._rev_lock:
             dbx_path = dbx_path.lower()
@@ -724,11 +751,13 @@ class UpDownSync:
 
     def _load_rev_dict_from_file(self, raise_exception=False):
         """
-        Loads Maestral's rev index from ``rev_file_path`` using u-msgpack.
+        Loads Maestral's rev index from ``rev_file_path``. Every line contains the rev
+        number for a single path, saved in a json format. Only the last entry for every
+        path is kept since it is the newest.
 
         :param bool raise_exception: If ``True``, raises an exception when loading fails.
             If ``False``, an error message is logged instead.
-        :raises: RevFileError if ``raise_exception`` is ``True``.
+        :raises: :class:`errors.RevFileError`
         """
         with self._rev_lock:
             self._rev_dict_cache.clear()
@@ -752,11 +781,11 @@ class UpDownSync:
 
     def _save_rev_dict_to_file(self, raise_exception=False):
         """
-        Save Maestral's rev index to `rev_file_path`.
+        Save Maestral's rev index to ``rev_file_path``.
 
         :param bool raise_exception: If ``True``, raises an exception when saving fails.
             If ``False``, an error message is logged instead.
-        :raises: RevFileError if ``raise_exception`` is ``True``.
+        :raises: :class:`errors.RevFileError`
         """
         with self._rev_lock:
             with self._handle_rev_write_exceptions(raise_exception):
@@ -826,12 +855,8 @@ class UpDownSync:
         :param str local_path: Absolute path on local drive.
         :returns: Relative path with respect to Dropbox folder.
         :rtype: str
-        :raises: :class:`ValueError` if no path is specified or path is outside of local
-            Dropbox folder.
+        :raises: :class:`ValueError` the path lies outside of the local Dropbox folder.
         """
-
-        if not local_path:
-            raise ValueError('No path specified')
 
         dbx_root_list = osp.normpath(self.dropbox_path).split(osp.sep)
         path_list = osp.normpath(local_path).split(osp.sep)
@@ -853,18 +878,16 @@ class UpDownSync:
         Converts a Dropbox path to the corresponding local path.
 
         The ``path_display`` attribute returned by the Dropbox API only guarantees correct
-        casing of the basename (file name or folder name) and not of the full path. This
-        is because Dropbox itself is not case sensitive and stores all paths in lowercase
-        internally. To the extend where parent directories of ``dbx_path`` are already
-        present on the local drive, their casing is used. Otherwise, the casing from
-        ``dbx_path`` is used. This aims to preserve the correct casing of file and folder
-        names and prevents the creation of duplicate folders with different casing on the
-        local drive.
+        casing of the basename and not of the full path. This is because Dropbox itself is
+        not case sensitive and stores all paths in lowercase internally. To the extend
+        where parent directories of ``dbx_path`` exist on the local drive, their casing
+        will be used. Otherwise, the casing from ``dbx_path`` is used. This aims to
+        preserve the correct casing of file and folder names and prevents the creation of
+        duplicate folders with different casing on a local case-sensitive file system.
 
         :param str dbx_path: Path relative to Dropbox folder.
         :returns: Corresponding local path on drive.
         :rtype: str
-        :raises: ValueError if no path is specified.
         """
 
         dbx_path = dbx_path.replace('/', osp.sep)
@@ -883,11 +906,11 @@ class UpDownSync:
 
     def clear_sync_error(self, local_path=None, dbx_path=None):
         """
-        Clears all sync errors related to the item defined by ``local_path`` or
-        ``dbx_path``.
+        Clears all sync errors for ``local_path`` or ``dbx_path``.
 
         :param str local_path: Absolute path on local drive.
         :param str dbx_path: Path relative to Dropbox folder.
+        :raises: :class:`ValueError` if no path is given.
         """
         if not (local_path or dbx_path):
             raise ValueError('Either local_path or dbx_path must be given.')
@@ -913,7 +936,7 @@ class UpDownSync:
     @staticmethod
     def is_excluded(path):
         """
-        Check if file is excluded from sync. Certain file names are always excluded from
+        Checks if file is excluded from sync. Certain file names are always excluded from
         syncing, following the Dropbox support article:
 
         https://help.dropbox.com/installs-integrations/sync-uploads/files-not-syncing
@@ -931,9 +954,6 @@ class UpDownSync:
         # is root folder?
         if path in ['/', '']:
             return True
-
-        # information about excluded files:
-        # https://help.dropbox.com/installs-integrations/sync-uploads/files-not-syncing
 
         basename = osp.basename(path)
 
@@ -1087,8 +1107,8 @@ class UpDownSync:
 
     def wait_for_local_changes(self, timeout=5, delay=1):
         """
-        Waits for local file changes. Returns a list of local changes, filtered to
-        avoid duplicates.
+        Waits for local file changes. Returns a list of local changes with at most one
+        entry per path.
 
         :param float timeout: If no changes are detected within timeout (sec), an empty
             list is returned.
@@ -1342,7 +1362,7 @@ class UpDownSync:
         case. Renames items if necessary.Only needed for case sensitive file systems.
 
         :param FileSystemEvent event: Created or moved event.
-        :returns: ``True`` or ``False
+        :returns: ``True`` or ``False``.
         :rtype: bool
         """
 
@@ -1379,7 +1399,7 @@ class UpDownSync:
         case. Only needed for case sensitive file systems.
 
         :param FileSystemEvent event: Created or moved event.
-        :returns: ``True`` or ``False
+        :returns: ``True`` or ``False``.
         :rtype: bool
         """
 
@@ -1407,13 +1427,13 @@ class UpDownSync:
 
     def apply_local_changes(self, events, local_cursor):
         """
-        Applies locally detected events to remote Dropbox.
+        Applies locally detected changes to the remote Dropbox.
 
-        :param iterable events: List of local file changes.
-        :param float local_cursor: Time stamp of last event in `events`.
+        :param iterable events: List of local file system events.
+        :param float local_cursor: Time stamp of last event in ``events``.
         """
 
-        events, _ = self.filter_excluded_changes_local(events)
+        events, _ = self._filter_excluded_changes_local(events)
 
         sorted_events = dict(deleted=[], dir_created=[], dir_moved=[], file=[])
         for e in events:
@@ -1472,9 +1492,6 @@ class UpDownSync:
         caught and logged as appropriate.
 
         :param FileSystemEvent event: Watchdog file system event.
-        :returns: ``True`` on success, ``False`` in case of a caught
-            :class:`error.MaestralApiError`.
-        :rtype: bool
         """
 
         self._slow_down()
@@ -1516,7 +1533,7 @@ class UpDownSync:
 
     def _on_moved(self, event):
         """
-        Call when local item is moved.
+        Call when a local item is moved.
 
         Keep in mind that we may be moving a whole tree of items. But its better deal
         with the complexity than to delete and re-uploading everything. Thankfully, in
@@ -1526,7 +1543,7 @@ class UpDownSync:
         remained the same.
 
         :param FilSystemEvent event: Watchdog file system event.
-        :raises: :class:`error.MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`
         """
 
         local_path_from = event.src_path
@@ -1578,10 +1595,10 @@ class UpDownSync:
 
     def _on_created(self, event):
         """
-        Call when local item is created.
+        Call when a local item is created.
 
         :param FileSystemEvent event: Watchdog file system event.
-        :raises: :class:`error.MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`
         """
 
         local_path = event.src_path
@@ -1653,10 +1670,10 @@ class UpDownSync:
         """
         Creates multiple folders on Dropbox in a batch request. We currently don't use
         this because folders are created in parallel anyways and we perform conflict
-        checks before uploading each folder.
+        checks before uploading each folder. This is currently not used for syncing.
 
         :param list[DirCreatedEvent] events: List of directory creates events.
-        :return:
+        :raises: :class:`errors.MaestralApiError`
         """
         local_paths = []
         dbx_paths = []
@@ -1710,7 +1727,7 @@ class UpDownSync:
         Call when local item is modified.
 
         :param FileSystemEvent event: Watchdog file system event.
-        :raises: :class:`error.MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`
         """
 
         if not event.is_directory:  # ignore directory modified events
@@ -1771,7 +1788,7 @@ class UpDownSync:
         modified since the last sync.
 
         :param FileSystemEvent event: Watchdog file system event.
-        :raises: :class:`error.MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`
         """
 
         path = event.src_path
@@ -1875,11 +1892,16 @@ class UpDownSync:
 
     def get_remote_item(self, dbx_path):
         """
-        Downloads a remote file or folder and updates its local rev and the revs of its
-        children. If the remote item no longer exists, the corresponding local item will
-        be deleted. Given paths will be added to the (persistent) pending_downloads list
-        for the duration of the download so that they will be resumed in case Maestral
-        is terminated during the download.
+        Downloads a remote file or folder and updates its local rev. If the remote item no
+        longer exists, the corresponding local item will be deleted. Given paths will be
+        added to the (persistent) pending_downloads list for the duration of the download
+        so that they will be resumed in case Maestral is terminated during the download.
+        If ``dbx_path`` refers to a folder, the download will be handled by
+        :meth:`get_remote_folder`. If it refers to a single file, the download will be
+        performed by :meth:`create_local_entry`.
+
+        This method can be used to fetch individual items outside of the regular sync
+        cycle, for instance when including a new file or folder.
 
         :param str dbx_path: Path relative to Dropbox folder.
         :returns: ``True`` on success, ``False`` otherwise.
@@ -1956,14 +1978,15 @@ class UpDownSync:
     def apply_remote_changes(self, changes, save_cursor=True):
         """
         Applies remote changes to local folder. Call this on the result of
-        :meth:`list_remote_changes`. The saved cursor is updated after a set
-        of changes has been successfully applied.
+        :meth:`list_remote_changes`. The saved cursor is updated after a set of changes
+        has been successfully applied. Entries in the local index are created after
+        successful completion.
 
-        :param changes: :class:`dropbox.files.ListFolderResult` instance
-            or ``False`` if requests failed.
-        :param bool save_cursor: If True, :attr:`last_cursor` will be updated
-            from the last applied changes. Take care to only save a cursors which
-            represent the state of the entire Dropbox
+        :param changes: :class:`dropbox.files.ListFolderResult` instance or ``False`` if
+            requests failed.
+        :param bool save_cursor: If True, :attr:`last_cursor` will be updated from the
+            last applied changes. Take care to only save a cursors which represent the
+            state of the entire Dropbox
         :returns: List of changes that were made to local files and bool indicating if all
             download syncs were successful.
         :rtype: (list, bool)
@@ -2042,7 +2065,7 @@ class UpDownSync:
         :param Metadata md: Dropbox SDK metadata.
         :returns: Conflict check result.
         :rtype: :class:`Conflict`
-        :raises: :class:`error.MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`
         """
 
         # get metadata of remote item
@@ -2207,8 +2230,8 @@ class UpDownSync:
         FolderMetadata, FileMetadata and DeletedMetadata.
 
         :returns: Tuple of (folders, files, deleted) containing instances of
-            :class:`DeletedMetadata`, `:class:FolderMetadata`,
-            and :class:`FileMetadata` respectively.
+            :class:`dropbox.files.FolderMetadata`, :class:`dropbox.files.FileMetadata`,
+            and :class:`dropbox.files.DeletedMetadata` respectively.
         :rtype: tuple
         """
         sorted = dict(folders=[], files=[], deleted=[])
@@ -2284,9 +2307,10 @@ class UpDownSync:
         """
         Applies a file change from Dropbox servers to the local Dropbox folder.
         Any :class:`errors.MaestralApiError` will be caught and logged as appropriate.
+        Entries in the local index are created after successful completion.
 
-        :param Metadata entry: Dropbox FileMetadata|FolderMetadata|DeletedMetadata.
-        :returns: Copy of the Dropbox metadata if the changes was applied locally,
+        :param Metadata entry: Dropbox entry metadata.
+        :returns: Copy of the Dropbox metadata if the change was applied locally,
             ``True`` if the change already existed locally and ``False`` in case of a
             :class:`errors.MaestralApiError`, for instance caused by sync issues.
         :rtype: Metadata, bool
