@@ -28,6 +28,12 @@ logger = logging.getLogger(__name__)
 
 
 class DropboxOAuth2FlowImplicitBase:
+    """
+    Class to perform an OAuth implicit grant flow.
+
+    :param str consumer_key: Consumer key / API key.
+    :param str locale: Locale to use.
+    """
 
     def __init__(self, consumer_key, locale=None):
         self.consumer_key = consumer_key
@@ -163,7 +169,7 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
         :param str access_token: Dropbox API access token.
         :returns: Authentication result containing access token and account id.
         :rtype: :class:`dropbox.oauth.OAuth2FlowNoRedirectResult`
-        :raises: :class:`maestral.errors.MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`
         """
         dbx = dropbox.Dropbox(access_token)
         try:
@@ -180,7 +186,7 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
         unlinking an app.
 
         :param str access_token: Dropbox API access token.
-        :raises: :class:`maestral.errors.MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`
         """
         dbx = dropbox.Dropbox(access_token)
         try:
