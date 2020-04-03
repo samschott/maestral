@@ -1,0 +1,67 @@
+name: maestral
+base: core18
+license: MIT
+adopt-info: maestral
+icon: maestral/resources/maestral.png
+summary: An open-source Dropbox client for macOS and Linux.
+description: |
+  Maestral is light-weight and simple Dropbox client for Linux and macOS.
+  It allows two-way syncing with your Dropbox, setting up a 'mignore' file
+  similar to 'gitignore' and syncing multiple Dropbox accounts.
+
+grade: stable
+confinement: strict
+
+apps:
+  maestral:
+    command: maestral
+    desktop: share/applications/maestral.desktop
+    autostart: maestral-maestral.desktop
+    extensions:
+      - kde-neon
+    plugs:
+      - home
+      - network
+      - unity7
+      - opengl
+
+environment:
+  LC_ALL: C.UTF-8
+  LANG: C.UTF-8
+  QT_QPA_PLATFORMTHEME: gtk3
+  XDG_CURRENT_DESKTOP: "Unity:$XDG_CURRENT_DESKTOP"
+
+parts:
+  maestral:
+    source: .
+    plugin: python
+    python-version: python3
+    stage-packages:
+      # Use the version from the repo to avoid the xcb not found error
+      - python3-pyqt5
+    override-pull: |
+      snapcraftctl pull
+      snapcraftctl set-version $(grep version maestral/__init__.py | cut -d'"' -f2)
+      sed -i "s|Exec = {start_cmd}|Exec = maestral gui -c 'maestral'|g" maestral/resources/maestral.desktop
+
+  maestral-qt:
+    source: https://github.com/SamSchott/maestral-qt.git
+    plugin: python
+    python-version: python3
+    override-build: |
+      sed -i 's|Exec = maestral_qt|Exec = maestral gui|g' maestral_qt/resources/maestral.desktop
+      sed -i "s|'PyQt5.*||g" setup.py
+      sed -i "s|'maestral==.*||g" setup.py
+      snapcraftctl build
+    override-prime: |
+      snapcraftctl prime
+      sed -i 's|Icon = maestral|Icon=${SNAP}/share/icons/hicolor/512x512/apps/maestral.png|g' share/applications/maestral.desktop
+
+  cleanup:
+    after: [maestral, maestral-qt]
+    plugin: nil
+    build-snaps: [ kde-frameworks-5-core18 ]
+    override-prime: |
+        set -eux
+        cd /snap/kde-frameworks-5-core18/current
+        find . -type f,l -exec rm -f $SNAPCRAFT_PRIME/{} \;
