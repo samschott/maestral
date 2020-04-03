@@ -5,6 +5,9 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This module defines Maestral's error classes. It should be kept free of memory heavy
+imports.
+
 """
 import errno
 
@@ -85,11 +88,6 @@ class IsAFolderError(SyncError):
 
 class NotAFolderError(SyncError):
     """Raised when a folder is required but a file is provided."""
-    pass
-
-
-class ExcludedItemError(SyncError):
-    """Raised when an item which is excluded form syncing is created locally."""
     pass
 
 
@@ -528,7 +526,6 @@ SYNC_ERRORS = (
     ExistsError,
     IsAFolderError,
     NotAFolderError,
-    ExcludedItemError,
     DropboxServerError,
     RestrictedContentError,
     UnsupportedFileError,

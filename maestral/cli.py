@@ -5,17 +5,16 @@ Created on Fri Nov 30 13:51:32 2018
 
 @author: samschott
 
-This file defines the functions to configure and interact
-with Maestral from the command line.
-
-We aim to import most packages locally in the functions that required them,
-in order to reduce the startup time of individual CLI commands.
+This file defines the functions to configure and interact with Maestral from the command
+line. We aim to import most packages locally in the functions that required them, in order
+to reduce the startup time of individual CLI commands.
 
 """
 # system imports
 import os
 import functools
 import logging
+import textwrap
 
 # external packages
 import click
@@ -52,13 +51,13 @@ def pending_link_cli(config_name):
                                    'to load Dropbox credentials.')
 
 
-def start_daemon_subprocess_with_cli_feedback(config_name):
+def start_daemon_subprocess_with_cli_feedback(config_name, log_to_stdout=False):
     """Wrapper around `daemon.start_maestral_daemon_process`
     with command line feedback."""
     from maestral.daemon import start_maestral_daemon_process, Start
 
     click.echo('Starting Maestral...', nl=False)
-    res = start_maestral_daemon_process(config_name)
+    res = start_maestral_daemon_process(config_name, log_to_stdout=log_to_stdout)
     if res == Start.Ok:
         click.echo('\rStarting Maestral...        ' + OK)
     else:
@@ -106,11 +105,9 @@ def _check_for_fatal_errors(m):
 
     if len(maestral_err_list) > 0:
 
-        import textwrap
         width, height = click.get_terminal_size()
 
         err = maestral_err_list[0]
-
         wrapped_msg = textwrap.fill(err['message'], width=width)
 
         click.echo('')
@@ -136,7 +133,6 @@ def catch_maestral_errors(func):
         try:
             return func(*args, **kwargs)
         except MaestralApiError as exc:
-            import textwrap
             width, height = click.get_terminal_size()
             wrapped_msg = textwrap.fill(exc.message, width=width)
 
@@ -152,8 +148,6 @@ def format_table(rows=None, columns=None, headers=None, padding_right=2):
 
     if (rows and columns) or not (rows or columns):
         raise ValueError('Must give either rows or columns as input.')
-
-    import textwrap
 
     if headers and rows:
         rows.insert(0, list(headers))
@@ -326,8 +320,10 @@ def gui(config_name):
 @config_option
 @click.option('--foreground', '-f', is_flag=True, default=False,
               help='Starts Maestral in the foreground.')
+@click.option('--verbose', '-v', is_flag=True, default=False,
+              help='Print log messages to stdout.')
 @catch_maestral_errors
-def start(config_name: str, foreground: bool):
+def start(config_name: str, foreground: bool, verbose: bool):
     """Starts the Maestral as a daemon."""
 
     from maestral.daemon import get_maestral_pid
@@ -338,23 +334,35 @@ def start(config_name: str, foreground: bool):
         click.echo('Maestral daemon is already running.')
         return
 
-    from maestral.main import Maestral
-
     # run setup if not yet done
     if pending_link_cli(config_name) or pending_dropbox_folder(config_name):
+
+        from maestral.main import Maestral
+
         m = Maestral(config_name, run=False)
         m.reset_sync_state()
         m.create_dropbox_directory()
-        m.set_excluded_items()
+
+        exclude_folders_q = click.confirm(
+            'Would you like to exclude any folders from syncing?',
+            default=False,
+        )
+
+        if exclude_folders_q:
+            click.echo(
+                'Please choose which top-level folders to exclude. You can exclude\n'
+                'individual files or subfolders later with "maestral excluded add".'
+            )
+            m.set_excluded_items()
 
         del m
 
     # start daemon
     if foreground:
         from maestral.daemon import run_maestral_daemon
-        run_maestral_daemon(config_name, run=True, log_to_stdout=True)
+        run_maestral_daemon(config_name, run=True, log_to_stdout=verbose)
     else:
-        start_daemon_subprocess_with_cli_feedback(config_name)
+        start_daemon_subprocess_with_cli_feedback(config_name, log_to_stdout=verbose)
 
 
 @main.command(help_priority=2)
@@ -368,8 +376,10 @@ def stop(config_name: str):
 @existing_config_option
 @click.option('--foreground', '-f', is_flag=True, default=False,
               help='Starts Maestral in the foreground.')
+@click.option('--verbose', '-v', is_flag=True, default=False,
+              help='Print log messages to stdout.')
 @click.pass_context
-def restart(ctx, config_name: str, foreground: bool):
+def restart(ctx, config_name: str, foreground: bool, verbose: bool):
     """Restarts the Maestral daemon."""
     stop_daemon_with_cli_feedback(config_name)
     ctx.forward(start)
@@ -613,20 +623,21 @@ def link(config_name: str, relink: bool):
 
 @main.command(help_priority=12)
 @existing_config_option
-@click.confirmation_option(prompt='Are you sure you want unlink your account?')
 @catch_maestral_errors
 def unlink(config_name: str):
     """Unlinks your Dropbox account."""
 
     if not pending_link_cli(config_name):
 
-        from maestral.main import Maestral
+        if click.confirm('Are you sure you want unlink your account?'):
 
-        stop_daemon_with_cli_feedback(config_name)
-        m = Maestral(config_name, run=False)
-        m.unlink()
+            from maestral.main import Maestral
 
-        click.echo('Unlinked Maestral.')
+            stop_daemon_with_cli_feedback(config_name)
+            m = Maestral(config_name, run=False)
+            m.unlink()
+
+            click.echo('Unlinked Maestral.')
 
 
 @main.command(help_priority=13)

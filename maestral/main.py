@@ -5,6 +5,8 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This module defines the main API which is exposed to the CLI or GUI.
+
 """
 # system imports
 import functools
@@ -83,29 +85,48 @@ run_housekeeping()
 # custom logging handlers
 
 class CachedHandler(logging.Handler):
-    """Handler which stores past records.
+    """Handler which stores past records. This is used to populate Maestral's status and
+    error interfaces.
 
-    :param int maxlen: Maximum number of records to store.
+    :param int level: Initial log level. Defaults to NOTSET.
+    :param int maxlen: Maximum number of records to store. If ``None``, all records will
+        be stored.
     """
 
-    def __init__(self, maxlen=None):
-        logging.Handler.__init__(self)
+    def __init__(self, level=logging.NOTSET, maxlen=None):
+        logging.Handler.__init__(self, level=level)
         self.cached_records = deque([], maxlen)
 
     def emit(self, record):
+        """
+        Logs the specified log record and saves it to the cache.
+
+        :param record: Log record.
+        """
         self.format(record)
         self.cached_records.append(record)
 
     def getLastMessage(self):
+        """
+        :returns: The log message of the last record or an empty string.
+        :rtype: str
+        """
         if len(self.cached_records) > 0:
             return self.cached_records[-1].message
         else:
             return ''
 
     def getAllMessages(self):
+        """
+        :returns: A list of all record messages.
+        :rtype: list[str]
+        """
         return [r.message for r in self.cached_records]
 
     def clear(self):
+        """
+        Clears all cached records.
+        """
         self.cached_records.clear()
 
 
@@ -113,6 +134,11 @@ class SdNotificationHandler(logging.Handler):
     """Handler which emits messages as systemd notifications."""
 
     def emit(self, record):
+        """
+        Sends the record massage to systemd as service status.
+
+        :param record: Log record.
+        """
         sd_notifier.notify(f'STATUS={record.message}')
 
 
@@ -120,8 +146,9 @@ class SdNotificationHandler(logging.Handler):
 
 def handle_disconnect(func):
     """
-    Decorator which handles connection and auth errors during a function call and returns
-    ``False`` if an error occurred.
+    Decorator which catches connection errors and instances of
+    :class:`errors.DropboxAuthError` during a function call and returns ``False`` if an
+    error occurred.
     """
 
     @functools.wraps(func)
@@ -164,18 +191,21 @@ def with_sync_paused(func):
 # Main API
 # ========================================================================================
 
-class Maestral(object):
-    """An open source Dropbox client for macOS and Linux.
+class Maestral:
+    """The public API.
 
     All methods and properties return objects or raise exceptions which can safely be
-    serialized, i.e., pure Python types. The only exception are MaestralApiErrors which
-    need to be registered explicitly with the serpent serializer used by Pyro5 in order
-    to be transmitted to a frontend.
+    serialized, i.e., pure Python types. The only exception are instances of
+    :class:`errors.MaestralApiError` which need to be registered explicitly with the
+    serpent serializer which is used for communication to frontends.
 
     :param str config_name: Name of maestral configuration to run. This will create a new
         configuration file if none exists.
     :param bool run: If ``True``, Maestral will start syncing immediately. Defaults to
         ``True``.
+    :param bool log_to_stdout: If ``True``, Maestral will print log messages to stdout.
+        When started as a systemd services, this can result in duplicate log messages.
+        Defaults to ``False``.
     """
 
     def __init__(self, config_name='maestral', run=True, log_to_stdout=False):
@@ -261,8 +291,10 @@ class Maestral(object):
         mdbx_logger.addHandler(self.log_handler_file)
 
         # log to journal when launched from systemd
-        if INVOCATION_ID and journal:
-            self.log_handler_journal = journal.JournalHandler()
+        if INVOCATION_ID:
+            self.log_handler_journal = journal.JournalHandler(
+                SYSLOG_IDENTIFIER='maestral'
+            )
             self.log_handler_journal.setFormatter(log_fmt_short)
             self.log_handler_journal.setLevel(log_level)
             mdbx_logger.addHandler(self.log_handler_journal)
@@ -337,7 +369,7 @@ class Maestral(object):
 
     @property
     def dropbox_path(self):
-        """Returns the path to the local Dropbox directory. Read only. Use
+        """Returns the path to the local Dropbox directory (read only). Use
         :meth:`create_dropbox_directory` or :meth:`move_dropbox_directory` to set or
         change the Dropbox directory location instead. """
         return self.sync.dropbox_path
@@ -353,7 +385,7 @@ class Maestral(object):
 
     @property
     def log_level(self):
-        """Log level for log files, the stream handler and the systemd journal."""
+        """Log level for log files, stdout and the systemd journal."""
         return self._conf.get('app', 'log_level')
 
     @log_level.setter
@@ -394,22 +426,26 @@ class Maestral(object):
 
     @property
     def notification_snooze(self):
-        """Snoozed time for desktop notifications in minutes."""
+        """Snooze time for desktop notifications in minutes. Defaults to 0 if
+        notifications are not snoozed-"""
         return self.desktop_notifier.snoozed
 
     @notification_snooze.setter
     def notification_snooze(self, minutes):
-        """Setter: Snoozed time for desktop notifications in minutes."""
+        """Setter: Snooze time for desktop notifications in minutes. Defaults to 0 if
+        notifications are not snoozed-"""
         self.desktop_notifier.snoozed = minutes
 
     @property
     def notification_level(self):
-        """Level for desktop notifications."""
+        """Level for desktop notifications. See :module:`utils.notify` for level
+        definitions."""
         return self.desktop_notifier.notify_level
 
     @notification_level.setter
     def notification_level(self, level):
-        """Setter: Level for desktop notifications."""
+        """Setter: Level for desktop notifications. See :module:`utils.notify` for
+        level definitions."""
         self.desktop_notifier.notify_level = level
 
     # ==== state information  ============================================================
@@ -459,7 +495,7 @@ class Maestral(object):
 
     @property
     def sync_errors(self):
-        """Returns list containing the current sync errors as dicts."""
+        """Returns list of current sync errors as dicts."""
         sync_errors = list(self.sync.sync_errors.queue)
         sync_errors_dicts = [error_to_dict(e) for e in sync_errors]
         return sync_errors_dicts
@@ -501,7 +537,7 @@ class Maestral(object):
             current working directory.
         :returns: String indicating the sync status. Can be 'uploading', 'downloading',
             'up to date', 'error', or 'unwatched' (for files outside of the Dropbox
-            directory).
+            directory). This will always be 'unwatched' if syncing is paused.
         :rtype: str
         """
         if not self.syncing:
@@ -563,7 +599,7 @@ class Maestral(object):
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
-        :raises: :class:`MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`
         """
         res = self.client.get_account_info()
         return dropbox_stone_to_dict(res)
@@ -576,7 +612,7 @@ class Maestral(object):
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
-        :raises: :class:`MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`
         """
         res = self.client.get_space_usage()
         return dropbox_stone_to_dict(res)
@@ -588,9 +624,9 @@ class Maestral(object):
         """
         Attempts to download the user's profile picture from Dropbox. The picture saved
         in Maestral's cache directory for retrieval when there is no internet connection.
-        This function will fail silently in case of :class:`MaestralApiError`s.
+        This function will fail silently in case of a :class:`errors.MaestralApiError`.
 
-        :returns: Path to saved profile picture or None if no profile picture is set.
+        :returns: Path to saved profile picture or ``None`` if no profile picture is set.
         """
 
         try:
@@ -611,13 +647,14 @@ class Maestral(object):
     @handle_disconnect
     def list_folder(self, dbx_path, **kwargs):
         """
-        List all items inside the folder given by :param:`dbx_path`.
+        List all items inside the folder given by ``dbx_path``. Keyword arguments are
+        passed on the the Dropbox API call :meth:`client.MaestralApiClient.list_folder`.
 
         :param dbx_path: Path to folder on Dropbox.
         :returns: List of Dropbox item metadata as dicts or ``False`` if listing failed
             due to connection issues.
         :rtype: list[dict]
-        :raises: :class:`MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`
         """
         res = self.client.list_folder(dbx_path, **kwargs)
 
@@ -643,14 +680,15 @@ class Maestral(object):
 
         Rebuilding will be performed asynchronously.
 
-        :raises: :class:`MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`
         """
 
         self.monitor.rebuild_index()
 
     def start_sync(self):
         """
-        Creates syncing threads and starts syncing.
+        Creates syncing threads and starts syncing. This will be called by :meth:`run`
+        and typically does not need to be called manually.
         """
         self.monitor.start()
 
@@ -668,7 +706,8 @@ class Maestral(object):
 
     def stop_sync(self):
         """
-        Stops the syncing threads if running, destroys observer thread.
+        Stops the syncing threads if running. Call :meth:`start_sync` to restart all
+        threads.
         """
         self.monitor.stop()
 
@@ -764,8 +803,8 @@ class Maestral(object):
         downloaded again.
 
         :param str dbx_path: Dropbox path of item to include.
-        :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox or lies inside
-            another excluded folder.
+        :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox or lies within
+            an excluded folder.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         """
 
@@ -812,12 +851,12 @@ class Maestral(object):
         """
         Sets the list of excluded files or folders. If not given, gets all top level
         folder paths from Dropbox and asks user to include or exclude. Items which are
-        no in ``items`` but were previously excluded will be downloaded.
+        not in ``items`` but were previously excluded will be downloaded.
 
         On initial sync, this does not trigger any downloads.
 
         :param list items: If given, list of excluded files or folders to set.
-        :raises: :class:`MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`
         """
 
         if items is None:
@@ -830,8 +869,7 @@ class Maestral(object):
             # paginate through top-level folders, ask to exclude
             for entry in result.entries:
                 if isinstance(entry, files.FolderMetadata):
-                    yes = click.confirm(f'Exclude "{entry.path_display}" from sync?',
-                                        prompt_suffix='')
+                    yes = click.confirm(f'Exclude "{entry.path_display}" from sync?')
                     if yes:
                         excluded_items.append(entry.path_lower)
         else:
@@ -885,12 +923,13 @@ class Maestral(object):
 
         :param str new_path: Full path to local Dropbox folder. If not given, the user
             will be prompted to input the path.
-        :raises: ``OSError`` if moving the directory fails.
+        :raises: :class:`OSError` if moving the directory fails.
         """
 
         # get old and new paths
         old_path = self.sync.dropbox_path
-        new_path = new_path or select_dbx_path_dialog(self._config_name)
+        new_path = new_path or select_dbx_path_dialog(self._config_name,
+                                                      allow_merge=False)
 
         try:
             if osp.samefile(old_path, new_path):
@@ -917,7 +956,7 @@ class Maestral(object):
 
         :param str path: Full path to local Dropbox folder. If not given, the user will be
             prompted to input the path.
-        :raises: ``OSError`` if creation fails
+        :raises: :class:`OSError` if creation fails
         """
         path = path or select_dbx_path_dialog(self._config_name, allow_merge=True)
 
@@ -935,7 +974,7 @@ class Maestral(object):
         system path.
 
         :param str dbx_path: Path relative to Dropbox root.
-        :returns: Corresponding path of a location in the local Dropbox folder.
+        :returns: Corresponding path on local hard drive.
         :rtype: str
         """
         return self.sync.to_local_path(dbx_path)
@@ -946,8 +985,8 @@ class Maestral(object):
         Checks if an update is available.
 
         :returns: A dictionary with information about the latest release with the fields
-            ``update_available`` (bool), ``latest_release`` (str), ``release_notes`` (str)
-            and ``error`` (str or None).
+            'update_available' (bool), 'latest_release' (str), 'release_notes' (str)
+            and 'error' (str or None).
         :rtype: dict
         """
         return check_update_available()
@@ -999,11 +1038,11 @@ class Maestral(object):
 
 def select_dbx_path_dialog(config_name, allow_merge=False):
     """
-    A CLI dialog to ask for a local dropbox directory path.
+    A CLI dialog to ask for a local Dropbox folder location.
 
     :param str config_name: The configuration to use for the default folder name.
-    :param bool allow_merge: If ``True``, allows for selecting an existing path without
-        deleting it. Defaults to ``False``.
+    :param bool allow_merge: If ``True``, allows the selection of an existing folder
+        without deleting it. Defaults to ``False``.
     :returns: Path given by user.
     :rtype: str
     """
@@ -1022,26 +1061,30 @@ def select_dbx_path_dialog(config_name, allow_merge=False):
         res = res.rstrip(osp.sep)
 
         dropbox_path = osp.expanduser(res or default)
-        old_path = osp.expanduser(conf.get('main', 'path'))
 
-        try:
-            same_path = osp.samefile(old_path, dropbox_path)
-        except FileNotFoundError:
-            same_path = False
+        if osp.exists(dropbox_path):
+            if allow_merge:
+                choice = click.prompt(
+                    text=(f'Directory "{dropbox_path}" already exists. Do you want to '
+                          f'replace it or merge its content with your Dropbox?'),
+                    type=click.Choice(['replace', 'merge', 'cancel'])
+                )
+            else:
+                replace = click.confirm(
+                    text=(f'Directory "{dropbox_path}" already exists. Do you want to '
+                          f'replace it? Its content will be lost!'),
+                )
+                choice = 'replace' if replace else 'cancel'
 
-        if osp.exists(dropbox_path) and not same_path:
-            msg = (f'Directory "{dropbox_path}" already exist. Do you want to '
-                   'overwrite it? Its content will be lost!')
-            if click.confirm(msg, prompt_suffix=''):
+            if choice == 'replace':
                 err = delete(dropbox_path)
                 if err:
                     click.echo(f'Could not write to location "{dropbox_path}". Please '
                                'make sure that you have sufficient permissions.')
                 else:
                     return dropbox_path
-            elif allow_merge:
-                msg = 'Would you like to merge its content with your Dropbox?'
-                if click.confirm(msg, prompt_suffix=''):
-                    return dropbox_path
+            elif choice == 'merge':
+                return dropbox_path
+
         else:
             return dropbox_path

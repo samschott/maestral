@@ -90,7 +90,7 @@ def get_data_path(subfolder=None, filename=None, create=True):
         state_path = osp.join(get_home_dir(), 'Library', 'Application Support')
     else:
         fallback = osp.join(get_home_dir(), '.local', 'share')
-        state_path = os.environ.get('XDG_DATA_DIR', fallback)
+        state_path = os.environ.get('XDG_DATA_HOME', fallback)
 
     return _to_full_path(state_path, subfolder, filename, create)
 

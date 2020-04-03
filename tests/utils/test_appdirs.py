@@ -25,7 +25,7 @@ def test_linux_dirs():
 
     os.environ['XDG_CONFIG_HOME'] = '/xdg_config_home'
     os.environ['XDG_CACHE_HOME'] = '/xdg_cache_home'
-    os.environ['XDG_DATA_DIR'] = '/xdg_data_dir'
+    os.environ['XDG_DATA_HOME'] = '/xdg_data_dir'
     os.environ['XDG_RUNTIME_DIR'] = '/xdg_runtime_dir'
 
     assert get_conf_path(create=False) == '/xdg_config_home'
@@ -38,7 +38,7 @@ def test_linux_dirs():
 
     del os.environ['XDG_CONFIG_HOME']
     del os.environ['XDG_CACHE_HOME']
-    del os.environ['XDG_DATA_DIR']
+    del os.environ['XDG_DATA_HOME']
     del os.environ['XDG_RUNTIME_DIR']
 
     assert get_conf_path(create=False) == get_home_dir() + '/.config'

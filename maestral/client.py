@@ -5,6 +5,9 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This modules contains the Dropbox API client. It wraps calls to the Dropbox Python SDK
+and handles exceptions, chunked uploads or downloads, etc.
+
 """
 # system imports
 import os
@@ -88,7 +91,8 @@ class SpaceUsage(dropbox.users.SpaceUsage):
 
 def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
     """
-    Decorator that converts all OSError and DropboxExceptions to MaestralApiErrors.
+    Decorator that converts instances of :class:`OSError` and
+    :class:`dropbox.exceptions.DropboxException` to :class:`errors.MaestralApiError`.
 
     :param int dbx_path_arg: Argument number to take as dbx_path for exception.
     :param int local_path_arg: Argument number to take as local_path_arg for exception.
@@ -124,9 +128,10 @@ class MaestralApiClient:
     moving, modifying and deleting files and folders on Dropbox and downloading files from
     Dropbox.
 
-    All Dropbox SDK exceptions and :class:`OSError`s related to accessing or saving local
-    files will be caught and reraised as :class:`errors.MaestralApiError`s. Connection
-    errors from requests will be caught and reraised as :class:`ConnectionError`.
+    All Dropbox SDK exceptions and :class:`OSError` instances if related to accessing or
+    saving local files will be caught and reraised as a :class:`errors.MaestralApiError`.
+    Connection errors from requests will be caught and reraised as
+    :class:`ConnectionError`.
 
     :param str config_name: Name of config file and state file to use.
     :param int timeout: Timeout for individual requests in sec. Defaults to 60 sec.
@@ -615,7 +620,7 @@ class MaestralApiClient:
         instance with the cursor of the last entry in the list.
 
         :param list results: List of :class:`dropbox.files.ListFolderResult` instances.
-        :returns: Single :class:`dropbox.files.ListFolderResult` instance.
+        :returns: Flattened list folder result.
         :rtype: :class:`dropbox.files.ListFolderResult`
         """
         entries_all = []
@@ -631,7 +636,7 @@ class MaestralApiClient:
     @to_maestral_error()
     def wait_for_remote_changes(self, last_cursor, timeout=40):
         """
-        Waits for remote changes since :param:`last_cursor`. Call this method after
+        Waits for remote changes since ``last_cursor``. Call this method after
         starting the Dropbox client and periodically to get the latest updates.
 
         :param str last_cursor: Last to cursor to compare for changes.
@@ -663,7 +668,7 @@ class MaestralApiClient:
     @to_maestral_error()
     def list_remote_changes(self, last_cursor):
         """
-        Lists changes to remote Dropbox since :param:`last_cursor`. Call this after
+        Lists changes to remote Dropbox since ``last_cursor``. Call this after
         :method:`wait_for_remote_changes` returns ``True``.
 
         :param str last_cursor: Last to cursor to compare for changes.
@@ -684,7 +689,6 @@ class MaestralApiClient:
 
 
 def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 

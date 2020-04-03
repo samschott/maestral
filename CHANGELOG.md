@@ -1,3 +1,44 @@
+## v0.6.4
+
+The release provides bug fixes and minor improvements to the command line and graphical
+user interfaces. Importantly, it fixes an issue where some files could accidentally become
+un-indexed, resulting in incorrect conflict resolution.
+
+#### Added:
+
+- Config option to set the keyring backend. This defaults to 'automatic' but can be used
+  to specify a preferred backend such as `keyrings.backends.kwallet.DBusKeyring`. You will
+  need to migrate your credentials manually to the new keyring if you change this setting.
+- Added a `--verbose` flag to `maestral start` and `maestral restart` commands to print
+  log output to stdout.
+- Added an API documentation for developers, available on
+  [Read the Docs](https://maestral-dropbox.readthedocs.io).
+
+#### Changed:
+
+- During initial CLI setup, give the option to sync the entire Dropbox without paginating
+  through individual folders to exclude.
+- Limit the number of notifications to keep in the notification center. This will only
+  work for some desktop environments.
+- Fall back to plain text credential storage if neither Gnome Keyring, KWallet or any
+  other storage implementing the Secret Service API can be found. A warning is shown when
+  plain text storage is used.
+- Settings and setup windows are no longer always kept on top in Linux.
+- `maestral start --foreground` no longer prints log messages to stdout by default.
+
+#### Fixed:
+
+- Properly handle errors when moving files, for instance for sync conflicts.
+- Fixes an issue where some files could accidentally become un-indexed, resulting in
+  incorrect conflict resolution.
+- Fixes an issue with macOS app bundles where the migration of configuration files was
+  omitted after an update. This would result in a failure to start the daemon.
+- Correctly specify the required version of `six` to work around an upstream issue in
+  Dropbox.
+- Fixes an issue where stdout would end up in the systemd journal in addition to the
+  structured log messages.
+- Fixed a bug where XDG_DATA_HOME was ignored.
+
 ## v0.6.3
 
 This release fixes a critical error introduced when updating to v9.5 of the Dropbox Python
@@ -569,7 +610,7 @@ bug fixes and small tweaks to the UI.
 
 - No longer install a script "maestral-gui". Use "maestral gui" instead.
 
-## v0.3.1 (2019-08-14)
+## v0.3.1
 
 #### Fixed:
 
@@ -578,7 +619,7 @@ bug fixes and small tweaks to the UI.
   [https://bugs.python.org/issue1692335#msg310951](https://bugs.python.org/issue1692335#msg310951)
   for a discussion).
 
-## v0.3.0 (2019-08-14)
+## v0.3.0
 
 This release includes several significant changes. The largest are:
 
@@ -628,7 +669,7 @@ The detailed list of changes is:
 - Fixed handling of `ListFolder` errors. Those will only occur when the user gives an
   incorrect folder name to list and will (hopefully) never be caused my Maestral itself.
 
-## v0.2.6 (2019-08-08)
+## v0.2.6
 
 This release fixes a critical bug which would cause Maestral to get stuck after the
 initial sync. This does not affect users who have already performed the initial sync
@@ -649,7 +690,7 @@ with a previous version of Maestral.
 - Fixes an issue in macOS where modal dialogs in the settings window would sometimes
   appear behind the window instead of in front of it.
 
-## v0.2.5 (2019-08-07)
+## v0.2.5
 
 This release fixes several sync issues which could occur when the internet connection is
 lost during a sync. It also notifies the user if Maestral's access to their Dropbox has
@@ -679,7 +720,7 @@ been revoked.
 - Fixed an issue where errors from `requests` would inadvertently get caught instead of
   being raised.
 
-## v0.2.4 (2019-08-05)
+## v0.2.4
 
 This version mainly improves the appearance and responsiveness of the GUI specifically on
 Linux platforms with a Gnome desktop. It also introduces a dialog to handle a deleted or
@@ -705,7 +746,7 @@ moved Dropbox folder.
 - Fixed missing line-breaks in the traceback shown by the error dialog.
 - Updated console scripts to reflect changes in MaestralMonitor and MaestralApiClient.
 
-## v0.2.3 (2019-07-22)
+## v0.2.3
 
 This release mainly fixes crashes of the setup dialog and contains tweaks to the UI.
 
@@ -723,7 +764,7 @@ This release mainly fixes crashes of the setup dialog and contains tweaks to the
 - Fixed a bug which could cause Maestral to crash during the setup dialog, immediately
   after user authentication.
 
-## v0.2.2 (2019-07-19)
+## v0.2.2
 
 #### Added:
 
@@ -749,7 +790,7 @@ This release mainly fixes crashes of the setup dialog and contains tweaks to the
 - Fixed a bug which would prevent some error dialogs from being shown to the user.
 - Fixed a bug which would cause the setup dialog to crash after linking to Dropbox.
 
-## v0.2.1 (2019-07-18)
+## v0.2.1
 
 #### Changed:
 
@@ -765,7 +806,7 @@ This release mainly fixes crashes of the setup dialog and contains tweaks to the
 - Fixes a bug which would prevent Meastral from starting on login: the correct startup
   script is now called.
 
-## v0.2.0 (2019-07-17)
+## v0.2.0
 
 #### Major changes
 
@@ -839,7 +880,7 @@ This release mainly fixes crashes of the setup dialog and contains tweaks to the
 - Fixed a bug which would cause Maestral to crash when clicking "Choose folders to sync..."
   while Maestral cannot connect to Dropbox servers.
 
-## v0.1.2 (2019-06-25)
+## v0.1.2
 
 #### Added:
 
@@ -862,7 +903,7 @@ This release mainly fixes crashes of the setup dialog and contains tweaks to the
 - Do not upload files that have identical content on Dropbox. Previously: files were
   always uploaded and conflict checking was left to do by the Dropbox server.
 
-## v0.1.1 (2019-06-23)
+## v0.1.1
 
 #### Fixed:
 

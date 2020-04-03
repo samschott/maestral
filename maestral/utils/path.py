@@ -5,6 +5,8 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This module contains functions for common path operations used by Maestral.
+
 """
 import os
 from os import path as osp
@@ -13,12 +15,12 @@ import shutil
 
 def is_child(path, parent):
     """
-    Checks if :param:`path` semantically is inside :param:`parent`. Neither path needs to
+    Checks if ``path`` semantically is inside ``parent``. Neither path needs to
     refer to an actual item on the drive. This function is case sensitive.
 
     :param str path: Item path.
     :param str parent: Parent path.
-    :returns: ``True`` if :param:`path` semantically lies inside :param:`parent` or
+    :returns: ``True`` if ``path`` semantically lies inside ``parent`` or
         ``path == parent``, ``False`` otherwise.
     :rtype: bool
     """
@@ -36,7 +38,7 @@ def is_equal_or_child(path, parent):
 
     :param str path: Item path.
     :param str parent: Parent path.
-    :returns: ``True`` if :param:`path` semantically lies inside :param:`parent`,
+    :returns: ``True`` if ``path`` semantically lies inside ``parent``,
         ``False`` otherwise (including ``path == parent``).
     :rtype: bool
     """
@@ -46,11 +48,11 @@ def is_equal_or_child(path, parent):
 
 def path_exists_case_insensitive(path, root='/'):
     """
-    Checks if a `path` exists in given `root` directory, similar to `os.path.exists` but
-    case-insensitive. A list of all case-insensitive matches is returned.
+    Checks if a ``path`` exists in given ``root`` directory, similar to ``os.path.exists``
+    but case-insensitive. A list of all case-insensitive matches is returned.
 
-    :param str path: Path relative to the `root` directory.
-    :param str root: Directory where we will look for `path`. There are significant
+    :param str path: Path relative to ``root``.
+    :param str root: Directory where we will look for ``path``. There are significant
         performance improvements if a root directory with a small tree is given.
     :return: List of absolute and case-sensitive to search results.
     :rtype: list[str]
@@ -89,7 +91,7 @@ def to_cased_path(path, root='/'):
     Returns a cased version of the given path, if exists in the given root directory,
     or an empty string otherwise.
 
-    :param str path:
+    :param str path: Original path.
     :param str root: Parent directory to search in.
     :returns: Absolute and cased version of given path or empty string.
     :rtype: str
@@ -136,8 +138,8 @@ def generate_cc_name(path, suffix='conflicting copy'):
 
 def delete(path, raise_error=False):
     """
-    Deletes a file or folder at :param:`path`. Returns any caught
-    exceptions on failure or None on success.
+    Deletes a file or folder at ``path``. Exceptions are either raised or returned if
+    ``raise_error`` is False.
     """
     err = None
 
@@ -148,6 +150,28 @@ def delete(path, raise_error=False):
             os.unlink(path)
         except OSError as e:
             err = e
+
+    if raise_error and err:
+        raise err
+    else:
+        return err
+
+
+def move(src_path, dest_path, raise_error=False):
+    """
+    Moves a file or folder from ``src_path`` to ``dest_path``. If either the source or
+    the destination path no longer exist, this function does nothing. Any other
+    exceptions are either raised or returned if ``raise_error`` is False.
+    """
+    err = None
+
+    try:
+        shutil.move(src_path, dest_path)
+    except FileNotFoundError:
+        # do nothing of source or dest path no longer exist
+        pass
+    except OSError as exc:
+        err = exc
 
     if raise_error and err:
         raise err
