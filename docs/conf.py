@@ -33,7 +33,8 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
-    'm2r'
+    'm2r',
+    'sphinx_click.ext',
 ]
 
 templates_path = ['_templates']

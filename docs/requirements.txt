@@ -16,3 +16,4 @@ six
 u-msgpack-python
 watchdog
 m2r
+sphinx-click

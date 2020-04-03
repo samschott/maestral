@@ -33,10 +33,8 @@ KILLED = click.style('[KILLED]', fg='red')
 
 
 def pending_link_cli(config_name):
-    """
-    This does not create a Maestral instance and is therefore safe to call from anywhere
-    at any time.
-    """
+    """Wrapper around :meth:`maestral.utils.backend.pending_link` with
+    command line feedback."""
     from maestral.utils.backend import pending_link
     from keyring.errors import KeyringLocked
 
@@ -52,7 +50,7 @@ def pending_link_cli(config_name):
 
 
 def start_daemon_subprocess_with_cli_feedback(config_name, log_to_stdout=False):
-    """Wrapper around `daemon.start_maestral_daemon_process`
+    """Wrapper around :meth:`daemon.start_maestral_daemon_process`
     with command line feedback."""
     from maestral.daemon import start_maestral_daemon_process, Start
 
@@ -65,7 +63,7 @@ def start_daemon_subprocess_with_cli_feedback(config_name, log_to_stdout=False):
 
 
 def stop_daemon_with_cli_feedback(config_name):
-    """Wrapper around `daemon.stop_maestral_daemon_process`
+    """Wrapper around :meth:`daemon.stop_maestral_daemon_process`
     with command line feedback."""
 
     from maestral.daemon import stop_maestral_daemon_process, Exit
@@ -123,7 +121,7 @@ def _check_for_fatal_errors(m):
 def catch_maestral_errors(func):
     """
     Decorator that catches all MaestralApiErrors and prints them as a useful message to
-    the user instead of printing the full stacktrace to the console.
+    the command line instead of printing the full stacktrace.
     """
 
     from maestral.errors import MaestralApiError
@@ -145,6 +143,16 @@ def catch_maestral_errors(func):
 
 
 def format_table(rows=None, columns=None, headers=None, padding_right=2):
+    """
+    Prints given data as a pretty table. Either rows or columns must be given.s
+
+    :param list rows: List of strings for table rows.
+    :param list columns: List of strings for table columns.
+    :param list headers: List of strings for column titles.
+    :param int padding_right: Padding between columns.
+    :return: Formatted multiline string.
+    :rtype: str
+    """
 
     if (rows and columns) or not (rows or columns):
         raise ValueError('Must give either rows or columns as input.')
@@ -194,6 +202,9 @@ def format_table(rows=None, columns=None, headers=None, padding_right=2):
 # ========================================================================================
 
 class SpecialHelpOrder(click.Group):
+    """
+    Click command group with customizable order of help output.
+    """
 
     def __init__(self, *args, **kwargs):
         self.help_priorities = {}
