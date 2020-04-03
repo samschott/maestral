@@ -1,4 +1,4 @@
-## v0.6.4.dev
+## v0.6.4
 
 The release provides bug fixes and minor improvements to the command line and graphical
 user interfaces. Importantly, it fixes an issue where some files could accidentally become
@@ -33,6 +33,11 @@ un-indexed, resulting in incorrect conflict resolution.
   incorrect conflict resolution.
 - Fixes an issue with macOS app bundles where the migration of configuration files was
   omitted after an update. This would result in a failure to start the daemon.
+- Correctly specify the required version of `six` to work around an upstream issue in
+  Dropbox.
+- Fixes an issue where stdout would end up in the systemd journal in addition to the
+  structured log messages.
+- Fixed a bug where XDG_DATA_HOME was ignored.
 
 ## v0.6.3
 
@@ -56,8 +61,6 @@ SDK which prevented any remote changes from being downloaded.
   keep an old Dropbox folder. The labels "Replace" and "Cancel" where switched.
 - Fixes a bug where the option "Unlink & Quit" in the "Revoked Access" error dialog would
   unlink but not quit Maestral.
-- Fixes an issue where stdout would end up in the systemd journal.
-- Fixed a bug where XDG_DATA_HOME was ignored.
 
 ## v0.6.2
 
