@@ -4,7 +4,7 @@ SPEC_FILE=maestral_linux.spec
 
 echo "**** BUILDing *****************************************"
 
-python3 -OO -m PyInstaller  -y --clean -w $SPEC_FILE
+python3 -m PyInstaller  -y --clean -w $SPEC_FILE
 
 echo "**** SIGNING ******************************************"
 
