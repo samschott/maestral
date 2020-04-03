@@ -182,6 +182,7 @@ class AutoStartSystemd(AutoStartMaestralBase):
 
     @property
     def enabled(self):
+        """Checks if the systemd service is enabled."""
         res = subprocess.call(
             ['systemctl', '--user', '--quiet', 'is-enabled', self.service_name]
         )
@@ -225,6 +226,7 @@ class AutoStartLaunchd(AutoStartMaestralBase):
 
     @property
     def enabled(self):
+        """Checks if the launchd plist exists in ~/Library/LaunchAgents."""
         return os.path.isfile(self.destination)
 
 
@@ -270,6 +272,7 @@ class AutoStartXDGDesktop(AutoStartMaestralBase):
 
     @property
     def enabled(self):
+        """Checks if the XDG desktop entry exists in ~/.config/autostart."""
         return os.path.isfile(self.destination)
 
 
