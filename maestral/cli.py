@@ -488,7 +488,14 @@ def status(config_name: str):
 @existing_config_option
 @click.argument('local_path', type=click.Path(exists=True))
 def file_status(config_name: str, local_path: str):
-    """Returns the current sync status of a given file or folder."""
+    """
+    Returns the current sync status of a given file or folder.
+
+    Returned value will be 'uploading', 'downloading', 'up to date', 'error', or
+    'unwatched' (for files outside of the Dropbox directory). This will always be
+    'unwatched' if syncing is paused.
+
+    """
     from maestral.daemon import MaestralProxy
 
     try:
