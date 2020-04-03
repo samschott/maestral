@@ -19,7 +19,8 @@ class DropboxContentHasher(object):
     is what the "content_hash" metadata field uses.
     This class has the same interface as the hashers in the standard 'hashlib'
     package.
-    Example:
+
+    .. Example:
         hasher = DropboxContentHasher()
         with open('some-file', 'rb') as f:
             while True:

@@ -25,6 +25,12 @@ logger = logging.getLogger(__name__)
 
 
 def migrate_user_config(config_name):
+    """
+    Migrates user configs prior to v11.0.0 to newer configs. This will be removed when we
+    are out of beta.
+
+    :param str config_name: Name of user config.
+    """
     config_path = get_conf_path(CONFIG_DIR_NAME, create=False)
     config_fname = osp.join(config_path, config_name + '.ini')
 
@@ -98,6 +104,12 @@ def migrate_user_config(config_name):
 
 
 def migrate_maestral_index(config_name):
+    """
+    Migrates the maestral index from inside the user's Dropbox folder to the platforms
+    data dir. This will be removed when we are out of beta.
+
+    :param str config_name: Name of user config.
+    """
     conf = MaestralConfig(config_name)
 
     old_rev_file_path = osp.join(conf.get('main', 'path'), '.maestral')
@@ -117,6 +129,7 @@ def migrate_maestral_index(config_name):
 
 
 def run_housekeeping():
+    """Performs the above migrations for all detected configs"""
     for config_name in list_configs():
         migrate_user_config(config_name)
         migrate_maestral_index(config_name)

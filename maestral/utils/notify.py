@@ -111,6 +111,7 @@ class DesktopNotifierBase:
 
 
 class DesktopNotifierStdout(DesktopNotifierBase):
+    """Stdout backend for all platforms."""
 
     def send(self, title, message, urgency=DesktopNotifierBase.NORMAL, icon_path=None):
         if urgency == self.CRITICAL:
@@ -121,6 +122,7 @@ class DesktopNotifierStdout(DesktopNotifierBase):
 
 
 class DesktopNotifierNC(DesktopNotifierBase):
+    """UNUserNotificationCenter backend for macOS. For macOS Catalina and newer."""
 
     def __init__(self, app_name):
         super().__init__(app_name)
@@ -152,6 +154,7 @@ class DesktopNotifierNC(DesktopNotifierBase):
 
 
 class DesktopNotifierLegacyNC(DesktopNotifierBase):
+    """NSUserNotificationCenter backend for macOS. Pre macOS Catalina."""
 
     def __init__(self, app_name):
         super().__init__(app_name)
@@ -168,6 +171,7 @@ class DesktopNotifierLegacyNC(DesktopNotifierBase):
 
 
 class DesktopNotifierOsaScript(DesktopNotifierBase):
+    """Apple script backend for macOS."""
 
     def send(self, title, message, urgency=DesktopNotifierBase.NORMAL,
              icon_path=None, action=None):
@@ -178,7 +182,7 @@ class DesktopNotifierOsaScript(DesktopNotifierBase):
 
 
 class DesktopNotifierNotifySend(DesktopNotifierBase):
-
+    """Notify-send backend for Linux."""
     def __init__(self, app_name):
         super().__init__(app_name)
         self._with_app_name = True
@@ -203,6 +207,8 @@ class DesktopNotifierNotifySend(DesktopNotifierBase):
 
 
 class DesktopNotifierFreedesktopDBus(DesktopNotifierBase):
+    """DBus notification backend for Linux. This implements the
+    org.freedesktop.Notifications standard."""
 
     def __init__(self, app_name):
         super().__init__(app_name)
@@ -229,10 +235,12 @@ class DesktopNotifierFreedesktopDBus(DesktopNotifierBase):
 
 
 class DesktopNotifier:
-    """Send native OS notifications to user.
+    """
+    Cross-platform desktop notifications for macOS and Linux. Uses different backends
+    depending on the platform version and available services.
 
-    Relies on AppleScript on macOS and notify-send on linux, otherwise
-    falls back to stdout."""
+    :param str app_name: Name of sending app.
+    """
 
     CRITICAL = 'critical'
     NORMAL = 'normal'
@@ -253,8 +261,18 @@ class DesktopNotifier:
         else:
             self._impl = DesktopNotifierStdout(app_name)
 
-    def send(self, title, message, urgency=NORMAL, icon_path=None):
-        self._impl.send(title, message, urgency, icon_path)
+    def send(self, title, message, urgency=NORMAL, icon=None):
+        """
+        Sends a desktop notification.
+
+        :param str title: Notification title.
+        :param str message: Notification message.
+        :param str urgency: Notification urgency. Some backends use this to determine how
+            the notification is displayed.
+        :param str icon: Path to an icon. Some backends support displaying an (app) icon
+            together with the notification.
+        """
+        self._impl.send(title, message, urgency, icon)
 
     @staticmethod
     def _get_available_implementation():
@@ -352,7 +370,7 @@ class MaestralDesktopNotifier(logging.Handler):
             system_notifier.send(
                 title='Maestral',
                 message=message,
-                icon_path=APP_ICON_PATH,
+                icon=APP_ICON_PATH,
                 urgency=urgency
             )
 
