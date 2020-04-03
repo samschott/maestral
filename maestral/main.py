@@ -438,13 +438,13 @@ class Maestral:
 
     @property
     def notification_level(self):
-        """Level for desktop notifications. See :module:`utils.notify` for level
+        """Level for desktop notifications. See :mod:`utils.notify` for level
         definitions."""
         return self.desktop_notifier.notify_level
 
     @notification_level.setter
     def notification_level(self, level):
-        """Setter: Level for desktop notifications. See :module:`utils.notify` for
+        """Setter: Level for desktop notifications. See :mod:`utils.notify` for
         level definitions."""
         self.desktop_notifier.notify_level = level
 

@@ -7,7 +7,7 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 This module is responsible for authorization and token store in the system keyring. It
 provides a higher level user interface and uses the OAuth 2 implicit grant flow from
-:module:`utils.oauth_implicit` to perform the actual auth flow.
+:mod:`utils.oauth_implicit` to perform the actual auth flow.
 
 """
 # system imports

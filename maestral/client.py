@@ -669,7 +669,7 @@ class MaestralApiClient:
     def list_remote_changes(self, last_cursor):
         """
         Lists changes to remote Dropbox since ``last_cursor``. Call this after
-        :method:`wait_for_remote_changes` returns ``True``.
+        :meth:`wait_for_remote_changes` returns ``True``.
 
         :param str last_cursor: Last to cursor to compare for changes.
         :returns: Remote changes since given cursor.
