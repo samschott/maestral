@@ -136,8 +136,7 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
         :meth:`finish` to prevent request forgery.
 
         :param str url_state: Any data that you would like to keep in the URL through the
-            authorization process.  This exact value will be returned to you by
-            :meth:`finish`.
+            authorization process.
         :returns: The URL for a page on Dropbox's website. This page will let the user
             'approve' your app, which gives your app permission to access the user's
             Dropbox account. Tell the user to visit this URL and approve your app.

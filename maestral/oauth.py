@@ -5,6 +5,10 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This module is responsible for authorization and token store in the system keyring. It
+provides a higher level user interface and uses the OAuth 2 implicit grant flow from
+:module:`utils.oauth_implicit` to perform the actual auth flow.
+
 """
 # system imports
 import logging
@@ -26,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 class OAuth2Session:
     """
-    OAuth2Session provides OAuth2 login and token store. To authenticate with Dropbox,
+    OAuth2Session provides OAuth 2 login and token store. To authenticate with Dropbox,
     run ``get_auth_url`` first and direct the user to visit that URL and retrieve an auth
     token. Verify the provided auth token with ``verify_auth_token`` and save it in the
     system keyring together with the corresponding Dropbox ID by calling ``save_creds``.
