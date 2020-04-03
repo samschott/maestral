@@ -5,6 +5,9 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This module defines Maestral's error classes. It should be kept free of memory heavy
+imports.
+
 """
 import errno
 

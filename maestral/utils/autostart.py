@@ -5,6 +5,9 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This module handles starting for Maestral on user login and supports multiple backends,
+depending on the platform and if we want to start the daemon or GUI.
+
 """
 import sys
 import os
@@ -30,31 +33,47 @@ _resources = pkg_resources.resource_filename('maestral', 'resources')
 
 
 class SupportedImplementations(Enum):
+    """
+    Enumeration of supported implementations.
+
+    :cvar str systemd: macOS systemd.
+    :cvar str launchd: Linux launchd.
+    :cvar str xdg_desktop: Linux autostart xdg desktop entries.
+    """
     systemd = 'systemd'
     launchd = 'launchd'
     xdg_desktop = 'xdg_desktop'
 
 
 class AutoStartBase:
+    """
+    Base class for autostart backends.
+
+    :param str config_name: Name of the config to start.
+    :param bool gui: ``True`` if we are starting a GUI, ``False`` otherwise.
+    """
 
     def __init__(self, config_name, gui):
         self.config_name = config_name
         self.gui = gui
 
     def enable(self):
+        """Enable autostart. Must be implemented in subclass."""
         raise NotImplementedError('No supported implementation')
 
     def disable(self):
+        """Disable autostart. Must be implemented in subclass."""
         raise NotImplementedError('No supported implementation')
 
     @property
     def enabled(self):
+        """Returns the enabled status as bool. Must be implemented in subclass."""
         return False
 
 
 class AutoStartMaestralBase(AutoStartBase):
     """
-    Base class for autostart backends.
+    Base class for Maestral autostart backends.
 
     :param str config_name: Name of the config to start.
     :param bool gui: ``True`` if we are starting a GUI, ``False`` otherwise.
@@ -122,11 +141,6 @@ class AutoStartMaestralBase(AutoStartBase):
     def _disable(self):
         """Private method to disable autostart. This should be overridden in a
         subclass."""
-        raise NotImplementedError()
-
-    @property
-    def enabled(self):
-        """True if autostart is enabled. This should be overridden in a subclass."""
         raise NotImplementedError()
 
 

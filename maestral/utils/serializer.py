@@ -5,6 +5,9 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This module contains functions to serialize class instances for communication between the
+daemon and frontends.
+
 """
 # system imports
 import json

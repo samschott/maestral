@@ -32,9 +32,13 @@ class OAuth2Session:
     system keyring together with the corresponding Dropbox ID by calling ``save_creds``.
     The convenience method ``link`` runs through the above auth flow in a command line
     user dialog.
-    """
 
-    oAuth2FlowResult = None
+    :param str config_name: Name of maestral config.
+
+    :cvar int Success: Exit code for successful auth.
+    :cvar int InvalidToken: Exit code for invalid token.
+    :cvar int ConnectionFailed: Exit code for connection errors.
+    """
 
     Success = 0
     InvalidToken = 1
@@ -49,6 +53,7 @@ class OAuth2Session:
         self.access_token = ""
 
         self.auth_flow = None
+        self.oAuth2FlowResult = None
 
     def load_token(self):
         """

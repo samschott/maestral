@@ -5,6 +5,8 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This module is the heart of Maestral, it contains the classes for sync functionality.
+
 """
 # system imports
 import os
@@ -67,7 +69,14 @@ _cpu_count = os.cpu_count()
 # ========================================================================================
 
 class Conflict(IntEnum):
-    """Enumeration of sync conflict types."""
+    """
+    Enumeration of sync conflict types.
+
+    :cvar int RemoteNewer: Remote item is newer.
+    :cvar int Conflict: Conflict.
+    :cvar int Identical: Items are identical.
+    :cvar int LocalNewerOrIdentical: Local item is newer or identical.
+    """
     RemoteNewer = 0
     Conflict = 1
     Identical = 2
@@ -106,9 +115,12 @@ class FSEventHandler(FileSystemEventHandler):
     :param Event syncing: Set when syncing is running.
     :param Event startup: Set when startup is running.
     :param UpDownSync sync: UpDownSync instance.
+
+    :cvar int ignore_timeout: Timeout in seconds after which ignored paths will be
+        discarded.
     """
 
-    _ignore_timeout = 2
+    ignore_timeout = 2
 
     def __init__(self, syncing, startup, sync):
 
@@ -130,9 +142,9 @@ class FSEventHandler(FileSystemEventHandler):
         A context manager to ignore file events related to the given paths. Once a
         matching event has been registered, further file events for the corresponding path
         will no longer be ignored unless ``recursive`` is ``True``. If no matching event
-        has occurred before leaving the context, the paths will be ignored for 2 sec after
-        leaving then context and then discarded. This accounts for possible delays in the
-        emission of local file system events.
+        has occurred before leaving the context, the paths will be ignored for
+        ``ignore_timeout`` sec after leaving then context and then discarded. This
+        accounts for possible delays in the emission of local file system events.
 
         This context manager is used to filter out file system events caused by maestral
         itself, for instance during a download or when moving a conflict.
@@ -166,7 +178,7 @@ class FSEventHandler(FileSystemEventHandler):
         finally:
             with self._mutex:
                 for ignore in new_ignores:
-                    ignore['ttl'] = time.time() + self._ignore_timeout
+                    ignore['ttl'] = time.time() + self.ignore_timeout
 
     def _expire_ignored_paths(self):
         """Removes all expired ignore entries."""
@@ -480,7 +492,7 @@ class UpDownSync:
     def dropbox_path(self):
         """
         Path to local Dropbox folder, as loaded from the config file. Before changing
-        :ivar:`dropbox_path`, make sure that syncing is paused. Move the dropbox folder to
+        :attr:`dropbox_path`, make sure that syncing is paused. Move the dropbox folder to
         the new location before resuming the sync. Changes are saved to the config file.
         """
         return self._dropbox_path

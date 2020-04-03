@@ -5,7 +5,7 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
-This module contains migration code to run after an update from < v0.6.0
+This module contains migration code to run after an update from < v0.6.0.
 
 """
 import sys

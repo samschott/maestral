@@ -5,6 +5,8 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This module contains functions for common path operations used by Maestral.
+
 """
 import os
 from os import path as osp

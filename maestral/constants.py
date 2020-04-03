@@ -5,6 +5,9 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This class provides constants used throughout the maestral, the GUI and CLI. It should
+be kept free of memory heavy imports.
+
 """
 # KEEP FREE OF DROPBOX IMPORTS TO REDUCE MEMORY FOOTPRINT
 

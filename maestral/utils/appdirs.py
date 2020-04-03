@@ -5,6 +5,9 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This module contains functions to retrieve platform dependent locations to store app data.
+It supports macOS and Linux.
+
 """
 import os
 import os.path as osp

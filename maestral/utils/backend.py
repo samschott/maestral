@@ -5,6 +5,9 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This module contains functions for frontends (CLI or GUI) to interact with the backend
+without importing memory heavy modules.
+
 """
 from os import path as osp
 import logging

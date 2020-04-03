@@ -5,6 +5,9 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This modules contains the Dropbox API client. It wraps calls to the Dropbox Python SDK
+and handles exceptions, chunked uploads or downloads, etc.
+
 """
 # system imports
 import os

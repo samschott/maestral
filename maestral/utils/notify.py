@@ -5,6 +5,17 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This module handles desktop notifications for Maestral and supports multiple backends,
+depending on the platform. A single :class:`DesktopNotifier` instance is created for all
+all sync daemons and a :class:`MaestralDesktopNotifier` instance is created for each
+daemon individually. Notification settings such as as snoozing and levels can be modified
+through :class:`MaestralDesktopNotifier`.
+
+:constant int NONE: No desktop notifications.
+:constant int ERROR: Notifications on errors.
+:constant int SYNCISSUE: Notifications on sync issues.
+:constant int FILECHANGE: Notifications on file changes.
+
 """
 import shutil
 import time
@@ -67,14 +78,26 @@ _nameToLevel = {
 
 
 def levelNumberToName(number):
+    """Converts a Maestral notification level number to name."""
     return _levelToName[number]
 
 
 def levelNameToNumber(name):
+    """Converts a Maestral notification level name to number."""
     return _nameToLevel[name]
 
 
 class SupportedImplementations(Enum):
+    """
+    Enumeration of supported implementations.
+
+    :cvar str osascript: Apple script notifications.
+    :cvar str notification_center: macOS UNUserNotificationCenter.
+    :cvar str legacy_notification_center: macOS NSNotificationCenter.
+    :cvar str notify_send: Linux notify-send command..
+    :cvar str freedesktop_dbus: Linux dbus notifications.
+    :cvar str stdout: Notify by printing to stdout.
+    """
     osascript = 'osascript'
     notification_center = 'notification-center'
     legacy_notification_center = 'legacy-notification-center'
@@ -85,9 +108,8 @@ class SupportedImplementations(Enum):
 
 class DesktopNotifierBase:
     """
-    Base class for desktop notifications. Notification levels CRITICAL,
-    NORMAL and LOW may be used by some implementations to determine how
-    a notification is displayed.
+    Base class for desktop notifications. Notification levels CRITICAL, NORMAL and LOW may
+    be used by some implementations to determine how a notification is displayed.
 
     :param str app_name: Name to identify the application in the notification center.
         On Linux, this should correspond to the application name in a desktop entry. On
@@ -321,6 +343,9 @@ class MaestralDesktopNotifier(logging.Handler):
     def for_config(cls, config_name):
         """
         Returns an existing instance for the config or creates a new one if none exists.
+        Use this method to prevent creating multiple instances.
+
+        :param str config_name: Name of maestral config.
         """
 
         if config_name in cls._instances:
@@ -338,27 +363,33 @@ class MaestralDesktopNotifier(logging.Handler):
 
     @property
     def notify_level(self):
-        """Custom notification level."""
+        """Custom notification level. Notifications with a lower level will be
+        discarded."""
         return self._conf.get('app', 'notification_level')
 
     @notify_level.setter
     def notify_level(self, level):
-        """Setter: Custom notification level."""
+        """Setter: notify_level."""
         assert isinstance(level, int)
         self._conf.set('app', 'notification_level', level)
 
     @property
     def snoozed(self):
-        """
-        Time in minutes to snooze notifications. Applied to FILECHANGE level only.
-        """
+        """Time in minutes to snooze notifications. Applied to FILECHANGE level only."""
         return max(0.0, (self._snooze - time.time()) / 60)
 
     @snoozed.setter
     def snoozed(self, minutes):
+        """Setter: snoozed."""
         self._snooze = time.time() + minutes * 60
 
     def notify(self, message, level=FILECHANGE):
+        """
+        Sends a desktop notification from maestral. The title defaults to 'Maestral'.
+
+        :param str message: Notification message.
+        :param int level: Notification level of the message.
+        """
 
         ignore = self.snoozed and level == FILECHANGE
         if level == ERROR:
@@ -375,5 +406,6 @@ class MaestralDesktopNotifier(logging.Handler):
             )
 
     def emit(self, record):
+        """Emits a log record as desktop notification."""
         self.format(record)
         self.notify(record.message, level=record.levelno)

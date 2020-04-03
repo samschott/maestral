@@ -5,6 +5,9 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
+This module defines functions to start and stop the sync daemon and retrieve proxy objects
+for a running daemon.
+
 """
 # system imports
 import sys
