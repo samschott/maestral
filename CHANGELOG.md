@@ -1,5 +1,9 @@
 ## v0.6.4.dev
 
+The release provides bug fixes and minor improvements to the command line and graphical
+user interfaces. Importantly, it fixes an issue where some files could accidentally become
+un-indexed, resulting in incorrect conflict resolution.
+
 #### Added:
 
 - Config option to set the keyring backend. This defaults to 'automatic' but can be used
