@@ -83,7 +83,7 @@ class InQueue:
 
     def __init__(self, queue, *items):
         """
-        :param queue: Instance of :class:`Queue`.
+        :param queue: Instance of :class:`queue.Queue`.
         :param iterable items: Items to put in queue.
         """
         self.items = items
@@ -129,14 +129,15 @@ class FSEventHandler(FileSystemEventHandler):
         """
         A context manager to ignore file events related to the given paths. Once a
         matching event has been registered, further file events for the corresponding path
-        will no longer be ignored. If no matching event occurs before leaving the context,
-        the paths will be ignored for 2 sec after leaving then context and then discarded.
-        This accounts for possibly delays in the emission of local file system events.
+        will no longer be ignored unless ``recursive`` is ``True``. If no matching event
+        has occurred before leaving the context, the paths will be ignored for 2 sec after
+        leaving then context and then discarded. This accounts for possible delays in the
+        emission of local file system events.
 
         This context manager is used to filter out file system events caused by maestral
         itself, for instance during a download or when moving a conflict.
 
-        :param list local_paths: Local paths to ignore.
+        :param iterable local_paths: Local paths to ignore.
         :param iterable event_types: Event types that should be ignored. Members should be
             'moved', 'deleted' or 'created'.
         :param bool recursive: True if all events of child paths (of the same type) should
@@ -245,7 +246,8 @@ class FSEventHandler(FileSystemEventHandler):
     def on_any_event(self, event):
         """
         Callback on any event. Checks if the system file event should be ignored. If not,
-        adds it to the queue for events to upload.
+        adds it to the queue for events to upload. If syncing is paused or stopped, all
+        events will be ignored.
 
         :param event: Watchdog file event.
         """
@@ -309,6 +311,7 @@ class MaestralStateWrapper(abc.MutableSet):
             self._state.set(self.section, self.option, list(state_list))
 
     def clear(self):
+        """Clears all elements."""
         with self._lock:
             self._state.set(self.section, self.option, [])
 
@@ -2451,8 +2454,9 @@ def helper(mm):
     """
     A worker for periodic maintenance:
 
-     1) Updates the current space usage by calling :meth:`client.get_space_usage`. This
-        doubles as a check for the connection to Dropbox servers.
+     1) Updates the current space usage by calling
+        :meth:`client.MaestralApiClient.get_space_usage`. This doubles as a check for the
+        connection to Dropbox servers.
      2) Pauses syncing when the connection is lost and resumes syncing when reconnected
         and syncing has not been paused by the user.
      3) Triggers weekly reindexing.
@@ -2935,7 +2939,7 @@ class MaestralMonitor:
 
         Rebuilding will be performed asynchronously.
 
-        :raises: :class:`MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`
         """
 
         logger.info('Rebuilding index...')

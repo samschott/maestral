@@ -430,7 +430,7 @@ def get_maestral_proxy(config_name='maestral', fallback=False):
     :param bool fallback: If ``True``, a new instance of Maestral will be returned when
         the daemon cannot be reached. Defaults to ``False``.
     :returns: Pyro proxy of Maestral or a new instance.
-    :raises: ``Pyro5.errors.CommunicationError`` if the daemon cannot be reached and
+    :raises: :class:`Pyro5.errors.CommunicationError` if the daemon cannot be reached and
         ``fallback`` is ``False``.
     """
 

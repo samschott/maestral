@@ -86,8 +86,7 @@ class OAuth2Session:
         """
         Verify the provided authorization token with Dropbox servers.
 
-        :returns: :attr:`Success`, :attr:`OAuth2Session.InvalidToken`, or
-            :attr:`OAuth2Session.ConnectionFailed`.
+        :returns: :attr:`Success`, :attr:`InvalidToken`, or :attr:`ConnectionFailed`.
         :rtype: int
         """
 
