@@ -3008,18 +3008,18 @@ def get_local_hash(local_path):
         del hasher
 
 
-def remove_from_queue(q, *items):
+def remove_from_queue(queue, *items):
     """
     Tries to remove an item from a queue.
 
-    :param Queue q: Queue to remove item from.
+    :param Queue queue: Queue to remove item from.
     :param items: Items to remove
     """
 
-    with q.mutex:
+    with queue.mutex:
         for item in items:
             try:
-                q.queue.remove(item)
+                queue.queue.remove(item)
             except ValueError:
                 pass
 
