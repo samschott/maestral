@@ -97,7 +97,7 @@ In the above case, this will be "Dropbox (Personal)" and "Dropbox (Work)".
 ## Contribute
 
 A documentation for developers is available at
-[https://maestral-dropbox.readthedocs.io/en/latest](https://maestral-dropbox.readthedocs.io/en/latest).
+[https://maestral-dropbox.readthedocs.io](https://maestral-dropbox.readthedocs.io).
 The following tasks could need your help:
 
 - [ ] Packaging for non-macOS platforms.
