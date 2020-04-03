@@ -3,10 +3,12 @@
 #### Added:
 
 - Config option to set the keyring backend. This defaults to 'automatic' but can be used
-  to specify a preferred backend such as `keyrings.backends.kwallet.DBusKeyring`. Waring:
-  You will need to migrate your credentials manually to the new keyring.
+  to specify a preferred backend such as `keyrings.backends.kwallet.DBusKeyring`. You will
+  need to migrate your credentials manually to the new keyring if you change this setting.
 - Added a `--verbose` flag to `maestral start` and `maestral restart` commands to print
   log output to stdout.
+- Added an API documentation for developers, available on
+  [Read the Docs](https://maestral-dropbox.readthedocs.io).
 
 #### Changed:
 
