@@ -1,3 +1,11 @@
+## v1.0.0.dev1
+
+#### Fixed:
+
+- Fixes a minor issue where internet connection errors while resuming syncing could 
+  result in continuous retries of the upload until the connection was finally established.
+  Instead, Maestral now pauses all syncing until a connection can be stablished. 
+   
 ## v0.6.4
 
 The release provides bug fixes and minor improvements to the command line and graphical
