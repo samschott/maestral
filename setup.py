@@ -44,7 +44,6 @@ install_requires = [
     'sdnotify',
     'setuptools',
     'six>=1.12.0',
-    'u-msgpack-python',
     'watchdog>=0.9.0',
 ]
 

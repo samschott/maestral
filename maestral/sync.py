@@ -31,7 +31,6 @@ import pprint
 
 # external imports
 import pathspec
-import umsgpack
 import dropbox
 from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata
 from watchdog.events import FileSystemEventHandler
@@ -478,7 +477,6 @@ class UpDownSync:
 
         self._rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
         self._rev_dict_cache = dict()
-        self._migrate_rev_dict()
         self._load_rev_dict_from_file(raise_exception=True)
         self._excluded_items = self._conf.get('main', 'excluded_items')
         self._mignore_rules = self._load_mignore_rules_form_file()
@@ -751,18 +749,6 @@ class UpDownSync:
         elif new_exc:
             exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
             logger.error(title, exc_info=exc_info)
-
-    def _migrate_rev_dict(self):
-        try:
-            with self._handle_rev_read_exceptions():
-                with open(self.rev_file_path, 'rb') as f:
-                    self._rev_dict_cache = umsgpack.unpack(f)
-            if isinstance(self._rev_dict_cache, dict):
-                self._save_rev_dict_to_file()
-        except umsgpack.InsufficientDataException:
-            pass
-
-        self._rev_dict_cache = dict()
 
     def _load_rev_dict_from_file(self, raise_exception=False):
         """
