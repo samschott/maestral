@@ -2480,6 +2480,7 @@ def helper(mm):
                 logger.info(DISCONNECTED)
             mm.syncing.clear()
             mm.connected.clear()
+            mm.startup.clear()
             time.sleep(mm.connection_check_interval / 2)
         except DropboxAuthError as e:
             mm.running.clear()
@@ -2684,6 +2685,7 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
         except ConnectionError:
             syncing.clear()
             connected.clear()
+            startup.clear()
             logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
         except MaestralApiError as e:
