@@ -37,9 +37,9 @@ import sdnotify
 
 # maestral modules
 from maestral import __version__
-from maestral.client import MaestralApiClient
+from maestral.client import MaestralApiClient, to_maestral_error
 from maestral.sync import MaestralMonitor
-from maestral.errors import MaestralApiError, DropboxAuthError
+from maestral.errors import MaestralApiError
 from maestral.config import MaestralConfig, MaestralState
 from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
@@ -49,7 +49,7 @@ from maestral.utils.updates import check_update_available
 from maestral.utils.housekeeping import run_housekeeping
 from maestral.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
-    BUGSNAG_API_KEY, IDLE, DISCONNECTED, FileStatus,
+    BUGSNAG_API_KEY, IDLE, FileStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -143,29 +143,6 @@ class SdNotificationHandler(logging.Handler):
 
 
 # decorators
-
-def handle_disconnect(func):
-    """
-    Decorator which catches connection errors and instances of
-    :class:`errors.DropboxAuthError` during a function call and returns ``False`` if an
-    error occurred.
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        # pause syncing
-        try:
-            res = func(*args, **kwargs)
-            return res
-        except ConnectionError:
-            logger.info(DISCONNECTED)
-            return False
-        except DropboxAuthError as e:
-            logger.exception(e.title)
-            return False
-
-    return wrapper
-
 
 def with_sync_paused(func):
     """
@@ -591,7 +568,6 @@ class Maestral:
 
         return dict(uploading=uploading, downloading=downloading)
 
-    @handle_disconnect
     def get_account_info(self):
         """
         Gets account information from Dropbox and returns it as a dictionary. The entries
@@ -599,12 +575,11 @@ class Maestral:
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
-        :raises: :class:`errors.MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`, :class:`ConnectionError`
         """
         res = self.client.get_account_info()
         return dropbox_stone_to_dict(res)
 
-    @handle_disconnect
     def get_space_usage(self):
         """
         Gets the space usage stored by Dropbox and returns it as a dictionary. The
@@ -612,39 +587,33 @@ class Maestral:
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
-        :raises: :class:`errors.MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`, :class:`ConnectionError`
         """
         res = self.client.get_space_usage()
         return dropbox_stone_to_dict(res)
 
     # ==== control methods for front ends ================================================
 
-    @handle_disconnect
     def get_profile_pic(self):
         """
         Attempts to download the user's profile picture from Dropbox. The picture saved
         in Maestral's cache directory for retrieval when there is no internet connection.
-        This function will fail silently in case of a :class:`errors.MaestralApiError`.
 
         :returns: Path to saved profile picture or ``None`` if no profile picture is set.
+        :rtype: str
+        :raises: :class:`errors.MaestralApiError`, :class:`ConnectionError`
         """
 
-        try:
-            res = self.client.get_account_info()
-        except MaestralApiError:
-            pass
-        else:
-            if res.profile_photo_url:
-                # download current profile pic
-                res = requests.get(res.profile_photo_url)
-                with open(self.account_profile_pic_path, 'wb') as f:
-                    f.write(res.content)
-                return self.account_profile_pic_path
-            else:
-                # delete current profile pic
-                self._delete_old_profile_pics()
+        res = self.client.get_account_info()
 
-    @handle_disconnect
+        if res.profile_photo_url:
+            res = requests.get(res.profile_photo_url)
+            with open(self.account_profile_pic_path, 'wb') as f:
+                f.write(res.content)
+            return self.account_profile_pic_path
+        else:
+            self._delete_old_profile_pics()
+
     def list_folder(self, dbx_path, **kwargs):
         """
         List all items inside the folder given by ``dbx_path``. Keyword arguments are
@@ -654,7 +623,7 @@ class Maestral:
         :returns: List of Dropbox item metadata as dicts or ``False`` if listing failed
             due to connection issues.
         :rtype: list[dict]
-        :raises: :class:`errors.MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`, :class:`ConnectionError`
         """
         res = self.client.list_folder(dbx_path, **kwargs)
 
@@ -663,7 +632,6 @@ class Maestral:
         return entries
 
     def _delete_old_profile_pics(self):
-        # delete all old pictures
         for file in os.listdir(get_cache_path('maestral')):
             if file.startswith(self._config_name + '_profile_pic'):
                 try:
@@ -805,7 +773,7 @@ class Maestral:
         :param str dbx_path: Dropbox path of item to include.
         :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox or lies within
             an excluded folder.
-        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        :raises: :class:`ConnectionError`
         """
 
         # input validation
@@ -846,7 +814,6 @@ class Maestral:
         for folder in new_included_items:
             self.sync.queued_newly_included_downloads.put(folder)
 
-    @handle_disconnect
     def set_excluded_items(self, items=None):
         """
         Sets the list of excluded files or folders. If not given, gets all top level
@@ -856,7 +823,7 @@ class Maestral:
         On initial sync, this does not trigger any downloads.
 
         :param Optional[list] items: If given, list of excluded files or folders to set.
-        :raises: :class:`errors.MaestralApiError`
+        :raises: :class:`errors.MaestralApiError`, :class:`ConnectionError`
         """
 
         if items is None:
@@ -1010,7 +977,6 @@ class Maestral:
         while True:
             # update account info
             self.get_account_info()
-            self.get_space_usage()
             self.get_profile_pic()
             # check for maestral updates
             res = self.check_for_updates()
