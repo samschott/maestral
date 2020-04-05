@@ -216,7 +216,10 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
     else:
         return exc
 
-    return err_cls(title, text, dbx_path=dbx_path, local_path=local_path)
+    maestral_exc = err_cls(title, text, dbx_path=dbx_path, local_path=local_path)
+    maestral_exc.__cause__ = exc
+
+    return maestral_exc
 
 
 def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
@@ -424,7 +427,10 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
         title = 'An unexpected error occurred'
         text = exc.args[0]
 
-    return err_cls(title, text, dbx_path=dbx_path, local_path=local_path)
+    maestral_exc = err_cls(title, text, dbx_path=dbx_path, local_path=local_path)
+    maestral_exc.__cause__ = exc
+
+    return maestral_exc
 
 
 def _get_write_error_msg(write_error):
