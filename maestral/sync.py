@@ -28,6 +28,7 @@ from contextlib import contextmanager
 import functools
 from enum import IntEnum
 import pprint
+import socket
 
 # external imports
 import pathspec
@@ -2452,9 +2453,7 @@ def helper(mm):
     """
     A worker for periodic maintenance:
 
-     1) Updates the current space usage by calling
-        :meth:`client.MaestralApiClient.get_space_usage`. This doubles as a check for the
-        connection to Dropbox servers.
+     1) Checks for a connection to Dropbox servers.
      2) Pauses syncing when the connection is lost and resumes syncing when reconnected
         and syncing has not been paused by the user.
      3) Triggers weekly reindexing.
@@ -2463,9 +2462,8 @@ def helper(mm):
     """
 
     while mm.running.is_set():
-        try:
-            # use an inexpensive call to `get_space_usage` to test connection
-            mm.sync.client.get_space_usage()
+
+        if check_connection('www.dropbox.com'):
             if not mm.connected.is_set() and not mm.paused_by_user.is_set():
                 mm.startup.set()
             # rebuild the index periodically
@@ -2474,22 +2472,15 @@ def helper(mm):
                 mm.rebuild_index()
             mm.connected.set()
             time.sleep(mm.connection_check_interval)
-        except ConnectionError:
+
+        else:
             if mm.connected.is_set():
                 logger.debug(DISCONNECTED, exc_info=True)
                 logger.info(DISCONNECTED)
             mm.syncing.clear()
             mm.connected.clear()
             mm.startup.clear()
-            time.sleep(mm.connection_check_interval / 2)
-        except DropboxAuthError as e:
-            mm.running.clear()
-            mm.syncing.clear()
-            logger.error(e.title, exc_info=True)
-        except Exception:
-            mm.running.clear()
-            mm.syncing.clear()
-            logger.error('Unexpected error', exc_info=True)
+            time.sleep(mm.connection_check_interval)
 
 
 def download_worker(sync, syncing, running, connected):
@@ -2521,6 +2512,8 @@ def download_worker(sync, syncing, running, connected):
                     sync.notify_user(downloaded)
 
                     logger.info(IDLE)
+
+                sync.client.get_space_usage()
 
                 gc.collect()
 
@@ -2736,7 +2729,7 @@ class MaestralMonitor:
     :ivar Queue queue_uploading: Holds *local file paths* that are being uploaded.
     """
 
-    connection_check_interval = 4
+    connection_check_interval = 2
 
     def __init__(self, client):
 
@@ -3099,3 +3092,20 @@ def cpu_usage_percent(interval=0.1):
     else:
         single_cpu_percent = overall_cpus_percent * _cpu_count
         return round(single_cpu_percent, 1)
+
+
+def check_connection(hostname):
+    """
+    A low latency check for an internet connection.
+
+    :param str hostname: Hostname to use for connection check.
+    :returns: Connection availability.
+    :rtype: bool
+    """
+    try:
+        host = socket.gethostbyname(hostname)
+        s = socket.create_connection((host, 80), 2)
+        s.close()
+        return True
+    except Exception:
+        return False
