@@ -11,6 +11,12 @@
   result in continuous retries of the upload until the connection was finally established.
   Instead, Maestral now pauses all syncing until a connection can be stablished.
 
+#### Removed:
+
+- Removed migration code for version < 0.6.3. If you want to update to v1.0.0, please make
+  sure to upgrade to at least v0.6.3 first.
+- Removed u-msgpack dependency.
+
 ## v0.6.4
 
 The release provides bug fixes and minor improvements to the command line and graphical
@@ -312,7 +318,7 @@ may be considered the first release candidate for a stable v1.0.0.
 - Improves formatting of `maestral ls` output.
 - Improves status notifications for large uploads: dynamically adapt the unit to show up
   to four significant digits (e.g., "16MB/1.6GB" instead of "0/1.6GB").
-- Reduces memory footprint of macOS app by stripping docstrings (at least 5MB in dropbox
+- Reduces memory footprint of macOS app by stripping doc strings (at least 5MB in dropbox
   package only).
 
 #### Fixed:
@@ -340,7 +346,7 @@ perform an incremental update to v0.4.3 first (see Removed section).
 - Show a progress dialog while checking for updates when requested by the user.
 - Show an error message when the GUI cannot connect to or start a sync daemon.
 - Reduces the memory footprint of the GUI by ~ 30 MB by avoiding Dropbox API imports and
-  deleting QWidgets when they are not visible.
+  deleting QtWidgets when they are not visible.
 - Changing the log level (e.g., `maestral log level DEBUG`) no longer requires a restart
   of the maestral daemon to become effective.
 - `maestral set-dir` now takes the new path as an argument: `maestral set-dir PATH`. If
