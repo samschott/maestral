@@ -22,7 +22,7 @@ import enum
 import Pyro5.errors
 from Pyro5.api import Daemon, Proxy, expose, oneway
 from Pyro5.serializers import SerpentSerializer
-from lockfile.pidlockfile import PIDLockFile, AlreadyLocked, LockTimeout
+from lockfile.pidlockfile import PIDLockFile, AlreadyLocked
 
 # local imports
 from maestral.errors import MaestralApiError, SYNC_ERRORS, FATAL_ERRORS
@@ -216,10 +216,11 @@ def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
     # acquire PID lock file
 
     try:
-        lockfile.acquire(timeout=1)
-    except (AlreadyLocked, LockTimeout):
+        lockfile.acquire()
+    except AlreadyLocked:
         if is_pidfile_stale(lockfile):
             lockfile.break_lock()
+            lockfile.acquire()
         else:
             logger.debug(f'Maestral already running')
             return
