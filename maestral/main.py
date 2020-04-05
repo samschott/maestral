@@ -89,8 +89,8 @@ class CachedHandler(logging.Handler):
     error interfaces.
 
     :param int level: Initial log level. Defaults to NOTSET.
-    :param int maxlen: Maximum number of records to store. If ``None``, all records will
-        be stored.
+    :param Optional[int] maxlen: Maximum number of records to store. If ``None``, all
+        records will be stored. Defaults to ``None``.
     """
 
     def __init__(self, level=logging.NOTSET, maxlen=None):
@@ -855,7 +855,7 @@ class Maestral:
 
         On initial sync, this does not trigger any downloads.
 
-        :param list items: If given, list of excluded files or folders to set.
+        :param Optional[list] items: If given, list of excluded files or folders to set.
         :raises: :class:`errors.MaestralApiError`
         """
 
@@ -921,8 +921,8 @@ class Maestral:
         Sets the local Dropbox directory. This moves all local files to the new location
         and resumes syncing afterwards.
 
-        :param str new_path: Full path to local Dropbox folder. If not given, the user
-            will be prompted to input the path.
+        :param Optional[str] new_path: Full path to local Dropbox folder. If not given,
+            the user will be prompted to input the path.
         :raises: :class:`OSError` if moving the directory fails.
         """
 
@@ -954,8 +954,8 @@ class Maestral:
         """
         Creates a new Dropbox directory. Only call this during setup.
 
-        :param str path: Full path to local Dropbox folder. If not given, the user will be
-            prompted to input the path.
+        :param Optional[str] path: Full path to local Dropbox folder. If not given, the
+            user will be prompted to input the path.
         :raises: :class:`OSError` if creation fails
         """
         path = path or select_dbx_path_dialog(self._config_name, allow_merge=True)

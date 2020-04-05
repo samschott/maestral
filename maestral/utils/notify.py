@@ -291,8 +291,8 @@ class DesktopNotifier:
         :param str message: Notification message.
         :param str urgency: Notification urgency. Some backends use this to determine how
             the notification is displayed.
-        :param str icon: Path to an icon. Some backends support displaying an (app) icon
-            together with the notification.
+        :param Optional[str] icon: Path to an icon. Some backends support displaying an
+            (app) icon together with the notification.
         """
         self._impl.send(title, message, urgency, icon)
 

@@ -146,9 +146,9 @@ def format_table(rows=None, columns=None, headers=None, padding_right=2):
     """
     Prints given data as a pretty table. Either rows or columns must be given.s
 
-    :param list rows: List of strings for table rows.
-    :param list columns: List of strings for table columns.
-    :param list headers: List of strings for column titles.
+    :param Optional[list] rows: List of strings for table rows.
+    :param Optional[list] columns: List of strings for table columns.
+    :param Optional[list] headers: List of strings for column titles.
     :param int padding_right: Padding between columns.
     :return: Formatted multiline string.
     :rtype: str

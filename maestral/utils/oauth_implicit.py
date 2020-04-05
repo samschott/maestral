@@ -32,7 +32,7 @@ class DropboxOAuth2FlowImplicitBase:
     Class to perform an OAuth implicit grant flow.
 
     :param str consumer_key: Consumer key / API key.
-    :param str locale: Locale to use.
+    :param Optional[str] locale: Locale to use.
     """
 
     def __init__(self, consumer_key, locale=None):
@@ -57,7 +57,7 @@ class DropboxOAuth2FlowImplicitBase:
         and puts a marker for the API version in front.
 
         :param str target: A target url (e.g. '/files') to build upon.
-        :param dict params: Optional dictionary of parameters.
+        :param Optional[dict] params: Optional dictionary of parameters.
         :returns: The path and parameters components of an API URL.
         :rtype: str
         """
@@ -82,7 +82,7 @@ class DropboxOAuth2FlowImplicitBase:
         This method adds scheme and hostname to the path returned from build_path.
 
         :param str target: A target url (e.g. '/files') to build upon.
-        :param dict params: Optional dictionary of parameters (name to value).
+        :param Optional[dict] params: Optional dictionary of parameters (name to value).
         :param str host: The host url.
         :returns: The full API URL.
         :rtype: str
@@ -101,13 +101,14 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
         after the user finishes authorizing your app.  This URI must be HTTPS-based and
         pre-registered with the Dropbox servers, though localhost URIs are allowed without
         pre-registration and can be either HTTP or HTTPS.
-    :param dict session: A dict-like object that represents the current user's web session
-        (will be used to save the CSRF token).
+    :param Optional[dict] session: A dict-like object that represents the current user's
+        web session (will be used to save the CSRF token).
     :param str csrf_token_session_key: The key to use when storing the CSRF token in the
         session (for example: 'dropbox-auth-csrf-token').
-    :param str locale: The locale of the user of your application.  For example 'en' or
-        'en_US'. Some API calls return localized data and error messages; this setting
-        tells the server which locale to use. If not given, the server uses 'en_US'.
+    :param Optional[str] locale: The locale of the user of your application.  For example
+        'en' or 'en_US'. Some API calls return localized data and error messages; this
+        setting tells the server which locale to use. If not given, the Dropbox server
+        uses 'en_US'.
     """
 
     REDIRECT_URI = 'https://www.dropbox.com/1/oauth2/display_token'
@@ -135,8 +136,8 @@ class DropboxOAuth2FlowImplicit(DropboxOAuth2FlowImplicitBase):
         (as provided to the constructor). This CSRF token will be checked on
         :meth:`finish` to prevent request forgery.
 
-        :param str url_state: Any data that you would like to keep in the URL through the
-            authorization process.
+        :param Optional[str] url_state: Any data that you would like to keep in the URL
+            through the authorization process.
         :returns: The URL for a page on Dropbox's website. This page will let the user
             'approve' your app, which gives your app permission to access the user's
             Dropbox account. Tell the user to visit this URL and approve your app.

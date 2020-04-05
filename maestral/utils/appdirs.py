@@ -33,8 +33,8 @@ def get_cache_path(subfolder=None, filename=None, create=True):
         - Linux: '$XDG_CACHE_HOME/SUBFOLDER/FILENAME'
         - fallback: '$HOME/.cache/SUBFOLDER/FILENAME'
 
-    :param str subfolder: The subfolder for the app.
-    :param str filename: The filename to append for the app.
+    :param Optional[str] subfolder: The subfolder for the app.
+    :param Optional[str] filename: The filename to append for the app.
     :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
     if platform.system() == 'Darwin':
@@ -54,8 +54,8 @@ def get_log_path(subfolder=None, filename=None, create=True):
         - Linux: '$XDG_CACHE_HOME/SUBFOLDER/FILENAME'
         - fallback: '$HOME/.cache/SUBFOLDER/FILENAME'
 
-    :param str subfolder: The subfolder for the app.
-    :param str filename: The filename to append for the app.
+    :param Optional[str] subfolder: The subfolder for the app.
+    :param Optional[str] filename: The filename to append for the app.
     :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
 
@@ -75,7 +75,7 @@ def get_autostart_path(filename=None, create=True):
         - Linux: '$XDG_CONFIG_HOME/autostart/FILENAME'
         - fallback: '$HOME/.config/autostart/FILENAME'
 
-    :param str filename: The filename to append for the app.
+    :param Optional[str] filename: The filename to append for the app.
     :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
     if platform.system() == 'Darwin':
@@ -97,8 +97,8 @@ def get_runtime_path(subfolder=None, filename=None, create=True):
         - Linux: '$XDG_RUNTIME_DIR/SUBFOLDER/FILENAME'
         - fallback: '$HOME/.cache/SUBFOLDER/FILENAME'
 
-    :param str subfolder: The subfolder for the app.
-    :param str filename: The filename to append for the app.
+    :param Optional[str] subfolder: The subfolder for the app.
+    :param Optional[str] filename: The filename to append for the app.
     :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
 
@@ -119,8 +119,8 @@ def get_old_runtime_path(subfolder=None, filename=None, create=True):
         - Linux: '$XDG_RUNTIME_DIR/SUBFOLDER/FILENAME'
         - fallback: '$HOME/.cache/SUBFOLDER/FILENAME'
 
-    :param str subfolder: The subfolder for the app.
-    :param str filename: The filename to append for the app.
+    :param Optional[str] subfolder: The subfolder for the app.
+    :param Optional[str] filename: The filename to append for the app.
     :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
 

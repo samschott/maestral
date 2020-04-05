@@ -22,16 +22,16 @@ class MaestralApiError(Exception):
     """
     Base class for errors originating from the Dropbox API or the 'local API'.
 
-    :ivar str title: A short description of the error type. This can be used in a CLI or
+    :param str title: A short description of the error type. This can be used in a CLI or
         GUI to give a short error summary.
-    :ivar str message: A more verbose description which can include instructions on how to
-        proceed to fix the error.
-    :ivar str dbx_path: Dropbox path of the file that caused the error.
-    :ivar str dbx_path_dst: Dropbox destination path of the file that caused the error.
-        This should be set for instance when error occurs when moving a file / folder.
-    :ivar str local_path: Local path of the file that caused the error.
-    :ivar str local_path_dst: Local destination path of the file that caused the error.
-        This should be set for instance when error occurs when moving a file / folder.
+    :param str message: A more verbose description which can include instructions on how
+        to proceed to fix the error.
+    :param Optional[str] dbx_path: Dropbox path of the file that caused the error.
+    :param Optional[str] dbx_path_dst: Dropbox destination path of the file that caused
+        the error. This should be set for instance when error occurs when moving an item.
+    :param Optional[str] local_path: Local path of the file that caused the error.
+    :param Optional[str] local_path_dst: Local destination path of the file that caused
+        the error. This should be set for instance when error occurs when moving an item.
     """
 
     def __init__(self, title, message, dbx_path=None, dbx_path_dst=None,
@@ -175,8 +175,8 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
         IsADirectoryError: If raised, this likely is a Maestral bug.
 
     :param OSError exc: Python Exception.
-    :param str dbx_path: Dropbox path of file which triggered the error.
-    :param str local_path: Local path of file which triggered the error.
+    :param Optional[str] dbx_path: Dropbox path of file which triggered the error.
+    :param Optional[str] local_path: Local path of file which triggered the error.
     :returns: :class:`MaestralApiError` instance or :class:`OSError` instance.
     """
 
@@ -225,8 +225,8 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
     informative error title and message.
 
     :param exc: :class:`dropbox.exceptions.DropboxException` instance.
-    :param str dbx_path: Dropbox path of file which triggered the error.
-    :param str local_path: Local path of file which triggered the error.
+    :param Optional[str] dbx_path: Dropbox path of file which triggered the error.
+    :param Optional[str] local_path: Local path of file which triggered the error.
     :returns: :class:`MaestralApiError` instance.
     :rtype: :class:`MaestralApiError`
     """

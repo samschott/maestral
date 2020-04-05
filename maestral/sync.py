@@ -910,8 +910,8 @@ class UpDownSync:
         """
         Clears all sync errors for ``local_path`` or ``dbx_path``.
 
-        :param str local_path: Absolute path on local drive.
-        :param str dbx_path: Path relative to Dropbox folder.
+        :param Optional[str] local_path: Absolute path on local drive.
+        :param Optional[str] dbx_path: Path relative to Dropbox folder.
         :raises: :class:`ValueError` if no path is given.
         """
         if not (local_path or dbx_path):
@@ -3052,22 +3052,19 @@ def entries_to_str(entries):
 
 
 def cpu_usage_percent(interval=0.1):
-    """Returns a float representing the current process CPU
-    utilization as a percentage. This copies the similar
-    method from psutil.
+    """Returns a float representing the current process CPU utilization as a percentage.
+    This copies the similar method from psutil.
 
-    Compares process times to system CPU times elapsed before
-    and after the interval (blocking). It is recommended for
-    accuracy that this function be called with an interval of
-    at least 0.1 sec.
+    Compares process times to system CPU times elapsed before and after the interval
+    (blocking). It is recommended for accuracy that this function be called with an
+    interval of at least 0.1 sec.
 
-    A value > 100.0 can be returned in case of processes running
-    multiple threads on different CPU cores.
+    A value > 100.0 can be returned in case of processes running multiple threads on
+    different CPU cores.
 
-    The returned value is explicitly NOT split evenly between
-    all available logical CPUs. This means that a busy loop process
-    running on a system with 2 logical CPUs will be reported as
-    having 100% CPU utilization instead of 50%.
+    The returned value is explicitly NOT split evenly between all available logical CPUs.
+    This means that a busy loop process running on a system with 2 logical CPUs will be
+    reported as having 100% CPU utilization instead of 50%.
     """
 
     if not interval > 0:
