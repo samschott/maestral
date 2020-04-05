@@ -597,7 +597,7 @@ class Maestral:
     @to_maestral_error()  # to handle errors when downloading and saving profile pic
     def get_profile_pic(self):
         """
-        Attempts to download the user's profile picture from Dropbox. The picture saved
+        Attempts to download the user's profile picture from Dropbox. The picture is saved
         in Maestral's cache directory for retrieval when there is no internet connection.
 
         :returns: Path to saved profile picture or ``None`` if no profile picture is set.
