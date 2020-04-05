@@ -3,6 +3,7 @@
 #### Changed:
 
 - Faster detection of connection problems.
+- Improved handling of insufficient disk space.
 
 #### Fixed:
 
