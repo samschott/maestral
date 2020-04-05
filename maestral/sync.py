@@ -49,8 +49,8 @@ from maestral.fsevents import Observer
 from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                 EXCLUDED_FILE_NAMES, MIGNORE_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError,
-                             DropboxAuthError, SyncError, PathError, InotifyError,
-                             NotFoundError, os_to_maestral_error)
+                             SyncError, PathError, InotifyError, NotFoundError,
+                             os_to_maestral_error)
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import (
