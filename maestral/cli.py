@@ -601,8 +601,7 @@ def ls(dropbox_path: str, config_name: str):
             except PathError:
                 raise click.ClickException(f'No such directory on '
                                            f'Dropbox: \'{dropbox_path}\'')
-
-            if not entries:
+            except ConnectionError:
                 raise click.ClickException('Could not connect to Dropbox')
 
             types = ['file' if e['type'] == 'FileMetadata' else 'folder' for e in entries]
