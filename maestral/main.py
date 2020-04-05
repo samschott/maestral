@@ -594,6 +594,7 @@ class Maestral:
 
     # ==== control methods for front ends ================================================
 
+    @to_maestral_error()  # to handle errors when downloading and saving profile pic
     def get_profile_pic(self):
         """
         Attempts to download the user's profile picture from Dropbox. The picture saved
