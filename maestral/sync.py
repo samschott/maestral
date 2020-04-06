@@ -2520,14 +2520,11 @@ def download_worker(sync, syncing, running, connected):
             connected.clear()
             logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
-        except MaestralApiError as e:
+        except Exception as e:
             running.clear()
             syncing.clear()
-            logger.error(e.title, exc_info=True)
-        except Exception:
-            running.clear()
-            syncing.clear()
-            logger.error('Unexpected error', exc_info=True)
+            title = getattr(e, 'title', 'Unexpected error')
+            logger.error(title, exc_info=True)
 
 
 def download_worker_added_item(sync, syncing, running, connected):
@@ -2560,14 +2557,11 @@ def download_worker_added_item(sync, syncing, running, connected):
             connected.clear()
             logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
-        except MaestralApiError as e:
+        except Exception as e:
             running.clear()
             syncing.clear()
-            logger.error(e.title, exc_info=True)
-        except Exception:
-            running.clear()
-            syncing.clear()
-            logger.error('Unexpected error', exc_info=True)
+            title = getattr(e, 'title', 'Unexpected error')
+            logger.error(title, exc_info=True)
 
 
 def upload_worker(sync, syncing, running, connected):
@@ -2605,14 +2599,11 @@ def upload_worker(sync, syncing, running, connected):
             connected.clear()
             logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
-        except MaestralApiError as e:
+        except Exception as e:
             running.clear()
             syncing.clear()
-            logger.error(e.title, exc_info=True)
-        except Exception:
-            running.clear()
-            syncing.clear()
-            logger.error('Unexpected error', exc_info=True)
+            title = getattr(e, 'title', 'Unexpected error')
+            logger.error(title, exc_info=True)
 
 
 def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
@@ -2679,14 +2670,11 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
             startup.clear()
             logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
-        except MaestralApiError as e:
+        except Exception as e:
             running.clear()
             syncing.clear()
-            logger.error(e.title, exc_info=True)
-        except Exception:
-            running.clear()
-            syncing.clear()
-            logger.error('Unexpected error', exc_info=True)
+            title = getattr(e, 'title', 'Unexpected error')
+            logger.error(title, exc_info=True)
 
     startup.clear()
 
@@ -2833,10 +2821,8 @@ class MaestralMonitor:
             self.local_observer_thread.start()
         except Exception as exc:
             new_exc = fswatch_to_maestral_error(exc)
-            if isinstance(new_exc, MaestralApiError):
-                logger.error(new_exc.title, exc_info=_exc_info(new_exc))
-            else:
-                logger.error('Unexpected error', exc_info=_exc_info(new_exc))
+            title = getattr(new_exc, 'title', 'Unexpected error')
+            logger.error(title, exc_info=_exc_info(new_exc))
 
         self.running.set()
         self.syncing.clear()
