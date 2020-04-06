@@ -49,8 +49,8 @@ from maestral.fsevents import Observer
 from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                 EXCLUDED_FILE_NAMES, MIGNORE_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError,
-                             SyncError, PathError, InotifyError, NotFoundError,
-                             os_to_maestral_error)
+                             SyncError, PathError, NotFoundError,
+                             fswatch_to_maestral_error, os_to_maestral_error)
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import (
@@ -724,8 +724,7 @@ class UpDownSync:
         if new_exc and raise_exception:
             raise new_exc
         elif new_exc:
-            exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
-            logger.error(title, exc_info=exc_info)
+            logger.error(title, exc_info=_exc_info(new_exc))
 
     @contextmanager
     def _handle_rev_write_exceptions(self, raise_exception=False):
@@ -748,8 +747,7 @@ class UpDownSync:
         if new_exc and raise_exception:
             raise new_exc
         elif new_exc:
-            exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
-            logger.error(title, exc_info=exc_info)
+            logger.error(title, exc_info=_exc_info(new_exc))
 
     def _load_rev_dict_from_file(self, raise_exception=False):
         """
@@ -2833,19 +2831,12 @@ class MaestralMonitor:
 
         try:
             self.local_observer_thread.start()
-        except OSError as exc:
-            if 'inotify' in exc.args[0]:
-                title = 'Inotify limit reached'
-                msg = ('Changes to your Dropbox folder cannot be monitored because it '
-                       'contains too many items. Please increase the inotify limit in '
-                       'your system by adding the following line to /etc/sysctl.conf:\n\n'
-                       'fs.inotify.max_user_watches=524288')
-                new_exc = InotifyError(title, msg).with_traceback(exc.__traceback__)
-                exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
-                logger.error(title, exc_info=exc_info)
-                return
+        except Exception as exc:
+            new_exc = fswatch_to_maestral_error(exc)
+            if isinstance(new_exc, MaestralApiError):
+                logger.error(new_exc.title, exc_info=_exc_info(new_exc))
             else:
-                raise exc
+                logger.error('Unexpected error', exc_info=_exc_info(new_exc))
 
         self.running.set()
         self.syncing.clear()
@@ -2976,6 +2967,10 @@ class MaestralMonitor:
 # Helper functions
 # ========================================================================================
 
+def _exc_info(exc):
+    return type(exc), exc, exc.__traceback__
+
+
 def get_dest_path(event):
     return getattr(event, 'dest_path', event.src_path)
 
@@ -3025,6 +3020,8 @@ def get_local_hash(local_path):
         return 'folder'
     except FileNotFoundError:
         return None
+    except OSError as exc:
+        raise os_to_maestral_error(exc, local_path=local_path)
     finally:
         del hasher
 
