@@ -44,7 +44,7 @@ install_requires = [
     'sdnotify',
     'setuptools',
     'six>=1.12.0',
-    'watchdog>=0.9.0',
+    'watchdog>=0.10.0',
 ]
 
 gui_requires = ['maestral-qt==0.6.4']
