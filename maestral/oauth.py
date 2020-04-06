@@ -5,9 +5,7 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
-This module is responsible for authorization and token store in the system keyring. It
-provides a higher level user interface and uses the OAuth 2 implicit grant flow from
-:mod:`utils.oauth_implicit` to perform the actual auth flow.
+This module is responsible for authorization and token store in the system keyring.
 
 """
 # system imports
@@ -16,7 +14,8 @@ import logging
 # external packages
 import click
 from keyring.errors import KeyringLocked
-import keyrings.alt
+import keyrings.alt.file
+from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 
 # maestral modules
 from maestral.config import MaestralConfig
@@ -30,12 +29,15 @@ logger = logging.getLogger(__name__)
 
 class OAuth2Session:
     """
-    OAuth2Session provides OAuth 2 login and token store. To authenticate with Dropbox,
-    run ``get_auth_url`` first and direct the user to visit that URL and retrieve an auth
-    token. Verify the provided auth token with ``verify_auth_token`` and save it in the
-    system keyring together with the corresponding Dropbox ID by calling ``save_creds``.
-    The convenience method ``link`` runs through the above auth flow in a command line
-    user dialog.
+    OAuth2Session provides OAuth 2 login and token store in the preferred system kering.
+    To authenticate with Dropbox, run :meth:`get_auth_url`` first and direct the user to
+    visit that URL and retrieve an auth token. Verify the provided auth token with
+    :meth:`verify_auth_token` and save it in the system keyring together with the
+    corresponding Dropbox ID by calling :meth:`save_creds`. The convenience method
+    :meth:`link` runs through the above auth flow in a command line user dialog.
+
+    This will currently use PKCE if available and fall back to the implicit grant flow
+    implemented in :mod:`utils.oauth_implicit` otherwise.
 
     :param str config_name: Name of maestral config.
 
@@ -86,8 +88,10 @@ class OAuth2Session:
         :returns: Dropbox auth URL.
         :rtype: str
         """
-
-        self.auth_flow = DropboxOAuth2FlowImplicit(DROPBOX_APP_KEY)
+        try:
+            self.auth_flow = DropboxOAuth2FlowNoRedirect(DROPBOX_APP_KEY, use_pkce=True)
+        except TypeError:
+            self.auth_flow = DropboxOAuth2FlowImplicit(DROPBOX_APP_KEY)
         authorize_url = self.auth_flow.start()
         return authorize_url
 
