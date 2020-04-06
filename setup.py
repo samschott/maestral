@@ -28,16 +28,16 @@ of config files and compatibility been the CLI and daemon.
 
 # proceed with actual install
 install_requires = [
-    'atomicwrites',
-    'bugsnag',
+    'atomicwrites>=1.0.0',
+    'bugsnag>=3.4.0',
     'click>=7.1.1',
     'dropbox>=9.4.0, <=9.5.0',
     'importlib_metadata;python_version<"3.8"',
     'keyring>=19.0.0',
-    'keyrings.alt>=3.0.0',
-    'lockfile',
+    'keyrings.alt>=3.1.0',
+    'lockfile>=0.12.0',
     'packaging',
-    'pathspec',
+    'pathspec>=0.5.8',
     'Pyro5>=5.7',
     'requests',
     'rubicon-objc>=0.3.1;sys_platform=="darwin"',
