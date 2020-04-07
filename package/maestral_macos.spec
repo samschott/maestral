@@ -12,7 +12,7 @@ try:
     with open('bundle_version_macos.txt', 'r') as f:
         bundle_version = str(int(f.read()) + 1)
 except FileNotFoundError:
-    bundle_version = 1
+    bundle_version = '1'
 
 with open('bundle_version_macos.txt', 'w') as f:
     f.write(bundle_version)
