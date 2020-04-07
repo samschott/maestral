@@ -12,7 +12,6 @@ The following APIs should remain stable for frontends:
 * maestral.constants
 * maestral.daemon
 * maestral.errors
-* maestral.config.main
 * maestral.utils.appdirs
 * maestral.utils.backend
 * maestral.utils.autostart
