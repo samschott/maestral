@@ -5,7 +5,7 @@
 (c) Sam Schott; This work is licensed under a Creative Commons
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
-The following APIs should remain stable for front ends:
+The following APIs should remain stable for frontends:
 
 * maestral.main.Maestral
 * maestral.oauth
