@@ -117,6 +117,11 @@ class FileSizeError(SyncError):
 
 # ==== fatal errors, require user action for syncing to continue =========================
 
+class NotLinkedError(MaestralApiError):
+    """Raised when authentication fails because the user's token has expired."""
+    pass
+
+
 class InotifyError(MaestralApiError):
     """Raised when the local Dropbox folder is too large to monitor with inotify."""
     pass

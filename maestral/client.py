@@ -24,7 +24,6 @@ import dropbox
 
 # maestral modules
 from maestral import __version__
-from maestral.oauth import OAuth2Session
 from maestral.config import MaestralState
 from maestral.errors import dropbox_to_maestral_error, os_to_maestral_error
 from maestral.errors import CursorResetError
@@ -134,22 +133,20 @@ class MaestralApiClient:
     :class:`ConnectionError`.
 
     :param str config_name: Name of config file and state file to use.
+    :param str access_token: Dropbox access token for user.
     :param int timeout: Timeout for individual requests in sec. Defaults to 60 sec.
     """
 
     SDK_VERSION = '2.0'
     _timeout = 60
 
-    def __init__(self, config_name='maestral', timeout=_timeout):
+    def __init__(self, config_name, access_token, timeout=_timeout):
 
         self.config_name = config_name
 
         self._state = MaestralState(config_name)
 
         # get Dropbox session
-        self.auth = OAuth2Session(config_name)
-        if not self.auth.load_token():
-            self.auth.link()
         self._timeout = timeout
         self._last_longpoll = None
         self._backoff = 0
@@ -157,7 +154,7 @@ class MaestralApiClient:
 
         # initialize API client
         self.dbx = dropbox.Dropbox(
-            self.auth.access_token,
+            access_token,
             session=SESSION,
             user_agent=USER_AGENT,
             timeout=self._timeout
@@ -218,9 +215,8 @@ class MaestralApiClient:
     @to_maestral_error()
     def unlink(self):
         """
-        Unlinks the Dropbox account and deletes local sync information.
+        Unlinks the Dropbox account.
         """
-        self.auth.delete_creds()
         self.dbx.auth_token_revoke()  # should only raise auth errors
 
     @to_maestral_error(dbx_path_arg=1)
