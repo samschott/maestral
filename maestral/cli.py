@@ -356,7 +356,6 @@ def start(config_name: str, foreground: bool, verbose: bool):
 
         exclude_folders_q = click.confirm(
             'Would you like to exclude any folders from syncing?',
-            default=False,
         )
 
         if exclude_folders_q:
@@ -667,7 +666,7 @@ def move_dir(config_name: str, new_path: str):
         from maestral.main import select_dbx_path_dialog
         from maestral.daemon import MaestralProxy
 
-        new_path = new_path or select_dbx_path_dialog(config_name, allow_merge=False)
+        new_path = new_path or select_dbx_path_dialog(config_name)
 
         with MaestralProxy(config_name, fallback=True) as m:
             m.move_dropbox_directory(new_path)
@@ -899,7 +898,7 @@ def log_show(config_name: str):
 
     if os.path.isfile(log_file):
         try:
-            with open(log_file, 'r') as f:
+            with open(log_file) as f:
                 text = f.read()
             click.echo_via_pager(text)
         except OSError:
