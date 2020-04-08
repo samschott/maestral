@@ -85,7 +85,6 @@ app = BUNDLE(coll,
              bundle_identifier='com.samschott.maestral',
              info_plist={
                 'NSHighResolutionCapable': 'True',
-                'NSRequiresAquaSystemAppearance': 'False',
                 'LSUIElement': '1',
                 'CFBundleVersion': bundle_version,
                 'CFBundleShortVersionString': __version__,
