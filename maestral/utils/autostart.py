@@ -17,6 +17,7 @@ import stat
 import platform
 import subprocess
 import pkg_resources
+import json
 from enum import Enum
 
 try:
@@ -82,21 +83,14 @@ class AutoStartMaestralBase(AutoStartBase):
     def __init__(self, config_name, gui):
         super().__init__(config_name, gui)
 
-        self.config_opt = f'-c \'{self.config_name}\''
+        self.maestral_path = self.get_maestral_command_path()
 
-        if hasattr(sys, '_MEIPASS'):  # PyInstaller bundle
-            self.maestral_path = os.path.join(sys._MEIPASS, 'main')
-            self.start_cmd = f'{self.maestral_path} {self.config_opt}'
-            self.stop_cmd = ''
+        if self.gui:
+            self.start_cmd = [self.maestral_path, 'gui', '-c', json.dumps(self.config_name)]
+            self.stop_cmd = []
         else:
-            self.maestral_path = self.get_maestral_command_path()
-
-            if self.gui:
-                self.start_cmd = f'{self.maestral_path} gui {self.config_opt}'
-                self.stop_cmd = ''
-            else:
-                self.start_cmd = f'{self.maestral_path} start -f {self.config_opt}'
-                self.stop_cmd = f'{self.maestral_path} stop {self.config_opt}'
+            self.start_cmd = [self.maestral_path, 'start', '-f', '-c', json.dumps(self.config_name)]
+            self.stop_cmd = [self.maestral_path, 'stop', '-c', json.dumps(self.config_name)]
 
     @staticmethod
     def get_maestral_command_path():
@@ -105,6 +99,10 @@ class AutoStartMaestralBase(AutoStartBase):
         """
         # try to get location of console script from package metadata
         # fall back to 'which' otherwise
+
+        if hasattr(sys, '_MEIPASS'):  # PyInstaller bundle
+            return os.path.join(sys._MEIPASS, 'main')
+
         try:
             pkg_path = next(p for p in files('maestral')
                             if str(p).endswith('/bin/maestral'))
@@ -161,14 +159,14 @@ class AutoStartSystemd(AutoStartMaestralBase):
         service_type = 'gui' if self.gui else 'daemon'
         self.service_name = f'maestral-{service_type}@{self.config_name}.service'
 
-        with open(osp.join(_resources, 'maestral@.service'), 'r') as f:
+        with open(osp.join(_resources, 'maestral@.service')) as f:
             unit_template = f.read()
 
         filename = 'maestral-{}@.service'.format('gui' if self.gui else 'daemon')
         self.destination = get_data_path(osp.join('systemd', 'user'), filename)
         self.contents = unit_template.format(
-            start_cmd=f'{self.maestral_path} start -f',
-            stop_cmd=f'{self.maestral_path} stop',
+            start_cmd=' '.join(self.start_cmd),
+            stop_cmd=' '.join(self.stop_cmd),
         )
 
         with open(self.destination, 'w') as f:
@@ -205,13 +203,16 @@ class AutoStartLaunchd(AutoStartMaestralBase):
             bundle_id = '{}-{}.{}'.format(BUNDLE_ID, 'daemon', self.config_name)
         filename = bundle_id + '.plist'
 
-        with open(osp.join(_resources, 'com.samschott.maestral.plist'), 'r') as f:
+        with open(osp.join(_resources, 'com.samschott.maestral.plist')) as f:
             plist_template = f.read()
 
         self.destination = osp.join(get_home_dir(), 'Library', 'LaunchAgents', filename)
+
+        arguments = [f'\t\t<string>{arg}</string>' for arg in self.start_cmd]
+
         self.contents = plist_template.format(
             bundle_id=bundle_id,
-            start_cmd=self.start_cmd
+            start_cmd='\n'.join(arguments)
         )
 
     def _enable(self):
@@ -248,13 +249,13 @@ class AutoStartXDGDesktop(AutoStartMaestralBase):
 
         filename = f'maestral-{config_name}.desktop'
 
-        with open(osp.join(_resources, 'maestral.desktop'), 'r') as f:
+        with open(osp.join(_resources, 'maestral.desktop')) as f:
             desktop_entry_template = f.read()
 
         self.destination = get_conf_path('autostart', filename)
         self.contents = desktop_entry_template.format(
             version=__version__,
-            start_cmd=self.start_cmd
+            start_cmd=''.join(self.start_cmd)
         )
 
     def _enable(self):
