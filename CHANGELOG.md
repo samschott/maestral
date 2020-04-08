@@ -4,8 +4,9 @@
 
 - Faster detection of connection problems.
 - Bumped watchdog requirement to >= 10.0.0 for more consistent error handling.
+- Added public linking API to main class: `Maestral.get_auth_url` and `Maestral.link`.
 
-#### Fixed:
+#### Fixed:`
 
 - Fixes a minor issue where internet connection errors while resuming syncing could
   result in continuous retries of the upload until the connection was finally established.
@@ -14,6 +15,7 @@
   permission errors.
 - Fixes handling of errors from too long file names.
 - Fixes handling of some uncaught insufficient disk space errors.
+- Fixes autostart module on macOS.
 
 #### Removed:
 
