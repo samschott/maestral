@@ -2407,6 +2407,9 @@ class UpDownSync:
                         os.makedirs(local_path)
                 except FileExistsError:
                     pass
+                except OSError as exc:
+                    raise os_to_maestral_error(exc, dbx_path=entry.path_display,
+                                               local_path=local_path)
 
                 self.set_last_sync_for_path(entry.path_lower, self.get_ctime(local_path))
                 self.set_local_rev(entry.path_lower, 'folder')
