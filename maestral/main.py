@@ -40,7 +40,7 @@ from maestral import __version__
 from maestral.oauth import OAuth2Session
 from maestral.client import MaestralApiClient, to_maestral_error
 from maestral.sync import MaestralMonitor
-from maestral.errors import MaestralApiError, NotLinkedError
+from maestral.errors import MaestralApiError, NotLinkedError, DropboxDeletedError
 from maestral.config import MaestralConfig, MaestralState
 from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
@@ -165,15 +165,27 @@ def with_sync_paused(func):
 
 
 def require_linked(func):
-    """Decorator which raises a NotLinkedError if Maestral is not linked to a Dropbox
+    """Decorator which raises a RuntimeError if Maestral is not linked to a Dropbox
     account."""
 
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
-        # pause syncing
         if self.pending_link:
             raise NotLinkedError('No linked Dropbox account',
-                                 'Run "link" to link a new account.')
+                                 'Please run "link" or "start" to link an account.')
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
+
+def require_dir(func):
+    """Decorator which raises a RuntimeError if there is no local Dropbox folder."""
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if self.pending_dropbox_folder:
+            raise DropboxDeletedError('No local Dropbox directory',
+                                      'Run "create_dropbox_directory" to set up.')
         return func(self, *args, **kwargs)
 
     return wrapper
@@ -793,6 +805,7 @@ class Maestral:
                     pass
 
     @require_linked
+    @require_dir
     def rebuild_index(self):
         """
         Rebuilds the rev file by comparing remote with local files and updating rev
@@ -808,6 +821,7 @@ class Maestral:
         self.monitor.rebuild_index()
 
     @require_linked
+    @require_dir
     def start_sync(self):
         """
         Creates syncing threads and starts syncing. This will be called by :meth:`run`
@@ -817,6 +831,7 @@ class Maestral:
         self.monitor.start()
 
     @require_linked
+    @require_dir
     def resume_sync(self):
         """
         Resumes the syncing threads if paused.
@@ -852,6 +867,7 @@ class Maestral:
         self.monitor.reset_sync_state()
 
     @require_linked
+    @require_dir
     def exclude_item(self, dbx_path):
         """
         Excludes file or folder from sync and deletes it locally. It is safe to call this
@@ -904,6 +920,7 @@ class Maestral:
                 delete(local_path)
 
     @require_linked
+    @require_dir
     def include_item(self, dbx_path):
         """
         Includes file or folder in sync and downloads in the background. It is safe to
@@ -956,6 +973,7 @@ class Maestral:
 
     @require_linked
     def set_excluded_items(self, items=None):
+    @require_dir
         """
         Sets the list of excluded files or folders. If not given, gets all top level
         folder paths from Dropbox and asks user to include or exclude. Items which are
@@ -1025,6 +1043,7 @@ class Maestral:
             return 'included'
 
     @require_linked
+    @require_dir
     @with_sync_paused
     def move_dropbox_directory(self, new_path=None):
         """
@@ -1080,6 +1099,7 @@ class Maestral:
     # ==== utility methods for front ends ================================================
 
     @require_linked
+    @require_dir
     def to_local_path(self, dbx_path):
         """
         Converts a path relative to the Dropbox folder to a correctly cased local file
