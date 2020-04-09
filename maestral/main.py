@@ -202,17 +202,15 @@ class Maestral:
     serpent serializer which is used for communication to frontends.
 
     Before you can start syncing, you will need to link a Dropbox account and create a
-    local Dropbox folder.
+    local Dropbox folder. For example::
 
-    .. example::
-
-        >>> from maestral.main import Maestral
-        >>> m = Maestral()
-        >>> url = m.get_auth_url()  # get token from Dropbox website
-        >>> token = input('Please enter auth token: ')
-        >>> m.link(token)
-        >>> m.create_dropbox_directory('~/Dropbox (Maestral)')
-        >>> m.start_sync()
+    >>> from maestral.main import Maestral
+    >>> m = Maestral()
+    >>> url = m.get_auth_url()  # get token from Dropbox website
+    >>> token = input('Please enter auth token: ')
+    >>> m.link(token)
+    >>> m.create_dropbox_directory('~/Dropbox (Maestral)')
+    >>> m.start_sync()
 
     :param str config_name: Name of maestral configuration to run. This will create a new
         configuration file if none exists.
