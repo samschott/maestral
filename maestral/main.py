@@ -198,24 +198,29 @@ def require_dir(func):
 class Maestral:
     """The public API.
 
-    Some methods, such
-
     All methods and properties return objects or raise exceptions which can safely be
     serialized, i.e., pure Python types. The only exception are instances of
     :class:`errors.MaestralApiError` which need to be registered explicitly with the
     serpent serializer which is used for communication to frontends.
 
+    .. example::
+
+        >>> from maestral.main import Maestral
+        >>> m = Maestral()
+        >>> url = m.get_auth_url()  # get token from Dropbox website
+        >>> token = input('Please enter auth token: ')
+        >>> m.link(token)
+        >>> m.create_dropbox_directory('~/Dropbox (Maestral)')
+        >>> m.start_sync()
+
     :param str config_name: Name of maestral configuration to run. This will create a new
         configuration file if none exists.
-    :param bool run: If ``True``, Maestral will start syncing immediately. Defaults to
-        ``True``. If no Dropbox account is linked or no local folder has been set up, this
-        will also run a command line setup dialog first.
     :param bool log_to_stdout: If ``True``, Maestral will print log messages to stdout.
         When started as a systemd services, this can result in duplicate log messages.
         Defaults to ``False``.
     """
 
-    def __init__(self, config_name='maestral', run=True, log_to_stdout=False):
+    def __init__(self, config_name='maestral', log_to_stdout=False):
 
         self._daemon_running = True
         self._log_to_stdout = log_to_stdout
@@ -236,27 +241,6 @@ class Maestral:
             self.monitor = MaestralMonitor(self.client)
             self.sync = self.monitor.sync
 
-        if run:
-            self.run()
-
-    def run(self):
-        """
-        Runs setup if necessary, starts syncing, and starts systemd notifications if
-        run as a systemd notify service. Any setup will be run as a CLI dialog and will
-        block without user input. To avoid blocking with a CLI dialog, call :meth:`link`
-        and :meth:`create_dropbox_directory` with the appropriate arguments first.
-        """
-
-        if self.pending_link:
-            self.link()
-
-        if self.pending_dropbox_folder:
-            self.monitor.reset_sync_state()
-            self.create_dropbox_directory()
-
-        # start syncing
-        self.start_sync()
-
         # periodically check for updates and refresh account info
         self.update_thread = Thread(
             name='maestral-update-check',
@@ -265,12 +249,14 @@ class Maestral:
         )
         self.update_thread.start()
 
-        if NOTIFY_SOCKET:  # notify systemd that we have started
+        # notify systemd that we have started
+        if NOTIFY_SOCKET:
             logger.debug('Running as systemd notify service')
             logger.debug('NOTIFY_SOCKET = %s', NOTIFY_SOCKET)
             sd_notifier.notify('READY=1')
 
-        if IS_WATCHDOG:  # notify systemd periodically if alive
+        # notify systemd periodically if alive
+        if IS_WATCHDOG:
             logger.debug('Running as systemd watchdog service')
             logger.debug('WATCHDOG_USEC = %s', WATCHDOG_USEC)
             logger.debug('WATCHDOG_PID = %s', WATCHDOG_PID)
