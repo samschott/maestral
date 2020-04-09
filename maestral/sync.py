@@ -762,7 +762,7 @@ class UpDownSync:
         with self._rev_lock:
             self._rev_dict_cache.clear()
             with self._handle_rev_read_exceptions(raise_exception):
-                with open(self.rev_file_path, 'r') as f:
+                with open(self.rev_file_path) as f:
                     for line in f:
                         try:
                             entry = json.loads(line.strip('\n'))
@@ -826,7 +826,7 @@ class UpDownSync:
     def _load_mignore_rules_form_file(self):
         self._mignore_ctime_loaded = self.get_ctime(self.mignore_path)
         try:
-            with open(self.mignore_path, 'r') as f:
+            with open(self.mignore_path) as f:
                 spec = f.read()
         except FileNotFoundError:
             spec = ''
@@ -2234,17 +2234,17 @@ class UpDownSync:
             and :class:`dropbox.files.DeletedMetadata` respectively.
         :rtype: tuple
         """
-        sorted = dict(folders=[], files=[], deleted=[])
+        binned = dict(folders=[], files=[], deleted=[])
 
         for x in result.entries:
             if isinstance(x, FolderMetadata):
-                sorted['folders'].append(x)
+                binned['folders'].append(x)
             elif isinstance(x, FileMetadata):
-                sorted['files'].append(x)
+                binned['files'].append(x)
             elif isinstance(x, DeletedMetadata):
-                sorted['deleted'].append(x)
+                binned['deleted'].append(x)
 
-        return sorted['folders'], sorted['files'], sorted['deleted']
+        return binned['folders'], binned['files'], binned['deleted']
 
     def _clean_remote_changes(self, changes):
         """
@@ -2582,7 +2582,7 @@ def upload_worker(sync, syncing, running, connected):
         syncing.wait()
 
         try:
-            events, local_cursor = sync.wait_for_local_changes(timeout=5)
+            events, local_cursor = sync.wait_for_local_changes()
 
             if not (running.is_set() and syncing.is_set()):
                 continue
