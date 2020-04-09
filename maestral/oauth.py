@@ -21,6 +21,7 @@ from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 from maestral.config import MaestralConfig
 from maestral.constants import DROPBOX_APP_KEY
 from maestral.errors import DropboxAuthError
+from maestral.client import CONNECTION_ERRORS
 from maestral.utils.backend import get_keyring_backend
 from maestral.utils.oauth_implicit import DropboxOAuth2FlowImplicit
 
@@ -112,7 +113,7 @@ class OAuth2Session:
             return self.Success
         except DropboxAuthError:
             return self.InvalidToken
-        except ConnectionError:
+        except CONNECTION_ERRORS:
             return self.ConnectionFailed
 
     def save_creds(self):
