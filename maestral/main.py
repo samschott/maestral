@@ -21,9 +21,7 @@ import logging.handlers
 from collections import namedtuple, deque
 
 # external packages
-import click
 import requests
-from dropbox import files
 from watchdog.events import EVENT_TYPE_DELETED
 import bugsnag
 from bugsnag.handlers import BugsnagHandler
@@ -45,7 +43,7 @@ from maestral.config import MaestralConfig, MaestralState
 from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import error_to_dict, dropbox_stone_to_dict
-from maestral.utils.appdirs import get_log_path, get_cache_path, get_home_dir
+from maestral.utils.appdirs import get_log_path, get_cache_path
 from maestral.utils.updates import check_update_available
 from maestral.utils.housekeeping import run_housekeeping
 from maestral.constants import (
@@ -279,40 +277,17 @@ class Maestral:
         """
         return self._auth.get_auth_url()
 
-    def link(self, token=None, relink=False):
+    def link(self, token):
         """
-        Links Maestral with a Dropbox account. This uses the given auth token or performs
-        the full auth flow in a CLI dialog.
+        Links Maestral with a Dropbox account, using the given access token.
 
-        :param Optional[str] token: OAuth token for Dropbox access.
-        :param bool relink: If ``True``, allows relinking an already linked account, for
-            instance if the auth token expired.
-        :returns: OAuth2Session.Success, OAuth2Session.InvalidToken or OAuth2Session.ConnectionFailed
+        :param str token: OAuth token for Dropbox access.
+        :returns: OAuth2Session.Success (0), OAuth2Session.InvalidToken (1) or
+            OAuth2Session.ConnectionFailed (2)
         :rtype: int
         """
-        if not (self.pending_link or relink):
-            raise RuntimeError('Already linked')
 
-        if token:
-            res = self._auth.verify_auth_token(token)
-
-        else:
-            authorize_url = self.get_auth_url()
-            click.echo('1. Go to: ' + authorize_url)
-            click.echo('2. Click "Allow" (you may have to log in first).')
-            click.echo('3. Copy the authorization token.')
-
-            res = self._auth.InvalidToken
-            while res != self._auth.Success:
-                auth_code = click.prompt('Enter the authorization token here', type=str)
-                auth_code = auth_code.strip()
-                res = self._auth.verify_auth_token(auth_code)
-
-                if res == self._auth.InvalidToken:
-                    click.secho('Invalid token. Please try again.', fg='red')
-                elif res == self._auth.ConnectionFailed:
-                    click.secho('Could not connect to Dropbox. Please try again.',
-                                fg='red')
+        res = self._auth.verify_auth_token(token)
 
         if res == self._auth.Success:
             self._auth.save_creds()
@@ -321,7 +296,11 @@ class Maestral:
             self.monitor = MaestralMonitor(self.client)
             self.sync = self.monitor.sync
 
-            self.get_account_info()
+            try:
+                self.get_account_info()
+                self.get_space_usage()
+            except ConnectionError:
+                pass
 
         return res
 
@@ -958,8 +937,8 @@ class Maestral:
             self.sync.queued_newly_included_downloads.put(folder)
 
     @require_linked
-    def set_excluded_items(self, items=None):
     @require_dir
+    def set_excluded_items(self, items):
         """
         Sets the list of excluded files or folders. If not given, gets all top level
         folder paths from Dropbox and asks user to include or exclude. Items which are
@@ -967,26 +946,11 @@ class Maestral:
 
         On initial sync, this does not trigger any downloads.
 
-        :param Optional[list] items: If given, list of excluded files or folders to set.
+        :param list items: If given, list of excluded files or folders to set.
         :raises: :class:`errors.MaestralApiError`, :class:`ConnectionError`
         """
 
-        if items is None:
-
-            excluded_items = []
-
-            # get all top-level Dropbox folders
-            result = self.client.list_folder('/', recursive=False)
-
-            # paginate through top-level folders, ask to exclude
-            for entry in result.entries:
-                if isinstance(entry, files.FolderMetadata):
-                    yes = click.confirm(f'Exclude "{entry.path_display}" from sync?')
-                    if yes:
-                        excluded_items.append(entry.path_lower)
-        else:
-            excluded_items = self.sync.clean_excluded_items_list(items)
-
+        excluded_items = self.sync.clean_excluded_items_list(items)
         old_excluded_items = self.sync.excluded_items
 
         added_excluded_items = set(excluded_items) - set(old_excluded_items)
@@ -1031,19 +995,17 @@ class Maestral:
     @require_linked
     @require_dir
     @with_sync_paused
-    def move_dropbox_directory(self, new_path=None):
+    def move_dropbox_directory(self, new_path):
         """
         Sets the local Dropbox directory. This moves all local files to the new location
         and resumes syncing afterwards.
 
-        :param Optional[str] new_path: Full path to local Dropbox folder. If not given,
-            the user will be prompted to input the path.
+        :param str new_path: Full path to local Dropbox folder.
         :raises: :class:`OSError` if moving the directory fails.
         """
 
         # get old and new paths
         old_path = self.sync.dropbox_path
-        new_path = new_path or select_dbx_path_dialog(self._config_name)
 
         try:
             if osp.samefile(old_path, new_path):
@@ -1065,16 +1027,15 @@ class Maestral:
 
     @require_linked
     @with_sync_paused
-    def create_dropbox_directory(self, path=None):
+    def create_dropbox_directory(self, path):
         """
         Creates a new Dropbox directory. Only call this during setup.
 
-        :param Optional[str] path: Full path to local Dropbox folder. If not given, the
-            user will be prompted to input the path.
+        :param str path: Full path to local Dropbox folder.
         :raises: :class:`OSError` if creation fails
         """
 
-        path = path or select_dbx_path_dialog(self._config_name, allow_merge=True)
+        self.monitor.reset_sync_state()
 
         # create new folder
         os.makedirs(path, exist_ok=True)
@@ -1127,19 +1088,19 @@ class Maestral:
 
     def _periodic_refresh(self):
         while True:
-            # update account info
-            self.get_account_info()
-            self.get_profile_pic()
+            if not self.pending_link:
+                self.get_account_info()
+                self.get_profile_pic()
             # check for maestral updates
             res = self.check_for_updates()
             if not res['error']:
                 self._state.set('app', 'latest_release', res['latest_release'])
             time.sleep(60 * 60)  # 60 min
 
-    def _periodic_watchdog(self):
-        while self.monitor._threads_alive():
-            sd_notifier.notify('WATCHDOG=1')
-            time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
+    @staticmethod
+    def _periodic_watchdog():
+        sd_notifier.notify('WATCHDOG=1')
+        time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
 
     def __del__(self):
         try:
@@ -1152,57 +1113,3 @@ class Maestral:
         account_type = self._state.get('account', 'type')
 
         return f'<{self.__class__.__name__}({email}, {account_type})>'
-
-
-def select_dbx_path_dialog(config_name, allow_merge=False):
-    """
-    A CLI dialog to ask for a local Dropbox folder location.
-
-    :param str config_name: The configuration to use for the default folder name.
-    :param bool allow_merge: If ``True``, allows the selection of an existing folder
-        without deleting it. Defaults to ``False``.
-    :returns: Path given by user.
-    :rtype: str
-    """
-
-    conf = MaestralConfig(config_name)
-
-    default = osp.join(get_home_dir(), conf.get('main', 'default_dir_name'))
-
-    while True:
-        res = click.prompt(
-            'Please give Dropbox folder location',
-            default=default,
-            type=click.Path(writable=True)
-        )
-
-        res = res.rstrip(osp.sep)
-
-        dropbox_path = osp.expanduser(res or default)
-
-        if osp.exists(dropbox_path):
-            if allow_merge:
-                choice = click.prompt(
-                    text=(f'Directory "{dropbox_path}" already exists. Do you want to '
-                          f'replace it or merge its content with your Dropbox?'),
-                    type=click.Choice(['replace', 'merge', 'cancel'])
-                )
-            else:
-                replace = click.confirm(
-                    text=(f'Directory "{dropbox_path}" already exists. Do you want to '
-                          f'replace it? Its content will be lost!'),
-                )
-                choice = 'replace' if replace else 'cancel'
-
-            if choice == 'replace':
-                err = delete(dropbox_path)
-                if err:
-                    click.echo(f'Could not write to location "{dropbox_path}". Please '
-                               'make sure that you have sufficient permissions.')
-                else:
-                    return dropbox_path
-            elif choice == 'merge':
-                return dropbox_path
-
-        else:
-            return dropbox_path
