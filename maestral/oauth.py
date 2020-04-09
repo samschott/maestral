@@ -13,19 +13,58 @@ import logging
 
 # external packages
 import click
+import keyring.backends
+import keyrings.alt
+from keyring.core import load_keyring
 from keyring.errors import KeyringLocked
-import keyrings.alt.file
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 
 # maestral modules
 from maestral.config import MaestralConfig
-from maestral.constants import DROPBOX_APP_KEY
+from maestral.constants import DROPBOX_APP_KEY, IS_MACOS_BUNDLE
 from maestral.errors import DropboxAuthError
 from maestral.client import CONNECTION_ERRORS
-from maestral.utils.backend import get_keyring_backend
 from maestral.utils.oauth_implicit import DropboxOAuth2FlowImplicit
 
+
 logger = logging.getLogger(__name__)
+
+supported_keyring_backends = (
+    keyring.backends.OS_X.Keyring,
+    keyring.backends.SecretService.Keyring,
+    keyring.backends.kwallet.DBusKeyring,
+    keyring.backends.kwallet.DBusKeyringKWallet4,
+    keyrings.alt.file.PlaintextKeyring
+)
+
+
+def get_keyring_backend(config_name):
+    """
+    Choose the most secure of the available and supported keyring backends or
+    use the backend specified in the config file (if valid).
+
+    :param str config_name: The config name.
+    """
+
+    import keyring.backends
+
+    conf = MaestralConfig(config_name)
+    keyring_name = conf.get('app', 'keyring').strip()
+
+    if IS_MACOS_BUNDLE:
+        ring = keyring.backends.OS_X.Keyring()
+    else:
+        try:
+            ring = load_keyring(keyring_name)
+        except Exception:
+            # get preferred keyring backends for platform
+            available_rings = keyring.backend.get_all_keyring()
+            supported_rings = [k for k in available_rings
+                               if isinstance(k, supported_keyring_backends)]
+
+            ring = max(supported_rings, key=lambda x: x.priority)
+
+    return ring
 
 
 class OAuth2Session:
