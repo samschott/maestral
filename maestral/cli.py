@@ -23,10 +23,8 @@ import Pyro5.errors
 
 # local imports
 from maestral.config import MaestralConfig, MaestralState, list_configs
-from maestral.utils.housekeeping import run_housekeeping
+from maestral.utils.housekeeping import remove_configuration
 
-
-run_housekeeping()
 
 OK = click.style('[OK]', fg='green')
 FAILED = click.style('[FAILED]', fg='red')
@@ -784,7 +782,6 @@ def rebuild_index(config_name: str):
 def configs():
     """Lists all configured Dropbox accounts."""
     from maestral.daemon import get_maestral_pid
-    from maestral.utils.backend import remove_configuration
 
     # clean up stale configs
     config_names = list_configs()
