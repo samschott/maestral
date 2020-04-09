@@ -14,7 +14,6 @@ import logging
 
 import keyring.backends
 from keyring.core import load_keyring
-from keyring.errors import KeyringLocked
 import keyrings.alt.file
 
 from maestral.config import MaestralConfig, MaestralState
@@ -62,45 +61,6 @@ def get_keyring_backend(config_name):
             ring = max(supported_rings, key=lambda x: x.priority)
 
     return ring
-
-
-def pending_link(config_name):
-    """
-    Checks if auth key has been saved. This can be used by Maestral front ends to check
-    if we are linked before starting a daemon.
-
-    :param str config_name: The config to check.
-    :returns: ``True`` or ``False``.
-    :rtype: bool
-    :raises: ``KeyringLocked`` if the system keyring cannot be accessed.
-    """
-
-    ring = get_keyring_backend(config_name)
-
-    conf = MaestralConfig(config_name)
-    account_id = conf.get('account', 'account_id')
-    try:
-        if account_id == '':
-            access_token = None
-        else:
-            access_token = ring.get_password('Maestral', account_id)
-        return access_token is None
-    except KeyringLocked:
-        info = 'Please make sure that your keyring is unlocked and restart Maestral.'
-        raise KeyringLocked(info)
-
-
-def pending_dropbox_folder(config_name):
-    """
-    Checks if a local dropbox folder has been set. This can be used by Maestral front ends
-    to check if we are linked before starting a daemon.
-
-    :param str config_name: The config to check.
-    :returns: ``True`` or ``False``.
-    :rtype: bool
-    """
-    conf = MaestralConfig(config_name)
-    return not osp.isdir(conf.get('main', 'path'))
 
 
 def remove_configuration(config_name):
