@@ -201,6 +201,9 @@ class Maestral:
     :class:`errors.MaestralApiError` which need to be registered explicitly with the
     serpent serializer which is used for communication to frontends.
 
+    Before you can start syncing, you will need to link a Dropbox account and create a
+    local Dropbox folder.
+
     .. example::
 
         >>> from maestral.main import Maestral
