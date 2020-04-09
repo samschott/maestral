@@ -9,7 +9,6 @@ This module contains functions for frontends (CLI or GUI) to interact with the b
 without importing memory heavy modules.
 
 """
-from os import path as osp
 import logging
 
 import keyring.backends
