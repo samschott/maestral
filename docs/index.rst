@@ -10,13 +10,10 @@ refer to the `wiki <https://github.com/SamSchott/maestral-dropbox/wiki>`_.
 The following APIs should remain stable for frontends such as the GUI or CLI:
 
 * maestral.main.Maestral
-* maestral.oauth
 * maestral.constants
 * maestral.daemon
 * maestral.errors
-* maestral.config.main
 * maestral.utils.appdirs
-* maestral.utils.backend
 * maestral.utils.autostart
 
 .. toctree::
