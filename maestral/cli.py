@@ -12,6 +12,7 @@ to reduce the startup time of individual CLI commands.
 """
 # system imports
 import os
+import os.path as osp
 import functools
 import logging
 import textwrap
@@ -30,23 +31,6 @@ run_housekeeping()
 OK = click.style('[OK]', fg='green')
 FAILED = click.style('[FAILED]', fg='red')
 KILLED = click.style('[KILLED]', fg='red')
-
-
-def pending_link_cli(config_name):
-    """Wrapper around :meth:`maestral.utils.backend.pending_link` with
-    command line feedback."""
-    from maestral.utils.backend import pending_link
-    from keyring.errors import KeyringLocked
-
-    try:
-        if pending_link(config_name):
-            click.echo('No Dropbox account linked.')
-            return True
-        else:
-            return False
-    except KeyringLocked:
-        raise click.ClickException('Cannot access user keyring '
-                                   'to load Dropbox credentials.')
 
 
 def start_daemon_subprocess_with_cli_feedback(config_name, log_to_stdout=False):
@@ -78,9 +62,92 @@ def stop_daemon_with_cli_feedback(config_name):
         click.echo('\rStopping Maestral...        ' + KILLED)
 
 
-def _check_for_updates():
-    """Checks if updates are available by reading the cached release number from the
-    config file and notifies the user."""
+def select_dbx_path_dialog(config_name, allow_merge=False):
+    """
+    A CLI dialog to ask for a local Dropbox folder location.
+
+    :param str config_name: The configuration to use for the default folder name.
+    :param bool allow_merge: If ``True``, allows the selection of an existing folder
+        without deleting it. Defaults to ``False``.
+    :returns: Path given by user.
+    :rtype: str
+    """
+
+    from maestral.utils.appdirs import get_home_dir
+    from maestral.utils.path import delete
+
+    conf = MaestralConfig(config_name)
+
+    default = osp.join(get_home_dir(), conf.get('main', 'default_dir_name'))
+
+    while True:
+        res = click.prompt(
+            'Please give Dropbox folder location',
+            default=default,
+            type=click.Path(writable=True)
+        )
+
+        res = res.rstrip(osp.sep)
+
+        dropbox_path = osp.expanduser(res or default)
+
+        if osp.exists(dropbox_path):
+            if allow_merge:
+                choice = click.prompt(
+                    text=(f'Directory "{dropbox_path}" already exists. Do you want to '
+                          f'replace it or merge its content with your Dropbox?'),
+                    type=click.Choice(['replace', 'merge', 'cancel'])
+                )
+            else:
+                replace = click.confirm(
+                    text=(f'Directory "{dropbox_path}" already exists. Do you want to '
+                          f'replace it? Its content will be lost!'),
+                )
+                choice = 'replace' if replace else 'cancel'
+
+            if choice == 'replace':
+                err = delete(dropbox_path)
+                if err:
+                    click.echo(f'Could not write to location "{dropbox_path}". Please '
+                               'make sure that you have sufficient permissions.')
+                else:
+                    return dropbox_path
+            elif choice == 'merge':
+                return dropbox_path
+
+        else:
+            return dropbox_path
+
+
+def link_dialog(m):
+    """
+    A CLI dialog for linking a Dropbox account.
+
+    :param m: Maestral or MaestralProxy instance.
+    """
+
+    authorize_url = m.get_auth_url()
+    click.echo('1. Go to: ' + authorize_url)
+    click.echo('2. Click "Allow" (you may have to log in first).')
+    click.echo('3. Copy the authorization token.')
+
+    res = -1
+    while res != 0:
+        auth_code = click.prompt('Enter the authorization token here', type=str)
+        auth_code = auth_code.strip()
+        res = m.link(auth_code)
+
+        if res == 1:
+            click.secho('Invalid token. Please try again.', fg='red')
+        elif res == 2:
+            click.secho('Could not connect to Dropbox. Please try again.', fg='red')
+
+
+def check_for_updates():
+    """
+    Checks if updates are available by reading the cached release number from the
+    config file and notifies the user. Prints an update note to the command line.
+    """
     from packaging.version import Version
     from maestral import __version__
 
@@ -92,13 +159,19 @@ def _check_for_updates():
     if has_update:
         click.secho(
             f'Maestral v{latest_release} has been released, you have v{__version__}. '
-            f'Please use your package manager to update.', fg='red'
+            f'Please use your package manager to update.', fg='orange'
         )
 
 
-def _check_for_fatal_errors(m):
-    """Checks for fatal errors such as revoked Dropbox access,
-    deleted Dropbox folder etc."""
+def check_for_fatal_errors(m):
+    """
+    Checks the given Maestral instance for fatal errors such as revoked Dropbox access,
+    deleted Dropbox folder etc. Prints a nice representation to the command line.
+
+    :param m: Maestral or MaestralProxy instance.
+    :returns: True in case of fatal errors, False otherwise.
+    :rtype: bool
+    """
     maestral_err_list = m.maestral_errors
 
     if len(maestral_err_list) > 0:
@@ -131,13 +204,7 @@ def catch_maestral_errors(func):
         try:
             return func(*args, **kwargs)
         except MaestralApiError as exc:
-            width, height = click.get_terminal_size()
-            wrapped_msg = textwrap.fill(exc.message, width=width)
-
-            click.echo('')
-            click.secho(exc.title, fg='red')
-            click.secho(wrapped_msg, fg='red')
-            click.echo('')
+            raise click.ClickException(f'{exc.title}: {exc.message}')
 
     return wrapper
 
@@ -290,7 +357,7 @@ config_option = click.option(
 @click.group(cls=SpecialHelpOrder)
 def main():
     """Maestral Dropbox Client for Linux and macOS."""
-    _check_for_updates()
+    check_for_updates()
 
 
 @main.group(cls=SpecialHelpOrder, help_priority=14)
@@ -337,22 +404,29 @@ def gui(config_name):
 def start(config_name: str, foreground: bool, verbose: bool):
     """Starts the Maestral as a daemon."""
 
-    from maestral.daemon import get_maestral_pid
-    from maestral.utils.backend import pending_dropbox_folder
+    from maestral.daemon import get_maestral_pid, get_maestral_proxy
+    from maestral.daemon import start_maestral_daemon_thread, threads
 
     # do nothing if already running
     if get_maestral_pid(config_name):
         click.echo('Maestral daemon is already running.')
         return
 
-    # run setup if not yet done
-    if pending_link_cli(config_name) or pending_dropbox_folder(config_name):
+    # start daemon
+    if foreground:
+        start_maestral_daemon_thread(config_name)
+    else:
+        start_daemon_subprocess_with_cli_feedback(config_name)
 
-        from maestral.main import Maestral
+    # run setup if necessary
+    m = get_maestral_proxy(config_name)
 
-        m = Maestral(config_name, run=False)
-        m.reset_sync_state()
-        m.create_dropbox_directory()
+    if m.pending_link:
+        link_dialog(m)
+
+    if m.pending_dropbox_folder:
+        path = select_dbx_path_dialog(config_name, allow_merge=True)
+        m.create_dropbox_directory(path)
 
         exclude_folders_q = click.confirm(
             'Would you like to exclude any folders from syncing?',
@@ -361,18 +435,29 @@ def start(config_name: str, foreground: bool, verbose: bool):
         if exclude_folders_q:
             click.echo(
                 'Please choose which top-level folders to exclude. You can exclude\n'
-                'individual files or subfolders later with "maestral excluded add".'
+                'individual files or subfolders later with "maestral excluded add".\n'
             )
-            m.set_excluded_items()
 
-        del m
+            excluded_items = []
 
-    # start daemon
+            # get all top-level Dropbox folders
+            entries = m.list_folder('/', recursive=False)
+
+            # paginate through top-level folders, ask to exclude
+            for e in entries:
+                if e['type'] == 'FolderMetadata':
+                    yes = click.confirm('Exclude "{path_display}" from sync?'.format(**e))
+                    if yes:
+                        excluded_items.append(e['path_lower'])
+
+            m.set_excluded_items(excluded_items)
+
+    m.log_to_stdout = verbose
+
+    m.start_sync()
+
     if foreground:
-        from maestral.daemon import run_maestral_daemon
-        run_maestral_daemon(config_name, run=True, log_to_stdout=verbose)
-    else:
-        start_daemon_subprocess_with_cli_feedback(config_name, log_to_stdout=verbose)
+        threads[config_name].join()
 
 
 @main.command(help_priority=2)
@@ -440,7 +525,7 @@ def resume(config_name: str):
 
     try:
         with MaestralProxy(config_name) as m:
-            if not _check_for_fatal_errors(m):
+            if not check_for_fatal_errors(m):
                 m.resume_sync()
                 click.echo('Syncing resumed.')
 
@@ -467,7 +552,7 @@ def status(config_name: str):
             click.echo('Sync errors:   {}'.format(n_errors_str))
             click.echo('')
 
-            _check_for_fatal_errors(m)
+            check_for_fatal_errors(m)
 
             sync_err_list = m.sync_errors
 
@@ -500,7 +585,7 @@ def file_status(config_name: str, local_path: str):
     try:
         with MaestralProxy(config_name) as m:
 
-            if _check_for_fatal_errors(m):
+            if check_for_fatal_errors(m):
                 return
 
             stat = m.get_file_status(local_path)
@@ -519,7 +604,7 @@ def activity(config_name: str):
     try:
         with MaestralProxy(config_name) as m:
 
-            if _check_for_fatal_errors(m):
+            if check_for_fatal_errors(m):
                 return
 
             import curses
@@ -590,51 +675,45 @@ def ls(dropbox_path: str, config_name: str):
     if not dropbox_path.startswith('/'):
         dropbox_path = '/' + dropbox_path
 
-    if not pending_link_cli(config_name):
-        from maestral.daemon import MaestralProxy
-        from maestral.errors import PathError
+    from maestral.daemon import MaestralProxy
+    from maestral.errors import PathError
 
-        with MaestralProxy(config_name, fallback=True) as m:
-            try:
-                entries = m.list_folder(dropbox_path, recursive=False)
-            except PathError:
-                raise click.ClickException(f'No such directory on '
-                                           f'Dropbox: \'{dropbox_path}\'')
-            except ConnectionError:
-                raise click.ClickException('Could not connect to Dropbox')
+    with MaestralProxy(config_name, fallback=True) as m:
+        try:
+            entries = m.list_folder(dropbox_path, recursive=False)
+        except PathError:
+            raise click.ClickException(f'No such directory on '
+                                       f'Dropbox: \'{dropbox_path}\'')
+        except ConnectionError:
+            raise click.ClickException('Could not connect to Dropbox')
 
-            types = ['file' if e['type'] == 'FileMetadata' else 'folder' for e in entries]
-            shared_status = ['shared' if 'sharing_info' in e else 'private' for e in entries]
-            names = [e['name'] for e in entries]
-            excluded_status = [m.excluded_status(e['path_lower']) for e in entries]
+        types = ['file' if e['type'] == 'FileMetadata' else 'folder' for e in entries]
+        shared_status = ['shared' if 'sharing_info' in e else 'private' for e in entries]
+        names = [e['name'] for e in entries]
+        excluded_status = [m.excluded_status(e['path_lower']) for e in entries]
 
-            click.echo('')
-            click.echo(format_table(columns=[types, shared_status, names, excluded_status]))
-            click.echo('')
+        click.echo('')
+        click.echo(format_table(columns=[types, shared_status, names, excluded_status]))
+        click.echo('')
 
 
 @main.command(help_priority=11)
-@existing_config_option
+@config_option
 @click.option('-r', 'relink', is_flag=True, default=False,
               help='Relink to the current account. Keeps the sync state.')
 @catch_maestral_errors
 def link(config_name: str, relink: bool):
     """Links Maestral with your Dropbox account."""
 
-    if relink or pending_link_cli(config_name):
-        from maestral.oauth import OAuth2Session
-        from maestral.daemon import get_maestral_pid
+    from maestral.daemon import MaestralProxy
 
-        if get_maestral_pid(config_name):
-            click.echo('Maestral is running. Please stop before linking.')
-            return
+    with MaestralProxy(config_name, fallback=True) as m:
 
-        auth = OAuth2Session(config_name)
-        auth.link()
-
-    else:
-        click.echo('Maestral is already linked. Use the option '
-                   '\'-r\' to relink to the same account.')
+        if m.pending_link or relink:
+            link_dialog(m)
+        else:
+            click.echo('Maestral is already linked. Use the option '
+                       '\'-r\' to relink to the same account.')
 
 
 @main.command(help_priority=12)
@@ -643,17 +722,15 @@ def link(config_name: str, relink: bool):
 def unlink(config_name: str):
     """Unlinks your Dropbox account."""
 
-    if not pending_link_cli(config_name):
+    if click.confirm('Are you sure you want unlink your account?'):
 
-        if click.confirm('Are you sure you want unlink your account?'):
+        from maestral.main import Maestral
 
-            from maestral.main import Maestral
+        stop_daemon_with_cli_feedback(config_name)
+        m = Maestral(config_name)
+        m.unlink()
 
-            stop_daemon_with_cli_feedback(config_name)
-            m = Maestral(config_name, run=False)
-            m.unlink()
-
-            click.echo('Unlinked Maestral.')
+        click.echo('Unlinked Maestral.')
 
 
 @main.command(help_priority=13)
@@ -662,16 +739,14 @@ def unlink(config_name: str):
 def move_dir(config_name: str, new_path: str):
     """Change the location of your Dropbox folder."""
 
-    if not pending_link_cli(config_name):
-        from maestral.main import select_dbx_path_dialog
-        from maestral.daemon import MaestralProxy
+    from maestral.daemon import MaestralProxy
 
-        new_path = new_path or select_dbx_path_dialog(config_name)
+    new_path = new_path or select_dbx_path_dialog(config_name)
 
-        with MaestralProxy(config_name, fallback=True) as m:
-            m.move_dropbox_directory(new_path)
+    with MaestralProxy(config_name, fallback=True) as m:
+        m.move_dropbox_directory(new_path)
 
-        click.echo(f'Dropbox folder moved to {new_path}.')
+    click.echo(f'Dropbox folder moved to {new_path}.')
 
 
 @main.command(help_priority=15)
@@ -763,20 +838,19 @@ def account_info(config_name: str):
 
     from maestral.daemon import MaestralProxy
 
-    if not pending_link_cli(config_name):
-        with MaestralProxy(config_name, fallback=True) as m:
+    with MaestralProxy(config_name, fallback=True) as m:
 
-            email = m.get_state('account', 'email')
-            account_type = m.get_state('account', 'type').capitalize()
-            usage = m.get_state('account', 'usage')
-            dbid = m.get_conf('account', 'account_id')
+        email = m.get_state('account', 'email')
+        account_type = m.get_state('account', 'type').capitalize()
+        usage = m.get_state('account', 'usage')
+        dbid = m.get_conf('account', 'account_id')
 
-            click.echo('')
-            click.echo(f'Email:             {email}')
-            click.echo(f'Account-type:      {account_type}')
-            click.echo(f'Usage:             {usage}')
-            click.echo(f'Dropbox-ID:        {dbid}')
-            click.echo('')
+        click.echo('')
+        click.echo(f'Email:             {email}')
+        click.echo(f'Account-type:      {account_type}')
+        click.echo(f'Usage:             {usage}')
+        click.echo(f'Dropbox-ID:        {dbid}')
+        click.echo('')
 
 
 @main.command(help_priority=21)
@@ -804,19 +878,18 @@ def about():
 def excluded_list(config_name: str):
     """Lists all excluded files and folders."""
 
-    if not pending_link_cli(config_name):
-        from maestral.daemon import MaestralProxy
+    from maestral.daemon import MaestralProxy
 
-        with MaestralProxy(config_name, fallback=True) as m:
+    with MaestralProxy(config_name, fallback=True) as m:
 
-            excluded_items = m.excluded_items
-            excluded_items.sort()
+        excluded_items = m.excluded_items
+        excluded_items.sort()
 
-            if len(excluded_items) == 0:
-                click.echo('No excluded files or folders.')
-            else:
-                for item in excluded_items:
-                    click.echo(item)
+        if len(excluded_items) == 0:
+            click.echo('No excluded files or folders.')
+        else:
+            for item in excluded_items:
+                click.echo(item)
 
 
 @excluded.command(name='add', help_priority=1)
@@ -833,20 +906,18 @@ def excluded_add(dropbox_path: str, config_name: str):
         click.echo(click.style('Cannot exclude the root directory.', fg='red'))
         return
 
-    if not pending_link_cli(config_name):
+    from maestral.daemon import MaestralProxy
 
-        from maestral.daemon import MaestralProxy
-
-        with MaestralProxy(config_name, fallback=True) as m:
-            if _check_for_fatal_errors(m):
-                return
-            try:
-                m.exclude_item(dropbox_path)
-                click.echo(f'Excluded \'{dropbox_path}\'.')
-            except ConnectionError:
-                raise click.ClickException('Could not connect to Dropbox.')
-            except ValueError as e:
-                raise click.ClickException(e.args[0])
+    with MaestralProxy(config_name, fallback=True) as m:
+        if check_for_fatal_errors(m):
+            return
+        try:
+            m.exclude_item(dropbox_path)
+            click.echo(f'Excluded \'{dropbox_path}\'.')
+        except ConnectionError:
+            raise click.ClickException('Could not connect to Dropbox.')
+        except ValueError as e:
+            raise click.ClickException(e.args[0])
 
 
 @excluded.command(name='remove', help_priority=2)
@@ -863,25 +934,22 @@ def excluded_remove(dropbox_path: str, config_name: str):
         click.echo(click.style('The root directory is always included.', fg='red'))
         return
 
-    if not pending_link_cli(config_name):
+    from maestral.daemon import MaestralProxy
 
-        from maestral.daemon import MaestralProxy
+    try:
+        with MaestralProxy(config_name) as m:
+            if check_for_fatal_errors(m):
+                return
+            try:
+                m.include_item(dropbox_path)
+                click.echo(f'Included \'{dropbox_path}\'. Now downloading...')
+            except ConnectionError:
+                raise click.ClickException('Could not connect to Dropbox.')
+            except ValueError as e:
+                raise click.ClickException(e.args[0])
 
-        try:
-            with MaestralProxy(config_name) as m:
-                if _check_for_fatal_errors(m):
-                    return
-                try:
-                    m.include_item(dropbox_path)
-                    click.echo(f'Included \'{dropbox_path}\'. Now downloading...')
-                except ConnectionError:
-                    raise click.ClickException('Could not connect to Dropbox.')
-                except ValueError as e:
-                    raise click.ClickException(e.args[0])
-
-        except Pyro5.errors.CommunicationError:
-            raise click.ClickException('Maestral daemon must be running '
-                                       'to download folders.')
+    except Pyro5.errors.CommunicationError:
+        raise click.ClickException('Maestral daemon must be running to download folders.')
 
 
 # ========================================================================================
