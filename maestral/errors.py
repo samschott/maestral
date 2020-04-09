@@ -132,7 +132,7 @@ class OutOfMemoryError(MaestralApiError):
     pass
 
 
-class DropboxDeletedError(MaestralApiError):
+class NoDropboxDirError(MaestralApiError):
     """Raised when the local Dropbox folder cannot be found."""
     pass
 
@@ -245,7 +245,7 @@ def fswatch_to_maestral_error(exc):
         msg = ('Please move the Dropbox folder back to its original location '
                'or restart Maestral to set up a new folder.')
 
-        err_cls = DropboxDeletedError
+        err_cls = NoDropboxDirError
     elif isinstance(exc, PermissionError):
         title = 'Insufficient permissions for Dropbox folder'
         msg = ('Please ensure that you have read and write permissions '
@@ -591,7 +591,7 @@ SYNC_ERRORS = (
 
 FATAL_ERRORS = (
     InotifyError,
-    DropboxDeletedError,
+    NoDropboxDirError,
     RestrictedContentError,
     RevFileError,
     DropboxAuthError,

@@ -38,7 +38,7 @@ from maestral import __version__
 from maestral.oauth import OAuth2Session
 from maestral.client import MaestralApiClient, to_maestral_error
 from maestral.sync import MaestralMonitor
-from maestral.errors import MaestralApiError, NotLinkedError, DropboxDeletedError
+from maestral.errors import MaestralApiError, NotLinkedError, NoDropboxDirError
 from maestral.config import MaestralConfig, MaestralState
 from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
@@ -182,8 +182,8 @@ def require_dir(func):
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         if self.pending_dropbox_folder:
-            raise DropboxDeletedError('No local Dropbox directory',
-                                      'Run "create_dropbox_directory" to set up.')
+            raise NoDropboxDirError('No local Dropbox directory',
+                                    'Run "create_dropbox_directory" to set up.')
         return func(self, *args, **kwargs)
 
     return wrapper
