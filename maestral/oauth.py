@@ -21,7 +21,7 @@ from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 
 # maestral modules
 from maestral.config import MaestralConfig
-from maestral.constants import DROPBOX_APP_KEY, IS_MACOS_BUNDLE
+from maestral.constants import DROPBOX_APP_KEY
 from maestral.errors import DropboxAuthError
 from maestral.client import CONNECTION_ERRORS
 from maestral.utils.oauth_implicit import DropboxOAuth2FlowImplicit
@@ -49,20 +49,17 @@ def get_keyring_backend(config_name):
     import keyring.backends
 
     conf = MaestralConfig(config_name)
-    keyring_name = conf.get('app', 'keyring').strip()
+    keyring_class = conf.get('app', 'keyring').strip()
 
-    if IS_MACOS_BUNDLE:
-        ring = keyring.backends.OS_X.Keyring()
-    else:
-        try:
-            ring = load_keyring(keyring_name)
-        except Exception:
-            # get preferred keyring backends for platform
-            available_rings = keyring.backend.get_all_keyring()
-            supported_rings = [k for k in available_rings
-                               if isinstance(k, supported_keyring_backends)]
+    try:
+        ring = load_keyring(keyring_class)
+    except Exception:
+        # get preferred keyring backends for platform
+        available_rings = keyring.backend.get_all_keyring()
+        supported_rings = [k for k in available_rings
+                           if isinstance(k, supported_keyring_backends)]
 
-            ring = max(supported_rings, key=lambda x: x.priority)
+        ring = max(supported_rings, key=lambda x: x.priority)
 
     return ring
 
@@ -117,7 +114,9 @@ class OAuth2Session:
                 self.access_token = self.keyring.get_password('Maestral', self.account_id)
             return self.access_token
         except KeyringLocked:
-            info = 'Please make sure that your keyring is unlocked and restart Maestral.'
+            info = (f'Could not load access token. Please make sure that the '
+                    f'{self.keyring.name} is unlocked.')
+            logger.error(info)
             raise KeyringLocked(info)
 
     def get_auth_url(self):
@@ -165,15 +164,18 @@ class OAuth2Session:
                 click.echo(' > Warning: No supported keyring found, '
                            'Dropbox credentials stored in plain text.')
         except KeyringLocked:
-            logger.error('Could not access the user keyring to save your authentication '
-                         'token. Please make sure that the keyring is unlocked.')
+            # fall back to plain text keyring and try again
+            self.keyring = keyrings.alt.file.PlaintextKeyring()
+            self._conf.set('app', 'keyring', 'keyrings.alt.file.PlaintextKeyring')
+            self.save_creds()
 
     def delete_creds(self):
         """Deletes auth key from system keyring."""
-        self._conf.set('account', 'account_id', "")
+        self._conf.set('account', 'account_id', '')
         try:
             self.keyring.delete_password('Maestral', self.account_id)
             click.echo(' > Credentials removed.')
         except KeyringLocked:
-            logger.error('Could not access the user keyring to delete your authentication'
-                         ' token. Please make sure that the keyring is unlocked.')
+            info = (f'Could not delete access token. Please make sure that the '
+                    f'{self.keyring.name} is unlocked.')
+            logger.error(info)
