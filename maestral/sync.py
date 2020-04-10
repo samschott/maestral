@@ -2053,7 +2053,7 @@ class UpDownSync:
 
         self._clean_and_save_rev_file()
 
-        return [entry for entry in downloaded if not isinstance(entry, bool)], success
+        return [entry for entry in downloaded if isinstance(entry, Metadata)], success
 
     def check_download_conflict(self, md):
         """
