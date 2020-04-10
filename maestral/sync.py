@@ -1468,6 +1468,8 @@ class UpDownSync:
         # conflicts due to race conditions when a file inside a folder is created in
         # between the conflict check and subsequent upload of the folder (see issue #116)
 
+        sorted_events['dir_created'].sort(key=lambda x: x.src_path.count('/'))
+
         for event in sorted_events['dir_created']:
             self.create_remote_entry(event)
 

@@ -11,9 +11,10 @@
 
 - Fixes a minor issue where internet connection errors while resuming syncing could
   result in continuous retries of the upload until the connection was finally established.
-  Instead, Maestral now pauses all syncing until a connection can be stablished.
+  Instead, Maestral now pauses all syncing until a connection can be established.
 - Fixes handling of errors when starting a file system watch such as inofify limit and
   permission errors.
+- Fixes a rare issue which could lead to false conflicting copies of folders.
 - Fixes handling of errors from too long file names.
 - Fixes handling of some uncaught insufficient disk space errors.
 - Fixes autostart module on macOS.
