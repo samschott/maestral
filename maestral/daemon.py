@@ -13,7 +13,6 @@ for a running daemon.
 import sys
 import os
 import time
-import logging
 import signal
 import traceback
 import enum
@@ -29,9 +28,6 @@ from maestral.errors import MaestralApiError, SYNC_ERRORS, FATAL_ERRORS
 
 
 threads = dict()
-
-
-logger = logging.getLogger(__name__)
 URI = 'PYRO:maestral.{0}@{1}'
 
 
@@ -153,8 +149,6 @@ def _wait_for_startup(config_name, timeout=8):
     t0 = time.time()
     pid = None
 
-    logger.debug(f'Waiting for process with pid {pid} to start.')
-
     while not pid and time.time() - t0 < timeout / 2:
         pid = get_maestral_pid(config_name)
         time.sleep(0.2)
@@ -176,7 +170,6 @@ def _check_pyro_communication(config_name, timeout=2):
     while timeout > 0:
         try:
             maestral_daemon._pyroBind()
-            logger.debug('Successfully communication with daemon')
             return Start.Ok
         except Exception:
             time.sleep(0.2)
@@ -184,7 +177,6 @@ def _check_pyro_communication(config_name, timeout=2):
         finally:
             maestral_daemon._pyroRelease()
 
-    logger.error('Could not communicate with Maestral daemon')
     return Start.Failed
 
 
@@ -221,14 +213,11 @@ def run_maestral_daemon(config_name='maestral', log_to_stdout=False):
             lockfile.break_lock()
             lockfile.acquire()
         else:
-            logger.debug(f'Maestral already running')
             return
 
     # Nice ourselves give other processes priority. We will likely only
     # have significant CPU usage in case of many concurrent downloads.
     os.nice(10)
-
-    logger.debug(f'Starting Maestral daemon on socket "{sock_name}"')
 
     try:
         # clean up old socket
@@ -255,7 +244,6 @@ def run_maestral_daemon(config_name='maestral', log_to_stdout=False):
     except Exception:
         traceback.print_exc()
     except (KeyboardInterrupt, SystemExit):
-        logger.info('Received system exit')
         sys.exit(0)
     finally:
         lockfile.release()
@@ -289,7 +277,7 @@ def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
     if threading.current_thread() is threading.main_thread():
         signal.signal(signal.SIGTERM, _sigterm_handler)
 
-    return _wait_for_startup(config_name, timeout=8)
+    return _wait_for_startup(config_name)
 
 
 def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
@@ -334,7 +322,7 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
         daemon=True,
     ).start()
 
-    return _wait_for_startup(config_name, timeout=8)
+    return _wait_for_startup(config_name)
 
 
 def stop_maestral_daemon_process(config_name='maestral', timeout=10):
@@ -349,7 +337,6 @@ def stop_maestral_daemon_process(config_name='maestral', timeout=10):
         if the daemon was not running.
     """
 
-    logger.debug('Stopping daemon')
     lockfile = PIDLockFile(pidpath_for_config(config_name))
     pid = lockfile.read_pid()
 
@@ -362,13 +349,10 @@ def stop_maestral_daemon_process(config_name='maestral', timeout=10):
                 m.stop_sync()
                 m.shutdown_pyro_daemon()
         except Pyro5.errors.CommunicationError:
-            logger.debug('Could not communicate with daemon, sending SIGTERM')
             _send_term(pid)
         finally:
-            logger.debug('Waiting for shutdown')
             while timeout > 0:
                 if not _process_exists(pid):
-                    logger.debug('Daemon shut down')
                     return Exit.Ok
                 else:
                     time.sleep(0.2)
@@ -380,11 +364,9 @@ def stop_maestral_daemon_process(config_name='maestral', timeout=10):
             time.sleep(1)
 
             if not _process_exists(pid):
-                logger.debug('Daemon shut down')
                 return Exit.Ok
             else:
                 os.kill(pid, signal.SIGKILL)
-                logger.debug('Daemon killed')
                 return Exit.Killed
     finally:
         lockfile.break_lock()
@@ -399,7 +381,6 @@ def stop_maestral_daemon_thread(config_name='maestral', timeout=10):
         ``Exit.Failed`` if it could not be stopped within timeout.
     """
 
-    logger.debug('Stopping thread')
     lockfile = PIDLockFile(pidpath_for_config(config_name))
     t = threads[config_name]
 
@@ -450,9 +431,7 @@ def get_maestral_proxy(config_name='maestral', fallback=False):
 
     if fallback:
         from maestral.main import Maestral
-        m = Maestral(config_name)
-        m.log_handler_stream.setLevel(logging.CRITICAL)
-        return m
+        return Maestral(config_name)
     else:
         raise Pyro5.errors.CommunicationError
 
