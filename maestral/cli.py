@@ -31,19 +31,6 @@ FAILED = click.style('[FAILED]', fg='red')
 KILLED = click.style('[KILLED]', fg='red')
 
 
-def start_daemon_subprocess_with_cli_feedback(config_name, log_to_stdout=False):
-    """Wrapper around :meth:`daemon.start_maestral_daemon_process`
-    with command line feedback."""
-    from maestral.daemon import start_maestral_daemon_process, Start
-
-    click.echo('Starting Maestral...', nl=False)
-    res = start_maestral_daemon_process(config_name, log_to_stdout=log_to_stdout)
-    if res == Start.Ok:
-        click.echo('\rStarting Maestral...        ' + OK)
-    else:
-        click.echo('\rStarting Maestral...        ' + FAILED)
-
-
 def stop_daemon_with_cli_feedback(config_name):
     """Wrapper around :meth:`daemon.stop_maestral_daemon_process`
     with command line feedback."""
@@ -403,7 +390,8 @@ def start(config_name: str, foreground: bool, verbose: bool):
     """Starts the Maestral as a daemon."""
 
     from maestral.daemon import get_maestral_pid, get_maestral_proxy
-    from maestral.daemon import start_maestral_daemon_thread, threads
+    from maestral.daemon import (start_maestral_daemon_thread, threads,
+                                 start_maestral_daemon_process, Start)
 
     # do nothing if already running
     if get_maestral_pid(config_name):
@@ -411,10 +399,19 @@ def start(config_name: str, foreground: bool, verbose: bool):
         return
 
     # start daemon
+    click.echo('Starting Maestral...', nl=False)
+
     if foreground:
-        start_maestral_daemon_thread(config_name)
+        res = start_maestral_daemon_thread(config_name)
     else:
-        start_daemon_subprocess_with_cli_feedback(config_name)
+        res = start_maestral_daemon_process(config_name)
+
+    if res == Start.Ok:
+        click.echo('\rStarting Maestral...        ' + OK)
+    else:
+        click.echo('\rStarting Maestral...        ' + FAILED)
+        click.echo('Please check logs for more information.')
+        return
 
     # run setup if necessary
     m = get_maestral_proxy(config_name)
