@@ -122,6 +122,11 @@ class NotLinkedError(MaestralApiError):
     pass
 
 
+class NoDropboxDirError(MaestralApiError):
+    """Raised when the local Dropbox folder cannot be found."""
+    pass
+
+
 class InotifyError(MaestralApiError):
     """Raised when the local Dropbox folder is too large to monitor with inotify."""
     pass
@@ -129,11 +134,6 @@ class InotifyError(MaestralApiError):
 
 class OutOfMemoryError(MaestralApiError):
     """Raised when there is insufficient memory to complete an operation."""
-    pass
-
-
-class NoDropboxDirError(MaestralApiError):
-    """Raised when the local Dropbox folder cannot be found."""
     pass
 
 
@@ -590,8 +590,9 @@ SYNC_ERRORS = (
 )
 
 FATAL_ERRORS = (
-    InotifyError,
+    NotLinkedError,
     NoDropboxDirError,
+    InotifyError,
     RestrictedContentError,
     RevFileError,
     DropboxAuthError,
