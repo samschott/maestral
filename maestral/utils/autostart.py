@@ -113,7 +113,7 @@ class AutoStartMaestralBase(AutoStartBase):
         if not osp.isfile(path):
             path = shutil.which('maestral')
 
-        return path
+        return str(path)
 
     def enable(self):
         """
