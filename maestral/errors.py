@@ -76,8 +76,18 @@ class NotFoundError(SyncError):
     pass
 
 
-class ExistsError(SyncError):
+class ConflictError(SyncError):
     """Raised when trying to create a file or folder which already exists."""
+    pass
+
+
+class FileConflictError(ConflictError):
+    """Raised when trying to create a file which already exists."""
+    pass
+
+
+class FolderConflictError(SyncError):
+    """Raised when trying to create or folder which already exists."""
     pass
 
 
@@ -195,7 +205,7 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
         err_cls = NotFoundError  # subclass of SyncError
         text = 'The given path does not exist.'
     elif isinstance(exc, FileExistsError):
-        err_cls = ExistsError  # subclass of SyncError
+        err_cls = ConflictError  # subclass of SyncError
         title = 'Could not download file'
         text = 'There already is an item at the given path.'
     elif isinstance(exc, IsADirectoryError):
@@ -304,7 +314,7 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                 text = 'Shared folders can’t be copied.'
             elif error.is_cant_move_folder_into_itself():
                 text = 'You cannot move a folder into itself.'
-                err_cls = ExistsError
+                err_cls = ConflictError
             elif error.is_cant_move_shared_folder():
                 text = 'You cannot move the shared folder to the given destination.'
                 err_cls = PathError
@@ -490,9 +500,19 @@ def _get_write_error_msg(write_error):
     err_cls = SyncError
 
     if write_error.is_conflict():
-        text = ('Could not write to the target path because another file or '
-                'folder was in the way.')
-        err_cls = ExistsError
+        conflict = write_error.get_conflict()
+        if conflict.is_file():
+            text = ('Could not write to the target path because another file '
+                    'was in the way.')
+            err_cls = FileConflictError
+        elif conflict.is_folder():
+            text = ('Could not write to the target path because another folder '
+                    'was in the way.')
+            err_cls = FolderConflictError
+        else:
+            text = ('Could not write to the target path because another file or '
+                    'folder was in the way.')
+            err_cls = ConflictError
     elif write_error.is_disallowed_name():
         text = 'Dropbox will not save the file or folder because of its name.'
         err_cls = PathError
@@ -580,7 +600,7 @@ SYNC_ERRORS = (
     InsufficientSpaceError,
     PathError,
     NotFoundError,
-    ExistsError,
+    ConflictError,
     IsAFolderError,
     NotAFolderError,
     DropboxServerError,
