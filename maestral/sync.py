@@ -2327,6 +2327,7 @@ class UpDownSync:
         # book keeping
         self.clear_sync_error(dbx_path=entry.path_display)
         remove_from_queue(self.queued_for_download, entry.path_display)
+        self._save_to_history(entry.path_display)
 
         with InQueue(self.queue_downloading, entry.path_display):
 
@@ -2391,7 +2392,6 @@ class UpDownSync:
                 self.set_local_rev(entry.path_lower, md.rev)
 
                 logger.debug('Created local file "%s"', entry.path_display)
-                self._save_to_history(entry.path_display)
                 applied = entry
 
             elif isinstance(entry, FolderMetadata):
