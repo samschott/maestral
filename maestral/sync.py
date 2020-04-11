@@ -48,8 +48,8 @@ from maestral.config import MaestralConfig, MaestralState
 from maestral.fsevents import Observer
 from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                 EXCLUDED_FILE_NAMES, MIGNORE_FILE, IS_FS_CASE_SENSITIVE)
-from maestral.errors import (RevFileError, NoDropboxDirError,
-                             SyncError, PathError, NotFoundError,
+from maestral.errors import (RevFileError, NoDropboxDirError, SyncError, PathError,
+                             NotFoundError, FileConflictError, FolderConflictError,
                              fswatch_to_maestral_error, os_to_maestral_error)
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
@@ -1618,18 +1618,22 @@ class UpDownSync:
 
         dbx_path = self.to_dbx_path(local_path)
 
-        md_old = self.client.get_metadata(dbx_path)
         self._wait_for_creation(local_path)
 
         if event.is_directory:
-            if isinstance(md_old, FolderMetadata):
+            try:
+                md_new = self.client.make_dir(dbx_path, autorename=False)
+            except FolderConflictError:
+                logger.debug('No conflict for "%s": the folder already exists',
+                             event.src_path)
                 self.set_local_rev(dbx_path, 'folder')
                 return
-            else:
+            except FileConflictError:
                 md_new = self.client.make_dir(dbx_path, autorename=True)
 
         else:
             # check if file already exists with identical content
+            md_old = self.client.get_metadata(dbx_path)
             if isinstance(md_old, FileMetadata):
                 local_hash = get_local_hash(local_path)
                 if local_hash == md_old.content_hash:
