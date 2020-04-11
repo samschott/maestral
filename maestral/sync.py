@@ -1651,7 +1651,7 @@ class UpDownSync:
                 md_new = self.client.upload(local_path, dbx_path,
                                             autorename=True, mode=mode)
             except NotFoundError:
-                logger.debug('Could not upload "%s":pip install  the item does not exist',
+                logger.debug('Could not upload "%s": the item does not exist',
                              event.src_path)
                 return
 
