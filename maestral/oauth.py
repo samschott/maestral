@@ -92,7 +92,7 @@ class OAuth2Session:
         self._conf = MaestralConfig(config_name)
 
         self.account_id = self._conf.get('account', 'account_id')
-        self.access_token = ''
+        self.access_token = self.load_token()
 
         self.auth_flow = None
         self.oAuth2FlowResult = None
@@ -109,7 +109,7 @@ class OAuth2Session:
 
         try:
             if self.account_id == '':
-                self.access_token = None
+                self.access_token = ''
             else:
                 self.access_token = self.keyring.get_password('Maestral', self.account_id)
             return self.access_token
