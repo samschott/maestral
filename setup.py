@@ -47,7 +47,7 @@ install_requires = [
     'watchdog>=0.10.0',
 ]
 
-gui_requires = ['maestral-qt==1.0.0.dev1']
+gui_requires = ['maestral-qt==1.0.0.dev2']
 syslog_requires = ['systemd-python']
 
 # if GUI is installed, always update it as well
