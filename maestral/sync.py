@@ -1464,22 +1464,14 @@ class UpDownSync:
         for event in sorted_events['dir_moved']:
             self.create_remote_entry(event)
 
-        # apply folder created events before file created events to prevent artificial
-        # conflicts due to race conditions when a file inside a folder is created in
-        # between the conflict check and subsequent upload of the folder (see issue #116)
-
-        sorted_events['dir_created'].sort(key=lambda x: x.src_path.count('/'))
-
-        for event in sorted_events['dir_created']:
-            self.create_remote_entry(event)
-
         # apply file created events in parallel since order does not matter
         success = []
         last_emit = time.time()
         with ThreadPoolExecutor(max_workers=self._num_threads,
                                 thread_name_prefix='maestral-upload-pool') as executor:
-            fs = (executor.submit(self.create_remote_entry, e) for e in sorted_events['file'])
-            n_files = len(sorted_events['file']) + len(sorted_events['dir_created'])
+            fs = (executor.submit(self.create_remote_entry, e) for e in
+                  itertools.chain(sorted_events['dir_created'], sorted_events['file']))
+            n_files = len(sorted_events['dir_created']) + len(sorted_events['file'])
             for f, n in zip(as_completed(fs), range(1, n_files + 1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
                     # emit message at maximum every second
