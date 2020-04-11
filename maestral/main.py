@@ -525,7 +525,7 @@ class Maestral:
     @property
     def pending_link(self):
         """Bool indicating if Maestral is linked to a Dropbox account."""
-        return self._auth.load_token() is None
+        return self._auth.access_token == ''
 
     @property
     def pending_dropbox_folder(self):
