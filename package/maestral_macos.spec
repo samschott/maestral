@@ -42,54 +42,67 @@ def Entrypoint(dist, group, name, **kwargs):
     )
 
 
-a = Entrypoint('maestral', 'console_scripts', 'maestral',
-               binaries=None,
-               datas= [
-                   (pkgr.resource_filename('maestral_qt', 'resources/tray-icons-svg/*.svg'), 'maestral_qt/resources/tray-icons-svg'),
-                   (pkgr.resource_filename('maestral_qt', 'resources/maestral.png'), 'maestral_qt/resources'),
-                   (pkgr.resource_filename('maestral_qt', 'resources/faceholder.png'), 'maestral_qt/resources'),
-                   (pkgr.resource_filename('maestral_qt', 'resources/*.ui'), 'maestral_qt/resources'),
-                   (pkgr.resource_filename('maestral', 'resources/*'), 'maestral/resources'),
-               ],
-               hiddenimports=['pkg_resources.py2_warn'],
-               hookspath=['hooks'],
-               runtime_hooks=[],
-               excludes=['_tkinter'],
-               win_no_prefer_redirects=False,
-               win_private_assemblies=False,
-               cipher=block_cipher,
-               noarchive=False)
-pyz = PYZ(a.pure, a.zipped_data,
-          cipher=block_cipher)
-exe = EXE(pyz,
-          a.scripts,
-          [],
-          exclude_binaries=True,
-          name='maestral_cli',
-          debug=False,
-          bootloader_ignore_signals=False,
-          strip=False,
-          upx=True,
-          console=False )
-coll = COLLECT(exe,
-               a.binaries,
-               a.zipfiles,
-               a.datas,
-               strip=False,
-               upx=True,
-               upx_exclude=[],
-               name='maestral_gui')
-app = BUNDLE(coll,
-             name='Maestral.app',
-             icon=pkgr.resource_filename('maestral_qt', 'resources/maestral.icns'),
-             bundle_identifier='com.samschott.maestral',
-             info_plist={
-                'CFBundleExecutable': 'MacOS/maestral_gui',
-                'NSHighResolutionCapable': 'True',
-                'LSUIElement': '1',
-                'CFBundleVersion': bundle_version,
-                'CFBundleShortVersionString': __version__,
-                'NSHumanReadableCopyright': 'Copyright © {} {}. All rights reserved.'.format(time.strftime('%Y'), __author__),
-                'LSMinimumSystemVersion': '10.13.0',
-                },
+a = Entrypoint(
+    'maestral', 'console_scripts', 'maestral',
+    binaries=None,
+    datas= [
+        (pkgr.resource_filename('maestral_qt', 'resources/tray-icons-svg/*.svg'), 'maestral_qt/resources/tray-icons-svg'),
+        (pkgr.resource_filename('maestral_qt', 'resources/maestral.png'), 'maestral_qt/resources'),
+        (pkgr.resource_filename('maestral_qt', 'resources/faceholder.png'), 'maestral_qt/resources'),
+        (pkgr.resource_filename('maestral_qt', 'resources/*.ui'), 'maestral_qt/resources'),
+        (pkgr.resource_filename('maestral', 'resources/*'), 'maestral/resources'),
+    ],
+    hiddenimports=['pkg_resources.py2_warn'],
+    hookspath=['hooks'],
+    runtime_hooks=[],
+    excludes=['_tkinter'],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False
+)
+
+pyz = PYZ(
+    a.pure, a.zipped_data,
+    cipher=block_cipher
+)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name='maestral_cli',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    console=False
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='main'
+)
+
+app = BUNDLE(
+    coll,
+    name='Maestral.app',
+    icon=pkgr.resource_filename('maestral_qt', 'resources/maestral.icns'),
+    bundle_identifier='com.samschott.maestral',
+    info_plist={
+        'CFBundleExecutable': 'MacOS/maestral_gui',
+        'NSHighResolutionCapable': 'True',
+        'LSUIElement': '1',
+        'CFBundleVersion': bundle_version,
+        'CFBundleShortVersionString': __version__,
+        'NSHumanReadableCopyright': 'Copyright © {} {}. All rights reserved.'.format(time.strftime('%Y'), __author__),
+        'LSMinimumSystemVersion': '10.13.0',
+    },
 )
