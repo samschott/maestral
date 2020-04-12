@@ -387,7 +387,7 @@ def gui(config_name):
               help='Print log messages to stdout.')
 @catch_maestral_errors
 def start(config_name: str, foreground: bool, verbose: bool):
-    """Starts the Maestral as a daemon."""
+    """Starts the Maestral daemon."""
 
     from maestral.daemon import get_maestral_pid, get_maestral_proxy
     from maestral.daemon import (start_maestral_daemon_thread, threads,
@@ -480,7 +480,12 @@ def restart(ctx, config_name: str, foreground: bool, verbose: bool):
 @click.option('--yes', '-Y', is_flag=True, default=False)
 @click.option('--no', '-N', is_flag=True, default=False)
 def autostart(config_name: str, yes: bool, no: bool):
-    """Start the maestral daemon on log-in."""
+    """
+    Automatically start the maestral daemon on log-in.
+
+    A systemd or launchd service will be created to start a sync daemon for the given
+    configuration on user login.
+    """
     from maestral.utils.autostart import AutoStart
     auto_start = AutoStart(config_name)
 
@@ -573,7 +578,6 @@ def file_status(config_name: str, local_path: str):
     Returned value will be 'uploading', 'downloading', 'up to date', 'error', or
     'unwatched' (for files outside of the Dropbox directory). This will always be
     'unwatched' if syncing is paused.
-
     """
     from maestral.daemon import MaestralProxy
 
@@ -715,7 +719,11 @@ def link(config_name: str, relink: bool):
 @existing_config_option
 @catch_maestral_errors
 def unlink(config_name: str):
-    """Unlinks your Dropbox account."""
+    """
+    Unlinks your Dropbox account.
+
+    If Maestral is running, it will be stopped before unlinking.
+    """
 
     if click.confirm('Are you sure you want unlink your account?'):
 
@@ -732,7 +740,7 @@ def unlink(config_name: str):
 @existing_config_option
 @click.argument('new_path', required=False, type=click.Path(writable=True))
 def move_dir(config_name: str, new_path: str):
-    """Change the location of your Dropbox folder."""
+    """Change the location of your loacl Dropbox folder."""
 
     from maestral.daemon import MaestralProxy
 
@@ -748,7 +756,12 @@ def move_dir(config_name: str, new_path: str):
 @existing_config_option
 @catch_maestral_errors
 def rebuild_index(config_name: str):
-    """Rebuilds Maestral's index. May take several minutes."""
+    """
+    Rebuilds Maestral's index.
+
+    Rebuilding may take several minutes, depending on the size of your Dropbox. If
+    Maestral is quit while rebuilding, it will resume when rerstarted.
+    """
 
     try:
         import textwrap
@@ -802,8 +815,14 @@ def configs():
 @click.option('--yes', '-Y', is_flag=True, default=False)
 @click.option('--no', '-N', is_flag=True, default=False)
 def analytics(config_name: str, yes: bool, no: bool):
-    """Enables or disables sharing error reports."""
-    # This is safe to call regardless if the GUI or daemon are running.
+    """
+    Enables or disables sharing error reports.
+
+    Sharing is disabled by default. If enbled, error reports are shared with bugsnag and
+    no personal infortmation will typically be collected. Shared tracebacks may however
+    include file names, depending on the error.
+    """
+
     from maestral.daemon import MaestralProxy
 
     if yes or no:
@@ -828,7 +847,7 @@ def analytics(config_name: str, yes: bool, no: bool):
 @main.command(help_priority=20)
 @existing_config_option
 def account_info(config_name: str):
-    """Prints your Dropbox account information."""
+    """Shows your Dropbox account information."""
 
     from maestral.daemon import MaestralProxy
 
