@@ -1097,8 +1097,9 @@ class Maestral:
 
     @staticmethod
     def _periodic_watchdog():
-        sd_notifier.notify('WATCHDOG=1')
-        time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
+        while True:
+            sd_notifier.notify('WATCHDOG=1')
+            time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
 
     def __del__(self):
         try:
