@@ -5,7 +5,11 @@ BUILD_NO=$(grep -E -o "[0-9]*" bundle_version_macos.txt)
 
 echo "**** BUILD NUMBER $BUILD_NO ****************************"
 
-python3 -OO -m PyInstaller  -y --clean -w $SPEC_FILE
+python3 -m PyInstaller  -y --clean -w $SPEC_FILE
+
+echo "**** COPY ENTRY POINT **********************************"
+
+cp bin/maestral_gui dist/Maestral.app/Contents/MacOS/maestral_gui
 
 echo "**** REMOVING UNNEEDED MODULES *************************"
 
