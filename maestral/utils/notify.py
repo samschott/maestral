@@ -30,7 +30,7 @@ from collections import deque
 import click
 
 from maestral.config import MaestralConfig
-from maestral.constants import IS_MACOS_BUNDLE
+from maestral.constants import IS_MACOS_BUNDLE, BUNDLE_ID
 
 if platform.system() == 'Darwin':
 
@@ -148,7 +148,7 @@ class DesktopNotifierNC(DesktopNotifierBase):
 
     def __init__(self, app_name):
         super().__init__(app_name)
-        self.nc = UNUserNotificationCenter.currentNotificationCenter()
+        self.nc = UNUserNotificationCenter.alloc().initWithBundleIdentifier(BUNDLE_ID)
         self.nc.requestAuthorizationWithOptions(
             (1 << 2) | (1 << 1) | (1 << 0), completionHandler=None
         )
