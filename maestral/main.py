@@ -787,8 +787,7 @@ class Maestral:
     @require_dir
     def start_sync(self):
         """
-        Creates syncing threads and starts syncing. This will be called by :meth:`run`
-        and typically does not need to be called manually.
+        Creates syncing threads and starts syncing.
         """
 
         self.monitor.start()
@@ -797,7 +796,7 @@ class Maestral:
     @require_dir
     def resume_sync(self):
         """
-        Resumes the syncing threads if paused.
+        Resumes syncing if paused.
         """
 
         self.monitor.resume()
@@ -805,7 +804,7 @@ class Maestral:
     @require_linked
     def pause_sync(self):
         """
-        Pauses the syncing threads if running.
+        Pauses the syncing if running.
         """
 
         self.monitor.pause()
@@ -813,8 +812,7 @@ class Maestral:
     @require_linked
     def stop_sync(self):
         """
-        Stops the syncing threads if running. Call :meth:`start_sync` to restart all
-        threads.
+        Stops all syncing threads if running. Call :meth:`start_sync` to restart syncing.
         """
 
         self.monitor.stop()
