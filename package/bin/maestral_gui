@@ -1,4 +1,0 @@
-#!/bin/sh
-
-BASEDIR=$(cd "$(dirname "$0")"; pwd -P)
-"$BASEDIR/maestral_cli" gui
