@@ -97,7 +97,7 @@ app = BUNDLE(
     icon=pkgr.resource_filename('maestral_qt', 'resources/maestral.icns'),
     bundle_identifier='com.samschott.maestral',
     info_plist={
-        'CFBundleExecutable': 'MacOS/maestral_gui',
+        'CFBundleExecutable': 'MacOS/main',
         'NSHighResolutionCapable': 'True',
         'LSUIElement': '1',
         'CFBundleVersion': bundle_version,
