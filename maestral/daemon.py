@@ -182,7 +182,7 @@ def _check_pyro_communication(config_name, timeout=2):
 
 # ==== main functions to manage daemon ===================================================
 
-def run_maestral_daemon(config_name='maestral', log_to_stdout=False):
+def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
     """
     Wraps :class:`main.Maestral` as Pyro daemon object, creates a new instance and starts
     Pyro's event loop to listen for requests on a unix domain socket. This call will block
@@ -215,7 +215,7 @@ def run_maestral_daemon(config_name='maestral', log_to_stdout=False):
         else:
             return
 
-    # Nice ourselves give other processes priority. We will likely only
+    # Nice ourselves to give other processes priority. We will likely only
     # have significant CPU usage in case of many concurrent downloads.
     os.nice(10)
 
@@ -252,10 +252,6 @@ def run_maestral_daemon(config_name='maestral', log_to_stdout=False):
 def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
     """
     Starts the Maestral daemon in a thread (by calling :func:`start_maestral_daemon`).
-    This command will create a new daemon on each run. Take care not to sync the same
-    directory with multiple instances of Meastral! You can use
-    :func:`get_maestral_process_info` to check if either a Meastral gui or daemon is
-    already running for the given ``config_name``.
 
     :param str config_name: The name of the Maestral configuration to use.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
@@ -265,7 +261,7 @@ def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
     import threading
 
     t = threading.Thread(
-        target=run_maestral_daemon,
+        target=start_maestral_daemon,
         args=(config_name, log_to_stdout),
         name=f'maestral-daemon-{config_name}',
         daemon=True,
@@ -282,12 +278,8 @@ def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
 
 def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
     """
-    Starts the Maestral daemon as a separate process by calling
-    :func:`start_maestral_daemon`.
-
-    .. warning::
-        This function assumes that ``sys.executable`` points to the Python executable and
-        will not work for instance from Pyinstaller executables.
+    Starts the Maestral daemon in a separate process (by calling
+    :func:`start_maestral_daemon`).
 
     :param str config_name: The name of the Maestral configuration to use.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
@@ -295,29 +287,19 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
         already running or ``Start.Failed`` if startup failed.
     """
     import subprocess
-    from shlex import quote
     import multiprocessing as mp
 
-    STD_IN_OUT = subprocess.DEVNULL
+    STD_IN_OUT = subprocess.STDOUT if log_to_stdout else subprocess.DEVNULL
 
-    # use nested Popen and multiprocessing.Process to effectively create double fork`
+    # use nested multiprocessing.Process and os.fork to detach process
     # see Unix 'double-fork magic'
 
-    def target(cc, std_log):
-        cc = quote(cc)
-        std_log = bool(std_log)
-
-        cmd = (f'import maestral.daemon; '
-               f'maestral.daemon.run_maestral_daemon("{cc}", {std_log})')
-
-        subprocess.Popen(
-            [sys.executable, '-c', cmd],
-            stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
-        )
+    def target():
+        if os.fork() == 0:
+            start_maestral_daemon(config_name, log_to_stdout)
 
     mp.Process(
         target=target,
-        args=(config_name, log_to_stdout),
         name='maestral-daemon-launcher',
         daemon=True,
     ).start()
