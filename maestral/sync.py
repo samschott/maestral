@@ -2766,8 +2766,8 @@ class MaestralMonitor:
     def start(self):
         """Creates observer threads and starts syncing."""
 
-        if self.running.is_set():
-            # do nothing if already running
+        if self.running.is_set() or self.startup.is_set():
+            # do nothing if already started
             return
 
         self.running = Event()  # create new event to let old threads shut down
