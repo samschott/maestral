@@ -58,8 +58,9 @@ class FileStatus(Enum):
 
 
 # bundle detection
-IS_MACOS_BUNDLE = getattr(sys, 'frozen', False) and platform.system() == 'Darwin'
-IS_LINUX_BUNDLE = getattr(sys, 'frozen', False) and platform.system() == 'Linux'
+IS_BUNDLE = hasattr(sys, 'frozen')
+IS_MACOS_BUNDLE = IS_BUNDLE and platform.system() == 'Darwin'
+IS_LINUX_BUNDLE = IS_BUNDLE and platform.system() == 'Linux'
 
 # systemd environment
 INVOCATION_ID = os.getenv('INVOCATION_ID')
