@@ -361,7 +361,8 @@ class Maestral:
         mdbx_logger.addHandler(self.log_handler_file)
 
         # log to journal when launched from systemd
-        if INVOCATION_ID:
+        if journal and INVOCATION_ID:
+            # noinspection PyUnresolvedReferences
             self.log_handler_journal = journal.JournalHandler(
                 SYSLOG_IDENTIFIER='maestral'
             )
