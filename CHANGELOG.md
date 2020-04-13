@@ -1,5 +1,10 @@
 ## v1.0.0.dev1
 
+#### Added:
+
+- Command line tools are now bundled with the macOS app bundle and can be installed from
+  the preference pane.
+
 #### Changed:
 
 - Faster detection of connection problems.
@@ -18,6 +23,7 @@
 - Fixes handling of errors from too long file names.
 - Fixes handling of some uncaught insufficient disk space errors.
 - Fixes autostart module on macOS.
+- Fixes an issue where only remote changes would be listed in 'Recent changes' in the GUI.
 
 #### Removed:
 
