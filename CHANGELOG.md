@@ -1,15 +1,15 @@
-## v1.0.0.dev1
+## v1.0.0.dev
 
 #### Added:
 
 - Command line tools are now bundled with the macOS app bundle and can be installed from
-  the preference pane.
+  the settings window.
 
 #### Changed:
 
 - Faster detection of connection problems.
 - Bumped watchdog requirement to >= 10.0.0 for more consistent error handling.
-- Added public linking API to main class: `Maestral.get_auth_url` and `Maestral.link`.
+- Added public API to link a Dropbox account: `Maestral.get_auth_url` and `Maestral.link`.
 - Moved all command line dialogs from main API to cli module.
 
 #### Fixed:
@@ -24,11 +24,12 @@
 - Fixes handling of some uncaught insufficient disk space errors.
 - Fixes autostart module on macOS.
 - Fixes an issue where only remote changes would be listed in 'Recent changes' in the GUI.
+- Fixes the alignment of comboboxes in macOS.
 
 #### Removed:
 
-- Removed migration code for version < 0.6.3. If you want to update to v1.0.0, please make
-  sure to upgrade to at least v0.6.3 first.
+- Removed migration code for versions < 0.6.3. If you want to update to v1.0.0, please
+  make sure to upgrade to at least version 0.6.3 first.
 - Removed u-msgpack dependency.
 
 ## v0.6.4
