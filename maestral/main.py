@@ -204,10 +204,12 @@ class Maestral:
     >>> from maestral.main import Maestral
     >>> m = Maestral()
     >>> url = m.get_auth_url()  # get token from Dropbox website
-    >>> token = input('Please enter auth token: ')
-    >>> m.link(token)
-    >>> m.create_dropbox_directory('~/Dropbox (Maestral)')
-    >>> m.start_sync()
+    >>> print(f'Please go to {url} to retrieve a Dropbox authorization token.')
+    >>> token = input('Enter auth token: ')
+    >>> res = m.link(token)
+    >>> if res == 0:
+    ...     m.create_dropbox_directory('~/Dropbox (Maestral)')
+    ...     m.start_sync()
 
     :param str config_name: Name of maestral configuration to run. This will create a new
         configuration file if none exists.
