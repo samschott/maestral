@@ -255,7 +255,7 @@ class AutoStartXDGDesktop(AutoStartMaestralBase):
         self.destination = get_conf_path('autostart', filename)
         self.contents = desktop_entry_template.format(
             version=__version__,
-            start_cmd=''.join(self.start_cmd)
+            start_cmd=' '.join(self.start_cmd)
         )
 
     def _enable(self):
