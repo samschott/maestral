@@ -100,8 +100,8 @@ class AutoStartMaestralBase(AutoStartBase):
         # try to get location of console script from package metadata
         # fall back to 'which' otherwise
 
-        if hasattr(sys, '_MEIPASS'):  # PyInstaller bundle
-            return os.path.join(sys._MEIPASS, 'main')
+        if getattr(sys, 'frozen', False):  # app bundle
+            return sys.executable
 
         try:
             pkg_path = next(p for p in files('maestral')
