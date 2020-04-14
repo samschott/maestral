@@ -448,11 +448,12 @@ class UpDownSync:
 
         self.client = client
         self.config_name = self.client.config_name
+        self._cancel_pending = Event()
         self.fs_events = None
 
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
-        self.notifier = MaestralDesktopNotifier.for_config(self.config_name)
+        self._notifier = MaestralDesktopNotifier.for_config(self.config_name)
 
         self.download_errors = MaestralStateWrapper(
             self.config_name, section='sync', option='download_errors'
@@ -1006,6 +1007,10 @@ class UpDownSync:
 
         return self.mignore_rules.match_file(relative_path)
 
+    def cancel_pending(self):
+        """Cancels all pending uploads or downloads."""
+        self._cancel_pending.set()
+
     def _slow_down(self):
 
         if self._max_cpu_percent == 100:
@@ -1479,10 +1484,13 @@ class UpDownSync:
                     last_emit = time.time()
                 success.append(f.result())
 
+        # bookkeeping
+
         if all(success):
-            self.last_sync = local_cursor  # save local cursor
+            self.last_sync = local_cursor
 
         self._clean_and_save_rev_file()
+        self._cancel_pending.clear()
 
     @catch_sync_issues
     def create_remote_entry(self, event):
@@ -1494,12 +1502,15 @@ class UpDownSync:
         :param FileSystemEvent event: Watchdog file system event.
         """
 
+        if self._cancel_pending.is_set():
+            return False
+
         self._slow_down()
 
+        # book keeping
         local_path_from = event.src_path
         local_path_to = get_dest_path(event)
 
-        # book keeping
         remove_from_queue(self.queued_for_upload, local_path_from, local_path_to)
         self.clear_sync_error(local_path=local_path_to)
         self.clear_sync_error(local_path=local_path_from)
@@ -2056,6 +2067,7 @@ class UpDownSync:
             self.last_cursor = changes.cursor
 
         self._clean_and_save_rev_file()
+        self._cancel_pending.clear()
 
         return [entry for entry in downloaded if isinstance(entry, Metadata)], success
 
@@ -2210,7 +2222,7 @@ class UpDownSync:
         else:
             msg = f'{file_name} {change_type}'
 
-        self.notifier.notify(msg, level=FILECHANGE)
+        self._notifier.notify(msg, level=FILECHANGE)
 
     def _get_modified_by_dbid(self, md):
         """
@@ -2320,11 +2332,14 @@ class UpDownSync:
         :rtype: Metadata, bool
         """
 
+        if self._cancel_pending.is_set():
+            return False
+
         self._slow_down()
 
+        # book keeping
         local_path = self.to_local_path(entry.path_display)
 
-        # book keeping
         self.clear_sync_error(dbx_path=entry.path_display)
         remove_from_queue(self.queued_for_download, entry.path_display)
         self._save_to_history(entry.path_display)
@@ -2851,7 +2866,10 @@ class MaestralMonitor:
 
         self.paused_by_user.set()
         self.syncing.clear()
+
+        self.sync.cancel_pending()
         self._wait_for_idle()
+
         logger.info(PAUSED)
 
     def resume(self):
@@ -2876,6 +2894,7 @@ class MaestralMonitor:
         self.paused_by_user.clear()
         self.startup.clear()
 
+        self.sync.cancel_pending()
         self._wait_for_idle()
 
         self.local_observer_thread.stop()
