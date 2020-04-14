@@ -2,4 +2,15 @@
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
-"$SCRIPTPATH/maestral_cli" gui "$@"
+if [ "$#" -eq 0 ]
+then
+    "$SCRIPTPATH/maestral_cli" gui
+elif [ "$1" = "-c" ]
+then
+    "$SCRIPTPATH/maestral_cli" gui "$@"
+elif [ "$1" = "--config-name" ]
+then
+    "$SCRIPTPATH/maestral_cli" gui "$@"
+else
+    "$SCRIPTPATH/maestral_cli" "$@"
+fi
