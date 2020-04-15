@@ -25,6 +25,7 @@ from lockfile.pidlockfile import PIDLockFile, AlreadyLocked
 
 # local imports
 from maestral.errors import MaestralApiError, SYNC_ERRORS, FATAL_ERRORS
+from maestral.constants import IS_FROZEN
 
 
 threads = dict()
@@ -76,6 +77,10 @@ for err_cls in list(SYNC_ERRORS) + list(FATAL_ERRORS) + [MaestralApiError]:
 
 
 # ==== helpers for daemon management =====================================================
+
+def _escape_spaces(string):
+    return string.replace(" ", "_")
+
 
 def _sigterm_handler(signal_number, frame):
     sys.exit()
@@ -164,7 +169,7 @@ def _check_pyro_communication(config_name, timeout=2):
     communication succeeds within timeout, ``Start.Failed``  otherwise."""
 
     sock_name = sockpath_for_config(config_name)
-    maestral_daemon = Proxy(URI.format(config_name, './u:' + sock_name))
+    maestral_daemon = Proxy(URI.format(_escape_spaces(config_name), './u:' + sock_name))
 
     # wait until we can communicate with daemon, timeout after :param:`timeout`
     while timeout > 0:
@@ -238,7 +243,7 @@ def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
 
         m = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
 
-        daemon.register(m, f'maestral.{config_name}')
+        daemon.register(m, f'maestral.{_escape_spaces(config_name)}')
         daemon.requestLoop(loopCondition=m._loop_condition)
         daemon.close()
     except Exception:
@@ -429,7 +434,7 @@ def get_maestral_proxy(config_name='maestral', fallback=False):
         sock_name = sockpath_for_config(config_name)
 
         sys.excepthook = Pyro5.errors.excepthook
-        maestral_daemon = Proxy(URI.format(config_name, './u:' + sock_name))
+        maestral_daemon = Proxy(URI.format(_escape_spaces(config_name), './u:' + sock_name))
         try:
             maestral_daemon._pyroBind()
             return maestral_daemon
