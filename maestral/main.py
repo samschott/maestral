@@ -808,21 +808,19 @@ class Maestral:
 
         self.monitor.resume()
 
-    @require_linked
     def pause_sync(self):
         """
         Pauses the syncing if running.
         """
+        if not self.paused:
+            self.monitor.pause()
 
-        self.monitor.pause()
-
-    @require_linked
     def stop_sync(self):
         """
         Stops all syncing threads if running. Call :meth:`start_sync` to restart syncing.
         """
-
-        self.monitor.stop()
+        if not self.stopped:
+            self.monitor.stop()
 
     @require_linked
     def reset_sync_state(self):
