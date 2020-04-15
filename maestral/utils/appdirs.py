@@ -39,9 +39,11 @@ def get_cache_path(subfolder=None, filename=None, create=True):
     """
     if platform.system() == 'Darwin':
         cache_path = get_conf_path(create=False)
-    else:
+    elif platform.system() == 'Linux':
         fallback = osp.join(_home_dir, '.cache')
         cache_path = os.environ.get('XDG_CACHE_HOME', fallback)
+    else:
+        raise RuntimeError('Platform not supported')
 
     return _to_full_path(cache_path, subfolder, filename, create)
 
@@ -61,8 +63,10 @@ def get_log_path(subfolder=None, filename=None, create=True):
 
     if platform.system() == 'Darwin':
         log_path = osp.join(_home_dir, 'Library', 'Logs')
-    else:
+    elif platform.system() == 'Linux':
         log_path = get_cache_path(create=False)
+    else:
+        raise RuntimeError('Platform not supported')
 
     return _to_full_path(log_path, subfolder, filename, create)
 
@@ -80,8 +84,10 @@ def get_autostart_path(filename=None, create=True):
     """
     if platform.system() == 'Darwin':
         autostart_path = osp.join(_home_dir, 'Library', 'LaunchAgents')
-    else:
+    elif platform.system() == 'Linux':
         autostart_path = get_conf_path('autostart', create=create)
+    else:
+        raise RuntimeError('Platform not supported')
 
     if filename:
         autostart_path = osp.join(autostart_path, filename)
@@ -104,9 +110,11 @@ def get_runtime_path(subfolder=None, filename=None, create=True):
 
     if platform.system() == 'Darwin':
         runtime_path = get_conf_path(create=False)
-    else:
+    elif platform.system() == 'Linux':
         fallback = get_cache_path(create=False)
         runtime_path = os.environ.get('XDG_RUNTIME_DIR', fallback)
+    else:
+        raise RuntimeError('Platform not supported')
 
     return _to_full_path(runtime_path, subfolder, filename, create)
 
@@ -126,8 +134,10 @@ def get_old_runtime_path(subfolder=None, filename=None, create=True):
 
     if platform.system() == 'Darwin':
         runtime_path = tempfile.gettempdir()
-    else:
+    elif platform.system() == 'Linux':
         fallback = get_cache_path(create=False)
         runtime_path = os.environ.get('XDG_RUNTIME_DIR', fallback)
+    else:
+        raise RuntimeError('Platform not supported')
 
     return _to_full_path(runtime_path, subfolder, filename, create)
