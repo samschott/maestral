@@ -319,6 +319,21 @@ def _check_config(ctx, param, value):
     return value
 
 
+def _run_daemon(ctx, param, value):
+
+    if value is True:
+        import argparse
+        from maestral.daemon import start_maestral_daemon
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument('-c', '--config-name', help='Configuration name',
+                            default='maestral')
+        parsed_args, _ = parser.parse_known_args()
+
+        start_maestral_daemon(parsed_args.config_name)
+        ctx.exit()
+
+
 existing_config_option = click.option(
     '-c', '--config-name',
     default='maestral',
@@ -339,7 +354,31 @@ config_option = click.option(
 )
 
 
+hidden_config_option = click.option(
+    '-c', '--config-name',
+    default='maestral',
+    is_eager=True,
+    expose_value=False,
+    help='For internal use only.',
+    hidden=True,
+)
+
+
+frozen_daemon_option = click.option(
+    '--frozen-daemon',
+    is_flag=True,
+    default=False,
+    is_eager=True,
+    expose_value=False,
+    callback=_run_daemon,
+    hidden=True,
+    help='For internal use only.'
+)
+
+
 @click.group(cls=SpecialHelpOrder)
+@frozen_daemon_option
+@hidden_config_option
 def main():
     """Maestral Dropbox Client for Linux and macOS."""
     check_for_updates()
@@ -535,6 +574,7 @@ def resume(config_name: str):
 
 @main.command(help_priority=7)
 @existing_config_option
+@catch_maestral_errors
 def status(config_name: str):
     """Returns the current status of the Maestral daemon."""
     from maestral.daemon import MaestralProxy
