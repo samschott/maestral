@@ -9,7 +9,7 @@ python3 -m PyInstaller  -y --clean -w $SPEC_FILE
 
 echo "**** COPY ENTRY POINT **********************************"
 
-cp bin/main dist/Maestral.app/Contents/MacOS/main
+cp bin/maestral_cli dist/Maestral.app/Contents/MacOS/maestral_cli
 
 echo "**** REMOVING UNNEEDED MODULES *************************"
 

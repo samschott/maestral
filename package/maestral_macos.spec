@@ -43,7 +43,7 @@ def Entrypoint(dist, group, name, **kwargs):
 
 
 a = Entrypoint(
-    'maestral', 'console_scripts', 'maestral',
+    'maestral_qt', 'console_scripts', 'maestral_qt',
     binaries=None,
     datas= [
         (pkgr.resource_filename('maestral_qt', 'resources/tray-icons-svg/*.svg'), 'maestral_qt/resources/tray-icons-svg'),
@@ -72,7 +72,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='maestral_cli',
+    name='main',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -97,7 +97,6 @@ app = BUNDLE(
     icon=pkgr.resource_filename('maestral_qt', 'resources/maestral.icns'),
     bundle_identifier='com.samschott.maestral',
     info_plist={
-        'CFBundleExecutable': 'MacOS/main',
         'NSHighResolutionCapable': 'True',
         'LSUIElement': '1',
         'CFBundleVersion': bundle_version,
