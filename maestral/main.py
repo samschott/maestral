@@ -166,7 +166,7 @@ def require_linked(func):
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         if self.pending_link:
-            raise NotLinkedError('No linked Dropbox account',
+            raise NotLinkedError('No Dropbox account linked',
                                  'Please run "link" or "start" to link an account.')
         return func(self, *args, **kwargs)
 
