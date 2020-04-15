@@ -198,19 +198,21 @@ class Maestral:
     :class:`errors.MaestralApiError` which need to be registered explicitly with the
     serpent serializer which is used for communication to frontends.
 
-    :Examples:
+    :Example:
 
-        Before you can start syncing, you will need to link a Dropbox account and create a
-        local Dropbox folder.
+        First create an instance with a new config_name. In this example, we choose
+        "private" to sync a private Dropbox account. Then link the created config to an
+        existing Dropbox account and set up the local Dropbox folder. If successful,
+        invoke :meth:`start_sync` to start syncing.
 
         >>> from maestral.main import Maestral
-        >>> m = Maestral()
+        >>> m = Maestral(config_name='private')
         >>> url = m.get_auth_url()  # get token from Dropbox website
         >>> print(f'Please go to {url} to retrieve a Dropbox authorization token.')
         >>> token = input('Enter auth token: ')
         >>> res = m.link(token)
         >>> if res == 0:
-        ...     m.create_dropbox_directory('~/Dropbox (Maestral)')
+        ...     m.create_dropbox_directory('~/Dropbox (Private)')
         ...     m.start_sync()
 
     :param str config_name: Name of maestral configuration to run. This will create a new
