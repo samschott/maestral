@@ -17,13 +17,21 @@ import stat
 import platform
 import subprocess
 import pkg_resources
-import json
 from enum import Enum
 
 try:
+    # noinspection PyCompatibility
     from importlib.metadata import files
 except ImportError:
     from importlib_metadata import files
+
+try:
+    from shlex import join
+except ImportError:
+    from shlex import quote
+
+    def join(split_command):
+        return ' '.join(quote(x) for x in split_command)
 
 from maestral import __version__
 from maestral.utils.appdirs import get_home_dir, get_conf_path, get_data_path
@@ -86,11 +94,11 @@ class AutoStartMaestralBase(AutoStartBase):
         self.maestral_path = self.get_maestral_command_path()
 
         if self.gui:
-            self.start_cmd = [self.maestral_path, 'gui', '-c', json.dumps(self.config_name)]
+            self.start_cmd = [self.maestral_path, 'gui', '-c', self.config_name]
             self.stop_cmd = []
         else:
-            self.start_cmd = [self.maestral_path, 'start', '-f', '-c', json.dumps(self.config_name)]
-            self.stop_cmd = [self.maestral_path, 'stop', '-c', json.dumps(self.config_name)]
+            self.start_cmd = [self.maestral_path, 'start', '-f', '-c', self.config_name]
+            self.stop_cmd = [self.maestral_path, 'stop', '-c', self.config_name]
 
     @staticmethod
     def get_maestral_command_path():
@@ -165,8 +173,8 @@ class AutoStartSystemd(AutoStartMaestralBase):
         filename = 'maestral-{}@.service'.format('gui' if self.gui else 'daemon')
         self.destination = get_data_path(osp.join('systemd', 'user'), filename)
         self.contents = unit_template.format(
-            start_cmd=' '.join(self.start_cmd),
-            stop_cmd=' '.join(self.stop_cmd),
+            start_cmd=join(self.start_cmd),
+            stop_cmd=join(self.stop_cmd),
         )
 
         with open(self.destination, 'w') as f:
@@ -255,7 +263,7 @@ class AutoStartXDGDesktop(AutoStartMaestralBase):
         self.destination = get_conf_path('autostart', filename)
         self.contents = desktop_entry_template.format(
             version=__version__,
-            start_cmd=' '.join(self.start_cmd)
+            start_cmd=join(self.start_cmd)
         )
 
     def _enable(self):
