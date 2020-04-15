@@ -285,13 +285,20 @@ def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
 
 def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
     """
-    Starts the Maestral daemon in a separate process (by calling
-    :func:`start_maestral_daemon`).
+    Starts the Maestral daemon in a separate process by calling
+    :func:`start_maestral_daemon`.
 
-    .. warning::
-        This function assumes that ``sys.executable`` points to the Python executable, or
-        in case of a frozen executable, takes the command line argument --frozen-daemon
-        to start a daemon process.
+    This function assumes that ``sys.executable`` points to the Python executable. In
+    case of a frozen app, the executable must take the command line argument
+    ``--frozen-daemon to start`` a daemon process which is *not syncing*, .i.e., just run
+    :meth:`start_maestral_daemon`. This is currently supported through the
+    constole_script entry points of both `maestral` and `maestral_qt`.
+
+    Starting a detached daemon process is difficult from a standalone executable since
+    the typical double-fork magic may fail on macOS and we do not have acccess to a
+    standalone Python interpreter to spawn a subprocess. Our approach mimics the "freeze
+    support" implemented by the multiprocessing module but fully detaches the spawned
+    process.
 
     :param str config_name: The name of the Maestral configuration to use.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
