@@ -4,7 +4,7 @@ SCRIPTPATH="$(dirname "$(readlink "$0")")"
 
 if [ "$1" = "gui" ]
 then
-    open -a Maestral.app --args "$@"
+    open -n -a Maestral.app --args "$@"
 else
     "$SCRIPTPATH/main" --cli "$@"
 fi
