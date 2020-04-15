@@ -282,8 +282,9 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
     :func:`start_maestral_daemon`).
 
     .. warning::
-        This function assumes that ``sys.executable`` points to the Python executable
-        and will not work from frozen applications.
+        This function assumes that ``sys.executable`` points to the Python executable, or
+        in case of a frozen executable, takes the command line argument --frozen-daemon
+        to start a daemon process.
 
     :param str config_name: The name of the Maestral configuration to use.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
@@ -299,18 +300,28 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
     # use nested Popen and multiprocessing.Process to effectively create double fork
     # see Unix 'double-fork magic'
 
-    def target():
-        # protect against injection
-        cc = quote(config_name)
-        std_log = bool(log_to_stdout)
+    if IS_FROZEN:
 
-        cmd = (f'import maestral.daemon; '
-               f'maestral.daemon.run_maestral_daemon("{cc}", {std_log})')
+        def target():
+            subprocess.Popen(
+                [sys.executable, '--frozen-daemon', '-c', config_name],
+                stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
+            )
 
-        subprocess.Popen(
-            [sys.executable, '-c', cmd],
-            stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
-        )
+    else:
+
+        def target():
+            # protect against injection
+            cc = quote(config_name).strip("'")
+            std_log = bool(log_to_stdout)
+
+            cmd = (f'import maestral.daemon; '
+                   f'maestral.daemon.start_maestral_daemon("{cc}", {std_log})')
+
+            subprocess.Popen(
+                [sys.executable, '-c', cmd],
+                stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
+            )
 
     mp.Process(
         target=target,
