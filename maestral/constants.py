@@ -57,10 +57,12 @@ class FileStatus(Enum):
     Synced = 'up to date'
 
 
-# bundle detection
-IS_BUNDLE = hasattr(sys, 'frozen')
-IS_MACOS_BUNDLE = IS_BUNDLE and platform.system() == 'Darwin'
-IS_LINUX_BUNDLE = IS_BUNDLE and platform.system() == 'Linux'
+# platform detection
+IS_BUNDLE = getattr(sys, 'frozen', False)
+IS_MACOS = platform.system() == 'Darwin'
+IS_LINUX = platform.system() == 'Linux'
+IS_MACOS_BUNDLE = IS_BUNDLE and IS_MACOS
+IS_LINUX_BUNDLE = IS_BUNDLE and IS_LINUX
 
 # systemd environment
 INVOCATION_ID = os.getenv('INVOCATION_ID')
