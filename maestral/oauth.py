@@ -112,7 +112,7 @@ class OAuth2Session:
                 self.access_token = ''
             else:
                 self.access_token = self.keyring.get_password('Maestral', self.account_id)
-            return self.access_token
+            return self.access_token or ''
         except KeyringLocked:
             info = (f'Could not load access token. Please make sure that the '
                     f'{self.keyring.name} is unlocked.')
