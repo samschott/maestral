@@ -281,22 +281,36 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
     Starts the Maestral daemon in a separate process (by calling
     :func:`start_maestral_daemon`).
 
+    .. warning::
+        This function assumes that ``sys.executable`` points to the Python executable
+        and will not work from frozen applications.
+
     :param str config_name: The name of the Maestral configuration to use.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
     :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
         already running or ``Start.Failed`` if startup failed.
     """
     import subprocess
+    from shlex import quote
     import multiprocessing as mp
 
     STD_IN_OUT = subprocess.STDOUT if log_to_stdout else subprocess.DEVNULL
 
-    # use nested multiprocessing.Process and os.fork to detach process
+    # use nested Popen and multiprocessing.Process to effectively create double fork
     # see Unix 'double-fork magic'
 
     def target():
-        if os.fork() == 0:
-            start_maestral_daemon(config_name, log_to_stdout)
+        # protect against injection
+        cc = quote(config_name)
+        std_log = bool(log_to_stdout)
+
+        cmd = (f'import maestral.daemon; '
+               f'maestral.daemon.run_maestral_daemon("{cc}", {std_log})')
+
+        subprocess.Popen(
+            [sys.executable, '-c', cmd],
+            stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
+        )
 
     mp.Process(
         target=target,
