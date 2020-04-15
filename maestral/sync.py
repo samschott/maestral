@@ -1503,6 +1503,7 @@ class UpDownSync:
         """
 
         if self._cancel_pending.is_set():
+            # will automatically be picked up again when resuming
             return False
 
         self._slow_down()
@@ -1931,7 +1932,9 @@ class UpDownSync:
             with InQueue(self.queue_downloading, md.path_display):
                 res = self.create_local_entry(md)
 
-        self.pending_downloads.discard(dbx_path)
+        if res is True:
+            self.pending_downloads.discard(dbx_path)
+
         return res
 
     @catch_sync_issues
@@ -2333,6 +2336,7 @@ class UpDownSync:
         """
 
         if self._cancel_pending.is_set():
+            self.pending_downloads.add(entry.path_lower)
             return False
 
         self._slow_down()
