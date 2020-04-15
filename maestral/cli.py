@@ -24,6 +24,7 @@ import Pyro5.errors
 # local imports
 from maestral.config import MaestralConfig, MaestralState, list_configs
 from maestral.utils.housekeeping import remove_configuration
+from maestral.constants import IS_MACOS_BUNDLE
 
 
 OK = click.style('[OK]', fg='green')
@@ -375,8 +376,12 @@ def gui(config_name):
         raise click.ClickException('No maestral GUI installed. Please run '
                                    '\'pip3 install maestral[gui]\'.')
 
-    from maestral_qt.main import run
-    run(config_name)
+    if IS_MACOS_BUNDLE:
+        import subprocess
+        subprocess.Popen(f'open -a Maestral.app --args -c {config_name}')
+    else:
+        from maestral_qt.main import run
+        run(config_name)
 
 
 @main.command(help_priority=1)
