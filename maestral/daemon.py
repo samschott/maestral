@@ -237,8 +237,10 @@ def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
         # convert selected methods to one way calls so that they don't block
         ExposedMaestral = expose(Maestral)
 
+        ExposedMaestral.start_sync = oneway(ExposedMaestral.start_sync)
         ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
         ExposedMaestral.pause_sync = oneway(ExposedMaestral.pause_sync)
+        ExposedMaestral.resume_sync = oneway(ExposedMaestral.resume_sync)
         ExposedMaestral.shutdown_pyro_daemon = oneway(ExposedMaestral.shutdown_pyro_daemon)
 
         m = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
