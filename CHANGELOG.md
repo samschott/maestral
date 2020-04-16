@@ -8,19 +8,18 @@
 
 #### Changed:
 
+- Added '.dropbox' and '.dropbox.cache' to always excluded file names.
+- Pausing Maestral now cancels all pending uploads and downloads.
 - Faster detection of connection problems.
 - Faster sync of local deletions.
 - Bumped watchdog requirement to >= 10.0.0 for more consistent error handling.
 - Added public API to link a Dropbox account: `Maestral.get_auth_url` and `Maestral.link`.
 - Moved all command line dialogs from main API to cli module.
-- Added '.dropbox' and '.dropbox.cache' to always excluded file names.
-- Pausing Maestral now cancels all pending uploads and downloads.
 
 #### Fixed:
 
-- Fixes a minor issue where internet connection errors while resuming syncing could
-  result in continuous retries of the upload until the connection was finally established.
-  Instead, Maestral now pauses all syncing until a connection can be established.
+- Fixes a minor issue where a dropped internet connection during startup could result in
+  continuous retries until the connection is finally established.
 - Fixes an issue where downloads of newly inlcuded folders would not resume after being
   interrupted.
 - Fixes a rare issue which could lead to false conflicting copies of folders.
@@ -31,7 +30,7 @@
 - Fixes handling of some uncaught insufficient disk space errors.
 - Fixes autostart module on macOS.
 - Fixes an issue where only remote changes would be listed in 'Recent changes' in the GUI.
-- Fixes the alignment of comboboxes in macOS.
+- Fixes the alignment of comboboxes in the GUI on macOS.
 
 #### Removed:
 
