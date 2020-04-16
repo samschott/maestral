@@ -190,7 +190,7 @@ class FSEventHandler(FileSystemEventHandler):
                 if ttl and ttl < now:
                     self._ignored_paths.remove(ignore)
 
-    def _prune_ignored(self, event):
+    def _discrad_ignored(self, event):
         """
         Checks if a file system event should been explicitly ignored because it was likely
         triggered by Maestral. Split moved events if necessary and returns the event to
@@ -273,7 +273,7 @@ class FSEventHandler(FileSystemEventHandler):
             return
 
         # check for ignored paths, split moved events if necessary
-        event = self._prune_ignored(event)
+        event = self._discrad_ignored(event)
 
         if event:
             self.local_file_event_queue.put(event)
