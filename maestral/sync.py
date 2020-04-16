@@ -614,7 +614,7 @@ class UpDownSync:
         """
         with self._last_sync_lock:
             dbx_path = dbx_path.lower()
-            return self._last_sync_for_path.get(dbx_path, None) or self.last_sync
+            return max(self._last_sync_for_path.get(dbx_path, 0.0), self.last_sync)
 
     def set_last_sync_for_path(self, dbx_path, last_sync):
         """
