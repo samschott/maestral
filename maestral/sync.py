@@ -448,7 +448,7 @@ class UpDownSync:
 
         self.client = client
         self.config_name = self.client.config_name
-        self._cancel_pending = Event()
+        self.cancel_pending = Event()
         self.fs_events = None
 
         self._conf = MaestralConfig(self.config_name)
@@ -1007,10 +1007,6 @@ class UpDownSync:
 
         return self.mignore_rules.match_file(relative_path)
 
-    def cancel_pending(self):
-        """Cancels all pending uploads or downloads."""
-        self._cancel_pending.set()
-
     def _slow_down(self):
 
         if self._max_cpu_percent == 100:
@@ -1490,7 +1486,6 @@ class UpDownSync:
             self.last_sync = local_cursor
 
         self._clean_and_save_rev_file()
-        self._cancel_pending.clear()
 
     @catch_sync_issues
     def create_remote_entry(self, event):
@@ -1502,7 +1497,7 @@ class UpDownSync:
         :param FileSystemEvent event: Watchdog file system event.
         """
 
-        if self._cancel_pending.is_set():
+        if self.cancel_pending.is_set():
             return False
 
         self._slow_down()
@@ -2065,11 +2060,10 @@ class UpDownSync:
 
         success = all(downloaded)
 
-        if save_cursor and not self._cancel_pending.is_set():
+        if save_cursor and not self.cancel_pending.is_set():
             self.last_cursor = changes.cursor
 
         self._clean_and_save_rev_file()
-        self._cancel_pending.clear()
 
         return [entry for entry in downloaded if isinstance(entry, Metadata)], success
 
@@ -2334,7 +2328,7 @@ class UpDownSync:
         :rtype: Metadata, bool
         """
 
-        if self._cancel_pending.is_set():
+        if self.cancel_pending.is_set():
             return False
 
         self._slow_down()
@@ -2876,8 +2870,9 @@ class MaestralMonitor:
         self.paused_by_user.set()
         self.syncing.clear()
 
-        self.sync.cancel_pending()
+        self.sync.cancel_pending.set()
         self._wait_for_idle()
+        self.sync.cancel_pending.clear()
 
         logger.info(PAUSED)
 
@@ -2903,8 +2898,9 @@ class MaestralMonitor:
         self.paused_by_user.clear()
         self.startup.clear()
 
-        self.sync.cancel_pending()
+        self.sync.cancel_pending.set()
         self._wait_for_idle()
+        self.sync.cancel_pending.clear()
 
         self.local_observer_thread.stop()
         self.local_observer_thread.join()
