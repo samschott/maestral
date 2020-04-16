@@ -1451,22 +1451,35 @@ class UpDownSync:
         for e in itertools.chain(*sorted_events.values()):
             self.queued_for_upload.put(get_dest_path(e))
 
+        success = []
+
         # apply deleted events first, folder moved events second
         # neither event type requires an actual upload
         if sorted_events['deleted']:
             logger.info('Uploading deletions...')
 
-        for event in sorted_events['deleted']:
-            self.create_remote_entry(event)
+        last_emit = time.time()
+        with ThreadPoolExecutor(max_workers=self._num_threads,
+                                thread_name_prefix='maestral-upload-pool') as executor:
+            fs = (executor.submit(self.create_remote_entry, e)
+                  for e in sorted_events['deleted'])
+            n_files = len(sorted_events['deleted'])
+            for f, n in zip(as_completed(fs), range(1, n_files + 1)):
+                if time.time() - last_emit > 1 or n in (1, n_files):
+                    # emit message at maximum every second
+                    logger.info(f'Deleting {n}/{n_files}...')
+                    last_emit = time.time()
+                success.append(f.result())
 
         if sorted_events['dir_moved']:
             logger.info('Moving folders...')
 
         for event in sorted_events['dir_moved']:
-            self.create_remote_entry(event)
+            logger.info(f'Moving {event.src_path}...')
+            res = self.create_remote_entry(event)
+            success.append(res)
 
         # apply file created events in parallel since order does not matter
-        success = []
         last_emit = time.time()
         with ThreadPoolExecutor(max_workers=self._num_threads,
                                 thread_name_prefix='maestral-upload-pool') as executor:
