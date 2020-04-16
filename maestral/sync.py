@@ -268,6 +268,10 @@ class FSEventHandler(FileSystemEventHandler):
         if not (self.syncing.is_set() or self.startup.is_set()):
             return
 
+        # ignore all DirMovedEvents
+        if isinstance(event, DirModifiedEvent):
+            return
+
         # check for ignored paths, split moved events if necessary
         event = self._prune_ignored(event)
 
@@ -1249,8 +1253,7 @@ class UpDownSync:
         # event order does not matter anymore from this point because we have already
         # consolidated events for every path
 
-        # REMOVE DIR_MODIFIED_EVENTS
-        cleaned_events = set(e for e in unique_events if not isinstance(e, DirModifiedEvent))
+        cleaned_events = set(unique_events)
 
         # recombine moved events
         moved_events = dict()
