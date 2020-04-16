@@ -210,14 +210,21 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
         text = 'There already is an item at the given path.'
     elif isinstance(exc, IsADirectoryError):
         err_cls = IsAFolderError  # subclass of SyncError
+        title = 'Could not create local file'
         text = 'The given path refers to a folder.'
     elif isinstance(exc, NotADirectoryError):
         err_cls = NotAFolderError  # subclass of SyncError
+        title = 'Could not create local folder'
         text = 'The given path refers to a file.'
     elif exc.errno == errno.ENAMETOOLONG:
         err_cls = PathError  # subclass of SyncError
         title = 'Could not create local file'
         text = 'The file name (including path) is too long.'
+    elif exc.errno == errno.EINVAL:
+        err_cls = PathError  # subclass of SyncError
+        title = 'Could not create local file'
+        text = ('The file name contains characters which are not allowed on your file '
+                'system. This could be for instance a colon or a trailing period.')
     elif exc.errno == errno.EFBIG:
         err_cls = FileSizeError  # subclass of SyncError
         title = 'Could not download file'
