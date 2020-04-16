@@ -269,7 +269,7 @@ class FSEventHandler(FileSystemEventHandler):
             return
 
         # ignore all DirMovedEvents
-        if isinstance(event, DirMovedEvent):
+        if isinstance(event, DirModifiedEvent):
             return
 
         # check for ignored paths, split moved events if necessary
