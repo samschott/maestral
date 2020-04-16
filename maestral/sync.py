@@ -2661,9 +2661,15 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
                     continue
 
                 # retry failed / interrupted downloads
-                logger.info('Checking for pending downloads...')
+                if len(sync.download_errors) > 0:
+                    logger.info('Retrying failed downloads...')
+
                 for dbx_path in list(sync.download_errors):
+                    logger.info(f'Downloading {dbx_path}...')
                     sync.get_remote_item(dbx_path)
+
+                if len(sync.pending_downloads) > 0:
+                    logger.info('Resuming interrupted downloads...')
 
                 for dbx_path in list(sync.pending_downloads):
                     logger.info(f'Downloading {dbx_path}...')
