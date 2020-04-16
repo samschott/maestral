@@ -22,10 +22,11 @@
   Instead, Maestral now pauses all syncing until a connection can be established.
 - Fixes an issue where downloads of newly inlcuded folders would not resume after being
   interrupted.
+- Fixes a rare issue which could lead to false conflicting copies of folders.
 - Fixes handling of errors when starting a file system watch such as inofify limit and
   permission errors.
-- Fixes a rare issue which could lead to false conflicting copies of folders.
 - Fixes handling of errors from too long file names.
+- Handle errors due to file names which are not allowed on the local file system.
 - Fixes handling of some uncaught insufficient disk space errors.
 - Fixes autostart module on macOS.
 - Fixes an issue where only remote changes would be listed in 'Recent changes' in the GUI.
