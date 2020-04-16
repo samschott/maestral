@@ -1503,7 +1503,6 @@ class UpDownSync:
         """
 
         if self._cancel_pending.is_set():
-            # will automatically be picked up again when resuming
             return False
 
         self._slow_down()
@@ -2066,7 +2065,7 @@ class UpDownSync:
 
         success = all(downloaded)
 
-        if save_cursor:
+        if save_cursor and not self._cancel_pending.is_set():
             self.last_cursor = changes.cursor
 
         self._clean_and_save_rev_file()
@@ -2336,7 +2335,6 @@ class UpDownSync:
         """
 
         if self._cancel_pending.is_set():
-            self.pending_downloads.add(entry.path_lower)
             return False
 
         self._slow_down()
@@ -2668,6 +2666,7 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
                     sync.get_remote_item(dbx_path)
 
                 for dbx_path in list(sync.pending_downloads):
+                    logger.info(f'Downloading {dbx_path}...')
                     sync.get_remote_item(dbx_path)
 
                 # upload changes while inactive
