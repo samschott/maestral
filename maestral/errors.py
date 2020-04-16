@@ -196,7 +196,7 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
     :returns: :class:`MaestralApiError` instance or :class:`OSError` instance.
     """
 
-    title = 'Cannot upload or download file'
+    title = 'Could not sync file or folder'
 
     if isinstance(exc, PermissionError):
         err_cls = InsufficientPermissionsError  # subclass of SyncError
@@ -308,17 +308,13 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
     # --------------------------- Dropbox API Errors -------------------------------------
     if isinstance(exc, dropbox.exceptions.ApiError):
 
-        # may be replaced later
-        err_cls = SyncError
-        title = 'Sync Error'
-        text = ('An unexpected sync error occurred. Please contact the Maestral '
-                'developer with the traceback information from the logs.')
-
         error = exc.error
+
         if isinstance(error, dropbox.files.RelocationError):
-            title = 'Could not move folder'
+            title = 'Could not move file or folder'
             if error.is_cant_copy_shared_folder():
                 text = 'Shared folders can’t be copied.'
+                err_cls = SyncError
             elif error.is_cant_move_folder_into_itself():
                 text = 'You cannot move a folder into itself.'
                 err_cls = ConflictError
@@ -359,15 +355,22 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
             elif error.is_too_many_files():
                 text = ('There are more than 10,000 files and folders in one '
                         'request. Please try to move fewer items at once.')
+                err_cls = SyncError
+            else:
+                text = 'Please check the logs for more information'
+                err_cls = SyncError
 
-        if isinstance(error, (dropbox.files.CreateFolderError,
-                              dropbox.files.CreateFolderEntryError)):
+        elif isinstance(error, (dropbox.files.CreateFolderError,
+                                dropbox.files.CreateFolderEntryError)):
             title = 'Could not create folder'
             if error.is_path():
                 write_error = error.get_path()
                 text, err_cls = _get_write_error_msg(write_error)
+            else:
+                text = 'Please check the logs for more information'
+                err_cls = SyncError
 
-        if isinstance(error, dropbox.files.DeleteError):
+        elif isinstance(error, dropbox.files.DeleteError):
             title = 'Could not delete item'
             if error.is_path_lookup():
                 lookup_error = error.get_path_lookup()
@@ -378,19 +381,28 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
             elif error.is_too_many_files():
                 text = ('There are more than 10,000 files and folders in one '
                         'request. Please try to delete fewer items at once.')
+                err_cls = SyncError
             elif error.is_too_many_write_operations():
                 text = ('There are too many write operations happening in your '
                         'Dropbox. Please retry deleting this file later.')
+                err_cls = SyncError
+            else:
+                text = 'Please check the logs for more information'
+                err_cls = SyncError
 
-        if isinstance(error, dropbox.files.UploadError):
+        elif isinstance(error, dropbox.files.UploadError):
             title = 'Could not upload file'
             if error.is_path():
                 write_error = error.get_path().reason  # returns UploadWriteFailed
                 text, err_cls = _get_write_error_msg(write_error)
             elif error.is_properties_error():
-                pass  # we currently do not use property groups
+                text = 'Invalid property group privided.'
+                err_cls = SyncError
+            else:
+                text = 'Please check the logs for more information'
+                err_cls = SyncError
 
-        if isinstance(error, dropbox.files.UploadSessionFinishError):
+        elif isinstance(error, dropbox.files.UploadSessionFinishError):
             title = 'Could not upload file'
             if error.is_lookup_failed():
                 session_lookup_error = error.get_lookup_failed()
@@ -399,16 +411,21 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                 write_error = error.get_path()
                 text, err_cls = _get_write_error_msg(write_error)
             elif error.is_properties_error():
-                pass  # we currently do not use property groups
+                text = 'Invalid property group privided.'
+                err_cls = SyncError
             elif error.is_too_many_write_operations():
                 text = ('There are too many write operations happening in your '
                         'Dropbox. Please retry uploading this file later.')
+                err_cls = SyncError
+            else:
+                text = 'Please check the logs for more information'
+                err_cls = SyncError
 
-        if isinstance(error, dropbox.files.UploadSessionLookupError):
+        elif isinstance(error, dropbox.files.UploadSessionLookupError):
             title = 'Could not upload file'
             text, err_cls = _get_session_lookup_error_msg(error)
 
-        if isinstance(error, dropbox.files.DownloadError):
+        elif isinstance(error, dropbox.files.DownloadError):
             title = 'Could not download file'
             if error.is_path():
                 lookup_error = error.get_path()
@@ -416,14 +433,21 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
             elif error.is_unsupported_file():
                 text = 'This file type cannot be downloaded but must be exported.'
                 err_cls = UnsupportedFileError
+            else:
+                text = 'Please check the logs for more information'
+                err_cls = SyncError
 
-        if isinstance(error, dropbox.files.ListFolderError):
+        elif isinstance(error, dropbox.files.ListFolderError):
             title = 'Could not list folder contents'
             if error.is_path():
                 lookup_error = error.get_path()
                 text, err_cls = _get_lookup_error_msg(lookup_error)
+            else:
+                text = ('Please contact the developer with the traceback '
+                        'information from the logs.')
+                err_cls = MaestralApiError
 
-        if isinstance(exc.error, dropbox.files.ListFolderContinueError):
+        elif isinstance(exc.error, dropbox.files.ListFolderContinueError):
             title = 'Could not list folder contents'
             if error.is_path():
                 lookup_error = error.get_path()
@@ -432,13 +456,27 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                 text = ('Dropbox has reset its sync state. Please rebuild '
                         'Maestral\'s index to re-sync your Dropbox.')
                 err_cls = CursorResetError
+            else:
+                text = ('Please contact the developer with the traceback '
+                        'information from the logs.')
+                err_cls = MaestralApiError
 
-        if isinstance(exc.error, dropbox.files.ListFolderLongpollError):
+        elif isinstance(exc.error, dropbox.files.ListFolderLongpollError):
             title = 'Could not get Dropbox changes'
             if error.is_reset():
                 text = ('Dropbox has reset its sync state. Please rebuild '
                         'Maestral\'s index to re-sync your Dropbox.')
                 err_cls = CursorResetError
+            else:
+                text = ('Please contact the developer with the traceback '
+                        'information from the logs.')
+                err_cls = MaestralApiError
+
+        else:
+            err_cls = MaestralApiError
+            title = 'An unexpected error occurred'
+            text = ('Please contact the developer with the traceback '
+                    'information from the logs.')
 
     # ----------------------- Authentication errors --------------------------------------
     elif isinstance(exc, dropbox.exceptions.AuthError):
@@ -459,10 +497,12 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
         err_cls = DropboxAuthError
         title = 'Authentication failed'
         text = 'Please make sure that you entered the correct authentication code.'
+
     elif isinstance(exc, dropbox.oauth.BadStateException):
         err_cls = DropboxAuthError
         title = 'Authentication session expired.'
         text = 'The authentication session expired. Please try again.'
+
     elif isinstance(exc, dropbox.oauth.NotApprovedException):
         err_cls = DropboxAuthError
         title = 'Not approved error'
@@ -478,13 +518,13 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
             text = 'Please make sure that you entered the correct authentication code.'
         else:
             err_cls = BadInputError
-            title = 'Sync error'
+            title = 'Bad input to API call'
             text = exc.message
 
     # ---------------------- Internal Dropbox error --------------------------------------
     elif isinstance(exc, dropbox.exceptions.InternalServerError):
         err_cls = DropboxServerError
-        title = 'Could not sync file'
+        title = 'Could not sync file or folder'
         text = ('Something went wrong with the job on Dropbox’s end. Please '
                 'verify on the Dropbox website if the move succeeded and try '
                 'again if it failed.')
@@ -493,7 +533,8 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
     else:
         err_cls = MaestralApiError
         title = 'An unexpected error occurred'
-        text = exc.args[0]
+        text = ('Please contact the developer with the traceback '
+                'information from the logs.')
 
     maestral_exc = err_cls(title, text, dbx_path=dbx_path, local_path=local_path)
     maestral_exc.__cause__ = exc
