@@ -9,6 +9,7 @@
 #### Changed:
 
 - Faster detection of connection problems.
+- Faster sync of local deletions.
 - Bumped watchdog requirement to >= 10.0.0 for more consistent error handling.
 - Added public API to link a Dropbox account: `Maestral.get_auth_url` and `Maestral.link`.
 - Moved all command line dialogs from main API to cli module.
