@@ -151,10 +151,12 @@ class FSEventHandler(FileSystemEventHandler):
 
         :param iterable local_paths: Local paths to ignore.
         :param iterable event_types: Event types that should be ignored. Members should be
-            'moved', 'deleted' or 'created'.
-        :param bool recursive: True if all events of child paths (of the same type) should
-            be ignored as well.
-        :param bool is_dir: True if only directory events should be ignored.
+            'moved', 'deleted' or 'created'. Defaults to all of those.
+        :param bool recursive: If ``True``, all events of child paths (of the same type)
+            will be ignored as well.
+        :param bool is_dir: If ``True``, only directory events will be ignored. If
+            ``False``, only file events will be ignored. If ``recursive`` is ``True``,
+            this option has no effect.
         """
 
         with self._mutex:
@@ -210,7 +212,7 @@ class FSEventHandler(FileSystemEventHandler):
             is_dir = ignore['is_dir']
             start_time = ignore['start_time']
 
-            if event.event_type in event_types and event.is_directory == is_dir:
+            if event.event_type in event_types and (event.is_directory == is_dir or recursive):
 
                 if (not event.event_type == EVENT_TYPE_DELETED
                         and self.sync.get_ctime(get_dest_path(event)) < start_time):
