@@ -255,7 +255,7 @@ def test_sync_cases():
     #
     # CC = conflicting copy
     #
-    #  * Remote file replaced with a folder (OK): Check mtime and create CC of local file
+    #  * Remote file replaced with a folder (OK): Check ctime and create CC of local file
     #    if necessary.
     #  * Remote folder replaced with a file (OK):
     #    Recurse through ctimes of children and check if we have any un-synced changes.
@@ -285,8 +285,8 @@ def test_sync_cases():
     #  * Remote item deleted -> registered -> local item deleted before download (OK):
     #    Local rev exists: deletion will be carried out locally and fail silently.
     #  * Remote item deleted -> registered -> local item modified before download (OK):
-    #    Local rev != None, deletion will be carried out. Fix by comparing mtime and
-    #    keep local item if local_mtime > last_sync.
+    #    Local rev != remote rev (= None), different file contents. Compare ctime and
+    #    keep local item if local ctime > last_sync.
     #  * Remote item modified -> registered -> local item modified before download (OK):
     #    Local rev != remote rev. Compare ctime and create CC if ctime > last_sync and
     #    file contents are different.
