@@ -1004,12 +1004,13 @@ class Maestral:
         Sets the local Dropbox directory. This moves all local files to the new location
         and resumes syncing afterwards.
 
-        :param str new_path: Full path to local Dropbox folder.
+        :param str new_path: Full path to local Dropbox folder. "~" will be expanded to
+            the user's home directory.
         :raises: :class:`OSError` if moving the directory fails.
         """
 
-        # get old and new paths
         old_path = self.sync.dropbox_path
+        new_path = os.path.expanduser(new_path)
 
         try:
             if osp.samefile(old_path, new_path):
@@ -1035,9 +1036,12 @@ class Maestral:
         """
         Creates a new Dropbox directory. Only call this during setup.
 
-        :param str path: Full path to local Dropbox folder.
+        :param str path: Full path to local Dropbox folder. "~" will be expanded to the
+            user's home directory.
         :raises: :class:`OSError` if creation fails
         """
+
+        path = os.path.expanduser(path)
 
         self.monitor.reset_sync_state()
 
