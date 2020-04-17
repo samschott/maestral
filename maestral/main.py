@@ -568,13 +568,14 @@ class Maestral:
             return self.monitor.paused_by_user.is_set() and not self.sync.lock.locked()
 
     @property
-    def stopped(self):
-        """Bool indicating if syncing is stopped, for instance because of an exception."""
+    def running(self):
+        """Bool indicating if sync threads are running. They will be stopped before
+        :meth:`start_sync` is called, when shutting down or because of an exception."""
 
         if self.pending_link:
-            return True
+            return False
         else:
-            return not self.monitor.running.is_set() and not self.sync.lock.locked()
+            return self.monitor.running.is_set() or self.sync.lock.locked()
 
     @property
     def connected(self):
@@ -819,7 +820,7 @@ class Maestral:
         """
         Stops all syncing threads if running. Call :meth:`start_sync` to restart syncing.
         """
-        if not self.stopped:
+        if self.running:
             self.monitor.stop()
 
     @require_linked
