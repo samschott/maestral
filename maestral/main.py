@@ -38,7 +38,10 @@ from maestral import __version__
 from maestral.oauth import OAuth2Session
 from maestral.client import MaestralApiClient, to_maestral_error
 from maestral.sync import MaestralMonitor
-from maestral.errors import MaestralApiError, NotLinkedError, NoDropboxDirError
+from maestral.errors import (
+    MaestralApiError, NotLinkedError, NoDropboxDirError,
+    NotFoundError, PathError
+)
 from maestral.config import MaestralConfig, MaestralState
 from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
@@ -851,7 +854,8 @@ class Maestral:
         md = self.client.get_metadata(dbx_path)
 
         if not md:
-            raise ValueError(f'"{dbx_path}" does not exist on Dropbox')
+            raise NotFoundError('Cannot exlcude item',
+                                f'"{dbx_path}" does not exist on Dropbox')
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
 
@@ -906,7 +910,8 @@ class Maestral:
         md = self.client.get_metadata(dbx_path)
 
         if not md:
-            raise ValueError(f'"{dbx_path}" does not exist on Dropbox')
+            raise NotFoundError('Cannot include item',
+                                f'"{dbx_path}" does not exist on Dropbox')
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
 
@@ -914,8 +919,9 @@ class Maestral:
 
         for folder in old_excluded_items:
             if is_child(dbx_path, folder):
-                raise ValueError(f'"{dbx_path}" lies inside the excluded folder '
-                                 f'"{folder}". Please include "{folder}" first.')
+                raise PathError('Cannot include item',
+                                f'"{dbx_path}" lies inside the excluded folder '
+                                f'"{folder}". Please include "{folder}" first.')
 
         # Get items which will need to be downloaded, do not attempt to download
         # children of `dbx_path` which were already included.
