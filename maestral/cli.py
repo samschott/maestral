@@ -190,6 +190,8 @@ def catch_maestral_errors(func):
             return func(*args, **kwargs)
         except MaestralApiError as exc:
             raise click.ClickException(f'{exc.title}: {exc.message}')
+        except ConnectionError:
+            raise click.ClickException('Could not connect to Dropbox.')
 
     return wrapper
 
@@ -715,16 +717,9 @@ def ls(dropbox_path: str, config_name: str):
         dropbox_path = '/' + dropbox_path
 
     from maestral.daemon import MaestralProxy
-    from maestral.errors import PathError
 
     with MaestralProxy(config_name, fallback=True) as m:
-        try:
-            entries = m.list_folder(dropbox_path, recursive=False)
-        except PathError:
-            raise click.ClickException(f'No such directory on '
-                                       f'Dropbox: \'{dropbox_path}\'')
-        except ConnectionError:
-            raise click.ClickException('Could not connect to Dropbox')
+        entries = m.list_folder(dropbox_path, recursive=False)
 
         types = ['file' if e['type'] == 'FileMetadata' else 'folder' for e in entries]
         shared_status = ['shared' if 'sharing_info' in e else 'private' for e in entries]
@@ -964,13 +959,9 @@ def excluded_add(dropbox_path: str, config_name: str):
     with MaestralProxy(config_name, fallback=True) as m:
         if check_for_fatal_errors(m):
             return
-        try:
-            m.exclude_item(dropbox_path)
-            click.echo(f'Excluded \'{dropbox_path}\'.')
-        except ConnectionError:
-            raise click.ClickException('Could not connect to Dropbox.')
-        except ValueError as e:
-            raise click.ClickException(e.args[0])
+
+        m.exclude_item(dropbox_path)
+        click.echo(f'Excluded \'{dropbox_path}\'.')
 
 
 @excluded.command(name='remove', help_priority=2)
@@ -993,13 +984,9 @@ def excluded_remove(dropbox_path: str, config_name: str):
         with MaestralProxy(config_name) as m:
             if check_for_fatal_errors(m):
                 return
-            try:
-                m.include_item(dropbox_path)
-                click.echo(f'Included \'{dropbox_path}\'. Now downloading...')
-            except ConnectionError:
-                raise click.ClickException('Could not connect to Dropbox.')
-            except ValueError as e:
-                raise click.ClickException(e.args[0])
+
+            m.include_item(dropbox_path)
+            click.echo(f'Included \'{dropbox_path}\'. Now downloading...')
 
     except Pyro5.errors.CommunicationError:
         raise click.ClickException('Maestral daemon must be running to download folders.')
