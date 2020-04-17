@@ -229,13 +229,14 @@ class Maestral:
 
         self._daemon_running = True
         self._log_to_stdout = log_to_stdout
-
         self._config_name = config_name
-        self._conf = MaestralConfig(self._config_name)
-        self._state = MaestralState(self._config_name)
-        self._auth = OAuth2Session(self.config_name)
+
+        self._conf = MaestralConfig(config_name)
+        self._state = MaestralState(config_name)
 
         self._setup_logging()
+
+        self._auth = OAuth2Session(config_name)
 
         if self.pending_link:
             self.client = None
