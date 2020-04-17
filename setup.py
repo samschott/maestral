@@ -31,7 +31,7 @@ install_requires = [
     'atomicwrites>=1.0.0',
     'bugsnag>=3.4.0',
     'click>=7.1.1',
-    'dropbox>=9.4.0, <=9.5.0',
+    'dropbox>=10.0.0',
     'importlib_metadata;python_version<"3.8"',
     'keyring>=19.0.0',
     'keyrings.alt>=3.1.0',
