@@ -11,17 +11,22 @@ This module contains functions to check fr updates and retrieve change logs.
 
 """
 # system imports
-import json
-import ssl
+import requests
 from packaging.version import Version
-from urllib.request import urlopen
-from urllib.error import URLError, HTTPError
 
 # local imports
 from maestral import __version__
 
 
-API_URL = 'https://api.github.com/repos/samschott/maestral-dropbox/releases'
+CONNECTION_ERRORS = (
+    requests.exceptions.Timeout,
+    requests.exceptions.ConnectionError,
+    requests.exceptions.ReadTimeout,
+    requests.exceptions.RetryError,
+    ConnectionError,
+)
+
+GITHUB_RELEAES_API = 'https://api.github.com/repos/samschott/maestral-dropbox/releases'
 
 
 def get_newer_version(version, releases):
@@ -58,38 +63,28 @@ def check_update_available(current_version=__version__):
     error_msg = None
 
     try:
-        if hasattr(ssl, '_create_unverified_context'):
-            context = ssl._create_unverified_context()
-            page = urlopen(API_URL, context=context)
-        else:
-            page = urlopen(API_URL)
+        r = requests.get(GITHUB_RELEAES_API)
+        data = r.json()
+
+        releases = [item['tag_name'].replace('v', '') for item in data]
+        release_notes = ['### ' + item['tag_name'] + '\n\n' + item['body']
+                         for item in data]
+
         try:
-            data = page.read()
+            current_release_index = releases.index(current_version)
+        except ValueError:
+            # if current release cannot be found online, just
+            # show release notes from newest release w/o history
+            current_release_index = 1
 
-            if not isinstance(data, str):
-                data = data.decode()
-            data = json.loads(data)
+        update_release_notes = release_notes[0:current_release_index]
+        update_release_notes = '\n'.join(update_release_notes)
 
-            releases = [item['tag_name'].replace('v', '') for item in data]
-            release_notes = ['### ' + item['tag_name'] + '\n\n' + item['body']
-                             for item in data]
+        new_version = get_newer_version(current_version, releases)
 
-            try:
-                current_release_index = releases.index(current_version)
-            except ValueError:
-                # if current release cannot be found online, just
-                # show release notes from newest release w/o history
-                current_release_index = 1
-
-            update_release_notes = release_notes[0:current_release_index]
-            update_release_notes = '\n'.join(update_release_notes)
-
-            new_version = get_newer_version(current_version, releases)
-        except Exception:
-            error_msg = 'Unable to retrieve information.'
-    except HTTPError:
+    except requests.exceptions.HTTPError:
         error_msg = 'Unable to retrieve information.'
-    except URLError:
+    except CONNECTION_ERRORS:
         error_msg = ('Unable to connect to the internet. '
                      'Please make sure the connection is working properly.')
     except Exception:
