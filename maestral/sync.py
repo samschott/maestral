@@ -1698,7 +1698,7 @@ class UpDownSync:
         """
         Creates multiple folders on Dropbox in a batch request. We currently don't use
         this because folders are created in parallel anyways and we perform conflict
-        checks before uploading each folder. This is currently not used for syncing.
+        checks before uploading each folder.
 
         :param list[DirCreatedEvent] events: List of directory creates events.
         :raises: :class:`errors.MaestralApiError`
