@@ -23,9 +23,8 @@ from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 # maestral modules
 from maestral.config import MaestralConfig
 from maestral.constants import DROPBOX_APP_KEY
-from maestral.errors import DropboxAuthError
 from maestral.client import CONNECTION_ERRORS
-from maestral.utils.oauth_implicit import DropboxOAuth2FlowImplicit
+from maestral.errors import KeyringAccessError
 
 
 logger = logging.getLogger(__name__)
@@ -94,10 +93,7 @@ class OAuth2Session:
         self.keyring = get_keyring_backend(config_name)
         self._conf = MaestralConfig(config_name)
 
-        try:
-            self._auth_flow = DropboxOAuth2FlowNoRedirect(self._app_key, use_pkce=True)
-        except TypeError:
-            self._auth_flow = DropboxOAuth2FlowImplicit(self._app_key)
+        self._auth_flow = DropboxOAuth2FlowNoRedirect(self._app_key, use_pkce=True)
         self._oAuth2FlowResult = None
 
         self.account_id = self._conf.get('account', 'account_id')
@@ -148,9 +144,7 @@ class OAuth2Session:
             self.access_token = self._oAuth2FlowResult.access_token
             self.account_id = self._oAuth2FlowResult.account_id
             return self.Success
-        except DropboxAuthError:  # raised by our own implicit flow
-            return self.InvalidToken
-        except requests.exceptions.HTTPError:  # raised by Dropbox SDK flow
+        except requests.exceptions.HTTPError:
             return self.InvalidToken
         except CONNECTION_ERRORS:
             return self.ConnectionFailed
