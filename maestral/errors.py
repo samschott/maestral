@@ -167,6 +167,11 @@ class TokenExpiredError(DropboxAuthError):
     pass
 
 
+class TokenRevokedError(DropboxAuthError):
+    """Raised when authentication fails because the user's token has been revoked."""
+    pass
+
+
 class CursorResetError(MaestralApiError):
     """Raised when the cursor used for a longpoll or list-folder request has been
     invalidated. Dropbox will very rarely invalidate a cursor. If this happens, a new
@@ -486,16 +491,33 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
     # ----------------------- Authentication errors --------------------------------------
     elif isinstance(exc, dropbox.exceptions.AuthError):
         error = exc.error
-        if isinstance(error, dropbox.auth.AuthError) and error.is_expired_access_token():
-            err_cls = TokenExpiredError
-            title = 'Expired Dropbox access'
-            text = ('Maestral\'s access to your Dropbox has expired. Please relink '
-                    'to continue syncing.')
+        if isinstance(error, dropbox.auth.AuthError):
+            if error.is_expired_access_token():
+                err_cls = TokenExpiredError
+                title = 'Authentication error'
+                text = ('Maestral\'s access to your Dropbox has expired. Please relink '
+                        'to continue syncing.')
+            elif error.is_invalid_access_token():
+                err_cls = TokenRevokedError
+                title = 'Authentication error'
+                text = ('Maestral\'s access to your Dropbox has been revoked. Please '
+                        'relink to continue syncing.')
+            elif error.is_user_suspended():
+                err_cls = DropboxAuthError
+                title = 'Authentication error'
+                text = 'Your user account has been suspended.'
+            else:
+                # Other tags are invalid_select_admin, invalid_select_user, missing_scope,
+                # route_access_denied. Neither should occur in our SDK usage.
+                err_cls = MaestralApiError
+                title = 'An unexpected error occurred'
+                text = ('Please contact the developer with the traceback '
+                        'information from the logs.')
+
         else:
             err_cls = DropboxAuthError
             title = 'Authentication error'
-            text = ('Maestral\'s access to your Dropbox has been revoked. Please '
-                    'relink to continue syncing.')
+            text = 'Please check if you can log into your account on the Dropbox website.'
 
     # -------------------------- OAuth2 flow errors --------------------------------------
     elif isinstance(exc, requests.HTTPError):
@@ -516,15 +538,9 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
     # ----------------------------- Bad input errors -------------------------------------
     # should only occur due to user input from console scripts
     elif isinstance(exc, dropbox.exceptions.BadInputError):
-        if ('The given OAuth 2 access token is malformed' in exc.message
-                or 'Invalid authorization value in HTTP header' in exc.message):
-            err_cls = DropboxAuthError
-            title = 'Authentication failed'
-            text = 'Please make sure that you entered the correct authentication code.'
-        else:
-            err_cls = BadInputError
-            title = 'Bad input to API call'
-            text = exc.message
+        err_cls = BadInputError
+        title = 'Bad input to API call'
+        text = exc.message
 
     # ---------------------- Internal Dropbox error --------------------------------------
     elif isinstance(exc, dropbox.exceptions.InternalServerError):
@@ -664,14 +680,15 @@ SYNC_ERRORS = (
 
 FATAL_ERRORS = (
     NotLinkedError,
+    KeyringAccessError,
     NoDropboxDirError,
     InotifyError,
     RestrictedContentError,
     RevFileError,
     DropboxAuthError,
     TokenExpiredError,
+    TokenRevokedError,
     CursorResetError,
     BadInputError,
     OutOfMemoryError,
-    KeyringAccessError,
 )
