@@ -318,6 +318,8 @@ class Maestral:
         All syncing metadata will be removed as well. Connection and API errors will be
         handled silently but the Dropbox access key will always be removed from the
         user's PC.
+
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
         self.stop_sync()
@@ -450,9 +452,13 @@ class Maestral:
     @property
     @require_linked
     def dropbox_path(self):
-        """Returns the path to the local Dropbox directory (read only). Use
+        """
+        Returns the path to the local Dropbox directory (read only). Use
         :meth:`create_dropbox_directory` or :meth:`move_dropbox_directory` to set or
-        change the Dropbox directory location instead."""
+        change the Dropbox directory location instead.
+
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        """
         return self.sync.dropbox_path
 
     @property
@@ -462,6 +468,8 @@ class Maestral:
         Returns a list of excluded folders (read only). Use :meth:`exclude_item`,
         :meth:`include_item` or :meth:`set_excluded_items` to change which items are
         excluded from syncing.
+
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
         return self.sync.excluded_items
 
@@ -602,7 +610,12 @@ class Maestral:
     @property
     @require_linked
     def sync_errors(self):
-        """Returns list of current sync errors as dicts."""
+        """
+        Returns list of current sync errors as dicts. This list is populated by the sync
+        threads.
+
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        """
 
         sync_errors = list(self.sync.sync_errors.queue)
         sync_errors_dicts = [error_to_dict(e) for e in sync_errors]
@@ -611,10 +624,10 @@ class Maestral:
     @property
     def fatal_errors(self):
         """
-        Returns a list of Maestral's errors as dicts. This does not include lost internet
+        Returns a list of fatal errors as dicts. This does not include lost internet
         connections or file sync errors which only emit warnings and are tracked and
         cleared separately. Errors listed here must be acted upon for Maestral to
-        continue syncing.
+        continue syncing. This list is populated by the sync threads.
         """
 
         maestral_errors = [r.exc_info[1] for r in self._log_handler_error_cache.cached_records]
@@ -623,7 +636,7 @@ class Maestral:
 
     def clear_fatal_errors(self):
         """
-        Manually clears all Maestral errors. This should be used after they have been
+        Manually clears all fatal errors. This should be used after they have been
         resolved by the user through the GUI or CLI.
         """
         self._log_handler_error_cache.clear()
@@ -677,6 +690,7 @@ class Maestral:
         :returns: A dictionary with lists of all files currently queued for or being
             uploaded or downloaded. Paths are given relative to the Dropbox folder.
         :rtype: dict(list, list)
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
         PathItem = namedtuple('PathItem', 'path status')
@@ -709,7 +723,10 @@ class Maestral:
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
-        :raises: :class:`errors.MaestralApiError`, :class:`ConnectionError`
+        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
         res = self.client.get_account_info()
@@ -723,7 +740,10 @@ class Maestral:
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
-        :raises: :class:`errors.MaestralApiError`, :class:`ConnectionError`
+        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
         res = self.client.get_space_usage()
@@ -740,7 +760,10 @@ class Maestral:
 
         :returns: Path to saved profile picture or ``None`` if no profile picture is set.
         :rtype: str
-        :raises: :class:`errors.MaestralApiError`, :class:`ConnectionError`
+        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
         res = self.client.get_account_info()
@@ -763,7 +786,12 @@ class Maestral:
         :returns: List of Dropbox item metadata as dicts or ``False`` if listing failed
             due to connection issues.
         :rtype: list[dict]
-        :raises: :class:`errors.MaestralApiError`, :class:`ConnectionError`
+        :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
+        :raises: :class:`errors.NotAFolderError` if the given path refers to a file.
+        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
         res = self.client.list_folder(dbx_path, **kwargs)
@@ -789,9 +817,11 @@ class Maestral:
         conflicting copies are created if the contents differ. File changes during the
         rebuild process will be queued and uploaded once rebuilding has completed.
 
-        Rebuilding will be performed asynchronously.
+        Rebuilding will be performed asynchronously and errors can be accessed through
+        :attr:`sync_errors` or :attr:`maestral_errors`.
 
-        :raises: :class:`errors.MaestralApiError`
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
 
         self.monitor.rebuild_index()
@@ -801,6 +831,9 @@ class Maestral:
     def start_sync(self):
         """
         Creates syncing threads and starts syncing.
+
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
 
         self.monitor.start()
@@ -810,6 +843,9 @@ class Maestral:
     def resume_sync(self):
         """
         Resumes syncing if paused.
+
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
 
         self.monitor.resume()
@@ -834,6 +870,8 @@ class Maestral:
         Resets the sync index and state. Only call this to clean up leftover state
         information if a Dropbox was improperly unlinked (e.g., auth token has been
         manually deleted). Otherwise leave state management to Maestral.
+
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
         self.monitor.reset_sync_state()
@@ -846,8 +884,13 @@ class Maestral:
         method with items which have already been excluded.
 
         :param str dbx_path: Dropbox path of item to exclude.
-        :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox.
+        :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
 
         # input validation
@@ -896,14 +939,21 @@ class Maestral:
     @require_dir
     def include_item(self, dbx_path):
         """
-        Includes file or folder in sync and downloads in the background. It is safe to
-        call this method with items which have already been included, they will not be
+        Includes a file or folder in sync and downloads it in the background. It is safe
+        to call this method with items which have already been included, they will not be
         downloaded again.
 
+        Any downloads will be carried out by the sync threads. Errors during the download
+        can be accessed through :attr:`sync_errors` or :attr:`maestral_errors`.
+
         :param str dbx_path: Dropbox path of item to include.
-        :raises: :class:`ValueError` if ``dbx_path`` is not on Dropbox or lies within
-            an excluded folder.
-        :raises: :class:`ConnectionError`
+        :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
+        :raises: :class:`errors.PathError` if the path lies inside an excluded folder.
+        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
 
         # input validation
@@ -950,14 +1000,17 @@ class Maestral:
     @require_dir
     def set_excluded_items(self, items):
         """
-        Sets the list of excluded files or folders. If not given, gets all top level
-        folder paths from Dropbox and asks user to include or exclude. Items which are
-        not in ``items`` but were previously excluded will be downloaded.
+        Sets the list of excluded files or folders. Items which are not in ``items`` but
+        were previously excluded will be downloaded.
+
+        Any downloads will be carried out by the sync threads. Errors during the download
+        can be accessed through :attr:`sync_errors` or :attr:`maestral_errors`.
 
         On initial sync, this does not trigger any downloads.
 
-        :param list items: If given, list of excluded files or folders to set.
-        :raises: :class:`errors.MaestralApiError`, :class:`ConnectionError`
+        :param list[str] items: List of excluded files or folders to set.
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
 
         excluded_items = self.sync.clean_excluded_items_list(items)
@@ -989,6 +1042,7 @@ class Maestral:
         :param str dbx_path: Path to item on Dropbox.
         :returns: Excluded status.
         :rtype: str
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
         dbx_path = dbx_path.lower().rstrip(osp.sep)
@@ -1013,6 +1067,8 @@ class Maestral:
         :param str new_path: Full path to local Dropbox folder. "~" will be expanded to
             the user's home directory.
         :raises: :class:`OSError` if moving the directory fails.
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
 
         old_path = self.sync.dropbox_path
@@ -1044,7 +1100,8 @@ class Maestral:
 
         :param str path: Full path to local Dropbox folder. "~" will be expanded to the
             user's home directory.
-        :raises: :class:`OSError` if creation fails
+        :raises: :class:`OSError` if creation fails.
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
         path = os.path.expanduser(path)
@@ -1069,6 +1126,8 @@ class Maestral:
         :param str dbx_path: Path relative to Dropbox root.
         :returns: Corresponding path on local hard drive.
         :rtype: str
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
 
         return self.sync.to_local_path(dbx_path)
