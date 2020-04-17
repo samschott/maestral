@@ -555,7 +555,9 @@ class Maestral:
         if self.pending_link:
             return False
         else:
-            return not self.monitor.syncing.is_set() or self.monitor.startup.is_set()
+            return (self.monitor.syncing.is_set()
+                    or self.monitor.startup.is_set()
+                    or self.sync.lock.locked())
 
     @property
     def paused(self):
