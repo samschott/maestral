@@ -40,7 +40,6 @@ USER_AGENT = f'Maestral/v{_major_minor_version}'
 CONNECTION_ERRORS = (
     requests.exceptions.Timeout,
     requests.exceptions.ConnectionError,
-    requests.exceptions.HTTPError,
     requests.exceptions.ReadTimeout,
     requests.exceptions.RetryError,
     ConnectionError,
