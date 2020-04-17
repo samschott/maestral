@@ -118,7 +118,8 @@ class OAuth2Session:
         except KeyringLocked:
             info = f'Could not load access token. {self.keyring.name} is locked.'
             logger.error(info)
-            raise KeyringLocked(info)
+            raise KeyringAccessError('Could not load access token',
+                                     f'{self.keyring.name} is locked.')
 
     def get_auth_url(self):
         """
@@ -173,3 +174,5 @@ class OAuth2Session:
         except KeyringLocked:
             info = f'Could not delete access token. {self.keyring.name} is locked.'
             logger.error(info)
+            raise KeyringAccessError('Could not delete access token',
+                                     f'{self.keyring.name} is locked.')

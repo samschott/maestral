@@ -201,6 +201,9 @@ class Maestral:
     :class:`errors.MaestralApiError` which need to be registered explicitly with the
     serpent serializer which is used for communication to frontends.
 
+    Sync errors and fatal errors which occur in the syncing threads can be read with the
+    properties :attr:`sync_errors` and :attr:`fatal_errors`, respectively.
+
     :Example:
 
         First create an instance with a new config_name. In this example, we choose
@@ -321,17 +324,17 @@ class Maestral:
         user's PC.
 
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        :raises: :class:`errors.KeyringAccessError` if deleting the auth key fails because
+            the user's keyring is locked.
         """
 
         self.stop_sync()
 
-        # revoke and delete token
+        # revoke token
         try:
             self.client.unlink()
         except (ConnectionError, MaestralApiError):
             pass
-
-        self._auth.delete_creds()
 
         # clean up config + state
         try:
@@ -343,6 +346,9 @@ class Maestral:
         delete(self.sync.rev_file_path)
         self._conf.cleanup()
         self._state.cleanup()
+
+        # delete auth token
+        self._auth.delete_creds()
 
         logger.info('Unlinked Dropbox account.')
 

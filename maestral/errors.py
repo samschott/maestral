@@ -132,6 +132,11 @@ class NotLinkedError(MaestralApiError):
     pass
 
 
+class KeyringAccessError(MaestralApiError):
+    """Raised when retrieving a saved auth token from the user keyring fails."""
+    pass
+
+
 class NoDropboxDirError(MaestralApiError):
     """Raised when the local Dropbox folder cannot be found."""
     pass
@@ -668,4 +673,5 @@ FATAL_ERRORS = (
     CursorResetError,
     BadInputError,
     OutOfMemoryError,
+    KeyringAccessError,
 )
