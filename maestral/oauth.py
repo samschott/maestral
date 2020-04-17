@@ -114,8 +114,7 @@ class OAuth2Session:
                 self.access_token = self.keyring.get_password('Maestral', self.account_id)
             return self.access_token or ''
         except KeyringLocked:
-            info = (f'Could not load access token. Please make sure that the '
-                    f'{self.keyring.name} is unlocked.')
+            info = f'Could not load access token. {self.keyring.name} is locked.'
             logger.error(info)
             raise KeyringLocked(info)
 
@@ -176,6 +175,5 @@ class OAuth2Session:
             self.keyring.delete_password('Maestral', self.account_id)
             click.echo(' > Credentials removed.')
         except KeyringLocked:
-            info = (f'Could not delete access token. Please make sure that the '
-                    f'{self.keyring.name} is unlocked.')
+            info = f'Could not delete access token. {self.keyring.name} is locked.'
             logger.error(info)
