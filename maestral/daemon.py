@@ -164,7 +164,7 @@ def _wait_for_startup(config_name, timeout=8):
         return Start.Failed
 
 
-def _check_pyro_communication(config_name, timeout=2):
+def _check_pyro_communication(config_name, timeout=4):
     """Checks if we can communicate with the maestral daemon. Returns ``Start.Ok`` if
     communication succeeds within timeout, ``Start.Failed``  otherwise."""
 
@@ -231,8 +231,6 @@ def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
         except FileNotFoundError:
             pass
 
-        daemon = Daemon(unixsocket=sock_name)
-
         # expose maestral as Pyro server
         # convert selected methods to one way calls so that they don't block
         ExposedMaestral = expose(Maestral)
@@ -245,6 +243,7 @@ def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
 
         m = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
 
+        daemon = Daemon(unixsocket=sock_name)
         daemon.register(m, f'maestral.{_escape_spaces(config_name)}')
         daemon.requestLoop(loopCondition=m._loop_condition)
         daemon.close()
