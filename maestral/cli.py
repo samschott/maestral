@@ -157,7 +157,7 @@ def check_for_fatal_errors(m):
     :returns: True in case of fatal errors, False otherwise.
     :rtype: bool
     """
-    maestral_err_list = m.maestral_errors
+    maestral_err_list = m.fatal_errors
 
     if len(maestral_err_list) > 0:
 

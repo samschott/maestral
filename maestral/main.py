@@ -606,7 +606,7 @@ class Maestral:
         return sync_errors_dicts
 
     @property
-    def maestral_errors(self):
+    def fatal_errors(self):
         """
         Returns a list of Maestral's errors as dicts. This does not include lost internet
         connections or file sync errors which only emit warnings and are tracked and
@@ -618,7 +618,7 @@ class Maestral:
         maestral_errors_dicts = [error_to_dict(e) for e in maestral_errors]
         return maestral_errors_dicts
 
-    def clear_maestral_errors(self):
+    def clear_fatal_errors(self):
         """
         Manually clears all Maestral errors. This should be used after they have been
         resolved by the user through the GUI or CLI.
