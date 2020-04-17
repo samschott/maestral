@@ -17,6 +17,7 @@ import keyring.backends
 import keyrings.alt
 from keyring.core import load_keyring
 from keyring.errors import KeyringLocked
+import requests
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 
 # maestral modules
@@ -86,16 +87,21 @@ class OAuth2Session:
     InvalidToken = 1
     ConnectionFailed = 2
 
-    def __init__(self, config_name):
+    def __init__(self, config_name, app_key=DROPBOX_APP_KEY):
+
+        self._app_key = app_key
 
         self.keyring = get_keyring_backend(config_name)
         self._conf = MaestralConfig(config_name)
 
+        try:
+            self._auth_flow = DropboxOAuth2FlowNoRedirect(self._app_key, use_pkce=True)
+        except TypeError:
+            self._auth_flow = DropboxOAuth2FlowImplicit(self._app_key)
+        self._oAuth2FlowResult = None
+
         self.account_id = self._conf.get('account', 'account_id')
         self.access_token = self.load_token()
-
-        self.auth_flow = None
-        self.oAuth2FlowResult = None
 
     def load_token(self):
         """
@@ -103,7 +109,7 @@ class OAuth2Session:
 
         :returns: Auth token.
         :rtype: str
-        :raises: ``KeyringLocked`` if the system keyring cannot be accessed.
+        :raises: :class:`keyring.errors.KeyringLocked` if the system keyring is locked.
         """
         logger.debug(f'Using keyring: {self.keyring}')
 
@@ -125,11 +131,7 @@ class OAuth2Session:
         :returns: Dropbox auth URL.
         :rtype: str
         """
-        try:
-            self.auth_flow = DropboxOAuth2FlowNoRedirect(DROPBOX_APP_KEY, use_pkce=True)
-        except TypeError:
-            self.auth_flow = DropboxOAuth2FlowImplicit(DROPBOX_APP_KEY)
-        authorize_url = self.auth_flow.start()
+        authorize_url = self._auth_flow.start()
         return authorize_url
 
     def verify_auth_token(self, token):
@@ -138,17 +140,17 @@ class OAuth2Session:
 
         :returns: :attr:`Success`, :attr:`InvalidToken`, or :attr:`ConnectionFailed`.
         :rtype: int
+        :raises: :class:`errors.DropboxAuthError`
         """
 
-        if not self.auth_flow:
-            raise RuntimeError('Auth flow not yet started. Please call "get_auth_url".')
-
         try:
-            self.oAuth2FlowResult = self.auth_flow.finish(token)
-            self.access_token = self.oAuth2FlowResult.access_token
-            self.account_id = self.oAuth2FlowResult.account_id
+            self._oAuth2FlowResult = self._auth_flow.finish(token)
+            self.access_token = self._oAuth2FlowResult.access_token
+            self.account_id = self._oAuth2FlowResult.account_id
             return self.Success
-        except DropboxAuthError:
+        except DropboxAuthError:  # raised by our own implicit flow
+            return self.InvalidToken
+        except requests.exceptions.HTTPError:  # raised by Dropbox SDK flow
             return self.InvalidToken
         except CONNECTION_ERRORS:
             return self.ConnectionFailed
