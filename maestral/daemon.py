@@ -308,18 +308,13 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
     from shlex import quote
     import multiprocessing as mp
 
-    STD_IN_OUT = subprocess.STDOUT if log_to_stdout else subprocess.DEVNULL
-
     # use nested Popen and multiprocessing.Process to effectively create double fork
     # see Unix 'double-fork magic'
 
     if IS_FROZEN:
 
         def target():
-            subprocess.Popen(
-                [sys.executable, '--frozen-daemon', '-c', config_name],
-                stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
-            )
+            subprocess.Popen([sys.executable, '--frozen-daemon', '-c', config_name])
 
     else:
 
@@ -331,10 +326,7 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
             cmd = (f'import maestral.daemon; '
                    f'maestral.daemon.start_maestral_daemon("{cc}", {std_log})')
 
-            subprocess.Popen(
-                [sys.executable, '-c', cmd],
-                stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
-            )
+            subprocess.Popen([sys.executable, '-c', cmd])
 
     mp.Process(
         target=target,
