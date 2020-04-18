@@ -687,6 +687,7 @@ SYNC_ERRORS = (
 )
 
 FATAL_ERRORS = (
+    MaestralApiError,
     NotLinkedError,
     KeyringAccessError,
     NoDropboxDirError,

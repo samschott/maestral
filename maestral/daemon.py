@@ -24,7 +24,7 @@ from Pyro5.serializers import SerpentSerializer
 from lockfile.pidlockfile import PIDLockFile, AlreadyLocked
 
 # local imports
-from maestral.errors import MaestralApiError, SYNC_ERRORS, FATAL_ERRORS
+from maestral.errors import SYNC_ERRORS, FATAL_ERRORS
 from maestral.constants import IS_FROZEN
 
 
@@ -69,7 +69,7 @@ def serpent_deserialize_api_error(class_name, d):
     return err
 
 
-for err_cls in list(SYNC_ERRORS) + list(FATAL_ERRORS) + [MaestralApiError]:
+for err_cls in list(SYNC_ERRORS) + list(FATAL_ERRORS):
     SerpentSerializer.register_dict_to_class(
         err_cls.__module__ + '.' + err_cls.__name__,
         serpent_deserialize_api_error
