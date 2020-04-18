@@ -2517,7 +2517,6 @@ def helper(mm):
 
         else:
             if mm.connected.is_set():
-                logger.debug(DISCONNECTED, exc_info=True)
                 logger.info(DISCONNECTED)
             mm.syncing.clear()
             mm.connected.clear()
@@ -2562,7 +2561,6 @@ def download_worker(sync, syncing, running, connected):
         except ConnectionError:
             syncing.clear()
             connected.clear()
-            logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
         except Exception as e:
             running.clear()
@@ -2599,7 +2597,6 @@ def download_worker_added_item(sync, syncing, running, connected):
         except ConnectionError:
             syncing.clear()
             connected.clear()
-            logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
         except Exception as e:
             running.clear()
@@ -2641,7 +2638,6 @@ def upload_worker(sync, syncing, running, connected):
         except ConnectionError:
             syncing.clear()
             connected.clear()
-            logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
         except Exception as e:
             running.clear()
@@ -2719,7 +2715,6 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
             syncing.clear()
             connected.clear()
             startup.clear()
-            logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
         except Exception as e:
             running.clear()
