@@ -243,10 +243,10 @@ def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
 
         m = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
 
-        daemon = Daemon(unixsocket=sock_name)
-        daemon.register(m, f'maestral.{_escape_spaces(config_name)}')
-        daemon.requestLoop(loopCondition=m._loop_condition)
-        daemon.close()
+        with Daemon(unixsocket=sock_name) as daemon:
+            daemon.register(m, f'maestral.{_escape_spaces(config_name)}')
+            daemon.requestLoop(loopCondition=m._loop_condition)
+
     except Exception:
         traceback.print_exc()
     except (KeyboardInterrupt, SystemExit):
