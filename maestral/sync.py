@@ -163,16 +163,17 @@ class FSEventHandler(FileSystemEventHandler):
             now = time.time()
             new_ignores = list()
             for path in local_paths:
-                new_ignores.append(
-                    dict(
-                        path=path,
-                        start_time=now,
-                        ttl=None,
-                        event_types=event_types,
-                        recursive=recursive,
-                        is_dir=is_dir or recursive,
+                for event_type in event_types:
+                    new_ignores.append(
+                        dict(
+                            path=path,
+                            start_time=now,
+                            ttl=None,
+                            event_types=event_type,
+                            recursive=recursive,
+                            is_dir=is_dir or recursive,
+                        )
                     )
-                )
             self._ignored_paths.extend(new_ignores)
 
         try:
