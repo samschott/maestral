@@ -502,7 +502,7 @@ class Maestral:
         return self._log_to_stdout
 
     @log_to_stdout.setter
-    def log_to_stdout(self, enabled=True):
+    def log_to_stdout(self, enabled):
         """Setter: log_to_stdout."""
         self._log_to_stdout = enabled
         level = self.log_level if enabled else 100
