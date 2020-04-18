@@ -1,5 +1,5 @@
 from maestral.utils.updates import (
-    get_newer_version, check_update_available, is_stable_version
+    get_newer_version, check_update_available
 )
 
 
@@ -16,4 +16,3 @@ def test_check_update_available():
 
     if not res['error']:
         assert res['update_available']
-        assert is_stable_version(res['latest_release'])

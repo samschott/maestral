@@ -32,7 +32,7 @@ GITHUB_RELEAES_API = 'https://api.github.com/repos/samschott/maestral-dropbox/re
 def get_newer_version(version, releases):
     """
     Checks current version against a version list of releases to see if an update is
-    available.
+    available. Only offers newer versions if they are not a prerelease.
 
     :param str version: The current version.
     :param iterable[str] releases: A list of valid cleaned releases.
@@ -40,8 +40,7 @@ def get_newer_version(version, releases):
     :rtype: str
     """
 
-    # filter releases, only offer updates to stable versions
-    releases = [r for r in releases if is_stable_version(r)]
+    releases = [r for r in releases if not Version(r).is_prerelease]
     releases.sort(key=lambda x: Version(x))
     latest_release = releases[-1]
 
@@ -94,13 +93,3 @@ def check_update_available(current_version=__version__):
             'latest_release': new_version or current_version,
             'release_notes': update_release_notes,
             'error': error_msg}
-
-
-def is_stable_version(version):
-    """
-    Return true if version is stable.
-
-    Stable version examples: ``0.1.0``, ``1.2``, ``1.3.4``, ``1.0.5.post1``.
-    Non-stable version examples: ``1.3.4.beta``, ``0.1.0-rc1``, ``3.0.0dev0``.
-    """
-    return not Version(version).is_prerelease
