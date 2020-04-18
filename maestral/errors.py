@@ -8,6 +8,14 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 This module defines Maestral's error classes. It should be kept free of memory heavy
 imports.
 
+All errors inherit from MaestralApiError which has title and message attributes to display
+the error to the user.
+
+Errors are divided into "fatal errors" which will prevent any syncing or "sync errors"
+which will only prevent syncing of an individual file or folder. Fatal errors can be for
+example revoked Dropbox authorization, a deleted local Dropbox folder, insufficient RAM,
+etc. Sync errors include invalid file names, too large file sizes, and many more.
+
 """
 import errno
 
@@ -190,7 +198,7 @@ class BadInputError(MaestralApiError):
 
 def os_to_maestral_error(exc, dbx_path=None, local_path=None):
     """
-    Converts an :class:`OSError` to a :class:`MaestralApiError` and tries to add a
+    Converts a :class:`OSError` to a :class:`MaestralApiError` and tries to add a
     reasonably informative error title and message.
 
     .. note::
@@ -257,7 +265,7 @@ def os_to_maestral_error(exc, dbx_path=None, local_path=None):
 
 def fswatch_to_maestral_error(exc):
     """
-    Converts an :class:`OSError` when starting a file system watch to a
+    Converts a :class:`OSError` when starting a file system watch to a
     :class:`MaestralApiError` and tries to add a reasonably informative error title and
     message. Error messages and types differ from :func:`os_to_maestral_error`.
 
@@ -302,8 +310,8 @@ def fswatch_to_maestral_error(exc):
 
 def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
     """
-    Converts a Dropbox SDK exception to a MaestralApiError and tries to add a reasonably
-    informative error title and message.
+    Converts a Dropbox SDK exception to a :class:`MaestralApiError` and tries to add a
+    reasonably informative error title and message.
 
     :param exc: :class:`dropbox.exceptions.DropboxException` instance.
     :param Optional[str] dbx_path: Dropbox path of file which triggered the error.
