@@ -622,10 +622,10 @@ def _get_lookup_error_msg(lookup_error):
                 'whitespace.')
         err_cls = PathError
     elif lookup_error.is_not_file():
-        text = 'We were expecting a file, but the given path refers to a folder.'
+        text = 'The given path refers to a folder.'
         err_cls = IsAFolderError
     elif lookup_error.is_not_folder():
-        text = 'We were expecting a folder, but the given path refers to a file.'
+        text = 'The given path refers to a file.'
         err_cls = NotAFolderError
     elif lookup_error.is_not_found():
         text = 'There is nothing at the given path.'
