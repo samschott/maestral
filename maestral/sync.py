@@ -1055,8 +1055,12 @@ class UpDownSync:
         snapshot = DirectorySnapshot(self.dropbox_path)
 
         # remove root entry from snapshot
-        del snapshot._inode_to_path[snapshot.inode(self.dropbox_path)]
-        del snapshot._stat_info[self.dropbox_path]
+        try:
+            del snapshot._inode_to_path[snapshot.inode(self.dropbox_path)]
+            del snapshot._stat_info[self.dropbox_path]
+        except KeyError:
+            pass
+
         # get lowercase paths
         lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
 
