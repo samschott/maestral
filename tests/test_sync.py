@@ -261,8 +261,8 @@ def test_sync_cases():
     #    Recurse through ctimes of children and check if we have any un-synced changes.
     #    If yes, create CCs for those items. Others will be deleted.
     #  * Local file replaced with a folder (OK):
-    #    Check server-modified time of file and only delete if older. Otherwise, let
-    #    Dropbox handle creating a CC.
+    #    Check if server-modified time > laest_sync of file and only delete file if older.
+    #    Otherwise, let Dropbox handle creating a CC.
     #  * Local folder replaced with a file (NOK):
     #    Remote folder is currently not checked for unsynced changes but a CC is created
     #    by default. We could recurse through all remote files and check for unsynced
