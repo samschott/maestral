@@ -1663,13 +1663,16 @@ class UpDownSync:
 
             rev = self.get_local_rev(dbx_path)
             if not rev:
-                # add a new file, let Dropbox rename it if something is in the way
+                # file is new to us, let Dropbox rename it if something is in the way
                 mode = dropbox.files.WriteMode('add')
             elif rev == 'folder':
-                # try to overwrite the destination
+                # try to overwrite the destination, this will fail...
                 mode = dropbox.files.WriteMode('overwrite')
             else:
-                # try to update the given rev, create conflict otherwise
+                # file has been modified, update remote if matching rev,
+                # create conflict otherwise
+                logger.debug('"%s" appears to have been created but we are '
+                             'already tracking it', dbx_path)
                 mode = dropbox.files.WriteMode('update', rev)
             try:
                 md_new = self.client.upload(local_path, dbx_path,
