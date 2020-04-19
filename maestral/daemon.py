@@ -448,7 +448,7 @@ def get_maestral_proxy(config_name='maestral', fallback=False):
         raise Pyro5.errors.CommunicationError
 
 
-class MaestralProxy(object):
+class MaestralProxy:
     """A context manager to open and close a proxy to the Maestral daemon."""
 
     def __init__(self, config_name='maestral', fallback=False):
