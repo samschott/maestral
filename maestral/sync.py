@@ -2739,26 +2739,6 @@ class MaestralMonitor:
 
     :param MaestralApiClient client: The Dropbox API client, a wrapper around the Dropbox
         Python SDK.
-
-    :ivar Thread local_observer_thread: Watchdog observer thread that detects local file
-        system events.
-    :ivar Thread upload_thread: Thread that sorts uploads local changes.
-    :ivar Thread download_thread: Thread to query for and download remote changes.
-    :ivar Thread file_handler: Handler to queue file events from `observer` for upload.
-    :ivar UpDownSync sync: Object to coordinate syncing. This is the brain of Maestral.
-        It contains the logic to process local and remote file events and to apply them
-        while checking for conflicts.
-
-    :ivar Event connected: Set when connected to Dropbox servers.
-    :ivar Event startup: Set when startup scripts have to be run after syncing
-        was inactive, for instance when Maestral is started, the internet connection is
-        reestablished or syncing is resumed after pausing.
-    :ivar Event syncing: Set when sync is running.
-    :ivar Event running: Set when the sync threads are alive.
-    :ivar Event paused_by_user: Set when sync is paused by the user.
-
-    :ivar Queue queue_downloading: Holds *local file paths* that are being downloaded.
-    :ivar Queue queue_uploading: Holds *local file paths* that are being uploaded.
     """
 
     connection_check_interval = 2
@@ -2784,22 +2764,26 @@ class MaestralMonitor:
 
     @property
     def uploading(self):
-        """Returns a list of all items currently uploading."""
+        """Returns a list of all items currently uploading. Items are absolute paths (str)
+        on local drive."""
         return list(self.sync.queue_uploading.queue)
 
     @property
     def downloading(self):
-        """Returns a list of all items currently downloading."""
+        """Returns a list of all items currently downloading. Items are paths (str)
+        relative to the Dropbox folder."""
         return list(self.sync.queue_downloading.queue)
 
     @property
     def queued_for_upload(self):
-        """Returns a list of all items queued for upload."""
+        """Returns a list of all items queued for upload. Items are absolute paths (str)
+        on local drive."""
         return list(self.sync.queued_for_upload.queue)
 
     @property
     def queued_for_download(self):
-        """Returns a list of all items queued for download."""
+        """Returns a list of all items queued for download. Items are paths (str) relative
+        to the Dropbox folder."""
         return list(self.sync.queued_for_download.queue)
 
     def start(self):
@@ -2960,8 +2944,6 @@ class MaestralMonitor:
         rebuild process will be queued and uploaded once rebuilding has completed.
 
         Rebuilding will be performed asynchronously.
-
-        :raises: :class:`errors.MaestralApiError`
         """
 
         logger.info('Rebuilding index...')
@@ -3096,11 +3078,9 @@ def cpu_usage_percent(interval=0.1):
     interval of at least 0.1 sec.
 
     A value > 100.0 can be returned in case of processes running multiple threads on
-    different CPU cores.
-
-    The returned value is explicitly NOT split evenly between all available logical CPUs.
-    This means that a busy loop process running on a system with 2 logical CPUs will be
-    reported as having 100% CPU utilization instead of 50%.
+    different CPU cores. The returned value is explicitly NOT split evenly between all
+    available logical CPUs. This means that a busy loop process running on a system with
+    2 logical CPUs will be reported as having 100% CPU utilization instead of 50%.
 
     :param float interval: Interval in sec between comparisons of CPU times.
     :returns: CPU usage during interval in percent.
