@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-SPEC_FILE=maestral_macos.spec
+SPEC_FILE=maestral_macos_cocoa.spec
 BUILD_NO=$(grep -E -o "[0-9]*" bundle_version_macos.txt)
 
 echo "**** BUILD NUMBER $BUILD_NO ****************************"
@@ -11,9 +11,9 @@ echo "**** COPY ENTRY POINT **********************************"
 
 cp bin/maestral_cli dist/Maestral.app/Contents/MacOS/maestral_cli
 
-echo "**** REMOVING UNNEEDED MODULES *************************"
+echo "**** RUNNING POST-BUILD SCRIPTS ************************"
 
-python3 post_build_macos.py
+# pass
 
 echo "**** SIGNING ******************************************"
 

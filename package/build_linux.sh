@@ -6,6 +6,10 @@ echo "**** BUILDing *****************************************"
 
 python3 -m PyInstaller  -y --clean -w $SPEC_FILE
 
+echo "**** RUNNING POST-BUILD SCRIPTS ************************"
+
+# pass
+
 echo "**** SIGNING ******************************************"
 
 # todo
