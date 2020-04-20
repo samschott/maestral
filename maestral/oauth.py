@@ -182,7 +182,6 @@ class OAuth2Session:
 
     def delete_creds(self):
         """Deletes auth key from system keyring."""
-        self._conf.set('account', 'account_id', '')
         try:
             self.keyring.delete_password('Maestral', self.account_id)
             click.echo(' > Credentials removed.')
@@ -191,3 +190,5 @@ class OAuth2Session:
             logger.error(info)
             raise KeyringAccessError('Could not delete access token',
                                      f'{self.keyring.name} is locked.')
+        finally:
+            self._conf.set('account', 'account_id', '')

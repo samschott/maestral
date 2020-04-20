@@ -330,11 +330,6 @@ class Maestral:
             pass
 
         # clean up config + state
-        try:
-            os.remove(self.sync.rev_file_path)
-        except OSError:
-            pass
-
         self.sync.clear_rev_index()
         delete(self.sync.rev_file_path)
         self._conf.cleanup()
