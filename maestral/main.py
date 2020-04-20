@@ -22,6 +22,7 @@ from collections import namedtuple, deque
 
 # external imports
 import requests
+import keyring.errors
 from watchdog.events import EVENT_TYPE_DELETED
 import bugsnag
 from bugsnag.handlers import BugsnagHandler
@@ -340,7 +341,10 @@ class Maestral:
         self._state.cleanup()
 
         # delete auth token
-        self._auth.delete_creds()
+        try:
+            self._auth.delete_creds()
+        except keyring.errors.PasswordDeleteError:
+            logger.warning('Could not delete auth token', exc_info=True)
 
         logger.info('Unlinked Dropbox account.')
 
