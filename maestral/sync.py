@@ -3087,8 +3087,9 @@ def entries_to_str(entries):
 
 
 def cpu_usage_percent(interval=0.1):
-    """Returns a float representing the current process CPU utilization as a percentage.
-    This copies the similar method from psutil.
+    """Returns a float representing the CPU utilization of the current process as a
+    percentage. This duplicates the similar method from psutil to avoid the psutil
+    dependency.
 
     Compares process times to system CPU times elapsed before and after the interval
     (blocking). It is recommended for accuracy that this function be called with an
@@ -3100,6 +3101,10 @@ def cpu_usage_percent(interval=0.1):
     The returned value is explicitly NOT split evenly between all available logical CPUs.
     This means that a busy loop process running on a system with 2 logical CPUs will be
     reported as having 100% CPU utilization instead of 50%.
+
+    :param float interval: Interval in sec between comparisons of CPU times.
+    :returns: CPU usage during interval in percent.
+    :rtype: float
     """
 
     if not interval > 0:
