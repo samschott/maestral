@@ -5,9 +5,10 @@
 # (see spyder/__init__.py for details)
 
 """
-This module provides user configuration file management features for Spyder.
 
-It is based on the ConfigParser module present in the standard library.
+This module provides user configuration file management and is mostly copied from the
+config module of the Spyder IDE.
+
 """
 
 import ast
@@ -38,8 +39,7 @@ class NoDefault:
 
 class DefaultsConfig(cp.ConfigParser):
     """
-    Class used to save defaults to a file and as base class for
-    UserConfig
+    Class used to save defaults to a file and as base class for UserConfig.
     """
 
     _lock = RLock()
