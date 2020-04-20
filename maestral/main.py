@@ -240,15 +240,9 @@ class Maestral:
         self._setup_logging()
 
         self._auth = OAuth2Session(config_name)
-
-        if self.pending_link:
-            self.client = None
-            self.monitor = None
-            self.sync = None
-        else:
-            self.client = MaestralApiClient(self.config_name, self._auth.access_token)
-            self.monitor = MaestralMonitor(self.client)
-            self.sync = self.monitor.sync
+        self.client = MaestralApiClient(config_name=self.config_name, access_token='none')
+        self.monitor = MaestralMonitor(self.client)
+        self.sync = self.monitor.sync
 
         # periodically check for updates and refresh account info
         self.update_thread = Thread(
@@ -303,9 +297,7 @@ class Maestral:
         if res == self._auth.Success:
             self._auth.save_creds()
 
-            self.client = MaestralApiClient(self.config_name, self._auth.access_token)
-            self.monitor = MaestralMonitor(self.client)
-            self.sync = self.monitor.sync
+            self.client.set_access_token(self._auth.access_token)
 
             try:
                 self.get_account_info()
@@ -549,8 +541,14 @@ class Maestral:
 
     @property
     def pending_link(self):
-        """Bool indicating if Maestral is linked to a Dropbox account (read only)."""
-        return self._auth.access_token == ''
+        """Bool indicating if Maestral is linked to a Dropbox account (read only). This
+        will block until the user's keyring is unlocked to load the saved auth token."""
+
+        token = self._auth.access_token  # triggers keyring access
+        if token != '':
+            self.client.set_access_token(token)
+
+        return token == ''
 
     @property
     def pending_dropbox_folder(self):
