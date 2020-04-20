@@ -96,8 +96,22 @@ class OAuth2Session:
         self._auth_flow = DropboxOAuth2FlowNoRedirect(self._app_key, use_pkce=True)
         self._oAuth2FlowResult = None
 
-        self.account_id = self._conf.get('account', 'account_id')
-        self.access_token = self.load_token()
+        self._access_token = None
+
+    @property
+    def account_id(self):
+        return self._conf.get('account', 'account_id')
+
+    @account_id.setter
+    def account_id(self, account_id):
+        self._conf.set('account', 'account_id', account_id)
+
+    @property
+    def access_token(self):
+        # defer keyring access until token requested by user
+        if self._access_token is None:
+            self._access_token = self.load_token()
+        return self._access_token
 
     def load_token(self):
         """
@@ -111,10 +125,11 @@ class OAuth2Session:
 
         try:
             if self.account_id == '':
-                self.access_token = ''
+                self._access_token = ''
             else:
-                self.access_token = self.keyring.get_password('Maestral', self.account_id)
-            return self.access_token or ''
+                token = self.keyring.get_password('Maestral', self.account_id)
+                self._access_token = '' if token is None else token
+            return self._access_token
         except KeyringLocked:
             info = f'Could not load access token. {self.keyring.name} is locked.'
             logger.error(info)
@@ -142,7 +157,7 @@ class OAuth2Session:
 
         try:
             self._oAuth2FlowResult = self._auth_flow.finish(token)
-            self.access_token = self._oAuth2FlowResult.access_token
+            self._access_token = self._oAuth2FlowResult.access_token
             self.account_id = self._oAuth2FlowResult.account_id
             return self.Success
         except requests.exceptions.HTTPError:
