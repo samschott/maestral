@@ -1193,4 +1193,5 @@ class Maestral:
         email = self._state.get('account', 'email')
         account_type = self._state.get('account', 'type')
 
-        return f'<{self.__class__.__name__}({email}, {account_type})>'
+        return (f'<{self.__class__.__name__}(config={self._config_name!r}, '
+                f'account=({email!r}, {account_type!r}))>')
