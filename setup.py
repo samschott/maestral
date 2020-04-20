@@ -1,9 +1,15 @@
+# -*- coding: utf-8 -*-
+
+# system imports
 import sys
 import os.path as osp
 from setuptools import setup, find_packages
+
+# local imports (must not depend on 3rd party packages)
 from maestral import __version__, __author__, __url__
 from maestral.utils.appdirs import get_runtime_path, get_old_runtime_path
 from maestral.config.base import list_configs
+
 
 # abort install if there are running daemons
 running_daemons = []

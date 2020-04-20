@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Nov 30 13:51:32 2018
+@author: Sam Schott  (ss2151@cam.ac.uk)
 
-@author: samschott
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This file defines the functions to configure and interact with Maestral from the command
 line. We aim to import most packages locally in the functions that required them, in order
 to reduce the startup time of individual CLI commands.
 
 """
+
 # system imports
 import os
 import os.path as osp
@@ -17,7 +18,7 @@ import functools
 import logging
 import textwrap
 
-# external packages
+# external imports
 import click
 import Pyro5.errors
 

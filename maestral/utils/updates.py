@@ -2,14 +2,14 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module contains functions to check fr updates and retrieve change logs.
 
 :const str API_URL: URL for the Github API.
 
 """
+
 # system imports
 import requests
 from packaging.version import Version

@@ -2,18 +2,20 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module contains functions to retrieve platform dependent locations to store app data.
 It supports macOS and Linux.
 
 """
+
+# system imports
 import os
 import os.path as osp
 import platform
 import tempfile
 
+# local imports
 from maestral.config.base import get_home_dir, get_conf_path, get_data_path, _to_full_path
 
 

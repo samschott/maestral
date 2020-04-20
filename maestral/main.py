@@ -2,12 +2,12 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module defines the main API which is exposed to the CLI or GUI.
 
 """
+
 # system imports
 import functools
 import sys
@@ -20,7 +20,7 @@ from threading import Thread
 import logging.handlers
 from collections import namedtuple, deque
 
-# external packages
+# external imports
 import requests
 from watchdog.events import EVENT_TYPE_DELETED
 import bugsnag
@@ -33,7 +33,7 @@ except ImportError:
 
 import sdnotify
 
-# maestral modules
+# local imports
 from maestral import __version__
 from maestral.oauth import OAuth2Session
 from maestral.client import MaestralApiClient, to_maestral_error

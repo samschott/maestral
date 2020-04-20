@@ -2,8 +2,7 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module handles desktop notifications for Maestral and supports multiple backends,
 depending on the platform. A single :class:`DesktopNotifier` instance is created for all
@@ -17,6 +16,8 @@ through :class:`MaestralDesktopNotifier`.
 :constant int FILECHANGE: Notifications on file changes.
 
 """
+
+# system imports
 import shutil
 import time
 import subprocess
@@ -27,11 +28,15 @@ import pkg_resources
 import logging
 from collections import deque
 
+# external imports
 import click
 
+# local imports
 from maestral.config import MaestralConfig
 from maestral.constants import IS_MACOS_BUNDLE, BUNDLE_ID
 
+
+# platform dependent imports
 if platform.system() == 'Darwin':
 
     from ctypes import cdll, util

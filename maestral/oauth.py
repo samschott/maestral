@@ -2,16 +2,16 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module is responsible for authorization and token store in the system keyring.
 
 """
+
 # system imports
 import logging
 
-# external packages
+# external imports
 import click
 import keyring.backends
 import keyrings.alt
@@ -20,7 +20,7 @@ from keyring.errors import KeyringLocked
 import requests
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 
-# maestral modules
+# local imports
 from maestral.config import MaestralConfig
 from maestral.constants import DROPBOX_APP_KEY
 from maestral.client import CONNECTION_ERRORS

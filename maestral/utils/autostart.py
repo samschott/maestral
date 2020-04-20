@@ -2,13 +2,14 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module handles starting for Maestral on user login and supports multiple backends,
 depending on the platform and if we want to start the daemon or GUI.
 
 """
+
+# system imports
 import sys
 import os
 import os.path as osp
@@ -22,17 +23,18 @@ from enum import Enum
 try:
     # noinspection PyCompatibility
     from importlib.metadata import files
-except ImportError:
+except ImportError:  # Python 3.7 and lower
     from importlib_metadata import files
 
 try:
     from shlex import join
-except ImportError:
+except ImportError:  # Python 3.7 and lower
     from shlex import quote
 
     def join(split_command):
         return ' '.join(quote(x) for x in split_command)
 
+# local imports
 from maestral import __version__
 from maestral.utils.appdirs import get_home_dir, get_conf_path, get_data_path
 from maestral.constants import BUNDLE_ID

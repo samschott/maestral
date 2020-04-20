@@ -2,13 +2,13 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This modules contains the Dropbox API client. It wraps calls to the Dropbox Python SDK
 and handles exceptions, chunked uploads or downloads, etc.
 
 """
+
 # system imports
 import os
 import os.path as osp
@@ -18,11 +18,11 @@ import logging
 import functools
 import contextlib
 
-# external packages
+# external imports
 import requests
 import dropbox
 
-# maestral modules
+# local imports
 from maestral import __version__
 from maestral.config import MaestralState
 from maestral.errors import dropbox_to_maestral_error, os_to_maestral_error

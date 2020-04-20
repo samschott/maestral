@@ -2,14 +2,16 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module contains migration code to run after an update.
 
 """
+
+# system imports
 import logging
 
+# local imports
 from maestral.config import MaestralConfig, MaestralState
 from maestral.config.base import get_data_path
 from maestral.utils.path import delete
