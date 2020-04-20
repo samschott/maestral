@@ -15,3 +15,4 @@ This section gives an overview of Maestral's modules:
    maestral.daemon <daemon>
    maestral.cli <cli>
    utils/index
+   config/index
