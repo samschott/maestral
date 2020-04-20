@@ -160,6 +160,9 @@ class MaestralApiClient:
             timeout=self._timeout
         )
 
+    def set_access_token(self, token):
+        self.dbx._oauth2_access_token = token
+
     @to_maestral_error()
     def get_account_info(self, dbid=None):
         """
