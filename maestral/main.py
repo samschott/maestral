@@ -430,19 +430,43 @@ class Maestral:
         return self._config_name
 
     def set_conf(self, section, name, value):
-        """Sets a configuration option."""
+        """
+        Sets a configuration option.
+
+        :param str section: Name of section in config file.
+        :param str name: Name of config option.
+        :param value: Config option value. May be any native Python type.
+        """
         self._conf.set(section, name, value)
 
     def get_conf(self, section, name):
-        """Gets a configuration option."""
+        """
+        Gets a configuration option.
+
+        :param str section: Name of section in config file.
+        :param str name: Name of config option.
+        :returns: Config value.
+        """
         return self._conf.get(section, name)
 
     def set_state(self, section, name, value):
-        """Sets a state value."""
+        """
+        Sets a state value.
+
+        :param str section: Name of section in state file.
+        :param str name: Name of state variable.
+        :param value: State value. May be any native Python type.
+        """
         self._state.set(section, name, value)
 
     def get_state(self, section, name):
-        """Gets a state value."""
+        """
+        Gets a state value.
+
+        :param str section: Name of section in state file.
+        :param str name: Name of state variable.
+        :returns: State value.
+        """
         return self._state.get(section, name)
 
     # ==== getters / setters for config with side effects ================================
