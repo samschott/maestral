@@ -17,6 +17,7 @@ import os.path as osp
 import functools
 import logging
 import textwrap
+import platform
 
 # external imports
 import click
@@ -413,11 +414,20 @@ def gui(config_name):
 
     import importlib.util
 
-    if not importlib.util.find_spec('maestral_qt'):
-        raise click.ClickException('No maestral GUI installed. Please run '
-                                   '\'pip3 install maestral[gui]\'.')
+    if platform.system() == 'Darwin':
+        if not importlib.util.find_spec('maestral_cocoa'):
+            raise click.ClickException('No maestral GUI installed. Please run '
+                                       '\'pip3 install maestral[gui]\'.')
 
-    from maestral_qt.main import run
+        from maestral_cocoa.main import run
+
+    else:
+        if not importlib.util.find_spec('maestral_qt'):
+            raise click.ClickException('No maestral GUI installed. Please run '
+                                       '\'pip3 install maestral[gui]\'.')
+
+        from maestral_qt.main import run
+
     run(config_name)
 
 
