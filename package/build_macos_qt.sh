@@ -5,10 +5,7 @@ BUILD_NO=$(grep -E -o "[0-9]*" bundle_version_macos.txt)
 
 echo "**** INSTALLING DEPENDENCIES ****************************"
 
-git clone https://github.com/samschott/maestral-dropbox build/maestral-dropbox
-git clone https://github.com/samschott/maestral-cocoa build/maestral-cocoa
 git clone https://github.com/pyinstaller/pyinstaller.git build/pyinstaller
-
 cd build/pyinstaller
 git checkout develop
 cd bootloader
@@ -22,11 +19,13 @@ cd ..
 pip install .
 cd ../..
 
+git clone https://github.com/samschott/maestral-dropbox build/maestral-dropbox
 cd build/maestral-dropbox
 git checkout develop
 pip install .
 cd ../..
 
+git clone https://github.com/samschott/maestral-cocoa build/maestral-cocoa
 cd build/maestral-cocoa
 git checkout develop
 pip install .
