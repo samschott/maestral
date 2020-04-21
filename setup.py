@@ -54,12 +54,16 @@ install_requires = [
     'watchdog>=0.10.0',
 ]
 
-# if GUI is installed, always update it as well
-if importlib.util.find_spec('maestral_qt'):
-    install_requires.append('maestral-qt==1.0.0.dev3')
+gui_requires = [
+    'maestral_qt==1.0.0.dev4;sys_platform=="linux"',
+    'maestral_cocoa==1.0.0.dev4;sys_platform=="darwin"',
+]
 
-if importlib.util.find_spec('maestral_cocoa'):
-    install_requires.append('maestral-cocoa==1.0.0.dev3')
+syslog_requires = ['systemd-python']
+
+# if GUI is installed, always update it as well
+if importlib.util.find_spec('maestral_qt') or importlib.util.find_spec('maestral_cocoa'):
+    install_requires.extend(gui_requires)
 
 
 setup(
@@ -81,11 +85,8 @@ setup(
     setup_requires=['wheel'],
     install_requires=install_requires,
     extras_require={
-        'gui': [
-            'maestral_qt==1.0.0.dev3;sys_platform=="darwin"',
-            'maestral_cocoa==1.0.0.dev3;sys_platform=="darwin"',
-        ],
-        'syslog': ['systemd-python'],
+        'gui': gui_requires,
+        'syslog': syslog_requires,
     },
     zip_safe=False,
     entry_points={
