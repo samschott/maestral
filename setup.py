@@ -4,6 +4,7 @@
 import sys
 import os.path as osp
 from setuptools import setup, find_packages
+import importlib.util
 
 # local imports (must not depend on 3rd party packages)
 from maestral import __version__, __author__, __url__
@@ -53,16 +54,12 @@ install_requires = [
     'watchdog>=0.10.0',
 ]
 
-gui_requires = ['maestral-qt==1.0.0.dev3']
-syslog_requires = ['systemd-python']
-
 # if GUI is installed, always update it as well
-try:
-    import maestral_qt  # noqa: F401
-except ImportError:
-    pass
-else:
-    install_requires += gui_requires
+if importlib.util.find_spec('maestral_qt'):
+    install_requires.append('maestral-qt==1.0.0.dev3')
+
+if importlib.util.find_spec('maestral_cocoa'):
+    install_requires.append('maestral-cocoa==1.0.0.dev3')
 
 
 setup(
@@ -84,8 +81,11 @@ setup(
     setup_requires=['wheel'],
     install_requires=install_requires,
     extras_require={
-        'gui': gui_requires,
-        'syslog': syslog_requires,
+        'gui': [
+            'maestral_qt==1.0.0.dev3;sys_platform=="darwin"',
+            'maestral_cocoa==1.0.0.dev3;sys_platform=="darwin"',
+        ],
+        'syslog': ['systemd-python'],
     },
     zip_safe=False,
     entry_points={
