@@ -49,7 +49,7 @@ a = Entrypoint(
         (pkgr.resource_filename('maestral_cocoa', 'resources/*.icns'), 'maestral_cocoa/resources'),
         (pkgr.resource_filename('maestral_cocoa', 'resources/*.pdf'), 'maestral_cocoa/resources'),
         (pkgr.resource_filename('maestral', 'resources/*.plist'), 'maestral/resources'),
-        (pkgr.resource_filename('maestral', 'resources/*.dekstop'), 'maestral/resources'),
+        (pkgr.resource_filename('maestral', 'resources/*.desktop'), 'maestral/resources'),
         (pkgr.resource_filename('maestral', 'resources/*.png'), 'maestral/resources'),
         (pkgr.resource_filename('maestral', 'resources/*.service'), 'maestral/resources'),
     ],

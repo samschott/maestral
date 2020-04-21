@@ -51,7 +51,7 @@ a = Entrypoint(
         (pkgr.resource_filename('maestral_qt', 'resources/faceholder.png'), 'maestral_qt/resources'),
         (pkgr.resource_filename('maestral_qt', 'resources/*.ui'), 'maestral_qt/resources'),
         (pkgr.resource_filename('maestral', 'resources/*.plist'), 'maestral/resources'),
-        (pkgr.resource_filename('maestral', 'resources/*.dekstop'), 'maestral/resources'),
+        (pkgr.resource_filename('maestral', 'resources/*.desktop'), 'maestral/resources'),
         (pkgr.resource_filename('maestral', 'resources/*.png'), 'maestral/resources'),
         (pkgr.resource_filename('maestral', 'resources/*.service'), 'maestral/resources'),
     ],
