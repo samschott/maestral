@@ -5,6 +5,7 @@
 - Command line tools are now bundled with the macOS app bundle and can be installed from
   the settings window.
 - Added support for config names with spaces.
+- Switch to native Cocoa GUI on macOS.
 
 #### Changed:
 
@@ -12,10 +13,12 @@
 - Pausing Maestral now cancels all pending uploads and downloads.
 - Faster detection of connection problems.
 - Faster sync of local deletions.
-- Bumped watchdog requirement to >= 10.0.0 for more consistent error handling.
 - Added public API to link a Dropbox account: `Maestral.get_auth_url` and `Maestral.link`.
 - Moved all command line dialogs from main API to cli module.
 - Switch from implicit grant to PKCE OAuth2 flow.
+- Bumped watchdog requirement to >= 10.0.0 for more consistent error handling.
+- Added explicit jeepny dependency for Linux. This is a dependency of keyring but we use
+  it by itself as well.
 
 #### Fixed:
 
