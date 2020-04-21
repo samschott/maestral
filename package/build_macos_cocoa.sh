@@ -3,9 +3,12 @@
 SPEC_FILE=maestral_macos_cocoa.spec
 BUILD_NO=$(grep -E -o "[0-9]*" bundle_version_macos.txt)
 
-echo "**** BUILDING PYINSTALLER ******************************"
+echo "**** INSTALLING DEPENDENCIES ****************************"
 
+git clone https://github.com/samschott/maestral-dropbox build/maestral-dropbox
+git clone https://github.com/samschott/maestral-cocoa build/maestral-cocoa
 git clone https://github.com/pyinstaller/pyinstaller.git build/pyinstaller
+
 cd build/pyinstaller
 git checkout develop
 cd bootloader
@@ -16,6 +19,16 @@ export LDFLAGS=-mmacosx-version-min=10.13
 export LINKFLAGS=-mmacosx-version-min=10.13
 python ./waf all
 cd ..
+pip install .
+cd ../..
+
+cd build/maestral-dropbox
+git checkout develop
+pip install .
+cd ../..
+
+cd build/maestral-cocoa
+git checkout develop
 pip install .
 cd ../..
 
