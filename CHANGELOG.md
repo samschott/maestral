@@ -19,12 +19,14 @@
 - Bumped watchdog requirement to >= 10.0.0 for more consistent error handling.
 - Added explicit jeepny dependency for Linux. This is a dependency of keyring but we use
   it by itself as well.
+- The GUI now always uses launches a separate daemon process instead of using an
+  in-process daemon.
 
 #### Fixed:
 
 - Fixes a minor issue where a dropped internet connection during startup could result in
   continuous retries until the connection is finally established.
-- Fixes an issue where downloads of newly inlcuded folders would not resume after being
+- Fixes an issue where downloads of newly included folders would not resume after being
   interrupted.
 - Fixes a rare issue which could lead to false conflicting copies of folders.
 - Fixes handling of errors when starting a file system watch such as inofify limit and
