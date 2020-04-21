@@ -53,7 +53,8 @@ def check_update_available(current_version=__version__):
 
     :param str current_version: The current version.
     :returns: A dictionary containing information about the latest release or an error
-        message if retrieving update information failed.
+        message if retrieving update information failed. If available, release notes will
+        be returned for all version from ``current_version`` to the current release.
     :rtype: dict
     """
     current_version = current_version.strip('v')
@@ -66,8 +67,7 @@ def check_update_available(current_version=__version__):
         data = r.json()
 
         releases = [item['tag_name'].replace('v', '') for item in data]
-        release_notes = ['### ' + item['tag_name'] + '\n\n' + item['body']
-                         for item in data]
+        release_notes = ['### {tag_name}\n\n{body}'.format(**item) for item in data]
 
         try:
             current_release_index = releases.index(current_version)
