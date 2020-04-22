@@ -58,7 +58,7 @@ def check_update_available(current_version=__version__):
         release.
     :rtype: dict
     """
-    current_version = current_version.strip('v')
+    current_version = current_version.lstrip('v')
     new_version = None
     update_release_notes = ''
     error_msg = None
@@ -67,23 +67,25 @@ def check_update_available(current_version=__version__):
         r = requests.get(GITHUB_RELEAES_API)
         data = r.json()
 
-        releases = [item['tag_name'].lstrip('v') for item in data]
-        release_notes = ['### {tag_name}\n\n{body}'.format(**item) for item in data]
+        releases = []
+        release_notes = []
+
+        for item in data:
+            v = item['tag_name'].lstrip('v')
+            if not Version(v).is_prerelease:
+                releases.append(v)
+                release_notes.append('### {tag_name}\n\n{body}'.format(**item))
 
         new_version = get_newer_version(current_version, releases)
 
         if new_version:
-            new_version_idx = releases.index(new_version)
 
-            try:
-                current_release_idx = releases.index(current_version)
-            except ValueError:
-                # if current release cannot be found online, just
-                # show release notes from newest release w/o history
-                current_release_idx = new_version_idx + 1
+            first_update = next(v for v in reversed(releases)
+                                if Version(v) > Version(current_version))
+            first_update_idx = releases.index(first_update)
 
-            update_release_notes = release_notes[new_version_idx:current_release_idx]
-            update_release_notes = '\n'.join(update_release_notes)
+            update_release_notes_list = release_notes[0:first_update_idx + 1]
+            update_release_notes = '\n'.join(update_release_notes_list)
 
     except requests.exceptions.HTTPError:
         error_msg = 'Unable to retrieve information. Please try again later.'
