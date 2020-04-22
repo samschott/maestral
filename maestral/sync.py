@@ -47,7 +47,8 @@ from atomicwrites import atomic_write
 from maestral.config import MaestralConfig, MaestralState
 from maestral.fsevents import Observer
 from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
-                                EXCLUDED_FILE_NAMES, MIGNORE_FILE, IS_FS_CASE_SENSITIVE)
+                                EXCLUDED_FILE_NAMES, EXCLUDED_DIR_NAMES,
+                                MIGNORE_FILE, IS_FS_CASE_SENSITIVE)
 from maestral.errors import (RevFileError, NoDropboxDirError, SyncError, PathError,
                              NotFoundError, FileConflictError, FolderConflictError,
                              fswatch_to_maestral_error, os_to_maestral_error)
@@ -960,22 +961,26 @@ class UpDownSync:
         path = path.lower()
 
         # is root folder?
-        if path in ['/', '']:
+        if path in ('/', ''):
             return True
 
-        basename = osp.basename(path)
+        dirname, basename = osp.split(path)
+        dirnames = dirname.split('/')
 
         # in excluded files?
         test0 = basename in EXCLUDED_FILE_NAMES
 
+        # in excluded dirs?
+        test1 = any(name in dirnames for name in EXCLUDED_DIR_NAMES)
+
         # is temporary file?
         # 1) office temporary files
-        test1 = basename.startswith('~$')
-        test2 = basename.startswith('.~')
+        test2 = basename.startswith('~$')
+        test3 = basename.startswith('.~')
         # 2) other temporary files
-        test3 = basename.startswith('~') and basename.endswith('.tmp')
+        test4 = basename.startswith('~') and basename.endswith('.tmp')
 
-        return any((test0, test1, test2, test3))
+        return any((test0, test1, test2, test3, test4))
 
     def is_excluded_by_user(self, dbx_path):
         """
