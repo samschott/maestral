@@ -66,7 +66,7 @@ def check_update_available(current_version=__version__):
         r = requests.get(GITHUB_RELEAES_API)
         data = r.json()
 
-        releases = [item['tag_name'].replace('v', '') for item in data]
+        releases = [item['tag_name'].lstrip('v') for item in data]
         release_notes = ['### {tag_name}\n\n{body}'.format(**item) for item in data]
 
         try:
@@ -82,7 +82,7 @@ def check_update_available(current_version=__version__):
         new_version = get_newer_version(current_version, releases)
 
     except requests.exceptions.HTTPError:
-        error_msg = 'Unable to retrieve information.'
+        error_msg = 'Unable to retrieve information. Please try again later.'
     except CONNECTION_ERRORS:
         error_msg = ('Unable to connect to the internet. '
                      'Please make sure the connection is working properly.')
