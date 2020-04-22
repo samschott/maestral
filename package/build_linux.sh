@@ -9,12 +9,14 @@ pip install -U pyinstaller
 git clone https://github.com/samschott/maestral-dropbox build/maestral-dropbox
 cd build/maestral-dropbox
 git checkout develop
+git pull
 pip install .
 cd ../..
 
 git clone https://github.com/samschott/maestral-cocoa build/maestral-cocoa
 cd build/maestral-cocoa
 git checkout develop
+git pull
 pip install .
 cd ../..
 
