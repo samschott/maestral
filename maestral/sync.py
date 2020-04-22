@@ -48,9 +48,9 @@ from maestral.config import MaestralConfig, MaestralState
 from maestral.fsevents import Observer
 from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
                                 EXCLUDED_FILE_NAMES, EXCLUDED_DIR_NAMES,
-                                MIGNORE_FILE, IS_FS_CASE_SENSITIVE)
-from maestral.errors import (RevFileError, NoDropboxDirError, SyncError, PathError,
-                             NotFoundError, FileConflictError, FolderConflictError,
+                                MIGNORE_FILE, FILE_CACHE, IS_FS_CASE_SENSITIVE)
+from maestral.errors import (RevFileError, NoDropboxDirError, CacheDirError, SyncError,
+                             PathError, NotFoundError, FileConflictError, FolderConflictError,
                              fswatch_to_maestral_error, os_to_maestral_error)
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
@@ -484,8 +484,9 @@ class UpDownSync:
         # load cached properties
         self._dropbox_path = self._conf.get('main', 'path')
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
-
+        self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
         self._rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
+
         self._rev_dict_cache = dict()
         self._load_rev_dict_from_file(raise_exception=True)
         self._excluded_items = self._conf.get('main', 'excluded_items')
@@ -493,6 +494,9 @@ class UpDownSync:
         self._last_sync_for_path = dict()
 
         self._max_cpu_percent = self._conf.get('sync', 'max_cpu_percent') * _cpu_count
+
+        # clean our file cache
+        self.clean_cache_dir()
 
     # ==== settings ======================================================================
 
@@ -516,6 +520,11 @@ class UpDownSync:
     def rev_file_path(self):
         """Path to sync index with rev numbers (read only)."""
         return self._rev_file_path
+
+    @property
+    def file_cache_path(self):
+        """Path to sync index with rev numbers (read only)."""
+        return self._file_cache_path
 
     @property
     def excluded_items(self):
@@ -856,6 +865,42 @@ class UpDownSync:
                    'or restart Maestral to set up a new folder.')
             raise NoDropboxDirError(title, msg)
 
+    def _ensure_cache_dir_present(self):
+        """Checks for or creates a directory at :attr:`file_cache_path`."""
+        while not osp.isdir(self.file_cache_path):
+            err = delete(self._file_cache_path)
+            if err and not isinstance(err, FileNotFoundError):
+                raise CacheDirError(f'Cannot create cache directory (errno {err.errno})',
+                                    'Please check if you have write permissions for '
+                                    f'{self.file_cache_path}.')
+            try:
+                os.mkdir(self.file_cache_path)
+            except FileExistsError:
+                pass
+            except OSError:
+                raise CacheDirError(f'Cannot create cache directory (errno {err.errno})',
+                                    'Please check if you have write permissions for '
+                                    f'{self.file_cache_path}.')
+
+    def clean_cache_dir(self):
+        err = delete(self._file_cache_path)
+        if err and not isinstance(err, FileNotFoundError):
+            raise CacheDirError(f'Cannot create cache directory (errno {err.errno})',
+                                'Please check if you have write permissions for '
+                                f'{self._file_cache_path}.')
+
+        self._ensure_cache_dir_present()
+
+    def _new_tmp_file(self):
+        self._ensure_cache_dir_present()
+        try:
+            with tempfile.NamedTemporaryFile(dir=self.file_cache_path, delete=False) as f:
+                return f.name
+        except OSError as exc:
+            raise CacheDirError(f'Cannot create temporary file (errno {exc.errno})',
+                                'Please check if you have write permissions for '
+                                f'{self._file_cache_path}.')
+
     def to_dbx_path(self, local_path):
         """
         Converts a local path to a path relative to the Dropbox folder. Casing of the
@@ -965,22 +1010,26 @@ class UpDownSync:
             return True
 
         dirname, basename = osp.split(path)
-        dirnames = dirname.split('/')
-
         # in excluded files?
-        test0 = basename in EXCLUDED_FILE_NAMES
+        if basename in EXCLUDED_FILE_NAMES:
+            return True
 
         # in excluded dirs?
-        test1 = any(name in dirnames for name in EXCLUDED_DIR_NAMES)
+        dirnames = dirname.split('/')
+        if any(name in dirnames for name in EXCLUDED_DIR_NAMES):
+            return True
 
         # is temporary file?
         # 1) office temporary files
-        test2 = basename.startswith('~$')
-        test3 = basename.startswith('.~')
+        if basename.startswith('~$'):
+            return True
+        if basename.startswith('.~'):
+            return True
         # 2) other temporary files
-        test4 = basename.startswith('~') and basename.endswith('.tmp')
+        if basename.startswith('~') and basename.endswith('.tmp'):
+            return True
 
-        return any((test0, test1, test2, test3, test4))
+        return False
 
     def is_excluded_by_user(self, dbx_path):
         """
@@ -2397,10 +2446,7 @@ class UpDownSync:
                 # replace it and remove all its children.
 
                 # we download to a temporary file first (this may take some time)
-                with tempfile.NamedTemporaryFile(prefix='maestral_download_',
-                                                 delete=False) as f:
-                    tmp_fname = f.name
-
+                tmp_fname = self._new_tmp_file()
                 md = self.client.download(f'rev:{entry.rev}', tmp_fname)
 
                 # re-check for conflict and move the conflict

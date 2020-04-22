@@ -149,6 +149,11 @@ class NoDropboxDirError(MaestralApiError):
     pass
 
 
+class CacheDirError(MaestralApiError):
+    """Raised when creating the cache diretory fails."""
+    pass
+
+
 class InotifyError(MaestralApiError):
     """Raised when the local Dropbox folder is too large to monitor with inotify."""
     pass
