@@ -37,6 +37,10 @@ EXCLUDED_FILE_NAMES = (
     '.dropbox', '.dropbox.attr', '.dropbox.cache', OLD_REV_FILE
 )
 
+EXCLUDED_DIR_NAMES = (
+    '.dropbox.cache', '.maestral.cache'
+)
+
 # state messages
 IDLE = 'Up to date'
 SYNCING = 'Syncing...'
