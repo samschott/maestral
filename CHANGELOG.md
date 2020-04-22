@@ -21,6 +21,9 @@
   it by itself as well.
 - The GUI now always uses launches a separate daemon process instead of using an
   in-process daemon.
+- Store temporary files during download inside the Dorpbox directory at '.maestral.cache'.
+  This guarantees that temporary download files always reside on the same partition as the
+  Dropbox folder itself.
 
 #### Fixed:
 
@@ -35,6 +38,10 @@
 - Handle errors due to file names which are not allowed on the local file system.
 - Fixes handling of some uncaught insufficient disk space errors.
 - Fixes autostart module on macOS.
+- Fixes a crash when running Maestral as a systemd service without python-systemd
+  installed.
+- Fixes an issue when checking for updates if list of releases from github includes
+  dev releases.
 - Fixes an issue where only remote changes would be listed in 'Recent changes' in the GUI.
 - Fixes the alignment of comboboxes in the GUI on macOS.
 
