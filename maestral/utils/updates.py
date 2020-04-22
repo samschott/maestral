@@ -52,9 +52,10 @@ def check_update_available(current_version=__version__):
     Main method to check for updates.
 
     :param str current_version: The current version.
-    :returns: A dictionary containing information about the latest release or an error
-        message if retrieving update information failed. If available, release notes will
-        be returned for all version from ``current_version`` to the current release.
+    :returns: A dictionary containing information about the latest stable release or an
+        error message if retrieving update information failed. If available, release notes
+        will be returned for all version from ``current_version`` to the latest stable
+        release.
     :rtype: dict
     """
     current_version = current_version.strip('v')
@@ -69,17 +70,20 @@ def check_update_available(current_version=__version__):
         releases = [item['tag_name'].lstrip('v') for item in data]
         release_notes = ['### {tag_name}\n\n{body}'.format(**item) for item in data]
 
-        try:
-            current_release_index = releases.index(current_version)
-        except ValueError:
-            # if current release cannot be found online, just
-            # show release notes from newest release w/o history
-            current_release_index = 1
-
-        update_release_notes = release_notes[0:current_release_index]
-        update_release_notes = '\n'.join(update_release_notes)
-
         new_version = get_newer_version(current_version, releases)
+
+        if new_version:
+            new_version_idx = releases.index(new_version)
+
+            try:
+                current_release_idx = releases.index(current_version)
+            except ValueError:
+                # if current release cannot be found online, just
+                # show release notes from newest release w/o history
+                current_release_idx = new_version_idx + 1
+
+            update_release_notes = release_notes[new_version_idx:current_release_idx]
+            update_release_notes = '\n'.join(update_release_notes)
 
     except requests.exceptions.HTTPError:
         error_msg = 'Unable to retrieve information. Please try again later.'
