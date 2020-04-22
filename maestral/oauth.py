@@ -40,8 +40,9 @@ supported_keyring_backends = (
 
 def get_keyring_backend(config_name):
     """
-    Choose the most secure of the available and supported keyring backends or
-    use the backend specified in the config file (if valid).
+    Choose the most secure of the available and supported keyring backends or use the
+    backend specified in the config file (if valid). Supported keyrings are:
+
 
     :param str config_name: The config name.
     """
@@ -67,13 +68,21 @@ def get_keyring_backend(config_name):
 class OAuth2Session:
     """
     OAuth2Session provides OAuth 2 login and token store in the preferred system kering.
-    To authenticate with Dropbox, run :meth:`get_auth_url`` first and direct the user to
+    To authenticate with Dropbox, run :meth:`get_auth_url` first and direct the user to
     visit that URL and retrieve an auth token. Verify the provided auth token with
     :meth:`verify_auth_token` and save it in the system keyring together with the
-    corresponding Dropbox ID by calling :meth:`save_creds`.
+    corresponding Dropbox ID by calling :meth:`save_creds`. Supported keyring backends
+    are, in order of preference:
 
-    This will currently use PKCE if available and fall back to the implicit grant flow
-    implemented in :mod:`utils.oauth_implicit` otherwise.
+        * MacOS Keychain
+        * Any keyring implementing the SecretService Dbus specification
+        * KWallet
+        * Gnome Keyring
+        * Plain text storage
+
+    .. warning:: Unlike MacOS Keychain, Gnome Keyring and KWallet do not support
+        app-specific access to passwords. If the user unlocks those keyrings, we and any
+        other application in the same user session get access to *all* saved passwords.
 
     :param str config_name: Name of maestral config.
 
@@ -96,40 +105,37 @@ class OAuth2Session:
         self._auth_flow = DropboxOAuth2FlowNoRedirect(self._app_key, use_pkce=True)
         self._oAuth2FlowResult = None
 
-        self._access_token = None
+        self._access_token = None  # defer keyring access until token requested by user
+        self._account_id = self._conf.get('account', 'account_id')
 
     @property
     def account_id(self):
-        return self._conf.get('account', 'account_id')
-
-    @account_id.setter
-    def account_id(self, account_id):
-        self._conf.set('account', 'account_id', account_id)
+        """Returns the account ID (read only)."""
+        return self._account_id
 
     @property
     def access_token(self):
-        # defer keyring access until token requested by user
+        """Returns the access token (read only). This will block until the keyring is
+        unlocked."""
         if self._access_token is None:
-            self._access_token = self.load_token()
+            self._load_token()
+
         return self._access_token
 
-    def load_token(self):
+    def _load_token(self):
         """
         Load auth token from system keyring.
 
-        :returns: Auth token.
-        :rtype: str
         :raises: :class:`keyring.errors.KeyringLocked` if the system keyring is locked.
         """
         logger.debug(f'Using keyring: {self.keyring}')
 
         try:
-            if self.account_id == '':
+            if self._account_id == '':
                 self._access_token = ''
             else:
-                token = self.keyring.get_password('Maestral', self.account_id)
+                token = self.keyring.get_password('Maestral', self._account_id)
                 self._access_token = '' if token is None else token
-            return self._access_token
         except KeyringLocked:
             info = f'Could not load access token. {self.keyring.name} is locked.'
             logger.error(info)
@@ -152,13 +158,12 @@ class OAuth2Session:
 
         :returns: :attr:`Success`, :attr:`InvalidToken`, or :attr:`ConnectionFailed`.
         :rtype: int
-        :raises: :class:`errors.DropboxAuthError`
         """
 
         try:
             self._oAuth2FlowResult = self._auth_flow.finish(token)
             self._access_token = self._oAuth2FlowResult.access_token
-            self.account_id = self._oAuth2FlowResult.account_id
+            self._account_id = self._oAuth2FlowResult.account_id
             return self.Success
         except requests.exceptions.HTTPError:
             return self.InvalidToken
@@ -166,24 +171,35 @@ class OAuth2Session:
             return self.ConnectionFailed
 
     def save_creds(self):
-        """Saves auth key to system keyring."""
-        self._conf.set('account', 'account_id', self.account_id)
+        """
+        Saves the auth token to system keyring. Falls back to plain text storage if the
+        user denies access to keyring.
+        """
+        self._conf.set('account', 'account_id', self._account_id)
         try:
-            self.keyring.set_password('Maestral', self.account_id, self.access_token)
+            self.keyring.set_password('Maestral', self._account_id, self._access_token)
             click.echo(' > Credentials written.')
             if isinstance(self.keyring, keyrings.alt.file.PlaintextKeyring):
                 click.echo(' > Warning: No supported keyring found, '
                            'Dropbox credentials stored in plain text.')
         except KeyringLocked:
-            # fall back to plain text keyring and try again
             self.keyring = keyrings.alt.file.PlaintextKeyring()
             self._conf.set('app', 'keyring', 'keyrings.alt.file.PlaintextKeyring')
             self.save_creds()
 
     def delete_creds(self):
-        """Deletes auth key from system keyring."""
+        """
+        Deletes auth token from system keyring.
+
+        :raises: :class:`keyring.errors.KeyringLocked` if the system keyring is locked.
+        """
+
+        if self._account_id == '':
+            return
+
+        self._conf.set('account', 'account_id', '')
         try:
-            self.keyring.delete_password('Maestral', self.account_id)
+            self.keyring.delete_password('Maestral', self._account_id)
             click.echo(' > Credentials removed.')
         except KeyringLocked:
             info = f'Could not delete access token. {self.keyring.name} is locked.'
@@ -191,4 +207,5 @@ class OAuth2Session:
             raise KeyringAccessError('Could not delete access token',
                                      f'{self.keyring.name} is locked.')
         finally:
-            self._conf.set('account', 'account_id', '')
+            self._account_id = ''
+            self._access_token = ''
