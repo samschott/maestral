@@ -276,7 +276,7 @@ class Maestral:
         """
         Returns a URL to authorize access to a Dropbox account. To link a Dropbox
         account, retrieve an auth token from the URL and link Maestral by calling
-        :meth:`link` with the privided token.
+        :meth:`link` with the provided token.
 
         :returns: URL to retrieve an OAuth token.
         :rtype: str
@@ -285,7 +285,15 @@ class Maestral:
 
     def link(self, token):
         """
-        Links Maestral with a Dropbox account, using the given access token.
+        Links Maestral with a Dropbox account using the given access token. The token will
+        be stored for future usage as documented in the :mod:`oauth` module. Supported
+        keyring backends are, in order of preference:
+
+            * MacOS Keychain
+            * Any keyring implementing the SecretService Dbus specification
+            * KWallet
+            * Gnome Keyring
+            * Plain text storage
 
         :param str token: OAuth token for Dropbox access.
         :returns: OAuth2Session.Success (0), OAuth2Session.InvalidToken (1) or
