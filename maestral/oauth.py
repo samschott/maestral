@@ -10,6 +10,7 @@ This module is responsible for authorization and token store in the system keyri
 
 # system imports
 import logging
+from threading import RLock
 
 # external imports
 import click
@@ -95,6 +96,8 @@ class OAuth2Session:
     InvalidToken = 1
     ConnectionFailed = 2
 
+    _lock = RLock()
+
     def __init__(self, config_name, app_key=DROPBOX_APP_KEY):
 
         self._app_key = app_key
@@ -175,17 +178,20 @@ class OAuth2Session:
         Saves the auth token to system keyring. Falls back to plain text storage if the
         user denies access to keyring.
         """
-        self._conf.set('account', 'account_id', self._account_id)
-        try:
-            self.keyring.set_password('Maestral', self._account_id, self._access_token)
-            click.echo(' > Credentials written.')
-            if isinstance(self.keyring, keyrings.alt.file.PlaintextKeyring):
-                click.echo(' > Warning: No supported keyring found, '
-                           'Dropbox credentials stored in plain text.')
-        except KeyringLocked:
-            self.keyring = keyrings.alt.file.PlaintextKeyring()
-            self._conf.set('app', 'keyring', 'keyrings.alt.file.PlaintextKeyring')
-            self.save_creds()
+
+        with self._lock:
+
+            self._conf.set('account', 'account_id', self._account_id)
+            try:
+                self.keyring.set_password('Maestral', self._account_id, self._access_token)
+                click.echo(' > Credentials written.')
+                if isinstance(self.keyring, keyrings.alt.file.PlaintextKeyring):
+                    click.echo(' > Warning: No supported keyring found, '
+                               'Dropbox credentials stored in plain text.')
+            except KeyringLocked:
+                self.keyring = keyrings.alt.file.PlaintextKeyring()
+                self._conf.set('app', 'keyring', 'keyrings.alt.file.PlaintextKeyring')
+                self.save_creds()
 
     def delete_creds(self):
         """
@@ -194,18 +200,22 @@ class OAuth2Session:
         :raises: :class:`keyring.errors.KeyringLocked` if the system keyring is locked.
         """
 
-        if self._account_id == '':
-            return
+        with self._lock:
 
-        self._conf.set('account', 'account_id', '')
-        try:
-            self.keyring.delete_password('Maestral', self._account_id)
-            click.echo(' > Credentials removed.')
-        except KeyringLocked:
-            info = f'Could not delete access token. {self.keyring.name} is locked.'
-            logger.error(info)
-            raise KeyringAccessError('Could not delete access token',
-                                     f'{self.keyring.name} is locked.')
-        finally:
-            self._account_id = ''
-            self._access_token = ''
+            if self._account_id == '':
+                # when keyring.delete_password is called without a username,
+                # it may delete all passwords stored by Maestral on some backends
+                return
+
+            self._conf.set('account', 'account_id', '')
+            try:
+                self.keyring.delete_password('Maestral', self._account_id)
+                click.echo(' > Credentials removed.')
+            except KeyringLocked:
+                info = f'Could not delete access token. {self.keyring.name} is locked.'
+                logger.error(info)
+                raise KeyringAccessError('Could not delete access token',
+                                         f'{self.keyring.name} is locked.')
+            finally:
+                self._account_id = ''
+                self._access_token = ''
