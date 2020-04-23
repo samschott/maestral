@@ -70,6 +70,9 @@ def check_update_available(current_version=__version__):
         releases = []
         release_notes = []
 
+        # this should do nothing since the github API already returns sorted entries
+        data.sort(key=lambda x: Version(x['tag_name']), reverse=True)
+
         for item in data:
             v = item['tag_name'].lstrip('v')
             if not Version(v).is_prerelease:
@@ -80,20 +83,20 @@ def check_update_available(current_version=__version__):
 
         if new_version:
 
-            first_update = next(v for v in reversed(releases)
-                                if Version(v) > Version(current_version))
-            first_update_idx = releases.index(first_update)
+            # closest_release == current_version if current_version appears in the
+            # release list. Otherwise closest_release < current_version
+            closest_release = next(v for v in releases if Version(v) <= Version(current_version))
+            closest_release_idx = releases.index(closest_release)
 
-            update_release_notes_list = release_notes[0:first_update_idx + 1]
+            update_release_notes_list = release_notes[0:closest_release_idx]
             update_release_notes = '\n'.join(update_release_notes_list)
 
     except requests.exceptions.HTTPError:
         error_msg = 'Unable to retrieve information. Please try again later.'
     except CONNECTION_ERRORS:
-        error_msg = ('Unable to connect to the internet. '
-                     'Please make sure the connection is working properly.')
+        error_msg = 'No internet connection. Please try again later.'
     except Exception:
-        error_msg = 'Unable to check for updates.'
+        error_msg = 'Something when wrong. Please try again later.'
 
     return {'update_available': bool(new_version),
             'latest_release': new_version or current_version,
