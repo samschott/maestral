@@ -1,5 +1,6 @@
 [![PyPi Release](https://img.shields.io/pypi/v/maestral.svg)](https://pypi.org/project/maestral/)
 [![Pyversions](https://img.shields.io/pypi/pyversions/maestral.svg)](https://pypi.org/pypi/maestral/)
+[![Documentation Status](https://readthedocs.org/projects/maestral/badge/?version=latest)](https://maestral.readthedocs.io/en/latest/?badge=latest)
 
 # Maestral <img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/maestral/resources/maestral.png" align="right" title="Maestral" width="110" height="110">
 
@@ -97,7 +98,7 @@ In the above case, this will be "Dropbox (Personal)" and "Dropbox (Work)".
 ## Contribute
 
 A documentation for developers is available at
-[https://maestral-dropbox.readthedocs.io](https://maestral-dropbox.readthedocs.io).
+[https://maestral.readthedocs.io](https://maestral.readthedocs.io).
 The following tasks could need your help:
 
 - [ ] Packaging for non-macOS platforms.
