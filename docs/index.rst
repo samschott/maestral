@@ -17,7 +17,8 @@ The following APIs should remain stable for frontends such as the GUI or CLI:
 * maestral.utils.autostart
 
 .. toctree::
-   :maxdepth: 2
+   :caption: Table of Contents
+   :maxdepth: 1
 
    api/index
    changelog
