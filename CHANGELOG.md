@@ -5,7 +5,7 @@
 - Command line tools are now bundled with the macOS app bundle and can be installed from
   the settings window.
 - Added support for config names with spaces.
-- Switch to native Cocoa GUI on macOS.
+- Switch from Qt to native Cocoa GUI on macOS.
 
 #### Changed:
 
@@ -19,11 +19,10 @@
 - Bumped watchdog requirement to >= 10.0.0 for more consistent error handling.
 - Added explicit jeepny dependency for Linux. This is a dependency of keyring but we use
   it by itself as well.
-- The GUI now always uses launches a separate daemon process instead of using an
-  in-process daemon.
-- Store temporary files during download inside the Dorpbox directory at '.maestral.cache'.
-  This guarantees that temporary download files always reside on the same partition as the
-  Dropbox folder itself.
+- The GUI now always launches a separate daemon process instead of an in-process daemon.
+- Temporary files during a download are now stored inside the Dorpbox directory at
+  '.maestral.cache'. This guarantees that temporary download files always reside on the
+  same partition as the Dropbox folder itself.
 
 #### Fixed:
 
@@ -32,23 +31,24 @@
 - Fixes an issue where downloads of newly included folders would not resume after being
   interrupted.
 - Fixes a rare issue which could lead to false conflicting copies of folders.
-- Fixes handling of errors when starting a file system watch such as inofify limit and
-  permission errors.
+- Fixes the handling of inofify limit and permission errors when starting a file system
+  watch.
 - Fixes handling of errors from too long file names.
 - Handle errors due to file names which are not allowed on the local file system.
 - Fixes handling of some uncaught insufficient disk space errors.
-- Fixes autostart module on macOS.
+- Fixes incorrect autostart entries on macOS.
 - Fixes a crash when running Maestral as a systemd service without python-systemd
   installed.
-- Fixes an issue when checking for updates if list of releases from github includes
+- Fixes an issue when checking for updates if the list of releases from Github includes
   dev releases.
 - Fixes an issue where only remote changes would be listed in 'Recent changes' in the GUI.
-- Fixes the alignment of comboboxes in the GUI on macOS.
+- Fixes the alignment of comboboxes in the Qt GUI on macOS.
 
 #### Removed:
 
 - Removed migration code for versions < 0.6.3. If you want to update to v1.0.0, please
-  make sure to upgrade to at least version 0.6.3 first.
+  make sure to upgrade to at least version 0.6.3 first or unlink your Dropbox before
+  updating to v1.0.0.
 - Removed u-msgpack dependency.
 
 ## v0.6.4
