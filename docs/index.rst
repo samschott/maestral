@@ -18,14 +18,11 @@ The following APIs should remain stable for frontends such as the GUI or CLI:
 
 .. toctree::
    :caption: Table of Contents
-   :maxdepth: 1
+   :maxdepth: 2
 
    api/index
+
+.. toctree::
+   :maxdepth: 1
+
    changelog
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
