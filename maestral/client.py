@@ -90,7 +90,7 @@ class SpaceUsage(dropbox.users.SpaceUsage):
 
 def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
     """
-    Decorator that converts instances of :class:`OSError` and
+    Returns a decorator that converts instances of :class:`OSError` and
     :class:`dropbox.exceptions.DropboxException` to :class:`errors.MaestralApiError`.
 
     :param int dbx_path_arg: Argument number to take as dbx_path for exception.
