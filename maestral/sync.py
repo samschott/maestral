@@ -2011,7 +2011,6 @@ class UpDownSync:
 
         return res
 
-    @catch_sync_issues
     def wait_for_remote_changes(self, last_cursor, timeout=40, delay=2):
         """
         Blocks until changes to the remote Dropbox are available.
@@ -2029,7 +2028,6 @@ class UpDownSync:
         logger.debug('Detected remote changes: %s', has_changes)
         return has_changes
 
-    @catch_sync_issues
     def list_remote_changes(self, last_cursor):
         """
         Lists remote changes since the last download sync.
