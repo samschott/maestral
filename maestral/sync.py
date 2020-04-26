@@ -340,32 +340,51 @@ class MaestralStateWrapper(abc.MutableSet):
                f'option=\'{self.option}\', entries={list(self)})>'
 
 
-def catch_sync_issues(func):
+def catch_sync_issues(download=False):
     """
-    Decorator that catches all SyncErrors and logs them.
+    Returns a decorator that catches all SyncErrors and logs them.
+    Should only be used for methods of UpDownSync.
     """
 
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        try:
-            res = func(self, *args, **kwargs)
-            if res is None:
-                res = True
-        except SyncError as exc:
-            file_name = os.path.basename(exc.dbx_path)
-            logger.warning('Could not sync %s', file_name, exc_info=True)
-            if exc.dbx_path is not None:
-                if exc.local_path is None:
-                    exc.local_path = self.to_local_path(exc.dbx_path)
-                self.sync_errors.put(exc)
-                if any(isinstance(a, Metadata) for a in args):
-                    self.download_errors.add(exc.dbx_path)
+    def decorator(func):
 
-            res = False
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            try:
+                res = func(self, *args, **kwargs)
+                if res is None:
+                    res = True
+            except SyncError as exc:
+                # fill out missing dbx_path or local_path
+                if exc.dbx_path or exc.local_path:
+                    if not exc.local_path:
+                        exc.local_path = self.to_local_path(exc.dbx_path)
+                    if not exc.dbx_path:
+                        exc.dbx_path = self.to_dbx_path(exc.local_path)
 
-        return res
+                if exc.dbx_path_dst or exc.local_path_dst:
+                    if not exc.local_path_dst:
+                        exc.local_path_dst = self.to_local_path(exc.dbx_path_dst)
+                    if not exc.dbx_path:
+                        exc.dbx_path_dst = self.to_dbx_path(exc.local_path_dst)
 
-    return wrapper
+                if exc.dbx_path:
+                    # we have a file / folder associated with the sync error
+                    file_name = osp.basename(exc.dbx_path)
+                    logger.warning('Could not sync %s', file_name, exc_info=True)
+                    self.sync_errors.put(exc)
+
+                    # save download errors to retry later
+                    if download:
+                        self.download_errors.add(exc.dbx_path)
+
+                res = False
+
+            return res
+
+        return wrapper
+
+    return decorator
 
 
 class UpDownSync:
@@ -1438,21 +1457,21 @@ class UpDownSync:
             return False
 
         # get the created path (src_path or dest_path)
-        dest_path = get_dest_path(event)
-        dirname, basename = osp.split(dest_path)
+        local_path = get_dest_path(event)
+        dirname, basename = osp.split(local_path)
 
         # check number of paths with the same case
         if len(path_exists_case_insensitive(basename, root=dirname)) > 1:
 
-            dest_path_cc = generate_cc_name(dest_path, suffix='case conflict')
-            with self.fs_events.ignore(dest_path, recursive=osp.isdir(dest_path),
+            local_path_cc = generate_cc_name(local_path, suffix='case conflict')
+            with self.fs_events.ignore(local_path, recursive=osp.isdir(local_path),
                                        event_types=(EVENT_TYPE_DELETED,
                                                     EVENT_TYPE_MOVED)):
-                exc = move(dest_path, dest_path_cc)
+                exc = move(local_path, local_path_cc)
                 if exc:
-                    raise os_to_maestral_error(exc, local_path=dest_path_cc)
+                    raise os_to_maestral_error(exc, local_path=local_path_cc)
 
-            logger.info('Case conflict: renamed "%s" to "%s"', dest_path, dest_path_cc)
+            logger.info('Case conflict: renamed "%s" to "%s"', local_path, local_path_cc)
 
             return True
         else:
@@ -1564,7 +1583,7 @@ class UpDownSync:
 
         self._clean_and_save_rev_file()
 
-    @catch_sync_issues
+    @catch_sync_issues(download=False)
     def create_remote_entry(self, event):
         """
         Applies a local file system event to the remote Dropbox and clears any existing
@@ -1929,7 +1948,7 @@ class UpDownSync:
 
     # ==== Download sync =================================================================
 
-    @catch_sync_issues
+    @catch_sync_issues(download=True)
     def get_remote_folder(self, dbx_path='/', ignore_excluded=True):
         """
         Gets all files/folders from Dropbox and writes them to the local folder
@@ -2392,7 +2411,7 @@ class UpDownSync:
 
         return changes
 
-    @catch_sync_issues
+    @catch_sync_issues(download=True)
     def create_local_entry(self, entry):
         """
         Applies a file change from Dropbox servers to the local Dropbox folder.
