@@ -136,45 +136,35 @@ class FSEventHandler(FileSystemEventHandler):
         self.local_file_event_queue = Queue()
 
     @contextmanager
-    def ignore(self, *local_paths,
-               event_types=(EVENT_TYPE_MOVED, EVENT_TYPE_DELETED, EVENT_TYPE_CREATED),
-               recursive=False, is_dir=False):
+    def ignore(self, *events, recursive=True):
         """
-        A context manager to ignore file events related to the given paths. Once a
-        matching event has been registered, further file events for the corresponding path
-        will no longer be ignored unless ``recursive`` is ``True``. If no matching event
-        has occurred before leaving the context, the paths will be ignored for
-        ``ignore_timeout`` sec after leaving then context and then discarded. This
-        accounts for possible delays in the emission of local file system events.
+        A context manager to ignore file events. Once a matching event has been
+        registered, further matching events will no longer be ignored unless ``recursive``
+        is ``True``. If no matching event has occurred before leaving the context, the
+        event will be ignored for ``ignore_timeout`` sec after leaving then context and
+        then discarded. This accounts for possible delays in the emission of local file
+        system events.
 
         This context manager is used to filter out file system events caused by maestral
         itself, for instance during a download or when moving a conflict.
 
-        :param iterable local_paths: Local paths to ignore.
-        :param iterable event_types: Event types that should be ignored. Members should be
-            'moved', 'deleted' or 'created'. Defaults to all of those.
-        :param bool recursive: If ``True``, all events of child paths (of the same type)
-            will be ignored as well.
-        :param bool is_dir: If ``True``, only directory events will be ignored. If
-            ``False``, only file events will be ignored. If ``recursive`` is ``True``,
-            this option has no effect.
+        :param iterable events: Local events to ignore.
+        :param bool recursive: If ``True``, all child events of a dirctory event will be
+            ignored as well.
         """
 
         with self._mutex:
             now = time.time()
             new_ignores = list()
-            for path in local_paths:
-                for event_type in event_types:
-                    new_ignores.append(
-                        dict(
-                            path=path,
-                            start_time=now,
-                            ttl=None,
-                            event_types=event_type,
-                            recursive=recursive,
-                            is_dir=is_dir or recursive,
-                        )
+            for e in events:
+                new_ignores.append(
+                    dict(
+                        event=e,
+                        start_time=now,
+                        ttl=None,
+                        recursive=recursive and e.is_directory,
                     )
+                )
             self._ignored_paths.extend(new_ignores)
 
         try:
@@ -208,54 +198,24 @@ class FSEventHandler(FileSystemEventHandler):
         self._expire_ignored_paths()
 
         for ignore in self._ignored_paths:
-            path = ignore['path']
-            event_types = ignore['event_types']
+            ignore_event = ignore['event']
             recursive = ignore['recursive']
-            is_dir = ignore['is_dir']
-            start_time = ignore['start_time']
 
-            if event.event_type in event_types and (event.is_directory == is_dir or recursive):
+            if event == ignore_event:
 
-                if (not event.event_type == EVENT_TYPE_DELETED
-                        and self.sync.get_ctime(get_dest_path(event)) < start_time):
-                    # event occurred before exclusion started
-                    return event
+                if not recursive:
+                    self._ignored_paths.remove(ignore)
 
-                if event.event_type == EVENT_TYPE_MOVED:
-                    # check for source and destination path
-                    src_path = event.src_path
-                    dest_path = event.dest_path
+                return None
 
-                    if recursive:
-                        ignore_src = is_equal_or_child(src_path, path)
-                        ignore_dest = is_equal_or_child(dest_path, path)
-                    else:
-                        ignore_src = src_path == path
-                        ignore_dest = dest_path == path
+            elif recursive:
 
-                    if ignore_src and ignore_dest:
-                        if not recursive:
-                            self._ignored_paths.remove(ignore)
-                        return None
-                    elif ignore_src:
-                        if not recursive:
-                            self._ignored_paths.remove(ignore)
-                        return split_moved_event(event)[1]
-                    elif ignore_dest:
-                        if not recursive:
-                            self._ignored_paths.remove(ignore)
-                        return split_moved_event(event)[0]
+                type_match = event.event_type == ignore_event.event_type
+                src_match = is_equal_or_child(event.src_path, ignore_event.src_path)
+                dest_match = is_equal_or_child(get_dest_path(event), get_dest_path(ignore_event))
 
-                else:
-                    if recursive:
-                        ignore_src = is_equal_or_child(event.src_path, path)
-                    else:
-                        ignore_src = event.src_path == path
-
-                    if ignore_src:
-                        if not recursive:
-                            self._ignored_paths.remove(ignore)
-                        return None
+                if type_match and src_match and dest_match:
+                    return None
 
         return event
 
@@ -1443,7 +1403,7 @@ class UpDownSync:
     def _handle_case_conflict(self, event):
         """
         Checks for other items in the same directory with same name but a different
-        case. Renames items if necessary.Only needed for case sensitive file systems.
+        case. Renames items if necessary. Only needed for case sensitive file systems.
 
         :param FileSystemEvent event: Created or moved event.
         :returns: ``True`` or ``False``.
@@ -1464,9 +1424,9 @@ class UpDownSync:
         if len(path_exists_case_insensitive(basename, root=dirname)) > 1:
 
             local_path_cc = generate_cc_name(local_path, suffix='case conflict')
-            with self.fs_events.ignore(local_path, recursive=osp.isdir(local_path),
-                                       event_types=(EVENT_TYPE_DELETED,
-                                                    EVENT_TYPE_MOVED)):
+
+            event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+            with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
                 exc = move(local_path, local_path_cc)
                 if exc:
                     raise os_to_maestral_error(exc, local_path=local_path_cc)
@@ -1497,8 +1457,8 @@ class UpDownSync:
             local_path_cc = generate_cc_name(local_path,
                                              suffix='selective sync conflict')
 
-            with self.fs_events.ignore(local_path, recursive=osp.isdir(local_path),
-                                       event_types=(EVENT_TYPE_DELETED, EVENT_TYPE_MOVED)):
+            event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+            with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
                 exc = move(local_path, local_path_cc)
                 if exc:
                     raise os_to_maestral_error(exc, local_path=local_path_cc)
@@ -1757,9 +1717,10 @@ class UpDownSync:
                 return
 
         if md_new.path_lower != dbx_path.lower():
+            # conflicting copy created during upload, mirror remote changes locally
             local_path_cc = self.to_local_path(md_new.path_display)
-            with self.fs_events.ignore(local_path, local_path_cc,
-                                       recursive=osp.isdir(local_path)):
+            event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+            with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
                 exc = move(local_path, local_path_cc)
                 if exc:
                     raise os_to_maestral_error(exc, local_path=local_path_cc,
@@ -1771,6 +1732,7 @@ class UpDownSync:
             logger.debug('Upload conflict: renamed "%s" to "%s"',
                          dbx_path, md_new.path_lower)
         else:
+            # everything went well, save new revs
             rev = getattr(md_new, 'rev', 'folder')
             self.set_local_rev(md_new.path_lower, rev)
             logger.debug('Created "%s" on Dropbox', dbx_path)
@@ -1809,9 +1771,11 @@ class UpDownSync:
         for res, dbx_path, local_path in zip(res_list, dbx_paths, local_paths):
             if isinstance(res, Metadata):
                 if res.path_lower != dbx_path.lower():
+                    # conflicting copy created during upload, mirror remote changes
+                    # locally
                     local_path_cc = self.to_local_path(res.path_display)
-                    with self.fs_events.ignore(local_path, local_path_cc,
-                                               recursive=osp.isdir(local_path)):
+                    event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+                    with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
                         exc = move(local_path, local_path_cc)
                         if exc:
                             raise os_to_maestral_error(exc, local_path=local_path_cc,
@@ -1824,6 +1788,7 @@ class UpDownSync:
                     logger.debug('Upload conflict: renamed "%s" to "%s"',
                                  dbx_path, res.path_lower)
                 else:
+                    # everything went well, save new revs
                     self.set_local_rev(res.path_lower, 'folder')
                     logger.debug('Created "%s" on Dropbox', dbx_path)
 
@@ -1875,12 +1840,14 @@ class UpDownSync:
                 return
 
             if md_new.path_lower != dbx_path.lower():
+                # conflicting copy created during upload, mirror remote changes locally
                 local_path_cc = self.to_local_path(md_new.path_display)
-                with self.fs_events.ignore(local_path, local_path_cc):
+                with self.fs_events.ignore(FileMovedEvent(local_path, local_path_cc)):
                     try:
                         os.rename(local_path, local_path_cc)
                     except OSError:
-                        delete(local_path)
+                        with self.fs_events.ignore(FileDeletedEvent(local_path)):
+                            delete(local_path)
 
                 # Delete revs of old path but don't set revs for new path here. This will
                 # force conflict resolution on download in case of intermittent changes.
@@ -1888,6 +1855,7 @@ class UpDownSync:
                 logger.debug('Upload conflict: renamed "%s" to "%s"',
                              dbx_path, md_new.path_lower)
             else:
+                # everything went well, save new revs
                 self.set_local_rev(md_new.path_lower, md_new.rev)
                 logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
 
@@ -2449,9 +2417,8 @@ class UpDownSync:
             elif conflict_check == Conflict.Conflict and isinstance(entry, FolderMetadata):
                 # only move folders here, file will be moved after download is complete
                 new_local_path = generate_cc_name(local_path)
-                with self.fs_events.ignore(local_path, recursive=osp.isdir(local_path),
-                                           event_types=(EVENT_TYPE_DELETED,
-                                                        EVENT_TYPE_MOVED)):
+                event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+                with self.fs_events.ignore(event_cls(local_path, new_local_path)):
                     exc = move(local_path, new_local_path)
                     if exc:
                         raise os_to_maestral_error(exc, local_path=new_local_path)
@@ -2470,24 +2437,20 @@ class UpDownSync:
                 # out of the way if anything has changed
                 if self.check_download_conflict(entry) == Conflict.Conflict:
                     new_local_path = generate_cc_name(local_path)
-                    with self.fs_events.ignore(local_path,
-                                               recursive=osp.isdir(local_path),
-                                               event_types=(EVENT_TYPE_DELETED,
-                                                            EVENT_TYPE_MOVED)):
+                    event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+                    with self.fs_events.ignore(event_cls(local_path, new_local_path)):
                         exc = move(local_path, new_local_path)
                         if exc:
                             raise os_to_maestral_error(exc, local_path=new_local_path)
 
                 if osp.isdir(local_path):
-                    with self.fs_events.ignore(local_path,
-                                               recursive=osp.isdir(local_path),
-                                               event_types=(EVENT_TYPE_DELETED,)):
+                    event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
+                    with self.fs_events.ignore(event_cls(local_path)):
                         delete(local_path)
 
                 # move the downloaded file to its destination
-                with self.fs_events.ignore(local_path,
-                                           event_types=(EVENT_TYPE_DELETED,
-                                                        EVENT_TYPE_CREATED)):
+                with self.fs_events.ignore(FileDeletedEvent(local_path),
+                                           FileMovedEvent(tmp_fname, local_path)):
                     exc = move(tmp_fname, local_path)
                     if exc:
                         raise os_to_maestral_error(exc, dbx_path=entry.path_display,
@@ -2506,13 +2469,12 @@ class UpDownSync:
                 # replace it but leave the children as they are.
 
                 if osp.isfile(local_path):
-                    with self.fs_events.ignore(local_path,
-                                               event_types=(EVENT_TYPE_DELETED,)):
+                    event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
+                    with self.fs_events.ignore(event_cls(local_path)):
                         delete(local_path)
 
                 try:
-                    with self.fs_events.ignore(local_path, is_dir=True,
-                                               event_types=(EVENT_TYPE_CREATED,)):
+                    with self.fs_events.ignore(DirCreatedEvent(local_path), recursive=False):
                         os.makedirs(local_path)
                 except FileExistsError:
                     pass
@@ -2531,8 +2493,8 @@ class UpDownSync:
                 # remove it and all its children. If there’s nothing at the
                 # given path, ignore this entry.
 
-                with self.fs_events.ignore(local_path, recursive=osp.isdir(local_path),
-                                           event_types=(EVENT_TYPE_DELETED, )):
+                event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
+                with self.fs_events.ignore(event_cls(local_path)):
                     err = delete(local_path)
 
                 self.set_local_rev(entry.path_lower, None)
