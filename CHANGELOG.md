@@ -23,6 +23,9 @@
 - Temporary files during a download are now stored inside the Dorpbox directory at
   '.maestral.cache'. This guarantees that temporary download files always reside on the
   same partition as the Dropbox folder itself.
+- System tray icons are no longer installed in the plaform theme. This is part of a
+  workaround for a Qt issue that causes large pixmap transfers over dBus when HiDPI
+  is enabled on Linux desktops. However, manually installed icons will still be respected.
 
 #### Fixed:
 
