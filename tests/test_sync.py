@@ -7,18 +7,23 @@
 Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
+import os
+from pathlib import Path
+from threading import Event
 import timeit
-from watchdog.events import (
+
+from maestral.sync import (
     FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileMovedEvent,
     DirCreatedEvent, DirDeletedEvent, DirMovedEvent,
 )
-from maestral.sync import UpDownSync
+from maestral.sync import delete, move
+from maestral.sync import UpDownSync, Observer, FSEventHandler
 
 
 class DummyUpDownSync(UpDownSync):
 
-    def __init__(self):
-        pass
+    def __init__(self, dropbox_path=''):
+        self._dropbox_path = dropbox_path
 
     def _should_split_excluded(self, event):
         return False
@@ -243,6 +248,93 @@ def test_clean_local_events():
                              number=n_loops)
 
     assert duration < 5 * n_loops  # less than 5 sec per call
+
+
+def test_ignore_local_events():
+
+    dummy_dir = Path(os.getcwd()).parent / 'dropbox_dir'
+
+    delete(dummy_dir)
+    dummy_dir.mkdir()
+
+    syncing = Event()
+    startup = Event()
+    syncing.set()
+
+    sync = DummyUpDownSync(dummy_dir)
+    fs_event_handler = FSEventHandler(syncing, startup, sync)
+
+    observer = Observer()
+    observer.schedule(fs_event_handler, str(dummy_dir), recursive=True)
+    observer.start()
+
+    # test that we recieve events
+
+    new_dir = dummy_dir / 'parent'
+    new_dir.mkdir()
+
+    changes, local_cursor = sync.wait_for_local_changes()
+    assert len(changes) == 1
+    assert changes[0] == DirCreatedEvent(str(new_dir))
+
+    delete(new_dir)
+    sync.wait_for_local_changes()
+
+    # test ignoring the creation of a directory tree
+
+    with fs_event_handler.ignore(DirCreatedEvent(str(new_dir))):
+        new_dir.mkdir()
+        for i in range(10):
+            file = new_dir / f'test_{i}'
+            file.touch()
+
+    changes, local_cursor = sync.wait_for_local_changes()
+    assert len(changes) == 0
+
+    delete(new_dir)
+    sync.wait_for_local_changes()
+
+    # test moving a directory tree
+
+    new_dir.mkdir()
+    for i in range(10):
+        file = new_dir / f'test_{i}'
+        file.touch()
+
+    sync.wait_for_local_changes()
+
+    new_dir_1 = dummy_dir / 'parent2'
+
+    with fs_event_handler.ignore(DirMovedEvent(str(new_dir), str(new_dir_1))):
+        move(new_dir, new_dir_1)
+
+    changes, local_cursor = sync.wait_for_local_changes()
+    assert len(changes) == 0
+
+    delete(new_dir_1)
+    sync.wait_for_local_changes()
+
+    # test catching not-ignored events
+
+    with fs_event_handler.ignore(DirCreatedEvent(str(new_dir)), recursive=False):
+        new_dir.mkdir()
+        for i in range(10):
+            # may trigger FileCreatedEvent and FileModifiedVent
+            file = new_dir / f'test_{i}'
+            file.touch()
+
+    changes, local_cursor = sync.wait_for_local_changes()
+    assert all(not c.is_directory for c in changes)
+
+    delete(new_dir)
+    sync.wait_for_local_changes()
+
+    # shut down
+
+    delete(dummy_dir)
+
+    observer.stop()
+    observer.join()
 
 
 # Create a Dropbox test account to automate the below test.
