@@ -868,8 +868,6 @@ class UpDownSync:
                                 'Please check if you have write permissions for '
                                 f'{self._file_cache_path}.')
 
-        self._ensure_cache_dir_present()
-
     def _new_tmp_file(self):
         self._ensure_cache_dir_present()
         try:
