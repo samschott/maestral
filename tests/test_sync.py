@@ -19,13 +19,14 @@ from maestral.sync import (
     FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileMovedEvent,
     DirCreatedEvent, DirDeletedEvent, DirMovedEvent,
 )
-from maestral.sync import Metadata, FileMetadata, FolderMetadata
+from maestral.sync import FolderMetadata
 from maestral.sync import delete, move
-from maestral.sync import is_equal_or_child, is_child
+from maestral.sync import is_child
 from maestral.sync import get_local_hash, DirectorySnapshot
 from maestral.sync import UpDownSync, Observer, FSEventHandler
 from maestral.main import Maestral
 from maestral.main import get_log_path
+
 
 class DummyUpDownSync(UpDownSync):
 
