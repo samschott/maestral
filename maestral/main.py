@@ -874,7 +874,8 @@ class Maestral:
         :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
 
-        self.monitor.start()
+        if not self.running:
+            self.monitor.start()
 
     @require_linked
     @require_dir
