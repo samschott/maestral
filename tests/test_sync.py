@@ -24,6 +24,7 @@ from maestral.sync import delete, move
 from maestral.sync import is_child
 from maestral.sync import get_local_hash, DirectorySnapshot
 from maestral.sync import UpDownSync, Observer, FSEventHandler
+from maestral.errors import NotFoundError
 from maestral.main import Maestral
 from maestral.main import get_log_path
 
@@ -411,9 +412,6 @@ def test_sync_cases():
 
     assert set(m.excluded_items) == set(excluded_items)
 
-    m.start_sync()
-    m.monitor._wait_for_idle()
-
     # helper functions
 
     def wait_for_idle():
@@ -447,38 +445,50 @@ def test_sync_cases():
 
     # start simple, lets create a local directory for our tests and check that its synced
 
+    m.start_sync()
+    wait_for_idle()
+
     sync_test_folder_dbx = '/sync_tests'
     sync_test_folder = m.dropbox_path + sync_test_folder_dbx
 
-    os.mkdir(sync_test_folder)
-    wait_for_idle()
+    try:
 
-    md = m.client.get_metadata(sync_test_folder_dbx)
+        os.mkdir(sync_test_folder)
+        wait_for_idle()
 
-    assert isinstance(md, FolderMetadata)
+        md = m.client.get_metadata(sync_test_folder_dbx)
 
-    # create a file and check if its synced
+        assert isinstance(md, FolderMetadata)
 
-    shutil.copy(resources + '/test.txt', sync_test_folder)
-    wait_for_idle()
-    assert_synced(sync_test_folder, sync_test_folder_dbx)
+        # create a file and check if its synced
 
-    # cleanup
+        shutil.copy(resources + '/test.txt', sync_test_folder)
+        wait_for_idle()
+        assert_synced(sync_test_folder, sync_test_folder_dbx)
 
-    m.stop_sync()
-    delete(m.dropbox_path)
-    delete(m.sync.rev_file_path)
-    delete(m.account_profile_pic_path)
-    m._conf.cleanup()
-    m._state.cleanup()
+    finally:
 
-    log_dir = get_log_path('maestral')
+        # cleanup
 
-    log_files = []
+        m.stop_sync()
+        try:
+            m.client.remove(sync_test_folder_dbx)
+        except NotFoundError:
+            pass
 
-    for file_name in os.listdir(log_dir):
-        if file_name.startswith(m.config_name):
-            log_files.append(os.path.join(log_dir, file_name))
+        delete(m.dropbox_path)
+        delete(m.sync.rev_file_path)
+        delete(m.account_profile_pic_path)
+        m._conf.cleanup()
+        m._state.cleanup()
 
-    for file in log_files:
-        delete(file)
+        log_dir = get_log_path('maestral')
+
+        log_files = []
+
+        for file_name in os.listdir(log_dir):
+            if file_name.startswith(m.config_name):
+                log_files.append(os.path.join(log_dir, file_name))
+
+        for file in log_files:
+            delete(file)
