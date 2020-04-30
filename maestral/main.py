@@ -23,7 +23,7 @@ from collections import namedtuple, deque
 # external imports
 import requests
 import keyring.errors
-from watchdog.events import EVENT_TYPE_DELETED
+from watchdog.events import DirDeletedEvent, FileDeletedEvent
 import bugsnag
 from bugsnag.handlers import BugsnagHandler
 
@@ -969,9 +969,8 @@ class Maestral:
         # dbx_path will be lower-case, we there explicitly run `to_cased_path`
         local_path = to_cased_path(local_path)
         if local_path:
-            with self.monitor.fs_event_handler.ignore(local_path,
-                                                      recursive=osp.isdir(local_path),
-                                                      event_types=(EVENT_TYPE_DELETED,)):
+            event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
+            with self.monitor.fs_event_handler.ignore(event_cls(local_path)):
                 delete(local_path)
 
     @require_linked
