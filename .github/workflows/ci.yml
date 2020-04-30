@@ -30,6 +30,9 @@ jobs:
         # the GitHub editor is 127 chars wide
         flake8 . --ignore=C901,W503 --max-line-length=127 --statistics
     - name: Test with pytest
+      env:
+        DROPBOX_ID: ${{ secrets.DROPBOX_ID }}
+        DROPBOX_TOKEN: ${{ secrets.DROPBOX_TOKEN }}
       run: |
         pip install pytest
         pytest

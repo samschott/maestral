@@ -8,6 +8,9 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 
 """
 import os
+import os.path as osp
+import time
+import shutil
 from pathlib import Path
 from threading import Event
 import timeit
@@ -16,9 +19,13 @@ from maestral.sync import (
     FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileMovedEvent,
     DirCreatedEvent, DirDeletedEvent, DirMovedEvent,
 )
+from maestral.sync import Metadata, FileMetadata, FolderMetadata
 from maestral.sync import delete, move
+from maestral.sync import is_equal_or_child, is_child
+from maestral.sync import get_local_hash, DirectorySnapshot
 from maestral.sync import UpDownSync, Observer, FSEventHandler
-
+from maestral.main import Maestral
+from maestral.main import get_log_path
 
 class DummyUpDownSync(UpDownSync):
 
@@ -384,4 +391,93 @@ def test_sync_cases():
     #    file contents are different.
     #
 
-    pass
+    resources = osp.dirname(__file__) + '/resources'
+
+    # inital setup
+
+    m = Maestral('test-config')
+    m._auth._account_id = os.environ.get('DROPBOX_ID')
+    m._auth._access_token = os.environ.get('DROPBOX_TOKEN')
+
+    m.create_dropbox_directory('~/Dropbox Test')
+
+    assert not m.pending_link
+    assert not m.pending_dropbox_folder
+
+    # exclude all existing items
+    excluded_items = list(e['path_lower'] for e in m.list_folder('/'))
+    m.set_excluded_items(excluded_items)
+
+    assert set(m.excluded_items) == set(excluded_items)
+
+    m.start_sync()
+    m.monitor._wait_for_idle()
+
+    # helper functions
+
+    def wait_for_idle():
+        time.sleep(2)
+        m.monitor._wait_for_idle()
+
+    def assert_synced(local_folder, remote_folder):
+        remote_items = m.list_folder(remote_folder)
+        local_snapshot = DirectorySnapshot(local_folder)
+        rev_index = m.sync.get_rev_index()
+
+        for r in remote_items:
+            dbx_path = r['path_display']
+            local_path = m.to_local_path(dbx_path)
+
+            remote_hash = r['content_hash'] if r['type'] == 'FileMetadata' else 'folder'
+
+            assert get_local_hash(local_path) == remote_hash, f'different file content for "{dbx_path}"'
+            assert m.sync.get_local_rev(dbx_path) == r['rev'], f'different revs for "{dbx_path}"'
+
+        for path in rev_index:
+            if is_child(path, remote_folder):
+                matching_items = list(r for r in remote_items if r['path_lower'] == path)
+                assert len(matching_items) == 1, f'indexed item "{path}" does not exist on dbx'
+
+        for path in local_snapshot.paths:
+            if is_child(path, local_folder):
+                dbx_path = m.sync.to_dbx_path(path).lower()
+                matching_items = list(r for r in remote_items if r['path_lower'] == dbx_path)
+                assert len(matching_items) == 1, f'local item "{path}" does not exist on dbx'
+
+    # start simple, lets create a local directory for our tests and check that its synced
+
+    sync_test_folder_dbx = '/sync_tests'
+    sync_test_folder = m.dropbox_path + sync_test_folder_dbx
+
+    os.mkdir(sync_test_folder)
+    wait_for_idle()
+
+    md = m.client.get_metadata(sync_test_folder_dbx)
+
+    assert isinstance(md, FolderMetadata)
+
+    # create a file and check if its synced
+
+    shutil.copy(resources + '/test.txt', sync_test_folder)
+    wait_for_idle()
+    assert_synced(sync_test_folder, sync_test_folder_dbx)
+
+    # cleanup
+
+    m.stop_sync()
+    delete(m.dropbox_path)
+    delete(m.sync.rev_file_path)
+    delete(m.account_profile_pic_path)
+    m._conf.cleanup()
+    m._state.cleanup()
+
+    log_dir = get_log_path('maestral')
+
+    log_files = []
+
+    for file_name in os.listdir(log_dir):
+        if file_name.startswith(m.config_name):
+            log_files.append(os.path.join(log_dir, file_name))
+
+    for file in log_files:
+        delete(file)
