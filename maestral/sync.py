@@ -493,6 +493,7 @@ class UpDownSync:
         """Setter: dropbox_path"""
         self._dropbox_path = path
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
+        self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
         self._conf.set('main', 'path', path)
 
     @property
