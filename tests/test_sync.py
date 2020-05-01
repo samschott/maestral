@@ -46,7 +46,7 @@ def test_clean_local_events():
     def path(i):
         return f'/test {i}'
 
-    # Simple cases
+    # 1) Simple cases
     file_events_test0 = [
         # created + deleted -> None
         FileCreatedEvent(path(1)),
@@ -62,7 +62,7 @@ def test_clean_local_events():
         FileModifiedEvent(path(2))
     ]
 
-    # Single file events, keep as is
+    # 2) Single file events, keep as is
     file_events_test1 = [
         FileModifiedEvent(path(1)),
         FileCreatedEvent(path(2)),
@@ -77,7 +77,7 @@ def test_clean_local_events():
         FileMovedEvent(path(4), path(5)),
     ]
 
-    # Difficult move cases
+    # 3) Difficult move cases
     file_events_test2 = [
         # created + moved -> created
         FileCreatedEvent(path(1)),
@@ -107,7 +107,7 @@ def test_clean_local_events():
         FileCreatedEvent(path(9)),
     ]
 
-    # Gedit save event
+    # 4) Gedit save event
     file_events_test3 = [
         FileCreatedEvent('.gedit-save-UR4EC0'),   # save new version to tmp file
         FileModifiedEvent('.gedit-save-UR4EC0'),  # modify tmp file
@@ -120,7 +120,7 @@ def test_clean_local_events():
         FileCreatedEvent(path(1) + '~'),  # backup
     ]
 
-    # macOS safe-save event
+    # 5) macOS safe-save event
     file_events_test4 = [
         FileMovedEvent(path(1), path(1) + '.sb-b78ef837-dLht38'),  # move to backup
         FileCreatedEvent(path(1)),                                 # create new version
@@ -131,7 +131,7 @@ def test_clean_local_events():
         FileModifiedEvent(path(1)),  # modified file
     ]
 
-    # Word on macOS created event
+    # 6) Word on macOS created event
     file_events_test5 = [
         FileCreatedEvent(path(1)),
         FileDeletedEvent(path(1)),
@@ -144,7 +144,7 @@ def test_clean_local_events():
         FileCreatedEvent('~$' + path(1)),  # backup
     ]
 
-    # simple type changes
+    # 7) Simple type changes
     file_events_test6 = [
         # keep as is
         FileDeletedEvent(path(1)),
@@ -163,7 +163,7 @@ def test_clean_local_events():
         FileCreatedEvent(path(2)),
     ]
 
-    # difficult type changes
+    # 8) Difficult type changes
     file_events_test7 = [
         # convert to FileDeleted -> DirCreated
         FileModifiedEvent(path(1)),
@@ -188,7 +188,7 @@ def test_clean_local_events():
         DirCreatedEvent(path(3)),
     ]
 
-    # event hierarchies
+    # 9) Event hierarchies
     file_events_test8 = [
         # convert to a single DirDeleted
         DirDeletedEvent(path(1)),
@@ -209,7 +209,8 @@ def test_clean_local_events():
         DirMovedEvent(path(2), path(3)),
     ]
 
-    # performance test:
+    # 10) Performance test
+
     # 15,000 nested deleted events (10,000 folders, 5,000 files)
     # 15,000 nested moved events (10,000 folders, 5,000 files)
     # 4,995 unrelated created events
@@ -277,73 +278,76 @@ def test_ignore_local_events():
     observer.schedule(fs_event_handler, str(dummy_dir), recursive=True)
     observer.start()
 
-    # test that we recieve events
+    try:
 
-    new_dir = dummy_dir / 'parent'
-    new_dir.mkdir()
+        # 1) Test that we recieve events
 
-    changes, local_cursor = sync.wait_for_local_changes()
-    assert len(changes) == 1
-    assert changes[0] == DirCreatedEvent(str(new_dir))
+        new_dir = dummy_dir / 'parent'
+        new_dir.mkdir()
 
-    delete(new_dir)
-    sync.wait_for_local_changes()
+        changes, local_cursor = sync.wait_for_local_changes()
+        assert len(changes) == 1
+        assert changes[0] == DirCreatedEvent(str(new_dir))
 
-    # test ignoring the creation of a directory tree
+        delete(new_dir)
+        sync.wait_for_local_changes()
 
-    with fs_event_handler.ignore(DirCreatedEvent(str(new_dir))):
+        # 2) Test ignoring the creation of a directory tree
+
+        with fs_event_handler.ignore(DirCreatedEvent(str(new_dir))):
+            new_dir.mkdir()
+            for i in range(10):
+                file = new_dir / f'test_{i}'
+                file.touch()
+
+        changes, local_cursor = sync.wait_for_local_changes()
+        assert len(changes) == 0
+
+        delete(new_dir)
+        sync.wait_for_local_changes()
+
+        # 3) Test moving a directory tree
+
         new_dir.mkdir()
         for i in range(10):
             file = new_dir / f'test_{i}'
             file.touch()
 
-    changes, local_cursor = sync.wait_for_local_changes()
-    assert len(changes) == 0
+        sync.wait_for_local_changes()
 
-    delete(new_dir)
-    sync.wait_for_local_changes()
+        new_dir_1 = dummy_dir / 'parent2'
 
-    # test moving a directory tree
+        with fs_event_handler.ignore(DirMovedEvent(str(new_dir), str(new_dir_1))):
+            move(new_dir, new_dir_1)
 
-    new_dir.mkdir()
-    for i in range(10):
-        file = new_dir / f'test_{i}'
-        file.touch()
+        changes, local_cursor = sync.wait_for_local_changes()
+        assert len(changes) == 0
 
-    sync.wait_for_local_changes()
+        delete(new_dir_1)
+        sync.wait_for_local_changes()
 
-    new_dir_1 = dummy_dir / 'parent2'
+        # 4) Test catching not-ignored events
 
-    with fs_event_handler.ignore(DirMovedEvent(str(new_dir), str(new_dir_1))):
-        move(new_dir, new_dir_1)
+        with fs_event_handler.ignore(DirCreatedEvent(str(new_dir)), recursive=False):
+            new_dir.mkdir()
+            for i in range(10):
+                # may trigger FileCreatedEvent and FileModifiedVent
+                file = new_dir / f'test_{i}'
+                file.touch()
 
-    changes, local_cursor = sync.wait_for_local_changes()
-    assert len(changes) == 0
+        changes, local_cursor = sync.wait_for_local_changes()
+        assert all(not c.is_directory for c in changes)
 
-    delete(new_dir_1)
-    sync.wait_for_local_changes()
+        delete(new_dir)
+        sync.wait_for_local_changes()
 
-    # test catching not-ignored events
+    finally:
 
-    with fs_event_handler.ignore(DirCreatedEvent(str(new_dir)), recursive=False):
-        new_dir.mkdir()
-        for i in range(10):
-            # may trigger FileCreatedEvent and FileModifiedVent
-            file = new_dir / f'test_{i}'
-            file.touch()
+        # cleanup
+        delete(dummy_dir)
 
-    changes, local_cursor = sync.wait_for_local_changes()
-    assert all(not c.is_directory for c in changes)
-
-    delete(new_dir)
-    sync.wait_for_local_changes()
-
-    # shut down
-
-    delete(dummy_dir)
-
-    observer.stop()
-    observer.join()
+        observer.stop()
+        observer.join()
 
 
 # Create a Dropbox test account to automate the below test.
