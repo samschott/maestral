@@ -1891,6 +1891,7 @@ class UpDownSync:
             if md.server_modified.timestamp() >= self.get_last_sync_for_path(dbx_path):
                 logger.debug('Skipping deletion: remote item "%s" has been modified '
                              'since last sync', md.path_display)
+                # mark local folder as untracked
                 self.set_local_rev(dbx_path, None)
                 return
 
@@ -1901,6 +1902,7 @@ class UpDownSync:
             #   all changes and checking when they occurred?
             logger.debug('Skipping deletion: expected file at "%s" but found a '
                          'folder instead', md.path_display)
+            # mark local file as untracked
             self.set_local_rev(dbx_path, None)
             return
 
