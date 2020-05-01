@@ -14,6 +14,9 @@ import shutil
 from pathlib import Path
 from threading import Event
 import timeit
+import logging
+
+from dropbox.files import WriteMode
 
 from maestral.sync import (
     FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileMovedEvent,
@@ -27,6 +30,10 @@ from maestral.sync import UpDownSync, Observer, FSEventHandler
 from maestral.errors import NotFoundError
 from maestral.main import Maestral
 from maestral.main import get_log_path
+from maestral.constants import IS_FS_CASE_SENSITIVE
+
+
+logger = logging.getLogger(__file__)
 
 
 class DummyUpDownSync(UpDownSync):
@@ -350,52 +357,10 @@ def test_ignore_local_events():
         observer.join()
 
 
-# Create a Dropbox test account to automate the below test.
-# We will not test individual methods of `maestral.sync` but rather ensure
-# an effective result: successful syncing and conflict resolution in
-# standard and challenging cases.
+# We do not test individual methods of `maestral.sync` but rather ensure an effective
+# result: successful syncing and conflict resolution in standard and challenging cases.
 
 def test_sync_cases():
-    # Currently those tests are performed manually with the following test cases:
-    #
-    # CC = conflicting copy
-    #
-    #  * Remote file replaced with a folder (OK): Check ctime and create CC of local file
-    #    if necessary.
-    #  * Remote folder replaced with a file (OK):
-    #    Recurse through ctimes of children and check if we have any un-synced changes.
-    #    If yes, create CCs for those items. Others will be deleted.
-    #  * Local file replaced with a folder (OK):
-    #    Check if server-modified time > laest_sync of file and only delete file if older.
-    #    Otherwise, let Dropbox handle creating a CC.
-    #  * Local folder replaced with a file (NOK):
-    #    Remote folder is currently not checked for unsynced changes but a CC is created
-    #    by default. We could recurse through all remote files and check for unsynced
-    #    changes.
-    #  * Remote and local items modified during sync pause (OK)
-    #  * Remote and local items created during sync pause (OK)
-    #  * Remote and local items deleted during sync pause (OK)
-    #  * Local item created / modified -> registered for upload -> deleted before up: (OK)
-    #    Ok because FileNotFoundError will be caught silently.
-    #  * Local item created / modified -> uploaded -> deleted before re-download: (OK)
-    #    Will not be re-downloaded if rev is still in index.
-    #  * Local item created / modified -> uploaded -> modified before re-download: (OK)
-    #    Will not be re-downloaded if rev is the same.
-    #  * Local item deleted -> uploaded -> created before re-download: (OK)
-    #    Local rev == remote rev == None. Deletion will not be carried out.
-    #  * Remote item created -> registered -> local item created before download (OK):
-    #    Local rev is None but file exists => CC created.
-    #  * Remote item deleted -> registered -> local item created before download (OK):
-    #    Local rev == remote rev == None. Deletion will not be carried out.
-    #  * Remote item deleted -> registered -> local item deleted before download (OK):
-    #    Local rev exists: deletion will be carried out locally and fail silently.
-    #  * Remote item deleted -> registered -> local item modified before download (OK):
-    #    Local rev != remote rev (= None), different file contents. Compare ctime and
-    #    keep local item if local ctime > last_sync.
-    #  * Remote item modified -> registered -> local item modified before download (OK):
-    #    Local rev != remote rev. Compare ctime and create CC if ctime > last_sync and
-    #    file contents are different.
-    #
 
     resources = osp.dirname(__file__) + '/resources'
 
@@ -405,7 +370,7 @@ def test_sync_cases():
     m._auth._account_id = os.environ.get('DROPBOX_ID')
     m._auth._access_token = os.environ.get('DROPBOX_TOKEN')
 
-    m.create_dropbox_directory('~/Dropbox Test')
+    m.create_dropbox_directory('~/Dropbox_Test')
 
     assert not m.pending_link
     assert not m.pending_dropbox_folder
@@ -418,12 +383,29 @@ def test_sync_cases():
 
     # helper functions
 
-    def wait_for_idle():
-        time.sleep(2)
-        m.monitor._wait_for_idle()
+    test_folder_dbx = '/sync_tests'
+    test_folder_local = m.dropbox_path + test_folder_dbx
+
+    def wait_for_idle(minimum=4):
+        # wait until idle for at least minimum sec
+        t0 = time.time()
+        while time.time() - t0 < minimum:
+            if m.sync.lock.locked():
+                m.monitor._wait_for_idle()
+                t0 = time.time()  # reset start time
+            else:
+                time.sleep(0.1)
+
+    def clean_remote():
+        try:
+            m.client.remove(test_folder_dbx)
+        except NotFoundError:
+            pass
+
+        m.client.make_dir(test_folder_dbx)
 
     def assert_synced(local_folder, remote_folder):
-        remote_items = m.list_folder(remote_folder)
+        remote_items = m.list_folder(remote_folder, recursive=True)
         local_snapshot = DirectorySnapshot(local_folder)
         rev_index = m.sync.get_rev_index()
 
@@ -432,9 +414,10 @@ def test_sync_cases():
             local_path = m.to_local_path(dbx_path)
 
             remote_hash = r['content_hash'] if r['type'] == 'FileMetadata' else 'folder'
+            remote_rev = r['rev'] if r['type'] == 'FileMetadata' else 'folder'
 
             assert get_local_hash(local_path) == remote_hash, f'different file content for "{dbx_path}"'
-            assert m.sync.get_local_rev(dbx_path) == r['rev'], f'different revs for "{dbx_path}"'
+            assert m.sync.get_local_rev(dbx_path) == remote_rev, f'different revs for "{dbx_path}"'
 
         for path in rev_index:
             if is_child(path, remote_folder):
@@ -442,33 +425,495 @@ def test_sync_cases():
                 assert len(matching_items) == 1, f'indexed item "{path}" does not exist on dbx'
 
         for path in local_snapshot.paths:
-            if is_child(path, local_folder):
+            if not m.sync.is_excluded(path):
                 dbx_path = m.sync.to_dbx_path(path).lower()
                 matching_items = list(r for r in remote_items if r['path_lower'] == dbx_path)
                 assert len(matching_items) == 1, f'local item "{path}" does not exist on dbx'
 
-    # start simple, lets create a local directory for our tests and check that its synced
+    def count_conflicts(entries):
+        ccs = list(e for e in entries if '(1)' in e['path_lower']
+                   or 'conflicted copy' in e['path_lower']
+                   or 'conflicting copy' in e['path_lower'])
+        return len(ccs)
+
+    def count_originals(entries, name):
+        originals = list(e for e in entries if e['path_lower'] == name)
+        return len(originals)
 
     m.start_sync()
     wait_for_idle()
 
-    sync_test_folder_dbx = '/sync_tests'
-    sync_test_folder = m.dropbox_path + sync_test_folder_dbx
-
     try:
 
-        os.mkdir(sync_test_folder)
+        # 1) Check local folder creation
+
+        os.mkdir(test_folder_local)
         wait_for_idle()
 
-        md = m.client.get_metadata(sync_test_folder_dbx)
+        md = m.client.get_metadata(test_folder_dbx)
 
         assert isinstance(md, FolderMetadata)
 
-        # create a file and check if its synced
+        # 2) Check local file creation
 
-        shutil.copy(resources + '/test.txt', sync_test_folder)
+        shutil.copy(resources + '/file.txt', test_folder_local)
         wait_for_idle()
-        assert_synced(sync_test_folder, sync_test_folder_dbx)
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        # 3) Check local file change
+
+        with open(test_folder_local + '/file.txt', 'a') as f:
+            f.write(' changed')
+
+        wait_for_idle()
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        # 4) Check remote file change
+
+        m.client.upload(resources + '/file1.txt', test_folder_dbx + '/file.txt',
+                        mode=WriteMode.overwrite)
+
+        wait_for_idle()
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        # 5) Check local and remote changed when paused
+
+        m.pause_sync()
+        wait_for_idle()
+
+        with open(test_folder_local + '/file.txt', 'a') as f:
+            f.write(' modified conflict')
+
+        m.client.upload(resources + '/file2.txt', test_folder_dbx + '/file.txt',
+                        mode=WriteMode.overwrite)
+
+        m.resume_sync()
+
+        wait_for_idle()
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx)
+        assert count_originals(entries, test_folder_dbx + '/file.txt') == 1, 'original missing'
+        assert count_conflicts(entries) == 1, 'conflicting copy missing'
+        assert len(entries) == 2
+
+        # 5) Check local and remote deleted when paused
+
+        m.pause_sync()
+        wait_for_idle()
+
+        for entry in os.scandir(test_folder_local):
+            delete(entry.path)
+
+        clean_remote()
+
+        m.resume_sync()
+        wait_for_idle()
+
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx)
+        assert len(entries) == 0
+
+        # 6) Check local and remote created with equal content when paused
+
+        m.pause_sync()
+        wait_for_idle()
+
+        shutil.copy(resources + '/file.txt', test_folder_local)
+        m.client.upload(resources + '/file.txt', test_folder_dbx + '/file.txt')
+
+        m.resume_sync()
+        wait_for_idle()
+
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx)
+        assert len(entries) == 1
+
+        # 6) Check local and remote created with different content when paused
+
+        clean_remote()
+        wait_for_idle()
+
+        m.pause_sync()
+        wait_for_idle()
+
+        shutil.copy(resources + '/file.txt', test_folder_local)
+        m.client.upload(resources + '/file1.txt', test_folder_dbx + '/file.txt')
+
+        m.resume_sync()
+        wait_for_idle()
+
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        wait_for_idle()
+
+        entries = m.list_folder(test_folder_dbx)
+        assert count_originals(entries, test_folder_dbx + '/file.txt') == 1, 'original missing'
+        assert count_conflicts(entries) == 1, 'conflicting copy missing'
+        assert len(entries) == 2
+
+        # 7) Check local file deleted during upload
+
+        clean_remote()
+        wait_for_idle()
+
+        fake_created_event = FileCreatedEvent(test_folder_local + '/file.txt')
+        m.monitor.fs_event_handler.local_file_event_queue.put(fake_created_event)
+
+        wait_for_idle()
+
+        assert_synced(test_folder_local, test_folder_dbx)
+        entries = m.list_folder(test_folder_dbx)
+        assert len(entries) == 0
+
+        # 8) Check rapid local file changes. No conflicts should be created.
+
+        for t in (0.1, 0.1, 0.5, 0.5, 1.0, 1.0, 2.0, 2.0):
+            time.sleep(t)
+            with open(test_folder_local + '/file.txt', 'a') as f:
+                f.write(f' {t} ')
+
+        wait_for_idle()
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx)
+        assert count_originals(entries, test_folder_dbx + '/file.txt') == 1, 'original missing'
+        assert len(entries) == 1
+
+        # 9) Check rapid remote file changes. No conflicts should be created.
+
+        md = m.client.get_metadata(test_folder_dbx + '/file.txt')
+
+        for t in (0.1, 0.1, 0.5, 0.5, 1.0, 1.0, 2.0, 2.0):
+            time.sleep(t)
+            with open(resources + '/file.txt', 'a') as f:
+                f.write(f' {t} ')
+            md = m.client.upload(resources + '/file.txt', test_folder_dbx + '/file.txt',
+                                 mode=WriteMode.update(md.rev))
+
+        with open(resources + '/file.txt', 'w') as f:
+            f.write('content')  # reset file content
+
+        wait_for_idle()
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx)
+        assert count_originals(entries, test_folder_dbx + '/file.txt') == 1, 'original missing'
+        assert len(entries) == 1
+
+        # 10) Check uploading a local tree
+
+        clean_remote()
+        wait_for_idle()
+
+        shutil.copytree(resources + '/test_folder', test_folder_local + '/test_folder')
+
+        wait_for_idle(10)
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        # 11) Check deleting a local tree
+
+        delete(test_folder_local + '/test_folder')
+
+        wait_for_idle()
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx)
+        assert len(entries) == 0
+
+        # 12) Check downloading a remote tree
+
+        for i in range(1, 11):
+            path = test_folder_dbx + i * '/nested_folder'
+            m.client.make_dir(path)
+
+        wait_for_idle()
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx, recursive=True)
+        assert len(entries) == 11
+
+        # 13) Check deleting a remote tree
+
+        m.client.remove(test_folder_dbx + '/nested_folder')
+
+        wait_for_idle(10)
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx)
+        assert len(entries) == 0
+
+        # 14) Check remote file replaced by folder
+
+        shutil.copy(resources + '/file.txt', test_folder_local + '/file.txt')
+        wait_for_idle()
+
+        m.pause_sync()
+        wait_for_idle()
+
+        # replace remote file with folder
+        m.client.remove(test_folder_dbx + '/file.txt')
+        m.client.make_dir(test_folder_dbx + '/file.txt')
+
+        m.resume_sync()
+        wait_for_idle()
+
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx)
+        assert os.path.isdir(test_folder_local + '/file.txt')
+        assert len(entries) == 1
+
+        # 15) Check remote file replaced by folder and unsynced local changes
+
+        # Check ctime and create CC of local file if necessary.
+
+        clean_remote()
+        wait_for_idle()
+
+        shutil.copy(resources + '/file.txt', test_folder_local + '/file.txt')
+        wait_for_idle()
+
+        m.pause_sync()
+        wait_for_idle()
+
+        # replace remote file with folder
+        m.client.remove(test_folder_dbx + '/file.txt')
+        m.client.make_dir(test_folder_dbx + '/file.txt')
+
+        # create local changes
+        with open(test_folder_local + '/file.txt', 'a') as f:
+            f.write(' modified')
+
+        m.resume_sync()
+        wait_for_idle()
+
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx)
+        assert count_originals(entries, test_folder_dbx + '/file.txt') == 1, 'original missing'
+        assert count_conflicts(entries) == 1, 'conflicting copy missing'
+        assert len(entries) == 2
+
+        # 16) Check remote folder replaced by file
+
+        clean_remote()
+        wait_for_idle()
+
+        os.mkdir(test_folder_local + '/folder')
+        wait_for_idle()
+
+        m.pause_sync()
+        wait_for_idle()
+
+        # replace remote folder with file
+        m.client.remove(test_folder_dbx + '/folder')
+        m.client.upload(resources + '/file.txt', test_folder_dbx + '/folder')
+
+        m.resume_sync()
+        wait_for_idle()
+
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx)
+        assert os.path.isfile(test_folder_local + '/folder')
+        assert len(entries) == 1
+
+        # 17) Check remote folder replaced by file and unsynced local changes
+
+        # Recurse through ctimes of children and check if we have any un-synced changes.
+        # If yes, create CCs for those items. Others will be deleted.
+
+        clean_remote()
+        wait_for_idle()
+
+        os.mkdir(test_folder_local + '/folder')
+        wait_for_idle()
+
+        m.pause_sync()
+        wait_for_idle()
+
+        # replace remote folder with file
+        m.client.remove(test_folder_dbx + '/folder')
+        m.client.upload(resources + '/file.txt', test_folder_dbx + '/folder')
+
+        # create local changes
+        os.mkdir(test_folder_local + '/folder/subfolder')
+
+        m.resume_sync()
+        wait_for_idle()
+
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx)
+
+        assert count_originals(entries, test_folder_dbx + '/folder') == 1, 'original missing'
+        assert count_conflicts(entries) == 1, 'conflicting copy missing'
+        assert len(entries) == 2
+
+        # 18) Check local folder replaced by file
+
+        clean_remote()
+        wait_for_idle()
+
+        os.mkdir(test_folder_local + '/folder')
+        wait_for_idle()
+
+        m.pause_sync()
+
+        # replace local folder with file
+        delete(test_folder_local + '/folder')
+        shutil.copy(resources + '/file.txt', test_folder_local + '/folder')
+
+        m.resume_sync()
+        wait_for_idle()
+
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx)
+        assert os.path.isfile(test_folder_local + '/folder')
+        assert len(entries) == 1
+
+        # 19) Check local folder replaced by file and unsynced remote changes
+
+        # Remote folder is currently not checked for unsynced changes but replaced.
+
+        clean_remote()
+        wait_for_idle()
+
+        os.mkdir(test_folder_local + '/folder')
+        wait_for_idle()
+
+        m.pause_sync()
+        wait_for_idle()
+
+        # replace local folder with file
+        delete(test_folder_local + '/folder')
+        shutil.copy(resources + '/file.txt', test_folder_local + '/folder')
+
+        # create remote changes
+        m.client.upload(resources + '/file1.txt', test_folder_dbx + '/folder/file.txt')
+
+        m.resume_sync()
+        wait_for_idle()
+
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx)
+        assert count_originals(entries, test_folder_dbx + '/folder') == 1, 'original missing'
+        assert len(entries) == 1
+
+        # 20) Check local file replaced by folder
+
+        clean_remote()
+        wait_for_idle()
+
+        shutil.copy(resources + '/file.txt', test_folder_local + '/file.txt')
+        wait_for_idle()
+
+        m.pause_sync()
+        wait_for_idle()
+
+        # replace local file with folder
+        os.unlink(test_folder_local + '/file.txt')
+        os.mkdir(test_folder_local + '/file.txt')
+
+        m.resume_sync()
+        wait_for_idle()
+
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx)
+        assert os.path.isdir(test_folder_local + '/file.txt')
+        assert len(entries) == 1
+
+        # 21) Check local file replaced by folder and unsynced remote changes
+
+        # Check if server-modified time > last_sync of file and only delete file if
+        # older. Otherwise, let Dropbox handle creating a CC.
+
+        clean_remote()
+        wait_for_idle()
+
+        shutil.copy(resources + '/file.txt', test_folder_local + '/file.txt')
+        wait_for_idle()
+
+        m.pause_sync()
+        wait_for_idle()
+
+        # replace local file with folder
+        os.unlink(test_folder_local + '/file.txt')
+        os.mkdir(test_folder_local + '/file.txt')
+
+        # create remote changes
+        m.client.upload(resources + '/file1.txt', test_folder_dbx + '/file.txt',
+                        mode=WriteMode.overwrite)
+
+        m.resume_sync()
+        wait_for_idle()
+
+        assert_synced(test_folder_local, test_folder_dbx)
+
+        entries = m.list_folder(test_folder_dbx)
+
+        assert count_originals(entries, test_folder_dbx + '/file.txt') == 1, 'original missing'
+        assert count_conflicts(entries) == 1, 'conflicting copy missing'
+        assert len(entries) == 2
+
+        # 22) Check selective sync conflict
+
+        clean_remote()
+        wait_for_idle()
+
+        os.mkdir(test_folder_local + '/folder')
+        wait_for_idle()
+
+        m.exclude_item(test_folder_dbx + '/folder')
+        wait_for_idle()
+
+        assert not osp.exists(test_folder_local + '/folder')
+
+        os.mkdir(test_folder_local + '/folder')
+        wait_for_idle()
+
+        os.mkdir(test_folder_local + '/folder')
+        wait_for_idle()
+
+        assert not osp.exists(test_folder_local + '/folder')
+        assert osp.isdir(test_folder_local + '/folder (selective sync conflict)')
+        assert osp.isdir(test_folder_local + '/folder (selective sync conflict 1)')
+        assert m.client.get_metadata(test_folder_dbx + '/folder')
+        assert m.client.get_metadata(test_folder_dbx + '/folder (selective sync conflict)')
+        assert m.client.get_metadata(test_folder_dbx + '/folder (selective sync conflict 1)')
+
+        m.client.remove(test_folder_dbx + '/folder')
+        wait_for_idle()
+
+        assert test_folder_dbx + '/folder' not in m.excluded_items
+
+        # 23) Check case conflict
+
+        clean_remote()
+        wait_for_idle()
+
+        if IS_FS_CASE_SENSITIVE:
+            os.mkdir(test_folder_local + '/folder')
+            wait_for_idle()
+
+            os.mkdir(test_folder_local + '/Folder')
+            wait_for_idle()
+
+            assert osp.isdir(test_folder_local + '/folder')
+            assert osp.isdir(test_folder_local + '/Folder (case conflict)')
+            assert m.client.get_metadata(test_folder_dbx + '/folder')
+            assert m.client.get_metadata(test_folder_dbx + '/Folder (case conflict)')
+
+            assert_synced(test_folder_local, test_folder_dbx)
+
+            clean_remote()
+            wait_for_idle()
 
     finally:
 
@@ -476,7 +921,7 @@ def test_sync_cases():
 
         m.stop_sync()
         try:
-            m.client.remove(sync_test_folder_dbx)
+            m.client.remove(test_folder_dbx)
         except NotFoundError:
             pass
 
