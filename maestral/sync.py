@@ -1430,6 +1430,8 @@ class UpDownSync:
                 if exc:
                     raise os_to_maestral_error(exc, local_path=local_path_cc)
 
+                self._rescan(local_path_cc)
+
             logger.info('Case conflict: renamed "%s" to "%s"', local_path, local_path_cc)
 
             return True
@@ -1461,6 +1463,8 @@ class UpDownSync:
                 exc = move(local_path, local_path_cc)
                 if exc:
                     raise os_to_maestral_error(exc, local_path=local_path_cc)
+
+                self._rescan(local_path_cc)
 
             logger.info('Selective sync conflict: renamed "%s" to "%s"',
                         local_path, local_path_cc)
@@ -2413,15 +2417,6 @@ class UpDownSync:
             if conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
                 return applied
 
-            elif conflict_check == Conflict.Conflict and isinstance(entry, FolderMetadata):
-                # only move folders here, file will be moved after download is complete
-                new_local_path = generate_cc_name(local_path)
-                event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
-                with self.fs_events.ignore(event_cls(local_path, new_local_path)):
-                    exc = move(local_path, new_local_path)
-                    if exc:
-                        raise os_to_maestral_error(exc, local_path=new_local_path)
-
             if isinstance(entry, FileMetadata):
                 # Store the new entry at the given path in your local state.
                 # If the required parent folders don’t exist yet, create them.
@@ -2441,6 +2436,10 @@ class UpDownSync:
                         exc = move(local_path, new_local_path)
                         if exc:
                             raise os_to_maestral_error(exc, local_path=new_local_path)
+
+                    logger.debug('Download conflict: renamed "%s" to "%s"', local_path,
+                                 new_local_path)
+                    self._rescan(new_local_path)
 
                 if osp.isdir(local_path):
                     event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
@@ -2466,6 +2465,18 @@ class UpDownSync:
                 # If the required parent folders don’t exist yet, create them.
                 # If there’s already something else at the given path,
                 # replace it but leave the children as they are.
+
+                if conflict_check == Conflict.Conflict:
+                    new_local_path = generate_cc_name(local_path)
+                    event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+                    with self.fs_events.ignore(event_cls(local_path, new_local_path)):
+                        exc = move(local_path, new_local_path)
+                        if exc:
+                            raise os_to_maestral_error(exc, local_path=new_local_path)
+
+                    logger.debug('Download conflict: renamed "%s" to "%s"', local_path,
+                                 new_local_path)
+                    self._rescan(new_local_path)
 
                 if osp.isfile(local_path):
                     event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
@@ -2506,6 +2517,21 @@ class UpDownSync:
                     logger.debug('Deletion failed: %s', err)
 
             return applied
+
+    def _rescan(self, local_path):
+
+        logger.debug('Rescanning "%s"', local_path)
+
+        if osp.isfile(local_path):
+            self.fs_events.local_file_event_queue.put(FileCreatedEvent(local_path))
+        elif osp.isdir(local_path):
+            snapshot = DirectorySnapshot(local_path)
+
+            for path in snapshot.paths:
+                if snapshot.isdir(path):
+                    self.fs_events.local_file_event_queue.put(DirCreatedEvent(path))
+                else:
+                    self.fs_events.local_file_event_queue.put(FileCreatedEvent(path))
 
     def _save_to_history(self, dbx_path):
         # add new file to recent_changes
