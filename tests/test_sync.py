@@ -375,12 +375,6 @@ def test_sync_cases():
     assert not m.pending_link
     assert not m.pending_dropbox_folder
 
-    # exclude all existing items
-    excluded_items = list(e['path_lower'] for e in m.list_folder('/'))
-    m.set_excluded_items(excluded_items)
-
-    assert set(m.excluded_items) == set(excluded_items)
-
     # helper functions
 
     test_folder_dbx = '/sync_tests'
@@ -941,3 +935,9 @@ def test_sync_cases():
 
         for file in log_files:
             delete(file)
+
+
+def test_api():
+    # 1) test excluding and including folders
+    # 2) test sync issue api
+    pass
