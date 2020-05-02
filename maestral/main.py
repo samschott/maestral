@@ -668,7 +668,10 @@ class Maestral:
         continue syncing. This list is populated by the sync threads.
         """
 
-        maestral_errors = [r.exc_info[1] for r in self._log_handler_error_cache.cached_records]
+        maestral_errors = [
+            r.exc_info[1] for r in self._log_handler_error_cache.cached_records
+            if r.exc_info is not None
+        ]
         maestral_errors_dicts = [error_to_dict(e) for e in maestral_errors]
         return maestral_errors_dicts
 
