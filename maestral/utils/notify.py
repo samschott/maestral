@@ -325,10 +325,12 @@ class DesktopNotifier:
         macos_version, *_ = platform.mac_ver()
 
         if platform.system() == 'Darwin':
-            if IS_MACOS_BUNDLE and Version(macos_version) >= Version('10.14.0'):
+            if (IS_MACOS_BUNDLE and Version(macos_version) >= Version('10.14.0')
+                and UNUserNotificationCenter.currentNotificationCenter()):
                 # UNUserNotificationCenter is only supported from signed app bundles
                 return SupportedImplementations.notification_center
-            elif Version(macos_version) < Version('10.16.0'):
+            elif (Version(macos_version) < Version('10.16.0')
+                  and NSUserNotificationCenter.defaultUserNotificationCenter):
                 # deprecated but still works
                 return SupportedImplementations.legacy_notification_center
             elif shutil.which('osascript'):
@@ -339,7 +341,11 @@ class DesktopNotifier:
                 DesktopNotifierFreedesktopDBus('test')
                 return SupportedImplementations.freedesktop_dbus
             except Exception:
+                pass
+                
+            if shutil.which('notify-send'):
                 return SupportedImplementations.notify_send
+
 
         return SupportedImplementations.stdout
 
