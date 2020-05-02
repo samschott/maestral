@@ -393,9 +393,9 @@ class MaestralApiClient:
         Delete multiple items on Dropbox in a batch job.
 
         :param list[str] dbx_paths: List of dropbox paths to delete.
-        :param int batch_size: Number of folders to create in each batch. Dropbox allows
-            batches of up to 1,000 folders. Larger values will be capped automatically.
-        :returns: List of Metadata for created folders or SyncError for failures. Entries
+        :param int batch_size: Number of items to delete in each batch. Dropbox allows
+            batches of up to 1,000 items. Larger values will be capped automatically.
+        :returns: List of Metadata for deleted items or SyncError for failures. Entries
             will be in the same order as given paths.
         :rtype: list
         """
