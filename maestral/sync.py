@@ -1952,7 +1952,7 @@ class UpDownSync:
         cursor = self.client.get_latest_cursor(dbx_path)
 
         root_result = self.client.list_folder(dbx_path, recursive=(not ignore_excluded),
-                                              include_deleted=False, limit=500)
+                                              include_deleted=False)
 
         # download top-level folders / files first
         logger.info(SYNCING)
