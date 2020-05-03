@@ -26,7 +26,6 @@ import dropbox
 from maestral import __version__
 from maestral.config import MaestralState
 from maestral.errors import dropbox_to_maestral_error, os_to_maestral_error
-from maestral.errors import CursorResetError
 
 
 logger = logging.getLogger(__name__)
@@ -148,7 +147,6 @@ class MaestralApiClient:
         # get Dropbox session
         self._last_longpoll = None
         self._backoff = 0
-        self._retry_count = 0
 
         # initialize API client
         self.dbx = dropbox.Dropbox(
@@ -563,13 +561,11 @@ class MaestralApiClient:
         return res.cursor
 
     @to_maestral_error(dbx_path_arg=1)
-    def list_folder(self, dbx_path, retry=3, include_non_downloadable_files=False,
-                    **kwargs):
+    def list_folder(self, dbx_path, include_non_downloadable_files=False, **kwargs):
         """
         Lists the contents of a folder on Dropbox.
 
         :param str dbx_path: Path of folder on Dropbox.
-        :param int retry: Number of times to try again call fails because cursor is reset.
         :param bool include_non_downloadable_files: If ``True``, files that cannot be
             downloaded (at the moment only G-suite files on Dropbox) will be included.
         :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
@@ -593,20 +589,9 @@ class MaestralApiClient:
         while results[-1].has_more:
             idx += len(results[-1].entries)
             logger.info(f'Indexing {idx}...')
-            try:
-                more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
-                results.append(more_results)
-            except dropbox.exceptions.DropboxException as exc:
-                new_exc = dropbox_to_maestral_error(exc, dbx_path)
-                if isinstance(new_exc, CursorResetError) and self._retry_count < retry:
-                    # retry up to three times, then raise
-                    self._retry_count += 1
-                    self.list_folder(dbx_path, include_non_downloadable_files, **kwargs)
-                else:
-                    self._retry_count = 0
-                    raise exc
 
-        self._retry_count = 0
+            more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
+            results.append(more_results)
 
         return self.flatten_results(results)
 
