@@ -556,11 +556,15 @@ class MaestralApiClient:
         return res.cursor
 
     @to_maestral_error(dbx_path_arg=1)
-    def list_folder(self, dbx_path, include_non_downloadable_files=False, **kwargs):
+    def list_folder(self, dbx_path, max_retries_on_timeout=4,
+                    include_non_downloadable_files=False, **kwargs):
         """
         Lists the contents of a folder on Dropbox.
 
         :param str dbx_path: Path of folder on Dropbox.
+        :param int max_retries_on_timeout: Number of times to try again if Dropbox servers
+            don't respond within the timeout. This may occur in case of very large large
+            Dropbox folder.
         :param bool include_non_downloadable_files: If ``True``, files that cannot be
             downloaded (at the moment only G-suite files on Dropbox) will be included.
         :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
@@ -580,13 +584,24 @@ class MaestralApiClient:
         results.append(res)
 
         idx = 0
+        attempt = 0
 
         while results[-1].has_more:
+
             idx += len(results[-1].entries)
             logger.info(f'Indexing {idx}...')
 
-            more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
-            results.append(more_results)
+            while True:
+                try:
+                    more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
+                    results.append(more_results)
+                    break
+                except requests.exceptions.ReadTimeout:
+                    attempt += 1
+                    if attempt <= max_retries_on_timeout:
+                        time.sleep(5.0)
+                    else:
+                        raise
 
         return self.flatten_results(results)
 
