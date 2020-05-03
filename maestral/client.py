@@ -141,10 +141,7 @@ class MaestralApiClient:
         self.config_name = config_name
 
         self._state = MaestralState(config_name)
-
-        # get Dropbox session
-        self._last_longpoll = None
-        self._backoff = 0
+        self._backoff_until = 0
 
         # initialize API client
         self.dbx = dropbox.Dropbox(
@@ -629,21 +626,18 @@ class MaestralApiClient:
             raise ValueError('Timeout must be in range [30, 480]')
 
         # honour last request to back off
-        if self._last_longpoll is not None:
-            while time.time() - self._last_longpoll < self._backoff:
-                time.sleep(1)
+        time_to_backoff = max(self._backoff_until - time.time(), 0)
+        time.sleep(time_to_backoff)
 
         result = self.dbx.files_list_folder_longpoll(last_cursor, timeout=timeout)
 
-        # keep track of last long poll, back off if requested by SDK
+        # keep track of last longpoll, back off if requested by SDK
         if result.backoff:
-            self._backoff = result.backoff + 5
+            self._backoff_until = time.time() + result.backoff + 5.0
         else:
-            self._backoff = 0
+            self._backoff_until = 0
 
-        self._last_longpoll = time.time()
-
-        return result.changes  # will be True or False
+        return result.changes
 
     @to_maestral_error()
     def list_remote_changes(self, last_cursor):
