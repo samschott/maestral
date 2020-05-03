@@ -33,14 +33,14 @@ MIGNORE_FILE = '.mignore'
 FILE_CACHE = '.maestral.cache'
 IS_FS_CASE_SENSITIVE = is_fs_case_sensitive()
 
-EXCLUDED_FILE_NAMES = (
+EXCLUDED_FILE_NAMES = frozenset([
     'desktop.ini', 'thumbs.db', '.ds_store', 'icon\r', '.com.apple.timemachine.supported',
     '.dropbox', '.dropbox.attr', '.dropbox.cache', FILE_CACHE, OLD_REV_FILE
-)
+])
 
-EXCLUDED_DIR_NAMES = (
+EXCLUDED_DIR_NAMES = frozenset([
     '.dropbox.cache', FILE_CACHE
-)
+])
 
 # state messages
 IDLE = 'Up to date'
