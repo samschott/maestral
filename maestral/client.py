@@ -134,20 +134,18 @@ class MaestralApiClient:
 
     :param str config_name: Name of config file and state file to use.
     :param str access_token: Dropbox access token for user.
-    :param int timeout: Timeout for individual requests in sec. Defaults to 60 sec.
+    :param int timeout: Timeout for individual requests. Defaults to 100 sec if not given.
     """
 
     SDK_VERSION = '2.0'
-    _timeout = 60
 
-    def __init__(self, config_name, access_token, timeout=_timeout):
+    def __init__(self, config_name, access_token, timeout=100):
 
         self.config_name = config_name
 
         self._state = MaestralState(config_name)
 
         # get Dropbox session
-        self._timeout = timeout
         self._last_longpoll = None
         self._backoff = 0
         self._retry_count = 0
@@ -157,7 +155,7 @@ class MaestralApiClient:
             access_token,
             session=SESSION,
             user_agent=USER_AGENT,
-            timeout=self._timeout
+            timeout=timeout
         )
 
     def set_access_token(self, token):
