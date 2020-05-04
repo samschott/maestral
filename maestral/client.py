@@ -379,30 +379,34 @@ class MaestralApiClient:
         return md
 
     @to_maestral_error()
-    def remove_batch(self, dbx_paths, batch_size=900):
+    def remove_batch(self, entries, batch_size=900):
         """
         Delete multiple items on Dropbox in a batch job.
 
-        :param list[str] dbx_paths: List of dropbox paths to delete.
+        :param list[tuple[str, str]] entries: List of Dropbox paths and "rev"s to delete.
+            If a "rev" is not None, the file will only be deleted if it matches the rev on
+            Dropbox. This is not supported when deleting a folder.
         :param int batch_size: Number of items to delete in each batch. Dropbox allows
             batches of up to 1,000 items. Larger values will be capped automatically.
-        :returns: List of Metadata for deleted items or SyncError for failures. Entries
-            will be in the same order as given paths.
+        :returns: List of Metadata for deleted items or :class:`errors.SyncError` for
+            failures. Results will be in the same order as the original input.
         :rtype: list
         """
+
         batch_size = clamp(batch_size, 1, 1000)
         check_interval = round(0.5 + batch_size / 1000, 2)
 
-        entries = []
+        res_entries = []
         result_list = []
 
         # up two ~ 1,000 entries allowed per batch according to
         # https://www.dropbox.com/developers/reference/data-ingress-guide
-        for chunk in chunks(dbx_paths, n=batch_size):
-            res = self.dbx.files_delete_batch(chunk)
+        for chunk in chunks(entries, n=batch_size):
+            arg = [dropbox.files.DeleteArg(e[0], e[1]) for e in chunk]
+            res = self.dbx.files_delete_batch(arg)
             if res.is_complete():
                 batch_res = res.get_complete()
-                entries.extend(batch_res.entries)
+                res_entries.extend(batch_res.entries)
             elif res.is_async_job_id():
                 async_job_id = res.get_async_job_id()
 
@@ -414,9 +418,9 @@ class MaestralApiClient:
 
                 if res.is_complete():
                     batch_res = res.get_complete()
-                    entries.extend(batch_res.entries)
+                    res_entries.extend(batch_res.entries)
 
-        for i, entry in enumerate(entries):
+        for i, entry in enumerate(res_entries):
             if entry.is_success():
                 result_list.append(entry.get_success().metadata)
             elif entry.is_failure():
@@ -426,7 +430,7 @@ class MaestralApiClient:
                     user_message_locale=None,
                     request_id=None,
                 )
-                sync_err = dropbox_to_maestral_error(exc, dbx_path=dbx_paths[i])
+                sync_err = dropbox_to_maestral_error(exc, dbx_path=entries[i][0])
                 result_list.append(sync_err)
 
         return result_list
