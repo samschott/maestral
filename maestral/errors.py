@@ -494,6 +494,21 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                         'information from the logs.')
                 err_cls = MaestralApiError
 
+        elif isinstance(error, dropbox.async_.PollError):
+
+            title = 'Could not get status of batch job'
+
+            if error.is_internal_error():
+                text = ('Something went wrong with the job on Dropbox’s end. '
+                        'Please try again.')
+                err_cls = DropboxServerError
+            else:
+                # Other tags include invalid_async_job_id. Neither should occur in our
+                # SDK usage.
+                text = ('Please contact the developer with the traceback '
+                        'information from the logs.')
+                err_cls = MaestralApiError
+
         else:
             err_cls = MaestralApiError
             title = 'An unexpected error occurred'
