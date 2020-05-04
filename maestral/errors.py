@@ -368,7 +368,7 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                 err_cls = InsufficientSpaceError
             elif error.is_internal_error():
                 text = ('Something went wrong with the job on Dropbox’s end. Please '
-                        'verify on the Dropbox website if the move succeeded and try '
+                        'verify on the Dropbox website if the job succeeded and try '
                         'again if it failed.')
                 err_cls = DropboxServerError
             elif error.is_to():
@@ -406,7 +406,7 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                 err_cls = SyncError
             elif error.is_too_many_write_operations():
                 text = ('There are too many write operations happening in your '
-                        'Dropbox. Please retry deleting this file later.')
+                        'Dropbox. Please try again later.')
                 err_cls = SyncError
             else:
                 text = 'Please check the logs for more information'
@@ -437,7 +437,7 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                 err_cls = SyncError
             elif error.is_too_many_write_operations():
                 text = ('There are too many write operations happening in your '
-                        'Dropbox. Please retry uploading this file later.')
+                        'Dropbox. Please retry again later.')
                 err_cls = SyncError
             else:
                 text = 'Please check the logs for more information'
@@ -469,7 +469,7 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                         'information from the logs.')
                 err_cls = MaestralApiError
 
-        elif isinstance(exc.error, dropbox.files.ListFolderContinueError):
+        elif isinstance(error, dropbox.files.ListFolderContinueError):
             title = 'Could not list folder contents'
             if error.is_path():
                 lookup_error = error.get_path()
@@ -483,7 +483,7 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                         'information from the logs.')
                 err_cls = MaestralApiError
 
-        elif isinstance(exc.error, dropbox.files.ListFolderLongpollError):
+        elif isinstance(error, dropbox.files.ListFolderLongpollError):
             title = 'Could not get Dropbox changes'
             if error.is_reset():
                 text = ('Dropbox has reset its sync state. Please rebuild '
@@ -499,8 +499,9 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
             title = 'Could not get status of batch job'
 
             if error.is_internal_error():
-                text = ('Something went wrong with the job on Dropbox’s end. '
-                        'Please try again.')
+                text = ('Something went wrong with the job on Dropbox’s end. Please '
+                        'verify on the Dropbox website if the job succeeded and try '
+                        'again if it failed.')
                 err_cls = DropboxServerError
             else:
                 # Other tags include invalid_async_job_id. Neither should occur in our
@@ -574,7 +575,7 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
         err_cls = DropboxServerError
         title = 'Could not sync file or folder'
         text = ('Something went wrong with the job on Dropbox’s end. Please '
-                'verify on the Dropbox website if the move succeeded and try '
+                'verify on the Dropbox website if the job succeeded and try '
                 'again if it failed.')
 
     # -------------------------- Everything else -----------------------------------------
