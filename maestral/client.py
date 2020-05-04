@@ -25,7 +25,7 @@ import dropbox
 # local imports
 from maestral import __version__
 from maestral.config import MaestralState
-from maestral.errors import dropbox_to_maestral_error, os_to_maestral_error
+from maestral.errors import SyncError, dropbox_to_maestral_error, os_to_maestral_error
 
 
 logger = logging.getLogger(__name__)
@@ -402,6 +402,7 @@ class MaestralApiClient:
         # up two ~ 1,000 entries allowed per batch according to
         # https://www.dropbox.com/developers/reference/data-ingress-guide
         for chunk in chunks(entries, n=batch_size):
+
             arg = [dropbox.files.DeleteArg(e[0], e[1]) for e in chunk]
             res = self.dbx.files_delete_batch(arg)
 
@@ -422,6 +423,14 @@ class MaestralApiClient:
                 if res.is_complete():
                     batch_res = res.get_complete()
                     res_entries.extend(batch_res.entries)
+
+                elif res.is_failed():
+                    error = res.get_failed()
+                    if error.is_too_many_write_operations():
+                        title = 'Could not delete items'
+                        text = ('There are too many write operations happening in your '
+                                'Dropbox. Please try again later.')
+                        raise SyncError(title, text)
 
         for i, entry in enumerate(res_entries):
             if entry.is_success():
