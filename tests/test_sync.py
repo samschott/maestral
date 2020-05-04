@@ -940,4 +940,5 @@ def test_sync_cases():
 def test_api():
     # 1) test excluding and including folders
     # 2) test sync issue api
+    # 3) test mignore
     pass
