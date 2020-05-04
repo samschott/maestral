@@ -404,12 +404,15 @@ class MaestralApiClient:
         for chunk in chunks(entries, n=batch_size):
             arg = [dropbox.files.DeleteArg(e[0], e[1]) for e in chunk]
             res = self.dbx.files_delete_batch(arg)
+
             if res.is_complete():
                 batch_res = res.get_complete()
                 res_entries.extend(batch_res.entries)
+
             elif res.is_async_job_id():
                 async_job_id = res.get_async_job_id()
 
+                time.sleep(check_interval)
                 res = self.dbx.files_delete_batch_check(async_job_id)
 
                 while res.is_in_progress():
@@ -501,6 +504,7 @@ class MaestralApiClient:
             elif res.is_async_job_id():
                 async_job_id = res.get_async_job_id()
 
+                time.sleep(check_interval)
                 res = self.dbx.files_create_folder_batch_check(async_job_id)
 
                 while res.is_in_progress():
@@ -510,6 +514,7 @@ class MaestralApiClient:
                 if res.is_complete():
                     batch_res = res.get_complete()
                     entries.extend(batch_res.entries)
+
                 elif res.is_failed():
                     error = res.get_failed()
                     if error.is_too_many_files():
