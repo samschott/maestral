@@ -394,7 +394,6 @@ class MaestralApiClient:
         """
 
         batch_size = clamp(batch_size, 1, 1000)
-        check_interval = round(0.5 + batch_size / 1000, 2)
 
         res_entries = []
         result_list = []
@@ -413,8 +412,10 @@ class MaestralApiClient:
             elif res.is_async_job_id():
                 async_job_id = res.get_async_job_id()
 
-                time.sleep(check_interval)
+                time.sleep(1.0)
                 res = self.dbx.files_delete_batch_check(async_job_id)
+
+                check_interval = round(len(chunk) / 100, 1)
 
                 while res.is_in_progress():
                     time.sleep(check_interval)
@@ -498,7 +499,6 @@ class MaestralApiClient:
         :rtype: list
         """
         batch_size = clamp(batch_size, 1, 1000)
-        check_interval = round(0.5 + batch_size / 1000, 2)
 
         entries = []
         result_list = []
@@ -513,8 +513,10 @@ class MaestralApiClient:
             elif res.is_async_job_id():
                 async_job_id = res.get_async_job_id()
 
-                time.sleep(check_interval)
+                time.sleep(1.0)
                 res = self.dbx.files_create_folder_batch_check(async_job_id)
+
+                check_interval = round(len(chunk) / 100, 1)
 
                 while res.is_in_progress():
                     time.sleep(check_interval)
