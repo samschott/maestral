@@ -567,8 +567,8 @@ class MaestralApiClient:
 
         :param str dbx_path: Path of folder on Dropbox.
         :param int max_retries_on_timeout: Number of times to try again if Dropbox servers
-            don't respond within the timeout. This may occur in case of very large large
-            Dropbox folder.
+            don't respond within the timeout. Occasional timeouts may occur for very large
+            Dropbox folders.
         :param bool include_non_downloadable_files: If ``True``, files that cannot be
             downloaded (at the moment only G-suite files on Dropbox) will be included.
         :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
@@ -588,12 +588,13 @@ class MaestralApiClient:
         results.append(res)
 
         idx = 0
-        attempt = 0
 
         while results[-1].has_more:
 
             idx += len(results[-1].entries)
             logger.info(f'Indexing {idx}...')
+
+            attempt = 0
 
             while True:
                 try:
