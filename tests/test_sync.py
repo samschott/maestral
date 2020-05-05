@@ -21,7 +21,7 @@ from maestral.sync import delete, move
 from maestral.sync import is_child
 from maestral.sync import get_local_hash, DirectorySnapshot
 from maestral.sync import UpDownSync, Observer, FSEventHandler
-from maestral.errors import NotFoundError
+from maestral.errors import NotFoundError, FolderConflictError
 from maestral.main import Maestral
 from maestral.main import get_log_path
 from maestral.constants import IS_FS_CASE_SENSITIVE
@@ -379,6 +379,9 @@ class TestSync(TestCase):
     result: successful syncing and conflict resolution in standard and challenging cases.
     """
 
+    TEST_LOCK_PATH = '/test.lock'
+    TEST_FOLDER_PATH = '/sync_tests'
+
     @classmethod
     def setUpClass(cls):
 
@@ -390,8 +393,17 @@ class TestSync(TestCase):
         cls.m.create_dropbox_directory('~/Dropbox_Test')
 
         # all our tests will be carried out within this folder
-        cls.test_folder_dbx = '/sync_tests'
-        cls.test_folder_local = cls.m.dropbox_path + cls.test_folder_dbx
+        cls.test_folder_dbx = cls.TEST_FOLDER_PATH
+        cls.test_folder_local = cls.m.dropbox_path + cls.TEST_FOLDER_PATH
+
+        # aquire test lock
+        while True:
+            try:
+                cls.m.client.make_dir(cls.TEST_LOCK_PATH)
+            except FolderConflictError:
+                time.sleep(20)
+            else:
+                break
 
         # start syncing
         cls.m.start_sync()
@@ -963,11 +975,16 @@ class TestSync(TestCase):
     @classmethod
     def tearDownClass(cls):
 
-        # cleanup
-
         cls.m.stop_sync()
         try:
             cls.m.client.remove(cls.test_folder_dbx)
+        except NotFoundError:
+            pass
+
+        # release test lock
+
+        try:
+            cls.m.client.remove(cls.TEST_LOCK_PATH)
         except NotFoundError:
             pass
 
