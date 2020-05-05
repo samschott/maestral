@@ -40,6 +40,7 @@ CONNECTION_ERRORS = (
     requests.exceptions.Timeout,
     requests.exceptions.RetryError,
     requests.exceptions.ChunkedEncodingError,
+    requests.exceptions.ConnectionError,
     ConnectionError,
 )
 
