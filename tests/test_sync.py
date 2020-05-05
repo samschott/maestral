@@ -948,11 +948,13 @@ class TestSync(TestCase):
         os.mkdir(self.test_folder_local + '/folder')
         self.wait_for_idle()
 
+        # exclude 'folder' from sync
         self.m.exclude_item(self.test_folder_dbx + '/folder')
         self.wait_for_idle()
 
         self.assertFalse(osp.exists(self.test_folder_local + '/folder'))
 
+        # recreate 'folder' locally
         os.mkdir(self.test_folder_local + '/folder')
         self.wait_for_idle()
 
@@ -965,11 +967,6 @@ class TestSync(TestCase):
         self.assertTrue(self.m.client.get_metadata(self.test_folder_dbx + '/folder'))
         self.assertIsNotNone(self.m.client.get_metadata(self.test_folder_dbx + '/folder (selective sync conflict)'))
         self.assertIsNotNone(self.m.client.get_metadata(self.test_folder_dbx + '/folder (selective sync conflict 1)'))
-
-        self.m.client.remove(self.test_folder_dbx + '/folder')
-        self.wait_for_idle()
-
-        self.assertNotIn(self.test_folder_dbx + '/folder', self.m.excluded_items)
 
     @unittest.skipUnless(IS_FS_CASE_SENSITIVE, 'file system is not case sensitive')
     def test_case_conflict(self):
