@@ -411,6 +411,39 @@ class TestSync(TestCase):
         # create our temporary test folder
         os.mkdir(cls.test_folder_local)
 
+    @classmethod
+    def tearDownClass(cls):
+
+        cls.m.stop_sync()
+        try:
+            cls.m.client.remove(cls.test_folder_dbx)
+        except NotFoundError:
+            pass
+
+        # release test lock
+
+        try:
+            cls.m.client.remove(cls.TEST_LOCK_PATH)
+        except NotFoundError:
+            pass
+
+        delete(cls.m.dropbox_path)
+        delete(cls.m.sync.rev_file_path)
+        delete(cls.m.account_profile_pic_path)
+        cls.m._conf.cleanup()
+        cls.m._state.cleanup()
+
+        log_dir = get_log_path('maestral')
+
+        log_files = []
+
+        for file_name in os.listdir(log_dir):
+            if file_name.startswith(cls.m.config_name):
+                log_files.append(os.path.join(log_dir, file_name))
+
+        for file in log_files:
+            delete(file)
+
     # helper functions
 
     def wait_for_idle(self, minimum=4):
@@ -843,9 +876,6 @@ class TestSync(TestCase):
 
         # remote folder is currently not checked for unsynced changes but replaced
 
-        self.clean_remote()
-        self.wait_for_idle()
-
         os.mkdir(self.test_folder_local + '/folder')
         self.wait_for_idle()
 
@@ -868,9 +898,6 @@ class TestSync(TestCase):
 
     def test_local_file_replaced_by_folder(self):
 
-        self.clean_remote()
-        self.wait_for_idle()
-
         shutil.copy(self.resources + '/file.txt', self.test_folder_local + '/file.txt')
         self.wait_for_idle()
 
@@ -892,9 +919,6 @@ class TestSync(TestCase):
 
         # Check if server-modified time > last_sync of file and only delete file if
         # older. Otherwise, let Dropbox handle creating a CC.
-
-        self.clean_remote()
-        self.wait_for_idle()
 
         shutil.copy(self.resources + '/file.txt', self.test_folder_local + '/file.txt')
         self.wait_for_idle()
@@ -920,9 +944,6 @@ class TestSync(TestCase):
         self.assert_count(self.test_folder_dbx, 2)
 
     def test_selective_sync_conflict(self):
-
-        self.clean_remote()
-        self.wait_for_idle()
 
         os.mkdir(self.test_folder_local + '/folder')
         self.wait_for_idle()
@@ -953,9 +974,6 @@ class TestSync(TestCase):
     @unittest.skipUnless(IS_FS_CASE_SENSITIVE, 'file system is not case sensitive')
     def test_case_conflict(self):
 
-        self.clean_remote()
-        self.wait_for_idle()
-
         os.mkdir(self.test_folder_local + '/folder')
         self.wait_for_idle()
 
@@ -968,42 +986,6 @@ class TestSync(TestCase):
         self.assertIsNotNone(self.m.client.get_metadata(self.test_folder_dbx + '/Folder (case conflict)'))
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
-
-        self.clean_remote()
-        self.wait_for_idle()
-
-    @classmethod
-    def tearDownClass(cls):
-
-        cls.m.stop_sync()
-        try:
-            cls.m.client.remove(cls.test_folder_dbx)
-        except NotFoundError:
-            pass
-
-        # release test lock
-
-        try:
-            cls.m.client.remove(cls.TEST_LOCK_PATH)
-        except NotFoundError:
-            pass
-
-        delete(cls.m.dropbox_path)
-        delete(cls.m.sync.rev_file_path)
-        delete(cls.m.account_profile_pic_path)
-        cls.m._conf.cleanup()
-        cls.m._state.cleanup()
-
-        log_dir = get_log_path('maestral')
-
-        log_files = []
-
-        for file_name in os.listdir(log_dir):
-            if file_name.startswith(cls.m.config_name):
-                log_files.append(os.path.join(log_dir, file_name))
-
-        for file in log_files:
-            delete(file)
 
 
 if __name__ == '__main__':
