@@ -869,7 +869,7 @@ class TestSync(TestCase):
         self.wait_for_idle()
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
-        self.assertTrue(os.path.isfile(self.test_folder_local + '/folder'))
+        self.assertTrue(osp.isfile(self.test_folder_local + '/folder'))
         self.assert_count(self.test_folder_dbx, 1)
 
     def test_local_folder_replaced_by_file_and_unsynced_remote_changes(self):
@@ -912,7 +912,7 @@ class TestSync(TestCase):
         self.wait_for_idle()
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
-        self.assertTrue(os.path.isdir(self.test_folder_local + '/file.txt'))
+        self.assertTrue(osp.isdir(self.test_folder_local + '/file.txt'))
         self.assert_count(self.test_folder_dbx, 1)
 
     def test_local_file_replaced_by_folder_and_unsynced_remote_changes(self):

@@ -111,11 +111,12 @@ class TestAPI(TestCase):
     def test_selective_sync(self):
         """Test `Maetsral.exclude_item` and  Maetsral.include_item`."""
 
-        test_path_local = self.test_folder_local + '/folder'
-        test_path_dbx = self.test_folder_dbx + '/folder'
+        test_path_local = self.test_folder_local + '/selective_sync_test_folder'
+        test_path_dbx = self.test_folder_dbx + '/selective_sync_test_folder'
 
         # create a local folder 'folder'
         os.mkdir(test_path_local)
+        os.mkdir(test_path_local + '/subfolder')
         self.wait_for_idle()
 
         # exclude 'folder' from sync
