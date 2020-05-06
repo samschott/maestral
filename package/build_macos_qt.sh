@@ -7,7 +7,7 @@ echo "**** INSTALLING DEPENDENCIES ****************************"
 
 git clone https://github.com/pyinstaller/pyinstaller.git build/pyinstaller
 cd build/pyinstaller
-git checkout develop
+git checkout master
 git pull
 cd bootloader
 export MACOSX_DEPLOYMENT_TARGET=10.13
