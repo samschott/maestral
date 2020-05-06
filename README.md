@@ -14,33 +14,36 @@ Dropbox.
 
 Maestral currently does not support Dropbox Paper, the management of Dropbox teams and
 the management of shared folder settings. If you need any of this functionality, please
-use the Dropbox website or the official client. Maestral does support the syncing of
+use the Dropbox website or the official client. Maestral does support syncing
 multiple Dropbox accounts and excluding local files from sync with a ".mignore" file.
 
 The focus on "simple" file syncing does come with advantages: on macOS, the Maestral App
-bundle is 80% smaller than the official Dropbox app (50 MB vs 290 MB) and uses much less
-memory (100 MB vs 800 MB for a medium sized Dropbox on macOS). The memory usage will
-depend on the size of your synced Dropbox folder and can be further reduced when running
-Maestral without a GUI.
+bundle is significantly smaller than the official Dropbox app (20 MB vs 290 MB) and uses
+much less memory (100 MB vs 800 MB for a medium sized Dropbox on macOS). The memory usage
+will depend on the size of your synced Dropbox folder and can be further reduced when
+running Maestral without a GUI.
 
-Maestral uses the public Dropbox API which, unlike their own client, does not support
-syncing only those parts of a file which changed ("binary diff"). Maestral therefore may
-use more bandwidth that the official client. However, it will never upload or download a
-file if it already exists with the same content locally and in the cloud and it will
-sync moved files or folders without transferring any files whenever possible.
+Maestral uses the public Dropbox API which, unlike the official client, does not support
+transferring only those parts of a file which changed ("binary diff"). Maestral may
+therefore use more bandwidth that the official client. However, it will avoid uploading
+or downloading a file if it already exists with the same content locally or in the cloud.
 
 ## Installation
 
-A binary is provided for macOS High Sierra and higher and can be downloaded from the
+An app bundle is provided for macOS High Sierra and higher and can be downloaded from the
 Releases tab. On other platforms, please download and install the Python package from PyPI:
+
 ```console
 $ python3 -m pip install --upgrade maestral
 ```
+
 If you intend to use the graphical user interface, you also need to specify the GUI option
 during installation. This will install the `maestral-qt` frontend and `PyQt5`:
+
 ```console
 $ python3 -m pip install --upgrade maestral[gui]
 ```
+
 More detailed installation instructions are given in the
 [Wiki](https://github.com/SamSchott/maestral-dropbox/wiki/Installation-Requirements).
 
@@ -69,9 +72,9 @@ commands. The most important are:
 - `maestral ls DROPBOX_PATH`: Lists the contents of a directory on Dropbox.
 - `maestral notify snooze N`: Snoozes desktop notifications for N minutes.
 
-Maestral currently supports the syncing of multiple Dropbox accounts by running multiple
-instances with different configuration files. This needs to be configured from the
-command line by passing the option `--config-name` to `maestral start` or `maestral gui`.
+Maestral supports syncing multiple Dropbox accounts by running multiple instances
+with different configuration files. This needs to be configured from the command
+line by passing the option `--config-name` to `maestral start` or `maestral gui`.
 Maestral will then select an existing config with the given name or create a new one.
 For example:
 
@@ -79,6 +82,7 @@ For example:
 $ maestral start --config-name="personal"
 $ maestral start --config-name="work"
 ```
+
 This will start two instances of Maestral, syncing a private and a work account,
 respectively. Configs will be automatically cleared when unlinking an account and you can
 list all currently linked accounts with `maestral configs`:
