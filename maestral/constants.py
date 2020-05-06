@@ -2,15 +2,14 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This class provides constants used throughout the maestral, the GUI and CLI. It should
 be kept free of memory heavy imports.
 
 """
-# KEEP FREE OF DROPBOX IMPORTS TO REDUCE MEMORY FOOTPRINT
 
+# system imports
 import os
 import platform
 import sys
@@ -31,12 +30,17 @@ BUNDLE_ID = 'com.samschott.maestral'
 # sync
 OLD_REV_FILE = '.maestral'
 MIGNORE_FILE = '.mignore'
+FILE_CACHE = '.maestral.cache'
 IS_FS_CASE_SENSITIVE = is_fs_case_sensitive()
 
-EXCLUDED_FILE_NAMES = (
-    'desktop.ini', 'thumbs.db', '.ds_store', 'icon\r', '.dropbox.attr',
-    '.com.apple.timemachine.supported', OLD_REV_FILE
-)
+EXCLUDED_FILE_NAMES = frozenset([
+    'desktop.ini', 'thumbs.db', '.ds_store', 'icon\r', '.com.apple.timemachine.supported',
+    '.dropbox', '.dropbox.attr', '.dropbox.cache', FILE_CACHE, OLD_REV_FILE
+])
+
+EXCLUDED_DIR_NAMES = frozenset([
+    '.dropbox.cache', FILE_CACHE
+])
 
 # state messages
 IDLE = 'Up to date'
@@ -57,9 +61,12 @@ class FileStatus(Enum):
     Synced = 'up to date'
 
 
-# bundle detection
-IS_MACOS_BUNDLE = getattr(sys, 'frozen', False) and platform.system() == 'Darwin'
-IS_LINUX_BUNDLE = getattr(sys, 'frozen', False) and platform.system() == 'Linux'
+# platform detection
+IS_FROZEN = getattr(sys, 'frozen', False)
+IS_MACOS = platform.system() == 'Darwin'
+IS_LINUX = platform.system() == 'Linux'
+IS_MACOS_BUNDLE = IS_FROZEN and IS_MACOS
+IS_LINUX_BUNDLE = IS_FROZEN and IS_LINUX
 
 # systemd environment
 INVOCATION_ID = os.getenv('INVOCATION_ID')

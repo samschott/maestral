@@ -2,13 +2,13 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This modules contains the Dropbox API client. It wraps calls to the Dropbox Python SDK
 and handles exceptions, chunked uploads or downloads, etc.
 
 """
+
 # system imports
 import os
 import os.path as osp
@@ -18,16 +18,14 @@ import logging
 import functools
 import contextlib
 
-# external packages
+# external imports
 import requests
 import dropbox
 
-# maestral modules
+# local imports
 from maestral import __version__
-from maestral.oauth import OAuth2Session
 from maestral.config import MaestralState
-from maestral.errors import dropbox_to_maestral_error, os_to_maestral_error
-from maestral.errors import CursorResetError
+from maestral.errors import SyncError, dropbox_to_maestral_error, os_to_maestral_error
 
 
 logger = logging.getLogger(__name__)
@@ -40,10 +38,9 @@ USER_AGENT = f'Maestral/v{_major_minor_version}'
 
 CONNECTION_ERRORS = (
     requests.exceptions.Timeout,
-    requests.exceptions.ConnectionError,
-    requests.exceptions.HTTPError,
-    requests.exceptions.ReadTimeout,
     requests.exceptions.RetryError,
+    requests.exceptions.ChunkedEncodingError,
+    requests.exceptions.ConnectionError,
     ConnectionError,
 )
 
@@ -91,7 +88,7 @@ class SpaceUsage(dropbox.users.SpaceUsage):
 
 def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
     """
-    Decorator that converts instances of :class:`OSError` and
+    Returns a decorator that converts instances of :class:`OSError` and
     :class:`dropbox.exceptions.DropboxException` to :class:`errors.MaestralApiError`.
 
     :param int dbx_path_arg: Argument number to take as dbx_path for exception.
@@ -109,12 +106,12 @@ def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
             try:
                 return func(*args, **kwargs)
             except dropbox.exceptions.DropboxException as exc:
-                raise dropbox_to_maestral_error(exc, dbx_path, local_path) from exc
+                raise dropbox_to_maestral_error(exc, dbx_path, local_path)
             # catch connection errors first, they may inherit from OSError
             except CONNECTION_ERRORS:
                 raise ConnectionError('Cannot connect to Dropbox')
             except OSError as exc:
-                raise os_to_maestral_error(exc, dbx_path, local_path) from exc
+                raise os_to_maestral_error(exc, dbx_path, local_path)
 
         return wrapper
 
@@ -134,34 +131,29 @@ class MaestralApiClient:
     :class:`ConnectionError`.
 
     :param str config_name: Name of config file and state file to use.
-    :param int timeout: Timeout for individual requests in sec. Defaults to 60 sec.
+    :param str access_token: Dropbox access token for user.
+    :param int timeout: Timeout for individual requests. Defaults to 100 sec if not given.
     """
 
     SDK_VERSION = '2.0'
-    _timeout = 60
 
-    def __init__(self, config_name='maestral', timeout=_timeout):
+    def __init__(self, config_name, access_token, timeout=100):
 
         self.config_name = config_name
 
         self._state = MaestralState(config_name)
-
-        # get Dropbox session
-        self.auth = OAuth2Session(config_name)
-        if not self.auth.load_token():
-            self.auth.link()
-        self._timeout = timeout
-        self._last_longpoll = None
-        self._backoff = 0
-        self._retry_count = 0
+        self._backoff_until = 0
 
         # initialize API client
         self.dbx = dropbox.Dropbox(
-            self.auth.access_token,
+            access_token,
             session=SESSION,
             user_agent=USER_AGENT,
-            timeout=self._timeout
+            timeout=timeout
         )
+
+    def set_access_token(self, token):
+        self.dbx._oauth2_access_token = token
 
     @to_maestral_error()
     def get_account_info(self, dbid=None):
@@ -218,9 +210,8 @@ class MaestralApiClient:
     @to_maestral_error()
     def unlink(self):
         """
-        Unlinks the Dropbox account and deletes local sync information.
+        Unlinks the Dropbox account.
         """
-        self.auth.delete_creds()
         self.dbx.auth_token_revoke()  # should only raise auth errors
 
     @to_maestral_error(dbx_path_arg=1)
@@ -389,34 +380,43 @@ class MaestralApiClient:
         return md
 
     @to_maestral_error()
-    def remove_batch(self, dbx_paths, batch_size=900):
+    def remove_batch(self, entries, batch_size=900):
         """
         Delete multiple items on Dropbox in a batch job.
 
-        :param list[str] dbx_paths: List of dropbox paths to delete.
-        :param int batch_size: Number of folders to create in each batch. Dropbox allows
-            batches of up to 1,000 folders. Larger values will be capped automatically.
-        :returns: List of Metadata for created folders or SyncError for failures. Entries
-            will be in the same order as given paths.
+        :param list[tuple[str, str]] entries: List of Dropbox paths and "rev"s to delete.
+            If a "rev" is not None, the file will only be deleted if it matches the rev on
+            Dropbox. This is not supported when deleting a folder.
+        :param int batch_size: Number of items to delete in each batch. Dropbox allows
+            batches of up to 1,000 items. Larger values will be capped automatically.
+        :returns: List of Metadata for deleted items or :class:`errors.SyncError` for
+            failures. Results will be in the same order as the original input.
         :rtype: list
         """
-        batch_size = clamp(batch_size, 1, 1000)
-        check_interval = round(0.5 + batch_size / 1000, 2)
 
-        entries = []
+        batch_size = clamp(batch_size, 1, 1000)
+
+        res_entries = []
         result_list = []
 
         # up two ~ 1,000 entries allowed per batch according to
         # https://www.dropbox.com/developers/reference/data-ingress-guide
-        for chunk in chunks(dbx_paths, n=batch_size):
-            res = self.dbx.files_delete_batch(chunk)
+        for chunk in chunks(entries, n=batch_size):
+
+            arg = [dropbox.files.DeleteArg(e[0], e[1]) for e in chunk]
+            res = self.dbx.files_delete_batch(arg)
+
             if res.is_complete():
                 batch_res = res.get_complete()
-                entries.extend(batch_res.entries)
+                res_entries.extend(batch_res.entries)
+
             elif res.is_async_job_id():
                 async_job_id = res.get_async_job_id()
 
+                time.sleep(1.0)
                 res = self.dbx.files_delete_batch_check(async_job_id)
+
+                check_interval = round(len(chunk) / 100, 1)
 
                 while res.is_in_progress():
                     time.sleep(check_interval)
@@ -424,9 +424,17 @@ class MaestralApiClient:
 
                 if res.is_complete():
                     batch_res = res.get_complete()
-                    entries.extend(batch_res.entries)
+                    res_entries.extend(batch_res.entries)
 
-        for i, entry in enumerate(entries):
+                elif res.is_failed():
+                    error = res.get_failed()
+                    if error.is_too_many_write_operations():
+                        title = 'Could not delete items'
+                        text = ('There are too many write operations happening in your '
+                                'Dropbox. Please try again later.')
+                        raise SyncError(title, text)
+
+        for i, entry in enumerate(res_entries):
             if entry.is_success():
                 result_list.append(entry.get_success().metadata)
             elif entry.is_failure():
@@ -436,7 +444,7 @@ class MaestralApiClient:
                     user_message_locale=None,
                     request_id=None,
                 )
-                sync_err = dropbox_to_maestral_error(exc, dbx_path=dbx_paths[i])
+                sync_err = dropbox_to_maestral_error(exc, dbx_path=entries[i][0])
                 result_list.append(sync_err)
 
         return result_list
@@ -492,7 +500,6 @@ class MaestralApiClient:
         :rtype: list
         """
         batch_size = clamp(batch_size, 1, 1000)
-        check_interval = round(0.5 + batch_size / 1000, 2)
 
         entries = []
         result_list = []
@@ -507,7 +514,10 @@ class MaestralApiClient:
             elif res.is_async_job_id():
                 async_job_id = res.get_async_job_id()
 
+                time.sleep(1.0)
                 res = self.dbx.files_create_folder_batch_check(async_job_id)
+
+                check_interval = round(len(chunk) / 100, 1)
 
                 while res.is_in_progress():
                     time.sleep(check_interval)
@@ -516,6 +526,7 @@ class MaestralApiClient:
                 if res.is_complete():
                     batch_res = res.get_complete()
                     entries.extend(batch_res.entries)
+
                 elif res.is_failed():
                     error = res.get_failed()
                     if error.is_too_many_files():
@@ -566,13 +577,15 @@ class MaestralApiClient:
         return res.cursor
 
     @to_maestral_error(dbx_path_arg=1)
-    def list_folder(self, dbx_path, retry=3, include_non_downloadable_files=False,
-                    **kwargs):
+    def list_folder(self, dbx_path, max_retries_on_timeout=4,
+                    include_non_downloadable_files=False, **kwargs):
         """
         Lists the contents of a folder on Dropbox.
 
         :param str dbx_path: Path of folder on Dropbox.
-        :param int retry: Number of times to try again call fails because cursor is reset.
+        :param int max_retries_on_timeout: Number of times to try again if Dropbox servers
+            don't respond within the timeout. Occasional timeouts may occur for very large
+            Dropbox folders.
         :param bool include_non_downloadable_files: If ``True``, files that cannot be
             downloaded (at the moment only G-suite files on Dropbox) will be included.
         :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
@@ -594,22 +607,23 @@ class MaestralApiClient:
         idx = 0
 
         while results[-1].has_more:
+
             idx += len(results[-1].entries)
             logger.info(f'Indexing {idx}...')
-            try:
-                more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
-                results.append(more_results)
-            except dropbox.exceptions.DropboxException as exc:
-                new_exc = dropbox_to_maestral_error(exc, dbx_path)
-                if isinstance(new_exc, CursorResetError) and self._retry_count < retry:
-                    # retry up to three times, then raise
-                    self._retry_count += 1
-                    self.list_folder(dbx_path, include_non_downloadable_files, **kwargs)
-                else:
-                    self._retry_count = 0
-                    raise exc
 
-        self._retry_count = 0
+            attempt = 0
+
+            while True:
+                try:
+                    more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
+                    results.append(more_results)
+                    break
+                except requests.exceptions.ReadTimeout:
+                    attempt += 1
+                    if attempt <= max_retries_on_timeout:
+                        time.sleep(5.0)
+                    else:
+                        raise
 
         return self.flatten_results(results)
 
@@ -649,27 +663,24 @@ class MaestralApiClient:
             raise ValueError('Timeout must be in range [30, 480]')
 
         # honour last request to back off
-        if self._last_longpoll is not None:
-            while time.time() - self._last_longpoll < self._backoff:
-                time.sleep(1)
+        time_to_backoff = max(self._backoff_until - time.time(), 0)
+        time.sleep(time_to_backoff)
 
         result = self.dbx.files_list_folder_longpoll(last_cursor, timeout=timeout)
 
-        # keep track of last long poll, back off if requested by SDK
+        # keep track of last longpoll, back off if requested by SDK
         if result.backoff:
-            self._backoff = result.backoff + 5
+            self._backoff_until = time.time() + result.backoff + 5.0
         else:
-            self._backoff = 0
+            self._backoff_until = 0
 
-        self._last_longpoll = time.time()
-
-        return result.changes  # will be True or False
+        return result.changes
 
     @to_maestral_error()
     def list_remote_changes(self, last_cursor):
         """
         Lists changes to remote Dropbox since ``last_cursor``. Call this after
-        :method:`wait_for_remote_changes` returns ``True``.
+        :meth:`wait_for_remote_changes` returns ``True``.
 
         :param str last_cursor: Last to cursor to compare for changes.
         :returns: Remote changes since given cursor.

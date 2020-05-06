@@ -1,5 +1,12 @@
+# -*- coding: utf-8 -*-
+"""
+@author: Sam Schott  (ss2151@cam.ac.uk)
+
+(c) Sam Schott; This work is licensed under the MIT licence.
+
+"""
 from maestral.utils.updates import (
-    get_newer_version, check_update_available, is_stable_version
+    get_newer_version, check_update_available
 )
 
 
@@ -16,4 +23,3 @@ def test_check_update_available():
 
     if not res['error']:
         assert res['update_available']
-        assert is_stable_version(res['latest_release'])

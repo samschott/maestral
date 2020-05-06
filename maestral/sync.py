@@ -2,12 +2,12 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module is the heart of Maestral, it contains the classes for sync functionality.
 
 """
+
 # system imports
 import os
 import os.path as osp
@@ -28,10 +28,10 @@ from contextlib import contextmanager
 import functools
 from enum import IntEnum
 import pprint
+import socket
 
 # external imports
 import pathspec
-import umsgpack
 import dropbox
 from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata
 from watchdog.events import FileSystemEventHandler
@@ -47,10 +47,11 @@ from atomicwrites import atomic_write
 from maestral.config import MaestralConfig, MaestralState
 from maestral.fsevents import Observer
 from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
-                                EXCLUDED_FILE_NAMES, MIGNORE_FILE, IS_FS_CASE_SENSITIVE)
-from maestral.errors import (MaestralApiError, RevFileError, DropboxDeletedError,
-                             DropboxAuthError, SyncError, PathError, InotifyError,
-                             NotFoundError, os_to_maestral_error)
+                                EXCLUDED_FILE_NAMES, EXCLUDED_DIR_NAMES,
+                                MIGNORE_FILE, FILE_CACHE, IS_FS_CASE_SENSITIVE)
+from maestral.errors import (RevFileError, NoDropboxDirError, CacheDirError, SyncError,
+                             PathError, NotFoundError, FileConflictError, FolderConflictError,
+                             fswatch_to_maestral_error, os_to_maestral_error)
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import (
@@ -135,40 +136,33 @@ class FSEventHandler(FileSystemEventHandler):
         self.local_file_event_queue = Queue()
 
     @contextmanager
-    def ignore(self, *local_paths,
-               event_types=(EVENT_TYPE_MOVED, EVENT_TYPE_DELETED, EVENT_TYPE_CREATED),
-               recursive=False, is_dir=False):
+    def ignore(self, *events, recursive=True):
         """
-        A context manager to ignore file events related to the given paths. Once a
-        matching event has been registered, further file events for the corresponding path
-        will no longer be ignored unless ``recursive`` is ``True``. If no matching event
-        has occurred before leaving the context, the paths will be ignored for
-        ``ignore_timeout`` sec after leaving then context and then discarded. This
-        accounts for possible delays in the emission of local file system events.
+        A context manager to ignore file events. Once a matching event has been
+        registered, further matching events will no longer be ignored unless ``recursive``
+        is ``True``. If no matching event has occurred before leaving the context, the
+        event will be ignored for ``ignore_timeout`` sec after leaving then context and
+        then discarded. This accounts for possible delays in the emission of local file
+        system events.
 
         This context manager is used to filter out file system events caused by maestral
         itself, for instance during a download or when moving a conflict.
 
-        :param iterable local_paths: Local paths to ignore.
-        :param iterable event_types: Event types that should be ignored. Members should be
-            'moved', 'deleted' or 'created'.
-        :param bool recursive: True if all events of child paths (of the same type) should
-            be ignored as well.
-        :param bool is_dir: True if only directory events should be ignored.
+        :param iterable events: Local events to ignore.
+        :param bool recursive: If ``True``, all child events of a dirctory event will be
+            ignored as well.
         """
 
         with self._mutex:
             now = time.time()
             new_ignores = list()
-            for path in local_paths:
+            for e in events:
                 new_ignores.append(
                     dict(
-                        path=path,
+                        event=e,
                         start_time=now,
                         ttl=None,
-                        event_types=event_types,
-                        recursive=recursive,
-                        is_dir=is_dir or recursive,
+                        recursive=recursive and e.is_directory,
                     )
                 )
             self._ignored_paths.extend(new_ignores)
@@ -190,7 +184,7 @@ class FSEventHandler(FileSystemEventHandler):
                 if ttl and ttl < now:
                     self._ignored_paths.remove(ignore)
 
-    def _prune_ignored(self, event):
+    def _discrad_ignored(self, event):
         """
         Checks if a file system event should been explicitly ignored because it was likely
         triggered by Maestral. Split moved events if necessary and returns the event to
@@ -204,54 +198,24 @@ class FSEventHandler(FileSystemEventHandler):
         self._expire_ignored_paths()
 
         for ignore in self._ignored_paths:
-            path = ignore['path']
-            event_types = ignore['event_types']
+            ignore_event = ignore['event']
             recursive = ignore['recursive']
-            is_dir = ignore['is_dir']
-            start_time = ignore['start_time']
 
-            if event.event_type in event_types and event.is_directory == is_dir:
+            if event == ignore_event:
 
-                if (not event.event_type == EVENT_TYPE_DELETED
-                        and self.sync.get_ctime(get_dest_path(event)) < start_time):
-                    # event occurred before exclusion started
-                    return event
+                if not recursive:
+                    self._ignored_paths.remove(ignore)
 
-                if event.event_type == EVENT_TYPE_MOVED:
-                    # check for source and destination path
-                    src_path = event.src_path
-                    dest_path = event.dest_path
+                return None
 
-                    if recursive:
-                        ignore_src = is_equal_or_child(src_path, path)
-                        ignore_dest = is_equal_or_child(dest_path, path)
-                    else:
-                        ignore_src = src_path == path
-                        ignore_dest = dest_path == path
+            elif recursive:
 
-                    if ignore_src and ignore_dest:
-                        if not recursive:
-                            self._ignored_paths.remove(ignore)
-                        return None
-                    elif ignore_src:
-                        if not recursive:
-                            self._ignored_paths.remove(ignore)
-                        return split_moved_event(event)[1]
-                    elif ignore_dest:
-                        if not recursive:
-                            self._ignored_paths.remove(ignore)
-                        return split_moved_event(event)[0]
+                type_match = event.event_type == ignore_event.event_type
+                src_match = is_equal_or_child(event.src_path, ignore_event.src_path)
+                dest_match = is_equal_or_child(get_dest_path(event), get_dest_path(ignore_event))
 
-                else:
-                    if recursive:
-                        ignore_src = is_equal_or_child(event.src_path, path)
-                    else:
-                        ignore_src = event.src_path == path
-
-                    if ignore_src:
-                        if not recursive:
-                            self._ignored_paths.remove(ignore)
-                        return None
+                if type_match and src_match and dest_match:
+                    return None
 
         return event
 
@@ -268,8 +232,12 @@ class FSEventHandler(FileSystemEventHandler):
         if not (self.syncing.is_set() or self.startup.is_set()):
             return
 
+        # ignore all DirMovedEvents
+        if isinstance(event, DirModifiedEvent):
+            return
+
         # check for ignored paths, split moved events if necessary
-        event = self._prune_ignored(event)
+        event = self._discrad_ignored(event)
 
         if event:
             self.local_file_event_queue.put(event)
@@ -332,32 +300,51 @@ class MaestralStateWrapper(abc.MutableSet):
                f'option=\'{self.option}\', entries={list(self)})>'
 
 
-def catch_sync_issues(func):
+def catch_sync_issues(download=False):
     """
-    Decorator that catches all SyncErrors and logs them.
+    Returns a decorator that catches all SyncErrors and logs them.
+    Should only be used for methods of UpDownSync.
     """
 
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        try:
-            res = func(self, *args, **kwargs)
-            if res is None:
-                res = True
-        except SyncError as exc:
-            file_name = os.path.basename(exc.dbx_path)
-            logger.warning('Could not sync %s', file_name, exc_info=True)
-            if exc.dbx_path is not None:
-                if exc.local_path is None:
-                    exc.local_path = self.to_local_path(exc.dbx_path)
-                self.sync_errors.put(exc)
-                if any(isinstance(a, Metadata) for a in args):
-                    self.download_errors.add(exc.dbx_path)
+    def decorator(func):
 
-            res = False
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            try:
+                res = func(self, *args, **kwargs)
+                if res is None:
+                    res = True
+            except SyncError as exc:
+                # fill out missing dbx_path or local_path
+                if exc.dbx_path or exc.local_path:
+                    if not exc.local_path:
+                        exc.local_path = self.to_local_path(exc.dbx_path)
+                    if not exc.dbx_path:
+                        exc.dbx_path = self.to_dbx_path(exc.local_path)
 
-        return res
+                if exc.dbx_path_dst or exc.local_path_dst:
+                    if not exc.local_path_dst:
+                        exc.local_path_dst = self.to_local_path(exc.dbx_path_dst)
+                    if not exc.dbx_path:
+                        exc.dbx_path_dst = self.to_dbx_path(exc.local_path_dst)
 
-    return wrapper
+                if exc.dbx_path:
+                    # we have a file / folder associated with the sync error
+                    file_name = osp.basename(exc.dbx_path)
+                    logger.warning('Could not sync %s', file_name, exc_info=True)
+                    self.sync_errors.put(exc)
+
+                    # save download errors to retry later
+                    if download:
+                        self.download_errors.add(exc.dbx_path)
+
+                res = False
+
+            return res
+
+        return wrapper
+
+    return decorator
 
 
 class UpDownSync:
@@ -448,11 +435,12 @@ class UpDownSync:
 
         self.client = client
         self.config_name = self.client.config_name
+        self.cancel_pending = Event()
         self.fs_events = None
 
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
-        self.notifier = MaestralDesktopNotifier.for_config(self.config_name)
+        self._notifier = MaestralDesktopNotifier.for_config(self.config_name)
 
         self.download_errors = MaestralStateWrapper(
             self.config_name, section='sync', option='download_errors'
@@ -475,16 +463,19 @@ class UpDownSync:
         # load cached properties
         self._dropbox_path = self._conf.get('main', 'path')
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
-
+        self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
         self._rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
+
         self._rev_dict_cache = dict()
-        self._migrate_rev_dict()
         self._load_rev_dict_from_file(raise_exception=True)
         self._excluded_items = self._conf.get('main', 'excluded_items')
         self._mignore_rules = self._load_mignore_rules_form_file()
         self._last_sync_for_path = dict()
 
         self._max_cpu_percent = self._conf.get('sync', 'max_cpu_percent') * _cpu_count
+
+        # clean our file cache
+        self.clean_cache_dir()
 
     # ==== settings ======================================================================
 
@@ -502,12 +493,18 @@ class UpDownSync:
         """Setter: dropbox_path"""
         self._dropbox_path = path
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
+        self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
         self._conf.set('main', 'path', path)
 
     @property
     def rev_file_path(self):
         """Path to sync index with rev numbers (read only)."""
         return self._rev_file_path
+
+    @property
+    def file_cache_path(self):
+        """Path to sync index with rev numbers (read only)."""
+        return self._file_cache_path
 
     @property
     def excluded_items(self):
@@ -608,7 +605,7 @@ class UpDownSync:
         """
         with self._last_sync_lock:
             dbx_path = dbx_path.lower()
-            return self._last_sync_for_path.get(dbx_path, None) or self.last_sync
+            return max(self._last_sync_for_path.get(dbx_path, 0.0), self.last_sync)
 
     def set_last_sync_for_path(self, dbx_path, last_sync):
         """
@@ -725,8 +722,7 @@ class UpDownSync:
         if new_exc and raise_exception:
             raise new_exc
         elif new_exc:
-            exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
-            logger.error(title, exc_info=exc_info)
+            logger.error(title, exc_info=_exc_info(new_exc))
 
     @contextmanager
     def _handle_rev_write_exceptions(self, raise_exception=False):
@@ -749,20 +745,7 @@ class UpDownSync:
         if new_exc and raise_exception:
             raise new_exc
         elif new_exc:
-            exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
-            logger.error(title, exc_info=exc_info)
-
-    def _migrate_rev_dict(self):
-        try:
-            with self._handle_rev_read_exceptions():
-                with open(self.rev_file_path, 'rb') as f:
-                    self._rev_dict_cache = umsgpack.unpack(f)
-            if isinstance(self._rev_dict_cache, dict):
-                self._save_rev_dict_to_file()
-        except umsgpack.InsufficientDataException:
-            pass
-
-        self._rev_dict_cache = dict()
+            logger.error(title, exc_info=_exc_info(new_exc))
 
     def _load_rev_dict_from_file(self, raise_exception=False):
         """
@@ -777,7 +760,7 @@ class UpDownSync:
         with self._rev_lock:
             self._rev_dict_cache.clear()
             with self._handle_rev_read_exceptions(raise_exception):
-                with open(self.rev_file_path, 'r') as f:
+                with open(self.rev_file_path) as f:
                     for line in f:
                         try:
                             entry = json.loads(line.strip('\n'))
@@ -841,7 +824,7 @@ class UpDownSync:
     def _load_mignore_rules_form_file(self):
         self._mignore_ctime_loaded = self.get_ctime(self.mignore_path)
         try:
-            with open(self.mignore_path, 'r') as f:
+            with open(self.mignore_path) as f:
                 spec = f.read()
         except FileNotFoundError:
             spec = ''
@@ -860,7 +843,41 @@ class UpDownSync:
             title = 'Dropbox folder has been moved or deleted'
             msg = ('Please move the Dropbox folder back to its original location '
                    'or restart Maestral to set up a new folder.')
-            raise DropboxDeletedError(title, msg)
+            raise NoDropboxDirError(title, msg)
+
+    def _ensure_cache_dir_present(self):
+        """Checks for or creates a directory at :attr:`file_cache_path`."""
+        while not osp.isdir(self.file_cache_path):
+            err = delete(self._file_cache_path)
+            if err and not isinstance(err, FileNotFoundError):
+                raise CacheDirError(f'Cannot create cache directory (errno {err.errno})',
+                                    'Please check if you have write permissions for '
+                                    f'{self.file_cache_path}.')
+            try:
+                os.mkdir(self.file_cache_path)
+            except FileExistsError:
+                pass
+            except OSError:
+                raise CacheDirError(f'Cannot create cache directory (errno {err.errno})',
+                                    'Please check if you have write permissions for '
+                                    f'{self.file_cache_path}.')
+
+    def clean_cache_dir(self):
+        err = delete(self._file_cache_path)
+        if err and not isinstance(err, FileNotFoundError):
+            raise CacheDirError(f'Cannot create cache directory (errno {err.errno})',
+                                'Please check if you have write permissions for '
+                                f'{self._file_cache_path}.')
+
+    def _new_tmp_file(self):
+        self._ensure_cache_dir_present()
+        try:
+            with tempfile.NamedTemporaryFile(dir=self.file_cache_path, delete=False) as f:
+                return f.name
+        except OSError as exc:
+            raise CacheDirError(f'Cannot create temporary file (errno {exc.errno})',
+                                'Please check if you have write permissions for '
+                                f'{self._file_cache_path}.')
 
     def to_dbx_path(self, local_path):
         """
@@ -923,8 +940,8 @@ class UpDownSync:
         """
         Clears all sync errors for ``local_path`` or ``dbx_path``.
 
-        :param str local_path: Absolute path on local drive.
-        :param str dbx_path: Path relative to Dropbox folder.
+        :param Optional[str] local_path: Absolute path on local drive.
+        :param Optional[str] dbx_path: Path relative to Dropbox folder.
         :raises: :class:`ValueError` if no path is given.
         """
         if not (local_path or dbx_path):
@@ -967,22 +984,30 @@ class UpDownSync:
         path = path.lower()
 
         # is root folder?
-        if path in ['/', '']:
+        if path in ('/', ''):
             return True
 
-        basename = osp.basename(path)
-
+        dirname, basename = osp.split(path)
         # in excluded files?
-        test0 = basename in EXCLUDED_FILE_NAMES
+        if basename in EXCLUDED_FILE_NAMES:
+            return True
+
+        # in excluded dirs?
+        dirnames = dirname.split('/')
+        if any(name in dirnames for name in EXCLUDED_DIR_NAMES):
+            return True
 
         # is temporary file?
         # 1) office temporary files
-        test1 = basename.startswith('~$')
-        test2 = basename.startswith('.~')
+        if basename.startswith('~$'):
+            return True
+        if basename.startswith('.~'):
+            return True
         # 2) other temporary files
-        test3 = basename.startswith('~') and basename.endswith('.tmp')
+        if basename.startswith('~') and basename.endswith('.tmp'):
+            return True
 
-        return any((test0, test1, test2, test3))
+        return False
 
     def is_excluded_by_user(self, dbx_path):
         """
@@ -1063,8 +1088,12 @@ class UpDownSync:
         snapshot = DirectorySnapshot(self.dropbox_path)
 
         # remove root entry from snapshot
-        del snapshot._inode_to_path[snapshot.inode(self.dropbox_path)]
-        del snapshot._stat_info[self.dropbox_path]
+        try:
+            del snapshot._inode_to_path[snapshot.inode(self.dropbox_path)]
+            del snapshot._stat_info[self.dropbox_path]
+        except KeyError:
+            pass
+
         # get lowercase paths
         lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
 
@@ -1263,8 +1292,7 @@ class UpDownSync:
         # event order does not matter anymore from this point because we have already
         # consolidated events for every path
 
-        # REMOVE DIR_MODIFIED_EVENTS
-        cleaned_events = set(e for e in unique_events if not isinstance(e, DirModifiedEvent))
+        cleaned_events = set(unique_events)
 
         # recombine moved events
         moved_events = dict()
@@ -1374,7 +1402,7 @@ class UpDownSync:
     def _handle_case_conflict(self, event):
         """
         Checks for other items in the same directory with same name but a different
-        case. Renames items if necessary.Only needed for case sensitive file systems.
+        case. Renames items if necessary. Only needed for case sensitive file systems.
 
         :param FileSystemEvent event: Created or moved event.
         :returns: ``True`` or ``False``.
@@ -1388,21 +1416,23 @@ class UpDownSync:
             return False
 
         # get the created path (src_path or dest_path)
-        dest_path = get_dest_path(event)
-        dirname, basename = osp.split(dest_path)
+        local_path = get_dest_path(event)
+        dirname, basename = osp.split(local_path)
 
         # check number of paths with the same case
         if len(path_exists_case_insensitive(basename, root=dirname)) > 1:
 
-            dest_path_cc = generate_cc_name(dest_path, suffix='case conflict')
-            with self.fs_events.ignore(dest_path, recursive=osp.isdir(dest_path),
-                                       event_types=(EVENT_TYPE_DELETED,
-                                                    EVENT_TYPE_MOVED)):
-                exc = move(dest_path, dest_path_cc)
-                if exc:
-                    raise os_to_maestral_error(exc, local_path=dest_path_cc)
+            local_path_cc = generate_cc_name(local_path, suffix='case conflict')
 
-            logger.info('Case conflict: renamed "%s" to "%s"', dest_path, dest_path_cc)
+            event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+            with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
+                exc = move(local_path, local_path_cc)
+                if exc:
+                    raise os_to_maestral_error(exc, local_path=local_path_cc)
+
+                self._rescan(local_path_cc)
+
+            logger.info('Case conflict: renamed "%s" to "%s"', local_path, local_path_cc)
 
             return True
         else:
@@ -1428,11 +1458,13 @@ class UpDownSync:
             local_path_cc = generate_cc_name(local_path,
                                              suffix='selective sync conflict')
 
-            with self.fs_events.ignore(local_path, recursive=osp.isdir(local_path),
-                                       event_types=(EVENT_TYPE_DELETED, EVENT_TYPE_MOVED)):
+            event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+            with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
                 exc = move(local_path, local_path_cc)
                 if exc:
                     raise os_to_maestral_error(exc, local_path=local_path_cc)
+
+                self._rescan(local_path_cc)
 
             logger.info('Selective sync conflict: renamed "%s" to "%s"',
                         local_path, local_path_cc)
@@ -1465,28 +1497,41 @@ class UpDownSync:
         for e in itertools.chain(*sorted_events.values()):
             self.queued_for_upload.put(get_dest_path(e))
 
+        success = []
+
         # apply deleted events first, folder moved events second
         # neither event type requires an actual upload
         if sorted_events['deleted']:
             logger.info('Uploading deletions...')
 
-        for event in sorted_events['deleted']:
-            self.create_remote_entry(event)
+        last_emit = time.time()
+        with ThreadPoolExecutor(max_workers=self._num_threads,
+                                thread_name_prefix='maestral-upload-pool') as executor:
+            fs = (executor.submit(self.create_remote_entry, e)
+                  for e in sorted_events['deleted'])
+            n_files = len(sorted_events['deleted'])
+            for f, n in zip(as_completed(fs), range(1, n_files + 1)):
+                if time.time() - last_emit > 1 or n in (1, n_files):
+                    # emit message at maximum every second
+                    logger.info(f'Deleting {n}/{n_files}...')
+                    last_emit = time.time()
+                success.append(f.result())
 
         if sorted_events['dir_moved']:
             logger.info('Moving folders...')
 
         for event in sorted_events['dir_moved']:
-            self.create_remote_entry(event)
+            logger.info(f'Moving {event.src_path}...')
+            res = self.create_remote_entry(event)
+            success.append(res)
 
-        # apply file and created folder events in parallel since order does not matter
-        success = []
+        # apply file created events in parallel since order does not matter
         last_emit = time.time()
         with ThreadPoolExecutor(max_workers=self._num_threads,
                                 thread_name_prefix='maestral-upload-pool') as executor:
             fs = (executor.submit(self.create_remote_entry, e) for e in
-                  itertools.chain(sorted_events['file'], sorted_events['dir_created']))
-            n_files = len(sorted_events['file']) + len(sorted_events['dir_created'])
+                  itertools.chain(sorted_events['dir_created'], sorted_events['file']))
+            n_files = len(sorted_events['dir_created']) + len(sorted_events['file'])
             for f, n in zip(as_completed(fs), range(1, n_files + 1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
                     # emit message at maximum every second
@@ -1494,12 +1539,14 @@ class UpDownSync:
                     last_emit = time.time()
                 success.append(f.result())
 
+        # bookkeeping
+
         if all(success):
-            self.last_sync = local_cursor  # save local cursor
+            self.last_sync = local_cursor
 
         self._clean_and_save_rev_file()
 
-    @catch_sync_issues
+    @catch_sync_issues(download=False)
     def create_remote_entry(self, event):
         """
         Applies a local file system event to the remote Dropbox and clears any existing
@@ -1509,12 +1556,15 @@ class UpDownSync:
         :param FileSystemEvent event: Watchdog file system event.
         """
 
+        if self.cancel_pending.is_set():
+            return False
+
         self._slow_down()
 
+        # book keeping
         local_path_from = event.src_path
         local_path_to = get_dest_path(event)
 
-        # book keeping
         remove_from_queue(self.queued_for_upload, local_path_from, local_path_to)
         self.clear_sync_error(local_path=local_path_to)
         self.clear_sync_error(local_path=local_path_from)
@@ -1625,18 +1675,22 @@ class UpDownSync:
 
         dbx_path = self.to_dbx_path(local_path)
 
-        md_old = self.client.get_metadata(dbx_path)
         self._wait_for_creation(local_path)
 
         if event.is_directory:
-            if isinstance(md_old, FolderMetadata):
+            try:
+                md_new = self.client.make_dir(dbx_path, autorename=False)
+            except FolderConflictError:
+                logger.debug('No conflict for "%s": the folder already exists',
+                             event.src_path)
                 self.set_local_rev(dbx_path, 'folder')
                 return
-            else:
+            except FileConflictError:
                 md_new = self.client.make_dir(dbx_path, autorename=True)
 
         else:
             # check if file already exists with identical content
+            md_old = self.client.get_metadata(dbx_path)
             if isinstance(md_old, FileMetadata):
                 local_hash = get_local_hash(local_path)
                 if local_hash == md_old.content_hash:
@@ -1646,26 +1700,30 @@ class UpDownSync:
 
             rev = self.get_local_rev(dbx_path)
             if not rev:
-                # add a new file, let Dropbox rename it if something is in the way
-                mode = dropbox.files.WriteMode('add')
+                # file is new to us, let Dropbox rename it if something is in the way
+                mode = dropbox.files.WriteMode.add
             elif rev == 'folder':
-                # try to overwrite the destination
-                mode = dropbox.files.WriteMode('overwrite')
+                # try to overwrite the destination, this will fail...
+                mode = dropbox.files.WriteMode.overwrite
             else:
-                # try to update the given rev, create conflict otherwise
-                mode = dropbox.files.WriteMode('update', rev)
+                # file has been modified, update remote if matching rev,
+                # create conflict otherwise
+                logger.debug('"%s" appears to have been created but we are '
+                             'already tracking it', dbx_path)
+                mode = dropbox.files.WriteMode.update(rev)
             try:
                 md_new = self.client.upload(local_path, dbx_path,
                                             autorename=True, mode=mode)
             except NotFoundError:
-                logger.debug('Could not upload "%s":pip install  the item does not exist',
+                logger.debug('Could not upload "%s": the item does not exist',
                              event.src_path)
                 return
 
         if md_new.path_lower != dbx_path.lower():
+            # conflicting copy created during upload, mirror remote changes locally
             local_path_cc = self.to_local_path(md_new.path_display)
-            with self.fs_events.ignore(local_path, local_path_cc,
-                                       recursive=osp.isdir(local_path)):
+            event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+            with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
                 exc = move(local_path, local_path_cc)
                 if exc:
                     raise os_to_maestral_error(exc, local_path=local_path_cc,
@@ -1677,6 +1735,7 @@ class UpDownSync:
             logger.debug('Upload conflict: renamed "%s" to "%s"',
                          dbx_path, md_new.path_lower)
         else:
+            # everything went well, save new revs
             rev = getattr(md_new, 'rev', 'folder')
             self.set_local_rev(md_new.path_lower, rev)
             logger.debug('Created "%s" on Dropbox', dbx_path)
@@ -1685,7 +1744,7 @@ class UpDownSync:
         """
         Creates multiple folders on Dropbox in a batch request. We currently don't use
         this because folders are created in parallel anyways and we perform conflict
-        checks before uploading each folder. This is currently not used for syncing.
+        checks before uploading each folder.
 
         :param list[DirCreatedEvent] events: List of directory creates events.
         :raises: :class:`errors.MaestralApiError`
@@ -1715,9 +1774,11 @@ class UpDownSync:
         for res, dbx_path, local_path in zip(res_list, dbx_paths, local_paths):
             if isinstance(res, Metadata):
                 if res.path_lower != dbx_path.lower():
+                    # conflicting copy created during upload, mirror remote changes
+                    # locally
                     local_path_cc = self.to_local_path(res.path_display)
-                    with self.fs_events.ignore(local_path, local_path_cc,
-                                               recursive=osp.isdir(local_path)):
+                    event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+                    with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
                         exc = move(local_path, local_path_cc)
                         if exc:
                             raise os_to_maestral_error(exc, local_path=local_path_cc,
@@ -1730,6 +1791,7 @@ class UpDownSync:
                     logger.debug('Upload conflict: renamed "%s" to "%s"',
                                  dbx_path, res.path_lower)
                 else:
+                    # everything went well, save new revs
                     self.set_local_rev(res.path_lower, 'folder')
                     logger.debug('Created "%s" on Dropbox', dbx_path)
 
@@ -1765,13 +1827,13 @@ class UpDownSync:
 
             rev = self.get_local_rev(dbx_path)
             if rev == 'folder':
-                mode = dropbox.files.WriteMode('overwrite')
+                mode = dropbox.files.WriteMode.overwrite
             elif not rev:
                 logger.debug('"%s" appears to have been modified but cannot '
                              'find old revision', dbx_path)
-                mode = dropbox.files.WriteMode('add')
+                mode = dropbox.files.WriteMode.add
             else:
-                mode = dropbox.files.WriteMode('update', rev)
+                mode = dropbox.files.WriteMode.update(rev)
 
             try:
                 md_new = self.client.upload(local_path, dbx_path,
@@ -1781,12 +1843,14 @@ class UpDownSync:
                 return
 
             if md_new.path_lower != dbx_path.lower():
+                # conflicting copy created during upload, mirror remote changes locally
                 local_path_cc = self.to_local_path(md_new.path_display)
-                with self.fs_events.ignore(local_path, local_path_cc):
+                with self.fs_events.ignore(FileMovedEvent(local_path, local_path_cc)):
                     try:
                         os.rename(local_path, local_path_cc)
                     except OSError:
-                        delete(local_path)
+                        with self.fs_events.ignore(FileDeletedEvent(local_path)):
+                            delete(local_path)
 
                 # Delete revs of old path but don't set revs for new path here. This will
                 # force conflict resolution on download in case of intermittent changes.
@@ -1794,6 +1858,7 @@ class UpDownSync:
                 logger.debug('Upload conflict: renamed "%s" to "%s"',
                              dbx_path, md_new.path_lower)
             else:
+                # everything went well, save new revs
                 self.set_local_rev(md_new.path_lower, md_new.rev)
                 logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
 
@@ -1826,6 +1891,7 @@ class UpDownSync:
             if md.server_modified.timestamp() >= self.get_last_sync_for_path(dbx_path):
                 logger.debug('Skipping deletion: remote item "%s" has been modified '
                              'since last sync', md.path_display)
+                # mark local folder as untracked
                 self.set_local_rev(dbx_path, None)
                 return
 
@@ -1836,6 +1902,7 @@ class UpDownSync:
             #   all changes and checking when they occurred?
             logger.debug('Skipping deletion: expected file at "%s" but found a '
                          'folder instead', md.path_display)
+            # mark local file as untracked
             self.set_local_rev(dbx_path, None)
             return
 
@@ -1854,7 +1921,7 @@ class UpDownSync:
 
     # ==== Download sync =================================================================
 
-    @catch_sync_issues
+    @catch_sync_issues(download=True)
     def get_remote_folder(self, dbx_path='/', ignore_excluded=True):
         """
         Gets all files/folders from Dropbox and writes them to the local folder
@@ -1885,7 +1952,7 @@ class UpDownSync:
         cursor = self.client.get_latest_cursor(dbx_path)
 
         root_result = self.client.list_folder(dbx_path, recursive=(not ignore_excluded),
-                                              include_deleted=False, limit=500)
+                                              include_deleted=False)
 
         # download top-level folders / files first
         logger.info(SYNCING)
@@ -1931,10 +1998,11 @@ class UpDownSync:
             with InQueue(self.queue_downloading, md.path_display):
                 res = self.create_local_entry(md)
 
-        self.pending_downloads.discard(dbx_path)
+        if res is True:
+            self.pending_downloads.discard(dbx_path)
+
         return res
 
-    @catch_sync_issues
     def wait_for_remote_changes(self, last_cursor, timeout=40, delay=2):
         """
         Blocks until changes to the remote Dropbox are available.
@@ -1952,7 +2020,6 @@ class UpDownSync:
         logger.debug('Detected remote changes: %s', has_changes)
         return has_changes
 
-    @catch_sync_issues
     def list_remote_changes(self, last_cursor):
         """
         Lists remote changes since the last download sync.
@@ -2063,12 +2130,12 @@ class UpDownSync:
 
         success = all(downloaded)
 
-        if save_cursor:
+        if save_cursor and not self.cancel_pending.is_set():
             self.last_cursor = changes.cursor
 
         self._clean_and_save_rev_file()
 
-        return [entry for entry in downloaded if not isinstance(entry, bool)], success
+        return [entry for entry in downloaded if isinstance(entry, Metadata)], success
 
     def check_download_conflict(self, md):
         """
@@ -2221,7 +2288,7 @@ class UpDownSync:
         else:
             msg = f'{file_name} {change_type}'
 
-        self.notifier.notify(msg, level=FILECHANGE)
+        self._notifier.notify(msg, level=FILECHANGE)
 
     def _get_modified_by_dbid(self, md):
         """
@@ -2249,17 +2316,17 @@ class UpDownSync:
             and :class:`dropbox.files.DeletedMetadata` respectively.
         :rtype: tuple
         """
-        sorted = dict(folders=[], files=[], deleted=[])
+        binned = dict(folders=[], files=[], deleted=[])
 
         for x in result.entries:
             if isinstance(x, FolderMetadata):
-                sorted['folders'].append(x)
+                binned['folders'].append(x)
             elif isinstance(x, FileMetadata):
-                sorted['files'].append(x)
+                binned['files'].append(x)
             elif isinstance(x, DeletedMetadata):
-                sorted['deleted'].append(x)
+                binned['deleted'].append(x)
 
-        return sorted['folders'], sorted['files'], sorted['deleted']
+        return binned['folders'], binned['files'], binned['deleted']
 
     def _clean_remote_changes(self, changes):
         """
@@ -2317,7 +2384,7 @@ class UpDownSync:
 
         return changes
 
-    @catch_sync_issues
+    @catch_sync_issues(download=True)
     def create_local_entry(self, entry):
         """
         Applies a file change from Dropbox servers to the local Dropbox folder.
@@ -2331,13 +2398,17 @@ class UpDownSync:
         :rtype: Metadata, bool
         """
 
+        if self.cancel_pending.is_set():
+            return False
+
         self._slow_down()
 
+        # book keeping
         local_path = self.to_local_path(entry.path_display)
 
-        # book keeping
         self.clear_sync_error(dbx_path=entry.path_display)
         remove_from_queue(self.queued_for_download, entry.path_display)
+        self._save_to_history(entry.path_display)
 
         with InQueue(self.queue_downloading, entry.path_display):
 
@@ -2348,16 +2419,6 @@ class UpDownSync:
             if conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
                 return applied
 
-            elif conflict_check == Conflict.Conflict and isinstance(entry, FolderMetadata):
-                # only move folders here, file will be moved after download is complete
-                new_local_path = generate_cc_name(local_path)
-                with self.fs_events.ignore(local_path, recursive=osp.isdir(local_path),
-                                           event_types=(EVENT_TYPE_DELETED,
-                                                        EVENT_TYPE_MOVED)):
-                    exc = move(local_path, new_local_path)
-                    if exc:
-                        raise os_to_maestral_error(exc, local_path=new_local_path)
-
             if isinstance(entry, FileMetadata):
                 # Store the new entry at the given path in your local state.
                 # If the required parent folders don’t exist yet, create them.
@@ -2365,34 +2426,31 @@ class UpDownSync:
                 # replace it and remove all its children.
 
                 # we download to a temporary file first (this may take some time)
-                with tempfile.NamedTemporaryFile(prefix='maestral_download_',
-                                                 delete=False) as f:
-                    tmp_fname = f.name
-
+                tmp_fname = self._new_tmp_file()
                 md = self.client.download(f'rev:{entry.rev}', tmp_fname)
 
                 # re-check for conflict and move the conflict
                 # out of the way if anything has changed
                 if self.check_download_conflict(entry) == Conflict.Conflict:
                     new_local_path = generate_cc_name(local_path)
-                    with self.fs_events.ignore(local_path,
-                                               recursive=osp.isdir(local_path),
-                                               event_types=(EVENT_TYPE_DELETED,
-                                                            EVENT_TYPE_MOVED)):
+                    event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+                    with self.fs_events.ignore(event_cls(local_path, new_local_path)):
                         exc = move(local_path, new_local_path)
                         if exc:
                             raise os_to_maestral_error(exc, local_path=new_local_path)
 
+                    logger.debug('Download conflict: renamed "%s" to "%s"', local_path,
+                                 new_local_path)
+                    self._rescan(new_local_path)
+
                 if osp.isdir(local_path):
-                    with self.fs_events.ignore(local_path,
-                                               recursive=osp.isdir(local_path),
-                                               event_types=(EVENT_TYPE_DELETED,)):
+                    event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
+                    with self.fs_events.ignore(event_cls(local_path)):
                         delete(local_path)
 
                 # move the downloaded file to its destination
-                with self.fs_events.ignore(local_path,
-                                           event_types=(EVENT_TYPE_DELETED,
-                                                        EVENT_TYPE_CREATED)):
+                with self.fs_events.ignore(FileDeletedEvent(local_path),
+                                           FileMovedEvent(tmp_fname, local_path)):
                     exc = move(tmp_fname, local_path)
                     if exc:
                         raise os_to_maestral_error(exc, dbx_path=entry.path_display,
@@ -2402,7 +2460,6 @@ class UpDownSync:
                 self.set_local_rev(entry.path_lower, md.rev)
 
                 logger.debug('Created local file "%s"', entry.path_display)
-                self._save_to_history(entry.path_display)
                 applied = entry
 
             elif isinstance(entry, FolderMetadata):
@@ -2411,17 +2468,31 @@ class UpDownSync:
                 # If there’s already something else at the given path,
                 # replace it but leave the children as they are.
 
+                if conflict_check == Conflict.Conflict:
+                    new_local_path = generate_cc_name(local_path)
+                    event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+                    with self.fs_events.ignore(event_cls(local_path, new_local_path)):
+                        exc = move(local_path, new_local_path)
+                        if exc:
+                            raise os_to_maestral_error(exc, local_path=new_local_path)
+
+                    logger.debug('Download conflict: renamed "%s" to "%s"', local_path,
+                                 new_local_path)
+                    self._rescan(new_local_path)
+
                 if osp.isfile(local_path):
-                    with self.fs_events.ignore(local_path,
-                                               event_types=(EVENT_TYPE_DELETED,)):
+                    event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
+                    with self.fs_events.ignore(event_cls(local_path)):
                         delete(local_path)
 
                 try:
-                    with self.fs_events.ignore(local_path, is_dir=True,
-                                               event_types=(EVENT_TYPE_CREATED,)):
+                    with self.fs_events.ignore(DirCreatedEvent(local_path), recursive=False):
                         os.makedirs(local_path)
                 except FileExistsError:
                     pass
+                except OSError as exc:
+                    raise os_to_maestral_error(exc, dbx_path=entry.path_display,
+                                               local_path=local_path)
 
                 self.set_last_sync_for_path(entry.path_lower, self.get_ctime(local_path))
                 self.set_local_rev(entry.path_lower, 'folder')
@@ -2434,8 +2505,8 @@ class UpDownSync:
                 # remove it and all its children. If there’s nothing at the
                 # given path, ignore this entry.
 
-                with self.fs_events.ignore(local_path, recursive=osp.isdir(local_path),
-                                           event_types=(EVENT_TYPE_DELETED, )):
+                event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
+                with self.fs_events.ignore(event_cls(local_path)):
                     err = delete(local_path)
 
                 self.set_local_rev(entry.path_lower, None)
@@ -2448,6 +2519,21 @@ class UpDownSync:
                     logger.debug('Deletion failed: %s', err)
 
             return applied
+
+    def _rescan(self, local_path):
+
+        logger.debug('Rescanning "%s"', local_path)
+
+        if osp.isfile(local_path):
+            self.fs_events.local_file_event_queue.put(FileCreatedEvent(local_path))
+        elif osp.isdir(local_path):
+            snapshot = DirectorySnapshot(local_path)
+
+            for path in snapshot.paths:
+                if snapshot.isdir(path):
+                    self.fs_events.local_file_event_queue.put(DirCreatedEvent(path))
+                else:
+                    self.fs_events.local_file_event_queue.put(FileCreatedEvent(path))
 
     def _save_to_history(self, dbx_path):
         # add new file to recent_changes
@@ -2466,9 +2552,7 @@ def helper(mm):
     """
     A worker for periodic maintenance:
 
-     1) Updates the current space usage by calling
-        :meth:`client.MaestralApiClient.get_space_usage`. This doubles as a check for the
-        connection to Dropbox servers.
+     1) Checks for a connection to Dropbox servers.
      2) Pauses syncing when the connection is lost and resumes syncing when reconnected
         and syncing has not been paused by the user.
      3) Triggers weekly reindexing.
@@ -2477,9 +2561,8 @@ def helper(mm):
     """
 
     while mm.running.is_set():
-        try:
-            # use an inexpensive call to `get_space_usage` to test connection
-            mm.sync.client.get_space_usage()
+
+        if check_connection('www.dropbox.com'):
             if not mm.connected.is_set() and not mm.paused_by_user.is_set():
                 mm.startup.set()
             # rebuild the index periodically
@@ -2488,21 +2571,14 @@ def helper(mm):
                 mm.rebuild_index()
             mm.connected.set()
             time.sleep(mm.connection_check_interval)
-        except ConnectionError:
+
+        else:
             if mm.connected.is_set():
-                logger.debug(DISCONNECTED, exc_info=True)
                 logger.info(DISCONNECTED)
             mm.syncing.clear()
             mm.connected.clear()
-            time.sleep(mm.connection_check_interval / 2)
-        except DropboxAuthError as e:
-            mm.running.clear()
-            mm.syncing.clear()
-            logger.error(e.title, exc_info=True)
-        except Exception:
-            mm.running.clear()
-            mm.syncing.clear()
-            logger.error('Unexpected error', exc_info=True)
+            mm.startup.clear()
+            time.sleep(mm.connection_check_interval)
 
 
 def download_worker(sync, syncing, running, connected):
@@ -2535,21 +2611,19 @@ def download_worker(sync, syncing, running, connected):
 
                     logger.info(IDLE)
 
+                sync.client.get_space_usage()
+
                 gc.collect()
 
         except ConnectionError:
             syncing.clear()
             connected.clear()
-            logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
-        except MaestralApiError as e:
+        except Exception as e:
             running.clear()
             syncing.clear()
-            logger.error(e.title, exc_info=True)
-        except Exception:
-            running.clear()
-            syncing.clear()
-            logger.error('Unexpected error', exc_info=True)
+            title = getattr(e, 'title', 'Unexpected error')
+            logger.error(title, exc_info=True)
 
 
 def download_worker_added_item(sync, syncing, running, connected):
@@ -2580,16 +2654,12 @@ def download_worker_added_item(sync, syncing, running, connected):
         except ConnectionError:
             syncing.clear()
             connected.clear()
-            logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
-        except MaestralApiError as e:
+        except Exception as e:
             running.clear()
             syncing.clear()
-            logger.error(e.title, exc_info=True)
-        except Exception:
-            running.clear()
-            syncing.clear()
-            logger.error('Unexpected error', exc_info=True)
+            title = getattr(e, 'title', 'Unexpected error')
+            logger.error(title, exc_info=True)
 
 
 def upload_worker(sync, syncing, running, connected):
@@ -2607,7 +2677,7 @@ def upload_worker(sync, syncing, running, connected):
         syncing.wait()
 
         try:
-            events, local_cursor = sync.wait_for_local_changes(timeout=5)
+            events, local_cursor = sync.wait_for_local_changes()
 
             if not (running.is_set() and syncing.is_set()):
                 continue
@@ -2625,16 +2695,12 @@ def upload_worker(sync, syncing, running, connected):
         except ConnectionError:
             syncing.clear()
             connected.clear()
-            logger.debug(DISCONNECTED, exc_info=True)
             logger.info(DISCONNECTED)
-        except MaestralApiError as e:
+        except Exception as e:
             running.clear()
             syncing.clear()
-            logger.error(e.title, exc_info=True)
-        except Exception:
-            running.clear()
-            syncing.clear()
-            logger.error('Unexpected error', exc_info=True)
+            title = getattr(e, 'title', 'Unexpected error')
+            logger.error(title, exc_info=True)
 
 
 def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
@@ -2668,11 +2734,18 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
                     continue
 
                 # retry failed / interrupted downloads
-                logger.info('Checking for pending downloads...')
+                if len(sync.download_errors) > 0:
+                    logger.info('Retrying failed downloads...')
+
                 for dbx_path in list(sync.download_errors):
+                    logger.info(f'Downloading {dbx_path}...')
                     sync.get_remote_item(dbx_path)
 
+                if len(sync.pending_downloads) > 0:
+                    logger.info('Resuming interrupted downloads...')
+
                 for dbx_path in list(sync.pending_downloads):
+                    logger.info(f'Downloading {dbx_path}...')
                     sync.get_remote_item(dbx_path)
 
                 # upload changes while inactive
@@ -2698,16 +2771,13 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
         except ConnectionError:
             syncing.clear()
             connected.clear()
-            logger.debug(DISCONNECTED, exc_info=True)
+            startup.clear()
             logger.info(DISCONNECTED)
-        except MaestralApiError as e:
+        except Exception as e:
             running.clear()
             syncing.clear()
-            logger.error(e.title, exc_info=True)
-        except Exception:
-            running.clear()
-            syncing.clear()
-            logger.error('Unexpected error', exc_info=True)
+            title = getattr(e, 'title', 'Unexpected error')
+            logger.error(title, exc_info=True)
 
     startup.clear()
 
@@ -2726,29 +2796,9 @@ class MaestralMonitor:
 
     :param MaestralApiClient client: The Dropbox API client, a wrapper around the Dropbox
         Python SDK.
-
-    :ivar Thread local_observer_thread: Watchdog observer thread that detects local file
-        system events.
-    :ivar Thread upload_thread: Thread that sorts uploads local changes.
-    :ivar Thread download_thread: Thread to query for and download remote changes.
-    :ivar Thread file_handler: Handler to queue file events from `observer` for upload.
-    :ivar UpDownSync sync: Object to coordinate syncing. This is the brain of Maestral.
-        It contains the logic to process local and remote file events and to apply them
-        while checking for conflicts.
-
-    :ivar Event connected: Set when connected to Dropbox servers.
-    :ivar Event startup: Set when startup scripts have to be run after syncing
-        was inactive, for instance when Maestral is started, the internet connection is
-        reestablished or syncing is resumed after pausing.
-    :ivar Event syncing: Set when sync is running.
-    :ivar Event running: Set when the sync threads are alive.
-    :ivar Event paused_by_user: Set when sync is paused by the user.
-
-    :ivar Queue queue_downloading: Holds *local file paths* that are being downloaded.
-    :ivar Queue queue_uploading: Holds *local file paths* that are being uploaded.
     """
 
-    connection_check_interval = 4
+    connection_check_interval = 2
 
     def __init__(self, client):
 
@@ -2771,29 +2821,33 @@ class MaestralMonitor:
 
     @property
     def uploading(self):
-        """Returns a list of all items currently uploading."""
+        """Returns a list of all items currently uploading. Items are absolute paths (str)
+        on local drive."""
         return list(self.sync.queue_uploading.queue)
 
     @property
     def downloading(self):
-        """Returns a list of all items currently downloading."""
+        """Returns a list of all items currently downloading. Items are paths (str)
+        relative to the Dropbox folder."""
         return list(self.sync.queue_downloading.queue)
 
     @property
     def queued_for_upload(self):
-        """Returns a list of all items queued for upload."""
+        """Returns a list of all items queued for upload. Items are absolute paths (str)
+        on local drive."""
         return list(self.sync.queued_for_upload.queue)
 
     @property
     def queued_for_download(self):
-        """Returns a list of all items queued for download."""
+        """Returns a list of all items queued for download. Items are paths (str) relative
+        to the Dropbox folder."""
         return list(self.sync.queued_for_download.queue)
 
     def start(self):
         """Creates observer threads and starts syncing."""
 
-        if self.running.is_set():
-            # do nothing if already running
+        if self.running.is_set() or self.startup.is_set():
+            # do nothing if already started
             return
 
         self.running = Event()  # create new event to let old threads shut down
@@ -2852,19 +2906,10 @@ class MaestralMonitor:
 
         try:
             self.local_observer_thread.start()
-        except OSError as exc:
-            if 'inotify' in exc.args[0]:
-                title = 'Inotify limit reached'
-                msg = ('Changes to your Dropbox folder cannot be monitored because it '
-                       'contains too many items. Please increase the inotify limit in '
-                       'your system by adding the following line to /etc/sysctl.conf:\n\n'
-                       'fs.inotify.max_user_watches=524288')
-                new_exc = InotifyError(title, msg).with_traceback(exc.__traceback__)
-                exc_info = (type(new_exc), new_exc, new_exc.__traceback__)
-                logger.error(title, exc_info=exc_info)
-                return
-            else:
-                raise exc
+        except Exception as exc:
+            new_exc = fswatch_to_maestral_error(exc)
+            title = getattr(new_exc, 'title', 'Unexpected error')
+            logger.error(title, exc_info=_exc_info(new_exc))
 
         self.running.set()
         self.syncing.clear()
@@ -2886,7 +2931,11 @@ class MaestralMonitor:
 
         self.paused_by_user.set()
         self.syncing.clear()
+
+        self.sync.cancel_pending.set()
         self._wait_for_idle()
+        self.sync.cancel_pending.clear()
+
         logger.info(PAUSED)
 
     def resume(self):
@@ -2911,7 +2960,9 @@ class MaestralMonitor:
         self.paused_by_user.clear()
         self.startup.clear()
 
+        self.sync.cancel_pending.set()
         self._wait_for_idle()
+        self.sync.cancel_pending.clear()
 
         self.local_observer_thread.stop()
         self.local_observer_thread.join()
@@ -2950,8 +3001,6 @@ class MaestralMonitor:
         rebuild process will be queued and uploaded once rebuilding has completed.
 
         Rebuilding will be performed asynchronously.
-
-        :raises: :class:`errors.MaestralApiError`
         """
 
         logger.info('Rebuilding index...')
@@ -2994,6 +3043,10 @@ class MaestralMonitor:
 # ========================================================================================
 # Helper functions
 # ========================================================================================
+
+def _exc_info(exc):
+    return type(exc), exc, exc.__traceback__
+
 
 def get_dest_path(event):
     return getattr(event, 'dest_path', event.src_path)
@@ -3044,6 +3097,8 @@ def get_local_hash(local_path):
         return 'folder'
     except FileNotFoundError:
         return None
+    except OSError as exc:
+        raise os_to_maestral_error(exc, local_path=local_path)
     finally:
         del hasher
 
@@ -3071,22 +3126,22 @@ def entries_to_str(entries):
 
 
 def cpu_usage_percent(interval=0.1):
-    """Returns a float representing the current process CPU
-    utilization as a percentage. This copies the similar
-    method from psutil.
+    """Returns a float representing the CPU utilization of the current process as a
+    percentage. This duplicates the similar method from psutil to avoid the psutil
+    dependency.
 
-    Compares process times to system CPU times elapsed before
-    and after the interval (blocking). It is recommended for
-    accuracy that this function be called with an interval of
-    at least 0.1 sec.
+    Compares process times to system CPU times elapsed before and after the interval
+    (blocking). It is recommended for accuracy that this function be called with an
+    interval of at least 0.1 sec.
 
-    A value > 100.0 can be returned in case of processes running
-    multiple threads on different CPU cores.
+    A value > 100.0 can be returned in case of processes running multiple threads on
+    different CPU cores. The returned value is explicitly NOT split evenly between all
+    available logical CPUs. This means that a busy loop process running on a system with
+    2 logical CPUs will be reported as having 100% CPU utilization instead of 50%.
 
-    The returned value is explicitly NOT split evenly between
-    all available logical CPUs. This means that a busy loop process
-    running on a system with 2 logical CPUs will be reported as
-    having 100% CPU utilization instead of 50%.
+    :param float interval: Interval in sec between comparisons of CPU times.
+    :returns: CPU usage during interval in percent.
+    :rtype: float
     """
 
     if not interval > 0:
@@ -3111,3 +3166,20 @@ def cpu_usage_percent(interval=0.1):
     else:
         single_cpu_percent = overall_cpus_percent * _cpu_count
         return round(single_cpu_percent, 1)
+
+
+def check_connection(hostname):
+    """
+    A low latency check for an internet connection.
+
+    :param str hostname: Hostname to use for connection check.
+    :returns: Connection availability.
+    :rtype: bool
+    """
+    try:
+        host = socket.gethostbyname(hostname)
+        s = socket.create_connection((host, 80), 2)
+        s.close()
+        return True
+    except Exception:
+        return False

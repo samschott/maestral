@@ -2,18 +2,18 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module contains functions to serialize class instances for communication between the
 daemon and frontends.
 
 """
+
 # system imports
 import json
 import traceback
 
-# external packages
+# external imports
 from dropbox.stone_serializers import json_encode
 from dropbox.stone_validators import Struct
 
@@ -57,7 +57,7 @@ def error_to_dict(err):
     dictionary = dict(
         type=err.__class__.__name__,
         inherits=[b.__name__ for b in err.__class__.__bases__],
-        traceback="".join(traceback.format_exception(err.__class__, err, err.__traceback__)),
+        traceback=''.join(traceback.format_exception(err.__class__, err, err.__traceback__)),
         title='An unexpected error occurred',
         message='Please restart Maestral to continue syncing.',
     )

@@ -1,6 +1,14 @@
+# -*- coding: utf-8 -*-
 """
-Maestral configuration options
+@author: Sam Schott  (ss2151@cam.ac.uk)
+
+(c) Sam Schott; This work is licensed under the MIT licence.
+
+This module contains the default configuration and state values and functions to return
+existing config or state instances for a specified config_name.
+
 """
+
 import copy
 import logging
 
@@ -93,7 +101,12 @@ _state_instances = {}
 
 def MaestralConfig(config_name):
     """
-    Return existing config instance of create a new one.
+    Returns existing config instance or creates a new one.
+
+    :param str config_name: Name of maestral configuration to run. A new config file will
+        be created if none exists for the given config_name.
+    :return: Maestral config instance which saves any changes to the drive.
+    :rtype: UserConfig
     """
 
     global _config_instances
@@ -107,7 +120,7 @@ def MaestralConfig(config_name):
             if sec == 'main':
                 options['default_dir_name'] = f'Dropbox ({config_name.title()})'
 
-        config_path = get_conf_path(CONFIG_DIR_NAME, create=True)
+        config_path = get_conf_path(CONFIG_DIR_NAME)
 
         try:
             conf = UserConfig(
@@ -126,7 +139,12 @@ def MaestralConfig(config_name):
 
 def MaestralState(config_name):
     """
-    Return existing state instance of create a new one.
+    Returns existing state instance or creates a new one.
+
+    :param str config_name: Name of maestral configuration to run. A new state file will
+        be created if none exists for the given config_name.
+    :return: Maestral state instance which saves any changes to the drive.
+    :rtype: UserConfig
     """
 
     global _state_instances
@@ -134,7 +152,7 @@ def MaestralState(config_name):
     if config_name in _state_instances:
         return _state_instances[config_name]
     else:
-        state_path = get_data_path(CONFIG_DIR_NAME, create=True)
+        state_path = get_data_path(CONFIG_DIR_NAME)
 
         try:
             state = UserConfig(

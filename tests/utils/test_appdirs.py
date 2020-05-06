@@ -1,10 +1,16 @@
-import os
-import tempfile
+# -*- coding: utf-8 -*-
+"""
+@author: Sam Schott  (ss2151@cam.ac.uk)
 
+(c) Sam Schott; This work is licensed under the MIT licence.
+
+"""
+import os
+import platform
+import tempfile
 from maestral.utils.appdirs import (
-    get_home_dir, get_runtime_path, get_old_runtime_path, get_conf_path, get_log_path,
-    get_cache_path, get_data_path, get_autostart_path,
-    platform,
+    get_home_dir, get_runtime_path, get_old_runtime_path, get_conf_path,
+    get_log_path, get_cache_path, get_data_path, get_autostart_path,
 )
 
 

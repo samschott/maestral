@@ -1,10 +1,17 @@
+# -*- coding: utf-8 -*-
+"""
+@author: Sam Schott  (ss2151@cam.ac.uk)
+
+(c) Sam Schott; This work is licensed under the MIT licence.
+
+"""
 import builtins
+from requests.exceptions import RequestException
+from maestral.errors import SyncError
 from maestral.utils.serializer import error_to_dict
 
 
 def test_error_to_dict():
-    from requests.exceptions import RequestException
-    from maestral.errors import SyncError
 
     exc1 = RequestException('test error')
     exc2 = SyncError('test', 'test')

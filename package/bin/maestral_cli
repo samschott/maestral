@@ -1,0 +1,10 @@
+#!/bin/sh
+
+SCRIPTPATH="$(dirname "$(readlink "$0")")"
+
+if [ "$1" = "gui" ]
+then
+    open -n -a Maestral.app --args "$@"
+else
+    "$SCRIPTPATH/main" --cli "$@"
+fi

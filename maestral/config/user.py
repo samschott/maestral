@@ -5,9 +5,10 @@
 # (see spyder/__init__.py for details)
 
 """
-This module provides user configuration file management features for Spyder.
 
-It is based on the ConfigParser module present in the standard library.
+This module provides user configuration file management and is mostly copied from the
+config module of the Spyder IDE.
+
 """
 
 import ast
@@ -38,8 +39,7 @@ class NoDefault:
 
 class DefaultsConfig(cp.ConfigParser):
     """
-    Class used to save defaults to a file and as base class for
-    UserConfig
+    Class used to save defaults to a file and as base class for UserConfig.
     """
 
     _lock = RLock()
@@ -555,19 +555,24 @@ class UserConfig(DefaultsConfig):
         backup_path = osp.join(self._path, self._backup_folder)
         defaults_path = osp.join(self._path, self._defaults_folder)
 
-        os.remove(fpath)
+        # remove config file
+        try:
+            os.remove(fpath)
+        except FileNotFoundError:
+            pass
 
+        # remove saved backups
         for file in os.scandir(backup_path):
             if file.name.startswith(self._name):
-                os.remove(file.path)
+                try:
+                    os.remove(file.path)
+                except FileNotFoundError:
+                    pass
 
+        # remove saved defaults
         for file in os.scandir(defaults_path):
             if file.name.startswith(f'{self._defaults_name_prefix}-{self._name}'):
-                os.remove(file.path)
-
-        # clean up backup and defaults files from previous version of maestral
-        for file in os.scandir(self._path):
-            if file.is_file():
-                if (self._backup_suffix in file.name
-                        or self._defaults_name_prefix in file.name):
+                try:
                     os.remove(file.path)
+                except FileNotFoundError:
+                    pass

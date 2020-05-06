@@ -2,12 +2,13 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module contains functions for common path operations used by Maestral.
 
 """
+
+# system imports
 import os
 from os import path as osp
 import shutil

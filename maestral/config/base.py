@@ -1,4 +1,16 @@
 # -*- coding: utf-8 -*-
+"""
+@author: Sam Schott  (ss2151@cam.ac.uk)
+
+(c) Sam Schott; This work is licensed under the MIT licence.
+
+This module contains helper functions for config management. Paths for config files are
+defined here instead of the :mod:`utils.appdirs` module to avoid imports from outside the
+config module.
+
+"""
+
+# system imports
 import platform
 import os
 import os.path as osp
@@ -64,9 +76,11 @@ def get_conf_path(subfolder=None, filename=None, create=True):
     """
     if platform.system() == 'Darwin':
         conf_path = osp.join(get_home_dir(), 'Library', 'Application Support')
-    else:
+    elif platform.system() == 'Linux':
         fallback = osp.join(get_home_dir(), '.config')
         conf_path = os.environ.get('XDG_CONFIG_HOME', fallback)
+    else:
+        raise RuntimeError('Platform not supported')
 
     return _to_full_path(conf_path, subfolder, filename, create)
 
@@ -88,15 +102,22 @@ def get_data_path(subfolder=None, filename=None, create=True):
     """
     if platform.system() == 'Darwin':
         state_path = osp.join(get_home_dir(), 'Library', 'Application Support')
-    else:
+    elif platform.system() == 'Linux':
         fallback = osp.join(get_home_dir(), '.local', 'share')
         state_path = os.environ.get('XDG_DATA_HOME', fallback)
+    else:
+        raise RuntimeError('Platform not supported')
 
     return _to_full_path(state_path, subfolder, filename, create)
 
 
 def list_configs():
-    """Lists all maestral configs"""
+    """
+    Lists all maestral configs.
+
+    :returns: A list of all currently existing config files.
+    :rtype: list[str]
+    """
     configs = []
     for file in os.listdir(get_conf_path('maestral')):
         if file.endswith('.ini'):

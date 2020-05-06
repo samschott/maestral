@@ -2,18 +2,17 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module defines functions to start and stop the sync daemon and retrieve proxy objects
 for a running daemon.
 
 """
+
 # system imports
 import sys
 import os
 import time
-import logging
 import signal
 import traceback
 import enum
@@ -22,16 +21,14 @@ import enum
 import Pyro5.errors
 from Pyro5.api import Daemon, Proxy, expose, oneway
 from Pyro5.serializers import SerpentSerializer
-from lockfile.pidlockfile import PIDLockFile, AlreadyLocked, LockTimeout
+from lockfile.pidlockfile import PIDLockFile, AlreadyLocked
 
 # local imports
-from maestral.errors import MaestralApiError, SYNC_ERRORS, FATAL_ERRORS
+from maestral.errors import SYNC_ERRORS, FATAL_ERRORS
+from maestral.constants import IS_FROZEN
 
 
-_threads = dict()
-
-
-logger = logging.getLogger(__name__)
+threads = dict()
 URI = 'PYRO:maestral.{0}@{1}'
 
 
@@ -72,7 +69,7 @@ def serpent_deserialize_api_error(class_name, d):
     return err
 
 
-for err_cls in list(SYNC_ERRORS) + list(FATAL_ERRORS) + [MaestralApiError]:
+for err_cls in list(SYNC_ERRORS) + list(FATAL_ERRORS):
     SerpentSerializer.register_dict_to_class(
         err_cls.__module__ + '.' + err_cls.__name__,
         serpent_deserialize_api_error
@@ -80,6 +77,10 @@ for err_cls in list(SYNC_ERRORS) + list(FATAL_ERRORS) + [MaestralApiError]:
 
 
 # ==== helpers for daemon management =====================================================
+
+def _escape_spaces(string):
+    return string.replace(" ", "_")
+
 
 def _sigterm_handler(signal_number, frame):
     sys.exit()
@@ -153,8 +154,6 @@ def _wait_for_startup(config_name, timeout=8):
     t0 = time.time()
     pid = None
 
-    logger.debug(f'Waiting for process with pid {pid} to start.')
-
     while not pid and time.time() - t0 < timeout / 2:
         pid = get_maestral_pid(config_name)
         time.sleep(0.2)
@@ -165,18 +164,17 @@ def _wait_for_startup(config_name, timeout=8):
         return Start.Failed
 
 
-def _check_pyro_communication(config_name, timeout=2):
+def _check_pyro_communication(config_name, timeout=4):
     """Checks if we can communicate with the maestral daemon. Returns ``Start.Ok`` if
     communication succeeds within timeout, ``Start.Failed``  otherwise."""
 
     sock_name = sockpath_for_config(config_name)
-    maestral_daemon = Proxy(URI.format(config_name, './u:' + sock_name))
+    maestral_daemon = Proxy(URI.format(_escape_spaces(config_name), './u:' + sock_name))
 
     # wait until we can communicate with daemon, timeout after :param:`timeout`
     while timeout > 0:
         try:
             maestral_daemon._pyroBind()
-            logger.debug('Successfully communication with daemon')
             return Start.Ok
         except Exception:
             time.sleep(0.2)
@@ -184,13 +182,12 @@ def _check_pyro_communication(config_name, timeout=2):
         finally:
             maestral_daemon._pyroRelease()
 
-    logger.error('Could not communicate with Maestral daemon')
     return Start.Failed
 
 
 # ==== main functions to manage daemon ===================================================
 
-def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
+def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
     """
     Wraps :class:`main.Maestral` as Pyro daemon object, creates a new instance and starts
     Pyro's event loop to listen for requests on a unix domain socket. This call will block
@@ -199,7 +196,6 @@ def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
     This command will return silently if the daemon is already running.
 
     :param str config_name: The name of the Maestral configuration to use.
-    :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
     """
     import threading
@@ -216,19 +212,17 @@ def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
     # acquire PID lock file
 
     try:
-        lockfile.acquire(timeout=1)
-    except (AlreadyLocked, LockTimeout):
+        lockfile.acquire()
+    except AlreadyLocked:
         if is_pidfile_stale(lockfile):
             lockfile.break_lock()
+            lockfile.acquire()
         else:
-            logger.debug(f'Maestral already running')
             return
 
-    # Nice ourselves give other processes priority. We will likely only
+    # Nice ourselves to give other processes priority. We will likely only
     # have significant CPU usage in case of many concurrent downloads.
     os.nice(10)
-
-    logger.debug(f'Starting Maestral daemon on socket "{sock_name}"')
 
     try:
         # clean up old socket
@@ -237,40 +231,35 @@ def run_maestral_daemon(config_name='maestral', run=True, log_to_stdout=False):
         except FileNotFoundError:
             pass
 
-        daemon = Daemon(unixsocket=sock_name)
-
         # expose maestral as Pyro server
         # convert selected methods to one way calls so that they don't block
         ExposedMaestral = expose(Maestral)
 
+        ExposedMaestral.start_sync = oneway(ExposedMaestral.start_sync)
         ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
         ExposedMaestral.pause_sync = oneway(ExposedMaestral.pause_sync)
+        ExposedMaestral.resume_sync = oneway(ExposedMaestral.resume_sync)
         ExposedMaestral.shutdown_pyro_daemon = oneway(ExposedMaestral.shutdown_pyro_daemon)
 
-        m = ExposedMaestral(config_name, run=run, log_to_stdout=log_to_stdout)
+        m = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
 
-        daemon.register(m, f'maestral.{config_name}')
-        daemon.requestLoop(loopCondition=m._loop_condition)
-        daemon.close()
+        with Daemon(unixsocket=sock_name) as daemon:
+            daemon.register(m, f'maestral.{_escape_spaces(config_name)}')
+            daemon.requestLoop(loopCondition=m._loop_condition)
+
     except Exception:
         traceback.print_exc()
     except (KeyboardInterrupt, SystemExit):
-        logger.info('Received system exit')
         sys.exit(0)
     finally:
         lockfile.release()
 
 
-def start_maestral_daemon_thread(config_name='maestral', run=True, log_to_stdout=False):
+def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
     """
     Starts the Maestral daemon in a thread (by calling :func:`start_maestral_daemon`).
-    This command will create a new daemon on each run. Take care not to sync the same
-    directory with multiple instances of Meastral! You can use
-    :func:`get_maestral_process_info` to check if either a Meastral gui or daemon is
-    already running for the given ``config_name``.
 
     :param str config_name: The name of the Maestral configuration to use.
-    :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
     :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
         already running or ``Start.Failed`` if startup failed.
@@ -278,32 +267,39 @@ def start_maestral_daemon_thread(config_name='maestral', run=True, log_to_stdout
     import threading
 
     t = threading.Thread(
-        target=run_maestral_daemon,
-        args=(config_name, run, log_to_stdout),
+        target=start_maestral_daemon,
+        args=(config_name, log_to_stdout),
         name=f'maestral-daemon-{config_name}',
         daemon=True,
     )
     t.start()
 
-    _threads[config_name] = t
+    threads[config_name] = t
 
     if threading.current_thread() is threading.main_thread():
         signal.signal(signal.SIGTERM, _sigterm_handler)
 
-    return _wait_for_startup(config_name, timeout=8)
+    return _wait_for_startup(config_name)
 
 
-def start_maestral_daemon_process(config_name='maestral', run=True, log_to_stdout=False):
+def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
     """
-    Starts the Maestral daemon as a separate process by calling
+    Starts the Maestral daemon in a separate process by calling
     :func:`start_maestral_daemon`.
 
-    .. warning::
-        This function assumes that ``sys.executable`` points to the Python executable and
-        will not work for instance from Pyinstaller executables.
+    This function assumes that ``sys.executable`` points to the Python executable. In
+    case of a frozen app, the executable must take the command line argument
+    ``--frozen-daemon to start`` a daemon process which is *not syncing*, .i.e., just run
+    :meth:`start_maestral_daemon`. This is currently supported through the
+    constole_script entry points of both `maestral` and `maestral_qt`.
+
+    Starting a detached daemon process is difficult from a standalone executable since
+    the typical double-fork magic may fail on macOS and we do not have acccess to a
+    standalone Python interpreter to spawn a subprocess. Our approach mimics the "freeze
+    support" implemented by the multiprocessing module but fully detaches the spawned
+    process.
 
     :param str config_name: The name of the Maestral configuration to use.
-    :param bool run: If ``True``, start syncing automatically. Defaults to ``True``.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
     :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
         already running or ``Start.Failed`` if startup failed.
@@ -312,31 +308,33 @@ def start_maestral_daemon_process(config_name='maestral', run=True, log_to_stdou
     from shlex import quote
     import multiprocessing as mp
 
-    STD_IN_OUT = subprocess.DEVNULL
-
-    # use nested Popen and multiprocessing.Process to effectively create double fork`
+    # use nested Popen and multiprocessing.Process to effectively create double fork
     # see Unix 'double-fork magic'
 
-    def target(cc, r):
-        cc = quote(cc)
-        r = bool(r)
+    if IS_FROZEN:
 
-        cmd = (f'import maestral.daemon; '
-               f'maestral.daemon.run_maestral_daemon("{cc}", {r}, {log_to_stdout})')
+        def target():
+            subprocess.Popen([sys.executable, '--frozen-daemon', '-c', config_name])
 
-        subprocess.Popen(
-            [sys.executable, '-c', cmd],
-            stdin=STD_IN_OUT, stdout=STD_IN_OUT, stderr=STD_IN_OUT,
-        )
+    else:
+
+        def target():
+            # protect against injection
+            cc = quote(config_name).strip("'")
+            std_log = bool(log_to_stdout)
+
+            cmd = (f'import maestral.daemon; '
+                   f'maestral.daemon.start_maestral_daemon("{cc}", {std_log})')
+
+            subprocess.Popen([sys.executable, '-c', cmd])
 
     mp.Process(
         target=target,
-        args=(config_name, run),
         name='maestral-daemon-launcher',
         daemon=True,
     ).start()
 
-    return _wait_for_startup(config_name, timeout=8)
+    return _wait_for_startup(config_name)
 
 
 def stop_maestral_daemon_process(config_name='maestral', timeout=10):
@@ -351,7 +349,6 @@ def stop_maestral_daemon_process(config_name='maestral', timeout=10):
         if the daemon was not running.
     """
 
-    logger.debug('Stopping daemon')
     lockfile = PIDLockFile(pidpath_for_config(config_name))
     pid = lockfile.read_pid()
 
@@ -364,13 +361,10 @@ def stop_maestral_daemon_process(config_name='maestral', timeout=10):
                 m.stop_sync()
                 m.shutdown_pyro_daemon()
         except Pyro5.errors.CommunicationError:
-            logger.debug('Could not communicate with daemon, sending SIGTERM')
             _send_term(pid)
         finally:
-            logger.debug('Waiting for shutdown')
             while timeout > 0:
                 if not _process_exists(pid):
-                    logger.debug('Daemon shut down')
                     return Exit.Ok
                 else:
                     time.sleep(0.2)
@@ -382,11 +376,9 @@ def stop_maestral_daemon_process(config_name='maestral', timeout=10):
             time.sleep(1)
 
             if not _process_exists(pid):
-                logger.debug('Daemon shut down')
                 return Exit.Ok
             else:
                 os.kill(pid, signal.SIGKILL)
-                logger.debug('Daemon killed')
                 return Exit.Killed
     finally:
         lockfile.break_lock()
@@ -401,9 +393,8 @@ def stop_maestral_daemon_thread(config_name='maestral', timeout=10):
         ``Exit.Failed`` if it could not be stopped within timeout.
     """
 
-    logger.debug('Stopping thread')
     lockfile = PIDLockFile(pidpath_for_config(config_name))
-    t = _threads[config_name]
+    t = threads[config_name]
 
     if not t.is_alive():
         lockfile.break_lock()
@@ -443,7 +434,7 @@ def get_maestral_proxy(config_name='maestral', fallback=False):
         sock_name = sockpath_for_config(config_name)
 
         sys.excepthook = Pyro5.errors.excepthook
-        maestral_daemon = Proxy(URI.format(config_name, './u:' + sock_name))
+        maestral_daemon = Proxy(URI.format(_escape_spaces(config_name), './u:' + sock_name))
         try:
             maestral_daemon._pyroBind()
             return maestral_daemon
@@ -452,14 +443,12 @@ def get_maestral_proxy(config_name='maestral', fallback=False):
 
     if fallback:
         from maestral.main import Maestral
-        m = Maestral(config_name, run=False)
-        m.log_handler_stream.setLevel(logging.CRITICAL)
-        return m
+        return Maestral(config_name)
     else:
         raise Pyro5.errors.CommunicationError
 
 
-class MaestralProxy(object):
+class MaestralProxy:
     """A context manager to open and close a proxy to the Maestral daemon."""
 
     def __init__(self, config_name='maestral', fallback=False):

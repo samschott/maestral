@@ -1,9 +1,16 @@
+# -*- coding: utf-8 -*-
+
+# system imports
 import sys
 import os.path as osp
 from setuptools import setup, find_packages
+import importlib.util
+
+# local imports (must not depend on 3rd party packages)
 from maestral import __version__, __author__, __url__
 from maestral.utils.appdirs import get_runtime_path, get_old_runtime_path
 from maestral.config.base import list_configs
+
 
 # abort install if there are running daemons
 running_daemons = []
@@ -28,36 +35,35 @@ of config files and compatibility been the CLI and daemon.
 
 # proceed with actual install
 install_requires = [
-    'atomicwrites',
-    'bugsnag',
+    'atomicwrites>=1.0.0',
+    'bugsnag>=3.4.0',
     'click>=7.1.1',
-    'dropbox>=9.4.0, <=9.5.0',
+    'dropbox>=10.0.0',
     'importlib_metadata;python_version<"3.8"',
+    'jeepney;sys_platform=="linux"',
     'keyring>=19.0.0',
-    'keyrings.alt>=3.0.0',
-    'lockfile',
+    'keyrings.alt>=3.1.0',
+    'lockfile>=0.12.0',
     'packaging',
-    'pathspec',
+    'pathspec>=0.5.8',
     'Pyro5>=5.7',
     'requests',
     'rubicon-objc>=0.3.1;sys_platform=="darwin"',
     'sdnotify',
     'setuptools',
-    'six>=1.12.0',
-    'u-msgpack-python',
-    'watchdog>=0.9.0',
+    'watchdog>=0.10.0',
 ]
 
-gui_requires = ['maestral-qt==0.6.4']
+gui_requires = [
+    'maestral_qt>=1.0.0;sys_platform=="linux"',
+    'maestral_cocoa>=1.0.0;sys_platform=="darwin"',
+]
+
 syslog_requires = ['systemd-python']
 
 # if GUI is installed, always update it as well
-try:
-    import maestral_qt  # noqa: F401
-except ImportError:
-    pass
-else:
-    install_requires += gui_requires
+if importlib.util.find_spec('maestral_qt') or importlib.util.find_spec('maestral_cocoa'):
+    install_requires.extend(gui_requires)
 
 
 setup(

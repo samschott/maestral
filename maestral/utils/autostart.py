@@ -2,13 +2,14 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module handles starting for Maestral on user login and supports multiple backends,
 depending on the platform and if we want to start the daemon or GUI.
 
 """
+
+# system imports
 import sys
 import os
 import os.path as osp
@@ -20,10 +21,20 @@ import pkg_resources
 from enum import Enum
 
 try:
+    # noinspection PyCompatibility
     from importlib.metadata import files
-except ImportError:
+except ImportError:  # Python 3.7 and lower
     from importlib_metadata import files
 
+try:
+    from shlex import join
+except ImportError:  # Python 3.7 and lower
+    from shlex import quote
+
+    def join(split_command):
+        return ' '.join(quote(x) for x in split_command)
+
+# local imports
 from maestral import __version__
 from maestral.utils.appdirs import get_home_dir, get_conf_path, get_data_path
 from maestral.constants import BUNDLE_ID
@@ -82,21 +93,14 @@ class AutoStartMaestralBase(AutoStartBase):
     def __init__(self, config_name, gui):
         super().__init__(config_name, gui)
 
-        self.config_opt = f'-c \'{self.config_name}\''
+        self.maestral_path = self.get_maestral_command_path()
 
-        if hasattr(sys, '_MEIPASS'):  # PyInstaller bundle
-            self.maestral_path = os.path.join(sys._MEIPASS, 'main')
-            self.start_cmd = f'{self.maestral_path} {self.config_opt}'
-            self.stop_cmd = ''
+        if self.gui:
+            self.start_cmd = [self.maestral_path, 'gui', '-c', self.config_name]
+            self.stop_cmd = []
         else:
-            self.maestral_path = self.get_maestral_command_path()
-
-            if self.gui:
-                self.start_cmd = f'{self.maestral_path} gui {self.config_opt}'
-                self.stop_cmd = ''
-            else:
-                self.start_cmd = f'{self.maestral_path} start -f {self.config_opt}'
-                self.stop_cmd = f'{self.maestral_path} stop {self.config_opt}'
+            self.start_cmd = [self.maestral_path, 'start', '-f', '-c', self.config_name]
+            self.stop_cmd = [self.maestral_path, 'stop', '-c', self.config_name]
 
     @staticmethod
     def get_maestral_command_path():
@@ -105,6 +109,10 @@ class AutoStartMaestralBase(AutoStartBase):
         """
         # try to get location of console script from package metadata
         # fall back to 'which' otherwise
+
+        if getattr(sys, 'frozen', False):  # app bundle
+            return sys.executable
+
         try:
             pkg_path = next(p for p in files('maestral')
                             if str(p).endswith('/bin/maestral'))
@@ -115,7 +123,7 @@ class AutoStartMaestralBase(AutoStartBase):
         if not osp.isfile(path):
             path = shutil.which('maestral')
 
-        return path
+        return str(path)
 
     def enable(self):
         """
@@ -161,14 +169,14 @@ class AutoStartSystemd(AutoStartMaestralBase):
         service_type = 'gui' if self.gui else 'daemon'
         self.service_name = f'maestral-{service_type}@{self.config_name}.service'
 
-        with open(osp.join(_resources, 'maestral@.service'), 'r') as f:
+        with open(osp.join(_resources, 'maestral@.service')) as f:
             unit_template = f.read()
 
         filename = 'maestral-{}@.service'.format('gui' if self.gui else 'daemon')
         self.destination = get_data_path(osp.join('systemd', 'user'), filename)
         self.contents = unit_template.format(
-            start_cmd=f'{self.maestral_path} start -f',
-            stop_cmd=f'{self.maestral_path} stop',
+            start_cmd=join(self.start_cmd),
+            stop_cmd=join(self.stop_cmd),
         )
 
         with open(self.destination, 'w') as f:
@@ -205,13 +213,16 @@ class AutoStartLaunchd(AutoStartMaestralBase):
             bundle_id = '{}-{}.{}'.format(BUNDLE_ID, 'daemon', self.config_name)
         filename = bundle_id + '.plist'
 
-        with open(osp.join(_resources, 'com.samschott.maestral.plist'), 'r') as f:
+        with open(osp.join(_resources, 'com.samschott.maestral.plist')) as f:
             plist_template = f.read()
 
         self.destination = osp.join(get_home_dir(), 'Library', 'LaunchAgents', filename)
+
+        arguments = [f'\t\t<string>{arg}</string>' for arg in self.start_cmd]
+
         self.contents = plist_template.format(
             bundle_id=bundle_id,
-            start_cmd=self.start_cmd
+            start_cmd='\n'.join(arguments)
         )
 
     def _enable(self):
@@ -248,13 +259,13 @@ class AutoStartXDGDesktop(AutoStartMaestralBase):
 
         filename = f'maestral-{config_name}.desktop'
 
-        with open(osp.join(_resources, 'maestral.desktop'), 'r') as f:
+        with open(osp.join(_resources, 'maestral.desktop')) as f:
             desktop_entry_template = f.read()
 
         self.destination = get_conf_path('autostart', filename)
         self.contents = desktop_entry_template.format(
             version=__version__,
-            start_cmd=self.start_cmd
+            start_cmd=join(self.start_cmd)
         )
 
     def _enable(self):

@@ -2,8 +2,7 @@
 """
 @author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under a Creative Commons
-Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
+(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module handles desktop notifications for Maestral and supports multiple backends,
 depending on the platform. A single :class:`DesktopNotifier` instance is created for all
@@ -17,6 +16,8 @@ through :class:`MaestralDesktopNotifier`.
 :constant int FILECHANGE: Notifications on file changes.
 
 """
+
+# system imports
 import shutil
 import time
 import subprocess
@@ -27,11 +28,15 @@ import pkg_resources
 import logging
 from collections import deque
 
+# external imports
 import click
 
+# local imports
 from maestral.config import MaestralConfig
-from maestral.constants import IS_MACOS_BUNDLE
+from maestral.constants import IS_MACOS_BUNDLE, BUNDLE_ID
 
+
+# platform dependent imports
 if platform.system() == 'Darwin':
 
     from ctypes import cdll, util
@@ -49,6 +54,7 @@ if platform.system() == 'Darwin':
 
 elif platform.system() == 'Linux':
     from jeepney.integrate.blocking import Proxy, connect_and_authenticate
+    from jeepney.wrappers import DBusErrorResponse
     from maestral.utils.dbus_interfaces import FreedesktopNotifications
 
 
@@ -99,11 +105,11 @@ class SupportedImplementations(Enum):
     :cvar str stdout: Notify by printing to stdout.
     """
     osascript = 'osascript'
-    notification_center = 'notification-center'
-    legacy_notification_center = 'legacy-notification-center'
+    notification_center = 'UNUserNotificationCenter'
+    legacy_notification_center = 'NSUserNotificationCenter'
     notify_send = 'notify-send'
     freedesktop_dbus = 'org.freedesktop.Notifications'
-    stdout = 'stdout'
+    stdout = 'print'
 
 
 class DesktopNotifierBase:
@@ -148,7 +154,7 @@ class DesktopNotifierNC(DesktopNotifierBase):
 
     def __init__(self, app_name):
         super().__init__(app_name)
-        self.nc = UNUserNotificationCenter.currentNotificationCenter()
+        self.nc = UNUserNotificationCenter.alloc().initWithBundleIdentifier(BUNDLE_ID)
         self.nc.requestAuthorizationWithOptions(
             (1 << 2) | (1 << 1) | (1 << 0), completionHandler=None
         )
@@ -234,26 +240,41 @@ class DesktopNotifierFreedesktopDBus(DesktopNotifierBase):
 
     def __init__(self, app_name):
         super().__init__(app_name)
-        connection = connect_and_authenticate(bus='SESSION')
-        self.proxy = Proxy(FreedesktopNotifications(), connection)
+        self._connection = connect_and_authenticate(bus='SESSION')
+        self._proxy = Proxy(FreedesktopNotifications(), self._connection)
+        self.capabilities = self._proxy.GetCapabilities()
+        self.server_information = self._proxy.GetServerInformation()
+
         self._past_notification_ids = deque([0] * self.notification_limit)
 
     def send(self, title, message, urgency=DesktopNotifierBase.NORMAL, icon_path=None):
 
         replace_id = self._past_notification_ids.popleft()
 
-        resp = self.proxy.Notify(
-            self.app_name,
-            replace_id,
-            APP_ICON_PATH,
-            title,
-            message,
-            [],  # Actions
-            {},  # Hints
-            -1,  # expire_timeout (-1 = default)
-        )
+        try:
+            resp = self._proxy.Notify(
+                self.app_name,
+                replace_id,
+                APP_ICON_PATH,
+                title,
+                message,
+                [],  # Actions
+                {},  # Hints
+                -1,  # expire_timeout (-1 = default)
+            )
+        except DBusErrorResponse:
+            # This may fail for several reasons: there may not be a systemd service
+            # file for 'org.freedesktop.Notifications' or the system configuration
+            # may have changed after DesktopNotifierFreedesktopDBus was initialized.
+            logger.debug('Failed to send desktop notification', exc_info=True)
+        else:
+            self._past_notification_ids.append(resp[0])
 
-        self._past_notification_ids.append(resp[0])
+    def __del__(self):
+        try:
+            self._connection.close()
+        except Exception:
+            pass
 
 
 class DesktopNotifier:
@@ -283,16 +304,19 @@ class DesktopNotifier:
         else:
             self._impl = DesktopNotifierStdout(app_name)
 
+        logger.debug(f'DesktopNotifier implementation: {self.implementation.value}')
+
     def send(self, title, message, urgency=NORMAL, icon=None):
         """
-        Sends a desktop notification.
+        Sends a desktop notification. Some arguments may be ignored, depending on the
+        backend.
 
         :param str title: Notification title.
         :param str message: Notification message.
         :param str urgency: Notification urgency. Some backends use this to determine how
             the notification is displayed.
-        :param str icon: Path to an icon. Some backends support displaying an (app) icon
-            together with the notification.
+        :param Optional[str] icon: Path to an icon. Some backends support displaying an
+            (app) icon together with the notification.
         """
         self._impl.send(title, message, urgency, icon)
 
@@ -301,10 +325,12 @@ class DesktopNotifier:
         macos_version, *_ = platform.mac_ver()
 
         if platform.system() == 'Darwin':
-            if IS_MACOS_BUNDLE and Version(macos_version) >= Version('10.14.0'):
+            if (IS_MACOS_BUNDLE and Version(macos_version) >= Version('10.14.0')
+                    and UNUserNotificationCenter.currentNotificationCenter()):
                 # UNUserNotificationCenter is only supported from signed app bundles
                 return SupportedImplementations.notification_center
-            elif Version(macos_version) < Version('10.16.0'):
+            elif (Version(macos_version) < Version('10.16.0')
+                  and NSUserNotificationCenter.defaultUserNotificationCenter):
                 # deprecated but still works
                 return SupportedImplementations.legacy_notification_center
             elif shutil.which('osascript'):
@@ -312,16 +338,12 @@ class DesktopNotifier:
                 return SupportedImplementations.osascript
         elif platform.system() == 'Linux':
             try:
-                connection = connect_and_authenticate(bus='SESSION')
-                proxy = Proxy(FreedesktopNotifications(), connection)
-                notification_server_info = proxy.GetServerInformation()
-                connection.close()
-            except Exception:
-                notification_server_info = None
-
-            if notification_server_info:
+                DesktopNotifierFreedesktopDBus('test')
                 return SupportedImplementations.freedesktop_dbus
-            elif shutil.which('notify-send'):
+            except Exception:
+                pass
+
+            if shutil.which('notify-send'):
                 return SupportedImplementations.notify_send
 
         return SupportedImplementations.stdout
@@ -406,6 +428,7 @@ class MaestralDesktopNotifier(logging.Handler):
             )
 
     def emit(self, record):
-        """Emits a log record as desktop notification."""
-        self.format(record)
-        self.notify(record.message, level=record.levelno)
+        """Emits a log record as a desktop notification."""
+        if record.name != logger.name:  # avoid recursions
+            self.format(record)
+            self.notify(record.message, level=record.levelno)
