@@ -1,4 +1,11 @@
-## v1.0.0.dev
+## v1.0.0
+
+This is the first stable release of Maestral. There have been numerous bug fixes to error
+handling and platform integration as well as a few bug fixes to syncing itself. There are
+also a few outward facing changes: Pausing Maestral now cancels any pending sync jobs
+instead of waiting for them to be completed. The macOS GUI switches from Qt to using a
+native Cocoa interface and the macOS app bundle finally includes a full command line
+interface.
 
 #### Added:
 
@@ -6,34 +13,38 @@
   the settings window.
 - Added support for config names with spaces.
 - Switch from Qt to native Cocoa GUI on macOS.
+- Expanded test suite to include sync tests.
 
 #### Changed:
 
-- Added '.dropbox' and '.dropbox.cache' to always excluded file names.
-- Pausing Maestral now cancels all pending uploads and downloads.
-- Faster detection of connection problems.
+- Added '.dropbox' and '.dropbox.cache' to always excluded paths.
+- Pausing sync now cancels all pending uploads and downloads.
+- Quicker detection of connection problems.
 - Faster sync of local deletions.
-- Added public API to link a Dropbox account: `Maestral.get_auth_url` and `Maestral.link`.
-- Moved all command line dialogs from main API to cli module.
+- The GUI now always launches a separate daemon process instead of an in-process daemon.
+- Temporary files during a download are now stored inside the Dropbox directory at
+  '.maestral.cache'. This guarantees that temporary files always reside on the same
+  partition as the Dropbox folder itself.
+- System tray icons are no longer installed in the platform theme in Linux. This is part of
+  a workaround for a Qt issue on Linux desktops which causes unnecessarily large pixmap
+  transfers over dBus when HiDPI support is enabled. Manually installed icons will still
+  be respected.
 - Switch from implicit grant to PKCE OAuth2 flow.
+- Added public API to link a Dropbox account: `Maestral.get_auth_url` and `Maestral.link`.
+  Frontends no longer need to import `maestral.oauth`.
+- Moved all command line dialogs from the main API to the CLI module.
 - Bumped watchdog requirement to >= 10.0.0 for more consistent error handling.
 - Added explicit jeepny dependency for Linux. This is a dependency of keyring but we use
   it by itself as well.
-- The GUI now always launches a separate daemon process instead of an in-process daemon.
-- Temporary files during a download are now stored inside the Dorpbox directory at
-  '.maestral.cache'. This guarantees that temporary download files always reside on the
-  same partition as the Dropbox folder itself.
-- System tray icons are no longer installed in the plaform theme. This is part of a
-  workaround for a Qt issue that causes large pixmap transfers over dBus when HiDPI
-  is enabled on Linux desktops. However, manually installed icons will still be respected.
+- Improved the reliability of ignoring file system events caused by Maestral itself.
 
 #### Fixed:
 
-- Fixes a minor issue where a dropped internet connection during startup could result in
+- Fixes an issue where a dropped internet connection during startup could result in
   continuous retries until the connection is finally established.
 - Fixes an issue where downloads of newly included folders would not resume after being
   interrupted.
-- Fixes a rare issue which could lead to false conflicting copies of folders.
+- Fixes an issue which could lead to false conflicting copies of folders in some cases.
 - Fixes the handling of inofify limit and permission errors when starting a file system
   watch.
 - Fixes handling of errors from too long file names.
@@ -46,6 +57,12 @@
   dev releases.
 - Fixes an issue where only remote changes would be listed in 'Recent changes' in the GUI.
 - Fixes the alignment of comboboxes in the Qt GUI on macOS.
+- Fixes a crash on macOS when no notification center is available, for instance in a
+  headless session or on Github test runners.
+- Fixes a crash on Linux when the command line tool `notify-send` is not available.
+- Fixes an issue where sync errors would have incomplete path information.
+- Resolves an issue where indexing a large Dropbox folder with > 100,000 items would
+  continuously timeout and restart in some cases.
 
 #### Removed:
 
