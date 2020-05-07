@@ -212,7 +212,7 @@ def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
     # acquire PID lock file
 
     try:
-        lockfile.acquire()
+        lockfile.acquire(timeout=0.5)
     except AlreadyLocked:
         if is_pidfile_stale(lockfile):
             lockfile.break_lock()
