@@ -144,9 +144,9 @@ def check_for_updates():
     has_update = Version(__version__) < Version(latest_release)
 
     if has_update:
-        click.secho(
+        click.echo(
             f'Maestral v{latest_release} has been released, you have v{__version__}. '
-            f'Please use your package manager to update.', fg='orange'
+            f'Please use your package manager to update.'
         )
 
 
