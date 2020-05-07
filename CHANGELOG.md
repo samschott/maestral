@@ -1,9 +1,9 @@
-## v1.0.1.dev1
+## v1.0.1
 
 #### Fixed:
 
 - Fixes an error when listing the contents of an empty directory with `maestral ls`.
-- Fixes a possible race condition during daemon startup.
+- Fixes a crash of the CLI when trying to display an update message.
 - Fixes an issue which could lead to the local Dropbox folder being moved before syncing
   has been paused.
 
