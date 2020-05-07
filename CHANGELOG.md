@@ -1,3 +1,12 @@
+## v1.0.1.dev1
+
+#### Fixed:
+
+- Fixes an error when listing the contents of an empty directory with `maestral ls`.
+- Fixes a possible race condition during daemon startup.
+- Fixes an issue which could lead to the local Dropbox folder being moved before syncing
+  has been paused.
+
 ## v1.0.0
 
 This is the first stable release of Maestral. There have been numerous bug fixes to error
