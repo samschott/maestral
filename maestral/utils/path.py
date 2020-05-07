@@ -26,7 +26,7 @@ def is_child(path, parent):
     :rtype: bool
     """
 
-    parent = parent.rstrip(osp.sep) + os.sep
+    parent = parent.rstrip(osp.sep) + osp.sep
     path = path.rstrip(osp.sep)
 
     return path.startswith(parent)

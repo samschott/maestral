@@ -890,20 +890,13 @@ class UpDownSync:
         :raises: :class:`ValueError` the path lies outside of the local Dropbox folder.
         """
 
-        dbx_root_list = osp.normpath(self.dropbox_path).split(osp.sep)
-        path_list = osp.normpath(local_path).split(osp.sep)
-
-        # Work out how much of the file path is shared by dropbox_path and path
-        # noinspection PyTypeChecker
-        i = len(osp.commonprefix([dbx_root_list, path_list]))
-
-        if i == len(path_list):  # path corresponds to dropbox_path
+        if local_path == self.dropbox_path:  # path corresponds to dropbox_path
             return '/'
-        elif i != len(dbx_root_list):  # path is outside of dropbox_path
+        elif is_child(local_path, self.dropbox_path):
+            return local_path.replace(self.dropbox_path, '', 1)
+        else:
             raise ValueError(f'Specified path "{local_path}" is outside of Dropbox '
                              f'directory "{self.dropbox_path}"')
-
-        return '/{}'.format('/'.join(path_list[i:]))
 
     def to_local_path(self, dbx_path):
         """
