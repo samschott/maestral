@@ -964,16 +964,16 @@ class UpDownSync:
     @staticmethod
     def is_excluded(path):
         """
-        Checks if file is excluded from sync. Certain file names are always excluded from
-        syncing, following the Dropbox support article:
+        Checks if a file is excluded from sync. Certain file names are always excluded
+        from syncing, following the Dropbox support article:
 
         https://help.dropbox.com/installs-integrations/sync-uploads/files-not-syncing
 
-        The include file system files such as 'desktop.ini' and '.DS_Store' and some
-        temporary files. This is determined by the basename alone and `is_excluded`
-        therefore accepts both relative and absolute paths.
+        This includes file system files such as 'desktop.ini' and '.DS_Store' and some
+        temporary files as well as caches used by Dropbox or Maestral. `is_excluded`
+        accepts both local and Dropbox paths.
 
-        :param str path: Path of item. Can be absolute or relative.
+        :param str path: Path of item. Can be both a local or Dropbox paths.
         :returns: ``True`` if excluded, ``False`` otherwise.
         :rtype: bool
         """
@@ -1191,9 +1191,8 @@ class UpDownSync:
         for event in events:
 
             local_path = get_dest_path(event)
-            dbx_path = self.to_dbx_path(local_path)
 
-            if self.is_excluded(dbx_path):
+            if self.is_excluded(local_path):
                 events_excluded.append(event)
             elif self.is_mignore(event):
                 # moved events with an ignored path are
