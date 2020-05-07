@@ -130,8 +130,8 @@ class FSEventHandler(FileSystemEventHandler):
         self.sync = sync
         self.sync.fs_events = self
 
-        self._ignored_paths = list()
-        self._mutex = Lock()
+        self._ignored_paths = []
+        self._ignored_paths_mutex = RLock()
 
         self.local_file_event_queue = Queue()
 
@@ -153,9 +153,9 @@ class FSEventHandler(FileSystemEventHandler):
             ignored as well.
         """
 
-        with self._mutex:
+        with self._ignored_paths_mutex:
             now = time.time()
-            new_ignores = list()
+            new_ignores = []
             for e in events:
                 new_ignores.append(
                     dict(
@@ -170,54 +170,57 @@ class FSEventHandler(FileSystemEventHandler):
         try:
             yield
         finally:
-            with self._mutex:
+            with self._ignored_paths_mutex:
                 for ignore in new_ignores:
                     ignore['ttl'] = time.time() + self.ignore_timeout
 
     def _expire_ignored_paths(self):
         """Removes all expired ignore entries."""
 
-        with self._mutex:
+        with self._ignored_paths_mutex:
+
             now = time.time()
             for ignore in self._ignored_paths.copy():
                 ttl = ignore['ttl']
                 if ttl and ttl < now:
                     self._ignored_paths.remove(ignore)
 
-    def _discrad_ignored(self, event):
+    def _is_ignored(self, event):
         """
-        Checks if a file system event should been explicitly ignored because it was likely
-        triggered by Maestral. Split moved events if necessary and returns the event to
-        keep (if any)
+        Checks if a file system event should been explicitly ignored because it was
+        triggered by Maestral itself.
 
         :param FileSystemEvent event: Local file system event.
-        :returns: Event to keep or ``None``.
-        :rtype: :class:`watchdog.FileSystemEvent`
+        :returns: ``True`` if the event should be ignored, ``False`` otherwise.
+        :rtype: bool
         """
 
-        self._expire_ignored_paths()
+        with self._ignored_paths_mutex:
 
-        for ignore in self._ignored_paths:
-            ignore_event = ignore['event']
-            recursive = ignore['recursive']
+            self._expire_ignored_paths()
 
-            if event == ignore_event:
+            for ignore in self._ignored_paths:
+                ignore_event = ignore['event']
+                recursive = ignore['recursive']
 
-                if not recursive:
-                    self._ignored_paths.remove(ignore)
+                if event == ignore_event:
 
-                return None
+                    if not recursive:
+                        self._ignored_paths.remove(ignore)
 
-            elif recursive:
+                    return True
 
-                type_match = event.event_type == ignore_event.event_type
-                src_match = is_equal_or_child(event.src_path, ignore_event.src_path)
-                dest_match = is_equal_or_child(get_dest_path(event), get_dest_path(ignore_event))
+                elif recursive:
 
-                if type_match and src_match and dest_match:
-                    return None
+                    type_match = event.event_type == ignore_event.event_type
+                    src_match = is_equal_or_child(event.src_path, ignore_event.src_path)
+                    dest_match = is_equal_or_child(get_dest_path(event),
+                                                   get_dest_path(ignore_event))
 
-        return event
+                    if type_match and src_match and dest_match:
+                        return True
+
+            return False
 
     def on_any_event(self, event):
         """
@@ -236,11 +239,11 @@ class FSEventHandler(FileSystemEventHandler):
         if isinstance(event, DirModifiedEvent):
             return
 
-        # check for ignored paths, split moved events if necessary
-        event = self._discrad_ignored(event)
+        # check if event should be ignored
+        if self._is_ignored(event):
+            return
 
-        if event:
-            self.local_file_event_queue.put(event)
+        self.local_file_event_queue.put(event)
 
 
 class MaestralStateWrapper(abc.MutableSet):
