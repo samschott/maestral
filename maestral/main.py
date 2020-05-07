@@ -604,7 +604,7 @@ class Maestral:
         else:
             return (self.monitor.syncing.is_set()
                     or self.monitor.startup.is_set()
-                    or self.sync.lock.locked())
+                    or self.sync.busy())
 
     @property
     def paused(self):
@@ -614,7 +614,7 @@ class Maestral:
         if self.pending_link:
             return False
         else:
-            return self.monitor.paused_by_user.is_set() and not self.sync.lock.locked()
+            return self.monitor.paused_by_user.is_set() and not self.sync.busy()
 
     @property
     def running(self):
@@ -626,7 +626,7 @@ class Maestral:
         if self.pending_link:
             return False
         else:
-            return self.monitor.running.is_set() or self.sync.lock.locked()
+            return self.monitor.running.is_set() or self.sync.busy()
 
     @property
     def connected(self):

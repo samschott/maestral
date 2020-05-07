@@ -451,7 +451,7 @@ class TestSync(TestCase):
 
         t0 = time.time()
         while time.time() - t0 < minimum:
-            if self.m.sync.lock.locked():
+            if self.m.sync.busy():
                 self.m.monitor._wait_for_idle()
                 t0 = time.time()
             else:

@@ -19,7 +19,7 @@ import time
 import tempfile
 import random
 import json
-from threading import Thread, Event, Lock, RLock, current_thread
+from threading import Thread, Event, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
 from collections import abc
@@ -426,10 +426,9 @@ class UpDownSync:
     :param MaestralApiClient client: Dropbox API client instance.
     """
 
-    lock = Lock()
+    sync_lock = RLock()
 
     _rev_lock = RLock()
-    _last_sync_lock = RLock()
 
     _max_history = 30
     _num_threads = min(32, os.cpu_count() * 3)
@@ -494,10 +493,12 @@ class UpDownSync:
     @dropbox_path.setter
     def dropbox_path(self, path):
         """Setter: dropbox_path"""
-        self._dropbox_path = path
-        self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
-        self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
-        self._conf.set('main', 'path', path)
+
+        with self.sync_lock:
+            self._dropbox_path = path
+            self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
+            self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
+            self._conf.set('main', 'path', path)
 
     @property
     def rev_file_path(self):
@@ -521,9 +522,11 @@ class UpDownSync:
     @excluded_items.setter
     def excluded_items(self, folder_list):
         """Setter: excluded_items"""
-        clean_list = self.clean_excluded_items_list(folder_list)
-        self._excluded_items = clean_list
-        self._conf.set('main', 'excluded_items', clean_list)
+
+        with self.sync_lock:
+            clean_list = self.clean_excluded_items_list(folder_list)
+            self._excluded_items = clean_list
+            self._conf.set('main', 'excluded_items', clean_list)
 
     @staticmethod
     def clean_excluded_items_list(folder_list):
@@ -572,8 +575,9 @@ class UpDownSync:
     @last_cursor.setter
     def last_cursor(self, cursor):
         """Setter: last_cursor"""
-        self._state.set('sync', 'cursor', cursor)
-        logger.debug('Remote cursor saved: %s', cursor)
+        with self.sync_lock:
+            self._state.set('sync', 'cursor', cursor)
+            logger.debug('Remote cursor saved: %s', cursor)
 
     @property
     def last_sync(self):
@@ -584,8 +588,9 @@ class UpDownSync:
     @last_sync.setter
     def last_sync(self, last_sync):
         """Setter: last_sync"""
-        logger.debug('Local cursor saved: %s', last_sync)
-        self._state.set('sync', 'lastsync', last_sync)
+        with self.sync_lock:
+            logger.debug('Local cursor saved: %s', last_sync)
+            self._state.set('sync', 'lastsync', last_sync)
 
     @property
     def last_reindex(self):
@@ -606,9 +611,8 @@ class UpDownSync:
         :returns: Time of last sync.
         :rtype: float
         """
-        with self._last_sync_lock:
-            dbx_path = dbx_path.lower()
-            return max(self._last_sync_for_path.get(dbx_path, 0.0), self.last_sync)
+        dbx_path = dbx_path.lower()
+        return max(self._last_sync_for_path.get(dbx_path, 0.0), self.last_sync)
 
     def set_last_sync_for_path(self, dbx_path, last_sync):
         """
@@ -617,15 +621,14 @@ class UpDownSync:
         :param str dbx_path: Path relative to Dropbox folder.
         :param float last_sync: Time of last sync.
         """
-        with self._last_sync_lock:
-            dbx_path = dbx_path.lower()
-            if last_sync == 0.0:
-                try:
-                    del self._last_sync_for_path[dbx_path]
-                except KeyError:
-                    pass
-            else:
-                self._last_sync_for_path[dbx_path] = last_sync
+        dbx_path = dbx_path.lower()
+        if last_sync == 0.0:
+            try:
+                del self._last_sync_for_path[dbx_path]
+            except KeyError:
+                pass
+        else:
+            self._last_sync_for_path[dbx_path] = last_sync
 
     # ==== rev file management ===========================================================
 
@@ -690,7 +693,8 @@ class UpDownSync:
     def _clean_and_save_rev_file(self):
         """Cleans the revision index from duplicate entries and keeps only the last entry
         for any individual path. Then saves the index to the drive."""
-        self._save_rev_dict_to_file()
+        with self._rev_lock:
+            self._save_rev_dict_to_file()
 
     def clear_rev_index(self):
         """Clears the revision index."""
@@ -1052,6 +1056,21 @@ class UpDownSync:
             while cpu_usage > self._max_cpu_percent:
                 cpu_usage = cpu_usage_percent(0.5 + 2 * random.random())
 
+    def busy(self):
+        """
+        Checks if we are currently syncing.
+
+        :returns: ``True`` if :attr:`sync.sync_lock` cannot be aquired, ``False``
+            otherwise.
+        :rtype: bool
+        """
+
+        idle = self.sync_lock.acquire(blocking=False)
+        if idle:
+            self.sync_lock.release()
+
+        return not idle
+
     # ==== Upload sync ===================================================================
 
     def upload_local_changes_while_inactive(self):
@@ -1060,22 +1079,24 @@ class UpDownSync:
         Call this method when resuming sync.
         """
 
-        logger.info('Indexing local changes...')
+        with self.sync_lock:
 
-        try:
-            events, local_cursor = self._get_local_changes_while_inactive()
-            logger.debug('Retrieved local changes:\n%s', pprint.pformat(events))
-            events = self._clean_local_events(events)
-        except FileNotFoundError:
-            self.ensure_dropbox_folder_present()
-            return
+            logger.info('Indexing local changes...')
 
-        if len(events) > 0:
-            self.apply_local_changes(events, local_cursor)
-            logger.debug('Uploaded local changes while inactive')
-        else:
-            self.last_sync = local_cursor
-            logger.debug('No local changes while inactive')
+            try:
+                events, local_cursor = self._get_local_changes_while_inactive()
+                logger.debug('Retrieved local changes:\n%s', pprint.pformat(events))
+                events = self._clean_local_events(events)
+            except FileNotFoundError:
+                self.ensure_dropbox_folder_present()
+                return
+
+            if len(events) > 0:
+                self.apply_local_changes(events, local_cursor)
+                logger.debug('Uploaded local changes while inactive')
+            else:
+                self.last_sync = local_cursor
+                logger.debug('No local changes while inactive')
 
     def _get_local_changes_while_inactive(self):
 
@@ -1475,74 +1496,76 @@ class UpDownSync:
         :param float local_cursor: Time stamp of last event in ``events``.
         """
 
-        events, _ = self._filter_excluded_changes_local(events)
+        with self.sync_lock:
 
-        sorted_events = dict(deleted=[], dir_created=[], dir_moved=[], file=[])
-        for e in events:
-            if e.event_type == EVENT_TYPE_DELETED:
-                sorted_events['deleted'].append(e)
-            elif e.is_directory and e.event_type == EVENT_TYPE_CREATED:
-                sorted_events['dir_created'].append(e)
-            elif e.is_directory and e.event_type == EVENT_TYPE_MOVED:
-                sorted_events['dir_moved'].append(e)
-            elif not e.is_directory and e.event_type != EVENT_TYPE_DELETED:
-                sorted_events['file'].append(e)
+            events, _ = self._filter_excluded_changes_local(events)
 
-        # update queues
-        for e in itertools.chain(*sorted_events.values()):
-            self.queued_for_upload.put(get_dest_path(e))
+            sorted_events = dict(deleted=[], dir_created=[], dir_moved=[], file=[])
+            for e in events:
+                if e.event_type == EVENT_TYPE_DELETED:
+                    sorted_events['deleted'].append(e)
+                elif e.is_directory and e.event_type == EVENT_TYPE_CREATED:
+                    sorted_events['dir_created'].append(e)
+                elif e.is_directory and e.event_type == EVENT_TYPE_MOVED:
+                    sorted_events['dir_moved'].append(e)
+                elif not e.is_directory and e.event_type != EVENT_TYPE_DELETED:
+                    sorted_events['file'].append(e)
 
-        success = []
+            # update queues
+            for e in itertools.chain(*sorted_events.values()):
+                self.queued_for_upload.put(get_dest_path(e))
 
-        # apply deleted events first, folder moved events second
-        # neither event type requires an actual upload
-        if sorted_events['deleted']:
-            logger.info('Uploading deletions...')
+            success = []
 
-        last_emit = time.time()
-        with ThreadPoolExecutor(max_workers=self._num_threads,
-                                thread_name_prefix='maestral-upload-pool') as executor:
-            fs = (executor.submit(self.create_remote_entry, e)
-                  for e in sorted_events['deleted'])
-            n_files = len(sorted_events['deleted'])
-            for f, n in zip(as_completed(fs), range(1, n_files + 1)):
-                if time.time() - last_emit > 1 or n in (1, n_files):
-                    # emit message at maximum every second
-                    logger.info(f'Deleting {n}/{n_files}...')
-                    last_emit = time.time()
-                success.append(f.result())
+            # apply deleted events first, folder moved events second
+            # neither event type requires an actual upload
+            if sorted_events['deleted']:
+                logger.info('Uploading deletions...')
 
-        if sorted_events['dir_moved']:
-            logger.info('Moving folders...')
+            last_emit = time.time()
+            with ThreadPoolExecutor(max_workers=self._num_threads,
+                                    thread_name_prefix='maestral-upload-pool') as executor:
+                fs = (executor.submit(self._create_remote_entry, e)
+                      for e in sorted_events['deleted'])
+                n_files = len(sorted_events['deleted'])
+                for f, n in zip(as_completed(fs), range(1, n_files + 1)):
+                    if time.time() - last_emit > 1 or n in (1, n_files):
+                        # emit message at maximum every second
+                        logger.info(f'Deleting {n}/{n_files}...')
+                        last_emit = time.time()
+                    success.append(f.result())
 
-        for event in sorted_events['dir_moved']:
-            logger.info(f'Moving {event.src_path}...')
-            res = self.create_remote_entry(event)
-            success.append(res)
+            if sorted_events['dir_moved']:
+                logger.info('Moving folders...')
 
-        # apply file created events in parallel since order does not matter
-        last_emit = time.time()
-        with ThreadPoolExecutor(max_workers=self._num_threads,
-                                thread_name_prefix='maestral-upload-pool') as executor:
-            fs = (executor.submit(self.create_remote_entry, e) for e in
-                  itertools.chain(sorted_events['dir_created'], sorted_events['file']))
-            n_files = len(sorted_events['dir_created']) + len(sorted_events['file'])
-            for f, n in zip(as_completed(fs), range(1, n_files + 1)):
-                if time.time() - last_emit > 1 or n in (1, n_files):
-                    # emit message at maximum every second
-                    logger.info(f'Uploading {n}/{n_files}...')
-                    last_emit = time.time()
-                success.append(f.result())
+            for event in sorted_events['dir_moved']:
+                logger.info(f'Moving {event.src_path}...')
+                res = self._create_remote_entry(event)
+                success.append(res)
 
-        # bookkeeping
+            # apply file created events in parallel since order does not matter
+            last_emit = time.time()
+            with ThreadPoolExecutor(max_workers=self._num_threads,
+                                    thread_name_prefix='maestral-upload-pool') as executor:
+                fs = (executor.submit(self._create_remote_entry, e) for e in
+                      itertools.chain(sorted_events['dir_created'], sorted_events['file']))
+                n_files = len(sorted_events['dir_created']) + len(sorted_events['file'])
+                for f, n in zip(as_completed(fs), range(1, n_files + 1)):
+                    if time.time() - last_emit > 1 or n in (1, n_files):
+                        # emit message at maximum every second
+                        logger.info(f'Uploading {n}/{n_files}...')
+                        last_emit = time.time()
+                    success.append(f.result())
 
-        if all(success):
-            self.last_sync = local_cursor
+            # bookkeeping
 
-        self._clean_and_save_rev_file()
+            if all(success):
+                self.last_sync = local_cursor
+
+            self._clean_and_save_rev_file()
 
     @catch_sync_issues(download=False)
-    def create_remote_entry(self, event):
+    def _create_remote_entry(self, event):
         """
         Applies a local file system event to the remote Dropbox and clears any existing
         sync errors belonging to that path. Any :class:`errors.MaestralApiError` will be
@@ -1930,42 +1953,45 @@ class UpDownSync:
         :rtype: bool
         """
 
-        dbx_path = dbx_path or '/'
-        is_dbx_root = dbx_path == '/'
-        success = []
+        with self.sync_lock:
 
-        if is_dbx_root:
-            logger.info('Downloading your Dropbox')
-        else:
-            logger.info('Downloading %s', dbx_path)
+            dbx_path = dbx_path or '/'
+            is_dbx_root = dbx_path == '/'
+            success = []
 
-        if not any(is_child(folder, dbx_path) for folder in self.excluded_items):
-            # if there are no excluded subfolders, index and download all at once
-            ignore_excluded = False
+            if is_dbx_root:
+                logger.info('Downloading your Dropbox')
+            else:
+                logger.info('Downloading %s', dbx_path)
 
-        # get a cursor for the folder
-        cursor = self.client.get_latest_cursor(dbx_path)
+            if not any(is_child(folder, dbx_path) for folder in self.excluded_items):
+                # if there are no excluded subfolders, index and download all at once
+                ignore_excluded = False
 
-        root_result = self.client.list_folder(dbx_path, recursive=(not ignore_excluded),
-                                              include_deleted=False)
+            # get a cursor for the folder
+            cursor = self.client.get_latest_cursor(dbx_path)
 
-        # download top-level folders / files first
-        logger.info(SYNCING)
-        _, s = self.apply_remote_changes(root_result, save_cursor=False)
-        success.append(s)
+            root_result = self.client.list_folder(dbx_path,
+                                                  recursive=(not ignore_excluded),
+                                                  include_deleted=False)
 
-        if ignore_excluded:
-            # download sub-folders if not excluded
-            for entry in root_result.entries:
-                if isinstance(entry, FolderMetadata) and not self.is_excluded_by_user(
-                        entry.path_display):
-                    success.append(self.get_remote_folder(entry.path_display))
+            # download top-level folders / files first
+            logger.info(SYNCING)
+            _, s = self.apply_remote_changes(root_result, save_cursor=False)
+            success.append(s)
 
-        if is_dbx_root:
-            self.last_cursor = cursor
-            self.last_reindex = time.time()
+            if ignore_excluded:
+                # download sub-folders if not excluded
+                for entry in root_result.entries:
+                    if isinstance(entry, FolderMetadata) and not self.is_excluded_by_user(
+                            entry.path_display):
+                        success.append(self.get_remote_folder(entry.path_display))
 
-        return all(success)
+            if is_dbx_root:
+                self.last_cursor = cursor
+                self.last_reindex = time.time()
+
+            return all(success)
 
     def get_remote_item(self, dbx_path):
         """
@@ -1984,19 +2010,22 @@ class UpDownSync:
         :returns: ``True`` on success, ``False`` otherwise.
         :rtype: bool
         """
-        self.pending_downloads.add(dbx_path)
-        md = self.client.get_metadata(dbx_path, include_deleted=True)
 
-        if isinstance(md, FolderMetadata):
-            res = self.get_remote_folder(dbx_path)
-        else:  # FileMetadata or DeletedMetadata
-            with InQueue(self.queue_downloading, md.path_display):
-                res = self.create_local_entry(md)
+        with self.sync_lock:
 
-        if res is True:
-            self.pending_downloads.discard(dbx_path)
+            self.pending_downloads.add(dbx_path)
+            md = self.client.get_metadata(dbx_path, include_deleted=True)
 
-        return res
+            if isinstance(md, FolderMetadata):
+                res = self.get_remote_folder(dbx_path)
+            else:  # FileMetadata or DeletedMetadata
+                with InQueue(self.queue_downloading, md.path_display):
+                    res = self._create_local_entry(md)
+
+            if res is True:
+                self.pending_downloads.discard(dbx_path)
+
+            return res
 
     def wait_for_remote_changes(self, last_cursor, timeout=40, delay=2):
         """
@@ -2100,14 +2129,14 @@ class UpDownSync:
         if deleted:
             logger.info('Applying deletions...')
         for item in deleted:
-            res = self.create_local_entry(item)
+            res = self._create_local_entry(item)
             downloaded.append(res)
 
         # create local folders, start with top-level and work your way down
         if folders:
             logger.info('Creating folders...')
         for folder in folders:
-            res = self.create_local_entry(folder)
+            res = self._create_local_entry(folder)
             downloaded.append(res)
 
         # apply created files
@@ -2115,7 +2144,7 @@ class UpDownSync:
         last_emit = time.time()
         with ThreadPoolExecutor(max_workers=self._num_threads,
                                 thread_name_prefix='maestral-download-pool') as executor:
-            fs = (executor.submit(self.create_local_entry, file) for file in files)
+            fs = (executor.submit(self._create_local_entry, file) for file in files)
             for f, n in zip(as_completed(fs), range(1, n_files + 1)):
                 if time.time() - last_emit > 1 or n in (1, n_files):
                     # emit messages at maximum every second
@@ -2132,7 +2161,7 @@ class UpDownSync:
 
         return [entry for entry in downloaded if isinstance(entry, Metadata)], success
 
-    def check_download_conflict(self, md):
+    def _check_download_conflict(self, md):
         """
         Check if a local item is conflicting with remote change. The equivalent check when
         uploading and a change will be carried out by Dropbox itself.
@@ -2380,7 +2409,7 @@ class UpDownSync:
         return changes
 
     @catch_sync_issues(download=True)
-    def create_local_entry(self, entry):
+    def _create_local_entry(self, entry):
         """
         Applies a file change from Dropbox servers to the local Dropbox folder.
         Any :class:`errors.MaestralApiError` will be caught and logged as appropriate.
@@ -2407,7 +2436,7 @@ class UpDownSync:
 
         with InQueue(self.queue_downloading, entry.path_display):
 
-            conflict_check = self.check_download_conflict(entry)
+            conflict_check = self._check_download_conflict(entry)
 
             applied = None
 
@@ -2426,7 +2455,7 @@ class UpDownSync:
 
                 # re-check for conflict and move the conflict
                 # out of the way if anything has changed
-                if self.check_download_conflict(entry) == Conflict.Conflict:
+                if self._check_download_conflict(entry) == Conflict.Conflict:
                     new_local_path = generate_cc_name(local_path)
                     event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
                     with self.fs_events.ignore(event_cls(local_path, new_local_path)):
@@ -2593,11 +2622,12 @@ def download_worker(sync, syncing, running, connected):
         try:
             has_changes = sync.wait_for_remote_changes(sync.last_cursor)
 
-            if not (running.is_set() and syncing.is_set()):
-                continue
+            with sync.sync_lock:
 
-            if has_changes:
-                with sync.lock:
+                if not (running.is_set() and syncing.is_set()):
+                    continue
+
+                if has_changes:
                     logger.info(SYNCING)
 
                     changes = sync.list_remote_changes(sync.last_cursor)
@@ -2606,9 +2636,9 @@ def download_worker(sync, syncing, running, connected):
 
                     logger.info(IDLE)
 
-                sync.client.get_space_usage()
+                    sync.client.get_space_usage()
 
-                gc.collect()
+                    gc.collect()
 
         except ConnectionError:
             syncing.clear()
@@ -2635,17 +2665,19 @@ def download_worker_added_item(sync, syncing, running, connected):
 
         syncing.wait()
 
-        dbx_path = sync.queued_newly_included_downloads.get()
-
-        if not (running.is_set() and syncing.is_set()):
-            sync.pending_downloads.add(dbx_path)
-            continue
-
         try:
-            with sync.lock:
+            dbx_path = sync.queued_newly_included_downloads.get()
+
+            with sync.sync_lock:
+                if not (running.is_set() and syncing.is_set()):
+                    sync.pending_downloads.add(dbx_path)
+                    continue
+
                 sync.get_remote_item(dbx_path)
+                logger.info(IDLE)
+
                 gc.collect()
-            logger.info(IDLE)
+
         except ConnectionError:
             syncing.clear()
             connected.clear()
@@ -2674,18 +2706,18 @@ def upload_worker(sync, syncing, running, connected):
         try:
             events, local_cursor = sync.wait_for_local_changes()
 
-            if not (running.is_set() and syncing.is_set()):
-                continue
+            with sync.sync_lock:
+                if not (running.is_set() and syncing.is_set()):
+                    continue
 
-            if len(events) > 0:
-                with sync.lock:
+                if len(events) > 0:
                     logger.info(SYNCING)
                     sync.apply_local_changes(events, local_cursor)
                     logger.info(IDLE)
 
-                gc.collect()
-            else:
-                sync.last_sync = local_cursor
+                    gc.collect()
+                else:
+                    sync.last_sync = local_cursor
 
         except ConnectionError:
             syncing.clear()
@@ -2715,7 +2747,7 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
         startup.wait()
 
         try:
-            with sync.lock:
+            with sync.sync_lock:
                 # run / resume initial download
                 # local changes during this download will be registered
                 # by the local FileSystemObserver but only uploaded after
@@ -2756,12 +2788,12 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
 
                 gc.collect()
 
-            if not paused_by_user.is_set():
-                syncing.set()
+                if not paused_by_user.is_set():
+                    syncing.set()
 
-            startup.clear()
+                startup.clear()
 
-            logger.info(IDLE)
+                logger.info(IDLE)
 
         except ConnectionError:
             syncing.clear()
@@ -2979,7 +3011,7 @@ class MaestralMonitor:
 
     def reset_sync_state(self):
 
-        if self.syncing.is_set() or self.startup.is_set() or self.sync.lock.locked():
+        if self.syncing.is_set() or self.startup.is_set() or self.sync.busy():
             raise RuntimeError('Cannot reset sync state while syncing.')
 
         self.sync.last_cursor = ''
@@ -3011,8 +3043,12 @@ class MaestralMonitor:
             self.resume()
 
     def _wait_for_idle(self):
-        self.sync.lock.acquire()
-        self.sync.lock.release()
+
+        with self.sync.sync_lock:
+            pass
+
+        self.sync.sync_lock.acquire()
+        self.sync.sync_lock.release()
 
     def _threads_alive(self):
         """Returns ``True`` if all threads are alive, ``False`` otherwise."""
