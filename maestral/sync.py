@@ -430,10 +430,6 @@ class UpDownSync:
 
     """
 
-    sync_lock = RLock()
-
-    _rev_lock = RLock()
-
     _max_history = 30
     _num_threads = min(32, os.cpu_count() * 3)
 
@@ -443,6 +439,9 @@ class UpDownSync:
         self.config_name = self.client.config_name
         self.cancel_pending = Event()
         self.fs_events = None
+
+        self.sync_lock = RLock()
+        self._rev_lock = RLock()
 
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
@@ -2822,7 +2821,7 @@ class MaestralMonitor:
     `observer` to retrieve local file system events, `startup_thread` to carry out any
     startup jobs such as initial syncs, `upload_thread` to upload local changes to
     Dropbox, `download_thread` to query for and download remote changes, and
-    `connection_thread` which periodically checks the connection to Dropbox servers.
+    `helper_thread` which periodically checks the connection to Dropbox servers.
 
     :param MaestralApiClient client: The Dropbox API client, a wrapper around the Dropbox
         Python SDK.
