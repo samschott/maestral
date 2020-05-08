@@ -248,12 +248,13 @@ class FSEventHandler(FileSystemEventHandler):
 
 class MaestralStateWrapper(abc.MutableSet):
     """
-    A wrapper for a list in the saved state that implements a MutableSet interface. All
-    given paths are stored in lower-case, reflecting Dropbox's insensitive file system.
+    A wrapper for a list of strings in the saved state that implements a MutableSet
+    interface. All strings are stored as lower-case, reflecting Dropbox's case-insensitive
+    file system.
 
     :param str config_name: Name of config.
-    :param str section: Section name in state.
-    :param str option: Option name in state.
+    :param str section: Section name in state file.
+    :param str option: Option name in state file.
     """
 
     _lock = RLock()
@@ -306,7 +307,10 @@ class MaestralStateWrapper(abc.MutableSet):
 def catch_sync_issues(download=False):
     """
     Returns a decorator that catches all SyncErrors and logs them.
-    Should only be used for methods of UpDownSync.
+    Should only be used to decorate methods of :class:`UpDownSync`.
+
+    :param bool download: If ``True``, sync issues will be added to the `download_errors`
+        list to retry later.
     """
 
     def decorator(func):
@@ -360,68 +364,70 @@ class UpDownSync:
     The Dropbox API does not differentiate between created, moved or modified events.
     Maestral processes remote events as follows:
 
-      1) ``_clean_remote_changes``: Combine multiple events per file path into one. This
-         is rarely necessary, Dropbox typically already provides only a single event per
-         path but this is not guaranteed and may change. One exception is sharing a
+      1) :meth:`wait_for_remote_changes` blocks until remote changes are available.
+      2) :meth:`get_remote_changes` lists all remote changes since the last sync.
+      3) :meth:`_clean_remote_changes`: Combines multiple events per file path into one.
+         This is rarely necessary, Dropbox typically already provides only a single event
+         per path but this is not guaranteed and may change. One exception is sharing a
          folder: This is done by removing the folder from Dropbox and re-mounting it as a
          shared folder and produces at least one DeletedMetadata and one FolderMetadata
          event. If querying for changes *during* this process, multiple DeletedMetadata
-         events may be returned. If a File / Folder event implies a type changes, e.g.,
+         events may be returned. If a file / folder event implies a type changes, e.g.,
          replacing a folder with a file, we explicitly generate the necessary
          DeletedMetadata here to simplify conflict resolution.
-      2) ``_filter_excluded_changes_remote``: Filters out events that occurred for files
-         or folders excluded by selective sync, hard-coded file names which are always
-         excluded (e.g., '.DS_Store') and items in our cache path.
-      3) ``apply_remote_changes``: Sorts all events hierarchically, with top-level events
-         coming first. Deleted and folder events are processed in order, file events in
-         parallel with up to 6 worker threads.
-      4) ``_create_local_entry``: Checks for sync conflicts by comparing the file version,
-         as determined from its remote rev, with our locally saved rev. We assign folders
-         a rev of 'folder' and deleted / non-existent items a rev of None. If revs are
-         equal, the local item is the same or newer as an Dropbox, no download / deletion
-         occurs. If revs are different, we compare content hashes. Folders are assigned a
-         hash of 'folder'. If hashes are equal, no download occurs. Finally we check if
-         the local item has been modified since the last download sync. In case of a
-         folder, we take the newest change of any of its children. If the local item has
-         not been modified since the last sync, it will be replaced. Otherwise, we
-         create a conflicting copy.
+      2) :meth:`_filter_excluded_changes_remote`: Filters out events that occurred for
+         entries that are excluded by selective sync and hard-coded file names which are
+         always excluded (e.g., '.DS_Store').
+      3) :meth:`apply_remote_changes`: Sorts all events hierarchically, with top-level
+         events coming first. Deleted and folder events are processed in order, file
+         events in parallel with up to 6 worker threads. The actual download is carried
+         out by :meth:`_create_local_entry`.
+      4) :meth:`_create_local_entry`: Checks for sync conflicts by comparing the file
+         "rev" with our locally saved rev. We assign folders a rev of ``'folder'`` and
+         deleted / non-existent items a rev of ``None``. If revs are equal, the local item
+         is the same or newer as an Dropbox, no download / deletion occurs. If revs are
+         different, we compare content hashes. Folders are assigned a hash of 'folder'. If
+         hashes are equal, no download occurs. If they are different, we check if the
+         local item has been modified since the last download sync. In case of a folder,
+         we take the newest change of any of its children. If the local entry has not been
+         modified since the last sync, it will be replaced. Otherwise, we create a
+         conflicting copy.
+      5) :meth:`notify_user`: Shows a desktop notification for the remote changes.
 
     Local file events come in eight types: For both files and folders we collect created,
     moved, modified and deleted events. They are processed as follows:
 
-      1) ``FSEventHandler``: Our file system event handler tries to discard any events
-         that originate from Maestral itself, e.g., from downloads or from renaming
-         conflicts.
-      2) We wait until no new changes happen for at least 1.0 sec.
-      3) ``_filter_excluded_changes_local``: Filters out events ignored by a `.mignore`
-         pattern as well as hard-coded file names and changes in our cache path.
-      4) ``_clean_local_events``: Cleans up local events in two stages. First, multiple
-         events per path are combined into a single event which reproduces the file
-         changes. The only exceptions is when the item type changes from file to folder or
-         vice versa: in this case, both deleted and created events are kept. Second, when
-         a whole folder is moved or deleted, we discard the moved and deleted events of
-         its children.
-      4) ``apply_local_changes``: Sorts local changes hierarchically and applies events in
-         the order of deleted, folders and files. Deletions and file uploads will be
-         carried out in parallel with up to 6 threads. Conflict resolution and upload
-         / move / deletion will be handled by ``create_remote_entry`` as follows:
-      5) Conflict resolution: For created and moved events, we check if the new path has
-         been excluded by the user with selective sync but still exists on Dropbox. If
-         yes, it will be renamed by appending "(selective sync conflict)". On case-
-         sensitive file systems, we check if the new path differs only in casing from an
-         existing path. If yes, it will be renamed by appending "(case conflict)". If a
-         file has been replaced with a folder or vice versa, check if any un-synced
-         changes will be lost by replacing the remote item. Create a conflicting copy if
-         necessary. Dropbox does not handle conflict resolution for us in this case.
-      7) For created or modified files, check if the local content hash equals the remote
-         content hash. If yes, we don't upload but update our rev number.
-      8) Upload the changes, specify the rev which we want to replace / delete. If the
-         remote item is newer (different rev), Dropbox will handle conflict resolution.
-      9) Confirm the successful upload and check if Dropbox has renamed the item to a
-         conflicting copy. In the latter case, apply those changes locally.
-      10) Update local revs with the new revs assigned by Dropbox.
+      1) :meth:`wait_for_local_changes`: Blocks until local changes were registered by
+         :class:`FSEventHandler` available and returns those changes.
+      2) :meth:`_filter_excluded_changes_local`: Filters out events ignored by a
+         "mignore" pattern as well as hard-coded file names and changes in our cache path.
+      3) :meth:`_clean_local_events`: Cleans up local events in two stages. First,
+         multiple events per path are combined into a single event which reproduces the
+         file changes. The only exceptions is when the entry type changes from file to
+         folder or vice versa: in this case, both deleted and created events are kept.
+         Second, when a whole folder is moved or deleted, we discard the moved and deleted
+         events of its children.
+      4) :meth:`apply_local_changes`: Sorts local changes hierarchically and applies
+         events in the order of deleted, folders and files. Deletions and file uploads
+         will be carried out in parallel with up to 6 threads. Conflict resolution and
+         the actual upload will be handled by :meth:`_create_remote_entry` as follows:
+      5) :meth:`_create_remote_entry`: For created and moved events, we check if the new
+         path has been excluded by the user with selective sync but still exists on
+         Dropbox. If yes, it will be renamed by appending "(selective sync conflict)". On
+         case-sensitive file systems, we check if the new path differs only in casing from
+         an existing path. If yes, it will be renamed by appending "(case conflict)". If a
+         file has been replaced with a folder or vice versa, we check if any un-synced
+         changes will be lost by replacing the remote item and create a conflicting copy
+         if necessary. Dropbox does not handle conflict resolution for us in this case.
+         For created or modified files, check if the local content hash equals the remote
+         content hash. If yes, we don't upload but update our rev number. If no, we upload
+         the changes and specify the rev which we want to replace or delete. If the remote
+         item is newer (different rev), Dropbox will handle conflict resolution for us. We
+         finally confirm the successful upload and check if Dropbox has renamed the item
+         to a conflicting copy. In the latter case, we apply those changes locally.
 
     :param MaestralApiClient client: Dropbox API client instance.
+
     """
 
     sync_lock = RLock()
@@ -662,7 +668,7 @@ class UpDownSync:
         entry for the file is removed.
 
         :param str dbx_path: Path relative to Dropbox folder.
-        :param str, None rev: Revision number as string or ``None``.
+        :param str rev: Revision number as string or ``None``.
         """
         with self._rev_lock:
             dbx_path = dbx_path.lower()
@@ -803,7 +809,7 @@ class UpDownSync:
         overwritten with newer ones and all entries with rev == None will be discarded.
 
         :param str path: Path for rev.
-        :param str, None rev: Dropbox rev number.
+        :param str rev: Dropbox rev or ``None``.
         :raises: RevFileError if ``raise_exception`` is ``True``.
         """
 
