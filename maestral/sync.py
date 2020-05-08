@@ -466,7 +466,7 @@ class UpDownSync:
         self.queue_downloading = Queue()
 
         # load cached properties
-        self._dropbox_path = self._conf.get('main', 'path')
+        self._dropbox_path = osp.realpath(self._conf.get('main', 'path'))
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
         self._rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
@@ -496,6 +496,8 @@ class UpDownSync:
     @dropbox_path.setter
     def dropbox_path(self, path):
         """Setter: dropbox_path"""
+
+        path = osp.realpath(path)
 
         with self.sync_lock:
             self._dropbox_path = path
@@ -900,10 +902,8 @@ class UpDownSync:
         :raises: :class:`ValueError` the path lies outside of the local Dropbox folder.
         """
 
-        if local_path == self.dropbox_path:  # path corresponds to dropbox_path
-            return '/'
-        elif is_child(local_path, self.dropbox_path):
-            return local_path.replace(self.dropbox_path, '', 1)
+        if is_equal_or_child(local_path, self.dropbox_path):
+            return '/' + local_path.replace(self.dropbox_path, '', 1).lstrip('/')
         else:
             raise ValueError(f'Specified path "{local_path}" is outside of Dropbox '
                              f'directory "{self.dropbox_path}"')

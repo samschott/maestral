@@ -705,7 +705,7 @@ class Maestral:
         if not self.syncing:
             return FileStatus.Unwatched.value
 
-        local_path = osp.abspath(local_path)
+        local_path = osp.realpath(local_path)
 
         try:
             dbx_path = self.sync.to_dbx_path(local_path)
@@ -1113,7 +1113,7 @@ class Maestral:
         """
 
         old_path = self.sync.dropbox_path
-        new_path = osp.abspath(osp.expanduser(new_path))
+        new_path = osp.realpath(osp.expanduser(new_path))
 
         try:
             if osp.samefile(old_path, new_path):
@@ -1145,7 +1145,7 @@ class Maestral:
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
-        path = osp.abspath(osp.expanduser(path))
+        path = osp.realpath(osp.expanduser(path))
 
         self.monitor.reset_sync_state()
 
