@@ -1,3 +1,13 @@
+## v1.0.1
+
+This release fixes bugs in the command line interface.
+
+#### Fixed:
+
+- Fixes a crash of the CLI when an update is available due to incorrect formatting of the
+  update message.
+- Fixes an error when listing the contents of an empty directory with `maestral ls`.
+
 ## v1.0.0
 
 This is the first stable release of Maestral. There have been numerous bug fixes to error
