@@ -130,8 +130,8 @@ class FSEventHandler(FileSystemEventHandler):
         self.sync = sync
         self.sync.fs_events = self
 
-        self._ignored_paths = []
-        self._ignored_paths_mutex = RLock()
+        self._ignored_events = []
+        self._ignored_events_mutex = RLock()
 
         self.local_file_event_queue = Queue()
 
@@ -149,11 +149,11 @@ class FSEventHandler(FileSystemEventHandler):
         itself, for instance during a download or when moving a conflict.
 
         :param iterable events: Local events to ignore.
-        :param bool recursive: If ``True``, all child events of a dirctory event will be
+        :param bool recursive: If ``True``, all child events of a directory event will be
             ignored as well.
         """
 
-        with self._ignored_paths_mutex:
+        with self._ignored_events_mutex:
             now = time.time()
             new_ignores = []
             for e in events:
@@ -165,25 +165,25 @@ class FSEventHandler(FileSystemEventHandler):
                         recursive=recursive and e.is_directory,
                     )
                 )
-            self._ignored_paths.extend(new_ignores)
+            self._ignored_events.extend(new_ignores)
 
         try:
             yield
         finally:
-            with self._ignored_paths_mutex:
+            with self._ignored_events_mutex:
                 for ignore in new_ignores:
                     ignore['ttl'] = time.time() + self.ignore_timeout
 
-    def _expire_ignored_paths(self):
+    def _expire_ignored_events(self):
         """Removes all expired ignore entries."""
 
-        with self._ignored_paths_mutex:
+        with self._ignored_events_mutex:
 
             now = time.time()
-            for ignore in self._ignored_paths.copy():
+            for ignore in self._ignored_events.copy():
                 ttl = ignore['ttl']
                 if ttl and ttl < now:
-                    self._ignored_paths.remove(ignore)
+                    self._ignored_events.remove(ignore)
 
     def _is_ignored(self, event):
         """
@@ -195,18 +195,18 @@ class FSEventHandler(FileSystemEventHandler):
         :rtype: bool
         """
 
-        with self._ignored_paths_mutex:
+        with self._ignored_events_mutex:
 
-            self._expire_ignored_paths()
+            self._expire_ignored_events()
 
-            for ignore in self._ignored_paths:
+            for ignore in self._ignored_events:
                 ignore_event = ignore['event']
                 recursive = ignore['recursive']
 
                 if event == ignore_event:
 
                     if not recursive:
-                        self._ignored_paths.remove(ignore)
+                        self._ignored_events.remove(ignore)
 
                     return True
 
