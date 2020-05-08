@@ -1,4 +1,4 @@
-## v1.0.1
+## v1.0.2
 
 This release fixes bugs in the command line interface.
 
