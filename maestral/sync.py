@@ -385,7 +385,7 @@ class UpDownSync:
       4) :meth:`_create_local_entry`: Checks for sync conflicts by comparing the file
          "rev" with our locally saved rev. We assign folders a rev of ``'folder'`` and
          deleted / non-existent items a rev of ``None``. If revs are equal, the local item
-         is the same or newer as an Dropbox, no download / deletion occurs. If revs are
+         is the same or newer as on Dropbox and no download / deletion occurs. If revs are
          different, we compare content hashes. Folders are assigned a hash of 'folder'. If
          hashes are equal, no download occurs. If they are different, we check if the
          local item has been modified since the last download sync. In case of a folder,
@@ -398,17 +398,17 @@ class UpDownSync:
     moved, modified and deleted events. They are processed as follows:
 
       1) :meth:`wait_for_local_changes`: Blocks until local changes were registered by
-         :class:`FSEventHandler` available and returns those changes.
+         :class:`FSEventHandler` and returns those changes.
       2) :meth:`_filter_excluded_changes_local`: Filters out events ignored by a
          "mignore" pattern as well as hard-coded file names and changes in our cache path.
       3) :meth:`_clean_local_events`: Cleans up local events in two stages. First,
          multiple events per path are combined into a single event which reproduces the
-         file changes. The only exceptions is when the entry type changes from file to
+         file changes. The only exception is when the entry type changes from file to
          folder or vice versa: in this case, both deleted and created events are kept.
          Second, when a whole folder is moved or deleted, we discard the moved and deleted
          events of its children.
       4) :meth:`apply_local_changes`: Sorts local changes hierarchically and applies
-         events in the order of deleted, folders and files. Deletions and file uploads
+         events in the order of deleted, folders and files. Deletions and creations
          will be carried out in parallel with up to 6 threads. Conflict resolution and
          the actual upload will be handled by :meth:`_create_remote_entry` as follows:
       5) :meth:`_create_remote_entry`: For created and moved events, we check if the new
