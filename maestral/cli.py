@@ -144,9 +144,9 @@ def check_for_updates():
     has_update = Version(__version__) < Version(latest_release)
 
     if has_update:
-        click.secho(
+        click.echo(
             f'Maestral v{latest_release} has been released, you have v{__version__}. '
-            f'Please use your package manager to update.', fg='orange'
+            f'Please use your package manager to update.'
         )
 
 
@@ -219,8 +219,12 @@ def format_table(rows=None, columns=None, headers=None, padding_right=2):
         for i, col in enumerate(columns):
             col.insert(0, headers[i])
 
-    # transpose columns to get rows and vice versa
+    # transpose rows to get columns
     columns = list(columns) if columns else list(map(list, zip(*rows)))
+
+    # return early if all columns are empty (including headers)
+    if all(len(col) == 0 for col in columns):
+        return ''
 
     terminal_width, terminal_height = click.get_terminal_size()
     available_width = terminal_width - padding_right * len(columns)

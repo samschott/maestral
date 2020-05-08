@@ -1113,7 +1113,7 @@ class Maestral:
         """
 
         old_path = self.sync.dropbox_path
-        new_path = os.path.expanduser(new_path)
+        new_path = osp.abspath(osp.expanduser(new_path))
 
         try:
             if osp.samefile(old_path, new_path):
@@ -1145,7 +1145,7 @@ class Maestral:
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
-        path = os.path.expanduser(path)
+        path = osp.abspath(osp.expanduser(path))
 
         self.monitor.reset_sync_state()
 

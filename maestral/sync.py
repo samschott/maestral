@@ -890,20 +890,13 @@ class UpDownSync:
         :raises: :class:`ValueError` the path lies outside of the local Dropbox folder.
         """
 
-        dbx_root_list = osp.normpath(self.dropbox_path).split(osp.sep)
-        path_list = osp.normpath(local_path).split(osp.sep)
-
-        # Work out how much of the file path is shared by dropbox_path and path
-        # noinspection PyTypeChecker
-        i = len(osp.commonprefix([dbx_root_list, path_list]))
-
-        if i == len(path_list):  # path corresponds to dropbox_path
+        if local_path == self.dropbox_path:  # path corresponds to dropbox_path
             return '/'
-        elif i != len(dbx_root_list):  # path is outside of dropbox_path
+        elif is_child(local_path, self.dropbox_path):
+            return local_path.replace(self.dropbox_path, '', 1)
+        else:
             raise ValueError(f'Specified path "{local_path}" is outside of Dropbox '
                              f'directory "{self.dropbox_path}"')
-
-        return '/{}'.format('/'.join(path_list[i:]))
 
     def to_local_path(self, dbx_path):
         """
@@ -968,16 +961,16 @@ class UpDownSync:
     @staticmethod
     def is_excluded(path):
         """
-        Checks if file is excluded from sync. Certain file names are always excluded from
-        syncing, following the Dropbox support article:
+        Checks if a file is excluded from sync. Certain file names are always excluded
+        from syncing, following the Dropbox support article:
 
         https://help.dropbox.com/installs-integrations/sync-uploads/files-not-syncing
 
-        The include file system files such as 'desktop.ini' and '.DS_Store' and some
-        temporary files. This is determined by the basename alone and `is_excluded`
-        therefore accepts both relative and absolute paths.
+        This includes file system files such as 'desktop.ini' and '.DS_Store' and some
+        temporary files as well as caches used by Dropbox or Maestral. `is_excluded`
+        accepts both local and Dropbox paths.
 
-        :param str path: Path of item. Can be absolute or relative.
+        :param str path: Path of item. Can be both a local or Dropbox paths.
         :returns: ``True`` if excluded, ``False`` otherwise.
         :rtype: bool
         """
@@ -1195,9 +1188,8 @@ class UpDownSync:
         for event in events:
 
             local_path = get_dest_path(event)
-            dbx_path = self.to_dbx_path(local_path)
 
-            if self.is_excluded(dbx_path):
+            if self.is_excluded(local_path):
                 events_excluded.append(event)
             elif self.is_mignore(event):
                 # moved events with an ignored path are
