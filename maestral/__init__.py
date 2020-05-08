@@ -16,6 +16,6 @@ The following APIs should remain stable for frontends:
 
 """
 
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 __author__ = 'Sam Schott'
 __url__ = 'https://github.com/SamSchott/maestral'

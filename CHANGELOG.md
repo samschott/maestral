@@ -1,11 +1,12 @@
-## v1.0.1
+## v1.0.2
+
+This release fixes bugs in the command line interface.
 
 #### Fixed:
 
+- Fixes a crash of the CLI when an update is available due to incorrect formatting of the
+  update message.
 - Fixes an error when listing the contents of an empty directory with `maestral ls`.
-- Fixes a crash of the CLI when trying to display an update message.
-- Fixes an issue which could lead to the local Dropbox folder being moved before syncing
-  has been paused.
 
 ## v1.0.0
 
