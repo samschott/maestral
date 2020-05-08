@@ -1058,8 +1058,7 @@ class UpDownSync:
         """
         Checks if we are currently syncing.
 
-        :returns: ``True`` if :attr:`sync.sync_lock` cannot be aquired, ``False``
-            otherwise.
+        :returns: ``True`` if :attr:`sync_lock` cannot be aquired, ``False`` otherwise.
         :rtype: bool
         """
 
@@ -1999,7 +1998,7 @@ class UpDownSync:
         so that they will be resumed in case Maestral is terminated during the download.
         If ``dbx_path`` refers to a folder, the download will be handled by
         :meth:`get_remote_folder`. If it refers to a single file, the download will be
-        performed by :meth:`create_local_entry`.
+        performed by :meth:`_create_local_entry`.
 
         This method can be used to fetch individual items outside of the regular sync
         cycle, for instance when including a new file or folder.
