@@ -1,3 +1,10 @@
+## v1.0.3.dev
+
+#### Fixed:
+
+- Fixes an issue which could lead to the local Dropbox folder being moved before syncing
+  has been paused.
+
 ## v1.0.2
 
 This release fixes bugs in the command line interface.
