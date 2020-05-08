@@ -2818,11 +2818,11 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
 
 class MaestralMonitor:
     """
-    Class to sync changes between Dropbox and a local folder. It creates four
-    threads: `observer` to catch local file events, `upload_thread` to upload
-    caught changes to Dropbox, `download_thread` to query for and download
-    remote changes, and `connection_thread` which periodically checks the
-    connection to Dropbox servers.
+    Class to sync changes between Dropbox and a local folder. It creates five threads:
+    `observer` to retrieve local file system events, `startup_thread` to carry out any
+    startup jobs such as initial syncs, `upload_thread` to upload local changes to
+    Dropbox, `download_thread` to query for and download remote changes, and
+    `connection_thread` which periodically checks the connection to Dropbox servers.
 
     :param MaestralApiClient client: The Dropbox API client, a wrapper around the Dropbox
         Python SDK.
@@ -3013,6 +3013,7 @@ class MaestralMonitor:
             return 0.0
 
     def reset_sync_state(self):
+        """Resets all saved sync state."""
 
         if self.syncing.is_set() or self.startup.is_set() or self.sync.busy():
             raise RuntimeError('Cannot reset sync state while syncing.')
