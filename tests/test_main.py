@@ -60,6 +60,11 @@ class TestAPI(TestCase):
         except NotFoundError:
             pass
 
+        try:
+            cls.m.client.remove('/.mignore')
+        except NotFoundError:
+            pass
+
         # release test lock
 
         try:
@@ -101,6 +106,11 @@ class TestAPI(TestCase):
         """Recreates a fresh test folder."""
         try:
             self.m.client.remove(self.test_folder_dbx)
+        except NotFoundError:
+            pass
+
+        try:
+            self.m.client.remove('/.mignore')
         except NotFoundError:
             pass
 
@@ -172,13 +182,7 @@ class TestAPI(TestCase):
         self.assertFalse(any(e['local_path'] == test_path_local for e in self.m.sync_errors))
 
     def test_download_sync_issues(self):
-        # TODO: find a file with reproducible download error
-        pass
-
-    def test_mignore(self):
-        # TODO:
-        #  1) test that new files are excluded
-        #  2) test that tracked files are unaffected
+        # TODO: find a file with a reproducible download error
         pass
 
 

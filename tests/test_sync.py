@@ -420,6 +420,11 @@ class TestSync(TestCase):
         except NotFoundError:
             pass
 
+        try:
+            cls.m.client.remove('/.mignore')
+        except NotFoundError:
+            pass
+
         # release test lock
 
         try:
@@ -461,6 +466,11 @@ class TestSync(TestCase):
         """Recreates a fresh test folder."""
         try:
             self.m.client.remove(self.test_folder_dbx)
+        except NotFoundError:
+            pass
+
+        try:
+            self.m.client.remove('/.mignore')
         except NotFoundError:
             pass
 
@@ -983,6 +993,44 @@ class TestSync(TestCase):
         self.assertIsNotNone(self.m.client.get_metadata(self.test_folder_dbx + '/Folder (case conflict)'))
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+    def test_mignore(self):
+
+        # 1) test that tracked items are unaffected
+
+        os.mkdir(self.test_folder_local + '/bar')
+        self.wait_for_idle()
+
+        with open(self.m.sync.mignore_path, 'w') as f:
+            f.write('foo/\n')   # ignore folder "foo"
+            f.write('bar\n')    # ignore file or folder "bar"
+            f.write('build\n')  # ignore file or folder "build"
+
+        self.wait_for_idle()
+
+        self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+        self.assert_exists(self.test_folder_dbx, 'bar')
+
+        # 2) test that new items are excluded
+
+        os.mkdir(self.test_folder_local + '/foo')
+        self.wait_for_idle()
+
+        self.assertIsNone(self.m.client.get_metadata(self.test_folder_dbx + '/foo'))
+
+        # 3) test that renaming an item excludes it
+
+        move(self.test_folder_local + '/bar', self.test_folder_local + '/build')
+        self.wait_for_idle()
+
+        self.assertIsNone(self.m.client.get_metadata(self.test_folder_dbx + '/build'))
+
+        # 4) test that renaming an item includes it
+
+        move(self.test_folder_local + '/build', self.test_folder_local + '/folder')
+        self.wait_for_idle()
+
+        self.assert_exists(self.test_folder_dbx, 'folder')
 
 
 if __name__ == '__main__':
