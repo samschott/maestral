@@ -279,7 +279,7 @@ class MaestralStateWrapper(abc.MutableSet):
             return len(self._state.get(self.section, self.option))
 
     def discard(self, dbx_path):
-        dbx_path = dbx_path.lower().rstrip(osp.sep)
+        dbx_path = dbx_path.lower().rstrip('/')
         with self._lock:
             state_list = self._state.get(self.section, self.option)
             state_list = set(state_list)
@@ -287,7 +287,7 @@ class MaestralStateWrapper(abc.MutableSet):
             self._state.set(self.section, self.option, list(state_list))
 
     def add(self, dbx_path):
-        dbx_path = dbx_path.lower().rstrip(osp.sep)
+        dbx_path = dbx_path.lower().rstrip('/')
         with self._lock:
             state_list = self._state.get(self.section, self.option)
             state_list = set(state_list)
@@ -545,7 +545,7 @@ class UpDownSync:
         """
 
         # remove duplicate entries by creating set, strip trailing '/'
-        folder_list = set(f.lower().rstrip(osp.sep) for f in folder_list)
+        folder_list = set(f.lower().rstrip('/') for f in folder_list)
 
         # remove all children of excluded folders
         clean_list = list(folder_list)
@@ -903,7 +903,8 @@ class UpDownSync:
         """
 
         if is_equal_or_child(local_path, self.dropbox_path):
-            return '/' + local_path.replace(self.dropbox_path, '', 1).lstrip('/')
+            dbx_path = osp.sep + local_path.replace(self.dropbox_path, '', 1).lstrip(osp.sep)
+            return dbx_path.replace(osp.sep, '/')
         else:
             raise ValueError(f'Specified path "{local_path}" is outside of Dropbox '
                              f'directory "{self.dropbox_path}"')
@@ -931,7 +932,7 @@ class UpDownSync:
         local_parent = to_cased_path(dbx_path_parent, root=self.dropbox_path)
 
         if local_parent == '':
-            return osp.join(self.dropbox_path, dbx_path.lstrip(osp.sep))
+            return osp.join(self.dropbox_path, dbx_path.lstrip('/'))
         else:
             return osp.join(local_parent, dbx_path_basename)
 
@@ -984,7 +985,7 @@ class UpDownSync:
         :returns: ``True`` if excluded, ``False`` otherwise.
         :rtype: bool
         """
-        path = path.lower()
+        path = path.lower().replace(osp.sep, '/')
 
         # is root folder?
         if path in ('/', ''):
@@ -2170,7 +2171,7 @@ class UpDownSync:
         if n_changed == 1:
             # display user name, file name, and type of change
             md = changes[0]
-            file_name = os.path.basename(md.path_display)
+            file_name = osp.basename(md.path_display)
 
             if isinstance(md, DeletedMetadata):
                 change_type = 'removed'

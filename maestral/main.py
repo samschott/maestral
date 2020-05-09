@@ -942,7 +942,7 @@ class Maestral:
             raise NotFoundError('Cannot exlcude item',
                                 f'"{dbx_path}" does not exist on Dropbox')
 
-        dbx_path = dbx_path.lower().rstrip(osp.sep)
+        dbx_path = dbx_path.lower().rstrip('/')
 
         # add the path to excluded list
         if self.sync.is_excluded_by_user(dbx_path):
@@ -1004,7 +1004,7 @@ class Maestral:
             raise NotFoundError('Cannot include item',
                                 f'"{dbx_path}" does not exist on Dropbox')
 
-        dbx_path = dbx_path.lower().rstrip(osp.sep)
+        dbx_path = dbx_path.lower().rstrip('/')
 
         old_excluded_items = self.sync.excluded_items
 
@@ -1086,7 +1086,7 @@ class Maestral:
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
-        dbx_path = dbx_path.lower().rstrip(osp.sep)
+        dbx_path = dbx_path.lower().rstrip('/')
 
         excluded_items = self._conf.get('main', 'excluded_items')
 
