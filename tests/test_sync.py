@@ -30,7 +30,7 @@ import unittest
 from unittest import TestCase
 
 
-# run tests in decleration order and not alphabetically
+# run tests in declaration order and not alphabetically
 unittest.TestLoader.sortTestMethodsUsing = None
 
 
@@ -307,7 +307,7 @@ class TestIgnoreLocalEvents(TestCase):
         self.observer.schedule(self.fs_event_handler, str(self.dummy_dir), recursive=True)
         self.observer.start()
 
-    def test_recieveing_events(self):
+    def test_receiving_events(self):
 
         new_dir = self.dummy_dir / 'parent'
         new_dir.mkdir()
@@ -396,7 +396,7 @@ class TestSync(TestCase):
         cls.test_folder_dbx = cls.TEST_FOLDER_PATH
         cls.test_folder_local = cls.m.dropbox_path + cls.TEST_FOLDER_PATH
 
-        # aquire test lock
+        # acquire test lock
         while True:
             try:
                 cls.m.client.make_dir(cls.TEST_LOCK_PATH)
@@ -514,7 +514,7 @@ class TestSync(TestCase):
         candidates = list(e for e in entries if e['name'].startswith(basename))
         ccs = list(e for e in candidates
                    if '(1)' in e['name']  # created by Dropbox for add conflict
-                   or 'conflicted copy' in e['name']  # created by Dropbox for update confict
+                   or 'conflicted copy' in e['name']  # created by Dropbox for update conflict
                    or 'conflicting copy' in e['name'])  # created by us
         return len(ccs)
 

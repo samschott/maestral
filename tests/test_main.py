@@ -36,7 +36,7 @@ class TestAPI(TestCase):
         cls.test_folder_dbx = cls.TEST_FOLDER_PATH
         cls.test_folder_local = cls.m.dropbox_path + cls.TEST_FOLDER_PATH
 
-        # aquire test lock
+        # acquire test lock
         while True:
             try:
                 cls.m.client.make_dir(cls.TEST_LOCK_PATH)
@@ -119,7 +119,7 @@ class TestAPI(TestCase):
     # test functions
 
     def test_selective_sync(self):
-        """Test `Maetsral.exclude_item` and  Maetsral.include_item`."""
+        """Test `Maestral.exclude_item` and  Maestral.include_item`."""
 
         test_path_local = self.test_folder_local + '/selective_sync_test_folder'
         test_path_dbx = self.test_folder_dbx + '/selective_sync_test_folder'
@@ -158,7 +158,7 @@ class TestAPI(TestCase):
         self.assertNotIn(test_path_dbx, self.m.excluded_items,
                          'deleted item is still in "excluded_items" list')
 
-        # test exluding a non-existant folder
+        # test excluding a non-existent folder
         with self.assertRaises(NotFoundError):
             self.m.exclude_item(test_path_dbx)
 
