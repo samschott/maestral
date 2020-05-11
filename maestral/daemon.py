@@ -264,6 +264,10 @@ def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
     :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
         already running or ``Start.Failed`` if startup failed.
     """
+
+    if config_name in threads and threads[config_name].is_alive():
+        return Start.AlreadyRunning
+
     import threading
 
     t = threading.Thread(
@@ -310,6 +314,9 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
 
     # use nested Popen and multiprocessing.Process to effectively create double fork
     # see Unix 'double-fork magic'
+
+    if get_maestral_pid(config_name):
+        return Start.AlreadyRunning
 
     if IS_FROZEN:
 
