@@ -413,6 +413,7 @@ def stop_maestral_daemon_thread(config_name='maestral', timeout=10):
     if t.is_alive():
         return Exit.Failed
     else:
+        del threads[config_name]
         return Exit.Ok
 
 
