@@ -445,16 +445,10 @@ def gui(config_name):
 def start(config_name: str, foreground: bool, verbose: bool):
     """Starts the Maestral daemon."""
 
-    from maestral.daemon import get_maestral_pid, get_maestral_proxy
+    from maestral.daemon import get_maestral_proxy
     from maestral.daemon import (start_maestral_daemon_thread, threads,
                                  start_maestral_daemon_process, Start)
 
-    # do nothing if already running
-    if get_maestral_pid(config_name):
-        click.echo('Maestral daemon is already running.')
-        return
-
-    # start daemon
     click.echo('Starting Maestral...', nl=False)
 
     if foreground:
@@ -464,6 +458,9 @@ def start(config_name: str, foreground: bool, verbose: bool):
 
     if res == Start.Ok:
         click.echo('\rStarting Maestral...        ' + OK)
+    elif res == Start.AlreadyRunning:
+        click.echo('\rStarting Maestral...        Already running.')
+        return
     else:
         click.echo('\rStarting Maestral...        ' + FAILED)
         click.echo('Please check logs for more information.')

@@ -16,16 +16,22 @@ import time
 import signal
 import traceback
 import enum
+import subprocess
+import threading
+import fcntl
+import struct
+import tempfile
 
 # external imports
 import Pyro5.errors
 from Pyro5.api import Daemon, Proxy, expose, oneway
 from Pyro5.serializers import SerpentSerializer
-from lockfile.pidlockfile import PIDLockFile, AlreadyLocked
+from fasteners import InterProcessLock
 
 # local imports
 from maestral.errors import SYNC_ERRORS, FATAL_ERRORS
 from maestral.constants import IS_FROZEN
+from maestral.utils.appdirs import get_runtime_path
 
 
 threads = dict()
@@ -76,6 +82,149 @@ for err_cls in list(SYNC_ERRORS) + list(FATAL_ERRORS):
     )
 
 
+# ==== interprocess locking ==============================================================
+
+def _get_lockdata():
+
+    try:
+        os.O_LARGEFILE
+    except AttributeError:
+        start_len = 'll'
+    else:
+        start_len = 'qq'
+
+    if (sys.platform.startswith(('netbsd', 'freebsd', 'openbsd'))
+            or sys.platform == 'darwin'):
+        if struct.calcsize('l') == 8:
+            off_t = 'l'
+            pid_t = 'i'
+        else:
+            off_t = 'lxxxx'
+            pid_t = 'l'
+
+        fmt = off_t + off_t + pid_t + 'hh'
+        pid_index = 2
+        lockdata = struct.pack(fmt, 0, 0, 0, fcntl.F_WRLCK, 0)
+    elif sys.platform.startswith('gnukfreebsd'):
+        fmt = 'qqihhi'
+        pid_index = 2
+        lockdata = struct.pack(fmt, 0, 0, 0, fcntl.F_WRLCK, 0, 0)
+    elif sys.platform in ('hp-uxB', 'unixware7'):
+        fmt = 'hhlllii'
+        pid_index = 2
+        lockdata = struct.pack(fmt, fcntl.F_WRLCK, 0, 0, 0, 0, 0, 0)
+    else:
+        fmt = 'hh' + start_len + 'ih'
+        pid_index = 4
+        lockdata = struct.pack(fmt, fcntl.F_WRLCK, 0, 0, 0, 0, 0)
+
+    return lockdata, fmt, pid_index
+
+
+class Lock:
+    """
+    A inter-process and inter-thread lock. This reuses uses code from
+    oslo.concurrency.lockutils but additionally allows non-blocking acquire.
+    """
+
+    _internal_locks = dict()
+    _external_locks = dict()
+
+    _singleton_lock = threading.Lock()
+
+    def __init__(self, name, lock_path=None):
+
+        self.name = name
+        dirname = lock_path or tempfile.gettempdir()
+        lock_path = os.path.join(dirname, name)
+
+        with self._singleton_lock:
+            try:
+                self._internal_lock = self._internal_locks[name]
+            except KeyError:
+                lock = threading.Semaphore()
+                self._internal_locks[name] = lock
+                self._internal_lock = lock
+
+            try:
+                self._external_lock = self._external_locks[lock_path]
+            except KeyError:
+                lock = InterProcessLock(lock_path)
+                self._external_locks[lock_path] = lock
+                self._external_lock = lock
+
+    def acquire(self, blocking=True):
+        """
+        Attempts to acquire the given lock.
+
+        :param bool blocking: Whether to wait forever to try to acquire the lock.
+        :returns: Whether or not the acquisition succeeded.
+        :rtype: bool
+        """
+        locked_internal = self._internal_lock.acquire(blocking=blocking)
+
+        if not locked_internal:
+            return False
+
+        try:
+            locked_external = self._external_lock.acquire(blocking=blocking)
+        except Exception:
+            self._internal_lock.release()
+            raise
+        else:
+
+            if locked_external:
+                return True
+            else:
+                self._internal_lock.release()
+                return False
+
+    def release(self):
+        """Release the previously acquired lock."""
+        self._external_lock.release()
+        self._internal_lock.release()
+
+    def locking_pid(self):
+        """
+        Returns the PID of the process which currently holds the lock or None. This is
+        atomic only when called from a different process than the lock holder. This method
+        is not thread safe: it may return None if the lock is acquired by the current
+        process during the call and may return a PID if the lock has been released by the
+        current process during the call.
+
+        :returns: The PID of the process which currently holds the lock or None.
+        :rtype: int
+        """
+
+        if self._external_lock.acquired:
+            return os.getpid()
+
+        try:
+            # don't close again in case we are the locking process
+            self._external_lock._do_open()
+            lockdata, fmt, pid_index = _get_lockdata()
+            lockdata = fcntl.fcntl(self._external_lock.lockfile, fcntl.F_GETLK, lockdata)
+
+            lockdata_list = struct.unpack(fmt, lockdata)
+            pid = lockdata_list[pid_index]
+
+            if pid > 0:
+                return pid
+
+        except OSError:
+            pass
+
+    def __enter__(self):
+        gotten = self.acquire()
+        if not gotten:
+            raise threading.ThreadError('Unable to acquire a lock')
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.release()
+
+
 # ==== helpers for daemon management =====================================================
 
 def _escape_spaces(string):
@@ -93,12 +242,13 @@ def _send_term(pid):
         pass
 
 
-def _process_exists(pid):
-    try:
-        os.kill(pid, signal.SIG_DFL)
-        return True
-    except ProcessLookupError:
-        return False
+class MaestralLock(Lock):
+    """
+    A inter-process and inter-thread lock for Maestral.
+    """
+
+    def __init__(self, config_name):
+        super().__init__(f'{config_name}.lock', get_runtime_path('maestral'))
 
 
 def sockpath_for_config(config_name):
@@ -106,28 +256,11 @@ def sockpath_for_config(config_name):
     Returns the unix socket location to be used for the config. This should default to
     the apps runtime directory + '/maestral/CONFIG_NAME.sock'.
     """
-    from maestral.utils.appdirs import get_runtime_path
-    return get_runtime_path('maestral', config_name + '.sock')
+    return get_runtime_path('maestral', f'{config_name}.sock')
 
 
-def pidpath_for_config(config_name):
-    from maestral.utils.appdirs import get_runtime_path
-    return get_runtime_path('maestral', config_name + '.pid')
-
-
-def is_pidfile_stale(pidfile):
-    """
-    Determine whether a PID file is stale. Returns ``True`` if the PID file is stale,
-    ``False`` otherwise. The PID file is stale if its contents are valid but do not
-    match the PID of a currently-running process.
-    """
-    result = False
-
-    pid = pidfile.read_pid()
-    if pid:
-        return not _process_exists(pid)
-    else:
-        return result
+def lockpath_for_config(config_name):
+    return get_runtime_path('maestral',  f'{config_name}.lock')
 
 
 def get_maestral_pid(config_name):
@@ -139,39 +272,16 @@ def get_maestral_pid(config_name):
     :rtype: int
     """
 
-    lockfile = PIDLockFile(pidpath_for_config(config_name))
-    pid = lockfile.read_pid()
-
-    if pid and not is_pidfile_stale(lockfile):
-        return pid
-    else:
-        lockfile.break_lock()
+    return MaestralLock(config_name).locking_pid()
 
 
 def _wait_for_startup(config_name, timeout=8):
-    """Waits for the daemon to start and verifies Pyro communication. Returns ``Start.Ok``
-    if startup and communication succeeds within timeout, ``Start.Failed`` otherwise."""
-    t0 = time.time()
-    pid = None
-
-    while not pid and time.time() - t0 < timeout / 2:
-        pid = get_maestral_pid(config_name)
-        time.sleep(0.2)
-
-    if pid:
-        return _check_pyro_communication(config_name, timeout=int(timeout / 2))
-    else:
-        return Start.Failed
-
-
-def _check_pyro_communication(config_name, timeout=4):
     """Checks if we can communicate with the maestral daemon. Returns ``Start.Ok`` if
     communication succeeds within timeout, ``Start.Failed``  otherwise."""
 
     sock_name = sockpath_for_config(config_name)
     maestral_daemon = Proxy(URI.format(_escape_spaces(config_name), './u:' + sock_name))
 
-    # wait until we can communicate with daemon, timeout after :param:`timeout`
     while timeout > 0:
         try:
             maestral_daemon._pyroBind()
@@ -201,24 +311,15 @@ def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
     import threading
     from maestral.main import Maestral
 
-    sock_name = sockpath_for_config(config_name)
-    pid_name = pidpath_for_config(config_name)
-
-    lockfile = PIDLockFile(pid_name)
+    sockpath = sockpath_for_config(config_name)
 
     if threading.current_thread() is threading.main_thread():
         signal.signal(signal.SIGTERM, _sigterm_handler)
 
     # acquire PID lock file
-
-    try:
-        lockfile.acquire(timeout=0.5)
-    except AlreadyLocked:
-        if is_pidfile_stale(lockfile):
-            lockfile.break_lock()
-            lockfile.acquire()
-        else:
-            return
+    lock = MaestralLock(config_name)
+    if not lock.acquire(blocking=False):
+        raise RuntimeError('Maestral daemon is already running')
 
     # Nice ourselves to give other processes priority. We will likely only
     # have significant CPU usage in case of many concurrent downloads.
@@ -227,7 +328,7 @@ def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
     try:
         # clean up old socket
         try:
-            os.remove(sock_name)
+            os.remove(sockpath)
         except FileNotFoundError:
             pass
 
@@ -243,7 +344,7 @@ def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
 
         m = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
 
-        with Daemon(unixsocket=sock_name) as daemon:
+        with Daemon(unixsocket=sockpath) as daemon:
             daemon.register(m, f'maestral.{_escape_spaces(config_name)}')
             daemon.requestLoop(loopCondition=m._loop_condition)
 
@@ -252,7 +353,7 @@ def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
     except (KeyboardInterrupt, SystemExit):
         sys.exit(0)
     finally:
-        lockfile.release()
+        lock.release()
 
 
 def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
@@ -265,10 +366,8 @@ def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
         already running or ``Start.Failed`` if startup failed.
     """
 
-    if config_name in threads and threads[config_name].is_alive():
+    if MaestralLock(config_name).locking_pid():
         return Start.AlreadyRunning
-
-    import threading
 
     t = threading.Thread(
         target=start_maestral_daemon,
@@ -308,15 +407,15 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
     :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
         already running or ``Start.Failed`` if startup failed.
     """
-    import subprocess
+
+    if MaestralLock(config_name).locking_pid():
+        return Start.AlreadyRunning
+
     from shlex import quote
     import multiprocessing as mp
 
     # use nested Popen and multiprocessing.Process to effectively create double fork
     # see Unix 'double-fork magic'
-
-    if get_maestral_pid(config_name):
-        return Start.AlreadyRunning
 
     if IS_FROZEN:
 
@@ -356,39 +455,35 @@ def stop_maestral_daemon_process(config_name='maestral', timeout=10):
         if the daemon was not running.
     """
 
-    lockfile = PIDLockFile(pidpath_for_config(config_name))
-    pid = lockfile.read_pid()
+    pid = get_maestral_pid(config_name)
+
+    if not pid:
+        return Exit.NotRunning
 
     try:
-        if not pid or not _process_exists(pid):
-            return Exit.NotRunning
-
-        try:
-            with MaestralProxy(config_name) as m:
-                m.stop_sync()
-                m.shutdown_pyro_daemon()
-        except Pyro5.errors.CommunicationError:
-            _send_term(pid)
-        finally:
-            while timeout > 0:
-                if not _process_exists(pid):
-                    return Exit.Ok
-                else:
-                    time.sleep(0.2)
-                    timeout -= 0.2
-
-            # send SIGTERM after timeout and delete PID file
-            _send_term(pid)
-
-            time.sleep(1)
-
-            if not _process_exists(pid):
+        with MaestralProxy(config_name) as m:
+            m.stop_sync()
+            m.shutdown_pyro_daemon()
+    except Pyro5.errors.CommunicationError:
+        _send_term(pid)
+    finally:
+        while timeout > 0:
+            if not get_maestral_pid(config_name):
                 return Exit.Ok
             else:
-                os.kill(pid, signal.SIGKILL)
-                return Exit.Killed
-    finally:
-        lockfile.break_lock()
+                time.sleep(0.2)
+                timeout -= 0.2
+
+        # send SIGTERM after timeout and delete PID file
+        _send_term(pid)
+
+        time.sleep(1)
+
+        if not get_maestral_pid(config_name):
+            return Exit.Ok
+        else:
+            os.kill(pid, signal.SIGKILL)
+            return Exit.Killed
 
 
 def stop_maestral_daemon_thread(config_name='maestral', timeout=10):
@@ -400,11 +495,7 @@ def stop_maestral_daemon_thread(config_name='maestral', timeout=10):
         ``Exit.Failed`` if it could not be stopped within timeout.
     """
 
-    lockfile = PIDLockFile(pidpath_for_config(config_name))
-    t = threads[config_name]
-
-    if not t.is_alive():
-        lockfile.break_lock()
+    if not MaestralLock(config_name).locking_pid():
         return Exit.NotRunning
 
     # tell maestral daemon to shut down
@@ -416,11 +507,11 @@ def stop_maestral_daemon_thread(config_name='maestral', timeout=10):
         return Exit.Failed
 
     # wait for maestral to carry out shutdown
+    t = threads.get(config_name)
     t.join(timeout=timeout)
     if t.is_alive():
         return Exit.Failed
     else:
-        del threads[config_name]
         return Exit.Ok
 
 
