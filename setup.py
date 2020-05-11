@@ -1,35 +1,11 @@
 # -*- coding: utf-8 -*-
 
 # system imports
-import sys
-import os.path as osp
 from setuptools import setup, find_packages
 import importlib.util
 
 # local imports (must not depend on 3rd party packages)
 from maestral import __version__, __author__, __url__
-from maestral.utils.appdirs import get_runtime_path
-from maestral.config.base import list_configs
-
-
-# abort install if there are running daemons
-running_daemons = []
-
-for config in list_configs():
-    pid_file = get_runtime_path('maestral', config + '.pid')
-    if osp.exists(pid_file):
-        running_daemons.append(config)
-
-if running_daemons:
-    sys.stderr.write(f"""
-Maestral daemons with the following configs are running:
-
-{', '.join(running_daemons)}
-
-Please stop the daemons before updating to ensure a clean upgrade
-of config files and compatibility been the CLI and daemon.
-    """)
-    sys.exit(1)
 
 
 # proceed with actual install
@@ -42,7 +18,7 @@ install_requires = [
     'jeepney;sys_platform=="linux"',
     'keyring>=19.0.0',
     'keyrings.alt>=3.1.0',
-    'lockfile>=0.12.0',
+    'fasteners',
     'packaging',
     'pathspec>=0.5.8',
     'Pyro5>=5.7',
