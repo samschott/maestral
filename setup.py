@@ -8,7 +8,7 @@ import importlib.util
 
 # local imports (must not depend on 3rd party packages)
 from maestral import __version__, __author__, __url__
-from maestral.utils.appdirs import get_runtime_path, get_old_runtime_path
+from maestral.utils.appdirs import get_runtime_path
 from maestral.config.base import list_configs
 
 
@@ -17,8 +17,7 @@ running_daemons = []
 
 for config in list_configs():
     pid_file = get_runtime_path('maestral', config + '.pid')
-    old_pid_file = get_old_runtime_path('maestral', config + '.pid')
-    if osp.exists(pid_file) or osp.exists(old_pid_file):
+    if osp.exists(pid_file):
         running_daemons.append(config)
 
 if running_daemons:
