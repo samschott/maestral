@@ -79,7 +79,7 @@ for err_cls in list(SYNC_ERRORS) + list(FATAL_ERRORS):
 # ==== helpers for daemon management =====================================================
 
 def _escape_spaces(string):
-    return string.replace(" ", "_")
+    return string.replace(' ', '_')
 
 
 def _sigterm_handler(signal_number, frame):
