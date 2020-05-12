@@ -105,18 +105,20 @@ def _get_lockdata():
         fmt = off_t + off_t + pid_t + 'hh'
         pid_index = 2
         lockdata = struct.pack(fmt, 0, 0, 0, fcntl.F_WRLCK, 0)
-    elif sys.platform.startswith('gnukfreebsd'):
-        fmt = 'qqihhi'
-        pid_index = 2
-        lockdata = struct.pack(fmt, 0, 0, 0, fcntl.F_WRLCK, 0, 0)
-    elif sys.platform in ('hp-uxB', 'unixware7'):
-        fmt = 'hhlllii'
-        pid_index = 2
-        lockdata = struct.pack(fmt, fcntl.F_WRLCK, 0, 0, 0, 0, 0, 0)
-    else:
+    # elif sys.platform.startswith('gnukfreebsd'):
+    #     fmt = 'qqihhi'
+    #     pid_index = 2
+    #     lockdata = struct.pack(fmt, 0, 0, 0, fcntl.F_WRLCK, 0, 0)
+    # elif sys.platform in ('hp-uxB', 'unixware7'):
+    #     fmt = 'hhlllii'
+    #     pid_index = 2
+    #     lockdata = struct.pack(fmt, fcntl.F_WRLCK, 0, 0, 0, 0, 0, 0)
+    elif sys.platform.startswith('linux'):
         fmt = 'hh' + start_len + 'ih'
         pid_index = 4
         lockdata = struct.pack(fmt, fcntl.F_WRLCK, 0, 0, 0, 0, 0)
+    else:
+        raise RuntimeError(f'Unsupported platform {sys.platform}')
 
     return lockdata, fmt, pid_index
 
