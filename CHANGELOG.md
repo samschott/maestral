@@ -1,4 +1,8 @@
 ## v1.0.3.dev
+#### Changed:
+
+- Significantly reduced CPU usage of the GUI on macOS.
+- Show both the daemon and GUI version in the GUI settings window.
 
 #### Fixed:
 
