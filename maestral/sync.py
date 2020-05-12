@@ -3051,9 +3051,6 @@ class MaestralMonitor:
         with self.sync.sync_lock:
             pass
 
-        self.sync.sync_lock.acquire()
-        self.sync.sync_lock.release()
-
     def _threads_alive(self):
         """Returns ``True`` if all threads are alive, ``False`` otherwise."""
 
