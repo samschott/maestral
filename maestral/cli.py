@@ -1129,4 +1129,4 @@ def notify_snooze(config_name: str, minutes: int):
             click.echo(f'Notifications snoozed for {minutes} min. '
                        'Set snooze to 0 to reset.')
         else:
-            click.echo(f'Notifications enabled.')
+            click.echo('Notifications enabled.')

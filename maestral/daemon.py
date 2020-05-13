@@ -264,7 +264,7 @@ def sockpath_for_config(config_name):
 
 
 def lockpath_for_config(config_name):
-    return get_runtime_path('maestral',  f'{config_name}.lock')
+    return get_runtime_path('maestral', f'{config_name}.lock')
 
 
 def get_maestral_pid(config_name):
