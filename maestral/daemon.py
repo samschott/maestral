@@ -315,14 +315,17 @@ def _wait_for_startup(config_name, timeout=8):
 
 def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
     """
+    Starts the Maestral daemon with event loop in the current thread. Startup is race
+    free: there will never be two daemons running for the same config.
+
     Wraps :class:`main.Maestral` as Pyro daemon object, creates a new instance and starts
     Pyro's event loop to listen for requests on a unix domain socket. This call will block
     until the event loop shuts down.
 
-    This command will return silently if the daemon is already running.
-
     :param str config_name: The name of the Maestral configuration to use.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
+    :raises: :class:`RuntimeError` if a daemon for the given ``config_name`` is already
+        running.
     """
     import threading
     from maestral.main import Maestral
@@ -374,12 +377,14 @@ def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
 
 def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
     """
-    Starts the Maestral daemon in a thread (by calling :func:`start_maestral_daemon`).
+    Starts the Maestral daemon in a new thread by calling :func:`start_maestral_daemon`.
+    Startup is race free: there will never be two daemons running for the same config.
 
     :param str config_name: The name of the Maestral configuration to use.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
     :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
-        already running or ``Start.Failed`` if startup failed.
+        already running or ``Start.Failed`` if startup failed. It is possible that
+        Start.Ok is returned instead of Start.AlreadyRunning in case of a race.
     """
 
     if is_running(config_name):
@@ -403,17 +408,18 @@ def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
 
 def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
     """
-    Starts the Maestral daemon in a separate process by calling
-    :func:`start_maestral_daemon`.
+    Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
+    Startup is race free: there will never be two daemons running for the same config.
 
-    This function assumes that ``sys.executable`` points to the Python executable. In
-    case of a frozen app, the executable must take the command line argument
-    ``--frozen-daemon to start`` a daemon process which is *not syncing*, .i.e., just run
-    :meth:`start_maestral_daemon`. This is currently supported through the
-    constole_script entry points of both `maestral` and `maestral_qt`.
+    This function assumes that ``sys.executable`` points to the Python executable or a
+    frozen executable. In case of a frozen executable, the executable must take the
+    command line argument ``--frozen-daemon to start`` to start a daemon process which is
+    *not syncing*, .i.e., just run :meth:`start_maestral_daemon`. This is currently
+    supported through the console_script entry points of both `maestral` and
+    `maestral_qt`.
 
     Starting a detached daemon process is difficult from a standalone executable since
-    the typical double-fork magic may fail on macOS and we do not have acccess to a
+    the typical double-fork magic may fail on macOS and we do not have access to a
     standalone Python interpreter to spawn a subprocess. Our approach mimics the "freeze
     support" implemented by the multiprocessing module but fully detaches the spawned
     process.
@@ -421,7 +427,8 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
     :param str config_name: The name of the Maestral configuration to use.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
     :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
-        already running or ``Start.Failed`` if startup failed.
+        already running or ``Start.Failed`` if startup failed. It is possible that
+        Start.Ok is returned instead of Start.AlreadyRunning in case of a race.
     """
 
     if is_running(config_name):
@@ -462,13 +469,15 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
 def stop_maestral_daemon_process(config_name='maestral', timeout=10):
     """Stops a maestral daemon process by finding its PID and shutting it down.
 
-    This function first tries to shut down Maestral gracefully. If this fails, it will
-    send SIGTERM. If that fails as well, it will send SIGKILL to the process.
+    This function first tries to shut down Maestral gracefully. If this fails and we know
+    its PID, it will send SIGTERM. If that fails as well, it will send SIGKILL to the
+    process.
 
     :param str config_name: The name of the Maestral configuration to use.
     :param float timeout: Number of sec to wait for daemon to shut down before killing it.
-    :returns: ``Exit.Ok`` if successful, ``Exit.Killed`` if killed and ``Exit.NotRunning``
-        if the daemon was not running.
+    :returns: ``Exit.Ok`` if successful, ``Exit.Killed`` if killed, ``Exit.NotRunning`` if
+        the daemon was not running and ``Exit.Failed`` if killing the process failed
+        because we could not retrieve its PID.
     """
 
     if not is_running(config_name):
