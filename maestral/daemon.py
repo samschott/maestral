@@ -125,14 +125,25 @@ def _get_lockdata():
 
 class Lock:
     """
-    A inter-process and inter-thread lock. This reuses uses code from
-    oslo.concurrency.lockutils but additionally allows non-blocking acquire.
+    A inter-process and inter-thread lock. This reuses uses code from oslo.concurrency
+    but provides non-blocking acquire. Use the :meth:`singleton` class method to retrieve
+    an existing instance for thread-safe usage.
     """
 
-    _internal_locks = dict()
-    _external_locks = dict()
-
+    _instances = dict()
     _singleton_lock = threading.Lock()
+
+    @classmethod
+    def singleton(cls, name, lock_path=None):
+
+        with cls._singleton_lock:
+            try:
+                instance = cls._instances[name]
+            except KeyError:
+                instance = cls(name, lock_path)
+                cls._instances[name] = instance
+
+            return instance
 
     def __init__(self, name, lock_path=None):
 
@@ -140,91 +151,80 @@ class Lock:
         dirname = lock_path or tempfile.gettempdir()
         lock_path = os.path.join(dirname, name)
 
-        with self._singleton_lock:
-            try:
-                self._internal_lock = self._internal_locks[name]
-            except KeyError:
-                lock = threading.Semaphore()
-                self._internal_locks[name] = lock
-                self._internal_lock = lock
+        self._internal_lock = threading.Semaphore()
+        self._external_lock = InterProcessLock(lock_path)
 
-            try:
-                self._external_lock = self._external_locks[lock_path]
-            except KeyError:
-                lock = InterProcessLock(lock_path)
-                self._external_locks[lock_path] = lock
-                self._external_lock = lock
+        self._lock = threading.RLock()
 
-    def acquire(self, blocking=True):
+    def acquire(self):
         """
         Attempts to acquire the given lock.
 
-        :param bool blocking: Whether to wait forever to try to acquire the lock.
         :returns: Whether or not the acquisition succeeded.
         :rtype: bool
         """
-        locked_internal = self._internal_lock.acquire(blocking=blocking)
 
-        if not locked_internal:
-            return False
+        with self._lock:
+            locked_internal = self._internal_lock.acquire(blocking=False)
 
-        try:
-            locked_external = self._external_lock.acquire(blocking=blocking)
-        except Exception:
-            self._internal_lock.release()
-            raise
-        else:
-
-            if locked_external:
-                return True
-            else:
-                self._internal_lock.release()
+            if not locked_internal:
                 return False
+
+            try:
+                locked_external = self._external_lock.acquire(blocking=False)
+            except Exception:
+                self._internal_lock.release()
+                raise
+            else:
+
+                if locked_external:
+                    return True
+                else:
+                    self._internal_lock.release()
+                    return False
 
     def release(self):
         """Release the previously acquired lock."""
-        self._external_lock.release()
-        self._internal_lock.release()
+        with self._lock:
+            self._external_lock.release()
+            self._internal_lock.release()
+
+    def locked(self):
+        """Checks if the lock is currently held by any thread or process."""
+        with self._lock:
+            gotten = self.acquire()
+            if gotten:
+                self.release()
+            return not gotten
 
     def locking_pid(self):
         """
-        Returns the PID of the process which currently holds the lock or None. This is
-        atomic only when called from a different process than the lock holder. This method
-        is not thread safe: it may return None if the lock is acquired by the current
-        process during the call and may return a PID if the lock has been released by the
-        current process during the call.
+        Returns the PID of the process which currently holds the lock or None.
 
         :returns: The PID of the process which currently holds the lock or None.
         :rtype: int
         """
 
-        if self._external_lock.acquired:
-            return os.getpid()
+        with self._lock:
 
-        try:
-            # don't close again in case we are the locking process
-            self._external_lock._do_open()
-            lockdata, fmt, pid_index = _get_lockdata()
-            lockdata = fcntl.fcntl(self._external_lock.lockfile, fcntl.F_GETLK, lockdata)
+            if self._external_lock.acquired:
+                return os.getpid()
 
-            lockdata_list = struct.unpack(fmt, lockdata)
-            pid = lockdata_list[pid_index]
+            try:
+                # don't close again in case we are the locking process
+                self._external_lock._do_open()
+                lockdata, fmt, pid_index = _get_lockdata()
+                lockdata = fcntl.fcntl(self._external_lock.lockfile,
+                                       fcntl.F_GETLK, lockdata)
 
-            if pid > 0:
-                return pid
+                lockdata_list = struct.unpack(fmt, lockdata)
+                pid = lockdata_list[pid_index]
 
-        except OSError:
-            pass
+                if pid > 0:
+                    return pid
 
-    def __enter__(self):
-        gotten = self.acquire()
-        if not gotten:
-            raise threading.ThreadError('Unable to acquire a lock')
-
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.release()
+            except OSError:
+                pass
 
 
 # ==== helpers for daemon management =====================================================
@@ -244,13 +244,15 @@ def _send_term(pid):
         pass
 
 
-class MaestralLock(Lock):
+class MaestralLock:
     """
     A inter-process and inter-thread lock for Maestral.
     """
 
-    def __init__(self, config_name):
-        super().__init__(f'{config_name}.lock', get_runtime_path('maestral'))
+    def __new__(cls, config_name):
+        name = f'{config_name}.lock'
+        path = get_runtime_path('maestral')
+        return Lock.singleton(name, path)
 
 
 def sockpath_for_config(config_name):
@@ -320,7 +322,7 @@ def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
 
     # acquire PID lock file
     lock = MaestralLock(config_name)
-    if not lock.acquire(blocking=False):
+    if not lock.acquire():
         raise RuntimeError('Maestral daemon is already running')
 
     # Nice ourselves to give other processes priority. We will likely only
