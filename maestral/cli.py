@@ -868,8 +868,8 @@ def analytics(config_name: str, yes: bool, no: bool):
     """
     Enables or disables sharing error reports.
 
-    Sharing is disabled by default. If enbled, error reports are shared with bugsnag and
-    no personal infortmation will typically be collected. Shared tracebacks may however
+    Sharing is disabled by default. If enabled, error reports are shared with bugsnag and
+    no personal information will typically be collected. Shared tracebacks may however
     include file names, depending on the error.
     """
 
