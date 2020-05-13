@@ -279,6 +279,18 @@ def get_maestral_pid(config_name):
     return MaestralLock(config_name).locking_pid()
 
 
+def is_running(config_name):
+    """
+    Checks if a daemon is currently running.
+
+    :param str config_name: The name of the Maestral configuration.
+    :returns: Whether the daemon is running.
+    :rtype: bool
+    """
+
+    return MaestralLock(config_name).locked()
+
+
 def _wait_for_startup(config_name, timeout=8):
     """Checks if we can communicate with the maestral daemon. Returns ``Start.Ok`` if
     communication succeeds within timeout, ``Start.Failed``  otherwise."""
@@ -370,7 +382,7 @@ def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
         already running or ``Start.Failed`` if startup failed.
     """
 
-    if MaestralLock(config_name).locking_pid():
+    if is_running(config_name):
         return Start.AlreadyRunning
 
     t = threading.Thread(
@@ -412,7 +424,7 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
         already running or ``Start.Failed`` if startup failed.
     """
 
-    if MaestralLock(config_name).locking_pid():
+    if is_running(config_name):
         return Start.AlreadyRunning
 
     from shlex import quote
@@ -459,20 +471,21 @@ def stop_maestral_daemon_process(config_name='maestral', timeout=10):
         if the daemon was not running.
     """
 
-    pid = get_maestral_pid(config_name)
-
-    if not pid:
+    if not is_running(config_name):
         return Exit.NotRunning
+
+    pid = get_maestral_pid(config_name)
 
     try:
         with MaestralProxy(config_name) as m:
             m.stop_sync()
             m.shutdown_pyro_daemon()
     except Pyro5.errors.CommunicationError:
-        _send_term(pid)
+        if pid:
+            _send_term(pid)
     finally:
         while timeout > 0:
-            if not get_maestral_pid(config_name):
+            if not is_running(config_name):
                 return Exit.Ok
             else:
                 time.sleep(0.2)
@@ -483,11 +496,13 @@ def stop_maestral_daemon_process(config_name='maestral', timeout=10):
 
         time.sleep(1)
 
-        if not get_maestral_pid(config_name):
+        if not is_running(config_name):
             return Exit.Ok
-        else:
+        elif pid:
             os.kill(pid, signal.SIGKILL)
             return Exit.Killed
+        else:
+            return Exit.Failed
 
 
 def stop_maestral_daemon_thread(config_name='maestral', timeout=10):
@@ -499,7 +514,7 @@ def stop_maestral_daemon_thread(config_name='maestral', timeout=10):
         ``Exit.Failed`` if it could not be stopped within timeout.
     """
 
-    if not MaestralLock(config_name).locking_pid():
+    if not is_running(config_name):
         return Exit.NotRunning
 
     # tell maestral daemon to shut down
@@ -531,9 +546,7 @@ def get_maestral_proxy(config_name='maestral', fallback=False):
         ``fallback`` is ``False``.
     """
 
-    pid = get_maestral_pid(config_name)
-
-    if pid:
+    if is_running(config_name):
         sock_name = sockpath_for_config(config_name)
 
         sys.excepthook = Pyro5.errors.excepthook
