@@ -638,8 +638,7 @@ def _get_lookup_error_msg(lookup_error):
     err_cls = SyncError
 
     if lookup_error.is_malformed_path():
-        text = ('The destination path is invalid. Paths may not end with a slash or '
-                'whitespace.')
+        text = 'The path is invalid. Paths may not end with a slash or whitespace.'
         err_cls = PathError
     elif lookup_error.is_not_file():
         text = 'The given path refers to a folder.'
