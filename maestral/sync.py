@@ -35,23 +35,28 @@ import pathspec
 import dropbox
 from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata
 from watchdog.events import FileSystemEventHandler
-from watchdog.events import (EVENT_TYPE_CREATED, EVENT_TYPE_DELETED,
-                             EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED)
-from watchdog.events import (DirModifiedEvent, FileModifiedEvent, DirCreatedEvent,
-                             FileCreatedEvent, DirDeletedEvent, FileDeletedEvent,
-                             DirMovedEvent, FileMovedEvent)
+from watchdog.events import (
+    EVENT_TYPE_CREATED, EVENT_TYPE_DELETED, EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED
+)
+from watchdog.events import (
+    DirModifiedEvent, FileModifiedEvent, DirCreatedEvent, FileCreatedEvent,
+    DirDeletedEvent, FileDeletedEvent, DirMovedEvent, FileMovedEvent
+)
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 from atomicwrites import atomic_write
 
 # local imports
 from maestral.config import MaestralConfig, MaestralState
 from maestral.fsevents import Observer
-from maestral.constants import (IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED,
-                                EXCLUDED_FILE_NAMES, EXCLUDED_DIR_NAMES,
-                                MIGNORE_FILE, FILE_CACHE, IS_FS_CASE_SENSITIVE)
-from maestral.errors import (RevFileError, NoDropboxDirError, CacheDirError, SyncError,
-                             PathError, NotFoundError, FileConflictError, FolderConflictError,
-                             fswatch_to_maestral_error, os_to_maestral_error)
+from maestral.constants import (
+    IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, EXCLUDED_FILE_NAMES, EXCLUDED_DIR_NAMES,
+    MIGNORE_FILE, FILE_CACHE, IS_FS_CASE_SENSITIVE
+)
+from maestral.errors import (
+    MaestralApiError, SyncError, RevFileError, NoDropboxDirError, CacheDirError,
+    PathError, NotFoundError, FileConflictError, FolderConflictError,
+    fswatch_to_maestral_error, os_to_maestral_error
+)
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import (
