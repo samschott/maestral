@@ -2459,7 +2459,13 @@ class UpDownSync:
 
                 # we download to a temporary file first (this may take some time)
                 tmp_fname = self._new_tmp_file()
-                md = self.client.download(f'rev:{entry.rev}', tmp_fname)
+
+                try:
+                    md = self.client.download(f'rev:{entry.rev}', tmp_fname)
+                except MaestralApiError as err:
+                    # replace rev number with path
+                    err.dbx_path = entry.path_display
+                    raise err
 
                 # re-check for conflict and move the conflict
                 # out of the way if anything has changed
