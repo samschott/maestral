@@ -1,4 +1,5 @@
 ## v1.0.3.dev
+
 #### Changed:
 
 - Significantly reduced CPU usage of the GUI on macOS.
@@ -8,6 +9,8 @@
 
 - Fixes an issue which could lead to the local Dropbox folder being moved before syncing
   has been paused.
+- Fixes an issue where download errors would show a rev number instead of the Dropbox
+  path.
 
 ## v1.0.2
 
