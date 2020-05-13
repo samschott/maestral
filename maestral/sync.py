@@ -2026,7 +2026,7 @@ class UpDownSync:
 
             if isinstance(md, FolderMetadata):
                 res = self.get_remote_folder(dbx_path)
-            else:  # FileMetadata or DeletedMetadata
+            elif md:  # FileMetadata or DeletedMetadata
                 with InQueue(self.queue_downloading, md.path_display):
                     res = self._create_local_entry(md)
 
