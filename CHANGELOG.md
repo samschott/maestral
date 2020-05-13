@@ -11,6 +11,7 @@
   has been paused.
 - Fixes an issue where download errors would show a rev number instead of the Dropbox
   path.
+- Fixes an issue in the macOS GUI where updating the displayed sync issues could fail.
 
 ## v1.0.2
 
