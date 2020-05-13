@@ -838,14 +838,14 @@ def rebuild_index(config_name: str):
 @main.command(help_priority=16)
 def configs():
     """Lists all configured Dropbox accounts."""
-    from maestral.daemon import get_maestral_pid
+    from maestral.daemon import is_running
 
     # clean up stale configs
     config_names = list_configs()
 
     for name in config_names:
         dbid = MaestralConfig(name).get('account', 'account_id')
-        if dbid == '' and not get_maestral_pid(name):
+        if dbid == '' and not is_running(name):
             remove_configuration(name)
 
     # display remaining configs
