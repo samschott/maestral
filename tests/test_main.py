@@ -166,6 +166,7 @@ class TestAPI(TestCase):
 
         # paths with backslash are not allowed on Dropbox
         test_path_local = self.test_folder_local + '/folder\\'
+        test_path_dbx = self.test_folder_dbx + '/folder\\'
 
         n_errors_initial = len(self.m.sync_errors)
 
@@ -174,12 +175,14 @@ class TestAPI(TestCase):
 
         self.assertEqual(len(self.m.sync_errors), n_errors_initial + 1)
         self.assertTrue(any(e['local_path'] == test_path_local for e in self.m.sync_errors))
+        self.assertTrue(any(e['dbx_path'] == test_path_dbx for e in self.m.sync_errors))
 
         delete(test_path_local)
         self.wait_for_idle()
 
         self.assertEqual(len(self.m.sync_errors), n_errors_initial)
         self.assertFalse(any(e['local_path'] == test_path_local for e in self.m.sync_errors))
+        self.assertFalse(any(e['dbx_path'] == test_path_dbx for e in self.m.sync_errors))
 
     def test_download_sync_issues(self):
         # TODO: find a file with a reproducible download error
