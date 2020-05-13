@@ -251,18 +251,18 @@ class MaestralApiClient:
         return self.dbx.files_list_revisions(dbx_path, mode=mode, limit=limit)
 
     @to_maestral_error(dbx_path_arg=1)
-    def download(self, dbx_path, dst_path, **kwargs):
+    def download(self, dbx_path, local_path, **kwargs):
         """
         Downloads file from Dropbox to our local folder.
 
-        :param str dbx_path: Path to file on Dropbox.
-        :param str dst_path: Path to local download destination.
+        :param str dbx_path: Path to file on Dropbox or rev number.
+        :param str local_path: Path to local download destination.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
         :returns: Metadata of downloaded item.
         :rtype: :class:`dropbox.files.FileMetadata`
         """
         # create local directory if not present
-        dst_path_directory = osp.dirname(dst_path)
+        dst_path_directory = osp.dirname(local_path)
         try:
             os.makedirs(dst_path_directory)
         except FileExistsError:
@@ -275,7 +275,7 @@ class MaestralApiClient:
 
         downloaded = 0
 
-        with open(dst_path, 'wb') as f:
+        with open(local_path, 'wb') as f:
             with contextlib.closing(http_resp):
                 for c in http_resp.iter_content(chunksize):
                     if md.size > 5 * 10 ** 6:  # 5 MB
@@ -285,7 +285,7 @@ class MaestralApiClient:
 
         return md
 
-    @to_maestral_error(dbx_path_arg=2)
+    @to_maestral_error(local_path_arg=1, dbx_path_arg=2)
     def upload(self, local_path, dbx_path, chunk_size_mb=5, **kwargs):
         """
         Uploads local file to Dropbox.
