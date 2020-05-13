@@ -174,19 +174,59 @@ class TestAPI(TestCase):
         self.wait_for_idle()
 
         self.assertEqual(len(self.m.sync_errors), n_errors_initial + 1)
-        self.assertTrue(any(e['local_path'] == test_path_local for e in self.m.sync_errors))
-        self.assertTrue(any(e['dbx_path'] == test_path_dbx for e in self.m.sync_errors))
+        self.assertEqual(self.m.sync_errors[-1]['local_path'], test_path_local)
+        self.assertEqual(self.m.sync_errors[-1]['dbx_path'], test_path_dbx)
+        self.assertEqual(self.m.sync_errors[-1]['type'], 'PathError')
 
         delete(test_path_local)
         self.wait_for_idle()
 
         self.assertEqual(len(self.m.sync_errors), n_errors_initial)
-        self.assertFalse(any(e['local_path'] == test_path_local for e in self.m.sync_errors))
-        self.assertFalse(any(e['dbx_path'] == test_path_dbx for e in self.m.sync_errors))
+        self.assertTrue(all(e['local_path'] != test_path_local for e in self.m.sync_errors))
+        self.assertTrue(all(e['dbx_path'] != test_path_dbx for e in self.m.sync_errors))
 
     def test_download_sync_issues(self):
-        # TODO: find a file with a reproducible download error
-        pass
+        test_path_local = self.test_folder_local + '/dmca.gif'
+        test_path_dbx = self.test_folder_dbx + '/dmca.gif'
+
+        self.wait_for_idle()
+
+        n_errors_initial = len(self.m.sync_errors)
+
+        self.m.client.upload(self.resources + '/dmca.gif', test_path_dbx)
+
+        self.wait_for_idle()
+
+        # 1) Check that the sync issue is logged
+
+        self.assertEqual(len(self.m.sync_errors), n_errors_initial + 1)
+        self.assertEqual(self.m.sync_errors[-1]['local_path'], test_path_local)
+        self.assertEqual(self.m.sync_errors[-1]['dbx_path'], test_path_dbx)
+        self.assertEqual(self.m.sync_errors[-1]['type'], 'RestrictedContentError')
+        self.assertIn(test_path_dbx, self.m.sync.download_errors)
+
+        # 2) Check that the sync is retried after pause / resume
+
+        self.m.pause_sync()
+        self.m.resume_sync()
+
+        self.wait_for_idle()
+
+        self.assertEqual(len(self.m.sync_errors), n_errors_initial + 1)
+        self.assertEqual(self.m.sync_errors[-1]['local_path'], test_path_local)
+        self.assertEqual(self.m.sync_errors[-1]['dbx_path'], test_path_dbx)
+        self.assertEqual(self.m.sync_errors[-1]['type'], 'RestrictedContentError')
+        self.assertIn(test_path_dbx, self.m.sync.download_errors)
+
+        # 3) Check that the error is cleared when the file is deleted
+
+        self.m.client.remove(test_path_dbx)
+        self.wait_for_idle()
+
+        self.assertEqual(len(self.m.sync_errors), n_errors_initial)
+        self.assertTrue(all(e['local_path'] != test_path_local for e in self.m.sync_errors))
+        self.assertTrue(all(e['dbx_path'] != test_path_dbx for e in self.m.sync_errors))
+        self.assertNotIn(test_path_dbx, self.m.sync.download_errors)
 
 
 if __name__ == '__main__':
