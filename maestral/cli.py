@@ -383,8 +383,10 @@ frozen_daemon_option = click.option(
     help='For internal use only.'
 )
 
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
-@click.group(cls=SpecialHelpOrder)
+
+@click.group(cls=SpecialHelpOrder, context_settings=CONTEXT_SETTINGS)
 @frozen_daemon_option
 @hidden_config_option
 def main():
