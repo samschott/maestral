@@ -4,6 +4,7 @@
 
 - Significantly reduced CPU usage of the GUI on macOS.
 - Show both the daemon and GUI version in the GUI settings window.
+- The command line tool on macOS now provides proper help output.
 
 #### Fixed:
 
