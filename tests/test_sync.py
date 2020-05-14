@@ -552,7 +552,7 @@ class TestSync(TestCase):
 
     def setUp(self):
         self.m.resume_sync()
-        self.clean_remote()
+        self.clean_local()
         self.wait_for_idle()
 
     def test_setup(self):
