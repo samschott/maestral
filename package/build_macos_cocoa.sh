@@ -20,8 +20,8 @@ cd ..
 pip install .
 cd ../..
 
-git clone https://github.com/samschott/maestral-dropbox build/maestral-dropbox
-cd build/maestral-dropbox
+git clone https://github.com/samschott/maestral build/maestral
+cd build/maestral
 git checkout develop
 git pull
 pip install .
