@@ -48,6 +48,6 @@ echo "**** RUNNING POST-BUILD SCRIPTS ************************"
 
 echo "**** SIGNING ******************************************"
 
-codesign -s "Apple Development: sam.schott@outlook.com (FJNXBRUVWL)" --deep dist/Maestral.app
+codesign -s "Apple Development: sam.schott@outlook.com (FJNXBRUVWL)" --entitlements entitlements.plist --deep -o runtime dist/Maestral.app
 
 echo "**** DONE *********************************************"
