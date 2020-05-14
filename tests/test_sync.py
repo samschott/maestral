@@ -30,10 +30,6 @@ import unittest
 from unittest import TestCase
 
 
-# run tests in declaration order and not alphabetically
-unittest.TestLoader.sortTestMethodsUsing = None
-
-
 class DummyUpDownSync(UpDownSync):
 
     def __init__(self, dropbox_path=''):
