@@ -445,16 +445,10 @@ def gui(config_name):
 def start(config_name: str, foreground: bool, verbose: bool):
     """Starts the Maestral daemon."""
 
-    from maestral.daemon import get_maestral_pid, get_maestral_proxy
+    from maestral.daemon import get_maestral_proxy
     from maestral.daemon import (start_maestral_daemon_thread, threads,
                                  start_maestral_daemon_process, Start)
 
-    # do nothing if already running
-    if get_maestral_pid(config_name):
-        click.echo('Maestral daemon is already running.')
-        return
-
-    # start daemon
     click.echo('Starting Maestral...', nl=False)
 
     if foreground:
@@ -464,6 +458,9 @@ def start(config_name: str, foreground: bool, verbose: bool):
 
     if res == Start.Ok:
         click.echo('\rStarting Maestral...        ' + OK)
+    elif res == Start.AlreadyRunning:
+        click.echo('\rStarting Maestral...        Already running.')
+        return
     else:
         click.echo('\rStarting Maestral...        ' + FAILED)
         click.echo('Please check logs for more information.')
@@ -841,14 +838,14 @@ def rebuild_index(config_name: str):
 @main.command(help_priority=16)
 def configs():
     """Lists all configured Dropbox accounts."""
-    from maestral.daemon import get_maestral_pid
+    from maestral.daemon import is_running
 
     # clean up stale configs
     config_names = list_configs()
 
     for name in config_names:
         dbid = MaestralConfig(name).get('account', 'account_id')
-        if dbid == '' and not get_maestral_pid(name):
+        if dbid == '' and not is_running(name):
             remove_configuration(name)
 
     # display remaining configs
@@ -1132,4 +1129,4 @@ def notify_snooze(config_name: str, minutes: int):
             click.echo(f'Notifications snoozed for {minutes} min. '
                        'Set snooze to 0 to reset.')
         else:
-            click.echo(f'Notifications enabled.')
+            click.echo('Notifications enabled.')
