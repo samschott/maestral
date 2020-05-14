@@ -413,8 +413,8 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
 
     This function assumes that ``sys.executable`` points to the Python executable or a
     frozen executable. In case of a frozen executable, the executable must take the
-    command line argument ``--frozen-daemon to start`` to start a daemon process which is
-    *not syncing*, .i.e., just run :meth:`start_maestral_daemon`. This is currently
+    command line argument ``--frozen-daemon`` to start a daemon process which is *not
+    syncing*, .i.e., just run :meth:`start_maestral_daemon`. This is currently
     supported through the console_script entry points of both `maestral` and
     `maestral_qt`.
 
