@@ -3,7 +3,7 @@
 SPEC_FILE=maestral_macos_cocoa.spec
 BUILD_NO=$(grep -E -o "[0-9]*" bundle_version_macos.txt)
 
-echo "**** INSTALLING DEPENDENCIES ****************************"
+echo "**** INSTALLING DEPENDENCIES ***************************"
 
 git clone https://github.com/pyinstaller/pyinstaller.git build/pyinstaller
 cd build/pyinstaller
@@ -38,16 +38,29 @@ echo "**** BUILD NUMBER $BUILD_NO ****************************"
 
 python3 -m PyInstaller  -y --clean -w $SPEC_FILE
 
-echo "**** COPY ENTRY POINT **********************************"
+echo "**** COPY CLI ENTRY POINT ******************************"
 
 cp bin/maestral_cli dist/Maestral.app/Contents/MacOS/maestral_cli
 
-echo "**** RUNNING POST-BUILD SCRIPTS ************************"
+echo "**** SIGNING *******************************************"
 
-# pass
+codesign -s "Apple Development: sam.schott@outlook.com (FJNXBRUVWL)" \
+  --entitlements entitlements.plist --deep -o runtime dist/Maestral.app
 
-echo "**** SIGNING ******************************************"
+echo "**** CREATING DMG **************************************"
 
-codesign -s "Apple Development: sam.schott@outlook.com (FJNXBRUVWL)" --entitlements entitlements.plist --deep -o runtime dist/Maestral.app
+test -f dist/dmg-folder && rm -Rf dist/dmg-folder
+mkdir dist/dmg-folder
+cd dist/dmg-folder
+ln -s /Applications
+cd ..
+cd ..
+cp -R dist/Maestral.app dist/dmg-folder/
+hdiutil create -volname "Maestral" \
+  -srcfolder dist/dmg-folder -ov -format UDBZ dist/Maestral.dmg
+rm -Rf dist/dmg-folder
 
-echo "**** DONE *********************************************"
+codesign --verify --sign "Apple Development: sam.schott@outlook.com (FJNXBRUVWL)" dist/Maestral.dmg
+md5 -r dist/Maestral.dmg
+
+echo "**** DONE **********************************************"
