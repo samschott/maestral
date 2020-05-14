@@ -14,9 +14,10 @@
 - Fixes a race condition when two processes try to start a sync daemon at the same time.
 - Fixes an issue in the macOS GUI where updating the displayed sync issues could fail.
 
-#### Removed:
+#### Dependencies:
 
 - Removed `lockfile` dependency.
+- Added `fasteners` dependency.
 
 ## v1.0.2
 
