@@ -16,6 +16,7 @@
   path.
 - Fixes a race condition when two processes try to start a sync daemon at the same time.
 - Fixes an issue in the macOS GUI where updating the displayed sync issues could fail.
+- Fixes truncated text in the macOS setup dialog.
 
 #### Dependencies:
 
