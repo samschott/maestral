@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-SPEC_FILE=maestral_macos_qt.spec
+SPEC_FILE=maestral_macos_cocoa.spec
 BUILD_NO=$(grep -E -o "[0-9]*" bundle_version_macos.txt)
 
 echo "**** INSTALLING DEPENDENCIES ***************************"
@@ -42,16 +42,14 @@ echo "**** COPY CLI ENTRY POINT ******************************"
 
 cp bin/maestral_cli dist/Maestral.app/Contents/MacOS/maestral_cli
 
-echo "**** RUNNING POST-BUILD SCRIPTS ************************"
+echo "**** SIGN AND NOTARIZE *********************************"
 
-python3 post_build_macos_qt.py
+codesign -s "Apple Development: sam.schott@outlook.com (FJNXBRUVWL)" \
+  --entitlements entitlements.plist --deep -o runtime dist/Maestral.app
 
-echo "**** SIGNING *******************************************"
+macos-notarize-app.sh dist/Maestral.app
 
-codesign --verify --sign "Apple Development: sam.schott@outlook.com (FJNXBRUVWL)" \
-  --entitlements entitlements.plist --deep --options runtime 'dist/Maestral.app'
-
-echo "**** CREATING DMG *************************************"
+echo "**** CREATING DMG **************************************"
 
 test -f dist/dmg-folder && rm -Rf dist/dmg-folder
 mkdir dist/dmg-folder
@@ -60,11 +58,11 @@ ln -s /Applications
 cd ..
 cd ..
 cp -R dist/Maestral.app dist/dmg-folder/
-hdiutil create -volname "Maestral" \
+hdiutil create -volname Maestral \
   -srcfolder dist/dmg-folder -ov -format UDBZ dist/Maestral.dmg
 rm -Rf dist/dmg-folder
 
 codesign --verify --sign "Apple Development: sam.schott@outlook.com (FJNXBRUVWL)" dist/Maestral.dmg
 md5 -r dist/Maestral.dmg
 
-echo "**** DONE *********************************************"
+echo "**** DONE **********************************************"
