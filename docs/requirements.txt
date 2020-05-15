@@ -2,10 +2,10 @@ atomicwrites
 bugsnag
 click
 dropbox
+fasteners
 importlib_metadata
 keyring
 keyrings.alt
-lockfile
 packaging
 pathspec
 Pyro5
