@@ -219,8 +219,9 @@ class AutoStartLaunchd(AutoStartMaestralBase):
 
         with open(osp.join(_resources, 'com.samschott.maestral.plist')) as f:
             plist_template = f.read()
-
-        self.destination = osp.join(get_home_dir(), 'Library', 'LaunchAgents', filename)
+        
+        self.path = osp.join(get_home_dir(), 'Library', 'LaunchAgents')
+        self.destination = osp.join(self.path, filename)
 
         arguments = [f'\t\t<string>{arg}</string>' for arg in self.start_cmd]
 
@@ -230,6 +231,8 @@ class AutoStartLaunchd(AutoStartMaestralBase):
         )
 
     def _enable(self):
+        os.makedirs(self.path, exist_ok=True)
+        
         with open(self.destination, 'w+') as f:
             f.write(self.contents)
 
