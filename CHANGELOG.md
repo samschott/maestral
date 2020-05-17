@@ -17,6 +17,11 @@
 - Fixes a race condition when two processes try to start a sync daemon at the same time.
 - Fixes an issue in the macOS GUI where updating the displayed sync issues could fail.
 - Fixes truncated text in the macOS setup dialog.
+- Fixes an issue on fresh macOS installs where creating autostart entries could fai if
+  /Library/LaunchAgents does not yet exist.
+- Fixes an issue in the macOS app bundle where installing the command line could tool
+  would fail if /usr/local/bin is owned by root (as is default). Now, the user is asked
+  for permission instead.
 
 #### Dependencies:
 
