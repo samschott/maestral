@@ -880,11 +880,14 @@ class SyncEngine:
                                     f'{self.file_cache_path}.')
 
     def clean_cache_dir(self):
-        err = delete(self._file_cache_path)
-        if err and not isinstance(err, FileNotFoundError):
-            raise CacheDirError(f'Cannot create cache directory (errno {err.errno})',
-                                'Please check if you have write permissions for '
-                                f'{self._file_cache_path}.')
+        """Removes all items in the cache directory."""
+
+        with self.sync_lock:
+            err = delete(self._file_cache_path)
+            if err and not isinstance(err, FileNotFoundError):
+                raise CacheDirError(f'Cannot create cache directory (errno {err.errno})',
+                                    'Please check if you have write permissions for '
+                                    f'{self._file_cache_path}.')
 
     def _new_tmp_file(self):
         self._ensure_cache_dir_present()
