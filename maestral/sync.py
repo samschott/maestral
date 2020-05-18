@@ -843,7 +843,8 @@ class SyncEngine:
         try:
             with open(self.mignore_path) as f:
                 spec = f.read()
-        except FileNotFoundError:
+        except OSError as exc:
+            logger.debug(f'Could not load mignore rules from {self.mignore_path}: {exc}')
             spec = ''
         return pathspec.PathSpec.from_lines('gitwildmatch', spec.splitlines())
 
