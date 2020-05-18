@@ -114,13 +114,13 @@ class InQueue:
 
 class FSEventHandler(FileSystemEventHandler):
     """
-    Handles captured file events and adds them to :class:`UpDownSync`'s file event queue
+    Handles captured file events and adds them to :class:`SyncEngine`'s file event queue
     to be uploaded by :meth:`upload_worker`. This acts as a translation layer between
-    :class:`watchdog.Observer` and :class:`UpDownSync`.
+    :class:`watchdog.Observer` and :class:`SyncEngine`.
 
     :param Event syncing: Set when syncing is running.
     :param Event startup: Set when startup is running.
-    :param SyncEngine sync: UpDownSync instance.
+    :param SyncEngine sync: SyncEngine instance.
 
     :cvar int ignore_timeout: Timeout in seconds after which ignored paths will be
         discarded.
@@ -155,7 +155,7 @@ class FSEventHandler(FileSystemEventHandler):
 
         :param iterable events: Local events to ignore.
         :param bool recursive: If ``True``, all child events of a directory event will be
-            ignored as well.
+            ignored as well. This parameter will be ignored for file events.
         """
 
         with self._ignored_events_mutex:
@@ -312,7 +312,7 @@ class PersistentStateMutableSet(abc.MutableSet):
 def catch_sync_issues(download=False):
     """
     Returns a decorator that catches all SyncErrors and logs them.
-    Should only be used to decorate methods of :class:`UpDownSync`.
+    Should only be used to decorate methods of :class:`SyncEngine`.
 
     :param bool download: If ``True``, sync issues will be added to the `download_errors`
         list to retry later.
@@ -517,7 +517,9 @@ class SyncEngine:
 
     @property
     def file_cache_path(self):
-        """Path to sync index with rev numbers (read only)."""
+        """Path to cache folder for temporary files (read only). The cache folder
+        '.maestral.cache' is located inside the local Dropbox folder to prevent
+        file transfer between different partitions or drives during sync."""
         return self._file_cache_path
 
     @property
@@ -562,8 +564,8 @@ class SyncEngine:
     @property
     def max_cpu_percent(self):
         """Maximum CPU usage for parallel downloads or uploads in percent of the total
-        available CPU time. Individual workers in a thread pool will pause until the
-        usage drops below this value. Tasks in the main thread such as indexing file
+        available CPU time per core. Individual workers in a thread pool will pause until
+        the usage drops below this value. Tasks in the main thread such as indexing file
         changes may still use more CPU time. Setting this to 100% means that no limits on
         CPU usage will be applied."""
         return self._max_cpu_percent
@@ -767,8 +769,8 @@ class SyncEngine:
     def _load_rev_dict_from_file(self, raise_exception=False):
         """
         Loads Maestral's rev index from ``rev_file_path``. Every line contains the rev
-        number for a single path, saved in a json format. Only the last entry for every
-        path is kept since it is the newest.
+        number for a single path, saved in a json format. Only the last entry for each
+        path is kept, overriding possible (older) previous entries.
 
         :param bool raise_exception: If ``True``, raises an exception when loading fails.
             If ``False``, an error message is logged instead.
@@ -810,13 +812,16 @@ class SyncEngine:
 
     def _append_rev_to_file(self, path, rev, raise_exception=False):
         """
-        Appends a new line with '{path}: {rev}\n' to the rev file. This is quicker than
+        Appends a new line with a rev entry to the rev file. This is quicker than
         saving the entire rev index. When loading the rev file, older entries will be
-        overwritten with newer ones and all entries with rev == None will be discarded.
+        overwritten with newer ones and all entries with ``rev == None`` will be
+        discarded.
 
         :param str path: Path for rev.
         :param str rev: Dropbox rev or ``None``.
-        :raises: RevFileError if ``raise_exception`` is ``True``.
+        :param bool raise_exception: If ``True``, raises an exception when saving fails.
+            If ``False``, an error message is logged instead.
+        :raises: :class:`errors.RevFileError`
         """
 
         with self._rev_lock:
@@ -833,12 +838,14 @@ class SyncEngine:
 
     @property
     def mignore_rules(self):
-        """List of mignore rules following git wildmatch syntax."""
+        """List of mignore rules following git wildmatch syntax (read only)."""
         if self._get_ctime(self.mignore_path) != self._mignore_ctime_loaded:
             self._mignore_rules = self._load_mignore_rules_form_file()
         return self._mignore_rules
 
     def _load_mignore_rules_form_file(self):
+        """Loads rules from mignore file. No rules are loaded if the file does
+        not exist or cannot be read."""
         self._mignore_ctime_loaded = self._get_ctime(self.mignore_path)
         try:
             with open(self.mignore_path) as f:
@@ -924,7 +931,7 @@ class SyncEngine:
 
         The ``path_display`` attribute returned by the Dropbox API only guarantees correct
         casing of the basename and not of the full path. This is because Dropbox itself is
-        not case sensitive and stores all paths in lowercase internally. To the extend
+        not case sensitive and stores all paths in lowercase internally. To the extent
         where parent directories of ``dbx_path`` exist on the local drive, their casing
         will be used. Otherwise, the casing from ``dbx_path`` is used. This aims to
         preserve the correct casing of file and folder names and prevents the creation of
@@ -1544,8 +1551,8 @@ class SyncEngine:
 
     def _handle_selective_sync_conflict(self, event):
         """
-        Checks for other items in the same directory with same name but a different
-        case. Only needed for case sensitive file systems.
+        Checks for items in the local directory with same path as an item which is
+        excluded by selective sync. Renames items if necessary.
 
         :param FileSystemEvent event: Created or moved event.
         :returns: ``True`` or ``False``.
@@ -2016,7 +2023,7 @@ class SyncEngine:
         performed by :meth:`_create_local_entry`.
 
         This method can be used to fetch individual items outside of the regular sync
-        cycle, for instance when including a new file or folder.
+        cycle, for instance when including a previously excluded file or folder.
 
         :param str dbx_path: Path relative to Dropbox folder.
         :returns: ``True`` on success, ``False`` otherwise.
@@ -2077,11 +2084,10 @@ class SyncEngine:
         has been successfully applied. Entries in the local index are created after
         successful completion.
 
-        :param changes: :class:`dropbox.files.ListFolderResult` instance or ``False`` if
-            requests failed.
-        :param bool save_cursor: If True, :attr:`last_cursor` will be updated from the
-            last applied changes. Take care to only save a cursors which represent the
-            state of the entire Dropbox
+        :param changes: :class:`dropbox.files.ListFolderResult` instance.
+        :param bool save_cursor: If ``True``, :attr:`last_cursor` will be updated from
+            the last applied changes. Take care to only save a cursors which represent
+            the state of the entire Dropbox.
         :returns: List of changes that were made to local files and bool indicating if all
             download syncs were successful.
         :rtype: (list, bool)
@@ -2301,7 +2307,7 @@ class SyncEngine:
     def _get_ctime(self, local_path, ignore_excluded=True):
         """
         Returns the ctime of a local item or -1.0 if there is nothing at the path. If
-        the item is a directory, return the largest ctime of itself and its children.
+        the item is a directory, return the largest ctime of it and its children.
 
         :param str local_path: Absolute path on local drive.
         :param bool ignore_excluded: If ``True``, the ctimes of children for which
