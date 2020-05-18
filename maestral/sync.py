@@ -120,7 +120,7 @@ class FSEventHandler(FileSystemEventHandler):
 
     :param Event syncing: Set when syncing is running.
     :param Event startup: Set when startup is running.
-    :param UpDownSync sync: UpDownSync instance.
+    :param SyncEngine sync: UpDownSync instance.
 
     :cvar int ignore_timeout: Timeout in seconds after which ignored paths will be
         discarded.
@@ -251,13 +251,13 @@ class FSEventHandler(FileSystemEventHandler):
         self.local_file_event_queue.put(event)
 
 
-class MaestralStateWrapper(abc.MutableSet):
+class PersistentStateMutableSet(abc.MutableSet):
     """
     A wrapper for a list of strings in the saved state that implements a MutableSet
     interface. All strings are stored as lower-case, reflecting Dropbox's case-insensitive
     file system.
 
-    :param str config_name: Name of config.
+    :param str config_name: Name of config (determines name of state file).
     :param str section: Section name in state file.
     :param str option: Option name in state file.
     """
@@ -359,7 +359,7 @@ def catch_sync_issues(download=False):
     return decorator
 
 
-class UpDownSync:
+class SyncEngine:
     """
     Class that contains methods to sync local file events with Dropbox and vice versa.
 
@@ -452,10 +452,10 @@ class UpDownSync:
         self._state = MaestralState(self.config_name)
         self._notifier = MaestralDesktopNotifier.for_config(self.config_name)
 
-        self.download_errors = MaestralStateWrapper(
+        self.download_errors = PersistentStateMutableSet(
             self.config_name, section='sync', option='download_errors'
         )
-        self.pending_downloads = MaestralStateWrapper(
+        self.pending_downloads = PersistentStateMutableSet(
             self.config_name, section='sync', option='pending_downloads'
         )
 
@@ -2623,7 +2623,7 @@ def download_worker(sync, syncing, running, connected):
     """
     Worker to sync changes of remote Dropbox with local folder.
 
-    :param UpDownSync sync: Instance of :class:`UpDownSync`.
+    :param SyncEngine sync: Instance of :class:`SyncEngine`.
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
@@ -2669,7 +2669,7 @@ def download_worker_added_item(sync, syncing, running, connected):
     """
     Worker to download items which have been newly included in sync.
 
-    :param UpDownSync sync: Instance of :class:`UpDownSync`.
+    :param SyncEngine sync: Instance of :class:`SyncEngine`.
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
@@ -2707,7 +2707,7 @@ def upload_worker(sync, syncing, running, connected):
     """
     Worker to sync local changes to remote Dropbox.
 
-    :param UpDownSync sync: Instance of :class:`UpDownSync`.
+    :param SyncEngine sync: Instance of :class:`SyncEngine`.
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
@@ -2748,7 +2748,7 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
     """
     Worker to sync local changes to remote Dropbox.
 
-    :param UpDownSync sync: Instance of :class:`UpDownSync`.
+    :param SyncEngine sync: Instance of :class:`SyncEngine`.
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
@@ -2845,7 +2845,7 @@ class MaestralMonitor:
 
         self.client = client
         self.config_name = self.client.config_name
-        self.sync = UpDownSync(self.client)
+        self.sync = SyncEngine(self.client)
 
         self.connected = Event()
         self.syncing = Event()
