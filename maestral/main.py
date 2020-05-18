@@ -37,8 +37,8 @@ import sdnotify
 # local imports
 from maestral import __version__
 from maestral.oauth import OAuth2Session
-from maestral.client import MaestralApiClient, to_maestral_error
-from maestral.sync import MaestralMonitor
+from maestral.client import DropboxClient, to_maestral_error
+from maestral.sync import SyncMonitor
 from maestral.errors import (
     MaestralApiError, NotLinkedError, NoDropboxDirError,
     NotFoundError, PathError
@@ -241,8 +241,8 @@ class Maestral:
         self._setup_logging()
 
         self._auth = OAuth2Session(config_name)
-        self.client = MaestralApiClient(config_name=self.config_name, access_token='none')
-        self.monitor = MaestralMonitor(self.client)
+        self.client = DropboxClient(config_name=self.config_name, access_token='none')
+        self.monitor = SyncMonitor(self.client)
         self.sync = self.monitor.sync
 
         # periodically check for updates and refresh account info
@@ -821,7 +821,7 @@ class Maestral:
     def list_folder(self, dbx_path, **kwargs):
         """
         List all items inside the folder given by ``dbx_path``. Keyword arguments are
-        passed on the the Dropbox API call :meth:`client.MaestralApiClient.list_folder`.
+        passed on the the Dropbox API call :meth:`client.DropboxClient.list_folder`.
 
         :param dbx_path: Path to folder on Dropbox.
         :returns: List of Dropbox item metadata as dicts or ``False`` if listing failed

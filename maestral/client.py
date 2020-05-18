@@ -118,7 +118,7 @@ def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
     return decorator
 
 
-class MaestralApiClient:
+class DropboxClient:
     """Client for the Dropbox SDK.
 
     This client defines basic methods to wrap Dropbox Python SDK calls, such as creating,

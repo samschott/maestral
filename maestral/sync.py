@@ -120,7 +120,7 @@ class FSEventHandler(FileSystemEventHandler):
 
     :param Event syncing: Set when syncing is running.
     :param Event startup: Set when startup is running.
-    :param UpDownSync sync: UpDownSync instance.
+    :param SyncEngine sync: UpDownSync instance.
 
     :cvar int ignore_timeout: Timeout in seconds after which ignored paths will be
         discarded.
@@ -251,13 +251,13 @@ class FSEventHandler(FileSystemEventHandler):
         self.local_file_event_queue.put(event)
 
 
-class MaestralStateWrapper(abc.MutableSet):
+class PersistentStateMutableSet(abc.MutableSet):
     """
     A wrapper for a list of strings in the saved state that implements a MutableSet
     interface. All strings are stored as lower-case, reflecting Dropbox's case-insensitive
     file system.
 
-    :param str config_name: Name of config.
+    :param str config_name: Name of config (determines name of state file).
     :param str section: Section name in state file.
     :param str option: Option name in state file.
     """
@@ -359,7 +359,7 @@ def catch_sync_issues(download=False):
     return decorator
 
 
-class UpDownSync:
+class SyncEngine:
     """
     Class that contains methods to sync local file events with Dropbox and vice versa.
 
@@ -431,7 +431,7 @@ class UpDownSync:
          finally confirm the successful upload and check if Dropbox has renamed the item
          to a conflicting copy. In the latter case, we apply those changes locally.
 
-    :param MaestralApiClient client: Dropbox API client instance.
+    :param DropboxClient client: Dropbox API client instance.
 
     """
 
@@ -452,10 +452,10 @@ class UpDownSync:
         self._state = MaestralState(self.config_name)
         self._notifier = MaestralDesktopNotifier.for_config(self.config_name)
 
-        self.download_errors = MaestralStateWrapper(
+        self.download_errors = PersistentStateMutableSet(
             self.config_name, section='sync', option='download_errors'
         )
-        self.pending_downloads = MaestralStateWrapper(
+        self.pending_downloads = PersistentStateMutableSet(
             self.config_name, section='sync', option='pending_downloads'
         )
 
@@ -2595,7 +2595,7 @@ def helper(mm):
         and syncing has not been paused by the user.
      3) Triggers weekly reindexing.
 
-    :param MaestralMonitor mm: MaestralMonitor instance.
+    :param SyncMonitor mm: MaestralMonitor instance.
     """
 
     while mm.running.is_set():
@@ -2623,7 +2623,7 @@ def download_worker(sync, syncing, running, connected):
     """
     Worker to sync changes of remote Dropbox with local folder.
 
-    :param UpDownSync sync: Instance of :class:`UpDownSync`.
+    :param SyncEngine sync: Instance of :class:`SyncEngine`.
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
@@ -2669,7 +2669,7 @@ def download_worker_added_item(sync, syncing, running, connected):
     """
     Worker to download items which have been newly included in sync.
 
-    :param UpDownSync sync: Instance of :class:`UpDownSync`.
+    :param SyncEngine sync: Instance of :class:`SyncEngine`.
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
@@ -2707,7 +2707,7 @@ def upload_worker(sync, syncing, running, connected):
     """
     Worker to sync local changes to remote Dropbox.
 
-    :param UpDownSync sync: Instance of :class:`UpDownSync`.
+    :param SyncEngine sync: Instance of :class:`SyncEngine`.
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
@@ -2748,7 +2748,7 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
     """
     Worker to sync local changes to remote Dropbox.
 
-    :param UpDownSync sync: Instance of :class:`UpDownSync`.
+    :param SyncEngine sync: Instance of :class:`SyncEngine`.
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
@@ -2827,7 +2827,7 @@ def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
 # Main Monitor class to start, stop and coordinate threads
 # ========================================================================================
 
-class MaestralMonitor:
+class SyncMonitor:
     """
     Class to sync changes between Dropbox and a local folder. It creates five threads:
     `observer` to retrieve local file system events, `startup_thread` to carry out any
@@ -2835,7 +2835,7 @@ class MaestralMonitor:
     Dropbox, `download_thread` to query for and download remote changes, and
     `helper_thread` which periodically checks the connection to Dropbox servers.
 
-    :param MaestralApiClient client: The Dropbox API client, a wrapper around the Dropbox
+    :param DropboxClient client: The Dropbox API client, a wrapper around the Dropbox
         Python SDK.
     """
 
@@ -2845,7 +2845,7 @@ class MaestralMonitor:
 
         self.client = client
         self.config_name = self.client.config_name
-        self.sync = UpDownSync(self.client)
+        self.sync = SyncEngine(self.client)
 
         self.connected = Event()
         self.syncing = Event()

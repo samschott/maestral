@@ -20,7 +20,7 @@ from maestral.sync import (
 from maestral.sync import delete, move
 from maestral.sync import is_child
 from maestral.sync import get_local_hash, DirectorySnapshot
-from maestral.sync import UpDownSync, Observer, FSEventHandler
+from maestral.sync import SyncEngine, Observer, FSEventHandler
 from maestral.errors import NotFoundError, FolderConflictError
 from maestral.main import Maestral
 from maestral.main import get_log_path
@@ -30,7 +30,7 @@ import unittest
 from unittest import TestCase
 
 
-class DummyUpDownSync(UpDownSync):
+class DummySyncEngine(SyncEngine):
 
     def __init__(self, dropbox_path=''):
         self._dropbox_path = dropbox_path
@@ -50,7 +50,7 @@ def path(i):
 class TestCleanLocalEvents(TestCase):
 
     def setUp(self):
-        self.sync = DummyUpDownSync()
+        self.sync = DummySyncEngine()
 
     def test_single_file_events(self):
 
@@ -286,7 +286,7 @@ class TestCleanLocalEvents(TestCase):
 class TestIgnoreLocalEvents(TestCase):
 
     def setUp(self):
-        self.sync = DummyUpDownSync()
+        self.sync = DummySyncEngine()
         self.dummy_dir = Path(os.getcwd()).parent / 'dropbox_dir'
 
         delete(self.dummy_dir)
@@ -296,7 +296,7 @@ class TestIgnoreLocalEvents(TestCase):
         startup = Event()
         syncing.set()
 
-        self.sync = DummyUpDownSync(self.dummy_dir)
+        self.sync = DummySyncEngine(self.dummy_dir)
         self.fs_event_handler = FSEventHandler(syncing, startup, self.sync)
 
         self.observer = Observer()
