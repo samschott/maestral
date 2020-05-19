@@ -40,6 +40,22 @@ threads = dict()
 URI = 'PYRO:maestral.{0}@{1}'
 
 
+def freeze_support():
+    """Hook to support '--multiprocessing-fork' and '--frozen-daemon' flags."""
+    import argparse
+
+    mp.freeze_support()
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('-c', '--config-name', default='maestral')
+    parser.add_argument('--frozen-daemon', action='store_true')
+    parsed_args, remaining = parser.parse_known_args()
+
+    if parsed_args.frozen_daemon:
+        start_maestral_daemon(parsed_args.config_name)
+        sys.exit()
+
+
 class Exit(enum.Enum):
     """Enumeration of daemon exit results."""
     Ok = 0
@@ -430,9 +446,9 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False, d
     This function assumes that ``sys.executable`` points to the Python executable or a
     frozen executable. In case of a frozen executable, the executable must take the
     command line argument ``--frozen-daemon`` to start a daemon process which is *not
-    syncing*, .i.e., just run :meth:`start_maestral_daemon`. This is currently
-    supported through the console_script entry points of both `maestral` and
-    `maestral_qt`.
+    syncing*, .i.e., just run :meth:`start_maestral_daemon`. This is currently supported
+    through the console_script entry points of ``maestral``, ``maestral_qt`` and
+    ``maestral_cocoa`` by calling :func:`freeze_support`.
 
     Starting a detached daemon process is difficult from a frozen executable since
     the typical double-fork magic may fail on macOS and we do not have access to a
