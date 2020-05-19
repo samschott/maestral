@@ -23,7 +23,7 @@ ditto -c -k --rsrc --keepParent "$APP_BUNDLE" "${APP_BUNDLE}.zip"
 echo "Submitting $APP_BUNDLE for notarization..."
 RESULT=$(xcrun altool --notarize-app --type osx \
   --file "${APP_BUNDLE}.zip" \
-  --primary-bundle-id org.musicbrainz.Picard \
+  --primary-bundle-id com.samschott.maestral \
   --username $APPLE_ID_USER \
   --password @env:APPLE_ID_PASSWORD \
   -itc_provider MetaBrainzFoundationInc \

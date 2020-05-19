@@ -45,7 +45,7 @@ cp bin/maestral_cli dist/Maestral.app/Contents/MacOS/maestral_cli
 
 echo "**** SIGN AND NOTARIZE *********************************"
 
-codesign -s "Apple Development: sam.schott@outlook.com (FJNXBRUVWL)" \
+codesign -s "Developer ID Application: Sam Schott" \
   --entitlements entitlements.plist --deep -o runtime dist/Maestral.app
 
 macos-notarize-app.sh dist/Maestral.app
@@ -64,7 +64,7 @@ create-dmg \
   "dist/Maestral.dmg" \
   "dist/Maestral.app"
 
-codesign --verify --sign "Apple Development: sam.schott@outlook.com (FJNXBRUVWL)" dist/Maestral.dmg
+codesign --verify --sign "Developer ID Application: Sam Schott" dist/Maestral.dmg
 md5 -r dist/Maestral.dmg
 
 echo "**** DONE **********************************************"
