@@ -24,6 +24,7 @@ import click
 import Pyro5.errors
 
 # local imports
+from maestral.daemon import freeze_support
 from maestral.config import MaestralConfig, MaestralState, list_configs
 from maestral.utils.housekeeping import remove_configuration
 
@@ -362,35 +363,13 @@ config_option = click.option(
 )
 
 
-hidden_config_option = click.option(
-    '-c', '--config-name',
-    default='maestral',
-    is_eager=True,
-    expose_value=False,
-    help='For internal use only.',
-    hidden=True,
-)
-
-
-frozen_daemon_option = click.option(
-    '--frozen-daemon',
-    is_flag=True,
-    default=False,
-    is_eager=True,
-    expose_value=False,
-    callback=_run_daemon,
-    hidden=True,
-    help='For internal use only.'
-)
-
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
 @click.group(cls=SpecialHelpOrder, context_settings=CONTEXT_SETTINGS)
-@frozen_daemon_option
-@hidden_config_option
 def main():
     """Maestral Dropbox Client for Linux and macOS."""
+    freeze_support()
     check_for_updates()
 
 
