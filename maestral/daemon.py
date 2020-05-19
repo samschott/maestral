@@ -406,7 +406,7 @@ def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
     return _wait_for_startup(config_name)
 
 
-def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
+def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False, detach=True):
     """
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
     Startup is race free: there will never be two daemons running for the same config.
@@ -418,7 +418,7 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
     supported through the console_script entry points of both `maestral` and
     `maestral_qt`.
 
-    Starting a detached daemon process is difficult from a standalone executable since
+    Starting a detached daemon process is difficult from a frozen executable since
     the typical double-fork magic may fail on macOS and we do not have access to a
     standalone Python interpreter to spawn a subprocess. Our approach mimics the "freeze
     support" implemented by the multiprocessing module but fully detaches the spawned
@@ -426,6 +426,7 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
 
     :param str config_name: The name of the Maestral configuration to use.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
+    :param bool detach: If ``True``, the daemon process will be detached by double-forking.
     :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
         already running or ``Start.Failed`` if startup failed. It is possible that
         Start.Ok is returned instead of Start.AlreadyRunning in case of a race.
@@ -442,12 +443,12 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
 
     if IS_FROZEN:
 
-        def target():
+        def launcher():
             subprocess.Popen([sys.executable, '--frozen-daemon', '-c', config_name])
 
     else:
 
-        def target():
+        def launcher():
             # protect against injection
             cc = quote(config_name).strip("'")
             std_log = bool(log_to_stdout)
@@ -457,11 +458,19 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False):
 
             subprocess.Popen([sys.executable, '-c', cmd])
 
-    mp.Process(
-        target=target,
-        name='maestral-daemon-launcher',
-        daemon=True,
-    ).start()
+    if detach:
+        mp.Process(
+            target=launcher,
+            name='maestral-daemon-launcher',
+            daemon=True,
+        ).start()
+    else:
+        mp.Process(
+            target=start_maestral_daemon,
+            args=(config_name, log_to_stdout),
+            name='maestral-daemon',
+            daemon=True,
+        ).start()
 
     return _wait_for_startup(config_name)
 
