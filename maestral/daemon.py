@@ -17,6 +17,8 @@ import signal
 import traceback
 import enum
 import subprocess
+import multiprocessing as mp
+from shlex import quote
 import threading
 import fcntl
 import struct
@@ -30,7 +32,7 @@ from fasteners import InterProcessLock
 
 # local imports
 from maestral.errors import SYNC_ERRORS, FATAL_ERRORS
-from maestral.constants import IS_FROZEN
+from maestral.constants import IS_FROZEN, IS_MACOS
 from maestral.utils.appdirs import get_runtime_path
 
 
@@ -406,6 +408,20 @@ def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
     return _wait_for_startup(config_name)
 
 
+def _launcher(config_name, log_to_stdout):
+
+    if IS_FROZEN:
+        subprocess.Popen([sys.executable, '--frozen-daemon', '-c', config_name])
+    else:
+        cc = quote(config_name).strip("'")  # protect against injection
+        std_log = bool(log_to_stdout)
+
+        cmd = (f'import maestral.daemon; '
+               f'maestral.daemon.start_maestral_daemon("{cc}", {std_log})')
+
+        subprocess.Popen([sys.executable, '-c', cmd])
+
+
 def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False, detach=True):
     """
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
@@ -435,37 +451,18 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False, d
     if is_running(config_name):
         return Start.AlreadyRunning
 
-    from shlex import quote
-    import multiprocessing as mp
-
-    # use nested Popen and multiprocessing.Process to effectively create double fork
-    # see Unix 'double-fork magic'
-
-    if IS_FROZEN:
-
-        def launcher():
-            subprocess.Popen([sys.executable, '--frozen-daemon', '-c', config_name])
-
-    else:
-
-        def launcher():
-            # protect against injection
-            cc = quote(config_name).strip("'")
-            std_log = bool(log_to_stdout)
-
-            cmd = (f'import maestral.daemon; '
-                   f'maestral.daemon.start_maestral_daemon("{cc}", {std_log})')
-
-            subprocess.Popen([sys.executable, '-c', cmd])
+    ctx = mp.get_context('spawn' if IS_MACOS else 'fork')
 
     if detach:
-        mp.Process(
-            target=launcher,
+        ctx.Process(
+            target=_launcher,
+            args=(config_name, log_to_stdout),
             name='maestral-daemon-launcher',
             daemon=True,
         ).start()
+
     else:
-        mp.Process(
+        ctx.Process(
             target=start_maestral_daemon,
             args=(config_name, log_to_stdout),
             name='maestral-daemon',
