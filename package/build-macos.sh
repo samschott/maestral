@@ -59,7 +59,7 @@ create-dmg \
   --window-size 300 150 \
   --icon-size 64 \
   --text-size 11 \
-  --icon "dist/Maestral.app" 75 75 \
+  --icon "Maestral.app" 75 75 \
   --app-drop-link 225 75 \
   "dist/Maestral.dmg" \
   "dist/Maestral.app"
