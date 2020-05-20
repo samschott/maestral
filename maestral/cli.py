@@ -368,7 +368,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 @click.group(cls=SpecialHelpOrder, context_settings=CONTEXT_SETTINGS)
 def main():
-    """Maestral Dropbox Client for Linux and macOS."""
+    """Maestral Dropbox client for Linux and macOS."""
     freeze_support()
     check_for_updates()
 
