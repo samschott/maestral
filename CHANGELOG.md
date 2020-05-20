@@ -6,7 +6,7 @@
 - Show both the daemon and GUI version in the GUI settings window.
 - The command line tool bundled with the macOS app now provides proper help output.
 - Significantly reduced CPU usage of the GUI on macOS.
-- The macOS app now uses a hardened runtime, in preparation for app notarization.
+- The macOS app now uses a hardened runtime and is properly signed and notarized.
 
 #### Fixed:
 
