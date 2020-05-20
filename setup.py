@@ -30,8 +30,8 @@ install_requires = [
 ]
 
 gui_requires = [
-    'maestral_qt>=1.0.3.beta1;sys_platform=="linux"',
-    'maestral_cocoa>=1.0.3.beta1;sys_platform=="darwin"',
+    'maestral_qt>=1.0.3;sys_platform=="linux"',
+    'maestral_cocoa>=1.0.3;sys_platform=="darwin"',
 ]
 
 syslog_requires = ['systemd-python']
