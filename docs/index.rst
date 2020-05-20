@@ -18,6 +18,8 @@ The following APIs should remain stable for frontends such as the GUI or CLI:
    :caption: Table of Contents
    :maxdepth: 2
 
+   config_files
+   state_files
    api/index
 
 .. toctree::
