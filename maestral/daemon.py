@@ -229,9 +229,11 @@ class Lock:
 
     def locking_pid(self):
         """
-        Returns the PID of the process which currently holds the lock or None.
+        Returns the PID of the process which currently holds the lock or ``None``. This
+        should work on macOS, OpenBSD and Linux but may fail on some platforms. Always use
+        :meth:`locked` to check if the lock is held by any process.
 
-        :returns: The PID of the process which currently holds the lock or None.
+        :returns: The PID of the process which currently holds the lock or ``None``.
         :rtype: int
         """
 
@@ -276,7 +278,7 @@ def _send_term(pid):
 
 class MaestralLock:
     """
-    A inter-process and inter-thread lock for Maestral. This is a wrapper around
+    An inter-process and inter-thread lock for Maestral. This is a wrapper around
     :class:`Lock` which fills out the appropriate lockfile name and directory for the
     given config name.
 
