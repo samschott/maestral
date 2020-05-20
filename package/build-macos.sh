@@ -43,12 +43,14 @@ echo "**** COPY CLI ENTRY POINT ******************************"
 
 cp bin/maestral_cli dist/Maestral.app/Contents/MacOS/maestral_cli
 
-echo "**** SIGN AND NOTARIZE *********************************"
+echo "**** SIGNING APP ***************************************"
 
+echo "removing xattr"
+xattr -cr dist/Maestral.app
+
+echo "signing app"
 codesign -s "Developer ID Application: Sam Schott" \
   --entitlements entitlements.plist --deep -o runtime dist/Maestral.app
-
-./macos-notarize-app.sh dist/Maestral.app
 
 echo "**** CREATING DMG **************************************"
 
@@ -64,7 +66,11 @@ create-dmg \
   "dist/Maestral.dmg" \
   "dist/Maestral.app"
 
+echo "signing dmg"
 codesign --verify --sign "Developer ID Application: Sam Schott" dist/Maestral.dmg
-md5 -r dist/Maestral.dmg
+
+echo "**** NOTARISING DMG ************************************"
+
+./macos-notarize-dmg.sh dist/Maestral.dmg
 
 echo "**** DONE **********************************************"
