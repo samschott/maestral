@@ -41,7 +41,11 @@ URI = 'PYRO:maestral.{0}@{1}'
 
 
 def freeze_support():
-    """Hook to support '--multiprocessing-fork' and '--frozen-daemon' flags."""
+    """Freeze support for multiprocessing and daemon startup. This works by checking for
+    '--multiprocessing-fork' and '--frozen-daemon' command line arguments. Call this
+    function at the entry point of the executable, as soon as possible and ideally before
+    any heavy imports."""
+
     import argparse
 
     mp.freeze_support()
@@ -446,16 +450,10 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False, d
 
     This function assumes that ``sys.executable`` points to the Python executable or a
     frozen executable. In case of a frozen executable, the executable must take the
-    command line argument ``--frozen-daemon`` to start a daemon process which is *not
-    syncing*, .i.e., just run :meth:`start_maestral_daemon`. This is currently supported
-    through the console_script entry points of ``maestral``, ``maestral_qt`` and
-    ``maestral_cocoa`` by calling :func:`freeze_support`.
-
-    Starting a detached daemon process is difficult from a frozen executable since
-    the typical double-fork magic may fail on macOS and we do not have access to a
-    standalone Python interpreter to spawn a subprocess. Our approach mimics the "freeze
-    support" implemented by the multiprocessing module but fully detaches the spawned
-    process.
+    command line argument '--frozen-daemon' to start a daemon process which is *not
+    syncing* by calling :func:`start_maestral_daemon`. This is currently supported through
+    :func:`freeze_support` which should be called from the main entry point, as soon as
+    possible after startup.
 
     :param str config_name: The name of the Maestral configuration to use.
     :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
