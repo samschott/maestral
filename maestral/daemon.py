@@ -157,6 +157,14 @@ class Lock:
 
     @classmethod
     def singleton(cls, name, lock_path=None):
+        """
+        Retrieve an existing lock object with a given 'name' or create a new one. Use this
+        method for thread-safe locks.
+
+        :param str name: Name of lock file.
+        :param str lock_path: Directory for lock files. Defaults to the temporary
+            directory returned by :func:`tempfile.gettempdir()` if not given.
+        """
 
         with cls._singleton_lock:
             try:
@@ -268,7 +276,11 @@ def _send_term(pid):
 
 class MaestralLock:
     """
-    A inter-process and inter-thread lock for Maestral.
+    A inter-process and inter-thread lock for Maestral. This is a wrapper around
+    :class:`Lock` which fills out the appropriate lockfile name and directory for the
+    given config name.
+
+    :param str config_name: The name of the Maestral configuration.
     """
 
     def __new__(cls, config_name):
@@ -293,7 +305,7 @@ def get_maestral_pid(config_name):
     """
     Returns Maestral's PID if the daemon is running, ``None`` otherwise.
 
-    :param str config_name: The name of the Maestral configuration to use.
+    :param str config_name: The name of the Maestral configuration.
     :returns: The daemon's PID.
     :rtype: int
     """
