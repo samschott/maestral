@@ -17,7 +17,6 @@ import signal
 import traceback
 import enum
 import subprocess
-import multiprocessing as mp
 from shlex import quote
 import threading
 import fcntl
@@ -47,6 +46,7 @@ def freeze_support():
     any heavy imports."""
 
     import argparse
+    import multiprocessing as mp
 
     mp.freeze_support()
 
@@ -466,12 +466,13 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False, d
     if is_running(config_name):
         return Start.AlreadyRunning
 
-    ctx = mp.get_context('spawn' if IS_MACOS else 'fork')
-
     if detach:
         _launcher(config_name, log_to_stdout)
 
     else:
+        import multiprocessing as mp
+        ctx = mp.get_context('spawn' if IS_MACOS else 'fork')
+
         ctx.Process(
             target=start_maestral_daemon,
             args=(config_name, log_to_stdout),
