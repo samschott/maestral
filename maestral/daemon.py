@@ -427,7 +427,8 @@ def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
 def _launcher(config_name, log_to_stdout):
 
     if IS_FROZEN:
-        subprocess.Popen([sys.executable, '--frozen-daemon', '-c', config_name])
+        subprocess.Popen([sys.executable, '--frozen-daemon', '-c', config_name],
+                         start_new_session=True)
     else:
         cc = quote(config_name).strip("'")  # protect against injection
         std_log = bool(log_to_stdout)
@@ -435,7 +436,7 @@ def _launcher(config_name, log_to_stdout):
         cmd = (f'import maestral.daemon; '
                f'maestral.daemon.start_maestral_daemon("{cc}", {std_log})')
 
-        subprocess.Popen([sys.executable, '-c', cmd])
+        subprocess.Popen([sys.executable, '-c', cmd], start_new_session=True)
 
 
 def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False, detach=True):
@@ -470,12 +471,7 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False, d
     ctx = mp.get_context('spawn' if IS_MACOS else 'fork')
 
     if detach:
-        ctx.Process(
-            target=_launcher,
-            args=(config_name, log_to_stdout),
-            name='maestral-daemon-launcher',
-            daemon=True,
-        ).start()
+        _launcher(config_name, log_to_stdout)
 
     else:
         ctx.Process(
