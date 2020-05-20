@@ -48,7 +48,7 @@ echo "**** SIGN AND NOTARIZE *********************************"
 codesign -s "Developer ID Application: Sam Schott" \
   --entitlements entitlements.plist --deep -o runtime dist/Maestral.app
 
-macos-notarize-app.sh dist/Maestral.app
+./macos-notarize-app.sh dist/Maestral.app
 
 echo "**** CREATING DMG **************************************"
 

@@ -26,7 +26,6 @@ RESULT=$(xcrun altool --notarize-app --type osx \
   --primary-bundle-id com.samschott.maestral \
   --username $APPLE_ID_USER \
   --password @env:APPLE_ID_PASSWORD \
-  -itc_provider MetaBrainzFoundationInc \
   --output-format xml)
 
 if [ $? -ne 0 ]; then
