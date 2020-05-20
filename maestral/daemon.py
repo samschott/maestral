@@ -428,7 +428,7 @@ def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
     return _wait_for_startup(config_name)
 
 
-def _launcher(config_name, log_to_stdout):
+def _subprocess_launcher(config_name, log_to_stdout):
 
     if IS_FROZEN:
         subprocess.Popen([sys.executable, '--frozen-daemon', '-c', config_name],
@@ -467,7 +467,7 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False, d
         return Start.AlreadyRunning
 
     if detach:
-        _launcher(config_name, log_to_stdout)
+        _subprocess_launcher(config_name, log_to_stdout)
 
     else:
         import multiprocessing as mp
