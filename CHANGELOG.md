@@ -1,3 +1,13 @@
+## v1.1.0.dev
+
+#### Changed:
+
+- Always create config directory if it does not exist.
+
+#### Fixed:
+
+- Fixes a thread-safety issue with desktop notifications.
+
 ## v1.0.3
 
 #### Changed:
@@ -20,7 +30,7 @@
 - Fixes an issue on fresh macOS installs where creating autostart entries could fail if
   /Library/LaunchAgents does not yet exist.
 - Fixes an issue in the macOS app bundle where installing the command line could tool
-  would fail if /usr/local/bin is owned by root (as is default on a fresh install). Now, 
+  would fail if /usr/local/bin is owned by root (as is default on a fresh install). Now,
   the user is asked for permission instead.
 
 #### Dependencies:
