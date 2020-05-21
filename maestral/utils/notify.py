@@ -250,7 +250,7 @@ class DesktopNotifierFreedesktopDBus(DesktopNotifierBase):
 
     def send(self, title, message, urgency=DesktopNotifierBase.NORMAL, icon_path=None):
 
-        replace_id = self._past_notification_ids.popleft()
+        replace_id = self._past_notification_ids[0]
 
         try:
             resp = self._proxy.Notify(
@@ -269,6 +269,7 @@ class DesktopNotifierFreedesktopDBus(DesktopNotifierBase):
             # may have changed after DesktopNotifierFreedesktopDBus was initialized.
             logger.debug('Failed to send desktop notification', exc_info=True)
         else:
+            self._past_notification_ids.popleft()
             self._past_notification_ids.append(resp[0])
 
     def __del__(self):
@@ -291,7 +292,9 @@ class DesktopNotifier:
     LOW = 'low'
 
     def __init__(self, app_name):
+        self._lock = threading.Lock()
         self.implementation = self._get_available_implementation()
+
         if self.implementation == SupportedImplementations.notification_center:
             self._impl = DesktopNotifierNC(app_name)
         elif self.implementation == SupportedImplementations.legacy_notification_center:
@@ -319,7 +322,8 @@ class DesktopNotifier:
         :param Optional[str] icon: Path to an icon. Some backends support displaying an
             (app) icon together with the notification.
         """
-        self._impl.send(title, message, urgency, icon)
+        with self._lock:
+            self._impl.send(title, message, urgency, icon)
 
     @staticmethod
     def _get_available_implementation():
