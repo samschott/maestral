@@ -86,6 +86,9 @@ class DefaultsConfig(cp.ConfigParser):
                     logger.exception('Failed to write user configuration file to disk')
 
     def __write_file(self, fpath):
+
+        os.makedirs(self._path, exist_ok=True)
+
         with open(fpath, 'w', encoding='utf-8') as configfile:
             self.write(configfile)
 
