@@ -37,8 +37,8 @@ import sdnotify
 # local imports
 from maestral import __version__
 from maestral.oauth import OAuth2Session
-from maestral.client import MaestralApiClient, to_maestral_error
-from maestral.sync import MaestralMonitor
+from maestral.client import DropboxClient, to_maestral_error
+from maestral.sync import SyncMonitor
 from maestral.errors import (
     MaestralApiError, NotLinkedError, NoDropboxDirError,
     NotFoundError, PathError
@@ -241,8 +241,8 @@ class Maestral:
         self._setup_logging()
 
         self._auth = OAuth2Session(config_name)
-        self.client = MaestralApiClient(config_name=self.config_name, access_token='none')
-        self.monitor = MaestralMonitor(self.client)
+        self.client = DropboxClient(config_name=self.config_name, access_token='none')
+        self.monitor = SyncMonitor(self.client)
         self.sync = self.monitor.sync
 
         # periodically check for updates and refresh account info
@@ -604,7 +604,7 @@ class Maestral:
         else:
             return (self.monitor.syncing.is_set()
                     or self.monitor.startup.is_set()
-                    or self.sync.lock.locked())
+                    or self.sync.busy())
 
     @property
     def paused(self):
@@ -614,7 +614,7 @@ class Maestral:
         if self.pending_link:
             return False
         else:
-            return self.monitor.paused_by_user.is_set() and not self.sync.lock.locked()
+            return self.monitor.paused_by_user.is_set() and not self.sync.busy()
 
     @property
     def running(self):
@@ -626,7 +626,7 @@ class Maestral:
         if self.pending_link:
             return False
         else:
-            return self.monitor.running.is_set() or self.sync.lock.locked()
+            return self.monitor.running.is_set() or self.sync.busy()
 
     @property
     def connected(self):
@@ -705,7 +705,7 @@ class Maestral:
         if not self.syncing:
             return FileStatus.Unwatched.value
 
-        local_path = osp.abspath(local_path)
+        local_path = osp.realpath(local_path)
 
         try:
             dbx_path = self.sync.to_dbx_path(local_path)
@@ -821,7 +821,7 @@ class Maestral:
     def list_folder(self, dbx_path, **kwargs):
         """
         List all items inside the folder given by ``dbx_path``. Keyword arguments are
-        passed on the the Dropbox API call :meth:`client.MaestralApiClient.list_folder`.
+        passed on the the Dropbox API call :meth:`client.DropboxClient.list_folder`.
 
         :param dbx_path: Path to folder on Dropbox.
         :returns: List of Dropbox item metadata as dicts or ``False`` if listing failed
@@ -942,7 +942,7 @@ class Maestral:
             raise NotFoundError('Cannot exlcude item',
                                 f'"{dbx_path}" does not exist on Dropbox')
 
-        dbx_path = dbx_path.lower().rstrip(osp.sep)
+        dbx_path = dbx_path.lower().rstrip('/')
 
         # add the path to excluded list
         if self.sync.is_excluded_by_user(dbx_path):
@@ -1004,7 +1004,7 @@ class Maestral:
             raise NotFoundError('Cannot include item',
                                 f'"{dbx_path}" does not exist on Dropbox')
 
-        dbx_path = dbx_path.lower().rstrip(osp.sep)
+        dbx_path = dbx_path.lower().rstrip('/')
 
         old_excluded_items = self.sync.excluded_items
 
@@ -1086,7 +1086,7 @@ class Maestral:
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
-        dbx_path = dbx_path.lower().rstrip(osp.sep)
+        dbx_path = dbx_path.lower().rstrip('/')
 
         excluded_items = self._conf.get('main', 'excluded_items')
 
@@ -1113,7 +1113,7 @@ class Maestral:
         """
 
         old_path = self.sync.dropbox_path
-        new_path = osp.abspath(osp.expanduser(new_path))
+        new_path = osp.realpath(osp.expanduser(new_path))
 
         try:
             if osp.samefile(old_path, new_path):
@@ -1145,7 +1145,7 @@ class Maestral:
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
-        path = osp.abspath(osp.expanduser(path))
+        path = osp.realpath(osp.expanduser(path))
 
         self.monitor.reset_sync_state()
 

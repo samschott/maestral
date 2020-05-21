@@ -1,3 +1,33 @@
+## v1.0.3.dev
+
+#### Changed:
+
+- Both "-h" and "--help" can now be used to print help output for a command.
+- Show both the daemon and GUI version in the GUI settings window.
+- The command line tool bundled with the macOS app now provides proper help output.
+- Significantly reduced CPU usage of the GUI on macOS.
+- The macOS app now uses a hardened runtime and is properly signed and notarized.
+
+#### Fixed:
+
+- Fixes an issue which could lead to the local Dropbox folder being moved before syncing
+  has been paused.
+- Fixes an issue where download errors would show a rev number instead of the Dropbox
+  path.
+- Fixes a race condition when two processes try to start a sync daemon at the same time.
+- Fixes an issue in the macOS GUI where updating the displayed sync issues could fail.
+- Fixes truncated text in the macOS setup dialog.
+- Fixes an issue on fresh macOS installs where creating autostart entries could fail if
+  /Library/LaunchAgents does not yet exist.
+- Fixes an issue in the macOS app bundle where installing the command line could tool
+  would fail if /usr/local/bin is owned by root (as is default on a fresh install). Now, 
+  the user is asked for permission instead.
+
+#### Dependencies:
+
+- Removed `lockfile` dependency.
+- Added `fasteners` dependency.
+
 ## v1.0.2
 
 This release fixes bugs in the command line interface.

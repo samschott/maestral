@@ -39,8 +39,8 @@ def is_equal_or_child(path, parent):
 
     :param str path: Item path.
     :param str parent: Parent path.
-    :returns: ``True`` if ``path`` semantically lies inside ``parent``,
-        ``False`` otherwise (including ``path == parent``).
+    :returns: ``True`` if ``path`` semantically lies inside ``parent`` or
+        ``path == parent``.
     :rtype: bool
     """
 

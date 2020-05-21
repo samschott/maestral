@@ -11,6 +11,7 @@ existing config or state instances for a specified config_name.
 
 import copy
 import logging
+import threading
 
 from .base import get_conf_path, get_data_path
 from .user import UserConfig
@@ -95,8 +96,11 @@ CONF_VERSION = '12.0.0'
 # Factories
 # =============================================================================
 
-_config_instances = {}
-_state_instances = {}
+_config_instances = dict()
+_state_instances = dict()
+
+_config_lock = threading.Lock()
+_state_lock = threading.Lock()
 
 
 def MaestralConfig(config_name):
@@ -111,30 +115,32 @@ def MaestralConfig(config_name):
 
     global _config_instances
 
-    if config_name in _config_instances:
-        return _config_instances[config_name]
-    else:
-        defaults = copy.deepcopy(DEFAULTS)
-        # set default dir name according to config
-        for sec, options in defaults:
-            if sec == 'main':
-                options['default_dir_name'] = f'Dropbox ({config_name.title()})'
-
-        config_path = get_conf_path(CONFIG_DIR_NAME)
+    with _config_lock:
 
         try:
-            conf = UserConfig(
-                config_path, config_name, defaults=defaults, version=CONF_VERSION,
-                load=True, backup=True, raw_mode=True, remove_obsolete=True
-            )
-        except OSError:
-            conf = UserConfig(
-                config_path, config_name, defaults=defaults, version=CONF_VERSION,
-                load=False, backup=True, raw_mode=True, remove_obsolete=True
-            )
+            return _config_instances[config_name]
+        except KeyError:
+            defaults = copy.deepcopy(DEFAULTS)
+            # set default dir name according to config
+            for sec, options in defaults:
+                if sec == 'main':
+                    options['default_dir_name'] = f'Dropbox ({config_name.title()})'
 
-        _config_instances[config_name] = conf
-        return conf
+            config_path = get_conf_path(CONFIG_DIR_NAME)
+
+            try:
+                conf = UserConfig(
+                    config_path, config_name, defaults=defaults, version=CONF_VERSION,
+                    load=True, backup=True, raw_mode=True, remove_obsolete=True
+                )
+            except OSError:
+                conf = UserConfig(
+                    config_path, config_name, defaults=defaults, version=CONF_VERSION,
+                    load=False, backup=True, raw_mode=True, remove_obsolete=True
+                )
+
+            _config_instances[config_name] = conf
+            return conf
 
 
 def MaestralState(config_name):
@@ -149,23 +155,25 @@ def MaestralState(config_name):
 
     global _state_instances
 
-    if config_name in _state_instances:
-        return _state_instances[config_name]
-    else:
-        state_path = get_data_path(CONFIG_DIR_NAME)
+    with _state_lock:
 
         try:
-            state = UserConfig(
-                state_path, config_name, defaults=DEFAULTS_STATE,
-                version=CONF_VERSION, load=True, backup=True, raw_mode=True,
-                remove_obsolete=True, suffix='.state'
-            )
-        except OSError:
-            state = UserConfig(
-                state_path, config_name, defaults=DEFAULTS_STATE,
-                version=CONF_VERSION, load=False, backup=True, raw_mode=True,
-                remove_obsolete=True, suffix='.state'
-            )
+            return _state_instances[config_name]
+        except KeyError:
+            state_path = get_data_path(CONFIG_DIR_NAME)
 
-        _state_instances[config_name] = state
-        return state
+            try:
+                state = UserConfig(
+                    state_path, config_name, defaults=DEFAULTS_STATE,
+                    version=CONF_VERSION, load=True, backup=True, raw_mode=True,
+                    remove_obsolete=True, suffix='.state'
+                )
+            except OSError:
+                state = UserConfig(
+                    state_path, config_name, defaults=DEFAULTS_STATE,
+                    version=CONF_VERSION, load=False, backup=True, raw_mode=True,
+                    remove_obsolete=True, suffix='.state'
+                )
+
+            _state_instances[config_name] = state
+            return state

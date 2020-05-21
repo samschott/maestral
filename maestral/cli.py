@@ -24,6 +24,7 @@ import click
 import Pyro5.errors
 
 # local imports
+from maestral.daemon import freeze_support
 from maestral.config import MaestralConfig, MaestralState, list_configs
 from maestral.utils.housekeeping import remove_configuration
 
@@ -362,33 +363,13 @@ config_option = click.option(
 )
 
 
-hidden_config_option = click.option(
-    '-c', '--config-name',
-    default='maestral',
-    is_eager=True,
-    expose_value=False,
-    help='For internal use only.',
-    hidden=True,
-)
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
-frozen_daemon_option = click.option(
-    '--frozen-daemon',
-    is_flag=True,
-    default=False,
-    is_eager=True,
-    expose_value=False,
-    callback=_run_daemon,
-    hidden=True,
-    help='For internal use only.'
-)
-
-
-@click.group(cls=SpecialHelpOrder)
-@frozen_daemon_option
-@hidden_config_option
+@click.group(cls=SpecialHelpOrder, context_settings=CONTEXT_SETTINGS)
 def main():
-    """Maestral Dropbox Client for Linux and macOS."""
+    """Maestral Dropbox client for Linux and macOS."""
+    freeze_support()
     check_for_updates()
 
 
@@ -445,16 +426,10 @@ def gui(config_name):
 def start(config_name: str, foreground: bool, verbose: bool):
     """Starts the Maestral daemon."""
 
-    from maestral.daemon import get_maestral_pid, get_maestral_proxy
+    from maestral.daemon import get_maestral_proxy
     from maestral.daemon import (start_maestral_daemon_thread, threads,
                                  start_maestral_daemon_process, Start)
 
-    # do nothing if already running
-    if get_maestral_pid(config_name):
-        click.echo('Maestral daemon is already running.')
-        return
-
-    # start daemon
     click.echo('Starting Maestral...', nl=False)
 
     if foreground:
@@ -464,6 +439,9 @@ def start(config_name: str, foreground: bool, verbose: bool):
 
     if res == Start.Ok:
         click.echo('\rStarting Maestral...        ' + OK)
+    elif res == Start.AlreadyRunning:
+        click.echo('\rStarting Maestral...        Already running.')
+        return
     else:
         click.echo('\rStarting Maestral...        ' + FAILED)
         click.echo('Please check logs for more information.')
@@ -841,14 +819,14 @@ def rebuild_index(config_name: str):
 @main.command(help_priority=16)
 def configs():
     """Lists all configured Dropbox accounts."""
-    from maestral.daemon import get_maestral_pid
+    from maestral.daemon import is_running
 
     # clean up stale configs
     config_names = list_configs()
 
     for name in config_names:
         dbid = MaestralConfig(name).get('account', 'account_id')
-        if dbid == '' and not get_maestral_pid(name):
+        if dbid == '' and not is_running(name):
             remove_configuration(name)
 
     # display remaining configs
@@ -868,8 +846,8 @@ def analytics(config_name: str, yes: bool, no: bool):
     """
     Enables or disables sharing error reports.
 
-    Sharing is disabled by default. If enbled, error reports are shared with bugsnag and
-    no personal infortmation will typically be collected. Shared tracebacks may however
+    Sharing is disabled by default. If enabled, error reports are shared with bugsnag and
+    no personal information will typically be collected. Shared tracebacks may however
     include file names, depending on the error.
     """
 
@@ -1132,4 +1110,4 @@ def notify_snooze(config_name: str, minutes: int):
             click.echo(f'Notifications snoozed for {minutes} min. '
                        'Set snooze to 0 to reset.')
         else:
-            click.echo(f'Notifications enabled.')
+            click.echo('Notifications enabled.')

@@ -27,6 +27,7 @@ from enum import Enum
 import pkg_resources
 import logging
 from collections import deque
+import threading
 
 # external imports
 import click
@@ -359,7 +360,8 @@ class MaestralDesktopNotifier(logging.Handler):
     ``notify_level`` will be applied in addition to the log level.
     """
 
-    _instances = {}
+    _instances = dict()
+    _lock = threading.Lock()
 
     @classmethod
     def for_config(cls, config_name):
@@ -370,12 +372,13 @@ class MaestralDesktopNotifier(logging.Handler):
         :param str config_name: Name of maestral config.
         """
 
-        if config_name in cls._instances:
-            return cls._instances[config_name]
-        else:
-            instance = cls(config_name)
-            cls._instances[config_name] = instance
-            return instance
+        with cls._lock:
+            try:
+                return cls._instances[config_name]
+            except KeyError:
+                instance = cls(config_name)
+                cls._instances[config_name] = instance
+                return instance
 
     def __init__(self, config_name):
         super().__init__()

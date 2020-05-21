@@ -20,7 +20,7 @@ from maestral.sync import (
 from maestral.sync import delete, move
 from maestral.sync import is_child
 from maestral.sync import get_local_hash, DirectorySnapshot
-from maestral.sync import UpDownSync, Observer, FSEventHandler
+from maestral.sync import SyncEngine, Observer, FSEventHandler
 from maestral.errors import NotFoundError, FolderConflictError
 from maestral.main import Maestral
 from maestral.main import get_log_path
@@ -30,11 +30,7 @@ import unittest
 from unittest import TestCase
 
 
-# run tests in decleration order and not alphabetically
-unittest.TestLoader.sortTestMethodsUsing = None
-
-
-class DummyUpDownSync(UpDownSync):
+class DummySyncEngine(SyncEngine):
 
     def __init__(self, dropbox_path=''):
         self._dropbox_path = dropbox_path
@@ -54,7 +50,7 @@ def path(i):
 class TestCleanLocalEvents(TestCase):
 
     def setUp(self):
-        self.sync = DummyUpDownSync()
+        self.sync = DummySyncEngine()
 
     def test_single_file_events(self):
 
@@ -290,7 +286,7 @@ class TestCleanLocalEvents(TestCase):
 class TestIgnoreLocalEvents(TestCase):
 
     def setUp(self):
-        self.sync = DummyUpDownSync()
+        self.sync = DummySyncEngine()
         self.dummy_dir = Path(os.getcwd()).parent / 'dropbox_dir'
 
         delete(self.dummy_dir)
@@ -300,14 +296,14 @@ class TestIgnoreLocalEvents(TestCase):
         startup = Event()
         syncing.set()
 
-        self.sync = DummyUpDownSync(self.dummy_dir)
+        self.sync = DummySyncEngine(self.dummy_dir)
         self.fs_event_handler = FSEventHandler(syncing, startup, self.sync)
 
         self.observer = Observer()
         self.observer.schedule(self.fs_event_handler, str(self.dummy_dir), recursive=True)
         self.observer.start()
 
-    def test_recieveing_events(self):
+    def test_receiving_events(self):
 
         new_dir = self.dummy_dir / 'parent'
         new_dir.mkdir()
@@ -396,7 +392,7 @@ class TestSync(TestCase):
         cls.test_folder_dbx = cls.TEST_FOLDER_PATH
         cls.test_folder_local = cls.m.dropbox_path + cls.TEST_FOLDER_PATH
 
-        # aquire test lock
+        # acquire test lock
         while True:
             try:
                 cls.m.client.make_dir(cls.TEST_LOCK_PATH)
@@ -417,6 +413,11 @@ class TestSync(TestCase):
         cls.m.stop_sync()
         try:
             cls.m.client.remove(cls.test_folder_dbx)
+        except NotFoundError:
+            pass
+
+        try:
+            cls.m.client.remove('/.mignore')
         except NotFoundError:
             pass
 
@@ -451,20 +452,31 @@ class TestSync(TestCase):
 
         t0 = time.time()
         while time.time() - t0 < minimum:
-            if self.m.sync.lock.locked():
+            if self.m.sync.busy():
                 self.m.monitor._wait_for_idle()
                 t0 = time.time()
             else:
                 time.sleep(0.1)
 
     def clean_remote(self):
-        """Recreates a fresh test folder."""
+        """Recreates a fresh test folder on remote Dropbox."""
         try:
             self.m.client.remove(self.test_folder_dbx)
         except NotFoundError:
             pass
 
+        try:
+            self.m.client.remove('/.mignore')
+        except NotFoundError:
+            pass
+
         self.m.client.make_dir(self.test_folder_dbx)
+
+    def clean_local(self):
+        """Recreates a fresh test folder locally."""
+        delete(self.m.dropbox_path + '/.mignore')
+        delete(self.test_folder_local)
+        os.mkdir(self.test_folder_local)
 
     def assert_synced(self, local_folder, remote_folder):
         """Asserts that the `local_folder` and `remote_folder` are synced."""
@@ -504,7 +516,7 @@ class TestSync(TestCase):
         candidates = list(e for e in entries if e['name'].startswith(basename))
         ccs = list(e for e in candidates
                    if '(1)' in e['name']  # created by Dropbox for add conflict
-                   or 'conflicted copy' in e['name']  # created by Dropbox for update confict
+                   or 'conflicted copy' in e['name']  # created by Dropbox for update conflict
                    or 'conflicting copy' in e['name'])  # created by us
         return len(ccs)
 
@@ -983,6 +995,47 @@ class TestSync(TestCase):
         self.assertIsNotNone(self.m.client.get_metadata(self.test_folder_dbx + '/Folder (case conflict)'))
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+    def test_mignore(self):
+
+        # 1) test that tracked items are unaffected
+
+        os.mkdir(self.test_folder_local + '/bar')
+        self.wait_for_idle()
+
+        with open(self.m.sync.mignore_path, 'w') as f:
+            f.write('foo/\n')   # ignore folder "foo"
+            f.write('bar\n')    # ignore file or folder "bar"
+            f.write('build\n')  # ignore file or folder "build"
+
+        self.wait_for_idle()
+
+        self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+        self.assert_exists(self.test_folder_dbx, 'bar')
+
+        # 2) test that new items are excluded
+
+        os.mkdir(self.test_folder_local + '/foo')
+        self.wait_for_idle()
+
+        self.assertIsNone(self.m.client.get_metadata(self.test_folder_dbx + '/foo'))
+
+        # 3) test that renaming an item excludes it
+
+        move(self.test_folder_local + '/bar', self.test_folder_local + '/build')
+        self.wait_for_idle()
+
+        self.assertIsNone(self.m.client.get_metadata(self.test_folder_dbx + '/build'))
+
+        # 4) test that renaming an item includes it
+
+        move(self.test_folder_local + '/build', self.test_folder_local + '/folder')
+        self.wait_for_idle()
+
+        self.assert_exists(self.test_folder_dbx, 'folder')
+
+        self.clean_local()
+        self.wait_for_idle()
 
 
 if __name__ == '__main__':

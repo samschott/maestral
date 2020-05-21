@@ -4,8 +4,12 @@
 
 (c) Sam Schott; This work is licensed under the MIT licence.
 
-This module handles starting for Maestral on user login and supports multiple backends,
-depending on the platform and if we want to start the daemon or GUI.
+This module handles starting Maestral on user login and supports multiple platform
+specific backends such as launchd or systemd. Additionally, this module also provides
+support for GUIs via launchd or xdg-desktop entries by passing the ``gui`` option to the
+``maestral`` command or executable. Therefore, only GUIs which are explicitly supported by
+the CLI with the `maestral gui` command or frozen executables which provide their own GUI
+are supported.
 
 """
 
@@ -216,7 +220,8 @@ class AutoStartLaunchd(AutoStartMaestralBase):
         with open(osp.join(_resources, 'com.samschott.maestral.plist')) as f:
             plist_template = f.read()
 
-        self.destination = osp.join(get_home_dir(), 'Library', 'LaunchAgents', filename)
+        self.path = osp.join(get_home_dir(), 'Library', 'LaunchAgents')
+        self.destination = osp.join(self.path, filename)
 
         arguments = [f'\t\t<string>{arg}</string>' for arg in self.start_cmd]
 
@@ -226,6 +231,8 @@ class AutoStartLaunchd(AutoStartMaestralBase):
         )
 
     def _enable(self):
+        os.makedirs(self.path, exist_ok=True)
+
         with open(self.destination, 'w+') as f:
             f.write(self.contents)
 

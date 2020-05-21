@@ -36,7 +36,7 @@ class TestAPI(TestCase):
         cls.test_folder_dbx = cls.TEST_FOLDER_PATH
         cls.test_folder_local = cls.m.dropbox_path + cls.TEST_FOLDER_PATH
 
-        # aquire test lock
+        # acquire test lock
         while True:
             try:
                 cls.m.client.make_dir(cls.TEST_LOCK_PATH)
@@ -57,6 +57,11 @@ class TestAPI(TestCase):
         cls.m.stop_sync()
         try:
             cls.m.client.remove(cls.test_folder_dbx)
+        except NotFoundError:
+            pass
+
+        try:
+            cls.m.client.remove('/.mignore')
         except NotFoundError:
             pass
 
@@ -91,7 +96,7 @@ class TestAPI(TestCase):
 
         t0 = time.time()
         while time.time() - t0 < minimum:
-            if self.m.sync.lock.locked():
+            if self.m.sync.busy():
                 self.m.monitor._wait_for_idle()
                 t0 = time.time()
             else:
@@ -104,12 +109,17 @@ class TestAPI(TestCase):
         except NotFoundError:
             pass
 
+        try:
+            self.m.client.remove('/.mignore')
+        except NotFoundError:
+            pass
+
         self.m.client.make_dir(self.test_folder_dbx)
 
     # test functions
 
     def test_selective_sync(self):
-        """Test `Maetsral.exclude_item` and  Maetsral.include_item`."""
+        """Test `Maestral.exclude_item` and  Maestral.include_item`."""
 
         test_path_local = self.test_folder_local + '/selective_sync_test_folder'
         test_path_dbx = self.test_folder_dbx + '/selective_sync_test_folder'
@@ -148,7 +158,7 @@ class TestAPI(TestCase):
         self.assertNotIn(test_path_dbx, self.m.excluded_items,
                          'deleted item is still in "excluded_items" list')
 
-        # test exluding a non-existant folder
+        # test excluding a non-existent folder
         with self.assertRaises(NotFoundError):
             self.m.exclude_item(test_path_dbx)
 
@@ -156,6 +166,7 @@ class TestAPI(TestCase):
 
         # paths with backslash are not allowed on Dropbox
         test_path_local = self.test_folder_local + '/folder\\'
+        test_path_dbx = self.test_folder_dbx + '/folder\\'
 
         n_errors_initial = len(self.m.sync_errors)
 
@@ -163,23 +174,59 @@ class TestAPI(TestCase):
         self.wait_for_idle()
 
         self.assertEqual(len(self.m.sync_errors), n_errors_initial + 1)
-        self.assertTrue(any(e['local_path'] == test_path_local for e in self.m.sync_errors))
+        self.assertEqual(self.m.sync_errors[-1]['local_path'], test_path_local)
+        self.assertEqual(self.m.sync_errors[-1]['dbx_path'], test_path_dbx)
+        self.assertEqual(self.m.sync_errors[-1]['type'], 'PathError')
 
         delete(test_path_local)
         self.wait_for_idle()
 
         self.assertEqual(len(self.m.sync_errors), n_errors_initial)
-        self.assertFalse(any(e['local_path'] == test_path_local for e in self.m.sync_errors))
+        self.assertTrue(all(e['local_path'] != test_path_local for e in self.m.sync_errors))
+        self.assertTrue(all(e['dbx_path'] != test_path_dbx for e in self.m.sync_errors))
 
     def test_download_sync_issues(self):
-        # TODO: find a file with reproducible download error
-        pass
+        test_path_local = self.test_folder_local + '/dmca.gif'
+        test_path_dbx = self.test_folder_dbx + '/dmca.gif'
 
-    def test_mignore(self):
-        # TODO:
-        #  1) test that new files are excluded
-        #  2) test that tracked files are unaffected
-        pass
+        self.wait_for_idle()
+
+        n_errors_initial = len(self.m.sync_errors)
+
+        self.m.client.upload(self.resources + '/dmca.gif', test_path_dbx)
+
+        self.wait_for_idle()
+
+        # 1) Check that the sync issue is logged
+
+        self.assertEqual(len(self.m.sync_errors), n_errors_initial + 1)
+        self.assertEqual(self.m.sync_errors[-1]['local_path'], test_path_local)
+        self.assertEqual(self.m.sync_errors[-1]['dbx_path'], test_path_dbx)
+        self.assertEqual(self.m.sync_errors[-1]['type'], 'RestrictedContentError')
+        self.assertIn(test_path_dbx, self.m.sync.download_errors)
+
+        # 2) Check that the sync is retried after pause / resume
+
+        self.m.pause_sync()
+        self.m.resume_sync()
+
+        self.wait_for_idle()
+
+        self.assertEqual(len(self.m.sync_errors), n_errors_initial + 1)
+        self.assertEqual(self.m.sync_errors[-1]['local_path'], test_path_local)
+        self.assertEqual(self.m.sync_errors[-1]['dbx_path'], test_path_dbx)
+        self.assertEqual(self.m.sync_errors[-1]['type'], 'RestrictedContentError')
+        self.assertIn(test_path_dbx, self.m.sync.download_errors)
+
+        # 3) Check that the error is cleared when the file is deleted
+
+        self.m.client.remove(test_path_dbx)
+        self.wait_for_idle()
+
+        self.assertEqual(len(self.m.sync_errors), n_errors_initial)
+        self.assertTrue(all(e['local_path'] != test_path_local for e in self.m.sync_errors))
+        self.assertTrue(all(e['dbx_path'] != test_path_dbx for e in self.m.sync_errors))
+        self.assertNotIn(test_path_dbx, self.m.sync.download_errors)
 
 
 if __name__ == '__main__':
