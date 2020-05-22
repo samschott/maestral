@@ -49,8 +49,8 @@ from atomicwrites import atomic_write
 from maestral.config import MaestralConfig, MaestralState
 from maestral.fsevents import Observer
 from maestral.constants import (
-    IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, EXCLUDED_FILE_NAMES, EXCLUDED_DIR_NAMES,
-    MIGNORE_FILE, FILE_CACHE, IS_FS_CASE_SENSITIVE
+    IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, EXCLUDED_FILE_NAMES,
+    EXCLUDED_DIR_NAMES, MIGNORE_FILE, FILE_CACHE
 )
 from maestral.errors import (
     MaestralApiError, SyncError, RevFileError, NoDropboxDirError, CacheDirError,
@@ -60,7 +60,7 @@ from maestral.errors import (
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import (
-    generate_cc_name, path_exists_case_insensitive, to_cased_path,
+    generate_cc_name, path_exists_case_insensitive, to_cased_path, is_fs_case_sensitive,
     move, delete, is_child, is_equal_or_child
 )
 from maestral.utils.appdirs import get_data_path
@@ -475,6 +475,7 @@ class SyncEngine:
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
         self._rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
+        self._is_case_sensitive = is_fs_case_sensitive(self._dropbox_path)
 
         self._rev_dict_cache = dict()
         self._load_rev_dict_from_file(raise_exception=True)
@@ -508,6 +509,7 @@ class SyncEngine:
             self._dropbox_path = path
             self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
             self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
+            self._is_case_sensitive = is_fs_case_sensitive(self._dropbox_path)
             self._conf.set('main', 'path', path)
 
     @property
@@ -856,6 +858,10 @@ class SyncEngine:
         return pathspec.PathSpec.from_lines('gitwildmatch', spec.splitlines())
 
     # ==== helper functions ==============================================================
+
+    @property
+    def is_case_sensitive(self):
+        return self._is_case_sensitive
 
     def ensure_dropbox_folder_present(self):
         """
@@ -1520,7 +1526,7 @@ class SyncEngine:
         :rtype: bool
         """
 
-        if not IS_FS_CASE_SENSITIVE:
+        if not self._is_case_sensitive:
             return False
 
         if event.event_type not in (EVENT_TYPE_CREATED, EVENT_TYPE_MOVED):

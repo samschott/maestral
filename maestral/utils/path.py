@@ -10,8 +10,15 @@ This module contains functions for common path operations used by Maestral.
 
 # system imports
 import os
-from os import path as osp
+import os.path as osp
 import shutil
+import tempfile
+
+
+def is_fs_case_sensitive(path):
+    # create a cased temp file and check if the lower case version exists
+    with tempfile.NamedTemporaryFile(dir=path, prefix='.TmP') as tmp_file:
+        return not os.path.exists(tmp_file.name.lower())
 
 
 def is_child(path, parent):
