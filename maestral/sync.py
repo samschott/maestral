@@ -63,7 +63,7 @@ from maestral.utils.path import (
     generate_cc_name, cased_path_candidates, to_cased_path, is_fs_case_sensitive,
     move, delete, is_child, is_equal_or_child
 )
-from maestral.utils.appdirs import get_data_path
+from maestral.utils.appdirs import get_data_path, get_home_dir
 
 logger = logging.getLogger(__name__)
 
@@ -475,7 +475,8 @@ class SyncEngine:
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
         self._rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
-        self._is_case_sensitive = is_fs_case_sensitive(self._dropbox_path)
+        # check for home, update later
+        self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
 
         self._rev_dict_cache = dict()
         self._load_rev_dict_from_file(raise_exception=True)
