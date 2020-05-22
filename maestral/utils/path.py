@@ -141,7 +141,7 @@ def cased_path_candidates(path, root='/', is_fs_case_sensitive=True):
                 candidates[depth] = new_candidates
 
     i_max = max(candidates.keys())
-    local_paths = [osp.join(node, *path_list[i_max+1:]) for node in candidates[i_max]]
+    local_paths = [osp.join(node, *path_list[i_max + 1:]) for node in candidates[i_max]]
 
     return local_paths
 
