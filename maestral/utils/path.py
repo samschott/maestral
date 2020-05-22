@@ -91,12 +91,16 @@ def cased_path_candidates(path, root='/', is_fs_case_sensitive=True):
 
     path_list = path.lstrip(osp.sep).split(osp.sep)
     n_components = len(path_list)
+    n_components_root = len(root.lstrip(osp.sep).split(osp.sep))
 
     candidates = dict()
 
     for root, dirs, files in os.walk(root):
 
-        depth = 0 if root == osp.sep else root.count(osp.sep)
+        depth = len(root.lstrip(osp.sep).split(osp.sep)) - n_components_root
+
+        print(root)
+        print(depth, ' from ', n_components)
 
         if depth == n_components:
             if is_fs_case_sensitive:
