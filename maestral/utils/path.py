@@ -91,22 +91,18 @@ def cased_path_candidates(path, root='/', is_fs_case_sensitive=True):
 
     path_list = path.lstrip(osp.sep).split(osp.sep)
     n_components = len(path_list)
-    n_components_root = len(root.lstrip(osp.sep).split(osp.sep))
+    n_components_root = 0 if root == osp.sep else len(root.lstrip(osp.sep).split(osp.sep))
 
     candidates = dict()
 
     for root, dirs, files in os.walk(root):
 
-        depth = len(root.lstrip(osp.sep).split(osp.sep)) - n_components_root
+        n_components_current_root = (0 if root == osp.sep
+                                     else len(root.lstrip(osp.sep).split(osp.sep)))
+        depth = n_components_current_root - n_components_root
 
         print(root)
         print(depth, ' from ', n_components)
-
-        if depth == n_components:
-            if is_fs_case_sensitive:
-                continue
-            else:
-                break
 
         all_dirs = dirs.copy()
         all_files = files.copy()
@@ -114,8 +110,16 @@ def cased_path_candidates(path, root='/', is_fs_case_sensitive=True):
         dirs.clear()
         files.clear()
 
+        if depth >= n_components:
+            if is_fs_case_sensitive:
+                continue
+            else:
+                break
+
         found = False
         path_lower = path_list[depth].lower()
+
+        print(path_lower, ' in ', all_dirs, '?')
 
         for d in all_dirs:
             if d.lower() == path_lower:
@@ -186,12 +190,21 @@ def path_exists_case_insensitive(path, root='/', is_fs_case_sensitive=True):
     :rtype: bool
     """
 
-    candidates = cased_path_candidates(path, root, is_fs_case_sensitive)
+    if is_fs_case_sensitive:
 
-    return any([c.lower() == path.lower() for c in candidates])
+        candidates = cased_path_candidates(path, root, is_fs_case_sensitive)
+
+        for c in candidates:
+            if osp.exists(c):
+                return True
+
+        return False
+
+    else:
+        return osp.exists(osp.join(root, path.lstrip(osp.sep)))
 
 
-def generate_cc_name(path, suffix='conflicting copy'):
+def generate_cc_name(path, suffix='conflicting copy', is_fs_case_sensitive=True):
     """
     Generates a path for a conflicting copy of ``path``. The file name is created by
     inserting the given ``suffix`` between the the filename and extension. For instance:
@@ -205,6 +218,9 @@ def generate_cc_name(path, suffix='conflicting copy'):
 
     :param str path: Original path name.
     :param str suffix: Suffix to use. Defaults to 'conflicting copy'.
+    :param bool is_fs_case_sensitive: Bool indicating if the file system is case
+        sensitive. If ``False``, we know that there can be at most one match and choose
+        a faster algorithm.
     :returns: New path.
     :rtype: str
     """
@@ -215,7 +231,7 @@ def generate_cc_name(path, suffix='conflicting copy'):
     i = 0
     cc_candidate = f'{filename} ({suffix}){ext}'
 
-    while path_exists_case_insensitive(cc_candidate, dirname):
+    while path_exists_case_insensitive(cc_candidate, dirname, is_fs_case_sensitive):
         i += 1
         cc_candidate = f'{filename} ({suffix} {i}){ext}'
 

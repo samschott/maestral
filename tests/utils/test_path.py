@@ -29,8 +29,8 @@ def test_path_exists_case_insensitive():
         assert not path_exists_case_insensitive(path)
 
     # choose a random parent that likely does not exist
-    root = '/test_folder/path_928'
-    path = '/usr'
+    path = '/test_folder/path_928'
+    root = '/usr'
     if not osp.exists(root):
         assert not path_exists_case_insensitive(path, root)
 
@@ -41,7 +41,7 @@ def test_cased_path_candidates():
     path = '/usr/local/share'.upper()
 
     assert len(cased_path_candidates(path)) == 1
-    assert path in cased_path_candidates(path)
+    assert '/usr/local/share' in cased_path_candidates(path)
 
     home = get_home_dir()
 
