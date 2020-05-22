@@ -60,7 +60,7 @@ from maestral.errors import (
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import (
-    generate_cc_name, path_exists_case_insensitive, to_cased_path, is_fs_case_sensitive,
+    generate_cc_name, cased_path_candidates, to_cased_path, is_fs_case_sensitive,
     move, delete, is_child, is_equal_or_child
 )
 from maestral.utils.appdirs import get_data_path
@@ -953,10 +953,7 @@ class SyncEngine:
 
         local_parent = to_cased_path(dbx_path_parent, root=self.dropbox_path)
 
-        if local_parent == '':
-            return osp.join(self.dropbox_path, dbx_path.lstrip(osp.sep))
-        else:
-            return osp.join(local_parent, dbx_path_basename)
+        return osp.join(local_parent, dbx_path_basename)
 
     def get_local_path(self, md):
         """
@@ -1542,7 +1539,7 @@ class SyncEngine:
         :rtype: bool
         """
 
-        if not self._is_case_sensitive:
+        if not self.is_case_sensitive:
             return False
 
         if event.event_type not in (EVENT_TYPE_CREATED, EVENT_TYPE_MOVED):
@@ -1553,7 +1550,7 @@ class SyncEngine:
         dirname, basename = osp.split(local_path)
 
         # check number of paths with the same case
-        if len(path_exists_case_insensitive(basename, root=dirname)) > 1:
+        if len(cased_path_candidates(basename, root=dirname)) > 1:
 
             local_path_cc = generate_cc_name(local_path, suffix='case conflict')
 
