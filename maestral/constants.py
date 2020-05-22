@@ -13,7 +13,6 @@ be kept free of memory heavy imports.
 import os
 import platform
 import sys
-import tempfile
 from enum import Enum
 
 
