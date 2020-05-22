@@ -93,16 +93,13 @@ def cased_path_candidates(path, root='/', is_fs_case_sensitive=True):
     n_components = len(path_list)
     n_components_root = 0 if root == osp.sep else len(root.lstrip(osp.sep).split(osp.sep))
 
-    candidates = dict()
+    candidates = {-1: [root]}
 
     for root, dirs, files in os.walk(root):
 
         n_components_current_root = (0 if root == osp.sep
                                      else len(root.lstrip(osp.sep).split(osp.sep)))
         depth = n_components_current_root - n_components_root
-
-        print(root)
-        print(depth, ' from ', n_components)
 
         all_dirs = dirs.copy()
         all_files = files.copy()
@@ -118,8 +115,6 @@ def cased_path_candidates(path, root='/', is_fs_case_sensitive=True):
 
         found = False
         path_lower = path_list[depth].lower()
-
-        print(path_lower, ' in ', all_dirs, '?')
 
         for d in all_dirs:
             if d.lower() == path_lower:
