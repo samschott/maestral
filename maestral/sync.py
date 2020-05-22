@@ -954,9 +954,25 @@ class SyncEngine:
         local_parent = to_cased_path(dbx_path_parent, root=self.dropbox_path)
 
         if local_parent == '':
-            return osp.join(self.dropbox_path, dbx_path.lstrip('/'))
+            return osp.join(self.dropbox_path, dbx_path.lstrip(osp.sep))
         else:
             return osp.join(local_parent, dbx_path_basename)
+
+    def get_local_path(self, md):
+        """
+        Gets the corresponding local path for a Dropbox MetaData instance by calling
+        :meth:`to_local_path` on the ``path_display`` attribute. The concerted path is
+        stored as a new ``to_local_path`` attribute to speed up future calls.
+
+        :param MetaData md: Dropbox metadata.
+        :returns: Corresponding local path on drive.
+        :rtype: str
+        """
+
+        if not hasattr(md, 'local_path'):
+            md.local_path = self.to_local_path(md.path_display)
+
+        return md.local_path
 
     def has_sync_errors(self):
         """Returns ``True`` in case of sync errors, ``False`` otherwise."""
@@ -1764,7 +1780,7 @@ class SyncEngine:
 
         if md_new.path_lower != dbx_path.lower():
             # conflicting copy created during upload, mirror remote changes locally
-            local_path_cc = self.to_local_path(md_new.path_display)
+            local_path_cc = self.get_local_path(md_new)
             event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
                 exc = move(local_path, local_path_cc)
@@ -1819,7 +1835,7 @@ class SyncEngine:
                 if res.path_lower != dbx_path.lower():
                     # conflicting copy created during upload, mirror remote changes
                     # locally
-                    local_path_cc = self.to_local_path(res.path_display)
+                    local_path_cc = self.get_local_path(res)
                     event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
                     with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
                         exc = move(local_path, local_path_cc)
@@ -1887,7 +1903,7 @@ class SyncEngine:
 
             if md_new.path_lower != dbx_path.lower():
                 # conflicting copy created during upload, mirror remote changes locally
-                local_path_cc = self.to_local_path(md_new.path_display)
+                local_path_cc = self.get_local_path(md_new)
                 with self.fs_events.ignore(FileMovedEvent(local_path, local_path_cc)):
                     try:
                         os.rename(local_path, local_path_cc)
@@ -2270,7 +2286,6 @@ class SyncEngine:
             remote_hash = None
 
         dbx_path = md.path_lower
-        local_path = self.to_local_path(md.path_display)
         local_rev = self.get_local_rev(dbx_path)
 
         if remote_rev == local_rev:
@@ -2292,6 +2307,7 @@ class SyncEngine:
             #     will hold the lock and we won't be here checking for conflicts.
             # (b) The upload has not started yet. Manually check for conflict.
 
+            local_path = self.get_local_path(md)
             local_hash = get_local_hash(local_path)
 
             if remote_hash == local_hash:
@@ -2452,7 +2468,7 @@ class SyncEngine:
         self._slow_down()
 
         # book keeping
-        local_path = self.to_local_path(entry.path_display)
+        local_path = self.get_local_path(entry)
 
         self.clear_sync_error(dbx_path=entry.path_display)
         remove_from_queue(self.queued_for_download, entry.path_display)
