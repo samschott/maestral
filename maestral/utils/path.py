@@ -102,17 +102,17 @@ def cased_path_candidates(path, root='/', is_fs_case_sensitive=True):
         print(root)
         print(depth, ' from ', n_components)
 
-        if depth == n_components:
-            if is_fs_case_sensitive:
-                continue
-            else:
-                break
-
         all_dirs = dirs.copy()
         all_files = files.copy()
 
         dirs.clear()
         files.clear()
+
+        if depth >= n_components:
+            if is_fs_case_sensitive:
+                continue
+            else:
+                break
 
         found = False
         path_lower = path_list[depth].lower()
