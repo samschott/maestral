@@ -39,9 +39,15 @@ def test_cased_path_candidates():
 
     # choose a path which exists on all Unix systems
     path = '/usr/local/share'.upper()
+    candidates = cased_path_candidates(path)
 
-    assert len(cased_path_candidates(path)) == 1
-    assert '/usr/local/share' in cased_path_candidates(path)
+    assert len(candidates) == 1
+    assert '/usr/local/share' in candidates
+
+    candidates = cased_path_candidates('/test', root='/usr/local/share')
+
+    assert len(candidates) == 1
+    assert '/usr/local/share/test' in candidates
 
     home = get_home_dir()
 
