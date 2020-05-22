@@ -55,12 +55,20 @@ def test_cased_path_candidates():
 
         path = osp.join(parent0.lower(), 'File.txt')
 
-        candidates = cased_path_candidates(path)
-
         try:
+            candidates = cased_path_candidates(path)
+
             assert len(candidates) == 2
             assert osp.join(parent0, 'File.txt') in candidates
             assert osp.join(parent1, 'File.txt') in candidates
+
+            candidates = cased_path_candidates('/test folder/subfolder/File.txt',
+                                               root=home)
+
+            assert len(candidates) == 2
+            assert osp.join(parent0, 'File.txt') in candidates
+            assert osp.join(parent1, 'File.txt') in candidates
+
         finally:
             delete(parent0)
             delete(parent1)
