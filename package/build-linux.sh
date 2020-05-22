@@ -2,20 +2,26 @@
 
 SPEC_FILE=maestral_linux.spec
 
+if [ "$1" = "--dev" ]; then
+    BRANCH="develop"
+else
+    BRANCH="master"
+fi
+
 echo "**** INSTALLING DEPENDENCIES ****************************"
 
 pip install -U pyinstaller
 
 git clone https://github.com/samschott/maestral build/maestral
 cd build/maestral
-git checkout develop
+git checkout $BRANCH
 git pull
 pip install .
 cd ../..
 
-git clone https://github.com/samschott/maestral-cocoa build/maestral-cocoa
-cd build/maestral-cocoa
-git checkout develop
+git clone https://github.com/samschott/maestral-qt build/maestral-qt
+cd build/maestral-qt
+git checkout $BRANCH
 git pull
 pip install .
 cd ../..

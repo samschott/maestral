@@ -3,6 +3,12 @@
 SPEC_FILE=maestral_macos.spec
 BUILD_NO=$(grep -E -o "[0-9]*" bundle_version_macos.txt)
 
+if [ "$1" = "--dev" ]; then
+    BRANCH="develop"
+else
+    BRANCH="master"
+fi
+
 export MACOSX_DEPLOYMENT_TARGET=10.13
 export CFLAGS=-mmacosx-version-min=10.13
 export CPPFLAGS=-mmacosx-version-min=10.13
@@ -23,14 +29,14 @@ cd ../..
 
 git clone https://github.com/samschott/maestral build/maestral
 cd build/maestral
-git checkout develop
+git checkout $BRANCH
 git pull
 pip3 install .
 cd ../..
 
 git clone https://github.com/samschott/maestral-cocoa build/maestral-cocoa
 cd build/maestral-cocoa
-git checkout develop
+git checkout $BRANCH
 git pull
 pip3 install .
 cd ../..
