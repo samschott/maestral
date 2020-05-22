@@ -12,13 +12,26 @@ This module contains functions for common path operations used by Maestral.
 import os
 import os.path as osp
 import shutil
-import tempfile
+import itertools
 
 
 def is_fs_case_sensitive(path):
-    # create a cased temp file and check if the lower case version exists
-    with tempfile.NamedTemporaryFile(dir=path, prefix='.TmP') as tmp_file:
-        return not os.path.exists(tmp_file.name.lower())
+    """
+    Checks if ``path`` lies on a partition with a case-sensitive file system.
+
+    :param str path: Path to check.
+    :returns: Whether ``path`` lies on a partition with a case-sensitive file system.
+    :rtype: bool
+    """
+    if path.islower():
+        check_path = path.upper()
+    else:
+        check_path = path.lower()
+
+    if osp.exists(path) and not osp.exists(check_path):
+        return True
+    else:
+        return not osp.samefile(path, check_path)
 
 
 def is_child(path, parent):
@@ -28,8 +41,7 @@ def is_child(path, parent):
 
     :param str path: Item path.
     :param str parent: Parent path.
-    :returns: ``True`` if ``path`` semantically lies inside ``parent`` or
-        ``path == parent``, ``False`` otherwise.
+    :returns: Whether ``path`` semantically lies inside ``parent``.
     :rtype: bool
     """
 
@@ -54,63 +66,125 @@ def is_equal_or_child(path, parent):
     return is_child(path, parent) or path == parent
 
 
-def path_exists_case_insensitive(path, root='/'):
+def cased_path_candidates(path, root='/', is_fs_case_sensitive=True):
     """
-    Checks if a ``path`` exists in given ``root`` directory, similar to ``os.path.exists``
-    but case-insensitive. A list of all case-insensitive matches is returned.
+    Returns a list of cased versions of the given path as far as corresponding nodes
+    exist in the given root directory. For instance, if a case sensitive root directory
+    contains two folders "/parent/subfolder/child" and "/parent/Subfolder/child",
+    there will be two matches for "/parent/subfolder/child/file.txt".
 
-    :param str path: Path relative to ``root``.
-    :param str root: Directory where we will look for ``path``. There are significant
+    :param str path: Original path relative to ``root``.
+    :param str root: Parent directory to search in. There are significant
         performance improvements if a root directory with a small tree is given.
-    :return: List of absolute and case-sensitive to search results.
+    :param bool is_fs_case_sensitive: Bool indicating if the file system is case
+        sensitive. If ``False``, we know that there can be at most one match and choose
+        a faster algorithm.
+    :returns: Candidates for correctly cased local paths.
     :rtype: list[str]
     """
 
     if not osp.isdir(root):
-        return []
+        raise FileNotFoundError(f'Root directory "{root}" does not exist.')
 
     if path in ('', '/'):
         return [root]
 
     path_list = path.lstrip(osp.sep).split(osp.sep)
-    path_list_lower = [x.lower() for x in path_list]
+    n_components = len(path_list)
 
-    i = 0
-    local_paths = []
+    candidates = dict()
+
     for root, dirs, files in os.walk(root):
-        for d in list(dirs):
-            if d.lower() != path_list_lower[i]:
-                dirs.remove(d)
-        for f in list(files):
-            if f.lower() != path_list_lower[i]:
-                files.remove(f)
 
-        local_paths = [osp.join(root, name) for name in dirs + files]
+        depth = 0 if root == osp.sep else root.count(osp.sep)
 
-        i += 1
-        if i == len(path_list_lower):
-            break
+        if depth == n_components:
+            if is_fs_case_sensitive:
+                continue
+            else:
+                break
+
+        all_dirs = dirs.copy()
+        all_files = files.copy()
+
+        dirs.clear()
+        files.clear()
+
+        found = False
+        path_lower = path_list[depth].lower()
+
+        for d in all_dirs:
+            if d.lower() == path_lower:
+                dirs.append(d)
+
+                if not is_fs_case_sensitive:
+                    # skip to next iteration since there can be no more matches
+                    found = True
+                    break
+
+        if depth + 1 == n_components and not found:
+            # look at files
+            for f in all_files:
+                if f.lower() == path_lower:
+                    files.append(f)
+
+                    if not is_fs_case_sensitive:
+                        # skip to next iteration since there can be no more matches
+                        break
+
+        new_candidates = [osp.join(root, name) for name in itertools.chain(dirs, files)]
+
+        if new_candidates:
+            try:
+                candidates[depth].extend(new_candidates)
+            except KeyError:
+                candidates[depth] = new_candidates
+
+    i_max = max(candidates.keys())
+    local_paths = [osp.join(node, *path_list[i_max+1:]) for node in candidates[i_max]]
 
     return local_paths
 
 
-def to_cased_path(path, root='/'):
+def to_cased_path(path, root='/', is_fs_case_sensitive=True):
     """
-    Returns a cased version of the given path, if exists in the given root directory,
-    or an empty string otherwise.
+    Returns a cased version of the given path as far as corresponding nodes
+    exist in the given root directory. If multiple matches are found, only one
+    is returned.
 
-    :param str path: Original path.
-    :param str root: Parent directory to search in.
+    :param str path: Original path relative to ``root``.
+    :param str root: Parent directory to search in. There are significant
+        performance improvements if a root directory with a small tree is given.
+    :param bool is_fs_case_sensitive: Bool indicating if the file system is case
+        sensitive. If ``False``, we know that there can be at most one match and choose
+        a faster algorithm.
+    :returns: Candidates for c
     :returns: Absolute and cased version of given path or empty string.
     :rtype: str
     """
+    candidates = cased_path_candidates(path, root, is_fs_case_sensitive)
 
-    path_list = path_exists_case_insensitive(path, root)
+    return candidates[0]
 
-    if len(path_list) > 0:
-        return path_list[0]
-    else:
-        return ''
+
+def path_exists_case_insensitive(path, root='/', is_fs_case_sensitive=True):
+    """
+    Checks if a ``path`` exists in given ``root`` directory, similar to ``os.path.exists``
+    but case-insensitive.
+
+    :param str path: Path relative to ``root``.
+    :param str root: Directory where we will look for ``path``. There are significant
+        performance improvements if a root directory with a small tree is given.
+    :param bool is_fs_case_sensitive: Bool indicating if the file system is case
+        sensitive. If ``False``, we know that there can be at most one match and choose
+        a faster algorithm.
+    :returns: Whether an arbitrarily cased version of ``path`` exists.
+    :rtype: bool
+    """
+
+    candidates = cased_path_candidates(path, root, is_fs_case_sensitive)
+
+    return any([c.lower() == path.lower() for c in candidates])
 
 
 def generate_cc_name(path, suffix='conflicting copy'):
