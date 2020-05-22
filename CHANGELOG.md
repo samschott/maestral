@@ -3,17 +3,21 @@
 #### Changed:
 
 - Always create config directory if it does not exist.
+- Improved performance of converting Dropbox paths to correctly cased local paths.
 
 #### Fixed:
 
 - Fixes a thread-safety issue with desktop notifications.
+- Fixes an issue where Maestral could incorrectly identify a file system as case
+  sensitive if the Dropbox folder lies on a partition with a different partition
+  than TEMPDIR.
 
 ## v1.0.3
 
 #### Changed:
 
 - Both "-h" and "--help" can now be used to print help output for a command.
-- Show both the daemon and GUI version in the GUI settings window.
+- Show both the daemon and GUI version in the settings window.
 - The command line tool bundled with the macOS app now provides proper help output.
 - Significantly reduced CPU usage of the GUI on macOS.
 - The macOS app now uses a hardened runtime and is properly signed and notarized.
