@@ -1537,7 +1537,7 @@ class SyncEngine:
         case. Renames items if necessary. Only needed for case sensitive file systems.
 
         :param FileSystemEvent event: Created or moved event.
-        :returns: ``True`` or ``False``.
+        :returns: Whether a case conflict was detected and handled.
         :rtype: bool
         """
 

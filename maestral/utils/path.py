@@ -71,7 +71,8 @@ def cased_path_candidates(path, root='/', is_fs_case_sensitive=True):
     Returns a list of cased versions of the given path as far as corresponding nodes
     exist in the given root directory. For instance, if a case sensitive root directory
     contains two folders "/parent/subfolder/child" and "/parent/Subfolder/child",
-    there will be two matches for "/parent/subfolder/child/file.txt".
+    there will be two matches for "/parent/subfolder/child/file.txt". If the root
+    directory does not exist, only one candidate ``os.path.join(root, path)`` is returned.
 
     :param str path: Original path relative to ``root``.
     :param str root: Parent directory to search in. There are significant
@@ -82,9 +83,6 @@ def cased_path_candidates(path, root='/', is_fs_case_sensitive=True):
     :returns: Candidates for correctly cased local paths.
     :rtype: list[str]
     """
-
-    if not osp.isdir(root):
-        raise FileNotFoundError(f'Root directory "{root}" does not exist.')
 
     if path in ('', '/'):
         return [root]
@@ -162,7 +160,7 @@ def to_cased_path(path, root='/', is_fs_case_sensitive=True):
         sensitive. If ``False``, we know that there can be at most one match and choose
         a faster algorithm.
     :returns: Candidates for c
-    :returns: Absolute and cased version of given path or empty string.
+    :returns: Absolute and cased version of given path.
     :rtype: str
     """
     candidates = cased_path_candidates(path, root, is_fs_case_sensitive)
