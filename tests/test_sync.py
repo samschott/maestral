@@ -555,6 +555,9 @@ class TestSync(TestCase):
         self.clean_remote()
         self.wait_for_idle()
 
+    def tearDown(self):
+        self.assertFalse(self.m.fatal_errors)
+
     def test_setup(self):
         self.assertFalse(self.m.pending_link)
         self.assertFalse(self.m.pending_dropbox_folder)

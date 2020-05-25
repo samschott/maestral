@@ -89,6 +89,9 @@ class TestAPI(TestCase):
         for file in log_files:
             delete(file)
 
+    def tearDown(self):
+        self.assertFalse(self.m.fatal_errors)
+
     # helper functions
 
     def wait_for_idle(self, minimum=4):
