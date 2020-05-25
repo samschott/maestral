@@ -10,7 +10,7 @@
 import hashlib
 
 
-class DropboxContentHasher(object):
+class DropboxContentHasher:
     """
     Computes a hash using the same algorithm that the Dropbox API uses for the
     the "content_hash" metadata field.
@@ -42,11 +42,11 @@ class DropboxContentHasher(object):
 
     def update(self, new_data):
         if self._overall_hasher is None:
-            raise AssertionError(
+            raise RuntimeError(
                 "can't use this object anymore; you already called digest()")
 
-        assert isinstance(new_data, bytes), (
-            "Expecting a byte string, got {!r}".format(new_data))
+        if not isinstance(new_data, bytes):
+            raise ValueError("Expecting a byte string, got {!r}".format(new_data))
 
         new_data_pos = 0
         while new_data_pos < len(new_data):
@@ -64,7 +64,7 @@ class DropboxContentHasher(object):
 
     def _finish(self):
         if self._overall_hasher is None:
-            raise AssertionError("can't use this object anymore; you already called digest() or hexdigest()")
+            raise RuntimeError("can't use this object anymore; you already called digest() or hexdigest()")
 
         if self._block_pos > 0:
             self._overall_hasher.update(self._block_hasher.digest())
@@ -87,7 +87,7 @@ class DropboxContentHasher(object):
         return c
 
 
-class StreamHasher(object):
+class StreamHasher:
     """
     A wrapper around a file-like object (either for reading or writing)
     that hashes everything that passes through it.  Can be used with
