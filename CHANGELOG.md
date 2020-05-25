@@ -9,8 +9,7 @@
 
 - Fixes a thread-safety issue with desktop notifications.
 - Fixes an issue where Maestral could incorrectly identify a file system as case
-  sensitive if the Dropbox folder lies on a partition with a different partition
-  than TEMPDIR.
+  sensitive if the Dropbox folder lies on a partition than TEMPDIR.
 
 ## v1.0.3
 
