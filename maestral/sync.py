@@ -3151,11 +3151,12 @@ def split_moved_event(event):
     return DeletedEvent(event.src_path), CreatedEvent(event.dest_path)
 
 
-def get_local_hash(local_path):
+def get_local_hash(local_path, chunk_size=1024):
     """
     Computes content hash of a local file.
 
     :param str local_path: Absolute path on local drive.
+    :param int chunk_size: Size of chunks to hash in bites.
     :returns: Content hash to compare with Dropbox's content hash,
         or 'folder' if the path points to a directory. ``None`` if there
         is nothing at the path.
@@ -3167,7 +3168,7 @@ def get_local_hash(local_path):
     try:
         with open(local_path, 'rb') as f:
             while True:
-                chunk = f.read(1024)
+                chunk = f.read(chunk_size)
                 if len(chunk) == 0:
                     break
                 hasher.update(chunk)
