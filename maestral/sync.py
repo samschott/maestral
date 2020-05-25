@@ -60,10 +60,10 @@ from maestral.errors import (
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import (
-    generate_cc_name, path_exists_case_insensitive, to_cased_path, is_fs_case_sensitive,
+    generate_cc_name, cased_path_candidates, to_cased_path, is_fs_case_sensitive,
     move, delete, is_child, is_equal_or_child
 )
-from maestral.utils.appdirs import get_data_path
+from maestral.utils.appdirs import get_data_path, get_home_dir
 
 logger = logging.getLogger(__name__)
 
@@ -475,7 +475,8 @@ class SyncEngine:
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
         self._rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
-        self._is_case_sensitive = is_fs_case_sensitive(self._dropbox_path)
+        # check for home, update later
+        self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
 
         self._rev_dict_cache = dict()
         self._load_rev_dict_from_file(raise_exception=True)
@@ -951,12 +952,10 @@ class SyncEngine:
         dbx_path = dbx_path.replace('/', osp.sep)
         dbx_path_parent, dbx_path_basename = osp.split(dbx_path)
 
-        local_parent = to_cased_path(dbx_path_parent, root=self.dropbox_path)
+        local_parent = to_cased_path(dbx_path_parent, root=self.dropbox_path,
+                                     is_fs_case_sensitive=self.is_case_sensitive)
 
-        if local_parent == '':
-            return osp.join(self.dropbox_path, dbx_path.lstrip(osp.sep))
-        else:
-            return osp.join(local_parent, dbx_path_basename)
+        return osp.join(local_parent, dbx_path_basename)
 
     def get_local_path(self, md):
         """
@@ -1538,11 +1537,11 @@ class SyncEngine:
         case. Renames items if necessary. Only needed for case sensitive file systems.
 
         :param FileSystemEvent event: Created or moved event.
-        :returns: ``True`` or ``False``.
+        :returns: Whether a case conflict was detected and handled.
         :rtype: bool
         """
 
-        if not self._is_case_sensitive:
+        if not self.is_case_sensitive:
             return False
 
         if event.event_type not in (EVENT_TYPE_CREATED, EVENT_TYPE_MOVED):
@@ -1553,9 +1552,10 @@ class SyncEngine:
         dirname, basename = osp.split(local_path)
 
         # check number of paths with the same case
-        if len(path_exists_case_insensitive(basename, root=dirname)) > 1:
+        if len(cased_path_candidates(basename, root=dirname)) > 1:
 
-            local_path_cc = generate_cc_name(local_path, suffix='case conflict')
+            local_path_cc = generate_cc_name(local_path, suffix='case conflict',
+                                             is_fs_case_sensitive=self.is_case_sensitive)
 
             event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
@@ -1589,7 +1589,8 @@ class SyncEngine:
 
         if self.is_excluded_by_user(dbx_path):
             local_path_cc = generate_cc_name(local_path,
-                                             suffix='selective sync conflict')
+                                             suffix='selective sync conflict',
+                                             is_fs_case_sensitive=self.is_case_sensitive)
 
             event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
@@ -2502,7 +2503,9 @@ class SyncEngine:
                 # re-check for conflict and move the conflict
                 # out of the way if anything has changed
                 if self._check_download_conflict(entry) == Conflict.Conflict:
-                    new_local_path = generate_cc_name(local_path)
+                    new_local_path = generate_cc_name(
+                        local_path, is_fs_case_sensitive=self.is_case_sensitive
+                    )
                     event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
                     with self.fs_events.ignore(event_cls(local_path, new_local_path)):
                         exc = move(local_path, new_local_path)
@@ -2539,7 +2542,9 @@ class SyncEngine:
                 # replace it but leave the children as they are.
 
                 if conflict_check == Conflict.Conflict:
-                    new_local_path = generate_cc_name(local_path)
+                    new_local_path = generate_cc_name(
+                        local_path, is_fs_case_sensitive=self.is_case_sensitive
+                    )
                     event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
                     with self.fs_events.ignore(event_cls(local_path, new_local_path)):
                         exc = move(local_path, new_local_path)
