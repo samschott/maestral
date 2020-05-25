@@ -15,6 +15,12 @@ import shutil
 import itertools
 
 
+def _path_components(path):
+    components = path.strip(osp.sep).split(osp.sep)
+    cleaned_components = [c for c in components if c]
+    return cleaned_components
+
+
 def is_fs_case_sensitive(path):
     """
     Checks if ``path`` lies on a partition with a case-sensitive file system.
@@ -66,7 +72,7 @@ def is_equal_or_child(path, parent):
     return is_child(path, parent) or path == parent
 
 
-def cased_path_candidates(path, root='/', is_fs_case_sensitive=True):
+def cased_path_candidates(path, root=osp.sep, is_fs_case_sensitive=True):
     """
     Returns a list of cased versions of the given path as far as corresponding nodes
     exist in the given root directory. For instance, if a case sensitive root directory
@@ -84,19 +90,20 @@ def cased_path_candidates(path, root='/', is_fs_case_sensitive=True):
     :rtype: list[str]
     """
 
-    if path in ('', '/'):
+    path = path.lstrip(osp.sep)
+
+    if path == '':
         return [root]
 
-    path_list = path.lstrip(osp.sep).split(osp.sep)
+    path_list = _path_components(path)
     n_components = len(path_list)
-    n_components_root = 0 if root == osp.sep else len(root.lstrip(osp.sep).split(osp.sep))
+    n_components_root = len(_path_components(root))
 
     candidates = {-1: [root]}
 
     for root, dirs, files in os.walk(root):
 
-        n_components_current_root = (0 if root == osp.sep
-                                     else len(root.lstrip(osp.sep).split(osp.sep)))
+        n_components_current_root = len(_path_components(root))
         depth = n_components_current_root - n_components_root
 
         all_dirs = dirs.copy()
@@ -147,11 +154,12 @@ def cased_path_candidates(path, root='/', is_fs_case_sensitive=True):
     return local_paths
 
 
-def to_cased_path(path, root='/', is_fs_case_sensitive=True):
+def to_cased_path(path, root=osp.sep, is_fs_case_sensitive=True):
     """
-    Returns a cased version of the given path as far as corresponding nodes
-    exist in the given root directory. If multiple matches are found, only one
-    is returned.
+    Returns a cased version of the given path as far as corresponding nodes exist in the
+    given root directory. If multiple matches are found, only one is returned. If ``path``
+    does not exist in root ``root`` or ``root`` does not exist, the return value will be
+    ``os.path.join(root, path)``.
 
     :param str path: Original path relative to ``root``.
     :param str root: Parent directory to search in. There are significant
@@ -163,12 +171,12 @@ def to_cased_path(path, root='/', is_fs_case_sensitive=True):
     :returns: Absolute and cased version of given path.
     :rtype: str
     """
-    candidates = cased_path_candidates(path, root, is_fs_case_sensitive)
 
+    candidates = cased_path_candidates(path, root, is_fs_case_sensitive)
     return candidates[0]
 
 
-def path_exists_case_insensitive(path, root='/', is_fs_case_sensitive=True):
+def path_exists_case_insensitive(path, root=osp.sep, is_fs_case_sensitive=True):
     """
     Checks if a ``path`` exists in given ``root`` directory, similar to ``os.path.exists``
     but case-insensitive.
