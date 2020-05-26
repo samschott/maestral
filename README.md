@@ -28,6 +28,12 @@ transferring only those parts of a file which changed ("binary diff"). Maestral 
 therefore use more bandwidth that the official client. However, it will avoid uploading
 or downloading a file if it already exists with the same content locally or in the cloud.
 
+## Warning
+
+- Never sync a folder with both the offical Dropbox client and Maestral at the same time.
+- Network drives and some external hard drives are not supported as locations for the
+  Dropbox folder.
+
 ## Installation
 
 An app bundle is provided for macOS High Sierra and higher and can be downloaded from the
@@ -101,20 +107,15 @@ In the above case, this will be "Dropbox (Personal)" and "Dropbox (Work)".
 
 ## Contribute
 
-A documentation for developers is available at
-[https://maestral.readthedocs.io](https://maestral.readthedocs.io).
-The following tasks could need your help:
+There are multiple topics that could use your help. Some of them are easy, such as adding
+new CLI commands, others require more experience, such as packaging for non-macOS platforms.
+Look out for issues marked with "good first issue" or "help wanted".
 
-- [ ] Packaging for non-macOS platforms.
-- [ ] Write tests for Maestral.
-- [ ] A native GTK frontend. Maestral currently uses PyQt5.
+Revelant resources are:
 
-## Warning
-
-- Maestral is still in beta status. Even though unlikely, using it may potentially
-  result in loss of data.
-- Network drives and some external hard drives are not supported as locations for the
-  Dropbox folder.
+- [Maestral API docs](https://maestral.readthedocs.io)
+- [Dropbox API docs](https://www.dropbox.com/developers/documentation/http/documentation)
+- [Dropbox Python SDK docs](https://dropbox-sdk-python.readthedocs.io/en/latest/)
 
 ## Dependencies
 
