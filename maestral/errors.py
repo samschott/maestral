@@ -150,7 +150,7 @@ class NoDropboxDirError(MaestralApiError):
 
 
 class CacheDirError(MaestralApiError):
-    """Raised when creating the cache diretory fails."""
+    """Raised when creating the cache directory fails."""
     pass
 
 
@@ -165,7 +165,7 @@ class OutOfMemoryError(MaestralApiError):
 
 
 class RevFileError(MaestralApiError):
-    """Raised when the rev file exists but cannot be read."""
+    """Raised when reading or saving the rev file fails."""
     pass
 
 
@@ -275,6 +275,7 @@ def fswatch_to_maestral_error(exc):
 
     :param Exception exc: Python Exception.
     :returns: :class:`MaestralApiError` instance or :class:`OSError` instance.
+    :rtype: Exception
     """
 
     error_number = getattr(exc, 'errno', -1)
