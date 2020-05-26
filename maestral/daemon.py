@@ -359,7 +359,7 @@ def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
     until the event loop shuts down.
 
     :param str config_name: The name of the Maestral configuration to use.
-    :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
+    :param bool log_to_stdout: If ``True``, write logs to stdout.
     :raises: :class:`RuntimeError` if a daemon for the given ``config_name`` is already
         running.
     """
@@ -417,7 +417,7 @@ def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
     Startup is race free: there will never be two daemons running for the same config.
 
     :param str config_name: The name of the Maestral configuration to use.
-    :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
+    :param bool log_to_stdout: If ``True``, write logs to stdout.
     :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
         already running or ``Start.Failed`` if startup failed. It is possible that
         Start.Ok is returned instead of Start.AlreadyRunning in case of a race.
@@ -470,8 +470,9 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False, d
     possible after startup.
 
     :param str config_name: The name of the Maestral configuration to use.
-    :param bool log_to_stdout: If ``True``, write logs to stdout. Defaults to ``False``.
-    :param bool detach: If ``True``, the daemon process will be detached by double-forking.
+    :param bool log_to_stdout: If ``True``, write logs to stdout.
+    :param bool detach: If ``True``, the daemon process will be detached. If ``False``,
+        the daemon processes will run in the same session as the current process.
     :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
         already running or ``Start.Failed`` if startup failed. It is possible that
         Start.Ok is returned instead of Start.AlreadyRunning in case of a race.
@@ -580,7 +581,7 @@ def get_maestral_proxy(config_name='maestral', fallback=False):
 
     :param str config_name: The name of the Maestral configuration to use.
     :param bool fallback: If ``True``, a new instance of Maestral will be returned when
-        the daemon cannot be reached. Defaults to ``False``.
+        the daemon cannot be reached.
     :returns: Pyro proxy of Maestral or a new instance.
     :raises: :class:`Pyro5.errors.CommunicationError` if the daemon cannot be reached and
         ``fallback`` is ``False``.
@@ -605,7 +606,13 @@ def get_maestral_proxy(config_name='maestral', fallback=False):
 
 
 class MaestralProxy:
-    """A context manager to open and close a proxy to the Maestral daemon."""
+    """
+    A context manager to open and close a proxy to the Maestral daemon.
+
+    :param str config_name: The name of the Maestral configuration to use.
+    :param bool fallback: If ``True``, a new instance of Maestral will be returned when
+        the daemon cannot be reached.
+    """
 
     def __init__(self, config_name='maestral', fallback=False):
         self.m = get_maestral_proxy(config_name, fallback)
