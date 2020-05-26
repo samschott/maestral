@@ -45,19 +45,20 @@ CONNECTION_ERRORS = (
 )
 
 
-def bytes_to_str(num, suffix='B'):
+def bytes_to_str(num, suffix='B', sep=''):
     """
     Convert number to a human readable string with decimal prefix.
 
     :param float num: Value in given unit.
-    :param str suffix: Unit suffix. Defaults to 'B'.
+    :param str suffix: Unit suffix.
+    :param str sep: Separator between value and unit.
     :returns: Human readable string with decimal prefixes.
     :rtype: str
     """
     for unit in ('', 'K', 'M', 'G'):
-        if abs(num) < 1024.0:
-            return f'{num:3.1f}{unit}{suffix}'
-        num /= 1024.0
+        if abs(num) < 1000.0:
+            return f'{num:3.1f}{sep}{unit}{suffix}'
+        num /= 1000.0
     return f'{num:.1f}T{suffix}'
 
 
