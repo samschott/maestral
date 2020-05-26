@@ -722,7 +722,7 @@ def ls(dropbox_path: str, config_name: str):
         names = [e['name'] for e in entries]
         excluded_status = [m.excluded_status(e['path_lower']) for e in entries]
 
-        click.echo('\r')
+        click.echo('\r' + 10*' ')  # overwrite 'Loading...'
         click.echo(format_table(columns=[types, shared_status, names, excluded_status]))
         click.echo('')
 
