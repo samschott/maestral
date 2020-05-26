@@ -665,7 +665,8 @@ class Maestral:
         Returns a list of fatal errors as dicts (read only). This does not include lost
         internet connections or file sync errors which only emit warnings and are tracked
         and cleared separately. Errors listed here must be acted upon for Maestral to
-        continue syncing. This list is populated by the sync threads.
+        continue syncing. This list is populated from all log messages with level ERROR
+        or higher that have ``exc_info`` attached.
         """
 
         maestral_errors = [
