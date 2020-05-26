@@ -738,7 +738,7 @@ class SyncEngine:
             new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
         except OSError as exc:
             title = 'Could not load index'
-            msg = 'Please resync your Dropbox to rebuild the index.'
+            msg = f'Errno {exc.errno}. Please resync your Dropbox to rebuild the index.'
             new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
 
         if new_exc and raise_exception:
@@ -761,7 +761,7 @@ class SyncEngine:
             new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
         except OSError as exc:
             title = 'Could not save index'
-            msg = 'Please check the logs for more information'
+            msg = f'Errno {exc.errno}. Please check the logs for more information.'
             new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
 
         if new_exc and raise_exception:
