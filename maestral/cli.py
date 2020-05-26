@@ -706,12 +706,15 @@ def activity(config_name: str):
 def ls(dropbox_path: str, config_name: str):
     """Lists contents of a Dropbox directory."""
 
+    from maestral.daemon import MaestralProxy
+
     if not dropbox_path.startswith('/'):
         dropbox_path = '/' + dropbox_path
 
-    from maestral.daemon import MaestralProxy
-
     with MaestralProxy(config_name, fallback=True) as m:
+
+        click.echo('Loading...', nl=False)
+
         entries = m.list_folder(dropbox_path, recursive=False)
 
         types = ['file' if e['type'] == 'FileMetadata' else 'folder' for e in entries]
@@ -719,7 +722,7 @@ def ls(dropbox_path: str, config_name: str):
         names = [e['name'] for e in entries]
         excluded_status = [m.excluded_status(e['path_lower']) for e in entries]
 
-        click.echo('')
+        click.echo('\r')
         click.echo(format_table(columns=[types, shared_status, names, excluded_status]))
         click.echo('')
 
@@ -1111,3 +1114,7 @@ def notify_snooze(config_name: str, minutes: int):
                        'Set snooze to 0 to reset.')
         else:
             click.echo('Notifications enabled.')
+
+
+if __name__ == '__main__':
+    main()
