@@ -907,7 +907,7 @@ def configs():
 @click.option('--no', '-N', is_flag=True, default=False)
 def analytics(config_name: str, yes: bool, no: bool):
     """
-    Enables or disables sharing error reports.
+    Enables or disables sharing of error reports.
 
     Sharing is disabled by default. If enabled, error reports are shared with bugsnag and
     no personal information will typically be collected. Shared tracebacks may however
