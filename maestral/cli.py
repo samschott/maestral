@@ -202,7 +202,7 @@ def catch_maestral_errors(func):
 
 
 def format_table(rows=None, columns=None, headers=None, padding=2,
-                 alignment=None):
+                 alignment=None, wrap=True):
     """
     Prints given data as a pretty table. Either rows or columns must be given.s
 
@@ -212,6 +212,7 @@ def format_table(rows=None, columns=None, headers=None, padding=2,
     :param int padding: Padding between columns.
     :param Optional[list] alignment: List of alignments for every column. Values can be
         ``LEFT``, ``CENTER``, ``RIGHT``. If not given, defaults to left alignment.
+    :param bool wrap: If ``True``, wrap cell content to fit the terminal width.
     :returns: Formatted multi-line string.
     :rtype: str
     """
@@ -240,15 +241,17 @@ def format_table(rows=None, columns=None, headers=None, padding=2,
 
     # determine column widths from terminal width and padding
 
-    terminal_width, terminal_height = click.get_terminal_size()
-    available_width = terminal_width - padding * len(columns)
-
     col_widths = tuple(max(len(cell) for cell in col) for col in columns)
 
-    n = 3
-    sum_col_widths = sum(w**n for w in col_widths)
-    subtract = max([sum(col_widths) - available_width, 0])
-    col_widths = tuple(round(w - subtract * w**n / sum_col_widths) for w in col_widths)
+    if wrap:
+
+        terminal_width, terminal_height = click.get_terminal_size()
+        available_width = terminal_width - padding * len(columns)
+
+        n = 3
+        sum_widths = sum(w**n for w in col_widths)
+        subtract = max([sum(col_widths) - available_width, 0])
+        col_widths = tuple(round(w - subtract * w**n / sum_widths) for w in col_widths)
 
     # wrap strings to fit column
 
