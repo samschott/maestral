@@ -737,24 +737,53 @@ def activity(config_name: str):
 def ls(dropbox_path: str, config_name: str):
     """Lists contents of a Dropbox directory."""
 
+    from datetime import datetime
     from maestral.daemon import MaestralProxy
+    from maestral.client import bytes_to_str
 
     if not dropbox_path.startswith('/'):
         dropbox_path = '/' + dropbox_path
 
     with MaestralProxy(config_name, fallback=True) as m:
 
-        click.echo('Loading...', nl=False)
-
         entries = m.list_folder(dropbox_path, recursive=False)
+        entries.sort(key=lambda x: x['name'].lower())
+        entries.sort(key=lambda x: x['type'], reverse=True)
 
-        types = ['file' if e['type'] == 'FileMetadata' else 'folder' for e in entries]
-        shared_status = ['shared' if 'sharing_info' in e else 'private' for e in entries]
-        names = [e['name'] for e in entries]
-        excluded_status = [m.excluded_status(e['path_lower']) for e in entries]
+        names = []
+        types = []
+        sizes = []
+        shared = []
+        last_modified = []
+        excluded = []
 
-        click.echo('\r' + 10*' ')  # overwrite 'Loading...'
-        click.echo(format_table(columns=[types, shared_status, names, excluded_status]))
+        for e in entries:
+            names.append(e['name'])
+            types.append('file' if e['type'] == 'FileMetadata' else 'folder')
+
+            shared.append('shared' if 'sharing_info' in e else 'private')
+            excluded.append(m.excluded_status(e['path_lower']))
+
+            if 'size' in e:
+                sizes.append(bytes_to_str(e['size'], sep=' '))
+            else:
+                sizes.append('-')
+
+            if 'client_modified' in e:
+                dt = datetime.fromisoformat(e['client_modified'].rstrip('Z'))
+                last_modified.append(dt.strftime('%d %b %Y %H:%M'))
+            else:
+                last_modified.append('-')
+
+        click.echo('')
+        click.echo(
+            format_table(
+                headers=['Name', 'Type', 'Size', 'Shared', 'Syncing', 'Last modified'],
+                columns=[names, types, sizes, shared, excluded, last_modified],
+                alignment=[LEFT, LEFT, RIGHT, LEFT, LEFT, LEFT],
+                wrap=False
+            ),
+        )
         click.echo('')
 
 
@@ -822,7 +851,7 @@ def rebuild_index(config_name: str):
     Rebuilds Maestral's index.
 
     Rebuilding may take several minutes, depending on the size of your Dropbox. If
-    Maestral is quit while rebuilding, it will resume when rerstarted.
+    Maestral is quit while rebuilding, it will resume when restarted.
     """
 
     try:
