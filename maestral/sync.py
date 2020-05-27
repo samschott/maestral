@@ -2058,13 +2058,15 @@ class SyncEngine:
             self.pending_downloads.add(dbx_path)
             md = self.client.get_metadata(dbx_path, include_deleted=True)
 
+            res = False
+
             if isinstance(md, FolderMetadata):
                 res = self.get_remote_folder(dbx_path)
-            elif md:  # FileMetadata or DeletedMetadata
+            elif isinstance(md, (FileMetadata, DeletedMetadata)):
                 with InQueue(self.queue_downloading, md.path_display):
                     res = self._create_local_entry(md)
 
-            if res is True:
+            if res or not md:
                 self.pending_downloads.discard(dbx_path)
 
             return res
