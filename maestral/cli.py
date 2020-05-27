@@ -739,7 +739,7 @@ def ls(dropbox_path: str, config_name: str):
 
     from datetime import datetime
     from maestral.daemon import MaestralProxy
-    from maestral.client import bytes_to_str
+    from maestral.client import natural_size
 
     if not dropbox_path.startswith('/'):
         dropbox_path = '/' + dropbox_path
@@ -765,7 +765,7 @@ def ls(dropbox_path: str, config_name: str):
             excluded.append(m.excluded_status(e['path_lower']))
 
             if 'size' in e:
-                sizes.append(bytes_to_str(e['size'], sep=' '))
+                sizes.append(natural_size(e['size']))
             else:
                 sizes.append('-')
 

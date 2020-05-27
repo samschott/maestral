@@ -45,21 +45,25 @@ CONNECTION_ERRORS = (
 )
 
 
-def bytes_to_str(num, suffix='B', sep=''):
+def natural_size(num, unit='B', sep=True):
     """
     Convert number to a human readable string with decimal prefix.
 
     :param float num: Value in given unit.
-    :param str suffix: Unit suffix.
-    :param str sep: Separator between value and unit.
+    :param str unit: Unit suffix.
+    :param bool sep: Whether to separate unit and value with a space.
     :returns: Human readable string with decimal prefixes.
     :rtype: str
     """
-    for unit in ('', 'K', 'M', 'G'):
+    sep = ' ' if sep else ''
+
+    for prefix in ('', 'K', 'M', 'G'):
         if abs(num) < 1000.0:
-            return f'{num:3.1f}{sep}{unit}{suffix}'
+            return f'{num:3.1f}{sep}{prefix}{unit}'
         num /= 1000.0
-    return f'{num:.1f}T{suffix}'
+
+    prefix = 'T'
+    return f'{num:.1f}{sep}{prefix}{unit}'
 
 
 class SpaceUsage(dropbox.users.SpaceUsage):
@@ -81,10 +85,10 @@ class SpaceUsage(dropbox.users.SpaceUsage):
             used = self.allocation.get_team().used
             allocated = self.allocation.get_team().allocated
         else:
-            return bytes_to_str(self.used)
+            return natural_size(self.used)
 
         percent = used / allocated
-        return f'{percent:.1%} of {bytes_to_str(allocated)} used'
+        return f'{percent:.1%} of {natural_size(allocated)} used'
 
 
 def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
@@ -272,7 +276,7 @@ class DropboxClient:
         md, http_resp = self.dbx.files_download(dbx_path, **kwargs)
 
         chunksize = 2 ** 16
-        size_str = bytes_to_str(md.size)
+        size_str = natural_size(md.size)
 
         downloaded = 0
 
@@ -280,7 +284,7 @@ class DropboxClient:
             with contextlib.closing(http_resp):
                 for c in http_resp.iter_content(chunksize):
                     if md.size > 5 * 10 ** 6:  # 5 MB
-                        logger.info(f'Downloading {bytes_to_str(downloaded)}/{size_str}...')
+                        logger.info(f'Downloading {natural_size(downloaded)}/{size_str}...')
                     f.write(c)
                     downloaded += chunksize
 
@@ -304,7 +308,7 @@ class DropboxClient:
         chunk_size = chunk_size_mb * 10**6  # convert to bytes
 
         size = osp.getsize(local_path)
-        size_str = bytes_to_str(size)
+        size_str = natural_size(size)
 
         mtime = osp.getmtime(local_path)
         mtime_dt = datetime.datetime(*time.gmtime(mtime)[:6])
@@ -345,7 +349,7 @@ class DropboxClient:
                                 cursor
                             )
                             cursor.offset = f.tell()
-                        logger.info(f'Uploading {bytes_to_str(f.tell())}/{size_str}...')
+                        logger.info(f'Uploading {natural_size(f.tell())}/{size_str}...')
                     except dropbox.exceptions.DropboxException as exc:
                         error = exc.error
                         if (isinstance(error, dropbox.files.UploadSessionFinishError)
