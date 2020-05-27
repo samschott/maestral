@@ -33,6 +33,8 @@ OK = click.style('[OK]', fg='green')
 FAILED = click.style('[FAILED]', fg='red')
 KILLED = click.style('[KILLED]', fg='red')
 
+LEFT, CENTER, RIGHT = range(3)
+
 
 def stop_daemon_with_cli_feedback(config_name):
     """Wrapper around :meth:`daemon.stop_maestral_daemon_process`
@@ -199,15 +201,18 @@ def catch_maestral_errors(func):
     return wrapper
 
 
-def format_table(rows=None, columns=None, headers=None, padding_right=2):
+def format_table(rows=None, columns=None, headers=None, padding=2,
+                 alignment=None):
     """
     Prints given data as a pretty table. Either rows or columns must be given.s
 
     :param Optional[list] rows: List of strings for table rows.
     :param Optional[list] columns: List of strings for table columns.
     :param Optional[list] headers: List of strings for column titles.
-    :param int padding_right: Padding between columns.
-    :return: Formatted multiline string.
+    :param int padding: Padding between columns.
+    :param Optional[list] alignment: List of alignments for every column. Values can be
+        ``LEFT``, ``CENTER``, ``RIGHT``. If not given, defaults to left alignment.
+    :returns: Formatted multi-line string.
     :rtype: str
     """
 
@@ -227,8 +232,16 @@ def format_table(rows=None, columns=None, headers=None, padding_right=2):
     if all(len(col) == 0 for col in columns):
         return ''
 
+    # default to left alignment
+    if not alignment:
+        alignment = [LEFT] * len(columns)
+    elif len(alignment) != len(columns):
+        raise ValueError('Must give an alignment for every column.')
+
+    # determine column widths from terminal width and padding
+
     terminal_width, terminal_height = click.get_terminal_size()
-    available_width = terminal_width - padding_right * len(columns)
+    available_width = terminal_width - padding * len(columns)
 
     col_widths = tuple(max(len(cell) for cell in col) for col in columns)
 
@@ -237,12 +250,16 @@ def format_table(rows=None, columns=None, headers=None, padding_right=2):
     subtract = max([sum(col_widths) - available_width, 0])
     col_widths = tuple(round(w - subtract * w**n / sum_col_widths) for w in col_widths)
 
+    # wrap strings to fit column
+
     wrapped_columns = []
 
     for column, width in zip(columns, col_widths):
         wrapped_columns.append([textwrap.wrap(cell, width=width) for cell in column])
 
     wrapped_rows = list(map(list, zip(*wrapped_columns)))
+
+    # generate lines by filling columns
 
     lines = []
 
@@ -252,8 +269,19 @@ def format_table(rows=None, columns=None, headers=None, padding_right=2):
             cell += [''] * (n_lines - len(cell))
 
         for i in range(n_lines):
-            lines.append(''.join(cell[i].ljust(width + padding_right)
-                                 for cell, width in zip(row, col_widths)))
+            line = ''
+            for cell, width, align in zip(row, col_widths, alignment):
+
+                if align == LEFT:
+                    line += cell[i].ljust(width)
+                elif align == RIGHT:
+                    line += cell[i].rjust(width)
+                elif align == CENTER:
+                    line += cell[i].center(width)
+
+                line += ' ' * padding
+
+            lines.append(line)
 
     return '\n'.join(lines)
 
