@@ -4,6 +4,8 @@
 
 - Always create config directory if it does not exist.
 - Improved performance of converting Dropbox paths to correctly cased local paths.
+- Renamed macOS executable inside app bundle from "main" to "Maestral". This results in
+  a more descriptive process name for the daemon.
 
 #### Fixed:
 
