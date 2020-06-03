@@ -50,7 +50,7 @@ from maestral.utils.appdirs import get_home_dir, get_conf_path, get_data_path
 from maestral.constants import BUNDLE_ID
 
 
-_resources = pkg_resources.resource_filename('maestral', 'resources')
+_resources = getattr(sys, '_MEIPASS', pkg_resources.resource_filename('maestral', 'resources'))
 
 
 class SupportedImplementations(Enum):
