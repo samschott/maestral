@@ -11,6 +11,12 @@ support for GUIs via launchd or xdg-desktop entries by passing the ``gui`` optio
 the CLI with the `maestral gui` command or frozen executables which provide their own GUI
 are supported.
 
+Note that launchd agents will not show as "login items" in macOS system preferences. As
+a result, the user does not have a convenient UI to remove Maestral autostart entries
+manually outside of Maestral itself. Login items however only support app bundles and
+provide no option to pass command line arguments to the app. They would therefore neither
+support pip installs or multiple configurations.
+
 """
 
 # system imports
