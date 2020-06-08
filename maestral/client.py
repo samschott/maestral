@@ -13,10 +13,10 @@ and handles exceptions, chunked uploads or downloads, etc.
 import os
 import os.path as osp
 import time
-import datetime
 import logging
 import functools
 import contextlib
+from datetime import datetime, timezone
 
 # external imports
 import requests
@@ -310,8 +310,9 @@ class DropboxClient:
         size = osp.getsize(local_path)
         size_str = natural_size(size)
 
+        # Dropbox SDK takes naive datetime in UTC
         mtime = osp.getmtime(local_path)
-        mtime_dt = datetime.datetime(*time.gmtime(mtime)[:6])
+        mtime_dt = datetime.utcfromtimestamp(mtime)
 
         if size <= chunk_size:
             with open(local_path, 'rb') as f:
