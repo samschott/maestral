@@ -6,12 +6,16 @@
 - Improved performance of converting Dropbox paths to correctly cased local paths.
 - Renamed macOS executable inside app bundle from "main" to "Maestral". This results in
   a more descriptive process name for the daemon.
+- Local files are now created with the "last modified" time provided by Dropbox servers,
+  even during an initial sync.
 
 #### Fixed:
 
 - Fixes a thread-safety issue with desktop notifications.
 - Fixes an issue where Maestral could incorrectly identify a file system as case
   sensitive if the Dropbox folder lies on a partition than TEMPDIR.
+- Fixes incorrect file modification times uploaded to Dropbox for timezones outside of
+  UTC. Those times are used for display purposes only.
 
 ## v1.0.3
 
