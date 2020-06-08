@@ -112,15 +112,14 @@ class AutoStartMaestralBase(AutoStartBase):
             self.start_cmd = [self.maestral_path, 'start', '-f', '-c', self.config_name]
             self.stop_cmd = [self.maestral_path, 'stop', '-c', self.config_name]
 
-    @staticmethod
-    def get_maestral_command_path():
+    def get_maestral_command_path(self):
         """
         Returns the path to the maestral executable.
         """
         # try to get location of console script from package metadata
         # fall back to 'which' otherwise
 
-        if getattr(sys, 'frozen', False):  # app bundle
+        if self.gui and getattr(sys, 'frozen', False):
             return sys.executable
 
         try:
