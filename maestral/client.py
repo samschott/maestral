@@ -288,6 +288,12 @@ class DropboxClient:
                     f.write(c)
                     downloaded += chunksize
 
+        # dropbox SDK provides naive datetime in UTC
+        timestamp = md.client_modified.replace(tzinfo=timezone.utc).timestamp()
+        # don't accept timestamps in the future
+        timestamp = min(timestamp, time.time())
+        os.utime(local_path, (time.time(), timestamp))
+
         return md
 
     @to_maestral_error(local_path_arg=1, dbx_path_arg=2)
@@ -310,7 +316,7 @@ class DropboxClient:
         size = osp.getsize(local_path)
         size_str = natural_size(size)
 
-        # Dropbox SDK takes naive datetime in UTC
+        # dropbox SDK takes naive datetime in UTC
         mtime = osp.getmtime(local_path)
         mtime_dt = datetime.utcfromtimestamp(mtime)
 
