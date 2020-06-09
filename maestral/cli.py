@@ -761,14 +761,14 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str):
         last_modified = []
         excluded = []
 
-        short_type = {'FileMetadata': 'file', 'FolderMetadata': 'folder',
-                      'DeletedMetadata': 'deleted'}
+        if long:
+            short_type = {'FileMetadata': 'file', 'FolderMetadata': 'folder',
+                          'DeletedMetadata': 'deleted'}
 
-        for e in entries:
+            for e in entries:
 
-            names.append(e['name'])
+                names.append(e['name'])
 
-            if long:
                 types.append(short_type[e['type']])
 
                 shared.append('shared' if 'sharing_info' in e else 'private')
@@ -786,20 +786,21 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str):
                 else:
                     last_modified.append('-')
 
-        if long:
+                click.echo('')
+                click.echo(
+                    format_table(
+                        headers=['Name', 'Type', 'Size', 'Shared', 'Syncing', 'Last modified'],
+                        columns=[names, types, sizes, shared, excluded, last_modified],
+                        alignment=[LEFT, LEFT, RIGHT, LEFT, LEFT, LEFT],
+                        wrap=False
+                    ),
+                )
+                click.echo('')
 
-            click.echo('')
-            click.echo(
-                format_table(
-                    headers=['Name', 'Type', 'Size', 'Shared', 'Syncing', 'Last modified'],
-                    columns=[names, types, sizes, shared, excluded, last_modified],
-                    alignment=[LEFT, LEFT, RIGHT, LEFT, LEFT, LEFT],
-                    wrap=False
-                ),
-            )
-            click.echo('')
         else:
-            click.echo(format_table(columns=[names], wrap=False))
+            for e in entries:
+                color = 'blue' if e['type'] == 'DeletedMetadata' else 'black'
+                click.secho(e['name'], fg=color)
 
 
 @main.command(help_priority=11)
