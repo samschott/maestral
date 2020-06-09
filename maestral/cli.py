@@ -731,10 +731,14 @@ def activity(config_name: str):
 
 
 @main.command(help_priority=10)
-@existing_config_option
 @click.argument('dropbox_path', type=click.Path(), default='')
+@click.option('-l', '--long', is_flag=True, default=False,
+              help='Show output in long format with metadata.')
+@click.option('-d', '--include-deleted', is_flag=True, default=False,
+              help='Include deleted items in listing. This can be slow.')
+@existing_config_option
 @catch_maestral_errors
-def ls(dropbox_path: str, config_name: str):
+def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str):
     """Lists contents of a Dropbox directory."""
 
     from datetime import datetime, timezone
@@ -746,7 +750,8 @@ def ls(dropbox_path: str, config_name: str):
 
     with MaestralProxy(config_name, fallback=True) as m:
 
-        entries = m.list_folder(dropbox_path, recursive=False)
+        entries = m.list_folder(dropbox_path, recursive=False,
+                                include_deleted=include_deleted)
         entries.sort(key=lambda x: x['name'].lower())
         entries.sort(key=lambda x: x['type'], reverse=True)
 
@@ -757,43 +762,53 @@ def ls(dropbox_path: str, config_name: str):
         last_modified = []
         excluded = []
 
+        short_type = {'FileMetadata': 'file', 'FolderMetadata': 'folder',
+                      'DeletedMetadata': 'deleted'}
+
         for e in entries:
+
             names.append(e['name'])
-            types.append('file' if e['type'] == 'FileMetadata' else 'folder')
 
-            shared.append('shared' if 'sharing_info' in e else 'private')
-            excluded.append(m.excluded_status(e['path_lower']))
+            if long:
+                types.append(short_type[e['type']])
 
-            if 'size' in e:
-                sizes.append(natural_size(e['size']))
-            else:
-                sizes.append('-')
+                shared.append('shared' if 'sharing_info' in e else 'private')
+                excluded.append(m.excluded_status(e['path_lower']))
 
-            if 'client_modified' in e:
-                dt = datetime.strptime(e['client_modified'], '%Y-%m-%dT%H:%M:%SZ')
-                dt = dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
-                last_modified.append(dt.strftime('%d %b %Y %H:%M'))
-            else:
-                last_modified.append('-')
+                if 'size' in e:
+                    sizes.append(natural_size(e['size']))
+                else:
+                    sizes.append('-')
 
-        click.echo('')
-        click.echo(
-            format_table(
-                headers=['Name', 'Type', 'Size', 'Shared', 'Syncing', 'Last modified'],
-                columns=[names, types, sizes, shared, excluded, last_modified],
-                alignment=[LEFT, LEFT, RIGHT, LEFT, LEFT, LEFT],
-                wrap=False
-            ),
-        )
-        click.echo('')
+                if 'client_modified' in e:
+                    dt = datetime.strptime(e['client_modified'], '%Y-%m-%dT%H:%M:%SZ')
+                    dt = dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
+                    last_modified.append(dt.strftime('%d %b %Y %H:%M'))
+                else:
+                    last_modified.append('-')
+
+        if long:
+
+            click.echo('')
+            click.echo(
+                format_table(
+                    headers=['Name', 'Type', 'Size', 'Shared', 'Syncing', 'Last modified'],
+                    columns=[names, types, sizes, shared, excluded, last_modified],
+                    alignment=[LEFT, LEFT, RIGHT, LEFT, LEFT, LEFT],
+                    wrap=False
+                ),
+            )
+            click.echo('')
+        else:
+            click.echo(format_table(columns=[names], wrap=False))
 
 
 @main.command(help_priority=11)
-@config_option
 @click.option('-r', 'relink', is_flag=True, default=False,
               help='Relink to the current account. Keeps the sync state.')
+@config_option
 @catch_maestral_errors
-def link(config_name: str, relink: bool):
+def link(relink: bool, config_name: str):
     """Links Maestral with your Dropbox account."""
 
     from maestral.daemon import MaestralProxy
