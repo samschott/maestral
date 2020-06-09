@@ -862,6 +862,25 @@ class Maestral:
 
         return entries
 
+    @require_linked
+    def restore(self, dbx_path, rev):
+        """
+        Restore an old revision of a file.
+
+        :param str dbx_path: The path to save the restored file.
+        :param str rev: The revision to restore. Old revisions can be listed with
+            :meth:`list_revisions`.
+        :returns: Metadata of the returned file.
+        :rtype: dict
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
+        :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        """
+
+        res = self.client.restore(dbx_path, rev)
+
+        return dropbox_stone_to_dict(res)
+
     def _delete_old_profile_pics(self):
         for file in os.listdir(get_cache_path('maestral')):
             if file.startswith(self._config_name + '_profile_pic'):
