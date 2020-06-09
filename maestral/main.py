@@ -765,7 +765,7 @@ class Maestral:
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
-        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
@@ -782,7 +782,7 @@ class Maestral:
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
-        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
@@ -802,7 +802,7 @@ class Maestral:
 
         :returns: Path to saved profile picture or ``None`` if no profile picture is set.
         :rtype: str
-        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
@@ -824,13 +824,12 @@ class Maestral:
         List all items inside the folder given by ``dbx_path``. Keyword arguments are
         passed on the the Dropbox API call :meth:`client.DropboxClient.list_folder`.
 
-        :param dbx_path: Path to folder on Dropbox.
-        :returns: List of Dropbox item metadata as dicts or ``False`` if listing failed
-            due to connection issues.
+        :param str dbx_path: Path to folder on Dropbox.
+        :returns: List of Dropbox item metadata as dicts.
         :rtype: list[dict]
         :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
         :raises: :class:`errors.NotAFolderError` if the given path refers to a file.
-        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
@@ -950,7 +949,7 @@ class Maestral:
         :param str dbx_path: Dropbox path of item to exclude.
         :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
-        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
@@ -1012,7 +1011,7 @@ class Maestral:
         :param str dbx_path: Dropbox path of item to include.
         :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
         :raises: :class:`errors.PathError` if the path lies inside an excluded folder.
-        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
