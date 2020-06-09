@@ -523,6 +523,24 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                         'information from the logs.')
                 err_cls = MaestralApiError
 
+        elif isinstance(error, files.RestoreError):
+
+            title = 'Could not restore file'
+
+            if error.is_invalid_revision():
+                text = 'Invalid revision.'
+                err_cls = PathError
+            elif error.is_path_lookup():
+                lookup_error = error.get_path_lookup()
+                text, err_cls = _get_lookup_error_msg(lookup_error)
+            elif error.is_path_write():
+                write_error = error.get_path_write()
+                text, err_cls = _get_write_error_msg(write_error)
+            else:
+                text = ('Please contact the developer with the traceback '
+                        'information from the logs.')
+                err_cls = MaestralApiError
+
         else:
             err_cls = MaestralApiError
             title = 'An unexpected error occurred'
