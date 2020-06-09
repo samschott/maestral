@@ -753,7 +753,6 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str):
         entries = m.list_folder(dropbox_path, recursive=False,
                                 include_deleted=include_deleted)
         entries.sort(key=lambda x: x['name'].lower())
-        entries.sort(key=lambda x: x['type'], reverse=True)
 
         names = []
         types = []
