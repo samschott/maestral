@@ -448,13 +448,13 @@ def gui(config_name):
 
 
 @main.command(help_priority=1)
-@config_option
 @click.option('--foreground', '-f', is_flag=True, default=False,
               help='Starts Maestral in the foreground.')
 @click.option('--verbose', '-v', is_flag=True, default=False,
               help='Print log messages to stdout.')
+@config_option
 @catch_maestral_errors
-def start(config_name: str, foreground: bool, verbose: bool):
+def start(foreground: bool, verbose: bool, config_name: str):
     """Starts the Maestral daemon."""
 
     from maestral.daemon import get_maestral_proxy
@@ -528,23 +528,23 @@ def stop(config_name: str):
 
 
 @main.command(help_priority=3)
-@existing_config_option
 @click.option('--foreground', '-f', is_flag=True, default=False,
               help='Starts Maestral in the foreground.')
 @click.option('--verbose', '-v', is_flag=True, default=False,
               help='Print log messages to stdout.')
+@existing_config_option
 @click.pass_context
-def restart(ctx, config_name: str, foreground: bool, verbose: bool):
+def restart(ctx, foreground: bool, verbose: bool, config_name: str):
     """Restarts the Maestral daemon."""
     stop_daemon_with_cli_feedback(config_name)
     ctx.forward(start)
 
 
 @main.command(help_priority=4)
-@existing_config_option
 @click.option('--yes', '-Y', is_flag=True, default=False)
 @click.option('--no', '-N', is_flag=True, default=False)
-def autostart(config_name: str, yes: bool, no: bool):
+@existing_config_option
+def autostart(yes: bool, no: bool, config_name: str):
     """
     Automatically start the maestral daemon on log-in.
 
@@ -635,9 +635,9 @@ def status(config_name: str):
 
 
 @main.command(help_priority=8)
-@existing_config_option
 @click.argument('local_path', type=click.Path(exists=True))
-def file_status(config_name: str, local_path: str):
+@existing_config_option
+def file_status(local_path: str, config_name: str):
     """
     Returns the current sync status of a given file or folder.
 
@@ -844,10 +844,10 @@ def unlink(config_name: str):
 
 
 @main.command(help_priority=13)
-@existing_config_option
 @click.argument('new_path', required=False, type=click.Path(writable=True))
-def move_dir(config_name: str, new_path: str):
-    """Change the location of your loacl Dropbox folder."""
+@existing_config_option
+def move_dir(new_path: str, config_name: str):
+    """Change the location of your local Dropbox folder."""
 
     from maestral.daemon import MaestralProxy
 
@@ -918,10 +918,10 @@ def configs():
 
 
 @main.command(help_priority=18)
-@existing_config_option
 @click.option('--yes', '-Y', is_flag=True, default=False)
 @click.option('--no', '-N', is_flag=True, default=False)
-def analytics(config_name: str, yes: bool, no: bool):
+@existing_config_option
+def analytics(yes: bool, no: bool, config_name: str):
     """
     Enables or disables sharing of error reports.
 
@@ -1013,8 +1013,8 @@ def excluded_list(config_name: str):
 
 
 @excluded.command(name='add', help_priority=1)
-@existing_config_option
 @click.argument('dropbox_path', type=click.Path())
+@existing_config_option
 @catch_maestral_errors
 def excluded_add(dropbox_path: str, config_name: str):
     """Adds a file or folder to the excluded list and re-syncs."""
@@ -1037,8 +1037,8 @@ def excluded_add(dropbox_path: str, config_name: str):
 
 
 @excluded.command(name='remove', help_priority=2)
-@existing_config_option
 @click.argument('dropbox_path', type=click.Path())
+@existing_config_option
 @catch_maestral_errors
 def excluded_remove(dropbox_path: str, config_name: str):
     """Removes a file or folder from the excluded list and re-syncs."""
@@ -1117,7 +1117,7 @@ def log_clear(config_name: str):
 @click.argument('level_name', required=False,
                 type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
 @existing_config_option
-def log_level(config_name: str, level_name: str):
+def log_level(level_name: str, config_name: str):
     """Gets or sets the log level."""
 
     from maestral.daemon import MaestralProxy
@@ -1148,7 +1148,7 @@ def log_level(config_name: str, level_name: str):
 @click.argument('level_name', required=False,
                 type=click.Choice(['NONE', 'ERROR', 'SYNCISSUE', 'FILECHANGE']))
 @existing_config_option
-def notify_level(config_name: str, level_name: str):
+def notify_level(level_name: str, config_name: str):
     """Gets or sets the level for desktop notifications."""
     from maestral.daemon import MaestralProxy
     from maestral.utils.notify import levelNameToNumber, levelNumberToName
@@ -1172,9 +1172,9 @@ def notify_level(config_name: str, level_name: str):
 
 
 @notify.command(name='snooze', help_priority=1)
-@existing_config_option
 @click.argument('minutes', type=click.IntRange(min=0))
-def notify_snooze(config_name: str, minutes: int):
+@existing_config_option
+def notify_snooze(minutes: int, config_name: str):
     """Snoozes desktop notifications of file changes."""
 
     from maestral.daemon import MaestralProxy
