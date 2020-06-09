@@ -737,7 +737,7 @@ def activity(config_name: str):
 def ls(dropbox_path: str, config_name: str):
     """Lists contents of a Dropbox directory."""
 
-    from datetime import datetime
+    from datetime import datetime, timezone
     from maestral.daemon import MaestralProxy
     from maestral.client import natural_size
 
@@ -770,7 +770,8 @@ def ls(dropbox_path: str, config_name: str):
                 sizes.append('-')
 
             if 'client_modified' in e:
-                dt = datetime.fromisoformat(e['client_modified'].rstrip('Z'))
+                dt = datetime.strptime(e['client_modified'], '%Y-%m-%dT%H:%M:%SZ')
+                dt = dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
                 last_modified.append(dt.strftime('%d %b %Y %H:%M'))
             else:
                 last_modified.append('-')
