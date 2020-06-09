@@ -1,21 +1,29 @@
 ## v1.1.0.dev
 
+#### Added:
+
+- Added `--include-deleted | -d` option to `maestral ls`.
+- Added `--long | -l` option to `maestral ls` to include metadata in listing.
+- Added `maestral revs` command to list revisions of a file or folder.
+- Added `maestral restore` command to restore an old revision of a file or folder.
+
 #### Changed:
 
 - Always create config directory if it does not exist.
 - Improved performance of converting Dropbox paths to correctly cased local paths.
 - Renamed macOS executable inside app bundle from "main" to "Maestral". This results in
-  a more descriptive process name for the daemon.
-- Local files are now created with the "last modified" time provided by Dropbox servers,
-  even during an initial sync.
+  less confusing process names.
+- Local files are now created with the "last modified" time provided by Dropbox servers.
 
 #### Fixed:
 
 - Fixes a thread-safety issue with desktop notifications.
 - Fixes an issue where Maestral could incorrectly identify a file system as case
-  sensitive if the Dropbox folder lies on a partition than TEMPDIR.
+  sensitive if the Dropbox folder lies on a partition other than TEMPDIR.
 - Fixes incorrect file modification times uploaded to Dropbox for timezones outside of
   UTC. Those times are used for display purposes only.
+- Fixes an issue where the `maestral autostart -Y` CLI command would start the GUI on
+  on login in case of the macOS app bundle.
 
 ## v1.0.3
 
