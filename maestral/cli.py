@@ -409,7 +409,7 @@ def excluded():
     """View and manage excluded folders."""
 
 
-@main.group(cls=SpecialHelpOrder, help_priority=17)
+@main.group(cls=SpecialHelpOrder, help_priority=18)
 def notify():
     """Manage Desktop notifications."""
 
@@ -896,6 +896,48 @@ def rebuild_index(config_name: str):
 
 
 @main.command(help_priority=16)
+@click.argument('dropbox_path', type=click.Path())
+@existing_config_option
+@catch_maestral_errors
+def revs(dropbox_path: str, config_name: str):
+    """Lists old revisions of a file."""
+    from datetime import datetime, timezone
+    from maestral.daemon import MaestralProxy
+
+    with MaestralProxy(config_name, fallback=True) as m:
+
+        entries = m.list_revisions(dropbox_path)
+
+    rev = []
+    last_modified = []
+
+    for e in entries:
+
+        rev.append(e['rev'])
+
+        dt = datetime.strptime(e['client_modified'], '%Y-%m-%dT%H:%M:%SZ')
+        dt = dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
+        last_modified.append(dt.strftime('%d %b %Y %H:%M'))
+
+    click.echo(format_table(columns=[rev, last_modified]))
+
+
+@main.command(help_priority=17)
+@click.argument('dropbox_path', type=click.Path())
+@click.argument('rev')
+@existing_config_option
+@catch_maestral_errors
+def restore(dropbox_path: str, rev: str, config_name: str):
+    """Restores an old revision of a file to the given path."""
+    from maestral.daemon import MaestralProxy
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        m.restore(dropbox_path, rev)
+
+    click.echo(f'Restored {rev} to "{dropbox_path}"')
+
+
+@main.command(help_priority=18)
 def configs():
     """Lists all configured Dropbox accounts."""
     from maestral.daemon import is_running
@@ -917,7 +959,7 @@ def configs():
     click.echo('')
 
 
-@main.command(help_priority=18)
+@main.command(help_priority=20)
 @click.option('--yes', '-Y', is_flag=True, default=False)
 @click.option('--no', '-N', is_flag=True, default=False)
 @existing_config_option
@@ -951,7 +993,7 @@ def analytics(yes: bool, no: bool, config_name: str):
         click.echo(f'Automatic error reports are {enabled_str}.')
 
 
-@main.command(help_priority=20)
+@main.command(help_priority=22)
 @existing_config_option
 def account_info(config_name: str):
     """Shows your Dropbox account information."""
@@ -973,7 +1015,7 @@ def account_info(config_name: str):
         click.echo('')
 
 
-@main.command(help_priority=21)
+@main.command(help_priority=23)
 def about():
     """Returns the version number and other information."""
     import time
