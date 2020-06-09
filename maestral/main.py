@@ -837,7 +837,28 @@ class Maestral:
         """
 
         res = self.client.list_folder(dbx_path, **kwargs)
+        entries = [dropbox_stone_to_dict(e) for e in res.entries]
 
+        return entries
+
+    @require_linked
+    def list_revisions(self, dbx_path, limit=10):
+        """
+        List revisions of old files at the given path ``dbx_path``. This will also return
+        revisions if the file has already been deleted.
+
+        :param str dbx_path: Path to folder on Dropbox.
+        :param int limit: Maximum number of revisions to list.
+        :returns: List of Dropbox file metadata as dicts.
+        :rtype: list[dict]
+        :raises: :class:`errors.NotFoundError` if there never was a file at the given path.
+        :raises: :class:`errors.IsAFolderError` if the given path refers to a folder.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
+        :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        """
+
+        res = self.client.list_revisions(dbx_path, limit=limit)
         entries = [dropbox_stone_to_dict(e) for e in res.entries]
 
         return entries
