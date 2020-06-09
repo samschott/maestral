@@ -326,14 +326,14 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
     """
     # import here to reduce memory usage if not needed
     import requests
-    import dropbox
+    from dropbox import files, exceptions, async_, auth, oauth
 
     # --------------------------- Dropbox API Errors -------------------------------------
-    if isinstance(exc, dropbox.exceptions.ApiError):
+    if isinstance(exc, exceptions.ApiError):
 
         error = exc.error
 
-        if isinstance(error, dropbox.files.RelocationError):
+        if isinstance(error, files.RelocationError):
             title = 'Could not move file or folder'
             if error.is_cant_copy_shared_folder():
                 text = 'Shared folders can’t be copied.'
@@ -383,8 +383,8 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                 text = 'Please check the logs for more information'
                 err_cls = SyncError
 
-        elif isinstance(error, (dropbox.files.CreateFolderError,
-                                dropbox.files.CreateFolderEntryError)):
+        elif isinstance(error, (files.CreateFolderError,
+                                files.CreateFolderEntryError)):
             title = 'Could not create folder'
             if error.is_path():
                 write_error = error.get_path()
@@ -393,7 +393,7 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                 text = 'Please check the logs for more information'
                 err_cls = SyncError
 
-        elif isinstance(error, dropbox.files.DeleteError):
+        elif isinstance(error, files.DeleteError):
             title = 'Could not delete item'
             if error.is_path_lookup():
                 lookup_error = error.get_path_lookup()
@@ -413,7 +413,7 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                 text = 'Please check the logs for more information'
                 err_cls = SyncError
 
-        elif isinstance(error, dropbox.files.UploadError):
+        elif isinstance(error, files.UploadError):
             title = 'Could not upload file'
             if error.is_path():
                 write_error = error.get_path().reason  # returns UploadWriteFailed
@@ -425,7 +425,7 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                 text = 'Please check the logs for more information'
                 err_cls = SyncError
 
-        elif isinstance(error, dropbox.files.UploadSessionFinishError):
+        elif isinstance(error, files.UploadSessionFinishError):
             title = 'Could not upload file'
             if error.is_lookup_failed():
                 session_lookup_error = error.get_lookup_failed()
@@ -444,11 +444,11 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                 text = 'Please check the logs for more information'
                 err_cls = SyncError
 
-        elif isinstance(error, dropbox.files.UploadSessionLookupError):
+        elif isinstance(error, files.UploadSessionLookupError):
             title = 'Could not upload file'
             text, err_cls = _get_session_lookup_error_msg(error)
 
-        elif isinstance(error, dropbox.files.DownloadError):
+        elif isinstance(error, files.DownloadError):
             title = 'Could not download file'
             if error.is_path():
                 lookup_error = error.get_path()
@@ -460,7 +460,7 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                 text = 'Please check the logs for more information'
                 err_cls = SyncError
 
-        elif isinstance(error, dropbox.files.ListFolderError):
+        elif isinstance(error, files.ListFolderError):
             title = 'Could not list folder contents'
             if error.is_path():
                 lookup_error = error.get_path()
@@ -470,7 +470,7 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                         'information from the logs.')
                 err_cls = MaestralApiError
 
-        elif isinstance(error, dropbox.files.ListFolderContinueError):
+        elif isinstance(error, files.ListFolderContinueError):
             title = 'Could not list folder contents'
             if error.is_path():
                 lookup_error = error.get_path()
@@ -484,7 +484,7 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                         'information from the logs.')
                 err_cls = MaestralApiError
 
-        elif isinstance(error, dropbox.files.ListFolderLongpollError):
+        elif isinstance(error, files.ListFolderLongpollError):
             title = 'Could not get Dropbox changes'
             if error.is_reset():
                 text = ('Dropbox has reset its sync state. Please rebuild '
@@ -495,7 +495,7 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                         'information from the logs.')
                 err_cls = MaestralApiError
 
-        elif isinstance(error, dropbox.async_.PollError):
+        elif isinstance(error, async_.PollError):
 
             title = 'Could not get status of batch job'
 
@@ -511,6 +511,18 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                         'information from the logs.')
                 err_cls = MaestralApiError
 
+        elif isinstance(error, files.ListRevisionsError):
+
+            title = 'Could not list file revisions'
+
+            if error.is_path():
+                lookup_error = error.get_path()
+                text, err_cls = _get_lookup_error_msg(lookup_error)
+            else:
+                text = ('Please contact the developer with the traceback '
+                        'information from the logs.')
+                err_cls = MaestralApiError
+
         else:
             err_cls = MaestralApiError
             title = 'An unexpected error occurred'
@@ -518,9 +530,9 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
                     'information from the logs.')
 
     # ----------------------- Authentication errors --------------------------------------
-    elif isinstance(exc, dropbox.exceptions.AuthError):
+    elif isinstance(exc, exceptions.AuthError):
         error = exc.error
-        if isinstance(error, dropbox.auth.AuthError):
+        if isinstance(error, auth.AuthError):
             if error.is_expired_access_token():
                 err_cls = TokenExpiredError
                 title = 'Authentication error'
@@ -554,25 +566,25 @@ def dropbox_to_maestral_error(exc, dbx_path=None, local_path=None):
         title = 'Authentication failed'
         text = 'Please make sure that you entered the correct authentication code.'
 
-    elif isinstance(exc, dropbox.oauth.BadStateException):
+    elif isinstance(exc, oauth.BadStateException):
         err_cls = DropboxAuthError
         title = 'Authentication session expired.'
         text = 'The authentication session expired. Please try again.'
 
-    elif isinstance(exc, dropbox.oauth.NotApprovedException):
+    elif isinstance(exc, oauth.NotApprovedException):
         err_cls = DropboxAuthError
         title = 'Not approved error'
         text = 'Please grant Maestral access to your Dropbox to start syncing.'
 
     # ----------------------------- Bad input errors -------------------------------------
     # should only occur due to user input from console scripts
-    elif isinstance(exc, dropbox.exceptions.BadInputError):
+    elif isinstance(exc, exceptions.BadInputError):
         err_cls = BadInputError
         title = 'Bad input to API call'
         text = exc.message
 
     # ---------------------- Internal Dropbox error --------------------------------------
-    elif isinstance(exc, dropbox.exceptions.InternalServerError):
+    elif isinstance(exc, exceptions.InternalServerError):
         err_cls = DropboxServerError
         title = 'Could not sync file or folder'
         text = ('Something went wrong with the job on Dropbox’s end. Please '
