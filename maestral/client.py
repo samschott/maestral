@@ -256,6 +256,20 @@ class DropboxClient:
         return self.dbx.files_list_revisions(dbx_path, mode=mode, limit=limit)
 
     @to_maestral_error(dbx_path_arg=1)
+    def restore(self, dbx_path, rev):
+        """
+        Restore an old revision of a file.
+
+        :param str dbx_path: The path to save the restored file.
+        :param str rev: The revision to restore. Old revisions can be listed with
+            :meth:`list_revisions`.
+        :returns: Metadata of restored file.
+        :rtype: :class:`files.FileMetadata`
+        """
+
+        return self.dbx.files_restore(dbx_path, rev)
+
+    @to_maestral_error(dbx_path_arg=1)
     def download(self, dbx_path, local_path, **kwargs):
         """
         Downloads file from Dropbox to our local folder.
