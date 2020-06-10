@@ -20,6 +20,8 @@ login items.
 - Renamed macOS executable inside app bundle from "main" to "Maestral". This results in
   less confusing process names.
 - Local files are now created with the "last modified" time provided by Dropbox servers.
+  This only applies to new downloads. To update existing modified times, you will need to
+  delete and redownload your Dropbox folder.
 
 #### Fixed:
 
