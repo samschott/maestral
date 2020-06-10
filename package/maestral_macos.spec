@@ -48,10 +48,7 @@ a = Entrypoint(
     datas= [
         (pkgr.resource_filename('maestral_cocoa', 'resources/*.icns'), '.'),
         (pkgr.resource_filename('maestral_cocoa', 'resources/*.pdf'), '.'),
-        (pkgr.resource_filename('maestral', 'resources/*.plist'), '.'),
-        (pkgr.resource_filename('maestral', 'resources/*.desktop'), '.'),
-        (pkgr.resource_filename('maestral', 'resources/*.png'), '.'),
-        (pkgr.resource_filename('maestral', 'resources/*.service'), '.'),
+        (pkgr.resource_filename('maestral', 'resources/*'), '.'),
     ],
     hiddenimports=['pkg_resources.py2_warn'],
     hookspath=['hooks'],
