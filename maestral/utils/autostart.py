@@ -28,7 +28,6 @@ import shutil
 import stat
 import platform
 import subprocess
-import pkg_resources
 import shlex
 from enum import Enum
 
@@ -41,9 +40,6 @@ except ImportError:  # Python 3.7 and lower
 # local imports
 from maestral.utils.appdirs import get_home_dir, get_conf_path, get_data_path
 from maestral.constants import BUNDLE_ID
-
-
-_resources = getattr(sys, '_MEIPASS', pkg_resources.resource_filename('maestral', 'resources'))
 
 
 class SupportedImplementations(Enum):
