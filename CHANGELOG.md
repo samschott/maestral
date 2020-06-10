@@ -1,11 +1,17 @@
 ## v1.1.0.dev
 
+This release expands the CLI functionality and improves the handling of file modification
+times during upload and download (used for display purposes only). It also fixes bugs
+with the "start on login" functionality of the macOS app bundle. After updating, please
+toggle "start on login" in the GUI or `maestral autostart` in the CLI to replace any old
+login items.
+
 #### Added:
 
 - Added `--include-deleted | -d` option to `maestral ls`.
 - Added `--long | -l` option to `maestral ls` to include metadata in listing.
-- Added `maestral revs` command to list revisions of a file or folder.
-- Added `maestral restore` command to restore an old revision of a file or folder.
+- Added `maestral revs` command to list revisions of a file.
+- Added `maestral restore` command to restore an old revision of a file.
 
 #### Changed:
 
