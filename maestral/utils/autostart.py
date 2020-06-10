@@ -33,9 +33,9 @@ from enum import Enum
 
 try:
     # noinspection PyCompatibility
-    from importlib.metadata import files
+    from importlib.metadata import files, PackageNotFoundError
 except ImportError:  # Python 3.7 and lower
-    from importlib_metadata import files
+    from importlib_metadata import files, PackageNotFoundError
 
 # local imports
 from maestral.utils.appdirs import get_home_dir, get_conf_path, get_data_path
@@ -360,7 +360,7 @@ class AutoStart:
             pkg_path = next(p for p in files('maestral')
                             if str(p).endswith('/bin/maestral'))
             path = pkg_path.locate().resolve()
-        except StopIteration:
+        except (StopIteration, PackageNotFoundError):
             path = ''
 
         if not osp.isfile(path):
