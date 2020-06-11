@@ -2892,6 +2892,8 @@ class SyncMonitor:
         self.paused_by_user = Event()
         self.paused_by_user.set()
 
+        self._lock = RLock()
+
         self.startup = Event()
 
         self.fs_event_handler = FSEventHandler(self.syncing, self.startup, self.sync)
@@ -2926,130 +2928,136 @@ class SyncMonitor:
     def start(self):
         """Creates observer threads and starts syncing."""
 
-        if self.running.is_set() or self.startup.is_set():
-            # do nothing if already started
-            return
+        with self._lock:
 
-        self.running = Event()  # create new event to let old threads shut down
+            if self.running.is_set() or self.startup.is_set():
+                # do nothing if already started
+                return
 
-        self.local_observer_thread = Observer(timeout=0.1)
-        self.local_observer_thread.setName('maestral-fsobserver')
-        self._watch = self.local_observer_thread.schedule(
-            self.fs_event_handler, self.sync.dropbox_path, recursive=True
-        )
-        for emitter in self.local_observer_thread.emitters:
-            emitter.setName('maestral-fsemitter')
+            self.running = Event()  # create new event to let old threads shut down
 
-        self.helper_thread = Thread(
-            target=helper,
-            daemon=True,
-            args=(self,),
-            name='maestral-helper'
-        )
+            self.local_observer_thread = Observer(timeout=0.1)
+            self.local_observer_thread.setName('maestral-fsobserver')
+            self._watch = self.local_observer_thread.schedule(
+                self.fs_event_handler, self.sync.dropbox_path, recursive=True
+            )
+            for emitter in self.local_observer_thread.emitters:
+                emitter.setName('maestral-fsemitter')
 
-        self.startup_thread = Thread(
-            target=startup_worker,
-            daemon=True,
-            args=(
-                self.sync, self.syncing, self.running, self.connected,
-                self.startup, self.paused_by_user
-            ),
-            name='maestral-sync-startup'
-        )
+            self.helper_thread = Thread(
+                target=helper,
+                daemon=True,
+                args=(self,),
+                name='maestral-helper'
+            )
 
-        self.download_thread = Thread(
-            target=download_worker,
-            daemon=True,
-            args=(
-                self.sync, self.syncing, self.running, self.connected,
-            ),
-            name='maestral-download'
-        )
+            self.startup_thread = Thread(
+                target=startup_worker,
+                daemon=True,
+                args=(
+                    self.sync, self.syncing, self.running, self.connected,
+                    self.startup, self.paused_by_user
+                ),
+                name='maestral-sync-startup'
+            )
 
-        self.download_thread_added_folder = Thread(
-            target=download_worker_added_item,
-            daemon=True,
-            args=(
-                self.sync, self.syncing, self.running, self.connected,
-            ),
-            name='maestral-folder-download'
-        )
+            self.download_thread = Thread(
+                target=download_worker,
+                daemon=True,
+                args=(
+                    self.sync, self.syncing, self.running, self.connected,
+                ),
+                name='maestral-download'
+            )
 
-        self.upload_thread = Thread(
-            target=upload_worker,
-            daemon=True,
-            args=(
-                self.sync, self.syncing, self.running, self.connected,
-            ),
-            name='maestral-upload'
-        )
+            self.download_thread_added_folder = Thread(
+                target=download_worker_added_item,
+                daemon=True,
+                args=(
+                    self.sync, self.syncing, self.running, self.connected,
+                ),
+                name='maestral-folder-download'
+            )
 
-        try:
-            self.local_observer_thread.start()
-        except Exception as exc:
-            new_exc = fswatch_to_maestral_error(exc)
-            title = getattr(new_exc, 'title', 'Unexpected error')
-            logger.error(title, exc_info=_exc_info(new_exc))
+            self.upload_thread = Thread(
+                target=upload_worker,
+                daemon=True,
+                args=(
+                    self.sync, self.syncing, self.running, self.connected,
+                ),
+                name='maestral-upload'
+            )
 
-        self.running.set()
-        self.syncing.clear()
-        self.connected.set()
-        self.startup.set()
+            try:
+                self.local_observer_thread.start()
+            except Exception as exc:
+                new_exc = fswatch_to_maestral_error(exc)
+                title = getattr(new_exc, 'title', 'Unexpected error')
+                logger.error(title, exc_info=_exc_info(new_exc))
 
-        self.helper_thread.start()
-        self.startup_thread.start()
-        self.upload_thread.start()
-        self.download_thread.start()
-        self.download_thread_added_folder.start()
+            self.running.set()
+            self.syncing.clear()
+            self.connected.set()
+            self.startup.set()
 
-        self.paused_by_user.clear()
+            self.helper_thread.start()
+            self.startup_thread.start()
+            self.upload_thread.start()
+            self.download_thread.start()
+            self.download_thread_added_folder.start()
 
-        self._startup_time = time.time()
+            self.paused_by_user.clear()
+
+            self._startup_time = time.time()
 
     def pause(self):
         """Pauses syncing."""
 
-        self.paused_by_user.set()
-        self.syncing.clear()
+        with self._lock:
+            self.paused_by_user.set()
+            self.syncing.clear()
 
-        self.sync.cancel_pending.set()
-        self._wait_for_idle()
-        self.sync.cancel_pending.clear()
+            self.sync.cancel_pending.set()
+            self._wait_for_idle()
+            self.sync.cancel_pending.clear()
 
-        logger.info(PAUSED)
+            logger.info(PAUSED)
 
     def resume(self):
         """Checks for changes while idle and starts syncing."""
 
-        if not self.paused_by_user.is_set():
-            return
+        with self._lock:
+            if not self.paused_by_user.is_set():
+                return
 
-        self.startup.set()
-        self.paused_by_user.clear()
+            self.startup.set()
+            self.paused_by_user.clear()
 
     def stop(self):
         """Stops syncing and destroys worker threads."""
 
-        if not self.running.is_set():
-            return
+        with self._lock:
 
-        logger.info('Shutting down threads...')
+            if not self.running.is_set():
+                return
 
-        self.running.clear()
-        self.syncing.clear()
-        self.paused_by_user.clear()
-        self.startup.clear()
+            logger.info('Shutting down threads...')
 
-        self.sync.cancel_pending.set()
-        self._wait_for_idle()
-        self.sync.cancel_pending.clear()
+            self.running.clear()
+            self.syncing.clear()
+            self.paused_by_user.clear()
+            self.startup.clear()
 
-        self.local_observer_thread.stop()
-        self.local_observer_thread.join()
-        self.helper_thread.join()
-        self.upload_thread.join()
+            self.sync.cancel_pending.set()
+            self._wait_for_idle()
+            self.sync.cancel_pending.clear()
 
-        logger.info(STOPPED)
+            self.local_observer_thread.stop()
+            self.local_observer_thread.join()
+            self.helper_thread.join()
+            self.upload_thread.join()
+
+            logger.info(STOPPED)
 
     @property
     def idle_time(self):
