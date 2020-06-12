@@ -303,9 +303,12 @@ class DropboxClient:
                     downloaded += chunksize
 
         # dropbox SDK provides naive datetime in UTC
-        timestamp = md.client_modified.replace(tzinfo=timezone.utc).timestamp()
-        # don't accept timestamps in the future
-        timestamp = min(timestamp, time.time())
+        client_mod_timestamp = md.client_modified.replace(tzinfo=timezone.utc).timestamp()
+        server_mod_timestamp = md.server_modified.replace(tzinfo=timezone.utc).timestamp()
+
+        # enforce client_modified < server_modified
+        timestamp = min(client_mod_timestamp, server_mod_timestamp, time.time())
+        # set mtime of downloaded file
         os.utime(local_path, (time.time(), timestamp))
 
         return md
