@@ -13,14 +13,14 @@ and handles exceptions, chunked uploads or downloads, etc.
 import os
 import os.path as osp
 import time
-import datetime
 import logging
 import functools
 import contextlib
+from datetime import datetime, timezone
 
 # external imports
 import requests
-import dropbox
+from dropbox import Dropbox, dropbox, files, users, exceptions
 
 # local imports
 from maestral import __version__
@@ -31,7 +31,7 @@ from maestral.errors import SyncError, dropbox_to_maestral_error, os_to_maestral
 logger = logging.getLogger(__name__)
 
 # create single requests session for all clients
-SESSION = dropbox.dropbox.create_session()
+SESSION = dropbox.create_session()
 _major_minor_version = '.'.join(__version__.split('.')[:2])
 USER_AGENT = f'Maestral/v{_major_minor_version}'
 
@@ -45,23 +45,28 @@ CONNECTION_ERRORS = (
 )
 
 
-def bytes_to_str(num, suffix='B'):
+def natural_size(num, unit='B', sep=True):
     """
     Convert number to a human readable string with decimal prefix.
 
     :param float num: Value in given unit.
-    :param str suffix: Unit suffix. Defaults to 'B'.
+    :param str unit: Unit suffix.
+    :param bool sep: Whether to separate unit and value with a space.
     :returns: Human readable string with decimal prefixes.
     :rtype: str
     """
-    for unit in ('', 'K', 'M', 'G'):
-        if abs(num) < 1024.0:
-            return f'{num:3.1f}{unit}{suffix}'
-        num /= 1024.0
-    return f'{num:.1f}T{suffix}'
+    sep = ' ' if sep else ''
+
+    for prefix in ('', 'K', 'M', 'G'):
+        if abs(num) < 1000.0:
+            return f'{num:3.1f}{sep}{prefix}{unit}'
+        num /= 1000.0
+
+    prefix = 'T'
+    return f'{num:.1f}{sep}{prefix}{unit}'
 
 
-class SpaceUsage(dropbox.users.SpaceUsage):
+class SpaceUsage(users.SpaceUsage):
 
     def allocation_type(self):
         if self.allocation.is_team():
@@ -80,16 +85,16 @@ class SpaceUsage(dropbox.users.SpaceUsage):
             used = self.allocation.get_team().used
             allocated = self.allocation.get_team().allocated
         else:
-            return bytes_to_str(self.used)
+            return natural_size(self.used)
 
         percent = used / allocated
-        return f'{percent:.1%} of {bytes_to_str(allocated)} used'
+        return f'{percent:.1%} of {natural_size(allocated)} used'
 
 
 def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
     """
     Returns a decorator that converts instances of :class:`OSError` and
-    :class:`dropbox.exceptions.DropboxException` to :class:`errors.MaestralApiError`.
+    :class:`exceptions.DropboxException` to :class:`errors.MaestralApiError`.
 
     :param int dbx_path_arg: Argument number to take as dbx_path for exception.
     :param int local_path_arg: Argument number to take as local_path_arg for exception.
@@ -105,7 +110,7 @@ def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
 
             try:
                 return func(*args, **kwargs)
-            except dropbox.exceptions.DropboxException as exc:
+            except exceptions.DropboxException as exc:
                 raise dropbox_to_maestral_error(exc, dbx_path, local_path)
             # catch connection errors first, they may inherit from OSError
             except CONNECTION_ERRORS:
@@ -145,7 +150,7 @@ class DropboxClient:
         self._backoff_until = 0
 
         # initialize API client
-        self.dbx = dropbox.Dropbox(
+        self.dbx = Dropbox(
             access_token,
             session=SESSION,
             user_agent=USER_AGENT,
@@ -163,7 +168,7 @@ class DropboxClient:
         :param str dbid: Dropbox ID of account. If not given, will get the info of the
             currently linked account.
         :returns: Account info.
-        :rtype: :class:`dropbox.users.FullAccount`
+        :rtype: :class:`users.FullAccount`
         """
         if dbid:
             res = self.dbx.users_get_account(dbid)
@@ -198,7 +203,7 @@ class DropboxClient:
         """
         res = self.dbx.users_get_space_usage()
 
-        # convert from dropbox.users.SpaceUsage to SpaceUsage
+        # convert from users.SpaceUsage to SpaceUsage
         res.__class__ = SpaceUsage
 
         # save results to config
@@ -223,12 +228,12 @@ class DropboxClient:
         :param str dbx_path: Path of folder on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
         :returns: Metadata of item at the given path or ``None``.
-        :rtype: :class:`dropbox.files.Metadata`
+        :rtype: :class:`files.Metadata`
         """
 
         try:
             return self.dbx.files_get_metadata(dbx_path, **kwargs)
-        except dropbox.exceptions.ApiError:
+        except exceptions.ApiError:
             # DropboxAPI error is only raised when the item does not exist on Dropbox
             # this is handled on a DEBUG level since we use call `get_metadata` to check
             # if a file exists
@@ -244,11 +249,25 @@ class DropboxClient:
             instead of the file path to get revisions across move and rename events.
         :param int limit: Maximum number of revisions to list. Defaults to 10.
         :returns: File revision history.
-        :rtype: :class:`dropbox.files.ListRevisionsResult`
+        :rtype: :class:`files.ListRevisionsResult`
         """
 
-        mode = dropbox.files.ListRevisionsMode(mode)
+        mode = files.ListRevisionsMode(mode)
         return self.dbx.files_list_revisions(dbx_path, mode=mode, limit=limit)
+
+    @to_maestral_error(dbx_path_arg=1)
+    def restore(self, dbx_path, rev):
+        """
+        Restore an old revision of a file.
+
+        :param str dbx_path: The path to save the restored file.
+        :param str rev: The revision to restore. Old revisions can be listed with
+            :meth:`list_revisions`.
+        :returns: Metadata of restored file.
+        :rtype: :class:`files.FileMetadata`
+        """
+
+        return self.dbx.files_restore(dbx_path, rev)
 
     @to_maestral_error(dbx_path_arg=1)
     def download(self, dbx_path, local_path, **kwargs):
@@ -259,7 +278,7 @@ class DropboxClient:
         :param str local_path: Path to local download destination.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
         :returns: Metadata of downloaded item.
-        :rtype: :class:`dropbox.files.FileMetadata`
+        :rtype: :class:`files.FileMetadata`
         """
         # create local directory if not present
         dst_path_directory = osp.dirname(local_path)
@@ -271,7 +290,7 @@ class DropboxClient:
         md, http_resp = self.dbx.files_download(dbx_path, **kwargs)
 
         chunksize = 2 ** 16
-        size_str = bytes_to_str(md.size)
+        size_str = natural_size(md.size)
 
         downloaded = 0
 
@@ -279,9 +298,18 @@ class DropboxClient:
             with contextlib.closing(http_resp):
                 for c in http_resp.iter_content(chunksize):
                     if md.size > 5 * 10 ** 6:  # 5 MB
-                        logger.info(f'Downloading {bytes_to_str(downloaded)}/{size_str}...')
+                        logger.info(f'Downloading {natural_size(downloaded)}/{size_str}...')
                     f.write(c)
                     downloaded += chunksize
+
+        # dropbox SDK provides naive datetime in UTC
+        client_mod_timestamp = md.client_modified.replace(tzinfo=timezone.utc).timestamp()
+        server_mod_timestamp = md.server_modified.replace(tzinfo=timezone.utc).timestamp()
+
+        # enforce client_modified < server_modified
+        timestamp = min(client_mod_timestamp, server_mod_timestamp, time.time())
+        # set mtime of downloaded file
+        os.utime(local_path, (time.time(), timestamp))
 
         return md
 
@@ -296,17 +324,18 @@ class DropboxClient:
         :param int chunk_size_mb: Maximum size for individual uploads in MB. If larger
             than 150 MB, it will be set to 150 MB.
         :returns: Metadata of uploaded file.
-        :rtype: :class:`dropbox.files.FileMetadata`
+        :rtype: :class:`files.FileMetadata`
         """
 
         chunk_size_mb = clamp(chunk_size_mb, 0.1, 150)
         chunk_size = chunk_size_mb * 10**6  # convert to bytes
 
         size = osp.getsize(local_path)
-        size_str = bytes_to_str(size)
+        size_str = natural_size(size)
 
+        # dropbox SDK takes naive datetime in UTC
         mtime = osp.getmtime(local_path)
-        mtime_dt = datetime.datetime(*time.gmtime(mtime)[:6])
+        mtime_dt = datetime.utcfromtimestamp(mtime)
 
         if size <= chunk_size:
             with open(local_path, 'rb') as f:
@@ -319,11 +348,11 @@ class DropboxClient:
             # keeps upload sessions open for 48h so this could be done in the future.
             with open(local_path, 'rb') as f:
                 session_start = self.dbx.files_upload_session_start(f.read(chunk_size))
-                cursor = dropbox.files.UploadSessionCursor(
+                cursor = files.UploadSessionCursor(
                     session_id=session_start.session_id,
                     offset=f.tell()
                 )
-                commit = dropbox.files.CommitInfo(
+                commit = files.CommitInfo(
                     path=dbx_path, client_modified=mtime_dt, **kwargs
                 )
 
@@ -344,13 +373,13 @@ class DropboxClient:
                                 cursor
                             )
                             cursor.offset = f.tell()
-                        logger.info(f'Uploading {bytes_to_str(f.tell())}/{size_str}...')
-                    except dropbox.exceptions.DropboxException as exc:
+                        logger.info(f'Uploading {natural_size(f.tell())}/{size_str}...')
+                    except exceptions.DropboxException as exc:
                         error = exc.error
-                        if (isinstance(error, dropbox.files.UploadSessionFinishError)
+                        if (isinstance(error, files.UploadSessionFinishError)
                                 and error.is_lookup_failed()):
                             session_lookup_error = error.get_lookup_failed()
-                        elif isinstance(error, dropbox.files.UploadSessionLookupError):
+                        elif isinstance(error, files.UploadSessionLookupError):
                             session_lookup_error = error
                         else:
                             raise exc
@@ -371,7 +400,7 @@ class DropboxClient:
         :param str dbx_path: Path to file on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_delete_v2.
         :returns: Metadata of deleted item.
-        :rtype: :class:`dropbox.files.Metadata`
+        :rtype: :class:`files.Metadata`
         """
         # try to remove file (response will be metadata, probably)
         res = self.dbx.files_delete_v2(dbx_path, **kwargs)
@@ -403,7 +432,7 @@ class DropboxClient:
         # https://www.dropbox.com/developers/reference/data-ingress-guide
         for chunk in chunks(entries, n=batch_size):
 
-            arg = [dropbox.files.DeleteArg(e[0], e[1]) for e in chunk]
+            arg = [files.DeleteArg(e[0], e[1]) for e in chunk]
             res = self.dbx.files_delete_batch(arg)
 
             if res.is_complete():
@@ -438,7 +467,7 @@ class DropboxClient:
             if entry.is_success():
                 result_list.append(entry.get_success().metadata)
             elif entry.is_failure():
-                exc = dropbox.exceptions.ApiError(
+                exc = exceptions.ApiError(
                     error=entry.get_failure(),
                     user_message_text=None,
                     user_message_locale=None,
@@ -458,7 +487,7 @@ class DropboxClient:
         :param str new_path: New path on Dropbox to move to.
         :param kwargs: Keyword arguments for Dropbox SDK files_move_v2.
         :returns: Metadata of moved item.
-        :rtype: :class:`dropbox.files.Metadata`
+        :rtype: :class:`files.Metadata`
         """
         res = self.dbx.files_move_v2(
             dbx_path,
@@ -479,7 +508,7 @@ class DropboxClient:
         :param str dbx_path: Path of Dropbox folder.
         :param kwargs: Keyword arguments for Dropbox SDK files_create_folder_v2.
         :returns: Metadata of created folder.
-        :rtype: :class:`dropbox.files.FolderMetadata`
+        :rtype: :class:`files.FolderMetadata`
         """
         res = self.dbx.files_create_folder_v2(dbx_path, **kwargs)
         md = res.metadata
@@ -541,7 +570,7 @@ class DropboxClient:
             if entry.is_success():
                 result_list.append(entry.get_success().metadata)
             elif entry.is_failure():
-                exc = dropbox.exceptions.ApiError(
+                exc = exceptions.ApiError(
                     error=entry.get_failure(),
                     user_message_text=None,
                     user_message_locale=None,
@@ -590,7 +619,7 @@ class DropboxClient:
             downloaded (at the moment only G-suite files on Dropbox) will be included.
         :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
         :returns: Content of given folder.
-        :rtype: :class:`dropbox.files.ListFolderResult`
+        :rtype: :class:`files.ListFolderResult`
         """
 
         dbx_path = '' if dbx_path == '/' else dbx_path
@@ -630,18 +659,18 @@ class DropboxClient:
     @staticmethod
     def flatten_results(results):
         """
-        Flattens a list of :class:`dropbox.files.ListFolderResult` instances to a single
+        Flattens a list of :class:`files.ListFolderResult` instances to a single
         instance with the cursor of the last entry in the list.
 
-        :param list results: List of :class:`dropbox.files.ListFolderResult` instances.
+        :param list results: List of :class:`files.ListFolderResult` instances.
         :returns: Flattened list folder result.
-        :rtype: :class:`dropbox.files.ListFolderResult`
+        :rtype: :class:`files.ListFolderResult`
         """
         entries_all = []
         for result in results:
             entries_all += result.entries
 
-        results_flattened = dropbox.files.ListFolderResult(
+        results_flattened = files.ListFolderResult(
             entries=entries_all, cursor=results[-1].cursor, has_more=False
         )
 
@@ -684,7 +713,7 @@ class DropboxClient:
 
         :param str last_cursor: Last to cursor to compare for changes.
         :returns: Remote changes since given cursor.
-        :rtype: :class:`dropbox.files.ListFolderResult`
+        :rtype: :class:`files.ListFolderResult`
         """
 
         results = [self.dbx.files_list_folder_continue(last_cursor)]

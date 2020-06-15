@@ -75,8 +75,11 @@ create-dmg \
 echo "signing dmg"
 codesign --verify --sign "Developer ID Application: Sam Schott" dist/Maestral.dmg
 
-echo "**** NOTARISING DMG ************************************"
 
-./macos-notarize-dmg.sh dist/Maestral.dmg
+
+if ! [ "$1" = "--dev" ]; then
+    echo "**** NOTARISING DMG ************************************"
+    ./macos-notarize-dmg.sh dist/Maestral.dmg
+fi
 
 echo "**** DONE **********************************************"

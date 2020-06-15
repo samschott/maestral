@@ -11,40 +11,35 @@ support for GUIs via launchd or xdg-desktop entries by passing the ``gui`` optio
 the CLI with the `maestral gui` command or frozen executables which provide their own GUI
 are supported.
 
+Note that launchd agents will not show as "login items" in macOS system preferences. As
+a result, the user does not have a convenient UI to remove Maestral autostart entries
+manually outside of Maestral itself. Login items however only support app bundles and
+provide no option to pass command line arguments to the app. They would therefore neither
+support pip installs or multiple configurations.
+
 """
 
 # system imports
 import sys
 import os
 import os.path as osp
+import re
 import shutil
 import stat
 import platform
 import subprocess
-import pkg_resources
+import shlex
 from enum import Enum
 
 try:
     # noinspection PyCompatibility
-    from importlib.metadata import files
+    from importlib.metadata import files, PackageNotFoundError
 except ImportError:  # Python 3.7 and lower
-    from importlib_metadata import files
-
-try:
-    from shlex import join
-except ImportError:  # Python 3.7 and lower
-    from shlex import quote
-
-    def join(split_command):
-        return ' '.join(quote(x) for x in split_command)
+    from importlib_metadata import files, PackageNotFoundError
 
 # local imports
-from maestral import __version__
 from maestral.utils.appdirs import get_home_dir, get_conf_path, get_data_path
 from maestral.constants import BUNDLE_ID
-
-
-_resources = pkg_resources.resource_filename('maestral', 'resources')
 
 
 class SupportedImplementations(Enum):
@@ -63,14 +58,7 @@ class SupportedImplementations(Enum):
 class AutoStartBase:
     """
     Base class for autostart backends.
-
-    :param str config_name: Name of the config to start.
-    :param bool gui: ``True`` if we are starting a GUI, ``False`` otherwise.
     """
-
-    def __init__(self, config_name, gui):
-        self.config_name = config_name
-        self.gui = gui
 
     def enable(self):
         """Enable autostart. Must be implemented in subclass."""
@@ -86,110 +74,67 @@ class AutoStartBase:
         return False
 
 
-class AutoStartMaestralBase(AutoStartBase):
+class AutoStartSystemd(AutoStartBase):
     """
-    Base class for Maestral autostart backends.
+    Autostart backend for systemd. Used to start a daemon on Linux.
 
-    :param str config_name: Name of the config to start.
-    :param bool gui: ``True`` if we are starting a GUI, ``False`` otherwise.
+    :param str service_name: Name of systemd service.
+    :param str start_cmd: Absolute path to executable and optional program arguments.
+    :param str stop_cmd: Optional stop command.
+    :param bool notify: If ``True``, the service will be started as a notify service.
+        Otherwise, the type will be "exec".
+    :param int watchdog_sec: If given, this is the number of seconds for systemd watchdog.
+    :param dict unit_dict: Dictionary of additional keys and values for the Unit section.
+    :param dict service_dict: Dictionary of additional keys and values for the Service
+        section.
+    :param dict install_dict: Dictionary of additional keys and values for the Install
+        section.
     """
+    def __init__(self, service_name, start_cmd, stop_cmd=None,
+                 notify=False, watchdog_sec=None, unit_dict=None,
+                 service_dict=None, install_dict=None):
+        super().__init__()
 
-    def __init__(self, config_name, gui):
-        super().__init__(config_name, gui)
-
-        self.maestral_path = self.get_maestral_command_path()
-
-        if self.gui:
-            self.start_cmd = [self.maestral_path, 'gui', '-c', self.config_name]
-            self.stop_cmd = []
-        else:
-            self.start_cmd = [self.maestral_path, 'start', '-f', '-c', self.config_name]
-            self.stop_cmd = [self.maestral_path, 'stop', '-c', self.config_name]
-
-    @staticmethod
-    def get_maestral_command_path():
-        """
-        Returns the path to the maestral executable.
-        """
-        # try to get location of console script from package metadata
-        # fall back to 'which' otherwise
-
-        if getattr(sys, 'frozen', False):  # app bundle
-            return sys.executable
-
-        try:
-            pkg_path = next(p for p in files('maestral')
-                            if str(p).endswith('/bin/maestral'))
-            path = pkg_path.locate().resolve()
-        except StopIteration:
-            path = ''
-
-        if not osp.isfile(path):
-            path = shutil.which('maestral')
-
-        return str(path)
-
-    def enable(self):
-        """
-        Enables the autostart.
-
-        :raises: :class:`OSError` if the Maestral executable could not be found.
-        """
-        if self.maestral_path:
-            self._enable()
-        else:
-            raise OSError('Could not find path of maestral executable')
-
-    def disable(self):
-        """
-        Disables the autostart.
-        """
-        self._disable()
-
-    def _enable(self):
-        """Private method to enable autostart. This should be overridden in a subclass."""
-        raise NotImplementedError()
-
-    def _disable(self):
-        """Private method to disable autostart. This should be overridden in a
-        subclass."""
-        raise NotImplementedError()
-
-
-class AutoStartSystemd(AutoStartMaestralBase):
-    """
-    Autostart backend for systemd. Used to start a GUI or daemon on macOS.
-
-    :param str config_name: Name of the config to start.
-    :param bool gui: ``True`` if we are starting a GUI, ``False`` otherwise.
-    """
-    def __init__(self, config_name, gui):
-        super().__init__(config_name, gui)
-
-        if self.gui:
-            raise ValueError('Systemd launching is not supported for the GUI. '
-                             'This may change in a future release.')
-
-        service_type = 'gui' if self.gui else 'daemon'
-        self.service_name = f'maestral-{service_type}@{self.config_name}.service'
-
-        with open(osp.join(_resources, 'maestral@.service')) as f:
-            unit_template = f.read()
-
-        filename = 'maestral-{}@.service'.format('gui' if self.gui else 'daemon')
+        self.service_name = service_name
+        # strip any instance specifiers from template service name
+        filename = re.sub(r'@[^"]*\.service', '@.service', service_name)
         self.destination = get_data_path(osp.join('systemd', 'user'), filename)
-        self.contents = unit_template.format(
-            start_cmd=join(self.start_cmd),
-            stop_cmd=join(self.stop_cmd),
-        )
+
+        service_type = 'notify' if notify else 'exec'
+
+        if unit_dict:
+            self.contents = '[Unit]\n'
+            for key, value in unit_dict.items():
+                self.contents += f'{key} = {value}\n'
+            self.contents += '\n'
+
+        self.contents += '[Service]\n'
+        self.contents += f'Type = {service_type}\n'
+        self.contents += 'NotifyAccess = exec\n'
+        self.contents += f'ExecStart = {start_cmd}\n'
+        if stop_cmd:
+            self.contents += f'ExecStop = {stop_cmd}\n'
+        if watchdog_sec:
+            self.contents += f'WatchdogSec = {watchdog_sec}s\n'
+        if service_dict:
+            for key, value in service_dict.items():
+                self.contents += f'{key} = {value}\n'
+        self.contents += '\n'
+
+        self.contents += '[Install]\n'
+        self.contents += 'WantedBy = default.target\n'
+        if install_dict:
+            for key, value in install_dict.items():
+                self.contents += f'{key} = {value}\n'
+        self.contents += '\n'
 
         with open(self.destination, 'w') as f:
             f.write(self.contents)
 
-    def _enable(self):
+    def enable(self):
         subprocess.run(['systemctl', '--user', 'enable', self.service_name])
 
-    def _disable(self):
+    def disable(self):
         subprocess.run(['systemctl', '--user', 'disable', self.service_name])
 
     @property
@@ -201,42 +146,54 @@ class AutoStartSystemd(AutoStartMaestralBase):
         return res == 0
 
 
-class AutoStartLaunchd(AutoStartMaestralBase):
+class AutoStartLaunchd(AutoStartBase):
     """
     Autostart backend for launchd. Used to start a GUI or daemon on macOS.
 
-    :param str config_name: Name of the config to start.
-    :param bool gui: ``True`` if we are starting a GUI, ``False`` otherwise.
+    :param str bundle_id: Bundle ID for the, e.g., "com.google.calendar".
+    :param str start_cmd: Absolute path to executable and optional program arguments.
     """
 
-    def __init__(self, config_name, gui):
-        super().__init__(config_name, gui)
-        if self.gui:
-            bundle_id = '{}.{}'.format(BUNDLE_ID, self.config_name)
-        else:
-            bundle_id = '{}-{}.{}'.format(BUNDLE_ID, 'daemon', self.config_name)
-        filename = bundle_id + '.plist'
+    template = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{bundle_id}</string>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+    <key>ProgramArguments</key>
+    <array>
+{start_cmd}
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>"""
 
-        with open(osp.join(_resources, 'com.samschott.maestral.plist')) as f:
-            plist_template = f.read()
+    def __init__(self, bundle_id, start_cmd):
+
+        super().__init__()
+        filename = bundle_id + '.plist'
 
         self.path = osp.join(get_home_dir(), 'Library', 'LaunchAgents')
         self.destination = osp.join(self.path, filename)
 
-        arguments = [f'\t\t<string>{arg}</string>' for arg in self.start_cmd]
+        start_cmd = shlex.split(start_cmd)
+        arguments = [f'\t\t<string>{arg}</string>' for arg in start_cmd]
 
-        self.contents = plist_template.format(
+        self.contents = self.template.format(
             bundle_id=bundle_id,
             start_cmd='\n'.join(arguments)
         )
 
-    def _enable(self):
+    def enable(self):
         os.makedirs(self.path, exist_ok=True)
 
         with open(self.destination, 'w+') as f:
             f.write(self.contents)
 
-    def _disable(self):
+    def disable(self):
         try:
             os.unlink(self.destination)
         except FileNotFoundError:
@@ -248,41 +205,58 @@ class AutoStartLaunchd(AutoStartMaestralBase):
         return os.path.isfile(self.destination)
 
 
-class AutoStartXDGDesktop(AutoStartMaestralBase):
+class AutoStartXDGDesktop(AutoStartBase):
     """
     Autostart backend for XDG desktop entries. Used to start a GUI on user login for most
-    Linux desktops.
+    Linux desktops. For a full specifications, please see:
 
-    :param str config_name: Name of the config to start.
-    :param bool gui: ``True`` if we are starting a GUI. If ``False``, a
-        :class:`ValueError` is raised.
+    https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html
+
+    :param str Name: Name of application.
+    :param str Exec: Executable on $PATH or absolute path to executable and optional
+        program arguments.
+    :param str filename: Name of desktop entry file. If not given, "NAME.desktop" will be
+        used.
+    :param kwargs: Additional key, value pairs to be used in the desktop entries.
+        Values must be strings and may not contain "=", otherwise no additional validation
+        will be performed.
     """
 
-    def __init__(self, config_name, gui):
-        super().__init__(config_name, gui)
+    def __init__(self, Name, Exec, filename=None, **kwargs):
+        super().__init__()
 
-        if not gui:
-            raise ValueError('XDG Desktop entries are only supported to launch the GUI')
+        self._attributes = {'Version': '1.0', 'Type': 'Application',
+                            'Name': Name, 'Exec': Exec}
+        self._attributes.update(kwargs)
 
-        filename = f'maestral-{config_name}.desktop'
+        # create desktop file content
 
-        with open(osp.join(_resources, 'maestral.desktop')) as f:
-            desktop_entry_template = f.read()
+        self.contents = '[Desktop Entry]\n'
 
+        for key, value in self._attributes.items():
+
+            # input validation
+
+            if not isinstance(value, str):
+                raise ValueError('Only strings allowed as values')
+            if '=' in value:
+                raise ValueError(f'Value for {key} may not contain "="')
+
+            self.contents += f'{key} = {value}\n'
+
+        # set destination
+
+        filename = filename or f'{Name}.desktop'
         self.destination = get_conf_path('autostart', filename)
-        self.contents = desktop_entry_template.format(
-            version=__version__,
-            start_cmd=join(self.start_cmd)
-        )
 
-    def _enable(self):
+    def enable(self):
         with open(self.destination, 'w+') as f:
             f.write(self.contents)
 
         st = os.stat(self.destination)
         os.chmod(self.destination, st.st_mode | stat.S_IEXEC)
 
-    def _disable(self):
+    def disable(self):
         try:
             os.unlink(self.destination)
         except FileNotFoundError:
@@ -304,17 +278,52 @@ class AutoStart:
     def __init__(self, config_name, gui=False):
 
         self._gui = gui
-
+        self.maestral_path = self.get_maestral_command_path()
         self.implementation = self._get_available_implementation()
 
-        if self.implementation == SupportedImplementations.launchd:
-            self._impl = AutoStartLaunchd(config_name, gui)
-        elif self.implementation == SupportedImplementations.xdg_desktop:
-            self._impl = AutoStartXDGDesktop(config_name, gui)
-        elif self.implementation == SupportedImplementations.systemd:
-            self._impl = AutoStartSystemd(config_name, gui)
+        if gui:
+            start_cmd = f'{self.maestral_path} gui -c {config_name}'
+            stop_cmd = ''
+            bundle_id = '{}.{}'.format(BUNDLE_ID, config_name)
         else:
-            self._impl = AutoStartBase(config_name, gui)
+            start_cmd = f'{self.maestral_path} start -f -c {config_name}'
+            stop_cmd = f'{self.maestral_path} stop -c {config_name}'
+            bundle_id = '{}-{}.{}'.format(BUNDLE_ID, 'daemon', config_name)
+
+        if self.implementation == SupportedImplementations.launchd:
+            self._impl = AutoStartLaunchd(bundle_id, start_cmd)
+
+        elif self.implementation == SupportedImplementations.xdg_desktop:
+            self._impl = AutoStartXDGDesktop(
+                filename=f'maestral-{config_name}.desktop',
+                Name='Maestral',
+                Exec=start_cmd,
+                TryExec=self.maestral_path,
+                Icon='maestral',
+                Terminal='false',
+                Categories='Network;FileTransfer;',
+                GenericName='File Synchronizer',
+                Comment='Sync your files with Dropbox',
+            )
+
+        elif self.implementation == SupportedImplementations.systemd:
+
+            notify_failure = ('if [ ${SERVICE_RESULT} != success ]; '
+                              'then notify-send Maestral \'Daemon failed: ${SERVICE_RESULT}\'; '
+                              'fi')
+
+            self._impl = AutoStartSystemd(
+                service_name=f'maestral-daemon@{config_name}.service',
+                start_cmd=start_cmd.replace(config_name, '%i'),
+                stop_cmd=stop_cmd.replace(config_name, '%i'),
+                notify=True,
+                watchdog_sec=30,
+                unit_dict={'Description': 'Maestral daemon for the config %i'},
+                service_dict={'ExecStopPost': f'/usr/bin/env bash -c "{notify_failure}"'}
+            )
+
+        else:
+            self._impl = AutoStartBase()
 
     def toggle(self):
         """Toggles autostart on or off."""
@@ -333,9 +342,34 @@ class AutoStart:
             return
 
         if yes:
-            self._impl.enable()
+            if self.maestral_path:
+                self._impl.enable()
+            else:
+                raise OSError('Could not find path of maestral executable')
         else:
             self._impl.disable()
+
+    def get_maestral_command_path(self):
+        """
+        Returns the path to the maestral executable.
+        """
+        # try to get location of console script from package metadata
+        # fall back to 'which' otherwise
+
+        if self._gui and getattr(sys, 'frozen', False):
+            return sys.executable
+
+        try:
+            pkg_path = next(p for p in files('maestral')
+                            if str(p).endswith('/bin/maestral'))
+            path = pkg_path.locate().resolve()
+        except (StopIteration, PackageNotFoundError):
+            path = ''
+
+        if not osp.isfile(path):
+            path = shutil.which('maestral')
+
+        return str(path)
 
     def _get_available_implementation(self):
         """Returns the supported implementation depending on the platform."""

@@ -13,14 +13,7 @@ be kept free of memory heavy imports.
 import os
 import platform
 import sys
-import tempfile
 from enum import Enum
-
-
-def is_fs_case_sensitive():
-    # create a cased temp file and check if the lower case version exists
-    with tempfile.NamedTemporaryFile(prefix='TmP') as tmp_file:
-        return not os.path.exists(tmp_file.name.lower())
 
 
 # app
@@ -31,7 +24,6 @@ BUNDLE_ID = 'com.samschott.maestral'
 OLD_REV_FILE = '.maestral'
 MIGNORE_FILE = '.mignore'
 FILE_CACHE = '.maestral.cache'
-IS_FS_CASE_SENSITIVE = is_fs_case_sensitive()
 
 EXCLUDED_FILE_NAMES = frozenset([
     'desktop.ini', 'thumbs.db', '.ds_store', 'icon\r', '.com.apple.timemachine.supported',

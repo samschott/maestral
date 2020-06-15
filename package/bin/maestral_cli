@@ -2,4 +2,4 @@
 
 SCRIPTPATH="$(dirname "$(readlink "$0")")"
 
-"$SCRIPTPATH/main" --cli "$@"
+"$SCRIPTPATH/Maestral" --cli "$@"

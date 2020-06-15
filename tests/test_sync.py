@@ -18,13 +18,12 @@ from maestral.sync import (
     DirCreatedEvent, DirDeletedEvent, DirMovedEvent,
 )
 from maestral.sync import delete, move
-from maestral.sync import is_child
+from maestral.sync import is_child, is_fs_case_sensitive
 from maestral.sync import get_local_hash, DirectorySnapshot
 from maestral.sync import SyncEngine, Observer, FSEventHandler
 from maestral.errors import NotFoundError, FolderConflictError
 from maestral.main import Maestral
 from maestral.main import get_log_path
-from maestral.constants import IS_FS_CASE_SENSITIVE
 
 import unittest
 from unittest import TestCase
@@ -555,6 +554,9 @@ class TestSync(TestCase):
         self.clean_remote()
         self.wait_for_idle()
 
+    def tearDown(self):
+        self.assertFalse(self.m.fatal_errors)
+
     def test_setup(self):
         self.assertFalse(self.m.pending_link)
         self.assertFalse(self.m.pending_dropbox_folder)
@@ -980,7 +982,7 @@ class TestSync(TestCase):
         self.assertIsNotNone(self.m.client.get_metadata(self.test_folder_dbx + '/folder (selective sync conflict)'))
         self.assertIsNotNone(self.m.client.get_metadata(self.test_folder_dbx + '/folder (selective sync conflict 1)'))
 
-    @unittest.skipUnless(IS_FS_CASE_SENSITIVE, 'file system is not case sensitive')
+    @unittest.skipUnless(is_fs_case_sensitive('/home'), 'file system is not case sensitive')
     def test_case_conflict(self):
 
         os.mkdir(self.test_folder_local + '/folder')

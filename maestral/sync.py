@@ -49,8 +49,8 @@ from atomicwrites import atomic_write
 from maestral.config import MaestralConfig, MaestralState
 from maestral.fsevents import Observer
 from maestral.constants import (
-    IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, EXCLUDED_FILE_NAMES, EXCLUDED_DIR_NAMES,
-    MIGNORE_FILE, FILE_CACHE, IS_FS_CASE_SENSITIVE
+    IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, EXCLUDED_FILE_NAMES,
+    EXCLUDED_DIR_NAMES, MIGNORE_FILE, FILE_CACHE
 )
 from maestral.errors import (
     MaestralApiError, SyncError, RevFileError, NoDropboxDirError, CacheDirError,
@@ -60,10 +60,10 @@ from maestral.errors import (
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import (
-    generate_cc_name, path_exists_case_insensitive, to_cased_path,
+    generate_cc_name, cased_path_candidates, to_cased_path, is_fs_case_sensitive,
     move, delete, is_child, is_equal_or_child
 )
-from maestral.utils.appdirs import get_data_path
+from maestral.utils.appdirs import get_data_path, get_home_dir
 
 logger = logging.getLogger(__name__)
 
@@ -475,6 +475,8 @@ class SyncEngine:
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
         self._rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
+        # check for home, update later
+        self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
 
         self._rev_dict_cache = dict()
         self._load_rev_dict_from_file(raise_exception=True)
@@ -508,6 +510,7 @@ class SyncEngine:
             self._dropbox_path = path
             self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
             self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
+            self._is_case_sensitive = is_fs_case_sensitive(self._dropbox_path)
             self._conf.set('main', 'path', path)
 
     @property
@@ -735,7 +738,7 @@ class SyncEngine:
             new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
         except OSError as exc:
             title = 'Could not load index'
-            msg = 'Please resync your Dropbox to rebuild the index.'
+            msg = f'Errno {exc.errno}. Please resync your Dropbox to rebuild the index.'
             new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
 
         if new_exc and raise_exception:
@@ -758,7 +761,7 @@ class SyncEngine:
             new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
         except OSError as exc:
             title = 'Could not save index'
-            msg = 'Please check the logs for more information'
+            msg = f'Errno {exc.errno}. Please check the logs for more information.'
             new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
 
         if new_exc and raise_exception:
@@ -857,6 +860,10 @@ class SyncEngine:
 
     # ==== helper functions ==============================================================
 
+    @property
+    def is_case_sensitive(self):
+        return self._is_case_sensitive
+
     def ensure_dropbox_folder_present(self):
         """
         Checks if the Dropbox folder still exists where we expect it to be.
@@ -945,12 +952,26 @@ class SyncEngine:
         dbx_path = dbx_path.replace('/', osp.sep)
         dbx_path_parent, dbx_path_basename = osp.split(dbx_path)
 
-        local_parent = to_cased_path(dbx_path_parent, root=self.dropbox_path)
+        local_parent = to_cased_path(dbx_path_parent, root=self.dropbox_path,
+                                     is_fs_case_sensitive=self.is_case_sensitive)
 
-        if local_parent == '':
-            return osp.join(self.dropbox_path, dbx_path.lstrip('/'))
-        else:
-            return osp.join(local_parent, dbx_path_basename)
+        return osp.join(local_parent, dbx_path_basename)
+
+    def get_local_path(self, md):
+        """
+        Gets the corresponding local path for a Dropbox MetaData instance by calling
+        :meth:`to_local_path` on the ``path_display`` attribute. The concerted path is
+        stored as a new ``to_local_path`` attribute to speed up future calls.
+
+        :param MetaData md: Dropbox metadata.
+        :returns: Corresponding local path on drive.
+        :rtype: str
+        """
+
+        if not hasattr(md, 'local_path'):
+            md.local_path = self.to_local_path(md.path_display)
+
+        return md.local_path
 
     def has_sync_errors(self):
         """Returns ``True`` in case of sync errors, ``False`` otherwise."""
@@ -1516,11 +1537,11 @@ class SyncEngine:
         case. Renames items if necessary. Only needed for case sensitive file systems.
 
         :param FileSystemEvent event: Created or moved event.
-        :returns: ``True`` or ``False``.
+        :returns: Whether a case conflict was detected and handled.
         :rtype: bool
         """
 
-        if not IS_FS_CASE_SENSITIVE:
+        if not self.is_case_sensitive:
             return False
 
         if event.event_type not in (EVENT_TYPE_CREATED, EVENT_TYPE_MOVED):
@@ -1531,9 +1552,10 @@ class SyncEngine:
         dirname, basename = osp.split(local_path)
 
         # check number of paths with the same case
-        if len(path_exists_case_insensitive(basename, root=dirname)) > 1:
+        if len(cased_path_candidates(basename, root=dirname)) > 1:
 
-            local_path_cc = generate_cc_name(local_path, suffix='case conflict')
+            local_path_cc = generate_cc_name(local_path, suffix='case conflict',
+                                             is_fs_case_sensitive=self.is_case_sensitive)
 
             event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
@@ -1567,7 +1589,8 @@ class SyncEngine:
 
         if self.is_excluded_by_user(dbx_path):
             local_path_cc = generate_cc_name(local_path,
-                                             suffix='selective sync conflict')
+                                             suffix='selective sync conflict',
+                                             is_fs_case_sensitive=self.is_case_sensitive)
 
             event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
@@ -1758,7 +1781,7 @@ class SyncEngine:
 
         if md_new.path_lower != dbx_path.lower():
             # conflicting copy created during upload, mirror remote changes locally
-            local_path_cc = self.to_local_path(md_new.path_display)
+            local_path_cc = self.get_local_path(md_new)
             event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
                 exc = move(local_path, local_path_cc)
@@ -1813,7 +1836,7 @@ class SyncEngine:
                 if res.path_lower != dbx_path.lower():
                     # conflicting copy created during upload, mirror remote changes
                     # locally
-                    local_path_cc = self.to_local_path(res.path_display)
+                    local_path_cc = self.get_local_path(res)
                     event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
                     with self.fs_events.ignore(event_cls(local_path, local_path_cc)):
                         exc = move(local_path, local_path_cc)
@@ -1881,7 +1904,7 @@ class SyncEngine:
 
             if md_new.path_lower != dbx_path.lower():
                 # conflicting copy created during upload, mirror remote changes locally
-                local_path_cc = self.to_local_path(md_new.path_display)
+                local_path_cc = self.get_local_path(md_new)
                 with self.fs_events.ignore(FileMovedEvent(local_path, local_path_cc)):
                     try:
                         os.rename(local_path, local_path_cc)
@@ -2035,13 +2058,15 @@ class SyncEngine:
             self.pending_downloads.add(dbx_path)
             md = self.client.get_metadata(dbx_path, include_deleted=True)
 
+            res = False
+
             if isinstance(md, FolderMetadata):
                 res = self.get_remote_folder(dbx_path)
-            elif md:  # FileMetadata or DeletedMetadata
+            elif isinstance(md, (FileMetadata, DeletedMetadata)):
                 with InQueue(self.queue_downloading, md.path_display):
                     res = self._create_local_entry(md)
 
-            if res is True:
+            if res or not md:
                 self.pending_downloads.discard(dbx_path)
 
             return res
@@ -2264,7 +2289,6 @@ class SyncEngine:
             remote_hash = None
 
         dbx_path = md.path_lower
-        local_path = self.to_local_path(md.path_display)
         local_rev = self.get_local_rev(dbx_path)
 
         if remote_rev == local_rev:
@@ -2286,6 +2310,7 @@ class SyncEngine:
             #     will hold the lock and we won't be here checking for conflicts.
             # (b) The upload has not started yet. Manually check for conflict.
 
+            local_path = self.get_local_path(md)
             local_hash = get_local_hash(local_path)
 
             if remote_hash == local_hash:
@@ -2446,7 +2471,7 @@ class SyncEngine:
         self._slow_down()
 
         # book keeping
-        local_path = self.to_local_path(entry.path_display)
+        local_path = self.get_local_path(entry)
 
         self.clear_sync_error(dbx_path=entry.path_display)
         remove_from_queue(self.queued_for_download, entry.path_display)
@@ -2480,7 +2505,9 @@ class SyncEngine:
                 # re-check for conflict and move the conflict
                 # out of the way if anything has changed
                 if self._check_download_conflict(entry) == Conflict.Conflict:
-                    new_local_path = generate_cc_name(local_path)
+                    new_local_path = generate_cc_name(
+                        local_path, is_fs_case_sensitive=self.is_case_sensitive
+                    )
                     event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
                     with self.fs_events.ignore(event_cls(local_path, new_local_path)):
                         exc = move(local_path, new_local_path)
@@ -2517,7 +2544,9 @@ class SyncEngine:
                 # replace it but leave the children as they are.
 
                 if conflict_check == Conflict.Conflict:
-                    new_local_path = generate_cc_name(local_path)
+                    new_local_path = generate_cc_name(
+                        local_path, is_fs_case_sensitive=self.is_case_sensitive
+                    )
                     event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
                     with self.fs_events.ignore(event_cls(local_path, new_local_path)):
                         exc = move(local_path, new_local_path)
@@ -2863,6 +2892,8 @@ class SyncMonitor:
         self.paused_by_user = Event()
         self.paused_by_user.set()
 
+        self._lock = RLock()
+
         self.startup = Event()
 
         self.fs_event_handler = FSEventHandler(self.syncing, self.startup, self.sync)
@@ -2897,130 +2928,136 @@ class SyncMonitor:
     def start(self):
         """Creates observer threads and starts syncing."""
 
-        if self.running.is_set() or self.startup.is_set():
-            # do nothing if already started
-            return
+        with self._lock:
 
-        self.running = Event()  # create new event to let old threads shut down
+            if self.running.is_set() or self.startup.is_set():
+                # do nothing if already started
+                return
 
-        self.local_observer_thread = Observer(timeout=0.1)
-        self.local_observer_thread.setName('maestral-fsobserver')
-        self._watch = self.local_observer_thread.schedule(
-            self.fs_event_handler, self.sync.dropbox_path, recursive=True
-        )
-        for emitter in self.local_observer_thread.emitters:
-            emitter.setName('maestral-fsemitter')
+            self.running = Event()  # create new event to let old threads shut down
 
-        self.helper_thread = Thread(
-            target=helper,
-            daemon=True,
-            args=(self,),
-            name='maestral-helper'
-        )
+            self.local_observer_thread = Observer(timeout=0.1)
+            self.local_observer_thread.setName('maestral-fsobserver')
+            self._watch = self.local_observer_thread.schedule(
+                self.fs_event_handler, self.sync.dropbox_path, recursive=True
+            )
+            for emitter in self.local_observer_thread.emitters:
+                emitter.setName('maestral-fsemitter')
 
-        self.startup_thread = Thread(
-            target=startup_worker,
-            daemon=True,
-            args=(
-                self.sync, self.syncing, self.running, self.connected,
-                self.startup, self.paused_by_user
-            ),
-            name='maestral-sync-startup'
-        )
+            self.helper_thread = Thread(
+                target=helper,
+                daemon=True,
+                args=(self,),
+                name='maestral-helper'
+            )
 
-        self.download_thread = Thread(
-            target=download_worker,
-            daemon=True,
-            args=(
-                self.sync, self.syncing, self.running, self.connected,
-            ),
-            name='maestral-download'
-        )
+            self.startup_thread = Thread(
+                target=startup_worker,
+                daemon=True,
+                args=(
+                    self.sync, self.syncing, self.running, self.connected,
+                    self.startup, self.paused_by_user
+                ),
+                name='maestral-sync-startup'
+            )
 
-        self.download_thread_added_folder = Thread(
-            target=download_worker_added_item,
-            daemon=True,
-            args=(
-                self.sync, self.syncing, self.running, self.connected,
-            ),
-            name='maestral-folder-download'
-        )
+            self.download_thread = Thread(
+                target=download_worker,
+                daemon=True,
+                args=(
+                    self.sync, self.syncing, self.running, self.connected,
+                ),
+                name='maestral-download'
+            )
 
-        self.upload_thread = Thread(
-            target=upload_worker,
-            daemon=True,
-            args=(
-                self.sync, self.syncing, self.running, self.connected,
-            ),
-            name='maestral-upload'
-        )
+            self.download_thread_added_folder = Thread(
+                target=download_worker_added_item,
+                daemon=True,
+                args=(
+                    self.sync, self.syncing, self.running, self.connected,
+                ),
+                name='maestral-folder-download'
+            )
 
-        try:
-            self.local_observer_thread.start()
-        except Exception as exc:
-            new_exc = fswatch_to_maestral_error(exc)
-            title = getattr(new_exc, 'title', 'Unexpected error')
-            logger.error(title, exc_info=_exc_info(new_exc))
+            self.upload_thread = Thread(
+                target=upload_worker,
+                daemon=True,
+                args=(
+                    self.sync, self.syncing, self.running, self.connected,
+                ),
+                name='maestral-upload'
+            )
 
-        self.running.set()
-        self.syncing.clear()
-        self.connected.set()
-        self.startup.set()
+            try:
+                self.local_observer_thread.start()
+            except Exception as exc:
+                new_exc = fswatch_to_maestral_error(exc)
+                title = getattr(new_exc, 'title', 'Unexpected error')
+                logger.error(title, exc_info=_exc_info(new_exc))
 
-        self.helper_thread.start()
-        self.startup_thread.start()
-        self.upload_thread.start()
-        self.download_thread.start()
-        self.download_thread_added_folder.start()
+            self.running.set()
+            self.syncing.clear()
+            self.connected.set()
+            self.startup.set()
 
-        self.paused_by_user.clear()
+            self.helper_thread.start()
+            self.startup_thread.start()
+            self.upload_thread.start()
+            self.download_thread.start()
+            self.download_thread_added_folder.start()
 
-        self._startup_time = time.time()
+            self.paused_by_user.clear()
+
+            self._startup_time = time.time()
 
     def pause(self):
         """Pauses syncing."""
 
-        self.paused_by_user.set()
-        self.syncing.clear()
+        with self._lock:
+            self.paused_by_user.set()
+            self.syncing.clear()
 
-        self.sync.cancel_pending.set()
-        self._wait_for_idle()
-        self.sync.cancel_pending.clear()
+            self.sync.cancel_pending.set()
+            self._wait_for_idle()
+            self.sync.cancel_pending.clear()
 
-        logger.info(PAUSED)
+            logger.info(PAUSED)
 
     def resume(self):
         """Checks for changes while idle and starts syncing."""
 
-        if not self.paused_by_user.is_set():
-            return
+        with self._lock:
+            if not self.paused_by_user.is_set():
+                return
 
-        self.startup.set()
-        self.paused_by_user.clear()
+            self.startup.set()
+            self.paused_by_user.clear()
 
     def stop(self):
         """Stops syncing and destroys worker threads."""
 
-        if not self.running.is_set():
-            return
+        with self._lock:
 
-        logger.info('Shutting down threads...')
+            if not self.running.is_set():
+                return
 
-        self.running.clear()
-        self.syncing.clear()
-        self.paused_by_user.clear()
-        self.startup.clear()
+            logger.info('Shutting down threads...')
 
-        self.sync.cancel_pending.set()
-        self._wait_for_idle()
-        self.sync.cancel_pending.clear()
+            self.running.clear()
+            self.syncing.clear()
+            self.paused_by_user.clear()
+            self.startup.clear()
 
-        self.local_observer_thread.stop()
-        self.local_observer_thread.join()
-        self.helper_thread.join()
-        self.upload_thread.join()
+            self.sync.cancel_pending.set()
+            self._wait_for_idle()
+            self.sync.cancel_pending.clear()
 
-        logger.info(STOPPED)
+            self.local_observer_thread.stop()
+            self.local_observer_thread.join()
+            self.helper_thread.join()
+            self.upload_thread.join()
+
+            logger.info(STOPPED)
 
     @property
     def idle_time(self):
@@ -3124,11 +3161,12 @@ def split_moved_event(event):
     return DeletedEvent(event.src_path), CreatedEvent(event.dest_path)
 
 
-def get_local_hash(local_path):
+def get_local_hash(local_path, chunk_size=1024):
     """
     Computes content hash of a local file.
 
     :param str local_path: Absolute path on local drive.
+    :param int chunk_size: Size of chunks to hash in bites.
     :returns: Content hash to compare with Dropbox's content hash,
         or 'folder' if the path points to a directory. ``None`` if there
         is nothing at the path.
@@ -3140,7 +3178,7 @@ def get_local_hash(local_path):
     try:
         with open(local_path, 'rb') as f:
             while True:
-                chunk = f.read(1024)
+                chunk = f.read(chunk_size)
                 if len(chunk) == 0:
                     break
                 hasher.update(chunk)

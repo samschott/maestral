@@ -33,6 +33,8 @@ OK = click.style('[OK]', fg='green')
 FAILED = click.style('[FAILED]', fg='red')
 KILLED = click.style('[KILLED]', fg='red')
 
+LEFT, CENTER, RIGHT = range(3)
+
 
 def stop_daemon_with_cli_feedback(config_name):
     """Wrapper around :meth:`daemon.stop_maestral_daemon_process`
@@ -199,15 +201,19 @@ def catch_maestral_errors(func):
     return wrapper
 
 
-def format_table(rows=None, columns=None, headers=None, padding_right=2):
+def format_table(rows=None, columns=None, headers=None, padding=2,
+                 alignment=None, wrap=True):
     """
     Prints given data as a pretty table. Either rows or columns must be given.s
 
     :param Optional[list] rows: List of strings for table rows.
     :param Optional[list] columns: List of strings for table columns.
     :param Optional[list] headers: List of strings for column titles.
-    :param int padding_right: Padding between columns.
-    :return: Formatted multiline string.
+    :param int padding: Padding between columns.
+    :param Optional[list] alignment: List of alignments for every column. Values can be
+        ``LEFT``, ``CENTER``, ``RIGHT``. If not given, defaults to left alignment.
+    :param bool wrap: If ``True``, wrap cell content to fit the terminal width.
+    :returns: Formatted multi-line string.
     :rtype: str
     """
 
@@ -227,15 +233,27 @@ def format_table(rows=None, columns=None, headers=None, padding_right=2):
     if all(len(col) == 0 for col in columns):
         return ''
 
-    terminal_width, terminal_height = click.get_terminal_size()
-    available_width = terminal_width - padding_right * len(columns)
+    # default to left alignment
+    if not alignment:
+        alignment = [LEFT] * len(columns)
+    elif len(alignment) != len(columns):
+        raise ValueError('Must give an alignment for every column.')
+
+    # determine column widths from terminal width and padding
 
     col_widths = tuple(max(len(cell) for cell in col) for col in columns)
 
-    n = 3
-    sum_col_widths = sum(w**n for w in col_widths)
-    subtract = max([sum(col_widths) - available_width, 0])
-    col_widths = tuple(round(w - subtract * w**n / sum_col_widths) for w in col_widths)
+    if wrap:
+
+        terminal_width, terminal_height = click.get_terminal_size()
+        available_width = terminal_width - padding * len(columns)
+
+        n = 3
+        sum_widths = sum(w**n for w in col_widths)
+        subtract = max([sum(col_widths) - available_width, 0])
+        col_widths = tuple(round(w - subtract * w**n / sum_widths) for w in col_widths)
+
+    # wrap strings to fit column
 
     wrapped_columns = []
 
@@ -243,6 +261,8 @@ def format_table(rows=None, columns=None, headers=None, padding_right=2):
         wrapped_columns.append([textwrap.wrap(cell, width=width) for cell in column])
 
     wrapped_rows = list(map(list, zip(*wrapped_columns)))
+
+    # generate lines by filling columns
 
     lines = []
 
@@ -252,8 +272,19 @@ def format_table(rows=None, columns=None, headers=None, padding_right=2):
             cell += [''] * (n_lines - len(cell))
 
         for i in range(n_lines):
-            lines.append(''.join(cell[i].ljust(width + padding_right)
-                                 for cell, width in zip(row, col_widths)))
+            line = ''
+            for cell, width, align in zip(row, col_widths, alignment):
+
+                if align == LEFT:
+                    line += cell[i].ljust(width)
+                elif align == RIGHT:
+                    line += cell[i].rjust(width)
+                elif align == CENTER:
+                    line += cell[i].center(width)
+
+                line += ' ' * padding
+
+            lines.append(line)
 
     return '\n'.join(lines)
 
@@ -378,7 +409,7 @@ def excluded():
     """View and manage excluded folders."""
 
 
-@main.group(cls=SpecialHelpOrder, help_priority=17)
+@main.group(cls=SpecialHelpOrder, help_priority=18)
 def notify():
     """Manage Desktop notifications."""
 
@@ -417,13 +448,13 @@ def gui(config_name):
 
 
 @main.command(help_priority=1)
-@config_option
 @click.option('--foreground', '-f', is_flag=True, default=False,
               help='Starts Maestral in the foreground.')
 @click.option('--verbose', '-v', is_flag=True, default=False,
               help='Print log messages to stdout.')
+@config_option
 @catch_maestral_errors
-def start(config_name: str, foreground: bool, verbose: bool):
+def start(foreground: bool, verbose: bool, config_name: str):
     """Starts the Maestral daemon."""
 
     from maestral.daemon import get_maestral_proxy
@@ -497,23 +528,23 @@ def stop(config_name: str):
 
 
 @main.command(help_priority=3)
-@existing_config_option
 @click.option('--foreground', '-f', is_flag=True, default=False,
               help='Starts Maestral in the foreground.')
 @click.option('--verbose', '-v', is_flag=True, default=False,
               help='Print log messages to stdout.')
+@existing_config_option
 @click.pass_context
-def restart(ctx, config_name: str, foreground: bool, verbose: bool):
+def restart(ctx, foreground: bool, verbose: bool, config_name: str):
     """Restarts the Maestral daemon."""
     stop_daemon_with_cli_feedback(config_name)
     ctx.forward(start)
 
 
 @main.command(help_priority=4)
-@existing_config_option
 @click.option('--yes', '-Y', is_flag=True, default=False)
 @click.option('--no', '-N', is_flag=True, default=False)
-def autostart(config_name: str, yes: bool, no: bool):
+@existing_config_option
+def autostart(yes: bool, no: bool, config_name: str):
     """
     Automatically start the maestral daemon on log-in.
 
@@ -604,9 +635,9 @@ def status(config_name: str):
 
 
 @main.command(help_priority=8)
-@existing_config_option
 @click.argument('local_path', type=click.Path(exists=True))
-def file_status(config_name: str, local_path: str):
+@existing_config_option
+def file_status(local_path: str, config_name: str):
     """
     Returns the current sync status of a given file or folder.
 
@@ -700,36 +731,84 @@ def activity(config_name: str):
 
 
 @main.command(help_priority=10)
-@existing_config_option
 @click.argument('dropbox_path', type=click.Path(), default='')
+@click.option('-l', '--long', is_flag=True, default=False,
+              help='Show output in long format with metadata.')
+@click.option('-d', '--include-deleted', is_flag=True, default=False,
+              help='Include deleted items in listing. This can be slow.')
+@existing_config_option
 @catch_maestral_errors
-def ls(dropbox_path: str, config_name: str):
+def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str):
     """Lists contents of a Dropbox directory."""
+
+    from datetime import datetime, timezone
+    from maestral.daemon import MaestralProxy
+    from maestral.client import natural_size
 
     if not dropbox_path.startswith('/'):
         dropbox_path = '/' + dropbox_path
 
-    from maestral.daemon import MaestralProxy
-
     with MaestralProxy(config_name, fallback=True) as m:
-        entries = m.list_folder(dropbox_path, recursive=False)
 
-        types = ['file' if e['type'] == 'FileMetadata' else 'folder' for e in entries]
-        shared_status = ['shared' if 'sharing_info' in e else 'private' for e in entries]
-        names = [e['name'] for e in entries]
-        excluded_status = [m.excluded_status(e['path_lower']) for e in entries]
+        entries = m.list_folder(dropbox_path, recursive=False,
+                                include_deleted=include_deleted)
+        entries.sort(key=lambda x: x['name'].lower())
 
-        click.echo('')
-        click.echo(format_table(columns=[types, shared_status, names, excluded_status]))
-        click.echo('')
+        names = []
+        types = []
+        sizes = []
+        shared = []
+        last_modified = []
+        excluded = []
+
+        if long:
+            short_type = {'FileMetadata': 'file', 'FolderMetadata': 'folder',
+                          'DeletedMetadata': 'deleted'}
+
+            for e in entries:
+
+                names.append(e['name'])
+
+                types.append(short_type[e['type']])
+
+                shared.append('shared' if 'sharing_info' in e else 'private')
+                excluded.append(m.excluded_status(e['path_lower']))
+
+                if 'size' in e:
+                    sizes.append(natural_size(e['size']))
+                else:
+                    sizes.append('-')
+
+                if 'client_modified' in e:
+                    dt = datetime.strptime(e['client_modified'], '%Y-%m-%dT%H:%M:%SZ')
+                    dt = dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
+                    last_modified.append(dt.strftime('%d %b %Y %H:%M'))
+                else:
+                    last_modified.append('-')
+
+                click.echo('')
+                click.echo(
+                    format_table(
+                        headers=['Name', 'Type', 'Size', 'Shared', 'Syncing', 'Last modified'],
+                        columns=[names, types, sizes, shared, excluded, last_modified],
+                        alignment=[LEFT, LEFT, RIGHT, LEFT, LEFT, LEFT],
+                        wrap=False
+                    ),
+                )
+                click.echo('')
+
+        else:
+            for e in entries:
+                color = 'blue' if e['type'] == 'DeletedMetadata' else 'black'
+                click.secho(e['name'], fg=color)
 
 
 @main.command(help_priority=11)
-@config_option
 @click.option('-r', 'relink', is_flag=True, default=False,
               help='Relink to the current account. Keeps the sync state.')
+@config_option
 @catch_maestral_errors
-def link(config_name: str, relink: bool):
+def link(relink: bool, config_name: str):
     """Links Maestral with your Dropbox account."""
 
     from maestral.daemon import MaestralProxy
@@ -765,10 +844,10 @@ def unlink(config_name: str):
 
 
 @main.command(help_priority=13)
-@existing_config_option
 @click.argument('new_path', required=False, type=click.Path(writable=True))
-def move_dir(config_name: str, new_path: str):
-    """Change the location of your loacl Dropbox folder."""
+@existing_config_option
+def move_dir(new_path: str, config_name: str):
+    """Change the location of your local Dropbox folder."""
 
     from maestral.daemon import MaestralProxy
 
@@ -788,7 +867,7 @@ def rebuild_index(config_name: str):
     Rebuilds Maestral's index.
 
     Rebuilding may take several minutes, depending on the size of your Dropbox. If
-    Maestral is quit while rebuilding, it will resume when rerstarted.
+    Maestral is quit while rebuilding, it will resume when restarted.
     """
 
     try:
@@ -817,6 +896,48 @@ def rebuild_index(config_name: str):
 
 
 @main.command(help_priority=16)
+@click.argument('dropbox_path', type=click.Path())
+@existing_config_option
+@catch_maestral_errors
+def revs(dropbox_path: str, config_name: str):
+    """Lists old revisions of a file."""
+    from datetime import datetime, timezone
+    from maestral.daemon import MaestralProxy
+
+    with MaestralProxy(config_name, fallback=True) as m:
+
+        entries = m.list_revisions(dropbox_path)
+
+    rev = []
+    last_modified = []
+
+    for e in entries:
+
+        rev.append(e['rev'])
+
+        dt = datetime.strptime(e['client_modified'], '%Y-%m-%dT%H:%M:%SZ')
+        dt = dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
+        last_modified.append(dt.strftime('%d %b %Y %H:%M'))
+
+    click.echo(format_table(columns=[rev, last_modified]))
+
+
+@main.command(help_priority=17)
+@click.argument('dropbox_path', type=click.Path())
+@click.argument('rev')
+@existing_config_option
+@catch_maestral_errors
+def restore(dropbox_path: str, rev: str, config_name: str):
+    """Restores an old revision of a file to the given path."""
+    from maestral.daemon import MaestralProxy
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        m.restore(dropbox_path, rev)
+
+    click.echo(f'Restored {rev} to "{dropbox_path}"')
+
+
+@main.command(help_priority=18)
 def configs():
     """Lists all configured Dropbox accounts."""
     from maestral.daemon import is_running
@@ -838,13 +959,13 @@ def configs():
     click.echo('')
 
 
-@main.command(help_priority=18)
-@existing_config_option
+@main.command(help_priority=20)
 @click.option('--yes', '-Y', is_flag=True, default=False)
 @click.option('--no', '-N', is_flag=True, default=False)
-def analytics(config_name: str, yes: bool, no: bool):
+@existing_config_option
+def analytics(yes: bool, no: bool, config_name: str):
     """
-    Enables or disables sharing error reports.
+    Enables or disables sharing of error reports.
 
     Sharing is disabled by default. If enabled, error reports are shared with bugsnag and
     no personal information will typically be collected. Shared tracebacks may however
@@ -872,7 +993,7 @@ def analytics(config_name: str, yes: bool, no: bool):
         click.echo(f'Automatic error reports are {enabled_str}.')
 
 
-@main.command(help_priority=20)
+@main.command(help_priority=22)
 @existing_config_option
 def account_info(config_name: str):
     """Shows your Dropbox account information."""
@@ -894,7 +1015,7 @@ def account_info(config_name: str):
         click.echo('')
 
 
-@main.command(help_priority=21)
+@main.command(help_priority=23)
 def about():
     """Returns the version number and other information."""
     import time
@@ -934,8 +1055,8 @@ def excluded_list(config_name: str):
 
 
 @excluded.command(name='add', help_priority=1)
-@existing_config_option
 @click.argument('dropbox_path', type=click.Path())
+@existing_config_option
 @catch_maestral_errors
 def excluded_add(dropbox_path: str, config_name: str):
     """Adds a file or folder to the excluded list and re-syncs."""
@@ -958,8 +1079,8 @@ def excluded_add(dropbox_path: str, config_name: str):
 
 
 @excluded.command(name='remove', help_priority=2)
-@existing_config_option
 @click.argument('dropbox_path', type=click.Path())
+@existing_config_option
 @catch_maestral_errors
 def excluded_remove(dropbox_path: str, config_name: str):
     """Removes a file or folder from the excluded list and re-syncs."""
@@ -1038,7 +1159,7 @@ def log_clear(config_name: str):
 @click.argument('level_name', required=False,
                 type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
 @existing_config_option
-def log_level(config_name: str, level_name: str):
+def log_level(level_name: str, config_name: str):
     """Gets or sets the log level."""
 
     from maestral.daemon import MaestralProxy
@@ -1069,7 +1190,7 @@ def log_level(config_name: str, level_name: str):
 @click.argument('level_name', required=False,
                 type=click.Choice(['NONE', 'ERROR', 'SYNCISSUE', 'FILECHANGE']))
 @existing_config_option
-def notify_level(config_name: str, level_name: str):
+def notify_level(level_name: str, config_name: str):
     """Gets or sets the level for desktop notifications."""
     from maestral.daemon import MaestralProxy
     from maestral.utils.notify import levelNameToNumber, levelNumberToName
@@ -1093,9 +1214,9 @@ def notify_level(config_name: str, level_name: str):
 
 
 @notify.command(name='snooze', help_priority=1)
-@existing_config_option
 @click.argument('minutes', type=click.IntRange(min=0))
-def notify_snooze(config_name: str, minutes: int):
+@existing_config_option
+def notify_snooze(minutes: int, config_name: str):
     """Snoozes desktop notifications of file changes."""
 
     from maestral.daemon import MaestralProxy
@@ -1111,3 +1232,7 @@ def notify_snooze(config_name: str, minutes: int):
                        'Set snooze to 0 to reset.')
         else:
             click.echo('Notifications enabled.')
+
+
+if __name__ == '__main__':
+    main()

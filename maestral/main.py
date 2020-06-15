@@ -665,7 +665,8 @@ class Maestral:
         Returns a list of fatal errors as dicts (read only). This does not include lost
         internet connections or file sync errors which only emit warnings and are tracked
         and cleared separately. Errors listed here must be acted upon for Maestral to
-        continue syncing. This list is populated by the sync threads.
+        continue syncing. This list is populated from all log messages with level ERROR
+        or higher that have ``exc_info`` attached.
         """
 
         maestral_errors = [
@@ -764,7 +765,7 @@ class Maestral:
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
-        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
@@ -781,7 +782,7 @@ class Maestral:
 
         :returns: Dropbox account information.
         :rtype: dict[str, bool]
-        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
@@ -801,7 +802,7 @@ class Maestral:
 
         :returns: Path to saved profile picture or ``None`` if no profile picture is set.
         :rtype: str
-        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
@@ -823,23 +824,62 @@ class Maestral:
         List all items inside the folder given by ``dbx_path``. Keyword arguments are
         passed on the the Dropbox API call :meth:`client.DropboxClient.list_folder`.
 
-        :param dbx_path: Path to folder on Dropbox.
-        :returns: List of Dropbox item metadata as dicts or ``False`` if listing failed
-            due to connection issues.
+        :param str dbx_path: Path to folder on Dropbox.
+        :returns: List of Dropbox item metadata as dicts.
         :rtype: list[dict]
         :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
         :raises: :class:`errors.NotAFolderError` if the given path refers to a file.
-        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
         res = self.client.list_folder(dbx_path, **kwargs)
-
         entries = [dropbox_stone_to_dict(e) for e in res.entries]
 
         return entries
+
+    @require_linked
+    def list_revisions(self, dbx_path, limit=10):
+        """
+        List revisions of old files at the given path ``dbx_path``. This will also return
+        revisions if the file has already been deleted.
+
+        :param str dbx_path: Path to folder on Dropbox.
+        :param int limit: Maximum number of revisions to list.
+        :returns: List of Dropbox file metadata as dicts.
+        :rtype: list[dict]
+        :raises: :class:`errors.NotFoundError` if there never was a file at the given path.
+        :raises: :class:`errors.IsAFolderError` if the given path refers to a folder.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
+        :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        """
+
+        res = self.client.list_revisions(dbx_path, limit=limit)
+        entries = [dropbox_stone_to_dict(e) for e in res.entries]
+
+        return entries
+
+    @require_linked
+    def restore(self, dbx_path, rev):
+        """
+        Restore an old revision of a file.
+
+        :param str dbx_path: The path to save the restored file.
+        :param str rev: The revision to restore. Old revisions can be listed with
+            :meth:`list_revisions`.
+        :returns: Metadata of the returned file.
+        :rtype: dict
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
+        :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        """
+
+        res = self.client.restore(dbx_path, rev)
+
+        return dropbox_stone_to_dict(res)
 
     def _delete_old_profile_pics(self):
         for file in os.listdir(get_cache_path('maestral')):
@@ -928,7 +968,7 @@ class Maestral:
         :param str dbx_path: Dropbox path of item to exclude.
         :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
-        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
@@ -990,7 +1030,7 @@ class Maestral:
         :param str dbx_path: Dropbox path of item to include.
         :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
         :raises: :class:`errors.PathError` if the path lies inside an excluded folder.
-        :raises: :class:`errors.DropboxAuthError` in case of invalid access token.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.

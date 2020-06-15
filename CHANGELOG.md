@@ -1,9 +1,47 @@
-## v1.0.3.dev
+## v1.1.0
+
+This release expands the CLI functionality and improves the handling of file modification
+times during upload and download (used for display purposes only). It also fixes bugs
+with the "start on login" functionality of the macOS app bundle. After updating, please
+toggle "start on login" in the GUI or `maestral autostart` in the CLI to replace any old
+login items.
+
+#### Added:
+
+- Added `--include-deleted | -d` option to `maestral ls`.
+- Added `--long | -l` option to `maestral ls` to include metadata in listing.
+- Added `maestral revs` command to list revisions of a file.
+- Added `maestral restore` command to restore an old revision of a file.
+
+#### Changed:
+
+- Always create config directory if it does not exist.
+- Improved performance of converting Dropbox paths to correctly cased local paths.
+- Renamed macOS executable inside app bundle from "main" to "Maestral". This results in
+  more informative process names.
+- Local files are now created with the "last modified" time provided by Dropbox servers.
+  This only applies to new downloads. To update existing modified times, you will need to
+  delete and redownload your Dropbox folder.
+
+#### Fixed:
+
+- Fixes a thread-safety issue with desktop notifications.
+- Fixes a thread-safety issue when two frontends try to start or stop syncing at the same
+  time.
+- Fixes an issue where Maestral could incorrectly identify a file system as case
+  sensitive if the Dropbox folder and temporary directory are on partitions with different
+  file systems.
+- Fixes incorrect file modification times uploaded to Dropbox for timezones outside of
+  UTC. Those times are used for display purposes only.
+- Fixes an issue where the `maestral autostart -Y` CLI command would start the GUI on
+  on login in case of the macOS app bundle.
+
+## v1.0.3
 
 #### Changed:
 
 - Both "-h" and "--help" can now be used to print help output for a command.
-- Show both the daemon and GUI version in the GUI settings window.
+- Show both the daemon and GUI version in the settings window.
 - The command line tool bundled with the macOS app now provides proper help output.
 - Significantly reduced CPU usage of the GUI on macOS.
 - The macOS app now uses a hardened runtime and is properly signed and notarized.
@@ -20,7 +58,7 @@
 - Fixes an issue on fresh macOS installs where creating autostart entries could fail if
   /Library/LaunchAgents does not yet exist.
 - Fixes an issue in the macOS app bundle where installing the command line could tool
-  would fail if /usr/local/bin is owned by root (as is default on a fresh install). Now, 
+  would fail if /usr/local/bin is owned by root (as is default on a fresh install). Now,
   the user is asked for permission instead.
 
 #### Dependencies:
