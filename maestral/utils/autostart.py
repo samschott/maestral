@@ -108,9 +108,9 @@ class AutoStartSystemd(AutoStartBase):
                 self.contents += f'{key} = {value}\n'
             self.contents += '\n'
 
-        self.contents += f'[Service]\n'
+        self.contents += '[Service]\n'
         self.contents += f'Type = {service_type}\n'
-        self.contents += f'NotifyAccess = exec\n'
+        self.contents += 'NotifyAccess = exec\n'
         self.contents += f'ExecStart = {start_cmd}\n'
         if stop_cmd:
             self.contents += f'ExecStop = {stop_cmd}\n'
@@ -122,7 +122,7 @@ class AutoStartSystemd(AutoStartBase):
         self.contents += '\n'
 
         self.contents += '[Install]\n'
-        self.contents += f'WantedBy = default.target\n'
+        self.contents += 'WantedBy = default.target\n'
         if install_dict:
             for key, value in install_dict.items():
                 self.contents += f'{key} = {value}\n'
@@ -154,24 +154,22 @@ class AutoStartLaunchd(AutoStartBase):
     :param str start_cmd: Absolute path to executable and optional program arguments.
     """
 
-    template = """
-<?xml version="1.0" encoding="UTF-8"?>
+    template = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>Label</key>
-	<string>{bundle_id}</string>
-	<key>ProcessType</key>
-	<string>Interactive</string>
-	<key>ProgramArguments</key>
-	<array>
+    <key>Label</key>
+    <string>{bundle_id}</string>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+    <key>ProgramArguments</key>
+    <array>
 {start_cmd}
-	</array>
-	<key>RunAtLoad</key>
-	<true/>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
 </dict>
-</plist>
-"""
+</plist>"""
 
     def __init__(self, bundle_id, start_cmd):
 
@@ -309,6 +307,9 @@ class AutoStart:
             )
 
         elif self.implementation == SupportedImplementations.systemd:
+
+            notify_failure = 'if [ ${{SERVICE_RESULT}} != success ]; then notify-send Maestral \'Daemon failed\'; fi'
+
             self._impl = AutoStartSystemd(
                 service_name=f'maestral-daemon@{config_name}.service',
                 start_cmd=start_cmd.replace(config_name, '%i'),
@@ -316,7 +317,7 @@ class AutoStart:
                 notify=True,
                 watchdog_sec=30,
                 unit_dict={'Description': 'Maestral daemon for the config %i'},
-                service_dict={'ExecStopPost': '/usr/bin/env bash -c "if [ ${{SERVICE_RESULT}} != success ]; then notify-send Maestral \'Daemon failed\'; fi"'}
+                service_dict={'ExecStopPost': f'/usr/bin/env bash -c "{notify_failure}"'}
             )
 
         else:
