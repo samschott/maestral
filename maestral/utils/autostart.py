@@ -308,7 +308,7 @@ class AutoStart:
 
         elif self.implementation == SupportedImplementations.systemd:
 
-            notify_failure = 'if [ ${{SERVICE_RESULT}} != success ]; then notify-send Maestral \'Daemon failed\'; fi'
+            notify_failure = 'if [ ${SERVICE_RESULT} != success ]; then notify-send Maestral \'Daemon failed: ${SERVICE_RESULT}\'; fi'
 
             self._impl = AutoStartSystemd(
                 service_name=f'maestral-daemon@{config_name}.service',
