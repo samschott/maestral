@@ -1,4 +1,4 @@
-## v1.1.0.dev
+## v1.1.0
 
 This release expands the CLI functionality and improves the handling of file modification
 times during upload and download (used for display purposes only). It also fixes bugs
