@@ -18,7 +18,7 @@ login items.
 - Always create config directory if it does not exist.
 - Improved performance of converting Dropbox paths to correctly cased local paths.
 - Renamed macOS executable inside app bundle from "main" to "Maestral". This results in
-  less confusing process names.
+  more informative process names.
 - Local files are now created with the "last modified" time provided by Dropbox servers.
   This only applies to new downloads. To update existing modified times, you will need to
   delete and redownload your Dropbox folder.
@@ -26,8 +26,11 @@ login items.
 #### Fixed:
 
 - Fixes a thread-safety issue with desktop notifications.
+- Fixes a thread-safety issue when two frontends try to start or stop syncing at the same
+  time.
 - Fixes an issue where Maestral could incorrectly identify a file system as case
-  sensitive if the Dropbox folder lies on a partition other than TEMPDIR.
+  sensitive if the Dropbox folder and temporary directory are on partitions with different
+  file systems.
 - Fixes incorrect file modification times uploaded to Dropbox for timezones outside of
   UTC. Those times are used for display purposes only.
 - Fixes an issue where the `maestral autostart -Y` CLI command would start the GUI on
