@@ -1111,22 +1111,29 @@ def excluded_remove(dropbox_path: str, config_name: str):
 # ========================================================================================
 
 @log.command(name='show', help_priority=0)
+@click.option('--external', '-e', is_flag=True, default=False,
+              help='Open in external program.')
 @existing_config_option
-def log_show(config_name: str):
+def log_show(external: bool, config_name: str):
     """Prints Maestral's logs to the console."""
     from maestral.utils.appdirs import get_log_path
 
     log_file = get_log_path('maestral', config_name + '.log')
-
-    if os.path.isfile(log_file):
+ 
+    if external:
+         res = click.launch(log_file)
+    else:
         try:
             with open(log_file) as f:
                 text = f.read()
             click.echo_via_pager(text)
         except OSError:
-            raise click.ClickException(f'Could not open log file at \'{log_file}\'')
-    else:
-        click.echo_via_pager('')
+            res = 1
+        else:
+            res = 0
+
+    if res > 0:
+        raise click.ClickException(f'Could not open log file at \'{log_file}\'')
 
 
 @log.command(name='clear', help_priority=1)
