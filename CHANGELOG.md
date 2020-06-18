@@ -1,3 +1,10 @@
+## v1.2.0.dev
+
+#### Added:
+
+- Added an option `--external` to `maestral log show` to open the log in the platform's
+  default program instead of showing it in the console.
+
 ## v1.1.0
 
 This release expands the CLI functionality and improves the handling of file modification
