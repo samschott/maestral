@@ -54,6 +54,7 @@ from maestral.constants import (
     BUGSNAG_API_KEY, IDLE, FileStatus,
 )
 
+
 logger = logging.getLogger(__name__)
 sd_notifier = sdnotify.SystemdNotifier()
 
@@ -193,7 +194,7 @@ class Maestral:
         self._setup_logging()
 
         self._auth = OAuth2Session(config_name)
-        self.client = DropboxClient(config_name=self.config_name, access_token='none')
+        self.client = DropboxClient(config_name=self.config_name, refresh_token='none')
         self.monitor = SyncMonitor(self.client)
         self.sync = self.monitor.sync
 
@@ -258,7 +259,11 @@ class Maestral:
         if res == self._auth.Success:
             self._auth.save_creds()
 
-            self.client.set_access_token(self._auth.access_token)
+            self.client.set_token(
+                refresh_token=self._auth.refresh_token,
+                access_token=self._auth.access_token,
+                expires_at=self._auth.expires_at,
+            )
 
             try:
                 self.get_account_info()
@@ -299,7 +304,7 @@ class Maestral:
         try:
             self._auth.delete_creds()
         except keyring.errors.PasswordDeleteError:
-            logger.warning('Could not delete auth token', exc_info=True)
+            logger.warning('Could not delete OAuth2 token', exc_info=True)
 
         logger.info('Unlinked Dropbox account.')
 
@@ -533,11 +538,19 @@ class Maestral:
         """Bool indicating if Maestral is linked to a Dropbox account (read only). This
         will block until the user's keyring is unlocked to load the saved auth token."""
 
-        token = self._auth.access_token  # triggers keyring access
-        if token != '':
-            self.client.set_access_token(token)
+        if self._auth.token_access_type == 'legacy':
+            access_token = self._auth.access_token  # triggers keyring access
+            if access_token:
+                self.client.set_token(access_token=access_token)
 
-        return token == ''
+            return not access_token
+
+        else:
+            refresh_token = self._auth.refresh_token  # triggers keyring access
+            if refresh_token:
+                self.client.set_token(refresh_token=refresh_token)
+
+            return not refresh_token
 
     @property
     def pending_dropbox_folder(self):

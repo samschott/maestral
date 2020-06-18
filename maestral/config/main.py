@@ -61,7 +61,8 @@ DEFAULTS_STATE = [
          'abbreviated_name': '',
          'type': '',
          'usage': '',
-         'usage_type': '',
+         'usage_type': '',  # private vs business
+         'token_access_type': 'legacy',  # this will be updated on completed OAuth
      }
      ),
     ('app',  # app state

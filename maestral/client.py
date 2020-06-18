@@ -21,11 +21,13 @@ from datetime import datetime, timezone
 # external imports
 import requests
 from dropbox import Dropbox, dropbox, files, users, exceptions
+from dropbox.dropbox import BadInputException
 
 # local imports
 from maestral import __version__
 from maestral.config import MaestralState
 from maestral.errors import SyncError, dropbox_to_maestral_error, os_to_maestral_error
+from maestral.constants import DROPBOX_APP_KEY
 
 
 logger = logging.getLogger(__name__)
@@ -142,7 +144,7 @@ class DropboxClient:
 
     SDK_VERSION = '2.0'
 
-    def __init__(self, config_name, access_token, timeout=100):
+    def __init__(self, config_name, refresh_token, timeout=100):
 
         self.config_name = config_name
 
@@ -151,14 +153,21 @@ class DropboxClient:
 
         # initialize API client
         self.dbx = Dropbox(
-            access_token,
+            app_key=DROPBOX_APP_KEY,
+            oauth2_refresh_token=refresh_token,
             session=SESSION,
             user_agent=USER_AGENT,
             timeout=timeout
         )
 
-    def set_access_token(self, token):
-        self.dbx._oauth2_access_token = token
+    def set_token(self, refresh_token=None, access_token=None, expires_at=None):
+
+        if not (access_token or refresh_token):
+            raise BadInputException('OAuth2 access token or refresh token must be set')
+
+        self.dbx._oauth2_access_token = access_token
+        self.dbx._oauth2_refresh_token = refresh_token
+        self.dbx._oauth2_access_token_expiration = expires_at
 
     @to_maestral_error()
     def get_account_info(self, dbid=None):
