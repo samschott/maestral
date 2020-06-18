@@ -29,6 +29,7 @@ import functools
 from enum import IntEnum
 import pprint
 import socket
+from datetime import datetime
 
 # external imports
 import pathspec
@@ -2172,12 +2173,14 @@ class SyncEngine:
                     last_emit = time.time()
                 downloaded.append(f.result())
 
+        # book keeping
         success = all(downloaded)
 
         if save_cursor and not self.cancel_pending.is_set():
             self.last_cursor = changes.cursor
 
         self._clean_and_save_rev_file()
+        self._save_to_history(changes_included.entries)
 
         return [entry for entry in downloaded if isinstance(entry, Metadata)], success
 
@@ -2475,7 +2478,6 @@ class SyncEngine:
 
         self.clear_sync_error(dbx_path=entry.path_display)
         remove_from_queue(self.queued_for_download, entry.path_display)
-        self._save_to_history(entry.path_display)
 
         with InQueue(self.queue_downloading, entry.path_display):
 
@@ -2612,12 +2614,25 @@ class SyncEngine:
                 else:
                     self.fs_events.local_file_event_queue.put(FileCreatedEvent(path))
 
-    def _save_to_history(self, dbx_path):
-        # add new file to recent_changes
-        recent_changes = self._state.get('sync', 'recent_changes')
-        recent_changes.append(dbx_path)
-        # eliminate duplicates
-        recent_changes = list(dict.fromkeys(recent_changes))
+    def _save_to_history(self, entries):
+        """
+        Saves remote changes to the history database.
+
+        :param list[Metadata] entries: Dropbox Metadata.
+        """
+
+        def get_cmod_time(entry):
+            return getattr(entry, 'client_modified', datetime.fromtimestamp(0))
+
+        # sort with most recent first
+        entries.sort(reverse=True, key=get_cmod_time)
+
+        # only keep file changes
+        new_changes = [e.path_display for e in entries if isinstance(e, FileMetadata)]
+
+        # add new entries to recent_changes and save
+        old_changes = self._state.get('sync', 'recent_changes')
+        recent_changes = new_changes + old_changes
         self._state.set('sync', 'recent_changes', recent_changes[-self._max_history:])
 
 
