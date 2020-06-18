@@ -786,16 +786,16 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str):
                 else:
                     last_modified.append('-')
 
-                click.echo('')
-                click.echo(
-                    format_table(
-                        headers=['Name', 'Type', 'Size', 'Shared', 'Syncing', 'Last modified'],
-                        columns=[names, types, sizes, shared, excluded, last_modified],
-                        alignment=[LEFT, LEFT, RIGHT, LEFT, LEFT, LEFT],
-                        wrap=False
-                    ),
-                )
-                click.echo('')
+            click.echo('')
+            click.echo(
+                format_table(
+                    headers=['Name', 'Type', 'Size', 'Shared', 'Syncing', 'Last modified'],
+                    columns=[names, types, sizes, shared, excluded, last_modified],
+                    alignment=[LEFT, LEFT, RIGHT, LEFT, LEFT, LEFT],
+                    wrap=False
+                ),
+            )
+            click.echo('')
 
         else:
             for e in entries:
