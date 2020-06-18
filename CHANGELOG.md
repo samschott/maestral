@@ -15,8 +15,8 @@ login items.
 
 #### Added:
 
-- Added `--include-deleted | -d` option to `maestral ls`.
-- Added `--long | -l` option to `maestral ls` to include metadata in listing.
+- Added `--include-deleted` option to `maestral ls`.
+- Added `--long` option to `maestral ls` to include metadata in listing.
 - Added `maestral revs` command to list revisions of a file.
 - Added `maestral restore` command to restore an old revision of a file.
 
