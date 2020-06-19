@@ -10,8 +10,10 @@ This module contains migration code to run after an update.
 
 # system imports
 import logging
+from packaging.version import Version
 
 # local imports
+from maestral import __version__
 from maestral.config import MaestralConfig, MaestralState
 from maestral.config.base import get_data_path
 from maestral.utils.path import delete
@@ -30,3 +32,24 @@ def remove_configuration(config_name):
     MaestralState(config_name).cleanup()
     index_file = get_data_path('maestral', f'{config_name}.index')
     delete(index_file)
+
+
+def check_and_run_post_update_scripts(config_name):
+    """
+    Runs post-update scripts if necessary.
+
+    :param str config_name: The configuration to remove.
+    """
+
+    state = MaestralState(config_name)
+    updated_from = state.get('app', 'updated_scripts_completed')
+
+    if Version(updated_from) >= Version(__version__):
+        return
+
+    _run_post_update_scripts(config_name)
+    state.set('app', 'updated_scripts_completed', __version__)
+
+
+def _run_post_update_scripts(config_name):
+    pass
