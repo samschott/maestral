@@ -81,6 +81,15 @@ class OAuth2Session:
         * Gnome Keyring
         * Plain text storage
 
+    When the auth flow is completed, a short-lived access token and a long-lived refresh
+    token are generated. Only the long-lived refresh token will be saved in the system
+    keychain for future sessions, it can be used to generate short-lived access tokens
+    as needed.
+
+    If the auth flow was previously completed before Dropbox migrated to short-lived
+    tokens, the ``token_access_type`` will be 'legacy' and only a long-lived access token
+    will be available.
+
     .. warning:: Unlike MacOS Keychain, Gnome Keyring and KWallet do not support
         app-specific access to passwords. If the user unlocks those keyrings, we and any
         other application in the same user session get access to *all* saved passwords.
@@ -96,6 +105,8 @@ class OAuth2Session:
     InvalidToken = 1
     ConnectionFailed = 2
 
+    default_token_access_type = 'offline'
+
     _lock = RLock()
 
     def __init__(self, config_name, app_key=DROPBOX_APP_KEY):
@@ -109,7 +120,7 @@ class OAuth2Session:
         self._auth_flow = DropboxOAuth2FlowNoRedirect(
             self._app_key,
             use_pkce=True,
-            token_access_type='offline'
+            token_access_type=self.default_token_access_type
         )
         self._oAuth2FlowResult = None
 
@@ -123,6 +134,9 @@ class OAuth2Session:
 
     @property
     def token_access_type(self):
+        """Returns the type of access token. If 'legacy', we have a long-lived access
+        token. If 'offline', we have a short-lived access token with an expiry time and
+        a long-lived refresh token to generate new access tokens."""
         return self._state.get('account', 'token_access_type')
 
     @token_access_type.setter
@@ -136,8 +150,11 @@ class OAuth2Session:
 
     @property
     def access_token(self):
-        """Returns the access token (read only). This will only be set if we linked
-        during the current session. This will block until the keyring is unlocked."""
+        """Returns the access token (read only). This will always be set for a 'legacy'
+        token. For an 'offline' token, this will only be set if we completed the auth flow
+        in the current session. In case of an 'offline' token, use the refresh token to
+        retrieve a short-lived access token through the Dropbox API instead. The call will
+        block until the keyring is unlocked."""
 
         with self._lock:
             if not self._loaded:
@@ -147,8 +164,8 @@ class OAuth2Session:
 
     @property
     def refresh_token(self):
-        """Returns the refresh token (read only). This will block until the keyring is
-        unlocked."""
+        """Returns the refresh token (read only). This will only be set for an 'offline'
+        token. The call will block until the keyring is unlocked."""
 
         with self._lock:
             if not self._loaded:
@@ -158,17 +175,21 @@ class OAuth2Session:
 
     @property
     def expires_at(self):
-        """Returns the expiry time for the access token. This will only be set if we
-        linked during the current session. """
+        """Returns the expiry time for the short-lived access token. This will only be
+        set for an 'offline' token and if we completed the flow during the current
+        session."""
         return self._expires_at
 
     def _load_token(self):
         """
-        Load auth tokens from system keyring.
+        Load auth token from system keyring.
 
         :raises: :class:`keyring.errors.KeyringLocked` if the system keyring is locked.
         """
         logger.debug(f'Using keyring: {self.keyring}')
+
+        if not self._account_id:
+            return
 
         try:
             token = self.keyring.get_password('Maestral', self._account_id)
