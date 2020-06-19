@@ -127,7 +127,7 @@ class OAuth2Session:
 
     @token_access_type.setter
     def token_access_type(self, value):
-        self._state.get('account', 'token_access_type', value)
+        self._state.set('account', 'token_access_type', value)
 
     @property
     def account_id(self):
