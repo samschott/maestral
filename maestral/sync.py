@@ -1622,7 +1622,7 @@ class SyncEngine:
 
         self._slow_down()
 
-        # book keeping
+        # housekeeping
         local_path_from = event.src_path
         local_path_to = get_dest_path(event)
 
@@ -2173,7 +2173,7 @@ class SyncEngine:
                     last_emit = time.time()
                 downloaded.append(f.result())
 
-        # book keeping
+        # housekeeping
         success = all(downloaded)
 
         if save_cursor and not self.cancel_pending.is_set():
@@ -2473,7 +2473,7 @@ class SyncEngine:
 
         self._slow_down()
 
-        # book keeping
+        # housekeeping
         local_path = self.get_local_path(entry)
 
         self.clear_sync_error(dbx_path=entry.path_display)
