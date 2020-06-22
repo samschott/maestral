@@ -449,6 +449,7 @@ class Maestral:
         else:
             return self.sync.dropbox_path
 
+    @property
     def excluded_items(self):
         """
         Returns a list of excluded folders (read only). Use :meth:`exclude_item`,
