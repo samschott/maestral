@@ -148,8 +148,9 @@ class DropboxClient:
 
         self.config_name = config_name
 
-        self._state = MaestralState(config_name)
+        self._timeout = timeout
         self._backoff_until = 0
+        self._state = MaestralState(config_name)
 
         # initialize API client
         self.dbx = Dropbox(
@@ -157,17 +158,21 @@ class DropboxClient:
             oauth2_refresh_token=refresh_token,
             session=SESSION,
             user_agent=USER_AGENT,
-            timeout=timeout
+            timeout=self._timeout
         )
 
-    def set_token(self, refresh_token=None, access_token=None, expires_at=None):
+    def set_token(self, refresh_token=None, access_token=None,
+                  access_token_expiration=None):
 
-        if not (access_token or refresh_token):
-            raise BadInputException('OAuth2 access token or refresh token must be set')
-
-        self.dbx._oauth2_access_token = access_token
-        self.dbx._oauth2_refresh_token = refresh_token
-        self.dbx._oauth2_access_token_expiration = expires_at
+        self.dbx = Dropbox(
+            oauth2_refresh_token=refresh_token,
+            oauth2_access_token=access_token,
+            oauth2_access_token_expiration=access_token_expiration,
+            app_key=DROPBOX_APP_KEY,
+            session=SESSION,
+            user_agent=USER_AGENT,
+            timeout=self._timeout
+        )
 
     @to_maestral_error()
     def get_account_info(self, dbid=None):
