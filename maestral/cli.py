@@ -18,6 +18,7 @@ import functools
 import logging
 import textwrap
 import platform
+import time
 
 # external imports
 import click
@@ -141,8 +142,15 @@ def check_for_updates():
     from packaging.version import Version
     from maestral import __version__
 
+    conf = MaestralConfig('maestral')
     state = MaestralState('maestral')
+
+    interval = conf.get('app', 'update_notification_interval')
+    last_update_check = state.get('app', 'update_notification_last')
     latest_release = state.get('app', 'latest_release')
+
+    if interval == 0 or time.time() - last_update_check < interval:
+        return
 
     has_update = Version(__version__) < Version(latest_release)
 
