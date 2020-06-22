@@ -174,7 +174,7 @@ class OAuth2Session:
             return self._refresh_token
 
     @property
-    def expires_at(self):
+    def access_token_expiration(self):
         """Returns the expiry time for the short-lived access token. This will only be
         set for an 'offline' token and if we completed the flow during the current
         session."""

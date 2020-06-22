@@ -262,7 +262,7 @@ class Maestral:
             self.client.set_token(
                 refresh_token=self._auth.refresh_token,
                 access_token=self._auth.access_token,
-                expires_at=self._auth.expires_at,
+                access_token_expiration=self._auth.access_token_expiration,
             )
 
             try:
