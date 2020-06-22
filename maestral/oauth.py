@@ -201,10 +201,11 @@ class OAuth2Session:
 
             self._loaded = True
         except KeyringLocked:
-            info = f'Could not load token. {self.keyring.name} is locked.'
-            logger.error(info)
-            raise KeyringAccessError('Could not load token',
-                                     f'{self.keyring.name} is locked.')
+            title = f'Could not load auth token, {self.keyring.name} is locked'
+            msg = 'Please unlock the keyring and try again.'
+            exc = KeyringAccessError(title, msg)
+            logger.error(title, exc_info=_exc_info(exc))
+            raise exc
 
     def get_auth_url(self):
         """
@@ -278,11 +279,16 @@ class OAuth2Session:
                 self.keyring.delete_password('Maestral', self._account_id)
                 click.echo(' > Credentials removed.')
             except KeyringLocked:
-                info = f'Could not delete token. {self.keyring.name} is locked.'
-                logger.error(info)
-                raise KeyringAccessError('Could not delete token',
-                                         f'{self.keyring.name} is locked.')
+                title = f'Could not delete auth token, {self.keyring.name} is locked'
+                msg = 'Please unlock the keyring and try again.'
+                exc = KeyringAccessError(title, msg)
+                logger.error(title, exc_info=_exc_info(exc))
+                raise exc
             finally:
                 self._account_id = None
                 self._access_token = None
                 self._refresh_token = None
+
+
+def _exc_info(exc):
+    return type(exc), exc, exc.__traceback__
