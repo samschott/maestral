@@ -4,6 +4,10 @@
 
 - Added an option `--external` to `maestral log show` to open the log in the platform's
   default program instead of showing it in the console.
+  
+#### Changed:
+
+- Transition to short-lived auth tokens for newly linked accounts.
 
 ## v1.1.0
 
