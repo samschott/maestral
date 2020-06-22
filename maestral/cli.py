@@ -620,10 +620,11 @@ def status(config_name: str):
             color = 'red' if n_errors > 0 else 'green'
             n_errors_str = click.style(str(n_errors), fg=color)
             click.echo('')
-            click.echo('Account:       {}'.format(m.get_state('account', 'email')))
-            click.echo('Usage:         {}'.format(m.get_state('account', 'usage')))
-            click.echo('Status:        {}'.format(m.status))
-            click.echo('Sync errors:   {}'.format(n_errors_str))
+            click.echo('Account:      {}'.format(m.get_state('account', 'email')))
+            click.echo('Usage:        {}'.format(m.get_state('account', 'usage')))
+            click.echo('Status:       {}'.format(m.status))
+            click.echo('Sync threads: {}'.format('Running' if m.running else 'Stopped'))
+            click.echo('Sync errors:  {}'.format(n_errors_str))
             click.echo('')
 
             check_for_fatal_errors(m)
