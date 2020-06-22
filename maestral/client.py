@@ -21,7 +21,6 @@ from datetime import datetime, timezone
 # external imports
 import requests
 from dropbox import Dropbox, dropbox, files, users, exceptions
-from dropbox.dropbox import BadInputException
 
 # local imports
 from maestral import __version__
