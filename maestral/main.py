@@ -569,23 +569,15 @@ class Maestral:
         Bool indicating if Maestral is syncing (read only). It will be ``True`` if syncing
         is not paused by the user *and* Maestral is connected to the internet.
         """
-
-        if self.pending_link:
-            return False
-        else:
-            return (self.monitor.syncing.is_set()
-                    or self.monitor.startup.is_set()
-                    or self.sync.busy())
+        return (self.monitor.syncing.is_set()
+                or self.monitor.startup.is_set()
+                or self.sync.busy())
 
     @property
     def paused(self):
         """Bool indicating if syncing is paused by the user (read only). This is set by
         calling :meth:`pause`."""
-
-        if self.pending_link:
-            return False
-        else:
-            return self.monitor.paused_by_user.is_set() and not self.sync.busy()
+        return self.monitor.paused_by_user.is_set() and not self.sync.busy()
 
     @property
     def running(self):
@@ -593,11 +585,7 @@ class Maestral:
         Bool indicating if sync threads are running (read only). They will be stopped
         before :meth:`start_sync` is called, when shutting down or because of an exception.
         """
-
-        if self.pending_link:
-            return False
-        else:
-            return self.monitor.running.is_set() or self.sync.busy()
+        return self.monitor.running.is_set() or self.sync.busy()
 
     @property
     def connected(self):
