@@ -1259,7 +1259,8 @@ class Maestral:
 
     def _periodic_refresh(self):
         while True:
-            if not self.pending_link:
+            # update account info
+            if self.client.dbx:
                 self.get_account_info()
                 self.get_profile_pic()
             # check for maestral updates
