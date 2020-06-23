@@ -22,7 +22,7 @@ import requests
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 
 # local imports
-from maestral.config import MaestralConfig, MaestralState
+from maestral.config import MaestralConfig
 from maestral.constants import DROPBOX_APP_KEY
 from maestral.client import CONNECTION_ERRORS
 from maestral.errors import KeyringAccessError
@@ -115,7 +115,6 @@ class OAuth2Session:
 
         self.keyring = get_keyring_backend(config_name)
         self._conf = MaestralConfig(config_name)
-        self._state = MaestralState(config_name)
 
         self._auth_flow = DropboxOAuth2FlowNoRedirect(
             self._app_key,
@@ -137,11 +136,11 @@ class OAuth2Session:
         """Returns the type of access token. If 'legacy', we have a long-lived access
         token. If 'offline', we have a short-lived access token with an expiry time and
         a long-lived refresh token to generate new access tokens."""
-        return self._state.get('account', 'token_access_type')
+        return self._conf.get('account', 'token_access_type')
 
     @token_access_type.setter
     def token_access_type(self, value):
-        self._state.set('account', 'token_access_type', value)
+        self._conf.set('account', 'token_access_type', value)
 
     @property
     def account_id(self):

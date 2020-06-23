@@ -34,6 +34,7 @@ DEFAULTS = [
     ('account',
      {
          'account_id': '',  # dropbox account id, must match the saved account key
+         'token_access_type': 'legacy',  # will be updated on completed OAuth
      }
      ),
     ('app',
@@ -62,7 +63,6 @@ DEFAULTS_STATE = [
          'type': '',
          'usage': '',
          'usage_type': '',  # private vs business
-         'token_access_type': 'legacy',  # will be updated on completed OAuth
      }
      ),
     ('app',  # app state
