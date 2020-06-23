@@ -2622,18 +2622,23 @@ class SyncEngine:
         """
 
         def get_cmod_time(entry):
-            return getattr(entry, 'client_modified', datetime.fromtimestamp(0))
-
-        # sort with most recent first
-        entries.sort(reverse=True, key=get_cmod_time)
+            try:
+                return entry.get(entry, 'client_modified')
+            except AttributeError:
+                return datetime.fromtimestamp(0)
 
         # only keep file changes
-        new_changes = [e.path_display for e in entries if isinstance(e, FileMetadata)]
+        file_changes = [{'path': e.path_display, 'client_modified': e.client_modified}
+                        for e in entries if isinstance(e, FileMetadata)]
 
-        # add new entries to recent_changes and save
         old_changes = self._state.get('sync', 'recent_changes')
-        recent_changes = new_changes + old_changes
-        self._state.set('sync', 'recent_changes', recent_changes[-self._max_history:])
+        changes = file_changes + old_changes
+
+        # sort with most recent first
+        file_changes.sort(reverse=True, key=get_cmod_time)
+
+        # save
+        self._state.set('sync', 'recent_changes', changes[-self._max_history:])
 
 
 # ========================================================================================
