@@ -9,7 +9,6 @@ This module defines the main API which is exposed to the CLI or GUI.
 """
 
 # system imports
-import functools
 import sys
 import os
 import os.path as osp
@@ -26,6 +25,7 @@ import keyring.errors
 from watchdog.events import DirDeletedEvent, FileDeletedEvent
 import bugsnag
 from bugsnag.handlers import BugsnagHandler
+from packaging.version import Version
 
 try:
     from systemd import journal
@@ -53,6 +53,7 @@ from maestral.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
     BUGSNAG_API_KEY, IDLE, FileStatus,
 )
+
 
 logger = logging.getLogger(__name__)
 sd_notifier = sdnotify.SystemdNotifier()
@@ -196,6 +197,8 @@ class Maestral:
         self.client = DropboxClient(config_name=self.config_name, access_token='none')
         self.monitor = SyncMonitor(self.client)
         self.sync = self.monitor.sync
+
+        self._check_and_run_post_update_scripts()
 
         # periodically check for updates and refresh account info
         self.update_thread = Thread(
@@ -1242,8 +1245,21 @@ class Maestral:
             raise NoDropboxDirError('No local Dropbox directory',
                                     'Run "create_dropbox_directory" to set up.')
 
-    def _loop_condition(self):
-        return self._daemon_running
+    def _check_and_run_post_update_scripts(self):
+        """
+        Runs post-update scripts if necessary.
+        """
+
+        updated_from = self.get_state('app', 'updated_scripts_completed')
+
+        if Version(updated_from) >= Version(__version__):
+            return
+
+        self._run_post_update_scripts()
+        self.set_state('app', 'updated_scripts_completed', __version__)
+
+    def _run_post_update_scripts(self):
+        pass
 
     def _periodic_refresh(self):
         while True:
@@ -1261,6 +1277,9 @@ class Maestral:
         while True:
             sd_notifier.notify('WATCHDOG=1')
             time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
+
+    def _loop_condition(self):
+        return self._daemon_running
 
     def __del__(self):
         try:
