@@ -952,7 +952,7 @@ def recent_changes(config_name: str):
     """Shows a list of recent file changes."""
 
     from maestral.daemon import MaestralProxy
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     with MaestralProxy(config_name, fallback=True) as m:
 
@@ -960,13 +960,12 @@ def recent_changes(config_name: str):
         paths = []
         last_modified = []
         for e in changes_dict:
-            paths.append(m.to_local_path(e['path_display']))
+            paths.append(e['path_display'])
 
-            dt = datetime.strptime(e['client_modified'], '%Y-%m-%dT%H:%M:%SZ')
-            dt = dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
+            dt = datetime.fromtimestamp(e['client_modified'])  # convert to local time
             last_modified.append(dt.strftime('%d %b %Y %H:%M'))
 
-        click.echo('\n' + format_table(columns=[paths, last_modified]) + '\n')
+        click.echo(format_table(columns=[paths, last_modified]))
 
 
 @main.command(help_priority=19)
