@@ -18,6 +18,7 @@ import functools
 import logging
 import textwrap
 import platform
+import time
 
 # external imports
 import click
@@ -141,8 +142,15 @@ def check_for_updates():
     from packaging.version import Version
     from maestral import __version__
 
+    conf = MaestralConfig('maestral')
     state = MaestralState('maestral')
+
+    interval = conf.get('app', 'update_notification_interval')
+    last_update_check = state.get('app', 'update_notification_last')
     latest_release = state.get('app', 'latest_release')
+
+    if interval == 0 or time.time() - last_update_check < interval:
+        return
 
     has_update = Version(__version__) < Version(latest_release)
 
@@ -612,10 +620,11 @@ def status(config_name: str):
             color = 'red' if n_errors > 0 else 'green'
             n_errors_str = click.style(str(n_errors), fg=color)
             click.echo('')
-            click.echo('Account:       {}'.format(m.get_state('account', 'email')))
-            click.echo('Usage:         {}'.format(m.get_state('account', 'usage')))
-            click.echo('Status:        {}'.format(m.status))
-            click.echo('Sync errors:   {}'.format(n_errors_str))
+            click.echo('Account:      {}'.format(m.get_state('account', 'email')))
+            click.echo('Usage:        {}'.format(m.get_state('account', 'usage')))
+            click.echo('Status:       {}'.format(m.status))
+            click.echo('Sync threads: {}'.format('Running' if m.running else 'Stopped'))
+            click.echo('Sync errors:  {}'.format(n_errors_str))
             click.echo('')
 
             check_for_fatal_errors(m)
@@ -901,7 +910,8 @@ def rebuild_index(config_name: str):
 @catch_maestral_errors
 def revs(dropbox_path: str, config_name: str):
     """Lists old revisions of a file."""
-    from datetime import datetime, timezone
+
+    from datetime import datetime
     from maestral.daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -915,9 +925,8 @@ def revs(dropbox_path: str, config_name: str):
 
         rev.append(e['rev'])
 
-        dt = datetime.strptime(e['client_modified'], '%Y-%m-%dT%H:%M:%SZ')
-        dt = dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
-        last_modified.append(dt.strftime('%d %b %Y %H:%M'))
+        dt = datetime.strptime(e['client_modified'], '%Y-%m-%dT%H:%M:%S%z')
+        last_modified.append(dt.astimezone(tz=None).strftime('%d %b %Y %H:%M'))
 
     click.echo(format_table(columns=[rev, last_modified]))
 
@@ -938,6 +947,28 @@ def restore(dropbox_path: str, rev: str, config_name: str):
 
 
 @main.command(help_priority=18)
+@existing_config_option
+def recent_changes(config_name: str):
+    """Shows a list of recently changed or added files."""
+
+    from maestral.daemon import MaestralProxy
+    from datetime import datetime
+
+    with MaestralProxy(config_name, fallback=True) as m:
+
+        changes_dict = m.get_state('sync', 'recent_changes')
+        paths = []
+        last_modified = []
+        for e in changes_dict:
+            paths.append(e['path_display'])
+
+            dt = datetime.fromtimestamp(e['client_modified'])  # convert to local time
+            last_modified.append(dt.strftime('%d %b %Y %H:%M'))
+
+        click.echo(format_table(columns=[paths, last_modified]))
+
+
+@main.command(help_priority=19)
 def configs():
     """Lists all configured Dropbox accounts."""
     from maestral.daemon import is_running
@@ -959,7 +990,7 @@ def configs():
     click.echo('')
 
 
-@main.command(help_priority=20)
+@main.command(help_priority=21)
 @click.option('--yes', '-Y', is_flag=True, default=False)
 @click.option('--no', '-N', is_flag=True, default=False)
 @existing_config_option
@@ -993,7 +1024,7 @@ def analytics(yes: bool, no: bool, config_name: str):
         click.echo(f'Automatic error reports are {enabled_str}.')
 
 
-@main.command(help_priority=22)
+@main.command(help_priority=23)
 @existing_config_option
 def account_info(config_name: str):
     """Shows your Dropbox account information."""
@@ -1015,7 +1046,7 @@ def account_info(config_name: str):
         click.echo('')
 
 
-@main.command(help_priority=23)
+@main.command(help_priority=24)
 def about():
     """Returns the version number and other information."""
     import time
@@ -1111,22 +1142,29 @@ def excluded_remove(dropbox_path: str, config_name: str):
 # ========================================================================================
 
 @log.command(name='show', help_priority=0)
+@click.option('--external', '-e', is_flag=True, default=False,
+              help='Open in external program.')
 @existing_config_option
-def log_show(config_name: str):
+def log_show(external: bool, config_name: str):
     """Prints Maestral's logs to the console."""
     from maestral.utils.appdirs import get_log_path
 
     log_file = get_log_path('maestral', config_name + '.log')
 
-    if os.path.isfile(log_file):
+    if external:
+        res = click.launch(log_file)
+    else:
         try:
             with open(log_file) as f:
                 text = f.read()
             click.echo_via_pager(text)
         except OSError:
-            raise click.ClickException(f'Could not open log file at \'{log_file}\'')
-    else:
-        click.echo_via_pager('')
+            res = 1
+        else:
+            res = 0
+
+    if res > 0:
+        raise click.ClickException(f'Could not open log file at \'{log_file}\'')
 
 
 @log.command(name='clear', help_priority=1)

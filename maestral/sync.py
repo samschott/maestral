@@ -29,6 +29,7 @@ import functools
 from enum import IntEnum
 import pprint
 import socket
+from datetime import timezone
 
 # external imports
 import pathspec
@@ -253,9 +254,8 @@ class FSEventHandler(FileSystemEventHandler):
 
 class PersistentStateMutableSet(abc.MutableSet):
     """
-    A wrapper for a list of strings in the saved state that implements a MutableSet
-    interface. All strings are stored as lower-case, reflecting Dropbox's case-insensitive
-    file system.
+    A wrapper for a list of Python types in the saved state that implements a MutableSet
+    interface.
 
     :param str config_name: Name of config (determines name of state file).
     :param str section: Section name in state file.
@@ -283,20 +283,32 @@ class PersistentStateMutableSet(abc.MutableSet):
         with self._lock:
             return len(self._state.get(self.section, self.option))
 
-    def discard(self, dbx_path):
-        dbx_path = dbx_path.lower().rstrip('/')
+    def add(self, entry):
         with self._lock:
             state_list = self._state.get(self.section, self.option)
             state_list = set(state_list)
-            state_list.discard(dbx_path)
+            state_list.add(entry)
             self._state.set(self.section, self.option, list(state_list))
 
-    def add(self, dbx_path):
-        dbx_path = dbx_path.lower().rstrip('/')
+    def discard(self, entry):
         with self._lock:
             state_list = self._state.get(self.section, self.option)
             state_list = set(state_list)
-            state_list.add(dbx_path)
+            state_list.discard(entry)
+            self._state.set(self.section, self.option, list(state_list))
+
+    def update(self, *others):
+        with self._lock:
+            state_list = self._state.get(self.section, self.option)
+            state_list = set(state_list)
+            state_list.update(*others)
+            self._state.set(self.section, self.option, list(state_list))
+
+    def difference_update(self, *others):
+        with self._lock:
+            state_list = self._state.get(self.section, self.option)
+            state_list = set(state_list)
+            state_list.difference_update(*others)
             self._state.set(self.section, self.option, list(state_list))
 
     def clear(self):
@@ -348,7 +360,7 @@ def catch_sync_issues(download=False):
 
                     # save download errors to retry later
                     if download:
-                        self.download_errors.add(exc.dbx_path)
+                        self.download_errors.add(exc.dbx_path.lower())
 
                 res = False
 
@@ -998,7 +1010,7 @@ class SyncEngine:
                 if equal or child:
                     remove_from_queue(self.sync_errors, error)
 
-        self.download_errors.discard(dbx_path)
+        self.download_errors.discard(dbx_path.lower())
 
     def clear_all_sync_errors(self):
         """Clears all sync errors."""
@@ -1621,7 +1633,7 @@ class SyncEngine:
 
         self._slow_down()
 
-        # book keeping
+        # housekeeping
         local_path_from = event.src_path
         local_path_to = get_dest_path(event)
 
@@ -2055,7 +2067,7 @@ class SyncEngine:
 
         with self.sync_lock:
 
-            self.pending_downloads.add(dbx_path)
+            self.pending_downloads.add(dbx_path.lower())
             md = self.client.get_metadata(dbx_path, include_deleted=True)
 
             res = False
@@ -2067,7 +2079,7 @@ class SyncEngine:
                     res = self._create_local_entry(md)
 
             if res or not md:
-                self.pending_downloads.discard(dbx_path)
+                self.pending_downloads.discard(dbx_path.lower())
 
             return res
 
@@ -2172,12 +2184,14 @@ class SyncEngine:
                     last_emit = time.time()
                 downloaded.append(f.result())
 
+        # housekeeping
         success = all(downloaded)
 
         if save_cursor and not self.cancel_pending.is_set():
             self.last_cursor = changes.cursor
 
         self._clean_and_save_rev_file()
+        self._save_to_history(changes_included.entries)
 
         return [entry for entry in downloaded if isinstance(entry, Metadata)], success
 
@@ -2470,12 +2484,11 @@ class SyncEngine:
 
         self._slow_down()
 
-        # book keeping
+        # housekeeping
         local_path = self.get_local_path(entry)
 
         self.clear_sync_error(dbx_path=entry.path_display)
         remove_from_queue(self.queued_for_download, entry.path_display)
-        self._save_to_history(entry.path_display)
 
         with InQueue(self.queue_downloading, entry.path_display):
 
@@ -2612,13 +2625,32 @@ class SyncEngine:
                 else:
                     self.fs_events.local_file_event_queue.put(FileCreatedEvent(path))
 
-    def _save_to_history(self, dbx_path):
-        # add new file to recent_changes
-        recent_changes = self._state.get('sync', 'recent_changes')
-        recent_changes.append(dbx_path)
-        # eliminate duplicates
-        recent_changes = list(dict.fromkeys(recent_changes))
-        self._state.set('sync', 'recent_changes', recent_changes[-self._max_history:])
+    def _save_to_history(self, entries):
+        """
+        Saves remote changes to the history database.
+
+        :param list[Metadata] entries: Dropbox Metadata.
+        """
+
+        def get_cmod_time(entry):
+            return entry.get('client_modified')
+
+        # only keep file changes
+        file_changes = [
+            {
+                'path_display': e.path_display,
+                'client_modified': e.client_modified.replace(tzinfo=timezone.utc).timestamp()
+            } for e in entries if isinstance(e, FileMetadata)
+        ]
+
+        # update recent changes, keep only last 30 entries
+        changes_list = self._state.get('sync', 'recent_changes')
+        changes_list += file_changes
+        changes_list.sort(reverse=True, key=get_cmod_time)
+        changes_list = changes_list[-self._max_history:]
+
+        # save to file
+        self._state.set('sync', 'recent_changes', changes_list)
 
 
 # ========================================================================================
@@ -2723,7 +2755,7 @@ def download_worker_added_item(sync, syncing, running, connected):
 
             with sync.sync_lock:
                 if not (running.is_set() and syncing.is_set()):
-                    sync.pending_downloads.add(dbx_path)
+                    sync.pending_downloads.add(dbx_path.lower())
                     continue
 
                 sync.get_remote_item(dbx_path)

@@ -1,3 +1,12 @@
+## v1.2.0.dev
+
+#### Added:
+
+- Added an option `--external` to `maestral log show` to open the log in the platform's
+  default program instead of showing it in the console.
+- Added a CLI command `recent-changes` to list recently added or modified files. Deletions
+  or added folders will not be shown.
+
 ## v1.1.0
 
 This release expands the CLI functionality and improves the handling of file modification
@@ -8,8 +17,8 @@ login items.
 
 #### Added:
 
-- Added `--include-deleted | -d` option to `maestral ls`.
-- Added `--long | -l` option to `maestral ls` to include metadata in listing.
+- Added `--include-deleted` option to `maestral ls`.
+- Added `--long` option to `maestral ls` to include metadata in listing.
 - Added `maestral revs` command to list revisions of a file.
 - Added `maestral restore` command to restore an old revision of a file.
 

@@ -16,6 +16,8 @@ import threading
 from .base import get_conf_path, get_data_path
 from .user import UserConfig
 
+from maestral import __version__
+
 logger = logging.getLogger(__name__)
 CONFIG_DIR_NAME = 'maestral'
 
@@ -66,6 +68,7 @@ DEFAULTS_STATE = [
      ),
     ('app',  # app state
      {
+         'updated_scripts_completed': __version__,
          'update_notification_last': 0.0,
          'latest_release': '0.0.0',
      }
