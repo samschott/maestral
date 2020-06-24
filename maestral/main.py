@@ -25,6 +25,7 @@ import keyring.errors
 from watchdog.events import DirDeletedEvent, FileDeletedEvent
 import bugsnag
 from bugsnag.handlers import BugsnagHandler
+from packaging.version import Version
 
 try:
     from systemd import journal
@@ -196,6 +197,8 @@ class Maestral:
         self.client = DropboxClient(config_name=self.config_name)
         self.monitor = SyncMonitor(self.client)
         self.sync = self.monitor.sync
+
+        self._check_and_run_post_update_scripts()
 
         # periodically check for updates and refresh account info
         self.update_thread = Thread(
@@ -453,6 +456,7 @@ class Maestral:
         else:
             return self.sync.dropbox_path
 
+    @property
     def excluded_items(self):
         """
         Returns a list of excluded folders (read only). Use :meth:`exclude_item`,
@@ -1241,8 +1245,26 @@ class Maestral:
             raise NoDropboxDirError('No local Dropbox directory',
                                     'Run "create_dropbox_directory" to set up.')
 
-    def _loop_condition(self):
-        return self._daemon_running
+    def _check_and_run_post_update_scripts(self):
+        """
+        Runs post-update scripts if necessary.
+        """
+
+        updated_from = self.get_state('app', 'updated_scripts_completed')
+
+        # remove all non-dict entries from recent-changes
+        recent_changes = self.get_state('sync', 'recent_changes')
+        recent_changes = [c for c in recent_changes if isinstance(c, dict)]
+        self.set_state('sync', 'recent_changes', recent_changes)
+
+        if Version(updated_from) >= Version(__version__):
+            return
+
+        self._run_post_update_scripts()
+        self.set_state('app', 'updated_scripts_completed', __version__)
+
+    def _run_post_update_scripts(self):
+        pass
 
     def _periodic_refresh(self):
         while True:
@@ -1261,6 +1283,9 @@ class Maestral:
         while True:
             sd_notifier.notify('WATCHDOG=1')
             time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
+
+    def _loop_condition(self):
+        return self._daemon_running
 
     def __del__(self):
         try:

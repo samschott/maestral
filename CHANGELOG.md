@@ -4,7 +4,9 @@
 
 - Added an option `--external` to `maestral log show` to open the log in the platform's
   default program instead of showing it in the console.
-  
+- Added a CLI command `recent-changes` to list recently added or modified files. Deletions
+  or added folders will not be shown.
+
 #### Changed:
 
 - Transition to short-lived auth tokens for newly linked accounts.
