@@ -949,7 +949,7 @@ def restore(dropbox_path: str, rev: str, config_name: str):
 @main.command(help_priority=18)
 @existing_config_option
 def recent_changes(config_name: str):
-    """Shows a list of recent file changes."""
+    """Shows a list of recently changed or added files."""
 
     from maestral.daemon import MaestralProxy
     from datetime import datetime
