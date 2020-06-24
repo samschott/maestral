@@ -924,9 +924,8 @@ def revs(dropbox_path: str, config_name: str):
 
         rev.append(e['rev'])
 
-        dt = datetime.strptime(e['client_modified'], '%Y-%m-%dT%H:%M:%SZ')
-        dt = dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
-        last_modified.append(dt.strftime('%d %b %Y %H:%M'))
+        dt = datetime.strptime(e['client_modified'], '%Y-%m-%dT%H:%M:%S%z')
+        last_modified.append(dt.astimezone(tz=None).strftime('%d %b %Y %H:%M'))
 
     click.echo(format_table(columns=[rev, last_modified]))
 
