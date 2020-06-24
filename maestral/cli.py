@@ -911,7 +911,7 @@ def rebuild_index(config_name: str):
 def revs(dropbox_path: str, config_name: str):
     """Lists old revisions of a file."""
 
-    from datetime import datetime, timezone
+    from datetime import datetime
     from maestral.daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -1150,9 +1150,9 @@ def log_show(external: bool, config_name: str):
     from maestral.utils.appdirs import get_log_path
 
     log_file = get_log_path('maestral', config_name + '.log')
- 
+
     if external:
-         res = click.launch(log_file)
+        res = click.launch(log_file)
     else:
         try:
             with open(log_file) as f:
