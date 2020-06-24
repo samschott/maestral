@@ -29,7 +29,7 @@ import functools
 from enum import IntEnum
 import pprint
 import socket
-from datetime import datetime
+from datetime import datetime, timezone
 
 # external imports
 import pathspec
@@ -2633,25 +2633,24 @@ class SyncEngine:
         """
 
         def get_cmod_time(entry):
-            try:
-                return entry.get(entry, 'client_modified')
-            except AttributeError:
-                return datetime.fromtimestamp(0)
+            return entry.get('client_modified')
 
         # only keep file changes
-        file_changes = [{'path': e.path_display, 'client_modified': e.client_modified}
-                        for e in entries if isinstance(e, FileMetadata)]
+        file_changes = [
+            {
+                'path_display': e.path_display,
+                'client_modified': e.client_modified.replace(tzinfo=timezone.utc).timestamp()
+            } for e in entries if isinstance(e, FileMetadata)
+        ]
 
-        old_changes = self._state.get('sync', 'recent_changes')
+        # update recent changes, keep only last 30 entries
+        changes_list = self._state.get('sync', 'recent_changes')
+        changes_list += file_changes
+        changes_list.sort(reverse=True, key=get_cmod_time)
+        changes_list = changes_list[-self._max_history:]
 
-        # combine with previous entries, prune all dicts
-        changes = file_changes + [c for c in old_changes if isinstance(c, dict)]
-
-        # sort with most recent first
-        file_changes.sort(reverse=True, key=get_cmod_time)
-
-        # save
-        self._state.set('sync', 'recent_changes', changes[-self._max_history:])
+        # save to file
+        self._state.set('sync', 'recent_changes', changes_list)
 
 
 # ========================================================================================
