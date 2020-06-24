@@ -910,6 +910,7 @@ def rebuild_index(config_name: str):
 @catch_maestral_errors
 def revs(dropbox_path: str, config_name: str):
     """Lists old revisions of a file."""
+
     from datetime import datetime, timezone
     from maestral.daemon import MaestralProxy
 
@@ -946,6 +947,29 @@ def restore(dropbox_path: str, rev: str, config_name: str):
 
 
 @main.command(help_priority=18)
+@existing_config_option
+def recent_changes(config_name: str):
+    """Shows a list of recent file changes."""
+
+    from maestral.daemon import MaestralProxy
+    from datetime import datetime, timezone
+
+    with MaestralProxy(config_name, fallback=True) as m:
+
+        changes_dict = m.get_state('sync', 'recent_changes')
+        paths = []
+        last_modified = []
+        for e in changes_dict:
+            paths.append(m.to_local_path(e['path_display']))
+
+            dt = datetime.strptime(e['client_modified'], '%Y-%m-%dT%H:%M:%SZ')
+            dt = dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
+            last_modified.append(dt.strftime('%d %b %Y %H:%M'))
+
+        click.echo('\n' + format_table(columns=[paths, last_modified]) + '\n')
+
+
+@main.command(help_priority=19)
 def configs():
     """Lists all configured Dropbox accounts."""
     from maestral.daemon import is_running
@@ -967,7 +991,7 @@ def configs():
     click.echo('')
 
 
-@main.command(help_priority=20)
+@main.command(help_priority=21)
 @click.option('--yes', '-Y', is_flag=True, default=False)
 @click.option('--no', '-N', is_flag=True, default=False)
 @existing_config_option
@@ -1001,7 +1025,7 @@ def analytics(yes: bool, no: bool, config_name: str):
         click.echo(f'Automatic error reports are {enabled_str}.')
 
 
-@main.command(help_priority=22)
+@main.command(help_priority=23)
 @existing_config_option
 def account_info(config_name: str):
     """Shows your Dropbox account information."""
@@ -1023,7 +1047,7 @@ def account_info(config_name: str):
         click.echo('')
 
 
-@main.command(help_priority=23)
+@main.command(help_priority=24)
 def about():
     """Returns the version number and other information."""
     import time
