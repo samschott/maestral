@@ -106,6 +106,7 @@ class OAuth2Session:
     ConnectionFailed = 2
 
     default_token_access_type = 'offline'
+    _supported_token_access_types = ('offline', 'legacy')
 
     _lock = RLock()
 
@@ -140,6 +141,10 @@ class OAuth2Session:
 
     @token_access_type.setter
     def token_access_type(self, value):
+
+        if value not in self._supported_token_access_types:
+            raise ValueError('Token type must be "offline" or "legacy"')
+
         self._conf.set('account', 'token_access_type', value)
 
     @property
