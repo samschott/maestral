@@ -9,7 +9,6 @@ This module defines the main API which is exposed to the CLI or GUI.
 """
 
 # system imports
-import functools
 import sys
 import os
 import os.path as osp
