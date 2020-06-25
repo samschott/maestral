@@ -81,6 +81,15 @@ class OAuth2Session:
         * Gnome Keyring
         * Plain text storage
 
+    When the auth flow is completed, a short-lived access token and a long-lived refresh
+    token are generated. Only the long-lived refresh token will be saved in the system
+    keychain for future sessions, it can be used to generate short-lived access tokens
+    as needed.
+
+    If the auth flow was previously completed before Dropbox migrated to short-lived
+    tokens, the ``token_access_type`` will be 'legacy' and only a long-lived access token
+    will be available.
+
     .. warning:: Unlike MacOS Keychain, Gnome Keyring and KWallet do not support
         app-specific access to passwords. If the user unlocks those keyrings, we and any
         other application in the same user session get access to *all* saved passwords.
@@ -96,6 +105,9 @@ class OAuth2Session:
     InvalidToken = 1
     ConnectionFailed = 2
 
+    default_token_access_type = 'offline'
+    _supported_token_access_types = ('offline', 'legacy')
+
     _lock = RLock()
 
     def __init__(self, config_name, app_key=DROPBOX_APP_KEY):
@@ -105,11 +117,35 @@ class OAuth2Session:
         self.keyring = get_keyring_backend(config_name)
         self._conf = MaestralConfig(config_name)
 
-        self._auth_flow = DropboxOAuth2FlowNoRedirect(self._app_key, use_pkce=True)
+        self._auth_flow = DropboxOAuth2FlowNoRedirect(
+            self._app_key,
+            use_pkce=True,
+            token_access_type=self.default_token_access_type
+        )
         self._oAuth2FlowResult = None
 
-        self._access_token = None  # defer keyring access until token requested by user
-        self._account_id = self._conf.get('account', 'account_id')
+        self._account_id = self._conf.get('account', 'account_id') or None
+
+        # defer keyring access until token requested by user
+        self._loaded = False
+        self._access_token = None
+        self._refresh_token = None
+        self._expires_at = None
+
+    @property
+    def token_access_type(self):
+        """Returns the type of access token. If 'legacy', we have a long-lived access
+        token. If 'offline', we have a short-lived access token with an expiry time and
+        a long-lived refresh token to generate new access tokens."""
+        return self._conf.get('account', 'token_access_type')
+
+    @token_access_type.setter
+    def token_access_type(self, value):
+
+        if value not in self._supported_token_access_types:
+            raise ValueError('Token type must be "offline" or "legacy"')
+
+        self._conf.set('account', 'token_access_type', value)
 
     @property
     def account_id(self):
@@ -118,12 +154,35 @@ class OAuth2Session:
 
     @property
     def access_token(self):
-        """Returns the access token (read only). This will block until the keyring is
-        unlocked."""
-        if self._access_token is None:
-            self._load_token()
+        """Returns the access token (read only). This will always be set for a 'legacy'
+        token. For an 'offline' token, this will only be set if we completed the auth flow
+        in the current session. In case of an 'offline' token, use the refresh token to
+        retrieve a short-lived access token through the Dropbox API instead. The call will
+        block until the keyring is unlocked."""
 
-        return self._access_token
+        with self._lock:
+            if not self._loaded:
+                self._load_token()
+
+            return self._access_token
+
+    @property
+    def refresh_token(self):
+        """Returns the refresh token (read only). This will only be set for an 'offline'
+        token. The call will block until the keyring is unlocked."""
+
+        with self._lock:
+            if not self._loaded:
+                self._load_token()
+
+            return self._refresh_token
+
+    @property
+    def access_token_expiration(self):
+        """Returns the expiry time for the short-lived access token. This will only be
+        set for an 'offline' token and if we completed the flow during the current
+        session."""
+        return self._expires_at
 
     def _load_token(self):
         """
@@ -133,17 +192,24 @@ class OAuth2Session:
         """
         logger.debug(f'Using keyring: {self.keyring}')
 
+        if not self._account_id:
+            return
+
         try:
-            if self._account_id == '':
-                self._access_token = ''
+            token = self.keyring.get_password('Maestral', self._account_id)
+
+            if self.token_access_type == 'legacy':
+                self._access_token = token
             else:
-                token = self.keyring.get_password('Maestral', self._account_id)
-                self._access_token = '' if token is None else token
+                self._refresh_token = token
+
+            self._loaded = True
         except KeyringLocked:
-            info = f'Could not load access token. {self.keyring.name} is locked.'
-            logger.error(info)
-            raise KeyringAccessError('Could not load access token',
-                                     f'{self.keyring.name} is locked.')
+            title = f'Could not load auth token, {self.keyring.name} is locked'
+            msg = 'Please unlock the keyring and try again.'
+            exc = KeyringAccessError(title, msg)
+            logger.error(title, exc_info=_exc_info(exc))
+            raise exc
 
     def get_auth_url(self):
         """
@@ -163,15 +229,20 @@ class OAuth2Session:
         :rtype: int
         """
 
-        try:
-            self._oAuth2FlowResult = self._auth_flow.finish(token)
-            self._access_token = self._oAuth2FlowResult.access_token
-            self._account_id = self._oAuth2FlowResult.account_id
-            return self.Success
-        except requests.exceptions.HTTPError:
-            return self.InvalidToken
-        except CONNECTION_ERRORS:
-            return self.ConnectionFailed
+        with self._lock:
+
+            try:
+                self._oAuth2FlowResult = self._auth_flow.finish(token)
+                self._access_token = self._oAuth2FlowResult.access_token
+                self._refresh_token = self._oAuth2FlowResult.refresh_token
+                self._expires_at = self._oAuth2FlowResult.expires_at
+                self._account_id = self._oAuth2FlowResult.account_id
+                self.token_access_type = 'offline'
+                return self.Success
+            except requests.exceptions.HTTPError:
+                return self.InvalidToken
+            except CONNECTION_ERRORS:
+                return self.ConnectionFailed
 
     def save_creds(self):
         """
@@ -183,7 +254,7 @@ class OAuth2Session:
 
             self._conf.set('account', 'account_id', self._account_id)
             try:
-                self.keyring.set_password('Maestral', self._account_id, self._access_token)
+                self.keyring.set_password('Maestral', self._account_id, self._refresh_token)
                 click.echo(' > Credentials written.')
                 if isinstance(self.keyring, keyrings.alt.file.PlaintextKeyring):
                     click.echo(' > Warning: No supported keyring found, '
@@ -202,7 +273,7 @@ class OAuth2Session:
 
         with self._lock:
 
-            if self._account_id == '':
+            if not self._account_id:
                 # when keyring.delete_password is called without a username,
                 # it may delete all passwords stored by Maestral on some backends
                 return
@@ -212,10 +283,16 @@ class OAuth2Session:
                 self.keyring.delete_password('Maestral', self._account_id)
                 click.echo(' > Credentials removed.')
             except KeyringLocked:
-                info = f'Could not delete access token. {self.keyring.name} is locked.'
-                logger.error(info)
-                raise KeyringAccessError('Could not delete access token',
-                                         f'{self.keyring.name} is locked.')
+                title = f'Could not delete auth token, {self.keyring.name} is locked'
+                msg = 'Please unlock the keyring and try again.'
+                exc = KeyringAccessError(title, msg)
+                logger.error(title, exc_info=_exc_info(exc))
+                raise exc
             finally:
-                self._account_id = ''
-                self._access_token = ''
+                self._account_id = None
+                self._access_token = None
+                self._refresh_token = None
+
+
+def _exc_info(exc):
+    return type(exc), exc, exc.__traceback__

@@ -194,7 +194,7 @@ class Maestral:
         self._setup_logging()
 
         self._auth = OAuth2Session(config_name)
-        self.client = DropboxClient(config_name=self.config_name, access_token='none')
+        self.client = DropboxClient(config_name=self.config_name)
         self.monitor = SyncMonitor(self.client)
         self.sync = self.monitor.sync
 
@@ -261,7 +261,11 @@ class Maestral:
         if res == self._auth.Success:
             self._auth.save_creds()
 
-            self.client.set_access_token(self._auth.access_token)
+            self.client.set_token(
+                refresh_token=self._auth.refresh_token,
+                access_token=self._auth.access_token,
+                access_token_expiration=self._auth.access_token_expiration,
+            )
 
             try:
                 self.get_account_info()
@@ -302,7 +306,7 @@ class Maestral:
         try:
             self._auth.delete_creds()
         except keyring.errors.PasswordDeleteError:
-            logger.warning('Could not delete auth token', exc_info=True)
+            logger.warning('Could not delete OAuth2 token', exc_info=True)
 
         logger.info('Unlinked Dropbox account.')
 
@@ -537,11 +541,19 @@ class Maestral:
         """Bool indicating if Maestral is linked to a Dropbox account (read only). This
         will block until the user's keyring is unlocked to load the saved auth token."""
 
-        token = self._auth.access_token  # triggers keyring access
-        if token != '':
-            self.client.set_access_token(token)
+        if self._auth.token_access_type == 'legacy':
+            access_token = self._auth.access_token  # triggers keyring access
+            if not self.client.dbx and access_token:
+                self.client.set_token(access_token=access_token)
 
-        return token == ''
+            return not access_token
+
+        else:
+            refresh_token = self._auth.refresh_token  # triggers keyring access
+            if not self.client.dbx and refresh_token:
+                self.client.set_token(refresh_token=refresh_token)
+
+            return not refresh_token
 
     @property
     def pending_dropbox_folder(self):
@@ -560,23 +572,15 @@ class Maestral:
         Bool indicating if Maestral is syncing (read only). It will be ``True`` if syncing
         is not paused by the user *and* Maestral is connected to the internet.
         """
-
-        if self.pending_link:
-            return False
-        else:
-            return (self.monitor.syncing.is_set()
-                    or self.monitor.startup.is_set()
-                    or self.sync.busy())
+        return (self.monitor.syncing.is_set()
+                or self.monitor.startup.is_set()
+                or self.sync.busy())
 
     @property
     def paused(self):
         """Bool indicating if syncing is paused by the user (read only). This is set by
         calling :meth:`pause`."""
-
-        if self.pending_link:
-            return False
-        else:
-            return self.monitor.paused_by_user.is_set() and not self.sync.busy()
+        return self.monitor.paused_by_user.is_set() and not self.sync.busy()
 
     @property
     def running(self):
@@ -584,11 +588,7 @@ class Maestral:
         Bool indicating if sync threads are running (read only). They will be stopped
         before :meth:`start_sync` is called, when shutting down or because of an exception.
         """
-
-        if self.pending_link:
-            return False
-        else:
-            return self.monitor.running.is_set() or self.sync.busy()
+        return self.monitor.running.is_set() or self.sync.busy()
 
     @property
     def connected(self):
@@ -1268,7 +1268,8 @@ class Maestral:
 
     def _periodic_refresh(self):
         while True:
-            if not self.pending_link:
+            # update account info
+            if self.client.dbx:
                 self.get_account_info()
                 self.get_profile_pic()
             # check for maestral updates

@@ -26,6 +26,7 @@ from dropbox import Dropbox, dropbox, files, users, exceptions
 from maestral import __version__
 from maestral.config import MaestralState
 from maestral.errors import SyncError, dropbox_to_maestral_error, os_to_maestral_error
+from maestral.constants import DROPBOX_APP_KEY
 
 
 logger = logging.getLogger(__name__)
@@ -142,23 +143,42 @@ class DropboxClient:
 
     SDK_VERSION = '2.0'
 
-    def __init__(self, config_name, access_token, timeout=100):
+    def __init__(self, config_name, refresh_token=None, access_token=None,
+                 access_token_expiration=None, timeout=100):
 
         self.config_name = config_name
 
-        self._state = MaestralState(config_name)
+        self._timeout = timeout
         self._backoff_until = 0
+        self._state = MaestralState(config_name)
 
         # initialize API client
-        self.dbx = Dropbox(
-            access_token,
-            session=SESSION,
-            user_agent=USER_AGENT,
-            timeout=timeout
-        )
+        self.set_token(refresh_token, access_token, access_token_expiration)
 
-    def set_access_token(self, token):
-        self.dbx._oauth2_access_token = token
+    def set_token(self, refresh_token=None, access_token=None,
+                  access_token_expiration=None):
+        """
+        Sets the access tokens for the Dropbox API. This will create a new SDK instance
+        with new tokens.
+
+        :param str refresh_token: Long-lived refresh token to generate new access tokens.
+        :param str access_token: Short-lived auth token.
+        :param datetime | int access_token_expiration: Expiry time of auth token.
+        """
+
+        if refresh_token or access_token:
+
+            self.dbx = Dropbox(
+                oauth2_refresh_token=refresh_token,
+                oauth2_access_token=access_token,
+                oauth2_access_token_expiration=access_token_expiration,
+                app_key=DROPBOX_APP_KEY,
+                session=SESSION,
+                user_agent=USER_AGENT,
+                timeout=self._timeout
+            )
+        else:
+            self.dbx = None
 
     @to_maestral_error()
     def get_account_info(self, dbid=None):

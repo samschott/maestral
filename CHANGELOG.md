@@ -7,6 +7,10 @@
 - Added a CLI command `recent-changes` to list recently added or modified files. Deletions
   or added folders will not be shown.
 
+#### Changed:
+
+- Transition to short-lived auth tokens for newly linked accounts.
+
 ## v1.1.0
 
 This release expands the CLI functionality and improves the handling of file modification

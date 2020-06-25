@@ -30,6 +30,8 @@ class TestAPI(TestCase):
         cls.m = Maestral('test-config')
         cls.m._auth._account_id = os.environ.get('DROPBOX_ID', '')
         cls.m._auth._access_token = os.environ.get('DROPBOX_TOKEN', '')
+        cls.m._auth._loaded = True
+        cls.m._auth.token_access_type = 'legacy'
         cls.m.create_dropbox_directory('~/Dropbox_Test')
 
         # all our tests will be carried out within this folder
