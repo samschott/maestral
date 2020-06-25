@@ -29,7 +29,7 @@ import functools
 from enum import IntEnum
 import pprint
 import socket
-from datetime import datetime, timezone
+from datetime import timezone
 
 # external imports
 import pathspec
