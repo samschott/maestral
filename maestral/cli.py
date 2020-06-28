@@ -673,6 +673,8 @@ def file_status(local_path: str, config_name: str):
 @existing_config_option
 def activity(config_name: str):
     """Live view of all items being synced."""
+
+    import itertools
     from maestral.daemon import MaestralProxy
 
     try:
@@ -695,12 +697,12 @@ def activity(config_name: str):
                     res = m.get_activity()
                     up = res['uploading']
                     down = res['downloading']
-                    sync_status = m.status
+                    status = m.status
                     n_errors = len(m.sync_errors)
 
                     # create header
                     lines = [
-                        f'Status: {sync_status}, Sync errors: {n_errors}',
+                        f'Status: {status}, Sync errors: {n_errors}',
                         f'Uploading: {len(up)}, Downloading: {len(down)}',
                         '',
                     ]
@@ -710,12 +712,18 @@ def activity(config_name: str):
                     up.append(('', ''))  # append spacer
                     down.insert(0, ('DOWNLOADING', 'STATUS'))  # column titles
 
-                    file_names = tuple(os.path.basename(item[0]) for item in up + down)
-                    states = tuple(item[1] for item in up + down)
-                    col_len = max(len(fn) for fn in file_names) + 2
+                    file_names = []
+                    states = []
+                    col_len = 0
+
+                    for entry in itertools.chain(up, down):
+                        filename = os.path.basename(entry['path_display'])
+                        file_names.append(filename)
+                        states.append(entry['status'])
+                        col_len = max(len(filename), col_len)
 
                     for fn, s in zip(file_names, states):  # create rows
-                        lines.append(fn.ljust(col_len) + s)
+                        lines.append(fn.ljust(col_len + 2) + s)
 
                     # print to console screen
                     screen.clear()

@@ -17,7 +17,7 @@ import shutil
 import time
 from threading import Thread
 import logging.handlers
-from collections import namedtuple, deque
+from collections import deque
 
 # external imports
 import requests
@@ -691,31 +691,30 @@ class Maestral:
 
         :returns: A dictionary with lists of all files currently queued for or being
             uploaded or downloaded. Paths are given relative to the Dropbox folder.
-        :rtype: dict(list, list)
+        :rtype: dict(str, list)
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
         self._check_linked()
 
-        PathItem = namedtuple('PathItem', 'path status')
         uploading = []
         downloading = []
 
         for path in self.monitor.uploading:
             path.lstrip(self.dropbox_path)
-            uploading.append(PathItem(path, 'uploading'))
+            uploading.append(dict(path_display=path, status='uploading'))
 
         for path in self.monitor.queued_for_upload:
             path.lstrip(self.dropbox_path)
-            uploading.append(PathItem(path, 'queued'))
+            uploading.append(dict(path_display=path, status='queued'))
 
         for path in self.monitor.downloading:
             path.lstrip(self.dropbox_path)
-            downloading.append(PathItem(path, 'downloading'))
+            downloading.append(dict(path_display=path, status='downloading'))
 
         for path in self.monitor.queued_for_download:
             path.lstrip(self.dropbox_path)
-            downloading.append(PathItem(path, 'queued'))
+            downloading.append(dict(path_display=path, status='queued'))
 
         return dict(uploading=uploading, downloading=downloading)
 
