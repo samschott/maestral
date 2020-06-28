@@ -950,7 +950,7 @@ class Maestral:
         md = self.client.get_metadata(dbx_path)
 
         if not md:
-            raise NotFoundError('Cannot exlcude item',
+            raise NotFoundError('Cannot exclude item',
                                 f'"{dbx_path}" does not exist on Dropbox')
 
         dbx_path = dbx_path.lower().rstrip('/')
