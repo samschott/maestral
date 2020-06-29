@@ -6,8 +6,8 @@
 (c) Sam Schott; This work is licensed under the MIT licence.
 
 This file defines the functions to configure and interact with Maestral from the command
-line. We aim to import most packages locally in the functions that required them, in order
-to reduce the startup time of individual CLI commands.
+line. Some imports are deferred to the functions that required them in order to reduce the
+startup time of individual CLI commands.
 
 """
 
@@ -19,13 +19,24 @@ import logging
 import textwrap
 import platform
 import time
+import argparse
 
 # external imports
 import click
 import Pyro5.errors
 
 # local imports
-from maestral.daemon import freeze_support
+from maestral import __version__
+from maestral.daemon import (
+    freeze_support,
+    start_maestral_daemon,
+    start_maestral_daemon_process,
+    start_maestral_daemon_thread,
+    stop_maestral_daemon_process,
+    Start, Exit,
+    get_maestral_proxy, MaestralProxy,
+    is_running, threads
+)
 from maestral.config import MaestralConfig, MaestralState, list_configs
 from maestral.utils.housekeeping import remove_configuration
 
@@ -40,8 +51,6 @@ LEFT, CENTER, RIGHT = range(3)
 def stop_daemon_with_cli_feedback(config_name):
     """Wrapper around :meth:`daemon.stop_maestral_daemon_process`
     with command line feedback."""
-
-    from maestral.daemon import stop_maestral_daemon_process, Exit
 
     click.echo('Stopping Maestral...', nl=False)
     res = stop_maestral_daemon_process(config_name)
@@ -140,7 +149,6 @@ def check_for_updates():
     config file and notifies the user. Prints an update note to the command line.
     """
     from packaging.version import Version
-    from maestral import __version__
 
     conf = MaestralConfig('maestral')
     state = MaestralState('maestral')
@@ -170,6 +178,7 @@ def check_for_fatal_errors(m):
     :returns: True in case of fatal errors, False otherwise.
     :rtype: bool
     """
+
     maestral_err_list = m.fatal_errors
 
     if len(maestral_err_list) > 0:
@@ -370,8 +379,6 @@ def _check_config(ctx, param, value):
 def _run_daemon(ctx, param, value):
 
     if value is True:
-        import argparse
-        from maestral.daemon import start_maestral_daemon
 
         parser = argparse.ArgumentParser()
         parser.add_argument('-c', '--config-name', help='Configuration name',
@@ -465,10 +472,6 @@ def gui(config_name):
 def start(foreground: bool, verbose: bool, config_name: str):
     """Starts the Maestral daemon."""
 
-    from maestral.daemon import get_maestral_proxy
-    from maestral.daemon import (start_maestral_daemon_thread, threads,
-                                 start_maestral_daemon_process, Start)
-
     click.echo('Starting Maestral...', nl=False)
 
     if foreground:
@@ -559,7 +562,9 @@ def autostart(yes: bool, no: bool, config_name: str):
     A systemd or launchd service will be created to start a sync daemon for the given
     configuration on user login.
     """
+
     from maestral.utils.autostart import AutoStart
+
     auto_start = AutoStart(config_name)
 
     if not auto_start.implementation:
@@ -580,7 +585,6 @@ def autostart(yes: bool, no: bool, config_name: str):
 @existing_config_option
 def pause(config_name: str):
     """Pauses syncing."""
-    from maestral.daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
@@ -594,7 +598,6 @@ def pause(config_name: str):
 @existing_config_option
 def resume(config_name: str):
     """Resumes syncing."""
-    from maestral.daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
@@ -611,7 +614,6 @@ def resume(config_name: str):
 @catch_maestral_errors
 def status(config_name: str):
     """Returns the current status of the Maestral daemon."""
-    from maestral.daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
@@ -654,7 +656,6 @@ def file_status(local_path: str, config_name: str):
     'unwatched' (for files outside of the Dropbox directory). This will always be
     'unwatched' if syncing is paused.
     """
-    from maestral.daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
@@ -675,7 +676,6 @@ def activity(config_name: str):
     """Live view of all items being synced."""
 
     import itertools
-    from maestral.daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
@@ -759,8 +759,6 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str):
     """Lists contents of a Dropbox directory."""
 
     from datetime import datetime, timezone
-    from maestral.daemon import MaestralProxy
-    from maestral.client import natural_size
     from maestral.utils import natural_size
 
     if not dropbox_path.startswith('/'):
@@ -829,8 +827,6 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str):
 def link(relink: bool, config_name: str):
     """Links Maestral with your Dropbox account."""
 
-    from maestral.daemon import MaestralProxy
-
     with MaestralProxy(config_name, fallback=True) as m:
 
         if m.pending_link or relink:
@@ -867,8 +863,6 @@ def unlink(config_name: str):
 def move_dir(new_path: str, config_name: str):
     """Change the location of your local Dropbox folder."""
 
-    from maestral.daemon import MaestralProxy
-
     new_path = new_path or select_dbx_path_dialog(config_name)
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -890,7 +884,6 @@ def rebuild_index(config_name: str):
 
     try:
         import textwrap
-        from maestral.daemon import MaestralProxy
 
         with MaestralProxy(config_name) as m:
 
@@ -921,7 +914,6 @@ def revs(dropbox_path: str, config_name: str):
     """Lists old revisions of a file."""
 
     from datetime import datetime
-    from maestral.daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
 
@@ -947,7 +939,6 @@ def revs(dropbox_path: str, config_name: str):
 @catch_maestral_errors
 def restore(dropbox_path: str, rev: str, config_name: str):
     """Restores an old revision of a file to the given path."""
-    from maestral.daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
         m.restore(dropbox_path, rev)
@@ -960,7 +951,6 @@ def restore(dropbox_path: str, rev: str, config_name: str):
 def recent_changes(config_name: str):
     """Shows a list of recently changed or added files."""
 
-    from maestral.daemon import MaestralProxy
     from datetime import datetime
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -969,9 +959,9 @@ def recent_changes(config_name: str):
         paths = []
         last_modified = []
         for e in changes_dict:
-            paths.append(e['path_display'])
+            paths.append(e.get('path_display'))
 
-            dt = datetime.fromtimestamp(e['client_modified'])  # convert to local time
+            dt = datetime.fromtimestamp(e.get('client_modified'))  # convert to local time
             last_modified.append(dt.strftime('%d %b %Y %H:%M'))
 
         click.echo(format_table(columns=[paths, last_modified]))
@@ -980,7 +970,6 @@ def recent_changes(config_name: str):
 @main.command(help_priority=19)
 def configs():
     """Lists all configured Dropbox accounts."""
-    from maestral.daemon import is_running
 
     # clean up stale configs
     config_names = list_configs()
@@ -1012,8 +1001,6 @@ def analytics(yes: bool, no: bool, config_name: str):
     include file names, depending on the error.
     """
 
-    from maestral.daemon import MaestralProxy
-
     if yes or no:
         try:
             with MaestralProxy(config_name) as m:
@@ -1037,8 +1024,6 @@ def analytics(yes: bool, no: bool, config_name: str):
 @existing_config_option
 def account_info(config_name: str):
     """Shows your Dropbox account information."""
-
-    from maestral.daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
 
@@ -1080,8 +1065,6 @@ def about():
 def excluded_list(config_name: str):
     """Lists all excluded files and folders."""
 
-    from maestral.daemon import MaestralProxy
-
     with MaestralProxy(config_name, fallback=True) as m:
 
         excluded_items = m.excluded_items
@@ -1108,8 +1091,6 @@ def excluded_add(dropbox_path: str, config_name: str):
         click.echo(click.style('Cannot exclude the root directory.', fg='red'))
         return
 
-    from maestral.daemon import MaestralProxy
-
     with MaestralProxy(config_name, fallback=True) as m:
         if check_for_fatal_errors(m):
             return
@@ -1131,8 +1112,6 @@ def excluded_remove(dropbox_path: str, config_name: str):
     if dropbox_path == '/':
         click.echo(click.style('The root directory is always included.', fg='red'))
         return
-
-    from maestral.daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
@@ -1156,6 +1135,7 @@ def excluded_remove(dropbox_path: str, config_name: str):
 @existing_config_option
 def log_show(external: bool, config_name: str):
     """Prints Maestral's logs to the console."""
+
     from maestral.utils.appdirs import get_log_path
 
     log_file = get_log_path('maestral', config_name + '.log')
@@ -1180,6 +1160,7 @@ def log_show(external: bool, config_name: str):
 @existing_config_option
 def log_clear(config_name: str):
     """Clears Maestral's log file."""
+
     from maestral.utils.appdirs import get_log_path
 
     log_dir = get_log_path('maestral')
@@ -1209,8 +1190,6 @@ def log_clear(config_name: str):
 def log_level(level_name: str, config_name: str):
     """Gets or sets the log level."""
 
-    from maestral.daemon import MaestralProxy
-
     try:
         with MaestralProxy(config_name) as m:
             if level_name:
@@ -1239,7 +1218,7 @@ def log_level(level_name: str, config_name: str):
 @existing_config_option
 def notify_level(level_name: str, config_name: str):
     """Gets or sets the level for desktop notifications."""
-    from maestral.daemon import MaestralProxy
+
     from maestral.utils.notify import levelNameToNumber, levelNumberToName
 
     try:
@@ -1265,8 +1244,6 @@ def notify_level(level_name: str, config_name: str):
 @existing_config_option
 def notify_snooze(minutes: int, config_name: str):
     """Snoozes desktop notifications of file changes."""
-
-    from maestral.daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
