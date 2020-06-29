@@ -55,9 +55,9 @@ from maestral.constants import (
 )
 from maestral.errors import (
     MaestralApiError, SyncError, RevFileError, NoDropboxDirError, CacheDirError,
-    PathError, NotFoundError, FileConflictError, FolderConflictError,
-    fswatch_to_maestral_error, os_to_maestral_error
+    PathError, NotFoundError, FileConflictError, FolderConflictError
 )
+from maestral.client import DropboxClient, os_to_maestral_error, fswatch_to_maestral_error
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
 from maestral.utils.path import (
@@ -66,8 +66,8 @@ from maestral.utils.path import (
 )
 from maestral.utils.appdirs import get_data_path, get_home_dir
 
-logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
 _cpu_count = os.cpu_count()
 
 
