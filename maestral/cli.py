@@ -761,6 +761,7 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str):
     from datetime import datetime, timezone
     from maestral.daemon import MaestralProxy
     from maestral.client import natural_size
+    from maestral.utils import natural_size
 
     if not dropbox_path.startswith('/'):
         dropbox_path = '/' + dropbox_path
