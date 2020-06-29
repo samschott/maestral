@@ -20,6 +20,7 @@ import time
 import configparser as cp
 from threading import RLock
 import logging
+from typing import Union, Optional
 
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,10 @@ logger = logging.getLogger(__name__)
 
 class NoDefault:
     pass
+
+
+# all types accepted by ast-eval
+ConfType = Union[str, bytes, float, int, dict, tuple, list, set, bool, None, NoDefault]
 
 
 # =============================================================================
@@ -140,15 +145,17 @@ class UserConfig(DefaultsConfig):
     """
     DEFAULT_SECTION_NAME = 'main'
 
-    def __init__(self, path, name, defaults=None, load=True, version=None,
-                 backup=False, raw_mode=False, remove_obsolete=False, suffix='.ini'):
+    def __init__(self, path: str, name: str, defaults: Union[list, dict, None] = None,
+                 load: bool = True, version: Optional[str] = None, backup: bool = False,
+                 raw_mode: bool = False, remove_obsolete: bool = False,
+                 suffix: str = '.ini') -> None:
         """UserConfig class, based on ConfigParser."""
         super(UserConfig, self).__init__(path=path, name=name, suffix=suffix)
 
         self._load = load
         self._version = self._check_version(version)
         self._backup = backup
-        self._raw = 1 if raw_mode else 0
+        self._raw = raw_mode
         self._remove_obsolete = remove_obsolete
 
         self._defaults_folder = 'defaults'
@@ -199,17 +206,17 @@ class UserConfig(DefaultsConfig):
 
     # --- Helpers and checkers -----------------------------------------------------------
     @staticmethod
-    def _get_minor_version(version):
+    def _get_minor_version(version) -> str:
         """Return the 'major.minor' components of the version."""
         return version[:version.rfind('.')]
 
     @staticmethod
-    def _get_major_version(version):
+    def _get_major_version(version) -> str:
         """Return the 'major' component of the version."""
         return version[:version.find('.')]
 
     @staticmethod
-    def _check_version(version):
+    def _check_version(version) -> str:
         """Check version is compliant with format."""
         if version is not None:
             regex_check = re.match(r'^(\d+).(\d+).(\d+)$', version)
@@ -219,7 +226,7 @@ class UserConfig(DefaultsConfig):
 
         return version
 
-    def _check_defaults(self, defaults):
+    def _check_defaults(self, defaults: Union[list, dict, None]) -> list:
         """Check if defaults are valid and update defaults values."""
         if defaults is None:
             defaults = [(self.DEFAULT_SECTION_NAME, {})]
@@ -248,7 +255,7 @@ class UserConfig(DefaultsConfig):
         return defaults
 
     @classmethod
-    def _check_section_option(cls, section, option):
+    def _check_section_option(cls, section: str, option: str) -> str:
         """Check section and option types."""
         if section is None:
             section = cls.DEFAULT_SECTION_NAME
@@ -260,7 +267,8 @@ class UserConfig(DefaultsConfig):
 
         return section
 
-    def _make_backup(self, version=None, old_version=None):
+    def _make_backup(self, version: Optional[str] = None,
+                     old_version: Optional[str] = None) -> None:
         """
         Make a backup of the configuration file.
 
@@ -281,7 +289,7 @@ class UserConfig(DefaultsConfig):
         except IOError:
             pass
 
-    def _load_from_ini(self, fpath):
+    def _load_from_ini(self, fpath: str) -> None:
         """Load config from the associated file found at `fpath`."""
 
         with self._lock:
@@ -290,7 +298,7 @@ class UserConfig(DefaultsConfig):
             except cp.MissingSectionHeaderError:
                 logger.error('File contains no section headers.')
 
-    def _load_old_defaults(self, old_version):
+    def _load_old_defaults(self, old_version: str) -> DefaultsConfig:
         """Read old defaults."""
         old_defaults = cp.ConfigParser()
         fpath = self.get_defaults_fpath_from_version(old_version)
@@ -305,7 +313,7 @@ class UserConfig(DefaultsConfig):
             new_defaults.set_defaults(defaults)
             new_defaults.save()
 
-    def _update_defaults(self, defaults, old_version):
+    def _update_defaults(self, defaults: DefaultsConfig, old_version: str) -> None:
         """Update defaults after a change in version."""
         old_defaults = self._load_old_defaults(old_version)
         for section, options in defaults:
@@ -447,7 +455,7 @@ class UserConfig(DefaultsConfig):
 
         return value
 
-    def get(self, section, option, default=NoDefault):
+    def get(self, section, option, default: ConfType = NoDefault):
         """
         Get an option.
 
@@ -512,7 +520,7 @@ class UserConfig(DefaultsConfig):
             if sec == section:
                 options[option] = default_value
 
-    def set(self, section, option, value, save=True):
+    def set(self, section: str, option: str, value: ConfType, save: bool = True):
         """
         Set an `option` on a given `section`.
 

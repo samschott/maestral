@@ -13,15 +13,16 @@ import os
 import os.path as osp
 import shutil
 import itertools
+from typing import List, Optional
 
 
-def _path_components(path):
+def _path_components(path: str) -> List[str]:
     components = path.strip(osp.sep).split(osp.sep)
     cleaned_components = [c for c in components if c]
     return cleaned_components
 
 
-def is_fs_case_sensitive(path):
+def is_fs_case_sensitive(path: str) -> bool:
     """
     Checks if ``path`` lies on a partition with a case-sensitive file system.
 
@@ -40,7 +41,7 @@ def is_fs_case_sensitive(path):
         return not osp.samefile(path, check_path)
 
 
-def is_child(path, parent):
+def is_child(path: str, parent: str) -> bool:
     """
     Checks if ``path`` semantically is inside ``parent``. Neither path needs to
     refer to an actual item on the drive. This function is case sensitive.
@@ -57,7 +58,7 @@ def is_child(path, parent):
     return path.startswith(parent)
 
 
-def is_equal_or_child(path, parent):
+def is_equal_or_child(path: str, parent: str) -> bool:
     """
     Checks if ``path`` semantically is inside ``parent`` or equals ``parent``. Neither
     path needs to refer to an actual item on the drive. This function is case sensitive.
@@ -72,7 +73,8 @@ def is_equal_or_child(path, parent):
     return is_child(path, parent) or path == parent
 
 
-def cased_path_candidates(path, root=osp.sep, is_fs_case_sensitive=True):
+def cased_path_candidates(path: str, root: str = osp.sep,
+                          is_fs_case_sensitive: bool = True) -> List[str]:
     """
     Returns a list of cased versions of the given path as far as corresponding nodes
     exist in the given root directory. For instance, if a case sensitive root directory
@@ -154,7 +156,8 @@ def cased_path_candidates(path, root=osp.sep, is_fs_case_sensitive=True):
     return local_paths
 
 
-def to_cased_path(path, root=osp.sep, is_fs_case_sensitive=True):
+def to_cased_path(path: str, root: str = osp.sep,
+                  is_fs_case_sensitive: bool = True) -> str:
     """
     Returns a cased version of the given path as far as corresponding nodes exist in the
     given root directory. If multiple matches are found, only one is returned. If ``path``
@@ -176,7 +179,8 @@ def to_cased_path(path, root=osp.sep, is_fs_case_sensitive=True):
     return candidates[0]
 
 
-def path_exists_case_insensitive(path, root=osp.sep, is_fs_case_sensitive=True):
+def path_exists_case_insensitive(path: str, root: str = osp.sep,
+                                 is_fs_case_sensitive: bool = True) -> bool:
     """
     Checks if a ``path`` exists in given ``root`` directory, similar to ``os.path.exists``
     but case-insensitive.
@@ -205,7 +209,8 @@ def path_exists_case_insensitive(path, root=osp.sep, is_fs_case_sensitive=True):
         return osp.exists(osp.join(root, path.lstrip(osp.sep)))
 
 
-def generate_cc_name(path, suffix='conflicting copy', is_fs_case_sensitive=True):
+def generate_cc_name(path: str, suffix: str = 'conflicting copy',
+                     is_fs_case_sensitive: bool = True) -> str:
     """
     Generates a path for a conflicting copy of ``path``. The file name is created by
     inserting the given ``suffix`` between the the filename and extension. For instance:
@@ -239,7 +244,7 @@ def generate_cc_name(path, suffix='conflicting copy', is_fs_case_sensitive=True)
     return osp.join(dirname, cc_candidate)
 
 
-def delete(path, raise_error=False):
+def delete(path: str, raise_error: bool = False) -> Optional[OSError]:
     """
     Deletes a file or folder at ``path``. Exceptions are either raised or returned if
     ``raise_error`` is False.
@@ -260,7 +265,7 @@ def delete(path, raise_error=False):
         return err
 
 
-def move(src_path, dest_path, raise_error=False):
+def move(src_path: str, dest_path: str, raise_error: bool = False) -> Optional[OSError]:
     """
     Moves a file or folder from ``src_path`` to ``dest_path``. If either the source or
     the destination path no longer exist, this function does nothing. Any other

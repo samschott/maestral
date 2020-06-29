@@ -11,13 +11,19 @@ This module is responsible for authorization and token store in the system keyri
 # system imports
 import logging
 from threading import RLock
+from typing import Optional
+from datetime import datetime
 
 # external imports
 import click
 import keyring.backends
-import keyrings.alt
+import keyring.backends.OS_X
+import keyring.backends.SecretService
+import keyring.backends.kwallet
+from keyring.backend import KeyringBackend
 from keyring.core import load_keyring
 from keyring.errors import KeyringLocked
+import keyrings.alt.file
 import requests
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 
@@ -39,7 +45,7 @@ supported_keyring_backends = (
 )
 
 
-def get_keyring_backend(config_name):
+def get_keyring_backend(config_name: str) -> KeyringBackend:
     """
     Choose the most secure of the available and supported keyring backends or use the
     backend specified in the config file (if valid). Supported keyrings are:
@@ -110,7 +116,7 @@ class OAuth2Session:
 
     _lock = RLock()
 
-    def __init__(self, config_name, app_key=DROPBOX_APP_KEY):
+    def __init__(self, config_name: str, app_key: str = DROPBOX_APP_KEY) -> None:
 
         self._app_key = app_key
 
@@ -133,14 +139,14 @@ class OAuth2Session:
         self._expires_at = None
 
     @property
-    def token_access_type(self):
+    def token_access_type(self) -> str:
         """Returns the type of access token. If 'legacy', we have a long-lived access
         token. If 'offline', we have a short-lived access token with an expiry time and
         a long-lived refresh token to generate new access tokens."""
         return self._conf.get('account', 'token_access_type')
 
     @token_access_type.setter
-    def token_access_type(self, value):
+    def token_access_type(self, value: str) -> None:
 
         if value not in self._supported_token_access_types:
             raise ValueError('Token type must be "offline" or "legacy"')
@@ -148,12 +154,12 @@ class OAuth2Session:
         self._conf.set('account', 'token_access_type', value)
 
     @property
-    def account_id(self):
+    def account_id(self) -> Optional[str]:
         """Returns the account ID (read only)."""
         return self._account_id
 
     @property
-    def access_token(self):
+    def access_token(self) -> Optional[str]:
         """Returns the access token (read only). This will always be set for a 'legacy'
         token. For an 'offline' token, this will only be set if we completed the auth flow
         in the current session. In case of an 'offline' token, use the refresh token to
@@ -167,7 +173,7 @@ class OAuth2Session:
             return self._access_token
 
     @property
-    def refresh_token(self):
+    def refresh_token(self) -> Optional[str]:
         """Returns the refresh token (read only). This will only be set for an 'offline'
         token. The call will block until the keyring is unlocked."""
 
@@ -178,13 +184,13 @@ class OAuth2Session:
             return self._refresh_token
 
     @property
-    def access_token_expiration(self):
+    def access_token_expiration(self) -> Optional[datetime]:
         """Returns the expiry time for the short-lived access token. This will only be
         set for an 'offline' token and if we completed the flow during the current
         session."""
         return self._expires_at
 
-    def _load_token(self):
+    def _load_token(self) -> None:
         """
         Load auth token from system keyring.
 
@@ -211,7 +217,7 @@ class OAuth2Session:
             logger.error(title, exc_info=_exc_info(exc))
             raise exc
 
-    def get_auth_url(self):
+    def get_auth_url(self) -> str:
         """
         Gets the auth URL to start the OAuth2 implicit grant flow.
 
@@ -221,7 +227,7 @@ class OAuth2Session:
         authorize_url = self._auth_flow.start()
         return authorize_url
 
-    def verify_auth_token(self, token):
+    def verify_auth_token(self, token) -> int:
         """
         Verify the provided authorization token with Dropbox servers.
 
@@ -244,7 +250,7 @@ class OAuth2Session:
             except CONNECTION_ERRORS:
                 return self.ConnectionFailed
 
-    def save_creds(self):
+    def save_creds(self) -> None:
         """
         Saves the auth token to system keyring. Falls back to plain text storage if the
         user denies access to keyring.
@@ -264,7 +270,7 @@ class OAuth2Session:
                 self._conf.set('app', 'keyring', 'keyrings.alt.file.PlaintextKeyring')
                 self.save_creds()
 
-    def delete_creds(self):
+    def delete_creds(self) -> None:
         """
         Deletes auth token from system keyring.
 

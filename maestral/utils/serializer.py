@@ -12,10 +12,15 @@ daemon and frontends.
 # system imports
 import json
 import traceback
+from typing import Dict, Union
 
 # external imports
 from dropbox.stone_serializers import json_encode
 from dropbox.stone_validators import Struct
+
+
+EntryType = Dict[str, Union[str, float]]
+ErrorType = Dict[str, str]
 
 
 def _remove_tags(dictionary):
@@ -48,16 +53,17 @@ def error_to_dict(err):
     types.
 
     :param Exception err: Exception to convert.
-    :returns: Dictionary where all keys are strings and all items are native Python types.
-        The following keys will always be present but may contain emtpy strings: 'type',
-        'inherits', 'title', 'traceback', 'title', and 'message'.
-    :rtype: dict
+    :returns: Dictionary where all keys and values are strings. The following keys will
+        always be present but may contain emtpy strings: 'type', 'inherits', 'title',
+        'traceback', 'title', and 'message'.
+    :rtype: dict(str, str)
     """
 
     dictionary = dict(
         type=err.__class__.__name__,
         inherits=[b.__name__ for b in err.__class__.__bases__],
-        traceback=''.join(traceback.format_exception(err.__class__, err, err.__traceback__)),
+        traceback=''.join(traceback.format_exception(err.__class__,
+                                                     err, err.__traceback__)),
         title='An unexpected error occurred',
         message='Please restart Maestral to continue syncing.',
     )

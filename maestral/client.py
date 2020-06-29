@@ -20,6 +20,7 @@ import contextlib
 from datetime import datetime, timezone
 
 # external imports
+from typing import *
 import requests
 from dropbox import Dropbox, dropbox, files, users, exceptions, async_, auth, oauth
 
@@ -31,6 +32,40 @@ from maestral.constants import DROPBOX_APP_KEY
 from maestral.utils import natural_size
 
 logger = logging.getLogger(__name__)
+
+# type definitions
+LocalError = Union[MaestralApiError, OSError]
+WriteErrorType = Type[
+    Union[
+        SyncError,
+        InsufficientPermissionsError,
+        PathError,
+        InsufficientSpaceError,
+        FileConflictError,
+        FolderConflictError,
+        ConflictError,
+    ]
+]
+LookupErrorType = Type[
+    Union[
+        SyncError,
+        UnsupportedFileError,
+        RestrictedContentError,
+        NotFoundError,
+        NotAFolderError,
+        IsAFolderError,
+        PathError,
+    ]
+]
+SessionLookupErrorType = Type[
+    Union[
+        SyncError,
+        FileSizeError,
+    ]
+]
+_FT = Callable[..., Any]
+_T = TypeVar('_T')
+
 
 # create single requests session for all clients
 SESSION = dropbox.create_session()
@@ -49,7 +84,7 @@ CONNECTION_ERRORS = (
 
 class SpaceUsage(users.SpaceUsage):
 
-    def allocation_type(self):
+    def allocation_type(self) -> str:
         if self.allocation.is_team():
             return 'team'
         elif self.allocation.is_individual():
@@ -57,7 +92,7 @@ class SpaceUsage(users.SpaceUsage):
         else:
             return ''
 
-    def __str__(self):
+    def __str__(self) -> str:
 
         if self.allocation.is_individual():
             used = self.used
@@ -72,7 +107,8 @@ class SpaceUsage(users.SpaceUsage):
         return f'{percent:.1%} of {natural_size(allocated)} used'
 
 
-def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
+def to_maestral_error(dbx_path_arg: Optional[int] = None,
+                      local_path_arg: Optional[int] = None) -> Callable[_FT, _FT]:
     """
     Returns a decorator that converts instances of :class:`OSError` and
     :class:`exceptions.DropboxException` to :class:`errors.MaestralApiError`.
@@ -81,10 +117,10 @@ def to_maestral_error(dbx_path_arg=None, local_path_arg=None):
     :param int local_path_arg: Argument number to take as local_path_arg for exception.
     """
 
-    def decorator(func):
+    def decorator(func: _FT) -> _FT:
 
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs) -> Any:
 
             dbx_path = args[dbx_path_arg] if dbx_path_arg else None
             local_path = args[local_path_arg] if local_path_arg else None
@@ -121,10 +157,13 @@ class DropboxClient:
     :param int timeout: Timeout for individual requests. Defaults to 100 sec if not given.
     """
 
-    SDK_VERSION = '2.0'
+    SDK_VERSION: str = '2.0'
 
-    def __init__(self, config_name, refresh_token=None, access_token=None,
-                 access_token_expiration=None, timeout=100):
+    def __init__(self, config_name: str,
+                 refresh_token: Optional[str] = None,
+                 access_token: Optional[str] = None,
+                 access_token_expiration: Optional[datetime] = None,
+                 timeout: float = 100) -> None:
 
         self.config_name = config_name
 
@@ -135,8 +174,9 @@ class DropboxClient:
         # initialize API client
         self.set_token(refresh_token, access_token, access_token_expiration)
 
-    def set_token(self, refresh_token=None, access_token=None,
-                  access_token_expiration=None):
+    def set_token(self, refresh_token: Optional[str] = None,
+                  access_token: Optional[str] = None,
+                  access_token_expiration: Optional[datetime] = None) -> None:
         """
         Sets the access tokens for the Dropbox API. This will create a new SDK instance
         with new tokens.
@@ -161,7 +201,7 @@ class DropboxClient:
             self.dbx = None
 
     @to_maestral_error()
-    def get_account_info(self, dbid=None):
+    def get_account_info(self, dbid: Optional[str] = None) -> users.FullAccount:
         """
         Gets current account information.
 
@@ -194,7 +234,7 @@ class DropboxClient:
         return res
 
     @to_maestral_error()
-    def get_space_usage(self):
+    def get_space_usage(self) -> SpaceUsage:
         """
         Gets current account space usage.
 
@@ -213,14 +253,14 @@ class DropboxClient:
         return res
 
     @to_maestral_error()
-    def unlink(self):
+    def unlink(self) -> None:
         """
         Unlinks the Dropbox account.
         """
         self.dbx.auth_token_revoke()  # should only raise auth errors
 
     @to_maestral_error(dbx_path_arg=1)
-    def get_metadata(self, dbx_path, **kwargs):
+    def get_metadata(self, dbx_path: str, **kwargs) -> files.Metadata:
         """
         Gets metadata for an item on Dropbox or returns ``False`` if no metadata is
         available. Keyword arguments are passed on to Dropbox SDK files_get_metadata call.
@@ -240,7 +280,8 @@ class DropboxClient:
             pass
 
     @to_maestral_error(dbx_path_arg=1)
-    def list_revisions(self, dbx_path, mode='path', limit=10):
+    def list_revisions(self, dbx_path: str, mode: str = 'path',
+                       limit: int = 10) -> files.ListRevisionsResult:
         """
         Lists all file revisions for the given file.
 
@@ -256,7 +297,7 @@ class DropboxClient:
         return self.dbx.files_list_revisions(dbx_path, mode=mode, limit=limit)
 
     @to_maestral_error(dbx_path_arg=1)
-    def restore(self, dbx_path, rev):
+    def restore(self, dbx_path: str, rev: str) -> files.FileMetadata:
         """
         Restore an old revision of a file.
 
@@ -270,7 +311,7 @@ class DropboxClient:
         return self.dbx.files_restore(dbx_path, rev)
 
     @to_maestral_error(dbx_path_arg=1)
-    def download(self, dbx_path, local_path, **kwargs):
+    def download(self, dbx_path: str, local_path: str, **kwargs) -> files.FileMetadata:
         """
         Downloads file from Dropbox to our local folder.
 
@@ -314,7 +355,8 @@ class DropboxClient:
         return md
 
     @to_maestral_error(local_path_arg=1, dbx_path_arg=2)
-    def upload(self, local_path, dbx_path, chunk_size_mb=5, **kwargs):
+    def upload(self, local_path: str, dbx_path: str,
+               chunk_size_mb: float = 5, **kwargs) -> files.FileMetadata:
         """
         Uploads local file to Dropbox.
 
@@ -375,7 +417,7 @@ class DropboxClient:
                             cursor.offset = f.tell()
                         logger.info(f'Uploading {natural_size(f.tell())}/{size_str}...')
                     except exceptions.DropboxException as exc:
-                        error = exc.error
+                        error = getattr(exc, 'error', None)
                         if (isinstance(error, files.UploadSessionFinishError)
                                 and error.is_lookup_failed()):
                             session_lookup_error = error.get_lookup_failed()
@@ -393,7 +435,7 @@ class DropboxClient:
                             raise exc
 
     @to_maestral_error(dbx_path_arg=1)
-    def remove(self, dbx_path, **kwargs):
+    def remove(self, dbx_path: str, **kwargs) -> files.Metadata:
         """
         Removes a file / folder from Dropbox.
 
@@ -409,7 +451,8 @@ class DropboxClient:
         return md
 
     @to_maestral_error()
-    def remove_batch(self, entries, batch_size=900):
+    def remove_batch(self, entries: Sequence[Tuple[str, str]],
+                     batch_size: int = 900) -> List[files.Metadata, MaestralApiError]:
         """
         Delete multiple items on Dropbox in a batch job.
 
@@ -479,7 +522,7 @@ class DropboxClient:
         return result_list
 
     @to_maestral_error(dbx_path_arg=2)
-    def move(self, dbx_path, new_path, **kwargs):
+    def move(self, dbx_path: str, new_path: str, **kwargs) -> files.Metadata:
         """
         Moves / renames files or folders on Dropbox.
 
@@ -501,7 +544,7 @@ class DropboxClient:
         return md
 
     @to_maestral_error(dbx_path_arg=1)
-    def make_dir(self, dbx_path, **kwargs):
+    def make_dir(self, dbx_path: str, **kwargs) -> files.FolderMetadata:
         """
         Creates a folder on Dropbox.
 
@@ -516,11 +559,12 @@ class DropboxClient:
         return md
 
     @to_maestral_error()
-    def make_dir_batch(self, dbx_paths, batch_size=900, **kwargs):
+    def make_dir_batch(self, dbx_paths: Sequence[str], batch_size: int = 900,
+                       **kwargs) -> List[files.FolderMetadata, SyncError]:
         """
         Creates multiple folders on Dropbox in a batch job.
 
-        :param list[str] dbx_paths: List of dropbox folder paths.
+        :param Sequence[str] dbx_paths: List of dropbox folder paths.
         :param int batch_size: Number of folders to create in each batch. Dropbox allows
             batches of up to 1,000 folders. Larger values will be capped automatically.
         :param kwargs: Keyword arguments for Dropbox SDK files_create_folder_batch.
@@ -582,7 +626,8 @@ class DropboxClient:
         return result_list
 
     @to_maestral_error(dbx_path_arg=1)
-    def get_latest_cursor(self, dbx_path, include_non_downloadable_files=False, **kwargs):
+    def get_latest_cursor(self, dbx_path: str,
+                          include_non_downloadable_files: bool = False, **kwargs) -> str:
         """
         Gets the latest cursor for the given folder and subfolders.
 
@@ -606,8 +651,9 @@ class DropboxClient:
         return res.cursor
 
     @to_maestral_error(dbx_path_arg=1)
-    def list_folder(self, dbx_path, max_retries_on_timeout=4,
-                    include_non_downloadable_files=False, **kwargs):
+    def list_folder(self, dbx_path: str, max_retries_on_timeout: int = 4,
+                    include_non_downloadable_files: bool = False,
+                    **kwargs) -> files.ListFolderResult:
         """
         Lists the contents of a folder on Dropbox.
 
@@ -657,7 +703,7 @@ class DropboxClient:
         return self.flatten_results(results)
 
     @staticmethod
-    def flatten_results(results):
+    def flatten_results(results: Sequence[files.ListFolderResult]) -> files.ListFolderResult:
         """
         Flattens a list of :class:`files.ListFolderResult` instances to a single
         instance with the cursor of the last entry in the list.
@@ -677,7 +723,7 @@ class DropboxClient:
         return results_flattened
 
     @to_maestral_error()
-    def wait_for_remote_changes(self, last_cursor, timeout=40):
+    def wait_for_remote_changes(self, last_cursor: str, timeout: float = 40) -> bool:
         """
         Waits for remote changes since ``last_cursor``. Call this method after
         starting the Dropbox client and periodically to get the latest updates.
@@ -706,7 +752,7 @@ class DropboxClient:
         return result.changes
 
     @to_maestral_error()
-    def list_remote_changes(self, last_cursor):
+    def list_remote_changes(self, last_cursor: str) -> files.ListFolderResult:
         """
         Lists changes to remote Dropbox since ``last_cursor``. Call this after
         :meth:`wait_for_remote_changes` returns ``True``.
@@ -728,18 +774,22 @@ class DropboxClient:
         return results
 
 
-def chunks(lst, n):
+# ==== helper functions ==================================================================
+
+def chunks(lst: Sequence, n: int) -> Generator[Sequence]:
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
 
-def clamp(n, minn, maxn):
+def clamp(n: _T, minn: _T, maxn: _T) -> _T:
     return max(min(maxn, n), minn)
 
 
 # ==== conversion functions to generate error messages and types =========================
 
-def os_to_maestral_error(exc: OSError, dbx_path=None, local_path=None):
+def os_to_maestral_error(exc: OSError,
+                         dbx_path: Optional[str] = None,
+                         local_path: Optional[str] = None) -> LocalError:
     """
     Converts a :class:`OSError` to a :class:`MaestralApiError` and tries to add a
     reasonably informative error title and message.
@@ -806,7 +856,7 @@ def os_to_maestral_error(exc: OSError, dbx_path=None, local_path=None):
     return maestral_exc
 
 
-def fswatch_to_maestral_error(exc):
+def fswatch_to_maestral_error(exc: OSError) -> LocalError:
     """
     Converts a :class:`OSError` when starting a file system watch to a
     :class:`MaestralApiError` and tries to add a reasonably informative error title and
@@ -852,7 +902,9 @@ def fswatch_to_maestral_error(exc):
     return maestral_exc
 
 
-def dropbox_to_maestral_error(exc: exceptions.DropboxException, dbx_path=None, local_path=None):
+def dropbox_to_maestral_error(exc: exceptions.DropboxException,
+                              dbx_path: Optional[str] = None,
+                              local_path: Optional[str] = None) -> MaestralApiError:
     """
     Converts a Dropbox SDK exception to a :class:`MaestralApiError` and tries to add a
     reasonably informative error title and message.
@@ -1158,7 +1210,7 @@ def dropbox_to_maestral_error(exc: exceptions.DropboxException, dbx_path=None, l
     return maestral_exc
 
 
-def _get_write_error_msg(write_error):
+def _get_write_error_msg(write_error: files.WriteError) -> Tuple[Optional[str], WriteErrorType]:
 
     text = None
     err_cls = SyncError
@@ -1199,7 +1251,7 @@ def _get_write_error_msg(write_error):
     return text, err_cls
 
 
-def _get_lookup_error_msg(lookup_error):
+def _get_lookup_error_msg(lookup_error: files.LookupError) -> Tuple[Optional[str], LookupErrorType]:
 
     text = None
     err_cls = SyncError
@@ -1228,7 +1280,7 @@ def _get_lookup_error_msg(lookup_error):
     return text, err_cls
 
 
-def _get_session_lookup_error_msg(session_lookup_error):
+def _get_session_lookup_error_msg(session_lookup_error: files.UploadSessionLookupError) -> Tuple[Optional[str], SessionLookupErrorType]:
 
     text = None
     err_cls = SyncError

@@ -30,6 +30,7 @@ import platform
 import subprocess
 import shlex
 from enum import Enum
+from typing import Optional, Dict
 
 try:
     # noinspection PyCompatibility
@@ -60,16 +61,16 @@ class AutoStartBase:
     Base class for autostart backends.
     """
 
-    def enable(self):
+    def enable(self) -> None:
         """Enable autostart. Must be implemented in subclass."""
         raise NotImplementedError('No supported implementation')
 
-    def disable(self):
+    def disable(self) -> None:
         """Disable autostart. Must be implemented in subclass."""
         raise NotImplementedError('No supported implementation')
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         """Returns the enabled status as bool. Must be implemented in subclass."""
         return False
 
@@ -90,9 +91,11 @@ class AutoStartSystemd(AutoStartBase):
     :param dict install_dict: Dictionary of additional keys and values for the Install
         section.
     """
-    def __init__(self, service_name, start_cmd, stop_cmd=None,
-                 notify=False, watchdog_sec=None, unit_dict=None,
-                 service_dict=None, install_dict=None):
+    def __init__(self, service_name: str, start_cmd: str, stop_cmd: Optional[str] = None,
+                 notify: bool = False, watchdog_sec: Optional[int] = None,
+                 unit_dict: Optional[Dict[str, str]] = None,
+                 service_dict: Optional[Dict[str, str]] = None,
+                 install_dict: Optional[Dict[str, str]] = None) -> None:
         super().__init__()
 
         self.service_name = service_name
@@ -131,14 +134,14 @@ class AutoStartSystemd(AutoStartBase):
         with open(self.destination, 'w') as f:
             f.write(self.contents)
 
-    def enable(self):
+    def enable(self) -> None:
         subprocess.run(['systemctl', '--user', 'enable', self.service_name])
 
-    def disable(self):
+    def disable(self) -> None:
         subprocess.run(['systemctl', '--user', 'disable', self.service_name])
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         """Checks if the systemd service is enabled."""
         res = subprocess.call(
             ['systemctl', '--user', '--quiet', 'is-enabled', self.service_name]
@@ -171,7 +174,7 @@ class AutoStartLaunchd(AutoStartBase):
 </dict>
 </plist>"""
 
-    def __init__(self, bundle_id, start_cmd):
+    def __init__(self, bundle_id: str, start_cmd: str) -> None:
 
         super().__init__()
         filename = bundle_id + '.plist'
@@ -187,20 +190,20 @@ class AutoStartLaunchd(AutoStartBase):
             start_cmd='\n'.join(arguments)
         )
 
-    def enable(self):
+    def enable(self) -> None:
         os.makedirs(self.path, exist_ok=True)
 
         with open(self.destination, 'w+') as f:
             f.write(self.contents)
 
-    def disable(self):
+    def disable(self) -> None:
         try:
             os.unlink(self.destination)
         except FileNotFoundError:
             pass
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         """Checks if the launchd plist exists in ~/Library/LaunchAgents."""
         return os.path.isfile(self.destination)
 
@@ -222,7 +225,8 @@ class AutoStartXDGDesktop(AutoStartBase):
         will be performed.
     """
 
-    def __init__(self, Name, Exec, filename=None, **kwargs):
+    def __init__(self, Name: str, Exec: str, filename: Optional[str] = None,
+                 **kwargs: str) -> None:
         super().__init__()
 
         self._attributes = {'Version': '1.0', 'Type': 'Application',
@@ -249,21 +253,21 @@ class AutoStartXDGDesktop(AutoStartBase):
         filename = filename or f'{Name}.desktop'
         self.destination = get_conf_path('autostart', filename)
 
-    def enable(self):
+    def enable(self) -> None:
         with open(self.destination, 'w+') as f:
             f.write(self.contents)
 
         st = os.stat(self.destination)
         os.chmod(self.destination, st.st_mode | stat.S_IEXEC)
 
-    def disable(self):
+    def disable(self) -> None:
         try:
             os.unlink(self.destination)
         except FileNotFoundError:
             pass
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         """Checks if the XDG desktop entry exists in ~/.config/autostart."""
         return os.path.isfile(self.destination)
 
@@ -275,7 +279,7 @@ class AutoStart:
 
     system = platform.system()
 
-    def __init__(self, config_name, gui=False):
+    def __init__(self, config_name: str, gui: bool = False) -> None:
 
         self._gui = gui
         self.maestral_path = self.get_maestral_command_path()
@@ -325,17 +329,17 @@ class AutoStart:
         else:
             self._impl = AutoStartBase()
 
-    def toggle(self):
+    def toggle(self) -> None:
         """Toggles autostart on or off."""
         self.enabled = not self.enabled
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         """True if autostart is enabled."""
         return self._impl.enabled
 
     @enabled.setter
-    def enabled(self, yes):
+    def enabled(self, yes: bool) -> None:
         """Setter: True if autostart is enabled."""
 
         if self.enabled == yes:
@@ -349,7 +353,7 @@ class AutoStart:
         else:
             self._impl.disable()
 
-    def get_maestral_command_path(self):
+    def get_maestral_command_path(self) -> str:
         """
         Returns the path to the maestral executable.
         """
@@ -371,7 +375,7 @@ class AutoStart:
 
         return str(path)
 
-    def _get_available_implementation(self):
+    def _get_available_implementation(self) -> Optional[SupportedImplementations]:
         """Returns the supported implementation depending on the platform."""
 
         if self.system == 'Darwin':

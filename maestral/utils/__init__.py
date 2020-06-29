@@ -1,6 +1,6 @@
 
 
-def natural_size(num, unit='B', sep=True):
+def natural_size(num: float, unit: str = 'B', sep: bool = True) -> str:
     """
     Convert number to a human readable string with decimal prefix.
 

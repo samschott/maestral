@@ -14,9 +14,11 @@ config module.
 import platform
 import os
 import os.path as osp
+from typing import Optional, List
 
 
-def _to_full_path(path, subfolder, filename, create):
+def _to_full_path(path: str, subfolder: Optional[str], filename: Optional[str],
+                  create: bool) -> str:
 
     if subfolder:
         path = osp.join(path, subfolder)
@@ -30,7 +32,7 @@ def _to_full_path(path, subfolder, filename, create):
     return path
 
 
-def get_home_dir():
+def get_home_dir() -> str:
     """
     Returns user home directory. This will be determined from the first
     valid result out of (osp.expanduser('~'), $HOME, $USERPROFILE, $TMP).
@@ -62,7 +64,8 @@ def get_home_dir():
                                'your user/home directory.')
 
 
-def get_conf_path(subfolder=None, filename=None, create=True):
+def get_conf_path(subfolder: Optional[str] = None, filename: Optional[str] = None,
+                  create: bool = True) -> str:
     """
     Returns the default config path for the platform. This will be:
 
@@ -85,7 +88,8 @@ def get_conf_path(subfolder=None, filename=None, create=True):
     return _to_full_path(conf_path, subfolder, filename, create)
 
 
-def get_data_path(subfolder=None, filename=None, create=True):
+def get_data_path(subfolder: Optional[str] = None, filename: Optional[str] = None,
+                  create: bool = True) -> str:
     """
     Returns the default path to save application data for the platform. This will be:
 
@@ -111,7 +115,7 @@ def get_data_path(subfolder=None, filename=None, create=True):
     return _to_full_path(state_path, subfolder, filename, create)
 
 
-def list_configs():
+def list_configs() -> List[str]:
     """
     Lists all maestral configs.
 

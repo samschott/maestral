@@ -30,6 +30,8 @@ from enum import IntEnum
 import pprint
 import socket
 from datetime import timezone
+from typing import *
+from types import TracebackType
 
 # external imports
 import pathspec
@@ -41,13 +43,14 @@ from watchdog.events import (
 )
 from watchdog.events import (
     DirModifiedEvent, FileModifiedEvent, DirCreatedEvent, FileCreatedEvent,
-    DirDeletedEvent, FileDeletedEvent, DirMovedEvent, FileMovedEvent
+    DirDeletedEvent, FileDeletedEvent, DirMovedEvent, FileMovedEvent, FileSystemEvent
 )
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 from atomicwrites import atomic_write
 
 # local imports
 from maestral.config import MaestralConfig, MaestralState
+from maestral.config.user import ConfType
 from maestral.fsevents import Observer
 from maestral.constants import (
     IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, EXCLUDED_FILE_NAMES,
@@ -69,6 +72,7 @@ from maestral.utils.appdirs import get_data_path, get_home_dir
 
 logger = logging.getLogger(__name__)
 _cpu_count = os.cpu_count()
+_FT = Callable[..., Any]
 
 
 # ========================================================================================
@@ -97,7 +101,7 @@ class InQueue:
     downloads.
     """
 
-    def __init__(self, queue, *items):
+    def __init__(self, queue: Queue, *items) -> None:
         """
         :param queue: Instance of :class:`queue.Queue`.
         :param iterable items: Items to put in queue.
@@ -105,11 +109,12 @@ class InQueue:
         self.items = items
         self.queue = queue
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         for item in self.items:
             self.queue.put(item)
 
-    def __exit__(self, err_type, err_value, err_traceback):
+    def __exit__(self, err_type: Type[Exception], err_value: Exception,
+                 err_traceback: TracebackType) -> None:
         remove_from_queue(self.queue, *self.items)
 
 
@@ -123,13 +128,13 @@ class FSEventHandler(FileSystemEventHandler):
     :param Event startup: Set when startup is running.
     :param SyncEngine sync: SyncEngine instance.
 
-    :cvar int ignore_timeout: Timeout in seconds after which ignored paths will be
+    :cvar flaot ignore_timeout: Timeout in seconds after which ignored paths will be
         discarded.
     """
 
-    ignore_timeout = 2
+    ignore_timeout: float = 2.0
 
-    def __init__(self, syncing, startup, sync):
+    def __init__(self, syncing: Event, startup: Event, sync: 'SyncEngine') -> None:
 
         self.syncing = syncing
         self.startup = startup
@@ -142,7 +147,7 @@ class FSEventHandler(FileSystemEventHandler):
         self.local_file_event_queue = Queue()
 
     @contextmanager
-    def ignore(self, *events, recursive=True):
+    def ignore(self, *events: FileSystemEvent, recursive: bool = True) -> Generator[None]:
         """
         A context manager to ignore file events. Once a matching event has been
         registered, further matching events will no longer be ignored unless ``recursive``
@@ -180,7 +185,7 @@ class FSEventHandler(FileSystemEventHandler):
                 for ignore in new_ignores:
                     ignore['ttl'] = time.time() + self.ignore_timeout
 
-    def _expire_ignored_events(self):
+    def _expire_ignored_events(self) -> None:
         """Removes all expired ignore entries."""
 
         with self._ignored_events_mutex:
@@ -191,7 +196,7 @@ class FSEventHandler(FileSystemEventHandler):
                 if ttl and ttl < now:
                     self._ignored_events.remove(ignore)
 
-    def _is_ignored(self, event):
+    def _is_ignored(self, event: FileSystemEvent) -> bool:
         """
         Checks if a file system event should been explicitly ignored because it was
         triggered by Maestral itself.
@@ -228,7 +233,7 @@ class FSEventHandler(FileSystemEventHandler):
 
             return False
 
-    def on_any_event(self, event):
+    def on_any_event(self, event: FileSystemEvent) -> None:
         """
         Callback on any event. Checks if the system file event should be ignored. If not,
         adds it to the queue for events to upload. If syncing is paused or stopped, all
@@ -264,64 +269,64 @@ class PersistentStateMutableSet(abc.MutableSet):
 
     _lock = RLock()
 
-    def __init__(self, config_name, section, option):
+    def __init__(self, config_name: str, section: str, option: str) -> None:
         super().__init__()
         self.config_name = config_name
         self.section = section
         self.option = option
         self._state = MaestralState(config_name)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[ConfType]:
         with self._lock:
             return iter(self._state.get(self.section, self.option))
 
-    def __contains__(self, dbx_path):
+    def __contains__(self, entry: ConfType) -> bool:
         with self._lock:
-            return dbx_path in self._state.get(self.section, self.option)
+            return entry in self._state.get(self.section, self.option)
 
     def __len__(self):
         with self._lock:
             return len(self._state.get(self.section, self.option))
 
-    def add(self, entry):
+    def add(self, entry: ConfType) -> None:
         with self._lock:
             state_list = self._state.get(self.section, self.option)
             state_list = set(state_list)
             state_list.add(entry)
             self._state.set(self.section, self.option, list(state_list))
 
-    def discard(self, entry):
+    def discard(self, entry: ConfType) -> None:
         with self._lock:
             state_list = self._state.get(self.section, self.option)
             state_list = set(state_list)
             state_list.discard(entry)
             self._state.set(self.section, self.option, list(state_list))
 
-    def update(self, *others):
+    def update(self, *others: ConfType) -> None:
         with self._lock:
             state_list = self._state.get(self.section, self.option)
             state_list = set(state_list)
             state_list.update(*others)
             self._state.set(self.section, self.option, list(state_list))
 
-    def difference_update(self, *others):
+    def difference_update(self, *others: ConfType) -> None:
         with self._lock:
             state_list = self._state.get(self.section, self.option)
             state_list = set(state_list)
             state_list.difference_update(*others)
             self._state.set(self.section, self.option, list(state_list))
 
-    def clear(self):
+    def clear(self) -> None:
         """Clears all elements."""
         with self._lock:
             self._state.set(self.section, self.option, [])
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<{self.__class__.__name__}(section=\'{self.section}\',' \
                f'option=\'{self.option}\', entries={list(self)})>'
 
 
-def catch_sync_issues(download=False):
+def catch_sync_issues(download: bool = False) -> Callable[_FT, _FT]:
     """
     Returns a decorator that catches all SyncErrors and logs them.
     Should only be used to decorate methods of :class:`SyncEngine`.
@@ -330,10 +335,10 @@ def catch_sync_issues(download=False):
         list to retry later.
     """
 
-    def decorator(func):
+    def decorator(func: _FT) -> _FT:
 
         @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
+        def wrapper(self, *args, **kwargs) -> Any:
             try:
                 res = func(self, *args, **kwargs)
                 if res is None:
@@ -447,10 +452,10 @@ class SyncEngine:
 
     """
 
-    _max_history = 30
-    _num_threads = min(32, os.cpu_count() * 3)
+    _max_history: int = 30
+    _num_threads: int = min(32, os.cpu_count() * 3)
 
-    def __init__(self, client):
+    def __init__(self, client: DropboxClient):
 
         self.client = client
         self.config_name = self.client.config_name
@@ -504,7 +509,7 @@ class SyncEngine:
     # ==== settings ======================================================================
 
     @property
-    def dropbox_path(self):
+    def dropbox_path(self) -> str:
         """
         Path to local Dropbox folder, as loaded from the config file. Before changing
         :attr:`dropbox_path`, make sure that syncing is paused. Move the dropbox folder to
@@ -513,7 +518,7 @@ class SyncEngine:
         return self._dropbox_path
 
     @dropbox_path.setter
-    def dropbox_path(self, path):
+    def dropbox_path(self, path: str) -> None:
         """Setter: dropbox_path"""
 
         path = osp.realpath(path)
@@ -526,19 +531,19 @@ class SyncEngine:
             self._conf.set('main', 'path', path)
 
     @property
-    def rev_file_path(self):
+    def rev_file_path(self) -> str:
         """Path to sync index with rev numbers (read only)."""
         return self._rev_file_path
 
     @property
-    def file_cache_path(self):
+    def file_cache_path(self) -> str:
         """Path to cache folder for temporary files (read only). The cache folder
         '.maestral.cache' is located inside the local Dropbox folder to prevent
         file transfer between different partitions or drives during sync."""
         return self._file_cache_path
 
     @property
-    def excluded_items(self):
+    def excluded_items(self) -> List[str]:
         """List of all files and folders excluded from sync. Changes are saved to the
         config file. If a parent folder is excluded, its children will automatically be
         removed from the list. If only children are given but not the parent folder,
@@ -547,7 +552,7 @@ class SyncEngine:
         return self._excluded_items
 
     @excluded_items.setter
-    def excluded_items(self, folder_list):
+    def excluded_items(self, folder_list: List[str]) -> None:
         """Setter: excluded_items"""
 
         with self.sync_lock:
@@ -556,7 +561,7 @@ class SyncEngine:
             self._conf.set('main', 'excluded_items', clean_list)
 
     @staticmethod
-    def clean_excluded_items_list(folder_list):
+    def clean_excluded_items_list(folder_list: List[str]) -> List[str]:
         """
         Removes all duplicates and children of excluded items from the excluded items
         list.
@@ -577,7 +582,7 @@ class SyncEngine:
         return clean_list
 
     @property
-    def max_cpu_percent(self):
+    def max_cpu_percent(self) -> float:
         """Maximum CPU usage for parallel downloads or uploads in percent of the total
         available CPU time per core. Individual workers in a thread pool will pause until
         the usage drops below this value. Tasks in the main thread such as indexing file
@@ -586,7 +591,7 @@ class SyncEngine:
         return self._max_cpu_percent
 
     @max_cpu_percent.setter
-    def max_cpu_percent(self, percent):
+    def max_cpu_percent(self, percent: float) -> None:
         """Setter: max_cpu_percent."""
         self._max_cpu_percent = percent
         self._conf.set('app', 'max_cpu_percent', percent // _cpu_count)
@@ -594,43 +599,43 @@ class SyncEngine:
     # ==== sync state ====================================================================
 
     @property
-    def last_cursor(self):
+    def last_cursor(self) -> str:
         """Cursor from last sync with remote Dropbox. The value is updated and saved to
         the config file on every successful download of remote changes."""
         return self._state.get('sync', 'cursor')
 
     @last_cursor.setter
-    def last_cursor(self, cursor):
+    def last_cursor(self, cursor: str) -> None:
         """Setter: last_cursor"""
         with self.sync_lock:
             self._state.set('sync', 'cursor', cursor)
             logger.debug('Remote cursor saved: %s', cursor)
 
     @property
-    def last_sync(self):
+    def last_sync(self) -> float:
         """Time stamp from last sync with remote Dropbox. The value is updated and
         saved to the config file on every successful upload of local changes."""
         return self._state.get('sync', 'lastsync')
 
     @last_sync.setter
-    def last_sync(self, last_sync):
+    def last_sync(self, last_sync: float) -> None:
         """Setter: last_sync"""
         with self.sync_lock:
             logger.debug('Local cursor saved: %s', last_sync)
             self._state.set('sync', 'lastsync', last_sync)
 
     @property
-    def last_reindex(self):
+    def last_reindex(self) -> float:
         """Time stamp of last indexing. This is used to determine when the next full
         indexing should take place."""
         return self._state.get('sync', 'last_reindex')
 
     @last_reindex.setter
-    def last_reindex(self, time_stamp):
+    def last_reindex(self, time_stamp: float) -> None:
         """Setter: last_reindex."""
         self._state.set('sync', 'last_reindex', time_stamp)
 
-    def get_last_sync_for_path(self, dbx_path):
+    def get_last_sync_for_path(self, dbx_path: str) -> float:
         """
         Returns the timestamp of last sync for an individual path.
 
@@ -641,7 +646,7 @@ class SyncEngine:
         dbx_path = dbx_path.lower()
         return max(self._last_sync_for_path.get(dbx_path, 0.0), self.last_sync)
 
-    def set_last_sync_for_path(self, dbx_path, last_sync):
+    def set_last_sync_for_path(self, dbx_path: str, last_sync: float) -> None:
         """
         Sets the timestamp of last sync for a path.
 
@@ -659,7 +664,7 @@ class SyncEngine:
 
     # ==== rev file management ===========================================================
 
-    def get_rev_index(self):
+    def get_rev_index(self) -> Dict[str, str]:
         """
         Returns a copy of the revision index containing the revision
         numbers for all synced files and folders.
@@ -670,7 +675,7 @@ class SyncEngine:
         with self._rev_lock:
             return self._rev_dict_cache.copy()
 
-    def get_local_rev(self, dbx_path):
+    def get_local_rev(self, dbx_path: str) -> str:
         """
         Gets revision number of local file.
 
@@ -685,13 +690,13 @@ class SyncEngine:
 
             return rev
 
-    def set_local_rev(self, dbx_path, rev):
+    def set_local_rev(self, dbx_path: str, rev: Optional[str]) -> None:
         """
         Saves revision number ``rev`` for local file. If ``rev`` is ``None``, the
         entry for the file is removed.
 
         :param str dbx_path: Path relative to Dropbox folder.
-        :param str rev: Revision number as string or ``None``.
+        :param Optional[str] rev: Revision number as string or ``None``.
         """
         with self._rev_lock:
             dbx_path = dbx_path.lower()
@@ -717,20 +722,20 @@ class SyncEngine:
                     self._append_rev_to_file(dirname, 'folder')
                     dirname = osp.dirname(dirname)
 
-    def _clean_and_save_rev_file(self):
+    def _clean_and_save_rev_file(self) -> None:
         """Cleans the revision index from duplicate entries and keeps only the last entry
         for any individual path. Then saves the index to the drive."""
         with self._rev_lock:
             self._save_rev_dict_to_file()
 
-    def clear_rev_index(self):
+    def clear_rev_index(self) -> None:
         """Clears the revision index."""
         with self._rev_lock:
             self._rev_dict_cache.clear()
             self._save_rev_dict_to_file()
 
     @contextmanager
-    def _handle_rev_read_exceptions(self, raise_exception=False):
+    def _handle_rev_read_exceptions(self, raise_exception: bool = False) -> Generator[None]:
 
         title = None
         new_exc = None
@@ -759,7 +764,7 @@ class SyncEngine:
             logger.error(title, exc_info=_exc_info(new_exc))
 
     @contextmanager
-    def _handle_rev_write_exceptions(self, raise_exception=False):
+    def _handle_rev_write_exceptions(self, raise_exception: bool = False) -> Generator[None]:
 
         title = None
         new_exc = None
@@ -781,7 +786,7 @@ class SyncEngine:
         elif new_exc:
             logger.error(title, exc_info=_exc_info(new_exc))
 
-    def _load_rev_dict_from_file(self, raise_exception=False):
+    def _load_rev_dict_from_file(self, raise_exception: bool = False) -> None:
         """
         Loads Maestral's rev index from ``rev_file_path``. Every line contains the rev
         number for a single path, saved in a json format. Only the last entry for each
@@ -811,7 +816,7 @@ class SyncEngine:
                 if not rev:
                     del self._rev_dict_cache[path]
 
-    def _save_rev_dict_to_file(self, raise_exception=False):
+    def _save_rev_dict_to_file(self, raise_exception: bool = False) -> None:
         """
         Save Maestral's rev index to ``rev_file_path``.
 
@@ -825,7 +830,8 @@ class SyncEngine:
                     for path, rev in self._rev_dict_cache.items():
                         f.write(json.dumps({path: rev}) + '\n')
 
-    def _append_rev_to_file(self, path, rev, raise_exception=False):
+    def _append_rev_to_file(self, path: str, rev: Optional[str],
+                            raise_exception: bool = False) -> None:
         """
         Appends a new line with a rev entry to the rev file. This is quicker than
         saving the entire rev index. When loading the rev file, older entries will be
@@ -833,7 +839,7 @@ class SyncEngine:
         discarded.
 
         :param str path: Path for rev.
-        :param str rev: Dropbox rev or ``None``.
+        :param Optional[str] rev: Dropbox rev or ``None``.
         :param bool raise_exception: If ``True``, raises an exception when saving fails.
             If ``False``, an error message is logged instead.
         :raises: :class:`errors.RevFileError`
@@ -847,18 +853,18 @@ class SyncEngine:
     # ==== mignore management ============================================================
 
     @property
-    def mignore_path(self):
+    def mignore_path(self) -> str:
         """Path to mignore file on local drive (read only)."""
         return self._mignore_path
 
     @property
-    def mignore_rules(self):
+    def mignore_rules(self) -> pathspec.PathSpec:
         """List of mignore rules following git wildmatch syntax (read only)."""
         if self._get_ctime(self.mignore_path) != self._mignore_ctime_loaded:
             self._mignore_rules = self._load_mignore_rules_form_file()
         return self._mignore_rules
 
-    def _load_mignore_rules_form_file(self):
+    def _load_mignore_rules_form_file(self) -> pathspec.PathSpec:
         """Loads rules from mignore file. No rules are loaded if the file does
         not exist or cannot be read."""
         self._mignore_ctime_loaded = self._get_ctime(self.mignore_path)
@@ -873,10 +879,10 @@ class SyncEngine:
     # ==== helper functions ==============================================================
 
     @property
-    def is_case_sensitive(self):
+    def is_case_sensitive(self) -> bool:
         return self._is_case_sensitive
 
-    def ensure_dropbox_folder_present(self):
+    def ensure_dropbox_folder_present(self) -> None:
         """
         Checks if the Dropbox folder still exists where we expect it to be.
 
@@ -889,7 +895,7 @@ class SyncEngine:
                    'or restart Maestral to set up a new folder.')
             raise NoDropboxDirError(title, msg)
 
-    def _ensure_cache_dir_present(self):
+    def _ensure_cache_dir_present(self) -> None:
         """Checks for or creates a directory at :attr:`file_cache_path`."""
         while not osp.isdir(self.file_cache_path):
             err = delete(self._file_cache_path)
@@ -906,7 +912,7 @@ class SyncEngine:
                                     'Please check if you have write permissions for '
                                     f'{self.file_cache_path}.')
 
-    def clean_cache_dir(self):
+    def clean_cache_dir(self) -> None:
         """Removes all items in the cache directory."""
 
         with self.sync_lock:
@@ -916,7 +922,8 @@ class SyncEngine:
                                     'Please check if you have write permissions for '
                                     f'{self._file_cache_path}.')
 
-    def _new_tmp_file(self):
+    def _new_tmp_file(self) -> str:
+        """Returns a new temporary file name in our cache directory."""
         self._ensure_cache_dir_present()
         try:
             with tempfile.NamedTemporaryFile(dir=self.file_cache_path, delete=False) as f:
@@ -926,7 +933,7 @@ class SyncEngine:
                                 'Please check if you have write permissions for '
                                 f'{self._file_cache_path}.')
 
-    def to_dbx_path(self, local_path):
+    def to_dbx_path(self, local_path: str) -> str:
         """
         Converts a local path to a path relative to the Dropbox folder. Casing of the
         given ``local_path`` will be preserved.
@@ -944,7 +951,7 @@ class SyncEngine:
             raise ValueError(f'Specified path "{local_path}" is outside of Dropbox '
                              f'directory "{self.dropbox_path}"')
 
-    def to_local_path(self, dbx_path):
+    def to_local_path(self, dbx_path: str) -> str:
         """
         Converts a Dropbox path to the corresponding local path.
 
@@ -969,7 +976,7 @@ class SyncEngine:
 
         return osp.join(local_parent, dbx_path_basename)
 
-    def get_local_path(self, md):
+    def get_local_path(self, md: Metadata) -> str:
         """
         Gets the corresponding local path for a Dropbox MetaData instance by calling
         :meth:`to_local_path` on the ``path_display`` attribute. The concerted path is
@@ -985,11 +992,12 @@ class SyncEngine:
 
         return md.local_path
 
-    def has_sync_errors(self):
+    def has_sync_errors(self) -> bool:
         """Returns ``True`` in case of sync errors, ``False`` otherwise."""
         return self.sync_errors.qsize() > 0
 
-    def clear_sync_error(self, local_path=None, dbx_path=None):
+    def clear_sync_error(self, local_path: Optional[str] = None,
+                         dbx_path: Optional[str] = None) -> None:
         """
         Clears all sync errors for ``local_path`` or ``dbx_path``.
 
@@ -1012,14 +1020,14 @@ class SyncEngine:
 
         self.download_errors.discard(dbx_path.lower())
 
-    def clear_all_sync_errors(self):
+    def clear_all_sync_errors(self) -> None:
         """Clears all sync errors."""
         with self.sync_errors.mutex:
             self.sync_errors.queue.clear()
         self.download_errors.clear()
 
     @staticmethod
-    def is_excluded(path):
+    def is_excluded(path) -> bool:
         """
         Checks if a file is excluded from sync. Certain file names are always excluded
         from syncing, following the Dropbox support article:
@@ -1062,7 +1070,7 @@ class SyncEngine:
 
         return False
 
-    def is_excluded_by_user(self, dbx_path):
+    def is_excluded_by_user(self, dbx_path: str) -> bool:
         """
         Check if file has been excluded from sync by the user.
 
@@ -1074,7 +1082,7 @@ class SyncEngine:
 
         return any(is_equal_or_child(dbx_path, path) for path in self.excluded_items)
 
-    def is_mignore(self, event):
+    def is_mignore(self, event: FileSystemEvent) -> bool:
         """
         Check if local file change has been excluded by an mignore pattern.
 
@@ -1090,7 +1098,7 @@ class SyncEngine:
         return (self._is_mignore_path(dbx_path, is_dir=event.is_directory)
                 and not self.get_local_rev(dbx_path))
 
-    def _is_mignore_path(self, dbx_path, is_dir=False):
+    def _is_mignore_path(self, dbx_path: str, is_dir: bool = False) -> bool:
 
         relative_path = dbx_path.lstrip('/')
 
@@ -1099,7 +1107,7 @@ class SyncEngine:
 
         return self.mignore_rules.match_file(relative_path)
 
-    def _slow_down(self):
+    def _slow_down(self) -> None:
 
         if self._max_cpu_percent == 100:
             return
@@ -1109,7 +1117,7 @@ class SyncEngine:
             while cpu_usage > self._max_cpu_percent:
                 cpu_usage = cpu_usage_percent(0.5 + 2 * random.random())
 
-    def busy(self):
+    def busy(self) -> bool:
         """
         Checks if we are currently syncing.
 
@@ -1125,7 +1133,7 @@ class SyncEngine:
 
     # ==== Upload sync ===================================================================
 
-    def upload_local_changes_while_inactive(self):
+    def upload_local_changes_while_inactive(self) -> None:
         """
         Collects changes while sync has not been running and uploads them to Dropbox.
         Call this method when resuming sync.
@@ -1150,7 +1158,7 @@ class SyncEngine:
                 self.last_sync = local_cursor
                 logger.debug('No local changes while inactive')
 
-    def _get_local_changes_while_inactive(self):
+    def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
 
         changes = []
         now = time.time()
@@ -1218,7 +1226,8 @@ class SyncEngine:
 
         return changes, now
 
-    def wait_for_local_changes(self, timeout=5, delay=1):
+    def wait_for_local_changes(self, timeout: float = 5,
+                               delay: float = 1) -> Tuple[List[FileSystemEvent], float]:
         """
         Waits for local file changes. Returns a list of local changes with at most one
         entry per path.
@@ -1249,7 +1258,8 @@ class SyncEngine:
 
         return self._clean_local_events(events), local_cursor
 
-    def apply_local_changes(self, events, local_cursor):
+    def apply_local_changes(self, events: List[FileSystemEvent],
+                            local_cursor: float) -> None:
         """
         Applies locally detected changes to the remote Dropbox.
 
@@ -1325,7 +1335,7 @@ class SyncEngine:
 
             self._clean_and_save_rev_file()
 
-    def _filter_excluded_changes_local(self, events):
+    def _filter_excluded_changes_local(self, events: List[FileSystemEvent]) -> Tuple[List[FileSystemEvent], List[FileSystemEvent]]:
         """
         Checks for and removes file events referring to items which are excluded from
         syncing.
@@ -1354,7 +1364,7 @@ class SyncEngine:
 
         return events_filtered, events_excluded
 
-    def _clean_local_events(self, events):
+    def _clean_local_events(self, events: List[FileSystemEvent]) -> List[FileSystemEvent]:
         """
         Takes local file events within the monitored period and cleans them up so that
         there is only a single event per path. Collapses moved and deleted events of
@@ -1543,7 +1553,7 @@ class SyncEngine:
         return (self._is_mignore_path(dbx_src_path, event.is_directory)
                 or self._is_mignore_path(dbx_dest_path, event.is_directory))
 
-    def _handle_case_conflict(self, event):
+    def _handle_case_conflict(self, event: FileSystemEvent) -> bool:
         """
         Checks for other items in the same directory with same name but a different
         case. Renames items if necessary. Only needed for case sensitive file systems.
@@ -1583,7 +1593,7 @@ class SyncEngine:
         else:
             return False
 
-    def _handle_selective_sync_conflict(self, event):
+    def _handle_selective_sync_conflict(self, event: FileSystemEvent) -> bool:
         """
         Checks for items in the local directory with same path as an item which is
         excluded by selective sync. Renames items if necessary.
@@ -1619,17 +1629,19 @@ class SyncEngine:
             return False
 
     @catch_sync_issues(download=False)
-    def _create_remote_entry(self, event):
+    def _create_remote_entry(self, event: FileSystemEvent) -> Optional[Metadata]:
         """
         Applies a local file system event to the remote Dropbox and clears any existing
         sync errors belonging to that path. Any :class:`errors.MaestralApiError` will be
         caught and logged as appropriate.
 
         :param FileSystemEvent event: Watchdog file system event.
+        :returns: Metadata of created or deleted remote entry.
+        :rtype: Metadata
         """
 
         if self.cancel_pending.is_set():
-            return False
+            return
 
         self._slow_down()
 
@@ -1643,16 +1655,16 @@ class SyncEngine:
 
         with InQueue(self.queue_uploading, local_path_to):
             if event.event_type is EVENT_TYPE_CREATED:
-                self._on_created(event)
+                return self._on_created(event)
             elif event.event_type is EVENT_TYPE_MOVED:
-                self._on_moved(event)
+                return self._on_moved(event)
             elif event.event_type is EVENT_TYPE_MODIFIED:
-                self._on_modified(event)
+                return self._on_modified(event)
             elif event.event_type is EVENT_TYPE_DELETED:
-                self._on_deleted(event)
+                return self._on_deleted(event)
 
     @staticmethod
-    def _wait_for_creation(path):
+    def _wait_for_creation(path: str) -> None:
         """
         Wait for a file at a path to be created or modified.
 
@@ -1668,7 +1680,7 @@ class SyncEngine:
         except OSError:
             return
 
-    def _on_moved(self, event):
+    def _on_moved(self, event: Union[FileMovedEvent, DirMovedEvent]) -> Optional[Metadata]:
         """
         Call when a local item is moved.
 
@@ -1681,6 +1693,8 @@ class SyncEngine:
 
         :param FilSystemEvent event: Watchdog file system event.
         :raises: :class:`errors.MaestralApiError`
+        :returns: Metadata of created remote item at destination.
+        :rtype: Metadata
         """
 
         local_path_from = event.src_path
@@ -1717,6 +1731,8 @@ class SyncEngine:
             self._set_local_rev_recursive(md_to_new)
             logger.debug('Moved "%s" to "%s" on Dropbox', dbx_path_from, dbx_path_to)
 
+        return md_to_new
+
     def _set_local_rev_recursive(self, md):
 
         if isinstance(md, FileMetadata):
@@ -1730,12 +1746,14 @@ class SyncEngine:
                 elif isinstance(md, FolderMetadata):
                     self.set_local_rev(md.path_lower, 'folder')
 
-    def _on_created(self, event):
+    def _on_created(self, event: Union[FileCreatedEvent, DirCreatedEvent]) -> Optional[Metadata]:
         """
         Call when a local item is created.
 
         :param FileSystemEvent event: Watchdog file system event.
         :raises: :class:`errors.MaestralApiError`
+        :returns: Metadata of created remote item.
+        :rtype: Metadata
         """
 
         local_path = event.src_path
@@ -1812,7 +1830,9 @@ class SyncEngine:
             self.set_local_rev(md_new.path_lower, rev)
             logger.debug('Created "%s" on Dropbox', dbx_path)
 
-    def _on_created_folders_batch(self, events):
+        return md_new
+
+    def _on_created_folders_batch(self, events: List[DirCreatedEvent]) -> None:
         """
         Creates multiple folders on Dropbox in a batch request. We currently don't use
         this because folders are created in parallel anyways and we perform conflict
@@ -1871,12 +1891,14 @@ class SyncEngine:
                 res.local_path = local_path
                 self.sync_errors.put(res)
 
-    def _on_modified(self, event):
+    def _on_modified(self, event: Union[FileModifiedEvent, DirModifiedEvent]) -> Optional[Metadata]:
         """
         Call when local item is modified.
 
         :param FileSystemEvent event: Watchdog file system event.
         :raises: :class:`errors.MaestralApiError`
+        :returns: Metadata of modified remote item.
+        :rtype: Metadata
         """
 
         if not event.is_directory:  # ignore directory modified events
@@ -1934,13 +1956,17 @@ class SyncEngine:
                 self.set_local_rev(md_new.path_lower, md_new.rev)
                 logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
 
-    def _on_deleted(self, event):
+            return md_new
+
+    def _on_deleted(self, event: Union[FileDeletedEvent, DirDeletedEvent]) -> Optional[Metadata]:
         """
         Call when local item is deleted. We try not to delete remote items which have been
         modified since the last sync.
 
         :param FileSystemEvent event: Watchdog file system event.
         :raises: :class:`errors.MaestralApiError`
+        :returns: Metadata of deleted remote item.
+        :rtype: Metadata
         """
 
         path = event.src_path
@@ -1980,21 +2006,26 @@ class SyncEngine:
 
         try:
             # will only perform delete if Dropbox remote rev matches `local_rev`
-            self.client.remove(dbx_path, parent_rev=local_rev if is_file else None)
+            md_deleted = self.client.remove(dbx_path,
+                                            parent_rev=local_rev if is_file else None)
         except NotFoundError:
             logger.debug('Could not delete "%s": the item no longer exists on Dropbox',
                          dbx_path)
+            md_deleted = None
         except PathError:
             logger.debug('Could not delete "%s": the item has been changed '
                          'since last sync', dbx_path)
+            md_deleted = None
 
         # remove revision metadata
         self.set_local_rev(dbx_path, None)
 
+        return md_deleted
+
     # ==== Download sync =================================================================
 
     @catch_sync_issues(download=True)
-    def get_remote_folder(self, dbx_path='/', ignore_excluded=True):
+    def get_remote_folder(self, dbx_path: str = '/', ignore_excluded: bool = True) -> bool:
         """
         Gets all files/folders from Dropbox and writes them to the local folder
         :attr:`dropbox_path`. Call this method on first run of the Maestral. Indexing
@@ -2003,7 +2034,7 @@ class SyncEngine:
 
         :param str dbx_path: Path relative to Dropbox folder. Defaults to root ('/').
         :param bool ignore_excluded: If ``True``, do not index excluded folders.
-        :returns: ``True`` on success, ``False`` otherwise.
+        :returns: Whether download was successful.
         :rtype: bool
         """
 
@@ -2047,7 +2078,7 @@ class SyncEngine:
 
             return all(success)
 
-    def get_remote_item(self, dbx_path):
+    def get_remote_item(self, dbx_path: str) -> bool:
         """
         Downloads a remote file or folder and updates its local rev. If the remote item no
         longer exists, the corresponding local item will be deleted. Given paths will be
@@ -2061,7 +2092,7 @@ class SyncEngine:
         cycle, for instance when including a previously excluded file or folder.
 
         :param str dbx_path: Path relative to Dropbox folder.
-        :returns: ``True`` on success, ``False`` otherwise.
+        :returns: Whether download was successful.
         :rtype: bool
         """
 
@@ -2081,9 +2112,10 @@ class SyncEngine:
             if res or not md:
                 self.pending_downloads.discard(dbx_path.lower())
 
-            return res
+            return bool(res)
 
-    def wait_for_remote_changes(self, last_cursor, timeout=40, delay=2):
+    def wait_for_remote_changes(self, last_cursor: str, timeout: float = 40,
+                                delay: float = 2) -> bool:
         """
         Blocks until changes to the remote Dropbox are available.
 
@@ -2100,7 +2132,7 @@ class SyncEngine:
         logger.debug('Detected remote changes: %s', has_changes)
         return has_changes
 
-    def list_remote_changes(self, last_cursor):
+    def list_remote_changes(self, last_cursor: str) -> dropbox.files.ListFolderResult:
         """
         Lists remote changes since the last download sync.
 
@@ -2114,7 +2146,8 @@ class SyncEngine:
         logger.debug('Cleaned remote changes:\n%s', entries_to_str(clean_changes.entries))
         return clean_changes
 
-    def apply_remote_changes(self, changes, save_cursor=True):
+    def apply_remote_changes(self, changes: dropbox.files.ListFolderResult,
+                             save_cursor: bool = True) -> Tuple[List[Metadata], bool]:
         """
         Applies remote changes to local folder. Call this on the result of
         :meth:`list_remote_changes`. The saved cursor is updated after a set of changes
@@ -2131,7 +2164,7 @@ class SyncEngine:
         """
 
         if not changes:
-            return False
+            return [], False
 
         # filter out excluded changes
         changes_included, changes_excluded = self._filter_excluded_changes_remote(changes)
@@ -2195,7 +2228,7 @@ class SyncEngine:
 
         return [entry for entry in downloaded if isinstance(entry, Metadata)], success
 
-    def notify_user(self, changes):
+    def notify_user(self, changes: List[Metadata]) -> None:
         """
         Sends system notification for file changes.
 
@@ -2255,7 +2288,7 @@ class SyncEngine:
 
         self._notifier.notify(msg, level=FILECHANGE)
 
-    def _filter_excluded_changes_remote(self, changes):
+    def _filter_excluded_changes_remote(self, changes: dropbox.files.ListFolderResult) -> Tuple[dropbox.files.ListFolderResult, dropbox.files.ListFolderResult]:
         """Removes all excluded items from the given list of changes.
 
         :param changes: :class:`dropbox.files.ListFolderResult` instance.
@@ -2278,7 +2311,7 @@ class SyncEngine:
 
         return changes_filtered, changes_discarded
 
-    def _check_download_conflict(self, md):
+    def _check_download_conflict(self, md: Metadata) -> Conflict:
         """
         Check if a local item is conflicting with remote change. The equivalent check when
         uploading and a change will be carried out by Dropbox itself.
@@ -2343,7 +2376,7 @@ class SyncEngine:
                 logger.debug('Ctime is newer than last sync for "%s": conflict', dbx_path)
                 return Conflict.Conflict
 
-    def _get_ctime(self, local_path, ignore_excluded=True):
+    def _get_ctime(self, local_path: str, ignore_excluded: bool = True) -> float:
         """
         Returns the ctime of a local item or -1.0 if there is nothing at the path. If
         the item is a directory, return the largest ctime of it and its children.
@@ -2371,7 +2404,7 @@ class SyncEngine:
         except FileNotFoundError:
             return -1.0
 
-    def _get_modified_by_dbid(self, md):
+    def _get_modified_by_dbid(self, md: Metadata) -> str:
         """
         Returns the Dropbox ID of the user who modified a shared item or our own ID if the
         item was not shared.
@@ -2387,7 +2420,7 @@ class SyncEngine:
             return self._conf.get('account', 'account_id')
 
     @staticmethod
-    def _separate_remote_entry_types(result):
+    def _separate_remote_entry_types(result: dropbox.files.ListFolderResult) -> Tuple[List[FolderMetadata], List[FileMetadata], List[DeletedMetadata]]:
         """
         Sorts entries in :class:`dropbox.files.ListFolderResult` into
         FolderMetadata, FileMetadata and DeletedMetadata.
@@ -2409,7 +2442,7 @@ class SyncEngine:
 
         return binned['folders'], binned['files'], binned['deleted']
 
-    def _clean_remote_changes(self, changes):
+    def _clean_remote_changes(self, changes: dropbox.files.ListFolderResult) -> dropbox.files.ListFolderResult:
         """
         Takes remote file events since last sync and cleans them up so that there is only
         a single event per path.
@@ -2466,7 +2499,7 @@ class SyncEngine:
         return changes
 
     @catch_sync_issues(download=True)
-    def _create_local_entry(self, entry):
+    def _create_local_entry(self, entry: Metadata) -> Optional[Metadata]:
         """
         Applies a file change from Dropbox servers to the local Dropbox folder.
         Any :class:`errors.MaestralApiError` will be caught and logged as appropriate.
@@ -2476,11 +2509,11 @@ class SyncEngine:
         :returns: Copy of the Dropbox metadata if the change was applied locally,
             ``True`` if the change already existed locally and ``False`` in case of a
             :class:`errors.MaestralApiError`, for instance caused by sync issues.
-        :rtype: Metadata, bool
+        :rtype: Metadata
         """
 
         if self.cancel_pending.is_set():
-            return False
+            return
 
         self._slow_down()
 
@@ -2610,7 +2643,7 @@ class SyncEngine:
 
             return applied
 
-    def _rescan(self, local_path):
+    def _rescan(self, local_path: str) -> None:
 
         logger.debug('Rescanning "%s"', local_path)
 
@@ -2625,7 +2658,7 @@ class SyncEngine:
                 else:
                     self.fs_events.local_file_event_queue.put(FileCreatedEvent(path))
 
-    def _save_to_history(self, entries):
+    def _save_to_history(self, entries: List[Metadata]) -> None:
         """
         Saves remote changes to the history database.
 
@@ -2657,7 +2690,7 @@ class SyncEngine:
 # Workers for upload, download and connection monitoring threads
 # ========================================================================================
 
-def helper(mm):
+def helper(mm: 'SyncMonitor') -> None:
     """
     A worker for periodic maintenance:
 
@@ -2690,7 +2723,8 @@ def helper(mm):
             time.sleep(mm.connection_check_interval)
 
 
-def download_worker(sync, syncing, running, connected):
+def download_worker(sync: SyncEngine, syncing: Event,
+                    running: Event, connected: Event) -> None:
     """
     Worker to sync changes of remote Dropbox with local folder.
 
@@ -2736,7 +2770,8 @@ def download_worker(sync, syncing, running, connected):
             logger.error(title, exc_info=True)
 
 
-def download_worker_added_item(sync, syncing, running, connected):
+def download_worker_added_item(sync: SyncEngine, syncing: Event,
+                               running: Event, connected: Event) -> None:
     """
     Worker to download items which have been newly included in sync.
 
@@ -2774,7 +2809,8 @@ def download_worker_added_item(sync, syncing, running, connected):
             logger.error(title, exc_info=True)
 
 
-def upload_worker(sync, syncing, running, connected):
+def upload_worker(sync: SyncEngine, syncing: Event,
+                  running: Event, connected: Event) -> None:
     """
     Worker to sync local changes to remote Dropbox.
 
@@ -2815,7 +2851,8 @@ def upload_worker(sync, syncing, running, connected):
             logger.error(title, exc_info=True)
 
 
-def startup_worker(sync, syncing, running, connected, startup, paused_by_user):
+def startup_worker(sync: SyncEngine, syncing: Event, running: Event, connected: Event,
+                   startup: Event, paused_by_user: Event) -> None:
     """
     Worker to sync local changes to remote Dropbox.
 
@@ -2910,9 +2947,9 @@ class SyncMonitor:
         Python SDK.
     """
 
-    connection_check_interval = 2
+    connection_check_interval: float = 2.0
 
-    def __init__(self, client):
+    def __init__(self, client: DropboxClient):
 
         self.client = client
         self.config_name = self.client.config_name
@@ -2934,30 +2971,30 @@ class SyncMonitor:
         self.reindex_interval = self.sync._conf.get('sync', 'reindex_interval')
 
     @property
-    def uploading(self):
+    def uploading(self) -> List[str]:
         """Returns a list of all items currently uploading. Items are absolute paths (str)
         on local drive."""
         return list(self.sync.queue_uploading.queue)
 
     @property
-    def downloading(self):
+    def downloading(self) -> List[str]:
         """Returns a list of all items currently downloading. Items are paths (str)
         relative to the Dropbox folder."""
         return list(self.sync.queue_downloading.queue)
 
     @property
-    def queued_for_upload(self):
+    def queued_for_upload(self) -> List[str]:
         """Returns a list of all items queued for upload. Items are absolute paths (str)
         on local drive."""
         return list(self.sync.queued_for_upload.queue)
 
     @property
-    def queued_for_download(self):
+    def queued_for_download(self) -> List[str]:
         """Returns a list of all items queued for download. Items are paths (str) relative
         to the Dropbox folder."""
         return list(self.sync.queued_for_download.queue)
 
-    def start(self):
+    def start(self) -> None:
         """Creates observer threads and starts syncing."""
 
         with self._lock:
@@ -3022,7 +3059,7 @@ class SyncMonitor:
 
             try:
                 self.local_observer_thread.start()
-            except Exception as exc:
+            except OSError as exc:
                 new_exc = fswatch_to_maestral_error(exc)
                 title = getattr(new_exc, 'title', 'Unexpected error')
                 logger.error(title, exc_info=_exc_info(new_exc))
@@ -3042,7 +3079,7 @@ class SyncMonitor:
 
             self._startup_time = time.time()
 
-    def pause(self):
+    def pause(self) -> None:
         """Pauses syncing."""
 
         with self._lock:
@@ -3055,7 +3092,7 @@ class SyncMonitor:
 
             logger.info(PAUSED)
 
-    def resume(self):
+    def resume(self) -> None:
         """Checks for changes while idle and starts syncing."""
 
         with self._lock:
@@ -3065,7 +3102,7 @@ class SyncMonitor:
             self.startup.set()
             self.paused_by_user.clear()
 
-    def stop(self):
+    def stop(self) -> None:
         """Stops syncing and destroys worker threads."""
 
         with self._lock:
@@ -3092,7 +3129,7 @@ class SyncMonitor:
             logger.info(STOPPED)
 
     @property
-    def idle_time(self):
+    def idle_time(self) -> float:
         """Returns the idle time in seconds since the last file change or zero if syncing
         is not running."""
         if len(self.sync._last_sync_for_path) > 0:
@@ -3102,7 +3139,7 @@ class SyncMonitor:
         else:
             return 0.0
 
-    def reset_sync_state(self):
+    def reset_sync_state(self) -> None:
         """Resets all saved sync state."""
 
         if self.syncing.is_set() or self.startup.is_set() or self.sync.busy():
@@ -3114,7 +3151,7 @@ class SyncMonitor:
 
         logger.debug('Sync state reset')
 
-    def rebuild_index(self):
+    def rebuild_index(self) -> None:
         """
         Rebuilds the rev file by comparing remote with local files and updating rev
         numbers from the Dropbox server. Files are compared by their content hashes and
@@ -3136,12 +3173,12 @@ class SyncMonitor:
         else:
             self.resume()
 
-    def _wait_for_idle(self):
+    def _wait_for_idle(self) -> None:
 
         self.sync.sync_lock.acquire()
         self.sync.sync_lock.release()
 
-    def _threads_alive(self):
+    def _threads_alive(self) -> bool:
         """Returns ``True`` if all threads are alive, ``False`` otherwise."""
 
         try:
@@ -3166,15 +3203,15 @@ class SyncMonitor:
 # Helper functions
 # ========================================================================================
 
-def _exc_info(exc):
+def _exc_info(exc: Exception) -> Tuple[Type[Exception], Exception, TracebackType]:
     return type(exc), exc, exc.__traceback__
 
 
-def get_dest_path(event):
+def get_dest_path(event: FileSystemEvent) -> str:
     return getattr(event, 'dest_path', event.src_path)
 
 
-def split_moved_event(event):
+def split_moved_event(event: Union[FileMovedEvent, DirMovedEvent]) -> Tuple[FileSystemEvent, FileSystemEvent]:
     """
     Splits a given FileSystemEvent into Deleted and Created events of the same type.
 
@@ -3184,16 +3221,16 @@ def split_moved_event(event):
     """
 
     if event.is_directory:
-        CreatedEvent = DirCreatedEvent
-        DeletedEvent = DirDeletedEvent
+        created_event_cls = DirCreatedEvent
+        deleted_event_cls = DirDeletedEvent
     else:
-        CreatedEvent = FileCreatedEvent
-        DeletedEvent = FileDeletedEvent
+        created_event_cls = FileCreatedEvent
+        deleted_event_cls = FileDeletedEvent
 
-    return DeletedEvent(event.src_path), CreatedEvent(event.dest_path)
+    return deleted_event_cls(event.src_path), created_event_cls(event.dest_path)
 
 
-def get_local_hash(local_path, chunk_size=1024):
+def get_local_hash(local_path: str, chunk_size: int = 1024) -> Optional[str]:
     """
     Computes content hash of a local file.
 
@@ -3226,7 +3263,7 @@ def get_local_hash(local_path, chunk_size=1024):
         del hasher
 
 
-def remove_from_queue(queue, *items):
+def remove_from_queue(queue: Queue, *items: Any) -> None:
     """
     Tries to remove an item from a queue.
 
@@ -3242,13 +3279,13 @@ def remove_from_queue(queue, *items):
                 pass
 
 
-def entries_to_str(entries):
+def entries_to_str(entries: List[Metadata]) -> str:
     str_reps = [f'<{e.__class__.__name__}(path_display={e.path_display})>'
                 for e in entries]
     return '[' + ',\n '.join(str_reps) + ']'
 
 
-def cpu_usage_percent(interval=0.1):
+def cpu_usage_percent(interval: float = 0.1) -> float:
     """Returns a float representing the CPU utilization of the current process as a
     percentage. This duplicates the similar method from psutil to avoid the psutil
     dependency.
@@ -3291,7 +3328,7 @@ def cpu_usage_percent(interval=0.1):
         return round(single_cpu_percent, 1)
 
 
-def check_connection(hostname):
+def check_connection(hostname: str) -> bool:
     """
     A low latency check for an internet connection.
 
