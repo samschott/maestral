@@ -12,6 +12,7 @@ existing config or state instances for a specified config_name.
 import copy
 import logging
 import threading
+from typing import Dict
 
 from .base import get_conf_path, get_data_path
 from .user import UserConfig
@@ -100,14 +101,14 @@ CONF_VERSION = '12.0.0'
 # Factories
 # =============================================================================
 
-_config_instances = dict()
-_state_instances = dict()
+_config_instances: Dict[str, UserConfig] = dict()
+_state_instances: Dict[str, UserConfig] = dict()
 
 _config_lock = threading.Lock()
 _state_lock = threading.Lock()
 
 
-def MaestralConfig(config_name):
+def MaestralConfig(config_name: str) -> UserConfig:
     """
     Returns existing config instance or creates a new one.
 
@@ -147,7 +148,7 @@ def MaestralConfig(config_name):
             return conf
 
 
-def MaestralState(config_name):
+def MaestralState(config_name: str) -> UserConfig:
     """
     Returns existing state instance or creates a new one.
 

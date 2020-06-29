@@ -182,8 +182,8 @@ class AutoStartLaunchd(AutoStartBase):
         self.path = osp.join(get_home_dir(), 'Library', 'LaunchAgents')
         self.destination = osp.join(self.path, filename)
 
-        start_cmd = shlex.split(start_cmd)
-        arguments = [f'\t\t<string>{arg}</string>' for arg in start_cmd]
+        start_cmd_list = shlex.split(start_cmd)
+        arguments = [f'\t\t<string>{arg}</string>' for arg in start_cmd_list]
 
         self.contents = self.template.format(
             bundle_id=bundle_id,
@@ -277,7 +277,7 @@ class AutoStart:
     start Maestral when the user logs in. Different backends are used depending on the
     platform and if we want to start a GUI or a daemon / service."""
 
-    system = platform.system()
+    _impl: AutoStartBase
 
     def __init__(self, config_name: str, gui: bool = False) -> None:
 
@@ -378,9 +378,11 @@ class AutoStart:
     def _get_available_implementation(self) -> Optional[SupportedImplementations]:
         """Returns the supported implementation depending on the platform."""
 
-        if self.system == 'Darwin':
+        system = platform.system()
+
+        if system == 'Darwin':
             return SupportedImplementations.launchd
-        elif self.system == 'Linux' and self._gui:
+        elif system == 'Linux' and self._gui:
             return SupportedImplementations.xdg_desktop
         else:
             res = subprocess.check_output(['ps', '-p', '1']).decode()

@@ -20,7 +20,7 @@ import textwrap
 import platform
 import time
 import argparse
-from typing import Optional, Callable, List, Generator
+from typing import Optional, Callable, List, Iterable
 
 # external imports
 import click
@@ -279,7 +279,7 @@ def format_table(rows: Optional[List[List[str]]] = None,
 
     # wrap strings to fit column
 
-    wrapped_columns = []
+    wrapped_columns: List[List[str]] = []
 
     for column, width in zip(columns, col_widths):
         wrapped_columns.append([textwrap.wrap(cell, width=width) for cell in column])
@@ -330,7 +330,7 @@ class SpecialHelpOrder(click.Group):
         self.list_commands = self.list_commands_for_help
         return super(SpecialHelpOrder, self).get_help(ctx)
 
-    def list_commands_for_help(self, ctx: click.Context) -> Generator[click.Command]:
+    def list_commands_for_help(self, ctx: click.Context) -> Iterable[str]:
         """reorder the list of commands when listing the help"""
         commands = super(SpecialHelpOrder, self).list_commands(ctx)
         return (c[1] for c in sorted(
@@ -366,7 +366,7 @@ class SpecialHelpOrder(click.Group):
         return decorator
 
 
-def _check_config(ctx: click.Context, param: str, value: str) -> str:
+def _check_config(ctx: click.Context, param: click.Parameter, value: str) -> str:
     """
     Checks if the selected config name, passed as :param:`value`, is valid.
 
@@ -383,7 +383,7 @@ def _check_config(ctx: click.Context, param: str, value: str) -> str:
     return value
 
 
-def _run_daemon(ctx: click.Context, param: str, value: bool):
+def _run_daemon(ctx: click.Context, param: click.Parameter, value: bool) -> None:
 
     if value is True:
 
@@ -516,7 +516,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
                 'individual files or subfolders later with "maestral excluded add".\n'
             )
 
-            excluded_items = []
+            excluded_items: List[str] = []
 
             # get all top-level Dropbox folders
             entries = m.list_folder('/', recursive=False)

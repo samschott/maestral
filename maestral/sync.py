@@ -22,7 +22,7 @@ import json
 from threading import Thread, Event, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
-from collections import abc
+from collections import abc, namedtuple
 import itertools
 from contextlib import contextmanager
 import functools
@@ -71,7 +71,7 @@ from maestral.utils.appdirs import get_data_path, get_home_dir
 
 
 logger = logging.getLogger(__name__)
-_cpu_count = os.cpu_count()
+_cpu_count = os.cpu_count() or 1  # os.cpu_count can return None
 _FT = Callable[..., Any]
 
 
@@ -118,6 +118,16 @@ class InQueue:
         remove_from_queue(self.queue, *self.items)
 
 
+class _Ignore:
+
+    def __init__(self, event: FileSystemEvent, start_time: float,
+                 ttl: Optional[float], recursive: bool) -> None:
+        self.event = event
+        self.start_time = start_time
+        self.ttl = ttl
+        self.recursive = recursive
+
+
 class FSEventHandler(FileSystemEventHandler):
     """
     Handles captured file events and adds them to :class:`SyncEngine`'s file event queue
@@ -128,11 +138,12 @@ class FSEventHandler(FileSystemEventHandler):
     :param Event startup: Set when startup is running.
     :param SyncEngine sync: SyncEngine instance.
 
-    :cvar flaot ignore_timeout: Timeout in seconds after which ignored paths will be
+    :cvar float ignore_timeout: Timeout in seconds after which ignored paths will be
         discarded.
     """
 
-    ignore_timeout: float = 2.0
+    _ignored_events: List[_Ignore]
+    ignore_timeout = 2.0
 
     def __init__(self, syncing: Event, startup: Event, sync: 'SyncEngine') -> None:
 
@@ -147,7 +158,7 @@ class FSEventHandler(FileSystemEventHandler):
         self.local_file_event_queue = Queue()
 
     @contextmanager
-    def ignore(self, *events: FileSystemEvent, recursive: bool = True) -> Generator[None]:
+    def ignore(self, *events: FileSystemEvent, recursive: bool = True) -> Iterator[None]:
         """
         A context manager to ignore file events. Once a matching event has been
         registered, further matching events will no longer be ignored unless ``recursive``
@@ -169,7 +180,7 @@ class FSEventHandler(FileSystemEventHandler):
             new_ignores = []
             for e in events:
                 new_ignores.append(
-                    dict(
+                    _Ignore(
                         event=e,
                         start_time=now,
                         ttl=None,
@@ -183,7 +194,7 @@ class FSEventHandler(FileSystemEventHandler):
         finally:
             with self._ignored_events_mutex:
                 for ignore in new_ignores:
-                    ignore['ttl'] = time.time() + self.ignore_timeout
+                    ignore.ttl = time.time() + self.ignore_timeout
 
     def _expire_ignored_events(self) -> None:
         """Removes all expired ignore entries."""
@@ -192,7 +203,7 @@ class FSEventHandler(FileSystemEventHandler):
 
             now = time.time()
             for ignore in self._ignored_events.copy():
-                ttl = ignore['ttl']
+                ttl = ignore.ttl
                 if ttl and ttl < now:
                     self._ignored_events.remove(ignore)
 
@@ -211,8 +222,8 @@ class FSEventHandler(FileSystemEventHandler):
             self._expire_ignored_events()
 
             for ignore in self._ignored_events:
-                ignore_event = ignore['event']
-                recursive = ignore['recursive']
+                ignore_event = ignore.event
+                recursive = ignore.recursive
 
                 if event == ignore_event:
 
@@ -280,7 +291,7 @@ class PersistentStateMutableSet(abc.MutableSet):
         with self._lock:
             return iter(self._state.get(self.section, self.option))
 
-    def __contains__(self, entry: ConfType) -> bool:
+    def __contains__(self, entry: object) -> bool:
         with self._lock:
             return entry in self._state.get(self.section, self.option)
 
@@ -326,7 +337,7 @@ class PersistentStateMutableSet(abc.MutableSet):
                f'option=\'{self.option}\', entries={list(self)})>'
 
 
-def catch_sync_issues(download: bool = False) -> Callable[_FT, _FT]:
+def catch_sync_issues(download: bool = False) -> Callable[[_FT], _FT]:
     """
     Returns a decorator that catches all SyncErrors and logs them.
     Should only be used to decorate methods of :class:`SyncEngine`.
@@ -452,8 +463,19 @@ class SyncEngine:
 
     """
 
-    _max_history: int = 30
-    _num_threads: int = min(32, os.cpu_count() * 3)
+    fs_events: Optional[FSEventHandler]
+    sync_errors: Queue
+    queued_newly_included_downloads: Queue
+    queued_for_download: Queue
+    queued_for_upload: Queue
+    queue_uploading: Queue
+    queue_downloading: Queue
+    _rev_dict_cache: Dict[str, str]
+    _last_sync_for_path: Dict[str, float]
+
+
+    _max_history = 30
+    _num_threads = min(32, _cpu_count * 3)
 
     def __init__(self, client: DropboxClient):
 
@@ -572,11 +594,11 @@ class SyncEngine:
         """
 
         # remove duplicate entries by creating set, strip trailing '/'
-        folder_list = set(f.lower().rstrip('/') for f in folder_list)
+        folder_set = set(f.lower().rstrip('/') for f in folder_list)
 
         # remove all children of excluded folders
-        clean_list = list(folder_list)
-        for folder in folder_list:
+        clean_list = list(folder_set)
+        for folder in folder_set:
             clean_list = [f for f in clean_list if not is_child(f, folder)]
 
         return clean_list
@@ -675,7 +697,7 @@ class SyncEngine:
         with self._rev_lock:
             return self._rev_dict_cache.copy()
 
-    def get_local_rev(self, dbx_path: str) -> str:
+    def get_local_rev(self, dbx_path: str) -> Optional[str]:
         """
         Gets revision number of local file.
 
@@ -735,7 +757,7 @@ class SyncEngine:
             self._save_rev_dict_to_file()
 
     @contextmanager
-    def _handle_rev_read_exceptions(self, raise_exception: bool = False) -> Generator[None]:
+    def _handle_rev_read_exceptions(self, raise_exception: bool = False) -> Iterator[None]:
 
         title = None
         new_exc = None
@@ -764,7 +786,7 @@ class SyncEngine:
             logger.error(title, exc_info=_exc_info(new_exc))
 
     @contextmanager
-    def _handle_rev_write_exceptions(self, raise_exception: bool = False) -> Generator[None]:
+    def _handle_rev_write_exceptions(self, raise_exception: bool = False) -> Iterator[None]:
 
         title = None
         new_exc = None
@@ -907,7 +929,7 @@ class SyncEngine:
                 os.mkdir(self.file_cache_path)
             except FileExistsError:
                 pass
-            except OSError:
+            except OSError as err:
                 raise CacheDirError(f'Cannot create cache directory (errno {err.errno})',
                                     'Please check if you have write permissions for '
                                     f'{self.file_cache_path}.')
@@ -1271,7 +1293,7 @@ class SyncEngine:
 
             events, _ = self._filter_excluded_changes_local(events)
 
-            sorted_events = dict(deleted=[], dir_created=[], dir_moved=[], file=[])
+            sorted_events: Dict[str, List[FileSystemEvent]] = dict(deleted=[], dir_created=[], dir_moved=[], file=[])
             for e in events:
                 if e.event_type == EVENT_TYPE_DELETED:
                     sorted_events['deleted'].append(e)
@@ -1381,7 +1403,7 @@ class SyncEngine:
         # deleted and created events and recombine them later if none of the paths has
         # other events associated with it or is excluded from sync.
 
-        histories = dict()
+        histories: Dict[str, List[FileSystemEvent]] = dict()
         for i, event in enumerate(events):
             if event.event_type == EVENT_TYPE_MOVED:
                 deleted, created = split_moved_event(event)
@@ -1449,7 +1471,7 @@ class SyncEngine:
         cleaned_events = set(unique_events)
 
         # recombine moved events
-        moved_events = dict()
+        moved_events: Dict[str, List[FileSystemEvent]] = dict()
         for event in unique_events:
             if hasattr(event, 'id'):
                 try:
@@ -1484,7 +1506,7 @@ class SyncEngine:
                               if isinstance(e, DirMovedEvent))
 
         if len(dir_moved_paths) > 0:
-            child_moved_events = dict()
+            child_moved_events: Dict[str, List[FileSystemEvent]] = dict()
             for path in dir_moved_paths:
                 child_moved_events[path] = []
 
@@ -1505,7 +1527,7 @@ class SyncEngine:
                                 if isinstance(e, DirDeletedEvent))
 
         if len(dir_deleted_paths) > 0:
-            child_deleted_events = dict()
+            child_deleted_events: Dict[str, List[FileSystemEvent]] = dict()
             for path in dir_deleted_paths:
                 child_deleted_events[path] = []
 
@@ -2430,7 +2452,7 @@ class SyncEngine:
             and :class:`dropbox.files.DeletedMetadata` respectively.
         :rtype: tuple
         """
-        binned = dict(folders=[], files=[], deleted=[])
+        binned: Dict[str, List[Metadata]] = dict(folders=[], files=[], deleted=[])
 
         for x in result.entries:
             if isinstance(x, FolderMetadata):
@@ -2462,7 +2484,7 @@ class SyncEngine:
         # Note: we won't have to deal with modified or moved events,
         # Dropbox only reports DeletedMetadata or FileMetadata / FolderMetadata
 
-        histories = dict()
+        histories: Dict[str, List[Metadata]] = dict()
         for entry in changes.entries:
             try:
                 histories[entry.path_lower].append(entry)
@@ -2967,7 +2989,7 @@ class SyncMonitor:
 
         self.fs_event_handler = FSEventHandler(self.syncing, self.startup, self.sync)
 
-        self._startup_time = None
+        self._startup_time = -1.0
         self.reindex_interval = self.sync._conf.get('sync', 'reindex_interval')
 
     @property
@@ -3203,7 +3225,7 @@ class SyncMonitor:
 # Helper functions
 # ========================================================================================
 
-def _exc_info(exc: Exception) -> Tuple[Type[Exception], Exception, TracebackType]:
+def _exc_info(exc: BaseException) -> Tuple[Type[BaseException], BaseException, Optional[TracebackType]]:
     return type(exc), exc, exc.__traceback__
 
 

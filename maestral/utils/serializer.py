@@ -12,18 +12,18 @@ daemon and frontends.
 # system imports
 import json
 import traceback
-from typing import Dict, Union
+from typing import Dict, Union, Any
 
 # external imports
 from dropbox.stone_serializers import json_encode
 from dropbox.stone_validators import Struct
 
 
-EntryType = Dict[str, Union[str, float]]
+EntryType = Dict[str, Union[str, float, bool]]
 ErrorType = Dict[str, str]
 
 
-def _remove_tags(dictionary):
+def _remove_tags(dictionary: dict) -> dict:
 
     new_dict = dict(dictionary)
 
@@ -36,7 +36,7 @@ def _remove_tags(dictionary):
     return new_dict
 
 
-def dropbox_stone_to_dict(obj):
+def dropbox_stone_to_dict(obj: Any) -> EntryType:
     """Converts the result of a Dropbox SDK call to a dictionary."""
 
     dictionary = dict(type=obj.__class__.__name__)
@@ -47,7 +47,7 @@ def dropbox_stone_to_dict(obj):
     return _remove_tags(dictionary)
 
 
-def error_to_dict(err):
+def error_to_dict(err: Exception) -> ErrorType:
     """
     Converts an exception to a dict. Keys will be strings and entries are native Python
     types.

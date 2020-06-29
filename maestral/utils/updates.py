@@ -13,7 +13,7 @@ This module contains functions to check fr updates and retrieve change logs.
 # system imports
 import requests
 from packaging.version import Version
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union
 
 # local imports
 from maestral import __version__
@@ -48,7 +48,7 @@ def get_newer_version(version: str, releases: List[str]) -> Optional[str]:
     return latest_release if Version(version) < Version(latest_release) else None
 
 
-def check_update_available(current_version: str = __version__) -> Dict[str, Optional[str, bool]]:
+def check_update_available(current_version: str = __version__) -> Dict[str, Union[str, bool, None]]:
     """
     Main method to check for updates.
 

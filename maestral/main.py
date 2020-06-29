@@ -18,7 +18,7 @@ import time
 from threading import Thread
 import logging.handlers
 from collections import deque
-from typing import Union, List, Dict, Optional
+from typing import Union, List, Dict, Optional, Deque
 
 # external imports
 import requests
@@ -97,6 +97,8 @@ class CachedHandler(logging.Handler):
     :param int maxlen: Maximum number of records to store. If ``None``, all
         records will be stored. Defaults to ``None``.
     """
+
+    cached_records: Deque[logging.LogRecord]
 
     def __init__(self, level: int = logging.NOTSET, maxlen: Optional[int] = None) -> None:
         logging.Handler.__init__(self, level=level)
@@ -186,6 +188,9 @@ class Maestral:
         Defaults to ``False``.
     """
 
+    log_handler_sd: Optional[SdNotificationHandler]
+    log_handler_journal: Optional[journal.JournalHandler]
+
     def __init__(self, config_name: str = 'maestral', log_to_stdout: bool = False) -> None:
 
         self._daemon_running = True
@@ -219,7 +224,7 @@ class Maestral:
             sd_notifier.notify('READY=1')
 
         # notify systemd periodically if alive
-        if IS_WATCHDOG:
+        if IS_WATCHDOG and WATCHDOG_USEC:
             logger.debug('Running as systemd watchdog service')
             logger.debug('WATCHDOG_USEC = %s', WATCHDOG_USEC)
             logger.debug('WATCHDOG_PID = %s', WATCHDOG_PID)
@@ -1213,7 +1218,7 @@ class Maestral:
         return self.sync.to_local_path(dbx_path)
 
     @staticmethod
-    def check_for_updates() -> Dict[str, Optional[str, bool]]:
+    def check_for_updates() -> Dict[str, Union[str, bool, None]]:
         """
         Checks if an update is available.
 
@@ -1283,6 +1288,7 @@ class Maestral:
 
     @staticmethod
     def _periodic_watchdog() -> None:
+
         while True:
             sd_notifier.notify('WATCHDOG=1')
             time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))

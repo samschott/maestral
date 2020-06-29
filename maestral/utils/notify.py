@@ -30,7 +30,7 @@ import pkg_resources
 import logging
 from collections import deque
 import threading
-from typing import Optional
+from typing import Optional, Dict, ClassVar
 
 # external imports
 import click
@@ -129,6 +129,9 @@ class DesktopNotifierBase:
     :param int notification_limit: Maximum number of notifications to keep in the system's
         notification center. This may be ignored by some implementations.
     """
+
+    app_name: str
+    notification_limit: int
 
     CRITICAL = 'critical'
     NORMAL = 'normal'
@@ -296,6 +299,8 @@ class DesktopNotifier:
     :param str app_name: Name of sending app.
     """
 
+    _impl: DesktopNotifierBase
+
     CRITICAL = 'critical'
     NORMAL = 'normal'
     LOW = 'low'
@@ -374,7 +379,7 @@ class MaestralDesktopNotifier(logging.Handler):
     ``notify_level`` will be applied in addition to the log level.
     """
 
-    _instances = dict()
+    _instances: ClassVar[Dict[str, 'MaestralDesktopNotifier']] = dict()
     _lock = threading.Lock()
 
     @classmethod
@@ -398,7 +403,7 @@ class MaestralDesktopNotifier(logging.Handler):
         super().__init__()
         self.setFormatter(logging.Formatter(fmt='%(message)s'))
         self._conf = MaestralConfig(config_name)
-        self._snooze = 0
+        self._snooze = 0.0
 
     @property
     def notify_level(self) -> int:
@@ -415,12 +420,12 @@ class MaestralDesktopNotifier(logging.Handler):
     @property
     def snoozed(self) -> float:
         """Time in minutes to snooze notifications. Applied to FILECHANGE level only."""
-        return max(0.0, (self._snooze - time.time()) / 60)
+        return max(0.0, (self._snooze - time.time()) / 60.0)
 
     @snoozed.setter
     def snoozed(self, minutes: float) -> None:
         """Setter: snoozed."""
-        self._snooze = time.time() + minutes * 60
+        self._snooze = time.time() + minutes * 60.0
 
     def notify(self, message: str, level: int = FILECHANGE) -> None:
         """

@@ -108,7 +108,7 @@ class SpaceUsage(users.SpaceUsage):
 
 
 def to_maestral_error(dbx_path_arg: Optional[int] = None,
-                      local_path_arg: Optional[int] = None) -> Callable[_FT, _FT]:
+                      local_path_arg: Optional[int] = None) -> Callable[[_FT], _FT]:
     """
     Returns a decorator that converts instances of :class:`OSError` and
     :class:`exceptions.DropboxException` to :class:`errors.MaestralApiError`.
@@ -370,7 +370,7 @@ class DropboxClient:
         """
 
         chunk_size_mb = clamp(chunk_size_mb, 0.1, 150)
-        chunk_size = chunk_size_mb * 10**6  # convert to bytes
+        chunk_size = int(chunk_size_mb * 10**6)  # convert to bytes
 
         size = osp.getsize(local_path)
         size_str = natural_size(size)
@@ -452,7 +452,7 @@ class DropboxClient:
 
     @to_maestral_error()
     def remove_batch(self, entries: Sequence[Tuple[str, str]],
-                     batch_size: int = 900) -> List[files.Metadata, MaestralApiError]:
+                     batch_size: int = 900) -> List[Union[files.Metadata, MaestralApiError]]:
         """
         Delete multiple items on Dropbox in a batch job.
 
@@ -560,7 +560,7 @@ class DropboxClient:
 
     @to_maestral_error()
     def make_dir_batch(self, dbx_paths: Sequence[str], batch_size: int = 900,
-                       **kwargs) -> List[files.FolderMetadata, SyncError]:
+                       **kwargs) -> List[Union[files.Metadata, MaestralApiError]]:
         """
         Creates multiple folders on Dropbox in a batch job.
 
@@ -776,7 +776,7 @@ class DropboxClient:
 
 # ==== helper functions ==================================================================
 
-def chunks(lst: Sequence, n: int) -> Generator[Sequence]:
+def chunks(lst: Sequence, n: int) -> Iterator[Sequence]:
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
@@ -808,6 +808,7 @@ def os_to_maestral_error(exc: OSError,
     """
 
     title = 'Could not sync file or folder'
+    err_cls: Type[MaestralApiError]
 
     if isinstance(exc, PermissionError):
         err_cls = InsufficientPermissionsError  # subclass of SyncError
@@ -868,6 +869,7 @@ def fswatch_to_maestral_error(exc: OSError) -> LocalError:
     """
 
     error_number = getattr(exc, 'errno', -1)
+    err_cls: Type[MaestralApiError]
 
     if isinstance(exc, NotADirectoryError):
         title = 'Dropbox folder has been moved or deleted'
@@ -915,6 +917,8 @@ def dropbox_to_maestral_error(exc: exceptions.DropboxException,
     :returns: :class:`MaestralApiError` instance.
     :rtype: :class:`MaestralApiError`
     """
+
+    err_cls: Type[MaestralApiError]
 
     # --------------------------- Dropbox API Errors -------------------------------------
     if isinstance(exc, exceptions.ApiError):
@@ -1007,7 +1011,7 @@ def dropbox_to_maestral_error(exc: exceptions.DropboxException,
                 write_error = error.get_path().reason  # returns UploadWriteFailed
                 text, err_cls = _get_write_error_msg(write_error)
             elif error.is_properties_error():
-                text = 'Invalid property group privided.'
+                text = 'Invalid property group provided.'
                 err_cls = SyncError
             else:
                 text = 'Please check the logs for more information'
@@ -1022,7 +1026,7 @@ def dropbox_to_maestral_error(exc: exceptions.DropboxException,
                 write_error = error.get_path()
                 text, err_cls = _get_write_error_msg(write_error)
             elif error.is_properties_error():
-                text = 'Invalid property group privided.'
+                text = 'Invalid property group provided.'
                 err_cls = SyncError
             elif error.is_too_many_write_operations():
                 text = ('There are too many write operations happening in your '
@@ -1210,9 +1214,9 @@ def dropbox_to_maestral_error(exc: exceptions.DropboxException,
     return maestral_exc
 
 
-def _get_write_error_msg(write_error: files.WriteError) -> Tuple[Optional[str], WriteErrorType]:
+def _get_write_error_msg(write_error: files.WriteError) -> Tuple[str, WriteErrorType]:
 
-    text = None
+    text = ''
     err_cls = SyncError
 
     if write_error.is_conflict():
@@ -1251,9 +1255,9 @@ def _get_write_error_msg(write_error: files.WriteError) -> Tuple[Optional[str], 
     return text, err_cls
 
 
-def _get_lookup_error_msg(lookup_error: files.LookupError) -> Tuple[Optional[str], LookupErrorType]:
+def _get_lookup_error_msg(lookup_error: files.LookupError) -> Tuple[str, LookupErrorType]:
 
-    text = None
+    text = ''
     err_cls = SyncError
 
     if lookup_error.is_malformed_path():
@@ -1280,9 +1284,9 @@ def _get_lookup_error_msg(lookup_error: files.LookupError) -> Tuple[Optional[str
     return text, err_cls
 
 
-def _get_session_lookup_error_msg(session_lookup_error: files.UploadSessionLookupError) -> Tuple[Optional[str], SessionLookupErrorType]:
+def _get_session_lookup_error_msg(session_lookup_error: files.UploadSessionLookupError) -> Tuple[str, SessionLookupErrorType]:
 
-    text = None
+    text = ''
     err_cls = SyncError
 
     if session_lookup_error.is_closed():
