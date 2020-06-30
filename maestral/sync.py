@@ -30,7 +30,7 @@ from enum import IntEnum
 import pprint
 import socket
 from datetime import timezone
-from typing import *
+from typing import Optional, Any, List, Dict, Tuple, Union, Iterator, Callable, Type
 from types import TracebackType
 
 # external imports

@@ -20,7 +20,7 @@ import textwrap
 import platform
 import time
 import argparse
-from typing import *
+from typing import Optional, List, Dict, Iterable, Callable, Union, TypeVar, cast
 
 # external imports
 import click

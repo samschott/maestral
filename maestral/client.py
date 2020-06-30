@@ -18,7 +18,9 @@ import logging
 import functools
 import contextlib
 from datetime import datetime, timezone
-from typing import Callable, Union, Any, Type, Sequence, Tuple, Iterator, List, TypeVar, Optional
+from typing import (
+    Callable, Union, Any, Type, Sequence, Tuple, Iterator, List, TypeVar, Optional
+)
 
 # external imports
 import requests

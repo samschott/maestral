@@ -20,7 +20,7 @@ import time
 import configparser as cp
 from threading import RLock
 import logging
-from typing import *
+from typing import Optional, List, Tuple, Dict, Union, Any
 
 
 logger = logging.getLogger(__name__)
