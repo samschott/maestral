@@ -541,7 +541,8 @@ def stop_maestral_daemon_process(config_name: str = 'maestral',
                 timeout -= 0.2
 
         # send SIGTERM after timeout and delete PID file
-        _send_term(pid)
+        if pid:
+            _send_term(pid)
 
         time.sleep(1)
 
