@@ -1263,9 +1263,6 @@ class SyncEngine:
 
         self.ensure_dropbox_folder_present()
 
-        if not self.fs_events:
-            raise RuntimeError('No filesystem event handler registered.')
-
         try:
             events = [self.fs_events.local_file_event_queue.get(timeout=timeout)]
             local_cursor = time.time()
