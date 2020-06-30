@@ -296,7 +296,7 @@ class TestIgnoreLocalEvents(TestCase):
         syncing.set()
 
         self.sync = DummySyncEngine(self.dummy_dir)
-        self.fs_event_handler = FSEventHandler(syncing, startup, self.sync)
+        self.fs_event_handler = FSEventHandler(syncing, startup)
 
         self.observer = Observer()
         self.observer.schedule(self.fs_event_handler, str(self.dummy_dir), recursive=True)
