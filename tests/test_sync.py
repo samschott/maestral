@@ -31,8 +31,9 @@ from unittest import TestCase
 
 class DummySyncEngine(SyncEngine):
 
-    def __init__(self, dropbox_path=''):
+    def __init__(self, dropbox_path='', fs_events=None):
         self._dropbox_path = dropbox_path
+        self.fs_events = fs_events
 
     def _should_split_excluded(self, event):
         return False
@@ -295,8 +296,8 @@ class TestIgnoreLocalEvents(TestCase):
         startup = Event()
         syncing.set()
 
-        self.sync = DummySyncEngine(self.dummy_dir)
         self.fs_event_handler = FSEventHandler(syncing, startup)
+        self.sync = DummySyncEngine(self.dummy_dir, self.fs_event_handler)
 
         self.observer = Observer()
         self.observer.schedule(self.fs_event_handler, str(self.dummy_dir), recursive=True)
