@@ -23,7 +23,7 @@ import fcntl
 import struct
 import tempfile
 import itertools
-from typing import *
+from typing import Optional, Union, Any, Tuple, Dict, Type
 from types import TracebackType, FrameType
 
 # external imports
@@ -35,9 +35,6 @@ from fasteners import InterProcessLock  # type: ignore
 from maestral.errors import SYNC_ERRORS, FATAL_ERRORS
 from maestral.constants import IS_FROZEN, IS_MACOS
 from maestral.utils.appdirs import get_runtime_path
-
-if TYPE_CHECKING:
-    from maestral.main import Maestral
 
 
 threads = dict()
