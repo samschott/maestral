@@ -1362,7 +1362,8 @@ class SyncEngine:
 
             self._clean_and_save_rev_file()
 
-    def _filter_excluded_changes_local(self, events: List[FileSystemEvent]) -> Tuple[List[FileSystemEvent], List[FileSystemEvent]]:
+    def _filter_excluded_changes_local(self, events: List[FileSystemEvent]) \
+            -> Tuple[List[FileSystemEvent], List[FileSystemEvent]]:
         """
         Checks for and removes file events referring to items which are excluded from
         syncing.
@@ -2318,7 +2319,8 @@ class SyncEngine:
 
         self._notifier.notify(msg, level=FILECHANGE)
 
-    def _filter_excluded_changes_remote(self, changes: dropbox.files.ListFolderResult) -> Tuple[dropbox.files.ListFolderResult, dropbox.files.ListFolderResult]:
+    def _filter_excluded_changes_remote(self, changes: dropbox.files.ListFolderResult) \
+            -> Tuple[dropbox.files.ListFolderResult, dropbox.files.ListFolderResult]:
         """Removes all excluded items from the given list of changes.
 
         :param changes: :class:`dropbox.files.ListFolderResult` instance.
@@ -2450,7 +2452,8 @@ class SyncEngine:
             return self._conf.get('account', 'account_id')
 
     @staticmethod
-    def _separate_remote_entry_types(result: dropbox.files.ListFolderResult) -> Tuple[List[FolderMetadata], List[FileMetadata], List[DeletedMetadata]]:
+    def _separate_remote_entry_types(result: dropbox.files.ListFolderResult) \
+            -> Tuple[List[FolderMetadata], List[FileMetadata], List[DeletedMetadata]]:
         """
         Sorts entries in :class:`dropbox.files.ListFolderResult` into
         FolderMetadata, FileMetadata and DeletedMetadata.
@@ -2472,7 +2475,8 @@ class SyncEngine:
 
         return binned['folders'], binned['files'], binned['deleted']
 
-    def _clean_remote_changes(self, changes: dropbox.files.ListFolderResult) -> dropbox.files.ListFolderResult:
+    def _clean_remote_changes(self, changes: dropbox.files.ListFolderResult) \
+            -> dropbox.files.ListFolderResult:
         """
         Takes remote file events since last sync and cleans them up so that there is only
         a single event per path.
