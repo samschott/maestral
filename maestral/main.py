@@ -188,7 +188,7 @@ class Maestral:
     """
 
     log_handler_sd: Optional[SdNotificationHandler]
-    log_handler_journal: Optional[journal.JournalHandler]
+    log_handler_journal: Optional['journal.JournalHandler']
 
     def __init__(self, config_name: str = 'maestral', log_to_stdout: bool = False) -> None:
 
