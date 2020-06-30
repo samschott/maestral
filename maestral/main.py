@@ -19,7 +19,6 @@ from threading import Thread
 import logging.handlers
 from collections import deque
 from typing import Union, List, Dict, Optional, Deque, Any
-from typing_extensions import TypedDict
 
 # external imports
 import requests
@@ -61,10 +60,6 @@ from maestral.constants import (
 
 logger = logging.getLogger(__name__)
 sd_notifier = sdnotify.SystemdNotifier()
-
-UpT = TypedDict('UpT', {'dbx_path': str, 'status': str})
-DownT = TypedDict('DownT', {'dbx_path': str, 'status': str})
-ActivityType = TypedDict('ActivityType', {'uploading': List[UpT], 'downloading': List[DownT]})
 
 # set up error reporting but do not activate
 
@@ -709,7 +704,7 @@ class Maestral:
         else:
             return FileStatus.Unwatched.value
 
-    def get_activity(self) -> ActivityType:
+    def get_activity(self) -> Dict[str, List[Dict[str]]]:
         """
         Gets current upload / download activity.
 
