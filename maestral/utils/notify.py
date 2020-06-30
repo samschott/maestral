@@ -350,7 +350,7 @@ class DesktopNotifier:
     def _get_available_implementation() -> SupportedImplementations:
         macos_version, *_ = platform.mac_ver()
 
-        if uns_path:
+        if platform.system() == 'Darwin' and uns_path:
             if (IS_MACOS_BUNDLE and Version(macos_version) >= Version('10.14.0')
                     and UNUserNotificationCenter.currentNotificationCenter()):
                 # UNUserNotificationCenter is only supported from signed app bundles
