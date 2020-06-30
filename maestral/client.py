@@ -18,7 +18,7 @@ import logging
 import functools
 import contextlib
 from datetime import datetime, timezone
-from typing import Callable, Union, Any, Type, Sequence, Tuple, Iterator, List, TypeVar
+from typing import Callable, Union, Any, Type, Sequence, Tuple, Iterator, List, TypeVar, Optional
 
 # external imports
 import requests
@@ -28,7 +28,14 @@ from dropbox import (  # type: ignore
 
 # local imports
 from maestral import __version__
-from maestral.errors import *
+from maestral.errors import (
+    MaestralApiError, SyncError, InsufficientPermissionsError, PathError,
+    InsufficientSpaceError, FileConflictError, FolderConflictError, ConflictError,
+    UnsupportedFileError, RestrictedContentError, NotFoundError, NotAFolderError,
+    IsAFolderError, FileSizeError, OutOfMemoryError, BadInputError, DropboxAuthError,
+    TokenExpiredError, TokenRevokedError, CursorResetError, DropboxServerError,
+    NoDropboxDirError, InotifyError
+)
 from maestral.config import MaestralState
 from maestral.constants import DROPBOX_APP_KEY
 from maestral.utils import natural_size
