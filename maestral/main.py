@@ -704,7 +704,7 @@ class Maestral:
         else:
             return FileStatus.Unwatched.value
 
-    def get_activity(self) -> Dict[str, List[Dict[str]]]:
+    def get_activity(self) -> Dict[str, List[Dict[str, str]]]:
         """
         Gets current upload / download activity.
 
@@ -716,8 +716,8 @@ class Maestral:
 
         self._check_linked()
 
-        uploading: List[UpT] = []
-        downloading: List[DownT] = []
+        uploading: List[Dict[str, str]] = []
+        downloading: List[Dict[str, str]] = []
 
         for path in self.monitor.uploading:
             path.lstrip(self.dropbox_path)
