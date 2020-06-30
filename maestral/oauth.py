@@ -16,16 +16,16 @@ from datetime import datetime
 
 # external imports
 import click
-import keyring.backends
-import keyring.backends.OS_X
-import keyring.backends.SecretService
-import keyring.backends.kwallet
-from keyring.backend import KeyringBackend
-from keyring.core import load_keyring
-from keyring.errors import KeyringLocked
-import keyrings.alt.file
+import keyring.backends  # type: ignore
+import keyring.backends.OS_X  # type: ignore
+import keyring.backends.SecretService  # type: ignore
+import keyring.backends.kwallet  # type: ignore
+from keyring.backend import KeyringBackend  # type: ignore
+from keyring.core import load_keyring  # type: ignore
+from keyring.errors import KeyringLocked  # type: ignore
+import keyrings.alt.file  # type: ignore
 import requests
-from dropbox.oauth import DropboxOAuth2FlowNoRedirect
+from dropbox.oauth import DropboxOAuth2FlowNoRedirect  # type: ignore
 
 # local imports
 from maestral.config import MaestralConfig
@@ -128,7 +128,6 @@ class OAuth2Session:
             use_pkce=True,
             token_access_type=self.default_token_access_type
         )
-        self._oAuth2FlowResult = None
 
         self._account_id = self._conf.get('account', 'account_id') or None
 
@@ -238,11 +237,11 @@ class OAuth2Session:
         with self._lock:
 
             try:
-                self._oAuth2FlowResult = self._auth_flow.finish(token)
-                self._access_token = self._oAuth2FlowResult.access_token
-                self._refresh_token = self._oAuth2FlowResult.refresh_token
-                self._expires_at = self._oAuth2FlowResult.expires_at
-                self._account_id = self._oAuth2FlowResult.account_id
+                res = self._auth_flow.finish(token)
+                self._access_token = res.access_token
+                self._refresh_token = res.refresh_token
+                self._expires_at = res.expires_at
+                self._account_id = res.account_id
                 self.token_access_type = 'offline'
                 return self.Success
             except requests.exceptions.HTTPError:

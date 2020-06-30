@@ -20,10 +20,13 @@ import time
 import configparser as cp
 from threading import RLock
 import logging
-from typing import Union, Optional
+from typing import *
 
 
 logger = logging.getLogger(__name__)
+
+DefaultsType = List[Tuple[str, Dict[str, Any]]]
+InputDefaultsType = Union[DefaultsType, Dict[str, Any], None]
 
 
 # =============================================================================
@@ -32,10 +35,6 @@ logger = logging.getLogger(__name__)
 
 class NoDefault:
     pass
-
-
-# all types accepted by ast-eval
-ConfType = Union[str, bytes, float, int, dict, tuple, list, set, bool, None, NoDefault]
 
 
 # =============================================================================
@@ -49,7 +48,7 @@ class DefaultsConfig(cp.ConfigParser):
 
     _lock = RLock()
 
-    def __init__(self, path, name, suffix):
+    def __init__(self, path: str, name: str, suffix: str) -> None:
         super(DefaultsConfig, self).__init__(interpolation=None)
 
         self._path = path
@@ -59,7 +58,7 @@ class DefaultsConfig(cp.ConfigParser):
         if not osp.isdir(osp.dirname(self._path)):
             os.makedirs(osp.dirname(self._path))
 
-    def _set(self, section, option, value):
+    def _set(self, section: str, option: str, value: Any) -> None:
         """Private set method"""
         if not self.has_section(section):
             self.add_section(section)
@@ -68,7 +67,7 @@ class DefaultsConfig(cp.ConfigParser):
 
         super(DefaultsConfig, self).set(section, option, value)
 
-    def save(self):
+    def save(self) -> None:
         """Save config into the associated file."""
         fpath = self.get_config_fpath()
 
@@ -91,18 +90,18 @@ class DefaultsConfig(cp.ConfigParser):
                     logger.warning('Failed to write user configuration to disk',
                                    exc_info=True)
 
-    def __write_file(self, fpath):
+    def __write_file(self, fpath: str) -> None:
 
         os.makedirs(self._path, exist_ok=True)
 
         with open(fpath, 'w', encoding='utf-8') as configfile:
             self.write(configfile)
 
-    def get_config_fpath(self):
+    def get_config_fpath(self) -> str:
         """Return the ini file where this configuration is stored."""
         return osp.join(self._path, self._name + self._suffix)
 
-    def set_defaults(self, defaults):
+    def set_defaults(self, defaults: DefaultsType) -> None:
         """Set default values and save to defaults folder location."""
         for section, options in defaults:
             for option in options:
@@ -145,8 +144,8 @@ class UserConfig(DefaultsConfig):
     """
     DEFAULT_SECTION_NAME = 'main'
 
-    def __init__(self, path: str, name: str, defaults: Union[list, dict, None] = None,
-                 load: bool = True, version: Optional[str] = None, backup: bool = False,
+    def __init__(self, path: str, name: str, defaults: InputDefaultsType = None,
+                 load: bool = True, version: str = '0.0.0', backup: bool = False,
                  raw_mode: bool = False, remove_obsolete: bool = False,
                  suffix: str = '.ini') -> None:
         """UserConfig class, based on ConfigParser."""
@@ -163,8 +162,7 @@ class UserConfig(DefaultsConfig):
         self._backup_suffix = '.bak'
         self._defaults_name_prefix = 'defaults'
 
-        # This attribute is overriding a method from cp.ConfigParser
-        self.defaults = self._check_defaults(defaults)
+        self.default_config = self._check_defaults(defaults)
 
         if backup:
             self._make_backup()
@@ -177,7 +175,7 @@ class UserConfig(DefaultsConfig):
             self._old_version = old_version
 
             # Save new defaults
-            self._save_new_defaults(self.defaults)
+            self._save_new_defaults(self.default_config)
 
             # Updating defaults only if major/minor version is different
             major_ver = self._get_major_version(version)
@@ -186,7 +184,7 @@ class UserConfig(DefaultsConfig):
             minor_ver = self._get_minor_version(version)
             minor_old_ver = self._get_minor_version(self._old_version)
 
-            if minor_ver != minor_old_ver:
+            if major_ver != major_old_ver or minor_ver != minor_old_ver:
 
                 if backup:
                     self._make_backup(version=old_version)
@@ -206,27 +204,26 @@ class UserConfig(DefaultsConfig):
 
     # --- Helpers and checkers -----------------------------------------------------------
     @staticmethod
-    def _get_minor_version(version) -> str:
+    def _get_minor_version(version: str) -> str:
         """Return the 'major.minor' components of the version."""
         return version[:version.rfind('.')]
 
     @staticmethod
-    def _get_major_version(version) -> str:
+    def _get_major_version(version: str) -> str:
         """Return the 'major' component of the version."""
         return version[:version.find('.')]
 
     @staticmethod
-    def _check_version(version) -> str:
+    def _check_version(version: str) -> str:
         """Check version is compliant with format."""
-        if version is not None:
-            regex_check = re.match(r'^(\d+).(\d+).(\d+)$', version)
-            if regex_check is None:
-                raise ValueError('Version number {} is incorrect - must be in '
-                                 'major.minor.micro format'.format(version))
+        regex_check = re.match(r'^(\d+).(\d+).(\d+)$', version)
+        if regex_check is None:
+            raise ValueError('Version number {} is incorrect - must be in '
+                             'major.minor.micro format'.format(version))
 
         return version
 
-    def _check_defaults(self, defaults: Union[list, dict, None]) -> list:
+    def _check_defaults(self, defaults: InputDefaultsType) -> DefaultsType:
         """Check if defaults are valid and update defaults values."""
         if defaults is None:
             defaults = [(self.DEFAULT_SECTION_NAME, {})]
@@ -243,7 +240,7 @@ class UserConfig(DefaultsConfig):
             raise ValueError('`defaults` must be a dict or a list of tuples!')
 
         # This attribute is overriding a method from cp.ConfigParser
-        self.defaults = defaults
+        self.default_config = defaults
 
         if defaults is not None:
             self.reset_to_defaults(save=False)
@@ -298,14 +295,14 @@ class UserConfig(DefaultsConfig):
             except cp.MissingSectionHeaderError:
                 logger.error('File contains no section headers.')
 
-    def _load_old_defaults(self, old_version: str) -> DefaultsConfig:
+    def _load_old_defaults(self, old_version: str) -> cp.ConfigParser:
         """Read old defaults."""
         old_defaults = cp.ConfigParser()
         fpath = self.get_defaults_fpath_from_version(old_version)
         old_defaults.read(fpath)
         return old_defaults
 
-    def _save_new_defaults(self, defaults):
+    def _save_new_defaults(self, defaults: DefaultsType) -> None:
         """Save new defaults."""
         path, name = self.get_defaults_path_name_from_version()
         new_defaults = DefaultsConfig(path=path, name=name, suffix=self._suffix)
@@ -313,21 +310,7 @@ class UserConfig(DefaultsConfig):
             new_defaults.set_defaults(defaults)
             new_defaults.save()
 
-    def _update_defaults(self, defaults: DefaultsConfig, old_version: str) -> None:
-        """Update defaults after a change in version."""
-        old_defaults = self._load_old_defaults(old_version)
-        for section, options in defaults:
-            for option in options:
-                new_value = options[option]
-                try:
-                    old_val = old_defaults.get(section, option)
-                except (cp.NoSectionError, cp.NoOptionError):
-                    old_val = None
-
-                if old_val is None or str(new_value) != old_val:
-                    self._set(section, option, new_value)
-
-    def _remove_deprecated_options(self, old_version):
+    def _remove_deprecated_options(self, old_version: str) -> None:
         """
         Remove options which are present in the file but not in defaults.
         """
@@ -343,11 +326,11 @@ class UserConfig(DefaultsConfig):
 
     # --- Compatibility API --------------------------------------------------------------
 
-    def get_previous_config_fpath(self):
+    def get_previous_config_fpath(self) -> str:
         """Return the last configuration file used if found."""
         return self.get_config_fpath()
 
-    def get_config_fpath_from_version(self, version=None):
+    def get_config_fpath_from_version(self, version: Optional[str] = None) -> str:
         """
         Return the configuration path for given version.
 
@@ -355,7 +338,8 @@ class UserConfig(DefaultsConfig):
         """
         return self.get_config_fpath()
 
-    def get_backup_fpath_from_version(self, version=None, old_version=None):
+    def get_backup_fpath_from_version(self, version: Optional[str] = None,
+                                      old_version: Optional[str] = None) -> str:
         """
         Get backup location based on version.
 
@@ -373,7 +357,7 @@ class UserConfig(DefaultsConfig):
             backup_fpath = "{}-{}{}".format(new_fpath, version, self._backup_suffix)
         return backup_fpath
 
-    def get_defaults_path_name_from_version(self, old_version=None):
+    def get_defaults_path_name_from_version(self, old_version: Optional[str] = None) -> Tuple[str, str]:
         """
         Get defaults location based on version.
 
@@ -391,7 +375,7 @@ class UserConfig(DefaultsConfig):
 
         return defaults_path, name
 
-    def get_defaults_fpath_from_version(self, old_version=None):
+    def get_defaults_fpath_from_version(self, old_version: str = None) -> str:
         """
         Get defaults location based on version.
 
@@ -401,7 +385,7 @@ class UserConfig(DefaultsConfig):
 
         return osp.join(defaults_path, name + self._suffix)
 
-    def apply_configuration_patches(self, old_version=None):
+    def apply_configuration_patches(self, old_version: str = None) -> None:
         """
         Apply any patch to configuration values on version changes.
 
@@ -410,18 +394,18 @@ class UserConfig(DefaultsConfig):
         pass
 
     # --- Public API ---------------------------------------------------------------------
-    def get_version(self, version='0.0.0'):
+    def get_version(self, version: str = '0.0.0') -> str:
         """Return configuration (not application!) version."""
         return self.get(self.DEFAULT_SECTION_NAME, 'version', version)
 
-    def set_version(self, version='0.0.0', save=True):
+    def set_version(self, version: str = '0.0.0', save: bool = True) -> None:
         """Set configuration (not application!) version."""
         version = self._check_version(version)
         self.set(self.DEFAULT_SECTION_NAME, 'version', version, save=save)
 
-    def reset_to_defaults(self, save=True, section=None):
+    def reset_to_defaults(self, save: bool = True, section: Optional[str] = None) -> None:
         """Reset config to Default values."""
-        for sec, options in self.defaults:
+        for sec, options in self.default_config:
             if section is None or section == sec:
                 for option in options:
                     value = options[option]
@@ -429,23 +413,23 @@ class UserConfig(DefaultsConfig):
         if save:
             self.save()
 
-    def set_as_defaults(self):
+    def set_as_defaults(self) -> None:
         """Set defaults from the current config."""
-        self.defaults = []
+        self.default_config = []
         for section in self.sections():
             secdict = {}
             for option, value in self.items(section, raw=self._raw):
                 secdict[option] = value
-            self.defaults.append((section, secdict))
+            self.default_config.append((section, secdict))
 
-    def get_default(self, section, option):
+    def get_default(self, section: str, option: str) -> Any:
         """
         Get default value for a given `section` and `option`.
 
         This is useful for type checking in `get` method.
         """
         section = self._check_section_option(section, option)
-        for sec, options in self.defaults:
+        for sec, options in self.default_config:
             if sec == section:
                 if option in options:
                     value = options[option]
@@ -455,7 +439,7 @@ class UserConfig(DefaultsConfig):
 
         return value
 
-    def get(self, section, option, default: ConfType = NoDefault):
+    def get(self, section, option, default: Any = NoDefault) -> Any:  # type: ignore
         """
         Get an option.
 
@@ -484,7 +468,7 @@ class UserConfig(DefaultsConfig):
                 self.set(section, option, default)
                 return default
 
-        value = super(UserConfig, self).get(section, option, raw=self._raw)
+        value: Any = super(UserConfig, self).get(section, option, raw=self._raw)
 
         default_value = self.get_default(section, option)
         if isinstance(default_value, bool):
@@ -507,7 +491,7 @@ class UserConfig(DefaultsConfig):
 
         return value
 
-    def set_default(self, section, option, default_value):
+    def set_default(self, section: str, option: str, default_value: Any) -> None:
         """
         Set Default value for a given `section`, `option`.
 
@@ -516,11 +500,11 @@ class UserConfig(DefaultsConfig):
         based on current values.
         """
         section = self._check_section_option(section, option)
-        for sec, options in self.defaults:
+        for sec, options in self.default_config:
             if sec == section:
                 options[option] = default_value
 
-    def set(self, section: str, option: str, value: ConfType, save: bool = True):
+    def set(self, section: str, option: str, value: Any, save: bool = True) -> None:  # type: ignore
         """
         Set an `option` on a given `section`.
 
@@ -550,17 +534,19 @@ class UserConfig(DefaultsConfig):
         if save:
             self.save()
 
-    def remove_section(self, section):
+    def remove_section(self, section: str) -> bool:
         """Remove `section` and all options within it."""
-        super(UserConfig, self).remove_section(section)
+        res = super(UserConfig, self).remove_section(section)
         self.save()
+        return res
 
-    def remove_option(self, section, option):
+    def remove_option(self, section: str, option: str) -> bool:
         """Remove `option` from `section`."""
-        super(UserConfig, self).remove_option(section, option)
+        res = super(UserConfig, self).remove_option(section, option)
         self.save()
+        return res
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Remove files associated with config."""
         fpath = self.get_config_fpath()
 

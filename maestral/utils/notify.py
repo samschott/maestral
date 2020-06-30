@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 if platform.system() == 'Darwin':
 
     from ctypes import cdll, util
-    from rubicon.objc import ObjCClass
+    from rubicon.objc import ObjCClass  # type: ignore
 
     uns_path = util.find_library('UserNotifications')
 
@@ -64,8 +64,8 @@ if platform.system() == 'Darwin':
         logger.debug('Cannot load library "UserNotifications"')
 
 elif platform.system() == 'Linux':
-    from jeepney.integrate.blocking import Proxy, connect_and_authenticate
-    from jeepney.wrappers import DBusErrorResponse
+    from jeepney.integrate.blocking import Proxy, connect_and_authenticate  # type: ignore
+    from jeepney.wrappers import DBusErrorResponse  # type: ignore
     from maestral.utils.dbus_interfaces import FreedesktopNotifications
 
 

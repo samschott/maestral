@@ -27,9 +27,9 @@ from typing import *
 from types import TracebackType, FrameType
 
 # external imports
-import Pyro5.errors
-from Pyro5.api import Daemon, Proxy, expose, oneway, register_dict_to_class
-from fasteners import InterProcessLock
+import Pyro5.errors  # type: ignore
+from Pyro5.api import Daemon, Proxy, expose, oneway, register_dict_to_class  # type: ignore
+from fasteners import InterProcessLock  # type: ignore
 
 # local imports
 from maestral.errors import SYNC_ERRORS, FATAL_ERRORS
@@ -264,6 +264,8 @@ class Lock:
 
             except OSError:
                 pass
+
+            return None
 
 
 # ==== helpers for daemon management =====================================================

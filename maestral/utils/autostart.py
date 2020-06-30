@@ -33,10 +33,9 @@ from enum import Enum
 from typing import Optional, Dict
 
 try:
-    # noinspection PyCompatibility
-    from importlib.metadata import files, PackageNotFoundError
+    from importlib.metadata import files, PackageNotFoundError  # type: ignore
 except ImportError:  # Python 3.7 and lower
-    from importlib_metadata import files, PackageNotFoundError
+    from importlib_metadata import files, PackageNotFoundError  # type: ignore
 
 # local imports
 from maestral.utils.appdirs import get_home_dir, get_conf_path, get_data_path

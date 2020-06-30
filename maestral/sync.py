@@ -22,7 +22,7 @@ import json
 from threading import Thread, Event, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
-from collections import abc, namedtuple
+from collections import abc
 import itertools
 from contextlib import contextmanager
 import functools
@@ -34,10 +34,10 @@ from typing import *
 from types import TracebackType
 
 # external imports
-import pathspec
-import dropbox
-from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata
-from watchdog.events import FileSystemEventHandler
+import pathspec  # type: ignore
+import dropbox  # type: ignore
+from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata  # type: ignore
+from watchdog.events import FileSystemEventHandler  # type: ignore
 from watchdog.events import (
     EVENT_TYPE_CREATED, EVENT_TYPE_DELETED, EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED
 )
@@ -45,12 +45,11 @@ from watchdog.events import (
     DirModifiedEvent, FileModifiedEvent, DirCreatedEvent, FileCreatedEvent,
     DirDeletedEvent, FileDeletedEvent, DirMovedEvent, FileMovedEvent, FileSystemEvent
 )
-from watchdog.utils.dirsnapshot import DirectorySnapshot
+from watchdog.utils.dirsnapshot import DirectorySnapshot  # type: ignore
 from atomicwrites import atomic_write
 
 # local imports
 from maestral.config import MaestralConfig, MaestralState
-from maestral.config.user import ConfType
 from maestral.fsevents import Observer
 from maestral.constants import (
     IDLE, SYNCING, PAUSED, STOPPED, DISCONNECTED, EXCLUDED_FILE_NAMES,
@@ -136,21 +135,20 @@ class FSEventHandler(FileSystemEventHandler):
 
     :param Event syncing: Set when syncing is running.
     :param Event startup: Set when startup is running.
-    :param SyncEngine sync: SyncEngine instance.
 
     :cvar float ignore_timeout: Timeout in seconds after which ignored paths will be
         discarded.
     """
 
     _ignored_events: List[_Ignore]
+    local_file_event_queue: 'Queue[FileSystemEvent]'
+
     ignore_timeout = 2.0
 
-    def __init__(self, syncing: Event, startup: Event, sync: 'SyncEngine') -> None:
+    def __init__(self, syncing: Event, startup: Event) -> None:
 
         self.syncing = syncing
         self.startup = startup
-        self.sync = sync
-        self.sync.fs_events = self
 
         self._ignored_events = []
         self._ignored_events_mutex = RLock()
@@ -287,11 +285,11 @@ class PersistentStateMutableSet(abc.MutableSet):
         self.option = option
         self._state = MaestralState(config_name)
 
-    def __iter__(self) -> Iterator[ConfType]:
+    def __iter__(self) -> Iterator[Any]:
         with self._lock:
             return iter(self._state.get(self.section, self.option))
 
-    def __contains__(self, entry: object) -> bool:
+    def __contains__(self, entry: Any) -> bool:
         with self._lock:
             return entry in self._state.get(self.section, self.option)
 
@@ -299,28 +297,28 @@ class PersistentStateMutableSet(abc.MutableSet):
         with self._lock:
             return len(self._state.get(self.section, self.option))
 
-    def add(self, entry: ConfType) -> None:
+    def add(self, entry: Any) -> None:
         with self._lock:
             state_list = self._state.get(self.section, self.option)
             state_list = set(state_list)
             state_list.add(entry)
             self._state.set(self.section, self.option, list(state_list))
 
-    def discard(self, entry: ConfType) -> None:
+    def discard(self, entry: Any) -> None:
         with self._lock:
             state_list = self._state.get(self.section, self.option)
             state_list = set(state_list)
             state_list.discard(entry)
             self._state.set(self.section, self.option, list(state_list))
 
-    def update(self, *others: ConfType) -> None:
+    def update(self, *others: Any) -> None:
         with self._lock:
             state_list = self._state.get(self.section, self.option)
             state_list = set(state_list)
             state_list.update(*others)
             self._state.set(self.section, self.option, list(state_list))
 
-    def difference_update(self, *others: ConfType) -> None:
+    def difference_update(self, *others: Any) -> None:
         with self._lock:
             state_list = self._state.get(self.section, self.option)
             state_list = set(state_list)
@@ -354,29 +352,29 @@ def catch_sync_issues(download: bool = False) -> Callable[[_FT], _FT]:
                 res = func(self, *args, **kwargs)
                 if res is None:
                     res = True
-            except SyncError as exc:
+            except SyncError as err:
                 # fill out missing dbx_path or local_path
-                if exc.dbx_path or exc.local_path:
-                    if not exc.local_path:
-                        exc.local_path = self.to_local_path(exc.dbx_path)
-                    if not exc.dbx_path:
-                        exc.dbx_path = self.to_dbx_path(exc.local_path)
+                if err.dbx_path or err.local_path:
+                    if not err.local_path:
+                        err.local_path = self.to_local_path(err.dbx_path)
+                    if not err.dbx_path:
+                        err.dbx_path = self.to_dbx_path(err.local_path)
 
-                if exc.dbx_path_dst or exc.local_path_dst:
-                    if not exc.local_path_dst:
-                        exc.local_path_dst = self.to_local_path(exc.dbx_path_dst)
-                    if not exc.dbx_path:
-                        exc.dbx_path_dst = self.to_dbx_path(exc.local_path_dst)
+                if err.dbx_path_dst or err.local_path_dst:
+                    if not err.local_path_dst:
+                        err.local_path_dst = self.to_local_path(err.dbx_path_dst)
+                    if not err.dbx_path:
+                        err.dbx_path_dst = self.to_dbx_path(err.local_path_dst)
 
-                if exc.dbx_path:
+                if err.dbx_path:
                     # we have a file / folder associated with the sync error
-                    file_name = osp.basename(exc.dbx_path)
+                    file_name = osp.basename(err.dbx_path)
                     logger.warning('Could not sync %s', file_name, exc_info=True)
-                    self.sync_errors.put(exc)
+                    self.sync_errors.put(err)
 
                     # save download errors to retry later
                     if download:
-                        self.download_errors.add(exc.dbx_path.lower())
+                        self.download_errors.add(err.dbx_path.lower())
 
                 res = False
 
@@ -460,10 +458,11 @@ class SyncEngine:
          to a conflicting copy. In the latter case, we apply those changes locally.
 
     :param DropboxClient client: Dropbox API client instance.
+    :param FSEventHandler fs_events_handler: File system event handler to inform us of
+        local events.
 
     """
 
-    fs_events: Optional[FSEventHandler]
     sync_errors: Queue
     queued_newly_included_downloads: Queue
     queued_for_download: Queue
@@ -473,16 +472,15 @@ class SyncEngine:
     _rev_dict_cache: Dict[str, str]
     _last_sync_for_path: Dict[str, float]
 
-
     _max_history = 30
     _num_threads = min(32, _cpu_count * 3)
 
-    def __init__(self, client: DropboxClient):
+    def __init__(self, client: DropboxClient, fs_events_handler: FSEventHandler):
 
         self.client = client
         self.config_name = self.client.config_name
         self.cancel_pending = Event()
-        self.fs_events = None
+        self.fs_events = fs_events_handler
 
         self.sync_lock = RLock()
         self._rev_lock = RLock()
@@ -760,7 +758,7 @@ class SyncEngine:
     def _handle_rev_read_exceptions(self, raise_exception: bool = False) -> Iterator[None]:
 
         title = None
-        new_exc = None
+        new_err = None
 
         try:
             yield
@@ -770,43 +768,43 @@ class SyncEngine:
             self.last_sync = 0.0
             self._rev_dict_cache = dict()
             self.last_cursor = ''
-        except PermissionError as exc:
+        except PermissionError as err:
             title = 'Could not load index'
             msg = (f'Insufficient permissions for "{self.rev_file_path}". Please '
                    'make sure that you have read and write permissions.')
-            new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
-        except OSError as exc:
+            new_err = RevFileError(title, msg).with_traceback(err.__traceback__)
+        except OSError as err:
             title = 'Could not load index'
-            msg = f'Errno {exc.errno}. Please resync your Dropbox to rebuild the index.'
-            new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
+            msg = f'Errno {err.errno}. Please resync your Dropbox to rebuild the index.'
+            new_err = RevFileError(title, msg).with_traceback(err.__traceback__)
 
-        if new_exc and raise_exception:
-            raise new_exc
-        elif new_exc:
-            logger.error(title, exc_info=_exc_info(new_exc))
+        if new_err and raise_exception:
+            raise new_err
+        elif new_err:
+            logger.error(title, exc_info=_exc_info(new_err))
 
     @contextmanager
     def _handle_rev_write_exceptions(self, raise_exception: bool = False) -> Iterator[None]:
 
         title = None
-        new_exc = None
+        new_err = None
 
         try:
             yield
-        except PermissionError as exc:
+        except PermissionError as err:
             title = 'Could not save index'
             msg = (f'Insufficient permissions for "{self.rev_file_path}". Please '
                    'make sure that you have read and write permissions.')
-            new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
-        except OSError as exc:
+            new_err = RevFileError(title, msg).with_traceback(err.__traceback__)
+        except OSError as err:
             title = 'Could not save index'
-            msg = f'Errno {exc.errno}. Please check the logs for more information.'
-            new_exc = RevFileError(title, msg).with_traceback(exc.__traceback__)
+            msg = f'Errno {err.errno}. Please check the logs for more information.'
+            new_err = RevFileError(title, msg).with_traceback(err.__traceback__)
 
-        if new_exc and raise_exception:
-            raise new_exc
-        elif new_exc:
-            logger.error(title, exc_info=_exc_info(new_exc))
+        if new_err and raise_exception:
+            raise new_err
+        elif new_err:
+            logger.error(title, exc_info=_exc_info(new_err))
 
     def _load_rev_dict_from_file(self, raise_exception: bool = False) -> None:
         """
@@ -826,9 +824,9 @@ class SyncEngine:
                         try:
                             entry = json.loads(line.strip('\n'))
                             self._rev_dict_cache.update(entry)
-                        except json.decoder.JSONDecodeError as exc:
+                        except json.decoder.JSONDecodeError as err:
                             if line.endswith('\n'):
-                                raise exc
+                                raise err
                             else:
                                 # last line of file, likely an interrupted write
                                 pass
@@ -893,8 +891,8 @@ class SyncEngine:
         try:
             with open(self.mignore_path) as f:
                 spec = f.read()
-        except OSError as exc:
-            logger.debug(f'Could not load mignore rules from {self.mignore_path}: {exc}')
+        except OSError as err:
+            logger.debug(f'Could not load mignore rules from {self.mignore_path}: {err}')
             spec = ''
         return pathspec.PathSpec.from_lines('gitwildmatch', spec.splitlines())
 
@@ -950,8 +948,8 @@ class SyncEngine:
         try:
             with tempfile.NamedTemporaryFile(dir=self.file_cache_path, delete=False) as f:
                 return f.name
-        except OSError as exc:
-            raise CacheDirError(f'Cannot create temporary file (errno {exc.errno})',
+        except OSError as err:
+            raise CacheDirError(f'Cannot create temporary file (errno {err.errno})',
                                 'Please check if you have write permissions for '
                                 f'{self._file_cache_path}.')
 
@@ -1027,11 +1025,12 @@ class SyncEngine:
         :param Optional[str] dbx_path: Path relative to Dropbox folder.
         :raises: :class:`ValueError` if no path is given.
         """
-        if not (local_path or dbx_path):
-            raise ValueError('Either local_path or dbx_path must be given.')
 
         if not dbx_path:
-            dbx_path = self.to_dbx_path(local_path)
+            if local_path:
+                dbx_path = self.to_dbx_path(local_path)
+            else:
+                raise ValueError('Either local_path or dbx_path must be given.')
 
         if self.has_sync_errors():
             for error in list(self.sync_errors.queue):
@@ -1261,7 +1260,12 @@ class SyncEngine:
         :returns: (list of file events, time_stamp)
         :rtype: (list, float)
         """
+
         self.ensure_dropbox_folder_present()
+
+        if not self.fs_events:
+            raise RuntimeError('No filesystem event handler registered.')
+
         try:
             events = [self.fs_events.local_file_event_queue.get(timeout=timeout)]
             local_cursor = time.time()
@@ -1271,7 +1275,8 @@ class SyncEngine:
         # keep collecting events until idle for `delay`
         while True:
             try:
-                events.append(self.fs_events.local_file_event_queue.get(timeout=delay))
+                event = self.fs_events.local_file_event_queue.get(timeout=delay)
+                events.append(event)
                 local_cursor = time.time()
             except Empty:
                 break
@@ -1506,7 +1511,7 @@ class SyncEngine:
                               if isinstance(e, DirMovedEvent))
 
         if len(dir_moved_paths) > 0:
-            child_moved_events: Dict[str, List[FileSystemEvent]] = dict()
+            child_moved_events: Dict[Tuple[str, str], List[FileSystemEvent]] = dict()
             for path in dir_moved_paths:
                 child_moved_events[path] = []
 
@@ -1663,7 +1668,7 @@ class SyncEngine:
         """
 
         if self.cancel_pending.is_set():
-            return
+            return None
 
         self._slow_down()
 
@@ -1684,6 +1689,8 @@ class SyncEngine:
                 return self._on_modified(event)
             elif event.event_type is EVENT_TYPE_DELETED:
                 return self._on_deleted(event)
+            else:
+                return None
 
     @staticmethod
     def _wait_for_creation(path: str) -> None:
@@ -1726,9 +1733,9 @@ class SyncEngine:
         dbx_path_to = self.to_dbx_path(local_path_to)
 
         if self._handle_selective_sync_conflict(event):
-            return
+            return None
         if self._handle_case_conflict(event):
-            return
+            return None
 
         md_from_old = self.client.get_metadata(dbx_path_from)
 
@@ -1739,6 +1746,7 @@ class SyncEngine:
                 new_event = DirCreatedEvent(local_path_to)
             else:
                 new_event = FileCreatedEvent(local_path_to)
+
             return self._on_created(new_event)
 
         md_to_new = self.client.move(dbx_path_from, dbx_path_to, autorename=True)
@@ -1781,9 +1789,9 @@ class SyncEngine:
         local_path = event.src_path
 
         if self._handle_selective_sync_conflict(event):
-            return
+            return None
         if self._handle_case_conflict(event):
-            return
+            return None
 
         dbx_path = self.to_dbx_path(local_path)
 
@@ -1796,7 +1804,7 @@ class SyncEngine:
                 logger.debug('No conflict for "%s": the folder already exists',
                              event.src_path)
                 self.set_local_rev(dbx_path, 'folder')
-                return
+                return None
             except FileConflictError:
                 md_new = self.client.make_dir(dbx_path, autorename=True)
 
@@ -1808,7 +1816,7 @@ class SyncEngine:
                 if local_hash == md_old.content_hash:
                     # file hashes are identical, do not upload
                     self.set_local_rev(md_old.path_lower, md_old.rev)
-                    return
+                    return None
 
             rev = self.get_local_rev(dbx_path)
             if not rev:
@@ -1829,7 +1837,7 @@ class SyncEngine:
             except NotFoundError:
                 logger.debug('Could not upload "%s": the item does not exist',
                              event.src_path)
-                return
+                return None
 
         if md_new.path_lower != dbx_path.lower():
             # conflicting copy created during upload, mirror remote changes locally
@@ -1923,62 +1931,62 @@ class SyncEngine:
         :rtype: Metadata
         """
 
-        if not event.is_directory:  # ignore directory modified events
+        if event.is_directory:  # ignore directory modified events
+            return None
 
-            local_path = event.src_path
-            dbx_path = self.to_dbx_path(local_path)
+        local_path = event.src_path
+        dbx_path = self.to_dbx_path(local_path)
 
-            self._wait_for_creation(local_path)
+        self._wait_for_creation(local_path)
 
-            # check if item already exists with identical content
-            md_old = self.client.get_metadata(dbx_path)
-            if isinstance(md_old, FileMetadata):
-                local_hash = get_local_hash(local_path)
-                if local_hash == md_old.content_hash:
-                    # file hashes are identical, do not upload
-                    self.set_local_rev(md_old.path_lower, md_old.rev)
-                    logger.debug('Modification of "%s" detected but file content is '
-                                 'the same as on Dropbox', dbx_path)
-                    return
+        # check if item already exists with identical content
+        md_old = self.client.get_metadata(dbx_path)
+        if isinstance(md_old, FileMetadata):
+            local_hash = get_local_hash(local_path)
+            if local_hash == md_old.content_hash:
+                # file hashes are identical, do not upload
+                self.set_local_rev(md_old.path_lower, md_old.rev)
+                logger.debug('Modification of "%s" detected but file content is '
+                             'the same as on Dropbox', dbx_path)
+                return None
 
-            rev = self.get_local_rev(dbx_path)
-            if rev == 'folder':
-                mode = dropbox.files.WriteMode.overwrite
-            elif not rev:
-                logger.debug('"%s" appears to have been modified but cannot '
-                             'find old revision', dbx_path)
-                mode = dropbox.files.WriteMode.add
-            else:
-                mode = dropbox.files.WriteMode.update(rev)
+        rev = self.get_local_rev(dbx_path)
+        if rev == 'folder':
+            mode = dropbox.files.WriteMode.overwrite
+        elif not rev:
+            logger.debug('"%s" appears to have been modified but cannot '
+                         'find old revision', dbx_path)
+            mode = dropbox.files.WriteMode.add
+        else:
+            mode = dropbox.files.WriteMode.update(rev)
 
-            try:
-                md_new = self.client.upload(local_path, dbx_path,
-                                            autorename=True, mode=mode)
-            except NotFoundError:
-                logger.debug('Could not upload "%s": the item does not exist', dbx_path)
-                return
+        try:
+            md_new = self.client.upload(local_path, dbx_path, autorename=True, mode=mode)
+        except NotFoundError:
+            logger.debug('Could not upload "%s": the item does not exist', dbx_path)
+            return None
 
-            if md_new.path_lower != dbx_path.lower():
-                # conflicting copy created during upload, mirror remote changes locally
-                local_path_cc = self.get_local_path(md_new)
-                with self.fs_events.ignore(FileMovedEvent(local_path, local_path_cc)):
-                    try:
-                        os.rename(local_path, local_path_cc)
-                    except OSError:
-                        with self.fs_events.ignore(FileDeletedEvent(local_path)):
-                            delete(local_path)
+        if md_new.path_lower != dbx_path.lower():
+            # conflicting copy created during upload, mirror remote changes locally
+            local_path_cc = self.get_local_path(md_new)
+            with self.fs_events.ignore(FileMovedEvent(local_path, local_path_cc)):
+                try:
+                    os.rename(local_path, local_path_cc)
+                except OSError:
+                    with self.fs_events.ignore(FileDeletedEvent(local_path)):
+                        delete(local_path)
 
-                # Delete revs of old path but don't set revs for new path here. This will
-                # force conflict resolution on download in case of intermittent changes.
-                self.set_local_rev(dbx_path, None)
-                logger.debug('Upload conflict: renamed "%s" to "%s"',
-                             dbx_path, md_new.path_lower)
-            else:
-                # everything went well, save new revs
-                self.set_local_rev(md_new.path_lower, md_new.rev)
-                logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
+            # Delete revs of old path but don't set revs for new path here. This will
+            # force conflict resolution on download in case of intermittent changes.
+            self.set_local_rev(dbx_path, None)
+            logger.debug('Upload conflict: renamed "%s" to "%s"',
+                         dbx_path, md_new.path_lower)
+        else:
+            # everything went well, save new revs
+            self.set_local_rev(md_new.path_lower, md_new.rev)
+            logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
 
-            return md_new
+        return md_new
 
     def _on_deleted(self, event: Union[FileDeletedEvent, DirDeletedEvent]) -> Optional[Metadata]:
         """
@@ -1996,7 +2004,7 @@ class SyncEngine:
 
         if self.is_excluded_by_user(dbx_path):
             logger.debug('Not deleting "%s": is excluded by selective sync', dbx_path)
-            return
+            return None
 
         local_rev = self.get_local_rev(dbx_path)
         is_file = not event.is_directory
@@ -2013,7 +2021,7 @@ class SyncEngine:
                              'since last sync', md.path_display)
                 # mark local folder as untracked
                 self.set_local_rev(dbx_path, None)
-                return
+                return None
 
         if is_file and isinstance(md, FolderMetadata):
             # don't delete a remote folder if we were expecting a file
@@ -2024,7 +2032,7 @@ class SyncEngine:
                          'folder instead', md.path_display)
             # mark local file as untracked
             self.set_local_rev(dbx_path, None)
-            return
+            return None
 
         try:
             # will only perform delete if Dropbox remote rev matches `local_rev`
@@ -2367,7 +2375,7 @@ class SyncEngine:
                          'than on Dropbox', dbx_path)
             return Conflict.LocalNewerOrIdentical
 
-        elif remote_rev != local_rev:
+        else:
             # Dropbox server version has a different rev, likely is newer.
             # If the local version has been modified while sync was stopped,
             # those changes will be uploaded before any downloads can begin.
@@ -2535,7 +2543,7 @@ class SyncEngine:
         """
 
         if self.cancel_pending.is_set():
-            return
+            return None
 
         self._slow_down()
 
@@ -2635,8 +2643,8 @@ class SyncEngine:
                         os.makedirs(local_path)
                 except FileExistsError:
                     pass
-                except OSError as exc:
-                    raise os_to_maestral_error(exc, dbx_path=entry.path_display,
+                except OSError as err:
+                    raise os_to_maestral_error(err, dbx_path=entry.path_display,
                                                local_path=local_path)
 
                 self.set_last_sync_for_path(entry.path_lower, self._get_ctime(local_path))
@@ -2652,16 +2660,16 @@ class SyncEngine:
 
                 event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
                 with self.fs_events.ignore(event_cls(local_path)):
-                    err = delete(local_path)
+                    exc = delete(local_path)
 
                 self.set_local_rev(entry.path_lower, None)
                 self.set_last_sync_for_path(entry.path_lower, time.time())
 
-                if not err:
+                if not exc:
                     logger.debug('Deleted local item "%s"', entry.path_display)
                     applied = entry
                 else:
-                    logger.debug('Deletion failed: %s', err)
+                    logger.debug('Deletion failed: %s', exc)
 
             return applied
 
@@ -2785,10 +2793,10 @@ def download_worker(sync: SyncEngine, syncing: Event,
             syncing.clear()
             connected.clear()
             logger.info(DISCONNECTED)
-        except Exception as e:
+        except Exception as err:
             running.clear()
             syncing.clear()
-            title = getattr(e, 'title', 'Unexpected error')
+            title = getattr(err, 'title', 'Unexpected error')
             logger.error(title, exc_info=True)
 
 
@@ -2824,10 +2832,10 @@ def download_worker_added_item(sync: SyncEngine, syncing: Event,
             syncing.clear()
             connected.clear()
             logger.info(DISCONNECTED)
-        except Exception as e:
+        except Exception as err:
             running.clear()
             syncing.clear()
-            title = getattr(e, 'title', 'Unexpected error')
+            title = getattr(err, 'title', 'Unexpected error')
             logger.error(title, exc_info=True)
 
 
@@ -2866,10 +2874,10 @@ def upload_worker(sync: SyncEngine, syncing: Event,
             syncing.clear()
             connected.clear()
             logger.info(DISCONNECTED)
-        except Exception as e:
+        except Exception as err:
             running.clear()
             syncing.clear()
-            title = getattr(e, 'title', 'Unexpected error')
+            title = getattr(err, 'title', 'Unexpected error')
             logger.error(title, exc_info=True)
 
 
@@ -2944,10 +2952,10 @@ def startup_worker(sync: SyncEngine, syncing: Event, running: Event, connected: 
             connected.clear()
             startup.clear()
             logger.info(DISCONNECTED)
-        except Exception as e:
+        except Exception as err:
             running.clear()
             syncing.clear()
-            title = getattr(e, 'title', 'Unexpected error')
+            title = getattr(err, 'title', 'Unexpected error')
             logger.error(title, exc_info=True)
 
     startup.clear()
@@ -2975,7 +2983,6 @@ class SyncMonitor:
 
         self.client = client
         self.config_name = self.client.config_name
-        self.sync = SyncEngine(self.client)
 
         self.connected = Event()
         self.syncing = Event()
@@ -2987,7 +2994,8 @@ class SyncMonitor:
 
         self.startup = Event()
 
-        self.fs_event_handler = FSEventHandler(self.syncing, self.startup, self.sync)
+        self.fs_event_handler = FSEventHandler(self.syncing, self.startup)
+        self.sync = SyncEngine(self.client, self.fs_event_handler)
 
         self._startup_time = -1.0
         self.reindex_interval = self.sync._conf.get('sync', 'reindex_interval')
@@ -3081,10 +3089,10 @@ class SyncMonitor:
 
             try:
                 self.local_observer_thread.start()
-            except OSError as exc:
-                new_exc = fswatch_to_maestral_error(exc)
-                title = getattr(new_exc, 'title', 'Unexpected error')
-                logger.error(title, exc_info=_exc_info(new_exc))
+            except OSError as err:
+                new_err = fswatch_to_maestral_error(err)
+                title = getattr(new_err, 'title', 'Unexpected error')
+                logger.error(title, exc_info=_exc_info(new_err))
 
             self.running.set()
             self.syncing.clear()
@@ -3203,22 +3211,24 @@ class SyncMonitor:
     def _threads_alive(self) -> bool:
         """Returns ``True`` if all threads are alive, ``False`` otherwise."""
 
-        try:
-            threads = (
-                self.local_observer_thread,
-                self.upload_thread, self.download_thread,
-                self.download_thread_added_folder,
-                self.helper_thread,
-                self.startup_thread
-            )
-        except AttributeError:
-            return False
+        with self._lock:
 
-        base_threads_alive = (t.is_alive() for t in threads)
-        watchdog_emitters_alive = (e.is_alive() for e
-                                   in self.local_observer_thread.emitters)
+            try:
+                threads: Tuple[Thread, ...] = (
+                    self.local_observer_thread,
+                    self.upload_thread, self.download_thread,
+                    self.download_thread_added_folder,
+                    self.helper_thread,
+                    self.startup_thread
+                )
+            except AttributeError:
+                return False
 
-        return all(base_threads_alive) and all(watchdog_emitters_alive)
+            base_threads_alive = (t.is_alive() for t in threads)
+            watchdog_emitters_alive = (e.is_alive() for e
+                                       in self.local_observer_thread.emitters)
+
+            return all(base_threads_alive) and all(watchdog_emitters_alive)
 
 
 # ========================================================================================
@@ -3279,8 +3289,8 @@ def get_local_hash(local_path: str, chunk_size: int = 1024) -> Optional[str]:
         return 'folder'
     except FileNotFoundError:
         return None
-    except OSError as exc:
-        raise os_to_maestral_error(exc, local_path=local_path)
+    except OSError as err:
+        raise os_to_maestral_error(err, local_path=local_path)
     finally:
         del hasher
 

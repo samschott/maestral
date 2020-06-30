@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from watchdog.observers.fsevents import (
+from watchdog.observers.fsevents import (  # type: ignore
     FSEventsEmitter, FSEventsObserver, DirectorySnapshot,
     FileDeletedEvent, FileModifiedEvent, FileMovedEvent, FileCreatedEvent,
     DirDeletedEvent, DirModifiedEvent, DirMovedEvent, DirCreatedEvent,

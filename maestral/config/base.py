@@ -47,21 +47,23 @@ def get_home_dir() -> str:
 
     if osp.isdir(path):
         return path
-    else:
-        # Get home from alternative locations
-        for env_var in ('HOME', 'USERPROFILE', 'TMP'):
-            # os.environ.get() returns a raw byte string which needs to be
-            # decoded with the codec that the OS is using to represent
-            # environment variables.
-            path = os.environ.get(env_var, '')
-            if osp.isdir(path):
-                return path
-            else:
-                path = ''
 
-        if not path:
-            raise RuntimeError('Please set the environment variable HOME to '
-                               'your user/home directory.')
+    # get home from alternative locations
+    for env_var in ('HOME', 'USERPROFILE', 'TMP'):
+        # os.environ.get() returns a raw byte string which needs to be
+        # decoded with the codec that the OS is using to represent
+        # environment variables.
+        path = os.environ.get(env_var, '')
+        if osp.isdir(path):
+            return path
+        else:
+            path = ''
+
+    if not path:
+        raise RuntimeError('Please set the environment variable HOME to '
+                           'your user/home directory.')
+
+    return path
 
 
 def get_conf_path(subfolder: Optional[str] = None, filename: Optional[str] = None,

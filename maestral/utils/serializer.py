@@ -12,15 +12,15 @@ daemon and frontends.
 # system imports
 import json
 import traceback
-from typing import Dict, Union, Any
+from typing import Dict, Union, Any, Sequence
 
 # external imports
-from dropbox.stone_serializers import json_encode
-from dropbox.stone_validators import Struct
+from dropbox.stone_serializers import json_encode  # type: ignore
+from dropbox.stone_validators import Struct  # type: ignore
 
 
-EntryType = Dict[str, Union[str, float, bool]]
-ErrorType = Dict[str, str]
+StoneType = Dict[str, Union[str, float, bool]]
+ErrorType = Dict[str, Union[str, Sequence[str], None]]
 
 
 def _remove_tags(dictionary: dict) -> dict:
@@ -36,7 +36,7 @@ def _remove_tags(dictionary: dict) -> dict:
     return new_dict
 
 
-def dropbox_stone_to_dict(obj: Any) -> EntryType:
+def dropbox_stone_to_dict(obj: Any) -> StoneType:
     """Converts the result of a Dropbox SDK call to a dictionary."""
 
     dictionary = dict(type=obj.__class__.__name__)
@@ -59,15 +59,19 @@ def error_to_dict(err: Exception) -> ErrorType:
     :rtype: dict(str, str)
     """
 
-    dictionary = dict(
+    err_dict: ErrorType = dict(
         type=err.__class__.__name__,
-        inherits=[b.__name__ for b in err.__class__.__bases__],
+        inherits=[base.__name__ for base in err.__class__.__bases__],
         traceback=''.join(traceback.format_exception(err.__class__,
                                                      err, err.__traceback__)),
         title='An unexpected error occurred',
         message='Please restart Maestral to continue syncing.',
     )
-    for name, value in err.__dict__.items():
-        dictionary[str(name)] = str(value)
+    for key, value in err.__dict__.items():
 
-    return dictionary
+        if value is None:
+            err_dict[key] = None
+        else:
+            err_dict[key] = str(value)
+
+    return err_dict

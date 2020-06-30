@@ -20,11 +20,11 @@ import textwrap
 import platform
 import time
 import argparse
-from typing import Optional, Callable, List, Iterable
+from typing import *
 
 # external imports
 import click
-import Pyro5.errors
+import Pyro5.errors  # type: ignore
 
 # local imports
 from maestral import __version__
@@ -48,7 +48,7 @@ KILLED = click.style('[KILLED]', fg='red')
 
 LEFT, CENTER, RIGHT = range(3)
 
-AlignmentType = Optional[LEFT, CENTER, RIGHT]
+T = TypeVar('T')
 
 
 def stop_daemon_with_cli_feedback(config_name: str) -> None:
@@ -189,10 +189,13 @@ def check_for_fatal_errors(m: MaestralProxyType) -> bool:
         width, height = click.get_terminal_size()
 
         err = maestral_err_list[0]
-        wrapped_msg = textwrap.fill(err['message'], width=width)
+        err_title = cast(str, err['title'])
+        err_msg = cast(str, err['message'])
+
+        wrapped_msg = textwrap.fill(err_msg, width=width)
 
         click.echo('')
-        click.secho(err['title'], fg='red')
+        click.secho(err_title, fg='red')
         click.secho(wrapped_msg, fg='red')
         click.echo('')
 
@@ -221,11 +224,15 @@ def catch_maestral_errors(func: Callable) -> Callable:
     return wrapper
 
 
+def _transpose(ll: List[List[T]]) -> List[List[T]]:
+    return list(map(list, zip(*ll)))
+
+
 def format_table(rows: Optional[List[List[str]]] = None,
                  columns: Optional[List[List[str]]] = None,
                  headers: Optional[List[str]] = None,
                  padding: int = 2,
-                 alignment: AlignmentType = None,
+                 alignment: Optional[Union[int, List[int]]] = None,
                  wrap: bool = True):
     """
     Prints given data as a pretty table. Either rows or columns must be given.s
@@ -241,17 +248,18 @@ def format_table(rows: Optional[List[List[str]]] = None,
     :rtype: str
     """
 
-    if (rows and columns) or not (rows or columns):
-        raise ValueError('Must give either rows or columns as input.')
+    if rows and columns:
+        raise ValueError('Cannot give both rows and columns as input.')
 
-    if headers and rows:
-        rows.insert(0, list(headers))
-    elif headers and columns:
+    if not columns:
+        if rows:
+            columns = list(columns) if columns else _transpose(rows)
+        else:
+            raise ValueError('Must give either rows or columns as input.')
+
+    if headers:
         for i, col in enumerate(columns):
             col.insert(0, headers[i])
-
-    # transpose rows to get columns
-    columns = list(columns) if columns else list(map(list, zip(*rows)))
 
     # return early if all columns are empty (including headers)
     if all(len(col) == 0 for col in columns):
@@ -260,6 +268,8 @@ def format_table(rows: Optional[List[List[str]]] = None,
     # default to left alignment
     if not alignment:
         alignment = [LEFT] * len(columns)
+    elif isinstance(alignment, int):
+        alignment = [alignment] * len(columns)
     elif len(alignment) != len(columns):
         raise ValueError('Must give an alignment for every column.')
 
@@ -279,12 +289,12 @@ def format_table(rows: Optional[List[List[str]]] = None,
 
     # wrap strings to fit column
 
-    wrapped_columns: List[List[str]] = []
+    wrapped_columns: List[List[List[str]]] = []
 
     for column, width in zip(columns, col_widths):
         wrapped_columns.append([textwrap.wrap(cell, width=width) for cell in column])
 
-    wrapped_rows = list(map(list, zip(*wrapped_columns)))
+    wrapped_rows = _transpose(wrapped_columns)
 
     # generate lines by filling columns
 
@@ -305,6 +315,8 @@ def format_table(rows: Optional[List[List[str]]] = None,
                     line += cell[i].rjust(width)
                 elif align == CENTER:
                     line += cell[i].center(width)
+                else:
+                    raise ValueError('Alignment must be LEFT = 0, CENTER = 1, RIGHT = 2')
 
                 line += ' ' * padding
 
@@ -323,11 +335,11 @@ class SpecialHelpOrder(click.Group):
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        self.help_priorities = {}
+        self.help_priorities: Dict[str, int] = {}
         super(SpecialHelpOrder, self).__init__(*args, **kwargs)
 
     def get_help(self, ctx: click.Context) -> str:
-        self.list_commands = self.list_commands_for_help
+        self.list_commands = self.list_commands_for_help  # type: ignore
         return super(SpecialHelpOrder, self).get_help(ctx)
 
     def list_commands_for_help(self, ctx: click.Context) -> Iterable[str]:
@@ -457,14 +469,14 @@ def gui(config_name: str) -> None:
             raise click.ClickException('No maestral GUI installed. Please run '
                                        '\'pip3 install maestral[gui]\'.')
 
-        from maestral_cocoa.main import run
+        from maestral_cocoa.main import run  # type: ignore
 
     else:
         if not importlib.util.find_spec('maestral_qt'):
             raise click.ClickException('No maestral GUI installed. Please run '
                                        '\'pip3 install maestral[gui]\'.')
 
-        from maestral_qt.main import run
+        from maestral_qt.main import run  # type: ignore
 
     run(config_name)
 
@@ -526,7 +538,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
                 if e['type'] == 'FolderMetadata':
                     yes = click.confirm('Exclude "{path_display}" from sync?'.format(**e))
                     if yes:
-                        excluded_items.append(e['path_lower'])
+                        excluded_items.append(cast(str, e['path_lower']))
 
             m.set_excluded_items(excluded_items)
 
@@ -726,7 +738,7 @@ def activity(config_name: str) -> None:
                     col_len = 0
 
                     for entry in itertools.chain(up, down):
-                        filename = os.path.basename(entry['path_display'])
+                        filename = os.path.basename(entry['dbx_path'])
                         file_names.append(filename)
                         states.append(entry['status'])
                         col_len = max(len(filename), col_len)
@@ -777,7 +789,7 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 
         entries = m.list_folder(dropbox_path, recursive=False,
                                 include_deleted=include_deleted)
-        entries.sort(key=lambda x: x['name'].lower())
+        entries.sort(key=lambda x: cast(str, x['name']).lower())
 
         names = []
         types = []
@@ -792,20 +804,21 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 
             for e in entries:
 
-                names.append(e['name'])
+                names.append(cast(str, e['name']))
 
-                types.append(short_type[e['type']])
+                types.append(short_type[cast(str, e['type'])])
 
                 shared.append('shared' if 'sharing_info' in e else 'private')
-                excluded.append(m.excluded_status(e['path_lower']))
+                excluded.append(m.excluded_status(cast(str, e['path_lower'])))
 
                 if 'size' in e:
-                    sizes.append(natural_size(e['size']))
+                    sizes.append(natural_size(cast(float, e['size'])))
                 else:
                     sizes.append('-')
 
                 if 'client_modified' in e:
-                    dt = datetime.strptime(e['client_modified'], '%Y-%m-%dT%H:%M:%SZ')
+                    cm = cast(str, e['client_modified'])
+                    dt = datetime.strptime(cm, '%Y-%m-%dT%H:%M:%SZ')
                     dt = dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
                     last_modified.append(dt.strftime('%d %b %Y %H:%M'))
                 else:
@@ -825,7 +838,7 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
         else:
             for e in entries:
                 color = 'blue' if e['type'] == 'DeletedMetadata' else 'black'
-                click.secho(e['name'], fg=color)
+                click.secho(cast(str, e['name']), fg=color)
 
 
 @main.command(help_priority=11)
@@ -933,9 +946,10 @@ def revs(dropbox_path: str, config_name: str) -> None:
 
     for e in entries:
 
-        rev.append(e['rev'])
+        rev.append(cast(str, e['rev']))
 
-        dt = datetime.strptime(e['client_modified'], '%Y-%m-%dT%H:%M:%S%z')
+        cm = cast(str, e['client_modified'])
+        dt = datetime.strptime(cm, '%Y-%m-%dT%H:%M:%S%z')
         last_modified.append(dt.astimezone(tz=None).strftime('%d %b %Y %H:%M'))
 
     click.echo(format_table(columns=[rev, last_modified]))

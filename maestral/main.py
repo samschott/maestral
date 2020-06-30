@@ -18,22 +18,23 @@ import time
 from threading import Thread
 import logging.handlers
 from collections import deque
-from typing import Union, List, Dict, Optional, Deque
+from typing import Union, List, Dict, Optional, Deque, Any
+from typing_extensions import TypedDict
 
 # external imports
 import requests
-import keyring.errors
-from watchdog.events import DirDeletedEvent, FileDeletedEvent
-import bugsnag
-from bugsnag.handlers import BugsnagHandler
+import keyring.errors  # type: ignore
+from watchdog.events import DirDeletedEvent, FileDeletedEvent  # type: ignore
+import bugsnag  # type: ignore
+from bugsnag.handlers import BugsnagHandler  # type: ignore
 from packaging.version import Version
 
 try:
-    from systemd import journal
+    from systemd import journal  # type: ignore
 except ImportError:
     journal = None
 
-import sdnotify
+import sdnotify  # type: ignore
 
 # local imports
 from maestral import __version__
@@ -45,11 +46,10 @@ from maestral.errors import (
     NotFoundError, PathError
 )
 from maestral.config import MaestralConfig, MaestralState
-from maestral.config.user import ConfType
 from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import (
-    error_to_dict, dropbox_stone_to_dict, EntryType, ErrorType
+    error_to_dict, dropbox_stone_to_dict, StoneType, ErrorType
 )
 from maestral.utils.appdirs import get_log_path, get_cache_path
 from maestral.utils.updates import check_update_available
@@ -61,6 +61,10 @@ from maestral.constants import (
 
 logger = logging.getLogger(__name__)
 sd_notifier = sdnotify.SystemdNotifier()
+
+UpT = TypedDict('UpT', {'dbx_path': str, 'status': str})
+DownT = TypedDict('DownT', {'dbx_path': str, 'status': str})
+ActivityType = TypedDict('ActivityType', {'uploading': List[UpT], 'downloading': List[DownT]})
 
 # set up error reporting but do not activate
 
@@ -405,43 +409,43 @@ class Maestral:
         """The selected configuration."""
         return self._config_name
 
-    def set_conf(self, section: str, name: str, value: ConfType) -> None:
+    def set_conf(self, section: str, name: str, value: Any) -> None:
         """
         Sets a configuration option.
 
         :param str section: Name of section in config file.
         :param str name: Name of config option.
-        :param value: Config option value. May be any native Python type.
+        :param value: Config value. May be any type accepted by ``ast.literal_eval``.
         """
         self._conf.set(section, name, value)
 
-    def get_conf(self, section: str, name: str) -> ConfType:
+    def get_conf(self, section: str, name: str) -> Any:
         """
         Gets a configuration option.
 
         :param str section: Name of section in config file.
         :param str name: Name of config option.
-        :returns: Config value.
+        :returns: Config value. May be any type accepted by ``ast.literal_eval``.
         """
         return self._conf.get(section, name)
 
-    def set_state(self, section: str, name: str, value: ConfType) -> None:
+    def set_state(self, section: str, name: str, value: Any) -> None:
         """
         Sets a state value.
 
         :param str section: Name of section in state file.
         :param str name: Name of state variable.
-        :param value: State value. May be any native Python type.
+        :param value: State value. May be any type accepted by ``ast.literal_eval``.
         """
         self._state.set(section, name, value)
 
-    def get_state(self, section: str, name: str) -> ConfType:
+    def get_state(self, section: str, name: str) -> Any:
         """
         Gets a state value.
 
         :param str section: Name of section in state file.
         :param str name: Name of state variable.
-        :returns: State value.
+        :returns: State value. May be any type accepted by ``ast.literal_eval``.
         """
         return self._state.get(section, name)
 
@@ -481,7 +485,7 @@ class Maestral:
 
     @property
     def log_level(self) -> int:
-        """Log level for log files, stdout and the systemd journal."""
+        """Log level for log files, stdout and the systemd journal (int)."""
         return self._conf.get('app', 'log_level')
 
     @log_level.setter
@@ -508,7 +512,7 @@ class Maestral:
 
     @property
     def analytics(self) -> bool:
-        """Enables or disables logging of errors to bugsnag."""
+        """Enables or disables logging of errors to bugsnag (bool)."""
         return self._conf.get('app', 'analytics')
 
     @analytics.setter
@@ -620,7 +624,9 @@ class Maestral:
     def sync_errors(self) -> List[ErrorType]:
         """
         Returns list of current sync errors as dicts (read only). This list is populated
-        by the sync threads.
+        by the sync threads. The following keys will always be present but may contain
+        emtpy values: 'type', 'inherits', 'title', 'traceback', 'title', 'message',
+        'local_path', 'dbx_path'.
 
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
@@ -635,15 +641,24 @@ class Maestral:
         Returns a list of fatal errors as dicts (read only). This does not include lost
         internet connections or file sync errors which only emit warnings and are tracked
         and cleared separately. Errors listed here must be acted upon for Maestral to
-        continue syncing. This list is populated from all log messages with level ERROR
-        or higher that have ``exc_info`` attached.
+        continue syncing.
+
+        The following keys will always be present but may contain emtpy values: 'type',
+        'inherits', 'title', 'traceback', 'title', and 'message'.
+
+        This list is populated from all log messages with level ERROR or higher that have
+        ``exc_info`` attached.
         """
 
-        maestral_errors = [
-            r.exc_info[1] for r in self._log_handler_error_cache.cached_records
-            if r.exc_info is not None
-        ]
-        maestral_errors_dicts = [error_to_dict(e) for e in maestral_errors]
+        maestral_errors_dicts: List[ErrorType] = []
+
+        for r in self._log_handler_error_cache.cached_records:
+            if r.exc_info:
+                err = r.exc_info[1]
+                if isinstance(err, Exception):
+                    serialized_error = error_to_dict(err)
+                    maestral_errors_dicts.append(serialized_error)
+
         return maestral_errors_dicts
 
     def clear_fatal_errors(self) -> None:
@@ -694,40 +709,40 @@ class Maestral:
         else:
             return FileStatus.Unwatched.value
 
-    def get_activity(self) -> Dict[str, List[Dict[str, str]]]:
+    def get_activity(self) -> ActivityType:
         """
         Gets current upload / download activity.
 
         :returns: A dictionary with lists of all files currently queued for or being
             uploaded or downloaded. Paths are given relative to the Dropbox folder.
-        :rtype: dict(str, list)
+        :rtype: dict(str, dict)
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
         self._check_linked()
 
-        uploading = []
-        downloading = []
+        uploading: List[UpT] = []
+        downloading: List[DownT] = []
 
         for path in self.monitor.uploading:
             path.lstrip(self.dropbox_path)
-            uploading.append(dict(path_display=path, status='uploading'))
+            uploading.append(dict(dbx_path=path, status='uploading'))
 
         for path in self.monitor.queued_for_upload:
             path.lstrip(self.dropbox_path)
-            uploading.append(dict(path_display=path, status='queued'))
+            uploading.append(dict(dbx_path=path, status='queued'))
 
         for path in self.monitor.downloading:
             path.lstrip(self.dropbox_path)
-            downloading.append(dict(path_display=path, status='downloading'))
+            downloading.append(dict(dbx_path=path, status='downloading'))
 
         for path in self.monitor.queued_for_download:
             path.lstrip(self.dropbox_path)
-            downloading.append(dict(path_display=path, status='queued'))
+            downloading.append(dict(dbx_path=path, status='queued'))
 
         return dict(uploading=uploading, downloading=downloading)
 
-    def get_account_info(self) -> Dict[str, Union[str, bool]]:
+    def get_account_info(self) -> Dict[str, Union[str, float, bool]]:
         """
         Gets account information from Dropbox and returns it as a dictionary. The entries
         will either be of type ``str`` or ``bool``.
@@ -745,13 +760,13 @@ class Maestral:
         res = self.client.get_account_info()
         return dropbox_stone_to_dict(res)
 
-    def get_space_usage(self) -> Dict[str, Union[str, bool]]:
+    def get_space_usage(self) -> Dict[str, Union[str, float, bool]]:
         """
         Gets the space usage stored by Dropbox and returns it as a dictionary. The
         entries will either be of type ``str`` or ``bool``.
 
         :returns: Dropbox account information.
-        :rtype: dict[str, bool]
+        :rtype: dict[str, float, bool]
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
@@ -766,7 +781,7 @@ class Maestral:
     # ==== control methods for front ends ================================================
 
     @to_maestral_error()  # to handle errors when downloading and saving profile pic
-    def get_profile_pic(self) -> str:
+    def get_profile_pic(self) -> Optional[str]:
         """
         Attempts to download the user's profile picture from Dropbox. The picture is saved
         in Maestral's cache directory for retrieval when there is no internet connection.
@@ -790,15 +805,17 @@ class Maestral:
             return self.account_profile_pic_path
         else:
             self._delete_old_profile_pics()
+            return None
 
-    def list_folder(self, dbx_path: str, **kwargs) -> List[EntryType]:
+    def list_folder(self, dbx_path: str, **kwargs) -> List[StoneType]:
         """
         List all items inside the folder given by ``dbx_path``. Keyword arguments are
         passed on the the Dropbox API call :meth:`client.DropboxClient.list_folder`.
 
         :param str dbx_path: Path to folder on Dropbox.
-        :returns: List of Dropbox item metadata as dicts.
-        :rtype: list[dict]
+        :returns: List of Dropbox item metadata as dicts. See
+            :class:`dropbox.files.Metadata` for keys and values.
+        :rtype: List[dict]
         :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
         :raises: :class:`errors.NotAFolderError` if the given path refers to a file.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
@@ -814,14 +831,15 @@ class Maestral:
 
         return entries
 
-    def list_revisions(self, dbx_path: str, limit: int = 10) -> List[EntryType]:
+    def list_revisions(self, dbx_path: str, limit: int = 10) -> List[StoneType]:
         """
         List revisions of old files at the given path ``dbx_path``. This will also return
         revisions if the file has already been deleted.
 
         :param str dbx_path: Path to folder on Dropbox.
         :param int limit: Maximum number of revisions to list.
-        :returns: List of Dropbox file metadata as dicts.
+        :returns: List of Dropbox file metadata as dicts. See
+            :class:`dropbox.files.Metadata` for keys and values.
         :rtype: list[dict]
         :raises: :class:`errors.NotFoundError` if there never was a file at the given path.
         :raises: :class:`errors.IsAFolderError` if the given path refers to a folder.
@@ -837,14 +855,15 @@ class Maestral:
 
         return entries
 
-    def restore(self, dbx_path: str, rev: str) -> EntryType:
+    def restore(self, dbx_path: str, rev: str) -> StoneType:
         """
         Restore an old revision of a file.
 
         :param str dbx_path: The path to save the restored file.
         :param str rev: The revision to restore. Old revisions can be listed with
             :meth:`list_revisions`.
-        :returns: Metadata of the returned file.
+        :returns: Metadata of the returned file. See
+            :class:`dropbox.files.FileMetadata` for keys and values.
         :rtype: dict
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
@@ -1136,8 +1155,8 @@ class Maestral:
 
         # pause syncing
         resume = False
-        if self.syncing:
-            self.pause_sync()
+        if self.running:
+            self.stop_sync()
             resume = True
 
         # input checks
@@ -1164,7 +1183,7 @@ class Maestral:
 
         # resume syncing
         if resume:
-            self.resume_sync()
+            self.start_sync()
 
     def create_dropbox_directory(self, path: str) -> None:
         """
@@ -1289,9 +1308,11 @@ class Maestral:
     @staticmethod
     def _periodic_watchdog() -> None:
 
+        sleep = int(WATCHDOG_USEC)  # type: ignore
+
         while True:
             sd_notifier.notify('WATCHDOG=1')
-            time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
+            time.sleep(sleep / (2 * 10 ** 6))
 
     def _loop_condition(self) -> bool:
         return self._daemon_running

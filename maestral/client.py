@@ -18,11 +18,13 @@ import logging
 import functools
 import contextlib
 from datetime import datetime, timezone
+from typing import *
 
 # external imports
-from typing import *
 import requests
-from dropbox import Dropbox, dropbox, files, users, exceptions, async_, auth, oauth
+from dropbox import (  # type: ignore
+    Dropbox, dropbox, files, users, exceptions, async_, auth, oauth
+)
 
 # local imports
 from maestral import __version__
