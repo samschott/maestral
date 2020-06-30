@@ -28,8 +28,7 @@ from types import TracebackType, FrameType
 
 # external imports
 import Pyro5.errors
-from Pyro5.api import Daemon, Proxy, expose, oneway
-from Pyro5.serializers import SerpentSerializer
+from Pyro5.api import Daemon, Proxy, expose, oneway, register_dict_to_class
 from fasteners import InterProcessLock
 
 # local imports
@@ -106,7 +105,7 @@ def serpent_deserialize_api_error(class_name: str, d: dict) -> Any:
 
 
 for err_cls in itertools.chain(SYNC_ERRORS, FATAL_ERRORS):
-    SerpentSerializer.register_dict_to_class(
+    register_dict_to_class(
         err_cls.__module__ + '.' + err_cls.__name__,
         serpent_deserialize_api_error
     )
