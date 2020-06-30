@@ -40,21 +40,28 @@ from maestral.config import MaestralConfig
 from maestral.constants import IS_MACOS_BUNDLE, BUNDLE_ID
 
 
+logger = logging.getLogger(__name__)
+
 # platform dependent imports
 if platform.system() == 'Darwin':
 
     from ctypes import cdll, util
     from rubicon.objc import ObjCClass
 
-    uns = cdll.LoadLibrary(util.find_library('UserNotifications'))
+    uns_path = util.find_library('UserNotifications')
 
-    UNUserNotificationCenter = ObjCClass('UNUserNotificationCenter')
-    UNMutableNotificationContent = ObjCClass('UNMutableNotificationContent')
-    UNNotificationRequest = ObjCClass('UNNotificationRequest')
+    if uns_path:
+        uns = cdll.LoadLibrary(uns_path)
 
-    NSUserNotification = ObjCClass('NSUserNotification')
-    NSUserNotificationCenter = ObjCClass('NSUserNotificationCenter')
-    NSDate = ObjCClass('NSDate')
+        UNUserNotificationCenter = ObjCClass('UNUserNotificationCenter')
+        UNMutableNotificationContent = ObjCClass('UNMutableNotificationContent')
+        UNNotificationRequest = ObjCClass('UNNotificationRequest')
+
+        NSUserNotification = ObjCClass('NSUserNotification')
+        NSUserNotificationCenter = ObjCClass('NSUserNotificationCenter')
+        NSDate = ObjCClass('NSDate')
+    else:
+        logger.debug('Cannot load library "UserNotifications"')
 
 elif platform.system() == 'Linux':
     from jeepney.integrate.blocking import Proxy, connect_and_authenticate
@@ -62,9 +69,8 @@ elif platform.system() == 'Linux':
     from maestral.utils.dbus_interfaces import FreedesktopNotifications
 
 
-logger = logging.getLogger(__name__)
-
-_resources = getattr(sys, '_MEIPASS', pkg_resources.resource_filename('maestral', 'resources'))
+_resources = getattr(sys, '_MEIPASS',
+                     pkg_resources.resource_filename('maestral', 'resources'))
 APP_ICON_PATH = osp.join(_resources, 'maestral.png')
 
 NONE = 100
@@ -344,7 +350,7 @@ class DesktopNotifier:
     def _get_available_implementation() -> SupportedImplementations:
         macos_version, *_ = platform.mac_ver()
 
-        if platform.system() == 'Darwin':
+        if uns_path:
             if (IS_MACOS_BUNDLE and Version(macos_version) >= Version('10.14.0')
                     and UNUserNotificationCenter.currentNotificationCenter()):
                 # UNUserNotificationCenter is only supported from signed app bundles
