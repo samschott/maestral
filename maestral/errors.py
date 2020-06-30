@@ -17,7 +17,6 @@ etc. Sync errors include invalid file names, too large file sizes, and many more
 
 """
 
-# system imports
 from typing import Optional
 
 

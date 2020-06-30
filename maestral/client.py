@@ -921,7 +921,6 @@ def dropbox_to_maestral_error(exc: exceptions.DropboxException,
     """
 
     err_cls: Type[MaestralApiError]
-
     # --------------------------- Dropbox API Errors -------------------------------------
     if isinstance(exc, exceptions.ApiError):
 
