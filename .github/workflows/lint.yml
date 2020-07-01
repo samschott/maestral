@@ -1,6 +1,6 @@
 name: Lint with flake8 and mypy
 
-on: push
+on: [push, pull_request]
 
 jobs:
   flake:
