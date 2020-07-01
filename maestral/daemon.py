@@ -68,7 +68,7 @@ def freeze_support() -> None:
         sys.exit()
 
 
-class Exit(enum.Enum):
+class Stop(enum.Enum):
     """Enumeration of daemon exit results."""
     Ok = 0
     Killed = 1
@@ -509,7 +509,7 @@ def start_maestral_daemon_process(config_name: str = 'maestral',
 
 
 def stop_maestral_daemon_process(config_name: str = 'maestral',
-                                 timeout: float = 10) -> Exit:
+                                 timeout: float = 10) -> Stop:
     """Stops a maestral daemon process by finding its PID and shutting it down.
 
     This function first tries to shut down Maestral gracefully. If this fails and we know
@@ -524,7 +524,7 @@ def stop_maestral_daemon_process(config_name: str = 'maestral',
     """
 
     if not is_running(config_name):
-        return Exit.NotRunning
+        return Stop.NotRunning
 
     pid = get_maestral_pid(config_name)
 
@@ -538,7 +538,7 @@ def stop_maestral_daemon_process(config_name: str = 'maestral',
     finally:
         while timeout > 0:
             if not is_running(config_name):
-                return Exit.Ok
+                return Stop.Ok
             else:
                 time.sleep(0.2)
                 timeout -= 0.2
@@ -550,16 +550,16 @@ def stop_maestral_daemon_process(config_name: str = 'maestral',
         time.sleep(1)
 
         if not is_running(config_name):
-            return Exit.Ok
+            return Stop.Ok
         elif pid:
             os.kill(pid, signal.SIGKILL)
-            return Exit.Killed
+            return Stop.Killed
         else:
-            return Exit.Failed
+            return Stop.Failed
 
 
 def stop_maestral_daemon_thread(config_name: str = 'maestral',
-                                timeout: int = 10) -> Exit:
+                                timeout: int = 10) -> Stop:
     """Stops a maestral daemon thread without killing the parent process.
 
     :param str config_name: The name of the Maestral configuration to use.
@@ -569,7 +569,7 @@ def stop_maestral_daemon_thread(config_name: str = 'maestral',
     """
 
     if not is_running(config_name):
-        return Exit.NotRunning
+        return Stop.NotRunning
 
     # tell maestral daemon to shut down
     try:
@@ -577,15 +577,15 @@ def stop_maestral_daemon_thread(config_name: str = 'maestral',
             m.stop_sync()
             m.shutdown_pyro_daemon()
     except Pyro5.errors.CommunicationError:
-        return Exit.Failed
+        return Stop.Failed
 
     # wait for maestral to carry out shutdown
     t = threads[config_name]
     t.join(timeout=timeout)
     if t.is_alive():
-        return Exit.Failed
+        return Stop.Failed
     else:
-        return Exit.Ok
+        return Stop.Ok
 
 
 def get_maestral_proxy(config_name: str = 'maestral',

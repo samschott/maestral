@@ -34,7 +34,7 @@ from maestral.daemon import (
     start_maestral_daemon_process,
     start_maestral_daemon_thread,
     stop_maestral_daemon_process,
-    Start, Exit,
+    Start, Stop,
     get_maestral_proxy, MaestralProxy, MaestralProxyType,
     is_running, threads
 )
@@ -57,11 +57,11 @@ def stop_daemon_with_cli_feedback(config_name: str) -> None:
 
     click.echo('Stopping Maestral...', nl=False)
     res = stop_maestral_daemon_process(config_name)
-    if res == Exit.Ok:
+    if res == Stop.Ok:
         click.echo('\rStopping Maestral...        ' + OK)
-    elif res == Exit.NotRunning:
+    elif res == Stop.NotRunning:
         click.echo('Maestral daemon is not running.')
-    elif res == Exit.Killed:
+    elif res == Stop.Killed:
         click.echo('\rStopping Maestral...        ' + KILLED)
 
 
