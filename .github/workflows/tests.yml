@@ -1,0 +1,31 @@
+name: Tests
+
+on: pull_request
+
+jobs:
+  tests:
+    name: Run tests
+    strategy:
+        max-parallel: 1
+        fail-fast: false
+        matrix:
+            platform: [ubuntu-latest, macos-latest]
+            python-version: [3.6, ]
+    runs-on: ${{ matrix.platform }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install --upgrade pytest
+        pip install .
+    - name: Test with pytest
+      env:
+        DROPBOX_ID: ${{ secrets.DROPBOX_ID }}
+        DROPBOX_TOKEN: ${{ secrets.DROPBOX_TOKEN }}
+      run: |
+        pytest
