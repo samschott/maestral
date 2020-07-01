@@ -10,6 +10,22 @@
 #### Changed:
 
 - Transition to short-lived auth tokens for newly linked accounts.
+- Transition to OAuth scopes for app permissions.
+- Save modification times in "recent changes" list.
+- Performance improvements when saving "recent changes" list.
+- Changed return type of `Maestral.get_activity` from namedtuple to dict for better
+  consistency throughout the API.
+- Introduced type annotations and mypy type checking in CI for most modules.
+
+#### Fixed:
+
+- Fixes a bug where the local cursor would not be updated immediately after a successful
+  upload sync but only in a subsequent sync without local changes. This was caused by an
+  incorrect return value of `SyncEngine._create_remote_entry`.
+- Fixes a bug where throttling of sync threads would raise an error when we cannot  
+  determine the CPU count.
+- Fixes a bug where sending SIGTERM to the daemon process would raise an error when we 
+  cannot determine its PID. Now, `Stop.Failed` is returned instead.
 
 ## v1.1.0
 
