@@ -1295,7 +1295,9 @@ class SyncEngine:
 
             events, _ = self._filter_excluded_changes_local(events)
 
-            sorted_events: Dict[str, List[FileSystemEvent]] = dict(deleted=[], dir_created=[], dir_moved=[], file=[])
+            sorted_events: Dict[str, List[FileSystemEvent]] \
+                = dict(deleted=[], dir_created=[], dir_moved=[], file=[])
+
             for e in events:
                 if e.event_type == EVENT_TYPE_DELETED:
                     sorted_events['deleted'].append(e)
@@ -2191,9 +2193,6 @@ class SyncEngine:
         :rtype: (list, bool)
         """
 
-        if not changes:
-            return [], False
-
         # filter out excluded changes
         changes_included, changes_excluded = self._filter_excluded_changes_remote(changes)
 
@@ -2213,7 +2212,7 @@ class SyncEngine:
         folders.sort(key=lambda x: x.path_display.count('/'))
         files.sort(key=lambda x: x.path_display.count('/'))
 
-        for md in deleted + folders + files:
+        for md in itertools.chain(deleted, folders, files):
             self.queued_for_download.put(md.path_display)
 
         downloaded = []  # local list of all changes
@@ -3236,7 +3235,9 @@ class SyncMonitor:
 # Helper functions
 # ========================================================================================
 
-def _exc_info(exc: BaseException) -> Tuple[Type[BaseException], BaseException, Optional[TracebackType]]:
+ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
+
+def _exc_info(exc: BaseException) -> ExecInfoType:
     return type(exc), exc, exc.__traceback__
 
 
@@ -3244,7 +3245,8 @@ def get_dest_path(event: FileSystemEvent) -> str:
     return getattr(event, 'dest_path', event.src_path)
 
 
-def split_moved_event(event: Union[FileMovedEvent, DirMovedEvent]) -> Tuple[FileSystemEvent, FileSystemEvent]:
+def split_moved_event(event: Union[FileMovedEvent, DirMovedEvent]) \
+        -> Tuple[FileSystemEvent, FileSystemEvent]:
     """
     Splits a given FileSystemEvent into Deleted and Created events of the same type.
 
