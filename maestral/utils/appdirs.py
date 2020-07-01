@@ -14,6 +14,7 @@ import os
 import os.path as osp
 import platform
 import tempfile
+from typing import Optional
 
 # local imports
 from maestral.config.base import get_home_dir, get_conf_path, get_data_path, _to_full_path
@@ -27,7 +28,8 @@ __all__ = [
 _home_dir = get_home_dir()
 
 
-def get_cache_path(subfolder=None, filename=None, create=True):
+def get_cache_path(subfolder: Optional[str] = None, filename: Optional[str] = None,
+                   create: bool = True) -> str:
     """
     Returns the default cache path for the platform. This will be:
 
@@ -50,7 +52,8 @@ def get_cache_path(subfolder=None, filename=None, create=True):
     return _to_full_path(cache_path, subfolder, filename, create)
 
 
-def get_log_path(subfolder=None, filename=None, create=True):
+def get_log_path(subfolder: Optional[str] = None, filename: Optional[str] = None,
+                 create: bool = True) -> str:
     """
     Returns the default log path for the platform. This will be:
 
@@ -73,7 +76,8 @@ def get_log_path(subfolder=None, filename=None, create=True):
     return _to_full_path(log_path, subfolder, filename, create)
 
 
-def get_autostart_path(filename=None, create=True):
+def get_autostart_path(filename: Optional[str] = None,
+                       create: bool = True) -> str:
     """
     Returns the default path for login items for the platform. This will be:
 
@@ -97,7 +101,8 @@ def get_autostart_path(filename=None, create=True):
     return autostart_path
 
 
-def get_runtime_path(subfolder=None, filename=None, create=True):
+def get_runtime_path(subfolder: Optional[str] = None, filename: Optional[str] = None,
+                     create: bool = True) -> str:
     """
     Returns the default runtime path for the platform. This will be:
 
@@ -121,7 +126,8 @@ def get_runtime_path(subfolder=None, filename=None, create=True):
     return _to_full_path(runtime_path, subfolder, filename, create)
 
 
-def get_old_runtime_path(subfolder=None, filename=None, create=True):
+def get_old_runtime_path(subfolder: Optional[str] = None, filename: Optional[str] = None,
+                         create: bool = True) -> str:
     """
     Returns the default runtime path for the platform. This will be:
 

@@ -12,9 +12,10 @@ existing config or state instances for a specified config_name.
 import copy
 import logging
 import threading
+from typing import Dict
 
 from .base import get_conf_path, get_data_path
-from .user import UserConfig
+from .user import UserConfig, DefaultsType
 
 from maestral import __version__
 
@@ -29,7 +30,7 @@ DEFAULTS = [
     ('main',
      {
          'path': '',  # dropbox folder location
-         'default_dir_name': 'Dropbox ({})',  # default dropbox folder name
+         'default_dir_name': 'Dropbox (Maestral)',  # default dropbox folder name
          'excluded_items': [],  # files and folders excluded from sync
      }
      ),
@@ -100,14 +101,14 @@ CONF_VERSION = '12.0.0'
 # Factories
 # =============================================================================
 
-_config_instances = dict()
-_state_instances = dict()
+_config_instances: Dict[str, UserConfig] = dict()
+_state_instances: Dict[str, UserConfig] = dict()
 
 _config_lock = threading.Lock()
 _state_lock = threading.Lock()
 
 
-def MaestralConfig(config_name):
+def MaestralConfig(config_name: str) -> UserConfig:
     """
     Returns existing config instance or creates a new one.
 
@@ -124,7 +125,9 @@ def MaestralConfig(config_name):
         try:
             return _config_instances[config_name]
         except KeyError:
-            defaults = copy.deepcopy(DEFAULTS)
+
+            defaults: DefaultsType = copy.deepcopy(DEFAULTS)  # type: ignore
+
             # set default dir name according to config
             for sec, options in defaults:
                 if sec == 'main':
@@ -143,11 +146,15 @@ def MaestralConfig(config_name):
                     load=False, backup=True, raw_mode=True, remove_obsolete=True
                 )
 
+            # adapt folder name to config
+            dirname = f'Dropbox ({config_name.title()})'
+            conf.set_default('main', 'default_dir_name', dirname)
+
             _config_instances[config_name] = conf
             return conf
 
 
-def MaestralState(config_name):
+def MaestralState(config_name: str) -> UserConfig:
     """
     Returns existing state instance or creates a new one.
 
@@ -166,15 +173,17 @@ def MaestralState(config_name):
         except KeyError:
             state_path = get_data_path(CONFIG_DIR_NAME)
 
+            defaults: DefaultsType = copy.deepcopy(DEFAULTS_STATE)  # type: ignore
+
             try:
                 state = UserConfig(
-                    state_path, config_name, defaults=DEFAULTS_STATE,
+                    state_path, config_name, defaults=defaults,
                     version=CONF_VERSION, load=True, backup=True, raw_mode=True,
                     remove_obsolete=True, suffix='.state'
                 )
             except OSError:
                 state = UserConfig(
-                    state_path, config_name, defaults=DEFAULTS_STATE,
+                    state_path, config_name, defaults=defaults,
                     version=CONF_VERSION, load=False, backup=True, raw_mode=True,
                     remove_obsolete=True, suffix='.state'
                 )

@@ -17,6 +17,9 @@ etc. Sync errors include invalid file names, too large file sizes, and many more
 
 """
 
+from typing import Optional
+
+
 CONNECTION_ERROR_MSG = ('Cannot connect to Dropbox servers. Please check '
                         'your internet connection and try again later.')
 
@@ -37,8 +40,13 @@ class MaestralApiError(Exception):
         the error. This should be set for instance when error occurs when moving an item.
     """
 
-    def __init__(self, title, message, dbx_path=None, dbx_path_dst=None,
-                 local_path=None, local_path_dst=None):
+    def __init__(self,
+                 title: str,
+                 message: str,
+                 dbx_path: Optional[str] = None,
+                 dbx_path_dst: Optional[str] = None,
+                 local_path: Optional[str] = None,
+                 local_path_dst: Optional[str] = None) -> None:
         self.title = title
         self.message = message
         self.dbx_path = dbx_path
@@ -46,7 +54,7 @@ class MaestralApiError(Exception):
         self.local_path = local_path
         self.local_path_dst = local_path_dst
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '. '.join([self.title, self.message])
 
 

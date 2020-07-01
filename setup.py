@@ -21,7 +21,7 @@ install_requires = [
     'keyrings.alt>=3.1.0',
     'packaging',
     'pathspec>=0.5.8',
-    'Pyro5>=5.7',
+    'Pyro5>=5.10',
     'requests',
     'rubicon-objc>=0.3.1;sys_platform=="darwin"',
     'sdnotify',

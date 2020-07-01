@@ -30,6 +30,7 @@ import pkg_resources
 import logging
 from collections import deque
 import threading
+from typing import Optional, Dict, ClassVar
 
 # external imports
 import click
@@ -39,31 +40,37 @@ from maestral.config import MaestralConfig
 from maestral.constants import IS_MACOS_BUNDLE, BUNDLE_ID
 
 
+logger = logging.getLogger(__name__)
+
 # platform dependent imports
 if platform.system() == 'Darwin':
 
     from ctypes import cdll, util
-    from rubicon.objc import ObjCClass
+    from rubicon.objc import ObjCClass  # type: ignore
 
-    uns = cdll.LoadLibrary(util.find_library('UserNotifications'))
+    uns_path = util.find_library('UserNotifications')
 
-    UNUserNotificationCenter = ObjCClass('UNUserNotificationCenter')
-    UNMutableNotificationContent = ObjCClass('UNMutableNotificationContent')
-    UNNotificationRequest = ObjCClass('UNNotificationRequest')
+    if uns_path:
+        uns = cdll.LoadLibrary(uns_path)
 
-    NSUserNotification = ObjCClass('NSUserNotification')
-    NSUserNotificationCenter = ObjCClass('NSUserNotificationCenter')
-    NSDate = ObjCClass('NSDate')
+        UNUserNotificationCenter = ObjCClass('UNUserNotificationCenter')
+        UNMutableNotificationContent = ObjCClass('UNMutableNotificationContent')
+        UNNotificationRequest = ObjCClass('UNNotificationRequest')
+
+        NSUserNotification = ObjCClass('NSUserNotification')
+        NSUserNotificationCenter = ObjCClass('NSUserNotificationCenter')
+        NSDate = ObjCClass('NSDate')
+    else:
+        logger.debug('Cannot load library "UserNotifications"')
 
 elif platform.system() == 'Linux':
-    from jeepney.integrate.blocking import Proxy, connect_and_authenticate
-    from jeepney.wrappers import DBusErrorResponse
+    from jeepney.integrate.blocking import Proxy, connect_and_authenticate  # type: ignore
+    from jeepney.wrappers import DBusErrorResponse  # type: ignore
     from maestral.utils.dbus_interfaces import FreedesktopNotifications
 
 
-logger = logging.getLogger(__name__)
-
-_resources = getattr(sys, '_MEIPASS', pkg_resources.resource_filename('maestral', 'resources'))
+_resources = getattr(sys, '_MEIPASS',
+                     pkg_resources.resource_filename('maestral', 'resources'))
 APP_ICON_PATH = osp.join(_resources, 'maestral.png')
 
 NONE = 100
@@ -87,12 +94,12 @@ _nameToLevel = {
 }
 
 
-def levelNumberToName(number):
+def levelNumberToName(number: int) -> str:
     """Converts a Maestral notification level number to name."""
     return _levelToName[number]
 
 
-def levelNameToNumber(name):
+def levelNameToNumber(name: str) -> int:
     """Converts a Maestral notification level name to number."""
     return _nameToLevel[name]
 
@@ -129,15 +136,19 @@ class DesktopNotifierBase:
         notification center. This may be ignored by some implementations.
     """
 
+    app_name: str
+    notification_limit: int
+
     CRITICAL = 'critical'
     NORMAL = 'normal'
     LOW = 'low'
 
-    def __init__(self, app_name='', notification_limit=5):
+    def __init__(self, app_name: str = '', notification_limit: int = 5) -> None:
         self.app_name = app_name
         self.notification_limit = notification_limit
 
-    def send(self, title, message, urgency=NORMAL, icon_path=None):
+    def send(self, title: str, message: str, urgency: str = NORMAL,
+             icon_path: Optional[str] = None) -> None:
         """Some arguments may be ignored, depending on the implementation."""
         raise NotImplementedError()
 
@@ -145,7 +156,8 @@ class DesktopNotifierBase:
 class DesktopNotifierStdout(DesktopNotifierBase):
     """Stdout backend for all platforms."""
 
-    def send(self, title, message, urgency=DesktopNotifierBase.NORMAL, icon_path=None):
+    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
+             icon_path: Optional[str] = None) -> None:
         if urgency == self.CRITICAL:
             title = click.style(title, bold=True, fg='red')
             message = click.style(message, bold=True, fg='red')
@@ -156,7 +168,7 @@ class DesktopNotifierStdout(DesktopNotifierBase):
 class DesktopNotifierNC(DesktopNotifierBase):
     """UNUserNotificationCenter backend for macOS. For macOS Catalina and newer."""
 
-    def __init__(self, app_name):
+    def __init__(self, app_name: str) -> None:
         super().__init__(app_name)
         self.nc = UNUserNotificationCenter.alloc().initWithBundleIdentifier(BUNDLE_ID)
         self.nc.requestAuthorizationWithOptions(
@@ -164,7 +176,8 @@ class DesktopNotifierNC(DesktopNotifierBase):
         )
         self._last_notification_id = 0
 
-    def send(self, title, message, urgency=DesktopNotifierBase.NORMAL, icon_path=None):
+    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
+             icon_path: Optional[str] = None) -> None:
 
         content = UNMutableNotificationContent.alloc().init()
         content.title = title
@@ -188,12 +201,12 @@ class DesktopNotifierNC(DesktopNotifierBase):
 class DesktopNotifierLegacyNC(DesktopNotifierBase):
     """NSUserNotificationCenter backend for macOS. Pre macOS Catalina."""
 
-    def __init__(self, app_name):
+    def __init__(self, app_name: str) -> None:
         super().__init__(app_name)
         self.nc = NSUserNotificationCenter.defaultUserNotificationCenter
 
-    def send(self, title, message, urgency=DesktopNotifierBase.NORMAL, icon_path=None):
-
+    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
+             icon_path: Optional[str] = None) -> None:
         n = NSUserNotification.alloc().init()
         n.title = title
         n.informativeText = message
@@ -205,8 +218,8 @@ class DesktopNotifierLegacyNC(DesktopNotifierBase):
 class DesktopNotifierOsaScript(DesktopNotifierBase):
     """Apple script backend for macOS."""
 
-    def send(self, title, message, urgency=DesktopNotifierBase.NORMAL,
-             icon_path=None, action=None):
+    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
+             icon_path: Optional[str] = None) -> None:
         subprocess.call([
             'osascript', '-e',
             f'display notification "{message}" with title "{title}"'
@@ -215,12 +228,13 @@ class DesktopNotifierOsaScript(DesktopNotifierBase):
 
 class DesktopNotifierNotifySend(DesktopNotifierBase):
     """Notify-send backend for Linux."""
-    def __init__(self, app_name):
+
+    def __init__(self, app_name: str) -> None:
         super().__init__(app_name)
         self._with_app_name = True
 
-    def send(self, title, message, urgency=DesktopNotifierBase.NORMAL, icon_path=None):
-
+    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
+             icon_path: Optional[str] = None) -> None:
         icon_path = icon_path or ''
         if self._with_app_name:  # try passing --app-name option
             r = subprocess.call([
@@ -242,7 +256,7 @@ class DesktopNotifierFreedesktopDBus(DesktopNotifierBase):
     """DBus notification backend for Linux. This implements the
     org.freedesktop.Notifications standard."""
 
-    def __init__(self, app_name):
+    def __init__(self, app_name: str) -> None:
         super().__init__(app_name)
         self._connection = connect_and_authenticate(bus='SESSION')
         self._proxy = Proxy(FreedesktopNotifications(), self._connection)
@@ -251,7 +265,8 @@ class DesktopNotifierFreedesktopDBus(DesktopNotifierBase):
 
         self._past_notification_ids = deque([0] * self.notification_limit)
 
-    def send(self, title, message, urgency=DesktopNotifierBase.NORMAL, icon_path=None):
+    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
+             icon_path: Optional[str] = None) -> None:
 
         replace_id = self._past_notification_ids[0]
 
@@ -290,11 +305,13 @@ class DesktopNotifier:
     :param str app_name: Name of sending app.
     """
 
+    _impl: DesktopNotifierBase
+
     CRITICAL = 'critical'
     NORMAL = 'normal'
     LOW = 'low'
 
-    def __init__(self, app_name):
+    def __init__(self, app_name: str) -> None:
         self._lock = threading.Lock()
         self.implementation = self._get_available_implementation()
 
@@ -313,7 +330,8 @@ class DesktopNotifier:
 
         logger.debug(f'DesktopNotifier implementation: {self.implementation.value}')
 
-    def send(self, title, message, urgency=NORMAL, icon=None):
+    def send(self, title: str, message: str, urgency: str = NORMAL,
+             icon: Optional[str] = None) -> None:
         """
         Sends a desktop notification. Some arguments may be ignored, depending on the
         backend.
@@ -329,10 +347,10 @@ class DesktopNotifier:
             self._impl.send(title, message, urgency, icon)
 
     @staticmethod
-    def _get_available_implementation():
+    def _get_available_implementation() -> SupportedImplementations:
         macos_version, *_ = platform.mac_ver()
 
-        if platform.system() == 'Darwin':
+        if platform.system() == 'Darwin' and uns_path:
             if (IS_MACOS_BUNDLE and Version(macos_version) >= Version('10.14.0')
                     and UNUserNotificationCenter.currentNotificationCenter()):
                 # UNUserNotificationCenter is only supported from signed app bundles
@@ -367,11 +385,11 @@ class MaestralDesktopNotifier(logging.Handler):
     ``notify_level`` will be applied in addition to the log level.
     """
 
-    _instances = dict()
+    _instances: ClassVar[Dict[str, 'MaestralDesktopNotifier']] = dict()
     _lock = threading.Lock()
 
     @classmethod
-    def for_config(cls, config_name):
+    def for_config(cls, config_name: str) -> 'MaestralDesktopNotifier':
         """
         Returns an existing instance for the config or creates a new one if none exists.
         Use this method to prevent creating multiple instances.
@@ -387,35 +405,35 @@ class MaestralDesktopNotifier(logging.Handler):
                 cls._instances[config_name] = instance
                 return instance
 
-    def __init__(self, config_name):
+    def __init__(self, config_name: str) -> None:
         super().__init__()
         self.setFormatter(logging.Formatter(fmt='%(message)s'))
         self._conf = MaestralConfig(config_name)
-        self._snooze = 0
+        self._snooze = 0.0
 
     @property
-    def notify_level(self):
+    def notify_level(self) -> int:
         """Custom notification level. Notifications with a lower level will be
         discarded."""
         return self._conf.get('app', 'notification_level')
 
     @notify_level.setter
-    def notify_level(self, level):
+    def notify_level(self, level: int) -> None:
         """Setter: notify_level."""
         assert isinstance(level, int)
         self._conf.set('app', 'notification_level', level)
 
     @property
-    def snoozed(self):
+    def snoozed(self) -> float:
         """Time in minutes to snooze notifications. Applied to FILECHANGE level only."""
-        return max(0.0, (self._snooze - time.time()) / 60)
+        return max(0.0, (self._snooze - time.time()) / 60.0)
 
     @snoozed.setter
-    def snoozed(self, minutes):
+    def snoozed(self, minutes: float) -> None:
         """Setter: snoozed."""
-        self._snooze = time.time() + minutes * 60
+        self._snooze = time.time() + minutes * 60.0
 
-    def notify(self, message, level=FILECHANGE):
+    def notify(self, message: str, level: int = FILECHANGE) -> None:
         """
         Sends a desktop notification from maestral. The title defaults to 'Maestral'.
 
@@ -437,7 +455,7 @@ class MaestralDesktopNotifier(logging.Handler):
                 urgency=urgency
             )
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         """Emits a log record as a desktop notification."""
         if record.name != logger.name:  # avoid recursions
             self.format(record)

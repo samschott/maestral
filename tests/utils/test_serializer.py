@@ -20,7 +20,9 @@ def test_error_to_dict():
 
     default_keys = ('type', 'inherits', 'traceback', 'title', 'message')
 
+    builtin_types = dir(builtins) + [type(None).__name__]
+
     for serialized_exc in serialized_excs:
         assert all(isinstance(key, str) for key in serialized_exc.keys())
-        assert all(type(val).__name__ in dir(builtins) for val in serialized_exc.values())
+        assert all(type(val).__name__ in builtin_types for val in serialized_exc.values())
         assert all(key in serialized_exc for key in default_keys)

@@ -19,7 +19,7 @@ from maestral.utils.path import delete
 logger = logging.getLogger(__name__)
 
 
-def remove_configuration(config_name):
+def remove_configuration(config_name: str) -> None:
     """
     Removes all config and state files associated with the given configuration.
 

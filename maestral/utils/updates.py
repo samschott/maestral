@@ -13,6 +13,7 @@ This module contains functions to check fr updates and retrieve change logs.
 # system imports
 import requests
 from packaging.version import Version
+from typing import List, Optional, Dict, Union
 
 # local imports
 from maestral import __version__
@@ -29,7 +30,7 @@ CONNECTION_ERRORS = (
 GITHUB_RELEAES_API = 'https://api.github.com/repos/samschott/maestral-dropbox/releases'
 
 
-def get_newer_version(version, releases):
+def get_newer_version(version: str, releases: List[str]) -> Optional[str]:
     """
     Checks current version against a version list of releases to see if an update is
     available. Only offers newer versions if they are not a prerelease.
@@ -47,7 +48,7 @@ def get_newer_version(version, releases):
     return latest_release if Version(version) < Version(latest_release) else None
 
 
-def check_update_available(current_version=__version__):
+def check_update_available(current_version: str = __version__) -> Dict[str, Union[str, bool, None]]:
     """
     Main method to check for updates.
 

@@ -7,7 +7,7 @@
 """
 
 # external imports
-from jeepney import MessageGenerator, new_method_call
+from jeepney import MessageGenerator, new_method_call  # type: ignore
 
 
 class FreedesktopNotifications(MessageGenerator):
