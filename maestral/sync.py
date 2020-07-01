@@ -71,6 +71,8 @@ from maestral.utils.appdirs import get_data_path, get_home_dir
 
 logger = logging.getLogger(__name__)
 _cpu_count = os.cpu_count() or 1  # os.cpu_count can return None
+
+ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
 _FT = Callable[..., Any]
 
 
@@ -3234,8 +3236,6 @@ class SyncMonitor:
 # ========================================================================================
 # Helper functions
 # ========================================================================================
-
-ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
 
 def _exc_info(exc: BaseException) -> ExecInfoType:
     return type(exc), exc, exc.__traceback__
