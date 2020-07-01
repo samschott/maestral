@@ -1,4 +1,4 @@
-name: Linting
+name: Lint with flake8 and mypy
 
 on: push
 
