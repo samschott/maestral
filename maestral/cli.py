@@ -535,10 +535,11 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
             # paginate through top-level folders, ask to exclude
             for e in entries:
-                if e['type'] == 'FolderMetadata':
+                if e['.tag'] == 'FolderMetadata':
                     yes = click.confirm('Exclude "{path_display}" from sync?'.format(**e))
                     if yes:
-                        excluded_items.append(cast(str, e['path_lower']))
+                        path_lower = cast(str, e['path_lower'])
+                        excluded_items.append(path_lower)
 
             m.set_excluded_items(excluded_items)
 
@@ -799,20 +800,24 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
         excluded = []
 
         if long:
-            short_type = {'FileMetadata': 'file', 'FolderMetadata': 'folder',
-                          'DeletedMetadata': 'deleted'}
+            type_from_tag = {'FileMetadata': 'file', 'FolderMetadata': 'folder',
+                             'DeletedMetadata': 'deleted'}
 
             for e in entries:
 
-                names.append(cast(str, e['name']))
+                tag = cast(str, e['type'])
+                name = cast(str, e['name'])
+                path_lower = cast(str, e['path_lower'])
+                size = cast(float, e['size'])
 
-                types.append(short_type[cast(str, e['type'])])
+                types.append(type_from_tag[tag])
+                names.append(name)
 
                 shared.append('shared' if 'sharing_info' in e else 'private')
-                excluded.append(m.excluded_status(cast(str, e['path_lower'])))
+                excluded.append(m.excluded_status(path_lower))
 
                 if 'size' in e:
-                    sizes.append(natural_size(cast(float, e['size'])))
+                    sizes.append(natural_size(size))
                 else:
                     sizes.append('-')
 
@@ -837,8 +842,9 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 
         else:
             for e in entries:
+                name = cast(str, e['name'])
                 color = 'blue' if e['type'] == 'DeletedMetadata' else 'black'
-                click.secho(cast(str, e['name']), fg=color)
+                click.secho(name, fg=color)
 
 
 @main.command(help_priority=11)
@@ -941,18 +947,20 @@ def revs(dropbox_path: str, config_name: str) -> None:
 
         entries = m.list_revisions(dropbox_path)
 
-    rev = []
+    revs = []
     last_modified = []
 
     for e in entries:
 
-        rev.append(cast(str, e['rev']))
-
+        rev = cast(str, e['rev'])
         cm = cast(str, e['client_modified'])
+
+        revs.append(rev)
+
         dt = datetime.strptime(cm, '%Y-%m-%dT%H:%M:%S%z')
         last_modified.append(dt.astimezone(tz=None).strftime('%d %b %Y %H:%M'))
 
-    click.echo(format_table(columns=[rev, last_modified]))
+    click.echo(format_table(columns=[revs, last_modified]))
 
 
 @main.command(help_priority=17)
