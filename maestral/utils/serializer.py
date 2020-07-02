@@ -26,9 +26,9 @@ ErrorType = Dict[str, Union[str, Sequence[str], None]]
 def dropbox_stone_to_dict(obj: Any) -> StoneType:
     """Converts the result of a Dropbox SDK call to a dictionary."""
 
-    dictionary = dict(type=type(obj).__name__)
-
     obj_string = json_encode(Struct(type(obj)), obj)
+
+    dictionary: StoneType = dict(type=type(obj).__name__)
     dictionary.update(json.loads(obj_string))
 
     return dictionary
