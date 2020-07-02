@@ -10,7 +10,6 @@ daemon and frontends.
 """
 
 # system imports
-import json
 import traceback
 from typing import Dict, Union, Any, Sequence
 
