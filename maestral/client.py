@@ -190,11 +190,18 @@ class DropboxClient:
 
     @property
     def dbx(self) -> Dropbox:
+        """The actual Python Dropbox SDK"""
         if not self._dbx:
             raise NotLinkedError('No auth token set',
                                  'Please call "set_token" to link an account.')
 
         return self._dbx
+
+    @property
+    def linked(self) -> bool:
+        """True if we have an auth token, False otherwise."""
+
+        return self._dbx is not None
 
     def set_token(self, refresh_token: Optional[str] = None,
                   access_token: Optional[str] = None,
