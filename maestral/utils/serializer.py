@@ -28,7 +28,7 @@ def dropbox_stone_to_dict(obj: Any) -> StoneType:
 
     dictionary = dict(type=type(obj).__name__)
 
-    obj_string = json_encode(Struct(type(obj), obj)
+    obj_string = json_encode(Struct(type(obj)), obj)
     dictionary.update(json.loads(obj_string))
 
     return dictionary

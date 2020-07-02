@@ -800,16 +800,16 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
         excluded = []
 
         if long:
-            type_from_tag = {'FileMetadata': 'file', 'FolderMetadata': 'folder',
+            to_short_type = {'FileMetadata': 'file', 'FolderMetadata': 'folder',
                              'DeletedMetadata': 'deleted'}
 
             for e in entries:
 
-                tag = cast(str, e['type'])
+                long_type = cast(str, e['type'])
                 name = cast(str, e['name'])
                 path_lower = cast(str, e['path_lower'])
 
-                types.append(type_from_tag[tag])
+                types.append(to_short_type[long_type])
                 names.append(name)
 
                 shared.append('shared' if 'sharing_info' in e else 'private')
