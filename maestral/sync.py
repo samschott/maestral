@@ -39,7 +39,7 @@ import dropbox  # type: ignore
 from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata  # type: ignore
 from watchdog.events import FileSystemEventHandler  # type: ignore
 from watchdog.events import (
-    EVENT_TYPE_CREATED, EVENT_TYPE_DELETED, EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED
+    EVENT_TYPE_CREATED, EVENT_TYPE_DELETED, EVENT_TYPE_MOVED
 )
 from watchdog.events import (
     DirModifiedEvent, FileModifiedEvent, DirCreatedEvent, FileCreatedEvent,
@@ -1144,7 +1144,7 @@ class SyncEngine:
         """
         Checks if we are currently syncing.
 
-        :returns: ``True`` if :attr:`sync_lock` cannot be aquired, ``False`` otherwise.
+        :returns: ``True`` if :attr:`sync_lock` cannot be acquired, ``False`` otherwise.
         :rtype: bool
         """
 
@@ -1412,7 +1412,7 @@ class SyncEngine:
 
         histories: Dict[str, List[FileSystemEvent]] = dict()
         for i, event in enumerate(events):
-            if event.event_type == EVENT_TYPE_MOVED:
+            if isinstance(event, (FileMovedEvent, DirMovedEvent)):
                 deleted, created = split_moved_event(event)
                 deleted.id = i
                 created.id = i
@@ -1683,13 +1683,13 @@ class SyncEngine:
         self.clear_sync_error(local_path=local_path_from)
 
         with InQueue(self.queue_uploading, local_path_to):
-            if event.event_type is EVENT_TYPE_CREATED:
+            if isinstance(event, (FileCreatedEvent, DirCreatedEvent)):
                 return self._on_created(event)
-            elif event.event_type is EVENT_TYPE_MOVED:
+            elif isinstance(event, (FileMovedEvent, DirMovedEvent)):
                 return self._on_moved(event)
-            elif event.event_type is EVENT_TYPE_MODIFIED:
+            elif isinstance(event, (FileModifiedEvent, DirModifiedEvent)):
                 return self._on_modified(event)
-            elif event.event_type is EVENT_TYPE_DELETED:
+            elif isinstance(event, (FileDeletedEvent, DirDeletedEvent)):
                 return self._on_deleted(event)
             else:
                 return None
@@ -2461,7 +2461,10 @@ class SyncEngine:
             and :class:`dropbox.files.DeletedMetadata` respectively.
         :rtype: tuple
         """
-        binned: Dict[str, List[Metadata]] = dict(folders=[], files=[], deleted=[])
+        binned = dict()
+        binned['folders']: List[FolderMetadata] = []
+        binned['files']: List[FileMetadata] = []
+        binned['deleted']: List[DeletedMetadata] = []
 
         for x in result.entries:
             if isinstance(x, FolderMetadata):
