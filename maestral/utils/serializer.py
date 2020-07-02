@@ -23,19 +23,6 @@ StoneType = Dict[str, Union[str, float, bool]]
 ErrorType = Dict[str, Union[str, Sequence[str], None]]
 
 
-def _remove_tags(dictionary: dict) -> dict:
-
-    new_dict = dict(dictionary)
-
-    for key, value in dictionary.items():
-        if key == '.tag':
-            del new_dict[key]
-        elif isinstance(value, dict):
-            new_dict[key] = _remove_tags(value)
-
-    return new_dict
-
-
 def dropbox_stone_to_dict(obj: Any) -> StoneType:
     """Converts the result of a Dropbox SDK call to a dictionary."""
 
@@ -44,7 +31,7 @@ def dropbox_stone_to_dict(obj: Any) -> StoneType:
     obj_string = json_encode(Struct(obj.__class__), obj)
     dictionary.update(json.loads(obj_string))
 
-    return _remove_tags(dictionary)
+    return dictionary
 
 
 def error_to_dict(err: Exception) -> ErrorType:
