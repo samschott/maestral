@@ -560,10 +560,10 @@ class Maestral:
                 else:
                     self.client.set_token(refresh_token=token)
 
-            return True
+            return False
 
         else:
-            return False
+            return True
 
     @property
     def pending_dropbox_folder(self) -> bool:
