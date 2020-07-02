@@ -549,19 +549,21 @@ class Maestral:
         """Bool indicating if Maestral is linked to a Dropbox account (read only). This
         will block until the user's keyring is unlocked to load the saved auth token."""
 
-        if self._auth.token_access_type == 'legacy':
-            access_token = self._auth.access_token  # triggers keyring access
-            if not self.client.dbx and access_token:
-                self.client.set_token(access_token=access_token)
+        # getting tokens triggers keyring access on first call
+        token = self._auth.refresh_token or self._auth.access_token
 
-            return not access_token
+        if token:
+
+            if not self.client.linked:
+                if self._auth.token_access_type == 'legacy':
+                    self.client.set_token(access_token=token)
+                else:
+                    self.client.set_token(refresh_token=token)
+
+            return True
 
         else:
-            refresh_token = self._auth.refresh_token  # triggers keyring access
-            if not self.client.dbx and refresh_token:
-                self.client.set_token(refresh_token=refresh_token)
-
-            return not refresh_token
+            return False
 
     @property
     def pending_dropbox_folder(self) -> bool:
@@ -1277,7 +1279,7 @@ class Maestral:
 
     def _check_linked(self) -> None:
 
-        if self.pending_link:
+        if not self.pending_link:
             raise NotLinkedError('No Dropbox account linked',
                                  'Please call "link" to link an account.')
 
@@ -1311,7 +1313,7 @@ class Maestral:
     def _periodic_refresh(self) -> None:
         while True:
             # update account info
-            if self.client.dbx:
+            if self.client.linked:
                 self.get_account_info()
                 self.get_profile_pic()
             # check for maestral updates
