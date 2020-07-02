@@ -1279,7 +1279,7 @@ class Maestral:
 
     def _check_linked(self) -> None:
 
-        if not self.pending_link:
+        if self.pending_link:
             raise NotLinkedError('No Dropbox account linked',
                                  'Please call "link" to link an account.')
 
