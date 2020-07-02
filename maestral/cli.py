@@ -808,7 +808,6 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
                 tag = cast(str, e['type'])
                 name = cast(str, e['name'])
                 path_lower = cast(str, e['path_lower'])
-                size = cast(float, e['size'])
 
                 types.append(type_from_tag[tag])
                 names.append(name)
@@ -817,6 +816,7 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
                 excluded.append(m.excluded_status(path_lower))
 
                 if 'size' in e:
+                    size = cast(float, e['size'])
                     sizes.append(natural_size(size))
                 else:
                     sizes.append('-')
