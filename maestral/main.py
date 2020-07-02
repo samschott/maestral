@@ -201,10 +201,10 @@ class Maestral:
 
         self._setup_logging()
 
-        self._auth = OAuth2Session(config_name)
-        self.client = DropboxClient(config_name=self.config_name)
-        self.monitor = SyncMonitor(self.client)
-        self.sync = self.monitor.sync
+        self._auth = OAuth2Session(config_name)  # OAuth API and token store
+        self.client = DropboxClient(config_name=self.config_name)  # interface to Dbx SDK
+        self.monitor = SyncMonitor(self.client)  # coordinates sync threads
+        self.sync = self.monitor.sync  # provides core sync functionality
 
         self._check_and_run_post_update_scripts()
 
@@ -802,6 +802,26 @@ class Maestral:
             self._delete_old_profile_pics()
             return None
 
+    def get_metadata(self, dbx_path: str) -> StoneType:
+        """
+        Returns metadata for a file or folder on Dropbox.
+
+        :param str dbx_path: Path to file or folder on Dropbox.
+        :returns: Dropbox item metadata as dict. See :class:`dropbox.files.Metadata` for
+            keys and values.
+        :rtype: dict
+        :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
+        :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        """
+
+        self._check_linked()
+
+        res = self.client.get_metadata(dbx_path)
+        return dropbox_stone_to_dict(res)
+
     def list_folder(self, dbx_path: str, **kwargs) -> List[StoneType]:
         """
         List all items inside the folder given by ``dbx_path``. Keyword arguments are
@@ -831,7 +851,7 @@ class Maestral:
         List revisions of old files at the given path ``dbx_path``. This will also return
         revisions if the file has already been deleted.
 
-        :param str dbx_path: Path to folder on Dropbox.
+        :param str dbx_path: Path to file on Dropbox.
         :param int limit: Maximum number of revisions to list.
         :returns: List of Dropbox file metadata as dicts. See
             :class:`dropbox.files.Metadata` for keys and values.
