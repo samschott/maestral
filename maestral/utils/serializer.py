@@ -26,6 +26,7 @@ def dropbox_stone_to_dict(obj: Any) -> StoneType:
     """Converts the result of a Dropbox SDK call to a dictionary."""
 
     serialized = json_compat_obj_encode(Struct(obj.__class__), obj)
+    # add result type to dict
     serialized['type'] = type(obj).__name__
     serialized.move_to_end('type', last=False)
 
