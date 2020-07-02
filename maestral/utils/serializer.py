@@ -15,7 +15,7 @@ import traceback
 from typing import Dict, Union, Any, Sequence
 
 # external imports
-from dropbox.stone_serializers import json_encode  # type: ignore
+from dropbox.stone_serializers import json_compat_obj_encode  # type: ignore
 from dropbox.stone_validators import Struct  # type: ignore
 
 
@@ -26,12 +26,11 @@ ErrorType = Dict[str, Union[str, Sequence[str], None]]
 def dropbox_stone_to_dict(obj: Any) -> StoneType:
     """Converts the result of a Dropbox SDK call to a dictionary."""
 
-    dictionary = dict(type=obj.__class__.__name__)
+    serialized = json_compat_obj_encode(Struct(obj.__class__), obj)
+    serialized['type'] = type(obj).__name__
+    serialized.move_to_end('type', last=False)
 
-    obj_string = json_encode(Struct(obj.__class__), obj)
-    dictionary.update(json.loads(obj_string))
-
-    return dictionary
+    return serialized
 
 
 def error_to_dict(err: Exception) -> ErrorType:
