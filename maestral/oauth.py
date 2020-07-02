@@ -132,10 +132,10 @@ class OAuth2Session:
 
         # defer keyring access until token requested by user
         self._loaded = False
-        self._access_token = None
-        self._refresh_token = None
-        self._expires_at = None
-        self._token_access_type = None
+        self._access_token: Optional[str] = None
+        self._refresh_token: Optional[str] = None
+        self._expires_at: Optional[datetime] = None
+        self._token_access_type: Optional[str] = None
 
     @property
     def token_access_type(self) -> Optional[str]:
