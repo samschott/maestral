@@ -1279,13 +1279,13 @@ class Maestral:
 
         if self.pending_link:
             raise NotLinkedError('No Dropbox account linked',
-                                 'Please run "link" or "start" to link an account.')
+                                 'Please call "link" to link an account.')
 
     def _check_dropbox_dir(self) -> None:
 
         if self.pending_dropbox_folder:
             raise NoDropboxDirError('No local Dropbox directory',
-                                    'Run "create_dropbox_directory" to set up.')
+                                    'Call "create_dropbox_directory" to set up.')
 
     def _check_and_run_post_update_scripts(self) -> None:
         """
