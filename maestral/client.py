@@ -36,7 +36,7 @@ from maestral.errors import (
     UnsupportedFileError, RestrictedContentError, NotFoundError, NotAFolderError,
     IsAFolderError, FileSizeError, OutOfMemoryError, BadInputError, DropboxAuthError,
     TokenExpiredError, TokenRevokedError, CursorResetError, DropboxServerError,
-    NoDropboxDirError, InotifyError
+    NoDropboxDirError, InotifyError, NotLinkedError
 )
 from maestral.config import MaestralState
 from maestral.constants import DROPBOX_APP_KEY
@@ -170,6 +170,8 @@ class DropboxClient:
 
     SDK_VERSION: str = '2.0'
 
+    _dbx: Optional[Dropbox]
+
     def __init__(self, config_name: str,
                  refresh_token: Optional[str] = None,
                  access_token: Optional[str] = None,
@@ -181,9 +183,18 @@ class DropboxClient:
         self._timeout = timeout
         self._backoff_until = 0
         self._state = MaestralState(config_name)
+        self._dbx = None
 
         # initialize API client
         self.set_token(refresh_token, access_token, access_token_expiration)
+
+    @property
+    def dbx(self) -> Dropbox:
+        if not self._dbx:
+            raise NotLinkedError('No auth token set',
+                                 'Please call "set_token" to link an account.')
+
+        return self._dbx
 
     def set_token(self, refresh_token: Optional[str] = None,
                   access_token: Optional[str] = None,
@@ -199,7 +210,7 @@ class DropboxClient:
 
         if refresh_token or access_token:
 
-            self.dbx = Dropbox(
+            self._dbx = Dropbox(
                 oauth2_refresh_token=refresh_token,
                 oauth2_access_token=access_token,
                 oauth2_access_token_expiration=access_token_expiration,
@@ -209,7 +220,7 @@ class DropboxClient:
                 timeout=self._timeout
             )
         else:
-            self.dbx = None
+            self._dbx = None
 
     @to_maestral_error()
     def get_account_info(self, dbid: Optional[str] = None) -> users.FullAccount:
