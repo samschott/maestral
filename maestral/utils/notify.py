@@ -32,9 +32,6 @@ from collections import deque
 import threading
 from typing import Optional, Dict, ClassVar
 
-# external imports
-import click
-
 # local imports
 from maestral.config import MaestralConfig
 from maestral.constants import IS_MACOS_BUNDLE, BUNDLE_ID
@@ -108,19 +105,15 @@ class SupportedImplementations(Enum):
     """
     Enumeration of supported implementations.
 
-    :cvar str osascript: Apple script notifications.
     :cvar str notification_center: macOS UNUserNotificationCenter.
     :cvar str legacy_notification_center: macOS NSNotificationCenter.
     :cvar str notify_send: Linux notify-send command..
     :cvar str freedesktop_dbus: Linux dbus notifications.
-    :cvar str stdout: Notify by printing to stdout.
     """
-    osascript = 'osascript'
     notification_center = 'UNUserNotificationCenter'
     legacy_notification_center = 'NSUserNotificationCenter'
     notify_send = 'notify-send'
     freedesktop_dbus = 'org.freedesktop.Notifications'
-    stdout = 'print'
 
 
 class DesktopNotifierBase:
@@ -151,18 +144,6 @@ class DesktopNotifierBase:
              icon_path: Optional[str] = None) -> None:
         """Some arguments may be ignored, depending on the implementation."""
         raise NotImplementedError()
-
-
-class DesktopNotifierStdout(DesktopNotifierBase):
-    """Stdout backend for all platforms."""
-
-    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
-             icon_path: Optional[str] = None) -> None:
-        if urgency == self.CRITICAL:
-            title = click.style(title, bold=True, fg='red')
-            message = click.style(message, bold=True, fg='red')
-
-        click.echo(f'{title}: {message}')
 
 
 class DesktopNotifierNC(DesktopNotifierBase):
@@ -213,17 +194,6 @@ class DesktopNotifierLegacyNC(DesktopNotifierBase):
         n.userInfo = {}
         n.deliveryDate = NSDate.dateWithTimeInterval(0, sinceDate=NSDate.date())
         self.nc.scheduleNotification(n)
-
-
-class DesktopNotifierOsaScript(DesktopNotifierBase):
-    """Apple script backend for macOS."""
-
-    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
-             icon_path: Optional[str] = None) -> None:
-        subprocess.call([
-            'osascript', '-e',
-            f'display notification "{message}" with title "{title}"'
-        ])
 
 
 class DesktopNotifierNotifySend(DesktopNotifierBase):
@@ -305,7 +275,7 @@ class DesktopNotifier:
     :param str app_name: Name of sending app.
     """
 
-    _impl: DesktopNotifierBase
+    _impl: Optional[DesktopNotifierBase]
 
     CRITICAL = 'critical'
     NORMAL = 'normal'
@@ -319,14 +289,12 @@ class DesktopNotifier:
             self._impl = DesktopNotifierNC(app_name)
         elif self.implementation == SupportedImplementations.legacy_notification_center:
             self._impl = DesktopNotifierLegacyNC(app_name)
-        elif self.implementation == SupportedImplementations.osascript:
-            self._impl = DesktopNotifierOsaScript(app_name)
         elif self.implementation == SupportedImplementations.freedesktop_dbus:
             self._impl = DesktopNotifierFreedesktopDBus(app_name)
         elif self.implementation == SupportedImplementations.notify_send:
             self._impl = DesktopNotifierNotifySend(app_name)
         else:
-            self._impl = DesktopNotifierStdout(app_name)
+            self._impl = None
 
         logger.debug(f'DesktopNotifier implementation: {self.implementation.value}')
 
@@ -343,25 +311,24 @@ class DesktopNotifier:
         :param Optional[str] icon: Path to an icon. Some backends support displaying an
             (app) icon together with the notification.
         """
-        with self._lock:
-            self._impl.send(title, message, urgency, icon)
+        if self._impl:
+            with self._lock:
+                self._impl.send(title, message, urgency, icon)
 
     @staticmethod
-    def _get_available_implementation() -> SupportedImplementations:
+    def _get_available_implementation() -> Optional[SupportedImplementations]:
         macos_version, *_ = platform.mac_ver()
 
         if platform.system() == 'Darwin' and uns_path:
+
             if (IS_MACOS_BUNDLE and Version(macos_version) >= Version('10.14.0')
                     and UNUserNotificationCenter.currentNotificationCenter()):
                 # UNUserNotificationCenter is only supported from signed app bundles
                 return SupportedImplementations.notification_center
-            elif (Version(macos_version) < Version('10.16.0')
-                  and NSUserNotificationCenter.defaultUserNotificationCenter):
+            elif NSUserNotificationCenter.defaultUserNotificationCenter:
                 # deprecated but still works
                 return SupportedImplementations.legacy_notification_center
-            elif shutil.which('osascript'):
-                # fallback
-                return SupportedImplementations.osascript
+
         elif platform.system() == 'Linux':
             try:
                 DesktopNotifierFreedesktopDBus('test')
@@ -372,7 +339,7 @@ class DesktopNotifier:
             if shutil.which('notify-send'):
                 return SupportedImplementations.notify_send
 
-        return SupportedImplementations.stdout
+        return None
 
 
 system_notifier = DesktopNotifier(app_name='Maestral')
