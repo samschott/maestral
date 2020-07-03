@@ -28,7 +28,7 @@ import requests
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect  # type: ignore
 
 # local imports
-from maestral.config import MaestralConfig
+from maestral.config import MaestralConfig, MaestralState
 from maestral.constants import DROPBOX_APP_KEY
 from maestral.client import CONNECTION_ERRORS
 from maestral.errors import KeyringAccessError
@@ -121,6 +121,7 @@ class OAuth2Session:
 
         self.keyring = get_keyring_backend(config_name)
         self._conf = MaestralConfig(config_name)
+        self._state = MaestralState(config_name)
 
         self._auth_flow = DropboxOAuth2FlowNoRedirect(
             self._app_key,
@@ -129,19 +130,41 @@ class OAuth2Session:
         )
 
         self._account_id = self._conf.get('account', 'account_id') or None
+        self._token_access_type = self._state.get('account', 'token_access_type') or None
 
         # defer keyring access until token requested by user
         self._loaded = False
         self._access_token: Optional[str] = None
         self._refresh_token: Optional[str] = None
         self._expires_at: Optional[datetime] = None
-        self._token_access_type: Optional[str] = None
+
+    @property
+    def linked(self) -> bool:
+        """Returns ``True`` if we have full auth credentials, ``False`` otherwise."""
+
+        if self.account_id:
+
+            legacy = (self.token_access_type == 'legacy' and self.access_token)
+            offline = (self.token_access_type == 'offline' and self.refresh_token)
+
+            if legacy or offline:
+                return True
+
+        return False
+
+    @property
+    def account_id(self) -> Optional[str]:
+        """Returns the account ID (read only). This call may block until the keyring is
+        unlocked."""
+
+        return self._account_id
 
     @property
     def token_access_type(self) -> Optional[str]:
         """Returns the type of access token. If 'legacy', we have a long-lived access
         token. If 'offline', we have a short-lived access token with an expiry time and
         a long-lived refresh token to generate new access tokens."""
+
         with self._lock:
             if not self._loaded:
                 self.load_token()
@@ -149,21 +172,13 @@ class OAuth2Session:
             return self._token_access_type
 
     @property
-    def account_id(self) -> Optional[str]:
-        """Returns the account ID (read only)."""
-        with self._lock:
-            if not self._loaded:
-                self.load_token()
-
-            return self._account_id
-
-    @property
     def access_token(self) -> Optional[str]:
         """Returns the access token (read only). This will always be set for a 'legacy'
         token. For an 'offline' token, this will only be set if we completed the auth flow
         in the current session. In case of an 'offline' token, use the refresh token to
-        retrieve a short-lived access token through the Dropbox API instead. The call will
+        retrieve a short-lived access token through the Dropbox API instead. The call may
         block until the keyring is unlocked."""
+
         with self._lock:
             if not self._loaded:
                 self.load_token()
@@ -171,32 +186,35 @@ class OAuth2Session:
             return self._access_token
 
     @property
+    def access_token_expiration(self) -> Optional[datetime]:
+        """Returns the expiry time for the short-lived access token. This will only be
+        set for an 'offline' token and if we completed the flow during the current
+        session."""
+
+        # no loading necessary, this will only be set if we linked in the current session
+
+        return self._expires_at
+
+    @property
     def refresh_token(self) -> Optional[str]:
         """Returns the refresh token (read only). This will only be set for an 'offline'
-        token. The call will block until the keyring is unlocked."""
+        token. The call may block until the keyring is unlocked."""
+
         with self._lock:
             if not self._loaded:
                 self.load_token()
 
             return self._refresh_token
 
-    @property
-    def access_token_expiration(self) -> Optional[datetime]:
-        """Returns the expiry time for the short-lived access token. This will only be
-        set for an 'offline' token and if we completed the flow during the current
-        session."""
-        with self._lock:
-            if not self._loaded:
-                self.load_token()
-
-            return self._expires_at
-
     def load_token(self) -> None:
         """
-        Loads auth token from system keyring.
+        Loads auth token from system keyring. This will be called automatically when
+        accessing the auth token properties :attr:``account_id``, :attr:``access_token``,
+        :attr:``refresh_token`` or :attr:``token_access_type``.
 
         :raises: :class:`keyring.errors.KeyringLocked` if the system keyring is locked.
         """
+
         logger.debug(f'Using keyring: {self.keyring}')
 
         if not self._account_id:
@@ -204,7 +222,13 @@ class OAuth2Session:
 
         try:
             token = self.keyring.get_password('Maestral', self._account_id)
-            access_type = self._conf.get('account', 'token_access_type')
+            access_type = self._state.get('account', 'token_access_type')
+
+            if not access_type:
+                # if no token type was saved, we linked with a version < 1.2.0
+                # default to legacy token access type
+                self._state.set('account', 'token_access_type', 'legacy')
+                access_type = 'legacy'
 
             self._loaded = True
 
@@ -212,8 +236,13 @@ class OAuth2Session:
 
                 if access_type == 'legacy':
                     self._access_token = token
-                else:
+                elif access_type == 'offline':
                     self._refresh_token = token
+                else:
+                    msg = 'Invalid token access type in state file.'
+                    exc = RuntimeError('Invalid token access type in state file.')
+                    logger.error(msg, exc_info=_exc_info(exc))
+                    raise exc
 
                 self._token_access_type = access_type
 
@@ -270,9 +299,15 @@ class OAuth2Session:
         with self._lock:
 
             self._conf.set('account', 'account_id', self._account_id)
-            self._conf.set('account', 'token_access_type', self._token_access_type)
+            self._state.set('account', 'token_access_type', self._token_access_type)
+
+            if self._token_access_type == 'offline':
+                token = self.refresh_token
+            else:
+                token = self.access_token
+
             try:
-                self.keyring.set_password('Maestral', self._account_id, self._refresh_token)
+                self.keyring.set_password('Maestral', self._account_id, token)
                 click.echo(' > Credentials written.')
                 if isinstance(self.keyring, keyrings.alt.file.PlaintextKeyring):
                     click.echo(' > Warning: No supported keyring found, '
@@ -297,6 +332,8 @@ class OAuth2Session:
                 return
 
             self._conf.set('account', 'account_id', '')
+            self._state.set('account', 'token_access_type', '')
+
             try:
                 self.keyring.delete_password('Maestral', self._account_id)
                 click.echo(' > Credentials removed.')
