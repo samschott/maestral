@@ -210,8 +210,8 @@ class OAuth2Session:
     def load_token(self) -> None:
         """
         Loads auth token from system keyring. This will be called automatically when
-        accessing the auth token properties :attr:``account_id``, :attr:``access_token``,
-        :attr:``refresh_token`` or :attr:``token_access_type``.
+        accessing of the properties :attr:`linked`, :attr:`access_token`,
+        :attr:`refresh_token` or :attr:`token_access_type`.
 
         :raises: :class:`keyring.errors.KeyringLocked` if the system keyring is locked.
         """
