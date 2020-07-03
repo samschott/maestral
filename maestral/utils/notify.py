@@ -75,13 +75,13 @@ class SupportedImplementations(Enum):
     """
     Enumeration of supported implementations.
 
-    :cvar str notification_center: macOS UNUserNotificationCenter.
-    :cvar str legacy_notification_center: macOS NSNotificationCenter.
+    :cvar str un_notification_center: macOS UNUserNotificationCenter.
+    :cvar str ns_notification_center: macOS NSNotificationCenter. Deprecated.
     :cvar str notify_send: Linux notify-send command..
     :cvar str freedesktop_dbus: Linux dbus notifications.
     """
-    notification_center = 'UNUserNotificationCenter'
-    legacy_notification_center = 'NSUserNotificationCenter'
+    un_notification_center = 'UNUserNotificationCenter'
+    ns_notification_center = 'NSUserNotificationCenter'
     notify_send = 'notify-send'
     freedesktop_dbus = 'org.freedesktop.Notifications'
 
@@ -255,9 +255,9 @@ class DesktopNotifier:
         self._lock = threading.Lock()
         self.implementation = self._get_available_implementation()
 
-        if self.implementation == SupportedImplementations.notification_center:
+        if self.implementation == SupportedImplementations.un_notification_center:
             self._impl = DesktopNotifierNC(app_name)
-        elif self.implementation == SupportedImplementations.legacy_notification_center:
+        elif self.implementation == SupportedImplementations.ns_notification_center:
             self._impl = DesktopNotifierLegacyNC(app_name)
         elif self.implementation == SupportedImplementations.freedesktop_dbus:
             self._impl = DesktopNotifierFreedesktopDBus(app_name)
@@ -294,10 +294,11 @@ class DesktopNotifier:
             if (IS_MACOS_BUNDLE and Version(macos_version) >= Version('10.14.0')
                     and UNUserNotificationCenter.currentNotificationCenter()):
                 # UNUserNotificationCenter is only supported from signed app bundles
-                return SupportedImplementations.notification_center
-            elif NSUserNotificationCenter.defaultUserNotificationCenter:
+                return SupportedImplementations.un_notification_center
+
+            if NSUserNotificationCenter.defaultUserNotificationCenter:
                 # deprecated but still works
-                return SupportedImplementations.legacy_notification_center
+                return SupportedImplementations.ns_notification_center
 
         elif platform.system() == 'Linux':
             try:
