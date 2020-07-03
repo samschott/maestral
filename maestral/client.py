@@ -95,6 +95,7 @@ CONNECTION_ERRORS = (
 
 class SpaceUsage(users.SpaceUsage):
 
+    @property
     def allocation_type(self) -> str:
         if self.allocation.is_team():
             return 'team'
@@ -116,6 +117,10 @@ class SpaceUsage(users.SpaceUsage):
 
         percent = used / allocated
         return f'{percent:.1%} of {natural_size(allocated)} used'
+
+    @classmethod
+    def from_dbx_space_usage(cls, su: users.SpaceUsage) -> 'SpaceUsage':
+        return cls(used=su.used, allocation=su.allocation)
 
 
 def to_maestral_error(dbx_path_arg: Optional[int] = None,
@@ -273,13 +278,13 @@ class DropboxClient:
         res = self.dbx.users_get_space_usage()
 
         # convert from users.SpaceUsage to SpaceUsage
-        res.__class__ = SpaceUsage
+        space_usage = SpaceUsage.from_dbx_space_usage(res)
 
         # save results to config
         self._state.set('account', 'usage', str(res))
-        self._state.set('account', 'usage_type', res.allocation_type())
+        self._state.set('account', 'usage_type', space_usage.allocation_type)
 
-        return res
+        return space_usage
 
     @to_maestral_error()
     def unlink(self) -> None:
