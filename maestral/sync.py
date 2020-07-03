@@ -61,7 +61,7 @@ from maestral.errors import (
 )
 from maestral.client import DropboxClient, os_to_maestral_error, fswatch_to_maestral_error
 from maestral.utils.content_hasher import DropboxContentHasher
-from maestral.utils.notify import MaestralDesktopNotifier, FILECHANGE
+from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.path import (
     generate_cc_name, cased_path_candidates, to_cased_path, is_fs_case_sensitive,
     move, delete, is_child, is_equal_or_child
@@ -2315,7 +2315,7 @@ class SyncEngine:
         else:
             msg = f'{file_name} {change_type}'
 
-        self._notifier.notify(msg, level=FILECHANGE)
+        self._notifier.notify(msg, level=MaestralDesktopNotifier.FILECHANGE)
 
     def _filter_excluded_changes_remote(self, changes: dropbox.files.ListFolderResult) \
             -> Tuple[dropbox.files.ListFolderResult, dropbox.files.ListFolderResult]:

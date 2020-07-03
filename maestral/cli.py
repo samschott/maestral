@@ -1250,23 +1250,24 @@ def log_level(level_name: str, config_name: str) -> None:
 def notify_level(level_name: str, config_name: str) -> None:
     """Gets or sets the level for desktop notifications."""
 
-    from maestral.utils.notify import levelNameToNumber, levelNumberToName
+    from maestral.utils.notify import MaestralDesktopNotifier as MDN
 
     try:
         with MaestralProxy(config_name) as m:
             if level_name:
-                m.notification_level = levelNameToNumber(level_name)
+                m.notification_level = MDN.level_name_to_number(level_name)
                 click.echo(f'Notification level set to {level_name}.')
             else:
-                level_name = levelNumberToName(m.notification_level)
+                level_name = MDN.level_number_to_name(m.notification_level)
                 click.echo(f'Notification level: {level_name}.')
     except Pyro5.errors.CommunicationError:
         conf = MaestralConfig(config_name)
         if level_name:
-            conf.set('app', 'notification_level', levelNameToNumber(level_name))
+            conf.set('app', 'notification_level', MDN.level_name_to_number(level_name))
             click.echo(f'Notification level set to {level_name}.')
         else:
-            level_name = levelNumberToName(conf.get('app', 'notification_level'))
+            level_num = conf.get('app', 'notification_level')
+            level_name = MDN.level_number_to_name(level_num)
             click.echo(f'Notification level: {level_name}.')
 
 

@@ -70,36 +70,6 @@ _resources = getattr(sys, '_MEIPASS',
                      pkg_resources.resource_filename('maestral', 'resources'))
 APP_ICON_PATH = osp.join(_resources, 'maestral.png')
 
-NONE = 100
-ERROR = 40
-SYNCISSUE = 30
-FILECHANGE = 15
-
-
-_levelToName = {
-    NONE: 'NONE',
-    ERROR: 'ERROR',
-    SYNCISSUE: 'SYNCISSUE',
-    FILECHANGE: 'FILECHANGE',
-}
-
-_nameToLevel = {
-    'NONE': 100,
-    'ERROR': 40,
-    'SYNCISSUE': 30,
-    'FILECHANGE': 15,
-}
-
-
-def levelNumberToName(number: int) -> str:
-    """Converts a Maestral notification level number to name."""
-    return _levelToName[number]
-
-
-def levelNameToNumber(name: str) -> int:
-    """Converts a Maestral notification level name to number."""
-    return _nameToLevel[name]
-
 
 class SupportedImplementations(Enum):
     """
@@ -355,6 +325,35 @@ class MaestralDesktopNotifier(logging.Handler):
     _instances: ClassVar[Dict[str, 'MaestralDesktopNotifier']] = dict()
     _lock = threading.Lock()
 
+    NONE = 100
+    ERROR = 40
+    SYNCISSUE = 30
+    FILECHANGE = 15
+
+    _levelToName = {
+        NONE: 'NONE',
+        ERROR: 'ERROR',
+        SYNCISSUE: 'SYNCISSUE',
+        FILECHANGE: 'FILECHANGE',
+    }
+
+    _nameToLevel = {
+        'NONE': 100,
+        'ERROR': 40,
+        'SYNCISSUE': 30,
+        'FILECHANGE': 15,
+    }
+
+    @classmethod
+    def level_number_to_name(cls, number: int) -> str:
+        """Converts a Maestral notification level number to name."""
+        return cls._levelToName[number]
+
+    @classmethod
+    def level_name_to_number(cls, name: str) -> int:
+        """Converts a Maestral notification level name to number."""
+        return cls._nameToLevel[name]
+
     @classmethod
     def for_config(cls, config_name: str) -> 'MaestralDesktopNotifier':
         """
@@ -408,8 +407,8 @@ class MaestralDesktopNotifier(logging.Handler):
         :param int level: Notification level of the message.
         """
 
-        ignore = self.snoozed and level == FILECHANGE
-        if level == ERROR:
+        ignore = self.snoozed and level == self.FILECHANGE
+        if level == self.ERROR:
             urgency = system_notifier.CRITICAL
         else:
             urgency = system_notifier.NORMAL
