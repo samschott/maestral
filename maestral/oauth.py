@@ -186,16 +186,6 @@ class OAuth2Session:
             return self._access_token
 
     @property
-    def access_token_expiration(self) -> Optional[datetime]:
-        """Returns the expiry time for the short-lived access token. This will only be
-        set for an 'offline' token and if we completed the flow during the current
-        session."""
-
-        # no loading necessary, this will only be set if we linked in the current session
-
-        return self._expires_at
-
-    @property
     def refresh_token(self) -> Optional[str]:
         """Returns the refresh token (read only). This will only be set for an 'offline'
         token. The call may block until the keyring is unlocked."""
@@ -205,6 +195,16 @@ class OAuth2Session:
                 self.load_token()
 
             return self._refresh_token
+
+    @property
+    def access_token_expiration(self) -> Optional[datetime]:
+        """Returns the expiry time for the short-lived access token. This will only be
+        set for an 'offline' token and if we completed the flow during the current
+        session."""
+
+        # no loading necessary, this will only be set if we linked in the current session
+
+        return self._expires_at
 
     def load_token(self) -> None:
         """
@@ -227,8 +227,8 @@ class OAuth2Session:
             if not access_type:
                 # if no token type was saved, we linked with a version < 1.2.0
                 # default to legacy token access type
-                self._state.set('account', 'token_access_type', 'legacy')
                 access_type = 'legacy'
+                self._state.set('account', 'token_access_type', access_type)
 
             self._loaded = True
 
