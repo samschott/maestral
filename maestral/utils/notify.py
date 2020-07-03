@@ -266,7 +266,10 @@ class DesktopNotifier:
         else:
             self._impl = None
 
-        logger.debug(f'DesktopNotifier implementation: {self.implementation.value}')
+        if self._impl:
+            logger.debug(f'DesktopNotifier implementation: {self.implementation.value}')
+        else:
+            logger.debug(f'DesktopNotifier implementation: None')
 
     def send(self, title: str, message: str, urgency: str = NORMAL,
              icon: Optional[str] = None) -> None:

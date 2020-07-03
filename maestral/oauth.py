@@ -241,9 +241,9 @@ class OAuth2Session:
                     self._refresh_token = token
                 else:
                     msg = 'Invalid token access type in state file.'
-                    exc = RuntimeError('Invalid token access type in state file.')
-                    logger.error(msg, exc_info=_exc_info(exc))
-                    raise exc
+                    err = RuntimeError('Invalid token access type in state file.')
+                    logger.error(msg, exc_info=_exc_info(err))
+                    raise err
 
                 self._token_access_type = access_type
 

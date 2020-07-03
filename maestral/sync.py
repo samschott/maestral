@@ -2461,20 +2461,20 @@ class SyncEngine:
             and :class:`dropbox.files.DeletedMetadata` respectively.
         :rtype: tuple
         """
-        binned = dict()
-        binned['folders']: List[FolderMetadata] = []
-        binned['files']: List[FileMetadata] = []
-        binned['deleted']: List[DeletedMetadata] = []
+
+        folders: List[FolderMetadata] = []
+        files: List[FileMetadata] = []
+        deleted: List[DeletedMetadata] = []
 
         for x in result.entries:
             if isinstance(x, FolderMetadata):
-                binned['folders'].append(x)
+                folders.append(x)
             elif isinstance(x, FileMetadata):
-                binned['files'].append(x)
+                files.append(x)
             elif isinstance(x, DeletedMetadata):
-                binned['deleted'].append(x)
+                deleted.append(x)
 
-        return binned['folders'], binned['files'], binned['deleted']
+        return folders, files, deleted
 
     def _clean_remote_changes(self, changes: dropbox.files.ListFolderResult) \
             -> dropbox.files.ListFolderResult:
