@@ -281,7 +281,7 @@ class DropboxClient:
         space_usage = SpaceUsage.from_dbx_space_usage(res)
 
         # save results to config
-        self._state.set('account', 'usage', str(res))
+        self._state.set('account', 'usage', str(space_usage))
         self._state.set('account', 'usage_type', space_usage.allocation_type)
 
         return space_usage
