@@ -118,6 +118,7 @@ class OAuth2Session:
     def __init__(self, config_name: str, app_key: str = DROPBOX_APP_KEY) -> None:
 
         self._app_key = app_key
+        self._config_name = config_name
 
         self.keyring = get_keyring_backend(config_name)
         self._conf = MaestralConfig(config_name)
@@ -348,6 +349,10 @@ class OAuth2Session:
                 self._access_token = None
                 self._refresh_token = None
                 self._token_access_type = None
+
+    def __repr__(self) -> str:
+        return (f'<{self.__class__.__name__}(config={self._config_name!r}, '
+                f'account_id={self._account_id})>')
 
 
 def _exc_info(exc):
