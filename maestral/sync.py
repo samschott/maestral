@@ -362,6 +362,7 @@ def catch_sync_issues(download: bool = False) -> Callable[[_FT], _FT]:
                     if not err.dbx_path:
                         err.dbx_path = self.to_dbx_path(err.local_path)
 
+                # fill out missing dbx_path_dst or local_path_dst
                 if err.dbx_path_dst or err.local_path_dst:
                     if not err.local_path_dst:
                         err.local_path_dst = self.to_local_path(err.dbx_path_dst)
@@ -1321,17 +1322,14 @@ class SyncEngine:
             if sorted_events['deleted']:
                 logger.info('Uploading deletions...')
 
-            last_emit = time.time()
             with ThreadPoolExecutor(max_workers=self._num_threads,
                                     thread_name_prefix='maestral-upload-pool') as executor:
                 fs = (executor.submit(self._create_remote_entry, e)
                       for e in sorted_events['deleted'])
+
                 n_files = len(sorted_events['deleted'])
                 for f, n in zip(as_completed(fs), range(1, n_files + 1)):
-                    if time.time() - last_emit > 1 or n in (1, n_files):
-                        # emit message at maximum every second
-                        logger.info(f'Deleting {n}/{n_files}...')
-                        last_emit = time.time()
+                    throttled_log(logger, f'Deleting {n}/{n_files}...')
                     success.append(f.result())
 
             if sorted_events['dir_moved']:
@@ -1343,21 +1341,17 @@ class SyncEngine:
                 success.append(res)
 
             # apply file created events in parallel since order does not matter
-            last_emit = time.time()
             with ThreadPoolExecutor(max_workers=self._num_threads,
                                     thread_name_prefix='maestral-upload-pool') as executor:
                 fs = (executor.submit(self._create_remote_entry, e) for e in
                       itertools.chain(sorted_events['dir_created'], sorted_events['file']))
+
                 n_files = len(sorted_events['dir_created']) + len(sorted_events['file'])
                 for f, n in zip(as_completed(fs), range(1, n_files + 1)):
-                    if time.time() - last_emit > 1 or n in (1, n_files):
-                        # emit message at maximum every second
-                        logger.info(f'Uploading {n}/{n_files}...')
-                        last_emit = time.time()
+                    throttled_log(logger, f'Uploading {n}/{n_files}...')
                     success.append(f.result())
 
             # bookkeeping
-
             if all(success):
                 self.last_sync = local_cursor
 
@@ -2234,16 +2228,13 @@ class SyncEngine:
             downloaded.append(res)
 
         # apply created files
-        n_files = len(files)
-        last_emit = time.time()
         with ThreadPoolExecutor(max_workers=self._num_threads,
                                 thread_name_prefix='maestral-download-pool') as executor:
             fs = (executor.submit(self._create_local_entry, file) for file in files)
+
+            n_files = len(files)
             for f, n in zip(as_completed(fs), range(1, n_files + 1)):
-                if time.time() - last_emit > 1 or n in (1, n_files):
-                    # emit messages at maximum every second
-                    logger.info(f'Downloading {n}/{n_files}...')
-                    last_emit = time.time()
+                throttled_log(logger, f'Downloading {n}/{n_files}...')
                 downloaded.append(f.result())
 
         # housekeeping
@@ -3321,6 +3312,19 @@ def entries_to_str(entries: List[Metadata]) -> str:
     str_reps = [f'<{e.__class__.__name__}(path_display={e.path_display})>'
                 for e in entries]
     return '[' + ',\n '.join(str_reps) + ']'
+
+
+_last_emit = time.time()
+
+
+def throttled_log(log: logging.Logger, msg: str, level: int = logging.INFO,
+                  limit: int = 1) -> None:
+
+    global _last_emit
+
+    if time.time() - _last_emit > limit:
+        log.log(level=level, msg=msg)
+        _last_emit = time.time()
 
 
 def cpu_usage_percent(interval: float = 0.1) -> float:
