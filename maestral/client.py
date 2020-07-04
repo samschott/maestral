@@ -19,7 +19,7 @@ import functools
 import contextlib
 from datetime import datetime, timezone
 from typing import (
-    Callable, Union, Any, Type, Sequence, Tuple, Iterator, List, TypeVar, Optional
+    Callable, Union, Any, Type, Tuple, Iterator, List, TypeVar, Optional
 )
 
 # external imports
@@ -485,7 +485,7 @@ class DropboxClient:
         return md
 
     @to_maestral_error()
-    def remove_batch(self, entries: Sequence[Tuple[str, str]],
+    def remove_batch(self, entries: List[Tuple[str, str]],
                      batch_size: int = 900) -> List[Union[files.Metadata, MaestralApiError]]:
         """
         Delete multiple items on Dropbox in a batch job.
@@ -546,9 +546,9 @@ class DropboxClient:
             elif entry.is_failure():
                 exc = exceptions.ApiError(
                     error=entry.get_failure(),
-                    user_message_text=None,
-                    user_message_locale=None,
-                    request_id=None,
+                    user_message_text='',
+                    user_message_locale='',
+                    request_id='',
                 )
                 sync_err = dropbox_to_maestral_error(exc, dbx_path=entries[i][0])
                 result_list.append(sync_err)
@@ -593,12 +593,12 @@ class DropboxClient:
         return md
 
     @to_maestral_error()
-    def make_dir_batch(self, dbx_paths: Sequence[str], batch_size: int = 900,
+    def make_dir_batch(self, dbx_paths: List[str], batch_size: int = 900,
                        **kwargs) -> List[Union[files.Metadata, MaestralApiError]]:
         """
         Creates multiple folders on Dropbox in a batch job.
 
-        :param Sequence[str] dbx_paths: List of dropbox folder paths.
+        :param List[str] dbx_paths: List of dropbox folder paths.
         :param int batch_size: Number of folders to create in each batch. Dropbox allows
             batches of up to 1,000 folders. Larger values will be capped automatically.
         :param kwargs: Keyword arguments for Dropbox SDK files_create_folder_batch.
@@ -650,9 +650,9 @@ class DropboxClient:
             elif entry.is_failure():
                 exc = exceptions.ApiError(
                     error=entry.get_failure(),
-                    user_message_text=None,
-                    user_message_locale=None,
-                    request_id=None,
+                    user_message_text='',
+                    user_message_locale='',
+                    request_id='',
                 )
                 sync_err = dropbox_to_maestral_error(exc, dbx_path=dbx_paths[i])
                 result_list.append(sync_err)
@@ -737,7 +737,7 @@ class DropboxClient:
         return self.flatten_results(results)
 
     @staticmethod
-    def flatten_results(results: Sequence[files.ListFolderResult]) -> files.ListFolderResult:
+    def flatten_results(results: List[files.ListFolderResult]) -> files.ListFolderResult:
         """
         Flattens a list of :class:`files.ListFolderResult` instances to a single
         instance with the cursor of the last entry in the list.
@@ -757,7 +757,7 @@ class DropboxClient:
         return results_flattened
 
     @to_maestral_error()
-    def wait_for_remote_changes(self, last_cursor: str, timeout: float = 40) -> bool:
+    def wait_for_remote_changes(self, last_cursor: str, timeout: int = 40) -> bool:
         """
         Waits for remote changes since ``last_cursor``. Call this method after
         starting the Dropbox client and periodically to get the latest updates.
@@ -810,7 +810,7 @@ class DropboxClient:
 
 # ==== helper functions ==================================================================
 
-def chunks(lst: Sequence, n: int) -> Iterator[Sequence]:
+def chunks(lst: List, n: int) -> Iterator[List]:
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
