@@ -26,6 +26,7 @@ release = __version__
 
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx_autodoc_typehints',
     'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
@@ -46,6 +47,7 @@ language = None
 pygments_style = None
 
 autodoc_member_order = 'bysource'
+set_type_checking_flag = True
 
 # -- Options for HTML output -------------------------------------------------
 
