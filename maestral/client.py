@@ -373,7 +373,7 @@ class DropboxClient:
             with contextlib.closing(http_resp):
                 for c in http_resp.iter_content(chunksize):
                     if md.size > 5 * 10 ** 6:  # 5 MB
-                        logger.info(f'Downloading {natural_size(downloaded)}/{size_str}...')
+                        logger.debug(f'Downloading {dbx_path}: {natural_size(downloaded)}/{size_str}...')
                     f.write(c)
                     downloaded += chunksize
 
@@ -449,7 +449,7 @@ class DropboxClient:
                                 cursor
                             )
                             cursor.offset = f.tell()
-                        logger.info(f'Uploading {natural_size(f.tell())}/{size_str}...')
+                        logger.debug(f'Uploading {dbx_path}: {natural_size(f.tell())}/{size_str}...')
                     except exceptions.DropboxException as exc:
                         error = getattr(exc, 'error', None)
                         if (isinstance(error, files.UploadSessionFinishError)
