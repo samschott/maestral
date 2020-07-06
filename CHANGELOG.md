@@ -16,6 +16,10 @@
 - Changed return type of `Maestral.get_activity` from namedtuple to dict for better
   consistency throughout the API.
 - Introduced type annotations and mypy type checking in CI for most modules.
+- Upload or download progress is no longer shown in the status field. Instead, the CLI
+  command `maestral activity` now shows the progress of uploads and downloads for files
+  larger than 5 MB.
+- Added a field "Sync threads" to the output of the CLI command `maestral status`.
 
 #### Fixed:
 
