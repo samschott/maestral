@@ -468,10 +468,6 @@ class SyncEngine:
 
     sync_errors: Queue
     queued_newly_included_downloads: Queue
-    queued_for_download: Queue
-    queued_for_upload: Queue
-    queue_uploading: Queue
-    queue_downloading: Queue
     _rev_dict_cache: Dict[str, str]
     _last_sync_for_path: Dict[str, float]
 
@@ -502,13 +498,6 @@ class SyncEngine:
         # queues used for internal communication
         self.sync_errors = Queue()  # entries are `SyncIssue` instances
         self.queued_newly_included_downloads = Queue()  # entries are local_paths
-
-        # the following queues are only for monitoring / user info
-        # and are expected to contain correctly cased local paths or Dropbox paths
-        self.queued_for_download = Queue()
-        self.queued_for_upload = Queue()
-        self.queue_uploading = Queue()
-        self.queue_downloading = Queue()
 
         # load cached properties
         self._dropbox_path = osp.realpath(self._conf.get('main', 'path'))
@@ -1311,10 +1300,6 @@ class SyncEngine:
                 elif not e.is_directory and e.event_type != EVENT_TYPE_DELETED:
                     sorted_events['file'].append(e)
 
-            # update queues
-            for e in itertools.chain(*sorted_events.values()):
-                self.queued_for_upload.put(get_dest_path(e))
-
             success = []
 
             # apply deleted events first, folder moved events second
@@ -1672,21 +1657,19 @@ class SyncEngine:
         local_path_from = event.src_path
         local_path_to = get_dest_path(event)
 
-        remove_from_queue(self.queued_for_upload, local_path_from, local_path_to)
         self.clear_sync_error(local_path=local_path_to)
         self.clear_sync_error(local_path=local_path_from)
 
-        with InQueue(self.queue_uploading, local_path_to):
-            if isinstance(event, (FileCreatedEvent, DirCreatedEvent)):
-                return self._on_created(event)
-            elif isinstance(event, (FileMovedEvent, DirMovedEvent)):
-                return self._on_moved(event)
-            elif isinstance(event, (FileModifiedEvent, DirModifiedEvent)):
-                return self._on_modified(event)
-            elif isinstance(event, (FileDeletedEvent, DirDeletedEvent)):
-                return self._on_deleted(event)
-            else:
-                return None
+        if isinstance(event, (FileCreatedEvent, DirCreatedEvent)):
+            return self._on_created(event)
+        elif isinstance(event, (FileMovedEvent, DirMovedEvent)):
+            return self._on_moved(event)
+        elif isinstance(event, (FileModifiedEvent, DirModifiedEvent)):
+            return self._on_modified(event)
+        elif isinstance(event, (FileDeletedEvent, DirDeletedEvent)):
+            return self._on_deleted(event)
+        else:
+            return None
 
     @staticmethod
     def _wait_for_creation(path: str) -> None:
@@ -2082,12 +2065,11 @@ class SyncEngine:
             # get a cursor for the folder
             cursor = self.client.get_latest_cursor(dbx_path)
 
+            # download top-level folders / files first
+            logger.info(SYNCING)
             root_result = self.client.list_folder(dbx_path,
                                                   recursive=(not ignore_excluded),
                                                   include_deleted=False)
-
-            # download top-level folders / files first
-            logger.info(SYNCING)
             _, s = self.apply_remote_changes(root_result, save_cursor=False)
             success.append(s)
 
@@ -2132,15 +2114,14 @@ class SyncEngine:
             if isinstance(md, FolderMetadata):
                 res = self.get_remote_folder(dbx_path)
             elif isinstance(md, (FileMetadata, DeletedMetadata)):
-                with InQueue(self.queue_downloading, md.path_display):
-                    res = self._create_local_entry(md)
+                res = self._create_local_entry(md)
 
             if res or not md:
                 self.pending_downloads.discard(dbx_path.lower())
 
             return bool(res)
 
-    def wait_for_remote_changes(self, last_cursor: str, timeout: float = 40,
+    def wait_for_remote_changes(self, last_cursor: str, timeout: int = 40,
                                 delay: float = 2) -> bool:
         """
         Blocks until changes to the remote Dropbox are available.
@@ -2207,9 +2188,6 @@ class SyncEngine:
         deleted.sort(key=lambda x: x.path_display.count('/'))
         folders.sort(key=lambda x: x.path_display.count('/'))
         files.sort(key=lambda x: x.path_display.count('/'))
-
-        for md in itertools.chain(deleted, folders, files):
-            self.queued_for_download.put(md.path_display)
 
         downloaded = []  # local list of all changes
 
@@ -2545,129 +2523,127 @@ class SyncEngine:
 
         # housekeeping
         local_path = self.get_local_path(entry)
-
         self.clear_sync_error(dbx_path=entry.path_display)
-        remove_from_queue(self.queued_for_download, entry.path_display)
 
-        with InQueue(self.queue_downloading, entry.path_display):
+        conflict_check = self._check_download_conflict(entry)
 
-            conflict_check = self._check_download_conflict(entry)
+        applied = None
 
-            applied = None
+        if conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
+            return applied
 
-            if conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
-                return applied
+        if isinstance(entry, FileMetadata):
+            # Store the new entry at the given path in your local state.
+            # If the required parent folders don’t exist yet, create them.
+            # If there’s already something else at the given path,
+            # replace it and remove all its children.
 
-            if isinstance(entry, FileMetadata):
-                # Store the new entry at the given path in your local state.
-                # If the required parent folders don’t exist yet, create them.
-                # If there’s already something else at the given path,
-                # replace it and remove all its children.
+            # we download to a temporary file first (this may take some time)
+            tmp_fname = self._new_tmp_file()
 
-                # we download to a temporary file first (this may take some time)
-                tmp_fname = self._new_tmp_file()
+            try:
+                md = self.client.download(f'rev:{entry.rev}', tmp_fname)
+            except SyncError as err:
+                # replace rev number with path
+                err.dbx_path = entry.path_display
+                raise err
 
-                try:
-                    md = self.client.download(f'rev:{entry.rev}', tmp_fname)
-                except MaestralApiError as err:
-                    # replace rev number with path
-                    err.dbx_path = entry.path_display
-                    raise err
+            # re-check for conflict and move the conflict
+            # out of the way if anything has changed
+            if self._check_download_conflict(entry) == Conflict.Conflict:
+                new_local_path = generate_cc_name(
+                    local_path, is_fs_case_sensitive=self.is_case_sensitive
+                )
+                event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+                with self.fs_events.ignore(event_cls(local_path, new_local_path)):
+                    exc = move(local_path, new_local_path)
 
-                # re-check for conflict and move the conflict
-                # out of the way if anything has changed
-                if self._check_download_conflict(entry) == Conflict.Conflict:
-                    new_local_path = generate_cc_name(
-                        local_path, is_fs_case_sensitive=self.is_case_sensitive
-                    )
-                    event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
-                    with self.fs_events.ignore(event_cls(local_path, new_local_path)):
-                        exc = move(local_path, new_local_path)
-                        if exc:
-                            raise os_to_maestral_error(exc, local_path=new_local_path)
+                if exc:
+                    raise os_to_maestral_error(exc, local_path=new_local_path)
 
-                    logger.debug('Download conflict: renamed "%s" to "%s"', local_path,
-                                 new_local_path)
-                    self._rescan(new_local_path)
+                logger.debug('Download conflict: renamed "%s" to "%s"', local_path,
+                             new_local_path)
+                self._rescan(new_local_path)
 
-                if osp.isdir(local_path):
-                    event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
-                    with self.fs_events.ignore(event_cls(local_path)):
-                        delete(local_path)
-
-                # move the downloaded file to its destination
-                with self.fs_events.ignore(FileDeletedEvent(local_path),
-                                           FileMovedEvent(tmp_fname, local_path)):
-                    exc = move(tmp_fname, local_path)
-                    if exc:
-                        raise os_to_maestral_error(exc, dbx_path=entry.path_display,
-                                                   local_path=local_path)
-
-                self.set_last_sync_for_path(entry.path_lower, self._get_ctime(local_path))
-                self.set_local_rev(entry.path_lower, md.rev)
-
-                logger.debug('Created local file "%s"', entry.path_display)
-                applied = entry
-
-            elif isinstance(entry, FolderMetadata):
-                # Store the new entry at the given path in your local state.
-                # If the required parent folders don’t exist yet, create them.
-                # If there’s already something else at the given path,
-                # replace it but leave the children as they are.
-
-                if conflict_check == Conflict.Conflict:
-                    new_local_path = generate_cc_name(
-                        local_path, is_fs_case_sensitive=self.is_case_sensitive
-                    )
-                    event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
-                    with self.fs_events.ignore(event_cls(local_path, new_local_path)):
-                        exc = move(local_path, new_local_path)
-                        if exc:
-                            raise os_to_maestral_error(exc, local_path=new_local_path)
-
-                    logger.debug('Download conflict: renamed "%s" to "%s"', local_path,
-                                 new_local_path)
-                    self._rescan(new_local_path)
-
-                if osp.isfile(local_path):
-                    event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
-                    with self.fs_events.ignore(event_cls(local_path)):
-                        delete(local_path)
-
-                try:
-                    with self.fs_events.ignore(DirCreatedEvent(local_path), recursive=False):
-                        os.makedirs(local_path)
-                except FileExistsError:
-                    pass
-                except OSError as err:
-                    raise os_to_maestral_error(err, dbx_path=entry.path_display,
-                                               local_path=local_path)
-
-                self.set_last_sync_for_path(entry.path_lower, self._get_ctime(local_path))
-                self.set_local_rev(entry.path_lower, 'folder')
-
-                logger.debug('Created local folder "%s"', entry.path_display)
-                applied = entry
-
-            elif isinstance(entry, DeletedMetadata):
-                # If your local state has something at the given path,
-                # remove it and all its children. If there’s nothing at the
-                # given path, ignore this entry.
-
+            if osp.isdir(local_path):
                 event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
                 with self.fs_events.ignore(event_cls(local_path)):
-                    exc = delete(local_path)
+                    delete(local_path)
 
-                self.set_local_rev(entry.path_lower, None)
-                self.set_last_sync_for_path(entry.path_lower, time.time())
+            # move the downloaded file to its destination
+            with self.fs_events.ignore(FileDeletedEvent(local_path),
+                                       FileMovedEvent(tmp_fname, local_path)):
+                exc = move(tmp_fname, local_path)
 
-                if not exc:
-                    logger.debug('Deleted local item "%s"', entry.path_display)
-                    applied = entry
-                else:
-                    logger.debug('Deletion failed: %s', exc)
+            if exc:
+                raise os_to_maestral_error(exc, dbx_path=entry.path_display,
+                                           local_path=local_path)
 
-            return applied
+            self.set_last_sync_for_path(entry.path_lower, self._get_ctime(local_path))
+            self.set_local_rev(entry.path_lower, md.rev)
+
+            logger.debug('Created local file "%s"', entry.path_display)
+            applied = entry
+
+        elif isinstance(entry, FolderMetadata):
+            # Store the new entry at the given path in your local state.
+            # If the required parent folders don’t exist yet, create them.
+            # If there’s already something else at the given path,
+            # replace it but leave the children as they are.
+
+            if conflict_check == Conflict.Conflict:
+                new_local_path = generate_cc_name(
+                    local_path, is_fs_case_sensitive=self.is_case_sensitive
+                )
+                event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+                with self.fs_events.ignore(event_cls(local_path, new_local_path)):
+                    exc = move(local_path, new_local_path)
+                    if exc:
+                        raise os_to_maestral_error(exc, local_path=new_local_path)
+
+                logger.debug('Download conflict: renamed "%s" to "%s"', local_path,
+                             new_local_path)
+                self._rescan(new_local_path)
+
+            if osp.isfile(local_path):
+                event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
+                with self.fs_events.ignore(event_cls(local_path)):
+                    delete(local_path)
+
+            try:
+                with self.fs_events.ignore(DirCreatedEvent(local_path), recursive=False):
+                    os.makedirs(local_path)
+            except FileExistsError:
+                pass
+            except OSError as err:
+                raise os_to_maestral_error(err, dbx_path=entry.path_display,
+                                           local_path=local_path)
+
+            self.set_last_sync_for_path(entry.path_lower, self._get_ctime(local_path))
+            self.set_local_rev(entry.path_lower, 'folder')
+
+            logger.debug('Created local folder "%s"', entry.path_display)
+            applied = entry
+
+        elif isinstance(entry, DeletedMetadata):
+            # If your local state has something at the given path,
+            # remove it and all its children. If there’s nothing at the
+            # given path, ignore this entry.
+
+            event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
+            with self.fs_events.ignore(event_cls(local_path)):
+                exc = delete(local_path)
+
+            self.set_local_rev(entry.path_lower, None)
+            self.set_last_sync_for_path(entry.path_lower, time.time())
+
+            if not exc:
+                logger.debug('Deleted local item "%s"', entry.path_display)
+                applied = entry
+            else:
+                logger.debug('Deletion failed: %s', exc)
+
+        return applied
 
     def _rescan(self, local_path: str) -> None:
 
