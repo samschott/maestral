@@ -730,9 +730,9 @@ def activity(config_name: str) -> None:
                     ]
 
                     # create table
-                    up.insert(0, ('UPLOADING', 'STATUS'))  # column titles
-                    up.append(('', ''))  # append spacer
-                    down.insert(0, ('DOWNLOADING', 'STATUS'))  # column titles
+                    up.insert(0, dict(dbx_path='UPLOADING', status='STATUS'))
+                    up.append(dict(dbx_path='', status=''))
+                    down.insert(0, dict(dbx_path='DOWNLOADING', status='STATUS'))
 
                     file_names = []
                     states = []
