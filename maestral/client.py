@@ -19,7 +19,7 @@ import functools
 import contextlib
 from datetime import datetime, timezone
 from typing import (
-    Callable, Union, Any, Type, Tuple, Iterator, List, TypeVar, Optional
+    Callable, Union, Any, Type, Tuple, Iterator, List, TypeVar, Optional, TYPE_CHECKING
 )
 
 # external imports
@@ -41,6 +41,9 @@ from maestral.errors import (
 from maestral.config import MaestralState
 from maestral.constants import DROPBOX_APP_KEY
 from maestral.utils import natural_size
+
+if TYPE_CHECKING:
+    from maestral.sync import SyncItem
 
 logger = logging.getLogger(__name__)
 

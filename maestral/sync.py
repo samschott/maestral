@@ -428,6 +428,8 @@ class SyncEngine:
     """
 
     sync_errors: Queue
+    uploading: Dict[str, SyncItem]
+    downloading: Dict[str, SyncItem]
     _rev_dict_cache: Dict[str, str]
     _last_sync_for_path: Dict[str, float]
 
@@ -1115,18 +1117,16 @@ class SyncEngine:
     def _handle_sync_error(self, err: SyncError, download: bool = False) -> None:
 
         # fill out missing dbx_path or local_path
-        if err.dbx_path or err.local_path:
-            if not err.local_path:
-                err.local_path = self.to_local_path(err.dbx_path)
-            if not err.dbx_path:
-                err.dbx_path = self.to_dbx_path(err.local_path)
+        if err.dbx_path and not err.local_path:
+            err.local_path = self.to_local_path(err.dbx_path)
+        if err.local_path and not err.dbx_path:
+            err.dbx_path = self.to_dbx_path(err.local_path)
 
         # fill out missing dbx_path_dst or local_path_dst
-        if err.dbx_path_dst or err.local_path_dst:
-            if not err.local_path_dst:
-                err.local_path_dst = self.to_local_path(err.dbx_path_dst)
-            if not err.dbx_path:
-                err.dbx_path_dst = self.to_dbx_path(err.local_path_dst)
+        if err.dbx_path_dst and not err.local_path_dst:
+            err.local_path_dst = self.to_local_path(err.dbx_path_dst)
+        if err.local_path_dst and not not err.dbx_path:
+            err.dbx_path_dst = self.to_dbx_path(err.local_path_dst)
 
         if err.dbx_path:
             # we have a file / folder associated with the sync error
@@ -1678,6 +1678,8 @@ class SyncEngine:
             elif isinstance(event, (FileDeletedEvent, DirDeletedEvent)):
                 self.uploading[local_path_to].status = 'deleting'
                 return self._on_local_deleted(event)
+            else:
+                return None
 
         except SyncError as err:
             self._handle_sync_error(err, download=True)
@@ -2080,7 +2082,7 @@ class SyncEngine:
             self.pending_downloads.add(dbx_path.lower())
             md = self.client.get_metadata(dbx_path, include_deleted=True)
 
-            res = False
+            res: Union[Metadata, bool, None] = False
 
             if isinstance(md, FolderMetadata):
                 res = self.get_remote_folder(dbx_path)
@@ -2481,6 +2483,7 @@ class SyncEngine:
         self.clear_sync_error(dbx_path=entry.path_display)
 
         try:
+
             if isinstance(entry, FileMetadata):
                 self.downloading[entry.path_display].status = 'downloading'
                 return self._on_remote_file(entry)
@@ -2490,6 +2493,9 @@ class SyncEngine:
             elif isinstance(entry, DeletedMetadata):
                 self.downloading[entry.path_display].status = 'deleting'
                 return self._on_remote_deleted(entry)
+            else:
+                return None
+
         except SyncError as e:
             self._handle_sync_error(e)
             return False
