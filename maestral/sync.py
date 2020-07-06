@@ -408,6 +408,8 @@ class SyncEngine:
          finally confirm the successful upload and check if Dropbox has renamed the item
          to a conflicting copy. In the latter case, we apply those changes locally.
 
+
+
     :param DropboxClient client: Dropbox API client instance.
     :param FSEventHandler fs_events_handler: File system event handler to inform us of
         local events.
@@ -415,7 +417,6 @@ class SyncEngine:
     """
 
     sync_errors: Queue
-    queued_newly_included_downloads: Queue
     _rev_dict_cache: Dict[str, str]
     _last_sync_for_path: Dict[str, float]
 
@@ -436,16 +437,20 @@ class SyncEngine:
         self._state = MaestralState(self.config_name)
         self._notifier = MaestralDesktopNotifier.for_config(self.config_name)
 
+        # download_errors: contains failed downloads (from sync errors) to retry later
         self.download_errors = PersistentStateMutableSet(
             self.config_name, section='sync', option='download_errors'
         )
+        # pending_downloads: contains interrupted downloads to retry later
+        # Running downloads can be stored in this list to be resumed if Maestral quits
+        # unexpectedly. This used for downloads which are not part of the regular sync
+        # cycle and are therefore not restarted automatically.
         self.pending_downloads = PersistentStateMutableSet(
             self.config_name, section='sync', option='pending_downloads'
         )
 
         # queues used for internal communication
         self.sync_errors = Queue()  # entries are `SyncIssue` instances
-        self.queued_newly_included_downloads = Queue()  # entries are local_paths
 
         # load cached properties
         self._dropbox_path = osp.realpath(self._conf.get('main', 'path'))
@@ -2732,7 +2737,8 @@ def download_worker(sync: SyncEngine, syncing: Event,
 
 
 def download_worker_added_item(sync: SyncEngine, syncing: Event,
-                               running: Event, connected: Event) -> None:
+                               running: Event, connected: Event,
+                               added_item_queue: Queue[str]) -> None:
     """
     Worker to download items which have been newly included in sync.
 
@@ -2740,6 +2746,8 @@ def download_worker_added_item(sync: SyncEngine, syncing: Event,
     :param Event syncing: Event that indicates if workers are running or paused.
     :param Event running: Event to shutdown local file event handler and worker threads.
     :param Event connected: Event that indicates if we can connect to Dropbox.
+    :param Queue added_item_queue: Queue with newly added items to download. Entries
+        are Dropbox paths.
     """
 
     while running.is_set():
@@ -2747,7 +2755,7 @@ def download_worker_added_item(sync: SyncEngine, syncing: Event,
         syncing.wait()
 
         try:
-            dbx_path = sync.queued_newly_included_downloads.get()
+            dbx_path = added_item_queue.get()
 
             with sync.sync_lock:
                 if not (running.is_set() and syncing.is_set()):
@@ -2908,6 +2916,7 @@ class SyncMonitor:
         Python SDK.
     """
 
+    added_item_queue: Queue[str]
     connection_check_interval: float = 2.0
 
     def __init__(self, client: DropboxClient):
@@ -2915,15 +2924,16 @@ class SyncMonitor:
         self.client = client
         self.config_name = self.client.config_name
 
+        self.startup = Event()
         self.connected = Event()
         self.syncing = Event()
         self.running = Event()
         self.paused_by_user = Event()
         self.paused_by_user.set()
 
-        self._lock = RLock()
+        self.added_item_queue = Queue()  # entries are dbx_paths
 
-        self.startup = Event()
+        self._lock = RLock()
 
         self.fs_event_handler = FSEventHandler(self.syncing, self.startup)
         self.sync = SyncEngine(self.client, self.fs_event_handler)
@@ -3005,6 +3015,7 @@ class SyncMonitor:
                 daemon=True,
                 args=(
                     self.sync, self.syncing, self.running, self.connected,
+                    self.added_item_queue
                 ),
                 name='maestral-folder-download'
             )

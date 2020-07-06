@@ -1088,7 +1088,7 @@ class Maestral:
 
         # download items from Dropbox
         for folder in new_included_items:
-            self.sync.queued_newly_included_downloads.put(folder)
+            self.monitor.added_item_queue.put(folder)
 
     def set_excluded_items(self, items: List[str]) -> None:
         """
@@ -1124,7 +1124,7 @@ class Maestral:
             for path in added_included_items:
                 if not self.sync.is_excluded_by_user(path):
                     logger.info('Included %s', path)
-                    self.sync.queued_newly_included_downloads.put(path)
+                    self.monitor.added_item_queue.put(path)
 
         logger.info(IDLE)
 
