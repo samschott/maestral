@@ -93,9 +93,9 @@ class CachedHandler(logging.Handler):
     """Handler which stores past records. This is used to populate Maestral's status and
     error interfaces.
 
-    :param int level: Initial log level. Defaults to NOTSET.
-    :param int maxlen: Maximum number of records to store. If ``None``, all
-        records will be stored. Defaults to ``None``.
+    :param level: Initial log level. Defaults to NOTSET.
+    :param maxlen: Maximum number of records to store. If ``None``, all records will be
+        stored. Defaults to ``None``.
     """
 
     cached_records: Deque[logging.LogRecord]
@@ -116,7 +116,6 @@ class CachedHandler(logging.Handler):
     def getLastMessage(self) -> str:
         """
         :returns: The log message of the last record or an empty string.
-        :rtype: str
         """
         if len(self.cached_records) > 0:
             return self.cached_records[-1].message
@@ -126,7 +125,6 @@ class CachedHandler(logging.Handler):
     def getAllMessages(self) -> List[str]:
         """
         :returns: A list of all record messages.
-        :rtype: list[str]
         """
         return [r.message for r in self.cached_records]
 
@@ -158,10 +156,10 @@ class Maestral:
 
     All methods and properties return objects or raise exceptions which can safely be
     serialized, i.e., pure Python types. The only exception are instances of
-    :class:`errors.MaestralApiError` which need to be registered explicitly with the
+    :class:`errors.MaestralApiError`: they need to be registered explicitly with the
     serpent serializer which is used for communication to frontends.
 
-    Sync errors and fatal errors which occur in the syncing threads can be read with the
+    Sync errors and fatal errors which occur in the sync threads can be read with the
     properties :attr:`sync_errors` and :attr:`fatal_errors`, respectively.
 
     :Example:
@@ -181,9 +179,9 @@ class Maestral:
         ...     m.create_dropbox_directory('~/Dropbox (Private)')
         ...     m.start_sync()
 
-    :param str config_name: Name of maestral configuration to run. This will create a new
+    :param config_name: Name of maestral configuration to run. This will create a new
         configuration file if none exists.
-    :param bool log_to_stdout: If ``True``, Maestral will print log messages to stdout.
+    :param log_to_stdout: If ``True``, Maestral will print log messages to stdout.
         When started as a systemd services, this can result in duplicate log messages.
         Defaults to ``False``.
     """
@@ -243,7 +241,6 @@ class Maestral:
         :meth:`link` with the provided token.
 
         :returns: URL to retrieve an OAuth token.
-        :rtype: str
         """
         return self._auth.get_auth_url()
 
@@ -259,10 +256,8 @@ class Maestral:
             * Gnome Keyring
             * Plain text storage
 
-        :param str token: OAuth token for Dropbox access.
-        :returns: OAuth2Session.Success (0), OAuth2Session.InvalidToken (1) or
-            OAuth2Session.ConnectionFailed (2)
-        :rtype: int
+        :param token: OAuth token for Dropbox access.
+        :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
         """
 
         res = self._auth.verify_auth_token(token)
@@ -672,16 +667,15 @@ class Maestral:
         """
         return get_cache_path('maestral', self._config_name + '_profile_pic.jpeg')
 
-    def get_file_status(self, local_path) -> str:
+    def get_file_status(self, local_path: str) -> str:
         """
         Returns the sync status of an individual file.
 
-        :param str local_path: Path to file on the local drive. May be relative to the
+        :param local_path: Path to file on the local drive. May be relative to the
             current working directory.
         :returns: String indicating the sync status. Can be 'uploading', 'downloading',
             'up to date', 'error', or 'unwatched' (for files outside of the Dropbox
             directory). This will always be 'unwatched' if syncing is paused.
-        :rtype: str
         """
         if not self.syncing:
             return FileStatus.Unwatched.value
@@ -710,7 +704,6 @@ class Maestral:
 
         :returns: A dictionary with lists of all files currently queued for or being
             uploaded or downloaded. Paths are given relative to the Dropbox folder.
-        :rtype: dict(str, dict)
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
@@ -741,11 +734,9 @@ class Maestral:
 
     def get_account_info(self) -> Dict[str, Union[str, float, bool]]:
         """
-        Gets account information from Dropbox and returns it as a dictionary. The entries
-        will either be of type ``str`` or ``bool``.
+        Gets account information from Dropbox and returns it as a dictionary.
 
         :returns: Dropbox account information.
-        :rtype: dict[str, bool]
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
@@ -759,11 +750,9 @@ class Maestral:
 
     def get_space_usage(self) -> Dict[str, Union[str, float, bool]]:
         """
-        Gets the space usage stored by Dropbox and returns it as a dictionary. The
-        entries will either be of type ``str`` or ``bool``.
+        Gets the space usage stored by Dropbox and returns it as a dictionary.
 
-        :returns: Dropbox account information.
-        :rtype: dict[str, float, bool]
+        :returns: Dropbox space usage information.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
@@ -784,7 +773,6 @@ class Maestral:
         in Maestral's cache directory for retrieval when there is no internet connection.
 
         :returns: Path to saved profile picture or ``None`` if no profile picture is set.
-        :rtype: str
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
@@ -808,10 +796,9 @@ class Maestral:
         """
         Returns metadata for a file or folder on Dropbox.
 
-        :param str dbx_path: Path to file or folder on Dropbox.
+        :param dbx_path: Path to file or folder on Dropbox.
         :returns: Dropbox item metadata as dict. See :class:`dropbox.files.Metadata` for
             keys and values.
-        :rtype: dict
         :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
@@ -829,10 +816,9 @@ class Maestral:
         List all items inside the folder given by ``dbx_path``. Keyword arguments are
         passed on the the Dropbox API call :meth:`client.DropboxClient.list_folder`.
 
-        :param str dbx_path: Path to folder on Dropbox.
+        :param dbx_path: Path to folder on Dropbox.
         :returns: List of Dropbox item metadata as dicts. See
             :class:`dropbox.files.Metadata` for keys and values.
-        :rtype: List[dict]
         :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
         :raises: :class:`errors.NotAFolderError` if the given path refers to a file.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
@@ -853,11 +839,10 @@ class Maestral:
         List revisions of old files at the given path ``dbx_path``. This will also return
         revisions if the file has already been deleted.
 
-        :param str dbx_path: Path to file on Dropbox.
-        :param int limit: Maximum number of revisions to list.
+        :param dbx_path: Path to file on Dropbox.
+        :param limit: Maximum number of revisions to list.
         :returns: List of Dropbox file metadata as dicts. See
             :class:`dropbox.files.Metadata` for keys and values.
-        :rtype: list[dict]
         :raises: :class:`errors.NotFoundError` if there never was a file at the given path.
         :raises: :class:`errors.IsAFolderError` if the given path refers to a folder.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
@@ -876,12 +861,11 @@ class Maestral:
         """
         Restore an old revision of a file.
 
-        :param str dbx_path: The path to save the restored file.
-        :param str rev: The revision to restore. Old revisions can be listed with
+        :param dbx_path: The path to save the restored file.
+        :param rev: The revision to restore. Old revisions can be listed with
             :meth:`list_revisions`.
         :returns: Metadata of the returned file. See
             :class:`dropbox.files.FileMetadata` for keys and values.
-        :rtype: dict
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
@@ -977,7 +961,7 @@ class Maestral:
         Excludes file or folder from sync and deletes it locally. It is safe to call this
         method with items which have already been excluded.
 
-        :param str dbx_path: Dropbox path of item to exclude.
+        :param dbx_path: Dropbox path of item to exclude.
         :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
@@ -1040,7 +1024,7 @@ class Maestral:
         Any downloads will be carried out by the sync threads. Errors during the download
         can be accessed through :attr:`sync_errors` or :attr:`maestral_errors`.
 
-        :param str dbx_path: Dropbox path of item to include.
+        :param dbx_path: Dropbox path of item to include.
         :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
         :raises: :class:`errors.PathError` if the path lies inside an excluded folder.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
@@ -1103,7 +1087,7 @@ class Maestral:
 
         On initial sync, this does not trigger any downloads.
 
-        :param list[str] items: List of excluded files or folders to set.
+        :param items: List of excluded files or folders to set.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
@@ -1136,9 +1120,8 @@ class Maestral:
         Returns 'excluded', 'partially excluded' or 'included'. This function will not
         check if the item actually exists on Dropbox.
 
-        :param str dbx_path: Path to item on Dropbox.
+        :param dbx_path: Path to item on Dropbox.
         :returns: Excluded status.
-        :rtype: str
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
@@ -1160,7 +1143,7 @@ class Maestral:
         Sets the local Dropbox directory. This moves all local files to the new location
         and resumes syncing afterwards.
 
-        :param str new_path: Full path to local Dropbox folder. "~" will be expanded to
+        :param new_path: Full path to local Dropbox folder. "~" will be expanded to
             the user's home directory.
         :raises: :class:`OSError` if moving the directory fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
@@ -1206,7 +1189,7 @@ class Maestral:
         """
         Creates a new Dropbox directory. Only call this during setup.
 
-        :param str path: Full path to local Dropbox folder. "~" will be expanded to the
+        :param path: Full path to local Dropbox folder. "~" will be expanded to the
             user's home directory.
         :raises: :class:`OSError` if creation fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
@@ -1241,9 +1224,8 @@ class Maestral:
         Converts a path relative to the Dropbox folder to a correctly cased local file
         system path.
 
-        :param str dbx_path: Path relative to Dropbox root.
+        :param dbx_path: Path relative to Dropbox root.
         :returns: Corresponding path on local hard drive.
-        :rtype: str
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
@@ -1261,7 +1243,6 @@ class Maestral:
         :returns: A dictionary with information about the latest release with the fields
             'update_available' (bool), 'latest_release' (str), 'release_notes' (str)
             and 'error' (str or None).
-        :rtype: dict
         """
         return check_update_available()
 
