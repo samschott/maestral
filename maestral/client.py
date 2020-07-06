@@ -428,7 +428,8 @@ class DropboxClient:
                 md = self.dbx.files_upload(
                     f.read(), dbx_path, client_modified=mtime_dt, **kwargs
                 )
-                sync_item.completed = f.tell()
+                if sync_item:
+                    sync_item.completed = f.tell()
             return md
         else:
             # Note: We currently do not support resuming interrupted uploads. Dropbox
@@ -466,7 +467,7 @@ class DropboxClient:
 
                         # housekeeping
                         uploaded = f.tell()
-                        logger.debug(f'Uploading %s: %s/%s', dbx_path,
+                        logger.debug('Uploading %s: %s/%s', dbx_path,
                                      natural_size(uploaded), size_str)
                         if sync_item:
                             sync_item.completed = uploaded
