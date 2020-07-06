@@ -692,9 +692,9 @@ class Maestral:
         except ValueError:
             return FileStatus.Unwatched.value
 
-        if local_path in self.monitor.queued_for_upload:
+        if local_path in self.monitor.uploading:
             return FileStatus.Uploading.value
-        elif local_path in self.monitor.queued_for_download:
+        elif local_path in self.monitor.downloading:
             return FileStatus.Downloading.value
         elif any(local_path == err['local_path'] for err in self.sync_errors):
             return FileStatus.Error.value
@@ -722,17 +722,9 @@ class Maestral:
             path.lstrip(self.dropbox_path)
             uploading.append(dict(dbx_path=path, status='uploading'))
 
-        for path in self.monitor.queued_for_upload:
-            path.lstrip(self.dropbox_path)
-            uploading.append(dict(dbx_path=path, status='queued'))
-
         for path in self.monitor.downloading:
             path.lstrip(self.dropbox_path)
             downloading.append(dict(dbx_path=path, status='downloading'))
-
-        for path in self.monitor.queued_for_download:
-            path.lstrip(self.dropbox_path)
-            downloading.append(dict(dbx_path=path, status='queued'))
 
         return dict(uploading=uploading, downloading=downloading)
 

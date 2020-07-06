@@ -23,7 +23,6 @@ from threading import Thread, Event, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
 from collections import abc
-import itertools
 from contextlib import contextmanager
 from enum import IntEnum
 import pprint
@@ -1266,40 +1265,39 @@ class SyncEngine:
 
             events, _ = self._filter_excluded_changes_local(events)
 
-            sorted_events: Dict[str, List[FileSystemEvent]] \
-                = dict(deleted=[], dir_created=[], dir_moved=[], file=[])
+            deleted: List[FileSystemEvent] = []
+            dir_moved: List[FileSystemEvent] = []
+            other: List[FileSystemEvent] = []  # file created + moved, dir created
 
             for e in events:
-                if e.event_type == EVENT_TYPE_DELETED:
-                    sorted_events['deleted'].append(e)
-                elif e.is_directory and e.event_type == EVENT_TYPE_CREATED:
-                    sorted_events['dir_created'].append(e)
-                elif e.is_directory and e.event_type == EVENT_TYPE_MOVED:
-                    sorted_events['dir_moved'].append(e)
-                elif not e.is_directory and e.event_type != EVENT_TYPE_DELETED:
-                    sorted_events['file'].append(e)
+                if isinstance(e, (FileDeletedEvent, DirDeletedEvent)):
+                    deleted.append(e)
+                elif isinstance(e, DirMovedEvent):
+                    dir_moved.append(e)
+                else:
+                    other.append(e)
 
             results = []
 
             # apply deleted events first, folder moved events second
             # neither event type requires an actual upload
-            if sorted_events['deleted']:
+            if deleted:
                 logger.info('Uploading deletions...')
 
             with ThreadPoolExecutor(max_workers=self._num_threads,
                                     thread_name_prefix='maestral-upload-pool') as executor:
                 fs = (executor.submit(self._create_remote_entry, e)
-                      for e in sorted_events['deleted'])
+                      for e in deleted)
 
-                n_files = len(sorted_events['deleted'])
-                for f, n in zip(as_completed(fs), range(1, n_files + 1)):
-                    throttled_log(logger, f'Deleting {n}/{n_files}...')
+                n_items = len(deleted)
+                for f, n in zip(as_completed(fs), range(1, n_items + 1)):
+                    throttled_log(logger, f'Deleting {n}/{n_items}...')
                     results.append(f.result())
 
-            if sorted_events['dir_moved']:
+            if dir_moved:
                 logger.info('Moving folders...')
 
-            for event in sorted_events['dir_moved']:
+            for event in dir_moved:
                 logger.info(f'Moving {event.src_path}...')
                 res = self._create_remote_entry(event)
                 results.append(res)
@@ -1307,16 +1305,16 @@ class SyncEngine:
             # apply file created events in parallel since order does not matter
             with ThreadPoolExecutor(max_workers=self._num_threads,
                                     thread_name_prefix='maestral-upload-pool') as executor:
-                fs = (executor.submit(self._create_remote_entry, e) for e in
-                      itertools.chain(sorted_events['dir_created'], sorted_events['file']))
+                fs = (executor.submit(self._create_remote_entry, e) for e in other)
 
-                n_files = len(sorted_events['dir_created']) + len(sorted_events['file'])
-                for f, n in zip(as_completed(fs), range(1, n_files + 1)):
-                    throttled_log(logger, f'Uploading {n}/{n_files}...')
+                n_items = len(other)
+                for f, n in zip(as_completed(fs), range(1, n_items + 1)):
+                    throttled_log(logger, f'Uploading {n}/{n_items}...')
                     results.append(f.result())
 
-            # bookkeeping
-            if all(results):  # results are not None (aborted) or False (sync error)
+            # housekeeping
+            if all(results):
+                # results are not None (aborted) or False (sync error)
                 self.last_sync = local_cursor
 
             self._clean_and_save_rev_file()
@@ -1645,7 +1643,7 @@ class SyncEngine:
             if isinstance(event, (FileCreatedEvent, DirCreatedEvent)):
                 return self._on_local_created(event)
             elif isinstance(event, (FileMovedEvent, DirMovedEvent)):
-                return self._on_moved(event)
+                return self._on_local_moved(event)
             elif isinstance(event, (FileModifiedEvent, DirModifiedEvent)):
                 return self._on_local_modified(event)
             elif isinstance(event, (FileDeletedEvent, DirDeletedEvent)):
@@ -1672,7 +1670,7 @@ class SyncEngine:
         except OSError:
             return
 
-    def _on_moved(self, event: Union[FileMovedEvent, DirMovedEvent]) \
+    def _on_local_moved(self, event: Union[FileMovedEvent, DirMovedEvent]) \
             -> Optional[Metadata]:
         """
         Call when a local item is moved.
@@ -2108,14 +2106,24 @@ class SyncEngine:
         changes_included, changes_excluded = self._filter_excluded_changes_remote(changes)
 
         # remove all deleted items from the excluded list
-        _, _, deleted_excluded = self._separate_remote_entry_types(changes_excluded)
-        for d in deleted_excluded:
-            new_excluded = [item for item in self.excluded_items
-                            if not is_equal_or_child(item, d.path_lower)]
-            self.excluded_items = new_excluded
+        for md in changes_excluded.entries:
+            if isinstance(md, DeletedMetadata):
+                new_excluded = [item for item in self.excluded_items
+                                if not is_equal_or_child(item, md.path_lower)]
+                self.excluded_items = new_excluded
 
         # sort changes into folders, files and deleted
-        folders, files, deleted = self._separate_remote_entry_types(changes_included)
+        folders: List[FolderMetadata] = []
+        files: List[FileMetadata] = []
+        deleted: List[DeletedMetadata] = []
+
+        for e in changes_included.entries:
+            if isinstance(e, FolderMetadata):
+                folders.append(e)
+            elif isinstance(e, FileMetadata):
+                files.append(e)
+            elif isinstance(e, DeletedMetadata):
+                deleted.append(e)
 
         # sort according to path hierarchy
         # do not create sub-folder / file before parent exists
@@ -2351,33 +2359,6 @@ class SyncEngine:
             return md.sharing_info.modified_by
         except AttributeError:
             return self._conf.get('account', 'account_id')
-
-    @staticmethod
-    def _separate_remote_entry_types(result: dropbox.files.ListFolderResult) \
-            -> Tuple[List[FolderMetadata], List[FileMetadata], List[DeletedMetadata]]:
-        """
-        Sorts entries in :class:`dropbox.files.ListFolderResult` into
-        FolderMetadata, FileMetadata and DeletedMetadata.
-
-        :returns: Tuple of (folders, files, deleted) containing instances of
-            :class:`dropbox.files.FolderMetadata`, :class:`dropbox.files.FileMetadata`,
-            and :class:`dropbox.files.DeletedMetadata` respectively.
-        :rtype: tuple
-        """
-
-        folders: List[FolderMetadata] = []
-        files: List[FileMetadata] = []
-        deleted: List[DeletedMetadata] = []
-
-        for x in result.entries:
-            if isinstance(x, FolderMetadata):
-                folders.append(x)
-            elif isinstance(x, FileMetadata):
-                files.append(x)
-            elif isinstance(x, DeletedMetadata):
-                deleted.append(x)
-
-        return folders, files, deleted
 
     def _clean_remote_changes(self, changes: dropbox.files.ListFolderResult) \
             -> dropbox.files.ListFolderResult:
@@ -2945,25 +2926,13 @@ class SyncMonitor:
     def uploading(self) -> List[str]:
         """Returns a list of all items currently uploading. Items are absolute paths (str)
         on local drive."""
-        return list(self.sync.queue_uploading.queue)
+        return []
 
     @property
     def downloading(self) -> List[str]:
         """Returns a list of all items currently downloading. Items are paths (str)
         relative to the Dropbox folder."""
-        return list(self.sync.queue_downloading.queue)
-
-    @property
-    def queued_for_upload(self) -> List[str]:
-        """Returns a list of all items queued for upload. Items are absolute paths (str)
-        on local drive."""
-        return list(self.sync.queued_for_upload.queue)
-
-    @property
-    def queued_for_download(self) -> List[str]:
-        """Returns a list of all items queued for download. Items are paths (str) relative
-        to the Dropbox folder."""
-        return list(self.sync.queued_for_download.queue)
+        return []
 
     def start(self) -> None:
         """Creates observer threads and starts syncing."""
