@@ -335,6 +335,18 @@ class PersistentStateMutableSet(abc.MutableSet):
                f'option=\'{self.option}\', entries={list(self)})>'
 
 
+class SyncItem:
+
+    def __init__(self, obj: Union[FileSystemEvent, Metadata], direction: str,
+                 status: str = 'queued', size: int = 0) -> None:
+
+        self.obj = obj
+        self.direction = direction
+        self.status = status
+        self.size = size
+        self.completed = 0
+
+
 class SyncEngine:
     """
     Class that contains methods to sync local file events with Dropbox and vice versa.
@@ -450,6 +462,10 @@ class SyncEngine:
 
         # queues used for internal communication
         self.sync_errors = Queue()  # entries are `SyncIssue` instances
+
+        # data structures for user information
+        self.uploading = dict()
+        self.downloading = dict()
 
         # load cached properties
         self._dropbox_path = osp.realpath(self._conf.get('main', 'path'))
@@ -1277,6 +1293,16 @@ class SyncEngine:
                 else:
                     other.append(e)
 
+                # housekeeping
+                local_path_to = get_dest_path(e)
+                try:
+                    size = osp.getsize(local_path_to)
+                except OSError:
+                    size = 0
+
+                si = SyncItem(e, direction='download', size=size)
+                self.uploading[local_path_to] = si
+
             results = []
 
             # apply deleted events first, folder moved events second
@@ -1641,17 +1667,23 @@ class SyncEngine:
         try:
 
             if isinstance(event, (FileCreatedEvent, DirCreatedEvent)):
+                self.uploading[local_path_to].status = 'uploading'
                 return self._on_local_created(event)
             elif isinstance(event, (FileMovedEvent, DirMovedEvent)):
+                self.uploading[local_path_to].status = 'uploading'
                 return self._on_local_moved(event)
             elif isinstance(event, (FileModifiedEvent, DirModifiedEvent)):
+                self.uploading[local_path_to].status = 'uploading'
                 return self._on_local_modified(event)
             elif isinstance(event, (FileDeletedEvent, DirDeletedEvent)):
+                self.uploading[local_path_to].status = 'deleting'
                 return self._on_local_deleted(event)
 
         except SyncError as err:
             self._handle_sync_error(err, download=True)
             return False
+        finally:
+            del self.uploading[local_path_to]
 
     @staticmethod
     def _wait_for_creation(path: str) -> None:
@@ -1795,8 +1827,11 @@ class SyncEngine:
                              'already tracking it', dbx_path)
                 mode = dropbox.files.WriteMode.update(rev)
             try:
-                md_new = self.client.upload(local_path, dbx_path,
-                                            autorename=True, mode=mode)
+                md_new = self.client.upload(
+                    local_path, dbx_path,
+                    autorename=True, mode=mode,
+                    sync_item=self.uploading.get(local_path)
+                )
             except NotFoundError:
                 logger.debug('Could not upload "%s": the item does not exist',
                              event.src_path)
@@ -1866,7 +1901,11 @@ class SyncEngine:
             mode = dropbox.files.WriteMode.update(rev)
 
         try:
-            md_new = self.client.upload(local_path, dbx_path, autorename=True, mode=mode)
+            md_new = self.client.upload(
+                local_path, dbx_path,
+                autorename=True, mode=mode,
+                sync_item=self.uploading.get(local_path)
+            )
         except NotFoundError:
             logger.debug('Could not upload "%s": the item does not exist', dbx_path)
             return None
@@ -2124,6 +2163,9 @@ class SyncEngine:
                 files.append(e)
             elif isinstance(e, DeletedMetadata):
                 deleted.append(e)
+
+            si = SyncItem(e, direction='upload', size=getattr(e, 'size', 0))
+            self.downloading[e.path_display] = si
 
         # sort according to path hierarchy
         # do not create sub-folder / file before parent exists
@@ -2440,14 +2482,19 @@ class SyncEngine:
 
         try:
             if isinstance(entry, FileMetadata):
+                self.downloading[entry.path_display].status = 'downloading'
                 return self._on_remote_file(entry)
             elif isinstance(entry, FolderMetadata):
+                self.downloading[entry.path_display].status = 'downloading'
                 return self._on_remote_folder(entry)
             elif isinstance(entry, DeletedMetadata):
+                self.downloading[entry.path_display].status = 'deleting'
                 return self._on_remote_deleted(entry)
         except SyncError as e:
             self._handle_sync_error(e)
             return False
+        finally:
+            del self.downloading[entry.path_display]
 
     def _on_remote_file(self, entry: FileMetadata) -> Union[FileMetadata, bool]:
 
@@ -2467,7 +2514,10 @@ class SyncEngine:
         tmp_fname = self._new_tmp_file()
 
         try:
-            md = self.client.download(f'rev:{entry.rev}', tmp_fname)
+            md = self.client.download(
+                f'rev:{entry.rev}', tmp_fname,
+                sync_item=self.downloading.get(entry.path_display)
+            )
         except SyncError as err:
             # replace rev number with path
             err.dbx_path = entry.path_display
@@ -2719,7 +2769,7 @@ def download_worker(sync: SyncEngine, syncing: Event,
 
 def download_worker_added_item(sync: SyncEngine, syncing: Event,
                                running: Event, connected: Event,
-                               added_item_queue: Queue[str]) -> None:
+                               added_item_queue: 'Queue[str]') -> None:
     """
     Worker to download items which have been newly included in sync.
 
@@ -2897,7 +2947,7 @@ class SyncMonitor:
         Python SDK.
     """
 
-    added_item_queue: Queue[str]
+    added_item_queue: 'Queue[str]'
     connection_check_interval: float = 2.0
 
     def __init__(self, client: DropboxClient):
@@ -2923,16 +2973,16 @@ class SyncMonitor:
         self.reindex_interval = self.sync._conf.get('sync', 'reindex_interval')
 
     @property
-    def uploading(self) -> List[str]:
-        """Returns a list of all items currently uploading. Items are absolute paths (str)
+    def uploading(self) -> Dict[str, SyncItem]:
+        """Returns a dict of all items currently uploading. Keys are absolute paths (str)
         on local drive."""
-        return []
+        return self.sync.uploading
 
     @property
-    def downloading(self) -> List[str]:
-        """Returns a list of all items currently downloading. Items are paths (str)
+    def downloading(self) -> Dict[str, SyncItem]:
+        """Returns a dict of all items currently downloading. Keys are paths (str)
         relative to the Dropbox folder."""
-        return []
+        return self.sync.downloading
 
     def start(self) -> None:
         """Creates observer threads and starts syncing."""

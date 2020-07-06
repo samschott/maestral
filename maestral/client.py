@@ -345,12 +345,15 @@ class DropboxClient:
         return self.dbx.files_restore(dbx_path, rev)
 
     @to_maestral_error(dbx_path_arg=1)
-    def download(self, dbx_path: str, local_path: str, **kwargs) -> files.FileMetadata:
+    def download(self, dbx_path: str, local_path: str,
+                 sync_item: Optional['SyncItem'] = None, **kwargs) -> files.FileMetadata:
         """
         Downloads file from Dropbox to our local folder.
 
         :param str dbx_path: Path to file on Dropbox or rev number.
         :param str local_path: Path to local download destination.
+        :param SyncItem sync_item: If given, the sync item will be updated with the
+            number of downloaded bytes.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
         :returns: Metadata of downloaded item.
         :rtype: :class:`files.FileMetadata`
@@ -372,10 +375,12 @@ class DropboxClient:
         with open(local_path, 'wb') as f:
             with contextlib.closing(http_resp):
                 for c in http_resp.iter_content(chunksize):
-                    if md.size > 5 * 10 ** 6:  # 5 MB
-                        logger.debug(f'Downloading {dbx_path}: {natural_size(downloaded)}/{size_str}...')
                     f.write(c)
                     downloaded += chunksize
+                    logger.debug('Downloading %s: %s/%s', dbx_path,
+                                 natural_size(downloaded), size_str)
+                    if sync_item:
+                        sync_item.completed = downloaded
 
         # dropbox SDK provides naive datetime in UTC
         client_mod_timestamp = md.client_modified.replace(tzinfo=timezone.utc).timestamp()
@@ -390,21 +395,23 @@ class DropboxClient:
 
     @to_maestral_error(local_path_arg=1, dbx_path_arg=2)
     def upload(self, local_path: str, dbx_path: str,
-               chunk_size_mb: float = 5, **kwargs) -> files.FileMetadata:
+               chunk_size: int = 5 * 10**6,
+               sync_item: Optional['SyncItem'] = None, **kwargs) -> files.FileMetadata:
         """
         Uploads local file to Dropbox.
 
         :param str local_path: Path of local file to upload.
         :param str dbx_path: Path to save file on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_upload.
-        :param int chunk_size_mb: Maximum size for individual uploads in MB. If larger
-            than 150 MB, it will be set to 150 MB.
+        :param int chunk_size: Maximum size for individual uploads. If larger than 150 MB,
+            it will be set to 150 MB.
+        :param SyncItem sync_item: If given, the sync item will be updated with the
+            number of downloaded bytes.
         :returns: Metadata of uploaded file.
         :rtype: :class:`files.FileMetadata`
         """
 
-        chunk_size_mb = clamp(chunk_size_mb, 0.1, 150)
-        chunk_size = int(chunk_size_mb * 10**6)  # convert to bytes
+        chunk_size = clamp(chunk_size, 10**5, 150 * 10**6)
 
         size = osp.getsize(local_path)
         size_str = natural_size(size)
@@ -418,19 +425,25 @@ class DropboxClient:
                 md = self.dbx.files_upload(
                     f.read(), dbx_path, client_modified=mtime_dt, **kwargs
                 )
+                sync_item.completed = f.tell()
             return md
         else:
             # Note: We currently do not support resuming interrupted uploads. Dropbox
             # keeps upload sessions open for 48h so this could be done in the future.
             with open(local_path, 'rb') as f:
                 session_start = self.dbx.files_upload_session_start(f.read(chunk_size))
+                uploaded = f.tell()
+
                 cursor = files.UploadSessionCursor(
                     session_id=session_start.session_id,
-                    offset=f.tell()
+                    offset=uploaded
                 )
                 commit = files.CommitInfo(
                     path=dbx_path, client_modified=mtime_dt, **kwargs
                 )
+
+                if sync_item:
+                    sync_item.completed = uploaded
 
                 while True:
                     try:
@@ -441,15 +454,25 @@ class DropboxClient:
                                 commit
                             )
 
-                            return md
-
                         else:
                             self.dbx.files_upload_session_append_v2(
                                 f.read(chunk_size),
                                 cursor
                             )
-                            cursor.offset = f.tell()
-                        logger.debug(f'Uploading {dbx_path}: {natural_size(f.tell())}/{size_str}...')
+                            md = None
+
+                        # housekeeping
+                        uploaded = f.tell()
+                        logger.debug(f'Uploading %s: %s/%s', dbx_path,
+                                     natural_size(uploaded), size_str)
+                        if sync_item:
+                            sync_item.completed = uploaded
+
+                        if md:
+                            return md
+                        else:
+                            cursor.offset = uploaded
+
                     except exceptions.DropboxException as exc:
                         error = getattr(exc, 'error', None)
                         if (isinstance(error, files.UploadSessionFinishError)

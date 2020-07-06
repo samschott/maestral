@@ -45,6 +45,7 @@ from maestral.errors import (
     NotFoundError, PathError
 )
 from maestral.config import MaestralConfig, MaestralState
+from maestral.utils import natural_size as ns
 from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import (
@@ -694,9 +695,9 @@ class Maestral:
 
         if local_path in self.monitor.uploading:
             return FileStatus.Uploading.value
-        elif local_path in self.monitor.downloading:
+        elif dbx_path in self.monitor.downloading:
             return FileStatus.Downloading.value
-        elif any(local_path == err['local_path'] for err in self.sync_errors):
+        elif any(dbx_path == err['dbx_path'] for err in self.sync_errors):
             return FileStatus.Error.value
         elif self.sync.get_local_rev(dbx_path):
             return FileStatus.Synced.value
@@ -718,13 +719,23 @@ class Maestral:
         uploading: List[Dict[str, str]] = []
         downloading: List[Dict[str, str]] = []
 
-        for path in self.monitor.uploading:
+        for path, item in self.monitor.uploading.items():
             path.lstrip(self.dropbox_path)
-            uploading.append(dict(dbx_path=path, status='uploading'))
+            if item.completed > 0:
+                status = f'{ns(item.completed, sep=False)}/{ns(item.size, sep=False)}'
+            else:
+                status = item.status
 
-        for path in self.monitor.downloading:
+            uploading.append(dict(dbx_path=path, status=status))
+
+        for path, item in self.monitor.downloading.items():
             path.lstrip(self.dropbox_path)
-            downloading.append(dict(dbx_path=path, status='downloading'))
+            if item.completed > 0:
+                status = f'{ns(item.completed, sep=False)}/{ns(item.size, sep=False)}'
+            else:
+                status = item.status
+
+            downloading.append(dict(dbx_path=path, status=status))
 
         return dict(uploading=uploading, downloading=downloading)
 
