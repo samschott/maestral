@@ -23,7 +23,7 @@ import fcntl
 import struct
 import tempfile
 import itertools
-from typing import Optional, Union, Any, Tuple, Dict, Type, TYPE_CHECKING
+from typing import Optional, Union, Tuple, Dict, Type, TYPE_CHECKING
 from types import TracebackType, FrameType
 
 # external imports
