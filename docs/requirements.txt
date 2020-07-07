@@ -1,4 +1,5 @@
 maestral
+m2r
 sphinx==2.4.4
 sphinx-click
 sphinx-autodoc-typehints
