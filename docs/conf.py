@@ -26,7 +26,6 @@ release = __version__
 
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
@@ -34,7 +33,7 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
-#    'sphinx_autodoc_typehints',
+    'sphinx_autodoc_typehints',
     'sphinx_click.ext',
     'm2r',
 ]
