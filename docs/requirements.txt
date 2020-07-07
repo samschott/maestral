@@ -16,6 +16,6 @@ six
 u-msgpack-python
 watchdog
 m2r
-sphinx==2.4.4
+sphinx==3.1.2
 sphinx-click
 sphinx-autodoc-typehints
