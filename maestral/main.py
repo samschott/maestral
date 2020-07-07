@@ -463,9 +463,9 @@ class Maestral:
     @property
     def excluded_items(self) -> List[str]:
         """
-        Returns a list of excluded folders (read only). Use :meth:`exclude_item`,
-        :meth:`include_item` or :meth:`set_excluded_items` to change which items are
-        excluded from syncing.
+        Returns a list of files and folders excluded by selective sync (read only). Use
+        :meth:`exclude_item`, :meth:`include_item` or :meth:`set_excluded_items` to change
+        which items are excluded from syncing.
 
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
@@ -476,7 +476,7 @@ class Maestral:
 
     @property
     def log_level(self) -> int:
-        """Log level for log files, stdout and the systemd journal (int)."""
+        """Log level for log files, stdout and the systemd journal."""
         return self._conf.get('app', 'log_level')
 
     @log_level.setter
@@ -491,7 +491,7 @@ class Maestral:
 
     @property
     def log_to_stdout(self) -> bool:
-        """Enables or disables logging to stdout (bool)."""
+        """Enables or disables logging to stdout."""
         return self._log_to_stdout
 
     @log_to_stdout.setter
@@ -503,7 +503,7 @@ class Maestral:
 
     @property
     def analytics(self) -> bool:
-        """Enables or disables logging of errors to bugsnag (bool)."""
+        """Enables or disables logging of errors to bugsnag."""
         return self._conf.get('app', 'analytics')
 
     @analytics.setter
@@ -518,7 +518,7 @@ class Maestral:
 
     @property
     def notification_snooze(self) -> float:
-        """Snooze time for desktop notifications in minutes (float). Defaults to 0.0 if
+        """Snooze time for desktop notifications in minutes. Defaults to 0.0 if
         notifications are not snoozed."""
         return self.desktop_notifier.snoozed
 
@@ -529,7 +529,7 @@ class Maestral:
 
     @property
     def notification_level(self) -> int:
-        """Level for desktop notifications (int). See :mod:`utils.notify` for level
+        """Level for desktop notifications. See :mod:`utils.notify` for level
         definitions."""
         return self.desktop_notifier.notify_level
 
@@ -542,8 +542,8 @@ class Maestral:
 
     @property
     def pending_link(self) -> bool:
-        """Bool indicating if Maestral is linked to a Dropbox account (read only). This
-        will block until the user's keyring is unlocked to load the saved auth token."""
+        """Indicates if Maestral is linked to a Dropbox account (read only). This will
+        block until the user's keyring is unlocked to load the saved auth token."""
 
         if self._auth.linked:  # this triggers keyring access on first call
 
@@ -560,42 +560,38 @@ class Maestral:
 
     @property
     def pending_dropbox_folder(self) -> bool:
-        """Bool indicating if a local Dropbox directory has been created (read only)."""
+        """Indicates if a local Dropbox directory has been created (read only)."""
         return not osp.isdir(self._conf.get('main', 'path'))
 
     @property
     def pending_first_download(self) -> bool:
-        """Bool indicating if the initial download has already occurred (read only)."""
+        """Indicates if the initial download has already occurred (read only)."""
         return (self._state.get('sync', 'lastsync') == 0
                 or self._state.get('sync', 'cursor') == '')
 
     @property
     def syncing(self) -> bool:
-        """
-        Bool indicating if Maestral is syncing (read only). It will be ``True`` if syncing
-        is not paused by the user *and* Maestral is connected to the internet.
-        """
+        """ Indicates if Maestral is syncing (read only). It will be ``True`` if syncing
+        is not paused by the user *and* Maestral is connected to the internet."""
         return (self.monitor.syncing.is_set()
                 or self.monitor.startup.is_set()
                 or self.sync.busy())
 
     @property
     def paused(self) -> bool:
-        """Bool indicating if syncing is paused by the user (read only). This is set by
-        calling :meth:`pause`."""
+        """Indicates if syncing is paused by the user (read only). This is set by calling
+        :meth:`pause`."""
         return self.monitor.paused_by_user.is_set() and not self.sync.busy()
 
     @property
     def running(self) -> bool:
-        """
-        Bool indicating if sync threads are running (read only). They will be stopped
-        before :meth:`start_sync` is called, when shutting down or because of an exception.
-        """
+        """Indicates if sync threads are running (read only). They will be stopped before
+        :meth:`start_sync` is called, when shutting down or because of an exception."""
         return self.monitor.running.is_set() or self.sync.busy()
 
     @property
     def connected(self) -> bool:
-        """Bool indicating if Dropbox servers can be reached (read only)."""
+        """Indicates if Dropbox servers can be reached (read only)."""
 
         if self.pending_link:
             return False
@@ -604,19 +600,17 @@ class Maestral:
 
     @property
     def status(self) -> str:
-        """
-        Returns a string with the last status message (read only). This can be displayed
-        as information to the user but should not be relied on otherwise.
-        """
+        """The last status message (read only). This can be displayed as information to
+        the user but should not be relied on otherwise."""
         return self._log_handler_info_cache.getLastMessage()
 
     @property
     def sync_errors(self) -> List[ErrorType]:
         """
-        Returns list of current sync errors as dicts (read only). This list is populated
-        by the sync threads. The following keys will always be present but may contain
-        emtpy values: 'type', 'inherits', 'title', 'traceback', 'title', 'message',
-        'local_path', 'dbx_path'.
+        A list of current sync errors as dicts (read only). This list is populated by the
+        sync threads. The following keys will always be present but may contain emtpy
+        values: "type", "inherits", "title", "traceback", "title", "message",
+        "local_path", "dbx_path".
 
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
@@ -633,8 +627,8 @@ class Maestral:
         and cleared separately. Errors listed here must be acted upon for Maestral to
         continue syncing.
 
-        The following keys will always be present but may contain emtpy values: 'type',
-        'inherits', 'title', 'traceback', 'title', and 'message'.
+        The following keys will always be present but may contain emtpy values: "type",
+        "inherits", "title", "traceback", "title", and "message".
 
         This list is populated from all log messages with level ERROR or higher that have
         ``exc_info`` attached.
@@ -661,9 +655,9 @@ class Maestral:
     @property
     def account_profile_pic_path(self) -> str:
         """
-        Returns the path of the current account's profile picture (read only). There may
-        not be an actual file at that path if the user did not set a profile picture or
-        the picture has not yet been downloaded.
+        The path of the current account's profile picture (read only). There may not be an
+        actual file at that path if the user did not set a profile picture or the picture
+        has not yet been downloaded.
         """
         return get_cache_path('maestral', self._config_name + '_profile_pic.jpeg')
 
@@ -700,7 +694,7 @@ class Maestral:
 
     def get_activity(self) -> Dict[str, List[Dict[str, str]]]:
         """
-        Gets current upload / download activity.
+        Returns the current upload / download activity.
 
         :returns: A dictionary with lists of all files currently queued for or being
             uploaded or downloaded. Paths are given relative to the Dropbox folder.
@@ -734,7 +728,7 @@ class Maestral:
 
     def get_account_info(self) -> Dict[str, Union[str, float, bool]]:
         """
-        Gets account information from Dropbox and returns it as a dictionary.
+        Returns the account information from Dropbox and returns it as a dictionary.
 
         :returns: Dropbox account information.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
@@ -750,7 +744,7 @@ class Maestral:
 
     def get_space_usage(self) -> Dict[str, Union[str, float, bool]]:
         """
-        Gets the space usage stored by Dropbox and returns it as a dictionary.
+        Gets the space usage from Dropbox and returns it as a dictionary.
 
         :returns: Dropbox space usage information.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
@@ -772,7 +766,8 @@ class Maestral:
         Attempts to download the user's profile picture from Dropbox. The picture is saved
         in Maestral's cache directory for retrieval when there is no internet connection.
 
-        :returns: Path to saved profile picture or ``None`` if no profile picture is set.
+        :returns: Path to saved profile picture or ``None`` if no profile picture was
+            downloaded.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
