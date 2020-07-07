@@ -26,6 +26,7 @@ release = __version__
 
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
@@ -35,6 +36,7 @@ extensions = [
     'sphinx.ext.githubpages',
     'sphinx_autodoc_typehints',
     'sphinx_click.ext',
+    'm2r'
 ]
 
 templates_path = ['_templates']
@@ -43,6 +45,7 @@ source_suffix = ['.rst', '.md']
 master_doc = 'index'
 language = None
 pygments_style = None
+html4_writer = True
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -65,7 +68,6 @@ latex_documents = [(master_doc, 'maestral.tex', title, author, 'manual'), ]
 # -- Extension configuration -------------------------------------------------
 
 autodoc_member_order = 'bysource'
-# set_type_checking_flag = True
 
 # -- Options for intersphinx extension ---------------------------------------
 

@@ -1,4 +1,4 @@
 maestral
-sphinx==3.1.2
+sphinx==2.4.4
 sphinx-click
 sphinx-autodoc-typehints
