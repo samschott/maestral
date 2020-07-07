@@ -75,9 +75,9 @@ def get_conf_path(subfolder: Optional[str] = None, filename: Optional[str] = Non
         - Linux: 'XDG_CONFIG_HOME/<subfolder>/<filename>'
         - other: '~/.config/<subfolder>/<filename>'
 
-    :param str subfolder: The subfolder for the app.
-    :param str filename: The filename to append for the app.
-    :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
+    :param subfolder: The subfolder for the app.
+    :param filename: The filename to append for the app.
+    :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
     if platform.system() == 'Darwin':
         conf_path = osp.join(get_home_dir(), 'Library', 'Application Support')
@@ -102,9 +102,9 @@ def get_data_path(subfolder: Optional[str] = None, filename: Optional[str] = Non
     Note: We do not use '~/Library/Saved Application State' on macOS since this folder is
     reserved for user interface state and can be cleared by the user / system.
 
-    :param str subfolder: The subfolder for the app.
-    :param str filename: The filename to append for the app.
-    :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
+    :param subfolder: The subfolder for the app.
+    :param filename: The filename to append for the app.
+    :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
     if platform.system() == 'Darwin':
         state_path = osp.join(get_home_dir(), 'Library', 'Application Support')
@@ -122,7 +122,6 @@ def list_configs() -> List[str]:
     Lists all maestral configs.
 
     :returns: A list of all currently existing config files.
-    :rtype: list[str]
     """
     configs = []
     for file in os.listdir(get_conf_path('maestral')):

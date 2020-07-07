@@ -28,16 +28,16 @@ class MaestralApiError(Exception):
     """
     Base class for errors originating from the Dropbox API or the 'local API'.
 
-    :param str title: A short description of the error type. This can be used in a CLI or
-        GUI to give a short error summary.
-    :param str message: A more verbose description which can include instructions on how
-        to proceed to fix the error.
-    :param Optional[str] dbx_path: Dropbox path of the file that caused the error.
-    :param Optional[str] dbx_path_dst: Dropbox destination path of the file that caused
-        the error. This should be set for instance when error occurs when moving an item.
-    :param Optional[str] local_path: Local path of the file that caused the error.
-    :param Optional[str] local_path_dst: Local destination path of the file that caused
-        the error. This should be set for instance when error occurs when moving an item.
+    :param title: A short description of the error type. This can be used in a CLI or GUI
+        to give a short error summary.
+    :param message: A more verbose description which can include instructions on how to
+        proceed to fix the error.
+    :param dbx_path: Dropbox path of the file that caused the error.
+    :param dbx_path_dst: Dropbox destination path of the file that caused the error. This
+        should be set for instance when error occurs when moving an item.
+    :param local_path: Local path of the file that caused the error.
+    :param local_path_dst: Local destination path of the file that caused the error. This
+        should be set for instance when error occurs when moving an item.
     """
 
     def __init__(self,

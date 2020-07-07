@@ -69,11 +69,10 @@ def select_dbx_path_dialog(config_name: str, allow_merge: bool = False) -> str:
     """
     A CLI dialog to ask for a local Dropbox folder location.
 
-    :param str config_name: The configuration to use for the default folder name.
-    :param bool allow_merge: If ``True``, allows the selection of an existing folder
-        without deleting it. Defaults to ``False``.
+    :param config_name: The configuration to use for the default folder name.
+    :param allow_merge: If ``True``, allows the selection of an existing folder without
+        deleting it. Defaults to ``False``.
     :returns: Path given by user.
-    :rtype: str
     """
 
     from maestral.utils.appdirs import get_home_dir
@@ -179,7 +178,6 @@ def check_for_fatal_errors(m: MaestralProxyType) -> bool:
 
     :param m: Maestral or MaestralProxy instance.
     :returns: True in case of fatal errors, False otherwise.
-    :rtype: bool
     """
 
     maestral_err_list = m.fatal_errors
@@ -237,15 +235,14 @@ def format_table(rows: Optional[List[List[str]]] = None,
     """
     Prints given data as a pretty table. Either rows or columns must be given.s
 
-    :param Optional[list] rows: List of strings for table rows.
-    :param Optional[list] columns: List of strings for table columns.
-    :param Optional[list] headers: List of strings for column titles.
-    :param int padding: Padding between columns.
-    :param Optional[list] alignment: List of alignments for every column. Values can be
-        ``LEFT``, ``CENTER``, ``RIGHT``. If not given, defaults to left alignment.
-    :param bool wrap: If ``True``, wrap cell content to fit the terminal width.
+    :param rows: List of strings for table rows.
+    :param columns: List of strings for table columns.
+    :param headers: List of strings for column titles.
+    :param padding: Padding between columns.
+    :param alignment: List of alignments for every column. Values can be ``LEFT``,
+        ``CENTER``, ``RIGHT``. If not given, defaults to left alignment.
+    :param wrap: If ``True``, wrap cell content to fit the terminal width.
     :returns: Formatted multi-line string.
-    :rtype: str
     """
 
     if rows and columns:

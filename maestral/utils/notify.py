@@ -74,11 +74,6 @@ APP_ICON_PATH = osp.join(_resources, 'maestral.png')
 class SupportedImplementations(Enum):
     """
     Enumeration of supported implementations.
-
-    :cvar str un_notification_center: macOS UNUserNotificationCenter.
-    :cvar str ns_notification_center: macOS NSNotificationCenter. Deprecated.
-    :cvar str notify_send: Linux notify-send command..
-    :cvar str freedesktop_dbus: Linux dbus notifications.
     """
     un_notification_center = 'UNUserNotificationCenter'
     ns_notification_center = 'NSUserNotificationCenter'
@@ -91,11 +86,11 @@ class DesktopNotifierBase:
     Base class for desktop notifications. Notification levels CRITICAL, NORMAL and LOW may
     be used by some implementations to determine how a notification is displayed.
 
-    :param str app_name: Name to identify the application in the notification center.
-        On Linux, this should correspond to the application name in a desktop entry. On
+    :param app_name: Name to identify the application in the notification center. On
+        Linux, this should correspond to the application name in a desktop entry. On
         macOS, this field is discarded and the app is identified by the bundle id of the
         sending program (e.g., Python).
-    :param int notification_limit: Maximum number of notifications to keep in the system's
+    :param notification_limit: Maximum number of notifications to keep in the system's
         notification center. This may be ignored by some implementations.
     """
 
@@ -242,7 +237,7 @@ class DesktopNotifier:
     Cross-platform desktop notifications for macOS and Linux. Uses different backends
     depending on the platform version and available services.
 
-    :param str app_name: Name of sending app.
+    :param app_name: Name of sending app.
     """
 
     _impl: Optional[DesktopNotifierBase]
@@ -274,12 +269,12 @@ class DesktopNotifier:
         Sends a desktop notification. Some arguments may be ignored, depending on the
         backend.
 
-        :param str title: Notification title.
-        :param str message: Notification message.
-        :param str urgency: Notification urgency. Some backends use this to determine how
-            the notification is displayed.
-        :param Optional[str] icon: Path to an icon. Some backends support displaying an
-            (app) icon together with the notification.
+        :param title: Notification title.
+        :param message: Notification message.
+        :param urgency: Notification urgency. Some backends use this to determine how the
+            notification is displayed.
+        :param icon: Path to an icon. Some backends support displaying an (app) icon
+            together with the notification.
         """
         if self._impl:
             with self._lock:
@@ -318,9 +313,9 @@ system_notifier = DesktopNotifier(app_name='Maestral')
 
 class MaestralDesktopNotifier(logging.Handler):
     """
-    Can be used as a standalone notifier or as a logging handler.
-    When used as a logging handler, the log level should be set with ``setLevel``. The
-    ``notify_level`` will be applied in addition to the log level.
+    Can be used as a standalone notifier or as a logging handler. When used as a logging
+    handler, the log level should be set with ``setLevel``. The ``notify_level`` will be
+    applied in addition to the log level.
     """
 
     _instances: ClassVar[Dict[str, 'MaestralDesktopNotifier']] = dict()
@@ -361,7 +356,7 @@ class MaestralDesktopNotifier(logging.Handler):
         Returns an existing instance for the config or creates a new one if none exists.
         Use this method to prevent creating multiple instances.
 
-        :param str config_name: Name of maestral config.
+        :param config_name: Name of maestral config.
         """
 
         with cls._lock:
@@ -404,8 +399,8 @@ class MaestralDesktopNotifier(logging.Handler):
         """
         Sends a desktop notification from maestral. The title defaults to 'Maestral'.
 
-        :param str message: Notification message.
-        :param int level: Notification level of the message.
+        :param message: Notification message.
+        :param level: Notification level of the message.
         """
 
         ignore = self.snoozed and level == self.FILECHANGE

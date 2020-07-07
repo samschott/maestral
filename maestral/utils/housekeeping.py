@@ -23,7 +23,7 @@ def remove_configuration(config_name: str) -> None:
     """
     Removes all config and state files associated with the given configuration.
 
-    :param str config_name: The configuration to remove.
+    :param config_name: The configuration to remove.
     """
 
     MaestralConfig(config_name).cleanup()

@@ -35,10 +35,9 @@ def get_newer_version(version: str, releases: List[str]) -> Optional[str]:
     Checks current version against a version list of releases to see if an update is
     available. Only offers newer versions if they are not a prerelease.
 
-    :param str version: The current version.
-    :param iterable[str] releases: A list of valid cleaned releases.
+    :param version: The current version.
+    :param releases: A list of valid cleaned releases.
     :returns: The version string of the latest release if a newer release is available.
-    :rtype: str
     """
 
     releases = [r for r in releases if not Version(r).is_prerelease]
@@ -52,12 +51,11 @@ def check_update_available(current_version: str = __version__) -> Dict[str, Unio
     """
     Main method to check for updates.
 
-    :param str current_version: The current version.
+    :param current_version: The current version.
     :returns: A dictionary containing information about the latest stable release or an
         error message if retrieving update information failed. If available, release notes
         will be returned for all version from ``current_version`` to the latest stable
         release.
-    :rtype: dict
     """
     current_version = current_version.lstrip('v')
     new_version = None

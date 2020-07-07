@@ -112,10 +112,9 @@ def MaestralConfig(config_name: str) -> UserConfig:
     """
     Returns existing config instance or creates a new one.
 
-    :param str config_name: Name of maestral configuration to run. A new config file will
+    :param config_name: Name of maestral configuration to run. A new config file will
         be created if none exists for the given config_name.
     :return: Maestral config instance which saves any changes to the drive.
-    :rtype: UserConfig
     """
 
     global _config_instances
@@ -158,10 +157,9 @@ def MaestralState(config_name: str) -> UserConfig:
     """
     Returns existing state instance or creates a new one.
 
-    :param str config_name: Name of maestral configuration to run. A new state file will
+    :param config_name: Name of maestral configuration to run. A new state file will
         be created if none exists for the given config_name.
     :return: Maestral state instance which saves any changes to the drive.
-    :rtype: UserConfig
     """
 
     global _state_instances

@@ -51,7 +51,7 @@ def get_keyring_backend(config_name: str) -> KeyringBackend:
     backend specified in the config file (if valid). Supported keyrings are:
 
 
-    :param str config_name: The config name.
+    :param config_name: The config name.
     """
 
     import keyring.backends
@@ -100,7 +100,7 @@ class OAuth2Session:
         app-specific access to passwords. If the user unlocks those keyrings, we and any
         other application in the same user session get access to *all* saved passwords.
 
-    :param str config_name: Name of maestral config.
+    :param config_name: Name of maestral config.
 
     :cvar int Success: Exit code for successful auth.
     :cvar int InvalidToken: Exit code for invalid token.
@@ -259,7 +259,6 @@ class OAuth2Session:
         Gets the auth URL to start the OAuth2 implicit grant flow.
 
         :returns: Dropbox auth URL.
-        :rtype: str
         """
         authorize_url = self._auth_flow.start()
         return authorize_url
@@ -269,7 +268,6 @@ class OAuth2Session:
         Verify the provided authorization token with Dropbox servers.
 
         :returns: :attr:`Success`, :attr:`InvalidToken`, or :attr:`ConnectionFailed`.
-        :rtype: int
         """
 
         with self._lock:

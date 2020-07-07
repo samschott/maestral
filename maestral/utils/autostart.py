@@ -78,16 +78,16 @@ class AutoStartSystemd(AutoStartBase):
     """
     Autostart backend for systemd. Used to start a daemon on Linux.
 
-    :param str service_name: Name of systemd service.
-    :param str start_cmd: Absolute path to executable and optional program arguments.
-    :param str stop_cmd: Optional stop command.
-    :param bool notify: If ``True``, the service will be started as a notify service.
+    :param service_name: Name of systemd service.
+    :param start_cmd: Absolute path to executable and optional program arguments.
+    :param stop_cmd: Optional stop command.
+    :param notify: If ``True``, the service will be started as a notify service.
         Otherwise, the type will be "exec".
-    :param int watchdog_sec: If given, this is the number of seconds for systemd watchdog.
-    :param dict unit_dict: Dictionary of additional keys and values for the Unit section.
-    :param dict service_dict: Dictionary of additional keys and values for the Service
+    :param watchdog_sec: If given, this is the number of seconds for systemd watchdog.
+    :param unit_dict: Dictionary of additional keys and values for the Unit section.
+    :param service_dict: Dictionary of additional keys and values for the Service
         section.
-    :param dict install_dict: Dictionary of additional keys and values for the Install
+    :param install_dict: Dictionary of additional keys and values for the Install
         section.
     """
     def __init__(self, service_name: str, start_cmd: str, stop_cmd: Optional[str] = None,
@@ -152,8 +152,8 @@ class AutoStartLaunchd(AutoStartBase):
     """
     Autostart backend for launchd. Used to start a GUI or daemon on macOS.
 
-    :param str bundle_id: Bundle ID for the, e.g., "com.google.calendar".
-    :param str start_cmd: Absolute path to executable and optional program arguments.
+    :param bundle_id: Bundle ID for the, e.g., "com.google.calendar".
+    :param start_cmd: Absolute path to executable and optional program arguments.
     """
 
     template = """<?xml version="1.0" encoding="UTF-8"?>
@@ -214,14 +214,14 @@ class AutoStartXDGDesktop(AutoStartBase):
 
     https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html
 
-    :param str Name: Name of application.
-    :param str Exec: Executable on $PATH or absolute path to executable and optional
-        program arguments.
-    :param str filename: Name of desktop entry file. If not given, "NAME.desktop" will be
-        used.
-    :param kwargs: Additional key, value pairs to be used in the desktop entries.
-        Values must be strings and may not contain "=", otherwise no additional validation
-        will be performed.
+    :param Name: Name of application.
+    :param Exec: Executable on $PATH or absolute path to executable and optional program
+        arguments.
+    :param filename: Name of desktop entry file. If not given, the application name will
+        be used.
+    :param kwargs: Additional key, value pairs to be used in the desktop entries. Values
+        must be strings and may not contain "=", otherwise no additional validation will
+        be performed.
     """
 
     def __init__(self, Name: str, Exec: str, filename: Optional[str] = None,
@@ -354,7 +354,7 @@ class AutoStart:
 
     def get_maestral_command_path(self) -> str:
         """
-        Returns the path to the maestral executable.
+        :returns: The path to the maestral executable.
         """
         # try to get location of console script from package metadata
         # fall back to 'which' otherwise

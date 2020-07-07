@@ -132,8 +132,8 @@ def to_maestral_error(dbx_path_arg: Optional[int] = None,
     Returns a decorator that converts instances of :class:`OSError` and
     :class:`exceptions.DropboxException` to :class:`errors.MaestralApiError`.
 
-    :param int dbx_path_arg: Argument number to take as dbx_path for exception.
-    :param int local_path_arg: Argument number to take as local_path_arg for exception.
+    :param dbx_path_arg: Argument number to take as dbx_path for exception.
+    :param local_path_arg: Argument number to take as local_path_arg for exception.
     """
 
     def decorator(func: _FT) -> _FT:
@@ -171,9 +171,9 @@ class DropboxClient:
     Connection errors from requests will be caught and reraised as
     :class:`ConnectionError`.
 
-    :param str config_name: Name of config file and state file to use.
-    :param str access_token: Dropbox access token for user.
-    :param int timeout: Timeout for individual requests. Defaults to 100 sec if not given.
+    :param config_name: Name of config file and state file to use.
+    :param access_token: Dropbox access token for user.
+    :param timeout: Timeout for individual requests. Defaults to 100 sec if not given.
     """
 
     SDK_VERSION: str = '2.0'
@@ -218,9 +218,9 @@ class DropboxClient:
         Sets the access tokens for the Dropbox API. This will create a new SDK instance
         with new tokens.
 
-        :param str refresh_token: Long-lived refresh token to generate new access tokens.
-        :param str access_token: Short-lived auth token.
-        :param datetime | int access_token_expiration: Expiry time of auth token.
+        :param refresh_token: Long-lived refresh token to generate new access tokens.
+        :param access_token: Short-lived auth token.
+        :param access_token_expiration: Expiry time of auth token.
         """
 
         if refresh_token or access_token:
@@ -242,10 +242,9 @@ class DropboxClient:
         """
         Gets current account information.
 
-        :param str dbid: Dropbox ID of account. If not given, will get the info of the
+        :param dbid: Dropbox ID of account. If not given, will get the info of the
             currently linked account.
         :returns: Account info.
-        :rtype: :class:`users.FullAccount`
         """
         if dbid:
             res = self.dbx.users_get_account(dbid)
@@ -273,10 +272,7 @@ class DropboxClient:
     @to_maestral_error()
     def get_space_usage(self) -> SpaceUsage:
         """
-        Gets current account space usage.
-
-        :returns: :class:`SpaceUsage` instance.
-        :rtype: :class:`SpaceUsage`
+        :returns: The space usage of the currently linked account.
         """
         res = self.dbx.users_get_space_usage()
 
@@ -302,10 +298,9 @@ class DropboxClient:
         Gets metadata for an item on Dropbox or returns ``False`` if no metadata is
         available. Keyword arguments are passed on to Dropbox SDK files_get_metadata call.
 
-        :param str dbx_path: Path of folder on Dropbox.
+        :param dbx_path: Path of folder on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
         :returns: Metadata of item at the given path or ``None``.
-        :rtype: :class:`files.Metadata`
         """
 
         try:
@@ -322,12 +317,11 @@ class DropboxClient:
         """
         Lists all file revisions for the given file.
 
-        :param str dbx_path: Path to file on Dropbox.
-        :param str mode: Must be 'path' or 'id'. If 'id', specify the Dropbox file ID
-            instead of the file path to get revisions across move and rename events.
-        :param int limit: Maximum number of revisions to list. Defaults to 10.
+        :param dbx_path: Path to file on Dropbox.
+        :param mode: Must be 'path' or 'id'. If 'id', specify the Dropbox file ID instead
+            of the file path to get revisions across move and rename events.
+        :param limit: Maximum number of revisions to list. Defaults to 10.
         :returns: File revision history.
-        :rtype: :class:`files.ListRevisionsResult`
         """
 
         mode = files.ListRevisionsMode(mode)
@@ -338,11 +332,10 @@ class DropboxClient:
         """
         Restore an old revision of a file.
 
-        :param str dbx_path: The path to save the restored file.
-        :param str rev: The revision to restore. Old revisions can be listed with
+        :param dbx_path: The path to save the restored file.
+        :param rev: The revision to restore. Old revisions can be listed with
             :meth:`list_revisions`.
         :returns: Metadata of restored file.
-        :rtype: :class:`files.FileMetadata`
         """
 
         return self.dbx.files_restore(dbx_path, rev)
@@ -353,13 +346,12 @@ class DropboxClient:
         """
         Downloads file from Dropbox to our local folder.
 
-        :param str dbx_path: Path to file on Dropbox or rev number.
-        :param str local_path: Path to local download destination.
-        :param SyncItem sync_item: If given, the sync item will be updated with the
-            number of downloaded bytes.
+        :param dbx_path: Path to file on Dropbox or rev number.
+        :param local_path: Path to local download destination.
+        :param sync_item: If given, the sync item will be updated with the number of
+            downloaded bytes.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
         :returns: Metadata of downloaded item.
-        :rtype: :class:`files.FileMetadata`
         """
         # create local directory if not present
         dst_path_directory = osp.dirname(local_path)
@@ -403,15 +395,14 @@ class DropboxClient:
         """
         Uploads local file to Dropbox.
 
-        :param str local_path: Path of local file to upload.
-        :param str dbx_path: Path to save file on Dropbox.
+        :param local_path: Path of local file to upload.
+        :param dbx_path: Path to save file on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_upload.
-        :param int chunk_size: Maximum size for individual uploads. If larger than 150 MB,
-            it will be set to 150 MB.
-        :param SyncItem sync_item: If given, the sync item will be updated with the
-            number of downloaded bytes.
+        :param chunk_size: Maximum size for individual uploads. If larger than 150 MB, it
+            will be set to 150 MB.
+        :param sync_item: If given, the sync item will be updated with the number of
+            downloaded bytes.
         :returns: Metadata of uploaded file.
-        :rtype: :class:`files.FileMetadata`
         """
 
         chunk_size = clamp(chunk_size, 10**5, 150 * 10**6)
@@ -500,10 +491,9 @@ class DropboxClient:
         """
         Removes a file / folder from Dropbox.
 
-        :param str dbx_path: Path to file on Dropbox.
+        :param dbx_path: Path to file on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_delete_v2.
         :returns: Metadata of deleted item.
-        :rtype: :class:`files.Metadata`
         """
         # try to remove file (response will be metadata, probably)
         res = self.dbx.files_delete_v2(dbx_path, **kwargs)
@@ -517,14 +507,13 @@ class DropboxClient:
         """
         Delete multiple items on Dropbox in a batch job.
 
-        :param list[tuple[str, str]] entries: List of Dropbox paths and "rev"s to delete.
-            If a "rev" is not None, the file will only be deleted if it matches the rev on
-            Dropbox. This is not supported when deleting a folder.
-        :param int batch_size: Number of items to delete in each batch. Dropbox allows
-            batches of up to 1,000 items. Larger values will be capped automatically.
+        :param entries: List of Dropbox paths and "rev"s to delete. If a "rev" is not
+            None, the file will only be deleted if it matches the rev on Dropbox. This is
+            not supported when deleting a folder.
+        :param batch_size: Number of items to delete in each batch. Dropbox allows batches
+            of up to 1,000 items. Larger values will be capped automatically.
         :returns: List of Metadata for deleted items or :class:`errors.SyncError` for
             failures. Results will be in the same order as the original input.
-        :rtype: list
         """
 
         batch_size = clamp(batch_size, 1, 1000)
@@ -587,11 +576,10 @@ class DropboxClient:
         """
         Moves / renames files or folders on Dropbox.
 
-        :param str dbx_path: Path to file/folder on Dropbox.
-        :param str new_path: New path on Dropbox to move to.
+        :param dbx_path: Path to file/folder on Dropbox.
+        :param new_path: New path on Dropbox to move to.
         :param kwargs: Keyword arguments for Dropbox SDK files_move_v2.
         :returns: Metadata of moved item.
-        :rtype: :class:`files.Metadata`
         """
         res = self.dbx.files_move_v2(
             dbx_path,
@@ -609,10 +597,9 @@ class DropboxClient:
         """
         Creates a folder on Dropbox.
 
-        :param str dbx_path: Path of Dropbox folder.
+        :param dbx_path: Path of Dropbox folder.
         :param kwargs: Keyword arguments for Dropbox SDK files_create_folder_v2.
         :returns: Metadata of created folder.
-        :rtype: :class:`files.FolderMetadata`
         """
         res = self.dbx.files_create_folder_v2(dbx_path, **kwargs)
         md = res.metadata
@@ -625,13 +612,12 @@ class DropboxClient:
         """
         Creates multiple folders on Dropbox in a batch job.
 
-        :param List[str] dbx_paths: List of dropbox folder paths.
-        :param int batch_size: Number of folders to create in each batch. Dropbox allows
+        :param dbx_paths: List of dropbox folder paths.
+        :param batch_size: Number of folders to create in each batch. Dropbox allows
             batches of up to 1,000 folders. Larger values will be capped automatically.
         :param kwargs: Keyword arguments for Dropbox SDK files_create_folder_batch.
         :returns: List of Metadata for created folders or SyncError for failures. Entries
             will be in the same order as given paths.
-        :rtype: list
         """
         batch_size = clamp(batch_size, 1, 1000)
 
@@ -692,12 +678,11 @@ class DropboxClient:
         """
         Gets the latest cursor for the given folder and subfolders.
 
-        :param str dbx_path: Path of folder on Dropbox.
-        :param bool include_non_downloadable_files: If ``True``, files that cannot be
+        :param dbx_path: Path of folder on Dropbox.
+        :param include_non_downloadable_files: If ``True``, files that cannot be
             downloaded (at the moment only G-suite files on Dropbox) will be included.
         :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
         :returns: The latest cursor representing a state of a folder and its subfolders.
-        :rtype: str
         """
 
         dbx_path = '' if dbx_path == '/' else dbx_path
@@ -718,15 +703,14 @@ class DropboxClient:
         """
         Lists the contents of a folder on Dropbox.
 
-        :param str dbx_path: Path of folder on Dropbox.
-        :param int max_retries_on_timeout: Number of times to try again if Dropbox servers
-            don't respond within the timeout. Occasional timeouts may occur for very large
+        :param dbx_path: Path of folder on Dropbox.
+        :param max_retries_on_timeout: Number of times to try again if Dropbox servers do
+            not respond within the timeout. Occasional timeouts may occur for very large
             Dropbox folders.
-        :param bool include_non_downloadable_files: If ``True``, files that cannot be
+        :param include_non_downloadable_files: If ``True``, files that cannot be
             downloaded (at the moment only G-suite files on Dropbox) will be included.
         :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
         :returns: Content of given folder.
-        :rtype: :class:`files.ListFolderResult`
         """
 
         dbx_path = '' if dbx_path == '/' else dbx_path
@@ -766,12 +750,11 @@ class DropboxClient:
     @staticmethod
     def flatten_results(results: List[files.ListFolderResult]) -> files.ListFolderResult:
         """
-        Flattens a list of :class:`files.ListFolderResult` instances to a single
-        instance with the cursor of the last entry in the list.
+        Flattens a list of :class:`files.ListFolderResult` instances to a single instance
+        with the cursor of the last entry in the list.
 
-        :param list results: List of :class:`files.ListFolderResult` instances.
+        :param results: List of :class:`files.ListFolderResult` instances.
         :returns: Flattened list folder result.
-        :rtype: :class:`files.ListFolderResult`
         """
         entries_all = []
         for result in results:
@@ -789,10 +772,9 @@ class DropboxClient:
         Waits for remote changes since ``last_cursor``. Call this method after
         starting the Dropbox client and periodically to get the latest updates.
 
-        :param str last_cursor: Last to cursor to compare for changes.
-        :param int timeout: Seconds to wait until timeout. Must be between 30 and 480.
+        :param last_cursor: Last to cursor to compare for changes.
+        :param timeout: Seconds to wait until timeout. Must be between 30 and 480.
         :returns: ``True`` if changes are available, ``False`` otherwise.
-        :rtype: bool
         """
 
         if not 30 <= timeout <= 480:
@@ -818,9 +800,8 @@ class DropboxClient:
         Lists changes to remote Dropbox since ``last_cursor``. Call this after
         :meth:`wait_for_remote_changes` returns ``True``.
 
-        :param str last_cursor: Last to cursor to compare for changes.
+        :param last_cursor: Last to cursor to compare for changes.
         :returns: Remote changes since given cursor.
-        :rtype: :class:`files.ListFolderResult`
         """
 
         results = [self.dbx.files_list_folder_continue(last_cursor)]
@@ -862,9 +843,9 @@ def os_to_maestral_error(exc: OSError,
         NotADirectoryError: If raised, this likely is a Maestral bug.
         IsADirectoryError: If raised, this likely is a Maestral bug.
 
-    :param OSError exc: Python Exception.
-    :param Optional[str] dbx_path: Dropbox path of file which triggered the error.
-    :param Optional[str] local_path: Local path of file which triggered the error.
+    :param exc: Python Exception.
+    :param dbx_path: Dropbox path of file which triggered the error.
+    :param local_path: Local path of file which triggered the error.
     :returns: :class:`MaestralApiError` instance or :class:`OSError` instance.
     """
 
@@ -924,9 +905,8 @@ def fswatch_to_maestral_error(exc: OSError) -> LocalError:
     :class:`MaestralApiError` and tries to add a reasonably informative error title and
     message. Error messages and types differ from :func:`os_to_maestral_error`.
 
-    :param Exception exc: Python Exception.
+    :param exc: Python Exception.
     :returns: :class:`MaestralApiError` instance or :class:`OSError` instance.
-    :rtype: Exception
     """
 
     error_number = getattr(exc, 'errno', -1)
@@ -973,10 +953,9 @@ def dropbox_to_maestral_error(exc: exceptions.DropboxException,
     reasonably informative error title and message.
 
     :param exc: :class:`dropbox.exceptions.DropboxException` instance.
-    :param Optional[str] dbx_path: Dropbox path of file which triggered the error.
-    :param Optional[str] local_path: Local path of file which triggered the error.
+    :param dbx_path: Dropbox path of file which triggered the error.
+    :param local_path: Local path of file which triggered the error.
     :returns: :class:`MaestralApiError` instance.
-    :rtype: :class:`MaestralApiError`
     """
 
     err_cls: Type[MaestralApiError]
@@ -1344,7 +1323,8 @@ def _get_lookup_error_msg(lookup_error: files.LookupError) -> Tuple[str, LookupE
     return text, err_cls
 
 
-def _get_session_lookup_error_msg(session_lookup_error: files.UploadSessionLookupError) -> Tuple[str, SessionLookupErrorType]:
+def _get_session_lookup_error_msg(session_lookup_error: files.UploadSessionLookupError)\
+        -> Tuple[str, SessionLookupErrorType]:
 
     text = ''
     err_cls = SyncError

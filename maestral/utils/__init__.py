@@ -5,10 +5,9 @@ def natural_size(num: float, unit: str = 'B', sep: bool = True) -> str:
     Convert number to a human readable string with decimal prefix.
 
     :param float num: Value in given unit.
-    :param str unit: Unit suffix.
-    :param bool sep: Whether to separate unit and value with a space.
+    :param unit: Unit suffix.
+    :param sep: Whether to separate unit and value with a space.
     :returns: Human readable string with decimal prefixes.
-    :rtype: str
     """
     sep_char = ' ' if sep else ''
 

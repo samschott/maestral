@@ -28,7 +28,6 @@ def is_fs_case_sensitive(path: str) -> bool:
 
     :param str path: Path to check.
     :returns: Whether ``path`` lies on a partition with a case-sensitive file system.
-    :rtype: bool
     """
     if path.islower():
         check_path = path.upper()
@@ -49,7 +48,6 @@ def is_child(path: str, parent: str) -> bool:
     :param str path: Item path.
     :param str parent: Parent path.
     :returns: Whether ``path`` semantically lies inside ``parent``.
-    :rtype: bool
     """
 
     parent = parent.rstrip(osp.sep) + osp.sep
@@ -67,7 +65,6 @@ def is_equal_or_child(path: str, parent: str) -> bool:
     :param str parent: Parent path.
     :returns: ``True`` if ``path`` semantically lies inside ``parent`` or
         ``path == parent``.
-    :rtype: bool
     """
 
     return is_child(path, parent) or path == parent
@@ -83,13 +80,12 @@ def cased_path_candidates(path: str, root: str = osp.sep,
     directory does not exist, only one candidate ``os.path.join(root, path)`` is returned.
 
     :param str path: Original path relative to ``root``.
-    :param str root: Parent directory to search in. There are significant
-        performance improvements if a root directory with a small tree is given.
+    :param str root: Parent directory to search in. There are significant performance
+        improvements if a root directory with a small tree is given.
     :param bool is_fs_case_sensitive: Bool indicating if the file system is case
         sensitive. If ``False``, we know that there can be at most one match and choose
         a faster algorithm.
     :returns: Candidates for correctly cased local paths.
-    :rtype: list[str]
     """
 
     path = path.lstrip(osp.sep)
@@ -165,14 +161,13 @@ def to_cased_path(path: str, root: str = osp.sep,
     ``os.path.join(root, path)``.
 
     :param str path: Original path relative to ``root``.
-    :param str root: Parent directory to search in. There are significant
-        performance improvements if a root directory with a small tree is given.
+    :param str root: Parent directory to search in. There are significant performance
+        improvements if a root directory with a small tree is given.
     :param bool is_fs_case_sensitive: Bool indicating if the file system is case
-        sensitive. If ``False``, we know that there can be at most one match and choose
-        a faster algorithm.
+        sensitive. If ``False``, we know that there can be at most one match and choose a
+        faster algorithm.
     :returns: Candidates for c
     :returns: Absolute and cased version of given path.
-    :rtype: str
     """
 
     candidates = cased_path_candidates(path, root, is_fs_case_sensitive)
@@ -185,14 +180,13 @@ def path_exists_case_insensitive(path: str, root: str = osp.sep,
     Checks if a ``path`` exists in given ``root`` directory, similar to ``os.path.exists``
     but case-insensitive.
 
-    :param str path: Path relative to ``root``.
-    :param str root: Directory where we will look for ``path``. There are significant
+    :param path: Path relative to ``root``.
+    :param root: Directory where we will look for ``path``. There are significant
         performance improvements if a root directory with a small tree is given.
     :param bool is_fs_case_sensitive: Bool indicating if the file system is case
-        sensitive. If ``False``, we know that there can be at most one match and choose
-        a faster algorithm.
+        sensitive. If ``False``, we know that there can be at most one match and choose a
+        faster algorithm.
     :returns: Whether an arbitrarily cased version of ``path`` exists.
-    :rtype: bool
     """
 
     if is_fs_case_sensitive:
@@ -222,13 +216,12 @@ def generate_cc_name(path: str, suffix: str = 'conflicting copy',
 
         'my_file.txt' -> 'my_file (conflicting copy 1).txt'
 
-    :param str path: Original path name.
-    :param str suffix: Suffix to use. Defaults to 'conflicting copy'.
-    :param bool is_fs_case_sensitive: Bool indicating if the file system is case
-        sensitive. If ``False``, we know that there can be at most one match and choose
-        a faster algorithm.
+    :param path: Original path name.
+    :param suffix: Suffix to use. Defaults to 'conflicting copy'.
+    :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive. If
+        ``False``, we know that there can be at most one match and choose a faster
+        algorithm.
     :returns: New path.
-    :rtype: str
     """
 
     dirname, basename = osp.split(path)

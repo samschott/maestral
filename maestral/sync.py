@@ -368,14 +368,14 @@ class SyncEngine:
          events may be returned. If a file / folder event implies a type changes, e.g.,
          replacing a folder with a file, we explicitly generate the necessary
          DeletedMetadata here to simplify conflict resolution.
-      2) :meth:`_filter_excluded_changes_remote`: Filters out events that occurred for
+      4) :meth:`_filter_excluded_changes_remote`: Filters out events that occurred for
          entries that are excluded by selective sync and hard-coded file names which are
          always excluded (e.g., '.DS_Store').
-      3) :meth:`apply_remote_changes`: Sorts all events hierarchically, with top-level
+      5) :meth:`apply_remote_changes`: Sorts all events hierarchically, with top-level
          events coming first. Deleted and folder events are processed in order, file
          events in parallel with up to 6 worker threads. The actual download is carried
          out by :meth:`_create_local_entry`.
-      4) :meth:`_create_local_entry`: Checks for sync conflicts by comparing the file
+      6) :meth:`_create_local_entry`: Checks for sync conflicts by comparing the file
          "rev" with our locally saved rev. We assign folders a rev of ``'folder'`` and
          deleted / non-existent items a rev of ``None``. If revs are equal, the local item
          is the same or newer as on Dropbox and no download / deletion occurs. If revs are
@@ -385,7 +385,7 @@ class SyncEngine:
          we take the newest change of any of its children. If the local entry has not been
          modified since the last sync, it will be replaced. Otherwise, we create a
          conflicting copy.
-      5) :meth:`notify_user`: Shows a desktop notification for the remote changes.
+      7) :meth:`notify_user`: Shows a desktop notification for the remote changes.
 
     Local file events come in eight types: For both files and folders we collect created,
     moved, modified and deleted events. They are processed as follows:
@@ -418,8 +418,6 @@ class SyncEngine:
          item is newer (different rev), Dropbox will handle conflict resolution for us. We
          finally confirm the successful upload and check if Dropbox has renamed the item
          to a conflicting copy. In the latter case, we apply those changes locally.
-
-
 
     :param DropboxClient client: Dropbox API client instance.
     :param FSEventHandler fs_events_handler: File system event handler to inform us of
@@ -550,7 +548,6 @@ class SyncEngine:
 
         :param list folder_list: Items to exclude.
         :returns: Cleaned up items.
-        :rtype: list[str]
         """
 
         # remove duplicate entries by creating set, strip trailing '/'
@@ -623,7 +620,6 @@ class SyncEngine:
 
         :param str dbx_path: Path relative to Dropbox folder.
         :returns: Time of last sync.
-        :rtype: float
         """
         dbx_path = dbx_path.lower()
         return max(self._last_sync_for_path.get(dbx_path, 0.0), self.last_sync)
@@ -652,7 +648,6 @@ class SyncEngine:
         numbers for all synced files and folders.
 
         :returns: Copy of revision index.
-        :rtype: dict
         """
         with self._rev_lock:
             return self._rev_dict_cache.copy()
@@ -662,9 +657,8 @@ class SyncEngine:
         Gets revision number of local file.
 
         :param str dbx_path: Path relative to Dropbox folder.
-        :returns: Revision number as str or ``None`` if no local revision number
-            has been saved.
-        :rtype: str
+        :returns: Revision number as str or ``None`` if no local revision number has been
+            saved.
         """
         with self._rev_lock:
             dbx_path = dbx_path.lower()
@@ -922,7 +916,6 @@ class SyncEngine:
 
         :param str local_path: Absolute path on local drive.
         :returns: Relative path with respect to Dropbox folder.
-        :rtype: str
         :raises: :class:`ValueError` the path lies outside of the local Dropbox folder.
         """
 
@@ -947,7 +940,6 @@ class SyncEngine:
 
         :param str dbx_path: Path relative to Dropbox folder.
         :returns: Corresponding local path on drive.
-        :rtype: str
         """
 
         dbx_path = dbx_path.replace('/', osp.sep)
@@ -966,7 +958,6 @@ class SyncEngine:
 
         :param MetaData md: Dropbox metadata.
         :returns: Corresponding local path on drive.
-        :rtype: str
         """
 
         if not hasattr(md, 'local_path'):
@@ -1023,7 +1014,6 @@ class SyncEngine:
 
         :param str path: Path of item. Can be both a local or Dropbox paths.
         :returns: ``True`` if excluded, ``False`` otherwise.
-        :rtype: bool
         """
         path = path.lower().replace(osp.sep, '/')
 
@@ -1059,7 +1049,6 @@ class SyncEngine:
 
         :param str dbx_path: Path relative to Dropbox folder.
         :returns: ``True`` if excluded, ``False`` otherwise.
-        :rtype: bool
         """
         dbx_path = dbx_path.lower()
 
@@ -1071,7 +1060,6 @@ class SyncEngine:
 
         :param FileSystemEvent event: Local file event.
         :returns: ``True`` if excluded, ``False`` otherwise.
-        :rtype: bool
         """
         if len(self.mignore_rules.patterns) == 0:
             return False
@@ -1105,7 +1093,6 @@ class SyncEngine:
         Checks if we are currently syncing.
 
         :returns: ``True`` if :attr:`sync_lock` cannot be acquired, ``False`` otherwise.
-        :rtype: bool
         """
 
         idle = self.sync_lock.acquire(blocking=False)
@@ -1244,7 +1231,6 @@ class SyncEngine:
         :param float delay: Delay in sec to wait for subsequent changes that may be
             duplicates.
         :returns: (list of file events, time_stamp)
-        :rtype: (list, float)
         """
 
         self.ensure_dropbox_folder_present()
@@ -1383,7 +1369,6 @@ class SyncEngine:
 
         :param events: Iterable of :class:`watchdog.FileSystemEvent`.
         :returns: List of :class:`watchdog.FileSystemEvent`.
-        :rtype: list
         """
 
         # COMBINE EVENTS TO ONE EVENT PER PATH
@@ -1571,7 +1556,6 @@ class SyncEngine:
 
         :param FileSystemEvent event: Created or moved event.
         :returns: Whether a case conflict was detected and handled.
-        :rtype: bool
         """
 
         if not self.is_case_sensitive:
@@ -1611,7 +1595,6 @@ class SyncEngine:
 
         :param FileSystemEvent event: Created or moved event.
         :returns: ``True`` or ``False``.
-        :rtype: bool
         """
 
         if event.event_type not in (EVENT_TYPE_CREATED, EVENT_TYPE_MOVED):
@@ -1649,7 +1632,6 @@ class SyncEngine:
         :returns: Copy of the Dropbox metadata if the change was applied successfully,
             ``True`` if the change already existed, ``False`` in case of a
             :class:`errors.SyncError` and ``None`` if cancelled.
-        :rtype: Union[Metadata, bool, None]
         """
 
         if self.cancel_pending.is_set():
@@ -1719,7 +1701,6 @@ class SyncEngine:
         :param FilSystemEvent event: Watchdog file system event.
         :raises: :class:`errors.MaestralApiError`
         :returns: Metadata of created remote item at destination.
-        :rtype: Metadata
         """
 
         local_path_from = event.src_path
@@ -1780,7 +1761,6 @@ class SyncEngine:
         :param FileSystemEvent event: Watchdog file system event.
         :raises: :class:`errors.MaestralApiError`
         :returns: Metadata of created remote item.
-        :rtype: Metadata
         """
 
         local_path = event.src_path
@@ -1870,7 +1850,6 @@ class SyncEngine:
         :param FileSystemEvent event: Watchdog file system event.
         :raises: :class:`errors.MaestralApiError`
         :returns: Metadata of modified remote item.
-        :rtype: Metadata
         """
 
         if event.is_directory:  # ignore directory modified events
@@ -1943,7 +1922,6 @@ class SyncEngine:
         :param FileSystemEvent event: Watchdog file system event.
         :raises: :class:`errors.MaestralApiError`
         :returns: Metadata of deleted remote item.
-        :rtype: Metadata
         """
 
         path = event.src_path
@@ -2011,7 +1989,6 @@ class SyncEngine:
         :param str dbx_path: Path relative to Dropbox folder. Defaults to root ('/').
         :param bool ignore_excluded: If ``True``, do not index excluded folders.
         :returns: Whether download was successful.
-        :rtype: bool
         """
 
         with self.sync_lock:
@@ -2074,7 +2051,6 @@ class SyncEngine:
 
         :param str dbx_path: Path relative to Dropbox folder.
         :returns: Whether download was successful.
-        :rtype: bool
         """
 
         with self.sync_lock:
@@ -2118,7 +2094,6 @@ class SyncEngine:
 
         :param str last_cursor: Cursor from last download sync.
         :returns: Remote changes.
-        :rtype: :class:`dropbox.files.ListFolderResult`
         """
         changes = self.client.list_remote_changes(last_cursor)
         logger.debug('Listed remote changes:\n%s', entries_to_str(changes.entries))
@@ -2140,7 +2115,6 @@ class SyncEngine:
             the state of the entire Dropbox.
         :returns: List of changes that were made to local files and bool indicating if all
             download syncs were successful.
-        :rtype: (list, bool)
         """
 
         # filter out excluded changes
@@ -2274,11 +2248,11 @@ class SyncEngine:
 
     def _filter_excluded_changes_remote(self, changes: dropbox.files.ListFolderResult) \
             -> Tuple[dropbox.files.ListFolderResult, dropbox.files.ListFolderResult]:
-        """Removes all excluded items from the given list of changes.
+        """
+        Removes all excluded items from the given list of changes.
 
         :param changes: :class:`dropbox.files.ListFolderResult` instance.
         :returns: (``changes_filtered``, ``changes_discarded``)
-        :rtype: tuple[:class:`dropbox.files.ListFolderResult`]
         """
         entries_filtered = []
         entries_discarded = []
@@ -2305,7 +2279,6 @@ class SyncEngine:
 
         :param Metadata md: Dropbox SDK metadata.
         :returns: Conflict check result.
-        :rtype: :class:`Conflict`
         :raises: :class:`errors.MaestralApiError`
         """
 
@@ -2372,7 +2345,6 @@ class SyncEngine:
             relevant if ``local_path`` points to a directory and has no effect if it
             points to a path.
         :returns: Ctime or -1.0.
-        :rtype: float
         """
         try:
             stat = os.stat(local_path)
@@ -2396,7 +2368,6 @@ class SyncEngine:
 
         :param Metadata md: Dropbox file, folder or deleted metadata
         :return: Dropbox ID
-        :rtype: str
         """
 
         try:
@@ -2419,7 +2390,6 @@ class SyncEngine:
 
         :param changes: :class:`dropbox.files.ListFolderResult`
         :returns: Cleaned up changes with a single Metadata entry per path.
-        :rtype: :class:`dropbox.files.ListFolderResult`
         """
 
         # Note: we won't have to deal with modified or moved events,
@@ -2471,7 +2441,6 @@ class SyncEngine:
         :returns: Copy of the Dropbox metadata if the change was applied successfully,
             ``True`` if the change already existed, ``False`` in case of a
             :class:`errors.SyncError` and ``None`` if cancelled.
-        :rtype: Union[Metadata, bool, None]
         """
 
         if self.cancel_pending.is_set():
@@ -3217,7 +3186,6 @@ def split_moved_event(event: Union[FileMovedEvent, DirMovedEvent]) \
 
     :param FileSystemEvent event: Original event.
     :returns: Tuple of deleted and created events.
-    :rtype: tuple
     """
 
     if event.is_directory:
@@ -3239,7 +3207,6 @@ def get_local_hash(local_path: str, chunk_size: int = 1024) -> Optional[str]:
     :returns: Content hash to compare with Dropbox's content hash,
         or 'folder' if the path points to a directory. ``None`` if there
         is nothing at the path.
-    :rtype: str
     """
 
     hasher = DropboxContentHasher()
@@ -3314,7 +3281,6 @@ def cpu_usage_percent(interval: float = 0.1) -> float:
 
     :param float interval: Interval in sec between comparisons of CPU times.
     :returns: CPU usage during interval in percent.
-    :rtype: float
     """
 
     if not interval > 0:
@@ -3347,7 +3313,6 @@ def check_connection(hostname: str) -> bool:
 
     :param str hostname: Hostname to use for connection check.
     :returns: Connection availability.
-    :rtype: bool
     """
     try:
         host = socket.gethostbyname(hostname)

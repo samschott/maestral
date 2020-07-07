@@ -37,9 +37,9 @@ def get_cache_path(subfolder: Optional[str] = None, filename: Optional[str] = No
         - Linux: '$XDG_CACHE_HOME/SUBFOLDER/FILENAME'
         - fallback: '$HOME/.cache/SUBFOLDER/FILENAME'
 
-    :param Optional[str] subfolder: The subfolder for the app.
-    :param Optional[str] filename: The filename to append for the app.
-    :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
+    :param subfolder: The subfolder for the app.
+    :param filename: The filename to append for the app.
+    :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
     if platform.system() == 'Darwin':
         cache_path = get_conf_path(create=False)
@@ -61,9 +61,9 @@ def get_log_path(subfolder: Optional[str] = None, filename: Optional[str] = None
         - Linux: '$XDG_CACHE_HOME/SUBFOLDER/FILENAME'
         - fallback: '$HOME/.cache/SUBFOLDER/FILENAME'
 
-    :param Optional[str] subfolder: The subfolder for the app.
-    :param Optional[str] filename: The filename to append for the app.
-    :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
+    :param subfolder: The subfolder for the app.
+    :param filename: The filename to append for the app.
+    :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
 
     if platform.system() == 'Darwin':
@@ -85,8 +85,8 @@ def get_autostart_path(filename: Optional[str] = None,
         - Linux: '$XDG_CONFIG_HOME/autostart/FILENAME'
         - fallback: '$HOME/.config/autostart/FILENAME'
 
-    :param Optional[str] filename: The filename to append for the app.
-    :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
+    :param filename: The filename to append for the app.
+    :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
     if platform.system() == 'Darwin':
         autostart_path = osp.join(_home_dir, 'Library', 'LaunchAgents')
@@ -110,9 +110,9 @@ def get_runtime_path(subfolder: Optional[str] = None, filename: Optional[str] = 
         - Linux: '$XDG_RUNTIME_DIR/SUBFOLDER/FILENAME'
         - fallback: '$HOME/.cache/SUBFOLDER/FILENAME'
 
-    :param Optional[str] subfolder: The subfolder for the app.
-    :param Optional[str] filename: The filename to append for the app.
-    :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
+    :param subfolder: The subfolder for the app.
+    :param filename: The filename to append for the app.
+    :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
 
     if platform.system() == 'Darwin':
@@ -135,9 +135,9 @@ def get_old_runtime_path(subfolder: Optional[str] = None, filename: Optional[str
         - Linux: '$XDG_RUNTIME_DIR/SUBFOLDER/FILENAME'
         - fallback: '$HOME/.cache/SUBFOLDER/FILENAME'
 
-    :param Optional[str] subfolder: The subfolder for the app.
-    :param Optional[str] filename: The filename to append for the app.
-    :param bool create: If ``True``, the folder '<subfolder>' will be created on-demand.
+    :param subfolder: The subfolder for the app.
+    :param filename: The filename to append for the app.
+    :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
 
     if platform.system() == 'Darwin':

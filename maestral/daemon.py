@@ -32,7 +32,7 @@ from Pyro5.api import Daemon, Proxy, expose, oneway, register_dict_to_class  # t
 from fasteners import InterProcessLock  # type: ignore
 
 # local imports
-from maestral.errors import SYNC_ERRORS, FATAL_ERRORS
+from maestral.errors import SYNC_ERRORS, FATAL_ERRORS, MaestralApiError
 from maestral.constants import IS_FROZEN, IS_MACOS
 from maestral.utils.appdirs import get_runtime_path
 
@@ -85,14 +85,13 @@ class Start(enum.Enum):
 
 # ==== error serialization ===============================================================
 
-def serpent_deserialize_api_error(class_name: str, d: dict) -> Any:
+def serpent_deserialize_api_error(class_name: str, d: dict) -> MaestralApiError:
     """
     Deserializes a :class:`errors.MaestralApiError`.
 
-    :param str class_name: Name of class to deserialize.
-    :param dict d: Dictionary of serialized class.
+    :param class_name: Name of class to deserialize.
+    :param d: Dictionary of serialized class.
     :returns: Class instance.
-    :rtype: :class:`errors.MaestralApiError`
     """
     # import maestral errors for evaluation
     import maestral.errors  # noqa: F401
@@ -169,9 +168,9 @@ class Lock:
         Retrieve an existing lock object with a given 'name' or create a new one. Use this
         method for thread-safe locks.
 
-        :param str name: Name of lock file.
-        :param str lock_path: Directory for lock files. Defaults to the temporary
-            directory returned by :func:`tempfile.gettempdir()` if not given.
+        :param name: Name of lock file.
+        :param lock_path: Directory for lock files. Defaults to the temporary directory
+            returned by :func:`tempfile.gettempdir()` if not given.
         """
 
         with cls._singleton_lock:
@@ -199,7 +198,6 @@ class Lock:
         Attempts to acquire the given lock.
 
         :returns: Whether or not the acquisition succeeded.
-        :rtype: bool
         """
 
         with self._lock:
@@ -242,7 +240,6 @@ class Lock:
         :meth:`locked` to check if the lock is held by any process.
 
         :returns: The PID of the process which currently holds the lock or ``None``.
-        :rtype: int
         """
 
         with self._lock:
@@ -313,9 +310,8 @@ def get_maestral_pid(config_name: str) -> Optional[int]:
     """
     Returns Maestral's PID if the daemon is running, ``None`` otherwise.
 
-    :param str config_name: The name of the Maestral configuration.
+    :param config_name: The name of the Maestral configuration.
     :returns: The daemon's PID.
-    :rtype: int
     """
 
     return maestral_lock(config_name).locking_pid()
@@ -325,9 +321,8 @@ def is_running(config_name: str) -> bool:
     """
     Checks if a daemon is currently running.
 
-    :param str config_name: The name of the Maestral configuration.
+    :param config_name: The name of the Maestral configuration.
     :returns: Whether the daemon is running.
-    :rtype: bool
     """
 
     return maestral_lock(config_name).locked()
@@ -365,8 +360,8 @@ def start_maestral_daemon(config_name: str = 'maestral',
     Pyro's event loop to listen for requests on a unix domain socket. This call will block
     until the event loop shuts down.
 
-    :param str config_name: The name of the Maestral configuration to use.
-    :param bool log_to_stdout: If ``True``, write logs to stdout.
+    :param config_name: The name of the Maestral configuration to use.
+    :param log_to_stdout: If ``True``, write logs to stdout.
     :raises: :class:`RuntimeError` if a daemon for the given ``config_name`` is already
         running.
     """
@@ -424,8 +419,8 @@ def start_maestral_daemon_thread(config_name: str = 'maestral',
     Starts the Maestral daemon in a new thread by calling :func:`start_maestral_daemon`.
     Startup is race free: there will never be two daemons running for the same config.
 
-    :param str config_name: The name of the Maestral configuration to use.
-    :param bool log_to_stdout: If ``True``, write logs to stdout.
+    :param config_name: The name of the Maestral configuration to use.
+    :param log_to_stdout: If ``True``, write logs to stdout.
     :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
         already running or ``Start.Failed`` if startup failed. It is possible that
         Start.Ok is returned instead of Start.AlreadyRunning in case of a race.
@@ -479,9 +474,9 @@ def start_maestral_daemon_process(config_name: str = 'maestral',
     :func:`freeze_support` which should be called from the main entry point, as soon as
     possible after startup.
 
-    :param str config_name: The name of the Maestral configuration to use.
-    :param bool log_to_stdout: If ``True``, write logs to stdout.
-    :param bool detach: If ``True``, the daemon process will be detached. If ``False``,
+    :param config_name: The name of the Maestral configuration to use.
+    :param log_to_stdout: If ``True``, write logs to stdout.
+    :param detach: If ``True``, the daemon process will be detached. If ``False``,
         the daemon processes will run in the same session as the current process.
     :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
         already running or ``Start.Failed`` if startup failed. It is possible that
@@ -516,9 +511,9 @@ def stop_maestral_daemon_process(config_name: str = 'maestral',
     its PID, it will send SIGTERM. If that fails as well, it will send SIGKILL to the
     process.
 
-    :param str config_name: The name of the Maestral configuration to use.
-    :param float timeout: Number of sec to wait for daemon to shut down before killing it.
-    :returns: ``Exit.Ok`` if successful, ``Exit.Killed`` if killed, ``Exit.NotRunning`` if
+    :param config_name: The name of the Maestral configuration to use.
+    :param timeout: Number of sec to wait for daemon to shut down before killing it.
+    :returns: ``Stop.Ok`` if successful, ``Stop.Killed`` if killed, ``Stop.NotRunning`` if
         the daemon was not running and ``Exit.Failed`` if killing the process failed
         because we could not retrieve its PID.
     """
@@ -562,10 +557,10 @@ def stop_maestral_daemon_thread(config_name: str = 'maestral',
                                 timeout: int = 10) -> Stop:
     """Stops a maestral daemon thread without killing the parent process.
 
-    :param str config_name: The name of the Maestral configuration to use.
-    :param float timeout: Number of sec to wait for daemon to shut down before killing it.
-    :returns: ``Exit.Ok`` if successful,``Exit.NotRunning`` if the daemon was not running,
-        ``Exit.Failed`` if it could not be stopped within timeout.
+    :param config_name: The name of the Maestral configuration to use.
+    :param timeout: Number of sec to wait for daemon to shut down before killing it.
+    :returns: ``Stop.Ok`` if successful,``Stop.NotRunning`` if the daemon was not running,
+        ``Stop.Failed`` if it could not be stopped within timeout.
     """
 
     if not is_running(config_name):
@@ -593,8 +588,8 @@ def get_maestral_proxy(config_name: str = 'maestral',
     """
     Returns a Pyro proxy of the a running Maestral instance.
 
-    :param str config_name: The name of the Maestral configuration to use.
-    :param bool fallback: If ``True``, a new instance of Maestral will be returned when
+    :param config_name: The name of the Maestral configuration to use.
+    :param fallback: If ``True``, a new instance of Maestral will be returned when
         the daemon cannot be reached.
     :returns: Pyro proxy of Maestral or a new instance.
     :raises: :class:`Pyro5.errors.CommunicationError` if the daemon cannot be reached and
@@ -623,8 +618,8 @@ class MaestralProxy:
     """
     A context manager to open and close a proxy to the Maestral daemon.
 
-    :param str config_name: The name of the Maestral configuration to use.
-    :param bool fallback: If ``True``, a new instance of Maestral will be returned when
+    :param config_name: The name of the Maestral configuration to use.
+    :param fallback: If ``True``, a new instance of Maestral will be returned when
         the daemon cannot be reached.
     """
 
