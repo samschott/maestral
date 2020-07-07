@@ -35,7 +35,6 @@ extensions = [
     'sphinx.ext.githubpages',
     'sphinx_autodoc_typehints',
     'sphinx_click.ext',
-    'm2r',
 ]
 
 templates_path = ['_templates']
