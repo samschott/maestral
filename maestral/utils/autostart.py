@@ -105,9 +105,9 @@ class AutoStartSystemd(AutoStartBase):
         self.service_config = configparser.ConfigParser(interpolation=None)
         self.service_config.optionxform = str  # type: ignore
 
-        self.service_config['Unit'] = {}
-        self.service_config['Service'] = {}
-        self.service_config['Install'] = {}
+        self.service_config.add_section('Unit')
+        self.service_config.add_section('Service')
+        self.service_config.add_section('Install')
 
         # fill out some default values for a minimum systemd unit
         self.service_config['Service']['Type'] = 'exec'
