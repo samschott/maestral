@@ -66,11 +66,14 @@ def stop_daemon_with_cli_feedback(config_name: str) -> None:
         click.echo('\rStopping Maestral...        ' + KILLED)
 
 
-def select_dbx_path_dialog(config_name: str, allow_merge: bool = False) -> str:
+def select_dbx_path_dialog(config_name: str, default_dir_name: Optional[str] = None,
+                           allow_merge: bool = False) -> str:
     """
     A CLI dialog to ask for a local Dropbox folder location.
 
     :param config_name: The configuration to use for the default folder name.
+    :param default_dir_name: The default directory name. Defaults to
+        "Dropbox ({config_name})" if not given.
     :param allow_merge: If ``True``, allows the selection of an existing folder without
         deleting it. Defaults to ``False``.
     :returns: Path given by user.
@@ -79,9 +82,8 @@ def select_dbx_path_dialog(config_name: str, allow_merge: bool = False) -> str:
     from maestral.utils.appdirs import get_home_dir
     from maestral.utils.path import delete
 
-    conf = MaestralConfig(config_name)
-
-    default = osp.join(get_home_dir(), conf.get('main', 'default_dir_name'))
+    default_dir_name = default_dir_name or f'Dropbox ({config_name.capitalize()})'
+    default = osp.join(get_home_dir(), default_dir_name)
 
     while True:
         res = click.prompt(
@@ -1048,20 +1050,15 @@ def analytics(yes: bool, no: bool, config_name: str) -> None:
     """
 
     if yes or no:
-        try:
-            with MaestralProxy(config_name) as m:
-                m.analytics = yes
-        except Pyro5.errors.CommunicationError:
-            MaestralConfig(config_name).set('app', 'analytics', yes)
+        with MaestralProxy(config_name, fallback=True) as m:
+            m.analytics = yes
 
         enabled_str = 'Enabled' if yes else 'Disabled'
         click.echo(f'{enabled_str} automatic error reports.')
     else:
-        try:
-            with MaestralProxy(config_name) as m:
-                state = m.analytics
-        except Pyro5.errors.CommunicationError:
-            state = MaestralConfig(config_name).get('app', 'analytics')
+        with MaestralProxy(config_name, fallback=True) as m:
+            state = m.analytics
+
         enabled_str = 'enabled' if state else 'disabled'
         click.echo(f'Automatic error reports are {enabled_str}.')
 
@@ -1236,21 +1233,12 @@ def log_clear(config_name: str) -> None:
 def log_level(level_name: str, config_name: str) -> None:
     """Gets or sets the log level."""
 
-    try:
-        with MaestralProxy(config_name) as m:
-            if level_name:
-                m.log_level = logging._nameToLevel[level_name]
-                click.echo(f'Log level set to {level_name}.')
-            else:
-                level_name = logging.getLevelName(m.log_level)
-                click.echo(f'Log level: {level_name}')
-    except Pyro5.errors.CommunicationError:
-        conf = MaestralConfig(config_name)
+    with MaestralProxy(config_name, fallback=True) as m:
         if level_name:
-            conf.set('app', 'log_level', logging._nameToLevel[level_name])
+            m.log_level = logging._nameToLevel[level_name]
             click.echo(f'Log level set to {level_name}.')
         else:
-            level_name = logging.getLevelName(conf.get('app', 'log_level'))
+            level_name = logging.getLevelName(m.log_level)
             click.echo(f'Log level: {level_name}')
 
 
@@ -1267,22 +1255,12 @@ def notify_level(level_name: str, config_name: str) -> None:
 
     from maestral.utils.notify import MaestralDesktopNotifier as MDN
 
-    try:
-        with MaestralProxy(config_name) as m:
-            if level_name:
-                m.notification_level = MDN.level_name_to_number(level_name)
-                click.echo(f'Notification level set to {level_name}.')
-            else:
-                level_name = MDN.level_number_to_name(m.notification_level)
-                click.echo(f'Notification level: {level_name}.')
-    except Pyro5.errors.CommunicationError:
-        conf = MaestralConfig(config_name)
+    with MaestralProxy(config_name, fallback=True) as m:
         if level_name:
-            conf.set('app', 'notification_level', MDN.level_name_to_number(level_name))
+            m.notification_level = MDN.level_name_to_number(level_name)
             click.echo(f'Notification level set to {level_name}.')
         else:
-            level_num = conf.get('app', 'notification_level')
-            level_name = MDN.level_number_to_name(level_num)
+            level_name = MDN.level_number_to_name(m.notification_level)
             click.echo(f'Notification level: {level_name}.')
 
 
