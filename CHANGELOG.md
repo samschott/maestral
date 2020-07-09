@@ -23,13 +23,18 @@
 
 #### Fixed:
 
-- Fixes a bug where the local cursor would not be updated immediately after a successful
-  upload sync but only in a subsequent sync without local changes. This was caused by an
-  incorrect return value of `SyncEngine._create_remote_entry`.
 - Fixes a bug where throttling of sync threads would raise an error when we cannot  
   determine the CPU count.
 - Fixes a bug where sending SIGTERM to the daemon process would raise an error when we 
   cannot determine its PID. Now, `Stop.Failed` is returned instead.
+- Fixes a bug which would result in incorrect systemd unit files for non-default config
+  file names. Please disable and re-enable autostart with `maestral autostart -Y|N` to
+  replace old unit files for any daemon with a config other than "maestral".
+
+#### Removed:
+
+- Drop support for config names with spaces. Spaces could cause issues with autostart
+  entries on some platforms.
 
 ## v1.1.0
 
