@@ -109,7 +109,8 @@ In the above case, this will be "Dropbox (Personal)" and "Dropbox (Work)".
 
 There are multiple topics that could use your help. Some of them are easy, such as adding
 new CLI commands, others require more experience, such as packaging for non-macOS platforms.
-Look out for issues marked with "good first issue" or "help wanted".
+Look out for issues marked with "good first issue" or "help wanted". Pull requests should be
+made against the develop branch.
 
 Revelant resources are:
 
