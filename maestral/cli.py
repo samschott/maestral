@@ -39,8 +39,7 @@ from maestral.daemon import (
     is_running, threads
 )
 from maestral.config import MaestralConfig, MaestralState, list_configs
-from maestral.utils import normalise_config_name
-from maestral.utils.housekeeping import remove_configuration
+from maestral.utils.housekeeping import remove_configuration, validate_config_name
 
 
 OK = click.style('[OK]', fg='green')
@@ -378,7 +377,7 @@ class SpecialHelpOrder(click.Group):
         return decorator
 
 
-def _check_config(ctx: click.Context, param: click.Parameter, value: str) -> str:
+def _check_config_exists(ctx: click.Context, param: click.Parameter, value: str) -> str:
     """
     Checks if the selected config name, passed as :param:`value`, is valid.
 
@@ -386,18 +385,17 @@ def _check_config(ctx: click.Context, param: click.Parameter, value: str) -> str
     :param param: Name of click parameter, in our case 'config_name'.
     :param value: Value  of click parameter, in our case the selected config.
     """
-
-    value = normalise_config_name(value)
 
     # check if valid config
     if value not in list_configs() and not value == 'maestral':
-        ctx.fail(f'Configuration \'{value}\' does not exist. You can list\n'
-                 'all existing configurations with \'maestral configs\'.')
+        raise click.ClickException(f'Configuration \'{value}\' does not exist. You can '
+                                   f'list all existing configurations with '
+                                   f'\'maestral configs\'.')
 
     return value
 
 
-def _norm_config(ctx: click.Context, param: click.Parameter, value: str) -> str:
+def _validate_config_name(ctx: click.Context, param: click.Parameter, value: str) -> str:
     """
     Checks if the selected config name, passed as :param:`value`, is valid.
 
@@ -406,9 +404,10 @@ def _norm_config(ctx: click.Context, param: click.Parameter, value: str) -> str:
     :param value: Value  of click parameter, in our case the selected config.
     """
 
-    value = normalise_config_name(value)
-
-    return value
+    try:
+        return validate_config_name(value)
+    except ValueError:
+        raise click.ClickException('Configuration name may not contain any whitespace')
 
 
 def _run_daemon(ctx: click.Context, param: click.Parameter, value: bool) -> None:
@@ -430,7 +429,7 @@ existing_config_option = click.option(
     is_eager=True,
     expose_value=True,
     metavar='NAME',
-    callback=_check_config,
+    callback=_check_config_exists,
     help='Select an existing configuration for the command.'
 )
 
@@ -440,7 +439,7 @@ config_option = click.option(
     is_eager=True,
     expose_value=True,
     metavar='NAME',
-    callback=_norm_config,
+    callback=_validate_config_name,
     help='Run Maestral with the given configuration name.'
 )
 

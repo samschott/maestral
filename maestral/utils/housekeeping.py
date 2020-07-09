@@ -9,14 +9,15 @@ This module contains migration code to run after an update.
 """
 
 # system imports
-import logging
+from typing import TypeVar
 
 # local imports
 from maestral.config import MaestralConfig, MaestralState
 from maestral.config.base import get_data_path
 from maestral.utils.path import delete
 
-logger = logging.getLogger(__name__)
+
+_C = TypeVar('_C', bound=str)
 
 
 def remove_configuration(config_name: str) -> None:
@@ -30,3 +31,17 @@ def remove_configuration(config_name: str) -> None:
     MaestralState(config_name).cleanup()
     index_file = get_data_path('maestral', f'{config_name}.index')
     delete(index_file)
+
+
+def validate_config_name(string: _C) -> _C:
+    """
+    Validates that the config name does not contain any whitespace.
+
+    :param string: String to validate.
+    :returns: The input value.
+    :raises: :class:`ValueError` if the config name contains whitespace
+    """
+    if len(string.split()) > 1:
+        raise ValueError('Config name may not contain any whitespace')
+
+    return string

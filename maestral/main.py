@@ -45,7 +45,8 @@ from maestral.errors import (
     NotFoundError, PathError
 )
 from maestral.config import MaestralConfig, MaestralState
-from maestral.utils import natural_size, normalise_config_name
+from maestral.utils import natural_size
+from utils.housekeeping import validate_config_name
 from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import (
@@ -179,8 +180,8 @@ class Maestral:
         ...     m.create_dropbox_directory('~/Dropbox (Private)')
         ...     m.start_sync()
 
-    :param config_name: Name of maestral configuration to run. This will create a new
-        configuration file if none exists.
+    :param config_name: Name of maestral configuration to run. Must not contain any
+        whitespace. If the given config file does exist, it will be created.
     :param log_to_stdout: If ``True``, Maestral will print log messages to stdout.
         When started as a systemd services, this can result in duplicate log messages.
         Defaults to ``False``.
@@ -193,7 +194,7 @@ class Maestral:
 
         self._daemon_running = True
         self._log_to_stdout = log_to_stdout
-        self._config_name = normalise_config_name(config_name)
+        self._config_name = validate_config_name(config_name)
 
         self._conf = MaestralConfig(self._config_name)
         self._state = MaestralState(self._config_name)
