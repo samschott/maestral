@@ -18,3 +18,9 @@ def natural_size(num: float, unit: str = 'B', sep: bool = True) -> str:
 
     prefix = 'T'
     return f'{num:.1f}{sep_char}{prefix}{unit}'
+
+
+def normalise_config_name(string: str) -> str:
+    string = string.replace(' ', '-')  # replace spaces
+    string = string.lower()  # replace spaces
+    return string

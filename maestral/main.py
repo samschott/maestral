@@ -45,7 +45,7 @@ from maestral.errors import (
     NotFoundError, PathError
 )
 from maestral.config import MaestralConfig, MaestralState
-from maestral.utils import natural_size as ns
+from maestral.utils import natural_size, normalise_config_name
 from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import (
@@ -193,14 +193,14 @@ class Maestral:
 
         self._daemon_running = True
         self._log_to_stdout = log_to_stdout
-        self._config_name = config_name
+        self._config_name = normalise_config_name(config_name)
 
-        self._conf = MaestralConfig(config_name)
-        self._state = MaestralState(config_name)
+        self._conf = MaestralConfig(self._config_name)
+        self._state = MaestralState(self._config_name)
 
         self._setup_logging()
 
-        self._auth = OAuth2Session(config_name)  # OAuth API and token store
+        self._auth = OAuth2Session(self._config_name)  # OAuth API and token store
         self.client = DropboxClient(config_name=self.config_name)  # interface to Dbx SDK
         self.monitor = SyncMonitor(self.client)  # coordinates sync threads
         self.sync = self.monitor.sync  # provides core sync functionality
@@ -709,7 +709,7 @@ class Maestral:
         for path, item in self.monitor.uploading.items():
             path.lstrip(self.dropbox_path)
             if item.completed > 0:
-                status = f'{ns(item.completed, sep=False)}/{ns(item.size, sep=False)}'
+                status = f'{natural_size(item.completed, sep=False)}/{natural_size(item.size, sep=False)}'
             else:
                 status = item.status
 
@@ -718,7 +718,7 @@ class Maestral:
         for path, item in self.monitor.downloading.items():
             path.lstrip(self.dropbox_path)
             if item.completed > 0:
-                status = f'{ns(item.completed, sep=False)}/{ns(item.size, sep=False)}'
+                status = f'{natural_size(item.completed, sep=False)}/{natural_size(item.size, sep=False)}'
             else:
                 status = item.status
 

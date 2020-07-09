@@ -268,10 +268,6 @@ class Lock:
 
 # ==== helpers for daemon management =====================================================
 
-def _escape_spaces(string: str) -> str:
-    return string.replace(' ', '_')
-
-
 def _sigterm_handler(signal_number: int, frame: FrameType) -> None:
     sys.exit()
 
@@ -333,7 +329,7 @@ def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
     communication succeeds within timeout, ``Start.Failed``  otherwise."""
 
     sock_name = sockpath_for_config(config_name)
-    maestral_daemon = Proxy(URI.format(_escape_spaces(config_name), './u:' + sock_name))
+    maestral_daemon = Proxy(URI.format(config_name, './u:' + sock_name))
 
     while timeout > 0:
         try:
@@ -402,7 +398,7 @@ def start_maestral_daemon(config_name: str = 'maestral',
         m = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
 
         with Daemon(unixsocket=sockpath) as daemon:
-            daemon.register(m, f'maestral.{_escape_spaces(config_name)}')
+            daemon.register(m, f'maestral.{config_name}')
             daemon.requestLoop(loopCondition=m._loop_condition)
 
     except Exception:
@@ -600,7 +596,7 @@ def get_maestral_proxy(config_name: str = 'maestral',
         sock_name = sockpath_for_config(config_name)
 
         sys.excepthook = Pyro5.errors.excepthook
-        maestral_daemon = Proxy(URI.format(_escape_spaces(config_name), './u:' + sock_name))
+        maestral_daemon = Proxy(URI.format(config_name, './u:' + sock_name))
         try:
             maestral_daemon._pyroBind()
             return maestral_daemon
