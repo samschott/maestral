@@ -258,11 +258,9 @@ class AutoStart:
 
         if gui:
             start_cmd = f'{self.maestral_path} gui -c {config_name}'
-            stop_cmd = ''
             bundle_id = '{}.{}'.format(BUNDLE_ID, config_name)
         else:
             start_cmd = f'{self.maestral_path} start -f -c {config_name}'
-            stop_cmd = f'{self.maestral_path} stop -c {config_name}'
             bundle_id = '{}-{}.{}'.format(BUNDLE_ID, 'daemon', config_name)
 
         if self.implementation == SupportedImplementations.launchd:
@@ -291,14 +289,14 @@ class AutoStart:
 
             self._impl = AutoStartSystemd(
                 service_name=f'maestral-daemon@{config_name}.service',
-                start_cmd=start_cmd.replace(config_name, '%i'),
+                start_cmd=f'{self.maestral_path} start -f -c %i',
                 unit_dict={
                     'Description': 'Maestral daemon for the config %i'
                 },
                 service_dict={
                     'Type': 'notify',
                     'WatchdogSec': '30',
-                    'ExecStop': stop_cmd.replace(config_name, '%i'),
+                    'ExecStop': f'{self.maestral_path} stop -c %i',
                     'ExecStopPost': f'/usr/bin/env bash -c "{notify_failure}"',
                 }
             )
