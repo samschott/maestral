@@ -103,6 +103,7 @@ class AutoStartSystemd(AutoStartBase):
         self.destination = get_data_path(osp.join('systemd', 'user'), filename)
 
         self.service_config = configparser.ConfigParser(interpolation=None)
+        # set to preserve key casing
         self.service_config.optionxform = str  # type: ignore
 
         self.service_config.add_section('Unit')
@@ -208,6 +209,9 @@ class AutoStartXDGDesktop(AutoStartBase):
 
         # create desktop file content
         self.config = configparser.ConfigParser(interpolation=None)
+        # set to preserve key casing
+        self.config.optionxform = str  # type: ignore
+
         self.config['Desktop Entry'] = {
             'Version': '1.0',
             'Type': 'Application',
