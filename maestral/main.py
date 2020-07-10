@@ -46,7 +46,7 @@ from maestral.errors import (
 )
 from maestral.config import MaestralConfig, MaestralState
 from maestral.utils import natural_size
-from utils.housekeeping import validate_config_name
+from maestral.utils.housekeeping import validate_config_name
 from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import (
