@@ -959,6 +959,9 @@ def revs(dropbox_path: str, config_name: str) -> None:
 
     from datetime import datetime
 
+    if not dropbox_path.startswith('/'):
+        dropbox_path = '/' + dropbox_path
+
     with MaestralProxy(config_name, fallback=True) as m:
 
         entries = m.list_revisions(dropbox_path)
