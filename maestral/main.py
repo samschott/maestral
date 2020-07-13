@@ -45,7 +45,6 @@ from maestral.errors import (
     NotFoundError, PathError
 )
 from maestral.config import MaestralConfig, MaestralState
-from maestral.utils import natural_size
 from maestral.utils.housekeeping import validate_config_name
 from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
@@ -693,7 +692,7 @@ class Maestral:
         else:
             return FileStatus.Unwatched.value
 
-    def get_activity(self) -> Dict[str, List[Dict[str, str]]]:
+    def get_activity(self) -> Dict[str, List[Dict[str, Union[str, int]]]]:
         """
         Returns the current upload / download activity.
 
@@ -704,26 +703,30 @@ class Maestral:
 
         self._check_linked()
 
-        uploading: List[Dict[str, str]] = []
-        downloading: List[Dict[str, str]] = []
+        uploading: List[Dict[str, Union[str, int]]] = []
+        downloading: List[Dict[str, Union[str, int]]] = []
 
         for path, item in self.monitor.uploading.items():
-            path.lstrip(self.dropbox_path)
-            if item.completed > 0:
-                status = f'{natural_size(item.completed, sep=False)}/{natural_size(item.size, sep=False)}'
-            else:
-                status = item.status
-
-            uploading.append(dict(dbx_path=path, status=status))
+            path = path.replace(self.dropbox_path, '', 1)
+            uploading.append(
+                dict(
+                    dbx_path=path,
+                    status=item.status,
+                    size=item.size,
+                    completed=item.completed
+                )
+            )
 
         for path, item in self.monitor.downloading.items():
-            path.lstrip(self.dropbox_path)
-            if item.completed > 0:
-                status = f'{natural_size(item.completed, sep=False)}/{natural_size(item.size, sep=False)}'
-            else:
-                status = item.status
-
-            downloading.append(dict(dbx_path=path, status=status))
+            path = path.replace(self.dropbox_path, '', 1)
+            downloading.append(
+                dict(
+                    dbx_path=path,
+                    status=item.status,
+                    size=item.size,
+                    completed=item.completed
+                )
+            )
 
         return dict(uploading=uploading, downloading=downloading)
 
