@@ -714,6 +714,7 @@ def activity(config_name: str) -> None:
     """Live view of all items being synced."""
 
     import itertools
+    from maestral.utils import natural_size
 
     try:
         with MaestralProxy(config_name) as m:
@@ -746,18 +747,32 @@ def activity(config_name: str) -> None:
                     ]
 
                     # create table
-                    up.insert(0, dict(dbx_path='UPLOADING', status='STATUS'))
-                    up.append(dict(dbx_path='', status=''))
-                    down.insert(0, dict(dbx_path='DOWNLOADING', status='STATUS'))
+
+                    # insert dummy entries for title rows and spacers
+                    up.insert(0, dict(dbx_path='UPLOADING', status='STATUS', size=0, completed=0))
+                    up.append(dict(dbx_path='', status='', size=0, completed=0))
+                    down.insert(0, dict(dbx_path='DOWNLOADING', status='STATUS', size=0, completed=0))
 
                     file_names = []
                     states = []
                     col_len = 0
 
                     for entry in itertools.chain(up, down):
-                        filename = os.path.basename(entry['dbx_path'])
+
+                        dbx_path = cast(str, entry['dbx_path'])
+                        status = cast(str, entry['status'])
+                        size = cast(int, entry['size'])
+                        completed = cast(int, entry['completed'])
+
+                        filename = os.path.basename(dbx_path)
                         file_names.append(filename)
-                        states.append(entry['status'])
+
+                        if completed > 0:
+                            done_str = natural_size(completed, sep=False)
+                            todo_str = natural_size(size, sep=False)
+                            states.append(f'{done_str}/{todo_str}')
+                        else:
+                            states.append(status)
                         col_len = max(len(filename), col_len)
 
                     for fn, s in zip(file_names, states):  # create rows
