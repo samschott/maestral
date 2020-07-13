@@ -20,6 +20,10 @@
   command `maestral activity` now shows the progress of uploads and downloads for files
   larger than 5 MB.
 - Added a field "Sync threads" to the output of the CLI command `maestral status`.
+- The output of `maestral ls` is now printed in a grid, similar to the `ls` command
+  included in most platforms.
+- The macOS app bundle is now based on Python 3.8, leading to some performance
+  improvements when moving or copying file system trees.
 
 #### Fixed:
 
