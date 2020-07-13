@@ -808,6 +808,8 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
                                 include_deleted=include_deleted)
         entries.sort(key=lambda x: cast(str, x['name']).lower())
 
+    if long:
+
         names = []
         types = []
         sizes = []
@@ -815,52 +817,74 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
         last_modified = []
         excluded = []
 
-        if long:
-            to_short_type = {'FileMetadata': 'file', 'FolderMetadata': 'folder',
-                             'DeletedMetadata': 'deleted'}
+        to_short_type = {'FileMetadata': 'file', 'FolderMetadata': 'folder',
+                         'DeletedMetadata': 'deleted'}
 
-            for e in entries:
+        for e in entries:
 
-                long_type = cast(str, e['type'])
-                name = cast(str, e['name'])
-                path_lower = cast(str, e['path_lower'])
+            long_type = cast(str, e['type'])
+            name = cast(str, e['name'])
+            path_lower = cast(str, e['path_lower'])
 
-                types.append(to_short_type[long_type])
-                names.append(name)
+            types.append(to_short_type[long_type])
+            names.append(name)
 
-                shared.append('shared' if 'sharing_info' in e else 'private')
-                excluded.append(m.excluded_status(path_lower))
+            shared.append('shared' if 'sharing_info' in e else 'private')
+            excluded.append(m.excluded_status(path_lower))
 
-                if 'size' in e:
-                    size = cast(float, e['size'])
-                    sizes.append(natural_size(size))
-                else:
-                    sizes.append('-')
+            if 'size' in e:
+                size = cast(float, e['size'])
+                sizes.append(natural_size(size))
+            else:
+                sizes.append('-')
 
-                if 'client_modified' in e:
-                    cm = cast(str, e['client_modified'])
-                    dt = datetime.strptime(cm, '%Y-%m-%dT%H:%M:%SZ')
-                    dt = dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
-                    last_modified.append(dt.strftime('%d %b %Y %H:%M'))
-                else:
-                    last_modified.append('-')
+            if 'client_modified' in e:
+                cm = cast(str, e['client_modified'])
+                dt = datetime.strptime(cm, '%Y-%m-%dT%H:%M:%SZ')
+                dt = dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
+                last_modified.append(dt.strftime('%d %b %Y %H:%M'))
+            else:
+                last_modified.append('-')
 
-            click.echo('')
-            click.echo(
-                format_table(
-                    headers=['Name', 'Type', 'Size', 'Shared', 'Syncing', 'Last modified'],
-                    columns=[names, types, sizes, shared, excluded, last_modified],
-                    alignment=[LEFT, LEFT, RIGHT, LEFT, LEFT, LEFT],
-                    wrap=False
-                ),
-            )
-            click.echo('')
+        click.echo('')
+        click.echo(
+            format_table(
+                headers=['Name', 'Type', 'Size', 'Shared', 'Syncing', 'Last modified'],
+                columns=[names, types, sizes, shared, excluded, last_modified],
+                alignment=[LEFT, LEFT, RIGHT, LEFT, LEFT, LEFT],
+                wrap=False
+            ),
+        )
+        click.echo('')
 
-        else:
-            for e in entries:
-                name = cast(str, e['name'])
-                color = 'blue' if e['type'] == 'DeletedMetadata' else 'black'
-                click.secho(name, fg=color)
+    else:
+
+        from maestral.utils import chunks
+
+        names = []
+        colors = []
+        formatted_names = []
+        max_len = 0
+
+        for e in entries:
+            name = cast(str, e['name'])
+
+            max_len = max(max_len, len(name))
+            names.append(name)
+            colors.append('blue' if e['type'] == 'DeletedMetadata' else 'black')
+
+        max_len += 2  # add 2 spaces padding
+
+        for name, color in zip(names, colors):
+            formatted_names.append(click.style(name.ljust(max_len), fg=color))
+
+        width, height = click.get_terminal_size()
+        n_columns = max(width // max_len, 1)
+
+        rows = chunks(formatted_names, n_columns)
+
+        for row in rows:
+            click.echo(''.join(row))
 
 
 @main.command(help_priority=11)
