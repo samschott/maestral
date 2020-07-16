@@ -2,7 +2,7 @@
 from typing import List, Iterator, TypeVar
 
 
-_T = TypeVar('_T')
+_N = TypeVar('_N', float, int)
 
 
 def natural_size(num: float, unit: str = 'B', sep: bool = True) -> str:
@@ -37,5 +37,19 @@ def chunks(lst: List, n: int) -> Iterator[List]:
         yield lst[i:i + n]
 
 
-def clamp(n: _T, minn: _T, maxn: _T) -> _T:
-    return max(min(maxn, n), minn)
+def clamp(n: _N, minn: _N, maxn: _N) -> _N:
+    """
+    Clamps a number between a minimum and maximum value.
+
+    :param n: Original value.
+    :param minn: Minimum allowed value.
+    :param maxn: Maximum allowed value.
+    :returns: Clamped value.
+    """
+
+    if n > maxn:
+        return maxn
+    elif n < minn:
+        return minn
+    else:
+        return n
