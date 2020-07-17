@@ -706,7 +706,11 @@ class Maestral:
         uploading: List[Dict[str, Union[str, int]]] = []
         downloading: List[Dict[str, Union[str, int]]] = []
 
-        for path, item in self.monitor.uploading.items():
+        # get copy of dicts to prevent modification during iteration
+        uploading_dict = self.monitor.uploading.copy()
+        downloading_dict = self.monitor.downloading.copy()
+
+        for path, item in uploading_dict.items():
             path = path.replace(self.dropbox_path, '', 1)
             uploading.append(
                 dict(
@@ -717,7 +721,7 @@ class Maestral:
                 )
             )
 
-        for path, item in self.monitor.downloading.items():
+        for path, item in downloading_dict.items():
             path = path.replace(self.dropbox_path, '', 1)
             downloading.append(
                 dict(
