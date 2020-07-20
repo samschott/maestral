@@ -1634,15 +1634,16 @@ class SyncEngine:
             :class:`errors.SyncError` and ``None`` if cancelled.
         """
 
+        local_path_from = event.src_path
+        local_path_to = get_dest_path(event)
+
         if self.cancel_pending.is_set():
+            del self.uploading[local_path_to]
             return None
 
         self._slow_down()
 
         # housekeeping
-        local_path_from = event.src_path
-        local_path_to = get_dest_path(event)
-
         self.clear_sync_error(local_path=local_path_to)
         self.clear_sync_error(local_path=local_path_from)
 
@@ -2444,6 +2445,7 @@ class SyncEngine:
         """
 
         if self.cancel_pending.is_set():
+            del self.downloading[entry.path_display]
             return None
 
         self._slow_down()
