@@ -710,6 +710,7 @@ def file_status(local_path: str, config_name: str) -> None:
 
 @main.command(help_priority=9)
 @existing_config_option
+@catch_maestral_errors
 def activity(config_name: str) -> None:
     """Live view of all items being synced."""
 
