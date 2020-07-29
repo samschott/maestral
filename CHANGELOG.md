@@ -5,7 +5,8 @@ ls` is formatted in a grid and `maestral activity` now shows the progress of ind
 uploads on downloads. `maestral recent-changes` has been added to list recently changed
 files.
 
-This release also includes changes to the GUI in preparation for macOS 11 Big Sur.
+This release also includes bug fixes, performance improvements and first preparations
+for macOS 11 Big Sur.
 
 #### Added:
 
@@ -25,7 +26,7 @@ This release also includes changes to the GUI in preparation for macOS 11 Big Su
   and 'completed' entries to monitor the progress of syncing individual items.
 - The CLI command `maestral activity` now shows the progress of uploads and downloads for
   individual files.
-- Introduced type annotations throughout and fixes a few type-related bugs.
+- Introduced type annotations throughout and fixed a few type-related bugs.
 - Added a field "Sync threads" to the output of the CLI command `maestral status`.
 - The output of `maestral ls` is now printed in a grid, similar to the `ls` command
   included in most platforms.
