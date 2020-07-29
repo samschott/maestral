@@ -1,5 +1,12 @@
 ## v1.2.0.dev
 
+This release provides improvements to the command line interface: The output of `maestral
+ls` is formatted in a grid and `maestral activity` now shows the progress of individual
+uploads on downloads. `maestral recent-changes` has been added to list recently changed
+files.
+
+This release also includes changes to the GUI in preparation for macOS 11 Big Sur.
+
 #### Added:
 
 - Added an option `--external` to `maestral log show` to open the log in the platform's
@@ -14,16 +21,17 @@
 - Save modification times in "recent changes" list.
 - Performance improvements when saving "recent changes" list.
 - Changed return type of `Maestral.get_activity` from namedtuple to dict for better
-  consistency throughout the API.
-- Introduced type annotations and mypy type checking in CI for most modules.
-- Upload or download progress is no longer shown in the status field. Instead, the CLI
-  command `maestral activity` now shows the progress of uploads and downloads for files
-  larger than 5 MB.
+  consistency throughout the API. Every uploading or downloading item will have 'size'
+  and 'completed' entries to monitor the progress of syncing individual items.
+- The CLI command `maestral activity` now shows the progress of uploads and downloads for
+  individual files.
+- Introduced type annotations throughout and fixes a few type-related bugs.
 - Added a field "Sync threads" to the output of the CLI command `maestral status`.
 - The output of `maestral ls` is now printed in a grid, similar to the `ls` command
   included in most platforms.
 - The macOS app bundle is now based on Python 3.8, leading to some performance
   improvements when moving or copying file system trees.
+- Prepared the GUI for changes in macOS Big Sur.
 
 #### Fixed:
 
