@@ -28,7 +28,7 @@ from enum import IntEnum
 import pprint
 import socket
 from datetime import timezone
-from typing import Optional, Any, List, Dict, Tuple, Union, Iterator, Callable, Type
+from typing import Optional, Any, List, Dict, Tuple, Union, Iterator, Callable, Type, Literal
 from types import TracebackType
 
 # external imports
@@ -336,11 +336,29 @@ class PersistentStateMutableSet(abc.MutableSet):
 
 
 class SyncItem:
+    """
+    Represents a file or folder in the sync queue. This is used for user information only.
 
-    def __init__(self, obj: Union[FileSystemEvent, Metadata], direction: str,
-                 status: str = 'queued', size: int = 0) -> None:
+    :param dbx_path: Dropbox path of the item to sync. If the sync represents a move operation, this
+        will be the destination path.
+    :param direction: Direction of the sync. Must be 'upload' or 'download'.
+    :param status: Field containing the sync status for user information.
+    :param size: Size of the item in bytes. Zero for folders.
+    :param orig: Original FileSystemEvent or Dropbox Metadata.
 
-        self.obj = obj
+    :attr completed: File size which has already been uploaded or downloaded in bytes. Zero for
+        folders.
+    """
+
+    UP: Literal['upload'] = 'upload'
+    DOWN: Literal['download'] = 'download'
+
+    def __init__(self, dbx_path: str, direction: Literal['upload', 'download'],
+                 status: str = 'queued', size: int = 0,
+                 orig: Union[FileSystemEvent, Metadata, None] = None) -> None:
+
+        self.orig = orig
+        self.dbx_path = dbx_path
         self.direction = direction
         self.status = status
         self.size = size
@@ -1286,7 +1304,7 @@ class SyncEngine:
                 except OSError:
                     size = 0
 
-                si = SyncItem(e, direction='download', size=size)
+                si = SyncItem(self.to_dbx_path(local_path_to), direction=SyncItem.DOWN, size=size)
                 self.uploading[local_path_to] = si
 
             results = []
@@ -2141,7 +2159,7 @@ class SyncEngine:
             elif isinstance(e, DeletedMetadata):
                 deleted.append(e)
 
-            si = SyncItem(e, direction='upload', size=getattr(e, 'size', 0))
+            si = SyncItem(e.path_display, direction=SyncItem.UP, size=getattr(e, 'size', 0))
             self.downloading[e.path_display] = si
 
         # sort according to path hierarchy
@@ -2932,6 +2950,8 @@ class SyncMonitor:
         self.client = client
         self.config_name = self.client.config_name
 
+        self._conf = MaestralConfig(self.config_name)
+
         self.startup = Event()
         self.connected = Event()
         self.syncing = Event()
@@ -2947,19 +2967,22 @@ class SyncMonitor:
         self.sync = SyncEngine(self.client, self.fs_event_handler)
 
         self._startup_time = -1.0
-        self.reindex_interval = self.sync._conf.get('sync', 'reindex_interval')
 
     @property
-    def uploading(self) -> Dict[str, SyncItem]:
+    def reindex_interval(self) -> float:
+        return self._conf.get('sync', 'reindex_interval')
+
+    @property
+    def uploading(self) -> List[SyncItem]:
         """Returns a dict of all items currently uploading. Keys are absolute paths (str)
         on local drive."""
-        return self.sync.uploading
+        return list(self.sync.uploading.values())
 
     @property
-    def downloading(self) -> Dict[str, SyncItem]:
+    def downloading(self) -> List[SyncItem]:
         """Returns a dict of all items currently downloading. Keys are paths (str)
         relative to the Dropbox folder."""
-        return self.sync.downloading
+        return list(self.sync.downloading.values())
 
     def start(self) -> None:
         """Creates observer threads and starts syncing."""

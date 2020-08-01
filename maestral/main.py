@@ -706,26 +706,20 @@ class Maestral:
         uploading: List[Dict[str, Union[str, int]]] = []
         downloading: List[Dict[str, Union[str, int]]] = []
 
-        # get copy of dicts to prevent modification during iteration
-        uploading_dict = self.monitor.uploading.copy()
-        downloading_dict = self.monitor.downloading.copy()
-
-        for path, item in uploading_dict.items():
-            path = path.replace(self.dropbox_path, '', 1)
+        for item in self.monitor.uploading.copy():
             uploading.append(
                 dict(
-                    dbx_path=path,
+                    dbx_path=item.dbx_path,
                     status=item.status,
                     size=item.size,
                     completed=item.completed
                 )
             )
 
-        for path, item in downloading_dict.items():
-            path = path.replace(self.dropbox_path, '', 1)
+        for item in self.monitor.downloading.copy():
             downloading.append(
                 dict(
-                    dbx_path=path,
+                    dbx_path=item.dbx_path,
                     status=item.status,
                     size=item.size,
                     completed=item.completed
