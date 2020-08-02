@@ -28,7 +28,7 @@ from enum import IntEnum
 import pprint
 import socket
 from datetime import timezone
-from typing import Optional, Any, List, Dict, Tuple, Union, Iterator, Callable, Type, Literal
+from typing import Optional, Any, List, Dict, Tuple, Union, Iterator, Callable, Type
 from types import TracebackType
 
 # external imports
@@ -350,11 +350,10 @@ class SyncItem:
         folders.
     """
 
-    UP: Literal['upload'] = 'upload'
-    DOWN: Literal['download'] = 'download'
+    UP = 'upload'
+    DOWN = 'download'
 
-    def __init__(self, dbx_path: str, direction: Literal['upload', 'download'],
-                 status: str = 'queued', size: int = 0,
+    def __init__(self, dbx_path: str, direction: str, status: str = 'queued', size: int = 0,
                  orig: Union[FileSystemEvent, Metadata, None] = None) -> None:
 
         self.orig = orig
