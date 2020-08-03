@@ -42,14 +42,12 @@ logger = logging.getLogger(__name__)
 # platform dependent imports
 if platform.system() == 'Darwin':
 
-    from ctypes import cdll, util
     from rubicon.objc import ObjCClass  # type: ignore
+    from rubicon.objc.runtime import load_library
 
-    uns_path = util.find_library('UserNotifications')
+    uns = load_library('UserNotifications')
 
-    if uns_path:
-        uns = cdll.LoadLibrary(uns_path)
-
+    if uns:
         UNUserNotificationCenter = ObjCClass('UNUserNotificationCenter')
         UNMutableNotificationContent = ObjCClass('UNMutableNotificationContent')
         UNNotificationRequest = ObjCClass('UNNotificationRequest')
@@ -284,7 +282,7 @@ class DesktopNotifier:
     def _get_available_implementation() -> Optional[SupportedImplementations]:
         macos_version, *_ = platform.mac_ver()
 
-        if platform.system() == 'Darwin' and uns_path:
+        if platform.system() == 'Darwin' and uns:
 
             if (IS_MACOS_BUNDLE and Version(macos_version) >= Version('10.14.0')
                     and UNUserNotificationCenter.currentNotificationCenter()):
