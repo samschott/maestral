@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 if platform.system() == 'Darwin':
 
     from rubicon.objc import ObjCClass  # type: ignore
-    from rubicon.objc.runtime import load_library
+    from rubicon.objc.runtime import load_library  # type: ignore
 
     uns = load_library('UserNotifications')
 
