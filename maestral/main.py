@@ -1274,11 +1274,6 @@ class Maestral:
 
         updated_from = self.get_state('app', 'updated_scripts_completed')
 
-        # remove all non-dict entries from recent-changes
-        recent_changes = self.get_state('sync', 'recent_changes')
-        recent_changes = [c for c in recent_changes if isinstance(c, dict)]
-        self.set_state('sync', 'recent_changes', recent_changes)
-
         if Version(updated_from) >= Version(__version__):
             return
 
@@ -1286,7 +1281,13 @@ class Maestral:
         self.set_state('app', 'updated_scripts_completed', __version__)
 
     def _run_post_update_scripts(self) -> None:
-        pass
+        """
+        Scripts which should be run after an update. This will also run after a fresh
+        install and should therefore not assume that maestral was previously installed.
+        """
+        logger.debug('Running post-update script')
+        self.set_state('sync', 'recent_changes', [])  # clear recent-changes
+        logger.debug('Post-update: recent changes cleared')
 
     def _periodic_refresh(self) -> None:
         while True:
