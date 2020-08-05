@@ -887,7 +887,7 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 
             max_len = max(max_len, len(name))
             names.append(name)
-            colors.append('blue' if e['type'] == 'DeletedMetadata' else 'black')
+            colors.append('blue' if e['type'] == 'DeletedMetadata' else None)
 
         max_len += 2  # add 2 spaces padding
 
