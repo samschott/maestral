@@ -408,7 +408,7 @@ class SyncItem:
     :param direction: Direction of the sync: upload or 'download.
     :param change_type: The type of change: deleted, moved, added or changed.
     :param change_time: The time of the change: Local ctime or remote client_modified
-        time.
+        time for files. None for folders or for remote deletions.
     :param rev: File revision. Will only be set for remote changes. Will be 'folder'
         for folders and None for deletions.
     :param content_hash: Content hash. Will be 'folder' for folders and None for
@@ -1368,9 +1368,7 @@ class SyncEngine:
         if event.is_directory:
             item_type = ItemType.Folder
             size = 0
-            # FolderModifiedEvents will be ignored so this must be
-            # an added or deleted event
-            change_time = stat.st_birthtime if stat else None
+            change_time = None
         else:
             item_type = ItemType.File
             change_time = stat.st_ctime if stat else None
