@@ -703,8 +703,8 @@ class Maestral:
 
         self._check_linked()
 
-        uploading: List[Dict[str, Union[str, int]]] = []
-        downloading: List[Dict[str, Union[str, int]]] = []
+        uploading: List[StoneType] = []
+        downloading: List[StoneType] = []
 
         for item in self.monitor.uploading.copy():
             uploading.append(sync_item_to_dict(item))
@@ -714,7 +714,7 @@ class Maestral:
 
         return dict(uploading=uploading, downloading=downloading)
 
-    def get_account_info(self) -> Dict[str, Union[str, float, bool]]:
+    def get_account_info(self) -> StoneType:
         """
         Returns the account information from Dropbox and returns it as a dictionary.
 
@@ -730,7 +730,7 @@ class Maestral:
         res = self.client.get_account_info()
         return dropbox_stone_to_dict(res)
 
-    def get_space_usage(self) -> Dict[str, Union[str, float, bool]]:
+    def get_space_usage(self) -> StoneType:
         """
         Gets the space usage from Dropbox and returns it as a dictionary.
 
