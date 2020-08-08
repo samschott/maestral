@@ -2037,8 +2037,7 @@ class SyncEngine:
             # check if file already exists with identical content
             md_old = self.client.get_metadata(sync_item.dbx_path)
             if isinstance(md_old, FileMetadata):
-                local_hash = get_local_hash(sync_item.local_path)
-                if local_hash == md_old.content_hash:
+                if sync_item.content_hash == md_old.content_hash:
                     # file hashes are identical, do not upload
                     self.set_local_rev(md_old.path_lower, md_old.rev)
                     return None
