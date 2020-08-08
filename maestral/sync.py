@@ -55,7 +55,7 @@ from maestral.constants import (
 )
 from maestral.errors import (
     SyncError, RevFileError, NoDropboxDirError, CacheDirError,
-    PathError, NotFoundError, FileConflictError, FolderConflictError
+    PathError, NotFoundError, FileConflictError, FolderConflictError, IsAFolderError
 )
 from maestral.client import DropboxClient, os_to_maestral_error, fswatch_to_maestral_error
 from maestral.utils.content_hasher import DropboxContentHasher
@@ -1272,22 +1272,23 @@ class SyncEngine:
             # there is currently on API call to determine who deleted a file or folder
             change_type = ChangeType.Deleted
             change_time = None
-            change_dbid = None
             size = 0
             rev = None
             content_hash = None
 
-            old_md = self.client.list_revisions(md.path_lower, limit=1).entries[0]
-            if isinstance(old_md, FileMetadata):
+            try:
+                old_md = self.client.list_revisions(md.path_lower, limit=1).entries[0]
                 item_type = ItemType.File
                 if not old_md.sharing_info:
-                    # file is not a shared folder, therefore
+                    # file is not in a shared folder, therefore
                     # the current user must have deleted it
                     change_dbid = self._conf.get('account', 'account_id')
-            elif isinstance(old_md, FolderMetadata):
+                else:
+                    # we cannot determine who deleted the item
+                    change_dbid = None
+            except IsAFolderError:
                 item_type = ItemType.Folder
-            else:
-                raise RuntimeError(f'Cannot convert {md} to SyncItem')
+                change_dbid = None
 
         elif isinstance(md, FolderMetadata):
             # there is currently on API call to determine who added a folder
