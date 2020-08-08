@@ -28,7 +28,7 @@ from enum import Enum
 import pprint
 import socket
 from datetime import timezone
-from typing import Optional, Any, List, Dict, Tuple, Union, Iterator, Callable, Type
+from typing import Optional, Any, List, Dict, Tuple, Union, Iterator, Callable, Type, cast
 from types import TracebackType
 
 # external imports
@@ -434,7 +434,7 @@ class SyncItem:
                  direction: SyncDirection,
                  change_type: ChangeType,
                  change_time: Optional[float],
-                 change_dbid: str,
+                 change_dbid: Optional[str],
                  status: SyncStatus,
                  size: int,
                  orig: Union[FileSystemEvent, Metadata, None] = None) -> None:
@@ -570,6 +570,7 @@ class SyncEngine:
     queued_for_download: 'Queue[SyncItem]'
     uploading: 'Queue[SyncItem]'
     downloading: 'Queue[SyncItem]'
+    history: 'Queue[SyncItem]'
     _rev_dict_cache: Dict[str, str]
     _last_sync_for_path: Dict[str, float]
 
@@ -1312,7 +1313,7 @@ class SyncEngine:
             else:
                 # file is not a shared folder, therefore
                 # the current user must have added or modified it
-                change_dbid = self._conf.get('account', 'account_id')
+                change_dbid = cast(str, self._conf.get('account', 'account_id'))
         else:
             raise RuntimeError(f'Cannot convert {md} to SyncItem')
 
@@ -1356,6 +1357,9 @@ class SyncEngine:
         else:
             raise RuntimeError(f'Cannot convert {event} to SyncItem')
 
+        change_time: Optional[float]
+        stat: Optional[os.stat_result]
+
         try:
             stat = os.stat(to_path)
         except OSError:
@@ -1365,7 +1369,7 @@ class SyncEngine:
             item_type = ItemType.Folder
             size = 0
             # FolderModifiedEvents will be ignored so this must be
-            # an added added or deleted event
+            # an added or deleted event
             change_time = stat.st_birthtime if stat else None
         else:
             item_type = ItemType.File
@@ -1977,7 +1981,7 @@ class SyncEngine:
 
         md_to_new = self.client.move(sync_item.dbx_path_from, sync_item.dbx_path, autorename=True)
 
-        self.set_local_rev(sync_item.dbx_path_from, None)
+        self.set_local_rev(sync_item.dbx_path_from, None)  # type: ignore
 
         # handle remote conflicts
         if md_to_new.path_lower != sync_item.dbx_path.lower():
@@ -2349,7 +2353,7 @@ class SyncEngine:
         return sync_items, changes.cursor
 
     def apply_remote_changes(self, sync_items: List[SyncItem],
-                             cursor: Optional[str] = True) -> List[SyncItem]:
+                             cursor: Optional[str] = None) -> List[SyncItem]:
         """
         Applies remote changes to local folder. Call this on the result of
         :meth:`list_remote_changes`. The saved cursor is updated after a set of changes
@@ -2458,7 +2462,7 @@ class SyncEngine:
                 account_info = self.client.get_account_info(dbid)
                 user_name = account_info.name.display_name
         else:
-            user_name = None
+            user_name = ''
 
         if n_changed == 1:
             # display user name, file name, and type of change
