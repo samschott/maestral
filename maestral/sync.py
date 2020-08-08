@@ -1175,57 +1175,51 @@ class SyncEngine:
         now = time.time()
         snapshot = DirectorySnapshot(self.dropbox_path)
 
-        # remove root entry from snapshot
-        try:
-            del snapshot._inode_to_path[snapshot.inode(self.dropbox_path)]
-            del snapshot._stat_info[self.dropbox_path]
-        except KeyError:
-            pass
-
         # get lowercase paths
         lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
 
         # get modified or added items
         for path in snapshot.paths:
-            stats = snapshot.stat_info(path)
-            # check if item was created or modified since last sync
-            # but before we started the FileEventHandler (~now)
-            dbx_path = self.to_dbx_path(path).lower()
-            ctime_check = now > stats.st_ctime > self.get_last_sync_for_path(dbx_path)
+            if path != self.dropbox_path:
+                stats = snapshot.stat_info(path)
+                # check if item was created or modified since last sync
+                # but before we started the FileEventHandler (~now)
+                dbx_path = self.to_dbx_path(path).lower()
+                ctime_check = now > stats.st_ctime > self.get_last_sync_for_path(dbx_path)
 
-            # always upload untracked items, check ctime of tracked items
-            rev = self.get_local_rev(dbx_path)
-            is_new = not rev
-            is_modified = rev and ctime_check
+                # always upload untracked items, check ctime of tracked items
+                rev = self.get_local_rev(dbx_path)
+                is_new = not rev
+                is_modified = rev and ctime_check
 
-            if is_new:
-                if snapshot.isdir(path):
-                    event = DirCreatedEvent(path)
-                else:
-                    event = FileCreatedEvent(path)
-                changes.append(event)
-            elif is_modified:
-                if snapshot.isdir(path) and rev == 'folder':
-                    event = DirModifiedEvent(path)
+                if is_new:
+                    if snapshot.isdir(path):
+                        event = DirCreatedEvent(path)
+                    else:
+                        event = FileCreatedEvent(path)
                     changes.append(event)
-                elif not snapshot.isdir(path) and rev != 'folder':
-                    event = FileModifiedEvent(path)
-                    changes.append(event)
-                elif snapshot.isdir(path):
-                    event0 = FileDeletedEvent(path)
-                    event1 = DirCreatedEvent(path)
-                    changes += [event0, event1]
-                elif not snapshot.isdir(path):
-                    event0 = DirDeletedEvent(path)
-                    event1 = FileCreatedEvent(path)
-                    changes += [event0, event1]
+                elif is_modified:
+                    if snapshot.isdir(path) and rev == 'folder':
+                        event = DirModifiedEvent(path)
+                        changes.append(event)
+                    elif not snapshot.isdir(path) and rev != 'folder':
+                        event = FileModifiedEvent(path)
+                        changes.append(event)
+                    elif snapshot.isdir(path):
+                        event0 = FileDeletedEvent(path)
+                        event1 = DirCreatedEvent(path)
+                        changes += [event0, event1]
+                    elif not snapshot.isdir(path):
+                        event0 = DirDeletedEvent(path)
+                        event1 = FileCreatedEvent(path)
+                        changes += [event0, event1]
 
         # get deleted items
         rev_dict_copy = self.get_rev_index()
         for path in rev_dict_copy:
-            # warning: local_path may not be correctly cased
-            local_path = self.to_local_path(path)
-            if local_path.lower() not in lowercase_snapshot_paths:
+            local_path_uncased = (self.dropbox_path + path).lower()
+            if local_path_uncased not in lowercase_snapshot_paths:
+                local_path = self.to_local_path(path)
                 if rev_dict_copy[path] == 'folder':
                     event = DirDeletedEvent(local_path)
                 else:
