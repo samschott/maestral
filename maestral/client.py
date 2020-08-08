@@ -365,13 +365,11 @@ class DropboxClient:
         chunksize = 2 ** 16
         size_str = natural_size(md.size)
 
-        downloaded = 0
-
         with open(local_path, 'wb') as f:
             with contextlib.closing(http_resp):
                 for c in http_resp.iter_content(chunksize):
                     f.write(c)
-                    downloaded += chunksize
+                    downloaded = f.tell()
                     logger.debug('Downloading %s: %s/%s', dbx_path,
                                  natural_size(downloaded), size_str)
                     if sync_item:
