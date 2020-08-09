@@ -3511,6 +3511,9 @@ def get_local_hash(local_path: str, chunk_size: int = 1024) -> Optional[str]:
         return 'folder'
     except FileNotFoundError:
         return None
+    except NotADirectoryError:
+        # a parent directory in the path refers to a file instead of a folder
+        return None
     except OSError as err:
         raise os_to_maestral_error(err, local_path=local_path)
     finally:
