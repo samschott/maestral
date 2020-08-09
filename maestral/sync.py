@@ -2557,6 +2557,9 @@ class SyncEngine:
                 logger.debug('Equal content hashes for "%s": no conflict', sync_item.dbx_path)
                 self.set_local_rev(sync_item.dbx_path, sync_item.rev)
                 return Conflict.Identical
+            elif any(is_equal_or_child(p, sync_item.dbx_path) for p in self.upload_errors):
+                logger.debug('Unresolved upload error for "%s": conflict', sync_item.dbx_path)
+                return Conflict.Conflict
             elif self._get_ctime(sync_item.local_path) <= self.get_last_sync_for_path(sync_item.dbx_path):
                 logger.debug('Ctime is older than last sync for "%s": remote item '
                              'is newer', sync_item.dbx_path)
