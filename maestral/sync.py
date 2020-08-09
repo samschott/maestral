@@ -2214,7 +2214,10 @@ class SyncEngine:
         # remove revision metadata
         self.set_local_rev(sync_item.dbx_path, None)
 
-        return self.sync_item_from_dbx_metadata(md_deleted)
+        if md_deleted:
+            return self.sync_item_from_dbx_metadata(md_deleted)
+        else:
+            return None
 
     # ==== Download sync =================================================================
 
