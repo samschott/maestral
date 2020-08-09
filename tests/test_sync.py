@@ -11,6 +11,7 @@ import time
 import shutil
 from pathlib import Path
 from threading import Event
+import logging
 import timeit
 from dropbox.files import WriteMode
 from maestral.sync import (
@@ -384,6 +385,7 @@ class TestSync(TestCase):
         cls.resources = osp.dirname(__file__) + '/resources'
 
         cls.m = Maestral('test-config')
+        cls.m.log_level = logging.DEBUG
         cls.m._auth._account_id = os.environ.get('DROPBOX_ID', '')
         cls.m._auth._access_token = os.environ.get('DROPBOX_TOKEN', '')
         cls.m._auth._loaded = True
@@ -780,7 +782,6 @@ class TestSync(TestCase):
         # test deleting remote tree
 
         self.m.client.remove(self.test_folder_dbx + '/nested_folder')
-
         self.wait_for_idle(10)
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
