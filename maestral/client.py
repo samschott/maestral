@@ -1255,6 +1255,10 @@ def _get_write_error_msg(write_error: files.WriteError) -> Tuple[str, WriteError
             text = ('Could not write to the target path because another folder '
                     'was in the way.')
             err_cls = FolderConflictError
+        elif conflict.is_file_ancestor():
+            text = ('Could not create parent folders because another file '
+                    'was in the way.')
+            err_cls = FileConflictError
         else:
             text = ('Could not write to the target path because another file or '
                     'folder was in the way.')
