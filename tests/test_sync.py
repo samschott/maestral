@@ -30,11 +30,21 @@ import unittest
 from unittest import TestCase
 
 
+class DummyConf:
+
+    def get(self, section, name):
+        return 'dummy'
+
+    def ser(self, section, name, value):
+        pass
+
+
 class DummySyncEngine(SyncEngine):
 
     def __init__(self, dropbox_path='', fs_events=None):
         self._dropbox_path = dropbox_path
         self.fs_events = fs_events
+        self._conf = DummyConf()
 
     def _should_split_excluded(self, event):
         return False
@@ -298,7 +308,7 @@ class TestIgnoreLocalEvents(TestCase):
         syncing.set()
 
         self.fs_event_handler = FSEventHandler(syncing, startup)
-        self.sync = DummySyncEngine(self.dummy_dir, self.fs_event_handler)
+        self.sync = DummySyncEngine(str(self.dummy_dir), self.fs_event_handler)
 
         self.observer = Observer()
         self.observer.schedule(self.fs_event_handler, str(self.dummy_dir), recursive=True)
@@ -309,11 +319,12 @@ class TestIgnoreLocalEvents(TestCase):
         new_dir = self.dummy_dir / 'parent'
         new_dir.mkdir()
 
-        changes, local_cursor = self.sync.wait_for_local_changes()
+        sync_items, local_cursor = self.sync.wait_for_local_changes()
+        detected_events = [si.orig for si in sync_items]
 
-        expected_event_list = [DirCreatedEvent(str(new_dir))]
+        expected_events = [DirCreatedEvent(str(new_dir))]
 
-        self.assertEqual(changes, expected_event_list)
+        self.assertEqual(detected_events, expected_events)
 
     def test_ignore_tree_creation(self):
 
@@ -325,8 +336,8 @@ class TestIgnoreLocalEvents(TestCase):
                 file = new_dir / f'test_{i}'
                 file.touch()
 
-        changes, local_cursor = self.sync.wait_for_local_changes()
-        self.assertEqual(len(changes), 0)
+        sync_items, local_cursor = self.sync.wait_for_local_changes()
+        self.assertEqual(len(sync_items), 0)
 
     def test_ignore_tree_move(self):
 
@@ -344,8 +355,8 @@ class TestIgnoreLocalEvents(TestCase):
         with self.fs_event_handler.ignore(DirMovedEvent(str(new_dir), str(new_dir_1))):
             move(new_dir, new_dir_1)
 
-        changes, local_cursor = self.sync.wait_for_local_changes()
-        self.assertEqual(len(changes), 0)
+        sync_items, local_cursor = self.sync.wait_for_local_changes()
+        self.assertEqual(len(sync_items), 0)
 
     def test_catching_non_ignored_events(self):
 
@@ -358,8 +369,8 @@ class TestIgnoreLocalEvents(TestCase):
                 file = new_dir / f'test_{i}'
                 file.touch()
 
-        changes, local_cursor = self.sync.wait_for_local_changes()
-        self.assertTrue(all(not c.is_directory for c in changes))
+        sync_items, local_cursor = self.sync.wait_for_local_changes()
+        self.assertTrue(all(not si.is_directory for si in sync_items))
 
     def tearDown(self):
 
