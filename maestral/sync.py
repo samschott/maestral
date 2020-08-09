@@ -2384,12 +2384,12 @@ class SyncEngine:
         # filter out excluded changes
         changes_included, changes_excluded = self._filter_excluded_changes_remote(sync_items)
 
-        # remove all deleted items from the excluded list
-        for sync_item in changes_included:
-            if sync_item.is_deleted:
-                new_excluded = [item for item in self.excluded_items
-                                if not is_equal_or_child(item, sync_item.dbx_path)]
-                self.excluded_items = new_excluded
+        # remove deleted item and its children from the excluded list
+        for si in changes_excluded:
+            new_excluded = [path for path in self.excluded_items
+                            if not is_equal_or_child(path, si.dbx_path.lower())]
+
+            self.excluded_items = new_excluded
 
         # sort changes into folders, files and deleted
         folders: List[SyncItem] = []
@@ -2569,7 +2569,7 @@ class SyncEngine:
                 logger.debug('Equal content hashes for "%s": no conflict', sync_item.dbx_path)
                 self.set_local_rev(sync_item.dbx_path, sync_item.rev)
                 return Conflict.Identical
-            elif any(is_equal_or_child(p, sync_item.dbx_path) for p in self.upload_errors):
+            elif any(is_equal_or_child(p, sync_item.dbx_path.lower()) for p in self.upload_errors):
                 logger.debug('Unresolved upload error for "%s": conflict', sync_item.dbx_path)
                 return Conflict.Conflict
             elif self._get_ctime(sync_item.local_path) <= self.get_last_sync_for_path(sync_item.dbx_path):
