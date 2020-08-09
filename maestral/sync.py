@@ -1529,65 +1529,66 @@ class SyncEngine:
 
         with self.sync_lock:
 
-            sync_items, _ = self._filter_excluded_changes_local(sync_items)
-
-            deleted: List[SyncItem] = []
-            dir_moved: List[SyncItem] = []
-            other: List[SyncItem] = []  # file created + moved, dir created
-
-            for sync_item in sync_items:
-                if sync_item.is_deleted:
-                    deleted.append(sync_item)
-                elif sync_item.is_directory and sync_item.is_moved:
-                    dir_moved.append(sync_item)
-                else:
-                    other.append(sync_item)
-
-                # housekeeping
-                self.queued_for_upload.put(sync_item)
-
             results = []
 
-            # apply deleted events first, folder moved events second
-            # neither event type requires an actual upload
-            if deleted:
-                logger.info('Uploading deletions...')
+            if len(sync_items) > 0:
 
-            with ThreadPoolExecutor(max_workers=self._num_threads,
-                                    thread_name_prefix='maestral-upload-pool') as executor:
-                fs = (executor.submit(self._create_remote_entry, e)
-                      for e in deleted)
+                sync_items, _ = self._filter_excluded_changes_local(sync_items)
 
-                n_items = len(deleted)
-                for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                    throttled_log(logger, f'Deleting {n}/{n_items}...')
-                    results.append(f.result())
+                deleted: List[SyncItem] = []
+                dir_moved: List[SyncItem] = []
+                other: List[SyncItem] = []  # file created + moved, dir created
 
-            if dir_moved:
-                logger.info('Moving folders...')
+                for sync_item in sync_items:
+                    if sync_item.is_deleted:
+                        deleted.append(sync_item)
+                    elif sync_item.is_directory and sync_item.is_moved:
+                        dir_moved.append(sync_item)
+                    else:
+                        other.append(sync_item)
 
-            for sync_item in dir_moved:
-                logger.info(f'Moving {sync_item.local_path_from}...')
-                res = self._create_remote_entry(sync_item)
-                results.append(res)
+                    # housekeeping
+                    self.queued_for_upload.put(sync_item)
 
-            # apply file created events in parallel since order does not matter
-            with ThreadPoolExecutor(max_workers=self._num_threads,
-                                    thread_name_prefix='maestral-upload-pool') as executor:
-                fs = (executor.submit(self._create_remote_entry, e) for e in other)
+                # apply deleted events first, folder moved events second
+                # neither event type requires an actual upload
+                if deleted:
+                    logger.info('Uploading deletions...')
 
-                n_items = len(other)
-                for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                    throttled_log(logger, f'Uploading {n}/{n_items}...')
-                    results.append(f.result())
+                with ThreadPoolExecutor(max_workers=self._num_threads,
+                                        thread_name_prefix='maestral-upload-pool') as executor:
+                    fs = (executor.submit(self._create_remote_entry, e)
+                          for e in deleted)
 
-            # housekeeping
+                    n_items = len(deleted)
+                    for f, n in zip(as_completed(fs), range(1, n_items + 1)):
+                        throttled_log(logger, f'Deleting {n}/{n_items}...')
+                        results.append(f.result())
+
+                if dir_moved:
+                    logger.info('Moving folders...')
+
+                for sync_item in dir_moved:
+                    logger.info(f'Moving {sync_item.local_path_from}...')
+                    res = self._create_remote_entry(sync_item)
+                    results.append(res)
+
+                # apply file created events in parallel since order does not matter
+                with ThreadPoolExecutor(max_workers=self._num_threads,
+                                        thread_name_prefix='maestral-upload-pool') as executor:
+                    fs = (executor.submit(self._create_remote_entry, e) for e in other)
+
+                    n_items = len(other)
+                    for f, n in zip(as_completed(fs), range(1, n_items + 1)):
+                        throttled_log(logger, f'Uploading {n}/{n_items}...')
+                        results.append(f.result())
+
+                self._clean_and_save_rev_file()
+
             if not self.cancel_pending.is_set():
                 # always save local cursor if not aborted by user,
                 # failed uploads will be tracked and retried individually
                 self.last_sync = local_cursor
-
-            self._clean_and_save_rev_file()
 
             return results
 
@@ -2263,7 +2264,6 @@ class SyncEngine:
                 return []
 
             # download top-level folders / files first
-            logger.info(SYNCING)
             sync_items = [self.sync_item_from_dbx_metadata(md) for md in root_result.entries]
             res = self.apply_remote_changes(sync_items, cursor=None)
             results.extend(res)
@@ -2354,7 +2354,7 @@ class SyncEngine:
         return sync_items, changes.cursor
 
     def apply_remote_changes(self, sync_items: List[SyncItem],
-                             cursor: Optional[str] = None) -> List[SyncItem]:
+                             cursor: Optional[str]) -> List[SyncItem]:
         """
         Applies remote changes to local folder. Call this on the result of
         :meth:`list_remote_changes`. The saved cursor is updated after a set of changes
@@ -2363,7 +2363,8 @@ class SyncEngine:
 
         :param sync_items: List of remote changes.
         :param cursor: Remote cursor corresponding to changes. Take care to only pass
-            cursors which represent the state of the entire Dropbox.
+            cursors which represent the state of the entire Dropbox. Pass None instead
+            if you are only downloading a subset of changes.
         :returns: List of changes that were made to local files and bool indicating if all
             download syncs were successful.
         """
@@ -3081,12 +3082,13 @@ def upload_worker(sync: SyncEngine, syncing: Event,
                 if not (running.is_set() and syncing.is_set()):
                     continue
 
-                if len(events) > 0:
-                    logger.info(SYNCING)
-                    sync.apply_local_changes(events, local_cursor)
-                    logger.info(IDLE)
+                if len(events) > 0: logger.info(SYNCING)
 
-                    gc.collect()
+                sync.apply_local_changes(events, local_cursor)
+
+                if len(events) > 0: logger.info(IDLE)
+
+                gc.collect()
 
         except ConnectionError:
             syncing.clear()
