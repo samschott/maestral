@@ -391,7 +391,7 @@ class PersistentStateMutableSet(abc.MutableSet):
 
 class SyncItem:
     """
-    Represents a file or folder in the sync queue. This is used for user information only.
+    Represents a file or folder change in the sync queue.
 
     :param dbx_path: Dropbox path of the item to sync. If the sync represents a move
         operation, this will be the destination path. Path may not be correctly cased
@@ -456,36 +456,48 @@ class SyncItem:
         self.completed = 0
 
     @property
-    def is_file(self):
+    def is_file(self) -> bool:
+        """Returns True for file changes"""
         return self.item_type == ItemType.File
 
     @property
-    def is_directory(self):
+    def is_directory(self) -> bool:
+        """Returns True for folder changes"""
         return self.item_type == ItemType.Folder
 
     @property
-    def is_added(self):
+    def is_added(self) -> bool:
+        """Returns True for added items"""
         return self.change_type == ChangeType.Added
 
     @property
-    def is_moved(self):
+    def is_moved(self) -> bool:
+        """Returns True for moved items"""
         return self.change_type == ChangeType.Moved
 
     @property
-    def is_changed(self):
+    def is_changed(self) -> bool:
+        """Returns True for changed file contents"""
         return self.change_type == ChangeType.Changed
 
     @property
-    def is_deleted(self):
+    def is_deleted(self) -> bool:
+        """Returns True for deleted items"""
         return self.change_type == ChangeType.Deleted
 
     @property
-    def is_upload(self):
+    def is_upload(self) -> bool:
+        """Returns True for changes to upload"""
         return self.direction == SyncDirection.Up
 
     @property
-    def is_download(self):
+    def is_download(self) -> bool:
+        """Returns True for changes to download"""
         return self.direction == SyncDirection.Down
+
+    def __repr__(self):
+        return f'<SyncItem(direction={self.direction.name}, ' \
+               f'change_type={self.change_type.name}, dbx_path="{self.dbx_path}")>'
 
 
 class SyncEngine:
