@@ -3012,8 +3012,8 @@ def download_worker(sync: SyncEngine, syncing: Event,
                 if has_changes:
                     logger.info(SYNCING)
 
-                    changes, cursor = sync.list_remote_changes(sync.last_cursor)
-                    downloaded = sync.apply_remote_changes(changes, cursor)
+                    changes, remote_cursor = sync.list_remote_changes(sync.last_cursor)
+                    downloaded = sync.apply_remote_changes(changes, remote_cursor)
                     sync.notify_user(downloaded)
 
                     logger.info(IDLE)
@@ -3091,17 +3091,19 @@ def upload_worker(sync: SyncEngine, syncing: Event,
         syncing.wait()
 
         try:
-            events, local_cursor = sync.wait_for_local_changes()
+            changes, local_cursor = sync.wait_for_local_changes()
 
             with sync.sync_lock:
                 if not (running.is_set() and syncing.is_set()):
                     continue
 
-                if len(events) > 0: logger.info(SYNCING)
+                if len(changes) > 0:
+                    logger.info(SYNCING)
 
-                sync.apply_local_changes(events, local_cursor)
+                sync.apply_local_changes(changes, local_cursor)
 
-                if len(events) > 0: logger.info(IDLE)
+                if len(changes) > 0:
+                    logger.info(IDLE)
 
                 gc.collect()
 
@@ -3174,8 +3176,8 @@ def startup_worker(sync: SyncEngine, syncing: Event, running: Event, connected: 
                 sync.upload_local_changes_while_inactive()
 
                 # enforce immediate check for remote changes
-                changes, cursor = sync.list_remote_changes(sync.last_cursor)
-                downloaded = sync.apply_remote_changes(changes, cursor)
+                changes, remote_cursor = sync.list_remote_changes(sync.last_cursor)
+                downloaded = sync.apply_remote_changes(changes, remote_cursor)
                 sync.notify_user(downloaded)
 
                 if not running.is_set():
