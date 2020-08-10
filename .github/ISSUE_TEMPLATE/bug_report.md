@@ -7,13 +7,13 @@ assignees: ''
 ---
 
 **Describe the bug**
-A clear and concise description of what the bug is.
+<!--- A clear and concise description of what the bug is. --->
 
 **To Reproduce**
-Steps to reproduce the behaviour.
+<!--- Steps to reproduce the behaviour. --->
 
 **Expected behaviour**
-A clear and concise description of what you expected to happen.
+<!--- A clear and concise description of what you expected to happen. --->
 
 **System (please complete the following information):**
  - Maestral version:
@@ -22,4 +22,4 @@ A clear and concise description of what you expected to happen.
  - Qt version:
 
 **Additional context**
-Add any other context about the problem here.
+<!--- Add any other context about the problem here. --->
