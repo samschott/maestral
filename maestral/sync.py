@@ -396,7 +396,7 @@ class PersistentStateMutableSet(abc.MutableSet):
                f'option=\'{self.option}\', entries={list(self)})>'
 
 
-class SyncItem(Base):
+class SyncEvent(Base):
     """
     Represents a file or folder change in the sync queue. This is used to abstract the
     :class:`watchdog.events.FileSystemEvent`s created for local changes and the
@@ -406,9 +406,9 @@ class SyncItem(Base):
     :attr:`local_path` will depend on the current path of the local Dropbox folder. They
     may therefore become invalid after sync sessions.
 
-    The convenience methods :meth:`SyncEngine.sync_item_from_dbx_metadata` and
-    :meth:`SyncEngine.sync_item_from_file_system_event` should be used to properly
-    construct a SyncItem from Dropbox Metadata or a local FileSystemEvent, respectively.
+    The convenience methods :meth:`SyncEngine.sync_event_from_dbx_metadata` and
+    :meth:`SyncEngine.sync_event_from_file_system_event` should be used to properly
+    construct a SyncEvent from Dropbox Metadata or a local FileSystemEvent, respectively.
 
     :param dbx_path: Dropbox path of the item to sync. If the sync represents a move
         operation, this will be the destination path. The path does not need to be
@@ -535,7 +535,7 @@ class SyncItem(Base):
         return self.direction == SyncDirection.Down
 
     def __repr__(self):
-        return f"<SyncItem(direction={self.direction.name}, " \
+        return f"<{self.__class__.__name__}(direction={self.direction.name}, " \
                f"change_type={self.change_type.name}, dbx_path='{self.dbx_path}')>"
 
 
@@ -617,11 +617,11 @@ class SyncEngine:
     """
 
     sync_errors: 'Queue[SyncError]'
-    queued_for_upload: 'Queue[SyncItem]'
-    queued_for_download: 'Queue[SyncItem]'
-    uploading: 'Queue[SyncItem]'
-    downloading: 'Queue[SyncItem]'
-    history: 'Queue[SyncItem]'
+    queued_for_upload: 'Queue[SyncEvent]'
+    queued_for_download: 'Queue[SyncEvent]'
+    uploading: 'Queue[SyncEvent]'
+    downloading: 'Queue[SyncEvent]'
+    history: 'Queue[SyncEvent]'
     _rev_dict_cache: Dict[str, str]
     _last_sync_for_path: Dict[str, float]
 
@@ -854,7 +854,7 @@ class SyncEngine:
 
     @property
     def history(self):
-        return self._db_session.query(SyncItem).order_by(SyncItem.change_time).all()
+        return self._db_session.query(SyncEvent).order_by(SyncEvent.change_time).all()
 
     # ==== rev file management ===========================================================
 
@@ -1267,18 +1267,18 @@ class SyncEngine:
 
         return any(is_equal_or_child(dbx_path, path) for path in self.excluded_items)
 
-    def is_mignore(self, sync_item: SyncItem) -> bool:
+    def is_mignore(self, sync_event: SyncEvent) -> bool:
         """
         Check if local file change has been excluded by an mignore pattern.
 
-        :param sync_item: SyncItem for local file event.
+        :param sync_event: SyncEvent for local file event.
         :returns: Whether the path is excluded from upload syncing by the user.
         """
         if len(self.mignore_rules.patterns) == 0:
             return False
 
-        return (self._is_mignore_path(sync_item.dbx_path, is_dir=sync_item.is_directory)
-                and not self.get_local_rev(sync_item.dbx_path))
+        return (self._is_mignore_path(sync_event.dbx_path, is_dir=sync_event.is_directory)
+                and not self.get_local_rev(sync_event.dbx_path))
 
     def _is_mignore_path(self, dbx_path: str, is_dir: bool = False) -> bool:
 
@@ -1338,9 +1338,9 @@ class SyncEngine:
             elif direction == SyncDirection.Up:
                 self.upload_errors.add(err.dbx_path.lower())
 
-    def sync_item_from_dbx_metadata(self, md: Metadata) -> SyncItem:
+    def sync_event_from_dbx_metadata(self, md: Metadata) -> SyncEvent:
         """
-        Initializes a SyncItem from the given Dropbox metadata.
+        Initializes a SyncEvent from the given Dropbox metadata.
 
         :param md: Dropbox metadata.
         """
@@ -1392,9 +1392,9 @@ class SyncEngine:
                 # the current user must have added or modified it
                 change_dbid = cast(str, self._conf.get('account', 'account_id'))
         else:
-            raise RuntimeError(f'Cannot convert {md} to SyncItem')
+            raise RuntimeError(f'Cannot convert {md} to SyncEvent')
 
-        return SyncItem(
+        return SyncEvent(
             dbx_path=md.path_display,
             local_path=self.to_local_path(md.path_display),
             dbx_path_from=None,
@@ -1411,9 +1411,9 @@ class SyncEngine:
             orig=md,
         )
 
-    def sync_item_from_file_system_event(self, event: FileSystemEvent) -> SyncItem:
+    def sync_event_from_file_system_event(self, event: FileSystemEvent) -> SyncEvent:
         """
-        Initializes a SyncItem from the given local file system event.
+        Initializes a SyncEvent from the given local file system event.
 
         :param event: Local file system event.
         """
@@ -1432,7 +1432,7 @@ class SyncEngine:
         elif event.event_type == EVENT_TYPE_MODIFIED:
             change_type = ChangeType.Changed
         else:
-            raise RuntimeError(f'Cannot convert {event} to SyncItem')
+            raise RuntimeError(f'Cannot convert {event} to SyncEvent')
 
         change_time: Optional[float]
         stat: Optional[os.stat_result]
@@ -1451,7 +1451,7 @@ class SyncEngine:
             change_time = stat.st_ctime if stat else None
             size = stat.st_size if stat else 0
 
-        return SyncItem(
+        return SyncEvent(
             dbx_path=self.to_dbx_path(to_path),
             local_path=to_path,
             dbx_path_from=self.to_dbx_path(from_path) if from_path else None,
@@ -1484,13 +1484,13 @@ class SyncEngine:
                 events, local_cursor = self._get_local_changes_while_inactive()
                 logger.debug('Retrieved local changes:\n%s', pprint.pformat(events))
                 events = self._clean_local_events(events)
-                sync_items = [self.sync_item_from_file_system_event(e) for e in events]
+                sync_events = [self.sync_event_from_file_system_event(e) for e in events]
             except FileNotFoundError:
                 self.ensure_dropbox_folder_present()
                 return
 
             if len(events) > 0:
-                self.apply_local_changes(sync_items, local_cursor)
+                self.apply_local_changes(sync_events, local_cursor)
                 logger.debug('Uploaded local changes while inactive')
             else:
                 self.last_sync = local_cursor
@@ -1559,7 +1559,7 @@ class SyncEngine:
         return changes, now
 
     def wait_for_local_changes(self, timeout: float = 5,
-                               delay: float = 1) -> Tuple[List[SyncItem], float]:
+                               delay: float = 1) -> Tuple[List[SyncEvent], float]:
         """
         Waits for local file changes. Returns a list of local changes with at most one
         entry per path.
@@ -1590,16 +1590,16 @@ class SyncEngine:
         logger.debug('Retrieved local file events:\n%s', pprint.pformat(events))
 
         events = self._clean_local_events(events)
-        sync_items = [self.sync_item_from_file_system_event(e) for e in events]
+        sync_events = [self.sync_event_from_file_system_event(e) for e in events]
 
-        return sync_items, local_cursor
+        return sync_events, local_cursor
 
-    def apply_local_changes(self, sync_items: List[SyncItem],
-                            local_cursor: float) -> List[SyncItem]:
+    def apply_local_changes(self, sync_events: List[SyncEvent],
+                            local_cursor: float) -> List[SyncEvent]:
         """
         Applies locally detected changes to the remote Dropbox.
 
-        :param sync_items: List of local file system events.
+        :param sync_events: List of local file system events.
         :param local_cursor: Time stamp of last event in ``events``.
         """
 
@@ -1607,24 +1607,24 @@ class SyncEngine:
 
             results = []
 
-            if len(sync_items) > 0:
+            if len(sync_events) > 0:
 
-                sync_items, _ = self._filter_excluded_changes_local(sync_items)
+                sync_events, _ = self._filter_excluded_changes_local(sync_events)
 
-                deleted: List[SyncItem] = []
-                dir_moved: List[SyncItem] = []
-                other: List[SyncItem] = []  # file created + moved, dir created
+                deleted: List[SyncEvent] = []
+                dir_moved: List[SyncEvent] = []
+                other: List[SyncEvent] = []  # file created + moved, dir created
 
-                for sync_item in sync_items:
-                    if sync_item.is_deleted:
-                        deleted.append(sync_item)
-                    elif sync_item.is_directory and sync_item.is_moved:
-                        dir_moved.append(sync_item)
+                for sync_event in sync_events:
+                    if sync_event.is_deleted:
+                        deleted.append(sync_event)
+                    elif sync_event.is_directory and sync_event.is_moved:
+                        dir_moved.append(sync_event)
                     else:
-                        other.append(sync_item)
+                        other.append(sync_event)
 
                     # housekeeping
-                    self.queued_for_upload.put(sync_item)
+                    self.queued_for_upload.put(sync_event)
 
                 # apply deleted events first, folder moved events second
                 # neither event type requires an actual upload
@@ -1644,9 +1644,9 @@ class SyncEngine:
                 if dir_moved:
                     logger.info('Moving folders...')
 
-                for sync_item in dir_moved:
-                    logger.info(f'Moving {sync_item.local_path_from}...')
-                    res = self._create_remote_entry(sync_item)
+                for sync_event in dir_moved:
+                    logger.info(f'Moving {sync_event.local_path_from}...')
+                    res = self._create_remote_entry(sync_event)
                     results.append(res)
 
                 # apply file created events in parallel since order does not matter
@@ -1668,8 +1668,8 @@ class SyncEngine:
 
             return results
 
-    def _filter_excluded_changes_local(self, events: List[SyncItem]) \
-            -> Tuple[List[SyncItem], List[SyncItem]]:
+    def _filter_excluded_changes_local(self, events: List[SyncEvent]) \
+            -> Tuple[List[SyncEvent], List[SyncEvent]]:
         """
         Checks for and removes file events referring to items which are excluded from
         syncing.
@@ -1885,7 +1885,7 @@ class SyncEngine:
         return (self._is_mignore_path(dbx_src_path, event.is_directory)
                 or self._is_mignore_path(dbx_dest_path, event.is_directory))
 
-    def _handle_case_conflict(self, si: SyncItem) -> bool:
+    def _handle_case_conflict(self, si: SyncEvent) -> bool:
         """
         Checks for other items in the same directory with same name but a different
         case. Renames items if necessary. Only needed for case sensitive file systems.
@@ -1922,7 +1922,7 @@ class SyncEngine:
         else:
             return False
 
-    def _handle_selective_sync_conflict(self, si: SyncItem) -> bool:
+    def _handle_selective_sync_conflict(self, si: SyncEvent) -> bool:
         """
         Checks for items in the local directory with same path as an item which is
         excluded by selective sync. Renames items if necessary.
@@ -1953,56 +1953,56 @@ class SyncEngine:
         else:
             return False
 
-    def _create_remote_entry(self, sync_item: SyncItem) -> SyncItem:
+    def _create_remote_entry(self, sync_event: SyncEvent) -> SyncEvent:
         """
         Applies a local file system event to the remote Dropbox and clears any existing
         sync errors belonging to that path. Any :class:`errors.SyncError` will be caught
         and logged as appropriate.
 
-        :param sync_item: SyncItem for local file event.
-        :returns: SyncItem with updated status.
+        :param sync_event: SyncEvent for local file event.
+        :returns: SyncEvent with updated status.
         """
 
         # housekeeping
-        remove_from_queue(self.queued_for_upload, sync_item)
-        self.uploading.put(sync_item)
+        remove_from_queue(self.queued_for_upload, sync_event)
+        self.uploading.put(sync_event)
 
         if self.cancel_pending.is_set():
-            sync_item.status = SyncStatus.Aborted
-            remove_from_queue(self.uploading, sync_item)
-            return sync_item
+            sync_event.status = SyncStatus.Aborted
+            remove_from_queue(self.uploading, sync_event)
+            return sync_event
 
         self._slow_down()
 
-        self.clear_sync_error(local_path=sync_item.local_path)
-        self.clear_sync_error(local_path=sync_item.local_path_from)
-        sync_item.status = SyncStatus.Syncing
+        self.clear_sync_error(local_path=sync_event.local_path)
+        self.clear_sync_error(local_path=sync_event.local_path_from)
+        sync_event.status = SyncStatus.Syncing
 
         try:
 
-            if sync_item.is_added:
-                res = self._on_local_created(sync_item)
-            elif sync_item.is_moved:
-                res = self._on_local_moved(sync_item)
-            elif sync_item.is_changed:
-                res = self._on_local_modified(sync_item)
-            elif sync_item.is_deleted:
-                res = self._on_local_deleted(sync_item)
+            if sync_event.is_added:
+                res = self._on_local_created(sync_event)
+            elif sync_event.is_moved:
+                res = self._on_local_moved(sync_event)
+            elif sync_event.is_changed:
+                res = self._on_local_modified(sync_event)
+            elif sync_event.is_deleted:
+                res = self._on_local_deleted(sync_event)
             else:
                 res = None
 
             if res:
-                sync_item.status = SyncStatus.Done
+                sync_event.status = SyncStatus.Done
             else:
-                sync_item.status = SyncStatus.Skipped
+                sync_event.status = SyncStatus.Skipped
 
         except SyncError as err:
             self._handle_sync_error(err, direction=SyncDirection.Up)
-            sync_item.status = SyncStatus.Failed
+            sync_event.status = SyncStatus.Failed
         finally:
-            remove_from_queue(self.uploading, sync_item)
+            remove_from_queue(self.uploading, sync_event)
 
-        return sync_item
+        return sync_event
 
     @staticmethod
     def _wait_for_creation(local_path: str) -> None:
@@ -2021,7 +2021,7 @@ class SyncEngine:
         except OSError:
             return
 
-    def _on_local_moved(self, sync_item: SyncItem) -> Optional[SyncItem]:
+    def _on_local_moved(self, sync_event: SyncEvent) -> Optional[SyncEvent]:
         """
         Call when a local item is moved.
 
@@ -2032,44 +2032,44 @@ class SyncEngine:
         Dropbox) and that won't upload anything because file contents have remained the
         same.
 
-        :param sync_item: SyncItem for local moved event.
+        :param sync_event: SyncEvent for local moved event.
         :raises: :class:`errors.MaestralApiError`
-        :returns: SyncItem for created remote item at destination.
+        :returns: SyncEvent for created remote item at destination.
         """
 
-        if self._handle_selective_sync_conflict(sync_item):
+        if self._handle_selective_sync_conflict(sync_event):
             return None
-        if self._handle_case_conflict(sync_item):
+        if self._handle_case_conflict(sync_event):
             return None
 
-        md_from_old = self.client.get_metadata(sync_item.dbx_path_from)
+        md_from_old = self.client.get_metadata(sync_event.dbx_path_from)
 
         # If not on Dropbox, e.g., because its old name was invalid,
         # create it instead of moving it.
         if not md_from_old:
-            if sync_item.is_directory:
-                new_event = DirCreatedEvent(sync_item.local_path)
+            if sync_event.is_directory:
+                new_event = DirCreatedEvent(sync_event.local_path)
             else:
-                new_event = FileCreatedEvent(sync_item.local_path)
+                new_event = FileCreatedEvent(sync_event.local_path)
 
-            new_sync_item = self.sync_item_from_file_system_event(new_event)
+            new_sync_event = self.sync_event_from_file_system_event(new_event)
 
-            return self._on_local_created(new_sync_item)
+            return self._on_local_created(new_sync_event)
 
-        md_to_new = self.client.move(sync_item.dbx_path_from, sync_item.dbx_path, autorename=True)
+        md_to_new = self.client.move(sync_event.dbx_path_from, sync_event.dbx_path, autorename=True)
 
-        self.set_local_rev(sync_item.dbx_path_from, None)  # type: ignore
+        self.set_local_rev(sync_event.dbx_path_from, None)  # type: ignore
 
         # handle remote conflicts
-        if md_to_new.path_lower != sync_item.dbx_path.lower():
+        if md_to_new.path_lower != sync_event.dbx_path.lower():
             logger.info('Upload conflict: renamed "%s" to "%s"',
-                        sync_item.dbx_path, md_to_new.path_display)
+                        sync_event.dbx_path, md_to_new.path_display)
         else:
             self._set_local_rev_recursive(md_to_new)
-            logger.debug('Moved "%s" to "%s" on Dropbox', sync_item.dbx_path_from,
-                         sync_item.dbx_path)
+            logger.debug('Moved "%s" to "%s" on Dropbox', sync_event.dbx_path_from,
+                         sync_event.dbx_path)
 
-        return self.sync_item_from_dbx_metadata(md_to_new)
+        return self.sync_event_from_dbx_metadata(md_to_new)
 
     def _set_local_rev_recursive(self, md):
 
@@ -2084,43 +2084,43 @@ class SyncEngine:
                 elif isinstance(md, FolderMetadata):
                     self.set_local_rev(md.path_lower, 'folder')
 
-    def _on_local_created(self, sync_item: SyncItem) -> Optional[SyncItem]:
+    def _on_local_created(self, sync_event: SyncEvent) -> Optional[SyncEvent]:
         """
         Call when a local item is created.
 
-        :param sync_item: SyncItem corresponding to local created event.
+        :param sync_event: SyncEvent corresponding to local created event.
         :raises: :class:`errors.MaestralApiError`
-        :returns: SyncItem for created remote item or None if no remote item is created.
+        :returns: SyncEvent for created remote item or None if no remote item is created.
         """
 
-        if self._handle_selective_sync_conflict(sync_item):
+        if self._handle_selective_sync_conflict(sync_event):
             return None
-        if self._handle_case_conflict(sync_item):
+        if self._handle_case_conflict(sync_event):
             return None
 
-        self._wait_for_creation(sync_item.local_path)
+        self._wait_for_creation(sync_event.local_path)
 
-        if sync_item.is_directory:
+        if sync_event.is_directory:
             try:
-                md_new = self.client.make_dir(sync_item.dbx_path, autorename=False)
+                md_new = self.client.make_dir(sync_event.dbx_path, autorename=False)
             except FolderConflictError:
                 logger.debug('No conflict for "%s": the folder already exists',
-                             sync_item.local_path)
-                self.set_local_rev(sync_item.dbx_path, 'folder')
+                             sync_event.local_path)
+                self.set_local_rev(sync_event.dbx_path, 'folder')
                 return None
             except FileConflictError:
-                md_new = self.client.make_dir(sync_item.dbx_path, autorename=True)
+                md_new = self.client.make_dir(sync_event.dbx_path, autorename=True)
 
         else:
             # check if file already exists with identical content
-            md_old = self.client.get_metadata(sync_item.dbx_path)
+            md_old = self.client.get_metadata(sync_event.dbx_path)
             if isinstance(md_old, FileMetadata):
-                if sync_item.content_hash == md_old.content_hash:
+                if sync_event.content_hash == md_old.content_hash:
                     # file hashes are identical, do not upload
                     self.set_local_rev(md_old.path_lower, md_old.rev)
                     return None
 
-            rev = self.get_local_rev(sync_item.dbx_path)
+            rev = self.get_local_rev(sync_event.dbx_path)
             if not rev:
                 # file is new to us, let Dropbox rename it if something is in the way
                 mode = dropbox.files.WriteMode.add
@@ -2131,139 +2131,139 @@ class SyncEngine:
                 # file has been modified, update remote if matching rev,
                 # create conflict otherwise
                 logger.debug('"%s" appears to have been created but we are '
-                             'already tracking it', sync_item.dbx_path)
+                             'already tracking it', sync_event.dbx_path)
                 mode = dropbox.files.WriteMode.update(rev)
             try:
                 md_new = self.client.upload(
-                    sync_item.local_path, sync_item.dbx_path,
+                    sync_event.local_path, sync_event.dbx_path,
                     autorename=True, mode=mode,
-                    sync_item=sync_item
+                    sync_event=sync_event
                 )
             except NotFoundError:
                 logger.debug('Could not upload "%s": the item does not exist',
-                             sync_item.local_path)
+                             sync_event.local_path)
                 return None
 
-        if md_new.path_lower != sync_item.dbx_path.lower():
+        if md_new.path_lower != sync_event.dbx_path.lower():
             # conflicting copy created during upload, mirror remote changes locally
             local_path_cc = self.to_local_path(md_new.path_display)
-            event_cls = DirMovedEvent if osp.isdir(sync_item.local_path) else FileMovedEvent
-            with self.fs_events.ignore(event_cls(sync_item.local_path, local_path_cc)):
-                exc = move(sync_item.local_path, local_path_cc)
+            event_cls = DirMovedEvent if osp.isdir(sync_event.local_path) else FileMovedEvent
+            with self.fs_events.ignore(event_cls(sync_event.local_path, local_path_cc)):
+                exc = move(sync_event.local_path, local_path_cc)
                 if exc:
                     raise os_to_maestral_error(exc, local_path=local_path_cc,
                                                dbx_path=md_new.path_display)
 
             # Delete revs of old path but don't set revs for new path here. This will
             # force conflict resolution on download in case of intermittent changes.
-            self.set_local_rev(sync_item.dbx_path, None)
+            self.set_local_rev(sync_event.dbx_path, None)
             logger.debug('Upload conflict: renamed "%s" to "%s"',
-                         sync_item.dbx_path, md_new.path_lower)
+                         sync_event.dbx_path, md_new.path_lower)
         else:
             # everything went well, save new revs
             rev = getattr(md_new, 'rev', 'folder')
             self.set_local_rev(md_new.path_lower, rev)
-            logger.debug('Created "%s" on Dropbox', sync_item.dbx_path)
+            logger.debug('Created "%s" on Dropbox', sync_event.dbx_path)
 
-        return self.sync_item_from_dbx_metadata(md_new)
+        return self.sync_event_from_dbx_metadata(md_new)
 
-    def _on_local_modified(self, sync_item: SyncItem) -> Optional[SyncItem]:
+    def _on_local_modified(self, sync_event: SyncEvent) -> Optional[SyncEvent]:
         """
         Call when local item is modified.
 
-        :param sync_item: SyncItem for local modified event.
+        :param sync_event: SyncEvent for local modified event.
         :raises: :class:`errors.MaestralApiError`
-        :returns: SyncItem corresponding to modified remote item or None if no remote item
+        :returns: SyncEvent corresponding to modified remote item or None if no remote item
             is modified.
         """
 
-        if sync_item.is_directory:  # ignore directory modified events
+        if sync_event.is_directory:  # ignore directory modified events
             return None
 
-        self._wait_for_creation(sync_item.local_path)
+        self._wait_for_creation(sync_event.local_path)
 
         # check if item already exists with identical content
-        md_old = self.client.get_metadata(sync_item.dbx_path)
+        md_old = self.client.get_metadata(sync_event.dbx_path)
         if isinstance(md_old, FileMetadata):
-            if sync_item.content_hash == md_old.content_hash:
+            if sync_event.content_hash == md_old.content_hash:
                 # file hashes are identical, do not upload
                 self.set_local_rev(md_old.path_lower, md_old.rev)
                 logger.debug('Modification of "%s" detected but file content is '
-                             'the same as on Dropbox', sync_item.dbx_path)
+                             'the same as on Dropbox', sync_event.dbx_path)
                 return None
 
-        rev = self.get_local_rev(sync_item.dbx_path)
+        rev = self.get_local_rev(sync_event.dbx_path)
         if rev == 'folder':
             mode = dropbox.files.WriteMode.overwrite
         elif not rev:
             logger.debug('"%s" appears to have been modified but cannot '
-                         'find old revision', sync_item.dbx_path)
+                         'find old revision', sync_event.dbx_path)
             mode = dropbox.files.WriteMode.add
         else:
             mode = dropbox.files.WriteMode.update(rev)
 
         try:
             md_new = self.client.upload(
-                sync_item.local_path, sync_item.dbx_path,
+                sync_event.local_path, sync_event.dbx_path,
                 autorename=True, mode=mode,
-                sync_item=sync_item
+                sync_event=sync_event
             )
         except NotFoundError:
-            logger.debug('Could not upload "%s": the item does not exist', sync_item.dbx_path)
+            logger.debug('Could not upload "%s": the item does not exist', sync_event.dbx_path)
             return None
 
-        if md_new.path_lower != sync_item.dbx_path.lower():
+        if md_new.path_lower != sync_event.dbx_path.lower():
             # conflicting copy created during upload, mirror remote changes locally
             local_path_cc = self.to_local_path(md_new.path_display)
-            with self.fs_events.ignore(FileMovedEvent(sync_item.local_path, local_path_cc)):
+            with self.fs_events.ignore(FileMovedEvent(sync_event.local_path, local_path_cc)):
                 try:
-                    os.rename(sync_item.local_path, local_path_cc)
+                    os.rename(sync_event.local_path, local_path_cc)
                 except OSError:
-                    with self.fs_events.ignore(FileDeletedEvent(sync_item.local_path)):
-                        delete(sync_item.local_path)
+                    with self.fs_events.ignore(FileDeletedEvent(sync_event.local_path)):
+                        delete(sync_event.local_path)
 
             # Delete revs of old path but don't set revs for new path here. This will
             # force conflict resolution on download in case of intermittent changes.
-            self.set_local_rev(sync_item.dbx_path, None)
+            self.set_local_rev(sync_event.dbx_path, None)
             logger.debug('Upload conflict: renamed "%s" to "%s"',
-                         sync_item.dbx_path, md_new.path_lower)
+                         sync_event.dbx_path, md_new.path_lower)
         else:
             # everything went well, save new revs
             self.set_local_rev(md_new.path_lower, md_new.rev)
             logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
 
-        return self.sync_item_from_dbx_metadata(md_new)
+        return self.sync_event_from_dbx_metadata(md_new)
 
-    def _on_local_deleted(self, sync_item: SyncItem) -> Optional[SyncItem]:
+    def _on_local_deleted(self, sync_event: SyncEvent) -> Optional[SyncEvent]:
         """
         Call when local item is deleted. We try not to delete remote items which have been
         modified since the last sync.
 
-        :param sync_item: SyncItem for local deletion.
+        :param sync_event: SyncEvent for local deletion.
         :raises: :class:`errors.MaestralApiError`
-        :returns: SyncItem for deleted remote item or None if no remote item is deleted.
+        :returns: SyncEvent for deleted remote item or None if no remote item is deleted.
         """
 
-        if self.is_excluded_by_user(sync_item.dbx_path):
-            logger.debug('Not deleting "%s": is excluded by selective sync', sync_item.dbx_path)
+        if self.is_excluded_by_user(sync_event.dbx_path):
+            logger.debug('Not deleting "%s": is excluded by selective sync', sync_event.dbx_path)
             return None
 
-        local_rev = self.get_local_rev(sync_item.dbx_path)
+        local_rev = self.get_local_rev(sync_event.dbx_path)
 
-        md = self.client.get_metadata(sync_item.dbx_path, include_deleted=True)
+        md = self.client.get_metadata(sync_event.dbx_path, include_deleted=True)
 
-        if sync_item.is_directory and isinstance(md, FileMetadata):
+        if sync_event.is_directory and isinstance(md, FileMetadata):
             logger.debug('Expected folder at "%s" but found a file instead, checking '
                          'which one is newer', md.path_display)
             # don't delete a remote file if it was modified since last sync
-            if md.server_modified.timestamp() >= self.get_last_sync_for_path(sync_item.dbx_path):
+            if md.server_modified.timestamp() >= self.get_last_sync_for_path(sync_event.dbx_path):
                 logger.debug('Skipping deletion: remote item "%s" has been modified '
                              'since last sync', md.path_display)
                 # mark local folder as untracked
-                self.set_local_rev(sync_item.dbx_path, None)
+                self.set_local_rev(sync_event.dbx_path, None)
                 return None
 
-        if sync_item.is_file and isinstance(md, FolderMetadata):
+        if sync_event.is_file and isinstance(md, FolderMetadata):
             # don't delete a remote folder if we were expecting a file
             # TODO: Delete the folder if its children did not change since last sync.
             #   Is there a way of achieving this without listing the folder or listing
@@ -2271,36 +2271,36 @@ class SyncEngine:
             logger.debug('Skipping deletion: expected file at "%s" but found a '
                          'folder instead', md.path_display)
             # mark local file as untracked
-            self.set_local_rev(sync_item.dbx_path, None)
+            self.set_local_rev(sync_event.dbx_path, None)
             return None
 
         try:
             # will only perform delete if Dropbox remote rev matches `local_rev`
             md_deleted = self.client.remove(
-                sync_item.dbx_path,
-                parent_rev=local_rev if sync_item.is_file else None
+                sync_event.dbx_path,
+                parent_rev=local_rev if sync_event.is_file else None
             )
         except NotFoundError:
             logger.debug('Could not delete "%s": the item no longer exists on Dropbox',
-                         sync_item.dbx_path)
+                         sync_event.dbx_path)
             md_deleted = None
         except PathError:
             logger.debug('Could not delete "%s": the item has been changed '
-                         'since last sync', sync_item.dbx_path)
+                         'since last sync', sync_event.dbx_path)
             md_deleted = None
 
         # remove revision metadata
-        self.set_local_rev(sync_item.dbx_path, None)
+        self.set_local_rev(sync_event.dbx_path, None)
 
         if md_deleted:
-            return self.sync_item_from_dbx_metadata(md_deleted)
+            return self.sync_event_from_dbx_metadata(md_deleted)
         else:
             return None
 
     # ==== Download sync =================================================================
 
     def get_remote_folder(self, dbx_path: str = '/', ignore_excluded: bool = True) \
-            -> List[SyncItem]:
+            -> List[SyncEvent]:
         """
         Gets all files/folders from Dropbox and writes them to the local folder
         :attr:`dropbox_path`. Call this method on first run of the Maestral. Indexing and
@@ -2337,12 +2337,12 @@ class SyncEngine:
                 )
             except SyncError as e:
                 self._handle_sync_error(e, direction=SyncDirection.Down)
-                # TODO: return failed SyncItem?
+                # TODO: return failed SyncEvent?
                 return []
 
             # download top-level folders / files first
-            sync_items = [self.sync_item_from_dbx_metadata(md) for md in root_result.entries]
-            res = self.apply_remote_changes(sync_items, cursor=None)
+            sync_events = [self.sync_event_from_dbx_metadata(md) for md in root_result.entries]
+            res = self.apply_remote_changes(sync_events, cursor=None)
             results.extend(res)
 
             if ignore_excluded:
@@ -2360,7 +2360,7 @@ class SyncEngine:
 
             return results
 
-    def get_remote_item(self, dbx_path: str) -> List[SyncItem]:
+    def get_remote_item(self, dbx_path: str) -> List[SyncEvent]:
         """
         Downloads a remote file or folder and updates its local rev. If the remote item no
         longer exists, the corresponding local item will be deleted. Given paths will be
@@ -2381,14 +2381,14 @@ class SyncEngine:
 
             self.pending_downloads.add(dbx_path.lower())
             md = self.client.get_metadata(dbx_path, include_deleted=True)
-            sync_item = self.sync_item_from_dbx_metadata(md)
+            sync_event = self.sync_event_from_dbx_metadata(md)
 
             results = []
 
-            if sync_item.is_directory:
+            if sync_event.is_directory:
                 results = self.get_remote_folder(dbx_path)
             else:
-                results = [self._create_local_entry(sync_item)]
+                results = [self._create_local_entry(sync_event)]
 
             success = all(si.status in (SyncStatus.Done, SyncStatus.Skipped) for si in results)
 
@@ -2415,7 +2415,7 @@ class SyncEngine:
         logger.debug('Detected remote changes: %s', has_changes)
         return has_changes
 
-    def list_remote_changes(self, last_cursor: str) -> Tuple[List[SyncItem], str]:
+    def list_remote_changes(self, last_cursor: str) -> Tuple[List[SyncEvent], str]:
         """
         Lists remote changes since the last download sync.
 
@@ -2427,18 +2427,18 @@ class SyncEngine:
         clean_changes = self._clean_remote_changes(changes)
         logger.debug('Cleaned remote changes:\n%s', entries_to_str(clean_changes.entries))
 
-        sync_items = [self.sync_item_from_dbx_metadata(md) for md in changes.entries]
-        return sync_items, changes.cursor
+        sync_events = [self.sync_event_from_dbx_metadata(md) for md in changes.entries]
+        return sync_events, changes.cursor
 
-    def apply_remote_changes(self, sync_items: List[SyncItem],
-                             cursor: Optional[str]) -> List[SyncItem]:
+    def apply_remote_changes(self, sync_events: List[SyncEvent],
+                             cursor: Optional[str]) -> List[SyncEvent]:
         """
         Applies remote changes to local folder. Call this on the result of
         :meth:`list_remote_changes`. The saved cursor is updated after a set of changes
         has been successfully applied. Entries in the local index are created after
         successful completion.
 
-        :param sync_items: List of remote changes.
+        :param sync_events: List of remote changes.
         :param cursor: Remote cursor corresponding to changes. Take care to only pass
             cursors which represent the state of the entire Dropbox. Pass None instead
             if you are only downloading a subset of changes.
@@ -2447,7 +2447,7 @@ class SyncEngine:
         """
 
         # filter out excluded changes
-        changes_included, changes_excluded = self._filter_excluded_changes_remote(sync_items)
+        changes_included, changes_excluded = self._filter_excluded_changes_remote(sync_events)
 
         # remove deleted item and its children from the excluded list
         for si in changes_excluded:
@@ -2457,21 +2457,21 @@ class SyncEngine:
             self.excluded_items = new_excluded
 
         # sort changes into folders, files and deleted
-        folders: List[SyncItem] = []
-        files: List[SyncItem] = []
-        deleted: List[SyncItem] = []
+        folders: List[SyncEvent] = []
+        files: List[SyncEvent] = []
+        deleted: List[SyncEvent] = []
 
-        for sync_item in changes_included:
+        for sync_event in changes_included:
 
-            if sync_item.is_deleted:
-                deleted.append(sync_item)
-            elif sync_item.is_directory:
-                folders.append(sync_item)
-            elif sync_item.is_file:
-                files.append(sync_item)
+            if sync_event.is_deleted:
+                deleted.append(sync_event)
+            elif sync_event.is_directory:
+                folders.append(sync_event)
+            elif sync_event.is_file:
+                files.append(sync_event)
 
             # housekeeping
-            self.queued_for_download.put(sync_item)
+            self.queued_for_download.put(sync_event)
 
         # sort according to path hierarchy
         # do not create sub-folder / file before parent exists
@@ -2515,14 +2515,14 @@ class SyncEngine:
 
         return results
 
-    def notify_user(self, sync_items: List[SyncItem]) -> None:
+    def notify_user(self, sync_events: List[SyncEvent]) -> None:
         """
         Sends system notification for file changes.
 
-        :param sync_items: List of sync items from download sync.
+        :param sync_events: List of sync items from download sync.
         """
 
-        changes = [si for si in sync_items if si.status != SyncStatus.Skipped]
+        changes = [si for si in sync_events if si.status != SyncStatus.Skipped]
 
         # get number of remote changes
         n_changed = len(changes)
@@ -2555,16 +2555,16 @@ class SyncEngine:
                 change_type = 'changed'
         else:
 
-            if all(si.change_type == ChangeType.Deleted for si in sync_items):
+            if all(si.change_type == ChangeType.Deleted for si in sync_events):
                 change_type = 'removed'
-            elif all(si.change_type == ChangeType.Added for si in sync_items):
+            elif all(si.change_type == ChangeType.Added for si in sync_events):
                 change_type = 'added'
             else:
                 change_type = 'changed'
 
-            if all(si.item_type == ItemType.File for si in sync_items):
+            if all(si.item_type == ItemType.File for si in sync_events):
                 file_name = f'{n_changed} files'
-            elif all(si.item_type == ItemType.Folder for si in sync_items):
+            elif all(si.item_type == ItemType.Folder for si in sync_events):
                 file_name = f'{n_changed} folders'
             else:
                 file_name = f'{n_changed} items'
@@ -2576,12 +2576,12 @@ class SyncEngine:
 
         self._notifier.notify(msg)
 
-    def _filter_excluded_changes_remote(self, changes: List[SyncItem]) \
-            -> Tuple[List[SyncItem], List[SyncItem]]:
+    def _filter_excluded_changes_remote(self, changes: List[SyncEvent]) \
+            -> Tuple[List[SyncEvent], List[SyncEvent]]:
         """
         Removes all excluded items from the given list of changes.
 
-        :param changes: List of SyncItems.
+        :param changes: List of SyncEvents.
         :returns: Tuple with items to keep and items to discard.
         """
         items_to_keep = []
@@ -2595,25 +2595,25 @@ class SyncEngine:
 
         return items_to_keep, items_to_discard
 
-    def _check_download_conflict(self, sync_item: SyncItem) -> Conflict:
+    def _check_download_conflict(self, sync_event: SyncEvent) -> Conflict:
         """
         Check if a local item is conflicting with remote change. The equivalent check when
         uploading and a change will be carried out by Dropbox itself.
 
         Checks are carried out against our index, reflecting the latest sync state.
 
-        :param sync_item: Download SyncItem.
+        :param sync_event: Download SyncEvent.
         :returns: Conflict check result.
         :raises: :class:`errors.MaestralApiError`
         """
 
-        local_rev = self.get_local_rev(sync_item.dbx_path)
+        local_rev = self.get_local_rev(sync_event.dbx_path)
 
-        if sync_item.rev == local_rev:
+        if sync_event.rev == local_rev:
             # Local change has the same rev. May be newer and
             # not yet synced or identical. Don't overwrite.
             logger.debug('Equal revs for "%s": local item is the same or newer '
-                         'than on Dropbox', sync_item.dbx_path)
+                         'than on Dropbox', sync_event.dbx_path)
             return Conflict.LocalNewerOrIdentical
 
         else:
@@ -2628,25 +2628,25 @@ class SyncEngine:
             #     will hold the lock and we won't be here checking for conflicts.
             # (b) The upload has not started yet. Manually check for conflict.
 
-            local_hash = get_local_hash(sync_item.local_path)
+            local_hash = get_local_hash(sync_event.local_path)
 
-            if sync_item.content_hash == local_hash:
-                logger.debug('Equal content hashes for "%s": no conflict', sync_item.dbx_path)
-                self.set_local_rev(sync_item.dbx_path, sync_item.rev)
+            if sync_event.content_hash == local_hash:
+                logger.debug('Equal content hashes for "%s": no conflict', sync_event.dbx_path)
+                self.set_local_rev(sync_event.dbx_path, sync_event.rev)
                 return Conflict.Identical
-            elif any(is_equal_or_child(p, sync_item.dbx_path.lower()) for p in self.upload_errors):
-                logger.debug('Unresolved upload error for "%s": conflict', sync_item.dbx_path)
+            elif any(is_equal_or_child(p, sync_event.dbx_path.lower()) for p in self.upload_errors):
+                logger.debug('Unresolved upload error for "%s": conflict', sync_event.dbx_path)
                 return Conflict.Conflict
-            elif self._get_ctime(sync_item.local_path) <= self.get_last_sync_for_path(sync_item.dbx_path):
+            elif self._get_ctime(sync_event.local_path) <= self.get_last_sync_for_path(sync_event.dbx_path):
                 logger.debug('Ctime is older than last sync for "%s": remote item '
-                             'is newer', sync_item.dbx_path)
+                             'is newer', sync_event.dbx_path)
                 return Conflict.RemoteNewer
-            elif not sync_item.rev:
+            elif not sync_event.rev:
                 logger.debug('No remote rev for "%s": Local item has been modified '
-                             'since remote deletion', sync_item.dbx_path)
+                             'since remote deletion', sync_event.dbx_path)
                 return Conflict.LocalNewerOrIdentical
             else:
-                logger.debug('Ctime is newer than last sync for "%s": conflict', sync_item.dbx_path)
+                logger.debug('Ctime is newer than last sync for "%s": conflict', sync_event.dbx_path)
                 return Conflict.Conflict
 
     def _get_ctime(self, local_path: str, ignore_excluded: bool = True) -> float:
@@ -2746,61 +2746,61 @@ class SyncEngine:
 
         return changes
 
-    def _create_local_entry(self, sync_item: SyncItem) -> SyncItem:
+    def _create_local_entry(self, sync_event: SyncEvent) -> SyncEvent:
         """
         Applies a file / folder change from Dropbox servers to the local Dropbox folder.
         Any :class:`errors.MaestralApiError` will be caught and logged as appropriate.
         Entries in the local index are created after successful completion.
 
-        :param sync_item: Dropbox metadata.
+        :param sync_event: Dropbox metadata.
         :returns: Copy of the Dropbox metadata if the change was applied successfully,
             ``True`` if the change already existed, ``False`` in case of a
             :class:`errors.SyncError` and ``None`` if cancelled.
         """
 
         # housekeeping
-        remove_from_queue(self.queued_for_download, sync_item)
-        self.downloading.put(sync_item)
+        remove_from_queue(self.queued_for_download, sync_event)
+        self.downloading.put(sync_event)
 
         if self.cancel_pending.is_set():
-            sync_item.status = SyncStatus.Aborted
-            remove_from_queue(self.downloading, sync_item)
-            return sync_item
+            sync_event.status = SyncStatus.Aborted
+            remove_from_queue(self.downloading, sync_event)
+            return sync_event
 
         self._slow_down()
 
-        self.clear_sync_error(dbx_path=sync_item.dbx_path)
-        sync_item.status = SyncStatus.Syncing
+        self.clear_sync_error(dbx_path=sync_event.dbx_path)
+        sync_event.status = SyncStatus.Syncing
 
         try:
-            if sync_item.is_deleted:
-                res = self._on_remote_deleted(sync_item)
-            elif sync_item.is_file:
-                res = self._on_remote_file(sync_item)
-            elif sync_item.is_directory:
-                res = self._on_remote_folder(sync_item)
+            if sync_event.is_deleted:
+                res = self._on_remote_deleted(sync_event)
+            elif sync_event.is_file:
+                res = self._on_remote_file(sync_event)
+            elif sync_event.is_directory:
+                res = self._on_remote_folder(sync_event)
             else:
                 res = None
 
             if res:
-                sync_item.status = SyncStatus.Done
+                sync_event.status = SyncStatus.Done
             else:
-                sync_item.status = SyncStatus.Skipped
+                sync_event.status = SyncStatus.Skipped
 
         except SyncError as e:
             self._handle_sync_error(e, direction=SyncDirection.Down)
-            sync_item.status = SyncStatus.Failed
+            sync_event.status = SyncStatus.Failed
         finally:
-            remove_from_queue(self.downloading, sync_item)
+            remove_from_queue(self.downloading, sync_event)
 
-        return sync_item
+        return sync_event
 
-    def _on_remote_file(self, sync_item: SyncItem) -> Optional[SyncItem]:
+    def _on_remote_file(self, sync_event: SyncEvent) -> Optional[SyncEvent]:
         """
         Applies a remote file change or creation locally.
 
-        :param sync_item: SyncItem for file download.
-        :returns: SyncItem corresponding to local item or None if no local changes
+        :param sync_event: SyncEvent for file download.
+        :returns: SyncEvent corresponding to local item or None if no local changes
             are made.
         """
 
@@ -2809,30 +2809,30 @@ class SyncEngine:
         # If there’s already something else at the given path,
         # replace it and remove all its children.
 
-        conflict_check = self._check_download_conflict(sync_item)
+        conflict_check = self._check_download_conflict(sync_event)
 
         if conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
             return None
 
-        local_path = sync_item.local_path
+        local_path = sync_event.local_path
 
         # we download to a temporary file first (this may take some time)
         tmp_fname = self._new_tmp_file()
 
         try:
             md = self.client.download(
-                f'rev:{sync_item.rev}', tmp_fname,
-                sync_item=sync_item
+                f'rev:{sync_event.rev}', tmp_fname,
+                sync_event=sync_event
             )
-            sync_item = self.sync_item_from_dbx_metadata(md)
+            sync_event = self.sync_event_from_dbx_metadata(md)
         except SyncError as err:
             # replace rev number with path
-            err.dbx_path = sync_item.dbx_path
+            err.dbx_path = sync_event.dbx_path
             raise err
 
         # re-check for conflict and move the conflict
         # out of the way if anything has changed
-        if self._check_download_conflict(sync_item) == Conflict.Conflict:
+        if self._check_download_conflict(sync_event) == Conflict.Conflict:
             new_local_path = generate_cc_name(
                 local_path, is_fs_case_sensitive=self.is_case_sensitive
             )
@@ -2858,22 +2858,22 @@ class SyncEngine:
             exc = move(tmp_fname, local_path)
 
         if exc:
-            raise os_to_maestral_error(exc, dbx_path=sync_item.dbx_path,
+            raise os_to_maestral_error(exc, dbx_path=sync_event.dbx_path,
                                        local_path=local_path)
 
-        self.set_last_sync_for_path(sync_item.dbx_path, self._get_ctime(local_path))
-        self.set_local_rev(sync_item.dbx_path, sync_item.rev)
+        self.set_last_sync_for_path(sync_event.dbx_path, self._get_ctime(local_path))
+        self.set_local_rev(sync_event.dbx_path, sync_event.rev)
 
-        logger.debug('Created local file "%s"', sync_item.dbx_path)
+        logger.debug('Created local file "%s"', sync_event.dbx_path)
 
-        return sync_item
+        return sync_event
 
-    def _on_remote_folder(self, sync_item: SyncItem) -> Optional[SyncItem]:
+    def _on_remote_folder(self, sync_event: SyncEvent) -> Optional[SyncEvent]:
         """
         Applies a remote folder creation locally.
 
-        :param sync_item: SyncItem for folder download.
-        :returns: SyncItem corresponding to local item or None if no local changes
+        :param sync_event: SyncEvent for folder download.
+        :returns: SyncEvent corresponding to local item or None if no local changes
             are made.
         """
 
@@ -2882,51 +2882,51 @@ class SyncEngine:
         # If there’s already something else at the given path,
         # replace it but leave the children as they are.
 
-        conflict_check = self._check_download_conflict(sync_item)
+        conflict_check = self._check_download_conflict(sync_event)
 
         if conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
             return None
 
         if conflict_check == Conflict.Conflict:
             new_local_path = generate_cc_name(
-                sync_item.local_path, is_fs_case_sensitive=self.is_case_sensitive
+                sync_event.local_path, is_fs_case_sensitive=self.is_case_sensitive
             )
-            event_cls = DirMovedEvent if osp.isdir(sync_item.local_path) else FileMovedEvent
-            with self.fs_events.ignore(event_cls(sync_item.local_path, new_local_path)):
-                exc = move(sync_item.local_path, new_local_path)
+            event_cls = DirMovedEvent if osp.isdir(sync_event.local_path) else FileMovedEvent
+            with self.fs_events.ignore(event_cls(sync_event.local_path, new_local_path)):
+                exc = move(sync_event.local_path, new_local_path)
                 if exc:
                     raise os_to_maestral_error(exc, local_path=new_local_path)
 
-            logger.debug('Download conflict: renamed "%s" to "%s"', sync_item.local_path,
+            logger.debug('Download conflict: renamed "%s" to "%s"', sync_event.local_path,
                          new_local_path)
             self.rescan(new_local_path)
 
-        if osp.isfile(sync_item.local_path):
-            event_cls = DirDeletedEvent if osp.isdir(sync_item.local_path) else FileDeletedEvent
-            with self.fs_events.ignore(event_cls(sync_item.local_path)):
-                delete(sync_item.local_path)
+        if osp.isfile(sync_event.local_path):
+            event_cls = DirDeletedEvent if osp.isdir(sync_event.local_path) else FileDeletedEvent
+            with self.fs_events.ignore(event_cls(sync_event.local_path)):
+                delete(sync_event.local_path)
 
         try:
-            with self.fs_events.ignore(DirCreatedEvent(sync_item.local_path), recursive=False):
-                os.makedirs(sync_item.local_path)
+            with self.fs_events.ignore(DirCreatedEvent(sync_event.local_path), recursive=False):
+                os.makedirs(sync_event.local_path)
         except FileExistsError:
             pass
         except OSError as err:
-            raise os_to_maestral_error(err, dbx_path=sync_item.dbx_path,
-                                       local_path=sync_item.local_path)
+            raise os_to_maestral_error(err, dbx_path=sync_event.dbx_path,
+                                       local_path=sync_event.local_path)
 
-        self.set_last_sync_for_path(sync_item.dbx_path, self._get_ctime(sync_item.local_path))
-        self.set_local_rev(sync_item.dbx_path, 'folder')
+        self.set_last_sync_for_path(sync_event.dbx_path, self._get_ctime(sync_event.local_path))
+        self.set_local_rev(sync_event.dbx_path, 'folder')
 
-        logger.debug('Created local folder "%s"', sync_item.dbx_path)
+        logger.debug('Created local folder "%s"', sync_event.dbx_path)
 
-        return sync_item
+        return sync_event
 
-    def _on_remote_deleted(self, sync_item: SyncItem) -> Optional[SyncItem]:
+    def _on_remote_deleted(self, sync_event: SyncEvent) -> Optional[SyncEvent]:
         """
         Applies a remote deletion locally.
 
-        :param sync_item: Dropbox deleted metadata.
+        :param sync_event: Dropbox deleted metadata.
         :returns: Dropbox metadata corresponding to local deletion or None if no local
             changes are made.
         """
@@ -2935,24 +2935,24 @@ class SyncEngine:
         # remove it and all its children. If there’s nothing at the
         # given path, ignore this entry.
 
-        conflict_check = self._check_download_conflict(sync_item)
+        conflict_check = self._check_download_conflict(sync_event)
 
         if conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
             return None
 
-        event_cls = DirDeletedEvent if osp.isdir(sync_item.local_path) else FileDeletedEvent
-        with self.fs_events.ignore(event_cls(sync_item.local_path)):
-            exc = delete(sync_item.local_path)
+        event_cls = DirDeletedEvent if osp.isdir(sync_event.local_path) else FileDeletedEvent
+        with self.fs_events.ignore(event_cls(sync_event.local_path)):
+            exc = delete(sync_event.local_path)
 
         if not exc:
-            self.set_local_rev(sync_item.dbx_path, None)
-            self.set_last_sync_for_path(sync_item.dbx_path, time.time())
-            logger.debug('Deleted local item "%s"', sync_item.dbx_path)
-            return sync_item
+            self.set_local_rev(sync_event.dbx_path, None)
+            self.set_last_sync_for_path(sync_event.dbx_path, time.time())
+            logger.debug('Deleted local item "%s"', sync_event.dbx_path)
+            return sync_event
         elif isinstance(exc, FileNotFoundError):
-            self.set_local_rev(sync_item.dbx_path, None)
-            self.set_last_sync_for_path(sync_item.dbx_path, time.time())
-            logger.debug('Deletion failed: "%s" not found', sync_item.dbx_path)
+            self.set_local_rev(sync_event.dbx_path, None)
+            self.set_last_sync_for_path(sync_event.dbx_path, time.time())
+            logger.debug('Deletion failed: "%s" not found', sync_event.dbx_path)
             return None
         else:
             raise os_to_maestral_error(exc)
@@ -3005,14 +3005,14 @@ class SyncEngine:
             elif self.get_local_rev(dbx_path):
                 self.fs_events.local_file_event_queue.put(FileDeletedEvent(local_path))
 
-    def _save_to_history(self, sync_items: List[SyncItem]) -> None:
+    def _save_to_history(self, sync_events: List[SyncEvent]) -> None:
         """
         Saves remote changes to the history database.
 
-        :param sync_items: Dropbox Metadata.
+        :param sync_events: Dropbox Metadata.
         """
 
-        for si in sync_items:
+        for si in sync_events:
             self._db_session.add(si)
 
         self._db_session.commit()
@@ -3321,12 +3321,12 @@ class SyncMonitor:
         return self._conf.get('sync', 'reindex_interval')
 
     @property
-    def uploading(self) -> List[SyncItem]:
+    def uploading(self) -> List[SyncEvent]:
         """Returns a list all items queued for upload or currently uploading."""
         return list(self.sync.queued_for_upload.queue) + list(self.sync.uploading.queue)
 
     @property
-    def downloading(self) -> List[SyncItem]:
+    def downloading(self) -> List[SyncEvent]:
         """Returns a list all items queued for download or currently downloading."""
         return list(self.sync.queued_for_download.queue) + list(self.sync.downloading.queue)
 

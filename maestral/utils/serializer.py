@@ -20,7 +20,7 @@ from dropbox.stone_serializers import json_encode  # type: ignore
 from dropbox.stone_validators import Struct  # type: ignore
 
 # local imports
-from maestral.sync import SyncItem
+from maestral.sync import SyncEvent
 
 
 StoneType = Dict[str, Union[str, float, bool, None]]
@@ -67,7 +67,7 @@ def error_to_dict(err: Exception) -> ErrorType:
     return err_dict
 
 
-def sync_item_to_dict(si: SyncItem) -> StoneType:
+def sync_item_to_dict(si: SyncEvent) -> StoneType:
     serialized = si.__dict__
 
     for key, value in serialized.items():

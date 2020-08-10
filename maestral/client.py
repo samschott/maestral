@@ -43,7 +43,7 @@ from maestral.constants import DROPBOX_APP_KEY
 from maestral.utils import natural_size, chunks, clamp
 
 if TYPE_CHECKING:
-    from maestral.sync import SyncItem
+    from maestral.sync import SyncEvent
 
 logger = logging.getLogger(__name__)
 
@@ -342,13 +342,13 @@ class DropboxClient:
 
     @to_maestral_error(dbx_path_arg=1)
     def download(self, dbx_path: str, local_path: str,
-                 sync_item: Optional['SyncItem'] = None, **kwargs) -> files.FileMetadata:
+                 sync_event: Optional['SyncEvent'] = None, **kwargs) -> files.FileMetadata:
         """
         Downloads file from Dropbox to our local folder.
 
         :param dbx_path: Path to file on Dropbox or rev number.
         :param local_path: Path to local download destination.
-        :param sync_item: If given, the sync item will be updated with the number of
+        :param sync_event: If given, the sync event will be updated with the number of
             downloaded bytes.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
         :returns: Metadata of downloaded item.
@@ -372,8 +372,8 @@ class DropboxClient:
                     downloaded = f.tell()
                     logger.debug('Downloading %s: %s/%s', dbx_path,
                                  natural_size(downloaded), size_str)
-                    if sync_item:
-                        sync_item.completed = downloaded
+                    if sync_event:
+                        sync_event.completed = downloaded
 
         # dropbox SDK provides naive datetime in UTC
         client_mod_timestamp = md.client_modified.replace(tzinfo=timezone.utc).timestamp()
@@ -389,7 +389,7 @@ class DropboxClient:
     @to_maestral_error(local_path_arg=1, dbx_path_arg=2)
     def upload(self, local_path: str, dbx_path: str,
                chunk_size: int = 5 * 10**6,
-               sync_item: Optional['SyncItem'] = None, **kwargs) -> files.FileMetadata:
+               sync_event: Optional['SyncEvent'] = None, **kwargs) -> files.FileMetadata:
         """
         Uploads local file to Dropbox.
 
@@ -398,7 +398,7 @@ class DropboxClient:
         :param kwargs: Keyword arguments for Dropbox SDK files_upload.
         :param chunk_size: Maximum size for individual uploads. If larger than 150 MB, it
             will be set to 150 MB.
-        :param sync_item: If given, the sync item will be updated with the number of
+        :param sync_event: If given, the sync event will be updated with the number of
             downloaded bytes.
         :returns: Metadata of uploaded file.
         """
@@ -417,8 +417,8 @@ class DropboxClient:
                 md = self.dbx.files_upload(
                     f.read(), dbx_path, client_modified=mtime_dt, **kwargs
                 )
-                if sync_item:
-                    sync_item.completed = f.tell()
+                if sync_event:
+                    sync_event.completed = f.tell()
             return md
         else:
             # Note: We currently do not support resuming interrupted uploads. Dropbox
@@ -435,8 +435,8 @@ class DropboxClient:
                     path=dbx_path, client_modified=mtime_dt, **kwargs
                 )
 
-                if sync_item:
-                    sync_item.completed = uploaded
+                if sync_event:
+                    sync_event.completed = uploaded
 
                 while True:
                     try:
@@ -458,8 +458,8 @@ class DropboxClient:
                         uploaded = f.tell()
                         logger.debug('Uploading %s: %s/%s', dbx_path,
                                      natural_size(uploaded), size_str)
-                        if sync_item:
-                            sync_item.completed = uploaded
+                        if sync_event:
+                            sync_event.completed = uploaded
 
                         if md:
                             return md
