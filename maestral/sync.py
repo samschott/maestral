@@ -506,8 +506,8 @@ class SyncItem:
         return self.direction == SyncDirection.Down
 
     def __repr__(self):
-        return f'<SyncItem(direction={self.direction.name}, ' \
-               f'change_type={self.change_type.name}, dbx_path="{self.dbx_path}")>'
+        return f"<SyncItem(direction={self.direction.name}, " \
+               f"change_type={self.change_type.name}, dbx_path='{self.dbx_path}')>"
 
 
 class SyncEngine:
