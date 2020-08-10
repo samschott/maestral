@@ -1134,19 +1134,23 @@ class SyncEngine:
             else:
                 return
 
+        dbx_path = dbx_path.lower()
+
         if self.has_sync_errors():
             for error in list(self.sync_errors.queue):
-                equal = error.dbx_path.lower() == dbx_path.lower()
-                child = is_child(error.dbx_path.lower(), dbx_path.lower())
+                equal = error.dbx_path.lower() == dbx_path
+                child = is_child(error.dbx_path.lower(), dbx_path)
                 if equal or child:
                     remove_from_queue(self.sync_errors, error)
 
-        self.download_errors.discard(dbx_path.lower())
+        self.upload_errors.discard(dbx_path)
+        self.download_errors.discard(dbx_path)
 
     def clear_all_sync_errors(self) -> None:
         """Clears all sync errors."""
         with self.sync_errors.mutex:
             self.sync_errors.queue.clear()
+        self.upload_errors.clear()
         self.download_errors.clear()
 
     @staticmethod
