@@ -1815,7 +1815,7 @@ class SyncEngine:
 
         return list(cleaned_events)
 
-    def _should_split_excluded(self, event: FileSystemEvent):
+    def _should_split_excluded(self, event: Union[FileMovedEvent, DirMovedEvent]):
 
         if event.event_type != EVENT_TYPE_MOVED:
             raise ValueError('Can only split moved events')
@@ -1831,7 +1831,8 @@ class SyncEngine:
         else:
             return self._should_split_mignore(event)
 
-    def _should_split_mignore(self, event: FileSystemEvent):
+    def _should_split_mignore(self, event: Union[FileMovedEvent, DirMovedEvent]):
+
         if len(self.mignore_rules.patterns) == 0:
             return False
 
