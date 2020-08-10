@@ -391,36 +391,45 @@ class PersistentStateMutableSet(abc.MutableSet):
 
 class SyncItem:
     """
-    Represents a file or folder change in the sync queue.
+    Represents a file or folder change in the sync queue. This is used to abstract the
+    :class:`watchdog.events.FileSystemEvent`s created for local changes and the
+    :class:`dropbox.files.Metadata` created for remote changes. All arguments are used to
+    construct instance attributes and some attributes may not be set for all event types.
+
+    The convenience methods :meth:`SyncEngine.sync_item_from_dbx_metadata` and
+    :meth:`SyncEngine.sync_item_from_file_system_event` should be used to properly
+    construct a SyncItem from Dropbox Metadata or a local FileSystemEvent, respectively.
 
     :param dbx_path: Dropbox path of the item to sync. If the sync represents a move
-        operation, this will be the destination path. Path may not be correctly cased
-        apart from the file / folder name.
+        operation, this will be the destination path. The path does not need to be
+        correctly cased apart from the basename.
     :param dbx_path_from: Dropbox path that this item was moved from. Will only be set if
-        change_type is ChangeType.Moved.
+        ``change_type`` is ``ChangeType.Moved``. The same rules for casing as for
+        ``dbx_path`` apply.
     :param local_path: Local path of the item to sync. If the sync represents a move
-        operation, this will be the destination path. Will be correctly cased for all
-        existing local elements of the path.
-    :param dbx_path_from: Local path that this item was moved from. Will only be set if
-        change_type is ChangeType.Moved. Will be correctly cased for all existing local
-        elements of the path.
+        operation, this will be the destination path. This must always be correctly cased
+        for all existing local ancestors of the path.
+    :param local_path_from: Local path that this item was moved from. Will only be set if
+        ``change_type`` is ``ChangeType.Moved``. The same rules for casing as for
+        ``local_path`` apply.
     :param item_type: The item type: file or folder.
-    :param direction: Direction of the sync: upload or 'download.
+    :param direction: Direction of the sync: upload or download.
     :param change_type: The type of change: deleted, moved, added or changed.
     :param change_time: The time of the change: Local ctime or remote client_modified
-        time for files. None for folders or for remote deletions.
-    :param rev: File revision. Will only be set for remote changes. Will be 'folder'
+        time for files. None for folders or for remote deletions. Note that the
+        client_modified may not be reliable as it is set by other clients and not verified.
+    :param rev: The file revision. Will only be set for remote changes. Will be 'folder'
         for folders and None for deletions.
-    :param content_hash: Content hash. Will be 'folder' for folders and None for
-        deleted items. Set for both local and remote changes.
+    :param content_hash: A hash representing the file content. Will be 'folder' for
+        folders and None for deleted items. Set for both local and remote changes.
     :param change_dbid: The Dropbox ID of the account which performed the changes. This
         may not be set for added folders or deletions on the server.
     :param status: Field containing the sync status: queued, syncing, done, failed,
-        skipped (item was already in sync), aborted (by the user).
-    :param size: Size of the item in bytes. Zero for folders.
+        skipped (item was already in sync) or aborted (by the user).
+    :param size: Size of the item in bytes. Always zero for folders.
 
-    :attr completed: File size which has already been uploaded or downloaded in bytes. Zero for
-        folders.
+    :attr completed: File size in bytes which has already been uploaded or downloaded.
+        Always zero for folders.
     """
 
     def __init__(self,
@@ -1166,7 +1175,7 @@ class SyncEngine:
         accepts both local and Dropbox paths.
 
         :param path: Path of item. Can be both a local or Dropbox paths.
-        :returns: ``True`` if excluded, ``False`` otherwise.
+        :returns: Whether the path is excluded from syncing.
         """
         path = path.lower().replace(osp.sep, '/')
 
@@ -1198,10 +1207,10 @@ class SyncEngine:
 
     def is_excluded_by_user(self, dbx_path: str) -> bool:
         """
-        Check if file has been excluded from sync by the user.
+        Check if file has been excluded through "selective sync" by the user.
 
         :param dbx_path: Path relative to Dropbox folder.
-        :returns: ``True`` if excluded, ``False`` otherwise.
+        :returns: Whether the path is excluded from download syncing by the user.
         """
         dbx_path = dbx_path.lower()
 
@@ -1212,7 +1221,7 @@ class SyncEngine:
         Check if local file change has been excluded by an mignore pattern.
 
         :param sync_item: SyncItem for local file event.
-        :returns: ``True`` if excluded, ``False`` otherwise.
+        :returns: Whether the path is excluded from upload syncing by the user.
         """
         if len(self.mignore_rules.patterns) == 0:
             return False
