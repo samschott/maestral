@@ -417,7 +417,8 @@ class SyncItem:
     :param change_type: The type of change: deleted, moved, added or changed.
     :param change_time: The time of the change: Local ctime or remote client_modified
         time for files. None for folders or for remote deletions. Note that the
-        client_modified may not be reliable as it is set by other clients and not verified.
+        client_modified may not be reliable as it is set by other clients and not
+        verified.
     :param rev: The file revision. Will only be set for remote changes. Will be 'folder'
         for folders and None for deletions.
     :param content_hash: A hash representing the file content. Will be 'folder' for
@@ -554,8 +555,8 @@ class SyncEngine:
 
       1) :meth:`wait_for_local_changes`: Blocks until local changes were registered by
          :class:`FSEventHandler` and returns those changes.
-      2) :meth:`_filter_excluded_changes_local`: Filters out events ignored by a
-         "mignore" pattern as well as hard-coded file names and changes in our cache path.
+      2) :meth:`_filter_excluded_changes_local`: Filters out events ignored by a "mignore"
+         pattern as well as hard-coded file names and changes in our cache path.
       3) :meth:`_clean_local_events`: Cleans up local events in two stages. First,
          multiple events per path are combined into a single event which reproduces the
          file changes. The only exception is when the entry type changes from file to
@@ -563,9 +564,9 @@ class SyncEngine:
          Second, when a whole folder is moved or deleted, we discard the moved and deleted
          events of its children.
       4) :meth:`apply_local_changes`: Sorts local changes hierarchically and applies
-         events in the order of deleted, folders and files. Deletions and creations
-         will be carried out in parallel with up to 6 threads. Conflict resolution and
-         the actual upload will be handled by :meth:`_create_remote_entry` as follows:
+         events in the order of deleted, folders and files. Deletions and creations will
+         be carried out in parallel with up to 6 threads. Conflict resolution and the
+         actual upload will be handled by :meth:`_create_remote_entry` as follows:
       5) :meth:`_create_remote_entry`: For created and moved events, we check if the new
          path has been excluded by the user with selective sync but still exists on
          Dropbox. If yes, it will be renamed by appending "(selective sync conflict)". On
@@ -692,16 +693,16 @@ class SyncEngine:
     @property
     def file_cache_path(self) -> str:
         """Path to cache folder for temporary files (read only). The cache folder
-        '.maestral.cache' is located inside the local Dropbox folder to prevent
-        file transfer between different partitions or drives during sync."""
+        '.maestral.cache' is located inside the local Dropbox folder to prevent file
+        transfer between different partitions or drives during sync."""
         return self._file_cache_path
 
     @property
     def excluded_items(self) -> List[str]:
         """List of all files and folders excluded from sync. Changes are saved to the
         config file. If a parent folder is excluded, its children will automatically be
-        removed from the list. If only children are given but not the parent folder,
-        any new items added to the parent will be synced. Change this property *before*
+        removed from the list. If only children are given but not the parent folder, any
+        new items added to the parent will be synced. Change this property *before*
         downloading newly included items or deleting excluded items."""
         return self._excluded_items
 
@@ -766,8 +767,8 @@ class SyncEngine:
 
     @property
     def last_sync(self) -> float:
-        """Time stamp from last sync with remote Dropbox. The value is updated and
-        saved to the config file on every successful upload of local changes."""
+        """Time stamp from last sync with remote Dropbox. The value is updated and saved
+        to the config file on every successful upload of local changes."""
         return self._state.get('sync', 'lastsync')
 
     @last_sync.setter
@@ -818,8 +819,8 @@ class SyncEngine:
 
     def get_rev_index(self) -> Dict[str, str]:
         """
-        Returns a copy of the revision index containing the revision
-        numbers for all synced files and folders.
+        Returns a copy of the revision index containing the revision numbers for all
+        synced files and folders.
 
         :returns: Copy of revision index.
         """
@@ -842,8 +843,8 @@ class SyncEngine:
 
     def set_local_rev(self, dbx_path: str, rev: Optional[str]) -> None:
         """
-        Saves revision number ``rev`` for local file. If ``rev`` is ``None``, the
-        entry for the file is removed.
+        Saves revision number ``rev`` for local file. If ``rev`` is ``None``, the entry
+        for the file is removed.
 
         :param dbx_path: Path relative to Dropbox folder.
         :param rev: Revision number as string or ``None``.
@@ -970,8 +971,8 @@ class SyncEngine:
         """
         Save Maestral's rev index to ``rev_file_path``.
 
-        :param raise_exception: If ``True``, raises an exception when saving fails.
-            If ``False``, an error message is logged instead.
+        :param raise_exception: If ``True``, raises an exception when saving fails. If
+            ``False``, an error message is logged instead.
         :raises: :class:`errors.RevFileError`
         """
         with self._rev_lock:
@@ -983,10 +984,9 @@ class SyncEngine:
     def _append_rev_to_file(self, path: str, rev: Optional[str],
                             raise_exception: bool = False) -> None:
         """
-        Appends a new line with a rev entry to the rev file. This is quicker than
-        saving the entire rev index. When loading the rev file, older entries will be
-        overwritten with newer ones and all entries with ``rev == None`` will be
-        discarded.
+        Appends a new line with a rev entry to the rev file. This is quicker than saving
+        the entire rev index. When loading the rev file, older entries will be overwritten
+        with newer ones and all entries with ``rev == None`` will be discarded.
 
         :param path: Path for rev.
         :param rev: Dropbox rev or ``None``.
@@ -1062,9 +1062,11 @@ class SyncEngine:
             except FileExistsError:
                 err = delete(self._file_cache_path)
                 if err and not isinstance(err, FileNotFoundError):
-                    raise CacheDirError(err_title.format(err.errno), err_msg.format(err.filename))
+                    raise CacheDirError(err_title.format(err.errno),
+                                        err_msg.format(err.filename))
             except OSError as err:
-                raise CacheDirError(err_title.format(err.errno), err_msg.format(err.filename))
+                raise CacheDirError(err_title.format(err.errno),
+                                    err_msg.format(err.filename))
 
             if retries > max_retries:
                 raise CacheDirError('Cannot create cache directory',
@@ -1913,8 +1915,8 @@ class SyncEngine:
     def _create_remote_entry(self, sync_item: SyncItem) -> SyncItem:
         """
         Applies a local file system event to the remote Dropbox and clears any existing
-        sync errors belonging to that path. Any :class:`errors.SyncError` will be
-        caught and logged as appropriate.
+        sync errors belonging to that path. Any :class:`errors.SyncError` will be caught
+        and logged as appropriate.
 
         :param sync_item: SyncItem for local file event.
         :returns: SyncItem with updated status.
@@ -1982,12 +1984,12 @@ class SyncEngine:
         """
         Call when a local item is moved.
 
-        Keep in mind that we may be moving a whole tree of items. But its better deal
-        with the complexity than to delete and re-uploading everything. Thankfully, in
-        case of directories, we always process the top-level first. Trying to move the
-        children will then be delegated to `on_create` (because the old item no longer
-        lives on Dropbox) and that won't upload anything because file contents have
-        remained the same.
+        Keep in mind that we may be moving a whole tree of items. But its better deal with
+        the complexity than to delete and re-uploading everything. Thankfully, in case of
+        directories, we always process the top-level first. Trying to move the children
+        will then be delegated to `on_create` (because the old item no longer lives on
+        Dropbox) and that won't upload anything because file contents have remained the
+        same.
 
         :param sync_item: SyncItem for local moved event.
         :raises: :class:`errors.MaestralApiError`
@@ -2260,9 +2262,9 @@ class SyncEngine:
             -> List[SyncItem]:
         """
         Gets all files/folders from Dropbox and writes them to the local folder
-        :attr:`dropbox_path`. Call this method on first run of the Maestral. Indexing
-        and downloading may take several minutes, depending on the size of the user's
-        Dropbox folder.
+        :attr:`dropbox_path`. Call this method on first run of the Maestral. Indexing and
+        downloading may take several minutes, depending on the size of the user's Dropbox
+        folder.
 
         :param dbx_path: Path relative to Dropbox folder. Defaults to root ('/').
         :param ignore_excluded: If ``True``, do not index excluded folders.
@@ -2360,11 +2362,11 @@ class SyncEngine:
         Blocks until changes to the remote Dropbox are available.
 
         :param last_cursor: Cursor form last sync.
-        :param timeout: Timeout in seconds before returning even if there are no
-            changes. Dropbox adds random jitter of up to 90 sec to this value.
-        :param delay: Delay in sec to wait for subsequent changes that may be
-            duplicates. This delay is typically only necessary folders are shared /
-            un-shared with other Dropbox accounts.
+        :param timeout: Timeout in seconds before returning even if there are no changes.
+            Dropbox adds random jitter of up to 90 sec to this value.
+        :param delay: Delay in sec to wait for subsequent changes that may be duplicates.
+            This delay is typically only necessary folders are shared / un-shared with
+            other Dropbox accounts.
         """
         logger.debug('Waiting for remote changes since cursor:\n%s', last_cursor)
         has_changes = self.client.wait_for_remote_changes(last_cursor, timeout=timeout)
@@ -2608,8 +2610,8 @@ class SyncEngine:
 
     def _get_ctime(self, local_path: str, ignore_excluded: bool = True) -> float:
         """
-        Returns the ctime of a local item or -1.0 if there is nothing at the path. If
-        the item is a directory, return the largest ctime of it and its children.
+        Returns the ctime of a local item or -1.0 if there is nothing at the path. If the
+        item is a directory, return the largest ctime of it and its children.
 
         :param local_path: Absolute path on local drive.
         :param ignore_excluded: If ``True``, the ctimes of children for which
@@ -2638,7 +2640,7 @@ class SyncEngine:
         Returns the Dropbox ID of the user who modified a shared item or our own ID if the
         item was not shared.
 
-        :param md: Dropbox file, folder or deleted metadata
+        :param md: Dropbox metadata.
         :return: Dropbox ID
         """
 
@@ -2917,8 +2919,8 @@ class SyncEngine:
     def rescan(self, local_path: str) -> None:
         """
         Forces a rescan of a local path: schedules created events for every folder,
-        modified events for every file and deleted events for every deleted item
-        (compared to our index).
+        modified events for every file and deleted events for every deleted item (compared
+        to our index).
 
         :param local_path: Path to rescan.
         """
@@ -3065,8 +3067,8 @@ def download_worker_added_item(sync: SyncEngine, syncing: Event,
     :param syncing: Event that indicates if workers are running or paused.
     :param running: Event to shutdown local file event handler and worker threads.
     :param connected: Event that indicates if we can connect to Dropbox.
-    :param added_item_queue: Queue with newly added items to download. Entries
-        are Dropbox paths.
+    :param added_item_queue: Queue with newly added items to download. Entries are Dropbox
+        paths.
     """
 
     while running.is_set():
