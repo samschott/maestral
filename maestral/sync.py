@@ -24,14 +24,18 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
 from collections import abc
 from contextlib import contextmanager
-from enum import Enum
+import enum
 import pprint
 import socket
 from datetime import timezone
+import uuid
 from typing import Optional, Any, List, Dict, Tuple, Union, Iterator, Callable, Type, cast
 from types import TracebackType
 
 # external imports
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import Column, Integer, String, Enum, Float, create_engine
 import pathspec  # type: ignore
 import dropbox  # type: ignore
 from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata  # type: ignore
@@ -70,6 +74,9 @@ from maestral.utils.appdirs import get_data_path, get_home_dir
 logger = logging.getLogger(__name__)
 _cpu_count = os.cpu_count() or 1  # os.cpu_count can return None
 
+Base = declarative_base()
+Session = sessionmaker()
+
 ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
 _FT = Callable[..., Any]
 
@@ -78,7 +85,7 @@ _FT = Callable[..., Any]
 # Syncing functionality
 # ========================================================================================
 
-class Conflict(Enum):
+class Conflict(enum.Enum):
     """
     Enumeration of sync conflict types.
 
@@ -93,7 +100,7 @@ class Conflict(Enum):
     LocalNewerOrIdentical = 'local newer or identical'
 
 
-class SyncDirection(Enum):
+class SyncDirection(enum.Enum):
     """
     Enumeration of sync direction.
 
@@ -104,7 +111,7 @@ class SyncDirection(Enum):
     Down = 'down'
 
 
-class SyncStatus(Enum):
+class SyncStatus(enum.Enum):
     """
     Enumeration of sync status values.
 
@@ -122,7 +129,7 @@ class SyncStatus(Enum):
     Aborted = 'aborted'
 
 
-class ItemType(Enum):
+class ItemType(enum.Enum):
     """
     Enumeration of sync item types.
 
@@ -133,7 +140,7 @@ class ItemType(Enum):
     Folder = 'folder'
 
 
-class ChangeType(Enum):
+class ChangeType(enum.Enum):
     """
     Enumeration of sync change types.
 
@@ -389,12 +396,15 @@ class PersistentStateMutableSet(abc.MutableSet):
                f'option=\'{self.option}\', entries={list(self)})>'
 
 
-class SyncItem:
+class SyncItem(Base):
     """
     Represents a file or folder change in the sync queue. This is used to abstract the
     :class:`watchdog.events.FileSystemEvent`s created for local changes and the
     :class:`dropbox.files.Metadata` created for remote changes. All arguments are used to
     construct instance attributes and some attributes may not be set for all event types.
+    Note that some instance attributes depend on the state of the Maestral instance, e.g.,
+    :attr:`local_path` will depend on the current path of the local Dropbox folder. They
+    may therefore become invalid after sync sessions.
 
     The convenience methods :meth:`SyncEngine.sync_item_from_dbx_metadata` and
     :meth:`SyncEngine.sync_item_from_file_system_event` should be used to properly
@@ -433,6 +443,24 @@ class SyncItem:
         Always zero for folders.
     """
 
+    __tablename__ = 'history'
+
+    dbx_path = Column(String)
+    local_path = Column(String)
+    dbx_path_from = Column(String)
+    local_path_from = Column(String)
+    rev = Column(String)
+    content_hash = Column(String)
+    item_type = Column(Enum(ItemType))
+    direction = Column(Enum(SyncDirection))
+    change_type = Column(Enum(ChangeType))
+    change_time = Column(Float)
+    change_dbid = Column(String)
+    status = Column(Enum(SyncStatus))
+    size = Column(Integer)
+    completed = Column(Integer)
+    id = Column(Integer, primary_key=True)
+
     def __init__(self,
                  dbx_path: str,
                  local_path: str,
@@ -464,6 +492,7 @@ class SyncItem:
         self.status = status
         self.size = size
         self.completed = 0
+        self.uuid = uuid.uuid1().int
 
     @property
     def is_file(self) -> bool:
@@ -640,16 +669,24 @@ class SyncEngine:
         self.queued_for_download = Queue()
         self.uploading = Queue()
         self.downloading = Queue()
-        self.history = Queue()
 
-        # load cached properties
+        # determine file paths
         self._dropbox_path = osp.realpath(self._conf.get('main', 'path'))
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
         self._rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
-        # check for home, update later
-        self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
+        self._db_path = get_data_path('maestral', f'{self.config_name}.db')
 
+        # initialize history database
+        self._db_engine = create_engine(
+            f'sqlite:///file:{self._db_path}?check_same_thread=false&uri=true'
+        )
+        Base.metadata.create_all(self._db_engine)
+        Session.configure(bind=self._db_engine)
+        self._db_session = Session()
+
+        # load cached properties
+        self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
         self._rev_dict_cache = dict()
         self._load_rev_dict_from_file(raise_exception=True)
         self._excluded_items = self._conf.get('main', 'excluded_items')
@@ -814,6 +851,10 @@ class SyncEngine:
                 pass
         else:
             self._last_sync_for_path[dbx_path] = last_sync
+
+    @property
+    def history(self):
+        return self._db_session.query(SyncItem).order_by(SyncItem.change_time).all()
 
     # ==== rev file management ===========================================================
 
@@ -2970,7 +3011,11 @@ class SyncEngine:
 
         :param sync_items: Dropbox Metadata.
         """
-        pass
+
+        for si in sync_items:
+            self._db_session.add(si)
+
+        self._db_session.commit()
 
 
 # ========================================================================================

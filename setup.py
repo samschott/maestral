@@ -26,6 +26,7 @@ install_requires = [
     'rubicon-objc>=0.3.1;sys_platform=="darwin"',
     'sdnotify',
     'setuptools',
+    'sqlalchemy>=1.3.0',
     'watchdog>=0.10.0',
 ]
 
