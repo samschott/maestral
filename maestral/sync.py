@@ -1047,20 +1047,28 @@ class SyncEngine:
 
     def _ensure_cache_dir_present(self) -> None:
         """Checks for or creates a directory at :attr:`file_cache_path`."""
+
+        err_title = 'Cannot create cache directory (errno {})'
+        err_msg = 'Please check if you have write permissions for "{}".'
+
+        retries = 0
+        max_retries = 3
+
         while not osp.isdir(self.file_cache_path):
-            err = delete(self._file_cache_path)
-            if err and not isinstance(err, FileNotFoundError):
-                raise CacheDirError(f'Cannot create cache directory (errno {err.errno})',
-                                    'Please check if you have write permissions for '
-                                    f'{self.file_cache_path}.')
             try:
-                os.mkdir(self.file_cache_path)
+                # this will still raise an exception if file_cache_path
+                # exists but is a file instead of a directory
+                os.makedirs(self.file_cache_path, exist_ok=True)
             except FileExistsError:
-                pass
+                err = delete(self._file_cache_path)
+                if err and not isinstance(err, FileNotFoundError):
+                    raise CacheDirError(err_title.format(err.errno), err_msg.format(err.filename))
             except OSError as err:
-                raise CacheDirError(f'Cannot create cache directory (errno {err.errno})',
-                                    'Please check if you have write permissions for '
-                                    f'{self.file_cache_path}.')
+                raise CacheDirError(err_title.format(err.errno), err_msg.format(err.filename))
+
+            if retries > max_retries:
+                raise CacheDirError('Cannot create cache directory',
+                                    'Exceeded maximum number of retries')
 
     def clean_cache_dir(self) -> None:
         """Removes all items in the cache directory."""
