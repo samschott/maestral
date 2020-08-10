@@ -715,6 +715,8 @@ def activity(config_name: str) -> None:
     """Live view of all items being synced."""
 
     import itertools
+    import curses
+    import time
     from maestral.utils import natural_size
 
     try:
@@ -722,9 +724,6 @@ def activity(config_name: str) -> None:
 
             if check_for_fatal_errors(m):
                 return
-
-            import curses
-            import time
 
             def curses_loop(screen):
 

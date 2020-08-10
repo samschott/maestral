@@ -12,14 +12,18 @@ daemon and frontends.
 # system imports
 import json
 import traceback
+from enum import Enum
 from typing import Dict, Union, Any, Sequence
 
 # external imports
 from dropbox.stone_serializers import json_encode  # type: ignore
 from dropbox.stone_validators import Struct  # type: ignore
 
+# local imports
+from maestral.sync import SyncItem
 
-StoneType = Dict[str, Union[str, float, bool]]
+
+StoneType = Dict[str, Union[str, float, bool, None]]
 ErrorType = Dict[str, Union[str, Sequence[str], None]]
 
 
@@ -56,8 +60,23 @@ def error_to_dict(err: Exception) -> ErrorType:
     for key, value in err.__dict__.items():
 
         if value is None:
-            err_dict[key] = None
+            err_dict[key] = value
         else:
             err_dict[key] = str(value)
 
     return err_dict
+
+
+def sync_item_to_dict(si: SyncItem) -> StoneType:
+    serialized = si.__dict__
+
+    for key, value in serialized.items():
+        if isinstance(value, Enum):
+            value = value.value
+
+        if isinstance(value, (str, int, float)) or value is None:
+            serialized[key] = value
+        else:
+            serialized[key] = str(value)
+
+    return serialized

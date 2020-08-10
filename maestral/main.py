@@ -49,7 +49,7 @@ from maestral.utils.housekeeping import validate_config_name
 from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import (
-    error_to_dict, dropbox_stone_to_dict, StoneType, ErrorType
+    error_to_dict, dropbox_stone_to_dict, sync_item_to_dict, StoneType, ErrorType
 )
 from maestral.utils.appdirs import get_log_path, get_cache_path
 from maestral.utils.updates import check_update_available
@@ -692,7 +692,7 @@ class Maestral:
         else:
             return FileStatus.Unwatched.value
 
-    def get_activity(self) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+    def get_activity(self) -> Dict[str, List[StoneType]]:
         """
         Returns the current upload / download activity.
 
@@ -703,32 +703,18 @@ class Maestral:
 
         self._check_linked()
 
-        uploading: List[Dict[str, Union[str, int]]] = []
-        downloading: List[Dict[str, Union[str, int]]] = []
+        uploading: List[StoneType] = []
+        downloading: List[StoneType] = []
 
         for item in self.monitor.uploading.copy():
-            uploading.append(
-                dict(
-                    dbx_path=item.dbx_path,
-                    status=item.status,
-                    size=item.size,
-                    completed=item.completed
-                )
-            )
+            uploading.append(sync_item_to_dict(item))
 
         for item in self.monitor.downloading.copy():
-            downloading.append(
-                dict(
-                    dbx_path=item.dbx_path,
-                    status=item.status,
-                    size=item.size,
-                    completed=item.completed
-                )
-            )
+            downloading.append(sync_item_to_dict(item))
 
         return dict(uploading=uploading, downloading=downloading)
 
-    def get_account_info(self) -> Dict[str, Union[str, float, bool]]:
+    def get_account_info(self) -> StoneType:
         """
         Returns the account information from Dropbox and returns it as a dictionary.
 
@@ -744,7 +730,7 @@ class Maestral:
         res = self.client.get_account_info()
         return dropbox_stone_to_dict(res)
 
-    def get_space_usage(self) -> Dict[str, Union[str, float, bool]]:
+    def get_space_usage(self) -> StoneType:
         """
         Gets the space usage from Dropbox and returns it as a dictionary.
 

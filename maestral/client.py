@@ -365,13 +365,11 @@ class DropboxClient:
         chunksize = 2 ** 16
         size_str = natural_size(md.size)
 
-        downloaded = 0
-
         with open(local_path, 'wb') as f:
             with contextlib.closing(http_resp):
                 for c in http_resp.iter_content(chunksize):
                     f.write(c)
-                    downloaded += chunksize
+                    downloaded = f.tell()
                     logger.debug('Downloading %s: %s/%s', dbx_path,
                                  natural_size(downloaded), size_str)
                     if sync_item:
@@ -1257,6 +1255,10 @@ def _get_write_error_msg(write_error: files.WriteError) -> Tuple[str, WriteError
             text = ('Could not write to the target path because another folder '
                     'was in the way.')
             err_cls = FolderConflictError
+        elif conflict.is_file_ancestor():
+            text = ('Could not create parent folders because another file '
+                    'was in the way.')
+            err_cls = FileConflictError
         else:
             text = ('Could not write to the target path because another file or '
                     'folder was in the way.')
