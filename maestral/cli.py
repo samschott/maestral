@@ -1044,16 +1044,20 @@ def recent_changes(config_name: str) -> None:
 
     with MaestralProxy(config_name, fallback=True) as m:
 
-        changes_dict = m.get_state('sync', 'recent_changes')
+        history = m.get_history()
         paths = []
         last_modified = []
-        for e in changes_dict:
-            paths.append(e.get('path_display'))
+        change_types = []
 
-            dt = datetime.fromtimestamp(e.get('client_modified'))  # convert to local time
+        for event in history:
+            paths.append(event['dbx_path'])
+
+            dt = datetime.fromtimestamp(event['client_modified'])
             last_modified.append(dt.strftime('%d %b %Y %H:%M'))
 
-        click.echo(format_table(columns=[paths, last_modified]))
+            change_types.append(event['change_type'])
+
+        click.echo(format_table(columns=[paths, change_types, last_modified]))
 
 
 @main.command(help_priority=19)
