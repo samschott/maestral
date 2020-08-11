@@ -696,8 +696,8 @@ class Maestral:
         """
         Returns the current upload / download activity.
 
-        :returns: A dictionary with lists of all files currently queued for or being
-            uploaded or downloaded. Paths are given relative to the Dropbox folder.
+        :returns: A dictionary with lists of all sync events currently queued for or being
+            uploaded or downloaded.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
@@ -713,6 +713,20 @@ class Maestral:
             downloading.append(sync_item_to_dict(item))
 
         return dict(uploading=uploading, downloading=downloading)
+
+    def get_history(self) -> List[StoneType]:
+        """
+        Returns the historic upload / download activity.
+
+        :returns: A lists of all sync events from the last week.
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        """
+
+        self._check_linked()
+
+        history = [sync_item_to_dict(event) for event in self.sync.history]
+
+        return history
 
     def get_account_info(self) -> StoneType:
         """
