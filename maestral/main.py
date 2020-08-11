@@ -39,7 +39,7 @@ import sdnotify  # type: ignore
 from maestral import __version__
 from maestral.oauth import OAuth2Session
 from maestral.client import DropboxClient, to_maestral_error
-from maestral.sync import SyncMonitor
+from maestral.sync import SyncMonitor, SyncDirection
 from maestral.errors import (
     MaestralApiError, NotLinkedError, NoDropboxDirError,
     NotFoundError, PathError
@@ -681,9 +681,11 @@ class Maestral:
         except ValueError:
             return FileStatus.Unwatched.value
 
-        if local_path in self.monitor.uploading:
+        sync_event = next(iter(e for e in self.monitor.activity if e.local_path == local_path), None)
+
+        if sync_event and sync_event.direction == SyncDirection.Up:
             return FileStatus.Uploading.value
-        elif dbx_path in self.monitor.downloading:
+        elif sync_event and sync_event.direction == SyncDirection.Down:
             return FileStatus.Downloading.value
         elif any(dbx_path == err['dbx_path'] for err in self.sync_errors):
             return FileStatus.Error.value
@@ -692,27 +694,19 @@ class Maestral:
         else:
             return FileStatus.Unwatched.value
 
-    def get_activity(self) -> Dict[str, List[StoneType]]:
+    def get_activity(self) -> List[StoneType]:
         """
         Returns the current upload / download activity.
 
-        :returns: A dictionary with lists of all sync events currently queued for or being
-            uploaded or downloaded.
+        :returns: A lists of all sync events currently queued for or being uploaded or
+            downloaded.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
         self._check_linked()
 
-        uploading: List[StoneType] = []
-        downloading: List[StoneType] = []
-
-        for item in self.monitor.uploading.copy():
-            uploading.append(sync_item_to_dict(item))
-
-        for item in self.monitor.downloading.copy():
-            downloading.append(sync_item_to_dict(item))
-
-        return dict(uploading=uploading, downloading=downloading)
+        activity = [sync_item_to_dict(event) for event in self.monitor.activity]
+        return activity
 
     def get_history(self) -> List[StoneType]:
         """
@@ -724,7 +718,7 @@ class Maestral:
 
         self._check_linked()
 
-        history = [sync_item_to_dict(event) for event in self.sync.history]
+        history = [sync_item_to_dict(event) for event in self.monitor.history]
 
         return history
 

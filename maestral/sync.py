@@ -28,7 +28,7 @@ import enum
 import pprint
 import socket
 from datetime import timezone
-from typing import Optional, Any, List, Dict, Tuple, Union, Iterator, Callable, Type, cast
+from typing import Optional, Any, Set, List, Dict, Tuple, Union, Iterator, Callable, Type, cast
 from types import TracebackType
 
 # external imports
@@ -623,12 +623,8 @@ class SyncEngine:
 
     """
 
-    sync_errors: 'Queue[SyncError]'
-    queued_for_upload: 'Queue[SyncEvent]'
-    queued_for_download: 'Queue[SyncEvent]'
-    uploading: 'Queue[SyncEvent]'
-    downloading: 'Queue[SyncEvent]'
-    history: 'Queue[SyncEvent]'
+    sync_errors: Set[SyncError]
+    syncing: List[SyncEvent]
     _rev_dict_cache: Dict[str, str]
     _last_sync_for_path: Dict[str, float]
 
@@ -668,14 +664,11 @@ class SyncEngine:
             self.config_name, section='sync', option='pending_uploads'
         )
 
-        # queues used for internal communication
-        self.sync_errors = Queue()  # entries are `SyncIssue` instances
+        # data structures for internal communication
+        self.sync_errors = set()
 
         # data structures for user information
-        self.queued_for_upload = Queue()
-        self.queued_for_download = Queue()
-        self.uploading = Queue()
-        self.downloading = Queue()
+        self.syncing = []
 
         # determine file paths
         self._dropbox_path = osp.realpath(self._conf.get('main', 'path'))
@@ -1185,7 +1178,7 @@ class SyncEngine:
 
     def has_sync_errors(self) -> bool:
         """Returns ``True`` in case of sync errors, ``False`` otherwise."""
-        return self.sync_errors.qsize() > 0
+        return len(self.sync_errors) > 0
 
     def clear_sync_error(self, local_path: Optional[str] = None,
                          dbx_path: Optional[str] = None) -> None:
@@ -1205,19 +1198,21 @@ class SyncEngine:
         dbx_path = dbx_path.lower()
 
         if self.has_sync_errors():
-            for error in list(self.sync_errors.queue):
+            for error in self.sync_errors.copy():
                 equal = error.dbx_path.lower() == dbx_path
                 child = is_child(error.dbx_path.lower(), dbx_path)
                 if equal or child:
-                    remove_from_queue(self.sync_errors, error)
+                    try:
+                        self.sync_errors.remove(error)
+                    except KeyError:
+                        pass
 
         self.upload_errors.discard(dbx_path)
         self.download_errors.discard(dbx_path)
 
     def clear_all_sync_errors(self) -> None:
         """Clears all sync errors."""
-        with self.sync_errors.mutex:
-            self.sync_errors.queue.clear()
+        self.sync_errors.clear()
         self.upload_errors.clear()
         self.download_errors.clear()
 
@@ -1338,7 +1333,7 @@ class SyncEngine:
             # we have a file / folder associated with the sync error
             file_name = osp.basename(err.dbx_path)
             logger.warning('Could not sync %s', file_name, exc_info=True)
-            self.sync_errors.put(err)
+            self.sync_errors.add(err)
 
             # save download errors to retry later
             if direction == SyncDirection.Down:
@@ -1647,7 +1642,7 @@ class SyncEngine:
                         other.append(event)
 
                     # housekeeping
-                    self.queued_for_upload.put(event)
+                    self.syncing.append(event)
 
                 # apply deleted events first, folder moved events second
                 # neither event type requires an actual upload
@@ -1683,7 +1678,7 @@ class SyncEngine:
                         results.append(f.result())
 
                 self._clean_and_save_rev_file()
-                self._save_to_history(sync_events)
+                self._clean_history()
 
             if not self.cancel_pending.is_set():
                 # always save local cursor if not aborted by user,
@@ -1987,13 +1982,9 @@ class SyncEngine:
         :returns: SyncEvent with updated status.
         """
 
-        # housekeeping
-        remove_from_queue(self.queued_for_upload, event)
-        self.uploading.put(event)
-
         if self.cancel_pending.is_set():
             event.status = SyncStatus.Aborted
-            remove_from_queue(self.uploading, event)
+            self.syncing.remove(event)
             return event
 
         self._slow_down()
@@ -2024,7 +2015,11 @@ class SyncEngine:
             self._handle_sync_error(err, direction=SyncDirection.Up)
             event.status = SyncStatus.Failed
         finally:
-            remove_from_queue(self.uploading, event)
+            self.syncing.remove(event)
+
+        # add to history database
+        if event.status == SyncStatus.Done:
+            self._db_session.add(event)
 
         return event
 
@@ -2493,7 +2488,7 @@ class SyncEngine:
                 files.append(event)
 
             # housekeeping
-            self.queued_for_download.put(event)
+            self.syncing.append(event)
 
         # sort according to path hierarchy
         # do not create sub-folder / file before parent exists
@@ -2533,7 +2528,7 @@ class SyncEngine:
             self.last_cursor = cursor
 
         self._clean_and_save_rev_file()
-        self._save_to_history(changes_included)
+        self._clean_history()
 
         return results
 
@@ -2773,13 +2768,9 @@ class SyncEngine:
             :class:`errors.SyncError` and ``None`` if cancelled.
         """
 
-        # housekeeping
-        remove_from_queue(self.queued_for_download, event)
-        self.downloading.put(event)
-
         if self.cancel_pending.is_set():
             event.status = SyncStatus.Aborted
-            remove_from_queue(self.downloading, event)
+            self.syncing.remove(event)
             return event
 
         self._slow_down()
@@ -2806,7 +2797,11 @@ class SyncEngine:
             self._handle_sync_error(e, direction=SyncDirection.Down)
             event.status = SyncStatus.Failed
         finally:
-            remove_from_queue(self.downloading, event)
+            self.syncing.remove(event)
+
+        # add to history database
+        if event.status == SyncStatus.Done:
+            self._db_session.add(event)
 
         return event
 
@@ -3020,16 +3015,12 @@ class SyncEngine:
             elif self.get_local_rev(dbx_path):
                 self.fs_events.local_file_event_queue.put(FileDeletedEvent(local_path))
 
-    def _save_to_history(self, sync_events: List[SyncEvent]) -> None:
-        """
-        Saves remote changes to the history database.
+    def _clean_history(self):
+        """Commits new events and removes all events older than ``_keep_history`` from
+        history."""
 
-        :param sync_events: Dropbox Metadata.
-        """
-
-        # save all sync events which where not skipped
-        changes = [e for e in sync_events if e.status != SyncStatus.Skipped]
-        self._db_session.add_all(changes)
+        # commit previous
+        self._db_session.commit()
 
         # drop all entries older than self._keep_history
         now = time.time()
@@ -3343,14 +3334,14 @@ class SyncMonitor:
         return self._conf.get('sync', 'reindex_interval')
 
     @property
-    def uploading(self) -> List[SyncEvent]:
-        """Returns a list all items queued for upload or currently uploading."""
-        return list(self.sync.queued_for_upload.queue) + list(self.sync.uploading.queue)
+    def activity(self) -> List[SyncEvent]:
+        """Returns a list all items queued for or currently syncing."""
+        return list(self.sync.syncing)
 
     @property
-    def downloading(self) -> List[SyncEvent]:
-        """Returns a list all items queued for download or currently downloading."""
-        return list(self.sync.queued_for_download.queue) + list(self.sync.downloading.queue)
+    def history(self) -> List[SyncEvent]:
+        """Returns a list all past sync events."""
+        return self.sync.history
 
     def start(self) -> None:
         """Creates observer threads and starts syncing."""
