@@ -684,7 +684,6 @@ class SyncEngine:
         Base.metadata.create_all(self._db_engine)
         Session.configure(bind=self._db_engine)
         self._db_session = Session()
-        self._keep_history = 60*60*24*7
 
         # load cached properties
         self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
@@ -3022,10 +3021,11 @@ class SyncEngine:
         # commit previous
         self._db_session.commit()
 
-        # drop all entries older than self._keep_history
+        # drop all entries older than keep_history
         now = time.time()
+        keep_history = self._conf.get('sync', 'keep_history')
         query = self._db_session.query(SyncEvent)
-        query.filter(SyncEvent.change_time < now - self._keep_history).delete()
+        query.filter(SyncEvent.change_time < now - keep_history).delete()
 
         # commit to drive
         self._db_session.commit()
