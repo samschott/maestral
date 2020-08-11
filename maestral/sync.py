@@ -1439,7 +1439,7 @@ class SyncEngine:
         """
 
         change_dbid = self._conf.get('account', 'account_id')
-        change_user_name = self._conf.get('account', 'display_name')
+        change_user_name = self._state.get('account', 'display_name')
         to_path = get_dest_path(event)
         from_path = None
 
@@ -2554,12 +2554,14 @@ class SyncEngine:
 
         # find out who changed the item(s), show the user name if its only a single user
         user_name: Optional[str]
-        user_list = set(e.change_user_name for e in changes)
-        if len(user_list) == 1:
+        dbid_list = set(e.change_dbid for e in changes)
+        if len(dbid_list) == 1:
             # all files have been modified by the same user
-            user_name = user_list.pop()
-            if user_name == self._conf.get('account', 'display_name'):
+            dbid = dbid_list.pop()
+            if dbid == self._conf.get('account', 'account_id'):
                 user_name = 'You'
+            else:
+                user_name = changes[0].change_user_name
         else:
             user_name = None
 
