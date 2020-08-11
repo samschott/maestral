@@ -1683,6 +1683,7 @@ class SyncEngine:
                         results.append(f.result())
 
                 self._clean_and_save_rev_file()
+                self._save_to_history(sync_events)
 
             if not self.cancel_pending.is_set():
                 # always save local cursor if not aborted by user,
