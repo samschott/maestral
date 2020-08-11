@@ -58,7 +58,7 @@ from maestral.constants import (
     EXCLUDED_DIR_NAMES, MIGNORE_FILE, FILE_CACHE
 )
 from maestral.errors import (
-    SyncError, RevFileError, NoDropboxDirError, CacheDirError,
+    SyncError, RevFileError, NoDropboxDirError, CacheDirError, InvalidDbidError,
     PathError, NotFoundError, FileConflictError, FolderConflictError, IsAFolderError
 )
 from maestral.client import DropboxClient, os_to_maestral_error, fswatch_to_maestral_error
@@ -410,6 +410,9 @@ class SyncEvent(Base):
     :meth:`SyncEngine.sync_event_from_file_system_event` should be used to properly
     construct a SyncEvent from Dropbox Metadata or a local FileSystemEvent, respectively.
 
+    :param direction: Direction of the sync: upload or download.
+    :param item_type: The item type: file or folder.
+    :param sync_time: The time the sync event was registered.
     :param dbx_path: Dropbox path of the item to sync. If the sync represents a move
         operation, this will be the destination path. The path does not need to be
         correctly cased apart from the basename.
@@ -422,19 +425,19 @@ class SyncEvent(Base):
     :param local_path_from: Local path that this item was moved from. Will only be set if
         ``change_type`` is ``ChangeType.Moved``. The same rules for casing as for
         ``local_path`` apply.
-    :param item_type: The item type: file or folder.
-    :param direction: Direction of the sync: upload or download.
+    :param rev: The file revision. Will only be set for remote changes. Will be 'folder'
+        for folders and None for deletions.
+    :param content_hash: A hash representing the file content. Will be 'folder' for
+        folders and None for deleted items. Set for both local and remote changes.
     :param change_type: The type of change: deleted, moved, added or changed.
     :param change_time: The time of the change: Local ctime or remote client_modified
         time for files. None for folders or for remote deletions. Note that the
         client_modified may not be reliable as it is set by other clients and not
         verified.
-    :param rev: The file revision. Will only be set for remote changes. Will be 'folder'
-        for folders and None for deletions.
-    :param content_hash: A hash representing the file content. Will be 'folder' for
-        folders and None for deleted items. Set for both local and remote changes.
     :param change_dbid: The Dropbox ID of the account which performed the changes. This
         may not be set for added folders or deletions on the server.
+    :param change_user_name: The user name of the account which performed the changes.
+        This will only be set if the account given by ``change_dbid`` still exists.
     :param status: Field containing the sync status: queued, syncing, done, failed,
         skipped (item was already in sync) or aborted (by the user).
     :param size: Size of the item in bytes. Always zero for folders.
@@ -445,54 +448,59 @@ class SyncEvent(Base):
 
     __tablename__ = 'history'
 
+    id = Column(Integer, primary_key=True)
+    direction = Column(Enum(SyncDirection))
+    item_type = Column(Enum(ItemType))
+    sync_time = Column(Float)
     dbx_path = Column(String)
     local_path = Column(String)
     dbx_path_from = Column(String)
     local_path_from = Column(String)
     rev = Column(String)
     content_hash = Column(String)
-    item_type = Column(Enum(ItemType))
-    direction = Column(Enum(SyncDirection))
     change_type = Column(Enum(ChangeType))
     change_time = Column(Float)
     change_dbid = Column(String)
+    change_user_name = Column(String)
     status = Column(Enum(SyncStatus))
     size = Column(Integer)
     completed = Column(Integer)
-    id = Column(Integer, primary_key=True)
 
     def __init__(self,
+                 direction: SyncDirection,
+                 item_type: ItemType,
+                 sync_time: float,
                  dbx_path: str,
                  local_path: str,
                  dbx_path_from: Optional[str],
                  local_path_from: Optional[str],
                  rev: Optional[str],
                  content_hash: Optional[str],
-                 item_type: ItemType,
-                 direction: SyncDirection,
                  change_type: ChangeType,
                  change_time: Optional[float],
                  change_dbid: Optional[str],
+                 change_user_name: Optional[str],
                  status: SyncStatus,
                  size: int,
                  orig: Union[FileSystemEvent, Metadata, None] = None) -> None:
 
-        self.orig = orig
+        self.direction = direction
+        self.item_type = item_type
+        self.sync_time = sync_time
         self.dbx_path = dbx_path
         self.local_path = local_path
         self.dbx_path_from = dbx_path_from
         self.local_path_from = local_path_from
         self.rev = rev
         self.content_hash = content_hash
-        self.direction = direction
         self.change_type = change_type
         self.change_time = change_time
         self.change_dbid = change_dbid
-        self.item_type = item_type
+        self.change_user_name = change_user_name
         self.status = status
         self.size = size
         self.completed = 0
-        self.uuid = uuid.uuid1().int
+        self.orig = orig
 
     @property
     def is_file(self) -> bool:
@@ -651,7 +659,7 @@ class SyncEngine:
             self.config_name, section='sync', option='download_errors'
         )
         # pending_uploads / pending_downloads: contains interrupted uploads / downloads
-        # to retry later. Running uploads / downloads  can be stored in these lists to be
+        # to retry later. Running uploads / downloads can be stored in these lists to be
         # resumed if Maestral quits unexpectedly. This used for downloads which are not
         # part of the regular sync cycle and are therefore not restarted automatically.
         self.pending_downloads = PersistentStateMutableSet(
@@ -684,6 +692,7 @@ class SyncEngine:
         Base.metadata.create_all(self._db_engine)
         Session.configure(bind=self._db_engine)
         self._db_session = Session()
+        self._keep_history = 60*60*24*7
 
         # load cached properties
         self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
@@ -1367,7 +1376,7 @@ class SyncEngine:
                 change_dbid = None
 
         elif isinstance(md, FolderMetadata):
-            # there is currently on API call to determine who added a folder
+            # there is currently no API call to determine who added a folder
             change_type = ChangeType.Added
             item_type = ItemType.Folder
             size = 0
@@ -1375,6 +1384,7 @@ class SyncEngine:
             content_hash = 'folder'
             change_time = None
             change_dbid = None
+
         elif isinstance(md, FileMetadata):
             item_type = ItemType.File
             rev = md.rev
@@ -1394,18 +1404,29 @@ class SyncEngine:
         else:
             raise RuntimeError(f'Cannot convert {md} to SyncEvent')
 
+        if change_dbid:
+            try:
+                account_info = self.client.get_account_info(change_dbid)
+                change_user_name = account_info.name.display_name
+            except InvalidDbidError:
+                change_user_name = None
+        else:
+            change_user_name = None
+
         return SyncEvent(
+            direction=SyncDirection.Down,
+            item_type=item_type,
+            sync_time=time.time(),
             dbx_path=md.path_display,
             local_path=self.to_local_path(md.path_display),
             dbx_path_from=None,
             local_path_from=None,
             rev=rev,
             content_hash=content_hash,
-            item_type=item_type,
-            direction=SyncDirection.Down,
             change_type=change_type,
             change_time=change_time,
             change_dbid=change_dbid,
+            change_user_name=change_user_name,
             status=SyncStatus.Queued,
             size=size,
             orig=md,
@@ -1419,6 +1440,7 @@ class SyncEngine:
         """
 
         change_dbid = self._conf.get('account', 'account_id')
+        change_user_name = self._conf.get('account', 'display_name')
         to_path = get_dest_path(event)
         from_path = None
 
@@ -1452,17 +1474,19 @@ class SyncEngine:
             size = stat.st_size if stat else 0
 
         return SyncEvent(
+            direction=SyncDirection.Up,
+            item_type=item_type,
+            sync_time=time.time(),
             dbx_path=self.to_dbx_path(to_path),
             local_path=to_path,
             dbx_path_from=self.to_dbx_path(from_path) if from_path else None,
             local_path_from=from_path,
             rev=None,
             content_hash=get_local_hash(to_path),
-            item_type=item_type,
-            direction=SyncDirection.Up,
             change_type=change_type,
             change_time=change_time,
             change_dbid=change_dbid,
+            change_user_name=change_user_name,
             status=SyncStatus.Queued,
             size=size,
             orig=event,
@@ -2530,18 +2554,16 @@ class SyncEngine:
         if n_changed == 0:
             return
 
-        # find out who changed the item(s), get the user name if its only a single user
-        dbid_list = set(si.change_dbid for si in changes)
-        if len(dbid_list) == 1:
+        # find out who changed the item(s), show the user name if its only a single user
+        user_name: Optional[str]
+        user_list = set(si.change_user_name for si in changes)
+        if len(user_list) == 1:
             # all files have been modified by the same user
-            dbid = dbid_list.pop()
-            if dbid == self._conf.get('account', 'account_id'):
+            user_name = user_list.pop()
+            if user_name == self._conf.get('account', 'display_name'):
                 user_name = 'You'
-            else:
-                account_info = self.client.get_account_info(dbid)
-                user_name = account_info.name.display_name
         else:
-            user_name = ''
+            user_name = None
 
         if n_changed == 1:
             # display user name, file name, and type of change
@@ -3012,9 +3034,14 @@ class SyncEngine:
         :param sync_events: Dropbox Metadata.
         """
 
-        for si in sync_events:
-            self._db_session.add(si)
+        self._db_session.add_all(sync_events)
 
+        # drop all entries older than self._keep_history
+        now = time.time()
+        query = self._db_session.query(SyncEvent)
+        query.filter(SyncEvent.change_time < now - self._keep_history).delete()
+
+        # commit to drive
         self._db_session.commit()
 
 
