@@ -1037,7 +1037,7 @@ def restore(dropbox_path: str, rev: str, config_name: str) -> None:
 
 @main.command(help_priority=18)
 @existing_config_option
-def recent_changes(config_name: str) -> None:
+def history(config_name: str) -> None:
     """Shows a list of recently changed or added files."""
 
     from datetime import datetime
@@ -1046,18 +1046,18 @@ def recent_changes(config_name: str) -> None:
 
         history = m.get_history()
         paths = []
-        last_modified = []
+        change_times = []
         change_types = []
 
         for event in history:
             paths.append(event['dbx_path'])
 
-            dt = datetime.fromtimestamp(event['client_modified'])
-            last_modified.append(dt.strftime('%d %b %Y %H:%M'))
+            dt = datetime.fromtimestamp(event['change_time'] or event['sync_time'])
+            change_times.append(dt.strftime('%d %b %Y %H:%M'))
 
             change_types.append(event['change_type'])
 
-        click.echo(format_table(columns=[paths, change_types, last_modified]))
+        click.echo(format_table(columns=[paths, change_types, change_times]))
 
 
 @main.command(help_priority=19)
