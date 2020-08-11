@@ -733,36 +733,29 @@ def activity(config_name: str) -> None:
                 while True:
 
                     # get info from daemon
-                    res = m.get_activity()
-                    up = res['uploading']
-                    down = res['downloading']
+                    activity = m.get_activity()
                     status = m.status
                     n_errors = len(m.sync_errors)
 
                     # create header
                     lines = [
                         f'Status: {status}, Sync errors: {n_errors}',
-                        f'Uploading: {len(up)}, Downloading: {len(down)}',
                         '',
                     ]
 
                     # create table
 
-                    # insert dummy entries for title rows and spacers
-                    up.insert(0, dict(dbx_path='UPLOADING', status='STATUS', size=0, completed=0))
-                    up.append(dict(dbx_path='', status='', size=0, completed=0))
-                    down.insert(0, dict(dbx_path='DOWNLOADING', status='STATUS', size=0, completed=0))
+                    file_names = ['PATH']
+                    states = ['STATUS']
+                    col_len = 4
 
-                    file_names = []
-                    states = []
-                    col_len = 0
+                    for event in activity:
 
-                    for entry in itertools.chain(up, down):
-
-                        dbx_path = cast(str, entry['dbx_path'])
-                        status = cast(str, entry['status'])
-                        size = cast(int, entry['size'])
-                        completed = cast(int, entry['completed'])
+                        dbx_path = cast(str, event['dbx_path'])
+                        direction = cast(str, event['direction'])
+                        status = cast(str, event['status'])
+                        size = cast(int, event['size'])
+                        completed = cast(int, event['completed'])
 
                         filename = os.path.basename(dbx_path)
                         file_names.append(filename)
@@ -772,7 +765,13 @@ def activity(config_name: str) -> None:
                             todo_str = natural_size(size, sep=False)
                             states.append(f'{done_str}/{todo_str}')
                         else:
-                            states.append(status)
+                            if status == 'syncing' and direction == 'up':
+                                states.append('uploading')
+                            elif status == 'syncing' and direction == 'down':
+                                states.append('downloading')
+                            else:
+                                states.append(status)
+
                         col_len = max(len(filename), col_len)
 
                     for fn, s in zip(file_names, states):  # create rows
