@@ -714,7 +714,6 @@ def file_status(local_path: str, config_name: str) -> None:
 def activity(config_name: str) -> None:
     """Live view of all items being synced."""
 
-    import itertools
     import curses
     import time
     from maestral.utils import natural_size
@@ -810,7 +809,7 @@ def activity(config_name: str) -> None:
 def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -> None:
     """Lists contents of a Dropbox directory."""
 
-    from datetime import datetime, timezone
+    from datetime import datetime
     from maestral.utils import natural_size
 
     if not dropbox_path.startswith('/'):
@@ -854,8 +853,7 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 
             if 'client_modified' in e:
                 cm = cast(str, e['client_modified'])
-                dt = datetime.strptime(cm, '%Y-%m-%dT%H:%M:%SZ')
-                dt = dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
+                dt = datetime.strptime(cm, '%Y-%m-%dT%H:%M:%S%z').astimezone()
                 last_modified.append(dt.strftime('%d %b %Y %H:%M'))
             else:
                 last_modified.append('-')
@@ -1014,8 +1012,8 @@ def revs(dropbox_path: str, config_name: str) -> None:
 
         revs.append(rev)
 
-        dt = datetime.strptime(cm, '%Y-%m-%dT%H:%M:%S%z')
-        last_modified.append(dt.astimezone(tz=None).strftime('%d %b %Y %H:%M'))
+        dt = datetime.strptime(cm, '%Y-%m-%dT%H:%M:%S%z').astimezone()
+        last_modified.append(dt.strftime('%d %b %Y %H:%M'))
 
     click.echo(format_table(columns=[revs, last_modified]))
 
