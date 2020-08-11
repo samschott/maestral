@@ -49,7 +49,7 @@ from maestral.utils.housekeeping import validate_config_name
 from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import (
-    error_to_dict, dropbox_stone_to_dict, sync_item_to_dict, StoneType, ErrorType
+    error_to_dict, dropbox_stone_to_dict, sync_event_to_dict, StoneType, ErrorType
 )
 from maestral.utils.appdirs import get_log_path, get_cache_path
 from maestral.utils.updates import check_update_available
@@ -615,9 +615,7 @@ class Maestral:
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
-        sync_errors = list(self.sync.sync_errors.queue)
-        sync_errors_dicts = [error_to_dict(e) for e in sync_errors]
-        return sync_errors_dicts
+        return [error_to_dict(e) for e in self.sync.sync_errors]
 
     @property
     def fatal_errors(self) -> List[ErrorType]:
@@ -705,7 +703,7 @@ class Maestral:
 
         self._check_linked()
 
-        activity = [sync_item_to_dict(event) for event in self.monitor.activity]
+        activity = [sync_event_to_dict(event) for event in self.monitor.activity]
         return activity
 
     def get_history(self) -> List[StoneType]:
@@ -718,7 +716,7 @@ class Maestral:
 
         self._check_linked()
 
-        history = [sync_item_to_dict(event) for event in self.monitor.history]
+        history = [sync_event_to_dict(event) for event in self.monitor.history]
 
         return history
 

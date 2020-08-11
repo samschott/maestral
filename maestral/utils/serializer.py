@@ -67,16 +67,26 @@ def error_to_dict(err: Exception) -> ErrorType:
     return err_dict
 
 
-def sync_item_to_dict(si: SyncEvent) -> StoneType:
-    serialized = si.__dict__
+def sync_event_to_dict(event: SyncEvent) -> StoneType:
+    """
+    Converts a SyncEvent to a dict. Keys will be strings and entries are native Python
+    types.
 
-    for key, value in serialized.items():
-        if isinstance(value, Enum):
-            value = value.value
+    :param event: SyncEvent to convert.
+    :returns: Serialized SyncEvent.
+    """
+    serialized = dict()
 
-        if isinstance(value, (str, int, float)) or value is None:
-            serialized[key] = value
+    for field in [x for x in dir(event) if not x.startswith('_') and x != 'metadata']:
+        data = event.__getattribute__(field)
+        if isinstance(data, Enum):
+            new_data = data.value
         else:
-            serialized[key] = str(value)
+            new_data = data
+
+        if isinstance(new_data, (str, int, float)) or new_data is None:
+            serialized[field] = new_data
+        else:
+            serialized[field] = str(new_data)
 
     return serialized
