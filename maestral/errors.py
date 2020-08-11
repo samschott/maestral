@@ -136,10 +136,15 @@ class FileSizeError(SyncError):
     pass
 
 
-# ==== fatal errors, require user action for syncing to continue =========================
+# ==== errors which are not related to a specific sync event =============================
 
 class NotLinkedError(MaestralApiError):
     """Raised when no Dropbox account is linked."""
+    pass
+
+
+class InvalidDbidError(MaestralApiError):
+    """Raised when the given Dropbox ID does not correspond to an existing account."""
     pass
 
 
@@ -224,6 +229,7 @@ SYNC_ERRORS = (
 FATAL_ERRORS = (
     MaestralApiError,
     NotLinkedError,
+    InvalidDbidError,
     KeyringAccessError,
     NoDropboxDirError,
     InotifyError,

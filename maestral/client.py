@@ -36,7 +36,7 @@ from maestral.errors import (
     UnsupportedFileError, RestrictedContentError, NotFoundError, NotAFolderError,
     IsAFolderError, FileSizeError, OutOfMemoryError, BadInputError, DropboxAuthError,
     TokenExpiredError, TokenRevokedError, CursorResetError, DropboxServerError,
-    NoDropboxDirError, InotifyError, NotLinkedError
+    NoDropboxDirError, InotifyError, NotLinkedError, InvalidDbidError
 )
 from maestral.config import MaestralState
 from maestral.constants import DROPBOX_APP_KEY
@@ -1001,8 +1001,7 @@ def dropbox_to_maestral_error(exc: exceptions.DropboxException,
                 text = 'Please check the logs for more information'
                 err_cls = SyncError
 
-        elif isinstance(error, (files.CreateFolderError,
-                                files.CreateFolderEntryError)):
+        elif isinstance(error, (files.CreateFolderError, files.CreateFolderEntryError)):
             title = 'Could not create folder'
             if error.is_path():
                 write_error = error.get_path()
@@ -1154,6 +1153,18 @@ def dropbox_to_maestral_error(exc: exceptions.DropboxException,
             elif error.is_path_write():
                 write_error = error.get_path_write()
                 text, err_cls = _get_write_error_msg(write_error)
+            else:
+                text = ('Please contact the developer with the traceback '
+                        'information from the logs.')
+                err_cls = MaestralApiError
+
+        elif isinstance(error, users.GetAccountError):
+            title = 'Could not get account info'
+
+            if error.is_no_account():
+                text = ('An account with the given Dropbox ID does not '
+                        'exist or has been deleted')
+                err_cls = InvalidDbidError
             else:
                 text = ('Please contact the developer with the traceback '
                         'information from the logs.')
