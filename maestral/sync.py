@@ -28,7 +28,6 @@ import enum
 import pprint
 import socket
 from datetime import timezone
-import uuid
 from typing import Optional, Any, List, Dict, Tuple, Union, Iterator, Callable, Type, cast
 from types import TracebackType
 
