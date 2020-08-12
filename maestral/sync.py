@@ -443,6 +443,8 @@ class SyncEvent(Base):
 
     :attr completed: File size in bytes which has already been uploaded or downloaded.
         Always zero for folders.
+    :attr change_time_or_sync_time: Change time when available, otherwise sync time. This
+        can be used for sorting or user information purposes.
     """
 
     __tablename__ = 'history'
@@ -464,6 +466,7 @@ class SyncEvent(Base):
     status = Column(Enum(SyncStatus))
     size = Column(Integer)
     completed = Column(Integer)
+    change_time_or_sync_time = Column(Float)
 
     def __init__(self,
                  direction: SyncDirection,
@@ -499,6 +502,7 @@ class SyncEvent(Base):
         self.status = status
         self.size = size
         self.completed = 0
+        self.change_time_or_sync_time = change_time or sync_time
         self.orig = orig
 
     @property
@@ -854,7 +858,8 @@ class SyncEngine:
 
     @property
     def history(self):
-        return self._db_session.query(SyncEvent).order_by(SyncEvent.change_time).all()
+        query = self._db_session.query(SyncEvent)
+        return query.order_by(SyncEvent.change_user_name).all()
 
     # ==== rev file management ===========================================================
 
@@ -1460,7 +1465,10 @@ class SyncEngine:
         if event.is_directory:
             item_type = ItemType.Folder
             size = 0
-            change_time = None
+            try:
+                change_time = stat.st_birthtime
+            except AttributeError:
+                change_time = None
         else:
             item_type = ItemType.File
             change_time = stat.st_ctime if stat else None
@@ -3025,7 +3033,7 @@ class SyncEngine:
         now = time.time()
         keep_history = self._conf.get('sync', 'keep_history')
         query = self._db_session.query(SyncEvent)
-        query.filter(SyncEvent.change_time < now - keep_history).delete()
+        query.filter(SyncEvent.change_time_or_sync_time < now - keep_history).delete()
 
         # commit to drive
         self._db_session.commit()
