@@ -1054,7 +1054,7 @@ def history(config_name: str) -> None:
 
             change_types.append(event['change_type'])
 
-        click.echo(format_table(columns=[paths, change_types, change_times]))
+        click.echo(format_table(columns=[paths, change_types, change_times], wrap=False))
 
 
 @main.command(help_priority=19)
