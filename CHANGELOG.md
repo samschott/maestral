@@ -1,26 +1,27 @@
 ## v1.2.0.dev
 
-This release provides improvements to the command line interface: The output of `maestral
-ls` is formatted in a grid and `maestral activity` now shows the progress of individual
-uploads on downloads. `maestral recent-changes` has been added to list recently changed
-files.
+This release provides improvements to the command line interface and GUI: `maestral
+activity` now shows the progress of individual uploads on downloads. `maestral history`
+has been added to list recent sync events. This is also reflected in the GUI: the recent
+changes menu, which included only file changes, now has been replaced by a "Activity"
+window which shows all sync events of the past week.
 
-This release also includes bug fixes, performance improvements and first preparations
-for macOS 11 Big Sur.
+This release also includes bug fixes, performance improvements to the indexing of local
+files, and first preparations for macOS 11 Big Sur.
 
 #### Added:
 
 - Added an option `--external` to `maestral log show` to open the log in the platform's
   default program instead of showing it in the console.
-- Added a CLI command `recent-changes` to list recently added or modified files. Deletions
-  or added folders will not be shown.
+- Added a CLI command `history` to show all sync events of the past week.
+- Added a "Activity" window to show all sync events of the past week.
 
 #### Changed:
 
 - Transition to short-lived auth tokens for newly linked accounts.
 - Transition to OAuth scopes for app permissions.
-- Save modification times in "recent changes" list.
-- Performance improvements when saving "recent changes" list.
+- Save all sync history in SQLite database.
+- Reduce unneccessary path conversions during indexing of local changes.
 - Changed return type of `Maestral.get_activity` from namedtuple to dict for better
   consistency throughout the API. Every uploading or downloading item will have 'size'
   and 'completed' entries to monitor the progress of syncing individual items.
@@ -36,9 +37,9 @@ for macOS 11 Big Sur.
 
 #### Fixed:
 
-- Fixes a bug where throttling of sync threads would raise an error when we cannot  
+- Fixes a bug where throttling of sync threads would raise an error when we cannot
   determine the CPU count.
-- Fixes a bug where sending SIGTERM to the daemon process would raise an error when we 
+- Fixes a bug where sending SIGTERM to the daemon process would raise an error when we
   cannot determine its PID. Now, `Stop.Failed` is returned instead.
 - Fixes a bug which would result in incorrect systemd unit files for non-default config
   file names. Please disable and re-enable autostart with `maestral autostart -Y|N` to
