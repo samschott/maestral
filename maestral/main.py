@@ -300,11 +300,18 @@ class Maestral:
         except (ConnectionError, MaestralApiError):
             pass
 
+        state_files = [
+            self.sync.rev_file_path,
+            self.sync.database_path,
+        ]
+
         # clean up config + state
         self.sync.clear_rev_index()
-        delete(self.sync.rev_file_path)
         self._conf.cleanup()
         self._state.cleanup()
+
+        for file in state_files:
+            delete(file)
 
         # delete auth token
         try:

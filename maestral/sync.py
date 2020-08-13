@@ -732,6 +732,11 @@ class SyncEngine:
         return self._rev_file_path
 
     @property
+    def database_path(self) -> str:
+        """Path SQLite database."""
+        return self._db_path
+
+    @property
     def file_cache_path(self) -> str:
         """Path to cache folder for temporary files (read only). The cache folder
         '.maestral.cache' is located inside the local Dropbox folder to prevent file
