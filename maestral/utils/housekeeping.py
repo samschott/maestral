@@ -30,7 +30,9 @@ def remove_configuration(config_name: str) -> None:
     MaestralConfig(config_name).cleanup()
     MaestralState(config_name).cleanup()
     index_file = get_data_path('maestral', f'{config_name}.index')
+    db_file = get_data_path('maestral', f'{config_name}.db')
     delete(index_file)
+    delete(db_file)
 
 
 def validate_config_name(string: _C) -> _C:
