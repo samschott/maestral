@@ -3016,6 +3016,12 @@ class SyncEngine:
         # commit to drive
         self._db_session.commit()
 
+    def __del__(self):
+        try:
+            self._db_session.close()
+        except AttributeError:
+            pass
+
 
 # ========================================================================================
 # Workers for upload, download and connection monitoring threads
