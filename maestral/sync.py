@@ -2393,6 +2393,7 @@ class SyncEngine:
             if event.is_directory:
                 results = self.get_remote_folder(dbx_path)
             else:
+                self.syncing.append(event)
                 results = [self._create_local_entry(event)]
 
             success = all(e.status in (SyncStatus.Done, SyncStatus.Skipped) for e in results)
