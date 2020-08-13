@@ -843,6 +843,7 @@ class SyncEngine:
 
     def clear_database(self):
         Base.metadata.drop_all(self._db_engine)
+        Base.metadata.create_all(self._db_engine)
 
     # ==== rev file management ===========================================================
 
