@@ -34,9 +34,11 @@ from typing import (
 from types import TracebackType
 
 # external imports
-from sqlalchemy.ext.declarative import declarative_base  # type: ignore
-from sqlalchemy.orm import sessionmaker  # type: ignore
-from sqlalchemy import Column, Integer, String, Enum, Float, create_engine  # type: ignore
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql import case
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy import Column, Integer, String, Enum, Float, create_engine
 import pathspec  # type: ignore
 import dropbox  # type: ignore
 from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata  # type: ignore
@@ -452,60 +454,30 @@ class SyncEvent(Base):
     __tablename__ = 'history'
 
     id = Column(Integer, primary_key=True)
-    direction = Column(Enum(SyncDirection))
-    item_type = Column(Enum(ItemType))
-    sync_time = Column(Float)
-    dbx_path = Column(String)
-    local_path = Column(String)
+    direction = Column(Enum(SyncDirection), nullable=False)
+    item_type = Column(Enum(ItemType), nullable=False)
+    sync_time = Column(Float, nullable=False)
+    dbx_path = Column(String, nullable=False)
+    local_path = Column(String, nullable=False)
     dbx_path_from = Column(String)
     local_path_from = Column(String)
     rev = Column(String)
     content_hash = Column(String)
-    change_type = Column(Enum(ChangeType))
+    change_type = Column(Enum(ChangeType), nullable=False)
     change_time = Column(Float)
     change_dbid = Column(String)
     change_user_name = Column(String)
-    status = Column(Enum(SyncStatus))
-    size = Column(Integer)
-    completed = Column(Integer)
-    change_time_or_sync_time = Column(Float)
+    status = Column(Enum(SyncStatus), nullable=False)
+    size = Column(Integer, nullable=False)
+    completed = Column(Integer, default=0)
 
-    def __init__(self,
-                 direction: SyncDirection,
-                 item_type: ItemType,
-                 sync_time: float,
-                 dbx_path: str,
-                 local_path: str,
-                 dbx_path_from: Optional[str],
-                 local_path_from: Optional[str],
-                 rev: Optional[str],
-                 content_hash: Optional[str],
-                 change_type: ChangeType,
-                 change_time: Optional[float],
-                 change_dbid: Optional[str],
-                 change_user_name: Optional[str],
-                 status: SyncStatus,
-                 size: int,
-                 orig: Union[FileSystemEvent, Metadata, None] = None) -> None:
+    @hybrid_property
+    def change_time_or_sync_time(self):
+        return self.change_time or self.sync_time
 
-        self.direction = direction
-        self.item_type = item_type
-        self.sync_time = sync_time
-        self.dbx_path = dbx_path
-        self.local_path = local_path
-        self.dbx_path_from = dbx_path_from
-        self.local_path_from = local_path_from
-        self.rev = rev
-        self.content_hash = content_hash
-        self.change_type = change_type
-        self.change_time = change_time
-        self.change_dbid = change_dbid
-        self.change_user_name = change_user_name
-        self.status = status
-        self.size = size
-        self.completed = 0
-        self.change_time_or_sync_time = change_time or sync_time
-        self.orig = orig
+    @change_time_or_sync_time.expression
+    def change_time_or_sync_time(cls):
+        return case([(cls.change_time != None, cls.change_time)], else_=cls.sync_time)
 
     @property
     def is_file(self) -> bool:
@@ -1433,7 +1405,6 @@ class SyncEngine:
             change_user_name=change_user_name,
             status=SyncStatus.Queued,
             size=size,
-            orig=md,
         )
 
     def sync_event_from_file_system_event(self, event: FileSystemEvent) -> SyncEvent:
@@ -1496,7 +1467,6 @@ class SyncEngine:
             change_user_name=change_user_name,
             status=SyncStatus.Queued,
             size=size,
-            orig=event,
         )
 
     # ==== Upload sync ===================================================================
@@ -3039,7 +3009,8 @@ class SyncEngine:
         now = time.time()
         keep_history = self._conf.get('sync', 'keep_history')
         query = self._db_session.query(SyncEvent)
-        query.filter(SyncEvent.change_time_or_sync_time < now - keep_history).delete()
+        subquery = query.filter(SyncEvent.change_time_or_sync_time < now - keep_history)
+        subquery.delete(synchronize_session='fetch')
 
         # commit to drive
         self._db_session.commit()
