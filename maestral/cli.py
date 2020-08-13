@@ -1047,12 +1047,15 @@ def history(config_name: str) -> None:
         change_types = []
 
         for event in history:
-            paths.append(event['dbx_path'])
 
-            dt = datetime.fromtimestamp(event['change_time'] or event['sync_time'])
+            dbx_path = cast(str, event['dbx_path'])
+            change_type = cast(str, event['change_type'])
+            change_time_or_sync_time = cast(float, event['change_time_or_sync_time'])
+            dt = datetime.fromtimestamp(change_time_or_sync_time)
+
+            paths.append(dbx_path)
             change_times.append(dt.strftime('%d %b %Y %H:%M'))
-
-            change_types.append(event['change_type'])
+            change_types.append(change_type)
 
         click.echo(format_table(columns=[paths, change_types, change_times], wrap=False))
 

@@ -28,13 +28,15 @@ import enum
 import pprint
 import socket
 from datetime import timezone
-from typing import Optional, Any, Set, List, Dict, Tuple, Union, Iterator, Callable, Type, cast
+from typing import (
+    Optional, Any, Set, List, Dict, Tuple, Union, Iterator, Callable, Type, cast
+)
 from types import TracebackType
 
 # external imports
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import Column, Integer, String, Enum, Float, create_engine
+from sqlalchemy.ext.declarative import declarative_base  # type: ignore
+from sqlalchemy.orm import sessionmaker  # type: ignore
+from sqlalchemy import Column, Integer, String, Enum, Float, create_engine  # type: ignore
 import pathspec  # type: ignore
 import dropbox  # type: ignore
 from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata  # type: ignore
@@ -1198,11 +1200,10 @@ class SyncEngine:
         :param dbx_path: Path relative to Dropbox folder.
         """
 
-        if not dbx_path:
-            if local_path:
-                dbx_path = self.to_dbx_path(local_path)
-            else:
-                return
+        if local_path and not dbx_path:
+            dbx_path = self.to_dbx_path(local_path)
+        elif not dbx_path and not local_path:
+            return
 
         dbx_path = dbx_path.lower()
 
@@ -1471,7 +1472,7 @@ class SyncEngine:
             item_type = ItemType.Folder
             size = 0
             try:
-                change_time = stat.st_birthtime
+                change_time = stat.st_birthtime  # type: ignore
             except AttributeError:
                 change_time = None
         else:
@@ -2089,7 +2090,7 @@ class SyncEngine:
 
         md_to_new = self.client.move(event.dbx_path_from, event.dbx_path, autorename=True)
 
-        self.set_local_rev(event.dbx_path_from, None)  # type: ignore
+        self.set_local_rev(event.dbx_path_from, None)
 
         # handle remote conflicts
         if md_to_new.path_lower != event.dbx_path.lower():
