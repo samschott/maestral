@@ -841,6 +841,9 @@ class SyncEngine:
         query = self._db_session.query(SyncEvent)
         return query.order_by(SyncEvent.change_user_name).all()
 
+    def clear_database(self):
+        Base.metadata.drop_all(self._db_engine)
+
     # ==== rev file management ===========================================================
 
     def get_rev_index(self) -> Dict[str, str]:
@@ -3490,6 +3493,7 @@ class SyncMonitor:
         self.sync.last_cursor = ''
         self.sync.last_sync = 0.0
         self.sync.clear_rev_index()
+        self.sync.clear_database()
 
         logger.debug('Sync state reset')
 
