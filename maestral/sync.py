@@ -34,11 +34,12 @@ from typing import (
 from types import TracebackType
 
 # external imports
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.sql import case
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy import Column, Integer, String, Enum, Float, create_engine
+from sqlalchemy.ext.declarative import declarative_base  # type: ignore
+from sqlalchemy.orm import sessionmaker  # type: ignore
+from sqlalchemy.sql import case  # type: ignore
+from sqlalchemy.sql.elements import Case  # type: ignore
+from sqlalchemy.ext.hybrid import hybrid_property  # type: ignore
+from sqlalchemy import Column, Integer, String, Enum, Float, create_engine  # type: ignore
 import pathspec  # type: ignore
 import dropbox  # type: ignore
 from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata  # type: ignore
@@ -399,7 +400,7 @@ class PersistentStateMutableSet(abc.MutableSet):
                f'option=\'{self.option}\', entries={list(self)})>'
 
 
-class SyncEvent(Base):
+class SyncEvent(Base):  # type: ignore
     """
     Represents a file or folder change in the sync queue. This is used to abstract the
     :class:`watchdog.events.FileSystemEvent`s created for local changes and the
@@ -472,12 +473,12 @@ class SyncEvent(Base):
     completed = Column(Integer, default=0)
 
     @hybrid_property
-    def change_time_or_sync_time(self):
+    def change_time_or_sync_time(self) -> float:
         return self.change_time or self.sync_time
 
     @change_time_or_sync_time.expression
-    def change_time_or_sync_time(cls):
-        return case([(cls.change_time != None, cls.change_time)], else_=cls.sync_time)
+    def change_time_or_sync_time(cls) -> Case:
+        return case([(cls.change_time != None, cls.change_time)], else_=cls.sync_time)  # noqa: E711
 
     @property
     def is_file(self) -> bool:
@@ -1177,13 +1178,13 @@ class SyncEngine:
         elif not dbx_path and not local_path:
             return
 
+        dbx_path = cast(str, dbx_path)
         dbx_path = dbx_path.lower()
 
         if self.has_sync_errors():
             for error in self.sync_errors.copy():
-                equal = error.dbx_path.lower() == dbx_path
-                child = is_child(error.dbx_path.lower(), dbx_path)
-                if equal or child:
+                assert isinstance(error.dbx_path, str)
+                if is_equal_or_child(error.dbx_path.lower(), dbx_path):
                     try:
                         self.sync_errors.remove(error)
                     except KeyError:
@@ -2060,7 +2061,7 @@ class SyncEngine:
 
         md_to_new = self.client.move(event.dbx_path_from, event.dbx_path, autorename=True)
 
-        self.set_local_rev(event.dbx_path_from, None)
+        self.set_local_rev(event.dbx_path_from, None)  # type: ignore
 
         # handle remote conflicts
         if md_to_new.path_lower != event.dbx_path.lower():
