@@ -45,6 +45,7 @@ class DummySyncEngine(SyncEngine):
         self._dropbox_path = dropbox_path
         self.fs_events = fs_events
         self._conf = DummyConf()
+        self._state = DummyConf()
 
     def _should_split_excluded(self, event):
         return False
