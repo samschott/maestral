@@ -79,7 +79,7 @@ logger = logging.getLogger(__name__)
 _cpu_count = os.cpu_count() or 1  # os.cpu_count can return None
 
 Base = declarative_base()
-Session = sessionmaker()
+Session = sessionmaker(expire_on_commit=False)
 
 ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
 _FT = Callable[..., Any]
