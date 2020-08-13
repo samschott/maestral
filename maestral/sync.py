@@ -445,9 +445,9 @@ class SyncEvent(Base):  # type: ignore
     :param status: Field containing the sync status: queued, syncing, done, failed,
         skipped (item was already in sync) or aborted (by the user).
     :param size: Size of the item in bytes. Always zero for folders.
-
-    :attr completed: File size in bytes which has already been uploaded or downloaded.
+    :param completed: File size in bytes which has already been uploaded or downloaded.
         Always zero for folders.
+
     :attr change_time_or_sync_time: Change time when available, otherwise sync time. This
         can be used for sorting or user information purposes.
     """
@@ -476,8 +476,8 @@ class SyncEvent(Base):  # type: ignore
     def change_time_or_sync_time(self) -> float:
         return self.change_time or self.sync_time
 
-    @change_time_or_sync_time.expression
-    def change_time_or_sync_time(cls) -> Case:
+    @change_time_or_sync_time.expression  # type: ignore
+    def change_time_or_sync_time(cls) -> Case:  # type: ignore
         return case([(cls.change_time != None, cls.change_time)], else_=cls.sync_time)  # noqa: E711
 
     @property
@@ -2045,7 +2045,8 @@ class SyncEngine:
         if self._handle_case_conflict(event):
             return None
 
-        md_from_old = self.client.get_metadata(event.dbx_path_from)
+        dbx_path_from = cast(str, event.dbx_path_from)
+        md_from_old = self.client.get_metadata(dbx_path_from)
 
         # If not on Dropbox, e.g., because its old name was invalid,
         # create it instead of moving it.
@@ -2059,9 +2060,9 @@ class SyncEngine:
 
             return self._on_local_created(new_sync_event)
 
-        md_to_new = self.client.move(event.dbx_path_from, event.dbx_path, autorename=True)
+        md_to_new = self.client.move(dbx_path_from, event.dbx_path, autorename=True)
 
-        self.set_local_rev(event.dbx_path_from, None)  # type: ignore
+        self.set_local_rev(dbx_path_from, None)
 
         # handle remote conflicts
         if md_to_new.path_lower != event.dbx_path.lower():
@@ -2069,8 +2070,7 @@ class SyncEngine:
                         event.dbx_path, md_to_new.path_display)
         else:
             self._set_local_rev_recursive(md_to_new)
-            logger.debug('Moved "%s" to "%s" on Dropbox', event.dbx_path_from,
-                         event.dbx_path)
+            logger.debug('Moved "%s" to "%s" on Dropbox', dbx_path_from, event.dbx_path)
 
         return self.sync_event_from_dbx_metadata(md_to_new)
 
