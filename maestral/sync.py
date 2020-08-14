@@ -477,7 +477,7 @@ class SyncEvent(Base):  # type: ignore
         return self.change_time or self.sync_time
 
     @change_time_or_sync_time.expression  # type: ignore
-    def change_time_or_sync_time(cls) -> Case:  # type: ignore
+    def change_time_or_sync_time(cls) -> Case:
         return case([(cls.change_time != None, cls.change_time)], else_=cls.sync_time)  # noqa: E711
 
     @property
