@@ -714,7 +714,6 @@ def file_status(local_path: str, config_name: str) -> None:
 def activity(config_name: str) -> None:
     """Live view of all items being synced."""
 
-    import itertools
     import curses
     import time
     from maestral.utils import natural_size
@@ -733,36 +732,29 @@ def activity(config_name: str) -> None:
                 while True:
 
                     # get info from daemon
-                    res = m.get_activity()
-                    up = res['uploading']
-                    down = res['downloading']
+                    activity = m.get_activity()
                     status = m.status
                     n_errors = len(m.sync_errors)
 
                     # create header
                     lines = [
                         f'Status: {status}, Sync errors: {n_errors}',
-                        f'Uploading: {len(up)}, Downloading: {len(down)}',
                         '',
                     ]
 
                     # create table
 
-                    # insert dummy entries for title rows and spacers
-                    up.insert(0, dict(dbx_path='UPLOADING', status='STATUS', size=0, completed=0))
-                    up.append(dict(dbx_path='', status='', size=0, completed=0))
-                    down.insert(0, dict(dbx_path='DOWNLOADING', status='STATUS', size=0, completed=0))
+                    file_names = ['PATH']
+                    states = ['STATUS']
+                    col_len = 4
 
-                    file_names = []
-                    states = []
-                    col_len = 0
+                    for event in activity:
 
-                    for entry in itertools.chain(up, down):
-
-                        dbx_path = cast(str, entry['dbx_path'])
-                        status = cast(str, entry['status'])
-                        size = cast(int, entry['size'])
-                        completed = cast(int, entry['completed'])
+                        dbx_path = cast(str, event['dbx_path'])
+                        direction = cast(str, event['direction'])
+                        status = cast(str, event['status'])
+                        size = cast(int, event['size'])
+                        completed = cast(int, event['completed'])
 
                         filename = os.path.basename(dbx_path)
                         file_names.append(filename)
@@ -772,7 +764,13 @@ def activity(config_name: str) -> None:
                             todo_str = natural_size(size, sep=False)
                             states.append(f'{done_str}/{todo_str}')
                         else:
-                            states.append(status)
+                            if status == 'syncing' and direction == 'up':
+                                states.append('uploading')
+                            elif status == 'syncing' and direction == 'down':
+                                states.append('downloading')
+                            else:
+                                states.append(status)
+
                         col_len = max(len(filename), col_len)
 
                     for fn, s in zip(file_names, states):  # create rows
@@ -811,7 +809,7 @@ def activity(config_name: str) -> None:
 def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -> None:
     """Lists contents of a Dropbox directory."""
 
-    from datetime import datetime, timezone
+    from datetime import datetime
     from maestral.utils import natural_size
 
     if not dropbox_path.startswith('/'):
@@ -855,8 +853,7 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 
             if 'client_modified' in e:
                 cm = cast(str, e['client_modified'])
-                dt = datetime.strptime(cm, '%Y-%m-%dT%H:%M:%SZ')
-                dt = dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
+                dt = datetime.strptime(cm, '%Y-%m-%dT%H:%M:%S%z').astimezone()
                 last_modified.append(dt.strftime('%d %b %Y %H:%M'))
             else:
                 last_modified.append('-')
@@ -1015,8 +1012,8 @@ def revs(dropbox_path: str, config_name: str) -> None:
 
         revs.append(rev)
 
-        dt = datetime.strptime(cm, '%Y-%m-%dT%H:%M:%S%z')
-        last_modified.append(dt.astimezone(tz=None).strftime('%d %b %Y %H:%M'))
+        dt = datetime.strptime(cm, '%Y-%m-%dT%H:%M:%S%z').astimezone()
+        last_modified.append(dt.strftime('%d %b %Y %H:%M'))
 
     click.echo(format_table(columns=[revs, last_modified]))
 
@@ -1037,23 +1034,30 @@ def restore(dropbox_path: str, rev: str, config_name: str) -> None:
 
 @main.command(help_priority=18)
 @existing_config_option
-def recent_changes(config_name: str) -> None:
+def history(config_name: str) -> None:
     """Shows a list of recently changed or added files."""
 
     from datetime import datetime
 
     with MaestralProxy(config_name, fallback=True) as m:
 
-        changes_dict = m.get_state('sync', 'recent_changes')
+        history = m.get_history()
         paths = []
-        last_modified = []
-        for e in changes_dict:
-            paths.append(e.get('path_display'))
+        change_times = []
+        change_types = []
 
-            dt = datetime.fromtimestamp(e.get('client_modified'))  # convert to local time
-            last_modified.append(dt.strftime('%d %b %Y %H:%M'))
+        for event in history:
 
-        click.echo(format_table(columns=[paths, last_modified]))
+            dbx_path = cast(str, event['dbx_path'])
+            change_type = cast(str, event['change_type'])
+            change_time_or_sync_time = cast(float, event['change_time_or_sync_time'])
+            dt = datetime.fromtimestamp(change_time_or_sync_time)
+
+            paths.append(dbx_path)
+            change_times.append(dt.strftime('%d %b %Y %H:%M'))
+            change_types.append(change_type)
+
+        click.echo(format_table(columns=[paths, change_types, change_times], wrap=False))
 
 
 @main.command(help_priority=19)

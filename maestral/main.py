@@ -39,7 +39,7 @@ import sdnotify  # type: ignore
 from maestral import __version__
 from maestral.oauth import OAuth2Session
 from maestral.client import DropboxClient, to_maestral_error
-from maestral.sync import SyncMonitor
+from maestral.sync import SyncMonitor, SyncDirection
 from maestral.errors import (
     MaestralApiError, NotLinkedError, NoDropboxDirError,
     NotFoundError, PathError
@@ -49,7 +49,7 @@ from maestral.utils.housekeeping import validate_config_name
 from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import (
-    error_to_dict, dropbox_stone_to_dict, sync_item_to_dict, StoneType, ErrorType
+    error_to_dict, dropbox_stone_to_dict, sync_event_to_dict, StoneType, ErrorType
 )
 from maestral.utils.appdirs import get_log_path, get_cache_path
 from maestral.utils.updates import check_update_available
@@ -300,11 +300,19 @@ class Maestral:
         except (ConnectionError, MaestralApiError):
             pass
 
+        state_files = [
+            self.sync.rev_file_path,
+            self.sync.database_path,
+        ]
+
         # clean up config + state
         self.sync.clear_rev_index()
-        delete(self.sync.rev_file_path)
+        self.sync.clear_database()
         self._conf.cleanup()
         self._state.cleanup()
+
+        for file in state_files:
+            delete(file)
 
         # delete auth token
         try:
@@ -615,9 +623,7 @@ class Maestral:
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
-        sync_errors = list(self.sync.sync_errors.queue)
-        sync_errors_dicts = [error_to_dict(e) for e in sync_errors]
-        return sync_errors_dicts
+        return [error_to_dict(e) for e in self.sync.sync_errors]
 
     @property
     def fatal_errors(self) -> List[ErrorType]:
@@ -681,9 +687,11 @@ class Maestral:
         except ValueError:
             return FileStatus.Unwatched.value
 
-        if local_path in self.monitor.uploading:
+        sync_event = next(iter(e for e in self.monitor.activity if e.local_path == local_path), None)
+
+        if sync_event and sync_event.direction == SyncDirection.Up:
             return FileStatus.Uploading.value
-        elif dbx_path in self.monitor.downloading:
+        elif sync_event and sync_event.direction == SyncDirection.Down:
             return FileStatus.Downloading.value
         elif any(dbx_path == err['dbx_path'] for err in self.sync_errors):
             return FileStatus.Error.value
@@ -692,27 +700,33 @@ class Maestral:
         else:
             return FileStatus.Unwatched.value
 
-    def get_activity(self) -> Dict[str, List[StoneType]]:
+    def get_activity(self) -> List[StoneType]:
         """
         Returns the current upload / download activity.
 
-        :returns: A dictionary with lists of all files currently queued for or being
-            uploaded or downloaded. Paths are given relative to the Dropbox folder.
+        :returns: A lists of all sync events currently queued for or being uploaded or
+            downloaded.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
         self._check_linked()
 
-        uploading: List[StoneType] = []
-        downloading: List[StoneType] = []
+        activity = [sync_event_to_dict(event) for event in self.monitor.activity]
+        return activity
 
-        for item in self.monitor.uploading.copy():
-            uploading.append(sync_item_to_dict(item))
+    def get_history(self) -> List[StoneType]:
+        """
+        Returns the historic upload / download activity.
 
-        for item in self.monitor.downloading.copy():
-            downloading.append(sync_item_to_dict(item))
+        :returns: A lists of all sync events from the last week.
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        """
 
-        return dict(uploading=uploading, downloading=downloading)
+        self._check_linked()
+
+        history = [sync_event_to_dict(event) for event in self.monitor.history]
+
+        return history
 
     def get_account_info(self) -> StoneType:
         """
