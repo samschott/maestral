@@ -126,6 +126,7 @@ class DesktopNotifierNC(DesktopNotifierBase):
         content = UNMutableNotificationContent.alloc().init()
         content.title = title
         content.body = message
+        content.threadIdentifier = urgency  # group notifications of the same urgency
 
         notification_request = UNNotificationRequest.requestWithIdentifier(
             str(self._last_notification_id),
