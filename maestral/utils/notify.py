@@ -28,7 +28,9 @@ from packaging.version import Version
 from enum import Enum
 import pkg_resources
 import logging
-import threading
+from threading import Lock, Thread
+import asyncio
+import traceback
 from typing import Optional, Dict, ClassVar, Callable, Union
 
 # local imports
@@ -58,9 +60,8 @@ if platform.system() == 'Darwin':
         logger.debug('Cannot load library "UserNotifications"')
 
 elif platform.system() == 'Linux':
-    from jeepney.integrate.blocking import Proxy, connect_and_authenticate  # type: ignore
-    from jeepney.wrappers import DBusErrorResponse  # type: ignore
-    from maestral.utils.dbus_interfaces import FreedesktopNotifications
+    from dbus_next.errors import DBusError
+    from dbus_next.aio import MessageBus
 
     uns = None
 
@@ -194,9 +195,9 @@ class DesktopNotifierBase:
 class DesktopNotifierNC(DesktopNotifierBase):
     """UNUserNotificationCenter backend for macOS. For macOS Catalina and newer."""
 
-    def __init__(self, app_name: str) -> None:
+    def __init__(self, app_name: str, app_id: str) -> None:
         super().__init__(app_name)
-        self.nc = CocoaNotificationCenter.alloc().initWithBundleIdentifier(BUNDLE_ID)
+        self.nc = CocoaNotificationCenter.alloc().initWithBundleIdentifier(app_id)
         self.nc.delegate = self.nc
         self.nc.interface = self
 
@@ -311,12 +312,36 @@ class DesktopNotifierFreedesktopDBus(DesktopNotifierBase):
 
     def __init__(self, app_name: str) -> None:
         super().__init__(app_name)
-        self._connection = connect_and_authenticate(bus='SESSION')
-        self._proxy = Proxy(FreedesktopNotifications(), self._connection)
-        self.capabilities = self._proxy.GetCapabilities()
-        self.server_information = self._proxy.GetServerInformation()
+
+        self._loop = asyncio.new_event_loop()
+        self._thread = Thread(
+            target=self.start_background_loop,
+            args=(self._loop,),
+            daemon=True
+        )
+        self._thread.start()
+
+        asyncio.run_coroutine_threadsafe(self._init_dbus(), self._loop)
+
+    def start_background_loop(self, loop: asyncio.AbstractEventLoop) -> None:
+        asyncio.set_event_loop(loop)
+        loop.run_forever()
+
+    async def _init_dbus(self):
+        self.bus = await MessageBus().connect()
+        introspection = await self.bus.introspect('org.freedesktop.Notifications',
+                                                  '/org/freedesktop/Notifications')
+        self.proxy_object = self.bus.get_proxy_object('org.freedesktop.Notifications',
+                                                      '/org/freedesktop/Notifications',
+                                                      introspection)
+        self.interface = self.proxy_object.get_interface('org.freedesktop.Notifications')
+        self.interface.on_notification_closed(self._on_clicked)
 
     def send(self, notification: Notification) -> None:
+
+        asyncio.run_coroutine_threadsafe(self._send(notification), self._loop)
+
+    async def _send(self, notification: Notification) -> None:
 
         nid = self._next_nid()
         notification_to_replace = self.current_notifications.get(nid)
@@ -327,32 +352,34 @@ class DesktopNotifierFreedesktopDBus(DesktopNotifierBase):
             replace_id = 0
 
         try:
-            resp = self._proxy.Notify(
+            resp = await self.interface.call_notify(
                 self.app_name,         # app_name
                 replace_id,            # replaces_id
                 APP_ICON_PATH,         # app_icon
                 notification.title,    # summary
                 notification.message,  # body
                 [],                    # actions
-                {                      # hints
-                    'urgency': self._to_native_urgency[notification.urgency]
-                },
+                {},
                 -1,                    # expire_timeout (-1 = default)
             )
-        except DBusErrorResponse:
+        except DBusError:
             # This may fail for several reasons: there may not be a systemd service
             # file for 'org.freedesktop.Notifications' or the system configuration
             # may have changed after DesktopNotifierFreedesktopDBus was initialized.
             logger.debug('Failed to send desktop notification', exc_info=True)
-        else:
-            notification.identifier = resp[0]
-            self.current_notifications[nid] = notification
 
-    def __del__(self):
-        try:
-            self._connection.close()
-        except Exception:
-            pass
+        else:
+            notification.identifier = resp
+            self.current_notifications[nid] = notification
+            print('sent')
+
+    def _on_clicked(self, nid, reason):
+
+        nid, reason = int(nid), int(reason)
+        notification = next(iter(n for n in self.current_notifications.values() if n.identifier == nid), None)
+
+        if notification and notification.action:
+            notification.action()
 
 
 class DesktopNotifier:
@@ -365,12 +392,12 @@ class DesktopNotifier:
 
     _impl: Optional[DesktopNotifierBase]
 
-    def __init__(self, app_name: str) -> None:
-        self._lock = threading.Lock()
+    def __init__(self, app_name: str, app_id: str) -> None:
+        self._lock = Lock()
         self.implementation = self._get_available_implementation()
 
         if self.implementation == SupportedImplementations.un_notification_center:
-            self._impl = DesktopNotifierNC(app_name)
+            self._impl = DesktopNotifierNC(app_name, app_id)
         elif self.implementation == SupportedImplementations.ns_notification_center:
             self._impl = DesktopNotifierLegacyNC(app_name)
         elif self.implementation == SupportedImplementations.freedesktop_dbus:
@@ -441,7 +468,7 @@ class DesktopNotifier:
         return None
 
 
-system_notifier = DesktopNotifier(app_name='Maestral')
+system_notifier = DesktopNotifier(app_name='Maestral', app_id=BUNDLE_ID)
 
 
 class MaestralDesktopNotifier(logging.Handler):
@@ -452,7 +479,7 @@ class MaestralDesktopNotifier(logging.Handler):
     """
 
     _instances: ClassVar[Dict[str, 'MaestralDesktopNotifier']] = dict()
-    _lock = threading.Lock()
+    _lock = Lock()
 
     NONE = 100
     ERROR = 40
