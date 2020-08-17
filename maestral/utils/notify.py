@@ -28,9 +28,8 @@ from packaging.version import Version
 from enum import Enum
 import pkg_resources
 import logging
-from collections import deque
 import threading
-from typing import Optional, Dict, ClassVar
+from typing import Optional, Dict, ClassVar, Callable, Union
 
 # local imports
 from maestral.config import MaestralConfig
@@ -42,7 +41,7 @@ logger = logging.getLogger(__name__)
 # platform dependent imports
 if platform.system() == 'Darwin':
 
-    from rubicon.objc import ObjCClass  # type: ignore
+    from rubicon.objc import ObjCClass, objc_method  # type: ignore
     from rubicon.objc.runtime import load_library  # type: ignore
 
     uns = load_library('UserNotifications')
@@ -63,10 +62,44 @@ elif platform.system() == 'Linux':
     from jeepney.wrappers import DBusErrorResponse  # type: ignore
     from maestral.utils.dbus_interfaces import FreedesktopNotifications
 
+    uns = None
+
+else:
+    uns = None
+
 
 _resources = getattr(sys, '_MEIPASS',
                      pkg_resources.resource_filename('maestral', 'resources'))
 APP_ICON_PATH = osp.join(_resources, 'maestral.png')
+
+
+if uns:
+    # subclass UNUserNotificationCenter and define delegate method
+    # to handle clicked notifications
+
+    class CocoaNotificationCenter(UNUserNotificationCenter):
+
+        @objc_method
+        def userNotificationCenter_didReceive_withCompletionHandler_(self, nc, response, completion_handler) -> None:
+
+            nid = int(response.request.identifier)
+            notification = self.interface.current_notifications.get(nid)
+
+            if response.actionIdentifier == response.UNNotificationDefaultActionIdentifier:
+
+                callback = notification.action
+
+                if callback:
+                    callback()
+
+            elif response.actionIdentifier != response.UNNotificationDismissActionIdentifier:
+
+                callback = notification.buttons[response.actionIdentifier]
+
+                if callback:
+                    callback()
+
+            completion_handler()
 
 
 class SupportedImplementations(Enum):
@@ -77,6 +110,53 @@ class SupportedImplementations(Enum):
     ns_notification_center = 'NSUserNotificationCenter'
     notify_send = 'notify-send'
     freedesktop_dbus = 'org.freedesktop.Notifications'
+
+
+class NotificationLevel(Enum):
+    """
+    Enumeration of notification levels.
+    """
+    Critical = 'critical'
+    Normal = 'normal'
+    Low = 'low'
+
+
+class Notification:
+    """
+    A desktop notification
+
+    :param title: Notification title.
+    :param message: Notification message.
+    :param urgency: Notification level: low, normal or critical. This is ignored by some
+        implementations.
+    :param icon: Path to an icon to use for the notification, typically the app icon.
+        This is ignored by some implementations, e.g., on macOS where the icon of the app
+        bundle is always used.
+    :param action: Handler to call when the notification is clicked. This is ignored by
+        some implementations.
+    :param buttons: A dictionary with button names and callbacks to show in the
+        notification. This is ignored by some implementations.
+
+    :attr identifier: An identifier which gets assigned to the notification after it is sent.
+    """
+
+    identifier: Union[str, int, None]
+
+    def __init__(self,
+                 title: str,
+                 message: str,
+                 urgency: NotificationLevel = NotificationLevel.Normal,
+                 icon: Optional[str] = None,
+                 action: Optional[Callable] = None,
+                 buttons: Optional[Dict[str, Optional[Callable]]] = None) -> None:
+
+        self.title = title
+        self.message = message
+        self.urgency = urgency
+        self.icon = icon
+        self.action = action
+        self.buttons = buttons or dict
+        self.identifier = None
 
 
 class DesktopNotifierBase:
@@ -95,18 +175,20 @@ class DesktopNotifierBase:
     app_name: str
     notification_limit: int
 
-    CRITICAL = 'critical'
-    NORMAL = 'normal'
-    LOW = 'low'
-
     def __init__(self, app_name: str = '', notification_limit: int = 5) -> None:
         self.app_name = app_name
         self.notification_limit = notification_limit
+        self.current_notifications: Dict[int, Notification] = dict()
+        self._current_nid = 0
 
-    def send(self, title: str, message: str, urgency: str = NORMAL,
-             icon_path: Optional[str] = None) -> None:
+    def send(self, notification: Notification) -> None:
         """Some arguments may be ignored, depending on the implementation."""
         raise NotImplementedError()
+
+    def _next_nid(self) -> int:
+        self._current_nid += 1
+        self._current_nid %= self.notification_limit
+        return self._current_nid
 
 
 class DesktopNotifierNC(DesktopNotifierBase):
@@ -114,22 +196,30 @@ class DesktopNotifierNC(DesktopNotifierBase):
 
     def __init__(self, app_name: str) -> None:
         super().__init__(app_name)
-        self.nc = UNUserNotificationCenter.alloc().initWithBundleIdentifier(BUNDLE_ID)
+        self.nc = CocoaNotificationCenter.alloc().initWithBundleIdentifier(BUNDLE_ID)
+        self.nc.delegate = self.nc
+        self.nc.interface = self
+
         self.nc.requestAuthorizationWithOptions(
             (1 << 2) | (1 << 1) | (1 << 0), completionHandler=None
         )
-        self._last_notification_id = 0
 
-    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
-             icon_path: Optional[str] = None) -> None:
+    def send(self, notification: Notification) -> None:
+
+        nid = self._next_nid()
+        notification_to_replace = self.current_notifications.get(nid)
+
+        if notification_to_replace:
+            replace_id = notification_to_replace.identifier
+        else:
+            replace_id = str(nid)
 
         content = UNMutableNotificationContent.alloc().init()
-        content.title = title
-        content.body = message
-        content.threadIdentifier = urgency  # group notifications of the same urgency
+        content.title = notification.title
+        content.body = notification.message
 
         notification_request = UNNotificationRequest.requestWithIdentifier(
-            str(self._last_notification_id),
+            replace_id,
             content=content,
             trigger=None
         )
@@ -139,8 +229,8 @@ class DesktopNotifierNC(DesktopNotifierBase):
             withCompletionHandler=None
         )
 
-        self._last_notification_id += 1
-        self._last_notification_id %= self.notification_limit
+        notification.identifier = str(nid)
+        self.current_notifications[nid] = notification
 
 
 class DesktopNotifierLegacyNC(DesktopNotifierBase):
@@ -150,45 +240,74 @@ class DesktopNotifierLegacyNC(DesktopNotifierBase):
         super().__init__(app_name)
         self.nc = NSUserNotificationCenter.defaultUserNotificationCenter
 
-    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
-             icon_path: Optional[str] = None) -> None:
+    def send(self, notification: Notification) -> None:
+
+        nid = self._next_nid()
+        notification_to_replace = self.current_notifications.get(nid)
+
+        if notification_to_replace:
+            replace_id = notification_to_replace.identifier
+        else:
+            replace_id = str(nid)
+
         n = NSUserNotification.alloc().init()
-        n.title = title
-        n.informativeText = message
+        n.title = notification.title
+        n.informativeText = notification.message
+        n.identifier = replace_id
         n.userInfo = {}
         n.deliveryDate = NSDate.dateWithTimeInterval(0, sinceDate=NSDate.date())
+
         self.nc.scheduleNotification(n)
+
+        notification.identifier = str(nid)
+        self.current_notifications[nid] = notification
 
 
 class DesktopNotifierNotifySend(DesktopNotifierBase):
     """Notify-send backend for Linux."""
 
+    _to_native_urgency = {
+        NotificationLevel.Low: 'low',
+        NotificationLevel.Normal: 'normal',
+        NotificationLevel.Critical: 'critical',
+    }
+
     def __init__(self, app_name: str) -> None:
         super().__init__(app_name)
         self._with_app_name = True
 
-    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
-             icon_path: Optional[str] = None) -> None:
-        icon_path = icon_path or ''
+    def send(self, notification: Notification) -> None:
+
         if self._with_app_name:  # try passing --app-name option
             r = subprocess.call([
-                'notify-send', title, message,
+                'notify-send',
+                notification.title,
+                notification.message,
                 '-a', self.app_name,
-                '-i', icon_path,
-                '-u', urgency
+                '-i', notification.icon or '',
+                '-u', self._to_native_urgency[notification.urgency]
             ])
             self._with_app_name = r == 0  # disable if not supported
 
         if not self._with_app_name:
             subprocess.call([
-                'notify-send', title, message,
-                '-i', icon_path, '-u', urgency
+                'notify-send',
+                notification.title,
+                notification.message,
+                '-i', notification.icon or '',
+                '-u', self._to_native_urgency[notification.urgency]
             ])
 
 
 class DesktopNotifierFreedesktopDBus(DesktopNotifierBase):
     """DBus notification backend for Linux. This implements the
     org.freedesktop.Notifications standard."""
+
+    _to_native_urgency = {
+        NotificationLevel.Low: 0,
+        NotificationLevel.Normal: 1,
+        NotificationLevel.Critical: 2,
+    }
 
     def __init__(self, app_name: str) -> None:
         super().__init__(app_name)
@@ -197,23 +316,28 @@ class DesktopNotifierFreedesktopDBus(DesktopNotifierBase):
         self.capabilities = self._proxy.GetCapabilities()
         self.server_information = self._proxy.GetServerInformation()
 
-        self._past_notification_ids = deque([0] * self.notification_limit)
+    def send(self, notification: Notification) -> None:
 
-    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
-             icon_path: Optional[str] = None) -> None:
+        nid = self._next_nid()
+        notification_to_replace = self.current_notifications.get(nid)
 
-        replace_id = self._past_notification_ids[0]
+        if notification_to_replace:
+            replace_id = notification_to_replace.identifier
+        else:
+            replace_id = 0
 
         try:
             resp = self._proxy.Notify(
-                self.app_name,
-                replace_id,
-                APP_ICON_PATH,
-                title,
-                message,
-                [],  # Actions
-                {},  # Hints
-                -1,  # expire_timeout (-1 = default)
+                self.app_name,         # app_name
+                replace_id,            # replaces_id
+                APP_ICON_PATH,         # app_icon
+                notification.title,    # summary
+                notification.message,  # body
+                [],                    # actions
+                {                      # hints
+                    'urgency': self._to_native_urgency[notification.urgency]
+                },
+                -1,                    # expire_timeout (-1 = default)
             )
         except DBusErrorResponse:
             # This may fail for several reasons: there may not be a systemd service
@@ -221,8 +345,8 @@ class DesktopNotifierFreedesktopDBus(DesktopNotifierBase):
             # may have changed after DesktopNotifierFreedesktopDBus was initialized.
             logger.debug('Failed to send desktop notification', exc_info=True)
         else:
-            self._past_notification_ids.popleft()
-            self._past_notification_ids.append(resp[0])
+            notification.identifier = resp[0]
+            self.current_notifications[nid] = notification
 
     def __del__(self):
         try:
@@ -241,10 +365,6 @@ class DesktopNotifier:
 
     _impl: Optional[DesktopNotifierBase]
 
-    CRITICAL = 'critical'
-    NORMAL = 'normal'
-    LOW = 'low'
-
     def __init__(self, app_name: str) -> None:
         self._lock = threading.Lock()
         self.implementation = self._get_available_implementation()
@@ -262,22 +382,36 @@ class DesktopNotifier:
 
         logger.debug(f'DesktopNotifier implementation: {self.implementation}')
 
-    def send(self, title: str, message: str, urgency: str = NORMAL,
-             icon: Optional[str] = None) -> None:
+    def send(self,
+             title: str,
+             message: str,
+             urgency: NotificationLevel = NotificationLevel.Normal,
+             icon: Optional[str] = None,
+             action: Optional[Callable] = None,
+             buttons: Optional[Dict[str, Optional[Callable]]] = None) -> None:
         """
         Sends a desktop notification. Some arguments may be ignored, depending on the
         backend.
 
         :param title: Notification title.
         :param message: Notification message.
-        :param urgency: Notification urgency. Some backends use this to determine how the
-            notification is displayed.
-        :param icon: Path to an icon. Some backends support displaying an (app) icon
-            together with the notification.
+        :param urgency: Notification level: low, normal or critical. This is ignored by
+            some implementations.
+        :param icon: Path to an icon to use for the notification, typically the app icon.
+            This is ignored by some implementations, e.g., on macOS where the icon of the
+            app bundle is always used.
+        :param action: Handler to call when the notification is clicked. This is ignored
+            by some implementations.
+        :param buttons: A dictionary with button names and callbacks to show in the
+            notification. This is ignored by some implementations.
         """
+        notification = Notification(
+            title, message, urgency, icon, action, buttons
+        )
+
         if self._impl:
             with self._lock:
-                self._impl.send(title, message, urgency, icon)
+                self._impl.send(notification)
 
     @staticmethod
     def _get_available_implementation() -> Optional[SupportedImplementations]:
@@ -394,26 +528,30 @@ class MaestralDesktopNotifier(logging.Handler):
         """Setter: snoozed."""
         self._snooze = time.time() + minutes * 60.0
 
-    def notify(self, message: str, level: int = FILECHANGE) -> None:
+    def notify(self, message: str, level: int = FILECHANGE,
+               on_click: Optional[Callable] = None) -> None:
         """
         Sends a desktop notification from maestral. The title defaults to 'Maestral'.
 
         :param message: Notification message.
         :param level: Notification level of the message.
+        :param on_click: A callback to execute when the notification is clicked. The
+            provided callable must not take any arguments.
         """
 
         ignore = self.snoozed and level == self.FILECHANGE
         if level == self.ERROR:
-            urgency = system_notifier.CRITICAL
+            urgency = NotificationLevel.Critical
         else:
-            urgency = system_notifier.NORMAL
+            urgency = NotificationLevel.Normal
 
         if level >= self.notify_level and not ignore:
             system_notifier.send(
                 title='Maestral',
                 message=message,
                 icon=APP_ICON_PATH,
-                urgency=urgency
+                urgency=urgency,
+                action=on_click
             )
 
     def emit(self, record: logging.LogRecord) -> None:
