@@ -33,9 +33,6 @@ import Pyro5.errors  # type: ignore
 from Pyro5.api import Daemon, Proxy, expose, oneway, register_dict_to_class  # type: ignore
 from fasteners import InterProcessLock  # type: ignore
 
-if sys.platform == 'darwin':
-    from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
-
 # local imports
 from maestral.errors import SYNC_ERRORS, FATAL_ERRORS, MaestralApiError
 from maestral.constants import IS_FROZEN, IS_MACOS
@@ -44,10 +41,6 @@ from maestral.utils.appdirs import get_runtime_path
 
 if TYPE_CHECKING:
     from maestral.main import Maestral
-
-if sys.platform == 'darwin':
-    # integrate with macOS CFRunLoop
-    asyncio.set_event_loop_policy(EventLoopPolicy())
 
 
 threads = dict()
@@ -373,19 +366,35 @@ def start_maestral_daemon(config_name: str = 'maestral',
     import threading
     from maestral.main import Maestral
 
-    sockpath = sockpath_for_config(config_name)
-
-    if threading.current_thread() is threading.main_thread():
-        signal.signal(signal.SIGTERM, _sigterm_handler)
-
     # acquire PID lock file
     lock = maestral_lock(config_name)
+
     if not lock.acquire():
         raise RuntimeError('Maestral daemon is already running')
 
     # Nice ourselves to give other processes priority. We will likely only
     # have significant CPU usage in case of many concurrent downloads.
     os.nice(10)
+
+    # start the event loop
+    if threading.current_thread() is threading.main_thread():
+
+        # catch sigterm and shut down gracefully, only works in main thread
+        signal.signal(signal.SIGTERM, _sigterm_handler)
+
+        if sys.platform == 'darwin':
+            # integrate with CFRunLoop, only works in main thread
+            from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
+            asyncio.set_event_loop_policy(EventLoopPolicy())
+
+        loop = asyncio.get_event_loop()
+
+    else:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    # get socket for config name
+    sockpath = sockpath_for_config(config_name)
 
     try:
         # clean up old socket
@@ -420,7 +429,6 @@ def start_maestral_daemon(config_name: str = 'maestral',
 
             daemon.register(m, f'maestral.{config_name}')
 
-            loop = asyncio.get_event_loop()
             loop.create_task(main_loop(loop))
             loop.run_forever()
 
