@@ -44,6 +44,7 @@ from maestral.errors import (
     NotFoundError, PathError
 )
 from maestral.config import MaestralConfig, MaestralState
+from maestral.utils import get_newer_version
 from maestral.utils.housekeeping import validate_config_name
 from maestral.utils.path import is_child, to_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
@@ -51,7 +52,6 @@ from maestral.utils.serializer import (
     error_to_dict, dropbox_stone_to_dict, sync_event_to_dict, StoneType, ErrorType
 )
 from maestral.utils.appdirs import get_log_path, get_cache_path
-from maestral.utils.updates import check_update_available
 from maestral.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
     BUGSNAG_API_KEY, IDLE, FileStatus,
@@ -60,6 +60,16 @@ from maestral.constants import (
 
 logger = logging.getLogger(__name__)
 sd_notifier = sdnotify.SystemdNotifier()
+
+CONNECTION_ERRORS = (
+    requests.exceptions.Timeout,
+    requests.exceptions.ConnectionError,
+    requests.exceptions.ReadTimeout,
+    requests.exceptions.RetryError,
+    ConnectionError,
+)
+
+GITHUB_RELEAES_API = 'https://api.github.com/repos/samschott/maestral-dropbox/releases'
 
 # set up error reporting but do not activate
 
@@ -1226,8 +1236,7 @@ class Maestral:
 
         return self.sync.to_local_path(dbx_path)
 
-    @staticmethod
-    def check_for_updates() -> Dict[str, Union[str, bool, None]]:
+    def check_for_updates(self) -> Dict[str, Union[str, bool, None]]:
         """
         Checks if an update is available.
 
@@ -1235,7 +1244,50 @@ class Maestral:
             'update_available' (bool), 'latest_release' (str), 'release_notes' (str)
             and 'error' (str or None).
         """
-        return check_update_available()
+        current_version = __version__.lstrip('v')
+        new_version = None
+        update_release_notes = ''
+        error_msg = None
+
+        try:
+            r = requests.get(GITHUB_RELEAES_API)
+            data = r.json()
+
+            releases = []
+            release_notes = []
+
+            # this should do nothing since the github API already returns sorted entries
+            data.sort(key=lambda x: Version(x['tag_name']), reverse=True)
+
+            for item in data:
+                v = item['tag_name'].lstrip('v')
+                if not Version(v).is_prerelease:
+                    releases.append(v)
+                    release_notes.append('### {tag_name}\n\n{body}'.format(**item))
+
+            new_version = get_newer_version(current_version, releases)
+
+            if new_version:
+                # closest_release == current_version if current_version appears in the
+                # release list. Otherwise closest_release < current_version
+                closest_release = next(
+                    v for v in releases if Version(v) <= Version(current_version))
+                closest_release_idx = releases.index(closest_release)
+
+                update_release_notes_list = release_notes[0:closest_release_idx]
+                update_release_notes = '\n'.join(update_release_notes_list)
+
+        except requests.exceptions.HTTPError:
+            error_msg = 'Unable to retrieve information. Please try again later.'
+        except CONNECTION_ERRORS:
+            error_msg = 'No internet connection. Please try again later.'
+        except Exception:
+            error_msg = 'Something when wrong. Please try again later.'
+
+        return {'update_available': bool(new_version),
+                'latest_release': new_version or current_version,
+                'release_notes': update_release_notes,
+                'error': error_msg}
 
     def shutdown_daemon(self) -> None:
         """
@@ -1296,11 +1348,11 @@ class Maestral:
         while True:
             # update account info
             if self.client.linked:
-                self.get_account_info()
-                self.get_profile_pic()
+                await self._loop.run_in_executor(None, self.get_account_info)
+                await self._loop.run_in_executor(None, self.get_profile_pic)
 
             # check for maestral updates
-            res = self.check_for_updates()
+            res = await self._loop.run_in_executor(None, self.check_for_updates)
 
             if not res['error']:
                 self._state.set('app', 'latest_release', res['latest_release'])
