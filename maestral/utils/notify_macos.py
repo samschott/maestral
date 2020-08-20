@@ -11,7 +11,7 @@ import uuid
 import platform
 import subprocess
 import shutil
-from typing import Type, Optional, Iterable
+from typing import Type, Optional, Dict, Tuple
 
 # external imports
 from packaging.version import Version
@@ -86,6 +86,8 @@ if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'
     class CocoaNotificationCenter(DesktopNotifierBase):
         """UNUserNotificationCenter backend for macOS. For macOS Catalina and newer."""
 
+        _notification_categories: Dict[Tuple[str, ...], str]
+
         def __init__(self, app_name: str, app_id: str) -> None:
             super().__init__(app_name, app_id)
             self.nc = UNUserNotificationCenter.alloc().initWithBundleIdentifier(app_id)
@@ -111,7 +113,7 @@ if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'
             else:
                 platform_nid = str(uuid.uuid4())
 
-            button_names = list(notification.buttons.keys())
+            button_names = tuple(notification.buttons.keys())
             category_id = self._category_id_for_button_names(button_names)
 
             content = UNMutableNotificationContent.alloc().init()
@@ -134,7 +136,7 @@ if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'
             notification.identifier = platform_nid
             self.current_notifications[internal_nid] = notification
 
-        def _category_id_for_button_names(self, button_names: Iterable[str]) -> str:
+        def _category_id_for_button_names(self, button_names: Tuple[str, ...]) -> str:
 
             try:
                 return self._notification_categories[button_names]

@@ -76,13 +76,14 @@ class DesktopNotifierBase:
 
     app_name: str
     notification_limit: int
+    current_notifications: Dict[int, Notification]
 
     def __init__(self, app_name: str = '', app_id: str = '',
                  notification_limit: int = 5) -> None:
         self.app_name = app_name
         self.app_id = app_id
         self.notification_limit = notification_limit
-        self.current_notifications: Dict[int, Notification] = dict()
+        self.current_notifications = dict()
         self._current_nid = 0
 
     def send(self, notification: Notification) -> None:
