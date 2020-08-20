@@ -221,11 +221,11 @@ class Maestral:
         self._loop = asyncio.get_event_loop()
         self._refresh_task = self._loop.create_task(
             self._periodic_refresh(),
-            name='maestral-update-check'
+            # name='maestral-update-check'  # Python 3.8 only
         )
         self._watchdog_task = self._loop.create_task(
             self._periodic_watchdog(),
-            name='maestral-watchdog'
+            # name='maestral-watchdog'  # Python 3.8 only
         )
 
     def get_auth_url(self) -> str:
