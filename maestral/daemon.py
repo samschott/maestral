@@ -23,6 +23,8 @@ import fcntl
 import struct
 import tempfile
 import itertools
+import asyncio
+import select
 from typing import Optional, Union, Tuple, Dict, Type, TYPE_CHECKING
 from types import TracebackType, FrameType
 
@@ -30,6 +32,9 @@ from types import TracebackType, FrameType
 import Pyro5.errors  # type: ignore
 from Pyro5.api import Daemon, Proxy, expose, oneway, register_dict_to_class  # type: ignore
 from fasteners import InterProcessLock  # type: ignore
+
+if sys.platform == 'darwin':
+    from rubicon.objc.eventloop import EventLoopPolicy
 
 # local imports
 from maestral.errors import SYNC_ERRORS, FATAL_ERRORS, MaestralApiError
@@ -39,6 +44,10 @@ from maestral.utils.appdirs import get_runtime_path
 
 if TYPE_CHECKING:
     from maestral.main import Maestral
+
+if sys.platform == 'darwin':
+    # integrate with macOS CFRunLoop
+    asyncio.set_event_loop_policy(EventLoopPolicy())
 
 
 threads = dict()
@@ -393,13 +402,27 @@ def start_maestral_daemon(config_name: str = 'maestral',
         ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
         ExposedMaestral.pause_sync = oneway(ExposedMaestral.pause_sync)
         ExposedMaestral.resume_sync = oneway(ExposedMaestral.resume_sync)
-        ExposedMaestral.shutdown_pyro_daemon = oneway(ExposedMaestral.shutdown_pyro_daemon)
+        ExposedMaestral.shutdown_daemon = oneway(ExposedMaestral.shutdown_daemon)
 
         m = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
 
         with Daemon(unixsocket=sockpath) as daemon:
+
+            async def main_loop(daemon_loop):
+                while True:
+                    res, _, _ = await daemon_loop.run_in_executor(
+                        None,
+                        select.select,
+                        daemon.sockets, [], [], 3
+                    )
+                    if res:
+                        daemon.events(res)
+
             daemon.register(m, f'maestral.{config_name}')
-            daemon.requestLoop(loopCondition=m._loop_condition)
+
+            loop = asyncio.get_event_loop()
+            loop.create_task(main_loop(loop))
+            loop.run_forever()
 
     except Exception:
         traceback.print_exc()
@@ -521,8 +544,7 @@ def stop_maestral_daemon_process(config_name: str = 'maestral',
 
     try:
         with MaestralProxy(config_name) as m:
-            m.stop_sync()
-            m.shutdown_pyro_daemon()
+            m.shutdown_daemon()
     except Pyro5.errors.CommunicationError:
         if pid:
             _send_term(pid)
@@ -565,8 +587,7 @@ def stop_maestral_daemon_thread(config_name: str = 'maestral',
     # tell maestral daemon to shut down
     try:
         with MaestralProxy(config_name) as m:
-            m.stop_sync()
-            m.shutdown_pyro_daemon()
+            m.shutdown_daemon()
     except Pyro5.errors.CommunicationError:
         return Stop.Failed
 

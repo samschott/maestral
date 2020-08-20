@@ -14,10 +14,9 @@ import os
 import os.path as osp
 import platform
 import shutil
-import time
-from threading import Thread
 import logging.handlers
 from collections import deque
+import asyncio
 from typing import Union, List, Dict, Optional, Deque, Any
 
 # external imports
@@ -191,7 +190,6 @@ class Maestral:
 
     def __init__(self, config_name: str = 'maestral', log_to_stdout: bool = False) -> None:
 
-        self._daemon_running = True
         self._log_to_stdout = log_to_stdout
         self._config_name = validate_config_name(config_name)
 
@@ -207,14 +205,6 @@ class Maestral:
 
         self._check_and_run_post_update_scripts()
 
-        # periodically check for updates and refresh account info
-        self.update_thread = Thread(
-            name='maestral-update-check',
-            target=self._periodic_refresh,
-            daemon=True,
-        )
-        self.update_thread.start()
-
         # notify systemd that we have started
         if NOTIFY_SOCKET:
             logger.debug('Running as systemd notify service')
@@ -227,12 +217,16 @@ class Maestral:
             logger.debug('WATCHDOG_USEC = %s', WATCHDOG_USEC)
             logger.debug('WATCHDOG_PID = %s', WATCHDOG_PID)
 
-            self.watchdog_thread = Thread(
-                name='maestral-watchdog',
-                target=self._periodic_watchdog,
-                daemon=True,
-            )
-            self.watchdog_thread.start()
+        # schedule background tasks
+        self._loop = asyncio.get_event_loop()
+        self._refresh_task = self._loop.create_task(
+            self._periodic_refresh(),
+            # name='maestral-update-check'  # Python 3.8 only
+        )
+        self._watchdog_task = self._loop.create_task(
+            self._periodic_watchdog(),
+            # name='maestral-watchdog'  # Python 3.8 only
+        )
 
     def get_auth_url(self) -> str:
         """
@@ -1243,12 +1237,20 @@ class Maestral:
         """
         return check_update_available()
 
-    def shutdown_pyro_daemon(self) -> None:
+    def shutdown_daemon(self) -> None:
         """
-        Sets the ``_daemon_running`` flag to ``False``. This will be checked by Pyro5
-        periodically to shut down the daemon when requested.
+        Stop the event loop. This will also shut down the pyro daemon if running.
         """
-        self._daemon_running = False
+
+        self.stop_sync()
+
+        if self._loop.is_running():
+            self._refresh_task.cancel()
+            self._watchdog_task.cancel()
+            self._loop.stop()
+
+        self._loop.close()
+
         if NOTIFY_SOCKET:
             # notify systemd that we are shutting down
             sd_notifier.notify('STOPPING=1')
@@ -1289,37 +1291,41 @@ class Maestral:
         self.set_state('sync', 'recent_changes', [])  # clear recent-changes
         logger.debug('Post-update: recent changes cleared')
 
-    def _periodic_refresh(self) -> None:
+    async def _periodic_refresh(self) -> None:
+
         while True:
             # update account info
             if self.client.linked:
                 self.get_account_info()
                 self.get_profile_pic()
+
             # check for maestral updates
             res = self.check_for_updates()
+
             if not res['error']:
                 self._state.set('app', 'latest_release', res['latest_release'])
-            time.sleep(60 * 60)  # 60 min
 
-    @staticmethod
-    def _periodic_watchdog() -> None:
+            await asyncio.sleep(60 * 60)  # 60 min
 
-        sleep = int(WATCHDOG_USEC)  # type: ignore
+    async def _periodic_watchdog(self) -> None:
 
-        while True:
-            sd_notifier.notify('WATCHDOG=1')
-            time.sleep(sleep / (2 * 10 ** 6))
+        if WATCHDOG_USEC:
 
-    def _loop_condition(self) -> bool:
-        return self._daemon_running
+            sleep = int(WATCHDOG_USEC)
+
+            while True:
+                sd_notifier.notify('WATCHDOG=1')
+                await asyncio.sleep(sleep / (2 * 10 ** 6))
 
     def __del__(self) -> None:
         try:
             self.monitor.stop()
+            self.shutdown_daemon()
         except Exception:
             pass
 
     def __repr__(self) -> str:
+
         email = self._state.get('account', 'email')
         account_type = self._state.get('account', 'type')
 
