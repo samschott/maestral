@@ -41,7 +41,11 @@ APP_ICON_PATH = osp.join(_resources, 'maestral.png')
 class DesktopNotifier:
     """
     Cross-platform desktop notifications for macOS and Linux. Uses different backends
-    depending on the platform version and available services.
+    depending on the platform version and available services. The Dbus backend requires
+    a running asyncio loop. The Cocoa backends will dispatch notifications without an
+    event loop but require a running CFRunLoop (Core Foundation run loop) to react to user
+    interactions with the notification. Packages such as :package:`rubicon.objc` can be
+    used to integrate asyncio with a CFRunLoop.
 
     :param app_name: Name of sending app.
     """

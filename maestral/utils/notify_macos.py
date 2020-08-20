@@ -11,19 +11,14 @@ import uuid
 import platform
 import subprocess
 import shutil
-import asyncio
-from threading import Thread
 
 # external imports
 from packaging.version import Version
 from rubicon.objc import ObjCClass, objc_method  # type: ignore
 from rubicon.objc.runtime import load_library  # type: ignore
-from rubicon.objc.eventloop import EventLoopPolicy
 
 # local imports
 from .notify_base import Notification, DesktopNotifierBase
-
-asyncio.set_event_loop_policy(EventLoopPolicy())
 
 uns = load_library('UserNotifications')
 foundation = load_library('Foundation')
@@ -200,32 +195,11 @@ elif uns and Version(macos_version) <= Version('11.0.0'):
         def __init__(self, app_name: str, app_id: str) -> None:
             super().__init__(app_name, app_id)
 
-            self._loop = asyncio.new_event_loop()
-
-            self._thread = Thread(
-                target=self._start_loop,
-                daemon=True,
-                name='maestral-notification-aioloop'
-            )
-            self._thread.start()
-
-            asyncio.run_coroutine_threadsafe(self._init_nc(), self._loop)
-
-        def _start_loop(self):
-            # TODO: This returns immediately because the run loop has no source
-            #  and therefore quits. Add a source!
-            self._loop.run_forever()
-            from PyObjCTools import AppHelper
-
-        async def _init_nc(self) -> None:
             self.nc = NSUserNotificationCenter.defaultUserNotificationCenter
             self.nc.delegate = NotificationCenterDelegate.alloc().init()
             self.nc.delegate.interface = self
 
         def send(self, notification: Notification) -> None:
-            asyncio.run_coroutine_threadsafe(self._send(notification), self._loop)
-
-        async def _send(self, notification: Notification) -> None:
 
             nid = self._next_nid()
             notification_to_replace = self.current_notifications.get(nid)

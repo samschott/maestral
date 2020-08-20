@@ -18,7 +18,6 @@ through :class:`MaestralDesktopNotifier`.
 """
 
 # system imports
-from threading import Thread
 import asyncio
 import traceback
 
@@ -44,20 +43,8 @@ class DBusDesktopNotifier(DesktopNotifierBase):
     def __init__(self, app_name: str, app_id: str) -> None:
         super().__init__(app_name, app_id)
 
-        self._loop = asyncio.new_event_loop()
-        self._thread = Thread(
-            target=self._start_loop,
-            args=(self._loop,),
-            daemon=True,
-            name='maestral-notification-aioloop'
-        )
-        self._thread.start()
-
-        asyncio.run_coroutine_threadsafe(self._init_dbus(), self._loop)
-
-    def _start_loop(self, loop: asyncio.AbstractEventLoop) -> None:
-        asyncio.set_event_loop(loop)
-        loop.run_forever()
+        self._loop = asyncio.get_event_loop()
+        self._loop.create_task(self._init_dbus())
 
     async def _init_dbus(self):
         self.bus = await MessageBus().connect()
@@ -70,7 +57,7 @@ class DBusDesktopNotifier(DesktopNotifierBase):
         self.interface.on_action_invoked(self._on_action)
 
     def send(self, notification: Notification) -> None:
-        asyncio.run_coroutine_threadsafe(self._send(notification), self._loop)
+        self._loop.create_task(self._send(notification))
 
     async def _send(self, notification: Notification) -> None:
 
