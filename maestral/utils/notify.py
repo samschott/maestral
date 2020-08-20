@@ -25,7 +25,7 @@ import platform
 import pkg_resources
 import logging
 from threading import Lock
-from typing import Optional, Dict, ClassVar, Callable, Type
+from typing import Optional, Dict, ClassVar, Callable
 
 # local imports
 from maestral.config import MaestralConfig
@@ -55,14 +55,12 @@ class DesktopNotifier:
     def __init__(self, app_name: str, app_id: str) -> None:
         self._lock = Lock()
 
-        Impl: Optional[Type[DesktopNotifierBase]]
-
         if platform.system() == 'Darwin':
             from .notify_macos import Impl
         elif platform.system() == 'Linux':
-            from .notify_linux import Impl
+            from .notify_linux import Impl  # type: ignore
         else:
-            Impl = None
+            Impl = None  # type: ignore
 
         if Impl:
             self._impl = Impl(app_name, app_id)

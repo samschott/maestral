@@ -55,7 +55,6 @@ if uns and getattr(sys, 'frozen', False) and Version(macos_version) >= Version('
 
     UNNotificationCategoryOptionNone = 0
 
-
     class NotificationCenterDelegate(NSObject):  # type: ignore
 
         # subclass UNUserNotificationCenter and define delegate method
@@ -83,7 +82,6 @@ if uns and getattr(sys, 'frozen', False) and Version(macos_version) >= Version('
                     callback()
 
             completion_handler()
-
 
     class CocoaNotificationCenter(DesktopNotifierBase):
         """UNUserNotificationCenter backend for macOS. For macOS Catalina and newer."""
@@ -150,9 +148,7 @@ if uns and getattr(sys, 'frozen', False) and Version(macos_version) >= Version('
             notification.identifier = str(nid)
             self.current_notifications[nid] = notification
 
-
     Impl = CocoaNotificationCenter
-
 
 elif uns and Version(macos_version) <= Version('11.0.0'):
 
@@ -166,7 +162,6 @@ elif uns and Version(macos_version) <= Version('11.0.0'):
     NSUserNotificationActivationTypeContentsClicked = 1
     NSUserNotificationActivationTypeActionButtonClicked = 2
     NSUserNotificationActivationTypeAdditionalActionClicked = 4
-
 
     class NotificationCenterDelegate(NSObject):  # type: ignore
 
@@ -190,7 +185,6 @@ elif uns and Version(macos_version) <= Version('11.0.0'):
 
                 if notification_info.action:
                     notification_info.action()
-
 
     class CocoaNotificationCenterLegacy(DesktopNotifierBase):
         """NSUserNotificationCenter backend for macOS. Pre macOS Mojave. We don't support
@@ -225,9 +219,7 @@ elif uns and Version(macos_version) <= Version('11.0.0'):
             notification.identifier = str(nid)
             self.current_notifications[nid] = notification
 
-
     Impl = CocoaNotificationCenterLegacy
-
 
 elif shutil.which('osascript'):
 
