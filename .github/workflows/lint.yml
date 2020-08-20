@@ -37,4 +37,4 @@ jobs:
         pip install .
     - name: Type checking with mypy
       run: |
-        mypy --warn-unused-ignores maestral
+        mypy maestral
