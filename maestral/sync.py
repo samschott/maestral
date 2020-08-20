@@ -2529,6 +2529,8 @@ class SyncEngine:
         :param sync_events: List of sync items from download sync.
         """
 
+        callback: Optional[Callable]
+
         changes = [e for e in sync_events if e.status != SyncStatus.Skipped]
 
         # get number of remote changes

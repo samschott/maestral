@@ -20,13 +20,17 @@ through :class:`MaestralDesktopNotifier`.
 # system imports
 import asyncio
 import traceback
+from typing import Optional, Type
 
 # external imports
-from dbus_next import Variant
-from dbus_next.aio import MessageBus
+from dbus_next import Variant  # type: ignore
+from dbus_next.aio import MessageBus  # type: ignore
 
 # local imports
 from .notify_base import Notification, DesktopNotifierBase, NotificationLevel
+
+
+Impl: Optional[Type[DesktopNotifierBase]]
 
 
 class DBusDesktopNotifier(DesktopNotifierBase):

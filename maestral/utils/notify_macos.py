@@ -11,6 +11,7 @@ import uuid
 import platform
 import subprocess
 import shutil
+from typing import Type, Optional
 
 # external imports
 from packaging.version import Version
@@ -26,6 +27,9 @@ foundation = load_library('Foundation')
 NSObject = ObjCClass('NSObject')
 
 macos_version, *_ = platform.mac_ver()
+
+
+Impl: Optional[Type[DesktopNotifierBase]]
 
 
 if uns and getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'):
@@ -52,7 +56,7 @@ if uns and getattr(sys, 'frozen', False) and Version(macos_version) >= Version('
     UNNotificationCategoryOptionNone = 0
 
 
-    class NotificationCenterDelegate(NSObject):
+    class NotificationCenterDelegate(NSObject):  # type: ignore
 
         # subclass UNUserNotificationCenter and define delegate method
         # to handle clicked notifications
@@ -164,7 +168,7 @@ elif uns and Version(macos_version) <= Version('11.0.0'):
     NSUserNotificationActivationTypeAdditionalActionClicked = 4
 
 
-    class NotificationCenterDelegate(NSObject):
+    class NotificationCenterDelegate(NSObject):  # type: ignore
 
         # subclass UNUserNotificationCenter and define delegate method
         # to handle clicked notifications
