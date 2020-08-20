@@ -34,7 +34,7 @@ from Pyro5.api import Daemon, Proxy, expose, oneway, register_dict_to_class  # t
 from fasteners import InterProcessLock  # type: ignore
 
 if sys.platform == 'darwin':
-    from rubicon.objc.eventloop import EventLoopPolicy
+    from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
 
 # local imports
 from maestral.errors import SYNC_ERRORS, FATAL_ERRORS, MaestralApiError
