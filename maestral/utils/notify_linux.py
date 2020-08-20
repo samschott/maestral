@@ -65,13 +65,13 @@ class DBusDesktopNotifier(DesktopNotifierBase):
 
     async def _send(self, notification: Notification) -> None:
 
-        nid = self._next_nid()
-        notification_to_replace = self.current_notifications.get(nid)
+        internal_nid = self._next_nid()
+        notification_to_replace = self.current_notifications.get(internal_nid)
 
         if notification_to_replace:
-            replace_id = notification_to_replace.identifier
+            replaces_nid = notification_to_replace.identifier
         else:
-            replace_id = 0
+            replaces_nid = 0
 
         actions = ['default', 'default']
 
@@ -79,9 +79,9 @@ class DBusDesktopNotifier(DesktopNotifierBase):
             actions += [button_name, button_name]
 
         try:
-            resp = await self.interface.call_notify(
+            platform_nid = await self.interface.call_notify(
                 self.app_name,         # app_name
-                replace_id,            # replaces_id
+                replaces_nid,          # replaces_id
                 notification.icon,     # app_icon
                 notification.title,    # summary
                 notification.message,  # body
@@ -97,8 +97,8 @@ class DBusDesktopNotifier(DesktopNotifierBase):
             # may have changed after DesktopNotifierFreedesktopDBus was initialized.
             traceback.print_exc()
         else:
-            notification.identifier = resp
-            self.current_notifications[nid] = notification
+            notification.identifier = platform_nid
+            self.current_notifications[internal_nid] = notification
 
     def _on_action(self, nid, action_key):
 

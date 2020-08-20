@@ -11,7 +11,7 @@ import uuid
 import platform
 import subprocess
 import shutil
-from typing import Type, Optional
+from typing import Type, Optional, Iterable
 
 # external imports
 from packaging.version import Version
@@ -64,8 +64,8 @@ if uns and getattr(sys, 'frozen', False) and Version(macos_version) >= Version('
         def userNotificationCenter_didReceive_withCompletionHandler_(self, center, response,
                                                                      completion_handler) -> None:
 
-            nid = int(str(response.request.identifier))
-            notification = self.interface.current_notifications.get(nid)
+            internal_nid = response.notification.request.content.userInfo['internal_nid']
+            notification = self.interface.current_notifications.get(internal_nid)
 
             if response.actionIdentifier == UNNotificationDefaultActionIdentifier:
 
@@ -97,45 +97,29 @@ if uns and getattr(sys, 'frozen', False) and Version(macos_version) >= Version('
                 completionHandler=None
             )
 
+            self._notification_categories = dict()
+
         def send(self, notification: Notification) -> None:
 
-            nid = self._next_nid()
-            notification_to_replace = self.current_notifications.get(nid)
+            internal_nid = self._next_nid()
+            notification_to_replace = self.current_notifications.get(internal_nid)
 
             if notification_to_replace:
-                replace_id = notification_to_replace.identifier
+                platform_nid = notification_to_replace.identifier
             else:
-                replace_id = str(nid)
+                platform_nid = str(uuid.uuid4())
 
-            actions = []
-
-            for button_name in notification.buttons.keys():
-                action = UNNotificationAction.actionWithIdentifier(
-                    button_name,
-                    title=button_name,
-                    options=UNNotificationActionOptionForeground
-                )
-                actions.append(action)
-
-            categories = self.nc.notificationCategories
-            category_id = str(uuid.uuid4())
-            new_categories = categories.setByAddingObject(
-                UNNotificationCategory.categoryWithIdentifier(
-                    category_id,
-                    actions=actions,
-                    intentIdentifiers=[],
-                    options=UNNotificationCategoryOptionNone
-                )
-            )
-            self.nc.notificationCategories = new_categories
+            button_names = list(notification.buttons.keys())
+            category_id = self._category_id_for_button_names(button_names)
 
             content = UNMutableNotificationContent.alloc().init()
             content.title = notification.title
             content.body = notification.message
             content.categoryIdentifier = category_id
+            content.userInfo = {'internal_nid': internal_nid}
 
             notification_request = UNNotificationRequest.requestWithIdentifier(
-                replace_id,
+                platform_nid,
                 content=content,
                 trigger=None
             )
@@ -145,8 +129,39 @@ if uns and getattr(sys, 'frozen', False) and Version(macos_version) >= Version('
                 withCompletionHandler=None
             )
 
-            notification.identifier = str(nid)
-            self.current_notifications[nid] = notification
+            notification.identifier = platform_nid
+            self.current_notifications[internal_nid] = notification
+
+        def _category_id_for_button_names(self, button_names: Iterable[str]) -> str:
+
+            try:
+                return self._notification_categories[button_names]
+            except KeyError:
+                actions = []
+
+                for name in button_names:
+                    action = UNNotificationAction.actionWithIdentifier(
+                        name,
+                        title=name,
+                        options=UNNotificationActionOptionForeground
+                    )
+                    actions.append(action)
+
+                categories = self.nc.notificationCategories
+                category_id = str(uuid.uuid4())
+                new_categories = categories.setByAddingObject(
+                    UNNotificationCategory.categoryWithIdentifier(
+                        category_id,
+                        actions=actions,
+                        intentIdentifiers=[],
+                        options=UNNotificationCategoryOptionNone
+                    )
+                )
+                self.nc.notificationCategories = new_categories
+
+                self._notification_categories[button_names] = category_id
+
+                return category_id
 
     Impl = CocoaNotificationCenter
 
@@ -171,8 +186,8 @@ elif uns and Version(macos_version) <= Version('11.0.0'):
         @objc_method
         def userNotificationCenter_didActivateNotification_(self, center, notification) -> None:
 
-            nid = int(str(notification.identifier))
-            notification_info = self.interface.current_notifications.get(nid)
+            internal_nid = notification.userInfo['internal_nid']
+            notification_info = self.interface.current_notifications.get(internal_nid)
 
             if Version(macos_version) == Version('11.0.0'):
                 # macOS Big Sur has a 'Show' button by default
@@ -199,25 +214,25 @@ elif uns and Version(macos_version) <= Version('11.0.0'):
 
         def send(self, notification: Notification) -> None:
 
-            nid = self._next_nid()
-            notification_to_replace = self.current_notifications.get(nid)
+            internal_nid = self._next_nid()
+            notification_to_replace = self.current_notifications.get(internal_nid)
 
             if notification_to_replace:
-                replace_id = notification_to_replace.identifier
+                platform_nid = notification_to_replace.identifier
             else:
-                replace_id = str(nid)
+                platform_nid = str(uuid.uuid4())
 
             n = NSUserNotification.alloc().init()
             n.title = notification.title
             n.informativeText = notification.message
-            n.identifier = replace_id
-            n.userInfo = {}
+            n.identifier = platform_nid
+            n.userInfo = {'internal_nid': internal_nid}
             n.deliveryDate = NSDate.dateWithTimeInterval(0, sinceDate=NSDate.date())
 
             self.nc.scheduleNotification(n)
 
-            notification.identifier = str(nid)
-            self.current_notifications[nid] = notification
+            notification.identifier = platform_nid
+            self.current_notifications[internal_nid] = notification
 
     Impl = CocoaNotificationCenterLegacy
 
