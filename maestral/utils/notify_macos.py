@@ -32,7 +32,7 @@ macos_version, *_ = platform.mac_ver()
 Impl: Optional[Type[DesktopNotifierBase]]
 
 
-if uns and getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'):
+if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'):
 
     # use UNUserNotificationCenter in macOS Mojave and higher if we are in an app bundle
 
@@ -93,7 +93,9 @@ if uns and getattr(sys, 'frozen', False) and Version(macos_version) >= Version('
             self.nc.delegate.interface = self
 
             self.nc.requestAuthorizationWithOptions(
-                UNAuthorizationOptionAlert | UNAuthorizationOptionSound | UNAuthorizationOptionBadge,
+                UNAuthorizationOptionAlert
+                | UNAuthorizationOptionSound
+                | UNAuthorizationOptionBadge,
                 completionHandler=None
             )
 
@@ -163,9 +165,12 @@ if uns and getattr(sys, 'frozen', False) and Version(macos_version) >= Version('
 
                 return category_id
 
-    Impl = CocoaNotificationCenter
+    if UNUserNotificationCenter.currentNotificationCenter():
+        Impl = CocoaNotificationCenter
+    else:
+        Impl = None
 
-elif uns and Version(macos_version) <= Version('11.0.0'):
+elif Version(macos_version) <= Version('11.0.0'):
 
     # use NSUserNotificationCenter outside of app bundles for macOS Big Sur and lower
     # and for macOS High Sierra and lower
@@ -234,7 +239,10 @@ elif uns and Version(macos_version) <= Version('11.0.0'):
             notification.identifier = platform_nid
             self.current_notifications[internal_nid] = notification
 
-    Impl = CocoaNotificationCenterLegacy
+    if NSUserNotificationCenter.defaultUserNotificationCenter:
+        Impl = CocoaNotificationCenterLegacy
+    else:
+        Impl = None
 
 elif shutil.which('osascript'):
 
