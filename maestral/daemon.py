@@ -72,7 +72,14 @@ def freeze_support() -> None:
 
 
 class Stop(enum.Enum):
-    """Enumeration of daemon exit results."""
+    """
+    Enumeration of daemon exit results.
+    
+    :cvar Ok: Daemon quit successfully.
+    :cvar Killed: Daemon process was killed.
+    :cvar NotRunning: Daemon was not running.
+    :cvar Failed: Could not shut down daemon.
+    """
     Ok = 0
     Killed = 1
     NotRunning = 2
@@ -80,7 +87,13 @@ class Stop(enum.Enum):
 
 
 class Start(enum.Enum):
-    """Enumeration of daemon start results."""
+    """
+    Enumeration of daemon start results.
+
+    :cvar Ok: Daemon started successfully.
+    :cvar AlreadyRunning: Daemon was already running.
+    :cvar Failed: Could not start daemon.
+    """
     Ok = 0
     AlreadyRunning = 1
     Failed = 2

@@ -403,7 +403,7 @@ class PersistentStateMutableSet(abc.MutableSet):
 class SyncEvent(Base):  # type: ignore
     """
     Represents a file or folder change in the sync queue. This is used to abstract the
-    :class:`watchdog.events.FileSystemEvent`s created for local changes and the
+    :class:`watchdog.events.FileSystemEvent` created for local changes and the
     :class:`dropbox.files.Metadata` created for remote changes. All arguments are used to
     construct instance attributes and some attributes may not be set for all event types.
     Note that some instance attributes depend on the state of the Maestral instance, e.g.,
@@ -448,7 +448,7 @@ class SyncEvent(Base):  # type: ignore
     :param completed: File size in bytes which has already been uploaded or downloaded.
         Always zero for folders.
 
-    :attr change_time_or_sync_time: Change time when available, otherwise sync time. This
+    :ivar change_time_or_sync_time: Change time when available, otherwise sync time. This
         can be used for sorting or user information purposes.
     """
 

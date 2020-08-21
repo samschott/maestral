@@ -4,6 +4,8 @@
 
 (c) Sam Schott; This work is licensed under the MIT licence.
 
+This module defines base classes for desktop notifications. 
+
 """
 
 # system imports
@@ -13,7 +15,12 @@ from typing import Optional, Dict, Callable, Union
 
 class NotificationLevel(Enum):
     """
-    Enumeration of notification levels.
+    Enumeration of notification levels. The interpretation and visuals will depend
+    on the platform.
+    
+    :cvar Critical: For critical errors.
+    :cvar Normal: Default platform notification level.
+    :cvar Low: Low priority notification.
     """
     Critical = 'critical'
     Normal = 'normal'
