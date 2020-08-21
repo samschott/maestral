@@ -42,12 +42,14 @@ class DesktopNotifier:
     """
     Cross-platform desktop notifications for macOS and Linux. Uses different backends
     depending on the platform version and available services. The Dbus backend requires
-    a running asyncio loop. The Cocoa backends will dispatch notifications without an
-    event loop but require a running CFRunLoop (Core Foundation run loop) to react to user
+    a running asyncio loop. The Cocoa implementations will dispatch notifications without
+    an event loop but require a running CFRunLoop *in the main thread* to react to user
     interactions with the notification. Packages such as :package:`rubicon.objc` can be
     used to integrate asyncio with a CFRunLoop.
 
-    :param app_name: Name of sending app.
+    :param app_name: Name of app which sends notifications.
+    :param app_id: Bundle identifier of the app. This is typically a reverse domain name
+        such as 'com.google.myfancyapp'.
     """
 
     _impl: Optional[DesktopNotifierBase]

@@ -366,8 +366,11 @@ def start_maestral_daemon(config_name: str = 'maestral',
     free: there will never be two daemons running for the same config.
 
     Wraps :class:`main.Maestral` as Pyro daemon object, creates a new instance and starts
-    Pyro's event loop to listen for requests on a unix domain socket. This call will block
-    until the event loop shuts down.
+    an asyncio event loop to listen for requests on a unix domain socket. This call will
+    block until the event loop shuts down. When this function is called from the main
+    thread on macOS, the asyncio event loop uses Cocoa's CFRunLoop to process event. This
+    allows integration with Cocoa frameworks which use callbacks to process use input such
+    as clicked notifications, etc, and potentially allows showing a GUI.
 
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stdout: If ``True``, write logs to stdout.
