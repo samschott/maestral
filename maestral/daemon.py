@@ -346,6 +346,17 @@ def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
     return Start.Failed
 
 
+async def _main_loop(daemon: Daemon, loop: asyncio.AbstractEventLoop) -> None:
+    while True:
+        res, _, _ = await loop.run_in_executor(
+            None,
+            select.select,
+            daemon.sockets, [], [], 3
+        )
+        if res:
+            daemon.events(res)
+
+
 # ==== main functions to manage daemon ===================================================
 
 def start_maestral_daemon(config_name: str = 'maestral',
@@ -416,20 +427,8 @@ def start_maestral_daemon(config_name: str = 'maestral',
         m = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
 
         with Daemon(unixsocket=sockpath) as daemon:
-
-            async def main_loop(daemon_loop):
-                while True:
-                    res, _, _ = await daemon_loop.run_in_executor(
-                        None,
-                        select.select,
-                        daemon.sockets, [], [], 3
-                    )
-                    if res:
-                        daemon.events(res)
-
             daemon.register(m, f'maestral.{config_name}')
-
-            loop.create_task(main_loop(loop))
+            loop.create_task(_main_loop(daemon, loop))
             loop.run_forever()
 
     except Exception:
