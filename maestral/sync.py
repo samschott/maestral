@@ -14,7 +14,6 @@ import os.path as osp
 from stat import S_ISDIR
 import resource
 import logging
-import gc
 import time
 import tempfile
 import random
@@ -3108,7 +3107,6 @@ def download_worker(sync: SyncEngine, syncing: Event,
 
                     sync.client.get_space_usage()
 
-                    gc.collect()
 
         except ConnectionError:
             syncing.clear()
@@ -3150,8 +3148,6 @@ def download_worker_added_item(sync: SyncEngine, syncing: Event,
                 sync.get_remote_item(dbx_path)
                 logger.info(IDLE)
 
-                gc.collect()
-
         except ConnectionError:
             syncing.clear()
             connected.clear()
@@ -3192,8 +3188,6 @@ def upload_worker(sync: SyncEngine, syncing: Event,
 
                 if len(changes) > 0:
                     logger.info(IDLE)
-
-                gc.collect()
 
         except ConnectionError:
             syncing.clear()
@@ -3270,8 +3264,6 @@ def startup_worker(sync: SyncEngine, syncing: Event, running: Event, connected: 
 
                 if not running.is_set():
                     continue
-
-                gc.collect()
 
                 if not paused_by_user.is_set():
                     syncing.set()
