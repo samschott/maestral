@@ -17,6 +17,7 @@ import shutil
 import logging.handlers
 from collections import deque
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from typing import Union, List, Dict, Optional, Deque, Any
 
 # external imports
@@ -228,13 +229,15 @@ class Maestral:
 
         # schedule background tasks
         self._loop = asyncio.get_event_loop()
+        self._thread_pool = ThreadPoolExecutor(
+            thread_name_prefix='maestral-thread-pool',
+            max_workers=2,
+        )
         self._refresh_task = self._loop.create_task(
             self._periodic_refresh(),
-            # name='maestral-update-check'  # Python 3.8 only
         )
         self._watchdog_task = self._loop.create_task(
             self._periodic_watchdog(),
-            # name='maestral-watchdog'  # Python 3.8 only
         )
 
     def get_auth_url(self) -> str:
@@ -1301,6 +1304,7 @@ class Maestral:
             self._loop.stop()
 
         self._loop.close()
+        self._thread_pool.shutdown(wait=False)
 
         if NOTIFY_SOCKET:
             # notify systemd that we are shutting down
@@ -1347,11 +1351,11 @@ class Maestral:
         while True:
             # update account info
             if self.client.linked:
-                await self._loop.run_in_executor(None, self.get_account_info)
-                await self._loop.run_in_executor(None, self.get_profile_pic)
+                await self._loop.run_in_executor(self._thread_pool, self.get_account_info)
+                await self._loop.run_in_executor(self._thread_pool, self.get_profile_pic)
 
             # check for maestral updates
-            res = await self._loop.run_in_executor(None, self.check_for_updates)
+            res = await self._loop.run_in_executor(self._thread_pool, self.check_for_updates)
 
             if not res['error']:
                 self._state.set('app', 'latest_release', res['latest_release'])
