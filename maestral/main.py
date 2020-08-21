@@ -240,6 +240,14 @@ class Maestral:
             self._periodic_watchdog(),
         )
 
+    def version(self) -> str:
+        """
+        Returns the current Maestral version.
+
+        :returns: Version string.
+        """
+        return __version__
+
     def get_auth_url(self) -> str:
         """
         Returns a URL to authorize access to a Dropbox account. To link a Dropbox
