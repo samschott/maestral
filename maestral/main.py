@@ -1372,13 +1372,6 @@ class Maestral:
                 sd_notifier.notify('WATCHDOG=1')
                 await asyncio.sleep(sleep / (2 * 10 ** 6))
 
-    def __del__(self) -> None:
-        try:
-            self.monitor.stop()
-            self.shutdown_daemon()
-        except Exception:
-            pass
-
     def __repr__(self) -> str:
 
         email = self._state.get('account', 'email')
