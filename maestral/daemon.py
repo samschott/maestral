@@ -384,7 +384,7 @@ def start_maestral_daemon(config_name: str = 'maestral',
 
         if sys.platform == 'darwin':
             # integrate with CFRunLoop, only works in main thread
-            from rubicon.objc.eventloop import EventLoopPolicy
+            from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
             asyncio.set_event_loop_policy(EventLoopPolicy())
 
         loop = asyncio.get_event_loop()

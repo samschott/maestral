@@ -20,48 +20,17 @@ through :class:`MaestralDesktopNotifier`.
 # system imports
 import sys
 import os.path as osp
-import shutil
 import time
-import subprocess
 import platform
-from packaging.version import Version
-from enum import Enum
 import pkg_resources
 import logging
-from collections import deque
-import threading
-from typing import Optional, Dict, ClassVar
+from threading import Lock
+from typing import Optional, Dict, ClassVar, Callable
 
 # local imports
 from maestral.config import MaestralConfig
-from maestral.constants import IS_MACOS_BUNDLE, BUNDLE_ID
-
-
-logger = logging.getLogger(__name__)
-
-# platform dependent imports
-if platform.system() == 'Darwin':
-
-    from rubicon.objc import ObjCClass  # type: ignore
-    from rubicon.objc.runtime import load_library  # type: ignore
-
-    uns = load_library('UserNotifications')
-
-    if uns:
-        UNUserNotificationCenter = ObjCClass('UNUserNotificationCenter')
-        UNMutableNotificationContent = ObjCClass('UNMutableNotificationContent')
-        UNNotificationRequest = ObjCClass('UNNotificationRequest')
-
-        NSUserNotification = ObjCClass('NSUserNotification')
-        NSUserNotificationCenter = ObjCClass('NSUserNotificationCenter')
-        NSDate = ObjCClass('NSDate')
-    else:
-        logger.debug('Cannot load library "UserNotifications"')
-
-elif platform.system() == 'Linux':
-    from jeepney.integrate.blocking import Proxy, connect_and_authenticate  # type: ignore
-    from jeepney.wrappers import DBusErrorResponse  # type: ignore
-    from maestral.utils.dbus_interfaces import FreedesktopNotifications
+from maestral.constants import BUNDLE_ID
+from .notify_base import DesktopNotifierBase, NotificationLevel, Notification
 
 
 _resources = getattr(sys, '_MEIPASS',
@@ -69,244 +38,68 @@ _resources = getattr(sys, '_MEIPASS',
 APP_ICON_PATH = osp.join(_resources, 'maestral.png')
 
 
-class SupportedImplementations(Enum):
-    """
-    Enumeration of supported implementations.
-    """
-    un_notification_center = 'UNUserNotificationCenter'
-    ns_notification_center = 'NSUserNotificationCenter'
-    notify_send = 'notify-send'
-    freedesktop_dbus = 'org.freedesktop.Notifications'
-
-
-class DesktopNotifierBase:
-    """
-    Base class for desktop notifications. Notification levels CRITICAL, NORMAL and LOW may
-    be used by some implementations to determine how a notification is displayed.
-
-    :param app_name: Name to identify the application in the notification center. On
-        Linux, this should correspond to the application name in a desktop entry. On
-        macOS, this field is discarded and the app is identified by the bundle id of the
-        sending program (e.g., Python).
-    :param notification_limit: Maximum number of notifications to keep in the system's
-        notification center. This may be ignored by some implementations.
-    """
-
-    app_name: str
-    notification_limit: int
-
-    CRITICAL = 'critical'
-    NORMAL = 'normal'
-    LOW = 'low'
-
-    def __init__(self, app_name: str = '', notification_limit: int = 5) -> None:
-        self.app_name = app_name
-        self.notification_limit = notification_limit
-
-    def send(self, title: str, message: str, urgency: str = NORMAL,
-             icon_path: Optional[str] = None) -> None:
-        """Some arguments may be ignored, depending on the implementation."""
-        raise NotImplementedError()
-
-
-class DesktopNotifierNC(DesktopNotifierBase):
-    """UNUserNotificationCenter backend for macOS. For macOS Catalina and newer."""
-
-    def __init__(self, app_name: str) -> None:
-        super().__init__(app_name)
-        self.nc = UNUserNotificationCenter.alloc().initWithBundleIdentifier(BUNDLE_ID)
-        self.nc.requestAuthorizationWithOptions(
-            (1 << 2) | (1 << 1) | (1 << 0), completionHandler=None
-        )
-        self._last_notification_id = 0
-
-    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
-             icon_path: Optional[str] = None) -> None:
-
-        content = UNMutableNotificationContent.alloc().init()
-        content.title = title
-        content.body = message
-
-        notification_request = UNNotificationRequest.requestWithIdentifier(
-            str(self._last_notification_id),
-            content=content,
-            trigger=None
-        )
-
-        self.nc.addNotificationRequest(
-            notification_request,
-            withCompletionHandler=None
-        )
-
-        self._last_notification_id += 1
-        self._last_notification_id %= self.notification_limit
-
-
-class DesktopNotifierLegacyNC(DesktopNotifierBase):
-    """NSUserNotificationCenter backend for macOS. Pre macOS Catalina."""
-
-    def __init__(self, app_name: str) -> None:
-        super().__init__(app_name)
-        self.nc = NSUserNotificationCenter.defaultUserNotificationCenter
-
-    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
-             icon_path: Optional[str] = None) -> None:
-        n = NSUserNotification.alloc().init()
-        n.title = title
-        n.informativeText = message
-        n.userInfo = {}
-        n.deliveryDate = NSDate.dateWithTimeInterval(0, sinceDate=NSDate.date())
-        self.nc.scheduleNotification(n)
-
-
-class DesktopNotifierNotifySend(DesktopNotifierBase):
-    """Notify-send backend for Linux."""
-
-    def __init__(self, app_name: str) -> None:
-        super().__init__(app_name)
-        self._with_app_name = True
-
-    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
-             icon_path: Optional[str] = None) -> None:
-        icon_path = icon_path or ''
-        if self._with_app_name:  # try passing --app-name option
-            r = subprocess.call([
-                'notify-send', title, message,
-                '-a', self.app_name,
-                '-i', icon_path,
-                '-u', urgency
-            ])
-            self._with_app_name = r == 0  # disable if not supported
-
-        if not self._with_app_name:
-            subprocess.call([
-                'notify-send', title, message,
-                '-i', icon_path, '-u', urgency
-            ])
-
-
-class DesktopNotifierFreedesktopDBus(DesktopNotifierBase):
-    """DBus notification backend for Linux. This implements the
-    org.freedesktop.Notifications standard."""
-
-    def __init__(self, app_name: str) -> None:
-        super().__init__(app_name)
-        self._connection = connect_and_authenticate(bus='SESSION')
-        self._proxy = Proxy(FreedesktopNotifications(), self._connection)
-        self.capabilities = self._proxy.GetCapabilities()
-        self.server_information = self._proxy.GetServerInformation()
-
-        self._past_notification_ids = deque([0] * self.notification_limit)
-
-    def send(self, title: str, message: str, urgency: str = DesktopNotifierBase.NORMAL,
-             icon_path: Optional[str] = None) -> None:
-
-        replace_id = self._past_notification_ids[0]
-
-        try:
-            resp = self._proxy.Notify(
-                self.app_name,
-                replace_id,
-                APP_ICON_PATH,
-                title,
-                message,
-                [],  # Actions
-                {},  # Hints
-                -1,  # expire_timeout (-1 = default)
-            )
-        except DBusErrorResponse:
-            # This may fail for several reasons: there may not be a systemd service
-            # file for 'org.freedesktop.Notifications' or the system configuration
-            # may have changed after DesktopNotifierFreedesktopDBus was initialized.
-            logger.debug('Failed to send desktop notification', exc_info=True)
-        else:
-            self._past_notification_ids.popleft()
-            self._past_notification_ids.append(resp[0])
-
-    def __del__(self):
-        try:
-            self._connection.close()
-        except Exception:
-            pass
-
-
 class DesktopNotifier:
     """
     Cross-platform desktop notifications for macOS and Linux. Uses different backends
-    depending on the platform version and available services.
+    depending on the platform version and available services. The Dbus backend requires
+    a running asyncio loop. The Cocoa backends will dispatch notifications without an
+    event loop but require a running CFRunLoop (Core Foundation run loop) to react to user
+    interactions with the notification. Packages such as :package:`rubicon.objc` can be
+    used to integrate asyncio with a CFRunLoop.
 
     :param app_name: Name of sending app.
     """
 
     _impl: Optional[DesktopNotifierBase]
 
-    CRITICAL = 'critical'
-    NORMAL = 'normal'
-    LOW = 'low'
+    def __init__(self, app_name: str, app_id: str) -> None:
+        self._lock = Lock()
 
-    def __init__(self, app_name: str) -> None:
-        self._lock = threading.Lock()
-        self.implementation = self._get_available_implementation()
+        if platform.system() == 'Darwin':
+            from .notify_macos import Impl
+        elif platform.system() == 'Linux':
+            from .notify_linux import Impl  # type: ignore
+        else:
+            Impl = None  # type: ignore
 
-        if self.implementation == SupportedImplementations.un_notification_center:
-            self._impl = DesktopNotifierNC(app_name)
-        elif self.implementation == SupportedImplementations.ns_notification_center:
-            self._impl = DesktopNotifierLegacyNC(app_name)
-        elif self.implementation == SupportedImplementations.freedesktop_dbus:
-            self._impl = DesktopNotifierFreedesktopDBus(app_name)
-        elif self.implementation == SupportedImplementations.notify_send:
-            self._impl = DesktopNotifierNotifySend(app_name)
+        if Impl:
+            self._impl = Impl(app_name, app_id)
         else:
             self._impl = None
 
-        logger.debug(f'DesktopNotifier implementation: {self.implementation}')
-
-    def send(self, title: str, message: str, urgency: str = NORMAL,
-             icon: Optional[str] = None) -> None:
+    def send(self,
+             title: str,
+             message: str,
+             urgency: NotificationLevel = NotificationLevel.Normal,
+             icon: Optional[str] = None,
+             action: Optional[Callable] = None,
+             buttons: Optional[Dict[str, Optional[Callable]]] = None) -> None:
         """
         Sends a desktop notification. Some arguments may be ignored, depending on the
         backend.
 
         :param title: Notification title.
         :param message: Notification message.
-        :param urgency: Notification urgency. Some backends use this to determine how the
-            notification is displayed.
-        :param icon: Path to an icon. Some backends support displaying an (app) icon
-            together with the notification.
+        :param urgency: Notification level: low, normal or critical. This is ignored by
+            some implementations.
+        :param icon: Path to an icon to use for the notification, typically the app icon.
+            This is ignored by some implementations, e.g., on macOS where the icon of the
+            app bundle is always used.
+        :param action: Handler to call when the notification is clicked. This is ignored
+            by some implementations.
+        :param buttons: A dictionary with button names and callbacks to show in the
+            notification. This is ignored by some implementations.
         """
+        notification = Notification(
+            title, message, urgency, icon, action, buttons
+        )
+
         if self._impl:
             with self._lock:
-                self._impl.send(title, message, urgency, icon)
-
-    @staticmethod
-    def _get_available_implementation() -> Optional[SupportedImplementations]:
-        macos_version, *_ = platform.mac_ver()
-
-        if platform.system() == 'Darwin' and uns:
-
-            if (IS_MACOS_BUNDLE and Version(macos_version) >= Version('10.14.0')
-                    and UNUserNotificationCenter.currentNotificationCenter()):
-                # UNUserNotificationCenter is only supported from signed app bundles
-                return SupportedImplementations.un_notification_center
-
-            if NSUserNotificationCenter.defaultUserNotificationCenter:
-                # deprecated but still works
-                return SupportedImplementations.ns_notification_center
-
-        elif platform.system() == 'Linux':
-            try:
-                DesktopNotifierFreedesktopDBus('test')
-                return SupportedImplementations.freedesktop_dbus
-            except Exception:
-                pass
-
-            if shutil.which('notify-send'):
-                return SupportedImplementations.notify_send
-
-        return None
+                self._impl.send(notification)
 
 
-system_notifier = DesktopNotifier(app_name='Maestral')
+system_notifier = DesktopNotifier(app_name='Maestral', app_id=BUNDLE_ID)
 
 
 class MaestralDesktopNotifier(logging.Handler):
@@ -317,7 +110,7 @@ class MaestralDesktopNotifier(logging.Handler):
     """
 
     _instances: ClassVar[Dict[str, 'MaestralDesktopNotifier']] = dict()
-    _lock = threading.Lock()
+    _lock = Lock()
 
     NONE = 100
     ERROR = 40
@@ -393,30 +186,33 @@ class MaestralDesktopNotifier(logging.Handler):
         """Setter: snoozed."""
         self._snooze = time.time() + minutes * 60.0
 
-    def notify(self, message: str, level: int = FILECHANGE) -> None:
+    def notify(self, message: str, level: int = FILECHANGE,
+               on_click: Optional[Callable] = None) -> None:
         """
         Sends a desktop notification from maestral. The title defaults to 'Maestral'.
 
         :param message: Notification message.
         :param level: Notification level of the message.
+        :param on_click: A callback to execute when the notification is clicked. The
+            provided callable must not take any arguments.
         """
 
         ignore = self.snoozed and level == self.FILECHANGE
         if level == self.ERROR:
-            urgency = system_notifier.CRITICAL
+            urgency = NotificationLevel.Critical
         else:
-            urgency = system_notifier.NORMAL
+            urgency = NotificationLevel.Normal
 
         if level >= self.notify_level and not ignore:
             system_notifier.send(
                 title='Maestral',
                 message=message,
                 icon=APP_ICON_PATH,
-                urgency=urgency
+                urgency=urgency,
+                action=on_click
             )
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emits a log record as a desktop notification."""
-        if record.name != logger.name:  # avoid recursions
-            self.format(record)
-            self.notify(record.message, level=record.levelno)
+        self.format(record)
+        self.notify(record.message, level=record.levelno)

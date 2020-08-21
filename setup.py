@@ -16,7 +16,7 @@ install_requires = [
     'dropbox>=10.0.0',
     'fasteners',
     'importlib_metadata;python_version<"3.8"',
-    'jeepney;sys_platform=="linux"',
+    'dbus-next;sys_platform=="linux"',
     'keyring>=19.0.0',
     'keyrings.alt>=3.1.0',
     'packaging',

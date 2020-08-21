@@ -34,6 +34,7 @@ from typing import (
 from types import TracebackType
 
 # external imports
+import click
 from sqlalchemy.ext.declarative import declarative_base  # type: ignore
 from sqlalchemy.orm import sessionmaker  # type: ignore
 from sqlalchemy.sql import case  # type: ignore
@@ -2528,6 +2529,8 @@ class SyncEngine:
         :param sync_events: List of sync items from download sync.
         """
 
+        callback: Optional[Callable]
+
         changes = [e for e in sync_events if e.status != SyncStatus.Skipped]
 
         # get number of remote changes
@@ -2554,6 +2557,10 @@ class SyncEngine:
             event = changes[0]
             file_name = osp.basename(event.dbx_path)
             change_type = event.change_type.value
+
+            def callback():
+                click.launch(event.local_path, locate=True)
+
         else:
 
             if all(e.change_type == sync_events[0].change_type for e in sync_events):
@@ -2568,12 +2575,14 @@ class SyncEngine:
             else:
                 file_name = f'{n_changed} items'
 
+            callback = None
+
         if user_name:
             msg = f'{user_name} {change_type} {file_name}'
         else:
             msg = f'{file_name} {change_type}'
 
-        self._notifier.notify(msg)
+        self._notifier.notify(msg, on_click=callback)
 
     def _filter_excluded_changes_remote(self, changes: List[SyncEvent]) \
             -> Tuple[List[SyncEvent], List[SyncEvent]]:
