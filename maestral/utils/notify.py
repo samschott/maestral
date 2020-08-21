@@ -187,7 +187,8 @@ class MaestralDesktopNotifier(logging.Handler):
         self._snooze = time.time() + minutes * 60.0
 
     def notify(self, message: str, level: int = FILECHANGE,
-               on_click: Optional[Callable] = None) -> None:
+               on_click: Optional[Callable] = None,
+               buttons: Optional[Dict[str, Callable]] = None) -> None:
         """
         Sends a desktop notification from maestral. The title defaults to 'Maestral'.
 
@@ -195,6 +196,7 @@ class MaestralDesktopNotifier(logging.Handler):
         :param level: Notification level of the message.
         :param on_click: A callback to execute when the notification is clicked. The
             provided callable must not take any arguments.
+        :param buttons: A dictionary with button names and callbacks for the notificaiton.
         """
 
         ignore = self.snoozed and level == self.FILECHANGE
@@ -209,7 +211,8 @@ class MaestralDesktopNotifier(logging.Handler):
                 message=message,
                 icon=APP_ICON_PATH,
                 urgency=urgency,
-                action=on_click
+                action=on_click,
+                buttons=buttons or dict(),
             )
 
     def emit(self, record: logging.LogRecord) -> None:
