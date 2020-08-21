@@ -925,7 +925,7 @@ class SyncEngine:
         try:
             yield
         except (FileNotFoundError, IsADirectoryError):
-            logger.info('Maestral index could not be found')
+            logger.info('Index could not be found')
             # reset sync state
             self.last_sync = 0.0
             self._rev_dict_cache = dict()

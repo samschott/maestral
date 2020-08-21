@@ -18,24 +18,16 @@ through :class:`MaestralDesktopNotifier`.
 """
 
 # system imports
-import sys
-import os.path as osp
 import time
 import platform
-import pkg_resources
 import logging
 from threading import Lock
 from typing import Optional, Dict, ClassVar, Callable
 
 # local imports
 from maestral.config import MaestralConfig
-from maestral.constants import BUNDLE_ID
+from maestral.constants import APP_NAME, BUNDLE_ID, APP_ICON_PATH
 from .notify_base import DesktopNotifierBase, NotificationLevel, Notification
-
-
-_resources = getattr(sys, '_MEIPASS',
-                     pkg_resources.resource_filename('maestral', 'resources'))
-APP_ICON_PATH = osp.join(_resources, 'maestral.png')
 
 
 class DesktopNotifier:
@@ -101,7 +93,7 @@ class DesktopNotifier:
                 self._impl.send(notification)
 
 
-system_notifier = DesktopNotifier(app_name='Maestral', app_id=BUNDLE_ID)
+system_notifier = DesktopNotifier(APP_NAME, BUNDLE_ID)
 
 
 class MaestralDesktopNotifier(logging.Handler):
@@ -209,7 +201,7 @@ class MaestralDesktopNotifier(logging.Handler):
 
         if level >= self.notify_level and not ignore:
             system_notifier.send(
-                title='Maestral',
+                title=APP_NAME,
                 message=message,
                 icon=APP_ICON_PATH,
                 urgency=urgency,

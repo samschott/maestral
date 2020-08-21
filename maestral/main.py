@@ -54,7 +54,7 @@ from maestral.utils.serializer import (
 from maestral.utils.appdirs import get_log_path, get_cache_path
 from maestral.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
-    BUGSNAG_API_KEY, IDLE, FileStatus,
+    BUGSNAG_API_KEY, IDLE, FileStatus, GITHUB_RELEAES_API
 )
 
 
@@ -69,7 +69,6 @@ CONNECTION_ERRORS = (
     ConnectionError,
 )
 
-GITHUB_RELEAES_API = 'https://api.github.com/repos/samschott/maestral-dropbox/releases'
 
 # set up error reporting but do not activate
 
