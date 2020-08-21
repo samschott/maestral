@@ -24,7 +24,6 @@ import struct
 import tempfile
 import itertools
 import asyncio
-import select
 from typing import Optional, Union, Tuple, Dict, Type, TYPE_CHECKING
 from types import TracebackType, FrameType
 
@@ -346,17 +345,6 @@ def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
     return Start.Failed
 
 
-async def _main_loop(daemon: Daemon, loop: asyncio.AbstractEventLoop) -> None:
-    while True:
-        res, _, _ = await loop.run_in_executor(
-            None,
-            select.select,
-            daemon.sockets, [], [], 3
-        )
-        if res:
-            daemon.events(res)
-
-
 # ==== main functions to manage daemon ===================================================
 
 def start_maestral_daemon(config_name: str = 'maestral',
@@ -396,14 +384,16 @@ def start_maestral_daemon(config_name: str = 'maestral',
         # catch sigterm and shut down gracefully, only works in main thread
         signal.signal(signal.SIGTERM, _sigterm_handler)
 
+        # integrate with CFRunLoop in macOS, only works in main thread
         if sys.platform == 'darwin':
-            # integrate with CFRunLoop, only works in main thread
             from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
             asyncio.set_event_loop_policy(EventLoopPolicy())
 
+        # get the default event loop
         loop = asyncio.get_event_loop()
 
     else:
+        # create a new loop for this thread
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
@@ -431,7 +421,8 @@ def start_maestral_daemon(config_name: str = 'maestral',
 
         with Daemon(unixsocket=sockpath) as daemon:
             daemon.register(m, f'maestral.{config_name}')
-            loop.create_task(_main_loop(daemon, loop))
+            for socket in daemon.sockets:
+                loop.add_reader(socket.fileno(), daemon.events, daemon.sockets)
             loop.run_forever()
 
     except Exception:
