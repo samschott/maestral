@@ -28,7 +28,8 @@ from typing import Optional, Union, Tuple, Dict, Type, TYPE_CHECKING
 from types import TracebackType, FrameType
 
 # external imports
-import Pyro5.errors  # type: ignore
+import Pyro5
+from Pyro5.errors import CommunicationError  # type: ignore
 from Pyro5.api import Daemon, Proxy, expose, oneway, register_dict_to_class  # type: ignore
 from fasteners import InterProcessLock  # type: ignore
 
@@ -44,6 +45,7 @@ if TYPE_CHECKING:
 
 threads = dict()
 URI = 'PYRO:maestral.{0}@{1}'
+Pyro5.config.THREADPOOL_SIZE_MIN = 2
 
 MaestralProxyType = Union['Maestral', Proxy]
 
@@ -546,7 +548,7 @@ def stop_maestral_daemon_process(config_name: str = 'maestral',
     try:
         with MaestralProxy(config_name) as m:
             m.shutdown_daemon()
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         if pid:
             _send_term(pid)
     finally:
@@ -589,7 +591,7 @@ def stop_maestral_daemon_thread(config_name: str = 'maestral',
     try:
         with MaestralProxy(config_name) as m:
             m.shutdown_daemon()
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         return Stop.Failed
 
     # wait for maestral to carry out shutdown
@@ -622,14 +624,14 @@ def get_maestral_proxy(config_name: str = 'maestral',
         try:
             maestral_daemon._pyroBind()
             return maestral_daemon
-        except Pyro5.errors.CommunicationError:
+        except CommunicationError:
             maestral_daemon._pyroRelease()
 
     if fallback:
         from maestral.main import Maestral
         return Maestral(config_name)
     else:
-        raise Pyro5.errors.CommunicationError
+        raise CommunicationError('Could not get proxy')
 
 
 class MaestralProxy:
