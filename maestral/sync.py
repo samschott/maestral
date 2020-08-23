@@ -1410,6 +1410,7 @@ class SyncEngine:
             change_user_name=change_user_name,
             status=SyncStatus.Queued,
             size=size,
+            completed=0,
         )
 
     def sync_event_from_file_system_event(self, event: FileSystemEvent) -> SyncEvent:
@@ -1472,6 +1473,7 @@ class SyncEngine:
             change_user_name=change_user_name,
             status=SyncStatus.Queued,
             size=size,
+            completed=0,
         )
 
     # ==== Upload sync ===================================================================
