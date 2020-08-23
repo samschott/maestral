@@ -839,7 +839,7 @@ class SyncEngine:
     @property
     def history(self):
         query = self._db_session.query(SyncEvent)
-        return query.order_by(SyncEvent.change_user_name).all()
+        return query.order_by(SyncEvent.change_time_or_sync_time).all()
 
     def clear_database(self):
         Base.metadata.drop_all(self._db_engine)
