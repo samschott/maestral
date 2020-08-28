@@ -321,7 +321,7 @@ class Maestral:
 
         # clean up config + state
         self.sync.clear_rev_index()
-        self.sync.clear_database()
+        self.sync.clear_sync_history()
         self._conf.cleanup()
         self._state.cleanup()
 

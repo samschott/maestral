@@ -420,6 +420,8 @@ class SyncEvent(Base):  # type: ignore
     :param dbx_path: Dropbox path of the item to sync. If the sync represents a move
         operation, this will be the destination path. The path does not need to be
         correctly cased apart from the basename.
+    :param dbx_id: A unique dropbox ID for the file or folder. Will only be set for
+        download events which are not deletions.
     :param dbx_path_from: Dropbox path that this item was moved from. Will only be set if
         ``change_type`` is ``ChangeType.Moved``. The same rules for casing as for
         ``dbx_path`` apply.
@@ -448,6 +450,7 @@ class SyncEvent(Base):  # type: ignore
     :param completed: File size in bytes which has already been uploaded or downloaded.
         Always zero for folders.
 
+    :ivar id: A unique identifier of the sync item.
     :ivar change_time_or_sync_time: Change time when available, otherwise sync time. This
         can be used for sorting or user information purposes.
     """
@@ -459,6 +462,7 @@ class SyncEvent(Base):  # type: ignore
     item_type = Column(Enum(ItemType), nullable=False)
     sync_time = Column(Float, nullable=False)
     dbx_path = Column(String, nullable=False)
+    dbx_id = Column(String)
     local_path = Column(String, nullable=False)
     dbx_path_from = Column(String)
     local_path_from = Column(String)
@@ -523,6 +527,19 @@ class SyncEvent(Base):  # type: ignore
     def __repr__(self):
         return f"<{self.__class__.__name__}(direction={self.direction.name}, " \
                f"change_type={self.change_type.name}, dbx_path='{self.dbx_path}')>"
+
+
+class IndexEntry(Base):
+
+    __tablename__ = 'index'
+
+    dbx_path = Column(String, nullable=False, primary_key=True)
+    dbx_id = Column(String, nullable=False)
+    item_type = Column(Enum(ItemType), nullable=False)
+    last_sync = Column(Float)
+    rev = Column(String, nullable=False)
+    content_hash = Column(String)
+    content_hash_ctime = Column(Float)
 
 
 class SyncEngine:
@@ -841,8 +858,8 @@ class SyncEngine:
         query = self._db_session.query(SyncEvent)
         return query.order_by(SyncEvent.change_time_or_sync_time).all()
 
-    def clear_database(self):
-        Base.metadata.drop_all(self._db_engine)
+    def clear_sync_history(self):
+        SyncEvent.metadata.drop_all(self._db_engine)
         Base.metadata.create_all(self._db_engine)
 
     # ==== rev file management ===========================================================
@@ -861,59 +878,128 @@ class SyncEngine:
         """
         Gets revision number of local file.
 
-        :param dbx_path: Path relative to Dropbox folder.
+        :param dbx_path: Dropbox path.
         :returns: Revision number as str or ``None`` if no local revision number has been
             saved.
         """
         with self._rev_lock:
-            dbx_path = dbx_path.lower()
-            rev = self._rev_dict_cache.get(dbx_path, None)
-
-            return rev
-
-    def set_local_rev(self, dbx_path: str, rev: Optional[str]) -> None:
-        """
-        Saves revision number ``rev`` for local file. If ``rev`` is ``None``, the entry
-        for the file is removed.
-
-        :param dbx_path: Path relative to Dropbox folder.
-        :param rev: Revision number as string or ``None``.
-        """
-        with self._rev_lock:
-            dbx_path = dbx_path.lower()
-
-            if rev == self._rev_dict_cache.get(dbx_path, None):
-                # rev is already set, nothing to do
-                return
-
-            if rev is None:
-                # remove entry and all its children revs
-                for path in dict(self._rev_dict_cache):
-                    if is_equal_or_child(path, dbx_path):
-                        self._rev_dict_cache.pop(path, None)
-                        self._append_rev_to_file(path, None)
+            entry = self._db_session.query(IndexEntry).get(dbx_path.lower())
+            if entry:
+                return entry.rev
             else:
-                # add entry
-                self._rev_dict_cache[dbx_path] = rev
-                self._append_rev_to_file(dbx_path, rev)
-                # set all parent revs to 'folder'
-                dirname = osp.dirname(dbx_path)
-                while dirname != '/':
-                    self._rev_dict_cache[dirname] = 'folder'
-                    self._append_rev_to_file(dirname, 'folder')
-                    dirname = osp.dirname(dirname)
+                return None
 
-    def _clean_and_save_rev_file(self) -> None:
-        """Cleans the revision index from duplicate entries and keeps only the last entry
-        for any individual path. Then saves the index to the drive."""
+    def update_index_from_sync_event(self, sync_event: SyncEvent) -> None:
+        """
+        Updates the local index from a SyncEvent.
+
+        :param sync_event: SyncEvent from download.
+        """
+
+        if sync_event.change_type is not ChangeType.Removed and not sync_event.rev:
+            raise ValueError('Rev required to update index')
+
+        dbx_path_lower = sync_event.dbx_path.lower()
+
         with self._rev_lock:
-            self._save_rev_dict_to_file()
+
+            if sync_event.change_type is ChangeType.Removed:
+                self._remove_from_index(dbx_path_lower)
+
+            elif sync_event.change_type is ChangeType.Moved:
+                self._remove_from_index(sync_event.dbx_path_from.lower())
+                self._add_to_index(sync_event)
+
+            elif sync_event.change_type is ChangeType.Added:
+                self._add_to_index(sync_event)
+
+            elif sync_event.change_type is ChangeType.Modified:
+
+                entry = self._db_session.query(IndexEntry).get(dbx_path_lower)
+
+                if entry:
+                    entry.dbx_id = sync_event.dbx_id
+                    entry.item_type = sync_event.item_type
+                    entry.last_sync = None
+                    entry.rev = sync_event.rev
+                else:
+                    self._add_to_index(sync_event)
+
+            self._db_session.commit()
+
+    def update_index_from_md(self, md: Metadata) -> None:
+        """
+        Updates the local index from Dropbox metadata.
+
+        :param md: Dropbox metadata.
+        """
+
+        with self._rev_lock:
+
+            if isinstance(md, DeletedMetadata):
+                self._remove_from_index(md.path_lower)
+
+            else:
+
+                if isinstance(md, FileMetadata):
+                    rev = md.rev
+                    item_type = ItemType.File
+                else:
+                    rev = 'folder'
+                    item_type = ItemType.Folder
+
+                entry = self._db_session.query(IndexEntry).get(md.path_lower)
+
+                if entry:
+                    entry.dbx_id = md.id
+                    entry.item_type = item_type
+                    entry.last_sync = None
+                    entry.rev = rev
+                else:
+                    entry = IndexEntry(
+                        dbx_path=md.path_lower,
+                        dbx_id=md.id,
+                        item_type=item_type,
+                        last_sync=None,
+                        rev=rev,
+                    )
+
+                    self._db_session.add(entry)
+
+            self._db_session.commit()
+
+    def _remove_from_index(self, dbx_path: str) -> None:
+
+        dbx_path_lower = dbx_path.lower()
+
+        entry = self._db_session.query(IndexEntry).get(dbx_path_lower)
+
+        if entry:
+            # remove entry from index
+            self._db_session.delete(entry)
+
+        for entry in self._db_session.query(IndexEntry).all():
+            # remove children from index
+            if is_equal_or_child(entry.dbx_path, dbx_path_lower):
+                self._db_session.delete(entry)
+
+    def _add_to_index(self, sync_event: SyncEvent) -> None:
+
+        entry = IndexEntry(
+            dbx_path=sync_event.dbx_path.lower(),
+            dbx_id=sync_event.dbx_id,
+            item_type=sync_event.item_type,
+            last_sync=None,
+            rev=sync_event.rev,
+        )
+
+        self._db_session.add(entry)
 
     def clear_rev_index(self) -> None:
         """Clears the revision index."""
         with self._rev_lock:
-            self._rev_dict_cache.clear()
-            self._save_rev_dict_to_file()
+            IndexEntry.metadata.drop_all(self._db_engine)
+            Base.metadata.create_all(self._db_engine)
 
     @contextmanager
     def _handle_rev_read_exceptions(self, raise_exception: bool = False) -> Iterator[None]:
@@ -1341,6 +1427,7 @@ class SyncEngine:
             size = 0
             rev = None
             content_hash = None
+            dbx_id = None
 
             try:
                 old_md = self.client.list_revisions(md.path_lower, limit=1).entries[0]
@@ -1363,6 +1450,7 @@ class SyncEngine:
             size = 0
             rev = 'folder'
             content_hash = 'folder'
+            dbx_id = md.id
             change_time = None
             change_dbid = None
 
@@ -1370,6 +1458,7 @@ class SyncEngine:
             item_type = ItemType.File
             rev = md.rev
             content_hash = md.content_hash
+            dbx_id = md.id
             size = md.size
             change_time = md.client_modified.replace(tzinfo=timezone.utc).timestamp()
             if self.get_local_rev(md.path_lower):
@@ -1399,6 +1488,7 @@ class SyncEngine:
             item_type=item_type,
             sync_time=time.time(),
             dbx_path=md.path_display,
+            dbx_id=dbx_id,
             local_path=self.to_local_path(md.path_display),
             dbx_path_from=None,
             local_path_from=None,
@@ -1462,6 +1552,7 @@ class SyncEngine:
             item_type=item_type,
             sync_time=time.time(),
             dbx_path=self.to_dbx_path(to_path),
+            dbx_id=None,
             local_path=to_path,
             dbx_path_from=self.to_dbx_path(from_path) if from_path else None,
             local_path_from=from_path,
@@ -1667,7 +1758,6 @@ class SyncEngine:
                         throttled_log(logger, f'Uploading {n}/{n_items}...')
                         results.append(f.result())
 
-                self._clean_and_save_rev_file()
                 self._clean_history()
 
             if not self.cancel_pending.is_set():
@@ -2068,30 +2158,39 @@ class SyncEngine:
 
         md_to_new = self.client.move(dbx_path_from, event.dbx_path, autorename=True)
 
-        self.set_local_rev(dbx_path_from, None)
+        self._remove_from_index(dbx_path_from)
 
-        # handle remote conflicts
         if md_to_new.path_lower != event.dbx_path.lower():
+            # TODO: test this
+            # conflicting copy created during upload, mirror remote changes locally
+            local_path_cc = self.to_local_path(md_to_new.path_display)
+            event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
+            with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
+                exc = move(event.local_path, local_path_cc)
+                if exc:
+                    raise os_to_maestral_error(exc, local_path=local_path_cc,
+                                               dbx_path=md_to_new.path_display)
+
+            # Delete entry of old path but don't update entry for new path here. This will
+            # force conflict resolution on download in case of intermittent changes.
+            self._remove_from_index(event.dbx_path)
             logger.info('Upload conflict: renamed "%s" to "%s"',
                         event.dbx_path, md_to_new.path_display)
+
         else:
-            self._set_local_rev_recursive(md_to_new)
+            self._update_index_recursive(md_to_new)
             logger.debug('Moved "%s" to "%s" on Dropbox', dbx_path_from, event.dbx_path)
 
         return self.sync_event_from_dbx_metadata(md_to_new)
 
-    def _set_local_rev_recursive(self, md):
+    def _update_index_recursive(self, md):
 
-        if isinstance(md, FileMetadata):
-            self.set_local_rev(md.path_lower, md.rev)
-        elif isinstance(md, FolderMetadata):
-            self.set_local_rev(md.path_lower, 'folder')
+        self.update_index_from_md(md)
+
+        if isinstance(md, FolderMetadata):
             result = self.client.list_folder(md.path_lower, recursive=True)
             for md in result.entries:
-                if isinstance(md, FileMetadata):
-                    self.set_local_rev(md.path_lower, md.rev)
-                elif isinstance(md, FolderMetadata):
-                    self.set_local_rev(md.path_lower, 'folder')
+                self.update_index_from_md(md)
 
     def _on_local_created(self, event: SyncEvent) -> Optional[SyncEvent]:
         """
@@ -2115,7 +2214,7 @@ class SyncEngine:
             except FolderConflictError:
                 logger.debug('No conflict for "%s": the folder already exists',
                              event.local_path)
-                self.set_local_rev(event.dbx_path, 'folder')
+                self.update_index_from_sync_event(event)
                 return None
             except FileConflictError:
                 md_new = self.client.make_dir(event.dbx_path, autorename=True)
@@ -2126,7 +2225,7 @@ class SyncEngine:
             if isinstance(md_old, FileMetadata):
                 if event.content_hash == md_old.content_hash:
                     # file hashes are identical, do not upload
-                    self.set_local_rev(md_old.path_lower, md_old.rev)
+                    self.update_index_from_md(md_old)
                     return None
 
             rev = self.get_local_rev(event.dbx_path)
@@ -2163,15 +2262,14 @@ class SyncEngine:
                     raise os_to_maestral_error(exc, local_path=local_path_cc,
                                                dbx_path=md_new.path_display)
 
-            # Delete revs of old path but don't set revs for new path here. This will
+            # Delete entry of old path but don't update entry for new path here. This will
             # force conflict resolution on download in case of intermittent changes.
-            self.set_local_rev(event.dbx_path, None)
+            self._remove_from_index(event.dbx_path)
             logger.debug('Upload conflict: renamed "%s" to "%s"',
                          event.dbx_path, md_new.path_lower)
         else:
-            # everything went well, save new revs
-            rev = getattr(md_new, 'rev', 'folder')
-            self.set_local_rev(md_new.path_lower, rev)
+            # everything went well, update index
+            self.update_index_from_md(md_new)
             logger.debug('Created "%s" on Dropbox', event.dbx_path)
 
         return self.sync_event_from_dbx_metadata(md_new)
@@ -2196,7 +2294,7 @@ class SyncEngine:
         if isinstance(md_old, FileMetadata):
             if event.content_hash == md_old.content_hash:
                 # file hashes are identical, do not upload
-                self.set_local_rev(md_old.path_lower, md_old.rev)
+                self.update_index_from_md(md_old)
                 logger.debug('Modification of "%s" detected but file content is '
                              'the same as on Dropbox', event.dbx_path)
                 return None
@@ -2233,12 +2331,12 @@ class SyncEngine:
 
             # Delete revs of old path but don't set revs for new path here. This will
             # force conflict resolution on download in case of intermittent changes.
-            self.set_local_rev(event.dbx_path, None)
+            self._remove_from_index(event.dbx_path)
             logger.debug('Upload conflict: renamed "%s" to "%s"',
                          event.dbx_path, md_new.path_lower)
         else:
             # everything went well, save new revs
-            self.set_local_rev(md_new.path_lower, md_new.rev)
+            self.update_index_from_md(md_new)
             logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
 
         return self.sync_event_from_dbx_metadata(md_new)
@@ -2269,7 +2367,7 @@ class SyncEngine:
                 logger.debug('Skipping deletion: remote item "%s" has been modified '
                              'since last sync', md.path_display)
                 # mark local folder as untracked
-                self.set_local_rev(event.dbx_path, None)
+                self._remove_from_index(dbx_path)
                 return None
 
         if event.is_file and isinstance(md, FolderMetadata):
@@ -2280,7 +2378,7 @@ class SyncEngine:
             logger.debug('Skipping deletion: expected file at "%s" but found a '
                          'folder instead', md.path_display)
             # mark local file as untracked
-            self.set_local_rev(event.dbx_path, None)
+            self._remove_from_index(dbx_path)
             return None
 
         try:
@@ -2299,7 +2397,7 @@ class SyncEngine:
             md_deleted = None
 
         # remove revision metadata
-        self.set_local_rev(event.dbx_path, None)
+        self._remove_from_index(event.dbx_path)
 
         if md_deleted:
             return self.sync_event_from_dbx_metadata(md_deleted)
@@ -2518,7 +2616,6 @@ class SyncEngine:
             # failed downloads will be tracked and retried individually
             self.last_cursor = cursor
 
-        self._clean_and_save_rev_file()
         self._clean_history()
 
         return results
@@ -2641,7 +2738,7 @@ class SyncEngine:
 
             if event.content_hash == local_hash:
                 logger.debug('Equal content hashes for "%s": no conflict', event.dbx_path)
-                self.set_local_rev(event.dbx_path, event.rev)
+                self.update_index_from_sync_event(event)
                 return Conflict.Identical
             elif any(is_equal_or_child(p, event.dbx_path.lower()) for p in self.upload_errors):
                 logger.debug('Unresolved upload error for "%s": conflict', event.dbx_path)
@@ -2870,8 +2967,8 @@ class SyncEngine:
             raise os_to_maestral_error(exc, dbx_path=event.dbx_path,
                                        local_path=local_path)
 
+        self.update_index_from_sync_event(event)
         self.set_last_sync_for_path(event.dbx_path, self._get_ctime(local_path))
-        self.set_local_rev(event.dbx_path, event.rev)
 
         logger.debug('Created local file "%s"', event.dbx_path)
 
@@ -2924,8 +3021,8 @@ class SyncEngine:
             raise os_to_maestral_error(err, dbx_path=event.dbx_path,
                                        local_path=event.local_path)
 
+        self.update_index_from_sync_event(event)
         self.set_last_sync_for_path(event.dbx_path, self._get_ctime(event.local_path))
-        self.set_local_rev(event.dbx_path, 'folder')
 
         logger.debug('Created local folder "%s"', event.dbx_path)
 
@@ -2954,12 +3051,12 @@ class SyncEngine:
             exc = delete(event.local_path)
 
         if not exc:
-            self.set_local_rev(event.dbx_path, None)
+            self.update_index_from_sync_event(event)
             self.set_last_sync_for_path(event.dbx_path, time.time())
             logger.debug('Deleted local item "%s"', event.dbx_path)
             return event
         elif isinstance(exc, FileNotFoundError):
-            self.set_local_rev(event.dbx_path, None)
+            self.update_index_from_sync_event(event)
             self.set_last_sync_for_path(event.dbx_path, time.time())
             logger.debug('Deletion failed: "%s" not found', event.dbx_path)
             return None
@@ -3498,7 +3595,7 @@ class SyncMonitor:
         self.sync.last_cursor = ''
         self.sync.last_sync = 0.0
         self.sync.clear_rev_index()
-        self.sync.clear_database()
+        self.sync.clear_sync_history()
 
         logger.debug('Sync state reset')
 
