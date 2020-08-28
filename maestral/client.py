@@ -1321,6 +1321,9 @@ def _get_lookup_error_msg(lookup_error: files.LookupError) -> Tuple[str, LookupE
     elif lookup_error.is_unsupported_content_type():
         text = 'This file type is currently not supported for syncing.'
         err_cls = UnsupportedFileError
+    elif lookup_error.is_locked():
+        text = 'The given path is locked.'
+        err_cls = InsufficientPermissionsError
 
     return text, err_cls
 

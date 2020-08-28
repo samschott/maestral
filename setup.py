@@ -13,7 +13,7 @@ install_requires = [
     'atomicwrites>=1.0.0',
     'bugsnag>=3.4.0',
     'click>=7.1.1',
-    'dropbox>=10.0.0',
+    'dropbox>=10.4.1',
     'fasteners',
     'importlib_metadata;python_version<"3.8"',
     'dbus-next;sys_platform=="linux"',
