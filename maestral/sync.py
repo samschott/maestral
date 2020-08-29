@@ -17,7 +17,6 @@ import logging
 import time
 import tempfile
 import random
-import json
 from threading import Thread, Event, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
