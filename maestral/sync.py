@@ -835,23 +835,14 @@ class SyncEngine:
         :returns: Time of last sync.
         """
         dbx_path = dbx_path.lower()
-        return max(self._last_sync_for_path.get(dbx_path, 0.0), self.last_sync)
+        entry = self._db_session.query(IndexEntry).get(dbx_path)
 
-    def set_last_sync_for_path(self, dbx_path: str, last_sync: float) -> None:
-        """
-        Sets the timestamp of last sync for a path.
-
-        :param dbx_path: Path relative to Dropbox folder.
-        :param last_sync: Time of last sync.
-        """
-        dbx_path = dbx_path.lower()
-        if last_sync == 0.0:
-            try:
-                del self._last_sync_for_path[dbx_path]
-            except KeyError:
-                pass
+        if entry:
+            last_sync = entry.last_sync or 0.0
         else:
-            self._last_sync_for_path[dbx_path] = last_sync
+            last_sync = 0.0
+
+        return max(last_sync, self.last_sync)
 
     @property
     def history(self):
@@ -920,7 +911,7 @@ class SyncEngine:
                 if entry:
                     entry.dbx_id = sync_event.dbx_id
                     entry.item_type = sync_event.item_type
-                    entry.last_sync = None
+                    entry.last_sync = self._get_ctime(sync_event.local_path)
                     entry.rev = sync_event.rev
                 else:
                     self._add_to_index(sync_event)
@@ -989,7 +980,7 @@ class SyncEngine:
             dbx_path=sync_event.dbx_path.lower(),
             dbx_id=sync_event.dbx_id,
             item_type=sync_event.item_type,
-            last_sync=None,
+            last_sync=self._get_ctime(sync_event.local_path),
             rev=sync_event.rev,
         )
 
@@ -2968,7 +2959,6 @@ class SyncEngine:
                                        local_path=local_path)
 
         self.update_index_from_sync_event(event)
-        self.set_last_sync_for_path(event.dbx_path, self._get_ctime(local_path))
 
         logger.debug('Created local file "%s"', event.dbx_path)
 
@@ -3022,7 +3012,6 @@ class SyncEngine:
                                        local_path=event.local_path)
 
         self.update_index_from_sync_event(event)
-        self.set_last_sync_for_path(event.dbx_path, self._get_ctime(event.local_path))
 
         logger.debug('Created local folder "%s"', event.dbx_path)
 
@@ -3052,12 +3041,10 @@ class SyncEngine:
 
         if not exc:
             self.update_index_from_sync_event(event)
-            self.set_last_sync_for_path(event.dbx_path, time.time())
             logger.debug('Deleted local item "%s"', event.dbx_path)
             return event
         elif isinstance(exc, FileNotFoundError):
             self.update_index_from_sync_event(event)
-            self.set_last_sync_for_path(event.dbx_path, time.time())
             logger.debug('Deletion failed: "%s" not found', event.dbx_path)
             return None
         else:
