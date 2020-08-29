@@ -60,8 +60,8 @@ from maestral.constants import (
     EXCLUDED_DIR_NAMES, MIGNORE_FILE, FILE_CACHE
 )
 from maestral.errors import (
-    SyncError, RevFileError, NoDropboxDirError, CacheDirError, InvalidDbidError,
-    PathError, NotFoundError, FileConflictError, FolderConflictError, IsAFolderError
+    SyncError, NoDropboxDirError, CacheDirError, InvalidDbidError, PathError,
+    NotFoundError, FileConflictError, FolderConflictError, IsAFolderError
 )
 from maestral.client import DropboxClient, os_to_maestral_error, fswatch_to_maestral_error
 from maestral.utils.content_hasher import DropboxContentHasher
