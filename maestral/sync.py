@@ -835,8 +835,9 @@ class SyncEngine:
 
     @property
     def history(self):
-        query = self._db_session.query(SyncEvent)
-        return query.order_by(SyncEvent.change_time_or_sync_time).all()
+        with self._db_lock:
+            query = self._db_session.query(SyncEvent)
+            return query.order_by(SyncEvent.change_time_or_sync_time).all()
 
     def clear_sync_history(self):
         SyncEvent.metadata.drop_all(self._db_engine)
@@ -955,18 +956,22 @@ class SyncEngine:
 
     def remove_path_from_index(self, dbx_path: str) -> None:
 
-        dbx_path_lower = dbx_path.lower()
+        with self._db_lock:
 
-        entry = self._db_session.query(IndexEntry).get(dbx_path_lower)
+            dbx_path_lower = dbx_path.lower()
 
-        if entry:
-            # remove entry from index
-            self._db_session.delete(entry)
+            entry = self._db_session.query(IndexEntry).get(dbx_path_lower)
 
-        for entry in self._db_session.query(IndexEntry).all():
-            # remove children from index
-            if is_equal_or_child(entry.dbx_path, dbx_path_lower):
+            if entry:
+                # remove entry from index
                 self._db_session.delete(entry)
+
+            for entry in self._db_session.query(IndexEntry).all():
+                # remove children from index
+                if is_equal_or_child(entry.dbx_path, dbx_path_lower):
+                    self._db_session.delete(entry)
+
+            self._db_session.commit()
 
     def clear_index(self) -> None:
         """Clears the revision index."""
@@ -1957,7 +1962,8 @@ class SyncEngine:
 
         # add to history database
         if event.status == SyncStatus.Done:
-            self._db_session.add(event)
+            with self._db_lock:
+                self._db_session.add(event)
 
         return event
 
@@ -2761,7 +2767,8 @@ class SyncEngine:
 
         # add to history database
         if event.status == SyncStatus.Done:
-            self._db_session.add(event)
+            with self._db_lock:
+                self._db_session.add(event)
 
         return event
 
@@ -2975,18 +2982,20 @@ class SyncEngine:
         """Commits new events and removes all events older than ``_keep_history`` from
         history."""
 
-        # commit previous
-        self._db_session.commit()
+        with self._db_lock:
 
-        # drop all entries older than keep_history
-        now = time.time()
-        keep_history = self._conf.get('sync', 'keep_history')
-        query = self._db_session.query(SyncEvent)
-        subquery = query.filter(SyncEvent.change_time_or_sync_time < now - keep_history)
-        subquery.delete(synchronize_session='fetch')
+            # commit previous
+            self._db_session.commit()
 
-        # commit to drive
-        self._db_session.commit()
+            # drop all entries older than keep_history
+            now = time.time()
+            keep_history = self._conf.get('sync', 'keep_history')
+            query = self._db_session.query(SyncEvent)
+            subquery = query.filter(SyncEvent.change_time_or_sync_time < now - keep_history)
+            subquery.delete(synchronize_session='fetch')
+
+            # commit to drive
+            self._db_session.commit()
 
     def __del__(self):
         try:
