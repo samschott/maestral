@@ -635,7 +635,7 @@ class SyncEngine:
         self.fs_events = fs_events_handler
 
         self.sync_lock = RLock()
-        self._rev_lock = RLock()
+        self._db_lock = RLock()
 
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
@@ -670,7 +670,6 @@ class SyncEngine:
         self._dropbox_path = osp.realpath(self._conf.get('main', 'path'))
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
-        self._rev_file_path = get_data_path('maestral', f'{self.config_name}.index')
         self._db_path = get_data_path('maestral', f'{self.config_name}.db')
 
         # initialize history database
@@ -683,11 +682,8 @@ class SyncEngine:
 
         # load cached properties
         self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
-        self._rev_dict_cache = dict()
-        self._load_rev_dict_from_file(raise_exception=True)
         self._excluded_items = self._conf.get('main', 'excluded_items')
         self._mignore_rules = self._load_mignore_rules_form_file()
-        self._last_sync_for_path = dict()
 
         self._max_cpu_percent = self._conf.get('sync', 'max_cpu_percent') * _cpu_count
 
@@ -717,11 +713,6 @@ class SyncEngine:
             self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
             self._is_case_sensitive = is_fs_case_sensitive(self._dropbox_path)
             self._conf.set('main', 'path', path)
-
-    @property
-    def rev_file_path(self) -> str:
-        """Path to sync index with rev numbers (read only)."""
-        return self._rev_file_path
 
     @property
     def database_path(self) -> str:
@@ -855,15 +846,15 @@ class SyncEngine:
 
     # ==== rev file management ===========================================================
 
-    def get_rev_index(self) -> Dict[str, str]:
+    def get_index(self) -> List[IndexEntry]:
         """
         Returns a copy of the revision index containing the revision numbers for all
         synced files and folders.
 
         :returns: Copy of revision index.
         """
-        with self._rev_lock:
-            return self._rev_dict_cache.copy()
+        with self._db_lock:
+            return self._db_session.query(IndexEntry).all()
 
     def get_local_rev(self, dbx_path: str) -> Optional[str]:
         """
@@ -873,7 +864,7 @@ class SyncEngine:
         :returns: Revision number as str or ``None`` if no local revision number has been
             saved.
         """
-        with self._rev_lock:
+        with self._db_lock:
             entry = self._db_session.query(IndexEntry).get(dbx_path.lower())
             if entry:
                 return entry.rev
@@ -892,7 +883,7 @@ class SyncEngine:
 
         dbx_path_lower = sync_event.dbx_path.lower()
 
-        with self._rev_lock:
+        with self._db_lock:
 
             if sync_event.change_type is ChangeType.Removed:
                 self.remove_path_from_index(dbx_path_lower)
@@ -930,7 +921,7 @@ class SyncEngine:
         :param md: Dropbox metadata.
         """
 
-        with self._rev_lock:
+        with self._db_lock:
 
             if isinstance(md, DeletedMetadata):
                 self.remove_path_from_index(md.path_lower)
@@ -979,126 +970,11 @@ class SyncEngine:
             if is_equal_or_child(entry.dbx_path, dbx_path_lower):
                 self._db_session.delete(entry)
 
-    def clear_rev_index(self) -> None:
+    def clear_index(self) -> None:
         """Clears the revision index."""
-        with self._rev_lock:
+        with self._db_lock:
             IndexEntry.metadata.drop_all(self._db_engine)
             Base.metadata.create_all(self._db_engine)
-
-    @contextmanager
-    def _handle_rev_read_exceptions(self, raise_exception: bool = False) -> Iterator[None]:
-
-        title = None
-        new_err = None
-
-        try:
-            yield
-        except (FileNotFoundError, IsADirectoryError):
-            logger.info('Index could not be found')
-            # reset sync state
-            self.last_sync = 0.0
-            self._rev_dict_cache = dict()
-            self.last_cursor = ''
-        except PermissionError as err:
-            title = 'Could not load index'
-            msg = (f'Insufficient permissions for "{self.rev_file_path}". Please '
-                   'make sure that you have read and write permissions.')
-            new_err = RevFileError(title, msg).with_traceback(err.__traceback__)
-        except OSError as err:
-            title = 'Could not load index'
-            msg = f'Errno {err.errno}. Please resync your Dropbox to rebuild the index.'
-            new_err = RevFileError(title, msg).with_traceback(err.__traceback__)
-
-        if new_err and raise_exception:
-            raise new_err
-        elif new_err:
-            logger.error(title, exc_info=_exc_info(new_err))
-
-    @contextmanager
-    def _handle_rev_write_exceptions(self, raise_exception: bool = False) -> Iterator[None]:
-
-        title = None
-        new_err = None
-
-        try:
-            yield
-        except PermissionError as err:
-            title = 'Could not save index'
-            msg = (f'Insufficient permissions for "{self.rev_file_path}". Please '
-                   'make sure that you have read and write permissions.')
-            new_err = RevFileError(title, msg).with_traceback(err.__traceback__)
-        except OSError as err:
-            title = 'Could not save index'
-            msg = f'Errno {err.errno}. Please check the logs for more information.'
-            new_err = RevFileError(title, msg).with_traceback(err.__traceback__)
-
-        if new_err and raise_exception:
-            raise new_err
-        elif new_err:
-            logger.error(title, exc_info=_exc_info(new_err))
-
-    def _load_rev_dict_from_file(self, raise_exception: bool = False) -> None:
-        """
-        Loads Maestral's rev index from ``rev_file_path``. Every line contains the rev
-        number for a single path, saved in a json format. Only the last entry for each
-        path is kept, overriding possible (older) previous entries.
-
-        :param raise_exception: If ``True``, raises an exception when loading fails.
-            If ``False``, an error message is logged instead.
-        :raises: :class:`errors.RevFileError`
-        """
-        with self._rev_lock:
-            self._rev_dict_cache.clear()
-            with self._handle_rev_read_exceptions(raise_exception):
-                with open(self.rev_file_path) as f:
-                    for line in f:
-                        try:
-                            entry = json.loads(line.strip('\n'))
-                            self._rev_dict_cache.update(entry)
-                        except json.decoder.JSONDecodeError as err:
-                            if line.endswith('\n'):
-                                raise err
-                            else:
-                                # last line of file, likely an interrupted write
-                                pass
-
-            # clean up empty revs
-            for path, rev in self._rev_dict_cache.copy().items():
-                if not rev:
-                    del self._rev_dict_cache[path]
-
-    def _save_rev_dict_to_file(self, raise_exception: bool = False) -> None:
-        """
-        Save Maestral's rev index to ``rev_file_path``.
-
-        :param raise_exception: If ``True``, raises an exception when saving fails. If
-            ``False``, an error message is logged instead.
-        :raises: :class:`errors.RevFileError`
-        """
-        with self._rev_lock:
-            with self._handle_rev_write_exceptions(raise_exception):
-                with atomic_write(self.rev_file_path, mode='w', overwrite=True) as f:
-                    for path, rev in self._rev_dict_cache.items():
-                        f.write(json.dumps({path: rev}) + '\n')
-
-    def _append_rev_to_file(self, path: str, rev: Optional[str],
-                            raise_exception: bool = False) -> None:
-        """
-        Appends a new line with a rev entry to the rev file. This is quicker than saving
-        the entire rev index. When loading the rev file, older entries will be overwritten
-        with newer ones and all entries with ``rev == None`` will be discarded.
-
-        :param path: Path for rev.
-        :param rev: Dropbox rev or ``None``.
-        :param raise_exception: If ``True``, raises an exception when saving fails.
-            If ``False``, an error message is logged instead.
-        :raises: :class:`errors.RevFileError`
-        """
-
-        with self._rev_lock:
-            with self._handle_rev_write_exceptions(raise_exception):
-                with open(self.rev_file_path, mode='a') as f:
-                    f.write(json.dumps({path: rev}) + '\n')
 
     # ==== mignore management ============================================================
 
@@ -1267,7 +1143,7 @@ class SyncEngine:
         self.upload_errors.discard(dbx_path)
         self.download_errors.discard(dbx_path)
 
-    def clear_all_sync_errors(self) -> None:
+    def clear_sync_errors(self) -> None:
         """Clears all sync errors."""
         self.sync_errors.clear()
         self.upload_errors.clear()
@@ -1625,12 +1501,12 @@ class SyncEngine:
                         changes += [event0, event1]
 
         # get deleted items
-        rev_dict_copy = self.get_rev_index()
-        for path in rev_dict_copy:
-            local_path_uncased = (self.dropbox_path + path).lower()
+        entries = self.get_index()
+        for entry in entries:
+            local_path_uncased = (self.dropbox_path + entry.dbx_path).lower()
             if local_path_uncased not in lowercase_snapshot_paths:
-                local_path = self.to_local_path(path)
-                if rev_dict_copy[path] == 'folder':
+                local_path = self.to_local_path(entry.dbx_path)
+                if entry.rev == 'folder':
                     event = DirDeletedEvent(local_path)
                 else:
                     event = FileDeletedEvent(local_path)
@@ -2198,8 +2074,13 @@ class SyncEngine:
             except FolderConflictError:
                 logger.debug('No conflict for "%s": the folder already exists',
                              event.local_path)
-                event.rev = 'folder'
-                self.update_index_from_sync_event(event)
+                try:
+                    md = self.client.get_metadata(event.dbx_path)
+                    if isinstance(md, FolderMetadata):
+                        self.update_index_from_md(md)
+                except NotFoundError:
+                    pass
+
                 return None
             except FileConflictError:
                 md_new = self.client.make_dir(event.dbx_path, autorename=True)
@@ -3070,13 +2951,13 @@ class SyncEngine:
                     self.fs_events.local_file_event_queue.put(FileModifiedEvent(path))
 
             # get deleted items
-            rev_dict_copy = self.get_rev_index()
-            for path in rev_dict_copy:
-                child_path_uncased = osp.join(self.dropbox_path, path).lower()
+            entries = self.get_index()
+            for entry in entries:
+                child_path_uncased = (self.dropbox_path + entry.dbx_path).lower()
                 if (child_path_uncased.startswith(local_path_lower)
                         and child_path_uncased not in lowercase_snapshot_paths):
-                    local_child_path = self.to_local_path(path)
-                    if rev_dict_copy[path] == 'folder':
+                    local_child_path = self.to_local_path(entry.dbx_path)
+                    if entry.rev == 'folder':
                         self.fs_events.local_file_event_queue.put(
                             DirDeletedEvent(local_child_path)
                         )
@@ -3303,7 +3184,7 @@ def startup_worker(sync: SyncEngine, syncing: Event, running: Event, connected: 
                 # by the local FileSystemObserver but only uploaded after
                 # `syncing` has been set
                 if sync.last_cursor == '':
-                    sync.clear_all_sync_errors()
+                    sync.clear_sync_errors()
                     sync.get_remote_folder()
                     sync.last_sync = time.time()
 
@@ -3559,10 +3440,16 @@ class SyncMonitor:
     def idle_time(self) -> float:
         """Returns the idle time in seconds since the last file change or zero if syncing
         is not running."""
-        if len(self.sync._last_sync_for_path) > 0:
-            return time.time() - max(self.sync._last_sync_for_path.values())
+
+        now = time.time()
+
+        last_file_sync = [e.last_sync for e in self.sync.get_index() if e.last_sync]
+        time_since_startup = now - self._startup_time
+
+        if len(last_file_sync) > 0:
+            return min(time_since_startup, now - max(last_file_sync))
         elif self.syncing.is_set():
-            return time.time() - self._startup_time
+            return time_since_startup
         else:
             return 0.0
 
@@ -3574,7 +3461,7 @@ class SyncMonitor:
 
         self.sync.last_cursor = ''
         self.sync.last_sync = 0.0
-        self.sync.clear_rev_index()
+        self.sync.clear_index()
         self.sync.clear_sync_history()
 
         logger.debug('Sync state reset')
@@ -3594,7 +3481,7 @@ class SyncMonitor:
         self.pause()
 
         self.sync.last_cursor = ''
-        self.sync.clear_rev_index()
+        self.sync.clear_index()
 
         if not self.running.is_set():
             self.start()
