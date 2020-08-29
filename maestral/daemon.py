@@ -74,7 +74,7 @@ def freeze_support() -> None:
 class Stop(enum.Enum):
     """
     Enumeration of daemon exit results.
-    
+
     :cvar Ok: Daemon quit successfully.
     :cvar Killed: Daemon process was killed.
     :cvar NotRunning: Daemon was not running.
