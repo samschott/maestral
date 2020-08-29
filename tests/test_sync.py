@@ -455,7 +455,7 @@ class TestSync(TestCase):
             pass
 
         delete(cls.m.dropbox_path)
-        delete(cls.m.sync.rev_file_path)
+        delete(cls.m.sync.database_path)
         delete(cls.m.account_profile_pic_path)
         cls.m._conf.cleanup()
         cls.m._state.cleanup()
@@ -508,7 +508,7 @@ class TestSync(TestCase):
         """Asserts that the `local_folder` and `remote_folder` are synced."""
         remote_items = self.m.list_folder(remote_folder, recursive=True)
         local_snapshot = DirectorySnapshot(local_folder)
-        rev_index = self.m.sync.get_rev_index()
+        entries = self.m.sync.get_index()
 
         for r in remote_items:
             dbx_path = r['path_display']
@@ -522,11 +522,11 @@ class TestSync(TestCase):
             self.assertEqual(self.m.sync.get_local_rev(dbx_path), remote_rev,
                              f'different revs for "{dbx_path}"')
 
-        for path in rev_index:
-            if is_child(path, remote_folder):
-                matching_items = list(r for r in remote_items if r['path_lower'] == path)
+        for entry in entries:
+            if is_child(entry.dbx_path, remote_folder):
+                matching_items = list(r for r in remote_items if r['path_lower'] == entry.dbx_path)
                 self.assertEqual(len(matching_items), 1,
-                                 f'indexed item "{path}" does not exist on dbx')
+                                 f'indexed item "{entry.dbx_path}" does not exist on dbx')
 
         for path in local_snapshot.paths:
             if not self.m.sync.is_excluded(path) and is_child(path, local_folder):
