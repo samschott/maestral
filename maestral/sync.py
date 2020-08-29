@@ -51,7 +51,6 @@ from watchdog.events import (
     DirDeletedEvent, FileDeletedEvent, DirMovedEvent, FileMovedEvent, FileSystemEvent
 )
 from watchdog.utils.dirsnapshot import DirectorySnapshot  # type: ignore
-from atomicwrites import atomic_write
 
 # local imports
 from maestral.config import MaestralConfig, MaestralState

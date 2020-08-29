@@ -10,7 +10,6 @@ from maestral import __version__, __author__, __url__
 
 # proceed with actual install
 install_requires = [
-    'atomicwrites>=1.0.0',
     'bugsnag>=3.4.0',
     'click>=7.1.1',
     'dropbox>=10.0.0',
