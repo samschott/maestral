@@ -895,26 +895,31 @@ class SyncEngine:
         with self._rev_lock:
 
             if sync_event.change_type is ChangeType.Removed:
-                self._remove_from_index(dbx_path_lower)
-
+                self.remove_path_from_index(dbx_path_lower)
             elif sync_event.change_type is ChangeType.Moved:
-                self._remove_from_index(sync_event.dbx_path_from.lower())
-                self._add_to_index(sync_event)
+                self.remove_path_from_index(sync_event.dbx_path_from.lower())
 
-            elif sync_event.change_type is ChangeType.Added:
-                self._add_to_index(sync_event)
-
-            elif sync_event.change_type is ChangeType.Modified:
+            if sync_event.change_type is not ChangeType.Removed:
 
                 entry = self._db_session.query(IndexEntry).get(dbx_path_lower)
 
                 if entry:
+                    # update existing entry
                     entry.dbx_id = sync_event.dbx_id
                     entry.item_type = sync_event.item_type
                     entry.last_sync = self._get_ctime(sync_event.local_path)
                     entry.rev = sync_event.rev
                 else:
-                    self._add_to_index(sync_event)
+                    # create new entry
+                    entry = IndexEntry(
+                        dbx_path=sync_event.dbx_path.lower(),
+                        dbx_id=sync_event.dbx_id,
+                        item_type=sync_event.item_type,
+                        last_sync=self._get_ctime(sync_event.local_path),
+                        rev=sync_event.rev,
+                    )
+
+                    self._db_session.add(entry)
 
             self._db_session.commit()
 
@@ -928,7 +933,7 @@ class SyncEngine:
         with self._rev_lock:
 
             if isinstance(md, DeletedMetadata):
-                self._remove_from_index(md.path_lower)
+                self.remove_path_from_index(md.path_lower)
 
             else:
 
@@ -959,7 +964,7 @@ class SyncEngine:
 
             self._db_session.commit()
 
-    def _remove_from_index(self, dbx_path: str) -> None:
+    def remove_path_from_index(self, dbx_path: str) -> None:
 
         dbx_path_lower = dbx_path.lower()
 
@@ -973,18 +978,6 @@ class SyncEngine:
             # remove children from index
             if is_equal_or_child(entry.dbx_path, dbx_path_lower):
                 self._db_session.delete(entry)
-
-    def _add_to_index(self, sync_event: SyncEvent) -> None:
-
-        entry = IndexEntry(
-            dbx_path=sync_event.dbx_path.lower(),
-            dbx_id=sync_event.dbx_id,
-            item_type=sync_event.item_type,
-            last_sync=self._get_ctime(sync_event.local_path),
-            rev=sync_event.rev,
-        )
-
-        self._db_session.add(entry)
 
     def clear_rev_index(self) -> None:
         """Clears the revision index."""
@@ -2149,7 +2142,7 @@ class SyncEngine:
 
         md_to_new = self.client.move(dbx_path_from, event.dbx_path, autorename=True)
 
-        self._remove_from_index(dbx_path_from)
+        self.remove_path_from_index(dbx_path_from)
 
         if md_to_new.path_lower != event.dbx_path.lower():
             # TODO: test this
@@ -2164,7 +2157,7 @@ class SyncEngine:
 
             # Delete entry of old path but don't update entry for new path here. This will
             # force conflict resolution on download in case of intermittent changes.
-            self._remove_from_index(event.dbx_path)
+            self.remove_path_from_index(event.dbx_path)
             logger.info('Upload conflict: renamed "%s" to "%s"',
                         event.dbx_path, md_to_new.path_display)
 
@@ -2205,6 +2198,7 @@ class SyncEngine:
             except FolderConflictError:
                 logger.debug('No conflict for "%s": the folder already exists',
                              event.local_path)
+                event.rev = 'folder'
                 self.update_index_from_sync_event(event)
                 return None
             except FileConflictError:
@@ -2255,7 +2249,7 @@ class SyncEngine:
 
             # Delete entry of old path but don't update entry for new path here. This will
             # force conflict resolution on download in case of intermittent changes.
-            self._remove_from_index(event.dbx_path)
+            self.remove_path_from_index(event.dbx_path)
             logger.debug('Upload conflict: renamed "%s" to "%s"',
                          event.dbx_path, md_new.path_lower)
         else:
@@ -2322,7 +2316,7 @@ class SyncEngine:
 
             # Delete revs of old path but don't set revs for new path here. This will
             # force conflict resolution on download in case of intermittent changes.
-            self._remove_from_index(event.dbx_path)
+            self.remove_path_from_index(event.dbx_path)
             logger.debug('Upload conflict: renamed "%s" to "%s"',
                          event.dbx_path, md_new.path_lower)
         else:
@@ -2358,7 +2352,7 @@ class SyncEngine:
                 logger.debug('Skipping deletion: remote item "%s" has been modified '
                              'since last sync', md.path_display)
                 # mark local folder as untracked
-                self._remove_from_index(event.dbx_path)
+                self.remove_path_from_index(event.dbx_path)
                 return None
 
         if event.is_file and isinstance(md, FolderMetadata):
@@ -2369,7 +2363,7 @@ class SyncEngine:
             logger.debug('Skipping deletion: expected file at "%s" but found a '
                          'folder instead', md.path_display)
             # mark local file as untracked
-            self._remove_from_index(event.dbx_path)
+            self.remove_path_from_index(event.dbx_path)
             return None
 
         try:
@@ -2388,7 +2382,7 @@ class SyncEngine:
             md_deleted = None
 
         # remove revision metadata
-        self._remove_from_index(event.dbx_path)
+        self.remove_path_from_index(event.dbx_path)
 
         if md_deleted:
             return self.sync_event_from_dbx_metadata(md_deleted)
