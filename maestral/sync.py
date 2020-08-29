@@ -529,7 +529,7 @@ class SyncEvent(Base):  # type: ignore
                f"change_type={self.change_type.name}, dbx_path='{self.dbx_path}')>"
 
 
-class IndexEntry(Base):
+class IndexEntry(Base):  # type: ignore
 
     __tablename__ = 'index'
 
