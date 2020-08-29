@@ -2358,7 +2358,7 @@ class SyncEngine:
                 logger.debug('Skipping deletion: remote item "%s" has been modified '
                              'since last sync', md.path_display)
                 # mark local folder as untracked
-                self._remove_from_index(dbx_path)
+                self._remove_from_index(event.dbx_path)
                 return None
 
         if event.is_file and isinstance(md, FolderMetadata):
@@ -2369,7 +2369,7 @@ class SyncEngine:
             logger.debug('Skipping deletion: expected file at "%s" but found a '
                          'folder instead', md.path_display)
             # mark local file as untracked
-            self._remove_from_index(dbx_path)
+            self._remove_from_index(event.dbx_path)
             return None
 
         try:
@@ -3192,7 +3192,6 @@ def download_worker(sync: SyncEngine, syncing: Event,
                     logger.info(IDLE)
 
                     sync.client.get_space_usage()
-
 
         except ConnectionError:
             syncing.clear()
