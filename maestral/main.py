@@ -52,7 +52,7 @@ from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import (
     error_to_dict, dropbox_stone_to_dict, sync_event_to_dict, StoneType, ErrorType
 )
-from maestral.utils.appdirs import get_log_path, get_cache_path
+from maestral.utils.appdirs import get_log_path, get_cache_path, get_data_path
 from maestral.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
     BUGSNAG_API_KEY, IDLE, FileStatus, GITHUB_RELEAES_API
@@ -1335,17 +1335,20 @@ class Maestral:
         if Version(updated_from) >= Version(__version__):
             return
 
-        self._run_post_update_scripts()
+        self._run_post_update_scripts(updated_from)
         self.set_state('app', 'updated_scripts_completed', __version__)
 
-    def _run_post_update_scripts(self) -> None:
+    def _run_post_update_scripts(self, updated_from: str) -> None:
         """
-        Scripts which should be run after an update. This will also run after a fresh
-        install and should therefore not assume that maestral was previously installed.
+
+        :param updated_from: Previous version.
         """
-        logger.debug('Running post-update script')
-        self.set_state('sync', 'recent_changes', [])  # clear recent-changes
-        logger.debug('Post-update: recent changes cleared')
+
+        if Version(updated_from) < Version('1.2.0'):
+            # remove old index to trigger resync
+            old_rev_file = get_data_path('maestral', f'{self.config_name}.index')
+            delete(old_rev_file)
+            self.sync.last_cursor = ''
 
     async def _periodic_refresh(self) -> None:
 
