@@ -415,11 +415,11 @@ class SyncEvent(Base):  # type: ignore
     :param direction: Direction of the sync: upload or download.
     :param item_type: The item type: file or folder.
     :param sync_time: The time the sync event was registered.
-    :param dbx_path: Dropbox path of the item to sync. If the sync represents a move
-        operation, this will be the destination path. The path does not need to be
-        correctly cased apart from the basename.
     :param dbx_id: A unique dropbox ID for the file or folder. Will only be set for
         download events which are not deletions.
+    :param dbx_path: Dropbox path of the item to sync. If the sync represents a move
+        operation, this will be the destination path. The basename must always be
+        correctly cased but the full path may not be.
     :param dbx_path_from: Dropbox path that this item was moved from. Will only be set if
         ``change_type`` is ``ChangeType.Moved``. The same rules for casing as for
         ``dbx_path`` apply.
@@ -448,7 +448,7 @@ class SyncEvent(Base):  # type: ignore
     :param completed: File size in bytes which has already been uploaded or downloaded.
         Always zero for folders.
 
-    :ivar id: A unique identifier of the sync item.
+    :ivar id: A unique identifier of the sync event.
     :ivar change_time_or_sync_time: Change time when available, otherwise sync time. This
         can be used for sorting or user information purposes.
     """
@@ -528,6 +528,25 @@ class SyncEvent(Base):  # type: ignore
 
 
 class IndexEntry(Base):  # type: ignore
+    """
+    Represents an entry in our local sync index.
+
+    :param dbx_path: Dropbox path of the item. The basename must always be correctly cased
+        but the full path may not be.
+    :param dbx_path_lower: Dropbox path of the item in lower case. This acts as a primary
+        key for the SQL database since there can only be one entry per case-insensitive
+        Dropbox path.
+    :param dbx_id: A unique dropbox ID for the file or folder.
+    :param item_type: The item type: file or folder.
+    :param last_sync: The last time a local change was uploaded. Should be the ctime of
+        the local file or folder.
+    :param rev: The file revision. Will be 'folder' for folders.
+    :param content_hash: A hash representing the file content. Will be 'folder' for
+        folders. May be None if not yet calculated.
+    :param content_hash_ctime: The ctime for which the content_hash was calculated. If
+        this is older than the current ctime, the content_hash will be invalid and has to
+        recalculated.
+    """
 
     __tablename__ = 'index'
 
