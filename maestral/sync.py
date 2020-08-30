@@ -864,10 +864,12 @@ class SyncEngine:
             return query.order_by(SyncEvent.change_time_or_sync_time).all()
 
     def clear_sync_history(self):
-        SyncEvent.metadata.drop_all(self._db_engine)
-        Base.metadata.create_all(self._db_engine)
+        with self._db_lock:
+            SyncEvent.metadata.drop_all(self._db_engine)
+            Base.metadata.create_all(self._db_engine)
+            self._db_session.expunge_all()
 
-    # ==== rev file management ===========================================================
+    # ==== index management ==============================================================
 
     def get_index(self) -> List[IndexEntry]:
         """
@@ -1006,6 +1008,7 @@ class SyncEngine:
         with self._db_lock:
             IndexEntry.metadata.drop_all(self._db_engine)
             Base.metadata.create_all(self._db_engine)
+            self._db_session.expunge_all()
 
     # ==== mignore management ============================================================
 
