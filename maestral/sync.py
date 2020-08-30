@@ -531,7 +531,8 @@ class IndexEntry(Base):  # type: ignore
 
     __tablename__ = 'index'
 
-    dbx_path = Column(String, nullable=False, primary_key=True)
+    dbx_path = Column(String, nullable=False)
+    dbx_path_lower = Column(String, nullable=False, primary_key=True)
     dbx_id = Column(String, nullable=False)
     item_type = Column(Enum(ItemType), nullable=False)
     last_sync = Column(Float)
@@ -900,13 +901,15 @@ class SyncEngine:
                 if entry:
                     # update existing entry
                     entry.dbx_id = sync_event.dbx_id
+                    entry.dbx_path = sync_event.dbx_path
                     entry.item_type = sync_event.item_type
                     entry.last_sync = self._get_ctime(sync_event.local_path)
                     entry.rev = sync_event.rev
                 else:
                     # create new entry
                     entry = IndexEntry(
-                        dbx_path=sync_event.dbx_path.lower(),
+                        dbx_path=sync_event.dbx_path,
+                        dbx_path_lower=sync_event.dbx_path.lower(),
                         dbx_id=sync_event.dbx_id,
                         item_type=sync_event.item_type,
                         last_sync=self._get_ctime(sync_event.local_path),
@@ -942,12 +945,14 @@ class SyncEngine:
 
                 if entry:
                     entry.dbx_id = md.id
+                    entry.dbx_path = md.path_display
                     entry.item_type = item_type
                     entry.last_sync = None
                     entry.rev = rev
                 else:
                     entry = IndexEntry(
-                        dbx_path=md.path_lower,
+                        dbx_path=md.path_display,
+                        dbx_path_lower=md.path_lower,
                         dbx_id=md.id,
                         item_type=item_type,
                         last_sync=None,
@@ -972,7 +977,7 @@ class SyncEngine:
 
             for entry in self._db_session.query(IndexEntry).all():
                 # remove children from index
-                if is_equal_or_child(entry.dbx_path, dbx_path_lower):
+                if is_equal_or_child(entry.dbx_path_lower, dbx_path_lower):
                     self._db_session.delete(entry)
 
             self._db_session.commit()
@@ -1510,7 +1515,7 @@ class SyncEngine:
         # get deleted items
         entries = self.get_index()
         for entry in entries:
-            local_path_uncased = (self.dropbox_path + entry.dbx_path).lower()
+            local_path_uncased = (self.dropbox_path + entry.dbx_path_lower).lower()
             if local_path_uncased not in lowercase_snapshot_paths:
                 local_path = self.to_local_path(entry.dbx_path)
                 if entry.rev == 'folder':
@@ -2430,9 +2435,9 @@ class SyncEngine:
         changes_included, changes_excluded = self._filter_excluded_changes_remote(sync_events)
 
         # remove deleted item and its children from the excluded list
-        for e in changes_excluded:
+        for event in changes_excluded:
             new_excluded = [path for path in self.excluded_items
-                            if not is_equal_or_child(path, e.dbx_path.lower())]
+                            if not is_equal_or_child(path, event.dbx_path.lower())]
 
             self.excluded_items = new_excluded
 
@@ -2962,7 +2967,7 @@ class SyncEngine:
             # get deleted items
             entries = self.get_index()
             for entry in entries:
-                child_path_uncased = (self.dropbox_path + entry.dbx_path).lower()
+                child_path_uncased = (self.dropbox_path + entry.dbx_path_lower).lower()
                 if (child_path_uncased.startswith(local_path_lower)
                         and child_path_uncased not in lowercase_snapshot_paths):
                     local_child_path = self.to_local_path(entry.dbx_path)
