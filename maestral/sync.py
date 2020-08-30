@@ -1117,6 +1117,9 @@ class SyncEngine:
         self._ensure_cache_dir_present()
         try:
             with tempfile.NamedTemporaryFile(dir=self.file_cache_path, delete=False) as f:
+                umask = os.umask(0)
+                os.umask(umask)
+                os.chmod(f.name, 0o777 & ~umask)
                 return f.name
         except OSError as err:
             raise CacheDirError(f'Cannot create temporary file (errno {err.errno})',
