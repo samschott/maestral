@@ -166,7 +166,6 @@ def to_cased_path(path: str, root: str = osp.sep,
     :param bool is_fs_case_sensitive: Bool indicating if the file system is case
         sensitive. If ``False``, we know that there can be at most one match and choose a
         faster algorithm.
-    :returns: Candidates for c
     :returns: Absolute and cased version of given path.
     """
 
