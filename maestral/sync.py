@@ -539,6 +539,10 @@ class IndexEntry(Base):  # type: ignore
     content_hash = Column(String)
     content_hash_ctime = Column(Float)
 
+    def __repr__(self):
+        return f"<{self.__class__.__name__}(item_type={self.item_type.name}, " \
+               f"dbx_path='{self.dbx_path}')>"
+
 
 class SyncEngine:
     """
