@@ -1011,7 +1011,7 @@ class Maestral:
         self.sync.remove_path_from_index(dbx_path)
 
         # remove folder from local drive
-        local_path = self.sync.to_local_path(dbx_path)
+        local_path = self.sync.to_local_path_from_cased(dbx_path)
         # dbx_path will be lower-case, we there explicitly run `to_cased_path`
         local_path = to_cased_path(local_path)
         if local_path:
@@ -1237,7 +1237,7 @@ class Maestral:
         self._check_linked()
         self._check_dropbox_dir()
 
-        return self.sync.to_local_path(dbx_path)
+        return self.sync.to_local_path_from_cased(dbx_path)
 
     def check_for_updates(self) -> Dict[str, Union[str, bool, None]]:
         """

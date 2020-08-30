@@ -418,22 +418,21 @@ class SyncEvent(Base):  # type: ignore
     :param dbx_id: A unique dropbox ID for the file or folder. Will only be set for
         download events which are not deletions.
     :param dbx_path: Dropbox path of the item to sync. If the sync represents a move
-        operation, this will be the destination path. The basename must always be
-        correctly cased but the full path may not be.
+        operation, this will be the destination path. Follows the casing from server.
     :param dbx_path_from: Dropbox path that this item was moved from. Will only be set if
-        ``change_type`` is ``ChangeType.Moved``. The same rules for casing as for
-        ``dbx_path`` apply.
+        ``change_type`` is ``ChangeType.Moved``. Follows the casing from server.
     :param local_path: Local path of the item to sync. If the sync represents a move
-        operation, this will be the destination path. This must always be correctly cased
-        for all existing local ancestors of the path.
+        operation, this will be the destination path. Follows the casing from server.
     :param local_path_from: Local path that this item was moved from. Will only be set if
-        ``change_type`` is ``ChangeType.Moved``. The same rules for casing as for
-        ``local_path`` apply.
-    :param rev: The file revision. Will only be set for remote changes. Will be 'folder'
-        for folders and None for deletions.
+        ``change_type`` is ``ChangeType.Moved``. Follows the casing from server.
+    :param rev: The file revision. Will only be set for remote changes. Will be
+        'folder:{name}' for folders and None for deletions. The display name of the item
+        is included to force a change in rev when the casing changes.
     :param content_hash: A hash representing the file content. Will be 'folder' for
         folders and None for deleted items. Set for both local and remote changes.
-    :param change_type: The type of change: deleted, moved, added or changed.
+    :param change_type: The type of change: deleted, moved, added or changed. Remote
+        sync events currently do not generate moved events but are reported as deleted and
+        added at the new location.
     :param change_time: The time of the change: Local ctime or remote client_modified
         time for files. None for folders or for remote deletions. Note that the
         client_modified may not be reliable as it is set by other clients and not
@@ -459,8 +458,8 @@ class SyncEvent(Base):  # type: ignore
     direction = Column(Enum(SyncDirection), nullable=False)
     item_type = Column(Enum(ItemType), nullable=False)
     sync_time = Column(Float, nullable=False)
-    dbx_path = Column(String, nullable=False)
     dbx_id = Column(String)
+    dbx_path = Column(String, nullable=False)
     local_path = Column(String, nullable=False)
     dbx_path_from = Column(String)
     local_path_from = Column(String)
@@ -531,8 +530,7 @@ class IndexEntry(Base):  # type: ignore
     """
     Represents an entry in our local sync index.
 
-    :param dbx_path: Dropbox path of the item. The basename must always be correctly cased
-        but the full path may not be.
+    :param dbx_path_cased: Dropbox path of the item, correctly cased.
     :param dbx_path_lower: Dropbox path of the item in lower case. This acts as a primary
         key for the SQL database since there can only be one entry per case-insensitive
         Dropbox path.
@@ -540,7 +538,8 @@ class IndexEntry(Base):  # type: ignore
     :param item_type: The item type: file or folder.
     :param last_sync: The last time a local change was uploaded. Should be the ctime of
         the local file or folder.
-    :param rev: The file revision. Will be 'folder' for folders.
+    :param rev: The file revision. Will be 'folder:{name}' for folders. The display name
+        of the item is included to force a change in rev when the casing changes.
     :param content_hash: A hash representing the file content. Will be 'folder' for
         folders. May be None if not yet calculated.
     :param content_hash_ctime: The ctime for which the content_hash was calculated. If
@@ -550,9 +549,9 @@ class IndexEntry(Base):  # type: ignore
 
     __tablename__ = 'index'
 
-    dbx_path = Column(String, nullable=False)
+    dbx_path_cased = Column(String, nullable=False, unique=True)
     dbx_path_lower = Column(String, nullable=False, primary_key=True)
-    dbx_id = Column(String, nullable=False)
+    dbx_id = Column(String, nullable=False, unique=True)
     item_type = Column(Enum(ItemType), nullable=False)
     last_sync = Column(Float)
     rev = Column(String, nullable=False)
@@ -561,7 +560,7 @@ class IndexEntry(Base):  # type: ignore
 
     def __repr__(self):
         return f"<{self.__class__.__name__}(item_type={self.item_type.name}, " \
-               f"dbx_path='{self.dbx_path}')>"
+               f"dbx_path='{self.dbx_path_cased}')>"
 
 
 class SyncEngine:
@@ -643,8 +642,7 @@ class SyncEngine:
 
     sync_errors: Set[SyncError]
     syncing: List[SyncEvent]
-    _rev_dict_cache: Dict[str, str]
-    _last_sync_for_path: Dict[str, float]
+    _case_conversion_cache: Dict[str, str]
 
     _max_history = 30
     _num_threads = min(32, _cpu_count * 3)
@@ -684,6 +682,7 @@ class SyncEngine:
 
         # data structures for internal communication
         self.sync_errors = set()
+        self._case_conversion_cache = dict()
 
         # data structures for user information
         self.syncing = []
@@ -896,45 +895,83 @@ class SyncEngine:
             else:
                 return None
 
-    def update_index_from_sync_event(self, sync_event: SyncEvent) -> None:
+    def get_local_hash(self, local_path: str, chunk_size: int = 1024) -> Optional[str]:
+        """
+        Computes content hash of a local file.
+
+        :param local_path: Absolute path on local drive.
+        :param chunk_size: Size of chunks to hash in bites.
+        :returns: Content hash to compare with Dropbox's content hash, or 'folder' if the path
+            points to a directory. ``None`` if there is nothing at the path.
+        """
+
+        hasher = DropboxContentHasher()
+
+        try:
+            with open(local_path, 'rb') as f:
+                while True:
+                    chunk = f.read(chunk_size)
+                    if len(chunk) == 0:
+                        break
+                    hasher.update(chunk)
+
+            return str(hasher.hexdigest())
+        except IsADirectoryError:
+            return 'folder'
+        except FileNotFoundError:
+            return None
+        except NotADirectoryError:
+            # a parent directory in the path refers to a file instead of a folder
+            return None
+        except OSError as err:
+            raise os_to_maestral_error(err, local_path=local_path)
+        finally:
+            del hasher
+
+    def update_index_from_sync_event(self, event: SyncEvent) -> None:
         """
         Updates the local index from a SyncEvent.
 
-        :param sync_event: SyncEvent from download.
+        :param event: SyncEvent from download.
         """
 
-        if sync_event.change_type is not ChangeType.Removed and not sync_event.rev:
+        if event.change_type is not ChangeType.Removed and not event.rev:
             raise ValueError('Rev required to update index')
 
-        dbx_path_lower = sync_event.dbx_path.lower()
+        dbx_path_lower = event.dbx_path.lower()
 
         with self._db_lock:
 
-            if sync_event.change_type is ChangeType.Removed:
-                self.remove_path_from_index(dbx_path_lower)
-            elif sync_event.change_type is ChangeType.Moved:
-                self.remove_path_from_index(sync_event.dbx_path_from.lower())
+            # remove any entries for deleted or moved items
 
-            if sync_event.change_type is not ChangeType.Removed:
+            if event.change_type is ChangeType.Removed:
+                self.remove_path_from_index(dbx_path_lower)
+            elif event.change_type is ChangeType.Moved:
+                self.remove_path_from_index(event.dbx_path_from.lower())
+
+            # add or update entries for created or modified items
+
+            if event.change_type is not ChangeType.Removed:
 
                 entry = self._db_session.query(IndexEntry).get(dbx_path_lower)
 
                 if entry:
                     # update existing entry
-                    entry.dbx_id = sync_event.dbx_id
-                    entry.dbx_path = sync_event.dbx_path
-                    entry.item_type = sync_event.item_type
-                    entry.last_sync = self._get_ctime(sync_event.local_path)
-                    entry.rev = sync_event.rev
+                    entry.dbx_id = event.dbx_id
+                    entry.dbx_path_cased = event.dbx_path
+                    entry.item_type = event.item_type
+                    entry.last_sync = self._get_ctime(event.local_path)
+                    entry.rev = event.rev
+
                 else:
                     # create new entry
                     entry = IndexEntry(
-                        dbx_path=sync_event.dbx_path,
-                        dbx_path_lower=sync_event.dbx_path.lower(),
-                        dbx_id=sync_event.dbx_id,
-                        item_type=sync_event.item_type,
-                        last_sync=self._get_ctime(sync_event.local_path),
-                        rev=sync_event.rev,
+                        dbx_path_cased=event.dbx_path,
+                        dbx_path_lower=event.dbx_path.lower(),
+                        dbx_id=event.dbx_id,
+                        item_type=event.item_type,
+                        last_sync=self._get_ctime(event.local_path),
+                        rev=event.rev,
                     )
 
                     self._db_session.add(entry)
@@ -959,20 +996,24 @@ class SyncEngine:
                     rev = md.rev
                     item_type = ItemType.File
                 else:
-                    rev = 'folder'
+                    rev = f'folder:{md.name}'
                     item_type = ItemType.Folder
 
+                # construct correct display path from ancestors
+
                 entry = self._db_session.query(IndexEntry).get(md.path_lower)
+                dbx_path_cased = self.correct_case(md.path_display)
 
                 if entry:
                     entry.dbx_id = md.id
-                    entry.dbx_path = md.path_display
+                    entry.dbx_path_cased = dbx_path_cased
                     entry.item_type = item_type
                     entry.last_sync = None
                     entry.rev = rev
+
                 else:
                     entry = IndexEntry(
-                        dbx_path=md.path_display,
+                        dbx_path_cased=dbx_path_cased,
                         dbx_path_lower=md.path_lower,
                         dbx_id=md.id,
                         item_type=item_type,
@@ -1103,6 +1144,52 @@ class SyncEngine:
                                 'Please check if you have write permissions for '
                                 f'{self._file_cache_path}.')
 
+    def correct_case(self, dbx_path: str) -> str:
+        """
+        Converts a Dropbox path with correctly cased basename to a fully cased path.
+
+        :param dbx_path: Dropbox path with correctly cased basename, as provided by
+            ``Metadata.path_display`` or ``Metadata.name``.
+        :returns: Correctly cased Dropbox path.
+        """
+
+        dbx_path_lower = dbx_path.lower()
+        dirname_lower = osp.dirname(dbx_path_lower)
+        basename_cased = osp.basename(dbx_path)
+
+        with self._db_lock:
+
+            if dirname_lower != '/':
+
+                # check in our conversion cache
+                parent_path_cased = self._case_conversion_cache.get(dirname_lower)
+
+                if not parent_path_cased:
+                    # try to get dirname casing from our index
+                    parent_entry = self._db_session.query(IndexEntry).get(dirname_lower)
+
+                    if parent_entry:
+                        parent_path_cased = parent_entry.dbx_path_cased
+
+                    else:
+                        # fall back to querying from server
+                        try:
+                            md_parent = self.client.get_metadata(dirname_lower)
+                        except LookupError:
+                            # give up
+                            parent_path_cased = osp.dirname(dbx_path)
+                        else:
+                            # recurse over parent directories
+                            parent_path_cased = self.correct_case(md_parent.path_display)
+
+                path_cased = f'{parent_path_cased}/{basename_cased}'
+            else:
+                path_cased = dbx_path
+
+            self._case_conversion_cache[dbx_path_lower] = path_cased
+
+        return path_cased
+
     def to_dbx_path(self, local_path: str) -> str:
         """
         Converts a local path to a path relative to the Dropbox folder. Casing of the
@@ -1120,29 +1207,30 @@ class SyncEngine:
             raise ValueError(f'Specified path "{local_path}" is outside of Dropbox '
                              f'directory "{self.dropbox_path}"')
 
+    def to_local_path_from_cased(self, dbx_path_cased: str) -> str:
+        """
+        Converts a Dropbox path to the corresponding local path.
+
+        :param dbx_path_cased: Path relative to Dropbox folder, correctly cased.
+        :returns: Corresponding local path on drive.
+        """
+
+        dbx_path_cased = dbx_path_cased.replace('/', osp.sep).lstrip(osp.sep)
+
+        return osp.join(self.dropbox_path, dbx_path_cased)
+
     def to_local_path(self, dbx_path: str) -> str:
         """
         Converts a Dropbox path to the corresponding local path.
 
-        The ``path_display`` attribute returned by the Dropbox API only guarantees correct
-        casing of the basename and not of the full path. This is because Dropbox itself is
-        not case sensitive and stores all paths in lowercase internally. To the extent
-        where parent directories of ``dbx_path`` exist on the local drive, their casing
-        will be used. Otherwise, the casing from ``dbx_path`` is used. This aims to
-        preserve the correct casing of file and folder names and prevents the creation of
-        duplicate folders with different casing on a local case-sensitive file system.
-
-        :param dbx_path: Path relative to Dropbox folder.
+        :param dbx_path: Path relative to Dropbox folder, must be correctly cased in its
+            basename.
         :returns: Corresponding local path on drive.
         """
+        dbx_path_cased = self.correct_case(dbx_path)
+        dbx_path_cased = dbx_path_cased.replace('/', osp.sep).lstrip(osp.sep)
 
-        dbx_path = dbx_path.replace('/', osp.sep)
-        dbx_path_parent, dbx_path_basename = osp.split(dbx_path)
-
-        local_parent = to_cased_path(dbx_path_parent, root=self.dropbox_path,
-                                     is_fs_case_sensitive=self.is_case_sensitive)
-
-        return osp.join(local_parent, dbx_path_basename)
+        return osp.join(self.dropbox_path, dbx_path_cased)
 
     def has_sync_errors(self) -> bool:
         """Returns ``True`` in case of sync errors, ``False`` otherwise."""
@@ -1163,19 +1251,19 @@ class SyncEngine:
             return
 
         dbx_path = cast(str, dbx_path)
-        dbx_path = dbx_path.lower()
+        dbx_path_lower = dbx_path.lower()
 
         if self.has_sync_errors():
             for error in self.sync_errors.copy():
                 assert isinstance(error.dbx_path, str)
-                if is_equal_or_child(error.dbx_path.lower(), dbx_path):
+                if is_equal_or_child(error.dbx_path.lower(), dbx_path_lower):
                     try:
                         self.sync_errors.remove(error)
                     except KeyError:
                         pass
 
-        self.upload_errors.discard(dbx_path)
-        self.download_errors.discard(dbx_path)
+        self.upload_errors.discard(dbx_path_lower)
+        self.download_errors.discard(dbx_path_lower)
 
     def clear_sync_errors(self) -> None:
         """Clears all sync errors."""
@@ -1286,13 +1374,13 @@ class SyncEngine:
 
         # fill out missing dbx_path or local_path
         if err.dbx_path and not err.local_path:
-            err.local_path = self.to_local_path(err.dbx_path)
+            err.local_path = self.to_local_path_from_cased(err.dbx_path)
         if err.local_path and not err.dbx_path:
             err.dbx_path = self.to_dbx_path(err.local_path)
 
         # fill out missing dbx_path_dst or local_path_dst
         if err.dbx_path_dst and not err.local_path_dst:
-            err.local_path_dst = self.to_local_path(err.dbx_path_dst)
+            err.local_path_dst = self.to_local_path_from_cased(err.dbx_path_dst)
         if err.local_path_dst and not not err.dbx_path:
             err.dbx_path_dst = self.to_dbx_path(err.local_path_dst)
 
@@ -1342,7 +1430,7 @@ class SyncEngine:
             change_type = ChangeType.Added
             item_type = ItemType.Folder
             size = 0
-            rev = 'folder'
+            rev = f'folder:{md.name}'
             content_hash = 'folder'
             dbx_id = md.id
             change_time = None
@@ -1377,13 +1465,15 @@ class SyncEngine:
         else:
             change_user_name = None
 
+        dbx_path_cased = self.correct_case(md.path_display)
+
         return SyncEvent(
             direction=SyncDirection.Down,
             item_type=item_type,
             sync_time=time.time(),
-            dbx_path=md.path_display,
+            dbx_path=dbx_path_cased,
             dbx_id=dbx_id,
-            local_path=self.to_local_path(md.path_display),
+            local_path=self.to_local_path_from_cased(dbx_path_cased),
             dbx_path_from=None,
             local_path_from=None,
             rev=rev,
@@ -1451,7 +1541,7 @@ class SyncEngine:
             dbx_path_from=self.to_dbx_path(from_path) if from_path else None,
             local_path_from=from_path,
             rev=None,
-            content_hash=get_local_hash(to_path),
+            content_hash=self.get_local_hash(to_path),
             change_type=change_type,
             change_time=change_time,
             change_dbid=change_dbid,
@@ -1504,11 +1594,11 @@ class SyncEngine:
                 stats = snapshot.stat_info(path)
                 # check if item was created or modified since last sync
                 # but before we started the FileEventHandler (~now)
-                dbx_path = self.to_dbx_path(path).lower()
-                ctime_check = now > stats.st_ctime > self.get_last_sync_for_path(dbx_path)
+                dbx_path_lower = self.to_dbx_path(path).lower()
+                ctime_check = now > stats.st_ctime > self.get_last_sync_for_path(dbx_path_lower)
 
                 # always upload untracked items, check ctime of tracked items
-                rev = self.get_local_rev(dbx_path)
+                rev = self.get_local_rev(dbx_path_lower)
                 is_new = not rev
                 is_modified = rev and ctime_check
 
@@ -1539,7 +1629,7 @@ class SyncEngine:
         for entry in entries:
             local_path_uncased = (self.dropbox_path + entry.dbx_path_lower).lower()
             if local_path_uncased not in lowercase_snapshot_paths:
-                local_path = self.to_local_path(entry.dbx_path)
+                local_path = self.to_local_path_from_cased(entry.dbx_path_cased)
                 if entry.rev == 'folder':
                     event = DirDeletedEvent(local_path)
                 else:
@@ -1638,7 +1728,7 @@ class SyncEngine:
                     logger.info('Moving folders...')
 
                 for event in dir_moved:
-                    logger.info(f'Moving {event.local_path_from}...')
+                    logger.info(f'Moving {event.dbx_path_from}...')
                     res = self._create_remote_entry(event)
                     results.append(res)
 
@@ -1676,7 +1766,7 @@ class SyncEngine:
 
         for event in sync_events:
 
-            if self.is_excluded(event.local_path):
+            if self.is_excluded(event.dbx_path):
                 events_excluded.append(event)
             elif self.is_mignore(event):
                 # moved events with an ignored path are
@@ -2617,29 +2707,27 @@ class SyncEngine:
         local_rev = self.get_local_rev(event.dbx_path)
 
         if event.rev == local_rev:
-            # Local change has the same rev. May be newer and
-            # not yet synced or identical. Don't overwrite.
+            # Local change has the same rev. The local item (or deletion) be newer and not
+            # yet synced or identical to the remote state. Don't overwrite.
             logger.debug('Equal revs for "%s": local item is the same or newer '
                          'than on Dropbox', event.dbx_path)
             return Conflict.LocalNewerOrIdentical
 
         else:
-            # Dropbox server version has a different rev, likely is newer.
-            # If the local version has been modified while sync was stopped,
-            # those changes will be uploaded before any downloads can begin.
-            # Conflict resolution will then be handled by Dropbox.
-            # If the local version has been modified while sync was running
-            # but changes were not uploaded before the remote version was
-            # changed as well, the local ctime will be newer than last_sync:
-            # (a) The upload of the changed file has already started. Upload thread
-            #     will hold the lock and we won't be here checking for conflicts.
+            # Dropbox server version has a different rev, likely is newer. If the local
+            # version has been modified while sync was stopped, those changes will be
+            # uploaded before any downloads can begin. Conflict resolution will then be
+            # handled by Dropbox. If the local version has been modified while sync was
+            # running but changes were not uploaded before the remote version was changed
+            # as well, the local ctime will be newer than last_sync:
+            # (a) The upload of the changed file has already started. Upload thread will
+            #     hold the lock and we won't be here checking for conflicts.
             # (b) The upload has not started yet. Manually check for conflict.
 
-            local_hash = get_local_hash(event.local_path)
+            local_hash = self.get_local_hash(event.local_path)
 
             if event.content_hash == local_hash:
                 logger.debug('Equal content hashes for "%s": no conflict', event.dbx_path)
-                self.update_index_from_sync_event(event)
                 return Conflict.Identical
             elif any(is_equal_or_child(p, event.dbx_path.lower()) for p in self.upload_errors):
                 logger.debug('Unresolved upload error for "%s": conflict', event.dbx_path)
@@ -2812,6 +2900,8 @@ class SyncEngine:
             are made.
         """
 
+        self._apply_case_change(event)
+
         # Store the new entry at the given path in your local state.
         # If the required parent folders don’t exist yet, create them.
         # If there’s already something else at the given path,
@@ -2819,7 +2909,10 @@ class SyncEngine:
 
         conflict_check = self._check_download_conflict(event)
 
-        if conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
+        if conflict_check is Conflict.Identical:
+            self.update_index_from_sync_event(event)
+            return None
+        elif conflict_check is Conflict.LocalNewerOrIdentical:
             return None
 
         local_path = event.local_path
@@ -2856,8 +2949,7 @@ class SyncEngine:
             self.rescan(new_local_path)
 
         if osp.isdir(local_path):
-            event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
-            with self.fs_events.ignore(event_cls(local_path)):
+            with self.fs_events.ignore(DirDeletedEvent(local_path)):
                 delete(local_path)
 
         # move the downloaded file to its destination
@@ -2884,6 +2976,8 @@ class SyncEngine:
             are made.
         """
 
+        self._apply_case_change(event)
+
         # Store the new entry at the given path in your local state.
         # If the required parent folders don’t exist yet, create them.
         # If there’s already something else at the given path,
@@ -2891,7 +2985,10 @@ class SyncEngine:
 
         conflict_check = self._check_download_conflict(event)
 
-        if conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
+        if conflict_check is Conflict.Identical:
+            self.update_index_from_sync_event(event)
+            return None
+        elif conflict_check is Conflict.LocalNewerOrIdentical:
             return None
 
         if conflict_check == Conflict.Conflict:
@@ -2937,13 +3034,18 @@ class SyncEngine:
             changes are made.
         """
 
+        self._apply_case_change(event)
+
         # If your local state has something at the given path,
         # remove it and all its children. If there’s nothing at the
         # given path, ignore this entry.
 
         conflict_check = self._check_download_conflict(event)
 
-        if conflict_check in (Conflict.Identical, Conflict.LocalNewerOrIdentical):
+        if conflict_check is Conflict.Identical:
+            self.update_index_from_sync_event(event)
+            return None
+        elif conflict_check is Conflict.LocalNewerOrIdentical:
             return None
 
         event_cls = DirDeletedEvent if osp.isdir(event.local_path) else FileDeletedEvent
@@ -2960,6 +3062,31 @@ class SyncEngine:
             return None
         else:
             raise os_to_maestral_error(exc)
+
+    def _apply_case_change(self, event: SyncEvent) -> None:
+        """
+        Applies any changes in casing of the remote item locally. This should be called
+        before any system calls using ``local_path`` because the actual path on the file
+        system may have a different casing on case-sensitive file systems. On case-
+        insensitive file systems, this causes only a cosmetic change.
+
+        :param event: Download SyncEvent.
+        """
+
+        with self._db_lock:
+            old_entry = self._db_session.query(IndexEntry).get(event.dbx_path.lower())
+
+        if old_entry and old_entry.dbx_path_cased != event.dbx_path:
+
+            local_path_old = self.to_local_path_from_cased(old_entry.dbx_path_cased)
+
+            event_cls = DirMovedEvent if osp.isdir(local_path_old) else FileMovedEvent
+            with self.fs_events.ignore(event_cls(local_path_old, event.local_path)):
+                exc = move(local_path_old, event.local_path)
+                if exc:
+                    raise os_to_maestral_error(exc, local_path=event.local_path)
+
+            logger.debug('Renamed "%s" to "%s"', local_path_old, event.local_path)
 
     def rescan(self, local_path: str) -> None:
         """
@@ -2992,7 +3119,7 @@ class SyncEngine:
                 child_path_uncased = (self.dropbox_path + entry.dbx_path_lower).lower()
                 if (child_path_uncased.startswith(local_path_lower)
                         and child_path_uncased not in lowercase_snapshot_paths):
-                    local_child_path = self.to_local_path(entry.dbx_path)
+                    local_child_path = self.to_local_path_from_cased(entry.dbx_path_cased)
                     if entry.rev == 'folder':
                         self.fs_events.local_file_event_queue.put(
                             DirDeletedEvent(local_child_path)
@@ -3583,40 +3710,6 @@ def split_moved_event(event: Union[FileMovedEvent, DirMovedEvent]) \
         deleted_event_cls = FileDeletedEvent
 
     return deleted_event_cls(event.src_path), created_event_cls(event.dest_path)
-
-
-def get_local_hash(local_path: str, chunk_size: int = 1024) -> Optional[str]:
-    """
-    Computes content hash of a local file.
-
-    :param local_path: Absolute path on local drive.
-    :param chunk_size: Size of chunks to hash in bites.
-    :returns: Content hash to compare with Dropbox's content hash, or 'folder' if the path
-        points to a directory. ``None`` if there is nothing at the path.
-    """
-
-    hasher = DropboxContentHasher()
-
-    try:
-        with open(local_path, 'rb') as f:
-            while True:
-                chunk = f.read(chunk_size)
-                if len(chunk) == 0:
-                    break
-                hasher.update(chunk)
-
-        return str(hasher.hexdigest())
-    except IsADirectoryError:
-        return 'folder'
-    except FileNotFoundError:
-        return None
-    except NotADirectoryError:
-        # a parent directory in the path refers to a file instead of a folder
-        return None
-    except OSError as err:
-        raise os_to_maestral_error(err, local_path=local_path)
-    finally:
-        del hasher
 
 
 def remove_from_queue(queue: Queue, *items: Any) -> None:
