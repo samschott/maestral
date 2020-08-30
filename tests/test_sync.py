@@ -523,10 +523,10 @@ class TestSync(TestCase):
                              f'different revs for "{dbx_path}"')
 
         for entry in entries:
-            if is_child(entry.dbx_path, remote_folder):
-                matching_items = list(r for r in remote_items if r['path_lower'] == entry.dbx_path)
+            if is_child(entry.dbx_path_lower, remote_folder):
+                matching_items = list(r for r in remote_items if r['path_lower'] == entry.dbx_path_lower)
                 self.assertEqual(len(matching_items), 1,
-                                 f'indexed item "{entry.dbx_path}" does not exist on dbx')
+                                 f'indexed item "{entry.dbx_path_lower}" does not exist on dbx')
 
         for path in local_snapshot.paths:
             if not self.m.sync.is_excluded(path) and is_child(path, local_folder):
