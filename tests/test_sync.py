@@ -516,7 +516,7 @@ class TestSync(TestCase):
         # assert that all items from server are present locally with the same content hash
         for r in remote_items:
             dbx_path = r['path_display']
-            local_path = self.m.to_local_path(dbx_path)
+            local_path = to_existing_cased_path(dbx_path, root=self.m.dropbox_path)
 
             remote_hash = r['content_hash'] if r['type'] == 'FileMetadata' else 'folder'
             self.assertEqual(self.m.sync.get_local_hash(local_path), remote_hash,
