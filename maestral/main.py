@@ -1335,23 +1335,19 @@ class Maestral:
 
         updated_from = self.get_state('app', 'updated_scripts_completed')
 
-        if Version(updated_from) >= Version(__version__):
-            return
+        if Version(updated_from) < Version('1.2.0'):
+            self._update_from_pre_v1_2_0()
 
-        self._run_post_update_scripts(updated_from)
         self.set_state('app', 'updated_scripts_completed', __version__)
 
-    def _run_post_update_scripts(self, updated_from: str) -> None:
-        """
+    def _update_from_pre_v1_2_0(self) -> None:
 
-        :param updated_from: Previous version.
-        """
+        logger.info('Reindexing after update to v1.2.0')
 
-        if Version(updated_from) < Version('1.2.0'):
-            # remove old index to trigger resync
-            old_rev_file = get_data_path('maestral', f'{self.config_name}.index')
-            delete(old_rev_file)
-            self.sync.last_cursor = ''
+        # remove old index to trigger resync
+        old_rev_file = get_data_path('maestral', f'{self.config_name}.index')
+        delete(old_rev_file)
+        self.sync.last_cursor = ''
 
     async def _periodic_refresh(self) -> None:
 
