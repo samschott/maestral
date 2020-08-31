@@ -1424,7 +1424,7 @@ class SyncEngine:
         :param md: Dropbox metadata.
         """
         if isinstance(md, DeletedMetadata):
-            # there is currently on API call to determine who deleted a file or folder
+            # there is currently no API call to determine who deleted a file or folder
             change_type = ChangeType.Removed
             change_time = None
             size = 0
