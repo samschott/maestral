@@ -540,7 +540,7 @@ class TestSync(TestCase):
                                  f'indexed item "{entry.dbx_path_lower}" does not exist on dbx')
 
                 r = matching_items[0]
-                remote_rev = r['rev'] if r['type'] == 'FileMetadata' else f'folder:{r["name"]}'
+                remote_rev = r['rev'] if r['type'] == 'FileMetadata' else 'folder'
 
                 # check if revs are equal on server and locally
                 self.assertEqual(entry.rev, remote_rev,
@@ -551,8 +551,7 @@ class TestSync(TestCase):
                 local_path_actual_casing = to_existing_cased_path(local_path_expected_casing)
 
                 self.assertEqual(local_path_expected_casing, local_path_actual_casing,
-                                 f'expected local casing "{local_path_expected_casing}" '
-                                 f'but found "{local_path_expected_casing}"')
+                                 'casing on drive does not match index')
 
     @staticmethod
     def _count_conflicts(entries, name):
@@ -1047,7 +1046,7 @@ class TestSync(TestCase):
 
         # start with nested folders
         os.mkdir(self.test_folder_local + '/folder')
-        os.mkdir(self.test_folder_local + '/Subfolder')
+        os.mkdir(self.test_folder_local + '/folder/Subfolder')
         self.wait_for_idle()
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
@@ -1067,13 +1066,16 @@ class TestSync(TestCase):
 
         # start with nested folders
         os.mkdir(self.test_folder_local + '/folder')
-        os.mkdir(self.test_folder_local + '/Subfolder')
+        os.mkdir(self.test_folder_local + '/folder/Subfolder')
         self.wait_for_idle()
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
 
         # rename remote folder
-        self.m.client.move(self.test_folder_dbx + '/folder', self.test_folder_dbx + '/FOLDER')
+        self.m.client.move(self.test_folder_dbx + '/folder',
+                           self.test_folder_dbx + '/FOLDER',
+                           autorename=True)
+
         self.wait_for_idle()
 
         self.assertTrue(osp.isdir(self.test_folder_local + '/FOLDER'))
