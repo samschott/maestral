@@ -436,9 +436,14 @@ def start_maestral_daemon(config_name: str = 'maestral',
 
         with Daemon(unixsocket=sockpath) as daemon:
             daemon.register(m, f'maestral.{config_name}')
+
             for socket in daemon.sockets:
                 loop.add_reader(socket.fileno(), daemon.events, daemon.sockets)
+
             loop.run_forever()
+
+            for socket in daemon.sockets:
+                loop.remove_reader(socket.fileno())
 
     except Exception:
         traceback.print_exc()
