@@ -515,7 +515,7 @@ class TestSync(TestCase):
             local_path = self.m.to_local_path(dbx_path)
 
             remote_hash = r['content_hash'] if r['type'] == 'FileMetadata' else 'folder'
-            remote_rev = r['rev'] if r['type'] == 'FileMetadata' else 'folder'
+            remote_rev = r['rev'] if r['type'] == 'FileMetadata' else f'folder:{r["name"]}'
 
             self.assertEqual(self.m.sync.get_local_hash(local_path), remote_hash,
                              f'different file content for "{dbx_path}"')

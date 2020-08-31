@@ -2843,7 +2843,8 @@ class SyncEngine:
                 new_entries.extend(h)
             else:
                 last_event = h[-1]
-                was_dir = self.get_local_rev(last_event.path_lower) == 'folder'
+                local_entry = self.get_local_entry(last_event.path_lower)
+                was_dir = local_entry and local_entry.is_directory
 
                 # Dropbox guarantees that applying events in the provided order
                 # will reproduce the state in the cloud. We therefore keep only
@@ -3153,10 +3154,14 @@ class SyncEngine:
 
         elif not osp.exists(local_path):
             dbx_path = self.to_dbx_path(local_path)
-            if self.get_local_rev(dbx_path) == 'folder':
-                self.fs_events.local_file_event_queue.put(DirDeletedEvent(local_path))
-            elif self.get_local_rev(dbx_path):
-                self.fs_events.local_file_event_queue.put(FileDeletedEvent(local_path))
+
+            local_entry = self.get_local_entry(dbx_path)
+
+            if local_entry:
+                if local_entry.is_directory:
+                    self.fs_events.local_file_event_queue.put(DirDeletedEvent(local_path))
+                else:
+                    self.fs_events.local_file_event_queue.put(FileDeletedEvent(local_path))
 
     def _clean_history(self):
         """Commits new events and removes all events older than ``_keep_history`` from
