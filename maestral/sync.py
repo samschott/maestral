@@ -1165,7 +1165,6 @@ class SyncEngine:
                                 'Please check if you have write permissions for '
                                 f'{self._file_cache_path}.')
 
-    # TODO: test this
     def correct_case(self, dbx_path: str) -> str:
         """
         Converts a Dropbox path with correctly cased basename to a fully cased path.
