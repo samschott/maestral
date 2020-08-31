@@ -20,7 +20,7 @@ from maestral.sync import (
 )
 from maestral.sync import delete, move
 from maestral.sync import is_child, is_fs_case_sensitive
-from maestral.sync import get_local_hash, DirectorySnapshot
+from maestral.sync import DirectorySnapshot
 from maestral.sync import SyncEngine, Observer, FSEventHandler
 from maestral.sync import SyncDirection, ItemType, ChangeType
 from maestral.errors import NotFoundError, FolderConflictError
@@ -517,7 +517,7 @@ class TestSync(TestCase):
             remote_hash = r['content_hash'] if r['type'] == 'FileMetadata' else 'folder'
             remote_rev = r['rev'] if r['type'] == 'FileMetadata' else 'folder'
 
-            self.assertEqual(get_local_hash(local_path), remote_hash,
+            self.assertEqual(self.m.sync.get_local_hash(local_path), remote_hash,
                              f'different file content for "{dbx_path}"')
             self.assertEqual(self.m.sync.get_local_rev(dbx_path), remote_rev,
                              f'different revs for "{dbx_path}"')
