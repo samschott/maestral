@@ -426,8 +426,7 @@ class SyncEvent(Base):  # type: ignore
     :param local_path_from: Local path that this item was moved from. Will only be set if
         ``change_type`` is ``ChangeType.Moved``. Follows the casing from server.
     :param rev: The file revision. Will only be set for remote changes. Will be
-        'folder:{name}' for folders and None for deletions. The display name of the item
-        is included to force a change in rev when the casing changes.
+        'folder' for folders and None for deletions.
     :param content_hash: A hash representing the file content. Will be 'folder' for
         folders and None for deleted items. Set for both local and remote changes.
     :param change_type: The type of change: deleted, moved, added or changed. Remote
@@ -538,8 +537,7 @@ class IndexEntry(Base):  # type: ignore
     :param item_type: The item type: file or folder.
     :param last_sync: The last time a local change was uploaded. Should be the ctime of
         the local file or folder.
-    :param rev: The file revision. Will be 'folder:{name}' for folders. The display name
-        of the item is included to force a change in rev when the casing changes.
+    :param rev: The file revision. Will be 'folder' for folders.
     :param content_hash: A hash representing the file content. Will be 'folder' for
         folders. May be None if not yet calculated.
     :param content_hash_ctime: The ctime for which the content_hash was calculated. If
@@ -922,8 +920,8 @@ class SyncEngine:
 
         :param local_path: Absolute path on local drive.
         :param chunk_size: Size of chunks to hash in bites.
-        :returns: Content hash to compare with Dropbox's content hash, or 'folder' if the path
-            points to a directory. ``None`` if there is nothing at the path.
+        :returns: Content hash to compare with Dropbox's content hash, or 'folder' if the
+            path points to a directory. ``None`` if there is nothing at the path.
         """
 
         hasher = DropboxContentHasher()
@@ -1017,7 +1015,7 @@ class SyncEngine:
                     rev = md.rev
                     item_type = ItemType.File
                 else:
-                    rev = f'folder:{md.name}'
+                    rev = 'folder'
                     item_type = ItemType.Folder
 
                 # construct correct display path from ancestors
@@ -1450,7 +1448,7 @@ class SyncEngine:
             change_type = ChangeType.Added
             item_type = ItemType.Folder
             size = 0
-            rev = f'folder:{md.name}'
+            rev = 'folder'
             content_hash = 'folder'
             dbx_id = md.id
             change_time = None
@@ -3106,6 +3104,10 @@ class SyncEngine:
             event_cls = DirMovedEvent if osp.isdir(local_path_old) else FileMovedEvent
             with self.fs_events.ignore(event_cls(local_path_old, event.local_path)):
                 move(local_path_old, event.local_path)
+
+            with self._db_lock:
+                old_entry.dbx_path_cased = event.dbx_path
+                self._db_session.commit()
 
             logger.debug('Renamed "%s" to "%s"', local_path_old, event.local_path)
 
