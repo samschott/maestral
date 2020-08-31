@@ -67,7 +67,7 @@ from maestral.client import DropboxClient, os_to_maestral_error, fswatch_to_maes
 from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.path import (
-    generate_cc_name, cased_path_candidates, to_cased_path, is_fs_case_sensitive,
+    generate_cc_name, cased_path_candidates, is_fs_case_sensitive,
     move, delete, is_child, is_equal_or_child
 )
 from maestral.utils.appdirs import get_data_path, get_home_dir
