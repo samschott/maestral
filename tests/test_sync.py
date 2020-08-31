@@ -26,6 +26,7 @@ from maestral.sync import SyncDirection, ItemType, ChangeType
 from maestral.errors import NotFoundError, FolderConflictError
 from maestral.main import Maestral
 from maestral.main import get_log_path
+from maestral.utils.path import to_existing_cased_path
 
 import unittest
 from unittest import TestCase
@@ -506,28 +507,22 @@ class TestSync(TestCase):
 
     def assert_synced(self, local_folder, remote_folder):
         """Asserts that the `local_folder` and `remote_folder` are synced."""
+
+        remote_folder = remote_folder.lower()
+
         remote_items = self.m.list_folder(remote_folder, recursive=True)
         local_snapshot = DirectorySnapshot(local_folder)
-        entries = self.m.sync.get_index()
 
+        # assert that all items from server are present locally with the same content hash
         for r in remote_items:
             dbx_path = r['path_display']
             local_path = self.m.to_local_path(dbx_path)
 
             remote_hash = r['content_hash'] if r['type'] == 'FileMetadata' else 'folder'
-            remote_rev = r['rev'] if r['type'] == 'FileMetadata' else f'folder:{r["name"]}'
-
             self.assertEqual(self.m.sync.get_local_hash(local_path), remote_hash,
                              f'different file content for "{dbx_path}"')
-            self.assertEqual(self.m.sync.get_local_rev(dbx_path), remote_rev,
-                             f'different revs for "{dbx_path}"')
 
-        for entry in entries:
-            if is_child(entry.dbx_path_lower, remote_folder):
-                matching_items = list(r for r in remote_items if r['path_lower'] == entry.dbx_path_lower)
-                self.assertEqual(len(matching_items), 1,
-                                 f'indexed item "{entry.dbx_path_lower}" does not exist on dbx')
-
+        # assert that all local items are present on server
         for path in local_snapshot.paths:
             if not self.m.sync.is_excluded(path) and is_child(path, local_folder):
                 dbx_path = self.m.sync.to_dbx_path(path).lower()
