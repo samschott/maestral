@@ -77,7 +77,7 @@ class TestAPI(TestCase):
             pass
 
         delete(cls.m.dropbox_path)
-        delete(cls.m.sync.rev_file_path)
+        delete(cls.m.sync.database_path)
         delete(cls.m.account_profile_pic_path)
         cls.m._conf.cleanup()
         cls.m._state.cleanup()

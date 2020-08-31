@@ -20,12 +20,13 @@ from maestral.sync import (
 )
 from maestral.sync import delete, move
 from maestral.sync import is_child, is_fs_case_sensitive
-from maestral.sync import get_local_hash, DirectorySnapshot
+from maestral.sync import DirectorySnapshot
 from maestral.sync import SyncEngine, Observer, FSEventHandler
 from maestral.sync import SyncDirection, ItemType, ChangeType
 from maestral.errors import NotFoundError, FolderConflictError
 from maestral.main import Maestral
 from maestral.main import get_log_path
+from maestral.utils.path import to_existing_cased_path
 
 import unittest
 from unittest import TestCase
@@ -455,7 +456,7 @@ class TestSync(TestCase):
             pass
 
         delete(cls.m.dropbox_path)
-        delete(cls.m.sync.rev_file_path)
+        delete(cls.m.sync.database_path)
         delete(cls.m.account_profile_pic_path)
         cls.m._conf.cleanup()
         cls.m._state.cleanup()
@@ -506,34 +507,51 @@ class TestSync(TestCase):
 
     def assert_synced(self, local_folder, remote_folder):
         """Asserts that the `local_folder` and `remote_folder` are synced."""
+
+        remote_folder = remote_folder.lower()
+
         remote_items = self.m.list_folder(remote_folder, recursive=True)
         local_snapshot = DirectorySnapshot(local_folder)
-        rev_index = self.m.sync.get_rev_index()
 
+        # assert that all items from server are present locally with the same content hash
         for r in remote_items:
             dbx_path = r['path_display']
-            local_path = self.m.to_local_path(dbx_path)
+            local_path = to_existing_cased_path(dbx_path, root=self.m.dropbox_path)
 
             remote_hash = r['content_hash'] if r['type'] == 'FileMetadata' else 'folder'
-            remote_rev = r['rev'] if r['type'] == 'FileMetadata' else 'folder'
-
-            self.assertEqual(get_local_hash(local_path), remote_hash,
+            self.assertEqual(self.m.sync.get_local_hash(local_path), remote_hash,
                              f'different file content for "{dbx_path}"')
-            self.assertEqual(self.m.sync.get_local_rev(dbx_path), remote_rev,
-                             f'different revs for "{dbx_path}"')
 
-        for path in rev_index:
-            if is_child(path, remote_folder):
-                matching_items = list(r for r in remote_items if r['path_lower'] == path)
-                self.assertEqual(len(matching_items), 1,
-                                 f'indexed item "{path}" does not exist on dbx')
-
+        # assert that all local items are present on server
         for path in local_snapshot.paths:
             if not self.m.sync.is_excluded(path) and is_child(path, local_folder):
                 dbx_path = self.m.sync.to_dbx_path(path).lower()
                 matching_items = list(r for r in remote_items if r['path_lower'] == dbx_path)
                 self.assertEqual(len(matching_items), 1,
                                  f'local item "{path}" does not exist on dbx')
+
+        # check that our index is correct
+        for entry in self.m.sync.get_index():
+            if is_child(entry.dbx_path_lower, remote_folder):
+                # check that there is a match on the server
+                matching_items = list(r for r in remote_items
+                                      if r['path_lower'] == entry.dbx_path_lower)
+                self.assertEqual(len(matching_items), 1,
+                                 f'indexed item "{entry.dbx_path_lower}" does not exist on dbx')
+
+                r = matching_items[0]
+                remote_rev = r['rev'] if r['type'] == 'FileMetadata' else 'folder'
+
+                # check if revs are equal on server and locally
+                self.assertEqual(entry.rev, remote_rev,
+                                 f'different revs for "{entry.dbx_path_lower}"')
+
+                # check if casing on drive is the same as in index
+                local_path_expected_casing = self.m.dropbox_path + entry.dbx_path_cased
+                local_path_actual_casing = to_existing_cased_path(local_path_expected_casing)
+
+                self.assertEqual(local_path_expected_casing, local_path_actual_casing,
+                                 'casing on drive does not match index')
 
     @staticmethod
     def _count_conflicts(entries, name):
@@ -1021,6 +1039,49 @@ class TestSync(TestCase):
         self.assertTrue(osp.isdir(self.test_folder_local + '/Folder (case conflict)'))
         self.assertIsNotNone(self.m.client.get_metadata(self.test_folder_dbx + '/folder'))
         self.assertIsNotNone(self.m.client.get_metadata(self.test_folder_dbx + '/Folder (case conflict)'))
+
+        self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+    def test_case_change_local(self):
+
+        # start with nested folders
+        os.mkdir(self.test_folder_local + '/folder')
+        os.mkdir(self.test_folder_local + '/folder/Subfolder')
+        self.wait_for_idle()
+
+        self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+        # rename to parent folder to upper case
+        shutil.move(self.test_folder_local + '/folder', self.test_folder_local + '/FOLDER')
+        self.wait_for_idle()
+
+        self.assertTrue(osp.isdir(self.test_folder_local + '/FOLDER'))
+        self.assertTrue(osp.isdir(self.test_folder_local + '/FOLDER/Subfolder'))
+        self.assertEqual(self.m.client.get_metadata(self.test_folder_dbx + '/folder').name,
+                         'FOLDER', 'casing was not propagated to Dropbox')
+
+        self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+    def test_case_change_remote(self):
+
+        # start with nested folders
+        os.mkdir(self.test_folder_local + '/folder')
+        os.mkdir(self.test_folder_local + '/folder/Subfolder')
+        self.wait_for_idle()
+
+        self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+        # rename remote folder
+        self.m.client.move(self.test_folder_dbx + '/folder',
+                           self.test_folder_dbx + '/FOLDER',
+                           autorename=True)
+
+        self.wait_for_idle()
+
+        self.assertTrue(osp.isdir(self.test_folder_local + '/FOLDER'))
+        self.assertTrue(osp.isdir(self.test_folder_local + '/FOLDER/Subfolder'))
+        self.assertEqual(self.m.client.get_metadata(self.test_folder_dbx + '/folder').name,
+                         'FOLDER', 'casing was not propagated to local folder')
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
 

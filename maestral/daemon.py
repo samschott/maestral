@@ -28,7 +28,7 @@ from typing import Optional, Union, Tuple, Dict, Type, TYPE_CHECKING
 from types import TracebackType, FrameType
 
 # external imports
-import Pyro5
+import Pyro5  # type: ignore
 from Pyro5.errors import CommunicationError  # type: ignore
 from Pyro5.api import Daemon, Proxy, expose, oneway, register_dict_to_class  # type: ignore
 from fasteners import InterProcessLock  # type: ignore
@@ -74,7 +74,7 @@ def freeze_support() -> None:
 class Stop(enum.Enum):
     """
     Enumeration of daemon exit results.
-    
+
     :cvar Ok: Daemon quit successfully.
     :cvar Killed: Daemon process was killed.
     :cvar NotRunning: Daemon was not running.

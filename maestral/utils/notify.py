@@ -182,7 +182,7 @@ class MaestralDesktopNotifier(logging.Handler):
 
     def notify(self, message: str, level: int = FILECHANGE,
                on_click: Optional[Callable] = None,
-               buttons: Optional[Dict[str, Callable]] = None) -> None:
+               buttons: Optional[Dict[str, Optional[Callable]]] = None) -> None:
         """
         Sends a desktop notification from maestral. The title defaults to 'Maestral'.
 
@@ -206,7 +206,7 @@ class MaestralDesktopNotifier(logging.Handler):
                 icon=APP_ICON_PATH,
                 urgency=urgency,
                 action=on_click,
-                buttons=buttons or dict(),
+                buttons=buttons,
             )
 
     def emit(self, record: logging.LogRecord) -> None:
