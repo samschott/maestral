@@ -173,7 +173,7 @@ class OutOfMemoryError(MaestralApiError):
     pass
 
 
-class RevFileError(MaestralApiError):
+class DatabaseError(MaestralApiError):
     """Raised when reading or saving the rev file fails."""
     pass
 
@@ -234,7 +234,7 @@ FATAL_ERRORS = (
     NoDropboxDirError,
     InotifyError,
     RestrictedContentError,
-    RevFileError,
+    DatabaseError,
     DropboxAuthError,
     TokenExpiredError,
     TokenRevokedError,

@@ -47,12 +47,12 @@ from maestral.errors import (
 from maestral.config import MaestralConfig, MaestralState
 from maestral.utils import get_newer_version
 from maestral.utils.housekeeping import validate_config_name
-from maestral.utils.path import is_child, to_cased_path, delete
+from maestral.utils.path import is_child, to_existing_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import (
     error_to_dict, dropbox_stone_to_dict, sync_event_to_dict, StoneType, ErrorType
 )
-from maestral.utils.appdirs import get_log_path, get_cache_path
+from maestral.utils.appdirs import get_log_path, get_cache_path, get_data_path
 from maestral.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
     BUGSNAG_API_KEY, IDLE, FileStatus, GITHUB_RELEAES_API
@@ -314,19 +314,12 @@ class Maestral:
         except (ConnectionError, MaestralApiError):
             pass
 
-        state_files = [
-            self.sync.rev_file_path,
-            self.sync.database_path,
-        ]
-
         # clean up config + state
-        self.sync.clear_rev_index()
-        self.sync.clear_database()
+        self.sync.clear_index()
+        self.sync.clear_sync_history()
         self._conf.cleanup()
         self._state.cleanup()
-
-        for file in state_files:
-            delete(file)
+        delete(self.sync.database_path)
 
         # delete auth token
         try:
@@ -1015,13 +1008,16 @@ class Maestral:
 
         # book keeping
         self.sync.clear_sync_error(dbx_path=dbx_path)
-        self.sync.set_local_rev(dbx_path, None)
+        self.sync.remove_path_from_index(dbx_path)
 
         # remove folder from local drive
-        local_path = self.sync.to_local_path(dbx_path)
-        # dbx_path will be lower-case, we there explicitly run `to_cased_path`
-        local_path = to_cased_path(local_path)
-        if local_path:
+        local_path = self.sync.to_local_path_from_cased(dbx_path)
+        # dbx_path will be lower-case, we there explicitly run `to_existing_cased_path`
+        try:
+            local_path = to_existing_cased_path(local_path)
+        except FileNotFoundError:
+            pass
+        else:
             event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
             with self.monitor.fs_event_handler.ignore(event_cls(local_path)):
                 delete(local_path)
@@ -1244,7 +1240,7 @@ class Maestral:
         self._check_linked()
         self._check_dropbox_dir()
 
-        return self.sync.to_local_path(dbx_path)
+        return self.sync.to_local_path_from_cased(dbx_path)
 
     def check_for_updates(self) -> Dict[str, Union[str, bool, None]]:
         """
@@ -1342,17 +1338,20 @@ class Maestral:
         if Version(updated_from) >= Version(__version__):
             return
 
-        self._run_post_update_scripts()
+        self._run_post_update_scripts(updated_from)
         self.set_state('app', 'updated_scripts_completed', __version__)
 
-    def _run_post_update_scripts(self) -> None:
+    def _run_post_update_scripts(self, updated_from: str) -> None:
         """
-        Scripts which should be run after an update. This will also run after a fresh
-        install and should therefore not assume that maestral was previously installed.
+
+        :param updated_from: Previous version.
         """
-        logger.debug('Running post-update script')
-        self.set_state('sync', 'recent_changes', [])  # clear recent-changes
-        logger.debug('Post-update: recent changes cleared')
+
+        if Version(updated_from) < Version('1.2.0'):
+            # remove old index to trigger resync
+            old_rev_file = get_data_path('maestral', f'{self.config_name}.index')
+            delete(old_rev_file)
+            self.sync.last_cursor = ''
 
     async def _periodic_refresh(self) -> None:
 
