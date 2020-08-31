@@ -1194,14 +1194,13 @@ class SyncEngine:
 
                     else:
                         # fall back to querying from server
-                        try:
-                            md_parent = self.client.get_metadata(dirname_lower)
-                        except LookupError:
-                            # give up
-                            parent_path_cased = osp.dirname(dbx_path)
-                        else:
+                        md_parent = self.client.get_metadata(dirname_lower)
+                        if md_parent:
                             # recurse over parent directories
                             parent_path_cased = self.correct_case(md_parent.path_display)
+                        else:
+                            # give up
+                            parent_path_cased = osp.dirname(dbx_path)
 
                 path_cased = f'{parent_path_cased}/{basename_cased}'
             else:
