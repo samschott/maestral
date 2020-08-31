@@ -47,7 +47,7 @@ from maestral.errors import (
 from maestral.config import MaestralConfig, MaestralState
 from maestral.utils import get_newer_version
 from maestral.utils.housekeeping import validate_config_name
-from maestral.utils.path import is_child, to_cased_path, delete
+from maestral.utils.path import is_child, to_existing_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import (
     error_to_dict, dropbox_stone_to_dict, sync_event_to_dict, StoneType, ErrorType
@@ -1012,9 +1012,12 @@ class Maestral:
 
         # remove folder from local drive
         local_path = self.sync.to_local_path_from_cased(dbx_path)
-        # dbx_path will be lower-case, we there explicitly run `to_cased_path`
-        local_path = to_cased_path(local_path)
-        if local_path:
+        # dbx_path will be lower-case, we there explicitly run `to_existing_cased_path`
+        try:
+            local_path = to_existing_cased_path(local_path)
+        except FileNotFoundError:
+            pass
+        else:
             event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
             with self.monitor.fs_event_handler.ignore(event_cls(local_path)):
                 delete(local_path)
