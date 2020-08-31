@@ -558,6 +558,16 @@ class IndexEntry(Base):  # type: ignore
     content_hash = Column(String)
     content_hash_ctime = Column(Float)
 
+    @property
+    def is_file(self) -> bool:
+        """Returns True for file changes"""
+        return self.item_type == ItemType.File
+
+    @property
+    def is_directory(self) -> bool:
+        """Returns True for folder changes"""
+        return self.item_type == ItemType.Folder
+
     def __repr__(self):
         return f"<{self.__class__.__name__}(item_type={self.item_type.name}, " \
                f"dbx_path='{self.dbx_path_cased}')>"
@@ -895,6 +905,17 @@ class SyncEngine:
             else:
                 return None
 
+    def get_local_entry(self, dbx_path: str) -> Optional[IndexEntry]:
+        """
+        Gets revision number of local file.
+
+        :param dbx_path: Dropbox path.
+        :returns: Revision number as str or ``None`` if no local revision number has been
+            saved.
+        """
+        with self._db_lock:
+            return self._db_session.query(IndexEntry).get(dbx_path.lower())
+
     def get_local_hash(self, local_path: str, chunk_size: int = 1024) -> Optional[str]:
         """
         Computes content hash of a local file.
@@ -1144,6 +1165,7 @@ class SyncEngine:
                                 'Please check if you have write permissions for '
                                 f'{self._file_cache_path}.')
 
+    # TODO: test this
     def correct_case(self, dbx_path: str) -> str:
         """
         Converts a Dropbox path with correctly cased basename to a fully cased path.
@@ -1598,9 +1620,9 @@ class SyncEngine:
                 ctime_check = now > stats.st_ctime > self.get_last_sync_for_path(dbx_path_lower)
 
                 # always upload untracked items, check ctime of tracked items
-                rev = self.get_local_rev(dbx_path_lower)
-                is_new = not rev
-                is_modified = rev and ctime_check
+                local_entry = self.get_local_entry(dbx_path_lower)
+                is_new = not local_entry
+                is_modified = local_entry and ctime_check
 
                 if is_new:
                     if snapshot.isdir(path):
@@ -1609,10 +1631,10 @@ class SyncEngine:
                         event = FileCreatedEvent(path)
                     changes.append(event)
                 elif is_modified:
-                    if snapshot.isdir(path) and rev == 'folder':
+                    if snapshot.isdir(path) and local_entry.is_directory:
                         event = DirModifiedEvent(path)
                         changes.append(event)
-                    elif not snapshot.isdir(path) and rev != 'folder':
+                    elif not snapshot.isdir(path) and not local_entry.is_directory:
                         event = FileModifiedEvent(path)
                         changes.append(event)
                     elif snapshot.isdir(path):
@@ -1630,7 +1652,7 @@ class SyncEngine:
             local_path_uncased = (self.dropbox_path + entry.dbx_path_lower).lower()
             if local_path_uncased not in lowercase_snapshot_paths:
                 local_path = self.to_local_path_from_cased(entry.dbx_path_cased)
-                if entry.rev == 'folder':
+                if entry.is_directory:
                     event = DirDeletedEvent(local_path)
                 else:
                     event = FileDeletedEvent(local_path)
@@ -2219,11 +2241,12 @@ class SyncEngine:
                     self.update_index_from_md(md_old)
                     return None
 
-            rev = self.get_local_rev(event.dbx_path)
-            if not rev:
+            local_entry = self.get_local_entry(event.dbx_path)
+
+            if not local_entry:
                 # file is new to us, let Dropbox rename it if something is in the way
                 mode = dropbox.files.WriteMode.add
-            elif rev == 'folder':
+            elif local_entry.is_directory:
                 # try to overwrite the destination, this will fail...
                 mode = dropbox.files.WriteMode.overwrite
             else:
@@ -2231,7 +2254,7 @@ class SyncEngine:
                 # create conflict otherwise
                 logger.debug('"%s" appears to have been created but we are '
                              'already tracking it', event.dbx_path)
-                mode = dropbox.files.WriteMode.update(rev)
+                mode = dropbox.files.WriteMode.update(local_entry.rev)
             try:
                 md_new = self.client.upload(
                     event.local_path, event.dbx_path,
@@ -2290,15 +2313,16 @@ class SyncEngine:
                              'the same as on Dropbox', event.dbx_path)
                 return None
 
-        rev = self.get_local_rev(event.dbx_path)
-        if rev == 'folder':
+        local_entry = self.get_local_entry(event.dbx_path)
+
+        if local_entry.is_directory:
             mode = dropbox.files.WriteMode.overwrite
-        elif not rev:
+        elif not local_entry:
             logger.debug('"%s" appears to have been modified but cannot '
                          'find old revision', event.dbx_path)
             mode = dropbox.files.WriteMode.add
         else:
-            mode = dropbox.files.WriteMode.update(rev)
+            mode = dropbox.files.WriteMode.update(local_entry.rev)
 
         try:
             md_new = self.client.upload(
@@ -3082,9 +3106,7 @@ class SyncEngine:
 
             event_cls = DirMovedEvent if osp.isdir(local_path_old) else FileMovedEvent
             with self.fs_events.ignore(event_cls(local_path_old, event.local_path)):
-                exc = move(local_path_old, event.local_path)
-                if exc:
-                    raise os_to_maestral_error(exc, local_path=event.local_path)
+                move(local_path_old, event.local_path)
 
             logger.debug('Renamed "%s" to "%s"', local_path_old, event.local_path)
 
@@ -3120,7 +3142,7 @@ class SyncEngine:
                 if (child_path_uncased.startswith(local_path_lower)
                         and child_path_uncased not in lowercase_snapshot_paths):
                     local_child_path = self.to_local_path_from_cased(entry.dbx_path_cased)
-                    if entry.rev == 'folder':
+                    if entry.is_directory:
                         self.fs_events.local_file_event_queue.put(
                             DirDeletedEvent(local_child_path)
                         )
