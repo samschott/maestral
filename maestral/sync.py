@@ -1621,15 +1621,15 @@ class SyncEngine:
 
                 # always upload untracked items, check ctime of tracked items
                 local_entry = self.get_local_entry(dbx_path_lower)
-                is_new = not local_entry
                 is_modified = local_entry and ctime_check
 
-                if is_new:
+                if not local_entry:
                     if snapshot.isdir(path):
                         event = DirCreatedEvent(path)
                     else:
                         event = FileCreatedEvent(path)
                     changes.append(event)
+
                 elif is_modified:
                     if snapshot.isdir(path) and local_entry.is_directory:
                         event = DirModifiedEvent(path)
@@ -2315,12 +2315,12 @@ class SyncEngine:
 
         local_entry = self.get_local_entry(event.dbx_path)
 
-        if local_entry.is_directory:
-            mode = dropbox.files.WriteMode.overwrite
-        elif not local_entry:
+        if not local_entry:
             logger.debug('"%s" appears to have been modified but cannot '
                          'find old revision', event.dbx_path)
             mode = dropbox.files.WriteMode.add
+        elif local_entry.is_directory:
+            mode = dropbox.files.WriteMode.overwrite
         else:
             mode = dropbox.files.WriteMode.update(local_entry.rev)
 
