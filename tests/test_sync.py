@@ -530,6 +530,30 @@ class TestSync(TestCase):
                 self.assertEqual(len(matching_items), 1,
                                  f'local item "{path}" does not exist on dbx')
 
+        # check that our index is correct
+        for entry in self.m.sync.get_index():
+            if is_child(entry.dbx_path_lower, remote_folder):
+                # check that there is a match on the server
+                matching_items = list(r for r in remote_items
+                                      if r['path_lower'] == entry.dbx_path_lower)
+                self.assertEqual(len(matching_items), 1,
+                                 f'indexed item "{entry.dbx_path_lower}" does not exist on dbx')
+
+                r = matching_items[0]
+                remote_rev = r['rev'] if r['type'] == 'FileMetadata' else f'folder:{r["name"]}'
+
+                # check if revs are equal on server and locally
+                self.assertEqual(entry.rev, remote_rev,
+                                 f'different revs for "{entry.dbx_path_lower}"')
+
+                # check if casing on drive is the same as in index
+                local_path_expected_casing = self.m.dropbox_path + entry.dbx_path_cased
+                local_path_actual_casing = to_existing_cased_path(local_path_expected_casing)
+
+                self.assertEqual(local_path_expected_casing, local_path_actual_casing,
+                                 f'expected local casing "{local_path_expected_casing}" '
+                                 f'but found "{local_path_expected_casing}"')
+
     @staticmethod
     def _count_conflicts(entries, name):
         basename, ext = osp.splitext(name)
@@ -1016,6 +1040,46 @@ class TestSync(TestCase):
         self.assertTrue(osp.isdir(self.test_folder_local + '/Folder (case conflict)'))
         self.assertIsNotNone(self.m.client.get_metadata(self.test_folder_dbx + '/folder'))
         self.assertIsNotNone(self.m.client.get_metadata(self.test_folder_dbx + '/Folder (case conflict)'))
+
+        self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+    def test_case_change_local(self):
+
+        # start with nested folders
+        os.mkdir(self.test_folder_local + '/folder')
+        os.mkdir(self.test_folder_local + '/Subfolder')
+        self.wait_for_idle()
+
+        self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+        # rename to parent folder to upper case
+        shutil.move(self.test_folder_local + '/folder', self.test_folder_local + '/FOLDER')
+        self.wait_for_idle()
+
+        self.assertTrue(osp.isdir(self.test_folder_local + '/FOLDER'))
+        self.assertTrue(osp.isdir(self.test_folder_local + '/FOLDER/Subfolder'))
+        self.assertEqual(self.m.client.get_metadata(self.test_folder_dbx + '/folder').name,
+                         'FOLDER', 'casing was not propagated to Dropbox')
+
+        self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+    def test_case_change_remote(self):
+
+        # start with nested folders
+        os.mkdir(self.test_folder_local + '/folder')
+        os.mkdir(self.test_folder_local + '/Subfolder')
+        self.wait_for_idle()
+
+        self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+        # rename remote folder
+        self.m.client.move(self.test_folder_dbx + '/folder', self.test_folder_dbx + '/FOLDER')
+        self.wait_for_idle()
+
+        self.assertTrue(osp.isdir(self.test_folder_local + '/FOLDER'))
+        self.assertTrue(osp.isdir(self.test_folder_local + '/FOLDER/Subfolder'))
+        self.assertEqual(self.m.client.get_metadata(self.test_folder_dbx + '/folder').name,
+                         'FOLDER', 'casing was not propagated to local folder')
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
 
