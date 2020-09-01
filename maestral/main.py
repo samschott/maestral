@@ -1335,12 +1335,12 @@ class Maestral:
 
         updated_from = self.get_state('app', 'updated_scripts_completed')
 
-        if Version(updated_from) < Version('1.2.0'):
-            self._update_from_pre_v1_2_0()
+        if Version(updated_from) < Version('1.2.0.dev2'):
+            self._update_from_pre_v1_2_0_dev2()
 
         self.set_state('app', 'updated_scripts_completed', __version__)
 
-    def _update_from_pre_v1_2_0(self) -> None:
+    def _update_from_pre_v1_2_0_dev2(self) -> None:
 
         logger.info('Reindexing after update to v1.2.0')
 
