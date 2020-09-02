@@ -39,6 +39,12 @@ from maestral.constants import IS_FROZEN, IS_MACOS
 from maestral.utils.appdirs import get_runtime_path
 
 
+if sys.platform == 'darwin':
+    from rubicon.objc import ObjCClass  # type: ignore
+    from rubicon.objc.runtime import load_library  # type: ignore
+    from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
+
+
 if TYPE_CHECKING:
     from maestral.main import Maestral
 
@@ -363,7 +369,8 @@ def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
 # ==== main functions to manage daemon ===================================================
 
 def start_maestral_daemon(config_name: str = 'maestral',
-                          log_to_stdout: bool = False) -> None:
+                          log_to_stdout: bool = False,
+                          start_sync: bool = False) -> None:
     """
     Starts the Maestral daemon with event loop in the current thread. Startup is race
     free: there will never be two daemons running for the same config.
@@ -377,6 +384,7 @@ def start_maestral_daemon(config_name: str = 'maestral',
 
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stdout: If ``True``, write logs to stdout.
+    :param start_sync: If ``True``, start syncing once the daemon has started.
     :raises: :class:`RuntimeError` if a daemon for the given ``config_name`` is already
         running.
     """
@@ -401,7 +409,6 @@ def start_maestral_daemon(config_name: str = 'maestral',
 
         # integrate with CFRunLoop in macOS, only works in main thread
         if sys.platform == 'darwin':
-            from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
             asyncio.set_event_loop_policy(EventLoopPolicy())
 
         # get the default event loop
@@ -434,6 +441,9 @@ def start_maestral_daemon(config_name: str = 'maestral',
 
         m = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
 
+        if start_sync:
+            m.start_sync()
+
         with Daemon(unixsocket=sockpath) as daemon:
             daemon.register(m, f'maestral.{config_name}')
 
@@ -447,10 +457,9 @@ def start_maestral_daemon(config_name: str = 'maestral',
 
     except Exception:
         traceback.print_exc()
-    except (KeyboardInterrupt, SystemExit):
-        sys.exit(0)
     finally:
         lock.release()
+        sys.exit(0)
 
 
 def start_maestral_daemon_thread(config_name: str = 'maestral',
