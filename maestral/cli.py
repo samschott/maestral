@@ -32,11 +32,10 @@ from maestral.daemon import (
     freeze_support,
     start_maestral_daemon,
     start_maestral_daemon_process,
-    start_maestral_daemon_thread,
     stop_maestral_daemon_process,
     Start, Stop,
     get_maestral_proxy, MaestralProxy, MaestralProxyType,
-    is_running, threads
+    is_running
 )
 from maestral.config import MaestralConfig, MaestralState, list_configs
 from maestral.utils.housekeeping import remove_configuration, validate_config_name
@@ -507,12 +506,10 @@ def gui(config_name: str) -> None:
 def start(foreground: bool, verbose: bool, config_name: str) -> None:
     """Starts the Maestral daemon."""
 
+    # start daemon process
     click.echo('Starting Maestral...', nl=False)
 
-    if foreground:
-        res = start_maestral_daemon_thread(config_name)
-    else:
-        res = start_maestral_daemon_process(config_name)
+    res = start_maestral_daemon_process(config_name)
 
     if res == Start.Ok:
         click.echo('\rStarting Maestral...        ' + OK)
@@ -524,9 +521,9 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
         click.echo('Please check logs for more information.')
         return
 
-    # run setup if necessary
     m = get_maestral_proxy(config_name)
 
+    # run setup if necessary
     if m.pending_link:
         link_dialog(m)
 
@@ -559,12 +556,13 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
             m.set_excluded_items(excluded_items)
 
-    m.log_to_stdout = verbose
-
-    m.start_sync()
-
     if foreground:
-        threads[config_name].join()
+        # stop daemon process after setup and restart in our current process
+        stop_maestral_daemon_process(config_name)
+        start_maestral_daemon(config_name, log_to_stdout=verbose, start_sync=True)
+    else:
+        m.log_to_stdout = verbose
+        m.start_sync()
 
 
 @main.command(help_priority=2)
