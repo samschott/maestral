@@ -136,6 +136,11 @@ class FileSizeError(SyncError):
     pass
 
 
+class FileReadError(SyncError):
+    """Raised when reading a local file failed."""
+    pass
+
+
 # ==== errors which are not related to a specific sync event =============================
 
 class NotLinkedError(MaestralApiError):

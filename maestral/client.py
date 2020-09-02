@@ -36,7 +36,7 @@ from maestral.errors import (
     UnsupportedFileError, RestrictedContentError, NotFoundError, NotAFolderError,
     IsAFolderError, FileSizeError, OutOfMemoryError, BadInputError, DropboxAuthError,
     TokenExpiredError, TokenRevokedError, CursorResetError, DropboxServerError,
-    NoDropboxDirError, InotifyError, NotLinkedError, InvalidDbidError
+    NoDropboxDirError, InotifyError, NotLinkedError, InvalidDbidError, FileReadError
 )
 from maestral.config import MaestralState
 from maestral.constants import DROPBOX_APP_KEY
@@ -58,6 +58,7 @@ WriteErrorType = Type[
         FileConflictError,
         FolderConflictError,
         ConflictError,
+        FileReadError,
     ]
 ]
 LookupErrorType = Type[
@@ -874,6 +875,10 @@ def os_to_maestral_error(exc: OSError,
         err_cls = InsufficientSpaceError  # subclass of SyncError
         title = 'Could not download file'
         text = 'There is not enough space left on the selected drive.'
+    elif exc.errno == errno.EFAULT:
+        err_cls = FileReadError  # subclass of SyncError
+        title = 'Could not upload file'
+        text = 'An error occurred while reading the file content.'
     elif exc.errno == errno.ENOMEM:
         err_cls = OutOfMemoryError  # subclass of MaestralApiError
         text = 'Out of memory. Please reduce the number of memory consuming processes.'
