@@ -1148,7 +1148,7 @@ class SyncEngine:
                 os.makedirs(self.file_cache_path, exist_ok=True)
             except FileExistsError:
                 err = delete(self._file_cache_path)
-                if err and not isinstance(err, FileNotFoundError):
+                if err and not isinstance(err, (FileNotFoundError, IsADirectoryError)):
                     raise CacheDirError(err_title.format(err.errno),
                                         err_msg.format(err.filename))
             except OSError as err:
@@ -1164,7 +1164,7 @@ class SyncEngine:
 
         with self.sync_lock:
             err = delete(self._file_cache_path)
-            if err and not isinstance(err, FileNotFoundError):
+            if err and not isinstance(err, (FileNotFoundError, IsADirectoryError)):
                 raise CacheDirError(f'Cannot create cache directory (errno {err.errno})',
                                     'Please check if you have write permissions for '
                                     f'{self._file_cache_path}.')
