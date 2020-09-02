@@ -2695,6 +2695,12 @@ class SyncEngine:
 
             callback = None
 
+        if change_type == ChangeType.Removed.value:
+
+            def callback():
+                # show dropbox website with deleted files
+                click.launch('https://www.dropbox.com/deleted_files')
+
         if user_name:
             msg = f'{user_name} {change_type} {file_name}'
         else:
