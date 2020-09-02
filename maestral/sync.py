@@ -703,7 +703,7 @@ class SyncEngine:
 
         # reset sync state if DB is missing
         if not osp.exists(self._db_path):
-            self.last_cursor = ''
+            self.remote_cursor = ''
 
         # initialize history database
         self._db_engine = create_engine(
@@ -819,27 +819,27 @@ class SyncEngine:
     # ==== sync state ====================================================================
 
     @property
-    def last_cursor(self) -> str:
+    def remote_cursor(self) -> str:
         """Cursor from last sync with remote Dropbox. The value is updated and saved to
         the config file on every successful download of remote changes."""
         return self._state.get('sync', 'cursor')
 
-    @last_cursor.setter
-    def last_cursor(self, cursor: str) -> None:
+    @remote_cursor.setter
+    def remote_cursor(self, cursor: str) -> None:
         """Setter: last_cursor"""
         with self.sync_lock:
             self._state.set('sync', 'cursor', cursor)
             logger.debug('Remote cursor saved: %s', cursor)
 
     @property
-    def last_sync(self) -> float:
+    def local_cursor(self) -> float:
         """Time stamp from last sync with remote Dropbox. The value is updated and saved
         to the config file on every successful upload of local changes."""
         return self._state.get('sync', 'lastsync')
 
-    @last_sync.setter
-    def last_sync(self, last_sync: float) -> None:
-        """Setter: last_sync"""
+    @local_cursor.setter
+    def local_cursor(self, last_sync: float) -> None:
+        """Setter: local_cursor"""
         with self.sync_lock:
             logger.debug('Local cursor saved: %s', last_sync)
             self._state.set('sync', 'lastsync', last_sync)
@@ -912,7 +912,7 @@ class SyncEngine:
         else:
             last_sync = 0.0
 
-        return max(last_sync, self.last_sync)
+        return max(last_sync, self.local_cursor)
 
     def get_index_entry(self, dbx_path: str) -> Optional[IndexEntry]:
         """
@@ -1594,7 +1594,7 @@ class SyncEngine:
                 self.apply_local_changes(sync_events, local_cursor)
                 logger.debug('Uploaded local changes while inactive')
             else:
-                self.last_sync = local_cursor
+                self.local_cursor = local_cursor
                 logger.debug('No local changes while inactive')
 
     def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
@@ -1765,7 +1765,7 @@ class SyncEngine:
             if not self.cancel_pending.is_set():
                 # always save local cursor if not aborted by user,
                 # failed uploads will be tracked and retried individually
-                self.last_sync = local_cursor
+                self.local_cursor = local_cursor
 
             return results
 
@@ -2477,7 +2477,7 @@ class SyncEngine:
             if is_dbx_root:
                 # always save remote cursor if this is the root folder,
                 # failed downloads will be tracked and retried individually
-                self.last_cursor = cursor
+                self.remote_cursor = cursor
                 self.last_reindex = time.time()
 
             return results
@@ -2629,7 +2629,7 @@ class SyncEngine:
         if cursor and not self.cancel_pending.is_set():
             # always save remote cursor if not aborted by user,
             # failed downloads will be tracked and retried individually
-            self.last_cursor = cursor
+            self.remote_cursor = cursor
 
         self._clean_history()
 
@@ -3251,7 +3251,7 @@ def download_worker(sync: SyncEngine, syncing: Event,
         syncing.wait()
 
         try:
-            has_changes = sync.wait_for_remote_changes(sync.last_cursor)
+            has_changes = sync.wait_for_remote_changes(sync.remote_cursor)
 
             with sync.sync_lock:
 
@@ -3261,7 +3261,7 @@ def download_worker(sync: SyncEngine, syncing: Event,
                 if has_changes:
                     logger.info(SYNCING)
 
-                    changes, remote_cursor = sync.list_remote_changes(sync.last_cursor)
+                    changes, remote_cursor = sync.list_remote_changes(sync.remote_cursor)
                     downloaded = sync.apply_remote_changes(changes, remote_cursor)
                     sync.notify_user(downloaded)
 
@@ -3384,10 +3384,10 @@ def startup_worker(sync: SyncEngine, syncing: Event, running: Event, connected: 
                 # local changes during this download will be registered
                 # by the local FileSystemObserver but only uploaded after
                 # `syncing` has been set
-                if sync.last_cursor == '':
+                if sync.remote_cursor == '':
                     sync.clear_sync_errors()
                     sync.get_remote_folder()
-                    sync.last_sync = time.time()
+                    sync.local_cursor = time.time()
 
                 if not running.is_set():
                     continue
@@ -3419,7 +3419,7 @@ def startup_worker(sync: SyncEngine, syncing: Event, running: Event, connected: 
                 sync.upload_local_changes_while_inactive()
 
                 # enforce immediate check for remote changes
-                changes, remote_cursor = sync.list_remote_changes(sync.last_cursor)
+                changes, remote_cursor = sync.list_remote_changes(sync.remote_cursor)
                 downloaded = sync.apply_remote_changes(changes, remote_cursor)
                 sync.notify_user(downloaded)
 
@@ -3647,7 +3647,7 @@ class SyncMonitor:
         res = self.sync._db_session.query(func.max(IndexEntry.last_sync)).first()
         time_since_startup = now - self._startup_time
 
-        if len(res) > 0:
+        if len(res) > 0 and res[0]:
             return min(time_since_startup, now - res[0])
         elif self.syncing.is_set():
             return time_since_startup
@@ -3660,8 +3660,8 @@ class SyncMonitor:
         if self.syncing.is_set() or self.startup.is_set() or self.sync.busy():
             raise RuntimeError('Cannot reset sync state while syncing.')
 
-        self.sync.last_cursor = ''
-        self.sync.last_sync = 0.0
+        self.sync.remote_cursor = ''
+        self.sync.local_cursor = 0.0
         self.sync.clear_index()
         self.sync.clear_sync_history()
 
@@ -3681,7 +3681,7 @@ class SyncMonitor:
 
         self.pause()
 
-        self.sync.last_cursor = ''
+        self.sync.remote_cursor = ''
         self.sync.clear_index()
 
         if not self.running.is_set():

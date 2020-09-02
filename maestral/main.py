@@ -1350,7 +1350,7 @@ class Maestral:
         # remove old index to trigger resync
         old_rev_file = get_data_path('maestral', f'{self.config_name}.index')
         delete(old_rev_file)
-        self.sync.last_cursor = ''
+        self.sync.remote_cursor = ''
 
     async def _periodic_refresh(self) -> None:
 
