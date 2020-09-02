@@ -1006,9 +1006,9 @@ class SyncEngine:
                     )
 
                     self._db_session.add(entry)
+                    self._index_cache[dbx_path_lower] = entry
 
             self._db_session.commit()
-            self._index_cache[dbx_path_lower] = entry
 
     def update_index_from_md(self, md: Metadata) -> None:
         """
@@ -1054,9 +1054,9 @@ class SyncEngine:
                     )
 
                     self._db_session.add(entry)
+                    self._index_cache[md.path_lower] = entry
 
             self._db_session.commit()
-            self._index_cache[md.path_lower] = entry
 
     def remove_path_from_index(self, dbx_path: str) -> None:
 
