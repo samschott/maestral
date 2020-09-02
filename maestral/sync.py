@@ -845,15 +845,22 @@ class SyncEngine:
             self._state.set('sync', 'lastsync', last_sync)
 
     @property
+    def last_sync(self) -> float:
+        """The time of the last file change or 0.0 if there are no file changes in
+        our history."""
+
+        res = self._db_session.query(func.max(IndexEntry.last_sync)).first()
+
+        if len(res) > 0 and res[0]:
+            return res[0]
+        else:
+            return 0.0
+
+    @property
     def last_reindex(self) -> float:
-        """Time stamp of last indexing. This is used to determine when the next full
+        """Time stamp of last full indexing. This is used to determine when the next full
         indexing should take place."""
         return self._state.get('sync', 'last_reindex')
-
-    @last_reindex.setter
-    def last_reindex(self, time_stamp: float) -> None:
-        """Setter: last_reindex."""
-        self._state.set('sync', 'last_reindex', time_stamp)
 
     @property
     def history(self):
@@ -2478,7 +2485,7 @@ class SyncEngine:
                 # always save remote cursor if this is the root folder,
                 # failed downloads will be tracked and retried individually
                 self.remote_cursor = cursor
-                self.last_reindex = time.time()
+                self._state.set('sync', 'last_reindex', time.time())
 
             return results
 
@@ -3639,20 +3646,14 @@ class SyncMonitor:
 
     @property
     def idle_time(self) -> float:
-        """Returns the idle time in seconds since the last file change or zero if syncing
-        is not running."""
+        """Returns the idle time in seconds since the last file change or since startup if
+        if there haven't been any changes in our current session."""
 
         now = time.time()
-
-        res = self.sync._db_session.query(func.max(IndexEntry.last_sync)).first()
         time_since_startup = now - self._startup_time
+        time_since_last_sync = now - self.sync.last_sync
 
-        if len(res) > 0 and res[0]:
-            return min(time_since_startup, now - res[0])
-        elif self.syncing.is_set():
-            return time_since_startup
-        else:
-            return 0.0
+        return min(time_since_startup, time_since_last_sync)
 
     def reset_sync_state(self) -> None:
         """Resets all saved sync state."""
