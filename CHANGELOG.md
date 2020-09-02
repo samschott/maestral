@@ -27,6 +27,7 @@ indexing local file changes, and bug fixes and smaller changes listed below.
 - Transition to OAuth scopes for app permissions.
 - Save all sync history and local index in SQLite database.
 - Reduce unnecessary path conversions during indexing of local changes.
+- Improved performance on case-sensitive file systems.
 - Changed return type of `Maestral.get_activity` from namedtuple to dict for better
   consistency throughout the API. Every uploading or downloading item will have 'size'
   and 'completed' entries to monitor the progress of syncing individual items.
