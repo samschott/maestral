@@ -240,6 +240,10 @@ class Maestral:
             self._periodic_watchdog(),
         )
 
+        # create a future which will return once `shutdown_daemon` is called
+        # can be used by an event loop wait until maestral has been stopped
+        self.shutdown_complete = self._loop.create_future()
+
     def version(self) -> str:
         """
         Returns the current Maestral version.
@@ -1305,9 +1309,8 @@ class Maestral:
         if self._loop.is_running():
             self._refresh_task.cancel()
             self._watchdog_task.cancel()
-            self._loop.call_soon_threadsafe(self._loop.stop)
+            self._loop.call_soon_threadsafe(self.shutdown_complete.set_result, True)
 
-        self._loop.close()
         self._thread_pool.shutdown(wait=False)
 
         if NOTIFY_SOCKET:

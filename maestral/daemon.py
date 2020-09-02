@@ -438,7 +438,7 @@ def start_maestral_daemon(config_name: str = 'maestral',
             for socket in daemon.sockets:
                 loop.add_reader(socket.fileno(), daemon.events, daemon.sockets)
 
-            loop.run_forever()
+            loop.run_until_complete(m.shutdown_complete)
 
             for socket in daemon.sockets:
                 loop.remove_reader(socket.fileno())
@@ -446,6 +446,7 @@ def start_maestral_daemon(config_name: str = 'maestral',
     except Exception:
         traceback.print_exc()
     finally:
+        loop.close()
         lock.release()
         sys.exit(0)
 
