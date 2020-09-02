@@ -20,6 +20,7 @@ through :class:`MaestralDesktopNotifier`.
 # system imports
 import asyncio
 import traceback
+from threading import Thread
 from typing import Optional, Type
 
 # external imports
@@ -46,11 +47,10 @@ class DBusDesktopNotifier(DesktopNotifierBase):
 
     def __init__(self, app_name: str, app_id: str) -> None:
         super().__init__(app_name, app_id)
-
         self._loop = asyncio.get_event_loop()
-        self._loop.create_task(self._init_dbus())
+        asyncio.run_coroutine_threadsafe(self._init_dbus(), self._loop)
 
-    async def _init_dbus(self):
+    async def _init_dbus(self) -> None:
         self.bus = await MessageBus().connect()
         introspection = await self.bus.introspect('org.freedesktop.Notifications',
                                                   '/org/freedesktop/Notifications')
@@ -61,7 +61,7 @@ class DBusDesktopNotifier(DesktopNotifierBase):
         self.interface.on_action_invoked(self._on_action)
 
     def send(self, notification: Notification) -> None:
-        self._loop.create_task(self._send(notification))
+        asyncio.run_coroutine_threadsafe(self._send(notification), self._loop)
 
     async def _send(self, notification: Notification) -> None:
 
@@ -80,16 +80,16 @@ class DBusDesktopNotifier(DesktopNotifierBase):
 
         try:
             platform_nid = await self.interface.call_notify(
-                self.app_name,         # app_name
-                replaces_nid,          # replaces_id
-                notification.icon,     # app_icon
-                notification.title,    # summary
-                notification.message,  # body
-                actions,               # actions
-                {                      # hints
+                self.app_name,            # app_name
+                replaces_nid,             # replaces_id
+                notification.icon or '',  # app_icon
+                notification.title,       # summary
+                notification.message,     # body
+                actions,                  # actions
+                {                         # hints
                     'urgency': self._to_native_urgency[notification.urgency]
                 },
-                -1,                    # expire_timeout (-1 = default)
+                -1,                       # expire_timeout (-1 = default)
             )
         except Exception:
             # This may fail for several reasons: there may not be a systemd service
@@ -100,7 +100,7 @@ class DBusDesktopNotifier(DesktopNotifierBase):
             notification.identifier = platform_nid
             self.current_notifications[internal_nid] = notification
 
-    def _on_action(self, nid, action_key):
+    def _on_action(self, nid, action_key) -> None:
 
         nid = int(nid)
         action_key = str(action_key)
