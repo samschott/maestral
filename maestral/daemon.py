@@ -39,17 +39,10 @@ from maestral.constants import IS_FROZEN, IS_MACOS
 from maestral.utils.appdirs import get_runtime_path
 
 
-if sys.platform == 'darwin':
-    from rubicon.objc import ObjCClass  # type: ignore
-    from rubicon.objc.runtime import load_library  # type: ignore
-    from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
-
-
 if TYPE_CHECKING:
     from maestral.main import Maestral
 
 
-threads = dict()
 URI = 'PYRO:maestral.{0}@{1}'
 Pyro5.config.THREADPOOL_SIZE_MIN = 2
 
@@ -388,8 +381,10 @@ def start_maestral_daemon(config_name: str = 'maestral',
     :raises: :class:`RuntimeError` if a daemon for the given ``config_name`` is already
         running.
     """
-    import threading
     from maestral.main import Maestral
+
+    if threading.current_thread() is not threading.main_thread():
+        raise RuntimeError('Must run daemon in main thread')
 
     # acquire PID lock file
     lock = maestral_lock(config_name)
@@ -401,23 +396,16 @@ def start_maestral_daemon(config_name: str = 'maestral',
     # have significant CPU usage in case of many concurrent downloads.
     os.nice(10)
 
-    # start the event loop
-    if threading.current_thread() is threading.main_thread():
+    # catch sigterm and shut down gracefully
+    signal.signal(signal.SIGTERM, _sigterm_handler)
 
-        # catch sigterm and shut down gracefully, only works in main thread
-        signal.signal(signal.SIGTERM, _sigterm_handler)
+    # integrate with CFRunLoop in macOS, only works in main thread
+    if sys.platform == 'darwin':
+        from rubicon.objc.eventloop import EventLoopPolicy
+        asyncio.set_event_loop_policy(EventLoopPolicy())
 
-        # integrate with CFRunLoop in macOS, only works in main thread
-        if sys.platform == 'darwin':
-            asyncio.set_event_loop_policy(EventLoopPolicy())
-
-        # get the default event loop
-        loop = asyncio.get_event_loop()
-
-    else:
-        # create a new loop for this thread
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    # get the default event loop
+    loop = asyncio.get_event_loop()
 
     # get socket for config name
     sockpath = sockpath_for_config(config_name)
@@ -460,38 +448,6 @@ def start_maestral_daemon(config_name: str = 'maestral',
     finally:
         lock.release()
         sys.exit(0)
-
-
-def start_maestral_daemon_thread(config_name: str = 'maestral',
-                                 log_to_stdout: bool = False) -> Start:
-    """
-    Starts the Maestral daemon in a new thread by calling :func:`start_maestral_daemon`.
-    Startup is race free: there will never be two daemons running for the same config.
-
-    :param config_name: The name of the Maestral configuration to use.
-    :param log_to_stdout: If ``True``, write logs to stdout.
-    :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
-        already running or ``Start.Failed`` if startup failed. It is possible that
-        Start.Ok is returned instead of Start.AlreadyRunning in case of a race.
-    """
-
-    if is_running(config_name):
-        return Start.AlreadyRunning
-
-    t = threading.Thread(
-        target=start_maestral_daemon,
-        args=(config_name, log_to_stdout),
-        name=f'maestral-daemon-{config_name}',
-        daemon=True,
-    )
-    t.start()
-
-    threads[config_name] = t
-
-    if threading.current_thread() is threading.main_thread():
-        signal.signal(signal.SIGTERM, _sigterm_handler)
-
-    return _wait_for_startup(config_name)
 
 
 def _subprocess_launcher(config_name, log_to_stdout):
@@ -599,35 +555,6 @@ def stop_maestral_daemon_process(config_name: str = 'maestral',
             return Stop.Killed
         else:
             return Stop.Failed
-
-
-def stop_maestral_daemon_thread(config_name: str = 'maestral',
-                                timeout: int = 10) -> Stop:
-    """Stops a maestral daemon thread without killing the parent process.
-
-    :param config_name: The name of the Maestral configuration to use.
-    :param timeout: Number of sec to wait for daemon to shut down before killing it.
-    :returns: ``Stop.Ok`` if successful,``Stop.NotRunning`` if the daemon was not running,
-        ``Stop.Failed`` if it could not be stopped within timeout.
-    """
-
-    if not is_running(config_name):
-        return Stop.NotRunning
-
-    # tell maestral daemon to shut down
-    try:
-        with MaestralProxy(config_name) as m:
-            m.shutdown_daemon()
-    except CommunicationError:
-        return Stop.Failed
-
-    # wait for maestral to carry out shutdown
-    t = threads[config_name]
-    t.join(timeout=timeout)
-    if t.is_alive():
-        return Stop.Failed
-    else:
-        return Stop.Ok
 
 
 def get_maestral_proxy(config_name: str = 'maestral',
