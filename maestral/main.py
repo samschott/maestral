@@ -1305,7 +1305,7 @@ class Maestral:
         if self._loop.is_running():
             self._refresh_task.cancel()
             self._watchdog_task.cancel()
-            self._loop.stop()
+            self._loop.call_soon_threadsafe(self._loop.stop)
 
         self._loop.close()
         self._thread_pool.shutdown(wait=False)
