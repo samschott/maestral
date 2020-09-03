@@ -3,10 +3,11 @@
 The local file index and sync history are now stored in a SQLite database. After the
 update, Maestral will first reindex your Dropbox to populate the new index.
 
-This change enables several improvements to the command line interface and GUI: `maestral
-activity` now shows the progress of individual uploads on downloads. `maestral history`
-has been added to list recent sync events. In the GUI, the recent changes menu
-now has been replaced by a "Activity" window which shows all sync events of the past week.
+This change enables several improvements to the command line interface and GUI: The 
+command `maestral activity` now shows the progress of individual uploads on downloads.
+`maestral history` has been added to list recent sync events. In the GUI, the recent
+changes menu now has been replaced by a "Activity" window which shows all sync events of
+the past week.
 
 This release also introduces clickable desktop notifications, performance improvements to
 indexing local file changes, and bug fixes and smaller changes listed below.
@@ -58,8 +59,14 @@ indexing local file changes, and bug fixes and smaller changes listed below.
 
 #### Removed:
 
-- Drop support for config names with spaces. Spaces could cause issues with autostart
-  entries on some platforms.
+- Support for config names with spaces. Spaces could cause issues with autostart entries
+  on some platforms.
+- The ability to run the daemon in a separate thread. The daemon must now always be run in
+  its own process.
+  
+#### Dependencies:
+
+- Replaced `jeepney` dependency on Linux with `dbus-next` as the Dbus interface.
 
 ## v1.1.0
 
