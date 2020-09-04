@@ -265,8 +265,12 @@ def generate_cc_name(path: str, suffix: str = 'conflicting copy',
 
 def delete(path: str, raise_error: bool = False) -> Optional[OSError]:
     """
-    Deletes a file or folder at ``path``. Exceptions are either raised or returned if
-    ``raise_error`` is False.
+    Deletes a file or folder at ``path``.
+
+    :param path: Path of item to delete.
+    :param raise_error: If ``True``, raise any OSErrors. If ``False``, catch OSErrors and
+        return them.
+    :returns: Any caught exception during the deletion.
     """
     err = None
 
@@ -289,6 +293,14 @@ def move(src_path: str, dest_path: str, raise_error: bool = False) -> Optional[O
     Moves a file or folder from ``src_path`` to ``dest_path``. If either the source or
     the destination path no longer exist, this function does nothing. Any other
     exceptions are either raised or returned if ``raise_error`` is False.
+
+    :param src_path: Path of item to move.
+    :param dest_path: Destination path. Any existing file at this path will be replaced by
+        the move. Any existing **empty** folder will be replaced if the source is also a
+        folder.
+    :param raise_error: If ``True``, raise any OSErrors. If ``False``, catch OSErrors and
+        return them.
+    :returns: Any caught exception during the move.
     """
     err = None
 
