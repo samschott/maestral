@@ -288,7 +288,8 @@ def delete(path: str, raise_error: bool = False) -> Optional[OSError]:
         return err
 
 
-def move(src_path: str, dest_path: str, raise_error: bool = False) -> Optional[OSError]:
+def move(src_path: str, dest_path: str, raise_error: bool = False,
+         preserve_dest_permissions=False) -> Optional[OSError]:
     """
     Moves a file or folder from ``src_path`` to ``dest_path``. If either the source or
     the destination path no longer exist, this function does nothing. Any other
@@ -300,9 +301,20 @@ def move(src_path: str, dest_path: str, raise_error: bool = False) -> Optional[O
         folder.
     :param raise_error: If ``True``, raise any OSErrors. If ``False``, catch OSErrors and
         return them.
+    :param preserve_dest_permissions: If ``True``, attempt to preserve the permissions of
+        any file at the destination. If ``False``, the permissions of src_path will be used.
     :returns: Any caught exception during the move.
     """
     err = None
+
+    if preserve_dest_permissions:
+        # save dest permissions
+        try:
+            orig_mode = os.stat(dest_path).st_mode & 0o777
+        except FileNotFoundError:
+            orig_mode = None
+    else:
+        orig_mode = None
 
     try:
         shutil.move(src_path, dest_path)
@@ -311,6 +323,13 @@ def move(src_path: str, dest_path: str, raise_error: bool = False) -> Optional[O
         pass
     except OSError as exc:
         err = exc
+    else:
+        if orig_mode:
+            # reapply dest permissions
+            try:
+                os.chmod(dest_path, orig_mode)
+            except OSError:
+                pass
 
     if raise_error and err:
         raise err

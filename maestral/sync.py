@@ -2998,7 +2998,13 @@ class SyncEngine:
         # move the downloaded file to its destination
         with self.fs_events.ignore(FileDeletedEvent(local_path),
                                    FileMovedEvent(tmp_fname, local_path)):
-            exc = move(tmp_fname, local_path)
+            old_entry = self.get_index_entry(event.dbx_path)
+
+            exc = move(
+                tmp_fname,
+                local_path,
+                preserve_dest_permissions=event.dbx_id == old_entry.dbx_id
+            )
 
         if exc:
             raise os_to_maestral_error(exc, dbx_path=event.dbx_path,
