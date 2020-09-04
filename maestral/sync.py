@@ -158,30 +158,6 @@ class ChangeType(enum.Enum):
     Modified = 'modified'
 
 
-class InQueue:
-    """
-    A context manager that puts ``items`` into ``queue`` when entering the context and
-    removes them when exiting. This is used by maestral to keep track of uploads and
-    downloads.
-    """
-
-    def __init__(self, queue: Queue, *items) -> None:
-        """
-        :param queue: Instance of :class:`queue.Queue`.
-        :param items: Items to put in queue.
-        """
-        self.items = items
-        self.queue = queue
-
-    def __enter__(self) -> None:
-        for item in self.items:
-            self.queue.put(item)
-
-    def __exit__(self, err_type: Type[Exception], err_value: Exception,
-                 err_traceback: TracebackType) -> None:
-        remove_from_queue(self.queue, *self.items)
-
-
 class _Ignore:
 
     def __init__(self, event: FileSystemEvent, start_time: float,
@@ -3752,22 +3728,6 @@ def split_moved_event(event: Union[FileMovedEvent, DirMovedEvent]) \
         deleted_event_cls = FileDeletedEvent
 
     return deleted_event_cls(event.src_path), created_event_cls(event.dest_path)
-
-
-def remove_from_queue(queue: Queue, *items: Any) -> None:
-    """
-    Tries to remove an item from a queue.
-
-    :param queue: Queue to remove item from.
-    :param items: Items to remove
-    """
-
-    with queue.mutex:
-        for item in items:
-            try:
-                queue.queue.remove(item)
-            except ValueError:
-                pass
 
 
 def entries_to_str(entries: List[Metadata]) -> str:
