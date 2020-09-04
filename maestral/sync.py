@@ -216,8 +216,6 @@ class FSEventHandler(FileSystemEventHandler):
         self.startup = startup
 
         self._ignored_events = []
-        self._ignored_events_mutex = RLock()
-
         self.local_file_event_queue = Queue()
 
     @contextmanager
@@ -238,37 +236,37 @@ class FSEventHandler(FileSystemEventHandler):
             ignored as well. This parameter will be ignored for file events.
         """
 
-        with self._ignored_events_mutex:
-            now = time.time()
-            new_ignores = []
-            for e in events:
-                new_ignores.append(
-                    _Ignore(
-                        event=e,
-                        start_time=now,
-                        ttl=None,
-                        recursive=recursive and e.is_directory,
-                    )
+        now = time.time()
+        new_ignores = []
+        for e in events:
+            new_ignores.append(
+                _Ignore(
+                    event=e,
+                    start_time=now,
+                    ttl=None,
+                    recursive=recursive and e.is_directory,
                 )
-            self._ignored_events.extend(new_ignores)
+            )
+        self._ignored_events.extend(new_ignores)  # this is atomic
 
         try:
             yield
         finally:
-            with self._ignored_events_mutex:
-                for ignore in new_ignores:
-                    ignore.ttl = time.time() + self.ignore_timeout
+            for ignore in new_ignores:
+                ignore.ttl = time.time() + self.ignore_timeout
 
     def _expire_ignored_events(self) -> None:
         """Removes all expired ignore entries."""
 
-        with self._ignored_events_mutex:
-
-            now = time.time()
-            for ignore in self._ignored_events.copy():
-                ttl = ignore.ttl
-                if ttl and ttl < now:
+        now = time.time()
+        for ignore in self._ignored_events.copy():
+            ttl = ignore.ttl
+            if ttl and ttl < now:
+                try:
                     self._ignored_events.remove(ignore)
+                except ValueError:
+                    # someone else removed it in the meantime
+                    pass
 
     def _is_ignored(self, event: FileSystemEvent) -> bool:
         """
@@ -279,32 +277,33 @@ class FSEventHandler(FileSystemEventHandler):
         :returns: Whether the event should be ignored.
         """
 
-        with self._ignored_events_mutex:
+        self._expire_ignored_events()
 
-            self._expire_ignored_events()
+        for ignore in self._ignored_events.copy():
+            ignore_event = ignore.event
+            recursive = ignore.recursive
 
-            for ignore in self._ignored_events:
-                ignore_event = ignore.event
-                recursive = ignore.recursive
+            if event == ignore_event:
 
-                if event == ignore_event:
-
-                    if not recursive:
+                if not recursive:
+                    try:
                         self._ignored_events.remove(ignore)
+                    except ValueError:
+                        pass
 
+                return True
+
+            elif recursive:
+
+                type_match = event.event_type == ignore_event.event_type
+                src_match = is_equal_or_child(event.src_path, ignore_event.src_path)
+                dest_match = is_equal_or_child(get_dest_path(event),
+                                               get_dest_path(ignore_event))
+
+                if type_match and src_match and dest_match:
                     return True
 
-                elif recursive:
-
-                    type_match = event.event_type == ignore_event.event_type
-                    src_match = is_equal_or_child(event.src_path, ignore_event.src_path)
-                    dest_match = is_equal_or_child(get_dest_path(event),
-                                                   get_dest_path(ignore_event))
-
-                    if type_match and src_match and dest_match:
-                        return True
-
-            return False
+        return False
 
     def on_any_event(self, event: FileSystemEvent) -> None:
         """
