@@ -29,6 +29,12 @@ indexing local file changes, and bug fixes and smaller changes listed below.
 - Save all sync history and local index in SQLite database.
 - Reduce unnecessary path conversions during indexing of local changes.
 - Improved performance on case-sensitive file systems.
+- Sync remote changes in filename even if they are only a change in casing. Those changes
+  where previously ignored.
+- Attempt to preserve local file permissions when syncing unless the file id has changed.
+  Dropbox servers do store file permissions but don't make them available through the 
+  public API. We therefore cannot sync file permissions and instead choose not to 
+  overwrite locally set permissions on every download.
 - Changed return type of `Maestral.get_activity` from namedtuple to dict for better
   consistency throughout the API. Every uploading or downloading item will have 'size'
   and 'completed' entries to monitor the progress of syncing individual items.
@@ -53,7 +59,7 @@ indexing local file changes, and bug fixes and smaller changes listed below.
   cannot determine its PID. Now, `Stop.Failed` is returned instead.
 - Fixes a bug which would result in incorrect systemd unit files for non-default config
   file names. Please disable and re-enable autostart with `maestral autostart -Y|N` to
-  replace old unit files for any daemon with a config other than "maestral".
+  replace old unit files for any daemon with a config name other than "maestral".
 - Fixes a possible race condition when creating the cache directory.
 - Fixes error handling when a file is changed while uploading.
 
