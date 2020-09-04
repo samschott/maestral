@@ -3740,7 +3740,7 @@ _last_emit = time.time()
 
 
 def throttled_log(log: logging.Logger, msg: str, level: int = logging.INFO,
-                  limit: int = 1) -> None:
+                  limit: int = 2) -> None:
 
     global _last_emit
 
