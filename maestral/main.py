@@ -55,7 +55,7 @@ from maestral.utils.serializer import (
 from maestral.utils.appdirs import get_log_path, get_cache_path, get_data_path
 from maestral.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
-    BUGSNAG_API_KEY, IDLE, FileStatus, GITHUB_RELEAES_API
+    BUGSNAG_API_KEY, IDLE, FileStatus, GITHUB_RELEASES_API
 )
 
 
@@ -341,8 +341,8 @@ class Maestral:
         """
 
         log_level = self._conf.get('app', 'log_level')
-        mdbx_logger = logging.getLogger('maestral')
-        mdbx_logger.setLevel(logging.DEBUG)
+        maestral_logger = logging.getLogger('maestral')
+        maestral_logger.setLevel(logging.DEBUG)
 
         log_fmt_long = logging.Formatter(
             fmt='%(asctime)s %(name)s %(levelname)s: %(message)s',
@@ -357,7 +357,7 @@ class Maestral:
         )
         self.log_handler_file.setFormatter(log_fmt_long)
         self.log_handler_file.setLevel(log_level)
-        mdbx_logger.addHandler(self.log_handler_file)
+        maestral_logger.addHandler(self.log_handler_file)
 
         # log to journal when launched from systemd
         if journal and INVOCATION_ID:
@@ -367,7 +367,7 @@ class Maestral:
             )
             self.log_handler_journal.setFormatter(log_fmt_short)
             self.log_handler_journal.setLevel(log_level)
-            mdbx_logger.addHandler(self.log_handler_journal)
+            maestral_logger.addHandler(self.log_handler_journal)
         else:
             self.log_handler_journal = None
 
@@ -376,7 +376,7 @@ class Maestral:
             self.log_handler_sd = SdNotificationHandler()
             self.log_handler_sd.setFormatter(log_fmt_short)
             self.log_handler_sd.setLevel(logging.INFO)
-            mdbx_logger.addHandler(self.log_handler_sd)
+            maestral_logger.addHandler(self.log_handler_sd)
         else:
             self.log_handler_sd = None
 
@@ -385,30 +385,30 @@ class Maestral:
         self.log_handler_stream = logging.StreamHandler(sys.stdout)
         self.log_handler_stream.setFormatter(log_fmt_long)
         self.log_handler_stream.setLevel(level)
-        mdbx_logger.addHandler(self.log_handler_stream)
+        maestral_logger.addHandler(self.log_handler_stream)
 
         # log to cached handlers for GUI and CLI
         self._log_handler_info_cache = CachedHandler(maxlen=1)
         self._log_handler_info_cache.setFormatter(log_fmt_short)
         self._log_handler_info_cache.setLevel(logging.INFO)
-        mdbx_logger.addHandler(self._log_handler_info_cache)
+        maestral_logger.addHandler(self._log_handler_info_cache)
 
         self._log_handler_error_cache = CachedHandler()
         self._log_handler_error_cache.setFormatter(log_fmt_short)
         self._log_handler_error_cache.setLevel(logging.ERROR)
-        mdbx_logger.addHandler(self._log_handler_error_cache)
+        maestral_logger.addHandler(self._log_handler_error_cache)
 
         # log to desktop notifications
         # 'file changed' events will be collated and sent as desktop
         # notifications by the monitor directly, we don't handle them here
         self.desktop_notifier = MaestralDesktopNotifier.for_config(self.config_name)
         self.desktop_notifier.setLevel(logging.WARNING)
-        mdbx_logger.addHandler(self.desktop_notifier)
+        maestral_logger.addHandler(self.desktop_notifier)
 
         # log to bugsnag (disabled by default)
         self._log_handler_bugsnag = BugsnagHandler()
         self._log_handler_bugsnag.setLevel(100)
-        mdbx_logger.addHandler(self._log_handler_bugsnag)
+        maestral_logger.addHandler(self._log_handler_bugsnag)
 
         self.analytics = self._conf.get('app', 'analytics')
 
@@ -1260,7 +1260,7 @@ class Maestral:
         error_msg = None
 
         try:
-            r = requests.get(GITHUB_RELEAES_API)
+            r = requests.get(GITHUB_RELEASES_API)
             data = r.json()
 
             releases = []

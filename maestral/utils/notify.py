@@ -41,7 +41,7 @@ class DesktopNotifier:
 
     :param app_name: Name of app which sends notifications.
     :param app_id: Bundle identifier of the app. This is typically a reverse domain name
-        such as 'com.google.myfancyapp'.
+        such as 'com.google.app'.
     """
 
     _impl: Optional[DesktopNotifierBase]
@@ -190,7 +190,7 @@ class MaestralDesktopNotifier(logging.Handler):
         :param level: Notification level of the message.
         :param on_click: A callback to execute when the notification is clicked. The
             provided callable must not take any arguments.
-        :param buttons: A dictionary with button names and callbacks for the notificaiton.
+        :param buttons: A dictionary with button names and callbacks for the notification.
         """
 
         ignore = self.snoozed and level == self.FILECHANGE

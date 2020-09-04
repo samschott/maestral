@@ -1838,8 +1838,10 @@ class SyncEngine:
                         unique_events.append(FileDeletedEvent(path))
                 else:
 
-                    first_created_idx = next(iter(i for i, e in enumerate(h) if e.event_type == EVENT_TYPE_CREATED), -1)
-                    first_deleted_idx = next(iter(i for i, e in enumerate(h) if e.event_type == EVENT_TYPE_DELETED), -1)
+                    first_created_idx = next(iter(i for i, e in enumerate(h)
+                                                  if e.event_type == EVENT_TYPE_CREATED), -1)
+                    first_deleted_idx = next(iter(i for i, e in enumerate(h)
+                                                  if e.event_type == EVENT_TYPE_DELETED), -1)
 
                     if n_created == 0 or first_deleted_idx < first_created_idx:
                         # item was modified

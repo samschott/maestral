@@ -725,7 +725,7 @@ def activity(config_name: str) -> None:
             def curses_loop(screen):
 
                 curses.use_default_colors()  # don't change terminal background
-                screen.nodelay(1)  # set `scree.getch()` to non-blocking
+                screen.nodelay(1)  # sets `screen.getch()` to non-blocking
 
                 while True:
 
@@ -1278,7 +1278,7 @@ def log_level(level_name: str, config_name: str) -> None:
 
     with MaestralProxy(config_name, fallback=True) as m:
         if level_name:
-            m.log_level = logging._nameToLevel[level_name]
+            m.log_level = cast(int, getattr(logging, level_name))
             click.echo(f'Log level set to {level_name}.')
         else:
             level_name = logging.getLevelName(m.log_level)

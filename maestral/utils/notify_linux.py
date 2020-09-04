@@ -20,7 +20,6 @@ through :class:`MaestralDesktopNotifier`.
 # system imports
 import asyncio
 import traceback
-from threading import Thread
 from typing import Optional, Type
 
 # external imports

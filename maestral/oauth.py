@@ -74,7 +74,7 @@ def get_keyring_backend(config_name: str) -> KeyringBackend:
 
 class OAuth2Session:
     """
-    OAuth2Session provides OAuth 2 login and token store in the preferred system kering.
+    OAuth2Session provides OAuth 2 login and token store in the preferred system keyring.
     To authenticate with Dropbox, run :meth:`get_auth_url` first and direct the user to
     visit that URL and retrieve an auth token. Verify the provided auth token with
     :meth:`verify_auth_token` and save it in the system keyring together with the

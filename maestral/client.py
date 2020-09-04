@@ -31,12 +31,12 @@ from dropbox import (  # type: ignore
 # local imports
 from maestral import __version__
 from maestral.errors import (
-    MaestralApiError, SyncError, InsufficientPermissionsError, PathError,
+    MaestralApiError, SyncError, InsufficientPermissionsError, PathError, FileReadError,
     InsufficientSpaceError, FileConflictError, FolderConflictError, ConflictError,
     UnsupportedFileError, RestrictedContentError, NotFoundError, NotAFolderError,
     IsAFolderError, FileSizeError, OutOfMemoryError, BadInputError, DropboxAuthError,
     TokenExpiredError, TokenRevokedError, CursorResetError, DropboxServerError,
-    NoDropboxDirError, InotifyError, NotLinkedError, InvalidDbidError, FileReadError
+    NoDropboxDirError, InotifyError, NotLinkedError, InvalidDbidError
 )
 from maestral.config import MaestralState
 from maestral.constants import DROPBOX_APP_KEY

@@ -76,4 +76,4 @@ BUGSNAG_API_KEY = '081c05e2bf9730d5f55bc35dea15c833'
 DROPBOX_APP_KEY = '2jmbq42w7vof78h'
 
 # urls
-GITHUB_RELEAES_API = 'https://api.github.com/repos/samschott/maestral-dropbox/releases'
+GITHUB_RELEASES_API = 'https://api.github.com/repos/samschott/maestral-dropbox/releases'
