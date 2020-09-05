@@ -503,7 +503,13 @@ class SyncEvent(Base):  # type: ignore
 
 class IndexEntry(Base):  # type: ignore
     """
-    Represents an entry in our local sync index.
+    Represents an entry in our local sync index. All arguments are used to construct
+    instance attributes. All arguments apart from ```content_hash`` and
+    ``content_hash_ctime`` are required..
+
+    The convenience methods :meth:`SyncEngine.update_index_from_md` and
+    :meth:`SyncEngine.update_index_from_sync_event` must be used to construct a IndexEntry
+    from Dropbox Metadata or a local SyncEvent, respectively, and add it to the index.
 
     :param dbx_path_cased: Dropbox path of the item, correctly cased.
     :param dbx_path_lower: Dropbox path of the item in lower case. This acts as a primary
