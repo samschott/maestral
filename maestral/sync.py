@@ -390,7 +390,7 @@ class SyncEvent(Base):  # type: ignore
 
     :param direction: Direction of the sync: upload or download.
     :param item_type: The item type: file or folder.
-    :param sync_time: The time the sync event was registered.
+    :param sync_time: The time the SyncEvent was registered.
     :param dbx_id: A unique dropbox ID for the file or folder. Will only be set for
         download events which are not deletions.
     :param dbx_path: Dropbox path of the item to sync. If the sync represents a move
@@ -406,7 +406,7 @@ class SyncEvent(Base):  # type: ignore
     :param content_hash: A hash representing the file content. Will be 'folder' for
         folders and None for deleted items. Set for both local and remote changes.
     :param change_type: The type of change: deleted, moved, added or changed. Remote
-        sync events currently do not generate moved events but are reported as deleted and
+        SyncEvents currently do not generate moved events but are reported as deleted and
         added at the new location.
     :param change_time: The time of the change: Local ctime or remote client_modified
         time for files. None for folders or for remote deletions. Note that the
@@ -422,7 +422,7 @@ class SyncEvent(Base):  # type: ignore
     :param completed: File size in bytes which has already been uploaded or downloaded.
         Always zero for folders.
 
-    :ivar id: A unique identifier of the sync event.
+    :ivar id: A unique identifier of the SyncEvent.
     :ivar change_time_or_sync_time: Change time when available, otherwise sync time. This
         can be used for sorting or user information purposes.
     """
@@ -523,9 +523,9 @@ class IndexEntry(Base):  # type: ignore
 
     __tablename__ = 'index'
 
-    dbx_path_cased = Column(String, nullable=False)
+    dbx_path_cased = Column(String, nullable=False, unique=True)
     dbx_path_lower = Column(String, nullable=False, primary_key=True)
-    dbx_id = Column(String, nullable=False)
+    dbx_id = Column(String, nullable=False, unique=True)
     item_type = Column(Enum(ItemType), nullable=False)
     last_sync = Column(Float)
     rev = Column(String, nullable=False)
@@ -590,7 +590,7 @@ class SyncEngine:
     Local file events come in eight types: For both files and folders we collect created,
     moved, modified and deleted events. They are processed as follows:
 
-      1) :meth:`wait_for_local_changes`: Blocks until local changes were registered by
+      1) :meth:`wait_for_local_changes`: Blocks until local changes are registered by
          :class:`FSEventHandler` and returns those changes.
       2) :meth:`_filter_excluded_changes_local`: Filters out events ignored by a "mignore"
          pattern as well as hard-coded file names and changes in our cache path.
@@ -820,8 +820,8 @@ class SyncEngine:
             self._state.set('sync', 'lastsync', last_sync)
 
     @property
-    def last_sync(self) -> float:
-        """The time of the last file change or 0.0 if there are no file changes in
+    def last_change(self) -> float:
+        """The time stamp of the last file change or 0.0 if there are no file changes in
         our history."""
 
         res = self._db_session.query(func.max(IndexEntry.last_sync)).first()
@@ -838,12 +838,14 @@ class SyncEngine:
         return self._state.get('sync', 'last_reindex')
 
     @property
-    def history(self):
+    def history(self) -> List[SyncEvent]:
+        """All list of all SyncEvents in our history."""
         with self._db_lock:
             query = self._db_session.query(SyncEvent)
             return query.order_by(SyncEvent.change_time_or_sync_time).all()
 
-    def clear_sync_history(self):
+    def clear_sync_history(self) -> None:
+        """Clears the sync history."""
         with self._db_lock:
             SyncEvent.metadata.drop_all(self._db_engine)
             Base.metadata.create_all(self._db_engine)
@@ -882,7 +884,7 @@ class SyncEngine:
         """
         Returns the timestamp of last sync for an individual path.
 
-        :param dbx_path: Path relative to Dropbox folder.
+        :param dbx_path: Dropbox path.
         :returns: Time of last sync.
         """
 
@@ -898,11 +900,10 @@ class SyncEngine:
 
     def get_index_entry(self, dbx_path: str) -> Optional[IndexEntry]:
         """
-        Gets revision number of local file.
+        Gets the index entry for the given Dropbox path.
 
         :param dbx_path: Dropbox path.
-        :returns: Revision number as str or ``None`` if no local revision number has been
-            saved.
+        :returns: Index entry or ``None`` if no entry exists for the given path.
         """
 
         with self._db_lock:
@@ -1041,6 +1042,11 @@ class SyncEngine:
             self._db_session.commit()
 
     def remove_path_from_index(self, dbx_path: str) -> None:
+        """
+        Removes any local index entries for the given path and all its children.
+
+        :param dbx_path: Dropbox path.
+        """
 
         with self._db_lock:
 
@@ -1092,6 +1098,8 @@ class SyncEngine:
 
     @property
     def is_case_sensitive(self) -> bool:
+        """Returns ``True`` if the local Dropbox folder is located on a partition with a
+        case-sensitive file system, ``False`` otherwise."""
         return self._is_case_sensitive
 
     def ensure_dropbox_folder_present(self) -> None:
@@ -1108,7 +1116,11 @@ class SyncEngine:
             raise NoDropboxDirError(title, msg)
 
     def _ensure_cache_dir_present(self) -> None:
-        """Checks for or creates a directory at :attr:`file_cache_path`."""
+        """
+        Checks for or creates a directory at :attr:`file_cache_path`.
+
+        :raises: :class:`errors.CacheDirError`
+        """
 
         err_title = 'Cannot create cache directory (errno {})'
         err_msg = 'Please check if you have write permissions for "{}".'
@@ -1223,7 +1235,8 @@ class SyncEngine:
 
     def to_local_path_from_cased(self, dbx_path_cased: str) -> str:
         """
-        Converts a Dropbox path to the corresponding local path.
+        Converts a correctly cased Dropbox path to the corresponding local path. This is
+        more efficient than :meth:`to_local_path` which accepts uncased paths.
 
         :param dbx_path_cased: Path relative to Dropbox folder, correctly cased.
         :returns: Corresponding local path on drive.
@@ -1235,7 +1248,8 @@ class SyncEngine:
 
     def to_local_path(self, dbx_path: str) -> str:
         """
-        Converts a Dropbox path to the corresponding local path.
+        Converts a Dropbox path to the corresponding local path. Only the basename must be
+        correctly cased. This is slower than :meth:`to_local_path_from_cased`.
 
         :param dbx_path: Path relative to Dropbox folder, must be correctly cased in its
             basename.
@@ -1385,6 +1399,13 @@ class SyncEngine:
         return not idle
 
     def _handle_sync_error(self, err: SyncError, direction: SyncDirection) -> None:
+        """
+        Handles a sync error. Fills out any missing path information and adds the error to
+        the persistent state for later resync.
+
+        :param err: The sync error to handle.
+        :param direction: The sync direction (up or down) for which the error occurred.
+        """
 
         # fill out missing dbx_path or local_path
         if err.dbx_path and not err.local_path:
@@ -1680,7 +1701,8 @@ class SyncEngine:
     def apply_local_changes(self, sync_events: List[SyncEvent],
                             local_cursor: float) -> List[SyncEvent]:
         """
-        Applies locally detected changes to the remote Dropbox.
+        Applies locally detected changes to the remote Dropbox. Changes which should be
+        ignored (mignore or always ignored files) are skipped.
 
         :param sync_events: List of local file system events.
         :param local_cursor: Time stamp of last event in ``events``.
@@ -1755,7 +1777,7 @@ class SyncEngine:
             -> Tuple[List[SyncEvent], List[SyncEvent]]:
         """
         Checks for and removes file events referring to items which are excluded from
-        syncing.
+        syncing. Called by :meth:`apply_local_changes`.
 
         :param sync_events: List of file events.
         :returns: (``events_filtered``, ``events_excluded``)
@@ -1783,7 +1805,7 @@ class SyncEngine:
         """
         Takes local file events within and cleans them up so that there is only a single
         event per path. Collapses moved and deleted events of folders with those of their
-        children.
+        children. Called by :meth:`wait_for_local_changes`.
 
         :param events: Iterable of :class:`watchdog.FileSystemEvent`.
         :returns: List of :class:`watchdog.FileSystemEvent`.
@@ -1975,7 +1997,7 @@ class SyncEngine:
         Checks for other items in the same directory with same name but a different
         case. Renames items if necessary. Only needed for case sensitive file systems.
 
-        :param event: Sync item for local created or moved event.
+        :param event: SyncEvent for local created or moved event.
         :returns: Whether a case conflict was detected and handled.
         """
 
@@ -2012,7 +2034,7 @@ class SyncEngine:
         Checks for items in the local directory with same path as an item which is
         excluded by selective sync. Renames items if necessary.
 
-        :param event: Sync item for local created or moved event.
+        :param event: SyncEvent for local created or moved event.
         :returns: Whether a selective sync conflict was detected and handled.
         """
 
@@ -2621,9 +2643,9 @@ class SyncEngine:
 
     def notify_user(self, sync_events: List[SyncEvent]) -> None:
         """
-        Sends system notification for file changes.
+        Shows a desktop notification for the given file changes.
 
-        :param sync_events: List of sync items from download sync.
+        :param sync_events: List of SyncEvents from download sync.
         """
 
         callback: Optional[Callable]
@@ -3489,7 +3511,7 @@ class SyncMonitor:
 
     @property
     def history(self) -> List[SyncEvent]:
-        """Returns a list all past sync events."""
+        """Returns a list all past SyncEvents."""
         return self.sync.history
 
     def start(self) -> None:
@@ -3634,7 +3656,7 @@ class SyncMonitor:
 
         now = time.time()
         time_since_startup = now - self._startup_time
-        time_since_last_sync = now - self.sync.last_sync
+        time_since_last_sync = now - self.sync.last_change
 
         return min(time_since_startup, time_since_last_sync)
 
