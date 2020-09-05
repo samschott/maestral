@@ -1978,19 +1978,15 @@ class SyncEngine:
                 or self.is_excluded_by_user(dbx_src_path)
                 or self.is_excluded_by_user(dbx_dest_path)):
             return True
-        else:
-            return self._should_split_mignore(event)
 
-    def _should_split_mignore(self, event: Union[FileMovedEvent, DirMovedEvent]):
-
-        if len(self.mignore_rules.patterns) == 0:
+        elif len(self.mignore_rules.patterns) == 0:
             return False
+        else:
+            dbx_src_path = self.to_dbx_path(event.src_path)
+            dbx_dest_path = self.to_dbx_path(event.dest_path)
 
-        dbx_src_path = self.to_dbx_path(event.src_path)
-        dbx_dest_path = self.to_dbx_path(event.dest_path)
-
-        return (self._is_mignore_path(dbx_src_path, event.is_directory)
-                or self._is_mignore_path(dbx_dest_path, event.is_directory))
+            return (self._is_mignore_path(dbx_src_path, event.is_directory)
+                    or self._is_mignore_path(dbx_dest_path, event.is_directory))
 
     def _handle_case_conflict(self, event: SyncEvent) -> bool:
         """
