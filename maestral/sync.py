@@ -384,9 +384,9 @@ class SyncEvent(Base):  # type: ignore
     :attr:`local_path` will depend on the current path of the local Dropbox folder. They
     may therefore become invalid after sync sessions.
 
-    The convenience methods :meth:`SyncEngine.sync_event_from_dbx_metadata` and
-    :meth:`SyncEngine.sync_event_from_file_system_event` should be used to properly
-    construct a SyncEvent from Dropbox Metadata or a local FileSystemEvent, respectively.
+    The convenience methods :meth:`from_dbx_metadata` and :meth:`from_file_system_event`
+    should be used to properly construct a SyncEvent from Dropbox Metadata or a local
+    FileSystemEvent, respectively.
 
     :param direction: Direction of the sync: upload or download.
     :param item_type: The item type: file or folder.
@@ -500,16 +500,162 @@ class SyncEvent(Base):  # type: ignore
         return f"<{self.__class__.__name__}(direction={self.direction.name}, " \
                f"change_type={self.change_type.name}, dbx_path='{self.dbx_path}')>"
 
+    @classmethod
+    def from_dbx_metadata(cls, md: Metadata, sync_engine: 'SyncEngine') -> 'SyncEvent':
+        """
+        Initializes a SyncEvent from the given Dropbox metadata.
+
+        :param md: Dropbox Metadata.
+        :param sync_engine: SyncEngine instance.
+        :returns: An instance of this class with attributes populated from the given
+            Dropbox Metadata.
+        """
+        if isinstance(md, DeletedMetadata):
+            # there is currently no API call to determine who deleted a file or folder
+            change_type = ChangeType.Removed
+            change_time = None
+            size = 0
+            rev = None
+            content_hash = None
+            dbx_id = None
+
+            try:
+                old_md = sync_engine.client.list_revisions(md.path_lower, limit=1).entries[0]
+                item_type = ItemType.File
+                if not old_md.sharing_info:
+                    # file is not in a shared folder, therefore
+                    # the current user must have deleted it
+                    change_dbid = sync_engine._conf.get('account', 'account_id')
+                else:
+                    # we cannot determine who deleted the item
+                    change_dbid = None
+            except IsAFolderError:
+                item_type = ItemType.Folder
+                change_dbid = None
+
+        elif isinstance(md, FolderMetadata):
+            # there is currently no API call to determine who added a folder
+            change_type = ChangeType.Added
+            item_type = ItemType.Folder
+            size = 0
+            rev = 'folder'
+            content_hash = 'folder'
+            dbx_id = md.id
+            change_time = None
+            change_dbid = None
+
+        elif isinstance(md, FileMetadata):
+            item_type = ItemType.File
+            rev = md.rev
+            content_hash = md.content_hash
+            dbx_id = md.id
+            size = md.size
+            change_time = md.client_modified.replace(tzinfo=timezone.utc).timestamp()
+            if sync_engine.get_local_rev(md.path_lower):
+                change_type = ChangeType.Modified
+            else:
+                change_type = ChangeType.Added
+            if md.sharing_info:
+                change_dbid = md.sharing_info.modified_by
+            else:
+                # file is not a shared folder, therefore
+                # the current user must have added or modified it
+                change_dbid = sync_engine._dbid
+        else:
+            raise RuntimeError(f'Cannot convert {md} to SyncEvent')
+
+        dbx_path_cased = sync_engine.correct_case(md.path_display)
+
+        return cls(
+            direction=SyncDirection.Down,
+            item_type=item_type,
+            sync_time=time.time(),
+            dbx_path=dbx_path_cased,
+            dbx_id=dbx_id,
+            local_path=sync_engine.to_local_path_from_cased(dbx_path_cased),
+            rev=rev,
+            content_hash=content_hash,
+            change_type=change_type,
+            change_time=change_time,
+            change_dbid=change_dbid,
+            status=SyncStatus.Queued,
+            size=size,
+            completed=0,
+        )
+
+    @classmethod
+    def from_file_system_event(cls, event: FileSystemEvent,
+                               sync_engine: 'SyncEngine') -> 'SyncEvent':
+        """
+        Initializes a SyncEvent from the given local file system event.
+
+        :param event: Local file system event.
+        :param sync_engine: SyncEngine instance.
+        :returns: An instance of this class with attributes populated from the given
+            SyncEvent.
+        """
+
+        change_dbid = sync_engine._conf.get('account', 'account_id')
+        change_user_name = sync_engine._state.get('account', 'display_name')
+        to_path = get_dest_path(event)
+        from_path = None
+
+        if event.event_type == EVENT_TYPE_CREATED:
+            change_type = ChangeType.Added
+        elif event.event_type == EVENT_TYPE_DELETED:
+            change_type = ChangeType.Removed
+        elif event.event_type == EVENT_TYPE_MOVED:
+            change_type = ChangeType.Moved
+            from_path = event.src_path
+        elif event.event_type == EVENT_TYPE_MODIFIED:
+            change_type = ChangeType.Modified
+        else:
+            raise RuntimeError(f'Cannot convert {event} to SyncEvent')
+
+        change_time: Optional[float]
+        stat: Optional[os.stat_result]
+
+        try:
+            stat = os.stat(to_path)
+        except OSError:
+            stat = None
+
+        if event.is_directory:
+            item_type = ItemType.Folder
+            size = 0
+            try:
+                change_time = stat.st_birthtime  # type: ignore
+            except AttributeError:
+                change_time = None
+        else:
+            item_type = ItemType.File
+            change_time = stat.st_ctime if stat else None
+            size = stat.st_size if stat else 0
+
+        return cls(
+            direction=SyncDirection.Up,
+            item_type=item_type,
+            sync_time=time.time(),
+            dbx_path=sync_engine.to_dbx_path(to_path),
+            local_path=to_path,
+            dbx_path_from=sync_engine.to_dbx_path(from_path) if from_path else None,
+            local_path_from=from_path,
+            content_hash=sync_engine.get_local_hash(to_path),
+            change_type=change_type,
+            change_time=change_time,
+            change_dbid=change_dbid,
+            change_user_name=change_user_name,
+            status=SyncStatus.Queued,
+            size=size,
+            completed=0,
+        )
+
 
 class IndexEntry(Base):  # type: ignore
     """
     Represents an entry in our local sync index. All arguments are used to construct
     instance attributes. All arguments apart from ```content_hash`` and
-    ``content_hash_ctime`` are required..
-
-    The convenience methods :meth:`SyncEngine.update_index_from_md` and
-    :meth:`SyncEngine.update_index_from_sync_event` must be used to construct a IndexEntry
-    from Dropbox Metadata or a local SyncEvent, respectively, and add it to the index.
+    ``content_hash_ctime`` are required.
 
     :param dbx_path_cased: Dropbox path of the item, correctly cased.
     :param dbx_path_lower: Dropbox path of the item in lower case. This acts as a primary
@@ -915,7 +1061,8 @@ class SyncEngine:
         with self._db_lock:
             return self._index_cache.get(dbx_path.lower())
 
-    def get_local_hash(self, local_path: str, chunk_size: int = 1024) -> Optional[str]:
+    @staticmethod
+    def get_local_hash(local_path: str, chunk_size: int = 1024) -> Optional[str]:
         """
         Computes content hash of a local file.
 
@@ -999,7 +1146,7 @@ class SyncEngine:
 
             self._db_session.commit()
 
-    def update_index_from_md(self, md: Metadata) -> None:
+    def update_index_from_dbx_metadata(self, md: Metadata) -> None:
         """
         Updates the local index from Dropbox metadata.
 
@@ -1437,147 +1584,6 @@ class SyncEngine:
             elif direction == SyncDirection.Up:
                 self.upload_errors.add(err.dbx_path.lower())
 
-    def sync_event_from_dbx_metadata(self, md: Metadata) -> SyncEvent:
-        """
-        Initializes a SyncEvent from the given Dropbox metadata.
-
-        :param md: Dropbox metadata.
-        """
-        if isinstance(md, DeletedMetadata):
-            # there is currently no API call to determine who deleted a file or folder
-            change_type = ChangeType.Removed
-            change_time = None
-            size = 0
-            rev = None
-            content_hash = None
-            dbx_id = None
-
-            try:
-                old_md = self.client.list_revisions(md.path_lower, limit=1).entries[0]
-                item_type = ItemType.File
-                if not old_md.sharing_info:
-                    # file is not in a shared folder, therefore
-                    # the current user must have deleted it
-                    change_dbid = self._conf.get('account', 'account_id')
-                else:
-                    # we cannot determine who deleted the item
-                    change_dbid = None
-            except IsAFolderError:
-                item_type = ItemType.Folder
-                change_dbid = None
-
-        elif isinstance(md, FolderMetadata):
-            # there is currently no API call to determine who added a folder
-            change_type = ChangeType.Added
-            item_type = ItemType.Folder
-            size = 0
-            rev = 'folder'
-            content_hash = 'folder'
-            dbx_id = md.id
-            change_time = None
-            change_dbid = None
-
-        elif isinstance(md, FileMetadata):
-            item_type = ItemType.File
-            rev = md.rev
-            content_hash = md.content_hash
-            dbx_id = md.id
-            size = md.size
-            change_time = md.client_modified.replace(tzinfo=timezone.utc).timestamp()
-            if self.get_local_rev(md.path_lower):
-                change_type = ChangeType.Modified
-            else:
-                change_type = ChangeType.Added
-            if md.sharing_info:
-                change_dbid = md.sharing_info.modified_by
-            else:
-                # file is not a shared folder, therefore
-                # the current user must have added or modified it
-                change_dbid = self._dbid
-        else:
-            raise RuntimeError(f'Cannot convert {md} to SyncEvent')
-
-        dbx_path_cased = self.correct_case(md.path_display)
-
-        return SyncEvent(
-            direction=SyncDirection.Down,
-            item_type=item_type,
-            sync_time=time.time(),
-            dbx_path=dbx_path_cased,
-            dbx_id=dbx_id,
-            local_path=self.to_local_path_from_cased(dbx_path_cased),
-            rev=rev,
-            content_hash=content_hash,
-            change_type=change_type,
-            change_time=change_time,
-            change_dbid=change_dbid,
-            status=SyncStatus.Queued,
-            size=size,
-            completed=0,
-        )
-
-    def sync_event_from_file_system_event(self, event: FileSystemEvent) -> SyncEvent:
-        """
-        Initializes a SyncEvent from the given local file system event.
-
-        :param event: Local file system event.
-        """
-
-        change_dbid = self._conf.get('account', 'account_id')
-        change_user_name = self._state.get('account', 'display_name')
-        to_path = get_dest_path(event)
-        from_path = None
-
-        if event.event_type == EVENT_TYPE_CREATED:
-            change_type = ChangeType.Added
-        elif event.event_type == EVENT_TYPE_DELETED:
-            change_type = ChangeType.Removed
-        elif event.event_type == EVENT_TYPE_MOVED:
-            change_type = ChangeType.Moved
-            from_path = event.src_path
-        elif event.event_type == EVENT_TYPE_MODIFIED:
-            change_type = ChangeType.Modified
-        else:
-            raise RuntimeError(f'Cannot convert {event} to SyncEvent')
-
-        change_time: Optional[float]
-        stat: Optional[os.stat_result]
-
-        try:
-            stat = os.stat(to_path)
-        except OSError:
-            stat = None
-
-        if event.is_directory:
-            item_type = ItemType.Folder
-            size = 0
-            try:
-                change_time = stat.st_birthtime  # type: ignore
-            except AttributeError:
-                change_time = None
-        else:
-            item_type = ItemType.File
-            change_time = stat.st_ctime if stat else None
-            size = stat.st_size if stat else 0
-
-        return SyncEvent(
-            direction=SyncDirection.Up,
-            item_type=item_type,
-            sync_time=time.time(),
-            dbx_path=self.to_dbx_path(to_path),
-            local_path=to_path,
-            dbx_path_from=self.to_dbx_path(from_path) if from_path else None,
-            local_path_from=from_path,
-            content_hash=self.get_local_hash(to_path),
-            change_type=change_type,
-            change_time=change_time,
-            change_dbid=change_dbid,
-            change_user_name=change_user_name,
-            status=SyncStatus.Queued,
-            size=size,
-            completed=0,
-        )
-
     # ==== Upload sync ===================================================================
 
     def upload_local_changes_while_inactive(self) -> None:
@@ -1594,7 +1600,7 @@ class SyncEngine:
                 events, local_cursor = self._get_local_changes_while_inactive()
                 logger.debug('Retrieved local changes:\n%s', pprint.pformat(events))
                 events = self._clean_local_events(events)
-                sync_events = [self.sync_event_from_file_system_event(e) for e in events]
+                sync_events = [SyncEvent.from_file_system_event(e, self) for e in events]
             except FileNotFoundError:
                 self.ensure_dropbox_folder_present()
                 return
@@ -1700,7 +1706,7 @@ class SyncEngine:
         logger.debug('Retrieved local file events:\n%s', pprint.pformat(events))
 
         events = self._clean_local_events(events)
-        sync_events = [self.sync_event_from_file_system_event(e) for e in events]
+        sync_events = [SyncEvent.from_file_system_event(e, self) for e in events]
 
         return sync_events, local_cursor
 
@@ -2163,7 +2169,7 @@ class SyncEngine:
             else:
                 new_event = FileCreatedEvent(event.local_path)
 
-            new_sync_event = self.sync_event_from_file_system_event(new_event)
+            new_sync_event = SyncEvent.from_file_system_event(new_event, self)
 
             return self._on_local_created(new_sync_event)
 
@@ -2192,16 +2198,16 @@ class SyncEngine:
             self._update_index_recursive(md_to_new)
             logger.debug('Moved "%s" to "%s" on Dropbox', dbx_path_from, event.dbx_path)
 
-        return self.sync_event_from_dbx_metadata(md_to_new)
+        return SyncEvent.from_dbx_metadata(md_to_new, self)
 
     def _update_index_recursive(self, md):
 
-        self.update_index_from_md(md)
+        self.update_index_from_dbx_metadata(md)
 
         if isinstance(md, FolderMetadata):
             result = self.client.list_folder(md.path_lower, recursive=True)
             for md in result.entries:
-                self.update_index_from_md(md)
+                self.update_index_from_dbx_metadata(md)
 
     def _on_local_created(self, event: SyncEvent) -> Optional[SyncEvent]:
         """
@@ -2228,7 +2234,7 @@ class SyncEngine:
                 try:
                     md = self.client.get_metadata(event.dbx_path)
                     if isinstance(md, FolderMetadata):
-                        self.update_index_from_md(md)
+                        self.update_index_from_dbx_metadata(md)
                 except NotFoundError:
                     pass
 
@@ -2242,7 +2248,7 @@ class SyncEngine:
             if isinstance(md_old, FileMetadata):
                 if event.content_hash == md_old.content_hash:
                     # file hashes are identical, do not upload
-                    self.update_index_from_md(md_old)
+                    self.update_index_from_dbx_metadata(md_old)
                     return None
 
             local_entry = self.get_index_entry(event.dbx_path)
@@ -2287,10 +2293,10 @@ class SyncEngine:
                          event.dbx_path, md_new.path_lower)
         else:
             # everything went well, update index
-            self.update_index_from_md(md_new)
+            self.update_index_from_dbx_metadata(md_new)
             logger.debug('Created "%s" on Dropbox', event.dbx_path)
 
-        return self.sync_event_from_dbx_metadata(md_new)
+        return SyncEvent.from_dbx_metadata(md_new, self)
 
     def _on_local_modified(self, event: SyncEvent) -> Optional[SyncEvent]:
         """
@@ -2312,7 +2318,7 @@ class SyncEngine:
         if isinstance(md_old, FileMetadata):
             if event.content_hash == md_old.content_hash:
                 # file hashes are identical, do not upload
-                self.update_index_from_md(md_old)
+                self.update_index_from_dbx_metadata(md_old)
                 logger.debug('Modification of "%s" detected but file content is '
                              'the same as on Dropbox', event.dbx_path)
                 return None
@@ -2355,10 +2361,10 @@ class SyncEngine:
                          event.dbx_path, md_new.path_lower)
         else:
             # everything went well, save new revs
-            self.update_index_from_md(md_new)
+            self.update_index_from_dbx_metadata(md_new)
             logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
 
-        return self.sync_event_from_dbx_metadata(md_new)
+        return SyncEvent.from_dbx_metadata(md_new, self)
 
     def _on_local_deleted(self, event: SyncEvent) -> Optional[SyncEvent]:
         """
@@ -2419,7 +2425,7 @@ class SyncEngine:
         self.remove_path_from_index(event.dbx_path)
 
         if md_deleted:
-            return self.sync_event_from_dbx_metadata(md_deleted)
+            return SyncEvent.from_dbx_metadata(md_deleted, self)
         else:
             return None
 
@@ -2469,7 +2475,7 @@ class SyncEngine:
 
             # convert metadata to sync_events
             root_result.entries.sort(key=lambda x: x.path_lower.count('/'))
-            sync_events = [self.sync_event_from_dbx_metadata(md) for md in root_result.entries]
+            sync_events = [SyncEvent.from_dbx_metadata(md, self) for md in root_result.entries]
 
             # download top-level folders / files first
             res = self.apply_remote_changes(sync_events, cursor=None)
@@ -2511,7 +2517,7 @@ class SyncEngine:
 
             self.pending_downloads.add(dbx_path.lower())
             md = self.client.get_metadata(dbx_path, include_deleted=True)
-            event = self.sync_event_from_dbx_metadata(md)
+            event = SyncEvent.from_dbx_metadata(md, self)
 
             if event.is_directory:
                 results = self.get_remote_folder(dbx_path)
@@ -2556,7 +2562,7 @@ class SyncEngine:
         clean_changes = self._clean_remote_changes(changes)
         logger.debug('Cleaned remote changes:\n%s', entries_to_str(clean_changes.entries))
 
-        sync_events = [self.sync_event_from_dbx_metadata(md) for md in changes.entries]
+        sync_events = [SyncEvent.from_dbx_metadata(md, self) for md in changes.entries]
         return sync_events, changes.cursor
 
     def apply_remote_changes(self, sync_events: List[SyncEvent],
@@ -2969,7 +2975,7 @@ class SyncEngine:
                 f'rev:{event.rev}', tmp_fname,
                 sync_event=event
             )
-            event = self.sync_event_from_dbx_metadata(md)
+            event = SyncEvent.from_dbx_metadata(md, self)
         except SyncError as err:
             # replace rev number with path
             err.dbx_path = event.dbx_path
