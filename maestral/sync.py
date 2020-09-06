@@ -3702,28 +3702,6 @@ class SyncMonitor:
         self.sync.sync_lock.acquire()
         self.sync.sync_lock.release()
 
-    def _threads_alive(self) -> bool:
-        """Returns ``True`` if all threads are alive, ``False`` otherwise."""
-
-        with self._lock:
-
-            try:
-                threads: Tuple[Thread, ...] = (
-                    self.local_observer_thread,
-                    self.upload_thread, self.download_thread,
-                    self.download_thread_added_folder,
-                    self.helper_thread,
-                    self.startup_thread
-                )
-            except AttributeError:
-                return False
-
-            base_threads_alive = (t.is_alive() for t in threads)
-            watchdog_emitters_alive = (e.is_alive() for e
-                                       in self.local_observer_thread.emitters)
-
-            return all(base_threads_alive) and all(watchdog_emitters_alive)
-
 
 # ========================================================================================
 # Helper functions
