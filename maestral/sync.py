@@ -26,6 +26,7 @@ import enum
 import pprint
 import socket
 from datetime import timezone
+from functools import wraps
 from typing import (
     Optional, Any, Set, List, Dict, Tuple, Union, Iterator, Callable, Type, cast
 )
@@ -315,14 +316,13 @@ class PersistentStateMutableSet(abc.MutableSet):
     :param option: Option name in state file.
     """
 
-    _lock = RLock()
-
     def __init__(self, config_name: str, section: str, option: str) -> None:
         super().__init__()
         self.config_name = config_name
         self.section = section
         self.option = option
         self._state = MaestralState(config_name)
+        self._lock = RLock()
 
     def __iter__(self) -> Iterator[Any]:
         with self._lock:
