@@ -3009,6 +3009,8 @@ class SyncEngine:
             else:
                 preserve_permissions = False
 
+            mtime = os.stat(tmp_fname).st_mtime
+
             exc = move(
                 tmp_fname,
                 local_path,
@@ -3020,6 +3022,7 @@ class SyncEngine:
                                        local_path=local_path)
 
         self.update_index_from_sync_event(event)
+        self.save_local_hash(event.local_path, event.content_hash, mtime)
 
         logger.debug('Created local file "%s"', event.dbx_path)
 
