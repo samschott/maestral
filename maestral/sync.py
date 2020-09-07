@@ -682,7 +682,6 @@ class IndexEntry(Base):  # type: ignore
     last_sync = Column(Float)
     rev = Column(String, nullable=False)
     content_hash = Column(String)
-    content_hash_ctime = Column(Float)
 
     @property
     def is_file(self) -> bool:
@@ -1129,6 +1128,7 @@ class SyncEngine:
                     entry.item_type = event.item_type
                     entry.last_sync = self._get_ctime(event.local_path)
                     entry.rev = event.rev
+                    entry.content_hash = event.content_hash
 
                 else:
                     # create new entry
@@ -1139,6 +1139,7 @@ class SyncEngine:
                         item_type=event.item_type,
                         last_sync=self._get_ctime(event.local_path),
                         rev=event.rev,
+                        content_hash=event.content_hash,
                     )
 
                     self._db_session.add(entry)
@@ -1162,9 +1163,11 @@ class SyncEngine:
 
                 if isinstance(md, FileMetadata):
                     rev = md.rev
+                    hash_str = md.content_hash
                     item_type = ItemType.File
                 else:
                     rev = 'folder'
+                    hash_str = 'folder'
                     item_type = ItemType.Folder
 
                 # construct correct display path from ancestors
@@ -1178,6 +1181,7 @@ class SyncEngine:
                     entry.item_type = item_type
                     entry.last_sync = None
                     entry.rev = rev
+                    entry.content_hash = hash_str
 
                 else:
                     entry = IndexEntry(
@@ -1187,6 +1191,7 @@ class SyncEngine:
                         item_type=item_type,
                         last_sync=None,
                         rev=rev,
+                        content_hash=hash_str,
                     )
 
                     self._db_session.add(entry)
