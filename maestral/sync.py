@@ -631,6 +631,11 @@ class SyncEvent(Base):  # type: ignore
             change_time = stat.st_ctime if stat else None
             size = stat.st_size if stat else 0
 
+        # Note: We get the content hash here instead of later, even though the calculation
+        # may be slow and ``from_file_system_event`` may be called serially and not from
+        # a thread pool. This is because hashing is CPU bound and parallelization would
+        # cause large multi-core CPU usage (or result in throttling of our thread-pool).
+
         return cls(
             direction=SyncDirection.Up,
             item_type=item_type,
