@@ -4,8 +4,8 @@
 
 (c) Sam Schott; This work is licensed under the MIT licence.
 
-This module defines base classes for desktop notifications.
-
+This module defines base classes for desktop notifications. All platform implementations
+must inherit from :class:`DesktopNotifierBase`.
 """
 
 # system imports
@@ -44,7 +44,7 @@ class Notification:
         to call when the respective button is clicked. This is ignored by some
         implementations.
 
-    :attr identifier: An identifier which gets assigned to the notification after it is
+    :ivar identifier: An identifier which gets assigned to the notification after it is
         sent. This may be a str or int, depending on the type of identifier used by the
         platform.
     """

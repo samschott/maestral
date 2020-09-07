@@ -9,12 +9,6 @@ depending on the platform. A single :class:`DesktopNotifier` instance is created
 all sync daemons and a :class:`MaestralDesktopNotifier` instance is created for each
 daemon individually. Notification settings such as as snoozing and levels can be modified
 through :class:`MaestralDesktopNotifier`.
-
-:constant int NONE: No desktop notifications.
-:constant int ERROR: Notifications on errors.
-:constant int SYNCISSUE: Notifications on sync issues.
-:constant int FILECHANGE: Notifications on file changes.
-
 """
 
 # system imports
@@ -101,6 +95,11 @@ class MaestralDesktopNotifier(logging.Handler):
     Can be used as a standalone notifier or as a logging handler. When used as a logging
     handler, the log level should be set with ``setLevel``. The ``notify_level`` will be
     applied in addition to the log level.
+
+    :cvar int NONE: Notification level for no desktop notifications.
+    :cvar int ERROR: Notification level for errors.
+    :cvar int SYNCISSUE: Notification level for sync issues.
+    :cvar int FILECHANGE: Notification level for file changes.
     """
 
     _instances: ClassVar[Dict[str, 'MaestralDesktopNotifier']] = dict()
