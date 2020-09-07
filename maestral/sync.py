@@ -66,11 +66,10 @@ from maestral.errors import (
     FileConflictError, FolderConflictError, IsAFolderError, InvalidDbidError
 )
 from maestral.client import DropboxClient, os_to_maestral_error, fswatch_to_maestral_error
-from maestral.utils.content_hasher import DropboxContentHasher
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.path import (
     generate_cc_name, cased_path_candidates, is_fs_case_sensitive,
-    move, delete, is_child, is_equal_or_child
+    move, delete, is_child, is_equal_or_child, content_hash
 )
 from maestral.utils.appdirs import get_data_path, get_home_dir
 
@@ -698,6 +697,23 @@ class IndexEntry(Base):  # type: ignore
                f"dbx_path='{self.dbx_path_cased}')>"
 
 
+class HashCacheEntry(Base):
+    """
+    An entry in our cache of content hashes.
+
+    :param local_path: The local path for which the hash is stored.
+    :param hash_str: The content hash. 'folder' for folders.
+    :param ctime: The ctime of the item just before the hash was computed. When the
+        current ctime is newer, the hash_str will need to be recalculated.
+    """
+
+    __tablename__ = 'hash_cache'
+
+    local_path = Column(String, nullable=False, primary_key=True)
+    hash_str = Column(String)
+    ctime = Column(Float)
+
+
 class SyncEngine:
     """
     Class that contains methods to sync local file events with Dropbox and vice versa.
@@ -1060,39 +1076,69 @@ class SyncEngine:
         with self._db_lock:
             return self._index_cache.get(dbx_path.lower())
 
-    @staticmethod
-    def get_local_hash(local_path: str, chunk_size: int = 1024) -> Optional[str]:
+    def get_local_hash(self, local_path: str) -> Optional[str]:
         """
         Computes content hash of a local file.
 
         :param local_path: Absolute path on local drive.
-        :param chunk_size: Size of chunks to hash in bites.
         :returns: Content hash to compare with Dropbox's content hash, or 'folder' if the
             path points to a directory. ``None`` if there is nothing at the path.
         """
 
-        hasher = DropboxContentHasher()
-
         try:
-            with open(local_path, 'rb') as f:
-                while True:
-                    chunk = f.read(chunk_size)
-                    if len(chunk) == 0:
-                        break
-                    hasher.update(chunk)
-
-            return str(hasher.hexdigest())
-        except IsADirectoryError:
-            return 'folder'
+            stat = os.stat(local_path)
         except FileNotFoundError:
-            return None
-        except NotADirectoryError:
-            # a parent directory in the path refers to a file instead of a folder
+            # remove any existing cache entries for path
+            with self._db_lock:
+                cache_entry = self._db_session.query(HashCacheEntry).get(local_path)
+                if cache_entry:
+                    self._db_session.delete(cache_entry)
             return None
         except OSError as err:
             raise os_to_maestral_error(err, local_path=local_path)
-        finally:
-            del hasher
+
+        if S_ISDIR(stat.st_mode):
+            # take shortcut: return 'folder'
+            return 'folder'
+
+        ctime = stat.st_ctime
+
+        with self._db_lock:
+            # check cache for an up-to-date content hash and return if it exists
+            cache_entry = self._db_session.query(HashCacheEntry).get(local_path)
+
+            if cache_entry and cache_entry.ctime == ctime:
+                return cache_entry.hash_str
+
+        try:
+            hash_str, ctime = content_hash(local_path)
+        except OSError as err:
+            raise os_to_maestral_error(err, local_path=local_path)
+
+        with self._db_lock:
+            # store hash in cache
+            if cache_entry:
+                cache_entry.hash_str = hash_str
+                cache_entry.ctime = ctime
+
+            else:
+                cache_entry = HashCacheEntry(
+                    local_path=local_path,
+                    hash_str=hash_str,
+                    ctime=ctime
+                )
+                self._db_session.add(cache_entry)
+
+            self._db_session.commit()
+
+        return hash_str
+
+    def clear_hash_cache(self) -> None:
+        """Clears the sync history."""
+        with self._db_lock:
+            HashCacheEntry.metadata.drop_all(self._db_engine)
+            Base.metadata.create_all(self._db_engine)
+            self._db_session.expunge_all()
 
     def update_index_from_sync_event(self, event: SyncEvent) -> None:
         """

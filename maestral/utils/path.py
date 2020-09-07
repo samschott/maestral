@@ -13,7 +13,10 @@ import os
 import os.path as osp
 import shutil
 import itertools
-from typing import List, Optional
+from typing import List, Optional, Tuple
+
+# local imports
+from .content_hasher import DropboxContentHasher
 
 
 def _path_components(path: str) -> List[str]:
@@ -335,3 +338,41 @@ def move(src_path: str, dest_path: str, raise_error: bool = False,
         raise err
     else:
         return err
+
+
+def content_hash(local_path: str, chunk_size: int = 1024) \
+        -> Tuple[Optional[str], Optional[float]]:
+    """
+    Computes content hash of a local file.
+
+    :param local_path: Absolute path on local drive.
+    :param chunk_size: Size of chunks to hash in bites.
+    :returns: Content hash to compare with Dropbox's content hash, or 'folder' if the
+        path points to a directory. ``None`` if there is nothing at the path.
+    """
+
+    hasher = DropboxContentHasher()
+
+    try:
+        ctime = os.stat(local_path).st_ctime
+
+        try:
+            with open(local_path, 'rb') as f:
+                while True:
+                    chunk = f.read(chunk_size)
+                    if len(chunk) == 0:
+                        break
+                    hasher.update(chunk)
+
+        except IsADirectoryError:
+            return 'folder', ctime
+        else:
+            return str(hasher.hexdigest()), ctime
+
+    except FileNotFoundError:
+        return None, None
+    except NotADirectoryError:
+        # a parent directory in the path refers to a file instead of a folder
+        return None, None
+    finally:
+        del hasher
