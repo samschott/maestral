@@ -28,7 +28,7 @@ import socket
 from datetime import timezone
 from functools import wraps
 from typing import (
-    Optional, Any, Set, List, Dict, Tuple, Union, Iterator, Callable, Type, cast
+    Optional, Any, Set, List, Dict, Tuple, Union, Iterator, Callable, Type, cast, TypeVar
 )
 from types import TracebackType
 
@@ -82,7 +82,7 @@ Base = declarative_base()
 Session = sessionmaker(expire_on_commit=False)
 
 ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
-_FT = Callable[..., Any]
+FT = TypeVar('FT', bound=Callable[..., Any])
 
 
 # ========================================================================================
@@ -3508,14 +3508,14 @@ class SyncMonitor:
 
         self._startup_time = -1.0
 
-    def _with_lock(fn: Callable) -> Callable:
+    def _with_lock(fn: FT) -> FT:
 
         @wraps(fn)
         def wrapper(self, *args, **kwargs):
             with self._lock:
                 return fn(self, *args, **kwargs)
 
-        return wrapper
+        return cast(FT, wrapper)
 
     @property
     def reindex_interval(self) -> float:
