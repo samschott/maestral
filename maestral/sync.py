@@ -2991,10 +2991,15 @@ class SyncEngine:
                                    FileMovedEvent(tmp_fname, local_path)):
             old_entry = self.get_index_entry(event.dbx_path)
 
+            if old_entry and event.dbx_id == old_entry.dbx_id:
+                preserve_permissions = True
+            else:
+                preserve_permissions = False
+
             exc = move(
                 tmp_fname,
                 local_path,
-                preserve_dest_permissions=event.dbx_id == old_entry.dbx_id
+                preserve_dest_permissions=preserve_permissions
             )
 
         if exc:
