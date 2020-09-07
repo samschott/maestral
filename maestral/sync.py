@@ -705,7 +705,7 @@ class HashCacheEntry(Base):
 
     :param local_path: The local path for which the hash is stored.
     :param hash_str: The content hash. 'folder' for folders.
-    :param ctime: The ctime of the item just before the hash was computed. When the
+    :param mtime: The mtime of the item just before the hash was computed. When the
         current ctime is newer, the hash_str will need to be recalculated.
     """
 
@@ -713,7 +713,7 @@ class HashCacheEntry(Base):
 
     local_path = Column(String, nullable=False, primary_key=True)
     hash_str = Column(String)
-    ctime = Column(Float)
+    mtime = Column(Float)
 
 
 class SyncEngine:
@@ -1034,37 +1034,50 @@ class SyncEngine:
             # take shortcut: return 'folder'
             return 'folder'
 
-        ctime = stat.st_ctime
+        mtime = stat.st_mtime
 
         with self._db_lock:
             # check cache for an up-to-date content hash and return if it exists
             cache_entry = self._db_session.query(HashCacheEntry).get(local_path)
 
-            if cache_entry and cache_entry.ctime == ctime:
+            if cache_entry and cache_entry.mtime == mtime:
                 return cache_entry.hash_str
 
         try:
-            hash_str, ctime = content_hash(local_path)
+            hash_str, mtime = content_hash(local_path)
         except OSError as err:
             raise os_to_maestral_error(err, local_path=local_path)
 
+        self.save_local_hash(local_path, hash_str, mtime)
+
+        return hash_str
+
+    def save_local_hash(self, local_path: str, hash_str: str, mtime: float) -> None:
+        """
+        Save the content hash for a file in our cache.
+
+        :param local_path: Absolute path on local drive.
+        :param hash_str: Hash string to save
+        :param mtime: Mtime of the file when the hash was computed.
+        """
+
         with self._db_lock:
-            # store hash in cache
+
+            cache_entry = self._db_session.query(HashCacheEntry).get(local_path)
+
             if cache_entry:
                 cache_entry.hash_str = hash_str
-                cache_entry.ctime = ctime
+                cache_entry.mtime = mtime
 
             else:
                 cache_entry = HashCacheEntry(
                     local_path=local_path,
                     hash_str=hash_str,
-                    ctime=ctime
+                    mtime=mtime
                 )
                 self._db_session.add(cache_entry)
 
             self._db_session.commit()
-
-        return hash_str
 
     def clear_hash_cache(self) -> None:
         """Clears the sync history."""

@@ -347,14 +347,14 @@ def content_hash(local_path: str, chunk_size: int = 1024) \
 
     :param local_path: Absolute path on local drive.
     :param chunk_size: Size of chunks to hash in bites.
-    :returns: Content hash to compare with Dropbox's content hash, or 'folder' if the
-        path points to a directory. ``None`` if there is nothing at the path.
+    :returns: Content hash to compare with Dropbox's content hash and mtime just before
+        the hash was computed.
     """
 
     hasher = DropboxContentHasher()
 
     try:
-        ctime = os.stat(local_path).st_ctime
+        mtime = os.stat(local_path).st_mtime
 
         try:
             with open(local_path, 'rb') as f:
@@ -365,9 +365,9 @@ def content_hash(local_path: str, chunk_size: int = 1024) \
                     hasher.update(chunk)
 
         except IsADirectoryError:
-            return 'folder', ctime
+            return 'folder', mtime
         else:
-            return str(hasher.hexdigest()), ctime
+            return str(hasher.hexdigest()), mtime
 
     except FileNotFoundError:
         return None, None
