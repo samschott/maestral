@@ -19,7 +19,6 @@ import logging
 import textwrap
 import platform
 import time
-import argparse
 from typing import Optional, List, Dict, Iterable, Callable, Union, TypeVar, cast
 
 # external imports
@@ -409,19 +408,6 @@ def _validate_config_name(ctx: click.Context, param: click.Parameter, value: str
         raise click.ClickException('Configuration name may not contain any whitespace')
 
 
-def _run_daemon(ctx: click.Context, param: click.Parameter, value: bool) -> None:
-
-    if value is True:
-
-        parser = argparse.ArgumentParser()
-        parser.add_argument('-c', '--config-name', help='Configuration name',
-                            default='maestral')
-        parsed_args, _ = parser.parse_known_args()
-
-        start_maestral_daemon(parsed_args.config_name)
-        ctx.exit()
-
-
 existing_config_option = click.option(
     '-c', '--config-name',
     default='maestral',
@@ -443,7 +429,7 @@ config_option = click.option(
 )
 
 
-CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+CONTEXT_SETTINGS = {'help_option_names': ['-h', '--help']}
 
 
 @click.group(cls=SpecialHelpOrder, context_settings=CONTEXT_SETTINGS)
