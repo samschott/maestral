@@ -728,6 +728,7 @@ class SyncEngine:
     sync_errors: Set[SyncError]
     syncing: List[SyncEvent]
     _case_conversion_cache: Dict[str, str]
+    _index_cache: Optional[Dict[str, IndexEntry]]
 
     _max_history = 30
     _num_threads = min(32, _cpu_count * 3)
@@ -798,7 +799,7 @@ class SyncEngine:
 
         # caches
         self._case_conversion_cache = dict()
-        self._index_cache = {e.dbx_path_lower: e for e in self.get_index()}
+        self._index_cache = None
 
         # clean our file cache
         self.clean_cache_dir()
@@ -925,12 +926,14 @@ class SyncEngine:
         """The time stamp of the last file change or 0.0 if there are no file changes in
         our history."""
 
-        res = self._db_session.query(func.max(IndexEntry.last_sync)).first()
+        with self._db_lock:
 
-        if len(res) > 0 and res[0]:
-            return res[0]
-        else:
-            return 0.0
+            self._load_index_cache()
+
+            try:
+                return max(e.last_sync for e in self._index_cache.values())
+            except ValueError:
+                return 0.0
 
     @property
     def last_reindex(self) -> float:
@@ -954,6 +957,13 @@ class SyncEngine:
 
     # ==== index management ==============================================================
 
+    def _load_index_cache(self):
+
+        if not self._index_cache:
+            with self._db_lock:
+                entries = self._db_session.query(IndexEntry).all()
+                self._index_cache = {e.dbx_path_lower: e for e in entries}
+
     def get_index(self) -> List[IndexEntry]:
         """
         Returns a copy of the revision index containing the revision numbers for all
@@ -962,7 +972,8 @@ class SyncEngine:
         :returns: Copy of revision index.
         """
         with self._db_lock:
-            return self._db_session.query(IndexEntry).all()
+            self._load_index_cache()
+            return list(self._index_cache.values())
 
     def get_local_rev(self, dbx_path: str) -> Optional[str]:
         """
@@ -974,6 +985,7 @@ class SyncEngine:
         """
 
         with self._db_lock:
+            self._load_index_cache()
             entry = self._index_cache.get(dbx_path.lower())
 
         if entry:
@@ -990,6 +1002,7 @@ class SyncEngine:
         """
 
         with self._db_lock:
+            self._load_index_cache()
             entry = self._index_cache.get(dbx_path.lower())
 
         if entry:
@@ -1008,6 +1021,7 @@ class SyncEngine:
         """
 
         with self._db_lock:
+            self._load_index_cache()
             return self._index_cache.get(dbx_path.lower())
 
     def get_local_hash(self, local_path: str) -> Optional[str]:
@@ -1101,6 +1115,8 @@ class SyncEngine:
 
         with self._db_lock:
 
+            self._load_index_cache()
+
             # remove any entries for deleted or moved items
 
             if event.change_type is ChangeType.Removed:
@@ -1148,6 +1164,8 @@ class SyncEngine:
         """
 
         with self._db_lock:
+
+            self._load_index_cache()
 
             if isinstance(md, DeletedMetadata):
                 self.remove_path_from_index(md.path_lower)
@@ -1201,6 +1219,8 @@ class SyncEngine:
 
         with self._db_lock:
 
+            self._load_index_cache()
+
             dbx_path_lower = dbx_path.lower()
 
             for entry in list(self._index_cache.values()):
@@ -1214,6 +1234,9 @@ class SyncEngine:
     def clear_index(self) -> None:
         """Clears the revision index."""
         with self._db_lock:
+
+            self._load_index_cache()
+
             IndexEntry.metadata.drop_all(self._db_engine)
             Base.metadata.create_all(self._db_engine)
             self._db_session.expunge_all()
@@ -3549,7 +3572,7 @@ class SyncMonitor:
 
         self.running = Event()  # create new event to let old threads shut down
 
-        self.local_observer_thread = Observer(timeout=0.1)
+        self.local_observer_thread = Observer(timeout=0.5)
         self.local_observer_thread.setName('maestral-fsobserver')
         self._watch = self.local_observer_thread.schedule(
             self.fs_event_handler, self.sync.dropbox_path, recursive=True
