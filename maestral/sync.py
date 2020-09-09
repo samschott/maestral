@@ -22,6 +22,7 @@ from contextlib import contextmanager
 import enum
 import pprint
 import socket
+import gc
 from datetime import timezone
 from functools import wraps
 from typing import (
@@ -3455,6 +3456,8 @@ def startup_worker(sync: SyncEngine, syncing: Event, running: Event, connected: 
                     syncing.set()
 
                 startup.clear()
+
+                gc.collect()
 
                 logger.info(IDLE)
 
