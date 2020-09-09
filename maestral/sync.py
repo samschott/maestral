@@ -32,7 +32,6 @@ from types import TracebackType
 
 # external imports
 import click
-from sqlalchemy import func
 from sqlalchemy.ext.declarative import declarative_base  # type: ignore
 from sqlalchemy.orm import sessionmaker  # type: ignore
 from sqlalchemy.sql import case  # type: ignore
