@@ -512,7 +512,7 @@ class SyncEvent(Base):  # type: ignore
             change_time = None
             size = 0
             rev = None
-            content_hash = None
+            hash_str = None
             dbx_id = None
 
             try:
@@ -535,7 +535,7 @@ class SyncEvent(Base):  # type: ignore
             item_type = ItemType.Folder
             size = 0
             rev = 'folder'
-            content_hash = 'folder'
+            hash_str = 'folder'
             dbx_id = md.id
             change_time = None
             change_dbid = None
@@ -543,7 +543,7 @@ class SyncEvent(Base):  # type: ignore
         elif isinstance(md, FileMetadata):
             item_type = ItemType.File
             rev = md.rev
-            content_hash = md.content_hash
+            hash_str = md.content_hash
             dbx_id = md.id
             size = md.size
             change_time = md.client_modified.replace(tzinfo=timezone.utc).timestamp()
@@ -570,7 +570,7 @@ class SyncEvent(Base):  # type: ignore
             dbx_id=dbx_id,
             local_path=sync_engine.to_local_path_from_cased(dbx_path_cased),
             rev=rev,
-            content_hash=content_hash,
+            content_hash=hash_str,
             change_type=change_type,
             change_time=change_time,
             change_dbid=change_dbid,
