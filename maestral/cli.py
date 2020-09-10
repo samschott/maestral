@@ -463,21 +463,26 @@ def log():
 def gui(config_name: str) -> None:
     """Runs Maestral with a GUI."""
 
-    import importlib.util
+    import pkg_resources
+
+    gui_entry_points = dict()
+    for entry_point in pkg_resources.iter_entry_points('maestral_gui'):
+        gui_entry_points[entry_point.name] = entry_point.load()
+
+    if len(gui_entry_points) == 0:
+        raise click.ClickException('No maestral GUI installed. Please run '
+                                   '\'pip3 install maestral[gui]\'.')
 
     if platform.system() == 'Darwin':
-        if not importlib.util.find_spec('maestral_cocoa'):
-            raise click.ClickException('No maestral GUI installed. Please run '
-                                       '\'pip3 install maestral[gui]\'.')
-
-        from maestral_cocoa.main import run  # type: ignore
-
+        default = 'maestral_cocoa'
     else:
-        if not importlib.util.find_spec('maestral_qt'):
-            raise click.ClickException('No maestral GUI installed. Please run '
-                                       '\'pip3 install maestral[gui]\'.')
+        default = 'maestral_qt'
 
-        from maestral_qt.main import run  # type: ignore
+    run = gui_entry_points.get(default)
+
+    if not run:
+        # the platform default gui is not available
+        run = next(iter(gui_entry_points.values()))
 
     run(config_name)
 
