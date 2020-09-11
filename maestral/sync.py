@@ -32,6 +32,7 @@ from types import TracebackType
 
 # external imports
 import click
+from sqlalchemy.sql import func
 from sqlalchemy.ext.declarative import declarative_base  # type: ignore
 from sqlalchemy.orm import sessionmaker  # type: ignore
 from sqlalchemy.sql import case  # type: ignore
@@ -591,7 +592,7 @@ class SyncEvent(Base):  # type: ignore
             SyncEvent.
         """
 
-        change_dbid = sync_engine._conf.get('account', 'account_id')
+        change_dbid = sync_engine._dbid
         change_user_name = sync_engine._state.get('account', 'display_name')
         to_path = get_dest_path(event)
         from_path = None
@@ -727,7 +728,6 @@ class SyncEngine:
     sync_errors: Set[SyncError]
     syncing: List[SyncEvent]
     _case_conversion_cache: Dict[str, str]
-    _index_cache: Optional[Dict[str, IndexEntry]]
 
     _max_history = 30
     _num_threads = min(32, _cpu_count * 3)
@@ -798,7 +798,6 @@ class SyncEngine:
 
         # caches
         self._case_conversion_cache = dict()
-        self._index_cache = None
 
         # clean our file cache
         self.clean_cache_dir()
@@ -927,11 +926,11 @@ class SyncEngine:
 
         with self._db_lock:
 
-            self._load_index_cache()
+            res = self._db_session.query(IndexEntry.last_sync).filter(func.max(IndexEntry.last_sync)).first()
 
-            try:
-                return max(e.last_sync for e in self._index_cache.values())
-            except ValueError:
+            if res:
+                return res[0]
+            else:
                 return 0.0
 
     @property
@@ -956,13 +955,6 @@ class SyncEngine:
 
     # ==== index management ==============================================================
 
-    def _load_index_cache(self):
-
-        if not self._index_cache:
-            with self._db_lock:
-                entries = self._db_session.query(IndexEntry).all()
-                self._index_cache = {e.dbx_path_lower: e for e in entries}
-
     def get_index(self) -> List[IndexEntry]:
         """
         Returns a copy of the revision index containing the revision numbers for all
@@ -971,8 +963,7 @@ class SyncEngine:
         :returns: Copy of revision index.
         """
         with self._db_lock:
-            self._load_index_cache()
-            return list(self._index_cache.values())
+            return self._db_session.query(IndexEntry).all()
 
     def get_local_rev(self, dbx_path: str) -> Optional[str]:
         """
@@ -984,11 +975,10 @@ class SyncEngine:
         """
 
         with self._db_lock:
-            self._load_index_cache()
-            entry = self._index_cache.get(dbx_path.lower())
+            res = self._db_session.query(IndexEntry.rev).filter(IndexEntry.dbx_path_lower == dbx_path.lower()).first()
 
-        if entry:
-            return entry.rev
+        if res:
+            return res[0]
         else:
             return None
 
@@ -1001,11 +991,10 @@ class SyncEngine:
         """
 
         with self._db_lock:
-            self._load_index_cache()
-            entry = self._index_cache.get(dbx_path.lower())
+            res = self._db_session.query(IndexEntry.last_sync).filter(IndexEntry.dbx_path_lower == dbx_path.lower()).first()
 
-        if entry:
-            last_sync = entry.last_sync or 0.0
+        if res:
+            last_sync = res[0] or 0.0
         else:
             last_sync = 0.0
 
@@ -1020,8 +1009,7 @@ class SyncEngine:
         """
 
         with self._db_lock:
-            self._load_index_cache()
-            return self._index_cache.get(dbx_path.lower())
+            return self._db_session.query(IndexEntry).get(dbx_path.lower())
 
     def get_local_hash(self, local_path: str) -> Optional[str]:
         """
@@ -1114,8 +1102,6 @@ class SyncEngine:
 
         with self._db_lock:
 
-            self._load_index_cache()
-
             # remove any entries for deleted or moved items
 
             if event.change_type is ChangeType.Removed:
@@ -1151,7 +1137,6 @@ class SyncEngine:
                     )
 
                     self._db_session.add(entry)
-                    self._index_cache[dbx_path_lower] = entry
 
             self._db_session.commit()
 
@@ -1163,8 +1148,6 @@ class SyncEngine:
         """
 
         with self._db_lock:
-
-            self._load_index_cache()
 
             if isinstance(md, DeletedMetadata):
                 self.remove_path_from_index(md.path_lower)
@@ -1205,7 +1188,6 @@ class SyncEngine:
                     )
 
                     self._db_session.add(entry)
-                    self._index_cache[md.path_lower] = entry
 
             self._db_session.commit()
 
@@ -1218,15 +1200,12 @@ class SyncEngine:
 
         with self._db_lock:
 
-            self._load_index_cache()
-
             dbx_path_lower = dbx_path.lower()
 
-            for entry in list(self._index_cache.values()):
+            for entry in self.get_index():
                 # remove children from index
                 if is_equal_or_child(entry.dbx_path_lower, dbx_path_lower):
                     self._db_session.delete(entry)
-                    del self._index_cache[entry.dbx_path_lower]
 
             self._db_session.commit()
 
@@ -1234,12 +1213,9 @@ class SyncEngine:
         """Clears the revision index."""
         with self._db_lock:
 
-            self._load_index_cache()
-
             IndexEntry.metadata.drop_all(self._db_engine)
             Base.metadata.create_all(self._db_engine)
             self._db_session.expunge_all()
-            self._index_cache.clear()
 
     # ==== mignore management ============================================================
 
