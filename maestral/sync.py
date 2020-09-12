@@ -59,7 +59,7 @@ from maestral.constants import (
     EXCLUDED_DIR_NAMES, MIGNORE_FILE, FILE_CACHE
 )
 from maestral.errors import (
-    SyncError, NoDropboxDirError, CacheDirError, PathError, NotFoundError,
+    SyncError, NoDropboxDirError, CacheDirError, PathError, NotFoundError, DropboxServerError,
     FileConflictError, FolderConflictError, IsAFolderError, InvalidDbidError
 )
 from maestral.client import DropboxClient, os_to_maestral_error, fswatch_to_maestral_error
@@ -3310,6 +3310,7 @@ def download_worker(sync: SyncEngine, syncing: Event,
                     logger.info(SYNCING)
 
                     changes, remote_cursor = sync.list_remote_changes(sync.remote_cursor)
+
                     downloaded = sync.apply_remote_changes(changes, remote_cursor)
                     sync.notify_user(downloaded)
 
@@ -3317,6 +3318,8 @@ def download_worker(sync: SyncEngine, syncing: Event,
 
                     sync.client.get_space_usage()
 
+        except DropboxServerError:
+            pass
         except ConnectionError:
             syncing.clear()
             connected.clear()
@@ -3356,7 +3359,8 @@ def download_worker_added_item(sync: SyncEngine, syncing: Event,
 
                 sync.get_remote_item(dbx_path)
                 logger.info(IDLE)
-
+        except DropboxServerError:
+            pass
         except ConnectionError:
             syncing.clear()
             connected.clear()
@@ -3398,6 +3402,8 @@ def upload_worker(sync: SyncEngine, syncing: Event,
                 if len(changes) > 0:
                     logger.info(IDLE)
 
+        except DropboxServerError:
+            pass
         except ConnectionError:
             syncing.clear()
             connected.clear()
@@ -3483,6 +3489,8 @@ def startup_worker(sync: SyncEngine, syncing: Event, running: Event, connected: 
 
                 logger.info(IDLE)
 
+        except DropboxServerError:
+            pass
         except ConnectionError:
             syncing.clear()
             connected.clear()

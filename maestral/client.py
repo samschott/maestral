@@ -991,9 +991,7 @@ def dropbox_to_maestral_error(exc: exceptions.DropboxException,
                         'or copy the files.')
                 err_cls = InsufficientSpaceError
             elif error.is_internal_error():
-                text = ('Something went wrong with the job on Dropbox’s end. Please '
-                        'verify on the Dropbox website if the job succeeded and try '
-                        'again if it failed.')
+                text = 'Something went on Dropbox’s end. Please try again later.'
                 err_cls = DropboxServerError
             elif error.is_to():
                 to_error = error.get_to()
