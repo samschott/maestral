@@ -48,6 +48,7 @@ class DummySyncEngine(SyncEngine):
         self.fs_events = fs_events
         self._conf = DummyConf()
         self._state = DummyConf()
+        self.dbid = 'id:test'
 
     def _should_split_excluded(self, event):
         return False
