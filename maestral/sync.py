@@ -925,10 +925,10 @@ class SyncEngine:
 
         with self._db_lock:
 
-            res = self._db_session.query(IndexEntry.last_sync).filter(func.max(IndexEntry.last_sync)).first()
+            res = self._db_session.query(func.max(IndexEntry.last_sync)).first()
 
             if res:
-                return res[0]
+                return res[0] or 0.0
             else:
                 return 0.0
 
