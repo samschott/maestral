@@ -1021,7 +1021,7 @@ class SyncEngine:
 
         try:
             stat = os.stat(local_path)
-        except FileNotFoundError:
+        except (FileNotFoundError, NotADirectoryError):
             # remove any existing cache entries for path
             with self._db_lock:
                 cache_entry = self._db_session.query(HashCacheEntry).get(local_path)
