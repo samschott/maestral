@@ -308,16 +308,16 @@ def move(src_path: str, dest_path: str, raise_error: bool = False,
         any file at the destination. If ``False``, the permissions of src_path will be used.
     :returns: Any caught exception during the move.
     """
-    err = None
+
+    err: Optional[OSError] = None
+    orig_mode: Optional[int] = None
 
     if preserve_dest_permissions:
         # save dest permissions
         try:
             orig_mode = os.stat(dest_path).st_mode & 0o777
         except FileNotFoundError:
-            orig_mode = None
-    else:
-        orig_mode = None
+            pass
 
     try:
         shutil.move(src_path, dest_path)

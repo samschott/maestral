@@ -32,7 +32,7 @@ from types import TracebackType
 
 # external imports
 import click
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func  # type: ignore
 from sqlalchemy.ext.declarative import declarative_base  # type: ignore
 from sqlalchemy.orm import sessionmaker  # type: ignore
 from sqlalchemy.sql import case  # type: ignore
@@ -60,8 +60,9 @@ from maestral.constants import (
     EXCLUDED_DIR_NAMES, MIGNORE_FILE, FILE_CACHE
 )
 from maestral.errors import (
-    SyncError, NoDropboxDirError, CacheDirError, PathError, NotFoundError, DropboxServerError,
-    FileConflictError, FolderConflictError, IsAFolderError, InvalidDbidError
+    SyncError, NoDropboxDirError, CacheDirError, PathError, NotFoundError,
+    DropboxServerError, FileConflictError, FolderConflictError, IsAFolderError,
+    InvalidDbidError
 )
 from maestral.client import DropboxClient, os_to_maestral_error, fswatch_to_maestral_error
 from maestral.utils.notify import MaestralDesktopNotifier
@@ -557,7 +558,7 @@ class SyncEvent(Base):  # type: ignore
             else:
                 # file is not a shared folder, therefore
                 # the current user must have added or modified it
-                change_dbid = sync_engine._dbid
+                change_dbid = sync_engine.dbid
         else:
             raise RuntimeError(f'Cannot convert {md} to SyncEvent')
 
@@ -592,8 +593,7 @@ class SyncEvent(Base):  # type: ignore
             SyncEvent.
         """
 
-        change_dbid = sync_engine._dbid
-        change_user_name = sync_engine._state.get('account', 'display_name')
+        change_dbid = sync_engine.dbid
         to_path = get_dest_path(event)
         from_path = None
 
@@ -646,7 +646,6 @@ class SyncEvent(Base):  # type: ignore
             change_type=change_type,
             change_time=change_time,
             change_dbid=change_dbid,
-            change_user_name=change_user_name,
             status=SyncStatus.Queued,
             size=size,
             completed=0,
@@ -700,7 +699,7 @@ class IndexEntry(Base):  # type: ignore
                f"dbx_path='{self.dbx_path_cased}')>"
 
 
-class HashCacheEntry(Base):
+class HashCacheEntry(Base):  # type: ignore
     """
     An entry in our cache of content hashes.
 
@@ -790,9 +789,9 @@ class SyncEngine:
         self._db_session = Session()
 
         # load cached properties
+        self.dbid = cast(str, self._conf.get('account', 'account_id'))
         self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
         self._mignore_rules = self._load_mignore_rules_form_file()
-        self._dbid = cast(str, self._conf.get('account', 'account_id'))
         self._excluded_items = self._conf.get('main', 'excluded_items')
         self._max_cpu_percent = self._conf.get('sync', 'max_cpu_percent') * _cpu_count
 
@@ -1036,7 +1035,7 @@ class SyncEngine:
             # take shortcut: return 'folder'
             return 'folder'
 
-        mtime = stat.st_mtime
+        mtime: Optional[float] = stat.st_mtime
 
         with self._db_lock:
             # check cache for an up-to-date content hash and return if it exists
@@ -1054,12 +1053,14 @@ class SyncEngine:
 
         return hash_str
 
-    def save_local_hash(self, local_path: str, hash_str: str, mtime: float) -> None:
+    def save_local_hash(self, local_path: str,
+                        hash_str: Optional[str], mtime: Optional[float]) -> None:
         """
         Save the content hash for a file in our cache.
 
         :param local_path: Absolute path on local drive.
-        :param hash_str: Hash string to save
+        :param hash_str: Hash string to save. If None, the existing cache entry will be
+            deleted.
         :param mtime: Mtime of the file when the hash was computed.
         """
 
@@ -1067,17 +1068,24 @@ class SyncEngine:
 
             cache_entry = self._db_session.query(HashCacheEntry).get(local_path)
 
-            if cache_entry:
-                cache_entry.hash_str = hash_str
-                cache_entry.mtime = mtime
+            if hash_str:
 
+                if cache_entry:
+                    cache_entry.hash_str = hash_str
+                    cache_entry.mtime = mtime
+
+                else:
+                    cache_entry = HashCacheEntry(
+                        local_path=local_path,
+                        hash_str=hash_str,
+                        mtime=mtime
+                    )
+                    self._db_session.add(cache_entry)
             else:
-                cache_entry = HashCacheEntry(
-                    local_path=local_path,
-                    hash_str=hash_str,
-                    mtime=mtime
-                )
-                self._db_session.add(cache_entry)
+                if cache_entry:
+                    self._db_session.delete(cache_entry)
+                else:
+                    pass
 
             self._db_session.commit()
 
@@ -3522,7 +3530,7 @@ class SyncMonitor:
 
         self._startup_time = -1.0
 
-    def _with_lock(fn: FT) -> FT:
+    def _with_lock(fn: FT) -> FT:  # type: ignore
 
         @wraps(fn)
         def wrapper(self, *args, **kwargs):
