@@ -1483,19 +1483,20 @@ class SyncEngine:
             return True
 
         # in excluded dirs?
+        # TODO: check if this can be optimised
         dirnames = dirname.split('/')
-        if any(name in dirnames for name in EXCLUDED_DIR_NAMES):
+        if any(excluded_dirname in dirnames for excluded_dirname in EXCLUDED_DIR_NAMES):
             return True
 
-        # is temporary file?
-        # 1) office temporary files
-        if basename.startswith('~$'):
-            return True
-        if basename.startswith('.~'):
-            return True
-        # 2) other temporary files
-        if basename.startswith('~') and basename.endswith('.tmp'):
-            return True
+        if '~' in basename:  # is temporary file?
+            # 1) office temporary files
+            if basename.startswith('~$'):
+                return True
+            if basename.startswith('.~'):
+                return True
+            # 2) other temporary files
+            if basename.startswith('~') and basename.endswith('.tmp'):
+                return True
 
         return False
 
