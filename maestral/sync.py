@@ -771,7 +771,7 @@ class SyncEngine:
         self.syncing = []
 
         # determine file paths
-        self._dropbox_path = osp.realpath(self._conf.get('main', 'path'))
+        self._dropbox_path = self._conf.get('main', 'path')
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
         self._db_path = get_data_path('maestral', f'{self.config_name}.db')
