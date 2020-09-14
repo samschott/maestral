@@ -3009,7 +3009,8 @@ class SyncEngine:
 
         # move the downloaded file to its destination
         with self.fs_events.ignore(FileDeletedEvent(local_path),
-                                   FileMovedEvent(tmp_fname, local_path)):
+                                   FileMovedEvent(tmp_fname, local_path),
+                                   FileModifiedEvent(local_path)):
             old_entry = self.get_index_entry(event.dbx_path)
 
             if old_entry and event.dbx_id == old_entry.dbx_id:
