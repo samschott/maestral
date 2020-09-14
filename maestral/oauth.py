@@ -45,33 +45,6 @@ supported_keyring_backends = (
 )
 
 
-def get_keyring_backend(config_name: str) -> KeyringBackend:
-    """
-    Choose the most secure of the available and supported keyring backends or use the
-    backend specified in the config file (if valid). Supported keyrings are:
-
-
-    :param config_name: The config name.
-    """
-
-    import keyring.backends
-
-    conf = MaestralConfig(config_name)
-    keyring_class = conf.get('app', 'keyring').strip()
-
-    try:
-        ring = load_keyring(keyring_class)
-    except Exception:
-        # get preferred keyring backends for platform
-        available_rings = keyring.backend.get_all_keyring()
-        supported_rings = [k for k in available_rings
-                           if isinstance(k, supported_keyring_backends)]
-
-        ring = max(supported_rings, key=lambda x: x.priority)
-
-    return ring
-
-
 class OAuth2Session:
     """
     OAuth2Session provides OAuth 2 login and token store in the preferred system keyring.
@@ -120,9 +93,10 @@ class OAuth2Session:
         self._app_key = app_key
         self._config_name = config_name
 
-        self.keyring = get_keyring_backend(config_name)
         self._conf = MaestralConfig(config_name)
         self._state = MaestralState(config_name)
+
+        self.keyring = self._get_keyring_backend()
 
         self._auth_flow = DropboxOAuth2FlowNoRedirect(
             self._app_key,
@@ -138,6 +112,28 @@ class OAuth2Session:
         self._access_token: Optional[str] = None
         self._refresh_token: Optional[str] = None
         self._expires_at: Optional[datetime] = None
+
+    def _get_keyring_backend(self) -> KeyringBackend:
+        """
+        Choose the most secure of the available and supported keyring backends or use the
+        backend specified in the config file (if valid). Supported keyrings are:
+        """
+
+        import keyring.backends
+
+        keyring_class = self._conf.get('app', 'keyring').strip()
+
+        try:
+            ring = load_keyring(keyring_class)
+        except Exception:
+            # get preferred keyring backends for platform
+            available_rings = keyring.backend.get_all_keyring()
+            supported_rings = [k for k in available_rings
+                               if isinstance(k, supported_keyring_backends)]
+
+            ring = max(supported_rings, key=lambda x: x.priority)
+
+        return ring
 
     @property
     def linked(self) -> bool:
