@@ -138,12 +138,12 @@ def MaestralConfig(config_name: str) -> UserConfig:
             try:
                 conf = UserConfig(
                     config_path, config_name, defaults=defaults, version=CONF_VERSION,
-                    load=True, backup=True, raw_mode=True, remove_obsolete=True
+                    backup=True, remove_obsolete=True
                 )
             except OSError:
                 conf = UserConfig(
                     config_path, config_name, defaults=defaults, version=CONF_VERSION,
-                    load=False, backup=True, raw_mode=True, remove_obsolete=True
+                    backup=True, remove_obsolete=True, load=False
                 )
 
             # adapt folder name to config
@@ -176,15 +176,13 @@ def MaestralState(config_name: str) -> UserConfig:
 
             try:
                 state = UserConfig(
-                    state_path, config_name, defaults=defaults,
-                    version=CONF_VERSION, load=True, backup=True, raw_mode=True,
-                    remove_obsolete=True, suffix='.state'
+                    state_path, config_name, defaults=defaults, version=CONF_VERSION,
+                    backup=True, remove_obsolete=True, suffix='.state'
                 )
             except OSError:
                 state = UserConfig(
-                    state_path, config_name, defaults=defaults,
-                    version=CONF_VERSION, load=False, backup=True, raw_mode=True,
-                    remove_obsolete=True, suffix='.state'
+                    state_path, config_name, defaults=defaults, version=CONF_VERSION,
+                    backup=True, remove_obsolete=True, suffix='.state', load=False
                 )
 
             _state_instances[config_name] = state
