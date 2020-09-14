@@ -41,8 +41,10 @@ def path(i):
 class TestCleanLocalEvents(TestCase):
 
     def setUp(self):
-        self.client = DropboxClient('test-config')
-        self.sync = SyncEngine(self.client, None)
+        self.sync = SyncEngine(
+            DropboxClient('test-config'),
+            None
+        )
         self.sync.dropbox_path = '/'
 
     def tearDown(self):
@@ -290,14 +292,15 @@ class TestIgnoreLocalEvents(TestCase):
         local_dir = osp.join(get_home_dir(), 'dummy_dir')
         os.mkdir(local_dir)
 
-        self.client = DropboxClient('test-config')
-        self.fs_event_handler = FSEventHandler(syncing, startup)
-        self.sync = SyncEngine(self.client, self.fs_event_handler)
+        self.sync = SyncEngine(
+            DropboxClient('test-config'),
+            FSEventHandler(syncing, startup)
+        )
 
         self.sync.dropbox_path = local_dir
 
         self.observer = Observer()
-        self.observer.schedule(self.fs_event_handler, self.sync.dropbox_path, recursive=True)
+        self.observer.schedule(self.sync.fs_events, self.sync.dropbox_path, recursive=True)
         self.observer.start()
 
     def tearDown(self):
@@ -333,7 +336,7 @@ class TestIgnoreLocalEvents(TestCase):
 
         new_dir = Path(self.sync.dropbox_path, 'parent')
 
-        with self.fs_event_handler.ignore(DirCreatedEvent(str(new_dir))):
+        with self.sync.fs_events.ignore(DirCreatedEvent(str(new_dir))):
             new_dir.mkdir()
             for i in range(10):
                 file = new_dir / f'test_{i}'
@@ -355,7 +358,7 @@ class TestIgnoreLocalEvents(TestCase):
 
         new_dir_1 = Path(self.sync.dropbox_path, 'parent2')
 
-        with self.fs_event_handler.ignore(DirMovedEvent(str(new_dir), str(new_dir_1))):
+        with self.sync.fs_events.ignore(DirMovedEvent(str(new_dir), str(new_dir_1))):
             move(new_dir, new_dir_1)
 
         sync_events, local_cursor = self.sync.wait_for_local_changes()
@@ -365,7 +368,7 @@ class TestIgnoreLocalEvents(TestCase):
 
         new_dir = Path(self.sync.dropbox_path, 'parent')
 
-        with self.fs_event_handler.ignore(DirCreatedEvent(str(new_dir)), recursive=False):
+        with self.sync.fs_events.ignore(DirCreatedEvent(str(new_dir)), recursive=False):
             new_dir.mkdir()
             for i in range(10):
                 # may trigger FileCreatedEvent and FileModifiedVent
@@ -392,14 +395,11 @@ class TestSync(TestCase):
 
         cls.m = Maestral('test-config')
         cls.m.log_level = logging.DEBUG
-        cls.m._auth._account_id = os.environ.get('DROPBOX_ID', '')
-        cls.m._auth._access_token = os.environ.get('DROPBOX_TOKEN', '')
-        cls.m._auth._loaded = True
-        cls.m._auth._token_access_type = 'legacy'
+        cls.m.client.set_token(access_token=os.environ.get('DROPBOX_TOKEN', ''))
         cls.m.create_dropbox_directory('~/Dropbox_Test')
 
         # all our tests will be carried out within this folder
-        cls.test_folder_dbx = cls.TEST_FOLDER_PATH
+        cls.test_folder_dbx = TestSync.TEST_FOLDER_PATH
         cls.test_folder_local = cls.m.dropbox_path + cls.TEST_FOLDER_PATH
 
         # acquire test lock
@@ -407,7 +407,7 @@ class TestSync(TestCase):
             try:
                 cls.m.client.make_dir(cls.TEST_LOCK_PATH)
             except FolderConflictError:
-                time.sleep(20)
+                time.sleep(10)
             else:
                 break
 
@@ -438,6 +438,7 @@ class TestSync(TestCase):
         except NotFoundError:
             pass
 
+        delete(cls.m.dropbox_path)
         remove_configuration('test-config')
 
     # helper functions
