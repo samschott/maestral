@@ -558,7 +558,7 @@ class SyncEvent(Base):  # type: ignore
             else:
                 # file is not a shared folder, therefore
                 # the current user must have added or modified it
-                change_dbid = sync_engine.dbid
+                change_dbid = cast(str, sync_engine._conf.get('account', 'account_id'))
         else:
             raise RuntimeError(f'Cannot convert {md} to SyncEvent')
 
@@ -593,7 +593,7 @@ class SyncEvent(Base):  # type: ignore
             SyncEvent.
         """
 
-        change_dbid = sync_engine.dbid
+        change_dbid = cast(str, sync_engine._conf.get('account', 'account_id'))
         to_path = get_dest_path(event)
         from_path = None
 
@@ -789,7 +789,6 @@ class SyncEngine:
         self._db_session = Session()
 
         # load cached properties
-        self.dbid = cast(str, self._conf.get('account', 'account_id'))
         self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
         self._mignore_rules = self._load_mignore_rules_form_file()
         self._excluded_items = self._conf.get('main', 'excluded_items')
