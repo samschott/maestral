@@ -564,13 +564,15 @@ class Maestral:
         """Indicates if Maestral is linked to a Dropbox account (read only). This will
         block until the user's keyring is unlocked to load the saved auth token."""
 
-        if self._auth.linked:  # this triggers keyring access on first call
+        if self.client.linked:
+            return False
 
-            if not self.client.linked:
-                if self._auth.token_access_type == 'legacy':
-                    self.client.set_token(access_token=self._auth.access_token)
-                else:
-                    self.client.set_token(refresh_token=self._auth.refresh_token)
+        elif self._auth.linked:  # this will trigger keyring access on first call
+
+            if self._auth.token_access_type == 'legacy':
+                self.client.set_token(access_token=self._auth.access_token)
+            else:
+                self.client.set_token(refresh_token=self._auth.refresh_token)
 
             return False
 
