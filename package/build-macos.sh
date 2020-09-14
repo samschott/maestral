@@ -24,21 +24,21 @@ git pull
 cd bootloader
 python3 ./waf all
 cd ..
-pip3 install .
+python3 -m pip install .
 cd ../..
 
 git clone https://github.com/samschott/maestral build/maestral
 cd build/maestral
 git checkout $BRANCH
 git pull
-pip3 install .
+python3 -m pip install .
 cd ../..
 
 git clone https://github.com/samschott/maestral-cocoa build/maestral-cocoa
 cd build/maestral-cocoa
 git checkout $BRANCH
 git pull
-pip3 install .
+python3 -m pip install .
 cd ../..
 
 echo "**** BUILD NUMBER $BUILD_NO ****************************"

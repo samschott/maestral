@@ -10,20 +10,20 @@ fi
 
 echo "**** INSTALLING DEPENDENCIES ****************************"
 
-pip install -U pyinstaller
+python3 -m pip install -U pyinstaller
 
 git clone https://github.com/samschott/maestral build/maestral
 cd build/maestral
 git checkout $BRANCH
 git pull
-pip install .
+python3 -m pip install .
 cd ../..
 
 git clone https://github.com/samschott/maestral-qt build/maestral-qt
 cd build/maestral-qt
 git checkout $BRANCH
 git pull
-pip install .
+python3 -m pip install .
 cd ../..
 
 echo "**** BUILDING *******************************************"
