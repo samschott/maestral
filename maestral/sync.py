@@ -32,6 +32,7 @@ from types import TracebackType
 
 # external imports
 import click
+from sqlalchemy.sql import func  # type: ignore
 from sqlalchemy.ext.declarative import declarative_base  # type: ignore
 from sqlalchemy.orm import sessionmaker  # type: ignore
 from sqlalchemy.sql import case  # type: ignore
@@ -59,8 +60,9 @@ from maestral.constants import (
     EXCLUDED_DIR_NAMES, MIGNORE_FILE, FILE_CACHE
 )
 from maestral.errors import (
-    SyncError, NoDropboxDirError, CacheDirError, PathError, NotFoundError, DropboxServerError,
-    FileConflictError, FolderConflictError, IsAFolderError, InvalidDbidError
+    SyncError, NoDropboxDirError, CacheDirError, PathError, NotFoundError,
+    DropboxServerError, FileConflictError, FolderConflictError, IsAFolderError,
+    InvalidDbidError
 )
 from maestral.client import DropboxClient, os_to_maestral_error, fswatch_to_maestral_error
 from maestral.utils.notify import MaestralDesktopNotifier
@@ -556,7 +558,7 @@ class SyncEvent(Base):  # type: ignore
             else:
                 # file is not a shared folder, therefore
                 # the current user must have added or modified it
-                change_dbid = sync_engine._dbid
+                change_dbid = cast(str, sync_engine._conf.get('account', 'account_id'))
         else:
             raise RuntimeError(f'Cannot convert {md} to SyncEvent')
 
@@ -591,8 +593,7 @@ class SyncEvent(Base):  # type: ignore
             SyncEvent.
         """
 
-        change_dbid = sync_engine._conf.get('account', 'account_id')
-        change_user_name = sync_engine._state.get('account', 'display_name')
+        change_dbid = cast(str, sync_engine._conf.get('account', 'account_id'))
         to_path = get_dest_path(event)
         from_path = None
 
@@ -645,7 +646,6 @@ class SyncEvent(Base):  # type: ignore
             change_type=change_type,
             change_time=change_time,
             change_dbid=change_dbid,
-            change_user_name=change_user_name,
             status=SyncStatus.Queued,
             size=size,
             completed=0,
@@ -699,7 +699,7 @@ class IndexEntry(Base):  # type: ignore
                f"dbx_path='{self.dbx_path_cased}')>"
 
 
-class HashCacheEntry(Base):
+class HashCacheEntry(Base):  # type: ignore
     """
     An entry in our cache of content hashes.
 
@@ -727,7 +727,6 @@ class SyncEngine:
     sync_errors: Set[SyncError]
     syncing: List[SyncEvent]
     _case_conversion_cache: Dict[str, str]
-    _index_cache: Optional[Dict[str, IndexEntry]]
 
     _max_history = 30
     _num_threads = min(32, _cpu_count * 3)
@@ -772,7 +771,7 @@ class SyncEngine:
         self.syncing = []
 
         # determine file paths
-        self._dropbox_path = osp.realpath(self._conf.get('main', 'path'))
+        self._dropbox_path = self._conf.get('main', 'path')
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
         self._db_path = get_data_path('maestral', f'{self.config_name}.db')
@@ -792,13 +791,11 @@ class SyncEngine:
         # load cached properties
         self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
         self._mignore_rules = self._load_mignore_rules_form_file()
-        self._dbid = cast(str, self._conf.get('account', 'account_id'))
         self._excluded_items = self._conf.get('main', 'excluded_items')
         self._max_cpu_percent = self._conf.get('sync', 'max_cpu_percent') * _cpu_count
 
         # caches
         self._case_conversion_cache = dict()
-        self._index_cache = None
 
         # clean our file cache
         self.clean_cache_dir()
@@ -927,11 +924,11 @@ class SyncEngine:
 
         with self._db_lock:
 
-            self._load_index_cache()
+            res = self._db_session.query(func.max(IndexEntry.last_sync)).first()
 
-            try:
-                return max(e.last_sync for e in self._index_cache.values())
-            except ValueError:
+            if res:
+                return res[0] or 0.0
+            else:
                 return 0.0
 
     @property
@@ -956,13 +953,6 @@ class SyncEngine:
 
     # ==== index management ==============================================================
 
-    def _load_index_cache(self):
-
-        if not self._index_cache:
-            with self._db_lock:
-                entries = self._db_session.query(IndexEntry).all()
-                self._index_cache = {e.dbx_path_lower: e for e in entries}
-
     def get_index(self) -> List[IndexEntry]:
         """
         Returns a copy of the revision index containing the revision numbers for all
@@ -971,8 +961,7 @@ class SyncEngine:
         :returns: Copy of revision index.
         """
         with self._db_lock:
-            self._load_index_cache()
-            return list(self._index_cache.values())
+            return self._db_session.query(IndexEntry).all()
 
     def get_local_rev(self, dbx_path: str) -> Optional[str]:
         """
@@ -984,11 +973,10 @@ class SyncEngine:
         """
 
         with self._db_lock:
-            self._load_index_cache()
-            entry = self._index_cache.get(dbx_path.lower())
+            res = self._db_session.query(IndexEntry.rev).filter(IndexEntry.dbx_path_lower == dbx_path.lower()).first()
 
-        if entry:
-            return entry.rev
+        if res:
+            return res[0]
         else:
             return None
 
@@ -1001,11 +989,10 @@ class SyncEngine:
         """
 
         with self._db_lock:
-            self._load_index_cache()
-            entry = self._index_cache.get(dbx_path.lower())
+            res = self._db_session.query(IndexEntry.last_sync).filter(IndexEntry.dbx_path_lower == dbx_path.lower()).first()
 
-        if entry:
-            last_sync = entry.last_sync or 0.0
+        if res:
+            last_sync = res[0] or 0.0
         else:
             last_sync = 0.0
 
@@ -1020,8 +1007,7 @@ class SyncEngine:
         """
 
         with self._db_lock:
-            self._load_index_cache()
-            return self._index_cache.get(dbx_path.lower())
+            return self._db_session.query(IndexEntry).get(dbx_path.lower())
 
     def get_local_hash(self, local_path: str) -> Optional[str]:
         """
@@ -1034,7 +1020,7 @@ class SyncEngine:
 
         try:
             stat = os.stat(local_path)
-        except FileNotFoundError:
+        except (FileNotFoundError, NotADirectoryError):
             # remove any existing cache entries for path
             with self._db_lock:
                 cache_entry = self._db_session.query(HashCacheEntry).get(local_path)
@@ -1048,7 +1034,7 @@ class SyncEngine:
             # take shortcut: return 'folder'
             return 'folder'
 
-        mtime = stat.st_mtime
+        mtime: Optional[float] = stat.st_mtime
 
         with self._db_lock:
             # check cache for an up-to-date content hash and return if it exists
@@ -1066,12 +1052,14 @@ class SyncEngine:
 
         return hash_str
 
-    def save_local_hash(self, local_path: str, hash_str: str, mtime: float) -> None:
+    def save_local_hash(self, local_path: str,
+                        hash_str: Optional[str], mtime: Optional[float]) -> None:
         """
         Save the content hash for a file in our cache.
 
         :param local_path: Absolute path on local drive.
-        :param hash_str: Hash string to save
+        :param hash_str: Hash string to save. If None, the existing cache entry will be
+            deleted.
         :param mtime: Mtime of the file when the hash was computed.
         """
 
@@ -1079,17 +1067,24 @@ class SyncEngine:
 
             cache_entry = self._db_session.query(HashCacheEntry).get(local_path)
 
-            if cache_entry:
-                cache_entry.hash_str = hash_str
-                cache_entry.mtime = mtime
+            if hash_str:
 
+                if cache_entry:
+                    cache_entry.hash_str = hash_str
+                    cache_entry.mtime = mtime
+
+                else:
+                    cache_entry = HashCacheEntry(
+                        local_path=local_path,
+                        hash_str=hash_str,
+                        mtime=mtime
+                    )
+                    self._db_session.add(cache_entry)
             else:
-                cache_entry = HashCacheEntry(
-                    local_path=local_path,
-                    hash_str=hash_str,
-                    mtime=mtime
-                )
-                self._db_session.add(cache_entry)
+                if cache_entry:
+                    self._db_session.delete(cache_entry)
+                else:
+                    pass
 
             self._db_session.commit()
 
@@ -1113,8 +1108,6 @@ class SyncEngine:
         dbx_path_lower = event.dbx_path.lower()
 
         with self._db_lock:
-
-            self._load_index_cache()
 
             # remove any entries for deleted or moved items
 
@@ -1151,7 +1144,6 @@ class SyncEngine:
                     )
 
                     self._db_session.add(entry)
-                    self._index_cache[dbx_path_lower] = entry
 
             self._db_session.commit()
 
@@ -1163,8 +1155,6 @@ class SyncEngine:
         """
 
         with self._db_lock:
-
-            self._load_index_cache()
 
             if isinstance(md, DeletedMetadata):
                 self.remove_path_from_index(md.path_lower)
@@ -1205,7 +1195,6 @@ class SyncEngine:
                     )
 
                     self._db_session.add(entry)
-                    self._index_cache[md.path_lower] = entry
 
             self._db_session.commit()
 
@@ -1218,15 +1207,12 @@ class SyncEngine:
 
         with self._db_lock:
 
-            self._load_index_cache()
-
             dbx_path_lower = dbx_path.lower()
 
-            for entry in list(self._index_cache.values()):
+            for entry in self.get_index():
                 # remove children from index
                 if is_equal_or_child(entry.dbx_path_lower, dbx_path_lower):
                     self._db_session.delete(entry)
-                    del self._index_cache[entry.dbx_path_lower]
 
             self._db_session.commit()
 
@@ -1234,12 +1220,9 @@ class SyncEngine:
         """Clears the revision index."""
         with self._db_lock:
 
-            self._load_index_cache()
-
             IndexEntry.metadata.drop_all(self._db_engine)
             Base.metadata.create_all(self._db_engine)
             self._db_session.expunge_all()
-            self._index_cache.clear()
 
     # ==== mignore management ============================================================
 
@@ -1499,19 +1482,20 @@ class SyncEngine:
             return True
 
         # in excluded dirs?
+        # TODO: check if this can be optimised
         dirnames = dirname.split('/')
-        if any(name in dirnames for name in EXCLUDED_DIR_NAMES):
+        if any(excluded_dirname in dirnames for excluded_dirname in EXCLUDED_DIR_NAMES):
             return True
 
-        # is temporary file?
-        # 1) office temporary files
-        if basename.startswith('~$'):
-            return True
-        if basename.startswith('.~'):
-            return True
-        # 2) other temporary files
-        if basename.startswith('~') and basename.endswith('.tmp'):
-            return True
+        if '~' in basename:  # is temporary file?
+            # 1) office temporary files
+            if basename.startswith('~$'):
+                return True
+            if basename.startswith('.~'):
+                return True
+            # 2) other temporary files
+            if basename.startswith('~') and basename.endswith('.tmp'):
+                return True
 
         return False
 
@@ -3024,7 +3008,8 @@ class SyncEngine:
 
         # move the downloaded file to its destination
         with self.fs_events.ignore(FileDeletedEvent(local_path),
-                                   FileMovedEvent(tmp_fname, local_path)):
+                                   FileMovedEvent(tmp_fname, local_path),
+                                   FileModifiedEvent(local_path)):
             old_entry = self.get_index_entry(event.dbx_path)
 
             if old_entry and event.dbx_id == old_entry.dbx_id:
@@ -3546,7 +3531,7 @@ class SyncMonitor:
 
         self._startup_time = -1.0
 
-    def _with_lock(fn: FT) -> FT:
+    def _with_lock(fn: FT) -> FT:  # type: ignore
 
         @wraps(fn)
         def wrapper(self, *args, **kwargs):

@@ -21,39 +21,16 @@ from maestral.sync import (
 from maestral.sync import delete, move
 from maestral.sync import is_child, is_fs_case_sensitive
 from maestral.sync import DirectorySnapshot
-from maestral.sync import SyncEngine, Observer, FSEventHandler
+from maestral.sync import SyncEngine, DropboxClient, Observer, FSEventHandler
 from maestral.sync import SyncDirection, ItemType, ChangeType
 from maestral.errors import NotFoundError, FolderConflictError
 from maestral.main import Maestral
-from maestral.main import get_log_path
+from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import to_existing_cased_path
+from maestral.utils.housekeeping import remove_configuration
 
 import unittest
 from unittest import TestCase
-
-
-class DummyConf:
-
-    def get(self, section, name):
-        return 'dummy'
-
-    def ser(self, section, name, value):
-        pass
-
-
-class DummySyncEngine(SyncEngine):
-
-    def __init__(self, dropbox_path='', fs_events=None):
-        self._dropbox_path = dropbox_path
-        self.fs_events = fs_events
-        self._conf = DummyConf()
-        self._state = DummyConf()
-
-    def _should_split_excluded(self, event):
-        return False
-
-    def is_excluded(self, dbx_path):
-        return False
 
 
 def path(i):
@@ -64,7 +41,14 @@ def path(i):
 class TestCleanLocalEvents(TestCase):
 
     def setUp(self):
-        self.sync = DummySyncEngine()
+        self.sync = SyncEngine(
+            DropboxClient('test-config'),
+            None
+        )
+        self.sync.dropbox_path = '/'
+
+    def tearDown(self):
+        remove_configuration('test-config')
 
     def test_single_file_events(self):
 
@@ -267,12 +251,12 @@ class TestCleanLocalEvents(TestCase):
 
     def test_performance(self):
 
-        # 15,000 nested deleted events (10,000 folders, 5,000 files)
-        file_events = [DirDeletedEvent(n * path(1)) for n in range(1, 10001)]
+        # 10,000 nested deleted events (5,000 folders, 5,000 files)
+        file_events = [DirDeletedEvent(n * path(1)) for n in range(1, 5001)]
         file_events += [FileDeletedEvent(n * path(1) + '.txt') for n in range(1, 5001)]
 
-        # 15,000 nested moved events (10,000 folders, 5,000 files)
-        file_events += [DirMovedEvent(n * path(2), n * path(3)) for n in range(1, 10001)]
+        # 10,000 nested moved events (5,000 folders, 5,000 files)
+        file_events += [DirMovedEvent(n * path(2), n * path(3)) for n in range(1, 5001)]
         file_events += [FileMovedEvent(n * path(2) + '.txt', n * path(3) + '.txt')
                         for n in range(1, 5001)]
 
@@ -294,32 +278,42 @@ class TestCleanLocalEvents(TestCase):
         duration = timeit.timeit(lambda: self.sync._clean_local_events(file_events),
                                  number=n_loops)
 
-        self.assertLess(duration, 5 * n_loops)
+        self.assertLess(duration, 10 * n_loops)
 
 
 class TestIgnoreLocalEvents(TestCase):
 
     def setUp(self):
-        self.sync = DummySyncEngine()
-        self.dummy_dir = Path(os.getcwd()).parent / 'dropbox_dir'
-
-        delete(self.dummy_dir)
-        self.dummy_dir.mkdir()
 
         syncing = Event()
         startup = Event()
         syncing.set()
 
-        self.fs_event_handler = FSEventHandler(syncing, startup)
-        self.sync = DummySyncEngine(str(self.dummy_dir), self.fs_event_handler)
+        local_dir = osp.join(get_home_dir(), 'dummy_dir')
+        os.mkdir(local_dir)
+
+        self.sync = SyncEngine(
+            DropboxClient('test-config'),
+            FSEventHandler(syncing, startup)
+        )
+
+        self.sync.dropbox_path = local_dir
 
         self.observer = Observer()
-        self.observer.schedule(self.fs_event_handler, str(self.dummy_dir), recursive=True)
+        self.observer.schedule(self.sync.fs_events, self.sync.dropbox_path, recursive=True)
         self.observer.start()
+
+    def tearDown(self):
+
+        self.observer.stop()
+        self.observer.join()
+
+        remove_configuration('test-config')
+        delete(self.sync.dropbox_path)
 
     def test_receiving_events(self):
 
-        new_dir = self.dummy_dir / 'parent'
+        new_dir = Path(self.sync.dropbox_path, 'parent')
         new_dir.mkdir()
 
         sync_events, local_cursor = self.sync.wait_for_local_changes()
@@ -327,7 +321,7 @@ class TestIgnoreLocalEvents(TestCase):
         self.assertEqual(len(sync_events), 1)
 
         try:
-            ctime = new_dir.stat().st_birthtime
+            ctime = os.stat(new_dir).st_birthtime
         except AttributeError:
             ctime = None
 
@@ -340,9 +334,9 @@ class TestIgnoreLocalEvents(TestCase):
 
     def test_ignore_tree_creation(self):
 
-        new_dir = self.dummy_dir / 'parent'
+        new_dir = Path(self.sync.dropbox_path, 'parent')
 
-        with self.fs_event_handler.ignore(DirCreatedEvent(str(new_dir))):
+        with self.sync.fs_events.ignore(DirCreatedEvent(str(new_dir))):
             new_dir.mkdir()
             for i in range(10):
                 file = new_dir / f'test_{i}'
@@ -353,7 +347,7 @@ class TestIgnoreLocalEvents(TestCase):
 
     def test_ignore_tree_move(self):
 
-        new_dir = self.dummy_dir / 'parent'
+        new_dir = Path(self.sync.dropbox_path, 'parent')
 
         new_dir.mkdir()
         for i in range(10):
@@ -362,9 +356,9 @@ class TestIgnoreLocalEvents(TestCase):
 
         self.sync.wait_for_local_changes()
 
-        new_dir_1 = self.dummy_dir / 'parent2'
+        new_dir_1 = Path(self.sync.dropbox_path, 'parent2')
 
-        with self.fs_event_handler.ignore(DirMovedEvent(str(new_dir), str(new_dir_1))):
+        with self.sync.fs_events.ignore(DirMovedEvent(str(new_dir), str(new_dir_1))):
             move(new_dir, new_dir_1)
 
         sync_events, local_cursor = self.sync.wait_for_local_changes()
@@ -372,9 +366,9 @@ class TestIgnoreLocalEvents(TestCase):
 
     def test_catching_non_ignored_events(self):
 
-        new_dir = self.dummy_dir / 'parent'
+        new_dir = Path(self.sync.dropbox_path, 'parent')
 
-        with self.fs_event_handler.ignore(DirCreatedEvent(str(new_dir)), recursive=False):
+        with self.sync.fs_events.ignore(DirCreatedEvent(str(new_dir)), recursive=False):
             new_dir.mkdir()
             for i in range(10):
                 # may trigger FileCreatedEvent and FileModifiedVent
@@ -383,14 +377,6 @@ class TestIgnoreLocalEvents(TestCase):
 
         sync_events, local_cursor = self.sync.wait_for_local_changes()
         self.assertTrue(all(not si.is_directory for si in sync_events))
-
-    def tearDown(self):
-
-        # cleanup
-        delete(self.dummy_dir)
-
-        self.observer.stop()
-        self.observer.join()
 
 
 class TestSync(TestCase):
@@ -409,14 +395,11 @@ class TestSync(TestCase):
 
         cls.m = Maestral('test-config')
         cls.m.log_level = logging.DEBUG
-        cls.m._auth._account_id = os.environ.get('DROPBOX_ID', '')
-        cls.m._auth._access_token = os.environ.get('DROPBOX_TOKEN', '')
-        cls.m._auth._loaded = True
-        cls.m._auth._token_access_type = 'legacy'
+        cls.m.client.set_token(access_token=os.environ.get('DROPBOX_TOKEN', ''))
         cls.m.create_dropbox_directory('~/Dropbox_Test')
 
         # all our tests will be carried out within this folder
-        cls.test_folder_dbx = cls.TEST_FOLDER_PATH
+        cls.test_folder_dbx = TestSync.TEST_FOLDER_PATH
         cls.test_folder_local = cls.m.dropbox_path + cls.TEST_FOLDER_PATH
 
         # acquire test lock
@@ -424,7 +407,7 @@ class TestSync(TestCase):
             try:
                 cls.m.client.make_dir(cls.TEST_LOCK_PATH)
             except FolderConflictError:
-                time.sleep(20)
+                time.sleep(10)
             else:
                 break
 
@@ -456,21 +439,7 @@ class TestSync(TestCase):
             pass
 
         delete(cls.m.dropbox_path)
-        delete(cls.m.sync.database_path)
-        delete(cls.m.account_profile_pic_path)
-        cls.m._conf.cleanup()
-        cls.m._state.cleanup()
-
-        log_dir = get_log_path('maestral')
-
-        log_files = []
-
-        for file_name in os.listdir(log_dir):
-            if file_name.startswith(cls.m.config_name):
-                log_files.append(os.path.join(log_dir, file_name))
-
-        for file in log_files:
-            delete(file)
+        remove_configuration('test-config')
 
     # helper functions
 

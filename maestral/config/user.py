@@ -130,9 +130,6 @@ class UserConfig(DefaultsConfig):
         version of the configuration file in 'major.minor.micro' format.
     backup: bool
         A backup will be created on version changes and on initial setup.
-    raw_mode: bool
-        If `True` do not apply any automatic conversion on values read from
-        the configuration.
     remove_obsolete: bool
         If `True`, values that were removed from the configuration on version
         change, are removed from the saved configuration file.
@@ -144,9 +141,13 @@ class UserConfig(DefaultsConfig):
     """
     DEFAULT_SECTION_NAME = 'main'
 
-    def __init__(self, path: str, name: str, defaults: InputDefaultsType = None,
-                 load: bool = True, version: str = '0.0.0', backup: bool = False,
-                 raw_mode: bool = False, remove_obsolete: bool = False,
+    def __init__(self, path: str,
+                 name: str,
+                 defaults: InputDefaultsType = None,
+                 load: bool = True,
+                 version: str = '0.0.0',
+                 backup: bool = False,
+                 remove_obsolete: bool = False,
                  suffix: str = '.ini') -> None:
         """UserConfig class, based on ConfigParser."""
         super(UserConfig, self).__init__(path=path, name=name, suffix=suffix)
@@ -154,7 +155,6 @@ class UserConfig(DefaultsConfig):
         self._load = load
         self._version = self._check_version(version)
         self._backup = backup
-        self._raw = raw_mode
         self._remove_obsolete = remove_obsolete
 
         self._defaults_folder = 'defaults'
@@ -315,11 +315,11 @@ class UserConfig(DefaultsConfig):
         Remove options which are present in the file but not in defaults.
         """
         for section in self.sections():
-            for option, _ in self.items(section, raw=self._raw):
+            for option, _ in self.items(section, raw=True):
                 if self.get_default(section, option) is NoDefault:
                     try:
                         self.remove_option(section, option)
-                        if len(self.items(section, raw=self._raw)) == 0:
+                        if len(self.items(section, raw=True)) == 0:
                             self.remove_section(section)
                     except cp.NoSectionError:
                         self.remove_section(section)
@@ -418,7 +418,7 @@ class UserConfig(DefaultsConfig):
         self.default_config = []
         for section in self.sections():
             secdict = {}
-            for option, value in self.items(section, raw=self._raw):
+            for option, value in self.items(section, raw=True):
                 secdict[option] = value
             self.default_config.append((section, secdict))
 
@@ -468,21 +468,24 @@ class UserConfig(DefaultsConfig):
                 self.set(section, option, default)
                 return default
 
-        value: Any = super(UserConfig, self).get(section, option, raw=self._raw)
-
+        raw_value: str = super(UserConfig, self).get(section, option, raw=True)
         default_value = self.get_default(section, option)
-        if isinstance(default_value, bool):
-            value = ast.literal_eval(value)
+        value: Any
+
+        if isinstance(default_value, str):
+            value = raw_value
+        elif isinstance(default_value, bool):
+            value = ast.literal_eval(raw_value)
         elif isinstance(default_value, float):
-            value = float(value)
+            value = float(raw_value)
         elif isinstance(default_value, int):
-            value = int(value)
+            value = int(raw_value)
         else:
             try:
                 # Lists, tuples, None, ...
-                value = ast.literal_eval(value)
+                value = ast.literal_eval(raw_value)
             except (SyntaxError, ValueError):
-                pass
+                value = raw_value
 
         if default_value is not NoDefault and type(default_value) is not type(value):
             logger.error(f'Inconsistent config type for [{section}][{option}]. '
