@@ -43,6 +43,7 @@ class TestCleanLocalEvents(TestCase):
     def setUp(self):
         self.client = DropboxClient('test-config')
         self.sync = SyncEngine(self.client, None)
+        self.sync.dropbox_path = '/'
 
     def tearDown(self):
         remove_configuration('test-config')
