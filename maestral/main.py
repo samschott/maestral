@@ -244,12 +244,9 @@ class Maestral:
         # can be used by an event loop wait until maestral has been stopped
         self.shutdown_complete = self._loop.create_future()
 
+    @property
     def version(self) -> str:
-        """
-        Returns the current Maestral version.
-
-        :returns: Version string.
-        """
+        """Returns the current Maestral version."""
         return __version__
 
     def get_auth_url(self) -> str:
