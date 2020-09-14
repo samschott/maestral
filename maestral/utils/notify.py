@@ -166,7 +166,6 @@ class MaestralDesktopNotifier(logging.Handler):
     @notify_level.setter
     def notify_level(self, level: int) -> None:
         """Setter: notify_level."""
-        assert isinstance(level, int)
         self._conf.set('app', 'notification_level', level)
 
     @property
@@ -192,8 +191,8 @@ class MaestralDesktopNotifier(logging.Handler):
         :param buttons: A dictionary with button names and callbacks for the notification.
         """
 
-        ignore = self.snoozed and level == self.FILECHANGE
-        if level == self.ERROR:
+        ignore = self.snoozed and level == MaestralDesktopNotifier.FILECHANGE
+        if level == MaestralDesktopNotifier.ERROR:
             urgency = NotificationLevel.Critical
         else:
             urgency = NotificationLevel.Normal
