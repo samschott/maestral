@@ -2824,20 +2824,6 @@ class SyncEngine:
         except FileNotFoundError:
             return -1.0
 
-    def _get_modified_by_dbid(self, md: Metadata) -> str:
-        """
-        Returns the Dropbox ID of the user who modified a shared item or our own ID if the
-        item was not shared.
-
-        :param md: Dropbox metadata.
-        :return: Dropbox ID
-        """
-
-        try:
-            return md.sharing_info.modified_by
-        except AttributeError:
-            return self._conf.get('account', 'account_id')
-
     def _clean_remote_changes(self, changes: dropbox.files.ListFolderResult) \
             -> dropbox.files.ListFolderResult:
         """
