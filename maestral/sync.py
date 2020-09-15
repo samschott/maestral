@@ -989,10 +989,10 @@ class SyncEngine:
         """
 
         with self._db_lock:
-            res = self._db_session.query(IndexEntry.last_sync).filter(IndexEntry.dbx_path_lower == dbx_path.lower()).first()
+            res = self._db_session.query(IndexEntry).get(dbx_path.lower())
 
         if res:
-            last_sync = res[0] or 0.0
+            last_sync = res.last_sync or 0.0
         else:
             last_sync = 0.0
 
@@ -1617,6 +1617,9 @@ class SyncEngine:
                 logger.debug('No local changes while inactive')
 
     def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
+
+        # pre-load index for performance
+        self.get_index()
 
         changes = []
         now = time.time()
