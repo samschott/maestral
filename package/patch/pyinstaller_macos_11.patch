@@ -1,0 +1,79 @@
+diff --git a/PyInstaller/depend/bindepend.py b/PyInstaller/depend/bindepend.py
+index 95660b5dcef0f7167bf62007422233daefb758a7..915ba2ef39a3ad1658ef1e24c5567d7c47bf0b43 100644
+--- a/PyInstaller/depend/bindepend.py
++++ b/PyInstaller/depend/bindepend.py
+@@ -21,6 +21,7 @@ from glob import glob
+ # Required for extracting eggs.
+ import zipfile
+ import collections
++from ctypes import cdll
+ 
+ from .. import compat
+ from ..compat import (is_win, is_win_10, is_unix,
+@@ -622,6 +623,7 @@ def _getImports_macholib(pth):
+     ## Walk through mach binary headers.
+ 
+     m = MachO(pth)
++
+     for header in m.headers:
+         for idx, name, lib in header.walkRelocatables():
+             # Sometimes some libraries are present multiple times.
+@@ -692,10 +694,17 @@ def _getImports_macholib(pth):
+                 if not os.path.isabs(run_path):
+                     run_path = os.path.join(exec_path, run_path)
+                 # Stop looking for lib when found in first location.
+-                if os.path.exists(os.path.join(run_path, lib)):
+-                    final_lib = os.path.abspath(os.path.join(run_path, lib))
++
++                try:
++                    candidate = os.path.join(run_path, lib)
++                    cdll.LoadLibrary(candidate)
++                except OSError:
++                    pass
++                else:
++                    final_lib = candidate
+                     rslt.add(final_lib)
+                     break
++
+             # Log error if no existing file found.
+             if not final_lib:
+                 logger.error('Can not find path %s (needed by %s)', lib, pth)
+@@ -707,11 +716,13 @@ def _getImports_macholib(pth):
+             # It is also replaced by 'exec_path'.
+             if lib.startswith('@loader_path'):
+                 lib = lib.replace('@loader_path', '@executable_path')
++
+             try:
+-                lib = dyld_find(lib, executable_path=exec_path)
+-                rslt.add(lib)
+-            except ValueError:
++                cdll.LoadLibrary(lib)
++            except OSError:
+                 logger.error('Can not find path %s (needed by %s)', lib, pth)
++            else:
++                rslt.add(lib)
+ 
+     return rslt
+ 
+diff --git a/PyInstaller/building/build_main.py b/PyInstaller/building/build_main.py
+index 54eed062ab50c6880329a4e3e9b0c6bb95bada9b..c0bf8408f50da8ab676e8cbbd5de3fa621b85502 100644
+--- a/PyInstaller/building/build_main.py
++++ b/PyInstaller/building/build_main.py
+@@ -426,17 +426,6 @@ class Analysis(Target):
+         self.zipped_data.extend(deps_proc.make_zipped_data_toc())
+         # Note: zipped eggs are collected below
+ 
+-
+-        ### Look for dlls that are imported by Python 'ctypes' module.
+-        # First get code objects of all modules that import 'ctypes'.
+-        logger.info('Looking for ctypes DLLs')
+-        ctypes_code_objs = self.graph.get_co_using_ctypes()  # dict like:  {'module1': code_obj, 'module2': code_obj}
+-        for name, co in ctypes_code_objs.items():
+-            # Get dlls that might be needed by ctypes.
+-            logger.debug('Scanning %s for shared libraries or dlls', name)
+-            ctypes_binaries = scan_code_for_ctypes(co)
+-            self.binaries.extend(set(ctypes_binaries))
+-
+         # Analyze run-time hooks.
+         # Run-time hooks has to be executed before user scripts. Add them
+         # to the beginning of 'priority_scripts'.

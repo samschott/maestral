@@ -21,6 +21,7 @@ git clone https://github.com/pyinstaller/pyinstaller.git build/pyinstaller
 cd build/pyinstaller
 git checkout master
 git pull
+git apply ../../patch/pyinstaller_macos_11.patch
 cd bootloader
 python3 ./waf all
 cd ..
