@@ -61,8 +61,8 @@ if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'
         # to handle clicked notifications
 
         @objc_method
-        def userNotificationCenter_didReceive_withCompletionHandler_(self, center, response,
-                                                                     completion_handler) -> None:
+        def userNotificationCenter_didReceiveNotificationResponse_withCompletionHandler_(self, center, response,
+                                                                                         completion_handler) -> None:
 
             internal_nid = response.notification.request.content.userInfo['internal_nid']
             notification = self.interface.current_notifications.get(internal_nid)
@@ -136,7 +136,10 @@ if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'
             notification.identifier = platform_nid
             self.current_notifications[internal_nid] = notification
 
-        def _category_id_for_button_names(self, button_names: Tuple[str, ...]) -> str:
+        def _category_id_for_button_names(self, button_names: Tuple[str, ...]) -> Optional[str]:
+
+            if not button_names:
+                return None
 
             try:
                 return self._notification_categories[button_names]
@@ -162,7 +165,6 @@ if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'
                     )
                 )
                 self.nc.notificationCategories = new_categories
-
                 self._notification_categories[button_names] = category_id
 
                 return category_id
