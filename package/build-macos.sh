@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Flags:
+# --dev: build from dev branch instead of master
+# --clean: clean build cache and donwnload from github
+# --notarize: submit to Apple notary service
+
+
 stringContain() { [ -z "$1" ] || { [ -z "${2##*$1*}" ] && [ -n "$2" ];};}
 
 ARGS="$@"
@@ -89,7 +95,7 @@ codesign --verify --sign "Developer ID Application: Sam Schott" dist/Maestral.dm
 
 
 
-if ! stringContain "--dev" "$ARGS"; then
+if stringContain "--notarize" "$ARGS"; then
     echo "**** NOTARISING DMG ************************************"
     ./macos-notarize-dmg.sh dist/Maestral.dmg
 fi

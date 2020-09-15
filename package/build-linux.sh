@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Flags:
+# --dev: build from dev branch instead of master
+# --clean: clean build cache and donwnload from github
+
 stringContain() { [ -z "$1" ] || { [ -z "${2##*$1*}" ] && [ -n "$2" ];};}
 
 ARGS="$@"
