@@ -199,7 +199,7 @@ class DropboxClient:
         """The actual Python Dropbox SDK"""
         if not self.linked:
             raise NotLinkedError('No auth token set',
-                                 'Please call "set_token" to link an account.')
+                                 'Please link a Dropbox account first.')
 
         return self._dbx
 
