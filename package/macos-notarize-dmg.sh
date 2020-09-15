@@ -16,22 +16,17 @@ APP_BUNDLE_DIR=$(dirname "$1")
 cd "$APP_BUNDLE_DIR" || exit 1
 
 # Submit for notarization
+TMPFILE=$(mktemp)
+
 echo "Submitting $APP_BUNDLE for notarization..."
-RESULT=$(xcrun altool --notarize-app --type osx \
+xcrun altool --notarize-app --type osx \
   --file "${APP_BUNDLE}" \
   --primary-bundle-id com.samschott.maestral \
   --username $APPLE_ID_USER \
   --password @env:APPLE_ID_PASSWORD \
-  --output-format xml)
+  --output-format xml > $TMPFILE
 
-if [ $? -ne 0 ]; then
-  echo "Submitting $APP_BUNDLE failed:"
-  echo "$RESULT"
-  exit 1
-fi
-
-REQUEST_UUID=$(echo "$RESULT" | xpath \
-  "//key[normalize-space(text()) = 'RequestUUID']/following-sibling::string[1]/text()" 2> /dev/null)
+REQUEST_UUID=$(/usr/libexec/PlistBuddy -c "Print notarization-upload:RequestUUID" "$TMPFILE")
 
 if [ -z "$REQUEST_UUID" ]; then
   echo "Submitting $APP_BUNDLE failed:"
@@ -39,20 +34,17 @@ if [ -z "$REQUEST_UUID" ]; then
   exit 1
 fi
 
-echo "$(echo "$RESULT" | xpath \
-  "//key[normalize-space(text()) = 'success-message']/following-sibling::string[1]/text()" 2> /dev/null)"
-
 # Poll for notarization status
 echo "Submitted notarization request $REQUEST_UUID, waiting for response..."
 sleep 60
 while :
 do
-  RESULT=$(xcrun altool --notarization-info "$REQUEST_UUID" \
+  xcrun altool --notarization-info "$REQUEST_UUID" \
     --username "$APPLE_ID_USER" \
     --password @env:APPLE_ID_PASSWORD \
-    --output-format xml)
-  STATUS=$(echo "$RESULT" | xpath \
-    "//key[normalize-space(text()) = 'Status']/following-sibling::string[1]/text()" 2> /dev/null)
+    --output-format xml > $TMPFILE
+
+  STATUS=$(/usr/libexec/PlistBuddy -c "Print notarization-info:Status" "$TMPFILE")
 
   if [ "$STATUS" = "success" ]; then
     echo "Notarization of $APP_BUNDLE succeeded!"
