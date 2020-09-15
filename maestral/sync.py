@@ -2992,16 +2992,28 @@ class SyncEngine:
             with self.fs_events.ignore(DirDeletedEvent(local_path)):
                 delete(local_path)
 
-        # move the downloaded file to its destination
-        with self.fs_events.ignore(FileDeletedEvent(local_path),
-                                   FileMovedEvent(tmp_fname, local_path),
-                                   FileModifiedEvent(local_path)):
-            old_entry = self.get_index_entry(event.dbx_path)
+        # check if we should preserve permissions of destination file
+        old_entry = self.get_index_entry(event.dbx_path)
 
-            if old_entry and event.dbx_id == old_entry.dbx_id:
-                preserve_permissions = True
-            else:
-                preserve_permissions = False
+        if old_entry and event.dbx_id == old_entry.dbx_id:
+            preserve_permissions = True
+        else:
+            preserve_permissions = False
+
+        ignore_events = [
+            FileMovedEvent(tmp_fname, local_path)
+        ]
+
+        if preserve_permissions:
+            # ignore FileModifiedEvent when changing permissions
+            ignore_events.append(FileModifiedEvent(local_path))
+
+        if osp.isfile(local_path):
+            # ignore FileDeletedEvent when replacing old file
+            ignore_events.append(FileDeletedEvent(local_path))
+
+        # move the downloaded file to its destination
+        with self.fs_events.ignore(*ignore_events):
 
             mtime = os.stat(tmp_fname).st_mtime
 
