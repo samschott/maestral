@@ -12,6 +12,8 @@ the past week.
 This release also introduces clickable desktop notifications, performance improvements to
 indexing local file changes, and bug fixes and smaller changes listed below.
 
+Finally, this is release introduces support for macOS 11 (Big Sur).
+
 #### Added:
 
 - Added an option `--external` to `maestral log show` to open the log in the platform's
