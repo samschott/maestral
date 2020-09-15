@@ -71,7 +71,7 @@ commands. The most important are:
 - `maestral gui`: Starts the Maestral GUI. Creates a sync daemon if not already running.
 - `maestral start|stop`: Starts or stops the Maestral sync daemon.
 - `maestral pause|resume`: Pauses or resumes syncing.
-- `maestral autostart`: Sets the daemon to start on log in.
+- `maestral autostart -Y|-N`: Sets the daemon to start on log in.
 - `maestral status`: Gets the current status of Maestral.
 - `maestral file-status LOCAL_PATH`: Gets the sync status of an individual file or folder.
 - `maestral excluded add|remove|list`: Command group to manage excluded folders.
@@ -112,7 +112,7 @@ new CLI commands, others require more experience, such as packaging for non-macO
 Look out for issues marked with "good first issue" or "help wanted". Pull requests should be
 made against the develop branch.
 
-Revelant resources are:
+Relevant resources are:
 
 - [Maestral API docs](https://maestral.readthedocs.io)
 - [Dropbox API docs](https://www.dropbox.com/developers/documentation/http/documentation)
@@ -133,7 +133,7 @@ month to offset the cost of an Apple Develper account to sign and notiarize the 
 # Acknowledgements
 
 - The config module uses code from the [Spyder IDE](https://github.com/spyder-ide)
-- The MaestralApiClient is based on work from [Orphilia](https://github.com/ksiazkowicz/orphilia-dropbox)
+- The DropboxClient is inspired by work from [Orphilia](https://github.com/ksiazkowicz/orphilia-dropbox)
 - Error reporting is powered by bugsnag:
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <a href="https://bugsnag.com"> <img src="https://global-uploads.webflow.com/5c741219fd0819540590e785/5c741219fd0819856890e790_asset%2039.svg" title="Bugsnag text" height="20"></a>
