@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
 
+stringContain() { [ -z "$1" ] || { [ -z "${2##*$1*}" ] && [ -n "$2" ];};}
+
+ARGS="$@"
 SPEC_FILE=maestral_linux.spec
 
-if [ "$1" = "--dev" ]; then
+if stringContain "--dev" "$ARGS"; then
     BRANCH="develop"
 else
     BRANCH="master"
 fi
 
 echo "**** INSTALLING DEPENDENCIES ****************************"
+
+if stringContain "--clean" "$ARGS"; then
+    rm -r -f build
+    mkdir build
+fi
 
 python3 -m pip install -U pyinstaller
 

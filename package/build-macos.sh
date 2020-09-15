@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 
+stringContain() { [ -z "$1" ] || { [ -z "${2##*$1*}" ] && [ -n "$2" ];};}
+
+ARGS="$@"
 SPEC_FILE=maestral_macos.spec
 BUILD_NO=$(grep -E -o "[0-9]*" bundle_version_macos.txt)
 
-if [ "$1" = "--dev" ]; then
+if stringContain "--dev" "$ARGS"; then
+    echo "**** BUILDING FROM DEV *********************************"
     BRANCH="develop"
 else
+    echo "**** BUILDING FROM MASTER ******************************"
     BRANCH="master"
 fi
 
@@ -16,6 +21,12 @@ export LDFLAGS=-mmacosx-version-min=10.13
 export LINKFLAGS=-mmacosx-version-min=10.13
 
 echo "**** INSTALLING DEPENDENCIES ***************************"
+
+if stringContain "--clean" "$ARGS"; then
+    echo "cleaning build dir"
+    rm -r -f build
+    mkdir build
+fi
 
 git clone https://github.com/pyinstaller/pyinstaller.git build/pyinstaller
 cd build/pyinstaller
@@ -78,7 +89,7 @@ codesign --verify --sign "Developer ID Application: Sam Schott" dist/Maestral.dm
 
 
 
-if ! [ "$1" = "--dev" ]; then
+if ! stringContain "--dev" "$ARGS"; then
     echo "**** NOTARISING DMG ************************************"
     ./macos-notarize-dmg.sh dist/Maestral.dmg
 fi
