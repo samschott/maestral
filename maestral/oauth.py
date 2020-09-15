@@ -30,7 +30,6 @@ from dropbox.oauth import DropboxOAuth2FlowNoRedirect  # type: ignore
 # local imports
 from maestral.config import MaestralConfig, MaestralState
 from maestral.constants import DROPBOX_APP_KEY
-from maestral.client import CONNECTION_ERRORS
 from maestral.errors import KeyringAccessError
 
 
@@ -42,6 +41,14 @@ supported_keyring_backends = (
     keyring.backends.kwallet.DBusKeyring,
     keyring.backends.kwallet.DBusKeyringKWallet4,
     keyrings.alt.file.PlaintextKeyring
+)
+
+CONNECTION_ERRORS = (
+    requests.exceptions.Timeout,
+    requests.exceptions.RetryError,
+    requests.exceptions.ChunkedEncodingError,
+    requests.exceptions.ConnectionError,
+    ConnectionError,
 )
 
 
