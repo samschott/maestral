@@ -23,6 +23,10 @@ Finally, this is release introduces support for macOS 11 (Big Sur).
 - Desktop notifications are now clickable: for a single file change, clicking the
   notification will show the file in the platform's file manager. For a deletion, the
   Dropbox website is opened to provide options for restoring the file or folder.
+- Use entry points to discover GUI frontends. 3rd party GUIs can register a `maestral_gui`
+  entry point to be launched with the `maestral gui` CLI command. If installed,
+  `maestral gui` will default to the 1st party `maestral-cocoa` or `maestral-qt` GUIs on
+  macOS and Linux, respectively.
 
 #### Changed:
 
