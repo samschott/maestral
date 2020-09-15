@@ -174,7 +174,6 @@ class DropboxClient:
     :class:`ConnectionError`.
 
     :param config_name: Name of config file and state file to use.
-    :param access_token: Dropbox access token for user.
     :param timeout: Timeout for individual requests. Defaults to 100 sec if not given.
     """
 
