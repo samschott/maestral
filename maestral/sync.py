@@ -2724,7 +2724,7 @@ class SyncEngine:
         else:
             msg = f'{file_name} {change_type}'
 
-        self._notifier.notify(msg, on_click=callback)
+        self._notifier.notify('Items synced', msg, on_click=callback)
 
     def _filter_excluded_changes_remote(self, changes: List[SyncEvent]) \
             -> Tuple[List[SyncEvent], List[SyncEvent]]:

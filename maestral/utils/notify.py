@@ -178,12 +178,13 @@ class MaestralDesktopNotifier(logging.Handler):
         """Setter: snoozed."""
         self._snooze = time.time() + minutes * 60.0
 
-    def notify(self, message: str, level: int = FILECHANGE,
+    def notify(self, title: str, message: str, level: int = FILECHANGE,
                on_click: Optional[Callable] = None,
                buttons: Optional[Dict[str, Optional[Callable]]] = None) -> None:
         """
         Sends a desktop notification from maestral. The title defaults to 'Maestral'.
 
+        :param title: Notification title.
         :param message: Notification message.
         :param level: Notification level of the message.
         :param on_click: A callback to execute when the notification is clicked. The
@@ -199,7 +200,7 @@ class MaestralDesktopNotifier(logging.Handler):
 
         if level >= self.notify_level and not ignore:
             system_notifier.send(
-                title=APP_NAME,
+                title=title,
                 message=message,
                 icon=APP_ICON_PATH,
                 urgency=urgency,
@@ -210,4 +211,4 @@ class MaestralDesktopNotifier(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         """Emits a log record as a desktop notification."""
         self.format(record)
-        self.notify(record.message, level=record.levelno)
+        self.notify(record.levelname, record.message, level=record.levelno)
