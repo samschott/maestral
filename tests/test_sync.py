@@ -395,7 +395,7 @@ class TestSync(TestCase):
 
         cls.m = Maestral('test-config')
         cls.m.log_level = logging.DEBUG
-        cls.m.client.set_token(access_token=os.environ.get('DROPBOX_TOKEN', ''))
+        cls.m.client._init_sdk_with_token(access_token=os.environ.get('DROPBOX_TOKEN', ''))
         cls.m.create_dropbox_directory('~/Dropbox_Test')
 
         # all our tests will be carried out within this folder
