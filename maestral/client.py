@@ -30,6 +30,7 @@ from dropbox import (  # type: ignore
 
 # local imports
 from maestral import __version__
+from maestral.oauth import OAuth2Session
 from maestral.errors import (
     MaestralApiError, SyncError, InsufficientPermissionsError, PathError, FileReadError,
     InsufficientSpaceError, FileConflictError, FolderConflictError, ConflictError,
@@ -181,26 +182,22 @@ class DropboxClient:
 
     _dbx: Optional[Dropbox]
 
-    def __init__(self, config_name: str,
-                 refresh_token: Optional[str] = None,
-                 access_token: Optional[str] = None,
-                 access_token_expiration: Optional[datetime] = None,
-                 timeout: float = 100) -> None:
+    def __init__(self, config_name: str, timeout: float = 100) -> None:
 
         self.config_name = config_name
 
         self._timeout = timeout
         self._backoff_until = 0
-        self._state = MaestralState(config_name)
         self._dbx = None
+        self._state = MaestralState(config_name)
+        self._auth = OAuth2Session(config_name)
 
-        # initialize API client
-        self.set_token(refresh_token, access_token, access_token_expiration)
+    # ---- linking API -------------------------------------------------------------------
 
     @property
     def dbx(self) -> Dropbox:
         """The actual Python Dropbox SDK"""
-        if not self._dbx:
+        if not self.linked:
             raise NotLinkedError('No auth token set',
                                  'Please call "set_token" to link an account.')
 
@@ -208,13 +205,73 @@ class DropboxClient:
 
     @property
     def linked(self) -> bool:
-        """True if we have an auth token, False otherwise."""
+        """Indicates if the client is linked to a Dropbox account (read only). This will
+        block until the user's keyring is unlocked to load the saved auth token."""
 
-        return self._dbx is not None
+        if self._dbx:
+            return True
 
-    def set_token(self, refresh_token: Optional[str] = None,
-                  access_token: Optional[str] = None,
-                  access_token_expiration: Optional[datetime] = None) -> None:
+        elif self._auth.linked:  # this will trigger keyring access on first call
+
+            if self._auth.token_access_type == 'legacy':
+                self._init_sdk_with_token(access_token=self._auth.access_token)
+            else:
+                self._init_sdk_with_token(refresh_token=self._auth.refresh_token)
+
+            return True
+
+        else:
+            return False
+
+    def get_auth_url(self) -> str:
+        """
+        Returns a URL to authorize access to a Dropbox account. To link a Dropbox
+        account, retrieve an auth token from the URL and link Maestral by calling
+        :meth:`link` with the provided token.
+
+        :returns: URL to retrieve an OAuth token.
+        """
+        return self._auth.get_auth_url()
+
+    def link(self, token: str) -> int:
+        """
+        Links Maestral with a Dropbox account using the given access token. The token will
+        be stored for future usage as documented in the :mod:`oauth` module.
+
+        :param token: OAuth token for Dropbox access.
+        :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
+        """
+
+        res = self._auth.verify_auth_token(token)
+
+        if res == self._auth.Success:
+            self._auth.save_creds()
+
+            self._init_sdk_with_token(
+                refresh_token=self._auth.refresh_token,
+                access_token=self._auth.access_token,
+                access_token_expiration=self._auth.access_token_expiration,
+            )
+
+            try:
+                self.get_account_info()
+                self.get_space_usage()
+            except ConnectionError:
+                pass
+
+        return res
+
+    @to_maestral_error()
+    def unlink(self) -> None:
+        """
+        Unlinks the Dropbox account.
+        """
+        self._auth.delete_creds()
+        self.dbx.auth_token_revoke()  # should only raise auth errors
+
+    def _init_sdk_with_token(self, refresh_token: Optional[str] = None,
+                             access_token: Optional[str] = None,
+                             access_token_expiration: Optional[datetime] = None) -> None:
         """
         Sets the access tokens for the Dropbox API. This will create a new SDK instance
         with new tokens.
@@ -237,6 +294,13 @@ class DropboxClient:
             )
         else:
             self._dbx = None
+
+    @property
+    def account_id(self) -> Optional[str]:
+        """The unique Dropbox ID of the linked account"""
+        return self._auth.account_id
+
+    # ---- SDK wrappers ------------------------------------------------------------------
 
     @to_maestral_error()
     def get_account_info(self, dbid: Optional[str] = None) -> users.FullAccount:
@@ -285,13 +349,6 @@ class DropboxClient:
         self._state.set('account', 'usage_type', space_usage.allocation_type)
 
         return space_usage
-
-    @to_maestral_error()
-    def unlink(self) -> None:
-        """
-        Unlinks the Dropbox account.
-        """
-        self.dbx.auth_token_revoke()  # should only raise auth errors
 
     @to_maestral_error(dbx_path_arg=1)
     def get_metadata(self, dbx_path: str, **kwargs) -> files.Metadata:

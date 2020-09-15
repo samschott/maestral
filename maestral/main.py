@@ -22,7 +22,6 @@ from typing import Union, List, Dict, Optional, Deque, Any
 
 # external imports
 import requests
-import keyring.errors  # type: ignore
 from watchdog.events import DirDeletedEvent, FileDeletedEvent  # type: ignore
 import bugsnag  # type: ignore
 from bugsnag.handlers import BugsnagHandler  # type: ignore
@@ -37,7 +36,6 @@ import sdnotify  # type: ignore
 
 # local imports
 from maestral import __version__
-from maestral.oauth import OAuth2Session
 from maestral.client import DropboxClient, to_maestral_error
 from maestral.sync import SyncMonitor, SyncDirection
 from maestral.errors import (
@@ -208,7 +206,6 @@ class Maestral:
 
         self._setup_logging()
 
-        self._auth = OAuth2Session(self._config_name)  # OAuth API and token store
         self.client = DropboxClient(config_name=self.config_name)  # interface to Dbx SDK
         self.monitor = SyncMonitor(self.client)  # coordinates sync threads
         self.sync = self.monitor.sync  # provides core sync functionality
@@ -257,7 +254,7 @@ class Maestral:
 
         :returns: URL to retrieve an OAuth token.
         """
-        return self._auth.get_auth_url()
+        return self.client.get_auth_url()
 
     def link(self, token: str) -> int:
         """
@@ -275,24 +272,7 @@ class Maestral:
         :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
         """
 
-        res = self._auth.verify_auth_token(token)
-
-        if res == self._auth.Success:
-            self._auth.save_creds()
-
-            self.client.set_token(
-                refresh_token=self._auth.refresh_token,
-                access_token=self._auth.access_token,
-                access_token_expiration=self._auth.access_token_expiration,
-            )
-
-            try:
-                self.get_account_info()
-                self.get_space_usage()
-            except ConnectionError:
-                pass
-
-        return res
+        return self.client.link(token)
 
     def unlink(self) -> None:
         """
@@ -305,29 +285,10 @@ class Maestral:
         :raises: :class:`errors.KeyringAccessError` if deleting the auth key fails because
             the user's keyring is locked.
         """
-
-        self._check_linked()
-        self.stop_sync()
-
-        # revoke token
         try:
             self.client.unlink()
         except (ConnectionError, MaestralApiError):
-            pass
-
-        # clean up config + state
-        self.sync.clear_index()
-        self.sync.clear_sync_history()
-        self._conf.cleanup()
-        self._state.cleanup()
-        delete(self.sync.database_path)
-
-        # delete auth token
-        try:
-            self._auth.delete_creds()
-        except keyring.errors.PasswordDeleteError:
-            logger.warning('Could not delete OAuth2 token', exc_info=True)
-
+            logger.debug('Could not invalidate token with Dropbox', exc_info=True)
         logger.info('Unlinked Dropbox account.')
 
     def _setup_logging(self) -> None:
@@ -560,21 +521,7 @@ class Maestral:
     def pending_link(self) -> bool:
         """Indicates if Maestral is linked to a Dropbox account (read only). This will
         block until the user's keyring is unlocked to load the saved auth token."""
-
-        if self.client.linked:
-            return False
-
-        elif self._auth.linked:  # this will trigger keyring access on first call
-
-            if self._auth.token_access_type == 'legacy':
-                self.client.set_token(access_token=self._auth.access_token)
-            else:
-                self.client.set_token(refresh_token=self._auth.refresh_token)
-
-            return False
-
-        else:
-            return True
+        return not self.client.linked
 
     @property
     def pending_dropbox_folder(self) -> bool:
