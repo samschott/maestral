@@ -198,14 +198,18 @@ class Maestral:
 
     def __init__(self, config_name: str = 'maestral', log_to_stdout: bool = False) -> None:
 
-        self._log_to_stdout = log_to_stdout
         self._config_name = validate_config_name(config_name)
-
         self._conf = MaestralConfig(self._config_name)
         self._state = MaestralState(self._config_name)
 
+        # enable / disable automatic reporting of errors
+        bugsnag.configuration.auto_notify = self.analytics
+
+        # set up logging
+        self._log_to_stdout = log_to_stdout
         self._setup_logging()
 
+        # set up sync infrastructure
         self.client = DropboxClient(config_name=self.config_name)  # interface to Dbx SDK
         self.monitor = SyncMonitor(self.client)  # coordinates sync threads
         self.sync = self.monitor.sync  # provides core sync functionality
@@ -298,7 +302,6 @@ class Maestral:
         stdout if requested.
         """
 
-        log_level = self._conf.get('app', 'log_level')
         maestral_logger = logging.getLogger('maestral')
         maestral_logger.setLevel(logging.DEBUG)
 
@@ -314,7 +317,7 @@ class Maestral:
             rfh_log_file, maxBytes=10 ** 7, backupCount=1
         )
         self.log_handler_file.setFormatter(log_fmt_long)
-        self.log_handler_file.setLevel(log_level)
+        self.log_handler_file.setLevel(self.log_level)
         maestral_logger.addHandler(self.log_handler_file)
 
         # log to journal when launched from systemd
@@ -324,7 +327,7 @@ class Maestral:
                 SYSLOG_IDENTIFIER='maestral'
             )
             self.log_handler_journal.setFormatter(log_fmt_short)
-            self.log_handler_journal.setLevel(log_level)
+            self.log_handler_journal.setLevel(self.log_level)
             maestral_logger.addHandler(self.log_handler_journal)
         else:
             self.log_handler_journal = None
@@ -339,7 +342,7 @@ class Maestral:
             self.log_handler_sd = None
 
         # log to stdout (disabled by default)
-        level = log_level if self._log_to_stdout else 100
+        level = self.log_level if self._log_to_stdout else 100
         self.log_handler_stream = logging.StreamHandler(sys.stdout)
         self.log_handler_stream.setFormatter(log_fmt_long)
         self.log_handler_stream.setLevel(level)
@@ -365,10 +368,8 @@ class Maestral:
 
         # log to bugsnag (disabled by default)
         self._log_handler_bugsnag = BugsnagHandler()
-        self._log_handler_bugsnag.setLevel(100)
+        self._log_handler_bugsnag.setLevel(logging.ERROR if self.analytics else 100)
         maestral_logger.addHandler(self._log_handler_bugsnag)
-
-        self.analytics = self._conf.get('app', 'analytics')
 
     # ==== methods to access config and saved state ======================================
 
@@ -488,7 +489,6 @@ class Maestral:
         """Setter: analytics."""
 
         bugsnag.configuration.auto_notify = enabled
-        bugsnag.configuration.auto_capture_sessions = enabled
         self._log_handler_bugsnag.setLevel(logging.ERROR if enabled else 100)
 
         self._conf.set('app', 'analytics', enabled)
@@ -526,13 +526,12 @@ class Maestral:
     @property
     def pending_dropbox_folder(self) -> bool:
         """Indicates if a local Dropbox directory has been created (read only)."""
-        return not osp.isdir(self._conf.get('main', 'path'))
+        return not osp.isdir(self.sync.dropbox_path)
 
     @property
     def pending_first_download(self) -> bool:
         """Indicates if the initial download has already occurred (read only)."""
-        return (self._state.get('sync', 'lastsync') == 0
-                or self._state.get('sync', 'cursor') == '')
+        return self.sync.local_cursor == 0 or self.sync.remote_cursor == ''
 
     @property
     def syncing(self) -> bool:
@@ -1086,11 +1085,9 @@ class Maestral:
 
         dbx_path = dbx_path.lower().rstrip('/')
 
-        excluded_items = self._conf.get('main', 'excluded_items')
-
-        if dbx_path in excluded_items:
+        if dbx_path in self.sync.excluded_items:
             return 'excluded'
-        elif any(is_child(f, dbx_path) for f in excluded_items):
+        elif any(is_child(f, dbx_path) for f in self.sync.excluded_items):
             return 'partially excluded'
         else:
             return 'included'

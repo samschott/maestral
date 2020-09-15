@@ -523,7 +523,7 @@ class SyncEvent(Base):  # type: ignore
                 if not old_md.sharing_info:
                     # file is not in a shared folder, therefore
                     # the current user must have deleted it
-                    change_dbid = sync_engine._conf.get('account', 'account_id')
+                    change_dbid = sync_engine.client.account_id
                 else:
                     # we cannot determine who deleted the item
                     change_dbid = None
@@ -558,7 +558,7 @@ class SyncEvent(Base):  # type: ignore
             else:
                 # file is not a shared folder, therefore
                 # the current user must have added or modified it
-                change_dbid = cast(str, sync_engine._conf.get('account', 'account_id'))
+                change_dbid = sync_engine.client.account_id
         else:
             raise RuntimeError(f'Cannot convert {md} to SyncEvent')
 
@@ -593,7 +593,7 @@ class SyncEvent(Base):  # type: ignore
             SyncEvent.
         """
 
-        change_dbid = cast(str, sync_engine._conf.get('account', 'account_id'))
+        change_dbid = sync_engine.client.account_id
         to_path = get_dest_path(event)
         from_path = None
 
@@ -2676,7 +2676,7 @@ class SyncEngine:
         if len(dbid_list) == 1:
             # all files have been modified by the same user
             dbid = dbid_list.pop()
-            if dbid == self._conf.get('account', 'account_id'):
+            if dbid == self.client.account_id:
                 user_name = 'You'
             else:
                 try:
@@ -3529,6 +3529,10 @@ class SyncMonitor:
     @property
     def reindex_interval(self) -> float:
         return self._conf.get('sync', 'reindex_interval')
+
+    @reindex_interval.setter
+    def reindex_interval(self, interval: float) -> None:
+        self._conf.set('sync', 'reindex_interval', interval)
 
     @property
     def activity(self) -> List[SyncEvent]:
