@@ -22,7 +22,7 @@ import keyring.backends.SecretService  # type: ignore
 import keyring.backends.kwallet  # type: ignore
 from keyring.backend import KeyringBackend  # type: ignore
 from keyring.core import load_keyring  # type: ignore
-from keyring.errors import KeyringLocked  # type: ignore
+from keyring.errors import KeyringLocked, PasswordDeleteError  # type: ignore
 import keyrings.alt.file  # type: ignore
 import requests
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect  # type: ignore
@@ -338,6 +338,8 @@ class OAuth2Session:
                 exc = KeyringAccessError(title, msg)
                 logger.error(title, exc_info=_exc_info(exc))
                 raise exc
+            except PasswordDeleteError as exc:
+                logger.warning(exc.args[0])
             finally:
                 self._account_id = None
                 self._access_token = None
