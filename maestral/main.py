@@ -289,10 +289,22 @@ class Maestral:
         :raises: :class:`errors.KeyringAccessError` if deleting the auth key fails because
             the user's keyring is locked.
         """
+
+        self._check_linked()
+        self.stop_sync()
+
         try:
             self.client.unlink()
         except (ConnectionError, MaestralApiError):
             logger.debug('Could not invalidate token with Dropbox', exc_info=True)
+
+        # clean up config + state
+        self.sync.clear_index()
+        self.sync.clear_sync_history()
+        self._conf.cleanup()
+        self._state.cleanup()
+        delete(self.sync.database_path)
+
         logger.info('Unlinked Dropbox account.')
 
     def _setup_logging(self) -> None:
@@ -1264,7 +1276,7 @@ class Maestral:
 
     def _check_linked(self) -> None:
 
-        if self.pending_link:
+        if not self.client.linked:
             raise NotLinkedError('No Dropbox account linked',
                                  'Please call "link" to link an account.')
 
