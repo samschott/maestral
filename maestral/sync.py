@@ -1931,7 +1931,7 @@ class SyncEngine:
         # COMBINE MOVED AND DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
 
         # Avoid nested iterations over all events here, they are on the order of O(n^2)
-        # which becomes costly then the user moves or deletes folder with a large number
+        # which becomes costly when the user moves or deletes folder with a large number
         # of children. Benchmark: aim to stay below 1 sec for 20,000 nested events on
         # representative laptops.
 
@@ -1941,8 +1941,8 @@ class SyncEngine:
 
         if len(dir_moved_paths) > 0:
             child_moved_events: Dict[Tuple[str, str], List[FileSystemEvent]] = dict()
-            for path in dir_moved_paths:
-                child_moved_events[path] = []
+            for paths in dir_moved_paths:
+                child_moved_events[paths] = []
 
             for event in cleaned_events:
                 if event.event_type == EVENT_TYPE_MOVED:
