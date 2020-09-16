@@ -52,6 +52,8 @@ class TestCleanLocalEvents(TestCase):
 
     def test_single_file_events(self):
 
+        # only a single event for every path -> no consolidation
+
         file_events = [
             FileModifiedEvent(path(1)),
             FileCreatedEvent(path(2)),
@@ -78,12 +80,17 @@ class TestCleanLocalEvents(TestCase):
             # deleted + created -> modified
             FileDeletedEvent(path(2)),
             FileCreatedEvent(path(2)),
+            # created + modified -> created
+            FileCreatedEvent(path(3)),
+            FileModifiedEvent(path(3)),
         ]
 
         res = [
             # created + deleted -> None
             # deleted + created -> modified
-            FileModifiedEvent(path(2))
+            FileModifiedEvent(path(2)),
+            # created + modified -> created
+            FileCreatedEvent(path(3)),
         ]
 
         cleaned_events = self.sync._clean_local_events(file_events)
