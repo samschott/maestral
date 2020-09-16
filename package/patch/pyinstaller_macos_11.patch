@@ -1,3 +1,16 @@
+diff --git a/PyInstaller/building/osx.py b/PyInstaller/building/osx.py
+index 69c41a40814345becd6a22b3f55ea79b141968f7..c7c25b6cde5af9298f66f8bdee2b2b20e17c8f28 100644
+--- a/PyInstaller/building/osx.py
++++ b/PyInstaller/building/osx.py
+@@ -143,7 +143,7 @@ class BUNDLE(Target):
+                            "CFBundleIdentifier": self.bundle_identifier,
+ 
+                            # Fix for #156 - 'MacOS' must be in the name - not sure why
+-                           "CFBundleExecutable": 'MacOS/%s' % os.path.basename(self.exename),
++                           "CFBundleExecutable": os.path.basename(self.exename),
+                            "CFBundleIconFile": os.path.basename(self.icon),
+                            "CFBundleInfoDictionaryVersion": "6.0",
+                            "CFBundlePackageType": "APPL",
 diff --git a/PyInstaller/depend/bindepend.py b/PyInstaller/depend/bindepend.py
 index 95660b5dcef0f7167bf62007422233daefb758a7..915ba2ef39a3ad1658ef1e24c5567d7c47bf0b43 100644
 --- a/PyInstaller/depend/bindepend.py
