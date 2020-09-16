@@ -2593,10 +2593,11 @@ class SyncEngine:
 
         # remove deleted item and its children from the excluded list
         for event in changes_excluded:
-            new_excluded = [path for path in self.excluded_items
-                            if not is_equal_or_child(path, event.dbx_path.lower())]
+            if event.is_deleted:
+                new_excluded = [path for path in self.excluded_items
+                                if not is_equal_or_child(path, event.dbx_path.lower())]
 
-            self.excluded_items = new_excluded
+                self.excluded_items = new_excluded
 
         # sort changes into folders, files and deleted
         folders: List[SyncEvent] = []
