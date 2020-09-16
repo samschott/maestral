@@ -1,10 +1,10 @@
-## v1.2.0.dev
+## v1.2.0
 
 The local file index and sync history are now stored in a SQLite database. After the
 update, Maestral will first reindex your Dropbox to populate the new index.
 
-This change enables several improvements to the command line interface and GUI: The 
-command `maestral activity` now shows the progress of individual uploads on downloads.
+This change enables several improvements to the command line interface and GUI: The
+command `maestral activity` now shows the progress of individual uploads or downloads.
 `maestral history` has been added to list recent sync events. In the GUI, the recent
 changes menu now has been replaced by a "Activity" window which shows all sync events of
 the past week.
@@ -38,8 +38,8 @@ Finally, this is release introduces support for macOS 11 (Big Sur).
 - Sync remote changes in filename even if they are only a change in casing. Those changes
   where previously ignored.
 - Attempt to preserve local file permissions when syncing unless the file id has changed.
-  Dropbox servers do store file permissions but don't make them available through the 
-  public API. We therefore cannot sync file permissions and instead choose not to 
+  Dropbox servers do store file permissions but don't make them available through the
+  public API. We therefore cannot sync file permissions and instead choose not to
   overwrite locally set permissions on every download.
 - Changed return type of `Maestral.get_activity` from namedtuple to dict for better
   consistency throughout the API. Every uploading or downloading item will have 'size'
@@ -49,13 +49,13 @@ Finally, this is release introduces support for macOS 11 (Big Sur).
 - Introduced type annotations throughout and fixed a few type-related bugs.
 - Added a field "Sync threads" to the output of the CLI command `maestral status`.
 - The output of `maestral ls` is now printed in a grid, similar to the `ls` command
-  included in most platforms.
-- The macOS app bundle is now uses Python 3.8, leading to some performance improvements
-  when moving or copying file system trees.
+  included with most platforms.
+- The macOS app bundle now uses Python 3.8, leading to some performance improvements when
+  moving or copying file system trees.
 - Prepared the GUI for changes in macOS Big Sur: use native alerts and dialogs wherever
   possible and refactor loading of libraries.
 - Use an asyncio event loop instead of Pyro's event loop to run the daemon. This enables
-  the integration with the Cocoa run loop and callbacks when clicking notifications. 
+  integration with the Cocoa run loop and callbacks when clicking notifications.
 
 #### Fixed:
 
@@ -64,8 +64,8 @@ Finally, this is release introduces support for macOS 11 (Big Sur).
 - Fixes a bug where sending SIGTERM to the daemon process would raise an error when we
   cannot determine its PID. Now, `Stop.Failed` is returned instead.
 - Fixes a bug which would result in incorrect systemd unit files for non-default config
-  file names. Please disable and re-enable autostart with `maestral autostart -Y|N` to
-  replace old unit files for any daemon with a config name other than "maestral".
+  file names. Please disable and re-enable autostart with `maestral autostart -Y|-N` to
+  replace old unit files.
 - Fixes a possible race condition when creating the cache directory.
 - Fixes error handling when a file is changed while uploading.
 
@@ -75,10 +75,10 @@ Finally, this is release introduces support for macOS 11 (Big Sur).
   on some platforms.
 - The ability to run the daemon in a separate thread. The daemon must now always be run in
   its own process.
-  
+
 #### Dependencies:
 
-- Replaced `jeepney` dependency on Linux with `dbus-next` as the Dbus interface.
+- Replaced `jeepney` dependency on Linux with `dbus-next`.
 
 ## v1.1.0
 
