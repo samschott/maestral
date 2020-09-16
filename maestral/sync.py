@@ -1858,42 +1858,41 @@ class SyncEngine:
 
         unique_events = []
 
-        for h in histories.values():
-            if len(h) == 1:
-                unique_events.append(h[0])
+        for path, events in histories.items():
+            if len(events) == 1:
+                unique_events.append(events[0])
             else:
-                path = h[0].src_path
 
-                n_created = len([e for e in h if e.event_type == EVENT_TYPE_CREATED])
-                n_deleted = len([e for e in h if e.event_type == EVENT_TYPE_DELETED])
+                n_created = len([e for e in events if e.event_type == EVENT_TYPE_CREATED])
+                n_deleted = len([e for e in events if e.event_type == EVENT_TYPE_DELETED])
 
                 if n_created > n_deleted:  # item was created
-                    if h[-1].is_directory:
+                    if events[-1].is_directory:
                         unique_events.append(DirCreatedEvent(path))
                     else:
                         unique_events.append(FileCreatedEvent(path))
-                if n_created < n_deleted:  # item was deleted
-                    if h[0].is_directory:
+                elif n_created < n_deleted:  # item was deleted
+                    if events[0].is_directory:
                         unique_events.append(DirDeletedEvent(path))
                     else:
                         unique_events.append(FileDeletedEvent(path))
                 else:
 
-                    first_created_idx = next(iter(i for i, e in enumerate(h)
+                    first_created_idx = next(iter(i for i, e in enumerate(events)
                                                   if e.event_type == EVENT_TYPE_CREATED), -1)
-                    first_deleted_idx = next(iter(i for i, e in enumerate(h)
+                    first_deleted_idx = next(iter(i for i, e in enumerate(events)
                                                   if e.event_type == EVENT_TYPE_DELETED), -1)
 
                     if n_created == 0 or first_deleted_idx < first_created_idx:
                         # item was modified
-                        if h[0].is_directory and h[-1].is_directory:
+                        if events[0].is_directory and events[-1].is_directory:
                             unique_events.append(DirModifiedEvent(path))
-                        elif not h[0].is_directory and not h[-1].is_directory:
+                        elif not events[0].is_directory and not events[-1].is_directory:
                             unique_events.append(FileModifiedEvent(path))
-                        elif h[0].is_directory:
+                        elif events[0].is_directory:
                             unique_events.append(DirDeletedEvent(path))
                             unique_events.append(FileCreatedEvent(path))
-                        elif h[-1].is_directory:
+                        elif events[-1].is_directory:
                             unique_events.append(FileDeletedEvent(path))
                             unique_events.append(DirCreatedEvent(path))
                     else:
@@ -1907,7 +1906,7 @@ class SyncEngine:
 
         # recombine moved events
         moved_events: Dict[str, List[FileSystemEvent]] = dict()
-        for event in unique_events:
+        for event in cleaned_events:
             if hasattr(event, 'id'):
                 try:
                     moved_events[event.id].append(event)
