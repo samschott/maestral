@@ -11,6 +11,7 @@ import time
 import shutil
 from pathlib import Path
 from threading import Event
+import logging
 import timeit
 from dropbox.files import WriteMode
 from maestral.sync import (
@@ -19,26 +20,17 @@ from maestral.sync import (
 )
 from maestral.sync import delete, move
 from maestral.sync import is_child, is_fs_case_sensitive
-from maestral.sync import get_local_hash, DirectorySnapshot
-from maestral.sync import SyncEngine, Observer, FSEventHandler
+from maestral.sync import DirectorySnapshot
+from maestral.sync import SyncEngine, DropboxClient, Observer, FSEventHandler
+from maestral.sync import SyncDirection, ItemType, ChangeType
 from maestral.errors import NotFoundError, FolderConflictError
 from maestral.main import Maestral
-from maestral.main import get_log_path
+from maestral.utils.appdirs import get_home_dir
+from maestral.utils.path import to_existing_cased_path
+from maestral.utils.housekeeping import remove_configuration
 
 import unittest
 from unittest import TestCase
-
-
-class DummySyncEngine(SyncEngine):
-
-    def __init__(self, dropbox_path=''):
-        self._dropbox_path = dropbox_path
-
-    def _should_split_excluded(self, event):
-        return False
-
-    def is_excluded(self, dbx_path):
-        return False
 
 
 def path(i):
@@ -49,9 +41,18 @@ def path(i):
 class TestCleanLocalEvents(TestCase):
 
     def setUp(self):
-        self.sync = DummySyncEngine()
+        self.sync = SyncEngine(
+            DropboxClient('test-config'),
+            None
+        )
+        self.sync.dropbox_path = '/'
+
+    def tearDown(self):
+        remove_configuration('test-config')
 
     def test_single_file_events(self):
+
+        # only a single event for every path -> no consolidation
 
         file_events = [
             FileModifiedEvent(path(1)),
@@ -79,12 +80,17 @@ class TestCleanLocalEvents(TestCase):
             # deleted + created -> modified
             FileDeletedEvent(path(2)),
             FileCreatedEvent(path(2)),
+            # created + modified -> created
+            FileCreatedEvent(path(3)),
+            FileModifiedEvent(path(3)),
         ]
 
         res = [
             # created + deleted -> None
             # deleted + created -> modified
-            FileModifiedEvent(path(2))
+            FileModifiedEvent(path(2)),
+            # created + modified -> created
+            FileCreatedEvent(path(3)),
         ]
 
         cleaned_events = self.sync._clean_local_events(file_events)
@@ -252,12 +258,12 @@ class TestCleanLocalEvents(TestCase):
 
     def test_performance(self):
 
-        # 15,000 nested deleted events (10,000 folders, 5,000 files)
-        file_events = [DirDeletedEvent(n * path(1)) for n in range(1, 10001)]
+        # 10,000 nested deleted events (5,000 folders, 5,000 files)
+        file_events = [DirDeletedEvent(n * path(1)) for n in range(1, 5001)]
         file_events += [FileDeletedEvent(n * path(1) + '.txt') for n in range(1, 5001)]
 
-        # 15,000 nested moved events (10,000 folders, 5,000 files)
-        file_events += [DirMovedEvent(n * path(2), n * path(3)) for n in range(1, 10001)]
+        # 10,000 nested moved events (5,000 folders, 5,000 files)
+        file_events += [DirMovedEvent(n * path(2), n * path(3)) for n in range(1, 5001)]
         file_events += [FileMovedEvent(n * path(2) + '.txt', n * path(3) + '.txt')
                         for n in range(1, 5001)]
 
@@ -279,56 +285,76 @@ class TestCleanLocalEvents(TestCase):
         duration = timeit.timeit(lambda: self.sync._clean_local_events(file_events),
                                  number=n_loops)
 
-        self.assertLess(duration, 5 * n_loops)
+        self.assertLess(duration, 10 * n_loops)
 
 
 class TestIgnoreLocalEvents(TestCase):
 
     def setUp(self):
-        self.sync = DummySyncEngine()
-        self.dummy_dir = Path(os.getcwd()).parent / 'dropbox_dir'
-
-        delete(self.dummy_dir)
-        self.dummy_dir.mkdir()
 
         syncing = Event()
         startup = Event()
         syncing.set()
 
-        self.sync = DummySyncEngine(self.dummy_dir)
-        self.fs_event_handler = FSEventHandler(syncing, startup, self.sync)
+        local_dir = osp.join(get_home_dir(), 'dummy_dir')
+        os.mkdir(local_dir)
+
+        self.sync = SyncEngine(
+            DropboxClient('test-config'),
+            FSEventHandler(syncing, startup)
+        )
+
+        self.sync.dropbox_path = local_dir
 
         self.observer = Observer()
-        self.observer.schedule(self.fs_event_handler, str(self.dummy_dir), recursive=True)
+        self.observer.schedule(self.sync.fs_events, self.sync.dropbox_path, recursive=True)
         self.observer.start()
+
+    def tearDown(self):
+
+        self.observer.stop()
+        self.observer.join()
+
+        remove_configuration('test-config')
+        delete(self.sync.dropbox_path)
 
     def test_receiving_events(self):
 
-        new_dir = self.dummy_dir / 'parent'
+        new_dir = Path(self.sync.dropbox_path, 'parent')
         new_dir.mkdir()
 
-        changes, local_cursor = self.sync.wait_for_local_changes()
+        sync_events, local_cursor = self.sync.wait_for_local_changes()
 
-        expected_event_list = [DirCreatedEvent(str(new_dir))]
+        self.assertEqual(len(sync_events), 1)
 
-        self.assertEqual(changes, expected_event_list)
+        try:
+            ctime = os.stat(new_dir).st_birthtime
+        except AttributeError:
+            ctime = None
+
+        event = sync_events[0]
+        self.assertEqual(event.direction, SyncDirection.Up)
+        self.assertEqual(event.item_type, ItemType.Folder)
+        self.assertEqual(event.change_type, ChangeType.Added)
+        self.assertEqual(event.change_time, ctime)
+        self.assertEqual(event.local_path, str(new_dir))
 
     def test_ignore_tree_creation(self):
 
-        new_dir = self.dummy_dir / 'parent'
+        new_dir = Path(self.sync.dropbox_path, 'parent')
 
-        with self.fs_event_handler.ignore(DirCreatedEvent(str(new_dir))):
+        with self.sync.fs_events.ignore(DirCreatedEvent(str(new_dir))):
             new_dir.mkdir()
             for i in range(10):
                 file = new_dir / f'test_{i}'
                 file.touch()
 
-        changes, local_cursor = self.sync.wait_for_local_changes()
-        self.assertEqual(len(changes), 0)
+        sync_events, local_cursor = self.sync.wait_for_local_changes()
+        self.assertEqual(len(sync_events), 0)
 
     def test_ignore_tree_move(self):
 
-        new_dir = self.dummy_dir / 'parent'
+        new_dir = Path(self.sync.dropbox_path, 'parent')
 
         new_dir.mkdir()
         for i in range(10):
@@ -337,35 +363,27 @@ class TestIgnoreLocalEvents(TestCase):
 
         self.sync.wait_for_local_changes()
 
-        new_dir_1 = self.dummy_dir / 'parent2'
+        new_dir_1 = Path(self.sync.dropbox_path, 'parent2')
 
-        with self.fs_event_handler.ignore(DirMovedEvent(str(new_dir), str(new_dir_1))):
+        with self.sync.fs_events.ignore(DirMovedEvent(str(new_dir), str(new_dir_1))):
             move(new_dir, new_dir_1)
 
-        changes, local_cursor = self.sync.wait_for_local_changes()
-        self.assertEqual(len(changes), 0)
+        sync_events, local_cursor = self.sync.wait_for_local_changes()
+        self.assertEqual(len(sync_events), 0)
 
     def test_catching_non_ignored_events(self):
 
-        new_dir = self.dummy_dir / 'parent'
+        new_dir = Path(self.sync.dropbox_path, 'parent')
 
-        with self.fs_event_handler.ignore(DirCreatedEvent(str(new_dir)), recursive=False):
+        with self.sync.fs_events.ignore(DirCreatedEvent(str(new_dir)), recursive=False):
             new_dir.mkdir()
             for i in range(10):
                 # may trigger FileCreatedEvent and FileModifiedVent
                 file = new_dir / f'test_{i}'
                 file.touch()
 
-        changes, local_cursor = self.sync.wait_for_local_changes()
-        self.assertTrue(all(not c.is_directory for c in changes))
-
-    def tearDown(self):
-
-        # cleanup
-        delete(self.dummy_dir)
-
-        self.observer.stop()
-        self.observer.join()
+        sync_events, local_cursor = self.sync.wait_for_local_changes()
+        self.assertTrue(all(not si.is_directory for si in sync_events))
 
 
 class TestSync(TestCase):
@@ -383,12 +401,12 @@ class TestSync(TestCase):
         cls.resources = osp.dirname(__file__) + '/resources'
 
         cls.m = Maestral('test-config')
-        cls.m._auth._account_id = os.environ.get('DROPBOX_ID', '')
-        cls.m._auth._access_token = os.environ.get('DROPBOX_TOKEN', '')
+        cls.m.log_level = logging.DEBUG
+        cls.m.client._init_sdk_with_token(access_token=os.environ.get('DROPBOX_TOKEN', ''))
         cls.m.create_dropbox_directory('~/Dropbox_Test')
 
         # all our tests will be carried out within this folder
-        cls.test_folder_dbx = cls.TEST_FOLDER_PATH
+        cls.test_folder_dbx = TestSync.TEST_FOLDER_PATH
         cls.test_folder_local = cls.m.dropbox_path + cls.TEST_FOLDER_PATH
 
         # acquire test lock
@@ -396,7 +414,7 @@ class TestSync(TestCase):
             try:
                 cls.m.client.make_dir(cls.TEST_LOCK_PATH)
             except FolderConflictError:
-                time.sleep(20)
+                time.sleep(10)
             else:
                 break
 
@@ -428,21 +446,7 @@ class TestSync(TestCase):
             pass
 
         delete(cls.m.dropbox_path)
-        delete(cls.m.sync.rev_file_path)
-        delete(cls.m.account_profile_pic_path)
-        cls.m._conf.cleanup()
-        cls.m._state.cleanup()
-
-        log_dir = get_log_path('maestral')
-
-        log_files = []
-
-        for file_name in os.listdir(log_dir):
-            if file_name.startswith(cls.m.config_name):
-                log_files.append(os.path.join(log_dir, file_name))
-
-        for file in log_files:
-            delete(file)
+        remove_configuration('test-config')
 
     # helper functions
 
@@ -479,34 +483,51 @@ class TestSync(TestCase):
 
     def assert_synced(self, local_folder, remote_folder):
         """Asserts that the `local_folder` and `remote_folder` are synced."""
+
+        remote_folder = remote_folder.lower()
+
         remote_items = self.m.list_folder(remote_folder, recursive=True)
         local_snapshot = DirectorySnapshot(local_folder)
-        rev_index = self.m.sync.get_rev_index()
 
+        # assert that all items from server are present locally with the same content hash
         for r in remote_items:
             dbx_path = r['path_display']
-            local_path = self.m.to_local_path(dbx_path)
+            local_path = to_existing_cased_path(dbx_path, root=self.m.dropbox_path)
 
             remote_hash = r['content_hash'] if r['type'] == 'FileMetadata' else 'folder'
-            remote_rev = r['rev'] if r['type'] == 'FileMetadata' else 'folder'
-
-            self.assertEqual(get_local_hash(local_path), remote_hash,
+            self.assertEqual(self.m.sync.get_local_hash(local_path), remote_hash,
                              f'different file content for "{dbx_path}"')
-            self.assertEqual(self.m.sync.get_local_rev(dbx_path), remote_rev,
-                             f'different revs for "{dbx_path}"')
 
-        for path in rev_index:
-            if is_child(path, remote_folder):
-                matching_items = list(r for r in remote_items if r['path_lower'] == path)
-                self.assertEqual(len(matching_items), 1,
-                                 f'indexed item "{path}" does not exist on dbx')
-
+        # assert that all local items are present on server
         for path in local_snapshot.paths:
             if not self.m.sync.is_excluded(path) and is_child(path, local_folder):
                 dbx_path = self.m.sync.to_dbx_path(path).lower()
                 matching_items = list(r for r in remote_items if r['path_lower'] == dbx_path)
                 self.assertEqual(len(matching_items), 1,
                                  f'local item "{path}" does not exist on dbx')
+
+        # check that our index is correct
+        for entry in self.m.sync.get_index():
+            if is_child(entry.dbx_path_lower, remote_folder):
+                # check that there is a match on the server
+                matching_items = list(r for r in remote_items
+                                      if r['path_lower'] == entry.dbx_path_lower)
+                self.assertEqual(len(matching_items), 1,
+                                 f'indexed item "{entry.dbx_path_lower}" does not exist on dbx')
+
+                r = matching_items[0]
+                remote_rev = r['rev'] if r['type'] == 'FileMetadata' else 'folder'
+
+                # check if revs are equal on server and locally
+                self.assertEqual(entry.rev, remote_rev,
+                                 f'different revs for "{entry.dbx_path_lower}"')
+
+                # check if casing on drive is the same as in index
+                local_path_expected_casing = self.m.dropbox_path + entry.dbx_path_cased
+                local_path_actual_casing = to_existing_cased_path(local_path_expected_casing)
+
+                self.assertEqual(local_path_expected_casing, local_path_actual_casing,
+                                 'casing on drive does not match index')
 
     @staticmethod
     def _count_conflicts(entries, name):
@@ -777,7 +798,6 @@ class TestSync(TestCase):
         # test deleting remote tree
 
         self.m.client.remove(self.test_folder_dbx + '/nested_folder')
-
         self.wait_for_idle(10)
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
@@ -995,6 +1015,49 @@ class TestSync(TestCase):
         self.assertTrue(osp.isdir(self.test_folder_local + '/Folder (case conflict)'))
         self.assertIsNotNone(self.m.client.get_metadata(self.test_folder_dbx + '/folder'))
         self.assertIsNotNone(self.m.client.get_metadata(self.test_folder_dbx + '/Folder (case conflict)'))
+
+        self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+    def test_case_change_local(self):
+
+        # start with nested folders
+        os.mkdir(self.test_folder_local + '/folder')
+        os.mkdir(self.test_folder_local + '/folder/Subfolder')
+        self.wait_for_idle()
+
+        self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+        # rename to parent folder to upper case
+        shutil.move(self.test_folder_local + '/folder', self.test_folder_local + '/FOLDER')
+        self.wait_for_idle()
+
+        self.assertTrue(osp.isdir(self.test_folder_local + '/FOLDER'))
+        self.assertTrue(osp.isdir(self.test_folder_local + '/FOLDER/Subfolder'))
+        self.assertEqual(self.m.client.get_metadata(self.test_folder_dbx + '/folder').name,
+                         'FOLDER', 'casing was not propagated to Dropbox')
+
+        self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+    def test_case_change_remote(self):
+
+        # start with nested folders
+        os.mkdir(self.test_folder_local + '/folder')
+        os.mkdir(self.test_folder_local + '/folder/Subfolder')
+        self.wait_for_idle()
+
+        self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+        # rename remote folder
+        self.m.client.move(self.test_folder_dbx + '/folder',
+                           self.test_folder_dbx + '/FOLDER',
+                           autorename=True)
+
+        self.wait_for_idle()
+
+        self.assertTrue(osp.isdir(self.test_folder_local + '/FOLDER'))
+        self.assertTrue(osp.isdir(self.test_folder_local + '/FOLDER/Subfolder'))
+        self.assertEqual(self.m.client.get_metadata(self.test_folder_dbx + '/folder').name,
+                         'FOLDER', 'casing was not propagated to local folder')
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
 

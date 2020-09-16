@@ -9,53 +9,65 @@ This module defines the main API which is exposed to the CLI or GUI.
 """
 
 # system imports
-import functools
 import sys
 import os
 import os.path as osp
 import platform
 import shutil
-import time
-from threading import Thread
 import logging.handlers
-from collections import namedtuple, deque
+from collections import deque
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from typing import Union, List, Dict, Optional, Deque, Any
 
 # external imports
 import requests
-import keyring.errors
-from watchdog.events import DirDeletedEvent, FileDeletedEvent
-import bugsnag
-from bugsnag.handlers import BugsnagHandler
+from watchdog.events import DirDeletedEvent, FileDeletedEvent  # type: ignore
+import bugsnag  # type: ignore
+from bugsnag.handlers import BugsnagHandler  # type: ignore
+from packaging.version import Version
 
 try:
-    from systemd import journal
+    from systemd import journal  # type: ignore
 except ImportError:
     journal = None
 
-import sdnotify
+import sdnotify  # type: ignore
 
 # local imports
 from maestral import __version__
-from maestral.oauth import OAuth2Session
 from maestral.client import DropboxClient, to_maestral_error
-from maestral.sync import SyncMonitor
+from maestral.sync import SyncMonitor, SyncDirection
 from maestral.errors import (
     MaestralApiError, NotLinkedError, NoDropboxDirError,
     NotFoundError, PathError
 )
 from maestral.config import MaestralConfig, MaestralState
-from maestral.utils.path import is_child, to_cased_path, delete
+from maestral.utils import get_newer_version
+from maestral.utils.housekeeping import validate_config_name
+from maestral.utils.path import is_child, to_existing_cased_path, delete
 from maestral.utils.notify import MaestralDesktopNotifier
-from maestral.utils.serializer import error_to_dict, dropbox_stone_to_dict
-from maestral.utils.appdirs import get_log_path, get_cache_path
-from maestral.utils.updates import check_update_available
+from maestral.utils.serializer import (
+    error_to_dict, dropbox_stone_to_dict, sync_event_to_dict, StoneType, ErrorType
+)
+from maestral.utils.appdirs import get_log_path, get_cache_path, get_data_path
 from maestral.constants import (
     INVOCATION_ID, NOTIFY_SOCKET, WATCHDOG_PID, WATCHDOG_USEC, IS_WATCHDOG,
-    BUGSNAG_API_KEY, IDLE, FileStatus,
+    BUGSNAG_API_KEY, IDLE, FileStatus, GITHUB_RELEASES_API
 )
+
 
 logger = logging.getLogger(__name__)
 sd_notifier = sdnotify.SystemdNotifier()
+
+CONNECTION_ERRORS = (
+    requests.exceptions.Timeout,
+    requests.exceptions.ConnectionError,
+    requests.exceptions.ReadTimeout,
+    requests.exceptions.RetryError,
+    ConnectionError,
+)
+
 
 # set up error reporting but do not activate
 
@@ -88,16 +100,18 @@ class CachedHandler(logging.Handler):
     """Handler which stores past records. This is used to populate Maestral's status and
     error interfaces.
 
-    :param int level: Initial log level. Defaults to NOTSET.
-    :param Optional[int] maxlen: Maximum number of records to store. If ``None``, all
-        records will be stored. Defaults to ``None``.
+    :param level: Initial log level. Defaults to NOTSET.
+    :param maxlen: Maximum number of records to store. If ``None``, all records will be
+        stored. Defaults to ``None``.
     """
 
-    def __init__(self, level=logging.NOTSET, maxlen=None):
+    cached_records: Deque[logging.LogRecord]
+
+    def __init__(self, level: int = logging.NOTSET, maxlen: Optional[int] = None) -> None:
         logging.Handler.__init__(self, level=level)
         self.cached_records = deque([], maxlen)
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         """
         Logs the specified log record and saves it to the cache.
 
@@ -106,24 +120,22 @@ class CachedHandler(logging.Handler):
         self.format(record)
         self.cached_records.append(record)
 
-    def getLastMessage(self):
+    def getLastMessage(self) -> str:
         """
         :returns: The log message of the last record or an empty string.
-        :rtype: str
         """
         if len(self.cached_records) > 0:
             return self.cached_records[-1].message
         else:
             return ''
 
-    def getAllMessages(self):
+    def getAllMessages(self) -> List[str]:
         """
         :returns: A list of all record messages.
-        :rtype: list[str]
         """
         return [r.message for r in self.cached_records]
 
-    def clear(self):
+    def clear(self) -> None:
         """
         Clears all cached records.
         """
@@ -133,61 +145,13 @@ class CachedHandler(logging.Handler):
 class SdNotificationHandler(logging.Handler):
     """Handler which emits messages as systemd notifications."""
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         """
         Sends the record massage to systemd as service status.
 
         :param record: Log record.
         """
         sd_notifier.notify(f'STATUS={record.message}')
-
-
-# decorators
-
-def with_sync_paused(func):
-    """Decorator which pauses syncing before a method call, resumes afterwards. This
-    should only be used to decorate Maestral methods."""
-
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        # pause syncing
-        resume = False
-        if self.syncing:
-            self.pause_sync()
-            resume = True
-        ret = func(self, *args, **kwargs)
-        # resume syncing if previously paused
-        if resume:
-            self.resume_sync()
-        return ret
-    return wrapper
-
-
-def require_linked(func):
-    """Decorator which raises a RuntimeError if Maestral is not linked to a Dropbox
-    account."""
-
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        if self.pending_link:
-            raise NotLinkedError('No Dropbox account linked',
-                                 'Please run "link" or "start" to link an account.')
-        return func(self, *args, **kwargs)
-
-    return wrapper
-
-
-def require_dir(func):
-    """Decorator which raises a RuntimeError if there is no local Dropbox folder."""
-
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        if self.pending_dropbox_folder:
-            raise NoDropboxDirError('No local Dropbox directory',
-                                    'Run "create_dropbox_directory" to set up.')
-        return func(self, *args, **kwargs)
-
-    return wrapper
 
 
 # ========================================================================================
@@ -199,10 +163,10 @@ class Maestral:
 
     All methods and properties return objects or raise exceptions which can safely be
     serialized, i.e., pure Python types. The only exception are instances of
-    :class:`errors.MaestralApiError` which need to be registered explicitly with the
+    :class:`errors.MaestralApiError`: they need to be registered explicitly with the
     serpent serializer which is used for communication to frontends.
 
-    Sync errors and fatal errors which occur in the syncing threads can be read with the
+    Sync errors and fatal errors which occur in the sync threads can be read with the
     properties :attr:`sync_errors` and :attr:`fatal_errors`, respectively.
 
     :Example:
@@ -222,36 +186,35 @@ class Maestral:
         ...     m.create_dropbox_directory('~/Dropbox (Private)')
         ...     m.start_sync()
 
-    :param str config_name: Name of maestral configuration to run. This will create a new
-        configuration file if none exists.
-    :param bool log_to_stdout: If ``True``, Maestral will print log messages to stdout.
+    :param config_name: Name of maestral configuration to run. Must not contain any
+        whitespace. If the given config file does exist, it will be created.
+    :param log_to_stdout: If ``True``, Maestral will print log messages to stdout.
         When started as a systemd services, this can result in duplicate log messages.
         Defaults to ``False``.
     """
 
-    def __init__(self, config_name='maestral', log_to_stdout=False):
+    log_handler_sd: Optional[SdNotificationHandler]
+    log_handler_journal: Optional['journal.JournalHandler']
 
-        self._daemon_running = True
+    def __init__(self, config_name: str = 'maestral', log_to_stdout: bool = False) -> None:
+
+        self._config_name = validate_config_name(config_name)
+        self._conf = MaestralConfig(self._config_name)
+        self._state = MaestralState(self._config_name)
+
+        # enable / disable automatic reporting of errors
+        bugsnag.configuration.auto_notify = self.analytics
+
+        # set up logging
         self._log_to_stdout = log_to_stdout
-        self._config_name = config_name
-
-        self._conf = MaestralConfig(config_name)
-        self._state = MaestralState(config_name)
-
         self._setup_logging()
 
-        self._auth = OAuth2Session(config_name)
-        self.client = DropboxClient(config_name=self.config_name, access_token='none')
-        self.monitor = SyncMonitor(self.client)
-        self.sync = self.monitor.sync
+        # set up sync infrastructure
+        self.client = DropboxClient(config_name=self.config_name)  # interface to Dbx SDK
+        self.monitor = SyncMonitor(self.client)  # coordinates sync threads
+        self.sync = self.monitor.sync  # provides core sync functionality
 
-        # periodically check for updates and refresh account info
-        self.update_thread = Thread(
-            name='maestral-update-check',
-            target=self._periodic_refresh,
-            daemon=True,
-        )
-        self.update_thread.start()
+        self._check_and_run_post_update_scripts()
 
         # notify systemd that we have started
         if NOTIFY_SOCKET:
@@ -260,30 +223,44 @@ class Maestral:
             sd_notifier.notify('READY=1')
 
         # notify systemd periodically if alive
-        if IS_WATCHDOG:
+        if IS_WATCHDOG and WATCHDOG_USEC:
             logger.debug('Running as systemd watchdog service')
             logger.debug('WATCHDOG_USEC = %s', WATCHDOG_USEC)
             logger.debug('WATCHDOG_PID = %s', WATCHDOG_PID)
 
-            self.watchdog_thread = Thread(
-                name='maestral-watchdog',
-                target=self._periodic_watchdog,
-                daemon=True,
-            )
-            self.watchdog_thread.start()
+        # schedule background tasks
+        self._loop = asyncio.get_event_loop()
+        self._thread_pool = ThreadPoolExecutor(
+            thread_name_prefix='maestral-thread-pool',
+            max_workers=2,
+        )
+        self._refresh_task = self._loop.create_task(
+            self._periodic_refresh(),
+        )
+        self._watchdog_task = self._loop.create_task(
+            self._periodic_watchdog(),
+        )
 
-    def get_auth_url(self):
+        # create a future which will return once `shutdown_daemon` is called
+        # can be used by an event loop wait until maestral has been stopped
+        self.shutdown_complete = self._loop.create_future()
+
+    @property
+    def version(self) -> str:
+        """Returns the current Maestral version."""
+        return __version__
+
+    def get_auth_url(self) -> str:
         """
         Returns a URL to authorize access to a Dropbox account. To link a Dropbox
         account, retrieve an auth token from the URL and link Maestral by calling
         :meth:`link` with the provided token.
 
         :returns: URL to retrieve an OAuth token.
-        :rtype: str
         """
-        return self._auth.get_auth_url()
+        return self.client.get_auth_url()
 
-    def link(self, token):
+    def link(self, token: str) -> int:
         """
         Links Maestral with a Dropbox account using the given access token. The token will
         be stored for future usage as documented in the :mod:`oauth` module. Supported
@@ -295,29 +272,13 @@ class Maestral:
             * Gnome Keyring
             * Plain text storage
 
-        :param str token: OAuth token for Dropbox access.
-        :returns: OAuth2Session.Success (0), OAuth2Session.InvalidToken (1) or
-            OAuth2Session.ConnectionFailed (2)
-        :rtype: int
+        :param token: OAuth token for Dropbox access.
+        :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
         """
 
-        res = self._auth.verify_auth_token(token)
+        return self.client.link(token)
 
-        if res == self._auth.Success:
-            self._auth.save_creds()
-
-            self.client.set_access_token(self._auth.access_token)
-
-            try:
-                self.get_account_info()
-                self.get_space_usage()
-            except ConnectionError:
-                pass
-
-        return res
-
-    @require_linked
-    def unlink(self):
+    def unlink(self) -> None:
         """
         Unlinks the configured Dropbox account but leaves all downloaded files in place.
         All syncing metadata will be removed as well. Connection and API errors will be
@@ -329,38 +290,32 @@ class Maestral:
             the user's keyring is locked.
         """
 
+        self._check_linked()
         self.stop_sync()
 
-        # revoke token
         try:
             self.client.unlink()
         except (ConnectionError, MaestralApiError):
-            pass
+            logger.debug('Could not invalidate token with Dropbox', exc_info=True)
 
         # clean up config + state
-        self.sync.clear_rev_index()
-        delete(self.sync.rev_file_path)
+        self.sync.clear_index()
+        self.sync.clear_sync_history()
         self._conf.cleanup()
         self._state.cleanup()
-
-        # delete auth token
-        try:
-            self._auth.delete_creds()
-        except keyring.errors.PasswordDeleteError:
-            logger.warning('Could not delete auth token', exc_info=True)
+        delete(self.sync.database_path)
 
         logger.info('Unlinked Dropbox account.')
 
-    def _setup_logging(self):
+    def _setup_logging(self) -> None:
         """
         Sets up logging to log files, status and error properties, desktop notifications,
         the systemd journal if available, bugsnag if error reports are enabled, and to
         stdout if requested.
         """
 
-        log_level = self._conf.get('app', 'log_level')
-        mdbx_logger = logging.getLogger('maestral')
-        mdbx_logger.setLevel(logging.DEBUG)
+        maestral_logger = logging.getLogger('maestral')
+        maestral_logger.setLevel(logging.DEBUG)
 
         log_fmt_long = logging.Formatter(
             fmt='%(asctime)s %(name)s %(levelname)s: %(message)s',
@@ -374,8 +329,8 @@ class Maestral:
             rfh_log_file, maxBytes=10 ** 7, backupCount=1
         )
         self.log_handler_file.setFormatter(log_fmt_long)
-        self.log_handler_file.setLevel(log_level)
-        mdbx_logger.addHandler(self.log_handler_file)
+        self.log_handler_file.setLevel(self.log_level)
+        maestral_logger.addHandler(self.log_handler_file)
 
         # log to journal when launched from systemd
         if journal and INVOCATION_ID:
@@ -384,8 +339,8 @@ class Maestral:
                 SYSLOG_IDENTIFIER='maestral'
             )
             self.log_handler_journal.setFormatter(log_fmt_short)
-            self.log_handler_journal.setLevel(log_level)
-            mdbx_logger.addHandler(self.log_handler_journal)
+            self.log_handler_journal.setLevel(self.log_level)
+            maestral_logger.addHandler(self.log_handler_journal)
         else:
             self.log_handler_journal = None
 
@@ -394,94 +349,93 @@ class Maestral:
             self.log_handler_sd = SdNotificationHandler()
             self.log_handler_sd.setFormatter(log_fmt_short)
             self.log_handler_sd.setLevel(logging.INFO)
-            mdbx_logger.addHandler(self.log_handler_sd)
+            maestral_logger.addHandler(self.log_handler_sd)
         else:
             self.log_handler_sd = None
 
         # log to stdout (disabled by default)
-        level = log_level if self._log_to_stdout else 100
+        level = self.log_level if self._log_to_stdout else 100
         self.log_handler_stream = logging.StreamHandler(sys.stdout)
         self.log_handler_stream.setFormatter(log_fmt_long)
         self.log_handler_stream.setLevel(level)
-        mdbx_logger.addHandler(self.log_handler_stream)
+        maestral_logger.addHandler(self.log_handler_stream)
 
         # log to cached handlers for GUI and CLI
         self._log_handler_info_cache = CachedHandler(maxlen=1)
         self._log_handler_info_cache.setFormatter(log_fmt_short)
         self._log_handler_info_cache.setLevel(logging.INFO)
-        mdbx_logger.addHandler(self._log_handler_info_cache)
+        maestral_logger.addHandler(self._log_handler_info_cache)
 
         self._log_handler_error_cache = CachedHandler()
         self._log_handler_error_cache.setFormatter(log_fmt_short)
         self._log_handler_error_cache.setLevel(logging.ERROR)
-        mdbx_logger.addHandler(self._log_handler_error_cache)
+        maestral_logger.addHandler(self._log_handler_error_cache)
 
         # log to desktop notifications
         # 'file changed' events will be collated and sent as desktop
         # notifications by the monitor directly, we don't handle them here
         self.desktop_notifier = MaestralDesktopNotifier.for_config(self.config_name)
         self.desktop_notifier.setLevel(logging.WARNING)
-        mdbx_logger.addHandler(self.desktop_notifier)
+        maestral_logger.addHandler(self.desktop_notifier)
 
         # log to bugsnag (disabled by default)
         self._log_handler_bugsnag = BugsnagHandler()
-        self._log_handler_bugsnag.setLevel(100)
-        mdbx_logger.addHandler(self._log_handler_bugsnag)
-
-        self.analytics = self._conf.get('app', 'analytics')
+        self._log_handler_bugsnag.setLevel(logging.ERROR if self.analytics else 100)
+        maestral_logger.addHandler(self._log_handler_bugsnag)
 
     # ==== methods to access config and saved state ======================================
 
     @property
-    def config_name(self):
+    def config_name(self) -> str:
         """The selected configuration."""
         return self._config_name
 
-    def set_conf(self, section, name, value):
+    def set_conf(self, section: str, name: str, value: Any) -> None:
         """
         Sets a configuration option.
 
-        :param str section: Name of section in config file.
-        :param str name: Name of config option.
-        :param value: Config option value. May be any native Python type.
+        :param section: Name of section in config file.
+        :param name: Name of config option.
+        :param value: Config value. May be any type accepted by ``ast.literal_eval``.
         """
         self._conf.set(section, name, value)
 
-    def get_conf(self, section, name):
+    def get_conf(self, section: str, name: str) -> Any:
         """
         Gets a configuration option.
 
-        :param str section: Name of section in config file.
-        :param str name: Name of config option.
-        :returns: Config value.
+        :param section: Name of section in config file.
+        :param name: Name of config option.
+        :returns: Config value. May be any type accepted by ``ast.literal_eval``.
         """
         return self._conf.get(section, name)
 
-    def set_state(self, section, name, value):
+    def set_state(self, section: str, name: str, value: Any) -> None:
         """
         Sets a state value.
 
-        :param str section: Name of section in state file.
-        :param str name: Name of state variable.
-        :param value: State value. May be any native Python type.
+        :param section: Name of section in state file.
+        :param name: Name of state variable.
+        :param value: State value. May be any type accepted by ``ast.literal_eval``.
         """
         self._state.set(section, name, value)
 
-    def get_state(self, section, name):
+    def get_state(self, section: str, name: str) -> Any:
         """
         Gets a state value.
 
-        :param str section: Name of section in state file.
-        :param str name: Name of state variable.
-        :returns: State value.
+        :param section: Name of section in state file.
+        :param name: Name of state variable.
+        :returns: State value. May be any type accepted by ``ast.literal_eval``.
         """
         return self._state.get(section, name)
+
+    # helper functions
 
     # ==== getters / setters for config with side effects ================================
 
     @property
-    @require_linked
-    def dropbox_path(self):
+    def dropbox_path(self) -> str:
         """
         Returns the path to the local Dropbox folder (read only). This will be an empty
         string if not Dropbox folder has been set up yet. Use
@@ -490,27 +444,33 @@ class Maestral:
 
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
-        return self.sync.dropbox_path
+
+        if self.pending_link:
+            return ''
+        else:
+            return self.sync.dropbox_path
 
     @property
-    @require_linked
-    def excluded_items(self):
+    def excluded_items(self) -> List[str]:
         """
-        Returns a list of excluded folders (read only). Use :meth:`exclude_item`,
-        :meth:`include_item` or :meth:`set_excluded_items` to change which items are
-        excluded from syncing.
+        Returns a list of files and folders excluded by selective sync (read only). Use
+        :meth:`exclude_item`, :meth:`include_item` or :meth:`set_excluded_items` to change
+        which items are excluded from syncing.
 
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
-        return self.sync.excluded_items
+        if self.pending_link:
+            return []
+        else:
+            return self.sync.excluded_items
 
     @property
-    def log_level(self):
+    def log_level(self) -> int:
         """Log level for log files, stdout and the systemd journal."""
         return self._conf.get('app', 'log_level')
 
     @log_level.setter
-    def log_level(self, level_num):
+    def log_level(self, level_num: int) -> None:
         """Setter: log_level."""
         self.log_handler_file.setLevel(level_num)
         if self.log_handler_journal:
@@ -520,117 +480,94 @@ class Maestral:
         self._conf.set('app', 'log_level', level_num)
 
     @property
-    def log_to_stdout(self):
-        """Enables or disables logging to stdout (bool)."""
+    def log_to_stdout(self) -> bool:
+        """Enables or disables logging to stdout."""
         return self._log_to_stdout
 
     @log_to_stdout.setter
-    def log_to_stdout(self, enabled):
+    def log_to_stdout(self, enabled: bool) -> None:
         """Setter: log_to_stdout."""
         self._log_to_stdout = enabled
         level = self.log_level if enabled else 100
         self.log_handler_stream.setLevel(level)
 
     @property
-    def analytics(self):
+    def analytics(self) -> bool:
         """Enables or disables logging of errors to bugsnag."""
         return self._conf.get('app', 'analytics')
 
     @analytics.setter
-    def analytics(self, enabled):
+    def analytics(self, enabled: bool) -> None:
         """Setter: analytics."""
 
         bugsnag.configuration.auto_notify = enabled
-        bugsnag.configuration.auto_capture_sessions = enabled
         self._log_handler_bugsnag.setLevel(logging.ERROR if enabled else 100)
 
         self._conf.set('app', 'analytics', enabled)
 
     @property
-    def notification_snooze(self):
-        """Snooze time for desktop notifications in minutes (float). Defaults to 0.0 if
+    def notification_snooze(self) -> float:
+        """Snooze time for desktop notifications in minutes. Defaults to 0.0 if
         notifications are not snoozed."""
         return self.desktop_notifier.snoozed
 
     @notification_snooze.setter
-    def notification_snooze(self, minutes):
+    def notification_snooze(self, minutes: float) -> None:
         """Setter: notification_snooze."""
         self.desktop_notifier.snoozed = minutes
 
     @property
-    def notification_level(self):
-        """Level for desktop notifications (int). See :mod:`utils.notify` for level
+    def notification_level(self) -> int:
+        """Level for desktop notifications. See :mod:`utils.notify` for level
         definitions."""
         return self.desktop_notifier.notify_level
 
     @notification_level.setter
-    def notification_level(self, level):
+    def notification_level(self, level: int) -> None:
         """Setter: notification_level."""
         self.desktop_notifier.notify_level = level
 
     # ==== state information  ============================================================
 
     @property
-    def pending_link(self):
-        """Bool indicating if Maestral is linked to a Dropbox account (read only). This
-        will block until the user's keyring is unlocked to load the saved auth token."""
-
-        token = self._auth.access_token  # triggers keyring access
-        if token != '':
-            self.client.set_access_token(token)
-
-        return token == ''
+    def pending_link(self) -> bool:
+        """Indicates if Maestral is linked to a Dropbox account (read only). This will
+        block until the user's keyring is unlocked to load the saved auth token."""
+        return not self.client.linked
 
     @property
-    def pending_dropbox_folder(self):
-        """Bool indicating if a local Dropbox directory has been created (read only)."""
-        return not osp.isdir(self._conf.get('main', 'path'))
+    def pending_dropbox_folder(self) -> bool:
+        """Indicates if a local Dropbox directory has been created (read only)."""
+        return not osp.isdir(self.sync.dropbox_path)
 
     @property
-    def pending_first_download(self):
-        """Bool indicating if the initial download has already occurred (read only)."""
-        return (self._state.get('sync', 'lastsync') == 0
-                or self._state.get('sync', 'cursor') == '')
+    def pending_first_download(self) -> bool:
+        """Indicates if the initial download has already occurred (read only)."""
+        return self.sync.local_cursor == 0 or self.sync.remote_cursor == ''
 
     @property
-    def syncing(self):
-        """
-        Bool indicating if Maestral is syncing (read only). It will be ``True`` if syncing
-        is not paused by the user *and* Maestral is connected to the internet.
-        """
-
-        if self.pending_link:
-            return False
-        else:
-            return (self.monitor.syncing.is_set()
-                    or self.monitor.startup.is_set()
-                    or self.sync.busy())
+    def syncing(self) -> bool:
+        """ Indicates if Maestral is syncing (read only). It will be ``True`` if syncing
+        is not paused by the user *and* Maestral is connected to the internet."""
+        return (self.monitor.syncing.is_set()
+                or self.monitor.startup.is_set()
+                or self.sync.busy())
 
     @property
-    def paused(self):
-        """Bool indicating if syncing is paused by the user (read only). This is set by
-        calling :meth:`pause`."""
-
-        if self.pending_link:
-            return False
-        else:
-            return self.monitor.paused_by_user.is_set() and not self.sync.busy()
+    def paused(self) -> bool:
+        """Indicates if syncing is paused by the user (read only). This is set by calling
+        :meth:`pause`."""
+        return self.monitor.paused_by_user.is_set() and not self.sync.busy()
 
     @property
-    def running(self):
-        """
-        Bool indicating if sync threads are running (read only). They will be stopped
-        before :meth:`start_sync` is called, when shutting down or because of an exception.
-        """
-
-        if self.pending_link:
-            return False
-        else:
-            return self.monitor.running.is_set() or self.sync.busy()
+    def running(self) -> bool:
+        """Indicates if sync threads are running (read only). They will be stopped before
+        :meth:`start_sync` is called, when shutting down or because of an exception."""
+        return self.monitor.running.is_set() or self.sync.busy()
 
     @property
-    def connected(self):
-        """Bool indicating if Dropbox servers can be reached (read only)."""
+    def connected(self) -> bool:
+        """Indicates if Dropbox servers can be reached (read only)."""
 
         if self.pending_link:
             return False
@@ -638,45 +575,51 @@ class Maestral:
             return self.monitor.connected.is_set()
 
     @property
-    def status(self):
-        """
-        Returns a string with the last status message (read only). This can be displayed
-        as information to the user but should not be relied on otherwise.
-        """
+    def status(self) -> str:
+        """The last status message (read only). This can be displayed as information to
+        the user but should not be relied on otherwise."""
         return self._log_handler_info_cache.getLastMessage()
 
     @property
-    @require_linked
-    def sync_errors(self):
+    def sync_errors(self) -> List[ErrorType]:
         """
-        Returns list of current sync errors as dicts (read only). This list is populated
-        by the sync threads.
+        A list of current sync errors as dicts (read only). This list is populated by the
+        sync threads. The following keys will always be present but may contain emtpy
+        values: "type", "inherits", "title", "traceback", "title", "message",
+        "local_path", "dbx_path".
 
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
-        sync_errors = list(self.sync.sync_errors.queue)
-        sync_errors_dicts = [error_to_dict(e) for e in sync_errors]
-        return sync_errors_dicts
+        return [error_to_dict(e) for e in self.sync.sync_errors]
 
     @property
-    def fatal_errors(self):
+    def fatal_errors(self) -> List[ErrorType]:
         """
         Returns a list of fatal errors as dicts (read only). This does not include lost
         internet connections or file sync errors which only emit warnings and are tracked
         and cleared separately. Errors listed here must be acted upon for Maestral to
-        continue syncing. This list is populated from all log messages with level ERROR
-        or higher that have ``exc_info`` attached.
+        continue syncing.
+
+        The following keys will always be present but may contain emtpy values: "type",
+        "inherits", "title", "traceback", "title", and "message".
+
+        This list is populated from all log messages with level ERROR or higher that have
+        ``exc_info`` attached.
         """
 
-        maestral_errors = [
-            r.exc_info[1] for r in self._log_handler_error_cache.cached_records
-            if r.exc_info is not None
-        ]
-        maestral_errors_dicts = [error_to_dict(e) for e in maestral_errors]
+        maestral_errors_dicts: List[ErrorType] = []
+
+        for r in self._log_handler_error_cache.cached_records:
+            if r.exc_info:
+                err = r.exc_info[1]
+                if isinstance(err, Exception):
+                    serialized_error = error_to_dict(err)
+                    maestral_errors_dicts.append(serialized_error)
+
         return maestral_errors_dicts
 
-    def clear_fatal_errors(self):
+    def clear_fatal_errors(self) -> None:
         """
         Manually clears all fatal errors. This should be used after they have been
         resolved by the user through the GUI or CLI.
@@ -684,24 +627,23 @@ class Maestral:
         self._log_handler_error_cache.clear()
 
     @property
-    def account_profile_pic_path(self):
+    def account_profile_pic_path(self) -> str:
         """
-        Returns the path of the current account's profile picture (read only). There may
-        not be an actual file at that path if the user did not set a profile picture or
-        the picture has not yet been downloaded.
+        The path of the current account's profile picture (read only). There may not be an
+        actual file at that path if the user did not set a profile picture or the picture
+        has not yet been downloaded.
         """
         return get_cache_path('maestral', self._config_name + '_profile_pic.jpeg')
 
-    def get_file_status(self, local_path):
+    def get_file_status(self, local_path: str) -> str:
         """
         Returns the sync status of an individual file.
 
-        :param str local_path: Path to file on the local drive. May be relative to the
+        :param local_path: Path to file on the local drive. May be relative to the
             current working directory.
         :returns: String indicating the sync status. Can be 'uploading', 'downloading',
             'up to date', 'error', or 'unwatched' (for files outside of the Dropbox
             directory). This will always be 'unwatched' if syncing is paused.
-        :rtype: str
         """
         if not self.syncing:
             return FileStatus.Unwatched.value
@@ -713,100 +655,96 @@ class Maestral:
         except ValueError:
             return FileStatus.Unwatched.value
 
-        if local_path in self.monitor.queued_for_upload:
+        sync_event = next(iter(e for e in self.monitor.activity if e.local_path == local_path), None)
+
+        if sync_event and sync_event.direction == SyncDirection.Up:
             return FileStatus.Uploading.value
-        elif local_path in self.monitor.queued_for_download:
+        elif sync_event and sync_event.direction == SyncDirection.Down:
             return FileStatus.Downloading.value
-        elif any(local_path == err['local_path'] for err in self.sync_errors):
+        elif any(dbx_path == err['dbx_path'] for err in self.sync_errors):
             return FileStatus.Error.value
         elif self.sync.get_local_rev(dbx_path):
             return FileStatus.Synced.value
         else:
             return FileStatus.Unwatched.value
 
-    @require_linked
-    def get_activity(self):
+    def get_activity(self) -> List[StoneType]:
         """
-        Gets current upload / download activity.
+        Returns the current upload / download activity.
 
-        :returns: A dictionary with lists of all files currently queued for or being
-            uploaded or downloaded. Paths are given relative to the Dropbox folder.
-        :rtype: dict(list, list)
+        :returns: A lists of all sync events currently queued for or being uploaded or
+            downloaded.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
-        PathItem = namedtuple('PathItem', 'path status')
-        uploading = []
-        downloading = []
+        self._check_linked()
 
-        for path in self.monitor.uploading:
-            path.lstrip(self.dropbox_path)
-            uploading.append(PathItem(path, 'uploading'))
+        activity = [sync_event_to_dict(event) for event in self.monitor.activity]
+        return activity
 
-        for path in self.monitor.queued_for_upload:
-            path.lstrip(self.dropbox_path)
-            uploading.append(PathItem(path, 'queued'))
-
-        for path in self.monitor.downloading:
-            path.lstrip(self.dropbox_path)
-            downloading.append(PathItem(path, 'downloading'))
-
-        for path in self.monitor.queued_for_download:
-            path.lstrip(self.dropbox_path)
-            downloading.append(PathItem(path, 'queued'))
-
-        return dict(uploading=uploading, downloading=downloading)
-
-    @require_linked
-    def get_account_info(self):
+    def get_history(self) -> List[StoneType]:
         """
-        Gets account information from Dropbox and returns it as a dictionary. The entries
-        will either be of type ``str`` or ``bool``.
+        Returns the historic upload / download activity.
+
+        :returns: A lists of all sync events from the last week.
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        """
+
+        self._check_linked()
+
+        history = [sync_event_to_dict(event) for event in self.monitor.history]
+
+        return history
+
+    def get_account_info(self) -> StoneType:
+        """
+        Returns the account information from Dropbox and returns it as a dictionary.
 
         :returns: Dropbox account information.
-        :rtype: dict[str, bool]
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
+
+        self._check_linked()
 
         res = self.client.get_account_info()
         return dropbox_stone_to_dict(res)
 
-    @require_linked
-    def get_space_usage(self):
+    def get_space_usage(self) -> StoneType:
         """
-        Gets the space usage stored by Dropbox and returns it as a dictionary. The
-        entries will either be of type ``str`` or ``bool``.
+        Gets the space usage from Dropbox and returns it as a dictionary.
 
-        :returns: Dropbox account information.
-        :rtype: dict[str, bool]
+        :returns: Dropbox space usage information.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
+
+        self._check_linked()
 
         res = self.client.get_space_usage()
         return dropbox_stone_to_dict(res)
 
     # ==== control methods for front ends ================================================
 
-    @require_linked
     @to_maestral_error()  # to handle errors when downloading and saving profile pic
-    def get_profile_pic(self):
+    def get_profile_pic(self) -> Optional[str]:
         """
         Attempts to download the user's profile picture from Dropbox. The picture is saved
         in Maestral's cache directory for retrieval when there is no internet connection.
 
-        :returns: Path to saved profile picture or ``None`` if no profile picture is set.
-        :rtype: str
+        :returns: Path to saved profile picture or ``None`` if no profile picture was
+            downloaded.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
+
+        self._check_linked()
 
         res = self.client.get_account_info()
 
@@ -817,16 +755,35 @@ class Maestral:
             return self.account_profile_pic_path
         else:
             self._delete_old_profile_pics()
+            return None
 
-    @require_linked
-    def list_folder(self, dbx_path, **kwargs):
+    def get_metadata(self, dbx_path: str) -> StoneType:
+        """
+        Returns metadata for a file or folder on Dropbox.
+
+        :param dbx_path: Path to file or folder on Dropbox.
+        :returns: Dropbox item metadata as dict. See :class:`dropbox.files.Metadata` for
+            keys and values.
+        :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
+        :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
+        :raises: :class:`ConnectionError` if connection to Dropbox fails.
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+        """
+
+        self._check_linked()
+
+        res = self.client.get_metadata(dbx_path)
+        return dropbox_stone_to_dict(res)
+
+    def list_folder(self, dbx_path: str, **kwargs) -> List[StoneType]:
         """
         List all items inside the folder given by ``dbx_path``. Keyword arguments are
         passed on the the Dropbox API call :meth:`client.DropboxClient.list_folder`.
 
-        :param str dbx_path: Path to folder on Dropbox.
-        :returns: List of Dropbox item metadata as dicts.
-        :rtype: list[dict]
+        :param dbx_path: Path to folder on Dropbox.
+        :returns: List of Dropbox item metadata as dicts. See
+            :class:`dropbox.files.Metadata` for keys and values.
         :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
         :raises: :class:`errors.NotAFolderError` if the given path refers to a file.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
@@ -835,21 +792,22 @@ class Maestral:
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
+        self._check_linked()
+
         res = self.client.list_folder(dbx_path, **kwargs)
         entries = [dropbox_stone_to_dict(e) for e in res.entries]
 
         return entries
 
-    @require_linked
-    def list_revisions(self, dbx_path, limit=10):
+    def list_revisions(self, dbx_path: str, limit: int = 10) -> List[StoneType]:
         """
         List revisions of old files at the given path ``dbx_path``. This will also return
         revisions if the file has already been deleted.
 
-        :param str dbx_path: Path to folder on Dropbox.
-        :param int limit: Maximum number of revisions to list.
-        :returns: List of Dropbox file metadata as dicts.
-        :rtype: list[dict]
+        :param dbx_path: Path to file on Dropbox.
+        :param limit: Maximum number of revisions to list.
+        :returns: List of Dropbox file metadata as dicts. See
+            :class:`dropbox.files.Metadata` for keys and values.
         :raises: :class:`errors.NotFoundError` if there never was a file at the given path.
         :raises: :class:`errors.IsAFolderError` if the given path refers to a folder.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
@@ -857,28 +815,30 @@ class Maestral:
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         """
 
+        self._check_linked()
+
         res = self.client.list_revisions(dbx_path, limit=limit)
         entries = [dropbox_stone_to_dict(e) for e in res.entries]
 
         return entries
 
-    @require_linked
-    def restore(self, dbx_path, rev):
+    def restore(self, dbx_path: str, rev: str) -> StoneType:
         """
         Restore an old revision of a file.
 
-        :param str dbx_path: The path to save the restored file.
-        :param str rev: The revision to restore. Old revisions can be listed with
+        :param dbx_path: The path to save the restored file.
+        :param rev: The revision to restore. Old revisions can be listed with
             :meth:`list_revisions`.
-        :returns: Metadata of the returned file.
-        :rtype: dict
+        :returns: Metadata of the returned file. See
+            :class:`dropbox.files.FileMetadata` for keys and values.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         """
 
-        res = self.client.restore(dbx_path, rev)
+        self._check_linked()
 
+        res = self.client.restore(dbx_path, rev)
         return dropbox_stone_to_dict(res)
 
     def _delete_old_profile_pics(self):
@@ -889,9 +849,7 @@ class Maestral:
                 except OSError:
                     pass
 
-    @require_linked
-    @require_dir
-    def rebuild_index(self):
+    def rebuild_index(self) -> None:
         """
         Rebuilds the rev file by comparing remote with local files and updating rev
         numbers from the Dropbox server. Files are compared by their content hashes and
@@ -905,11 +863,12 @@ class Maestral:
         :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
 
+        self._check_linked()
+        self._check_dropbox_dir()
+
         self.monitor.rebuild_index()
 
-    @require_linked
-    @require_dir
-    def start_sync(self):
+    def start_sync(self) -> None:
         """
         Creates syncing threads and starts syncing.
 
@@ -917,12 +876,13 @@ class Maestral:
         :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
 
+        self._check_linked()
+        self._check_dropbox_dir()
+
         if not self.running:
             self.monitor.start()
 
-    @require_linked
-    @require_dir
-    def resume_sync(self):
+    def resume_sync(self) -> None:
         """
         Resumes syncing if paused.
 
@@ -930,24 +890,26 @@ class Maestral:
         :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
 
+        self._check_linked()
+        self._check_dropbox_dir()
+
         self.monitor.resume()
 
-    def pause_sync(self):
+    def pause_sync(self) -> None:
         """
         Pauses the syncing if running.
         """
         if not self.paused:
             self.monitor.pause()
 
-    def stop_sync(self):
+    def stop_sync(self) -> None:
         """
         Stops all syncing threads if running. Call :meth:`start_sync` to restart syncing.
         """
         if self.running:
             self.monitor.stop()
 
-    @require_linked
-    def reset_sync_state(self):
+    def reset_sync_state(self) -> None:
         """
         Resets the sync index and state. Only call this to clean up leftover state
         information if a Dropbox was improperly unlinked (e.g., auth token has been
@@ -956,16 +918,15 @@ class Maestral:
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
+        self._check_linked()
         self.monitor.reset_sync_state()
 
-    @require_linked
-    @require_dir
-    def exclude_item(self, dbx_path):
+    def exclude_item(self, dbx_path: str) -> None:
         """
         Excludes file or folder from sync and deletes it locally. It is safe to call this
         method with items which have already been excluded.
 
-        :param str dbx_path: Dropbox path of item to exclude.
+        :param dbx_path: Dropbox path of item to exclude.
         :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
         :raises: :class:`ConnectionError` if connection to Dropbox fails.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
@@ -975,11 +936,14 @@ class Maestral:
         :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
 
+        self._check_linked()
+        self._check_dropbox_dir()
+
         # input validation
         md = self.client.get_metadata(dbx_path)
 
         if not md:
-            raise NotFoundError('Cannot exlcude item',
+            raise NotFoundError('Cannot exclude item',
                                 f'"{dbx_path}" does not exist on Dropbox')
 
         dbx_path = dbx_path.lower().rstrip('/')
@@ -1001,24 +965,25 @@ class Maestral:
 
         logger.info(IDLE)
 
-    def _remove_after_excluded(self, dbx_path):
+    def _remove_after_excluded(self, dbx_path: str) -> None:
 
         # book keeping
         self.sync.clear_sync_error(dbx_path=dbx_path)
-        self.sync.set_local_rev(dbx_path, None)
+        self.sync.remove_path_from_index(dbx_path)
 
         # remove folder from local drive
-        local_path = self.sync.to_local_path(dbx_path)
-        # dbx_path will be lower-case, we there explicitly run `to_cased_path`
-        local_path = to_cased_path(local_path)
-        if local_path:
+        local_path = self.sync.to_local_path_from_cased(dbx_path)
+        # dbx_path will be lower-case, we there explicitly run `to_existing_cased_path`
+        try:
+            local_path = to_existing_cased_path(local_path)
+        except FileNotFoundError:
+            pass
+        else:
             event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
             with self.monitor.fs_event_handler.ignore(event_cls(local_path)):
                 delete(local_path)
 
-    @require_linked
-    @require_dir
-    def include_item(self, dbx_path):
+    def include_item(self, dbx_path: str) -> None:
         """
         Includes a file or folder in sync and downloads it in the background. It is safe
         to call this method with items which have already been included, they will not be
@@ -1027,7 +992,7 @@ class Maestral:
         Any downloads will be carried out by the sync threads. Errors during the download
         can be accessed through :attr:`sync_errors` or :attr:`maestral_errors`.
 
-        :param str dbx_path: Dropbox path of item to include.
+        :param dbx_path: Dropbox path of item to include.
         :raises: :class:`errors.NotFoundError` if there is nothing at the given path.
         :raises: :class:`errors.PathError` if the path lies inside an excluded folder.
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token.
@@ -1036,6 +1001,9 @@ class Maestral:
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
+
+        self._check_linked()
+        self._check_dropbox_dir()
 
         # input validation
         md = self.client.get_metadata(dbx_path)
@@ -1075,11 +1043,9 @@ class Maestral:
 
         # download items from Dropbox
         for folder in new_included_items:
-            self.sync.queued_newly_included_downloads.put(folder)
+            self.monitor.added_item_queue.put(folder)
 
-    @require_linked
-    @require_dir
-    def set_excluded_items(self, items):
+    def set_excluded_items(self, items: List[str]) -> None:
         """
         Sets the list of excluded files or folders. Items which are not in ``items`` but
         were previously excluded will be downloaded.
@@ -1089,10 +1055,13 @@ class Maestral:
 
         On initial sync, this does not trigger any downloads.
 
-        :param list[str] items: List of excluded files or folders to set.
+        :param items: List of excluded files or folders to set.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
+
+        self._check_linked()
+        self._check_dropbox_dir()
 
         excluded_items = self.sync.clean_excluded_items_list(items)
         old_excluded_items = self.sync.excluded_items
@@ -1110,48 +1079,53 @@ class Maestral:
             for path in added_included_items:
                 if not self.sync.is_excluded_by_user(path):
                     logger.info('Included %s', path)
-                    self.sync.queued_newly_included_downloads.put(path)
+                    self.monitor.added_item_queue.put(path)
 
         logger.info(IDLE)
 
-    @require_linked
-    def excluded_status(self, dbx_path):
+    def excluded_status(self, dbx_path: str) -> str:
         """
         Returns 'excluded', 'partially excluded' or 'included'. This function will not
         check if the item actually exists on Dropbox.
 
-        :param str dbx_path: Path to item on Dropbox.
+        :param dbx_path: Path to item on Dropbox.
         :returns: Excluded status.
-        :rtype: str
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
+        self._check_linked()
+
         dbx_path = dbx_path.lower().rstrip('/')
 
-        excluded_items = self._conf.get('main', 'excluded_items')
-
-        if dbx_path in excluded_items:
+        if dbx_path in self.sync.excluded_items:
             return 'excluded'
-        elif any(is_child(f, dbx_path) for f in excluded_items):
+        elif any(is_child(f, dbx_path) for f in self.sync.excluded_items):
             return 'partially excluded'
         else:
             return 'included'
 
-    @require_linked
-    @require_dir
-    @with_sync_paused
-    def move_dropbox_directory(self, new_path):
+    def move_dropbox_directory(self, new_path: str) -> None:
         """
         Sets the local Dropbox directory. This moves all local files to the new location
         and resumes syncing afterwards.
 
-        :param str new_path: Full path to local Dropbox folder. "~" will be expanded to
+        :param new_path: Full path to local Dropbox folder. "~" will be expanded to
             the user's home directory.
         :raises: :class:`OSError` if moving the directory fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
 
+        self._check_linked()
+        self._check_dropbox_dir()
+
+        # pause syncing
+        resume = False
+        if self.running:
+            self.stop_sync()
+            resume = True
+
+        # input checks
         old_path = self.sync.dropbox_path
         new_path = osp.realpath(osp.expanduser(new_path))
 
@@ -1173,20 +1147,30 @@ class Maestral:
         # update config file and client
         self.sync.dropbox_path = new_path
 
-    @require_linked
-    @with_sync_paused
-    def create_dropbox_directory(self, path):
+        # resume syncing
+        if resume:
+            self.start_sync()
+
+    def create_dropbox_directory(self, path: str) -> None:
         """
         Creates a new Dropbox directory. Only call this during setup.
 
-        :param str path: Full path to local Dropbox folder. "~" will be expanded to the
+        :param path: Full path to local Dropbox folder. "~" will be expanded to the
             user's home directory.
         :raises: :class:`OSError` if creation fails.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         """
 
-        path = osp.realpath(osp.expanduser(path))
+        self._check_linked()
 
+        # pause syncing
+        resume = False
+        if self.syncing:
+            self.pause_sync()
+            resume = True
+
+        # housekeeping
+        path = osp.realpath(osp.expanduser(path))
         self.monitor.reset_sync_state()
 
         # create new folder
@@ -1195,75 +1179,162 @@ class Maestral:
         # update config file and client
         self.sync.dropbox_path = path
 
+        # resume syncing
+        if resume:
+            self.resume_sync()
+
     # ==== utility methods for front ends ================================================
 
-    @require_linked
-    @require_dir
-    def to_local_path(self, dbx_path):
+    def to_local_path(self, dbx_path: str) -> str:
         """
         Converts a path relative to the Dropbox folder to a correctly cased local file
         system path.
 
-        :param str dbx_path: Path relative to Dropbox root.
+        :param dbx_path: Path relative to Dropbox root.
         :returns: Corresponding path on local hard drive.
-        :rtype: str
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
         :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up.
         """
 
-        return self.sync.to_local_path(dbx_path)
+        self._check_linked()
+        self._check_dropbox_dir()
 
-    @staticmethod
-    def check_for_updates():
+        return self.sync.to_local_path_from_cased(dbx_path)
+
+    def check_for_updates(self) -> Dict[str, Union[str, bool, None]]:
         """
         Checks if an update is available.
 
         :returns: A dictionary with information about the latest release with the fields
             'update_available' (bool), 'latest_release' (str), 'release_notes' (str)
             and 'error' (str or None).
-        :rtype: dict
         """
-        return check_update_available()
+        current_version = __version__.lstrip('v')
+        new_version = None
+        update_release_notes = ''
+        error_msg = None
 
-    def shutdown_pyro_daemon(self):
+        try:
+            r = requests.get(GITHUB_RELEASES_API)
+            data = r.json()
+
+            releases = []
+            release_notes = []
+
+            # this should do nothing since the github API already returns sorted entries
+            data.sort(key=lambda x: Version(x['tag_name']), reverse=True)
+
+            for item in data:
+                v = item['tag_name'].lstrip('v')
+                if not Version(v).is_prerelease:
+                    releases.append(v)
+                    release_notes.append('### {tag_name}\n\n{body}'.format(**item))
+
+            new_version = get_newer_version(current_version, releases)
+
+            if new_version:
+                # closest_release == current_version if current_version appears in the
+                # release list. Otherwise closest_release < current_version
+                closest_release = next(
+                    v for v in releases if Version(v) <= Version(current_version))
+                closest_release_idx = releases.index(closest_release)
+
+                update_release_notes_list = release_notes[0:closest_release_idx]
+                update_release_notes = '\n'.join(update_release_notes_list)
+
+        except requests.exceptions.HTTPError:
+            error_msg = 'Unable to retrieve information. Please try again later.'
+        except CONNECTION_ERRORS:
+            error_msg = 'No internet connection. Please try again later.'
+        except Exception:
+            error_msg = 'Something when wrong. Please try again later.'
+
+        return {'update_available': bool(new_version),
+                'latest_release': new_version or current_version,
+                'release_notes': update_release_notes,
+                'error': error_msg}
+
+    def shutdown_daemon(self) -> None:
         """
-        Sets the ``_daemon_running`` flag to ``False``. This will be checked by Pyro5
-        periodically to shut down the daemon when requested.
+        Stop the event loop. This will also shut down the pyro daemon if running.
         """
-        self._daemon_running = False
+
+        self.stop_sync()
+
+        if self._loop.is_running():
+            self._refresh_task.cancel()
+            self._watchdog_task.cancel()
+            self._loop.call_soon_threadsafe(self.shutdown_complete.set_result, True)
+
+        self._thread_pool.shutdown(wait=False)
+
         if NOTIFY_SOCKET:
             # notify systemd that we are shutting down
             sd_notifier.notify('STOPPING=1')
 
     # ==== private methods ===============================================================
 
-    def _loop_condition(self):
-        return self._daemon_running
+    def _check_linked(self) -> None:
 
-    def _periodic_refresh(self):
+        if not self.client.linked:
+            raise NotLinkedError('No Dropbox account linked',
+                                 'Please call "link" to link an account.')
+
+    def _check_dropbox_dir(self) -> None:
+
+        if self.pending_dropbox_folder:
+            raise NoDropboxDirError('No local Dropbox directory',
+                                    'Call "create_dropbox_directory" to set up.')
+
+    def _check_and_run_post_update_scripts(self) -> None:
+        """
+        Runs post-update scripts if necessary.
+        """
+
+        updated_from = self.get_state('app', 'updated_scripts_completed')
+
+        if Version(updated_from) < Version('1.2.0.dev2'):
+            self._update_from_pre_v1_2_0_dev2()
+
+        self.set_state('app', 'updated_scripts_completed', __version__)
+
+    def _update_from_pre_v1_2_0_dev2(self) -> None:
+
+        logger.info('Reindexing after update to v1.2.0')
+
+        # remove old index to trigger resync
+        old_rev_file = get_data_path('maestral', f'{self.config_name}.index')
+        delete(old_rev_file)
+        self.sync.remote_cursor = ''
+
+    async def _periodic_refresh(self) -> None:
+
         while True:
-            if not self.pending_link:
-                self.get_account_info()
-                self.get_profile_pic()
+            # update account info
+            if self.client.linked:
+                await self._loop.run_in_executor(self._thread_pool, self.get_account_info)
+                await self._loop.run_in_executor(self._thread_pool, self.get_profile_pic)
+
             # check for maestral updates
-            res = self.check_for_updates()
+            res = await self._loop.run_in_executor(self._thread_pool, self.check_for_updates)
+
             if not res['error']:
                 self._state.set('app', 'latest_release', res['latest_release'])
-            time.sleep(60 * 60)  # 60 min
 
-    @staticmethod
-    def _periodic_watchdog():
-        while True:
-            sd_notifier.notify('WATCHDOG=1')
-            time.sleep(int(WATCHDOG_USEC) / (2 * 10 ** 6))
+            await asyncio.sleep(60 * 60)  # 60 min
 
-    def __del__(self):
-        try:
-            self.monitor.stop()
-        except Exception:
-            pass
+    async def _periodic_watchdog(self) -> None:
 
-    def __repr__(self):
+        if WATCHDOG_USEC:
+
+            sleep = int(WATCHDOG_USEC)
+
+            while True:
+                sd_notifier.notify('WATCHDOG=1')
+                await asyncio.sleep(sleep / (2 * 10 ** 6))
+
+    def __repr__(self) -> str:
+
         email = self._state.get('account', 'email')
         account_type = self._state.get('account', 'type')
 

@@ -29,13 +29,15 @@ import stat
 import platform
 import subprocess
 import shlex
+import plistlib
+import configparser
 from enum import Enum
+from typing import Optional, Dict, Any
 
 try:
-    # noinspection PyCompatibility
-    from importlib.metadata import files, PackageNotFoundError
+    from importlib.metadata import files, PackageNotFoundError  # type: ignore
 except ImportError:  # Python 3.7 and lower
-    from importlib_metadata import files, PackageNotFoundError
+    from importlib_metadata import files, PackageNotFoundError  # type: ignore
 
 # local imports
 from maestral.utils.appdirs import get_home_dir, get_conf_path, get_data_path
@@ -60,16 +62,16 @@ class AutoStartBase:
     Base class for autostart backends.
     """
 
-    def enable(self):
+    def enable(self) -> None:
         """Enable autostart. Must be implemented in subclass."""
         raise NotImplementedError('No supported implementation')
 
-    def disable(self):
+    def disable(self) -> None:
         """Disable autostart. Must be implemented in subclass."""
         raise NotImplementedError('No supported implementation')
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         """Returns the enabled status as bool. Must be implemented in subclass."""
         return False
 
@@ -78,67 +80,61 @@ class AutoStartSystemd(AutoStartBase):
     """
     Autostart backend for systemd. Used to start a daemon on Linux.
 
-    :param str service_name: Name of systemd service.
-    :param str start_cmd: Absolute path to executable and optional program arguments.
-    :param str stop_cmd: Optional stop command.
-    :param bool notify: If ``True``, the service will be started as a notify service.
-        Otherwise, the type will be "exec".
-    :param int watchdog_sec: If given, this is the number of seconds for systemd watchdog.
-    :param dict unit_dict: Dictionary of additional keys and values for the Unit section.
-    :param dict service_dict: Dictionary of additional keys and values for the Service
+    :param service_name: Name of systemd service.
+    :param start_cmd: Absolute path to executable and optional program arguments.
+    :param unit_dict: Dictionary of additional keys and values for the Unit section.
+    :param service_dict: Dictionary of additional keys and values for the Service
         section.
-    :param dict install_dict: Dictionary of additional keys and values for the Install
+    :param install_dict: Dictionary of additional keys and values for the Install
         section.
     """
-    def __init__(self, service_name, start_cmd, stop_cmd=None,
-                 notify=False, watchdog_sec=None, unit_dict=None,
-                 service_dict=None, install_dict=None):
+    def __init__(self,
+                 service_name: str,
+                 start_cmd: str,
+                 unit_dict: Optional[Dict[str, str]] = None,
+                 service_dict: Optional[Dict[str, str]] = None,
+                 install_dict: Optional[Dict[str, str]] = None) -> None:
         super().__init__()
 
-        self.service_name = service_name
         # strip any instance specifiers from template service name
         filename = re.sub(r'@[^"]*\.service', '@.service', service_name)
+
+        self.service_name = service_name
         self.destination = get_data_path(osp.join('systemd', 'user'), filename)
 
-        service_type = 'notify' if notify else 'exec'
+        self.service_config = configparser.ConfigParser(interpolation=None)
+        # set to preserve key casing
+        self.service_config.optionxform = str  # type: ignore
 
+        self.service_config.add_section('Unit')
+        self.service_config.add_section('Service')
+        self.service_config.add_section('Install')
+
+        # fill out some default values for a minimum systemd unit
+        self.service_config['Service']['Type'] = 'exec'
+        self.service_config['Service']['ExecStart'] = start_cmd
+        self.service_config['Install']['WantedBy'] = 'default.target'
+
+        # update with user-specified dicts
         if unit_dict:
-            self.contents = '[Unit]\n'
-            for key, value in unit_dict.items():
-                self.contents += f'{key} = {value}\n'
-            self.contents += '\n'
-
-        self.contents += '[Service]\n'
-        self.contents += f'Type = {service_type}\n'
-        self.contents += 'NotifyAccess = exec\n'
-        self.contents += f'ExecStart = {start_cmd}\n'
-        if stop_cmd:
-            self.contents += f'ExecStop = {stop_cmd}\n'
-        if watchdog_sec:
-            self.contents += f'WatchdogSec = {watchdog_sec}s\n'
+            self.service_config['Unit'].update(unit_dict)
         if service_dict:
-            for key, value in service_dict.items():
-                self.contents += f'{key} = {value}\n'
-        self.contents += '\n'
-
-        self.contents += '[Install]\n'
-        self.contents += 'WantedBy = default.target\n'
+            self.service_config['Service'].update(service_dict)
         if install_dict:
-            for key, value in install_dict.items():
-                self.contents += f'{key} = {value}\n'
-        self.contents += '\n'
+            self.service_config['Install'].update(install_dict)
 
+        # write to file in ~/.local/share/systemd/user
         with open(self.destination, 'w') as f:
-            f.write(self.contents)
+            self.service_config.write(f)
 
-    def enable(self):
+    def enable(self) -> None:
         subprocess.run(['systemctl', '--user', 'enable', self.service_name])
 
-    def disable(self):
+    def disable(self) -> None:
         subprocess.run(['systemctl', '--user', 'disable', self.service_name])
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         """Checks if the systemd service is enabled."""
         res = subprocess.call(
             ['systemctl', '--user', '--quiet', 'is-enabled', self.service_name]
@@ -150,28 +146,11 @@ class AutoStartLaunchd(AutoStartBase):
     """
     Autostart backend for launchd. Used to start a GUI or daemon on macOS.
 
-    :param str bundle_id: Bundle ID for the, e.g., "com.google.calendar".
-    :param str start_cmd: Absolute path to executable and optional program arguments.
+    :param bundle_id: Bundle ID for the, e.g., "com.google.calendar".
+    :param start_cmd: Absolute path to executable and optional program arguments.
     """
 
-    template = """<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>{bundle_id}</string>
-    <key>ProcessType</key>
-    <string>Interactive</string>
-    <key>ProgramArguments</key>
-    <array>
-{start_cmd}
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-</dict>
-</plist>"""
-
-    def __init__(self, bundle_id, start_cmd):
+    def __init__(self, bundle_id: str, start_cmd: str) -> None:
 
         super().__init__()
         filename = bundle_id + '.plist'
@@ -179,28 +158,30 @@ class AutoStartLaunchd(AutoStartBase):
         self.path = osp.join(get_home_dir(), 'Library', 'LaunchAgents')
         self.destination = osp.join(self.path, filename)
 
-        start_cmd = shlex.split(start_cmd)
-        arguments = [f'\t\t<string>{arg}</string>' for arg in start_cmd]
-
-        self.contents = self.template.format(
-            bundle_id=bundle_id,
-            start_cmd='\n'.join(arguments)
+        self.plist_dict: Dict[str, Any] = dict(
+            Label=None,
+            ProcessType='Interactive',
+            ProgramArguments=[],
+            RunAtLoad=True
         )
 
-    def enable(self):
+        self.plist_dict['Label'] = str(bundle_id)
+        self.plist_dict['ProgramArguments'] = shlex.split(start_cmd)
+
+    def enable(self) -> None:
         os.makedirs(self.path, exist_ok=True)
 
-        with open(self.destination, 'w+') as f:
-            f.write(self.contents)
+        with open(self.destination, 'wb') as f:
+            plistlib.dump(self.plist_dict, f, sort_keys=False)
 
-    def disable(self):
+    def disable(self) -> None:
         try:
             os.unlink(self.destination)
         except FileNotFoundError:
             pass
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         """Checks if the launchd plist exists in ~/Library/LaunchAgents."""
         return os.path.isfile(self.destination)
 
@@ -212,58 +193,52 @@ class AutoStartXDGDesktop(AutoStartBase):
 
     https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html
 
-    :param str Name: Name of application.
-    :param str Exec: Executable on $PATH or absolute path to executable and optional
-        program arguments.
-    :param str filename: Name of desktop entry file. If not given, "NAME.desktop" will be
-        used.
-    :param kwargs: Additional key, value pairs to be used in the desktop entries.
-        Values must be strings and may not contain "=", otherwise no additional validation
-        will be performed.
+    :param Name: Name of application.
+    :param Exec: Executable on $PATH or absolute path to executable and optional program
+        arguments.
+    :param filename: Name of desktop entry file. If not given, the application name will
+        be used.
+    :param kwargs: Additional key, value pairs to be used in the desktop entries. Values
+        must be strings and may not contain "=", otherwise no additional validation will
+        be performed.
     """
 
-    def __init__(self, Name, Exec, filename=None, **kwargs):
+    def __init__(self, app_name: str, start_cmd: str, filename: Optional[str],
+                 **kwargs: str) -> None:
         super().__init__()
 
-        self._attributes = {'Version': '1.0', 'Type': 'Application',
-                            'Name': Name, 'Exec': Exec}
-        self._attributes.update(kwargs)
-
         # create desktop file content
+        self.config = configparser.ConfigParser(interpolation=None)
+        # set to preserve key casing
+        self.config.optionxform = str  # type: ignore
 
-        self.contents = '[Desktop Entry]\n'
+        self.config['Desktop Entry'] = {
+            'Version': '1.0',
+            'Type': 'Application',
+            'Name': app_name,
+            'Exec': start_cmd
+        }
+        self.config['Desktop Entry'].update(kwargs)
 
-        for key, value in self._attributes.items():
-
-            # input validation
-
-            if not isinstance(value, str):
-                raise ValueError('Only strings allowed as values')
-            if '=' in value:
-                raise ValueError(f'Value for {key} may not contain "="')
-
-            self.contents += f'{key} = {value}\n'
-
-        # set destination
-
-        filename = filename or f'{Name}.desktop'
+        filename = filename or f'{app_name}.desktop'
         self.destination = get_conf_path('autostart', filename)
 
-    def enable(self):
-        with open(self.destination, 'w+') as f:
-            f.write(self.contents)
+    def enable(self) -> None:
+
+        with open(self.destination, 'w') as f:
+            self.config.write(f)
 
         st = os.stat(self.destination)
         os.chmod(self.destination, st.st_mode | stat.S_IEXEC)
 
-    def disable(self):
+    def disable(self) -> None:
         try:
             os.unlink(self.destination)
         except FileNotFoundError:
             pass
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         """Checks if the XDG desktop entry exists in ~/.config/autostart."""
         return os.path.isfile(self.destination)
 
@@ -273,9 +248,9 @@ class AutoStart:
     start Maestral when the user logs in. Different backends are used depending on the
     platform and if we want to start a GUI or a daemon / service."""
 
-    system = platform.system()
+    _impl: AutoStartBase
 
-    def __init__(self, config_name, gui=False):
+    def __init__(self, config_name: str, gui: bool = False) -> None:
 
         self._gui = gui
         self.maestral_path = self.get_maestral_command_path()
@@ -283,11 +258,9 @@ class AutoStart:
 
         if gui:
             start_cmd = f'{self.maestral_path} gui -c {config_name}'
-            stop_cmd = ''
             bundle_id = '{}.{}'.format(BUNDLE_ID, config_name)
         else:
             start_cmd = f'{self.maestral_path} start -f -c {config_name}'
-            stop_cmd = f'{self.maestral_path} stop -c {config_name}'
             bundle_id = '{}-{}.{}'.format(BUNDLE_ID, 'daemon', config_name)
 
         if self.implementation == SupportedImplementations.launchd:
@@ -296,8 +269,8 @@ class AutoStart:
         elif self.implementation == SupportedImplementations.xdg_desktop:
             self._impl = AutoStartXDGDesktop(
                 filename=f'maestral-{config_name}.desktop',
-                Name='Maestral',
-                Exec=start_cmd,
+                app_name='Maestral',
+                start_cmd=start_cmd,
                 TryExec=self.maestral_path,
                 Icon='maestral',
                 Terminal='false',
@@ -308,34 +281,40 @@ class AutoStart:
 
         elif self.implementation == SupportedImplementations.systemd:
 
-            notify_failure = ('if [ ${SERVICE_RESULT} != success ]; '
-                              'then notify-send Maestral \'Daemon failed: ${SERVICE_RESULT}\'; '
-                              'fi')
+            notify_failure = (
+                'if [ ${SERVICE_RESULT} != success ]; '
+                'then notify-send Maestral \'Daemon failed: ${SERVICE_RESULT}\'; '
+                'fi'
+            )
 
             self._impl = AutoStartSystemd(
                 service_name=f'maestral-daemon@{config_name}.service',
-                start_cmd=start_cmd.replace(config_name, '%i'),
-                stop_cmd=stop_cmd.replace(config_name, '%i'),
-                notify=True,
-                watchdog_sec=30,
-                unit_dict={'Description': 'Maestral daemon for the config %i'},
-                service_dict={'ExecStopPost': f'/usr/bin/env bash -c "{notify_failure}"'}
+                start_cmd=f'{self.maestral_path} start -f -c %i',
+                unit_dict={
+                    'Description': 'Maestral daemon for the config %i'
+                },
+                service_dict={
+                    'Type': 'notify',
+                    'WatchdogSec': '30',
+                    'ExecStop': f'{self.maestral_path} stop -c %i',
+                    'ExecStopPost': f'/usr/bin/env bash -c "{notify_failure}"',
+                }
             )
 
         else:
             self._impl = AutoStartBase()
 
-    def toggle(self):
+    def toggle(self) -> None:
         """Toggles autostart on or off."""
         self.enabled = not self.enabled
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         """True if autostart is enabled."""
         return self._impl.enabled
 
     @enabled.setter
-    def enabled(self, yes):
+    def enabled(self, yes: bool) -> None:
         """Setter: True if autostart is enabled."""
 
         if self.enabled == yes:
@@ -349,9 +328,9 @@ class AutoStart:
         else:
             self._impl.disable()
 
-    def get_maestral_command_path(self):
+    def get_maestral_command_path(self) -> str:
         """
-        Returns the path to the maestral executable.
+        :returns: The path to the maestral executable.
         """
         # try to get location of console script from package metadata
         # fall back to 'which' otherwise
@@ -371,12 +350,14 @@ class AutoStart:
 
         return str(path)
 
-    def _get_available_implementation(self):
+    def _get_available_implementation(self) -> Optional[SupportedImplementations]:
         """Returns the supported implementation depending on the platform."""
 
-        if self.system == 'Darwin':
+        system = platform.system()
+
+        if system == 'Darwin':
             return SupportedImplementations.launchd
-        elif self.system == 'Linux' and self._gui:
+        elif system == 'Linux' and self._gui:
             return SupportedImplementations.xdg_desktop
         else:
             res = subprocess.check_output(['ps', '-p', '1']).decode()

@@ -10,28 +10,27 @@ from maestral import __version__, __author__, __url__
 
 # proceed with actual install
 install_requires = [
-    'atomicwrites>=1.0.0',
     'bugsnag>=3.4.0',
     'click>=7.1.1',
-    'dropbox>=10.0.0',
-    'fasteners',
+    'dropbox>=10.4.1',
+    'dbus-next>=0.1.4;sys_platform=="linux"',
+    'fasteners>=0.15',
     'importlib_metadata;python_version<"3.8"',
-    'jeepney;sys_platform=="linux"',
     'keyring>=19.0.0',
     'keyrings.alt>=3.1.0',
     'packaging',
     'pathspec>=0.5.8',
-    'Pyro5>=5.7',
-    'requests',
+    'Pyro5>=5.10',
+    'requests>=2.16.2',
     'rubicon-objc>=0.3.1;sys_platform=="darwin"',
-    'sdnotify',
-    'setuptools',
+    'sdnotify>=0.3.2',
+    'sqlalchemy>=1.3.0',
     'watchdog>=0.10.0',
 ]
 
 gui_requires = [
-    'maestral_qt>=1.0.3;sys_platform=="linux"',
-    'maestral_cocoa>=1.0.3;sys_platform=="darwin"',
+    'maestral_qt>=1.2.0;sys_platform=="linux"',
+    'maestral_cocoa>=1.2.0;sys_platform=="darwin"',
 ]
 
 syslog_requires = ['systemd-python']

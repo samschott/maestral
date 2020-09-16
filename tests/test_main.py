@@ -8,10 +8,11 @@
 import os
 import os.path as osp
 import time
+import logging
 from maestral.main import Maestral
 from maestral.errors import NotFoundError, FolderConflictError, PathError
-from maestral.utils.appdirs import get_log_path
 from maestral.utils.path import delete
+from maestral.utils.housekeeping import remove_configuration
 
 import unittest
 from unittest import TestCase
@@ -28,8 +29,8 @@ class TestAPI(TestCase):
         cls.resources = osp.dirname(__file__) + '/resources'
 
         cls.m = Maestral('test-config')
-        cls.m._auth._account_id = os.environ.get('DROPBOX_ID', '')
-        cls.m._auth._access_token = os.environ.get('DROPBOX_TOKEN', '')
+        cls.m.log_level = logging.DEBUG
+        cls.m.client._init_sdk_with_token(access_token=os.environ.get('DROPBOX_TOKEN', ''))
         cls.m.create_dropbox_directory('~/Dropbox_Test')
 
         # all our tests will be carried out within this folder
@@ -41,7 +42,7 @@ class TestAPI(TestCase):
             try:
                 cls.m.client.make_dir(cls.TEST_LOCK_PATH)
             except FolderConflictError:
-                time.sleep(20)
+                time.sleep(10)
             else:
                 break
 
@@ -73,21 +74,7 @@ class TestAPI(TestCase):
             pass
 
         delete(cls.m.dropbox_path)
-        delete(cls.m.sync.rev_file_path)
-        delete(cls.m.account_profile_pic_path)
-        cls.m._conf.cleanup()
-        cls.m._state.cleanup()
-
-        log_dir = get_log_path('maestral')
-
-        log_files = []
-
-        for file_name in os.listdir(log_dir):
-            if file_name.startswith(cls.m.config_name):
-                log_files.append(os.path.join(log_dir, file_name))
-
-        for file in log_files:
-            delete(file)
+        remove_configuration('test-config')
 
     def tearDown(self):
         self.assertFalse(self.m.fatal_errors)

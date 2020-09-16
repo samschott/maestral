@@ -34,8 +34,9 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
-    'm2r',
+    'sphinx_autodoc_typehints',
     'sphinx_click.ext',
+    'm2r'
 ]
 
 templates_path = ['_templates']
@@ -44,8 +45,7 @@ source_suffix = ['.rst', '.md']
 master_doc = 'index'
 language = None
 pygments_style = None
-
-autodoc_member_order = 'bysource'
+html4_writer = True
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -66,6 +66,8 @@ html_context = {
 latex_documents = [(master_doc, 'maestral.tex', title, author, 'manual'), ]
 
 # -- Extension configuration -------------------------------------------------
+
+autodoc_member_order = 'bysource'
 
 # -- Options for intersphinx extension ---------------------------------------
 

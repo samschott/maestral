@@ -5,9 +5,7 @@
 (c) Sam Schott; This work is licensed under the MIT licence.
 
 """
-from maestral.utils.updates import (
-    get_newer_version, check_update_available
-)
+from maestral.utils import get_newer_version
 
 
 def test_has_newer_version():
@@ -16,10 +14,3 @@ def test_has_newer_version():
     assert get_newer_version('1.1.0', releases) is None
     assert get_newer_version('0.7.0', releases) == '1.1.0'
     assert get_newer_version('0.7.0.dev1', releases) == '1.1.0'
-
-
-def test_check_update_available():
-    res = check_update_available('0.5.0')
-
-    if not res['error']:
-        assert res['update_available']

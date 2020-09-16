@@ -1,3 +1,85 @@
+## v1.2.0
+
+The local file index and sync history are now stored in a SQLite database. After the
+update, Maestral will first reindex your Dropbox to populate the new index.
+
+This change enables several improvements to the command line interface and GUI: The
+command `maestral activity` now shows the progress of individual uploads or downloads.
+`maestral history` has been added to list recent sync events. In the GUI, the recent
+changes menu now has been replaced by a "Activity" window which shows all sync events of
+the past week.
+
+This release also introduces clickable desktop notifications, performance improvements to
+indexing local file changes, and bug fixes and smaller changes listed below.
+
+Finally, this is release introduces support for macOS 11 (Big Sur).
+
+#### Added:
+
+- Added an option `--external` to `maestral log show` to open the log in the platform's
+  default program instead of showing it in the console.
+- Added a CLI command `history` to show all sync events of the past week.
+- Added a "Activity" window to show all sync events of the past week.
+- Desktop notifications are now clickable: for a single file change, clicking the
+  notification will show the file in the platform's file manager. For a deletion, the
+  Dropbox website is opened to provide options for restoring the file or folder.
+- Use entry points to discover GUI frontends. 3rd party GUIs can register a `maestral_gui`
+  entry point to be launched with the `maestral gui` CLI command. If installed,
+  `maestral gui` will default to the 1st party `maestral-cocoa` or `maestral-qt` GUIs on
+  macOS and Linux, respectively.
+
+#### Changed:
+
+- Transition to short-lived auth tokens for newly linked accounts.
+- Transition to OAuth scopes for app permissions.
+- Save all sync history and local index in SQLite database.
+- Reduce unnecessary path conversions during indexing of local changes.
+- Improved performance on case-sensitive file systems.
+- Sync remote changes in filename even if they are only a change in casing. Those changes
+  where previously ignored.
+- Attempt to preserve local file permissions when syncing unless the file id has changed.
+  Dropbox servers do store file permissions but don't make them available through the
+  public API. We therefore cannot sync file permissions and instead choose not to
+  overwrite locally set permissions on every download.
+- Changed return type of `Maestral.get_activity` from namedtuple to dict for better
+  consistency throughout the API. Every uploading or downloading item will have 'size'
+  and 'completed' entries to monitor the progress of syncing individual items.
+- The CLI command `maestral activity` now shows the progress of uploads and downloads for
+  individual files.
+- Introduced type annotations throughout and fixed a few type-related bugs.
+- Added a field "Sync threads" to the output of the CLI command `maestral status`.
+- The output of `maestral ls` is now printed in a grid, similar to the `ls` command
+  included with most platforms.
+- The macOS app bundle now uses Python 3.8, leading to some performance improvements when
+  moving or copying file system trees.
+- Prepared the GUI for changes in macOS Big Sur: use native alerts and dialogs wherever
+  possible and refactor loading of libraries.
+- Use an asyncio event loop instead of Pyro's event loop to run the daemon. This enables
+  integration with the Cocoa run loop and callbacks when clicking notifications.
+
+#### Fixed:
+
+- Fixes a bug where throttling of sync threads would raise an error when we cannot
+  determine the CPU count.
+- Fixes a bug where sending SIGTERM to the daemon process would raise an error when we
+  cannot determine its PID. Now, `Stop.Failed` is returned instead.
+- Fixes a bug which would result in incorrect systemd unit files for non-default config
+  file names. Please disable and re-enable autostart with `maestral autostart -Y|-N` to
+  replace old unit files.
+- Fixes a possible race condition when creating the cache directory.
+- Fixes error handling when a file is changed while uploading.
+
+#### Removed:
+
+- Support for config names with spaces. Spaces could cause issues with autostart entries
+  on some platforms.
+- The ability to run the daemon in a separate thread. The daemon must now always be run in
+  its own process.
+
+#### Dependencies:
+
+- Replaced `jeepney` dependency on Linux with `dbus-next`.
+
 ## v1.1.0
 
 This release expands the CLI functionality and improves the handling of file modification
@@ -8,8 +90,8 @@ login items.
 
 #### Added:
 
-- Added `--include-deleted | -d` option to `maestral ls`.
-- Added `--long | -l` option to `maestral ls` to include metadata in listing.
+- Added `--include-deleted` option to `maestral ls`.
+- Added `--long` option to `maestral ls` to include metadata in listing.
 - Added `maestral revs` command to list revisions of a file.
 - Added `maestral restore` command to restore an old revision of a file.
 

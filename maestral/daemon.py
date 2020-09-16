@@ -22,24 +22,34 @@ import threading
 import fcntl
 import struct
 import tempfile
+import itertools
+import asyncio
+from typing import Optional, Union, Tuple, Dict, Type, TYPE_CHECKING
+from types import TracebackType, FrameType
 
 # external imports
-import Pyro5.errors
-from Pyro5.api import Daemon, Proxy, expose, oneway
-from Pyro5.serializers import SerpentSerializer
-from fasteners import InterProcessLock
+import Pyro5  # type: ignore
+from Pyro5.errors import CommunicationError  # type: ignore
+from Pyro5.api import Daemon, Proxy, expose, oneway, register_dict_to_class  # type: ignore
+from fasteners import InterProcessLock  # type: ignore
 
 # local imports
-from maestral.errors import SYNC_ERRORS, FATAL_ERRORS
+from maestral.errors import SYNC_ERRORS, FATAL_ERRORS, MaestralApiError
 from maestral.constants import IS_FROZEN, IS_MACOS
 from maestral.utils.appdirs import get_runtime_path
 
 
-threads = dict()
+if TYPE_CHECKING:
+    from maestral.main import Maestral
+
+
 URI = 'PYRO:maestral.{0}@{1}'
+Pyro5.config.THREADPOOL_SIZE_MIN = 2
+
+MaestralProxyType = Union['Maestral', Proxy]
 
 
-def freeze_support():
+def freeze_support() -> None:
     """Freeze support for multiprocessing and daemon startup. This works by checking for
     '--multiprocessing-fork' and '--frozen-daemon' command line arguments. Call this
     function at the entry point of the executable, as soon as possible and ideally before
@@ -60,8 +70,15 @@ def freeze_support():
         sys.exit()
 
 
-class Exit(enum.Enum):
-    """Enumeration of daemon exit results."""
+class Stop(enum.Enum):
+    """
+    Enumeration of daemon exit results.
+
+    :cvar Ok: Daemon quit successfully.
+    :cvar Killed: Daemon process was killed.
+    :cvar NotRunning: Daemon was not running.
+    :cvar Failed: Could not shut down daemon.
+    """
     Ok = 0
     Killed = 1
     NotRunning = 2
@@ -69,7 +86,13 @@ class Exit(enum.Enum):
 
 
 class Start(enum.Enum):
-    """Enumeration of daemon start results."""
+    """
+    Enumeration of daemon start results.
+
+    :cvar Ok: Daemon started successfully.
+    :cvar AlreadyRunning: Daemon was already running.
+    :cvar Failed: Could not start daemon.
+    """
     Ok = 0
     AlreadyRunning = 1
     Failed = 2
@@ -77,14 +100,13 @@ class Start(enum.Enum):
 
 # ==== error serialization ===============================================================
 
-def serpent_deserialize_api_error(class_name, d):
+def serpent_deserialize_api_error(class_name: str, d: dict) -> MaestralApiError:
     """
     Deserializes a :class:`errors.MaestralApiError`.
 
-    :param str class_name: Name of class to deserialize.
-    :param dict d: Dictionary of serialized class.
+    :param class_name: Name of class to deserialize.
+    :param d: Dictionary of serialized class.
     :returns: Class instance.
-    :rtype: :class:`errors.MaestralApiError`
     """
     # import maestral errors for evaluation
     import maestral.errors  # noqa: F401
@@ -97,8 +119,8 @@ def serpent_deserialize_api_error(class_name, d):
     return err
 
 
-for err_cls in list(SYNC_ERRORS) + list(FATAL_ERRORS):
-    SerpentSerializer.register_dict_to_class(
+for err_cls in itertools.chain(SYNC_ERRORS, FATAL_ERRORS):
+    register_dict_to_class(
         err_cls.__module__ + '.' + err_cls.__name__,
         serpent_deserialize_api_error
     )
@@ -106,7 +128,7 @@ for err_cls in list(SYNC_ERRORS) + list(FATAL_ERRORS):
 
 # ==== interprocess locking ==============================================================
 
-def _get_lockdata():
+def _get_lockdata() -> Tuple[bytes, str, int]:
 
     try:
         os.O_LARGEFILE
@@ -152,18 +174,18 @@ class Lock:
     an existing instance for thread-safe usage.
     """
 
-    _instances = dict()
+    _instances: Dict[str, 'Lock'] = dict()
     _singleton_lock = threading.Lock()
 
     @classmethod
-    def singleton(cls, name, lock_path=None):
+    def singleton(cls, name: str, lock_path: Optional[str] = None) -> 'Lock':
         """
         Retrieve an existing lock object with a given 'name' or create a new one. Use this
         method for thread-safe locks.
 
-        :param str name: Name of lock file.
-        :param str lock_path: Directory for lock files. Defaults to the temporary
-            directory returned by :func:`tempfile.gettempdir()` if not given.
+        :param name: Name of lock file.
+        :param lock_path: Directory for lock files. Defaults to the temporary directory
+            returned by :func:`tempfile.gettempdir()` if not given.
         """
 
         with cls._singleton_lock:
@@ -175,7 +197,7 @@ class Lock:
 
             return instance
 
-    def __init__(self, name, lock_path=None):
+    def __init__(self, name: str, lock_path: Optional[str] = None) -> None:
 
         self.name = name
         dirname = lock_path or tempfile.gettempdir()
@@ -186,12 +208,11 @@ class Lock:
 
         self._lock = threading.RLock()
 
-    def acquire(self):
+    def acquire(self) -> bool:
         """
         Attempts to acquire the given lock.
 
         :returns: Whether or not the acquisition succeeded.
-        :rtype: bool
         """
 
         with self._lock:
@@ -213,13 +234,13 @@ class Lock:
                     self._internal_lock.release()
                     return False
 
-    def release(self):
+    def release(self) -> None:
         """Release the previously acquired lock."""
         with self._lock:
             self._external_lock.release()
             self._internal_lock.release()
 
-    def locked(self):
+    def locked(self) -> bool:
         """Checks if the lock is currently held by any thread or process."""
         with self._lock:
             gotten = self.acquire()
@@ -227,14 +248,13 @@ class Lock:
                 self.release()
             return not gotten
 
-    def locking_pid(self):
+    def locking_pid(self) -> Optional[int]:
         """
         Returns the PID of the process which currently holds the lock or ``None``. This
         should work on macOS, OpenBSD and Linux but may fail on some platforms. Always use
         :meth:`locked` to check if the lock is held by any process.
 
         :returns: The PID of the process which currently holds the lock or ``None``.
-        :rtype: int
         """
 
         with self._lock:
@@ -258,40 +278,34 @@ class Lock:
             except OSError:
                 pass
 
+            return None
+
 
 # ==== helpers for daemon management =====================================================
 
-def _escape_spaces(string):
-    return string.replace(' ', '_')
-
-
-def _sigterm_handler(signal_number, frame):
+def _sigterm_handler(signal_number: int, frame: FrameType) -> None:
     sys.exit()
 
 
-def _send_term(pid):
+def _send_term(pid: int) -> None:
     try:
         os.kill(pid, signal.SIGTERM)
     except ProcessLookupError:
         pass
 
 
-class MaestralLock:
+def maestral_lock(config_name: str) -> Lock:
     """
-    An inter-process and inter-thread lock for Maestral. This is a wrapper around
+    Returns an inter-process and inter-thread lock for Maestral. This is a wrapper around
     :class:`Lock` which fills out the appropriate lockfile name and directory for the
     given config name.
-
-    :param str config_name: The name of the Maestral configuration.
     """
-
-    def __new__(cls, config_name):
-        name = f'{config_name}.lock'
-        path = get_runtime_path('maestral')
-        return Lock.singleton(name, path)
+    name = f'{config_name}.lock'
+    path = get_runtime_path('maestral')
+    return Lock.singleton(name, path)
 
 
-def sockpath_for_config(config_name):
+def sockpath_for_config(config_name: str) -> str:
     """
     Returns the unix socket location to be used for the config. This should default to
     the apps runtime directory + '/maestral/CONFIG_NAME.sock'.
@@ -299,40 +313,38 @@ def sockpath_for_config(config_name):
     return get_runtime_path('maestral', f'{config_name}.sock')
 
 
-def lockpath_for_config(config_name):
+def lockpath_for_config(config_name: str) -> str:
     return get_runtime_path('maestral', f'{config_name}.lock')
 
 
-def get_maestral_pid(config_name):
+def get_maestral_pid(config_name: str) -> Optional[int]:
     """
     Returns Maestral's PID if the daemon is running, ``None`` otherwise.
 
-    :param str config_name: The name of the Maestral configuration.
+    :param config_name: The name of the Maestral configuration.
     :returns: The daemon's PID.
-    :rtype: int
     """
 
-    return MaestralLock(config_name).locking_pid()
+    return maestral_lock(config_name).locking_pid()
 
 
-def is_running(config_name):
+def is_running(config_name: str) -> bool:
     """
     Checks if a daemon is currently running.
 
-    :param str config_name: The name of the Maestral configuration.
+    :param config_name: The name of the Maestral configuration.
     :returns: Whether the daemon is running.
-    :rtype: bool
     """
 
-    return MaestralLock(config_name).locked()
+    return maestral_lock(config_name).locked()
 
 
-def _wait_for_startup(config_name, timeout=8):
+def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
     """Checks if we can communicate with the maestral daemon. Returns ``Start.Ok`` if
     communication succeeds within timeout, ``Start.Failed``  otherwise."""
 
     sock_name = sockpath_for_config(config_name)
-    maestral_daemon = Proxy(URI.format(_escape_spaces(config_name), './u:' + sock_name))
+    maestral_daemon = Proxy(URI.format(config_name, './u:' + sock_name))
 
     while timeout > 0:
         try:
@@ -349,36 +361,54 @@ def _wait_for_startup(config_name, timeout=8):
 
 # ==== main functions to manage daemon ===================================================
 
-def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
+def start_maestral_daemon(config_name: str = 'maestral',
+                          log_to_stdout: bool = False,
+                          start_sync: bool = False) -> None:
     """
     Starts the Maestral daemon with event loop in the current thread. Startup is race
     free: there will never be two daemons running for the same config.
 
     Wraps :class:`main.Maestral` as Pyro daemon object, creates a new instance and starts
-    Pyro's event loop to listen for requests on a unix domain socket. This call will block
-    until the event loop shuts down.
+    an asyncio event loop to listen for requests on a unix domain socket. This call will
+    block until the event loop shuts down. When this function is called from the main
+    thread on macOS, the asyncio event loop uses Cocoa's CFRunLoop to process event. This
+    allows integration with Cocoa frameworks which use callbacks to process use input such
+    as clicked notifications, etc, and potentially allows showing a GUI.
 
-    :param str config_name: The name of the Maestral configuration to use.
-    :param bool log_to_stdout: If ``True``, write logs to stdout.
+    :param config_name: The name of the Maestral configuration to use.
+    :param log_to_stdout: If ``True``, write logs to stdout.
+    :param start_sync: If ``True``, start syncing once the daemon has started.
     :raises: :class:`RuntimeError` if a daemon for the given ``config_name`` is already
         running.
     """
-    import threading
     from maestral.main import Maestral
 
-    sockpath = sockpath_for_config(config_name)
-
-    if threading.current_thread() is threading.main_thread():
-        signal.signal(signal.SIGTERM, _sigterm_handler)
+    if threading.current_thread() is not threading.main_thread():
+        raise RuntimeError('Must run daemon in main thread')
 
     # acquire PID lock file
-    lock = MaestralLock(config_name)
+    lock = maestral_lock(config_name)
+
     if not lock.acquire():
         raise RuntimeError('Maestral daemon is already running')
 
     # Nice ourselves to give other processes priority. We will likely only
     # have significant CPU usage in case of many concurrent downloads.
     os.nice(10)
+
+    # catch sigterm and shut down gracefully
+    signal.signal(signal.SIGTERM, _sigterm_handler)
+
+    # integrate with CFRunLoop in macOS, only works in main thread
+    if sys.platform == 'darwin':
+        from rubicon.objc.eventloop import EventLoopPolicy
+        asyncio.set_event_loop_policy(EventLoopPolicy())
+
+    # get the default event loop
+    loop = asyncio.get_event_loop()
+
+    # get socket for config name
+    sockpath = sockpath_for_config(config_name)
 
     try:
         # clean up old socket
@@ -395,51 +425,30 @@ def start_maestral_daemon(config_name='maestral', log_to_stdout=False):
         ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
         ExposedMaestral.pause_sync = oneway(ExposedMaestral.pause_sync)
         ExposedMaestral.resume_sync = oneway(ExposedMaestral.resume_sync)
-        ExposedMaestral.shutdown_pyro_daemon = oneway(ExposedMaestral.shutdown_pyro_daemon)
+        ExposedMaestral.shutdown_daemon = oneway(ExposedMaestral.shutdown_daemon)
 
         m = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
 
+        if start_sync:
+            m.start_sync()
+
         with Daemon(unixsocket=sockpath) as daemon:
-            daemon.register(m, f'maestral.{_escape_spaces(config_name)}')
-            daemon.requestLoop(loopCondition=m._loop_condition)
+            daemon.register(m, f'maestral.{config_name}')
+
+            for socket in daemon.sockets:
+                loop.add_reader(socket.fileno(), daemon.events, daemon.sockets)
+
+            loop.run_until_complete(m.shutdown_complete)
+
+            for socket in daemon.sockets:
+                loop.remove_reader(socket.fileno())
 
     except Exception:
         traceback.print_exc()
-    except (KeyboardInterrupt, SystemExit):
-        sys.exit(0)
     finally:
+        loop.close()
         lock.release()
-
-
-def start_maestral_daemon_thread(config_name='maestral', log_to_stdout=False):
-    """
-    Starts the Maestral daemon in a new thread by calling :func:`start_maestral_daemon`.
-    Startup is race free: there will never be two daemons running for the same config.
-
-    :param str config_name: The name of the Maestral configuration to use.
-    :param bool log_to_stdout: If ``True``, write logs to stdout.
-    :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
-        already running or ``Start.Failed`` if startup failed. It is possible that
-        Start.Ok is returned instead of Start.AlreadyRunning in case of a race.
-    """
-
-    if is_running(config_name):
-        return Start.AlreadyRunning
-
-    t = threading.Thread(
-        target=start_maestral_daemon,
-        args=(config_name, log_to_stdout),
-        name=f'maestral-daemon-{config_name}',
-        daemon=True,
-    )
-    t.start()
-
-    threads[config_name] = t
-
-    if threading.current_thread() is threading.main_thread():
-        signal.signal(signal.SIGTERM, _sigterm_handler)
-
-    return _wait_for_startup(config_name)
+        sys.exit(0)
 
 
 def _subprocess_launcher(config_name, log_to_stdout):
@@ -457,7 +466,9 @@ def _subprocess_launcher(config_name, log_to_stdout):
         subprocess.Popen([sys.executable, '-c', cmd], start_new_session=True)
 
 
-def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False, detach=True):
+def start_maestral_daemon_process(config_name: str = 'maestral',
+                                  log_to_stdout: bool = False,
+                                  detach: bool = True) -> Start:
     """
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
     Startup is race free: there will never be two daemons running for the same config.
@@ -469,9 +480,9 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False, d
     :func:`freeze_support` which should be called from the main entry point, as soon as
     possible after startup.
 
-    :param str config_name: The name of the Maestral configuration to use.
-    :param bool log_to_stdout: If ``True``, write logs to stdout.
-    :param bool detach: If ``True``, the daemon process will be detached. If ``False``,
+    :param config_name: The name of the Maestral configuration to use.
+    :param log_to_stdout: If ``True``, write logs to stdout.
+    :param detach: If ``True``, the daemon process will be detached. If ``False``,
         the daemon processes will run in the same session as the current process.
     :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
         already running or ``Start.Failed`` if startup failed. It is possible that
@@ -498,89 +509,62 @@ def start_maestral_daemon_process(config_name='maestral', log_to_stdout=False, d
     return _wait_for_startup(config_name)
 
 
-def stop_maestral_daemon_process(config_name='maestral', timeout=10):
+def stop_maestral_daemon_process(config_name: str = 'maestral',
+                                 timeout: float = 10) -> Stop:
     """Stops a maestral daemon process by finding its PID and shutting it down.
 
     This function first tries to shut down Maestral gracefully. If this fails and we know
     its PID, it will send SIGTERM. If that fails as well, it will send SIGKILL to the
     process.
 
-    :param str config_name: The name of the Maestral configuration to use.
-    :param float timeout: Number of sec to wait for daemon to shut down before killing it.
-    :returns: ``Exit.Ok`` if successful, ``Exit.Killed`` if killed, ``Exit.NotRunning`` if
+    :param config_name: The name of the Maestral configuration to use.
+    :param timeout: Number of sec to wait for daemon to shut down before killing it.
+    :returns: ``Stop.Ok`` if successful, ``Stop.Killed`` if killed, ``Stop.NotRunning`` if
         the daemon was not running and ``Exit.Failed`` if killing the process failed
         because we could not retrieve its PID.
     """
 
     if not is_running(config_name):
-        return Exit.NotRunning
+        return Stop.NotRunning
 
     pid = get_maestral_pid(config_name)
 
     try:
         with MaestralProxy(config_name) as m:
-            m.stop_sync()
-            m.shutdown_pyro_daemon()
-    except Pyro5.errors.CommunicationError:
+            m.shutdown_daemon()
+    except CommunicationError:
         if pid:
             _send_term(pid)
     finally:
         while timeout > 0:
             if not is_running(config_name):
-                return Exit.Ok
+                return Stop.Ok
             else:
                 time.sleep(0.2)
                 timeout -= 0.2
 
         # send SIGTERM after timeout and delete PID file
-        _send_term(pid)
+        if pid:
+            _send_term(pid)
 
         time.sleep(1)
 
         if not is_running(config_name):
-            return Exit.Ok
+            return Stop.Ok
         elif pid:
             os.kill(pid, signal.SIGKILL)
-            return Exit.Killed
+            return Stop.Killed
         else:
-            return Exit.Failed
+            return Stop.Failed
 
 
-def stop_maestral_daemon_thread(config_name='maestral', timeout=10):
-    """Stops a maestral daemon thread without killing the parent process.
-
-    :param str config_name: The name of the Maestral configuration to use.
-    :param float timeout: Number of sec to wait for daemon to shut down before killing it.
-    :returns: ``Exit.Ok`` if successful,``Exit.NotRunning`` if the daemon was not running,
-        ``Exit.Failed`` if it could not be stopped within timeout.
-    """
-
-    if not is_running(config_name):
-        return Exit.NotRunning
-
-    # tell maestral daemon to shut down
-    try:
-        with MaestralProxy(config_name) as m:
-            m.stop_sync()
-            m.shutdown_pyro_daemon()
-    except Pyro5.errors.CommunicationError:
-        return Exit.Failed
-
-    # wait for maestral to carry out shutdown
-    t = threads.get(config_name)
-    t.join(timeout=timeout)
-    if t.is_alive():
-        return Exit.Failed
-    else:
-        return Exit.Ok
-
-
-def get_maestral_proxy(config_name='maestral', fallback=False):
+def get_maestral_proxy(config_name: str = 'maestral',
+                       fallback: bool = False) -> MaestralProxyType:
     """
     Returns a Pyro proxy of the a running Maestral instance.
 
-    :param str config_name: The name of the Maestral configuration to use.
-    :param bool fallback: If ``True``, a new instance of Maestral will be returned when
+    :param config_name: The name of the Maestral configuration to use.
+    :param fallback: If ``True``, a new instance of Maestral will be returned when
         the daemon cannot be reached.
     :returns: Pyro proxy of Maestral or a new instance.
     :raises: :class:`Pyro5.errors.CommunicationError` if the daemon cannot be reached and
@@ -591,36 +575,36 @@ def get_maestral_proxy(config_name='maestral', fallback=False):
         sock_name = sockpath_for_config(config_name)
 
         sys.excepthook = Pyro5.errors.excepthook
-        maestral_daemon = Proxy(URI.format(_escape_spaces(config_name), './u:' + sock_name))
+        maestral_daemon = Proxy(URI.format(config_name, './u:' + sock_name))
         try:
             maestral_daemon._pyroBind()
             return maestral_daemon
-        except Pyro5.errors.CommunicationError:
+        except CommunicationError:
             maestral_daemon._pyroRelease()
 
     if fallback:
         from maestral.main import Maestral
         return Maestral(config_name)
     else:
-        raise Pyro5.errors.CommunicationError
+        raise CommunicationError('Could not get proxy')
 
 
 class MaestralProxy:
     """
     A context manager to open and close a proxy to the Maestral daemon.
 
-    :param str config_name: The name of the Maestral configuration to use.
-    :param bool fallback: If ``True``, a new instance of Maestral will be returned when
+    :param config_name: The name of the Maestral configuration to use.
+    :param fallback: If ``True``, a new instance of Maestral will be returned when
         the daemon cannot be reached.
     """
 
-    def __init__(self, config_name='maestral', fallback=False):
+    def __init__(self, config_name: str = 'maestral', fallback: bool = False) -> None:
         self.m = get_maestral_proxy(config_name, fallback)
 
-    def __enter__(self):
+    def __enter__(self) -> MaestralProxyType:
         return self.m
 
-    def __exit__(self, exc_type, exc_value, tb):
+    def __exit__(self, exc_type: Type[Exception], exc_value: Exception, tb: TracebackType):
         if isinstance(self.m, Proxy):
             self.m._pyroRelease()
 
