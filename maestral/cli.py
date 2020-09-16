@@ -539,7 +539,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
             # paginate through top-level folders, ask to exclude
             for e in entries:
-                if e['.tag'] == 'FolderMetadata':
+                if e['type'] == 'FolderMetadata':
                     yes = click.confirm('Exclude "{path_display}" from sync?'.format(**e))
                     if yes:
                         path_lower = cast(str, e['path_lower'])
