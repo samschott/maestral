@@ -96,7 +96,7 @@ def select_dbx_path_dialog(config_name: str, default_dir_name: Optional[str] = N
         if osp.exists(dropbox_path):
             if allow_merge:
                 choice = click.prompt(
-                    text=(f'Directory "{dropbox_path}" already exists. Do you want to '
+                    text=(f'Directory "{dropbox_path}" already exists.\nDo you want to '
                           f'replace it or merge its content with your Dropbox?'),
                     type=click.Choice(['replace', 'merge', 'cancel'])
                 )
@@ -532,10 +532,13 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
                 'individual files or subfolders later with "maestral excluded add".\n'
             )
 
-            excluded_items: List[str] = []
+            click.echo('Loading...', nl=False)
 
             # get all top-level Dropbox folders
             entries = m.list_folder('/', recursive=False)
+            excluded_items: List[str] = []
+
+            click.echo('\rLoading...   Done')
 
             # paginate through top-level folders, ask to exclude
             for e in entries:
@@ -546,6 +549,9 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
                         excluded_items.append(path_lower)
 
             m.set_excluded_items(excluded_items)
+
+            if not foreground:
+                click.echo('Setup completed. Run "maestral status" to view sync progress.')
 
     if foreground:
         # stop daemon process after setup and restart in our current process
