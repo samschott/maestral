@@ -10,14 +10,14 @@ changes menu now has been replaced by a "Activity" window which shows all sync e
 the past week.
 
 This release also introduces clickable desktop notifications, performance improvements to
-indexing local file changes, and bug fixes and smaller changes listed below.
+indexing of local file changes, and bug fixes and smaller changes listed below.
 
-Finally, this is release introduces support for macOS 11 (Big Sur).
+Finally, this release introduces support for macOS 11 (Big Sur).
 
 #### Added:
 
-- Added an option `--external` to `maestral log show` to open the log in the platform's
-  default program instead of showing it in the console.
+- Added an option `--external`/`-e` to `maestral log show` to open the log in the
+  platform's default program instead of showing it in the console.
 - Added a CLI command `history` to show all sync events of the past week.
 - Added a "Activity" window to show all sync events of the past week.
 - Desktop notifications are now clickable: for a single file change, clicking the
