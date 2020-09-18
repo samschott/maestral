@@ -1,3 +1,5 @@
+## v1.2.1.dev
+
 ## v1.2.0
 
 The local file index and sync history are now stored in a SQLite database. After the
