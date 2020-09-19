@@ -15,8 +15,8 @@ from typing import Type, Optional, Dict, Tuple
 
 # external imports
 from packaging.version import Version
-from rubicon.objc import ObjCClass, objc_method  # type: ignore
-from rubicon.objc.runtime import load_library  # type: ignore
+from rubicon.objc import ObjCClass, objc_method, py_from_ns  # type: ignore
+from rubicon.objc.runtime import load_library, objc_id  # type: ignore
 
 # local imports
 from .notify_base import Notification, DesktopNotifierBase
@@ -91,17 +91,25 @@ if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'
         def __init__(self, app_name: str, app_id: str) -> None:
             super().__init__(app_name, app_id)
             self.nc = UNUserNotificationCenter.alloc().initWithBundleIdentifier(app_id)
-            self.nc.delegate = NotificationCenterDelegate.alloc().init()
-            self.nc.delegate.interface = self
+            self.nc_delegate = NotificationCenterDelegate.alloc().init()
+            self.nc_delegate.interface = self
+            self.nc.delegate = self.nc_delegate
+
+            def _on_auth_completed(granted: bool, error: objc_id) -> None:
+                if not granted:
+                    print('CocoaNotificationCenter: authorisation denied')
+                if error:
+                    error = py_from_ns(error)
+                    print('CocoaNotificationCenter: ', str(error))
+
+                print('CocoaNotificationCenter: authorisation granted')
 
             self.nc.requestAuthorizationWithOptions(
                 UNAuthorizationOptionAlert
                 | UNAuthorizationOptionSound
                 | UNAuthorizationOptionBadge,
-                completionHandler=None
+                completionHandler=_on_auth_completed
             )
-
-            self._notification_categories = dict()
 
         def send(self, notification: Notification) -> None:
 
