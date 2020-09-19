@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath('../maestral'))
 # -- Project information -----------------------------------------------------
 
 author = 'Sam Schott'
-version = '1.2.1.dev'
+version = '1.2.1.dev0'
 release = version
 project = 'Maestral'
 title = 'Maestral API Documentation'
