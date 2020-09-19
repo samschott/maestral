@@ -22,7 +22,6 @@ copyright = '{}, {}'.format(time.localtime().tm_year, author)
 # -- General configuration ---------------------------------------------------
 
 extensions = [
-    'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
@@ -31,6 +30,7 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
+    'autoapi.extension',
     'sphinx_autodoc_typehints',
     'sphinx_click.ext',
     'm2r'
@@ -65,6 +65,8 @@ latex_documents = [(master_doc, 'maestral.tex', title, author, 'manual'), ]
 # -- Extension configuration -------------------------------------------------
 
 autodoc_member_order = 'bysource'
+autoapi_type = 'python'
+autoapi_dirs = ['../maestral']
 
 # -- Options for intersphinx extension ---------------------------------------
 
