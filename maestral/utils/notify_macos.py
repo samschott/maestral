@@ -11,6 +11,7 @@ import uuid
 import platform
 import subprocess
 import shutil
+import logging
 from typing import Type, Optional, Dict, Tuple
 
 # external imports
@@ -20,6 +21,9 @@ from rubicon.objc.runtime import load_library, objc_id  # type: ignore
 
 # local imports
 from .notify_base import Notification, DesktopNotifierBase
+
+
+logger = logging.getLogger(__name__)
 
 uns = load_library('UserNotifications')
 foundation = load_library('Foundation')
@@ -96,13 +100,14 @@ if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'
             self.nc.delegate = self.nc_delegate
 
             def _on_auth_completed(granted: bool, error: objc_id) -> None:
-                if not granted:
-                    print('CocoaNotificationCenter: authorisation denied')
+                if granted:
+                    logger.debug('UNUserNotificationCenter: authorisation granted')
+                else:
+                    logger.debug('UNUserNotificationCenter: authorisation denied')
+
                 if error:
                     error = py_from_ns(error)
-                    print('CocoaNotificationCenter: ', str(error))
-
-                print('CocoaNotificationCenter: authorisation granted')
+                    logger.warning('UNUserNotificationCenter: ', str(error))
 
             self.nc.requestAuthorizationWithOptions(
                 UNAuthorizationOptionAlert

@@ -210,5 +210,8 @@ class MaestralDesktopNotifier(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emits a log record as a desktop notification."""
-        self.format(record)
-        self.notify(record.levelname, record.message, level=record.levelno)
+
+        # avoid recursive notifications from our own logger
+        if not record.name.startswith(__name__):
+            self.format(record)
+            self.notify(record.levelname, record.message, level=record.levelno)

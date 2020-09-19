@@ -19,7 +19,7 @@ through :class:`MaestralDesktopNotifier`.
 
 # system imports
 import asyncio
-import traceback
+import logging
 from typing import Optional, Type
 
 # external imports
@@ -29,6 +29,8 @@ from dbus_next.aio import MessageBus  # type: ignore
 # local imports
 from .notify_base import Notification, DesktopNotifierBase, NotificationLevel
 
+
+logger = logging.getLogger(__name__)
 
 Impl: Optional[Type[DesktopNotifierBase]]
 
@@ -50,14 +52,21 @@ class DBusDesktopNotifier(DesktopNotifierBase):
         asyncio.run_coroutine_threadsafe(self._init_dbus(), self._loop)
 
     async def _init_dbus(self) -> None:
-        self.bus = await MessageBus().connect()
-        introspection = await self.bus.introspect('org.freedesktop.Notifications',
-                                                  '/org/freedesktop/Notifications')
-        self.proxy_object = self.bus.get_proxy_object('org.freedesktop.Notifications',
-                                                      '/org/freedesktop/Notifications',
-                                                      introspection)
-        self.interface = self.proxy_object.get_interface('org.freedesktop.Notifications')
-        self.interface.on_action_invoked(self._on_action)
+
+        try:
+            self.bus = await MessageBus().connect()
+            introspection = await self.bus.introspect(
+                'org.freedesktop.Notifications', '/org/freedesktop/Notifications'
+            )
+            self.proxy_object = self.bus.get_proxy_object(
+                'org.freedesktop.Notifications',
+                '/org/freedesktop/Notifications',
+                introspection
+            )
+            self.interface = self.proxy_object.get_interface('org.freedesktop.Notifications')
+            self.interface.on_action_invoked(self._on_action)
+        except Exception:
+            logger.warning('Could not connect to DBUS interface', exc_info=True)
 
     def send(self, notification: Notification) -> None:
         asyncio.run_coroutine_threadsafe(self._send(notification), self._loop)
@@ -94,7 +103,7 @@ class DBusDesktopNotifier(DesktopNotifierBase):
             # This may fail for several reasons: there may not be a systemd service
             # file for 'org.freedesktop.Notifications' or the system configuration
             # may have changed after DesktopNotifierFreedesktopDBus was initialized.
-            traceback.print_exc()
+            logger.warning('Notification failed', exc_info=True)
         else:
             notification.identifier = platform_nid
             self.current_notifications[internal_nid] = notification
