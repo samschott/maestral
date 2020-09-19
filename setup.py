@@ -4,9 +4,6 @@
 from setuptools import setup, find_packages
 import importlib.util
 
-# local imports (must not depend on 3rd party packages)
-from maestral import __version__, __author__, __url__
-
 
 # proceed with actual install
 install_requires = [
@@ -43,11 +40,11 @@ if importlib.util.find_spec('maestral_qt') or importlib.util.find_spec('maestral
 
 setup(
     name='maestral',
-    version=__version__,
-    description='Open-source Dropbox client for macOS and Linux.',
-    url=__url__,
-    author=__author__,
+    author='Sam Schott',
     author_email='ss2151@cam.ac.uk',
+    version='1.2.1.dev',
+    url='https://github.com/SamSchott/maestral',
+    description='Open-source Dropbox client for macOS and Linux.',
     license='MIT',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
