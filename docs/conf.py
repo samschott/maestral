@@ -10,17 +10,14 @@ sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('../maestral'))
 
-from maestral import __author__, __version__  # noqa: E402
-
-
 # -- Project information -----------------------------------------------------
 
+author = 'Sam Schott'
+version = '1.2.1.dev'
+release = version
 project = 'Maestral'
 title = 'Maestral API Documentation'
-copyright = '{}, {}'.format(time.localtime().tm_year, __author__)
-author = __author__
-version = __version__
-release = __version__
+copyright = '{}, {}'.format(time.localtime().tm_year, author)
 
 # -- General configuration ---------------------------------------------------
 
