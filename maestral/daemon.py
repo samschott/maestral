@@ -43,10 +43,10 @@ if TYPE_CHECKING:
     from maestral.main import Maestral
 
 
-URI = 'PYRO:maestral.{0}@{1}'
+URI = "PYRO:maestral.{0}@{1}"
 Pyro5.config.THREADPOOL_SIZE_MIN = 2
 
-MaestralProxyType = Union['Maestral', Proxy]
+MaestralProxyType = Union["Maestral", Proxy]
 
 
 def freeze_support() -> None:
@@ -61,8 +61,8 @@ def freeze_support() -> None:
     mp.freeze_support()
 
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('-c', '--config-name', default='maestral')
-    parser.add_argument('--frozen-daemon', action='store_true')
+    parser.add_argument("-c", "--config-name", default="maestral")
+    parser.add_argument("--frozen-daemon", action="store_true")
     parsed_args, remaining = parser.parse_known_args()
 
     if parsed_args.frozen_daemon:
@@ -79,6 +79,7 @@ class Stop(enum.Enum):
     :cvar NotRunning: Daemon was not running.
     :cvar Failed: Could not shut down daemon.
     """
+
     Ok = 0
     Killed = 1
     NotRunning = 2
@@ -93,12 +94,14 @@ class Start(enum.Enum):
     :cvar AlreadyRunning: Daemon was already running.
     :cvar Failed: Could not start daemon.
     """
+
     Ok = 0
     AlreadyRunning = 1
     Failed = 2
 
 
 # ==== error serialization ===============================================================
+
 
 def serpent_deserialize_api_error(class_name: str, d: dict) -> MaestralApiError:
     """
@@ -112,8 +115,8 @@ def serpent_deserialize_api_error(class_name: str, d: dict) -> MaestralApiError:
     import maestral.errors  # noqa: F401
 
     cls = eval(class_name)
-    err = cls(*d['args'])
-    for a_name, a_value in d['attributes'].items():
+    err = cls(*d["args"])
+    for a_name, a_value in d["attributes"].items():
         setattr(err, a_name, a_value)
 
     return err
@@ -121,32 +124,34 @@ def serpent_deserialize_api_error(class_name: str, d: dict) -> MaestralApiError:
 
 for err_cls in itertools.chain(SYNC_ERRORS, FATAL_ERRORS):
     register_dict_to_class(
-        err_cls.__module__ + '.' + err_cls.__name__,
-        serpent_deserialize_api_error
+        err_cls.__module__ + "." + err_cls.__name__, serpent_deserialize_api_error
     )
 
 
 # ==== interprocess locking ==============================================================
+
 
 def _get_lockdata() -> Tuple[bytes, str, int]:
 
     try:
         os.O_LARGEFILE
     except AttributeError:
-        start_len = 'll'
+        start_len = "ll"
     else:
-        start_len = 'qq'
+        start_len = "qq"
 
-    if (sys.platform.startswith(('netbsd', 'freebsd', 'openbsd'))
-            or sys.platform == 'darwin'):
-        if struct.calcsize('l') == 8:
-            off_t = 'l'
-            pid_t = 'i'
+    if (
+        sys.platform.startswith(("netbsd", "freebsd", "openbsd"))
+        or sys.platform == "darwin"
+    ):
+        if struct.calcsize("l") == 8:
+            off_t = "l"
+            pid_t = "i"
         else:
-            off_t = 'lxxxx'
-            pid_t = 'l'
+            off_t = "lxxxx"
+            pid_t = "l"
 
-        fmt = off_t + off_t + pid_t + 'hh'
+        fmt = off_t + off_t + pid_t + "hh"
         pid_index = 2
         lockdata = struct.pack(fmt, 0, 0, 0, fcntl.F_WRLCK, 0)
     # elif sys.platform.startswith('gnukfreebsd'):
@@ -157,12 +162,12 @@ def _get_lockdata() -> Tuple[bytes, str, int]:
     #     fmt = 'hhlllii'
     #     pid_index = 2
     #     lockdata = struct.pack(fmt, fcntl.F_WRLCK, 0, 0, 0, 0, 0, 0)
-    elif sys.platform.startswith('linux'):
-        fmt = 'hh' + start_len + 'ih'
+    elif sys.platform.startswith("linux"):
+        fmt = "hh" + start_len + "ih"
         pid_index = 4
         lockdata = struct.pack(fmt, fcntl.F_WRLCK, 0, 0, 0, 0, 0)
     else:
-        raise RuntimeError(f'Unsupported platform {sys.platform}')
+        raise RuntimeError(f"Unsupported platform {sys.platform}")
 
     return lockdata, fmt, pid_index
 
@@ -174,11 +179,11 @@ class Lock:
     an existing instance for thread-safe usage.
     """
 
-    _instances: Dict[str, 'Lock'] = dict()
+    _instances: Dict[str, "Lock"] = dict()
     _singleton_lock = threading.Lock()
 
     @classmethod
-    def singleton(cls, name: str, lock_path: Optional[str] = None) -> 'Lock':
+    def singleton(cls, name: str, lock_path: Optional[str] = None) -> "Lock":
         """
         Retrieve an existing lock object with a given 'name' or create a new one. Use this
         method for thread-safe locks.
@@ -266,8 +271,9 @@ class Lock:
                 # don't close again in case we are the locking process
                 self._external_lock._do_open()
                 lockdata, fmt, pid_index = _get_lockdata()
-                lockdata = fcntl.fcntl(self._external_lock.lockfile,
-                                       fcntl.F_GETLK, lockdata)
+                lockdata = fcntl.fcntl(
+                    self._external_lock.lockfile, fcntl.F_GETLK, lockdata
+                )
 
                 lockdata_list = struct.unpack(fmt, lockdata)
                 pid = lockdata_list[pid_index]
@@ -282,6 +288,7 @@ class Lock:
 
 
 # ==== helpers for daemon management =====================================================
+
 
 def _sigterm_handler(signal_number: int, frame: FrameType) -> None:
     sys.exit()
@@ -300,8 +307,8 @@ def maestral_lock(config_name: str) -> Lock:
     :class:`Lock` which fills out the appropriate lockfile name and directory for the
     given config name.
     """
-    name = f'{config_name}.lock'
-    path = get_runtime_path('maestral')
+    name = f"{config_name}.lock"
+    path = get_runtime_path("maestral")
     return Lock.singleton(name, path)
 
 
@@ -310,11 +317,11 @@ def sockpath_for_config(config_name: str) -> str:
     Returns the unix socket location to be used for the config. This should default to
     the apps runtime directory + '/maestral/CONFIG_NAME.sock'.
     """
-    return get_runtime_path('maestral', f'{config_name}.sock')
+    return get_runtime_path("maestral", f"{config_name}.sock")
 
 
 def lockpath_for_config(config_name: str) -> str:
-    return get_runtime_path('maestral', f'{config_name}.lock')
+    return get_runtime_path("maestral", f"{config_name}.lock")
 
 
 def get_maestral_pid(config_name: str) -> Optional[int]:
@@ -344,7 +351,7 @@ def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
     communication succeeds within timeout, ``Start.Failed``  otherwise."""
 
     sock_name = sockpath_for_config(config_name)
-    maestral_daemon = Proxy(URI.format(config_name, './u:' + sock_name))
+    maestral_daemon = Proxy(URI.format(config_name, "./u:" + sock_name))
 
     while timeout > 0:
         try:
@@ -361,9 +368,10 @@ def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
 
 # ==== main functions to manage daemon ===================================================
 
-def start_maestral_daemon(config_name: str = 'maestral',
-                          log_to_stdout: bool = False,
-                          start_sync: bool = False) -> None:
+
+def start_maestral_daemon(
+    config_name: str = "maestral", log_to_stdout: bool = False, start_sync: bool = False
+) -> None:
     """
     Starts the Maestral daemon with event loop in the current thread. Startup is race
     free: there will never be two daemons running for the same config.
@@ -384,13 +392,13 @@ def start_maestral_daemon(config_name: str = 'maestral',
     from maestral.main import Maestral
 
     if threading.current_thread() is not threading.main_thread():
-        raise RuntimeError('Must run daemon in main thread')
+        raise RuntimeError("Must run daemon in main thread")
 
     # acquire PID lock file
     lock = maestral_lock(config_name)
 
     if not lock.acquire():
-        raise RuntimeError('Maestral daemon is already running')
+        raise RuntimeError("Maestral daemon is already running")
 
     # Nice ourselves to give other processes priority. We will likely only
     # have significant CPU usage in case of many concurrent downloads.
@@ -400,8 +408,9 @@ def start_maestral_daemon(config_name: str = 'maestral',
     signal.signal(signal.SIGTERM, _sigterm_handler)
 
     # integrate with CFRunLoop in macOS, only works in main thread
-    if sys.platform == 'darwin':
+    if sys.platform == "darwin":
         from rubicon.objc.eventloop import EventLoopPolicy
+
         asyncio.set_event_loop_policy(EventLoopPolicy())
 
     # get the default event loop
@@ -433,7 +442,7 @@ def start_maestral_daemon(config_name: str = 'maestral',
             m.start_sync()
 
         with Daemon(unixsocket=sockpath) as daemon:
-            daemon.register(m, f'maestral.{config_name}')
+            daemon.register(m, f"maestral.{config_name}")
 
             for socket in daemon.sockets:
                 loop.add_reader(socket.fileno(), daemon.events, daemon.sockets)
@@ -454,21 +463,25 @@ def start_maestral_daemon(config_name: str = 'maestral',
 def _subprocess_launcher(config_name, log_to_stdout):
 
     if IS_FROZEN:
-        subprocess.Popen([sys.executable, '--frozen-daemon', '-c', config_name],
-                         start_new_session=True)
+        subprocess.Popen(
+            [sys.executable, "--frozen-daemon", "-c", config_name],
+            start_new_session=True,
+        )
     else:
         cc = quote(config_name).strip("'")  # protect against injection
         std_log = bool(log_to_stdout)
 
-        cmd = (f'import maestral.daemon; '
-               f'maestral.daemon.start_maestral_daemon("{cc}", {std_log})')
+        cmd = (
+            f"import maestral.daemon; "
+            f'maestral.daemon.start_maestral_daemon("{cc}", {std_log})'
+        )
 
-        subprocess.Popen([sys.executable, '-c', cmd], start_new_session=True)
+        subprocess.Popen([sys.executable, "-c", cmd], start_new_session=True)
 
 
-def start_maestral_daemon_process(config_name: str = 'maestral',
-                                  log_to_stdout: bool = False,
-                                  detach: bool = True) -> Start:
+def start_maestral_daemon_process(
+    config_name: str = "maestral", log_to_stdout: bool = False, detach: bool = True
+) -> Start:
     """
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
     Startup is race free: there will never be two daemons running for the same config.
@@ -497,20 +510,22 @@ def start_maestral_daemon_process(config_name: str = 'maestral',
 
     else:
         import multiprocessing as mp
-        ctx = mp.get_context('spawn' if IS_MACOS else 'fork')
+
+        ctx = mp.get_context("spawn" if IS_MACOS else "fork")
 
         ctx.Process(
             target=start_maestral_daemon,
             args=(config_name, log_to_stdout),
-            name='maestral-daemon',
+            name="maestral-daemon",
             daemon=True,
         ).start()
 
     return _wait_for_startup(config_name)
 
 
-def stop_maestral_daemon_process(config_name: str = 'maestral',
-                                 timeout: float = 10) -> Stop:
+def stop_maestral_daemon_process(
+    config_name: str = "maestral", timeout: float = 10
+) -> Stop:
     """Stops a maestral daemon process by finding its PID and shutting it down.
 
     This function first tries to shut down Maestral gracefully. If this fails and we know
@@ -558,8 +573,9 @@ def stop_maestral_daemon_process(config_name: str = 'maestral',
             return Stop.Failed
 
 
-def get_maestral_proxy(config_name: str = 'maestral',
-                       fallback: bool = False) -> MaestralProxyType:
+def get_maestral_proxy(
+    config_name: str = "maestral", fallback: bool = False
+) -> MaestralProxyType:
     """
     Returns a Pyro proxy of the a running Maestral instance.
 
@@ -575,7 +591,7 @@ def get_maestral_proxy(config_name: str = 'maestral',
         sock_name = sockpath_for_config(config_name)
 
         sys.excepthook = Pyro5.errors.excepthook
-        maestral_daemon = Proxy(URI.format(config_name, './u:' + sock_name))
+        maestral_daemon = Proxy(URI.format(config_name, "./u:" + sock_name))
         try:
             maestral_daemon._pyroBind()
             return maestral_daemon
@@ -584,9 +600,10 @@ def get_maestral_proxy(config_name: str = 'maestral',
 
     if fallback:
         from maestral.main import Maestral
+
         return Maestral(config_name)
     else:
-        raise CommunicationError('Could not get proxy')
+        raise CommunicationError("Could not get proxy")
 
 
 class MaestralProxy:
@@ -598,13 +615,15 @@ class MaestralProxy:
         the daemon cannot be reached.
     """
 
-    def __init__(self, config_name: str = 'maestral', fallback: bool = False) -> None:
+    def __init__(self, config_name: str = "maestral", fallback: bool = False) -> None:
         self.m = get_maestral_proxy(config_name, fallback)
 
     def __enter__(self) -> MaestralProxyType:
         return self.m
 
-    def __exit__(self, exc_type: Type[Exception], exc_value: Exception, tb: TracebackType):
+    def __exit__(
+        self, exc_type: Type[Exception], exc_value: Exception, tb: TracebackType
+    ):
         if isinstance(self.m, Proxy):
             self.m._pyroRelease()
 

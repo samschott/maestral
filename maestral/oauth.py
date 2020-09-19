@@ -40,7 +40,7 @@ supported_keyring_backends = (
     keyring.backends.SecretService.Keyring,
     keyring.backends.kwallet.DBusKeyring,
     keyring.backends.kwallet.DBusKeyringKWallet4,
-    keyrings.alt.file.PlaintextKeyring
+    keyrings.alt.file.PlaintextKeyring,
 )
 
 CONNECTION_ERRORS = (
@@ -91,7 +91,7 @@ class OAuth2Session:
     InvalidToken = 1
     ConnectionFailed = 2
 
-    default_token_access_type = 'offline'
+    default_token_access_type = "offline"
 
     _lock = RLock()
 
@@ -108,11 +108,13 @@ class OAuth2Session:
         self._auth_flow = DropboxOAuth2FlowNoRedirect(
             self._app_key,
             use_pkce=True,
-            token_access_type=self.default_token_access_type
+            token_access_type=self.default_token_access_type,
         )
 
-        self._account_id = self._conf.get('account', 'account_id') or None
-        self._token_access_type = self._state.get('account', 'token_access_type') or None
+        self._account_id = self._conf.get("account", "account_id") or None
+        self._token_access_type = (
+            self._state.get("account", "token_access_type") or None
+        )
 
         # defer keyring access until token requested by user
         self._loaded = False
@@ -128,15 +130,16 @@ class OAuth2Session:
 
         import keyring.backends
 
-        keyring_class = self._conf.get('app', 'keyring').strip()
+        keyring_class = self._conf.get("app", "keyring").strip()
 
         try:
             ring = load_keyring(keyring_class)
         except Exception:
             # get preferred keyring backends for platform
             available_rings = keyring.backend.get_all_keyring()
-            supported_rings = [k for k in available_rings
-                               if isinstance(k, supported_keyring_backends)]
+            supported_rings = [
+                k for k in available_rings if isinstance(k, supported_keyring_backends)
+            ]
 
             ring = max(supported_rings, key=lambda x: x.priority)
 
@@ -148,8 +151,8 @@ class OAuth2Session:
 
         if self.account_id:
 
-            legacy = (self.token_access_type == 'legacy' and self.access_token)
-            offline = (self.token_access_type == 'offline' and self.refresh_token)
+            legacy = self.token_access_type == "legacy" and self.access_token
+            offline = self.token_access_type == "offline" and self.refresh_token
 
             if legacy or offline:
                 return True
@@ -219,40 +222,40 @@ class OAuth2Session:
         :raises: :class:`keyring.errors.KeyringLocked` if the system keyring is locked.
         """
 
-        logger.debug(f'Using keyring: {self.keyring}')
+        logger.debug(f"Using keyring: {self.keyring}")
 
         if not self._account_id:
             return
 
         try:
-            token = self.keyring.get_password('Maestral', self._account_id)
-            access_type = self._state.get('account', 'token_access_type')
+            token = self.keyring.get_password("Maestral", self._account_id)
+            access_type = self._state.get("account", "token_access_type")
 
             if not access_type:
                 # if no token type was saved, we linked with a version < 1.2.0
                 # default to legacy token access type
-                access_type = 'legacy'
-                self._state.set('account', 'token_access_type', access_type)
+                access_type = "legacy"
+                self._state.set("account", "token_access_type", access_type)
 
             self._loaded = True
 
             if token:
 
-                if access_type == 'legacy':
+                if access_type == "legacy":
                     self._access_token = token
-                elif access_type == 'offline':
+                elif access_type == "offline":
                     self._refresh_token = token
                 else:
-                    msg = 'Invalid token access type in state file.'
-                    err = RuntimeError('Invalid token access type in state file.')
+                    msg = "Invalid token access type in state file."
+                    err = RuntimeError("Invalid token access type in state file.")
                     logger.error(msg, exc_info=_exc_info(err))
                     raise err
 
                 self._token_access_type = access_type
 
         except KeyringLocked:
-            title = f'Could not load auth token, {self.keyring.name} is locked'
-            msg = 'Please unlock the keyring and try again.'
+            title = f"Could not load auth token, {self.keyring.name} is locked"
+            msg = "Please unlock the keyring and try again."
             exc = KeyringAccessError(title, msg)
             logger.error(title, exc_info=_exc_info(exc))
             raise exc
@@ -300,23 +303,25 @@ class OAuth2Session:
 
         with self._lock:
 
-            self._conf.set('account', 'account_id', self._account_id)
-            self._state.set('account', 'token_access_type', self._token_access_type)
+            self._conf.set("account", "account_id", self._account_id)
+            self._state.set("account", "token_access_type", self._token_access_type)
 
-            if self._token_access_type == 'offline':
+            if self._token_access_type == "offline":
                 token = self.refresh_token
             else:
                 token = self.access_token
 
             try:
-                self.keyring.set_password('Maestral', self._account_id, token)
-                click.echo(' > Credentials written.')
+                self.keyring.set_password("Maestral", self._account_id, token)
+                click.echo(" > Credentials written.")
                 if isinstance(self.keyring, keyrings.alt.file.PlaintextKeyring):
-                    click.echo(' > Warning: No supported keyring found, '
-                               'Dropbox credentials stored in plain text.')
+                    click.echo(
+                        " > Warning: No supported keyring found, "
+                        "Dropbox credentials stored in plain text."
+                    )
             except KeyringLocked:
                 self.keyring = keyrings.alt.file.PlaintextKeyring()
-                self._conf.set('app', 'keyring', 'keyrings.alt.file.PlaintextKeyring')
+                self._conf.set("app", "keyring", "keyrings.alt.file.PlaintextKeyring")
                 self.save_creds()
 
     def delete_creds(self) -> None:
@@ -333,15 +338,15 @@ class OAuth2Session:
                 # it may delete all passwords stored by Maestral on some backends
                 return
 
-            self._conf.set('account', 'account_id', '')
-            self._state.set('account', 'token_access_type', '')
+            self._conf.set("account", "account_id", "")
+            self._state.set("account", "token_access_type", "")
 
             try:
-                self.keyring.delete_password('Maestral', self._account_id)
-                click.echo(' > Credentials removed.')
+                self.keyring.delete_password("Maestral", self._account_id)
+                click.echo(" > Credentials removed.")
             except KeyringLocked:
-                title = f'Could not delete auth token, {self.keyring.name} is locked'
-                msg = 'Please unlock the keyring and try again.'
+                title = f"Could not delete auth token, {self.keyring.name} is locked"
+                msg = "Please unlock the keyring and try again."
                 exc = KeyringAccessError(title, msg)
                 logger.error(title, exc_info=_exc_info(exc))
                 raise exc
@@ -354,8 +359,10 @@ class OAuth2Session:
                 self._token_access_type = None
 
     def __repr__(self) -> str:
-        return (f'<{self.__class__.__name__}(config={self._config_name!r}, '
-                f'account_id={self._account_id})>')
+        return (
+            f"<{self.__class__.__name__}(config={self._config_name!r}, "
+            f"account_id={self._account_id})>"
+        )
 
 
 def _exc_info(exc):

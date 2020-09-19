@@ -41,9 +41,9 @@ class DBusDesktopNotifier(DesktopNotifierBase):
     with a running asyncio loop to handle clicked notifications."""
 
     _to_native_urgency = {
-        NotificationLevel.Low: Variant('y', 0),
-        NotificationLevel.Normal: Variant('y', 1),
-        NotificationLevel.Critical: Variant('y', 2),
+        NotificationLevel.Low: Variant("y", 0),
+        NotificationLevel.Normal: Variant("y", 1),
+        NotificationLevel.Critical: Variant("y", 2),
     }
 
     def __init__(self, app_name: str, app_id: str) -> None:
@@ -56,17 +56,19 @@ class DBusDesktopNotifier(DesktopNotifierBase):
         try:
             self.bus = await MessageBus().connect()
             introspection = await self.bus.introspect(
-                'org.freedesktop.Notifications', '/org/freedesktop/Notifications'
+                "org.freedesktop.Notifications", "/org/freedesktop/Notifications"
             )
             self.proxy_object = self.bus.get_proxy_object(
-                'org.freedesktop.Notifications',
-                '/org/freedesktop/Notifications',
-                introspection
+                "org.freedesktop.Notifications",
+                "/org/freedesktop/Notifications",
+                introspection,
             )
-            self.interface = self.proxy_object.get_interface('org.freedesktop.Notifications')
+            self.interface = self.proxy_object.get_interface(
+                "org.freedesktop.Notifications"
+            )
             self.interface.on_action_invoked(self._on_action)
         except Exception:
-            logger.warning('Could not connect to DBUS interface', exc_info=True)
+            logger.warning("Could not connect to DBUS interface", exc_info=True)
 
     def send(self, notification: Notification) -> None:
         asyncio.run_coroutine_threadsafe(self._send(notification), self._loop)
@@ -81,29 +83,27 @@ class DBusDesktopNotifier(DesktopNotifierBase):
         else:
             replaces_nid = 0
 
-        actions = ['default', 'default']
+        actions = ["default", "default"]
 
         for button_name in notification.buttons.keys():
             actions += [button_name, button_name]
 
         try:
             platform_nid = await self.interface.call_notify(
-                self.app_name,            # app_name
-                replaces_nid,             # replaces_id
-                notification.icon or '',  # app_icon
-                notification.title,       # summary
-                notification.message,     # body
-                actions,                  # actions
-                {                         # hints
-                    'urgency': self._to_native_urgency[notification.urgency]
-                },
-                -1,                       # expire_timeout (-1 = default)
+                self.app_name,  # app_name
+                replaces_nid,  # replaces_id
+                notification.icon or "",  # app_icon
+                notification.title,  # summary
+                notification.message,  # body
+                actions,  # actions
+                {"urgency": self._to_native_urgency[notification.urgency]},  # hints
+                -1,  # expire_timeout (-1 = default)
             )
         except Exception:
             # This may fail for several reasons: there may not be a systemd service
             # file for 'org.freedesktop.Notifications' or the system configuration
             # may have changed after DesktopNotifierFreedesktopDBus was initialized.
-            logger.warning('Notification failed', exc_info=True)
+            logger.warning("Notification failed", exc_info=True)
         else:
             notification.identifier = platform_nid
             self.current_notifications[internal_nid] = notification
@@ -112,10 +112,13 @@ class DBusDesktopNotifier(DesktopNotifierBase):
 
         nid = int(nid)
         action_key = str(action_key)
-        notification = next(iter(n for n in self.current_notifications.values() if n.identifier == nid), None)
+        notification = next(
+            iter(n for n in self.current_notifications.values() if n.identifier == nid),
+            None,
+        )
 
         if notification:
-            if action_key == 'default' and notification.action:
+            if action_key == "default" and notification.action:
                 notification.action()
             else:
                 callback = notification.buttons.get(action_key)

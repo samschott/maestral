@@ -17,10 +17,19 @@
 # limitations under the License.
 
 from watchdog.observers.polling import (  # type: ignore
-    PollingEmitter, PollingObserver, DirectorySnapshotDiff,
-    FileDeletedEvent, FileModifiedEvent, FileMovedEvent, FileCreatedEvent,
-    DirDeletedEvent, DirModifiedEvent, DirMovedEvent, DirCreatedEvent,
-    DEFAULT_OBSERVER_TIMEOUT, BaseObserver
+    PollingEmitter,
+    PollingObserver,
+    DirectorySnapshotDiff,
+    FileDeletedEvent,
+    FileModifiedEvent,
+    FileMovedEvent,
+    FileCreatedEvent,
+    DirDeletedEvent,
+    DirModifiedEvent,
+    DirMovedEvent,
+    DirCreatedEvent,
+    DEFAULT_OBSERVER_TIMEOUT,
+    BaseObserver,
 )
 
 
@@ -74,6 +83,7 @@ class OrderedPollingEmitter(PollingEmitter):
 
 
 class OrderedPollingObserver(PollingObserver):
-
     def __init__(self, timeout=DEFAULT_OBSERVER_TIMEOUT):
-        BaseObserver.__init__(self, emitter_class=OrderedPollingEmitter, timeout=timeout)
+        BaseObserver.__init__(
+            self, emitter_class=OrderedPollingEmitter, timeout=timeout
+        )

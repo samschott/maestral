@@ -10,4 +10,4 @@
 from PyInstaller.utils.hooks import copy_metadata
 
 # maestral_cocoa uses entrypoints
-datas = copy_metadata('maestral_cocoa')
+datas = copy_metadata("maestral_cocoa")

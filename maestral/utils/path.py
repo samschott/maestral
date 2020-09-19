@@ -73,8 +73,9 @@ def is_equal_or_child(path: str, parent: str) -> bool:
     return is_child(path, parent) or path == parent
 
 
-def cased_path_candidates(path: str, root: str = osp.sep,
-                          is_fs_case_sensitive: bool = True) -> List[str]:
+def cased_path_candidates(
+    path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True
+) -> List[str]:
     """
     Returns a list of cased versions of the given path as far as corresponding nodes
     exist in the given root directory. For instance, if a case sensitive root directory
@@ -93,7 +94,7 @@ def cased_path_candidates(path: str, root: str = osp.sep,
 
     path = path.lstrip(osp.sep)
 
-    if path == '':
+    if path == "":
         return [root]
 
     path_list = _path_components(path)
@@ -150,13 +151,16 @@ def cased_path_candidates(path: str, root: str = osp.sep,
                 candidates[depth] = new_candidates
 
     i_max = max(candidates.keys())
-    local_paths = [osp.join(node, *path_list[i_max + 1:]) for node in candidates[i_max]]
+    local_paths = [
+        osp.join(node, *path_list[i_max + 1 :]) for node in candidates[i_max]
+    ]
 
     return local_paths
 
 
-def to_cased_path(path: str, root: str = osp.sep,
-                  is_fs_case_sensitive: bool = True) -> str:
+def to_cased_path(
+    path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True
+) -> str:
     """
     Returns a cased version of the given path as far as corresponding nodes (with
     arbitrary casing) exist in the given root directory. If multiple matches are found,
@@ -176,8 +180,9 @@ def to_cased_path(path: str, root: str = osp.sep,
     return candidates[0]
 
 
-def to_existing_cased_path(path: str, root: str = osp.sep,
-                           is_fs_case_sensitive: bool = True) -> str:
+def to_existing_cased_path(
+    path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True
+) -> str:
     """
     Returns a cased version of the given path if corresponding nodes (with arbitrary
     casing) exist in the given root directory. If multiple matches are found, only one is
@@ -203,8 +208,9 @@ def to_existing_cased_path(path: str, root: str = osp.sep,
     raise FileNotFoundError(f'No matches with different casing found in "{root}"')
 
 
-def path_exists_case_insensitive(path: str, root: str = osp.sep,
-                                 is_fs_case_sensitive: bool = True) -> bool:
+def path_exists_case_insensitive(
+    path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True
+) -> bool:
     """
     Checks if a ``path`` exists in given ``root`` directory, similar to ``os.path.exists``
     but case-insensitive.
@@ -232,8 +238,9 @@ def path_exists_case_insensitive(path: str, root: str = osp.sep,
         return osp.exists(osp.join(root, path.lstrip(osp.sep)))
 
 
-def generate_cc_name(path: str, suffix: str = 'conflicting copy',
-                     is_fs_case_sensitive: bool = True) -> str:
+def generate_cc_name(
+    path: str, suffix: str = "conflicting copy", is_fs_case_sensitive: bool = True
+) -> str:
     """
     Generates a path for a conflicting copy of ``path``. The file name is created by
     inserting the given ``suffix`` between the the filename and extension. For instance:
@@ -257,11 +264,11 @@ def generate_cc_name(path: str, suffix: str = 'conflicting copy',
     filename, ext = osp.splitext(basename)
 
     i = 0
-    cc_candidate = f'{filename} ({suffix}){ext}'
+    cc_candidate = f"{filename} ({suffix}){ext}"
 
     while path_exists_case_insensitive(cc_candidate, dirname, is_fs_case_sensitive):
         i += 1
-        cc_candidate = f'{filename} ({suffix} {i}){ext}'
+        cc_candidate = f"{filename} ({suffix} {i}){ext}"
 
     return osp.join(dirname, cc_candidate)
 
@@ -291,8 +298,12 @@ def delete(path: str, raise_error: bool = False) -> Optional[OSError]:
         return err
 
 
-def move(src_path: str, dest_path: str, raise_error: bool = False,
-         preserve_dest_permissions=False) -> Optional[OSError]:
+def move(
+    src_path: str,
+    dest_path: str,
+    raise_error: bool = False,
+    preserve_dest_permissions=False,
+) -> Optional[OSError]:
     """
     Moves a file or folder from ``src_path`` to ``dest_path``. If either the source or
     the destination path no longer exist, this function does nothing. Any other
@@ -340,8 +351,9 @@ def move(src_path: str, dest_path: str, raise_error: bool = False,
         return err
 
 
-def content_hash(local_path: str, chunk_size: int = 1024) \
-        -> Tuple[Optional[str], Optional[float]]:
+def content_hash(
+    local_path: str, chunk_size: int = 1024
+) -> Tuple[Optional[str], Optional[float]]:
     """
     Computes content hash of a local file.
 
@@ -357,7 +369,7 @@ def content_hash(local_path: str, chunk_size: int = 1024) \
         mtime = os.stat(local_path).st_mtime
 
         try:
-            with open(local_path, 'rb') as f:
+            with open(local_path, "rb") as f:
                 while True:
                     chunk = f.read(chunk_size)
                     if len(chunk) == 0:
@@ -365,7 +377,7 @@ def content_hash(local_path: str, chunk_size: int = 1024) \
                     hasher.update(chunk)
 
         except IsADirectoryError:
-            return 'folder', mtime
+            return "folder", mtime
         else:
             return str(hasher.hexdigest()), mtime
 

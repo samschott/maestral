@@ -22,9 +22,10 @@ class NotificationLevel(Enum):
     :cvar Normal: Default platform notification level.
     :cvar Low: Low priority notification.
     """
-    Critical = 'critical'
-    Normal = 'normal'
-    Low = 'low'
+
+    Critical = "critical"
+    Normal = "normal"
+    Low = "low"
 
 
 class Notification:
@@ -51,13 +52,15 @@ class Notification:
 
     identifier: Union[str, int, None]
 
-    def __init__(self,
-                 title: str,
-                 message: str,
-                 urgency: NotificationLevel = NotificationLevel.Normal,
-                 icon: Optional[str] = None,
-                 action: Optional[Callable] = None,
-                 buttons: Optional[Dict[str, Optional[Callable]]] = None) -> None:
+    def __init__(
+        self,
+        title: str,
+        message: str,
+        urgency: NotificationLevel = NotificationLevel.Normal,
+        icon: Optional[str] = None,
+        action: Optional[Callable] = None,
+        buttons: Optional[Dict[str, Optional[Callable]]] = None,
+    ) -> None:
 
         self.title = title
         self.message = message
@@ -85,8 +88,9 @@ class DesktopNotifierBase:
     notification_limit: int
     current_notifications: Dict[int, Notification]
 
-    def __init__(self, app_name: str = '', app_id: str = '',
-                 notification_limit: int = 5) -> None:
+    def __init__(
+        self, app_name: str = "", app_id: str = "", notification_limit: int = 5
+    ) -> None:
         self.app_name = app_name
         self.app_id = app_id
         self.notification_limit = notification_limit

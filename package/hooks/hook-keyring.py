@@ -9,7 +9,7 @@
 
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 
-hiddenimports = collect_submodules('keyring.backends')
+hiddenimports = collect_submodules("keyring.backends")
 
 # keyring uses entrypoints to read keyring.backends from metadata file entry_points.txt.
-datas = copy_metadata('keyring')
+datas = copy_metadata("keyring")
