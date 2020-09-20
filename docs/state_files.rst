@@ -13,8 +13,9 @@ Index file
 
 The index file is a SQLite database with contains the sync index, the sync event history
 of the last week and a cache of locally calculated content hashes. SQLAlchemy is used to
-manage the database and the table declarations are given by the ``IndexEntry``,
-``SyncEvent`` and ``HashCacheEntry`` definitions in the :mod:`maestral.sync`.
+manage the database and the table declarations are given by the definitions of
+:class:`maestral.sync.IndexEntry`, :class:`maestral.sync.SyncEvent` and
+:class:`maestral.sync.HashCacheEntry`.
 
 State file
 **********
