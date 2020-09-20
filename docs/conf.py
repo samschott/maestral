@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# -- Path setup --------------------------------------------------------------
+# -- Path setup --------------------------------------------------------------------------
 
 import os
 import sys
@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('../maestral'))
 
-# -- Project information -----------------------------------------------------
+# -- Project information -----------------------------------------------------------------
 
 author = 'Sam Schott'
 version = '1.2.1.dev0'
@@ -19,37 +19,26 @@ project = 'Maestral'
 title = 'Maestral API Documentation'
 copyright = '{}, {}'.format(time.localtime().tm_year, author)
 
-# -- General configuration ---------------------------------------------------
+# -- General configuration ---------------------------------------------------------------
 
 extensions = [
-    'sphinx.ext.napoleon',
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.todo',
-    'sphinx.ext.coverage',
-    'sphinx.ext.mathjax',
-    'sphinx.ext.ifconfig',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.githubpages',
-    'autoapi.extension',
-    'sphinx_autodoc_typehints',
-    'sphinx_click.ext',
-    'm2r'
+    'sphinx.ext.napoleon',  # support numpy style docstrings in config module
+    'sphinx.ext.todo',  # support for todo list
+    'sphinx.ext.ifconfig',  # support for if-clauses in docs
+    'sphinx.ext.viewcode',  # link back to github code
+    'autoapi.extension',  # builds API docs from doc strings without importing module
+    'sphinx_click.ext',  # support for click commands
+    'm2r',  # convert markdown to rest
 ]
-
-templates_path = ['_templates']
-
 source_suffix = ['.rst', '.md']
 master_doc = 'index'
-language = None
-pygments_style = None
-html4_writer = True
+language = 'en'
+# html4_writer = True
 
-# -- Options for HTML output -------------------------------------------------
+# -- Options for HTML output -------------------------------------------------------------
 
 html_theme = 'sphinx_rtd_theme'
-
 html_logo = '../maestral/resources/maestral.png'
-
 html_context = {
     'css_files': [
         'https://media.readthedocs.org/css/sphinx_rtd_theme.css',
@@ -58,21 +47,24 @@ html_context = {
     ],
 }
 
-# -- Options for LaTeX output ------------------------------------------------
+# -- Options for LaTeX output ------------------------------------------------------------
 
 latex_documents = [(master_doc, 'maestral.tex', title, author, 'manual'), ]
 
-# -- Extension configuration -------------------------------------------------
+# -- Extension configuration -------------------------------------------------------------
 
-autodoc_member_order = 'bysource'
+# autoapi
 autoapi_type = 'python'
 autoapi_dirs = ['../maestral']
+autoapi_options = [
+    'members',
+    'inherited-members',
+    'special-members',
+    'show-inheritance',
+    'show-module-summary',
+    'imported-members',
+]
+autoapi_add_toctree_entry = False
 
-# -- Options for intersphinx extension ---------------------------------------
-
-intersphinx_mapping = {'https://docs.python.org/': None}
-
-# -- Options for todo extension ----------------------------------------------
-
-# If true, `todo` and `todoList` produce output, else they produce nothing.
+# todo list support
 todo_include_todos = True
