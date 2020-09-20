@@ -1,25 +1,15 @@
-name: Lint with flake8 and mypy
+name: Lint with black and mypy
 
 on: [pull_request]
 
 jobs:
-  flake:
-    name: Lint with flake8
+
+  black:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.6
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.6
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install flake8
-        pip install .
-    - name: Lint with flake8
-      run: |
-        flake8 . --count --ignore=C901,W503 --max-line-length=130 --statistics
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+      - uses: psf/black@stable
 
   mypy:
     name: Type checking with mypy
