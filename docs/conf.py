@@ -23,9 +23,9 @@ copyright = "{}, {}".format(time.localtime().tm_year, author)
 
 extensions = [
     "sphinx.ext.napoleon",  # support numpy style docstrings in config module
-    "sphinx.ext.todo",  # support for todo list
-    "sphinx.ext.ifconfig",  # support for if-clauses in docs
-    "sphinx.ext.viewcode",  # link back to github code
+    "sphinx.ext.todo",  # parse todo list
+    "sphinx.ext.intersphinx",  # support for if-clauses in docs
+    "sphinx.ext.ifconfig",  # support for linking between documentations
     "autoapi.extension",  # builds API docs from doc strings without importing module
     "sphinx_click.ext",  # support for click commands
     "m2r",  # convert markdown to rest
