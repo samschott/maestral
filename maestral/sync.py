@@ -3741,8 +3741,6 @@ def startup_worker(
             title = getattr(err, "title", "Unexpected error")
             logger.error(title, exc_info=True)
 
-    startup.clear()
-
 
 # ========================================================================================
 # Main Monitor class to start, stop and coordinate threads
