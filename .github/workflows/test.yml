@@ -28,4 +28,4 @@ jobs:
         DROPBOX_ID: ${{ secrets.DROPBOX_ID }}
         DROPBOX_TOKEN: ${{ secrets.DROPBOX_TOKEN }}
       run: |
-        pytest
+        pytest -x
