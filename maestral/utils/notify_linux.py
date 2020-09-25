@@ -68,12 +68,16 @@ class DBusDesktopNotifier(DesktopNotifierBase):
             )
             self.interface.on_action_invoked(self._on_action)
         except Exception:
+            self.interface = None
             logger.warning("Could not connect to DBUS interface", exc_info=True)
 
     def send(self, notification: Notification) -> None:
         asyncio.run_coroutine_threadsafe(self._send(notification), self._loop)
 
     async def _send(self, notification: Notification) -> None:
+
+        if not self.interface:
+            return
 
         internal_nid = self._next_nid()
         notification_to_replace = self.current_notifications.get(internal_nid)
