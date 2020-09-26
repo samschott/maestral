@@ -207,7 +207,7 @@ class OutOfMemoryError(MaestralApiError):
 
 
 class DatabaseError(MaestralApiError):
-    """Raised when reading or saving the rev file fails."""
+    """Raised when reading or writing to the database fails."""
 
     pass
 
