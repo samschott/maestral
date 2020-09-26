@@ -1696,7 +1696,7 @@ class SyncEngine:
                 self.upload_errors.add(err.dbx_path.lower())
 
     @contextmanager
-    def _database_access(self, log_errors: bool = False) -> None:
+    def _database_access(self, log_errors: bool = False) -> Iterator[None]:
         """
         Synchronises access to the SQLite database. Catches exceptions raised by
         SQLAlchemy and converts them to a MaestralApiError if we know how to handle them.
