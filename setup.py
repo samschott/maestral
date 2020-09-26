@@ -23,6 +23,7 @@ install_requires = [
     "setuptools",
     "sdnotify>=0.3.2",
     "sqlalchemy>=1.3.0",
+    "alembic>=1.3.0",
     "watchdog>=0.10.0",
 ]
 
