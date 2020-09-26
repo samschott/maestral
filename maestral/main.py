@@ -1334,17 +1334,39 @@ class Maestral:
 
         if Version(updated_from) < Version("1.2.0.dev2"):
             self._update_from_pre_v1_2_0_dev2()
+        elif Version(updated_from) < Version("1.2.1"):
+            self._update_from_pre_v1_2_1()
 
         self.set_state("app", "updated_scripts_completed", __version__)
 
     def _update_from_pre_v1_2_0_dev2(self) -> None:
 
-        logger.info("Reindexing after update to v1.2.0")
+        logger.info("Reindexing after update from pre v1.2.0")
 
         # remove old index to trigger resync
         old_rev_file = get_data_path("maestral", f"{self.config_name}.index")
         delete(old_rev_file)
         self.sync.remote_cursor = ""
+
+    def _update_from_pre_v1_2_1(self) -> None:
+
+        logger.info("Migrating index after update from pre v1.2.1")
+
+        from alembic.migration import MigrationContext  # type: ignore
+        from alembic.operations import Operations  # type: ignore
+        from maestral.sync import db_naming_convention as nc
+
+        with self.sync._database_access():
+            with self.sync._db_engine.connect() as con:
+                ctx = MigrationContext.configure(con)
+                op = Operations(ctx)
+                with op.batch_alter_table("index", naming_convention=nc) as batch_op:
+                    batch_op.drop_constraint(
+                        constraint_name="uq_index_dbx_id", type_="unique"
+                    )
+                    batch_op.drop_constraint(
+                        constraint_name="uq_index_dbx_path_cased", type_="unique"
+                    )
 
     async def _periodic_refresh(self) -> None:
 
