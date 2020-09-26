@@ -1,5 +1,18 @@
 ## v1.2.1.dev
 
+#### Changed:
+
+- Improves handling of database related errors such as database integrity, missing read /
+  write permissions for the database file, etc.
+
+#### Fixes:
+
+- Fixes a database integrity error due to an unfulfilled unique constraint.
+
+#### Dependencies:
+
+- Adds `alembic` dependency for database migrations.
+
 ## v1.2.0
 
 The local file index and sync history are now stored in a SQLite database. After the
