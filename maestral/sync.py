@@ -43,6 +43,8 @@ from types import TracebackType
 
 # external imports
 import click
+import sqlalchemy.exc  # type: ignore
+import sqlalchemy.engine.url  # type: ignore
 from sqlalchemy.sql import func  # type: ignore
 from sqlalchemy.ext.declarative import declarative_base  # type: ignore
 from sqlalchemy.orm import sessionmaker  # type: ignore
@@ -98,6 +100,7 @@ from maestral.errors import (
     FolderConflictError,
     IsAFolderError,
     InvalidDbidError,
+    DatabaseError,
 )
 from maestral.client import (
     DropboxClient,
@@ -849,12 +852,16 @@ class SyncEngine:
         if not osp.exists(self._db_path):
             self.remote_cursor = ""
 
-        # initialize history database
-        self._db_engine = create_engine(
-            f"sqlite:///file:{self._db_path}?check_same_thread=false&uri=true"
+        # initialize SQLite database
+        url = sqlalchemy.engine.url.URL(
+            drivername="sqlite",
+            database=f"file:{self._db_path}",
+            query={"check_same_thread": "false", "uri": "true"},
         )
-        Base.metadata.create_all(self._db_engine)
-        Session.configure(bind=self._db_engine)
+        self._db_engine = create_engine(url)
+        with self._database_access(log_errors=True):
+            Base.metadata.create_all(self._db_engine)
+            Session.configure(bind=self._db_engine)
         self._db_session = Session()
 
         # load cached properties
@@ -869,7 +876,7 @@ class SyncEngine:
         # clean our file cache
         self.clean_cache_dir()
 
-    # ==== settings ======================================================================
+    # ==== config access =================================================================
 
     @property
     def dropbox_path(self) -> str:
@@ -991,7 +998,7 @@ class SyncEngine:
         """The time stamp of the last file change or 0.0 if there are no file changes in
         our history."""
 
-        with self._db_lock:
+        with self._database_access():
 
             res = self._db_session.query(func.max(IndexEntry.last_sync)).first()
 
@@ -1009,13 +1016,13 @@ class SyncEngine:
     @property
     def history(self) -> List[SyncEvent]:
         """All list of all SyncEvents in our history."""
-        with self._db_lock:
+        with self._database_access():
             query = self._db_session.query(SyncEvent)
             return query.order_by(SyncEvent.change_time_or_sync_time).all()
 
     def clear_sync_history(self) -> None:
         """Clears the sync history."""
-        with self._db_lock:
+        with self._database_access():
             SyncEvent.metadata.drop_all(self._db_engine)
             Base.metadata.create_all(self._db_engine)
             self._db_session.expunge_all()
@@ -1029,7 +1036,7 @@ class SyncEngine:
 
         :returns: Copy of revision index.
         """
-        with self._db_lock:
+        with self._database_access():
             return self._db_session.query(IndexEntry).all()
 
     def get_local_rev(self, dbx_path: str) -> Optional[str]:
@@ -1041,7 +1048,7 @@ class SyncEngine:
             saved.
         """
 
-        with self._db_lock:
+        with self._database_access():
             res = (
                 self._db_session.query(IndexEntry.rev)
                 .filter(IndexEntry.dbx_path_lower == dbx_path.lower())
@@ -1061,7 +1068,7 @@ class SyncEngine:
         :returns: Time of last sync.
         """
 
-        with self._db_lock:
+        with self._database_access():
             res = self._db_session.query(IndexEntry).get(dbx_path.lower())
 
         if res:
@@ -1079,7 +1086,7 @@ class SyncEngine:
         :returns: Index entry or ``None`` if no entry exists for the given path.
         """
 
-        with self._db_lock:
+        with self._database_access():
             return self._db_session.query(IndexEntry).get(dbx_path.lower())
 
     def get_local_hash(self, local_path: str) -> Optional[str]:
@@ -1095,7 +1102,7 @@ class SyncEngine:
             stat = os.stat(local_path)
         except (FileNotFoundError, NotADirectoryError):
             # remove any existing cache entries for path
-            with self._db_lock:
+            with self._database_access():
                 cache_entry = self._db_session.query(HashCacheEntry).get(local_path)
                 if cache_entry:
                     self._db_session.delete(cache_entry)
@@ -1109,7 +1116,7 @@ class SyncEngine:
 
         mtime: Optional[float] = stat.st_mtime
 
-        with self._db_lock:
+        with self._database_access():
             # check cache for an up-to-date content hash and return if it exists
             cache_entry = self._db_session.query(HashCacheEntry).get(local_path)
 
@@ -1137,7 +1144,7 @@ class SyncEngine:
         :param mtime: Mtime of the file when the hash was computed.
         """
 
-        with self._db_lock:
+        with self._database_access():
 
             cache_entry = self._db_session.query(HashCacheEntry).get(local_path)
 
@@ -1162,7 +1169,7 @@ class SyncEngine:
 
     def clear_hash_cache(self) -> None:
         """Clears the sync history."""
-        with self._db_lock:
+        with self._database_access():
             HashCacheEntry.metadata.drop_all(self._db_engine)
             Base.metadata.create_all(self._db_engine)
             self._db_session.expunge_all()
@@ -1179,7 +1186,7 @@ class SyncEngine:
 
         dbx_path_lower = event.dbx_path.lower()
 
-        with self._db_lock:
+        with self._database_access():
 
             # remove any entries for deleted or moved items
 
@@ -1226,7 +1233,7 @@ class SyncEngine:
         :param md: Dropbox metadata.
         """
 
-        with self._db_lock:
+        with self._database_access():
 
             if isinstance(md, DeletedMetadata):
                 self.remove_path_from_index(md.path_lower)
@@ -1277,7 +1284,7 @@ class SyncEngine:
         :param dbx_path: Dropbox path.
         """
 
-        with self._db_lock:
+        with self._database_access():
 
             dbx_path_lower = dbx_path.lower()
 
@@ -1290,7 +1297,7 @@ class SyncEngine:
 
     def clear_index(self) -> None:
         """Clears the revision index."""
-        with self._db_lock:
+        with self._database_access():
 
             IndexEntry.metadata.drop_all(self._db_engine)
             Base.metadata.create_all(self._db_engine)
@@ -1436,7 +1443,7 @@ class SyncEngine:
 
             if not parent_path_cased:
                 # try to get dirname casing from our index
-                with self._db_lock:
+                with self._database_access():
                     parent_entry = self.get_index_entry(dirname_lower)
 
                 if parent_entry:
@@ -1679,6 +1686,49 @@ class SyncEngine:
                 self.download_errors.add(err.dbx_path.lower())
             elif direction == SyncDirection.Up:
                 self.upload_errors.add(err.dbx_path.lower())
+
+    @contextmanager
+    def _database_access(self, log_errors: bool = False) -> None:
+        """
+        Synchronises access to the SQLite database. Catches exceptions raised by
+        SQLAlchemy and converts them to a MaestralApiError if we know how to handle them.
+
+        :param log_errors: If ``True``, any resulting MaestralApiError is not raised but
+            only logged.
+        """
+
+        title = None
+        new_exc = None
+
+        try:
+            with self._db_lock:
+                yield
+        except (
+            sqlalchemy.exc.DatabaseError,
+            sqlalchemy.exc.DataError,
+            sqlalchemy.exc.IntegrityError,
+        ) as exc:
+            title = "Database integrity error"
+            msg = "Please rebuild the index to continue syncing."
+            new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
+        except sqlalchemy.exc.OperationalError as exc:
+            title = "Database transaction error"
+            msg = (
+                f'The index file at "{self._db_path}" cannot be read. '
+                "Please check that you have sufficient permissions and "
+                "rebuild the index if necessary."
+            )
+            new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
+        except sqlalchemy.exc.InternalError as exc:
+            title = "Database transaction error"
+            msg = "Please restart Maestral to continue syncing."
+            new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
+
+        if new_exc:
+            if log_errors:
+                logger.error(title, exc_info=_exc_info(new_exc))
+            else:
+                raise new_exc
 
     # ==== Upload sync ===================================================================
 
@@ -2264,7 +2314,7 @@ class SyncEngine:
 
         # add to history database
         if event.status == SyncStatus.Done:
-            with self._db_lock:
+            with self._database_access():
                 self._db_session.add(event)
 
         return event
@@ -3152,7 +3202,7 @@ class SyncEngine:
 
         # add to history database
         if event.status == SyncStatus.Done:
-            with self._db_lock:
+            with self._database_access():
                 self._db_session.add(event)
 
         return event
@@ -3369,7 +3419,7 @@ class SyncEngine:
         :param event: Download SyncEvent.
         """
 
-        with self._db_lock:
+        with self._database_access():
             old_entry = self.get_index_entry(event.dbx_path.lower())
 
         if old_entry and old_entry.dbx_path_cased != event.dbx_path:
@@ -3380,7 +3430,7 @@ class SyncEngine:
             with self.fs_events.ignore(event_cls(local_path_old, event.local_path)):
                 move(local_path_old, event.local_path)
 
-            with self._db_lock:
+            with self._database_access():
                 old_entry.dbx_path_cased = event.dbx_path
                 self._db_session.commit()
 
@@ -3450,7 +3500,7 @@ class SyncEngine:
         """Commits new events and removes all events older than ``_keep_history`` from
         history."""
 
-        with self._db_lock:
+        with self._database_access():
 
             # commit previous
             self._db_session.commit()
