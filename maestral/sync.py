@@ -743,9 +743,9 @@ class IndexEntry(Base):  # type: ignore
 
     __tablename__ = "index"
 
-    dbx_path_cased = Column(String, nullable=False, unique=True)
     dbx_path_lower = Column(String, nullable=False, primary_key=True)
-    dbx_id = Column(String, nullable=False, unique=True)
+    dbx_path_cased = Column(String, nullable=False)
+    dbx_id = Column(String, nullable=False)
     item_type = Column(Enum(ItemType), nullable=False)
     last_sync = Column(Float)
     rev = Column(String, nullable=False)
