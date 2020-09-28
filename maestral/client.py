@@ -239,8 +239,12 @@ class DropboxClient:
 
     @property
     def linked(self) -> bool:
-        """Indicates if the client is linked to a Dropbox account (read only). This will
-        block until the user's keyring is unlocked to load the saved auth token."""
+        """
+        Indicates if the client is linked to a Dropbox account (read only). This will
+        block until the user's keyring is unlocked to load the saved auth token.
+
+        :raises: :class:`errors.KeyringAccessError` if keyring access fails.
+        """
 
         if self._dbx:
             return True
@@ -299,6 +303,9 @@ class DropboxClient:
     def unlink(self) -> None:
         """
         Unlinks the Dropbox account.
+
+        :raises: :class:`errors.KeyringAccessError`
+        :raises: :class:`errors.DropboxAuthError`
         """
         self._auth.delete_creds()
         self.dbx.auth_token_revoke()  # should only raise auth errors
