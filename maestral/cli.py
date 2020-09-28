@@ -656,12 +656,15 @@ def autostart(yes: bool, no: bool, config_name: str) -> None:
         return
 
     if yes or no:
-        auto_start.enabled = yes
+        if yes:
+            auto_start.enable()
+        else:
+            auto_start.disable()
         enabled_str = "Enabled" if yes else "Disabled"
         click.echo(f"{enabled_str} start on login.")
     else:
         enabled_str = "enabled" if auto_start.enabled else "disabled"
-        click.echo(f"Autostart is {enabled_str}.")
+        click.echo(f"Autostart is currently {enabled_str}.")
 
 
 @main.command(help_priority=5)
