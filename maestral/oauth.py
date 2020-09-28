@@ -146,7 +146,9 @@ class OAuth2Session:
 
                 title = f"Cannot load keyring {keyring_class}"
                 message = "Please relink Maestral to get new access token"
-                new_exc = KeyringAccessError(title, message).with_traceback(exc.__traceback__)
+                new_exc = KeyringAccessError(title, message).with_traceback(
+                    exc.__traceback__
+                )
                 logger.error(title, exc_info=_exc_info(new_exc))
                 raise new_exc
             else:
@@ -161,10 +163,18 @@ class OAuth2Session:
                 # get preferred keyring backends for platform
                 available_rings = keyring.backend.get_all_keyring()
                 supported_rings = [
-                    k for k in available_rings if isinstance(k, supported_keyring_backends)
+                    k
+                    for k in available_rings
+                    if isinstance(k, supported_keyring_backends)
                 ]
 
                 ring = max(supported_rings, key=lambda x: x.priority)
+
+            self._conf.set(
+                "app",
+                "keyring",
+                f"{ring.__class__.__module__}.{ring.__class__.__name__}",
+            )
 
             return ring
 
@@ -344,6 +354,7 @@ class OAuth2Session:
                         "Dropbox credentials stored in plain text."
                     )
             except KeyringLocked:
+                # switch to plain text keyring if user won't unlock
                 self.keyring = keyrings.alt.file.PlaintextKeyring()
                 self._conf.set("app", "keyring", "keyrings.alt.file.PlaintextKeyring")
                 self.save_creds()
