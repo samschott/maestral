@@ -103,8 +103,6 @@ class OAuth2Session:
         self._conf = MaestralConfig(config_name)
         self._state = MaestralState(config_name)
 
-        self.keyring = self._get_keyring_backend()
-
         self._auth_flow = DropboxOAuth2FlowNoRedirect(
             self._app_key,
             use_pkce=True,
@@ -116,6 +114,8 @@ class OAuth2Session:
             self._state.get("account", "token_access_type") or None
         )
 
+        self.keyring = self._get_keyring_backend()
+
         # defer keyring access until token requested by user
         self._loaded = False
         self._access_token: Optional[str] = None
@@ -124,26 +124,49 @@ class OAuth2Session:
 
     def _get_keyring_backend(self) -> KeyringBackend:
         """
-        Choose the most secure of the available and supported keyring backends or use the
-        backend specified in the config file (if valid). Supported keyrings are:
+        Returns the keyring backend currently used. If none is used because we are not yet
+        linked, use the backend specified in the config file (if valid) or choose the most
+        secure of the available and supported keyring backends.
         """
 
         import keyring.backends
 
         keyring_class = self._conf.get("app", "keyring").strip()
 
-        try:
-            ring = load_keyring(keyring_class)
-        except Exception:
-            # get preferred keyring backends for platform
-            available_rings = keyring.backend.get_all_keyring()
-            supported_rings = [
-                k for k in available_rings if isinstance(k, supported_keyring_backends)
-            ]
+        if self._account_id and keyring_class != "automatic":
+            # we are already linked and have a keyring set
 
-            ring = max(supported_rings, key=lambda x: x.priority)
+            try:
+                ring = load_keyring(keyring_class)
+            except Exception as exc:
+                # reset the keyring and prompt to relink
+                # them bomb out with an exception
 
-        return ring
+                self._conf.set("app", "keyring", "automatic")
+
+                title = f"Cannot load keyring {keyring_class}"
+                message = "Please relink Maestral to get new access token"
+                new_exc = KeyringAccessError(title, message).with_traceback(exc.__traceback__)
+                logger.error(title, exc_info=_exc_info(new_exc))
+                raise new_exc
+            else:
+                return ring
+
+        else:
+
+            try:
+                ring = load_keyring(keyring_class)
+            except Exception:
+
+                # get preferred keyring backends for platform
+                available_rings = keyring.backend.get_all_keyring()
+                supported_rings = [
+                    k for k in available_rings if isinstance(k, supported_keyring_backends)
+                ]
+
+                ring = max(supported_rings, key=lambda x: x.priority)
+
+            return ring
 
     @property
     def linked(self) -> bool:
@@ -228,6 +251,7 @@ class OAuth2Session:
             return
 
         try:
+
             token = self.keyring.get_password("Maestral", self._account_id)
             access_type = self._state.get("account", "token_access_type")
 
