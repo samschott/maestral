@@ -1020,32 +1020,29 @@ def rebuild_index(config_name: str) -> None:
     """
     Rebuilds Maestral's index.
 
-    Rebuilding may take several minutes, depending on the size of your Dropbox. If
-    Maestral is quit while rebuilding, it will resume when restarted.
+    Rebuilding may take several minutes, depending on the size of your Dropbox.
     """
 
-    try:
-        import textwrap
+    import textwrap
 
-        with MaestralProxy(config_name) as m:
+    with MaestralProxy(config_name, fallback=True) as m:
 
-            width, height = click.get_terminal_size()
+        width, height = click.get_terminal_size()
 
-            msg = textwrap.fill(
-                "Rebuilding the index may take several minutes, depending on the size of "
-                "your Dropbox. Any changes to local files will be synced once rebuilding "
-                "has completed. If you stop the daemon during the process, rebuilding "
-                "will start again on the next launch.",
-                width=width,
-            )
+        msg = textwrap.fill(
+            "Rebuilding the index may take several minutes, depending on the size of "
+            "your Dropbox. Any changes to local files will be synced once rebuilding "
+            "has completed. If you stop the daemon during the process, rebuilding "
+            "will start again on the next launch.",
+            width=width,
+        )
 
-            click.echo(msg + "\n")
-            click.confirm("Do you want to continue?", abort=True)
+        click.echo(msg + "\n")
+        click.confirm("Do you want to continue?", abort=True)
 
-            m.rebuild_index()
+        m.rebuild_index()
 
-    except Pyro5.errors.CommunicationError:
-        click.echo("Maestral daemon is not running.")
+        click.echo("Rebuilding index...")
 
 
 @main.command(help_priority=16)
