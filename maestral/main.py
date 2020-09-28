@@ -1350,6 +1350,16 @@ class Maestral:
 
     def _update_from_pre_v1_2_1(self) -> None:
 
+        logger.info("Recreating autostart entries after update from pre v1.2.1")
+
+        from maestral.utils.autostart import AutoStart
+
+        autostart = AutoStart(self.config_name)
+
+        if autostart.enabled:
+            autostart.disable()
+            autostart.enable()
+
         logger.info("Migrating index after update from pre v1.2.1")
 
         from alembic.migration import MigrationContext  # type: ignore
