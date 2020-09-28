@@ -1354,7 +1354,7 @@ class Maestral:
 
         from alembic.migration import MigrationContext  # type: ignore
         from alembic.operations import Operations  # type: ignore
-        from sqlalchemy.engine import reflection
+        from sqlalchemy.engine import reflection  # type: ignore
         from maestral.sync import db_naming_convention as nc
         from maestral.sync import IndexEntry
 
