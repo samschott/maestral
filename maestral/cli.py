@@ -1032,8 +1032,9 @@ def rebuild_index(config_name: str) -> None:
         msg = textwrap.fill(
             "Rebuilding the index may take several minutes, depending on the size of "
             "your Dropbox. Any changes to local files will be synced once rebuilding "
-            "has completed. If you stop the daemon during the process, rebuilding "
-            "will start again on the next launch.",
+            "has completed. If you stop the daemon during the process, rebuilding will "
+            "start again on the next launch.\nIf the daemon is not currently running, a "
+            "rebuild will be schedules for the next startup.",
             width=width,
         )
 
@@ -1042,7 +1043,7 @@ def rebuild_index(config_name: str) -> None:
 
         m.rebuild_index()
 
-        click.echo("Rebuilding index...")
+        click.echo("Rebuilding scheduled")
 
 
 @main.command(help_priority=16)
