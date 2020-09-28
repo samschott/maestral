@@ -127,12 +127,11 @@ _cpu_count = os.cpu_count() or 1  # os.cpu_count can return None
 db_naming_convention = {
     "ix": "ix_%(column_0_label)s",
     "uq": "uq_%(table_name)s_%(column_0_name)s",
-    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "ck": "ck_%(table_name)s_%(column_0_name)s",
     "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
     "pk": "pk_%(table_name)s",
 }
-meta = MetaData(naming_convention=db_naming_convention)
-Base = declarative_base(metadata=meta)
+Base = declarative_base(metadata=MetaData(naming_convention=db_naming_convention))
 Session = sessionmaker(expire_on_commit=False)
 
 ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]

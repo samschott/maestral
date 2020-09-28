@@ -1362,10 +1362,10 @@ class Maestral:
                 op = Operations(ctx)
                 with op.batch_alter_table("index", naming_convention=nc) as batch_op:
                     batch_op.drop_constraint(
-                        constraint_name="uq_index_dbx_id", type_="unique"
+                        constraint_name="uq_index_dbxid", type_="unique"
                     )
                     batch_op.drop_constraint(
-                        constraint_name="uq_index_dbx_path_cased", type_="unique"
+                        constraint_name="uq_index_dbxpathcased", type_="unique"
                     )
 
     async def _periodic_refresh(self) -> None:
