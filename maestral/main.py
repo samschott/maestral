@@ -1362,13 +1362,13 @@ class Maestral:
 
         with self.sync._database_access():
             insp = reflection.Inspector.from_engine(self.sync._db_engine)
-            uq_constraints = insp.get_unique_constraints(table_name)
+            unique_constraints = insp.get_unique_constraints(table_name)
 
             with self.sync._db_engine.connect() as con:
                 ctx = MigrationContext.configure(con)
                 op = Operations(ctx)
                 with op.batch_alter_table(table_name, naming_convention=nc) as batch_op:
-                    for uq in uq_constraints:
+                    for uq in unique_constraints:
 
                         name = uq["name"]
                         if name is None:
