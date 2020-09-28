@@ -4,10 +4,17 @@
 
 - Improves handling of database related errors such as database integrity, missing read /
   write permissions for the database file, etc.
+- Improves handling of errors when the keyring cannot be unlocked to delete credentials
+  during an unlink.
+- Improves handling of errors when the keyring where Dropbox credentials are stored
+  becomes unavailable, e.g., has been uninstalled.
+- Always shut down daemon when setup fails with an exception or is aborted.
 
 #### Fixes:
 
 - Fixes a database integrity error due to an unfulfilled unique constraint.
+- Fixes an issue when the daemon is launched with systemd where systemd would unexpectedly
+  receive notifications from a subprocess instead of the main process.
 
 #### Dependencies:
 
