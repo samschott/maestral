@@ -305,29 +305,43 @@ class AutoStart:
         else:
             self._impl = AutoStartBase()
 
-    def toggle(self) -> None:
-        """Toggles autostart on or off."""
-        self.enabled = not self.enabled
-
     @property
     def enabled(self) -> bool:
         """True if autostart is enabled."""
         return self._impl.enabled
 
     @enabled.setter
-    def enabled(self, yes: bool) -> None:
+    def enabled(self, value: bool) -> None:
+        if value:
+            self.enable()
+        else:
+            self.disable()
+
+    def toggle(self) -> None:
+        """Toggles autostart on or off."""
+        if self.enabled:
+            self.disable()
+        else:
+            self.enable()
+
+    def enable(self) -> None:
         """Setter: True if autostart is enabled."""
 
-        if self.enabled == yes:
+        if self.enabled:
             return
 
-        if yes:
-            if self.maestral_path:
-                self._impl.enable()
-            else:
-                raise OSError("Could not find path of maestral executable")
+        if self.maestral_path:
+            self._impl.enable()
         else:
-            self._impl.disable()
+            raise OSError("Could not find path of maestral executable")
+
+    def disable(self) -> None:
+        """Setter: True if autostart is enabled."""
+
+        if not self.enabled:
+            return
+
+        self._impl.disable()
 
     def get_maestral_command_path(self) -> str:
         """
