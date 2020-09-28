@@ -97,6 +97,7 @@ app = BUNDLE(
     info_plist={
         'NSHighResolutionCapable': 'True',
         'LSUIElement': '1',
+        'CFBundleExecutable': 'Maestral',
         'CFBundleVersion': bundle_version,
         'CFBundleShortVersionString': __version__,
         'NSHumanReadableCopyright': 'Copyright © {} {}. All rights reserved.'.format(time.strftime('%Y'), __author__),
