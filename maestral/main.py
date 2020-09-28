@@ -1354,19 +1354,31 @@ class Maestral:
 
         from alembic.migration import MigrationContext  # type: ignore
         from alembic.operations import Operations  # type: ignore
+        from sqlalchemy.engine import reflection
         from maestral.sync import db_naming_convention as nc
+        from maestral.sync import IndexEntry
+
+        table_name = IndexEntry.__tablename__
 
         with self.sync._database_access():
+            insp = reflection.Inspector.from_engine(self.sync._db_engine)
+            uq_constraints = insp.get_unique_constraints(table_name)
+
             with self.sync._db_engine.connect() as con:
                 ctx = MigrationContext.configure(con)
                 op = Operations(ctx)
-                with op.batch_alter_table("index", naming_convention=nc) as batch_op:
-                    batch_op.drop_constraint(
-                        constraint_name="uq_index_dbxid", type_="unique"
-                    )
-                    batch_op.drop_constraint(
-                        constraint_name="uq_index_dbxpathcased", type_="unique"
-                    )
+                with op.batch_alter_table(table_name, naming_convention=nc) as batch_op:
+                    for uq in uq_constraints:
+
+                        name = uq["name"]
+                        if name is None:
+                            # generate name from naming convention
+                            name = nc["uq"] % {
+                                "table_name": table_name,
+                                "column_0_name": uq["column_names"][0],
+                            }
+
+                        batch_op.drop_constraint(constraint_name=name, type_="unique")
 
     async def _periodic_refresh(self) -> None:
 
