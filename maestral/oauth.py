@@ -338,9 +338,6 @@ class OAuth2Session:
                 # it may delete all passwords stored by Maestral on some backends
                 return
 
-            self._conf.set("account", "account_id", "")
-            self._state.set("account", "token_access_type", "")
-
             try:
                 self.keyring.delete_password("Maestral", self._account_id)
                 click.echo(" > Credentials removed.")
@@ -351,12 +348,17 @@ class OAuth2Session:
                 logger.error(title, exc_info=_exc_info(exc))
                 raise exc
             except PasswordDeleteError as exc:
-                logger.warning(exc.args[0])
-            finally:
-                self._account_id = None
-                self._access_token = None
-                self._refresh_token = None
-                self._token_access_type = None
+                # password does not exist in keyring
+                logger.info(exc.args[0])
+
+            self._conf.set("account", "account_id", "")
+            self._state.set("account", "token_access_type", "")
+            self._conf.set("app", "keyring", "automatic")
+
+            self._account_id = None
+            self._access_token = None
+            self._refresh_token = None
+            self._token_access_type = None
 
     def __repr__(self) -> str:
         return (
