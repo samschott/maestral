@@ -548,48 +548,52 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
     m = get_maestral_proxy(config_name)
 
-    # run setup if necessary
-    if m.pending_link:
-        link_dialog(m)
+    try:
+        # run setup if necessary
+        if m.pending_link:
+            link_dialog(m)
 
-    if m.pending_dropbox_folder:
-        path = select_dbx_path_dialog(config_name, allow_merge=True)
-        m.create_dropbox_directory(path)
+        if m.pending_dropbox_folder:
+            path = select_dbx_path_dialog(config_name, allow_merge=True)
+            m.create_dropbox_directory(path)
 
-        exclude_folders_q = click.confirm(
-            "Would you like to exclude any folders from syncing?",
-        )
-
-        if exclude_folders_q:
-            click.echo(
-                "Please choose which top-level folders to exclude. You can exclude\n"
-                'individual files or subfolders later with "maestral excluded add".\n'
+            exclude_folders_q = click.confirm(
+                "Would you like to exclude any folders from syncing?",
             )
 
-            click.echo("Loading...", nl=False)
-
-            # get all top-level Dropbox folders
-            entries = m.list_folder("/", recursive=False)
-            excluded_items: List[str] = []
-
-            click.echo("\rLoading...   Done")
-
-            # paginate through top-level folders, ask to exclude
-            for e in entries:
-                if e["type"] == "FolderMetadata":
-                    yes = click.confirm(
-                        'Exclude "{path_display}" from sync?'.format(**e)
-                    )
-                    if yes:
-                        path_lower = cast(str, e["path_lower"])
-                        excluded_items.append(path_lower)
-
-            m.set_excluded_items(excluded_items)
-
-            if not foreground:
+            if exclude_folders_q:
                 click.echo(
-                    'Setup completed. Run "maestral status" to view sync progress.'
+                    "Please choose which top-level folders to exclude. You can exclude\n"
+                    'individual files or subfolders later with "maestral excluded add".\n'
                 )
+
+                click.echo("Loading...", nl=False)
+
+                # get all top-level Dropbox folders
+                entries = m.list_folder("/", recursive=False)
+                excluded_items: List[str] = []
+
+                click.echo("\rLoading...   Done")
+
+                # paginate through top-level folders, ask to exclude
+                for e in entries:
+                    if e["type"] == "FolderMetadata":
+                        yes = click.confirm(
+                            'Exclude "{path_display}" from sync?'.format(**e)
+                        )
+                        if yes:
+                            path_lower = cast(str, e["path_lower"])
+                            excluded_items.append(path_lower)
+
+                m.set_excluded_items(excluded_items)
+
+                if not foreground:
+                    click.echo(
+                        'Setup completed. Run "maestral status" to view sync progress.'
+                    )
+    except Exception as exc:
+        stop_maestral_daemon_process(config_name)
+        raise exc
 
     if foreground:
         # stop daemon process after setup and restart in our current process
