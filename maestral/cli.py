@@ -225,7 +225,7 @@ def catch_maestral_errors(func: Callable) -> Callable:
         try:
             return func(*args, **kwargs)
         except MaestralApiError as exc:
-            raise click.ClickException(f"{exc.title}: {exc.message}")
+            raise click.ClickException(f"{exc.title}. {exc.message}")
         except ConnectionError:
             raise click.ClickException("Could not connect to Dropbox.")
 
