@@ -74,15 +74,6 @@ IS_LINUX = platform.system() == "Linux"
 IS_MACOS_BUNDLE = IS_FROZEN and IS_MACOS
 IS_LINUX_BUNDLE = IS_FROZEN and IS_LINUX
 
-# systemd environment
-INVOCATION_ID = os.getenv("INVOCATION_ID")
-NOTIFY_SOCKET = os.getenv("NOTIFY_SOCKET")
-WATCHDOG_PID = os.getenv("WATCHDOG_PID")
-WATCHDOG_USEC = os.getenv("WATCHDOG_USEC")
-IS_WATCHDOG = WATCHDOG_USEC and (
-    WATCHDOG_PID is None or int(WATCHDOG_PID) == os.getpid()
-)
-
 # keys
 BUGSNAG_API_KEY = "081c05e2bf9730d5f55bc35dea15c833"
 DROPBOX_APP_KEY = "2jmbq42w7vof78h"

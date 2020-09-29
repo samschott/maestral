@@ -26,13 +26,12 @@ from watchdog.events import DirDeletedEvent, FileDeletedEvent  # type: ignore
 import bugsnag  # type: ignore
 from bugsnag.handlers import BugsnagHandler  # type: ignore
 from packaging.version import Version
+import sdnotify  # type: ignore
 
 try:
     from systemd import journal  # type: ignore
 except ImportError:
     journal = None
-
-import sdnotify  # type: ignore
 
 # local imports
 from maestral import __version__
@@ -59,11 +58,6 @@ from maestral.utils.serializer import (
 )
 from maestral.utils.appdirs import get_log_path, get_cache_path, get_data_path
 from maestral.constants import (
-    INVOCATION_ID,
-    NOTIFY_SOCKET,
-    WATCHDOG_PID,
-    WATCHDOG_USEC,
-    IS_WATCHDOG,
     BUGSNAG_API_KEY,
     IDLE,
     FileStatus,
@@ -235,18 +229,6 @@ class Maestral:
 
         self._check_and_run_post_update_scripts()
 
-        # notify systemd that we have started
-        if NOTIFY_SOCKET:
-            logger.debug("Running as systemd notify service")
-            logger.debug("NOTIFY_SOCKET = %s", NOTIFY_SOCKET)
-            sd_notifier.notify("READY=1")
-
-        # notify systemd periodically if alive
-        if IS_WATCHDOG and WATCHDOG_USEC:
-            logger.debug("Running as systemd watchdog service")
-            logger.debug("WATCHDOG_USEC = %s", WATCHDOG_USEC)
-            logger.debug("WATCHDOG_PID = %s", WATCHDOG_PID)
-
         # schedule background tasks
         self._loop = asyncio.get_event_loop()
         self._thread_pool = ThreadPoolExecutor(
@@ -255,9 +237,6 @@ class Maestral:
         )
         self._refresh_task = self._loop.create_task(
             self._periodic_refresh(),
-        )
-        self._watchdog_task = self._loop.create_task(
-            self._periodic_watchdog(),
         )
 
         # create a future which will return once `shutdown_daemon` is called
@@ -333,8 +312,8 @@ class Maestral:
         stdout if requested.
         """
 
-        maestral_logger = logging.getLogger("maestral")
-        maestral_logger.setLevel(logging.DEBUG)
+        self._logger = logging.getLogger("maestral")
+        self._logger.setLevel(logging.DEBUG)
 
         log_fmt_long = logging.Formatter(
             fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
@@ -349,26 +328,26 @@ class Maestral:
         )
         self.log_handler_file.setFormatter(log_fmt_long)
         self.log_handler_file.setLevel(self.log_level)
-        maestral_logger.addHandler(self.log_handler_file)
+        self._logger.addHandler(self.log_handler_file)
 
         # log to journal when launched from systemd
-        if journal and INVOCATION_ID:
+        if journal and os.getenv("INVOCATION_ID"):
             # noinspection PyUnresolvedReferences
             self.log_handler_journal = journal.JournalHandler(
                 SYSLOG_IDENTIFIER="maestral"
             )
             self.log_handler_journal.setFormatter(log_fmt_short)
             self.log_handler_journal.setLevel(self.log_level)
-            maestral_logger.addHandler(self.log_handler_journal)
+            self._logger.addHandler(self.log_handler_journal)
         else:
             self.log_handler_journal = None
 
-        # send systemd notifications when started as 'notify' daemon
-        if NOTIFY_SOCKET:
+        # notify systemd of status updates
+        if os.getenv("NOTIFY_SOCKET"):
             self.log_handler_sd = SdNotificationHandler()
             self.log_handler_sd.setFormatter(log_fmt_short)
             self.log_handler_sd.setLevel(logging.INFO)
-            maestral_logger.addHandler(self.log_handler_sd)
+            self._logger.addHandler(self.log_handler_sd)
         else:
             self.log_handler_sd = None
 
@@ -377,30 +356,30 @@ class Maestral:
         self.log_handler_stream = logging.StreamHandler(sys.stdout)
         self.log_handler_stream.setFormatter(log_fmt_long)
         self.log_handler_stream.setLevel(level)
-        maestral_logger.addHandler(self.log_handler_stream)
+        self._logger.addHandler(self.log_handler_stream)
 
         # log to cached handlers for GUI and CLI
         self._log_handler_info_cache = CachedHandler(maxlen=1)
         self._log_handler_info_cache.setFormatter(log_fmt_short)
         self._log_handler_info_cache.setLevel(logging.INFO)
-        maestral_logger.addHandler(self._log_handler_info_cache)
+        self._logger.addHandler(self._log_handler_info_cache)
 
         self._log_handler_error_cache = CachedHandler()
         self._log_handler_error_cache.setFormatter(log_fmt_short)
         self._log_handler_error_cache.setLevel(logging.ERROR)
-        maestral_logger.addHandler(self._log_handler_error_cache)
+        self._logger.addHandler(self._log_handler_error_cache)
 
         # log to desktop notifications
         # 'file changed' events will be collated and sent as desktop
         # notifications by the monitor directly, we don't handle them here
         self.desktop_notifier = MaestralDesktopNotifier.for_config(self.config_name)
         self.desktop_notifier.setLevel(logging.WARNING)
-        maestral_logger.addHandler(self.desktop_notifier)
+        self._logger.addHandler(self.desktop_notifier)
 
         # log to bugsnag (disabled by default)
         self._log_handler_bugsnag = BugsnagHandler()
         self._log_handler_bugsnag.setLevel(logging.ERROR if self.analytics else 100)
-        maestral_logger.addHandler(self._log_handler_bugsnag)
+        self._logger.addHandler(self._log_handler_bugsnag)
 
     # ==== methods to access config and saved state ======================================
 
@@ -1301,15 +1280,13 @@ class Maestral:
         if self._loop.is_running():
             self._loop.call_soon_threadsafe(self.shutdown_complete.set_result, True)
 
-        if NOTIFY_SOCKET:
-            # notify systemd that we are shutting down
-            sd_notifier.notify("STOPPING=1")
-
     # ==== private methods ===============================================================
 
     def _cleanup_aio_tasks(self):
 
-        for task in [self._refresh_task, self._watchdog_task]:
+        for task in [
+            self._refresh_task,
+        ]:
 
             if not task.done():
                 task.cancel()
@@ -1423,16 +1400,6 @@ class Maestral:
                 self._state.set("app", "latest_release", res["latest_release"])
 
             await asyncio.sleep(60 * 60)  # 60 min
-
-    async def _periodic_watchdog(self) -> None:
-
-        if WATCHDOG_USEC:
-
-            sleep = int(WATCHDOG_USEC)
-
-            while True:
-                sd_notifier.notify("WATCHDOG=1")
-                await asyncio.sleep(sleep / (2 * 10 ** 6))
 
     def __repr__(self) -> str:
 

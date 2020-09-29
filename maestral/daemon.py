@@ -24,6 +24,7 @@ import struct
 import tempfile
 import itertools
 import asyncio
+import logging
 from typing import Optional, Union, Tuple, Dict, Type, TYPE_CHECKING
 from types import TracebackType, FrameType
 
@@ -31,6 +32,7 @@ from types import TracebackType, FrameType
 import Pyro5  # type: ignore
 from Pyro5.errors import CommunicationError  # type: ignore
 from Pyro5.api import Daemon, Proxy, expose, oneway, register_dict_to_class  # type: ignore
+import sdnotify  # type: ignore
 from fasteners import InterProcessLock  # type: ignore
 
 # local imports
@@ -41,6 +43,20 @@ from maestral.utils.appdirs import get_runtime_path
 
 if TYPE_CHECKING:
     from maestral.main import Maestral
+
+
+logger = logging.getLogger(__name__)
+sd_notifier = sdnotify.SystemdNotifier()
+
+
+# systemd environment
+INVOCATION_ID = os.getenv("INVOCATION_ID")
+NOTIFY_SOCKET = os.getenv("NOTIFY_SOCKET")
+WATCHDOG_PID = os.getenv("WATCHDOG_PID")
+WATCHDOG_USEC = os.getenv("WATCHDOG_USEC")
+IS_WATCHDOG = WATCHDOG_USEC and (
+    WATCHDOG_PID is None or int(WATCHDOG_PID) == os.getpid()
+)
 
 
 URI = "PYRO:maestral.{0}@{1}"
@@ -369,6 +385,13 @@ def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
 # ==== main functions to manage daemon ===================================================
 
 
+async def _periodic_watchdog() -> None:
+    sleep = int(WATCHDOG_USEC)
+    while True:
+        sd_notifier.notify("WATCHDOG=1")
+        await asyncio.sleep(sleep / (2 * 10 ** 6))
+
+
 def start_maestral_daemon(
     config_name: str = "maestral", log_to_stdout: bool = False, start_sync: bool = False
 ) -> None:
@@ -389,6 +412,7 @@ def start_maestral_daemon(
     :raises: :class:`RuntimeError` if a daemon for the given ``config_name`` is already
         running.
     """
+
     from maestral.main import Maestral
 
     if threading.current_thread() is not threading.main_thread():
@@ -416,38 +440,52 @@ def start_maestral_daemon(
     # get the default event loop
     loop = asyncio.get_event_loop()
 
+    # notify systemd that we have started
+    if NOTIFY_SOCKET:
+        logger.debug("Running as systemd notify service")
+        logger.debug("NOTIFY_SOCKET = %s", NOTIFY_SOCKET)
+        sd_notifier.notify("READY=1")
+
+    # notify systemd periodically if alive
+    if IS_WATCHDOG and WATCHDOG_USEC:
+        logger.debug("Running as systemd watchdog service")
+        logger.debug("WATCHDOG_USEC = %s", WATCHDOG_USEC)
+        logger.debug("WATCHDOG_PID = %s", WATCHDOG_PID)
+        loop.create_task(_periodic_watchdog())
+
     # get socket for config name
     sockpath = sockpath_for_config(config_name)
 
+    # clean up old socket
     try:
-        # clean up old socket
-        try:
-            os.remove(sockpath)
-        except FileNotFoundError:
-            pass
+        os.remove(sockpath)
+    except FileNotFoundError:
+        pass
 
-        # expose maestral as Pyro server
-        # convert selected methods to one way calls so that they don't block
-        ExposedMaestral = expose(Maestral)
+    # expose maestral as Pyro server
+    # convert management methods to one way calls so that they don't block
+    ExposedMaestral = expose(Maestral)
 
-        ExposedMaestral.start_sync = oneway(ExposedMaestral.start_sync)
-        ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
-        ExposedMaestral.pause_sync = oneway(ExposedMaestral.pause_sync)
-        ExposedMaestral.resume_sync = oneway(ExposedMaestral.resume_sync)
-        ExposedMaestral.shutdown_daemon = oneway(ExposedMaestral.shutdown_daemon)
+    ExposedMaestral.start_sync = oneway(ExposedMaestral.start_sync)
+    ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
+    ExposedMaestral.pause_sync = oneway(ExposedMaestral.pause_sync)
+    ExposedMaestral.resume_sync = oneway(ExposedMaestral.resume_sync)
+    ExposedMaestral.shutdown_daemon = oneway(ExposedMaestral.shutdown_daemon)
 
-        m = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
+    maestral_daemon = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
 
-        if start_sync:
-            m.start_sync()
+    if start_sync:
+        maestral_daemon.start_sync()
+
+    try:
 
         with Daemon(unixsocket=sockpath) as daemon:
-            daemon.register(m, f"maestral.{config_name}")
+            daemon.register(maestral_daemon, f"maestral.{config_name}")
 
             for socket in daemon.sockets:
                 loop.add_reader(socket.fileno(), daemon.events, daemon.sockets)
 
-            loop.run_until_complete(m.shutdown_complete)
+            loop.run_until_complete(maestral_daemon.shutdown_complete)
 
             for socket in daemon.sockets:
                 loop.remove_reader(socket.fileno())
@@ -457,6 +495,11 @@ def start_maestral_daemon(
     finally:
         loop.close()
         lock.release()
+
+        if NOTIFY_SOCKET:
+            # notify systemd that we are shutting down
+            sd_notifier.notify("STOPPING=1")
+
         sys.exit(0)
 
 
