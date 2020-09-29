@@ -1296,19 +1296,31 @@ class Maestral:
         """
 
         self.stop_sync()
+        self._cleanup_aio_tasks()
 
         if self._loop.is_running():
-            self._refresh_task.cancel()
-            self._watchdog_task.cancel()
             self._loop.call_soon_threadsafe(self.shutdown_complete.set_result, True)
-
-        self._thread_pool.shutdown(wait=False)
 
         if NOTIFY_SOCKET:
             # notify systemd that we are shutting down
             sd_notifier.notify("STOPPING=1")
 
     # ==== private methods ===============================================================
+
+    def _cleanup_aio_tasks(self):
+
+        for task in [self._refresh_task, self._watchdog_task]:
+
+            if not task.done():
+                task.cancel()
+
+                if not self._loop.is_running():
+                    try:
+                        self._loop.run_until_complete(task)
+                    except asyncio.exceptions.CancelledError:
+                        pass
+
+        self._thread_pool.shutdown(wait=False)
 
     def _check_linked(self) -> None:
 
@@ -1431,3 +1443,6 @@ class Maestral:
             f"<{self.__class__.__name__}(config={self._config_name!r}, "
             f"account=({email!r}, {account_type!r}))>"
         )
+
+    def __del__(self):
+        self._cleanup_aio_tasks()
