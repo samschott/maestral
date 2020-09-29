@@ -460,7 +460,10 @@ def start_maestral_daemon(
         sys.exit(0)
 
 
-def _subprocess_launcher(config_name, log_to_stdout):
+def _subprocess_launcher(
+    config_name: str, log_to_stdout: bool, start_sync: bool
+) -> None:
+    """Launches a daemon subprocess with subprocess.Popen"""
 
     if IS_FROZEN:
         subprocess.Popen(
@@ -468,19 +471,24 @@ def _subprocess_launcher(config_name, log_to_stdout):
             start_new_session=True,
         )
     else:
-        cc = quote(config_name).strip("'")  # protect against injection
+        # protect against injection
+        cc = quote(config_name).strip("'")
         std_log = bool(log_to_stdout)
+        start_sync = bool(start_sync)
 
         cmd = (
             f"import maestral.daemon; "
-            f'maestral.daemon.start_maestral_daemon("{cc}", {std_log})'
+            f'maestral.daemon.start_maestral_daemon("{cc}", {std_log}, {start_sync})'
         )
 
         subprocess.Popen([sys.executable, "-c", cmd], start_new_session=True)
 
 
 def start_maestral_daemon_process(
-    config_name: str = "maestral", log_to_stdout: bool = False, detach: bool = True
+    config_name: str = "maestral",
+    log_to_stdout: bool = False,
+    start_sync: bool = False,
+    detach: bool = True,
 ) -> Start:
     """
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
@@ -495,6 +503,7 @@ def start_maestral_daemon_process(
 
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stdout: If ``True``, write logs to stdout.
+    :param start_sync: If ``True``, start syncing once the daemon has started.
     :param detach: If ``True``, the daemon process will be detached. If ``False``,
         the daemon processes will run in the same session as the current process.
     :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
@@ -506,7 +515,7 @@ def start_maestral_daemon_process(
         return Start.AlreadyRunning
 
     if detach:
-        _subprocess_launcher(config_name, log_to_stdout)
+        _subprocess_launcher(config_name, log_to_stdout, start_sync)
 
     else:
         import multiprocessing as mp
@@ -515,7 +524,7 @@ def start_maestral_daemon_process(
 
         ctx.Process(
             target=start_maestral_daemon,
-            args=(config_name, log_to_stdout),
+            args=(config_name, log_to_stdout, start_sync),
             name="maestral-daemon",
             daemon=True,
         ).start()
