@@ -20,7 +20,7 @@ through :class:`MaestralDesktopNotifier`.
 # system imports
 import asyncio
 import logging
-from typing import Optional, Type
+from typing import Optional, Type, Coroutine
 
 # external imports
 from dbus_next import Variant  # type: ignore
@@ -49,7 +49,14 @@ class DBusDesktopNotifier(DesktopNotifierBase):
     def __init__(self, app_name: str, app_id: str) -> None:
         super().__init__(app_name, app_id)
         self._loop = asyncio.get_event_loop()
-        asyncio.run_coroutine_threadsafe(self._init_dbus(), self._loop)
+        self._force_run_in_loop(self._init_dbus())
+
+    def _force_run_in_loop(self, coro: Coroutine) -> None:
+
+        if self._loop.is_running():
+            asyncio.run_coroutine_threadsafe(coro, self._loop)
+        else:
+            self._loop.run_until_complete(coro)
 
     async def _init_dbus(self) -> None:
 
@@ -72,7 +79,7 @@ class DBusDesktopNotifier(DesktopNotifierBase):
             logger.warning("Could not connect to DBUS interface", exc_info=True)
 
     def send(self, notification: Notification) -> None:
-        asyncio.run_coroutine_threadsafe(self._send(notification), self._loop)
+        self._force_run_in_loop(self._send(notification))
 
     async def _send(self, notification: Notification) -> None:
 
