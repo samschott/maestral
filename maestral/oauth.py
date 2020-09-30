@@ -117,7 +117,7 @@ class OAuth2Session:
         self.keyring = self._get_keyring_backend()
 
         # defer keyring access until token requested by user
-        self._loaded = False
+        self.loaded = False
         self._access_token: Optional[str] = None
         self._refresh_token: Optional[str] = None
         self._expires_at: Optional[datetime] = None
@@ -184,8 +184,8 @@ class OAuth2Session:
 
         if self.account_id:
 
-            legacy = self.token_access_type == "legacy" and self.access_token
-            offline = self.token_access_type == "offline" and self.refresh_token
+            legacy = self._token_access_type == "legacy" and self.access_token
+            offline = self._token_access_type == "offline" and self.refresh_token
 
             if legacy or offline:
                 return True
@@ -206,7 +206,7 @@ class OAuth2Session:
         a long-lived refresh token to generate new access tokens."""
 
         with self._lock:
-            if not self._loaded:
+            if not self.loaded:
                 self.load_token()
 
             return self._token_access_type
@@ -220,7 +220,7 @@ class OAuth2Session:
         block until the keyring is unlocked."""
 
         with self._lock:
-            if not self._loaded:
+            if not self.loaded:
                 self.load_token()
 
             return self._access_token
@@ -231,7 +231,7 @@ class OAuth2Session:
         token. The call may block until the keyring is unlocked."""
 
         with self._lock:
-            if not self._loaded:
+            if not self.loaded:
                 self.load_token()
 
             return self._refresh_token
@@ -271,7 +271,7 @@ class OAuth2Session:
                 access_type = "legacy"
                 self._state.set("account", "token_access_type", access_type)
 
-            self._loaded = True
+            self.loaded = True
 
             if token:
 
@@ -321,7 +321,7 @@ class OAuth2Session:
                 self._account_id = res.account_id
                 self._token_access_type = self.default_token_access_type
 
-                self._loaded = True
+                self.loaded = True
 
                 return self.Success
             except requests.exceptions.HTTPError:
