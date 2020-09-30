@@ -1284,9 +1284,7 @@ class Maestral:
 
     def _cleanup_aio_tasks(self):
 
-        for task in [
-            self._refresh_task,
-        ]:
+        for task in [self._refresh_task]:
 
             if not task.done():
                 task.cancel()
