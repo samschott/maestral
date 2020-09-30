@@ -1373,13 +1373,16 @@ class Maestral:
 
         while True:
             # update account info
-            if self.client.linked:
-                await self._loop.run_in_executor(
-                    self._thread_pool, self.get_account_info
-                )
-                await self._loop.run_in_executor(
-                    self._thread_pool, self.get_profile_pic
-                )
+            if self.client.auth.loaded:
+                # only run if we have loaded the keyring, we don't
+                # want to trigger any keyring access from here
+                if self.client.linked:
+                    await self._loop.run_in_executor(
+                        self._thread_pool, self.get_account_info
+                    )
+                    await self._loop.run_in_executor(
+                        self._thread_pool, self.get_profile_pic
+                    )
 
             # check for maestral updates
             res = await self._loop.run_in_executor(
