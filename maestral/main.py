@@ -315,6 +315,11 @@ class Maestral:
         self._logger = logging.getLogger("maestral")
         self._logger.setLevel(logging.DEBUG)
 
+        # clean up any previous handlers
+        # TODO: use namespaced handlers for config
+        while self._logger.hasHandlers():
+            self._logger.removeHandler(self._logger.handlers[0])
+
         log_fmt_long = logging.Formatter(
             fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
