@@ -386,10 +386,13 @@ def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
 
 
 async def _periodic_watchdog() -> None:
-    sleep = int(WATCHDOG_USEC)
-    while True:
-        sd_notifier.notify("WATCHDOG=1")
-        await asyncio.sleep(sleep / (2 * 10 ** 6))
+
+    if WATCHDOG_USEC:
+
+        sleep = int(WATCHDOG_USEC)
+        while True:
+            sd_notifier.notify("WATCHDOG=1")
+            await asyncio.sleep(sleep / (2 * 10 ** 6))
 
 
 def start_maestral_daemon(
