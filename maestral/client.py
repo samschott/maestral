@@ -218,12 +218,12 @@ class DropboxClient:
     def __init__(self, config_name: str, timeout: float = 100) -> None:
 
         self.config_name = config_name
+        self.auth = OAuth2Session(config_name)
 
         self._timeout = timeout
         self._backoff_until = 0
         self._dbx = None
         self._state = MaestralState(config_name)
-        self._auth = OAuth2Session(config_name)
 
     # ---- linking API -------------------------------------------------------------------
 
@@ -249,12 +249,12 @@ class DropboxClient:
         if self._dbx:
             return True
 
-        elif self._auth.linked:  # this will trigger keyring access on first call
+        elif self.auth.linked:  # this will trigger keyring access on first call
 
-            if self._auth.token_access_type == "legacy":
-                self._init_sdk_with_token(access_token=self._auth.access_token)
+            if self.auth.token_access_type == "legacy":
+                self._init_sdk_with_token(access_token=self.auth.access_token)
             else:
-                self._init_sdk_with_token(refresh_token=self._auth.refresh_token)
+                self._init_sdk_with_token(refresh_token=self.auth.refresh_token)
 
             return True
 
@@ -269,7 +269,7 @@ class DropboxClient:
 
         :returns: URL to retrieve an OAuth token.
         """
-        return self._auth.get_auth_url()
+        return self.auth.get_auth_url()
 
     def link(self, token: str) -> int:
         """
@@ -280,15 +280,15 @@ class DropboxClient:
         :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
         """
 
-        res = self._auth.verify_auth_token(token)
+        res = self.auth.verify_auth_token(token)
 
-        if res == self._auth.Success:
-            self._auth.save_creds()
+        if res == self.auth.Success:
+            self.auth.save_creds()
 
             self._init_sdk_with_token(
-                refresh_token=self._auth.refresh_token,
-                access_token=self._auth.access_token,
-                access_token_expiration=self._auth.access_token_expiration,
+                refresh_token=self.auth.refresh_token,
+                access_token=self.auth.access_token,
+                access_token_expiration=self.auth.access_token_expiration,
             )
 
             try:
@@ -307,7 +307,7 @@ class DropboxClient:
         :raises: :class:`errors.KeyringAccessError`
         :raises: :class:`errors.DropboxAuthError`
         """
-        self._auth.delete_creds()
+        self.auth.delete_creds()
         self.dbx.auth_token_revoke()  # should only raise auth errors
 
     def _init_sdk_with_token(
@@ -342,7 +342,7 @@ class DropboxClient:
     @property
     def account_id(self) -> Optional[str]:
         """The unique Dropbox ID of the linked account"""
-        return self._auth.account_id
+        return self.auth.account_id
 
     # ---- SDK wrappers ------------------------------------------------------------------
 
