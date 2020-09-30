@@ -493,8 +493,6 @@ def start_maestral_daemon(
     except Exception:
         traceback.print_exc()
     finally:
-        loop.close()
-        lock.release()
 
         if NOTIFY_SOCKET:
             # notify systemd that we are shutting down
