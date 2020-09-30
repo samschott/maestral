@@ -3604,10 +3604,11 @@ def download_worker(
                     sync.client.get_space_usage()
 
         except DropboxServerError:
-            pass
+            logger.info("Dropbox server error", exc_info=True)
         except ConnectionError:
             syncing.clear()
             connected.clear()
+            logger.debug("Lost connection", exc_info=True)
             logger.info(DISCONNECTED)
         except Exception as err:
             running.clear()
@@ -3649,10 +3650,11 @@ def download_worker_added_item(
                 sync.get_remote_item(dbx_path)
                 logger.info(IDLE)
         except DropboxServerError:
-            pass
+            logger.info("Dropbox server error", exc_info=True)
         except ConnectionError:
             syncing.clear()
             connected.clear()
+            logger.debug("Lost connection", exc_info=True)
             logger.info(DISCONNECTED)
         except Exception as err:
             running.clear()
@@ -3693,10 +3695,11 @@ def upload_worker(
                     logger.info(IDLE)
 
         except DropboxServerError:
-            pass
+            logger.info("Dropbox server error", exc_info=True)
         except ConnectionError:
             syncing.clear()
             connected.clear()
+            logger.debug("Lost connection", exc_info=True)
             logger.info(DISCONNECTED)
         except Exception as err:
             running.clear()
@@ -3786,11 +3789,12 @@ def startup_worker(
                 logger.info(IDLE)
 
         except DropboxServerError:
-            pass
+            logger.info("Dropbox server error", exc_info=True)
         except ConnectionError:
             syncing.clear()
             connected.clear()
             startup.clear()
+            logger.debug("Lost connection", exc_info=True)
             logger.info(DISCONNECTED)
         except Exception as err:
             running.clear()
