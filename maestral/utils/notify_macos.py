@@ -73,10 +73,10 @@ if getattr(sys, "frozen", False) and Version(macos_version) >= Version("10.14.0"
             self, center, response, completion_handler
         ) -> None:
 
-            internal_nid = response.notification.request.content.userInfo[
-                "internal_nid"
-            ]
-            notification = self.interface.current_notifications.get(internal_nid)
+            internal_nid = py_from_ns(
+                response.notification.request.content.userInfo["internal_nid"]
+            )
+            notification = self.interface.current_notifications[internal_nid]
 
             if response.actionIdentifier == UNNotificationDefaultActionIdentifier:
 
@@ -214,8 +214,8 @@ elif Version(macos_version) <= Version("11.0.0"):
             self, center, notification
         ) -> None:
 
-            internal_nid = notification.userInfo["internal_nid"]
-            notification_info = self.interface.current_notifications.get(internal_nid)
+            internal_nid = py_from_ns(notification.userInfo["internal_nid"])
+            notification_info = self.interface.current_notifications[internal_nid]
 
             if Version(macos_version) == Version("11.0.0"):
                 # macOS Big Sur has a 'Show' button by default
