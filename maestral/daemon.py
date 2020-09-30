@@ -436,8 +436,22 @@ def start_maestral_daemon(
 
     # integrate with CFRunLoop in macOS, only works in main thread
     if sys.platform == "darwin":
+
         from rubicon.objc.eventloop import EventLoopPolicy
 
+        # clean up any pending tasks before we change the event loop policy
+        # this is necessary if previous code has run an asyncio loop
+
+        loop = asyncio.get_event_loop()
+        pending_tasks = [t for t in asyncio.all_tasks(loop) if not t.done()]
+
+        for task in pending_tasks:
+            task.cancel()
+
+        loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
+        loop.close()
+
+        # set new event loop policy
         asyncio.set_event_loop_policy(EventLoopPolicy())
 
     # get the default event loop
