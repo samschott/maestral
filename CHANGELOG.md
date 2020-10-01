@@ -8,10 +8,12 @@
   during an unlink.
 - Improves handling of errors when the keyring where Dropbox credentials are stored
   becomes unavailable, e.g., has been uninstalled.
-- Always shut down daemon when setup fails with an exception or is aborted.
+- Never start a subprocess when maestral is run with the `--foreground` option. Previously,
+  any required setup such as linking, etc, would still be performed in a subprocess.
 - Minor tweaks and improvements to the macOS GUI.
 - Allow sending desktop notifications in Linux before the daemon's event loop has started.
   This is useful for error messages which occur early during the initialization.
+- Improves log messages when the connection to Dropbox is lost.
 
 #### Fixes:
 
@@ -20,9 +22,10 @@
   receive notifications from a subprocess instead of the main process.
 - Fixes an issue which would prevent syncing from automatically resuming after moving the
   local Dropbox directory with `maestral move-dir` or through the GUI.
-- Fixed green background for sync issue views in the macOS GUI.
+- Fixed a green background for sync issue views in the macOS GUI.
 - Fixes an issue where the system tray icon in KDE plasma could fall back to the regular
   app icon or not show up at all, depending on the version of PyQt5.
+  
 
 #### Dependencies:
 
