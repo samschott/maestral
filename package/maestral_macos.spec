@@ -50,7 +50,7 @@ a = Entrypoint(
         (pkgr.resource_filename('maestral_cocoa', 'resources/*.pdf'), '.'),
         (pkgr.resource_filename('maestral', 'resources/*'), '.'),
     ],
-    hiddenimports=['pkg_resources.py2_warn'],
+    hiddenimports=['pkg_resources.py2_warn', 'alembic'],
     hookspath=['hooks'],
     runtime_hooks=[],
     excludes=['_tkinter'],
