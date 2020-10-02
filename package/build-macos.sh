@@ -74,7 +74,7 @@ xattr -cr dist/Maestral.app
 
 echo "signing app"
 codesign -s "Developer ID Application: Sam Schott" \
-  --entitlements entitlements.plist --deep -o runtime dist/Maestral.app
+  --entitlements entitlements.plist -f --deep -o runtime dist/Maestral.app
 
 echo "**** CREATING DMG **************************************"
 
