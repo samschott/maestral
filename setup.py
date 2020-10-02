@@ -7,6 +7,7 @@ import importlib.util
 
 # proceed with actual install
 install_requires = [
+    "alembic>=1.3.0",
     "bugsnag>=3.4.0",
     "click>=7.1.1",
     "dropbox>=10.4.1",
@@ -23,7 +24,6 @@ install_requires = [
     "setuptools",
     "sdnotify>=0.3.2",
     "sqlalchemy>=1.3.0",
-    "alembic>=1.3.0",
     "watchdog>=0.10.0",
 ]
 
