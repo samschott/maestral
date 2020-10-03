@@ -123,8 +123,18 @@ contents within (`chown -R 1000 /mnt/dropbox`).
 Later, if you want just a `maestral start`, just execute
 
 ```console
-$ docker run -v /mnt/dropbox:/dropbox aries1980/maestral:latest
+$ docker run \
+  -d \
+  --name maestral \
+  --rm \
+  -v /mnt/dropbox:/dropbox \
+  aries1980/maestral:latest
 ```
+
+- To step into the Maestral container: `docker exec -it maestral ash`
+- List the logs of the container: `docker logs maestral`
+- Get the build info of a running container: `docker inspect maestral | jq ".[].Config.Labels"`
+
 
 ## Contribute
 
