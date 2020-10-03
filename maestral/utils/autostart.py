@@ -295,7 +295,6 @@ class AutoStart:
                 unit_dict={"Description": "Maestral daemon for the config %i"},
                 service_dict={
                     "Type": "notify",
-                    "NotifyAccess": "all",
                     "WatchdogSec": "30",
                     "ExecStop": f"{self.maestral_path} stop -c %i",
                     "ExecStopPost": f'/usr/bin/env bash -c "{notify_failure}"',
