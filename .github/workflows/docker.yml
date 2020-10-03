@@ -90,13 +90,13 @@ jobs:
           labels: |
             org.opencontainers.image.created=${{ steps.prep.outputs.created }}
             org.opencontainers.image.description=${{ github.event.repository.description }}
-            org.opencontainers.image.docker.cmd="docker run -d -v /home/dropbox:/dropbox maestral" \
-            org.opencontainers.image.documentation="https://maestral.readthedocs.io/en/latest"
+            org.opencontainers.image.docker.cmd=docker run -d --rm --name maestral -v /home/dropbox:/dropbox maestral
+            org.opencontainers.image.documentation=https://maestral.readthedocs.io/en/latest
             org.opencontainers.image.licenses=${{ github.event.repository.license.spdx_id }}
             org.opencontainers.image.ref.name=${{ steps.prep.outputs.git_branch }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.event.repository.clone_url }}
-            org.opencontainers.image.title="Maestral" 
+            org.opencontainers.image.title=Maestral
             org.opencontainers.image.url=${{ github.event.repository.html_url }}
             org.opencontainers.image.version=${{ steps.prep.outputs.version }}
           platforms: linux/amd64,linux/arm64,linux/arm/v7
