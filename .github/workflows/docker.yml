@@ -23,9 +23,8 @@ jobs:
         id: prep
         run: |
           DOCKER_IMAGE=aries1980/maestral
-          # This doesn't work for some reason.
-          # MAESTRAL_VERSION=$(git describe --abbrev=0)
-          MAESTRAL_VERSION=1.2.0
+          LAST_GIT_TAG=$(git describe --tags --abbrev=0)
+          MAESTRAL_VERSION=${LAST_GIT_TAG:1}
           VERSION=noop
           GIT_BRANCH=${GITHUB_REF##*/}
           if [ "${{ github.event_name }}" = "schedule" ]; then
@@ -46,9 +45,6 @@ jobs:
             MINOR=${MAESTRAL_VERSION%.*}
             MAJOR=${MINOR%.*}
             TAGS="${DOCKER_IMAGE}:${MAESTRAL_VERSION},${DOCKER_IMAGE}:${MINOR},${DOCKER_IMAGE}:${MAJOR},${DOCKER_IMAGE}:latest"
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            TAGS="$TAGS,${DOCKER_IMAGE}:sha-${GITHUB_SHA::8}"
-          fi
           echo ::set-output name=version::${VERSION}
           echo ::set-output name=maestral_version::${MAESTRAL_VERSION}
           echo ::set-output name=docker_image::${DOCKER_IMAGE}
