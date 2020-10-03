@@ -98,7 +98,7 @@ jobs:
             org.opencontainers.image.title="Maestral" 
             org.opencontainers.image.url=${{ github.event.repository.html_url }}
             org.opencontainers.image.version=${{ steps.prep.outputs.version }}
-          platforms: linux/amd64,linux/arm64,linux/arm32
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.prep.outputs.tags }}
       -
