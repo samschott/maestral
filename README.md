@@ -62,7 +62,7 @@ through linking and configuring your Dropbox and will then start syncing.
 ![screenshot macOS](https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/macOS_light.png)
 ![screenshot Fedora](https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/Ubuntu.png)
 
-## Command line usage
+### Command line usage
 
 After installation, Maestral will be available as a command line script by typing
 `maestral` in the command prompt. Type `maestral --help` to get a full list of available
@@ -104,6 +104,27 @@ work         user@mycorp.org
 
 By default, the Dropbox folder names will contain the capitalised config-name in braces.
 In the above case, this will be "Dropbox (Personal)" and "Dropbox (Work)".
+
+### Docker usage
+
+The Docker image is available for x86, arm/v7 (32bit) and arm64 platforms. You can do
+everything that you supposed to do in the command line, except running the GUI.
+
+For the first run, get access to the shell within the Docker container 
+
+```console
+$ docker run -it -v /mnt/dropbox:/dropbox aries1980/maestral:latest ash
+```
+
+where `/mnt/dropbox` is the directory that which contains the `Dropbox` directory.
+Maestral runs with `UID` 1000, make sure that the user owns `/mnt/dropbox` and the
+contents within (`chown -R 1000 /mnt/dropbox`).
+
+Later, if you want just a `maestral start`, just execute
+
+```console
+$ docker run -v /mnt/dropbox:/dropbox aries1980/maestral:latest
+```
 
 ## Contribute
 

@@ -19,4 +19,4 @@ USER dropbox
 VOLUME ["/dropbox"]
 WORKDIR /dropbox
 
-CMD ["maestral", "-f", "start"] 
+CMD ["maestral", "start", "-f"] 
