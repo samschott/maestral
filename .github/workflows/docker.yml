@@ -8,10 +8,16 @@ on:
       - 'v*.*.*'
   pull_request:
 
+  schedule:
+    - cron: "19 4 * * *" # everyday at 04:19
+
 jobs:
   github-cache:
     runs-on: ubuntu-latest
     steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v2
       -
         name: Prepare
         id: prep
