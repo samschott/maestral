@@ -12,7 +12,7 @@ on:
     - cron: "19 4 * * *" # everyday at 04:19
 
 jobs:
-  github-cache:
+  docker-build:
     runs-on: ubuntu-latest
     steps:
       -
@@ -101,6 +101,10 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.prep.outputs.tags }}
+  
+  dockerhub-repo-description:
+    runs-on: ubuntu-latest
+    steps:
       -
         name: Update repo description
         uses: peter-evans/dockerhub-description@v2
