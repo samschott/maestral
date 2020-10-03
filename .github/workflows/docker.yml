@@ -19,6 +19,7 @@ jobs:
           DOCKER_IMAGE=aries1980/maestral
           MAESTRAL_VERSION=$(git describe --abbrev=0)
           VERSION=noop
+          GIT_BRANCH=${GITHUB_REF##*/}
           if [ "${{ github.event_name }}" = "schedule" ]; then
             VERSION=nightly
           elif [[ $GITHUB_REF == refs/tags/* ]]; then
@@ -43,6 +44,7 @@ jobs:
           echo ::set-output name=version::${VERSION}
           echo ::set-output name=maestral_version::${MAESTRAL_VERSION}
           echo ::set-output name=docker_image::${DOCKER_IMAGE}
+          echo ::set-output name=git_branch::${GIT_BRANCH}
           echo ::set-output name=tags::${TAGS}
           echo ::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')
       -
@@ -82,7 +84,7 @@ jobs:
             org.opencontainers.image.docker.cmd="docker run -d -v /home/dropbox:/dropbox maestral" \
             org.opencontainers.image.documentation="https://maestral.readthedocs.io/en/latest"
             org.opencontainers.image.licenses=${{ github.event.repository.license.spdx_id }}
-            org.opencontainers.image.ref.name=${{ github.branch }}
+            org.opencontainers.image.ref.name=${{ steps.prep.outputs.git_branch }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.event.repository.clone_url }}
             org.opencontainers.image.title="Maestral" 
