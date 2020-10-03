@@ -23,7 +23,9 @@ jobs:
         id: prep
         run: |
           DOCKER_IMAGE=aries1980/maestral
-          MAESTRAL_VERSION=$(git describe --abbrev=0)
+          # This doesn't work for some reason.
+          # MAESTRAL_VERSION=$(git describe --abbrev=0)
+          MAESTRAL_VERSION=1.2.0
           VERSION=noop
           GIT_BRANCH=${GITHUB_REF##*/}
           if [ "${{ github.event_name }}" = "schedule" ]; then
