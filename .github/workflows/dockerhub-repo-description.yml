@@ -1,0 +1,19 @@
+name: Uploads Maestral Docker image and pushes to hub.docker.com
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  
+  dockerhub-repo-description:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Update repo description
+        uses: peter-evans/dockerhub-description@v2
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_REPOSITORY: ${{ steps.prep.outputs.docker_image }}

@@ -20,14 +20,12 @@ jobs:
         # Needed for getting the latest Git tag in the "Prepare" step.
         
       - name: Fetching tags 
-        #run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
         run: git fetch --prune --unshallow --tags
 
       - name: Prepare
         id: prep
         run: |
           DOCKER_IMAGE=aries1980/maestral
-          #LAST_GIT_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
           LAST_GIT_TAG=$(git describe --tags --abbrev=0)
           MAESTRAL_VERSION=${LAST_GIT_TAG:1}
           VERSION=noop
@@ -50,12 +48,15 @@ jobs:
             MINOR=${MAESTRAL_VERSION%.*}
             MAJOR=${MINOR%.*}
             TAGS="${DOCKER_IMAGE}:${MAESTRAL_VERSION},${DOCKER_IMAGE}:${MINOR},${DOCKER_IMAGE}:${MAJOR},${DOCKER_IMAGE}:latest"
+          fi
+ 
           echo ::set-output name=version::${VERSION}
           echo ::set-output name=maestral_version::${MAESTRAL_VERSION}
           echo ::set-output name=docker_image::${DOCKER_IMAGE}
           echo ::set-output name=git_branch::${GIT_BRANCH}
           echo ::set-output name=tags::${TAGS}
           echo ::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
 
@@ -101,16 +102,4 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.prep.outputs.tags }}
-  
-  dockerhub-repo-description:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
 
-      - name: Update repo description
-        uses: peter-evans/dockerhub-description@v2
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-          DOCKERHUB_REPOSITORY: ${{ steps.prep.outputs.docker_image }}
