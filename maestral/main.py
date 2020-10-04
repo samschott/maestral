@@ -317,8 +317,7 @@ class Maestral:
 
         # clean up any previous handlers
         # TODO: use namespaced handlers for config
-        while self._logger.hasHandlers():
-            self._logger.removeHandler(self._logger.handlers[0])
+        self._logger.handlers = []
 
         log_fmt_long = logging.Formatter(
             fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
