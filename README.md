@@ -113,7 +113,7 @@ everything that you supposed to do in the command line, except running the GUI.
 For the first run, get access to the shell within the Docker container 
 
 ```console
-$ docker run -it -v /mnt/dropbox:/dropbox aries1980/maestral:latest ash
+$ docker run -it -v /mnt/dropbox:/dropbox maestraldbx/maestral:latest ash
 ```
 
 where `/mnt/dropbox` is the directory that which contains the `Dropbox` directory.
@@ -128,7 +128,7 @@ $ docker run \
   --name maestral \
   --rm \
   -v /mnt/dropbox:/dropbox \
-  aries1980/maestral:latest
+  maestraldbx/maestral:latest
 ```
 
 - To step into the Maestral container: `docker exec -it maestral ash`

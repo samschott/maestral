@@ -16,4 +16,4 @@ on:
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-          DOCKERHUB_REPOSITORY: ${{ steps.prep.outputs.docker_image }}
+          DOCKERHUB_REPOSITORY: maestraldbx/maestral

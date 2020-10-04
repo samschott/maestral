@@ -25,7 +25,7 @@ jobs:
       - name: Prepare
         id: prep
         run: |
-          DOCKER_IMAGE=aries1980/maestral
+          DOCKER_IMAGE=maestraldbx/maestral
           LAST_GIT_TAG=$(git describe --tags --abbrev=0)
           MAESTRAL_VERSION=${LAST_GIT_TAG:1}
           VERSION=noop
