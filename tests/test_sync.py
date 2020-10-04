@@ -400,59 +400,66 @@ class TestSync(TestCase):
     TEST_LOCK_PATH = "/test.lock"
     TEST_FOLDER_PATH = "/sync_tests"
 
-    @classmethod
-    def setUpClass(cls):
+    resources = osp.dirname(__file__) + "/resources"
 
-        cls.resources = osp.dirname(__file__) + "/resources"
+    def setUp(self):
 
-        cls.m = Maestral("test-config")
-        cls.m.log_level = logging.DEBUG
-        cls.m.client._init_sdk_with_token(
+        self.resources = osp.dirname(__file__) + "/resources"
+
+        self.m = Maestral("test-config")
+        self.m.log_level = logging.DEBUG
+        self.m.client._init_sdk_with_token(
             access_token=os.environ.get("DROPBOX_TOKEN", "")
         )
-        cls.m.create_dropbox_directory("~/Dropbox_Test")
+        self.m.create_dropbox_directory("~/Dropbox_Test")
 
         # all our tests will be carried out within this folder
-        cls.test_folder_dbx = TestSync.TEST_FOLDER_PATH
-        cls.test_folder_local = cls.m.dropbox_path + cls.TEST_FOLDER_PATH
+        self.test_folder_dbx = TestSync.TEST_FOLDER_PATH
+        self.test_folder_local = self.m.dropbox_path + self.TEST_FOLDER_PATH
 
         # acquire test lock
         while True:
             try:
-                cls.m.client.make_dir(cls.TEST_LOCK_PATH)
+                self.m.client.make_dir(self.TEST_LOCK_PATH)
             except FolderConflictError:
                 time.sleep(10)
             else:
                 break
 
         # start syncing
-        cls.m.start_sync()
+        self.m.start_sync()
 
         # create our temporary test folder
-        os.mkdir(cls.test_folder_local)
+        os.mkdir(self.test_folder_local)
 
-    @classmethod
-    def tearDownClass(cls):
+        # wait until initial sync has completed
+        self.wait_for_idle()
 
-        cls.m.stop_sync()
+    def tearDown(self):
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
+        # stop syncing and clean up remote folder
+        self.m.stop_sync()
         try:
-            cls.m.client.remove(cls.test_folder_dbx)
+            self.m.client.remove(self.test_folder_dbx)
         except NotFoundError:
             pass
 
         try:
-            cls.m.client.remove("/.mignore")
+            self.m.client.remove("/.mignore")
         except NotFoundError:
             pass
 
         # release test lock
-
         try:
-            cls.m.client.remove(cls.TEST_LOCK_PATH)
+            self.m.client.remove(self.TEST_LOCK_PATH)
         except NotFoundError:
             pass
 
-        delete(cls.m.dropbox_path)
+        # remove local config
+        delete(self.m.dropbox_path)
         remove_configuration("test-config")
 
     # helper functions
@@ -599,14 +606,6 @@ class TestSync(TestCase):
         )
 
     # test functions
-
-    def setUp(self):
-        self.m.resume_sync()
-        self.clean_remote()
-        self.wait_for_idle()
-
-    def tearDown(self):
-        self.assertFalse(self.m.fatal_errors)
 
     def test_setup(self):
         self.assertFalse(self.m.pending_link)
