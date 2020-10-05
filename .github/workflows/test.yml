@@ -1,6 +1,6 @@
 name: Run tests
 
-on: pull_request
+on: pull_request_target
 
 jobs:
   tests:
@@ -10,10 +10,12 @@ jobs:
         fail-fast: false
         matrix:
             platform: [ubuntu-latest, macos-latest]
-            python-version: [3.6, ]
+            python-version: [3.6, 3.8]
     runs-on: ${{ matrix.platform }}
     steps:
     - uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.merged.sha }}
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v1
       with:
@@ -22,10 +24,15 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install --upgrade pytest
-        pip install .
-    - name: Test with pytest
-      env:
-        DROPBOX_ID: ${{ secrets.DROPBOX_ID }}
-        DROPBOX_TOKEN: ${{ secrets.DROPBOX_TOKEN }}
+        python -m pip install .
+    - name: Get Dropbox token
       run: |
-        pytest -x
+        auth_result=$(curl https://api.dropbox.com/oauth2/token \
+            -d grant_type=refresh_token \
+            -d refresh_token=${{ secrets.DROPBOX_REFRESH_TOKEN }} \
+            -d client_id=2jmbq42w7vof78h)
+        token=$(echo $auth_result | python -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
+        echo "DROPBOX_TOKEN=$token" >> $GITHUB_ENV
+    - name: Test with pytest
+      run: |
+        pytest

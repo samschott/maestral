@@ -18,6 +18,7 @@ import unittest
 from unittest import TestCase
 
 
+@unittest.skipUnless(os.environ.get("DROPBOX_TOKEN"), "Requires auth token")
 class TestAPI(TestCase):
 
     TEST_LOCK_PATH = "/test.lock"
