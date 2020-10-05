@@ -243,6 +243,8 @@ class Maestral:
         # can be used by an event loop wait until maestral has been stopped
         self.shutdown_complete = self._loop.create_future()
 
+        print('init completed')
+
     @property
     def version(self) -> str:
         """Returns the current Maestral version."""
