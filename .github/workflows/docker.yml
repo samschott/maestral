@@ -1,0 +1,105 @@
+name: Uploads Maestral Docker image and pushes to hub.docker.com
+
+on:
+  push:
+    branches:
+      - '**'
+    tags:
+      - 'v*.*.*'
+  pull_request:
+
+  schedule:
+    - cron: "19 4 * * *" # everyday at 04:19
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        # Needed for getting the latest Git tag in the "Prepare" step.
+        
+      - name: Fetching tags 
+        run: git fetch --prune --unshallow --tags
+
+      - name: Prepare
+        id: prep
+        run: |
+          DOCKER_IMAGE=maestraldbx/maestral
+          LAST_GIT_TAG=$(git describe --tags --abbrev=0)
+          MAESTRAL_VERSION=${LAST_GIT_TAG:1}
+          VERSION=noop
+          GIT_BRANCH=${GITHUB_REF##*/}
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            VERSION=nightly
+          elif [[ $GITHUB_REF == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          elif [[ $GITHUB_REF == refs/heads/* ]]; then
+            VERSION=$(echo ${GITHUB_REF#refs/heads/} | sed -r 's#/+#-#g')
+            if [ "${{ github.event.repository.default_branch }}" = "$VERSION" ]; then
+              VERSION=edge
+            fi
+          elif [[ $GITHUB_REF == refs/pull/* ]]; then
+            VERSION=pr-${{ github.event.number }}
+          fi
+          TAGS="${DOCKER_IMAGE}:${VERSION}"
+          if [[ $VERSION =~ ^v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            MAESTRAL_VERSION=${VERSION:1}
+            MINOR=${MAESTRAL_VERSION%.*}
+            MAJOR=${MINOR%.*}
+            TAGS="${DOCKER_IMAGE}:${MAESTRAL_VERSION},${DOCKER_IMAGE}:${MINOR},${DOCKER_IMAGE}:${MAJOR},${DOCKER_IMAGE}:latest"
+          fi
+ 
+          echo ::set-output name=version::${VERSION}
+          echo ::set-output name=maestral_version::${MAESTRAL_VERSION}
+          echo ::set-output name=docker_image::${DOCKER_IMAGE}
+          echo ::set-output name=git_branch::${GIT_BRANCH}
+          echo ::set-output name=tags::${TAGS}
+          echo ::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v1 
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          build-args: |
+            VERSION=${{ steps.prep.outputs.maestral_version }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          context: .
+          file: ./Dockerfile
+          # See https://github.com/opencontainers/image-spec/blob/master/annotations.md
+          labels: |
+            org.opencontainers.image.created=${{ steps.prep.outputs.created }}
+            org.opencontainers.image.description=${{ github.event.repository.description }}
+            org.opencontainers.image.docker.cmd=docker run -d --rm --name maestral -v /home/dropbox:/dropbox maestral
+            org.opencontainers.image.documentation=https://maestral.readthedocs.io/en/latest
+            org.opencontainers.image.licenses=${{ github.event.repository.license.spdx_id }}
+            org.opencontainers.image.ref.name=${{ steps.prep.outputs.git_branch }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.event.repository.clone_url }}
+            org.opencontainers.image.title=Maestral
+            org.opencontainers.image.url=${{ github.event.repository.html_url }}
+            org.opencontainers.image.version=${{ steps.prep.outputs.version }}
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.prep.outputs.tags }}
+
