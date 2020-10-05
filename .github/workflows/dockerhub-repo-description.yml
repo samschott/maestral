@@ -5,7 +5,7 @@ on:
     tags:
       - 'v*.*.*'
   
-  dockerhub-repo-description:
+  dockerhub-description:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
