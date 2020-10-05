@@ -4,8 +4,9 @@ on:
   push:
     tags:
       - 'v*.*.*'
-  
-  dockerhub-description:
+
+jobs:
+  dockerhub-repo-description:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

@@ -3,7 +3,6 @@ name: Lint with black and mypy
 on: push
 
 jobs:
-
   black:
     runs-on: ubuntu-latest
     steps:
