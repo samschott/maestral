@@ -1,19 +1,20 @@
 name: Run tests
 
-on: pull_request_target
-paths:
-  - 'maestral/**.py'
-  - 'tests/**.py'
+on:
+  pull_request_target:
+    paths:
+      - 'maestral/**.py'
+      - 'tests/**.py'
 
 jobs:
   tests:
     name: Run tests
     strategy:
-        max-parallel: 2
-        fail-fast: false
-        matrix:
-            platform: [ubuntu-latest, macos-latest]
-            python-version: [3.6, ]
+      max-parallel: 2
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+        python-version: [3.6, ]
         include:
           - platform: ubuntu-latest
             token: DROPBOX_REFRESH_TOKEN_1
