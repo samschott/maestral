@@ -3,6 +3,7 @@ name: Run tests
 on:
   pull_request_target:
     paths:
+      # run tests only when the python code has changed
       - 'maestral/**.py'
       - 'tests/**.py'
 
@@ -16,6 +17,7 @@ jobs:
         platform: [ubuntu-latest, macos-latest]
         python-version: [3.6, ]
         include:
+          # use two different Dropbox accounts to run tests in parallel
           - platform: ubuntu-latest
             token: DROPBOX_REFRESH_TOKEN_1
           - platform: macos-latest
@@ -35,6 +37,9 @@ jobs:
         python -m pip install --upgrade pytest
         python -m pip install .
     - name: Get short-lived Dropbox token
+      # We generate a short-lived auth token which is passed to the test runner as
+      # an environment variable. At no point does the test code, potentially from a
+      # malicious PR, get access to a long lived token.
       run: |
         auth_result=$(curl https://api.dropbox.com/oauth2/token \
             -d grant_type=refresh_token \
