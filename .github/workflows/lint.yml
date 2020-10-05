@@ -1,6 +1,6 @@
 name: Lint with black and mypy
 
-on: [push, pull_request]
+on: push
 
 jobs:
 
