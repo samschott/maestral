@@ -2,11 +2,8 @@ name: Uploads Maestral Docker image and pushes to hub.docker.com
 
 on:
   push:
-    branches:
-      - '**'
     tags:
       - 'v*.*.*'
-  pull_request:
 
   schedule:
     - cron: "19 4 * * *" # everyday at 04:19

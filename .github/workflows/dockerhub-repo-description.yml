@@ -1,4 +1,4 @@
-name: Uploads Maestral Docker image and pushes to hub.docker.com
+name: Uploads Maestral repo description to hub.docker.com
 
 on:
   push:
