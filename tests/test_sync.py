@@ -391,6 +391,7 @@ class TestIgnoreLocalEvents(TestCase):
         self.assertTrue(all(not si.is_directory for si in sync_events))
 
 
+@unittest.skipUnless(os.environ.get("DROPBOX_TOKEN"), "Requires auth token")
 class TestSync(TestCase):
     """
     We do not test individual methods of `maestral.sync` but rather ensure an effective
