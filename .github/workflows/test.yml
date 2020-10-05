@@ -8,11 +8,16 @@ jobs:
   tests:
     name: Run tests
     strategy:
-        max-parallel: 1
+        max-parallel: 2
         fail-fast: false
         matrix:
             platform: [ubuntu-latest, macos-latest]
-            python-version: [3.6, 3.8]
+            python-version: [3.6, ]
+        include:
+          - platform: ubuntu-latest
+            token: DROPBOX_REFRESH_TOKEN_1
+          - platform: macos-latest
+            token: DROPBOX_REFRESH_TOKEN_2
     runs-on: ${{ matrix.platform }}
     steps:
     - uses: actions/checkout@v2
@@ -27,11 +32,11 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install --upgrade pytest
         python -m pip install .
-    - name: Get Dropbox token
+    - name: Get short-lived Dropbox token
       run: |
         auth_result=$(curl https://api.dropbox.com/oauth2/token \
             -d grant_type=refresh_token \
-            -d refresh_token=${{ secrets.DROPBOX_REFRESH_TOKEN }} \
+            -d refresh_token=${{ secrets[matrix.token] }} \
             -d client_id=2jmbq42w7vof78h)
         token=$(echo $auth_result | python -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
         echo "::add-mask::$token"
