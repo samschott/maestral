@@ -152,12 +152,11 @@ Relevant resources are:
 If you are using the macOS app bundle, please consider sponsoring the project with £1 per 
 month to offset the cost of an Apple Develper account to sign and notiarize the bundle.
 
-## Dependencies
+## System requirements
 
-- macOS (10.13 or higher for binary) or Linux
+- macOS (10.14 or higher for binary) or Linux
 - Python 3.6 or higher
-- For the GUI only:
-  - PyQt 5.9 or higher
+- For the system tray icon on Linux:
   - [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
     on Gnome 3.26 and higher
 
@@ -168,4 +167,3 @@ month to offset the cost of an Apple Develper account to sign and notiarize the 
 - Error reporting is powered by bugsnag:
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <a href="https://bugsnag.com"> <img src="https://global-uploads.webflow.com/5c741219fd0819540590e785/5c741219fd0819856890e790_asset%2039.svg" title="Bugsnag text" height="20"></a>
-
