@@ -65,6 +65,19 @@ jobs:
           SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
 
       - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade dmgbuild
+          if [ "${{ github.event_name }}" = "tags" ]; then
+            # fetch gui dependency on tagged release
+            python -m pip install .[gui]
+          else
+            # checkout latest gui from github
+            python -m pip install .
+            python -m pip install git+https://github.com/samschott/maestral-cocoa
+          fi
+
+      - name: Build and install PyInstaller
         # We build the PyInstaller bootloader from source with a deployment target of
         # macOS 10.13 to get dark mode support etc.
         run: |
@@ -74,23 +87,13 @@ jobs:
           cd bootloader
           python3 ./waf all
           cd "$GITHUB_WORKSPACE"
-          python -m pip install --upgrade pip
-          python -m pip install --upgrade dmgbuild
           python -m pip install package/build/pyinstaller
-          if [ "${{ github.event_name }}" = "tags" ]; then
-            # fetch gui dependency on tagged release
-            python -m pip install .[gui]
-          else
-            # checkout latest gui from github
-            python -m pip install .
-            python -m pip install git+https://github.com/samschott/maestral-cocoa
-          fi
         env:
-          MACOSX_DEPLOYMENT_TARGET: 10.14
-          CFLAGS: -mmacosx-version-min=10.14
-          CPPFLAGS: -mmacosx-version-min=10.14
-          LDFLAGS: -mmacosx-version-min=10.14
-          LINKFLAGS: -mmacosx-version-min=10.14
+          MACOSX_DEPLOYMENT_TARGET: 10.13
+          CFLAGS: -mmacosx-version-min=10.13
+          CPPFLAGS: -mmacosx-version-min=10.13
+          LDFLAGS: -mmacosx-version-min=10.13
+          LINKFLAGS: -mmacosx-version-min=10.13
 
       - name: Build app
         shell: bash --noprofile --norc -eo pipefail {0}
