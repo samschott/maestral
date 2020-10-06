@@ -352,13 +352,17 @@ class AutoStart:
         if self._gui and getattr(sys, "frozen", False):
             return sys.executable
 
-        dist_files = files("maestral")
+        try:
+            dist_files = files("maestral")
+        except PackageNotFoundError:
+            # we may be in an app bundle or have installation issues
+            dist_files = []
 
         if dist_files:
             try:
                 rel_path = next(p for p in dist_files if p.match("**/bin/maestral"))
                 path = rel_path.locate().resolve()
-            except (StopIteration, PackageNotFoundError):
+            except StopIteration:
                 path = ""
         else:
             path = ""
