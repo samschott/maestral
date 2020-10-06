@@ -352,12 +352,15 @@ class AutoStart:
         if self._gui and getattr(sys, "frozen", False):
             return sys.executable
 
-        try:
-            pkg_path = next(
-                p for p in files("maestral") if str(p).endswith("/bin/maestral")
-            )
-            path = pkg_path.locate().resolve()
-        except (StopIteration, PackageNotFoundError):
+        dist_files = files("maestral")
+
+        if dist_files:
+            try:
+                rel_path = next(p for p in dist_files if p.match("**/bin/maestral"))
+                path = rel_path.locate().resolve()
+            except (StopIteration, PackageNotFoundError):
+                path = ""
+        else:
             path = ""
 
         if not osp.isfile(path):

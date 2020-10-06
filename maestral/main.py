@@ -214,7 +214,7 @@ class Maestral:
         self._state = MaestralState(self._config_name)
 
         # enable / disable automatic reporting of errors
-        bugsnag.configuration.auto_notify = self.analytics
+        bugsnag.configure(auto_notify=self.analytics)
 
         # set up logging
         self._log_to_stdout = log_to_stdout
@@ -502,7 +502,7 @@ class Maestral:
     def analytics(self, enabled: bool) -> None:
         """Setter: analytics."""
 
-        bugsnag.configuration.auto_notify = enabled
+        bugsnag.configure(auto_notify=self.analytics)
         self._log_handler_bugsnag.setLevel(logging.ERROR if enabled else 100)
 
         self._conf.set("app", "analytics", enabled)
