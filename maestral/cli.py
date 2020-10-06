@@ -457,11 +457,30 @@ config_option = click.option(
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
 
-@click.group(cls=SpecialHelpOrder, context_settings=CONTEXT_SETTINGS)
-def main():
+@click.group(
+    cls=SpecialHelpOrder,
+    context_settings=CONTEXT_SETTINGS,
+    invoke_without_command=True,
+    no_args_is_help=True,
+)
+@click.option(
+    "--version",
+    "-V",
+    is_flag=True,
+    default=False,
+    help="Show version and exit.",
+)
+def main(version: bool):
     """Maestral Dropbox client for Linux and macOS."""
+
     freeze_support()
-    check_for_updates()
+
+    if version:
+        from maestral.main import __version__
+
+        click.echo(__version__)
+    else:
+        check_for_updates()
 
 
 @main.group(cls=SpecialHelpOrder, help_priority=14)
