@@ -31,22 +31,19 @@ jobs:
       - name: Prepare
         id: prep
         run: |
-          LAST_GIT_TAG=$(git describe --tags --abbrev=0)
-          MAESTRAL_VERSION=${LAST_GIT_TAG:1}
           BUILD_VERSION=noop
 
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            BUILD_VERSION=nightly-$(date -u +'%Y-%m-%dT%H:%M:%SZ')-$GIT_BRANCH
+            BUILD_VERSION=nightly-$(date -u +'%Y-%m-%d-%H%M')-$GIT_BRANCH
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            BUILD_VERSION=manual-$(date -u +'%Y-%m-%dT%H:%M:%SZ')-$GIT_BRANCH
+            BUILD_VERSION=manual-$(date -u +'%Y-%m-%d-%H%M')-$GIT_BRANCH
           elif [[ $GITHUB_REF == refs/tags/* ]]; then
-            BUILD_VERSION=${GITHUB_REF#refs/tags/}
+            BUILD_VERSION=""
           elif [[ $GITHUB_REF == refs/pull/* ]]; then
             BUILD_VERSION=pr-${{ github.event.number }}
           fi
 
           echo ::set-output name=version::${BUILD_VERSION}
-          echo ::set-output name=maestral_version::${MAESTRAL_VERSION}
 
       - name: Import signing certificate into keychain
         run: |
@@ -114,7 +111,9 @@ jobs:
       - name: Create dmg
         id: dmg
         run: |
-          DMG_NAME="Maestral-${{ steps.prep.outputs.version }}.dmg"
+          MAESTRAL_VERSION=$( maestral -V )
+          DMG_NAME="Maestral-${{ steps.prep.outputs.version }}-$MAESTRAL_VERSION.dmg"
+          DMG_NAME=${DMG_NAME//--/-}
           cd package/dist
           dmgbuild -s ../dmg_settings.py Maestral $DMG_NAME
           codesign --sign "Developer ID Application: Sam Schott" $DMG_NAME
