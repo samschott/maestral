@@ -77,7 +77,14 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --upgrade dmgbuild
           python -m pip install package/build/pyinstaller
-          python -m pip install .[gui]
+          if [ "${{ github.event_name }}" = "tags" ]; then
+            # fetch gui dependency on tagged release
+            python -m pip install .[gui]
+          else
+            # checkout latest gui from github
+            python -m pip install .
+            python -m pip install git+https://github.com/samschott/maestral-cocoa
+          fi
         env:
           MACOSX_DEPLOYMENT_TARGET: 10.14
           CFLAGS: -mmacosx-version-min=10.14
