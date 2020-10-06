@@ -3,7 +3,7 @@ name: Upload Python package to PyPI
 on:
   push:
     tags:
-    - '*'
+    - 'v*.*.*'
 
 jobs:
   deploy:

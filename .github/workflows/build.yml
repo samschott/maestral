@@ -2,6 +2,10 @@ name: build
 
 on:
   push:
+    tags:
+    - 'v*.*.*'
+
+  pull_request:
 
   schedule:
     - cron: "19 3 * * *" # everyday at 03:19
@@ -14,10 +18,32 @@ jobs:
       - name: Checkout project
         uses: actions/checkout@v2
 
+      - name: Fetching tags
+        run: git fetch --prune --unshallow --tags
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
+
+      - name: Prepare
+        id: prep
+        run: |
+          LAST_GIT_TAG=$(git describe --tags --abbrev=0)
+          MAESTRAL_VERSION=${LAST_GIT_TAG:1}
+          BUILD_VERSION=noop
+          GIT_BRANCH=${GITHUB_REF##*/}
+
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            BUILD_VERSION=nightly-$(date -u +'%Y-%m-%dT%H:%M:%SZ')-$GIT_BRANCH
+          elif [[ $GITHUB_REF == refs/tags/* ]]; then
+            BUILD_VERSION=${GITHUB_REF#refs/tags/}
+          elif [[ $GITHUB_REF == refs/pull/* ]]; then
+            BUILD_VERSION=pr-${{ github.event.number }}
+          fi
+
+          echo ::set-output name=version::${BUILD_VERSION}
+          echo ::set-output name=maestral_version::${MAESTRAL_VERSION}
 
       - name: Import signing certificate into keychain
         run: |
@@ -72,19 +98,25 @@ jobs:
                    --options runtime \
                    --force --deep package/dist/Maestral.app
           codesign --verify --deep package/dist/Maestral.app
+        env:
+          BUNDLE_VERSION: $GITHUB_RUN_NUMBER
 
       - name: Create dmg
+        id: dmg
         run: |
+          DMG_NAME = "Maestral-${{ steps.prep.outputs.version }}.dmg"
           cd package/dist
-          dmgbuild -s ../dmg_settings.py Maestral Maestral.dmg
-          codesign --sign "Developer ID Application: Sam Schott" Maestral.dmg
-          codesign --verify Maestral.dmg
+          dmgbuild -s ../dmg_settings.py Maestral $DMG_NAME
+          codesign --sign "Developer ID Application: Sam Schott" $DMG_NAME
+          codesign --verify $DMG_NAME
           cd "$GITHUB_WORKSPACE"
+
+          echo ::set-output name=dmg_name::${DMG_NAME}
 
       - name: Notarize app
         run: |
           npx notarize-cli --bundle-id "com.samschott.maestral" \
-                           --file "package/dist/Maestral.dmg"
+                           --file "package/dist/${{ steps.dmg.outputs.dmg_name }}"
         env:
           NOTARIZE_USERNAME: ${{ secrets.NOTARIZE_USERNAME }}
           NOTARIZE_PASSWORD: ${{ secrets.NOTARIZE_PASSWORD }}
@@ -93,4 +125,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: dmg
-          path: package/dist/Maestral.dmg
+          path: "package/dist/${{ steps.dmg.outputs.dmg_name }}"
