@@ -48,7 +48,7 @@ show_sidebar = False
 sidebar_width = 180
 
 # Window position in ((x, y), (w, h)) format
-window_rect = ((600, 600), (300, 150))
+window_rect = ((600, 600), (350, 150))
 default_view = "icon-view"
 
 # General view configuration
