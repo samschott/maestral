@@ -1,0 +1,96 @@
+name: build
+
+on:
+  push:
+
+  schedule:
+    - cron: "19 3 * * *" # everyday at 03:19
+
+jobs:
+  build_macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Import signing certificate into keychain
+        run: |
+          KEYCHAIN_FILE=default.keychain
+          KEYCHAIN_PASSWORD=myvoiceismypassport
+          security create-keychain -p $KEYCHAIN_PASSWORD $KEYCHAIN_FILE
+          security default-keychain -s $KEYCHAIN_FILE
+          security unlock-keychain -p $KEYCHAIN_PASSWORD $KEYCHAIN_FILE
+          security import <(echo $SIGNING_CERTIFICATE_P12_DATA | base64 --decode) \
+                          -f pkcs12 \
+                          -k $KEYCHAIN_FILE \
+                          -P $SIGNING_CERTIFICATE_PASSWORD \
+                          -T /usr/bin/codesign \
+                          -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -s -k $KEYCHAIN_PASSWORD $KEYCHAIN_FILE
+          security find-identity -v
+        env:
+          SIGNING_CERTIFICATE_P12_DATA: ${{ secrets.SIGNING_CERTIFICATE_P12_DATA }}
+          SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
+
+      - name: Install dependencies
+        # We build the PyInstaller bootloader from source with a deployment target of
+        # macOS 10.13 to get dark mode support etc.
+        run: |
+          git clone https://github.com/pyinstaller/pyinstaller.git package/build/pyinstaller
+          cd package/build/pyinstaller
+          git apply ../../patch/pyinstaller_macos_11.patch
+          cd bootloader
+          python3 ./waf all
+          cd "$GITHUB_WORKSPACE"
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade dmgbuild
+          python -m pip install package/build/pyinstaller
+          python -m pip install .[gui]
+        env:
+          MACOSX_DEPLOYMENT_TARGET: 10.14
+          CFLAGS: -mmacosx-version-min=10.14
+          CPPFLAGS: -mmacosx-version-min=10.14
+          LDFLAGS: -mmacosx-version-min=10.14
+          LINKFLAGS: -mmacosx-version-min=10.14
+
+      - name: Build app
+        shell: bash --noprofile --norc -eo pipefail {0}
+        run: |
+          cd package
+          python -m PyInstaller -y --clean -w maestral_macos.spec
+          cp bin/maestral_cli dist/Maestral.app/Contents/MacOS/maestral_cli
+          cd "$GITHUB_WORKSPACE"
+          xattr -cr package/dist/Maestral.app
+          codesign --sign "Developer ID Application: Sam Schott" \
+                   --entitlements package/entitlements.plist \
+                   --options runtime \
+                   --force --deep package/dist/Maestral.app
+          codesign --verify --deep package/dist/Maestral.app
+
+      - name: Create dmg
+        run: |
+          cd package/dist
+          dmgbuild -s ../dmg_settings.py Maestral Maestral.dmg
+          codesign --sign "Developer ID Application: Sam Schott" Maestral.dmg
+          codesign --verify Maestral.dmg
+          cd "$GITHUB_WORKSPACE"
+
+      - name: Notarize app
+        run: |
+          npx notarize-cli --bundle-id "com.samschott.maestral" \
+                           --file "package/dist/Maestral.dmg"
+        env:
+          NOTARIZE_USERNAME: ${{ secrets.NOTARIZE_USERNAME }}
+          NOTARIZE_PASSWORD: ${{ secrets.NOTARIZE_PASSWORD }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: dmg
+          path: package/dist/Maestral.dmg
