@@ -63,13 +63,13 @@ jobs:
         # We build the PyInstaller bootloader and Python from source with a deployment
         # target of macOS 10.13 to get dark mode support etc.
         run: |
+          brew upgrade
+          brew update
           sudo xcode-select -s /Applications/Xcode_12.2.app/Contents/Developer
           brew uninstall --ignore-dependencies python3
           export HOMEBREW_MACOSX_DEPLOYMENT_TARGET=$MACOSX_DEPLOYMENT_TARGET
           export HOMEBREW_MACOSX_SDK_PATH=$( xcrun --sdk macosx --show-sdk-path )
           export SDKROOT=$( xcrun --sdk macosx --show-sdk-path )
-          brew upgrade
-          brew update
           brew install -s samschott/python/python@3.8
           python3 -c "import sys; print(sys.version)"
           git clone https://github.com/pyinstaller/pyinstaller.git package/build/pyinstaller
