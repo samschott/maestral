@@ -65,7 +65,6 @@ jobs:
         run: |
           brew uninstall --ignore-dependencies python3
           export HOMEBREW_MACOSX_DEPLOYMENT_TARGET=$MACOSX_DEPLOYMENT_TARGET
-          export HOMEBREW_MACOSX_SDK_PATH=$( xcrun --sdk macosx --show-sdk-path )
           export SDKROOT=$( xcrun --sdk macosx --show-sdk-path )
           brew tap samschott/python
           brew install -s samschott/python/python@3.8
