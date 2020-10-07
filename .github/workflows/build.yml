@@ -68,7 +68,7 @@ jobs:
         # We build the PyInstaller bootloader and Python from source with a deployment
         # target of macOS 10.13 to get dark mode support etc.
         run: |
-          brew uninstall python3
+          brew uninstall --ignore-dependencies python3
           brew install -s samschott/python/python@3.8
           git clone https://github.com/pyinstaller/pyinstaller.git package/build/pyinstaller
           cd package/build/pyinstaller
