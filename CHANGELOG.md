@@ -1,5 +1,10 @@
 ## v1.2.1.dev
 
+This update provides bug fixes and some improvements to error handling. Major changes
+don't regard Maestral itself but its distribution: a Docker image is now available, thanks
+to @aries1980, and the macOS app bundle has been rebuilt with the macOS 11 SDK, providing
+full compatibility from macOS 10.13 High Sierra to macOS 11.0 Big Sur.
+
 #### Added:
 
 - Added a Docker image, thanks to @aries1980. The docker image is based on Linux and does
@@ -30,9 +35,10 @@
 - Fixes an issue which would prevent syncing from automatically resuming after moving the
   local Dropbox directory with `maestral move-dir` or through the GUI.
 - Fixed a green background for sync issue views in the macOS GUI.
-- Fixes an issue where the system tray icon in KDE plasma could fall back to the regular
-  app icon or not show up at all, depending on the version of PyQt5.
-  
+- Fixes an issue where the system tray icon in KDE Plasma could fall back to the regular
+  app icon or not show up at all, 
+- Fixes an issue where the user may be asked to unlock or grant access to the system
+  keyring twice on startup if access denied the first time.
 
 #### Dependencies:
 
