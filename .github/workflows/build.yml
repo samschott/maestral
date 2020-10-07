@@ -64,10 +64,11 @@ jobs:
           SIGNING_CERTIFICATE_P12_DATA: ${{ secrets.SIGNING_CERTIFICATE_P12_DATA }}
           SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
 
-      - name: Install custom builds
+      - name: Build and install Python and PyInstaller
         # We build the PyInstaller bootloader and Python from source with a deployment
         # target of macOS 10.13 to get dark mode support etc.
         run: |
+          sudo xcode-select -s /Applications/Xcode_12.2.app/Contents/Developer
           brew uninstall --ignore-dependencies python3
           brew install -s samschott/python/python@3.8
           git clone https://github.com/pyinstaller/pyinstaller.git package/build/pyinstaller
