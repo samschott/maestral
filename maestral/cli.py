@@ -516,7 +516,7 @@ def gui(config_name: str) -> None:
 
     if len(gui_entry_points) == 0:
         raise click.ClickException(
-            "No maestral GUI installed. Please run " "'pip3 install maestral[gui]'."
+            "No maestral GUI installed. Please run 'pip3 install maestral[gui]'."
         )
 
     if platform.system() == "Darwin":
