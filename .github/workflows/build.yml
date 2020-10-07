@@ -108,7 +108,7 @@ jobs:
                    --force --deep package/dist/Maestral.app
           codesign --verify --deep package/dist/Maestral.app
         env:
-          BUNDLE_VERSION: $GITHUB_RUN_NUMBER
+          BUNDLE_VERSION: ${{ github.run_number }}
 
       - name: Create dmg
         id: dmg
