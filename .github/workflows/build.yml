@@ -23,11 +23,6 @@ jobs:
       - name: Fetching tags
         run: git fetch --prune --unshallow --tags
 
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.8
-
       - name: Prepare
         id: prep
         run: |
@@ -71,13 +66,14 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_12.2.app/Contents/Developer
           brew uninstall --ignore-dependencies python3
           brew install -s samschott/python/python@3.8
+          python3 -c "import sys; print(sys.version)"
           git clone https://github.com/pyinstaller/pyinstaller.git package/build/pyinstaller
           cd package/build/pyinstaller
           git apply ../../patch/pyinstaller_macos_11.patch
           cd bootloader
           python3 ./waf all
           cd "$GITHUB_WORKSPACE"
-          python -m pip install package/build/pyinstaller
+          python3 -m pip install package/build/pyinstaller
         env:
           MACOSX_DEPLOYMENT_TARGET: 10.13
           CFLAGS: -mmacosx-version-min=10.13
@@ -87,22 +83,22 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install --upgrade dmgbuild
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --upgrade dmgbuild
           if [ "${{ github.event_name }}" = "tags" ]; then
             # fetch gui dependency on tagged release
-            python -m pip install .[gui]
+            python3 -m pip install .[gui]
           else
             # checkout latest gui from github
-            python -m pip install .
-            python -m pip install git+https://github.com/samschott/maestral-cocoa
+            python3 -m pip install .
+            python3 -m pip install git+https://github.com/samschott/maestral-cocoa
           fi
 
       - name: Build app
         shell: bash --noprofile --norc -eo pipefail {0}
         run: |
           cd package
-          python -m PyInstaller -y --clean -w maestral_macos.spec
+          python3 -m PyInstaller -y --clean -w maestral_macos.spec
           cp bin/maestral_cli dist/Maestral.app/Contents/MacOS/maestral_cli
           cd "$GITHUB_WORKSPACE"
           xattr -cr package/dist/Maestral.app
