@@ -59,9 +59,9 @@ jobs:
           SIGNING_CERTIFICATE_P12_DATA: ${{ secrets.SIGNING_CERTIFICATE_P12_DATA }}
           SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
 
-      - name: Build and install Python and PyInstaller
-        # We build the PyInstaller bootloader and Python from source with a deployment
-        # target of macOS 10.13 to get dark mode support etc.
+      - name: Install dependencies that require building
+        # We build all extension modules (PyInstaller bootloader, watchdog) and Python
+        # itself from source with the latest SDK and a deployment target of macOS 10.13.
         run: |
           brew uninstall --ignore-dependencies python3
           export HOMEBREW_MACOSX_DEPLOYMENT_TARGET=$MACOSX_DEPLOYMENT_TARGET
@@ -74,7 +74,8 @@ jobs:
           cd bootloader
           python3 ./waf all
           cd "$GITHUB_WORKSPACE"
-          python3 -m pip install package/build/pyinstaller
+          python3 -m pip install --upgrade package/build/pyinstaller
+          python3 -m pip install --upgrade watchdog
         env:
           MACOSX_DEPLOYMENT_TARGET: 10.13
           CFLAGS: -mmacosx-version-min=10.13
