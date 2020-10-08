@@ -547,7 +547,7 @@ def gui(config_name: str) -> None:
     if default_entry_point:
         # check gui requirements
         maestral_dist = pkg_resources.get_distribution("maestral")
-        requirements = maestral_dist.requires(extras=["gui"])
+        requirements = maestral_dist.requires(extras=("gui",))
 
         for r in requirements:
             pkg_resources.working_set.find(r)
@@ -556,7 +556,7 @@ def gui(config_name: str) -> None:
         run = default_entry_point.load()
 
     else:
-        fallback_entry_point = next(entry_points)
+        fallback_entry_point = next(iter(entry_points))
         run = fallback_entry_point.load()
 
     run(config_name)
