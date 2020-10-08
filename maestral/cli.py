@@ -593,7 +593,17 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
     if m.pending_dropbox_folder:
         path = select_dbx_path_dialog(config_name, allow_merge=True)
-        m.create_dropbox_directory(path)
+
+        while True:
+            try:
+                m.create_dropbox_directory(path)
+                break
+            except OSError:
+                click.echo(
+                    "Could not create folder. Please make sure that you have "
+                    "permissions to write to the selected location or choose a "
+                    "different location."
+                )
 
         exclude_folders_q = click.confirm(
             "Would you like to exclude any folders from syncing?",
