@@ -7,8 +7,8 @@
 This module handles desktop notifications for Maestral and supports multiple backends,
 depending on the platform. A single :class:`DesktopNotifier` instance is created for all
 all sync daemons and a :class:`MaestralDesktopNotifier` instance is created for each
-daemon individually. Notification settings such as as snoozing and levels can be modified
-through :class:`MaestralDesktopNotifier`.
+daemon individually. Notification settings such as as snoozing and levels can be
+modified through :class:`MaestralDesktopNotifier`.
 
 :constant int NONE: No desktop notifications.
 :constant int ERROR: Notifications on errors.

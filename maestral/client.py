@@ -198,14 +198,14 @@ def to_maestral_error(
 class DropboxClient:
     """Client for the Dropbox SDK.
 
-    This client defines basic methods to wrap Dropbox Python SDK calls, such as creating,
-    moving, modifying and deleting files and folders on Dropbox and downloading files from
-    Dropbox.
+    This client defines basic methods to wrap Dropbox Python SDK calls, such as
+    creating, moving, modifying and deleting files and folders on Dropbox and
+    downloading files from Dropbox.
 
     All Dropbox SDK exceptions and :class:`OSError` instances if related to accessing or
-    saving local files will be caught and reraised as a :class:`errors.MaestralApiError`.
-    Connection errors from requests will be caught and reraised as
-    :class:`ConnectionError`.
+    saving local files will be caught and reraised as a
+    :class:`errors.MaestralApiError`. Connection errors from requests will be caught and
+    reraised as :class:`ConnectionError`.
 
     :param config_name: Name of config file and state file to use.
     :param timeout: Timeout for individual requests. Defaults to 100 sec if not given.
@@ -225,7 +225,7 @@ class DropboxClient:
         self._dbx = None
         self._state = MaestralState(config_name)
 
-    # ---- linking API -------------------------------------------------------------------
+    # ---- linking API -----------------------------------------------------------------
 
     @property
     def dbx(self) -> Dropbox:
@@ -273,8 +273,8 @@ class DropboxClient:
 
     def link(self, token: str) -> int:
         """
-        Links Maestral with a Dropbox account using the given access token. The token will
-        be stored for future usage as documented in the :mod:`oauth` module.
+        Links Maestral with a Dropbox account using the given access token. The token
+        will be stored for future usage as documented in the :mod:`oauth` module.
 
         :param token: OAuth token for Dropbox access.
         :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
@@ -344,7 +344,7 @@ class DropboxClient:
         """The unique Dropbox ID of the linked account"""
         return self.auth.account_id
 
-    # ---- SDK wrappers ------------------------------------------------------------------
+    # ---- SDK wrappers ----------------------------------------------------------------
 
     @to_maestral_error()
     def get_account_info(self, dbid: Optional[str] = None) -> users.FullAccount:
@@ -398,7 +398,8 @@ class DropboxClient:
     def get_metadata(self, dbx_path: str, **kwargs) -> files.Metadata:
         """
         Gets metadata for an item on Dropbox or returns ``False`` if no metadata is
-        available. Keyword arguments are passed on to Dropbox SDK files_get_metadata call.
+        available. Keyword arguments are passed on to Dropbox SDK files_get_metadata
+        call.
 
         :param dbx_path: Path of folder on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
@@ -421,8 +422,8 @@ class DropboxClient:
         Lists all file revisions for the given file.
 
         :param dbx_path: Path to file on Dropbox.
-        :param mode: Must be 'path' or 'id'. If 'id', specify the Dropbox file ID instead
-            of the file path to get revisions across move and rename events.
+        :param mode: Must be 'path' or 'id'. If 'id', specify the Dropbox file ID
+            instead of the file path to get revisions across move and rename events.
         :param limit: Maximum number of revisions to list. Defaults to 10.
         :returns: File revision history.
         """
@@ -517,8 +518,8 @@ class DropboxClient:
         :param local_path: Path of local file to upload.
         :param dbx_path: Path to save file on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_upload.
-        :param chunk_size: Maximum size for individual uploads. If larger than 150 MB, it
-            will be set to 150 MB.
+        :param chunk_size: Maximum size for individual uploads. If larger than 150 MB,
+            it will be set to 150 MB.
         :param sync_event: If given, the sync event will be updated with the number of
             downloaded bytes.
         :returns: Metadata of uploaded file.
@@ -632,10 +633,10 @@ class DropboxClient:
         Delete multiple items on Dropbox in a batch job.
 
         :param entries: List of Dropbox paths and "rev"s to delete. If a "rev" is not
-            None, the file will only be deleted if it matches the rev on Dropbox. This is
-            not supported when deleting a folder.
-        :param batch_size: Number of items to delete in each batch. Dropbox allows batches
-            of up to 1,000 items. Larger values will be capped automatically.
+            None, the file will only be deleted if it matches the rev on Dropbox. This
+            is not supported when deleting a folder.
+        :param batch_size: Number of items to delete in each batch. Dropbox allows
+            batches of up to 1,000 items. Larger values will be capped automatically.
         :returns: List of Metadata for deleted items or :class:`errors.SyncError` for
             failures. Results will be in the same order as the original input.
         """
@@ -743,8 +744,8 @@ class DropboxClient:
         :param batch_size: Number of folders to create in each batch. Dropbox allows
             batches of up to 1,000 folders. Larger values will be capped automatically.
         :param kwargs: Keyword arguments for Dropbox SDK files_create_folder_batch.
-        :returns: List of Metadata for created folders or SyncError for failures. Entries
-            will be in the same order as given paths.
+        :returns: List of Metadata for created folders or SyncError for failures.
+            Entries will be in the same order as given paths.
         """
         batch_size = clamp(batch_size, 1, 1000)
 
@@ -834,9 +835,9 @@ class DropboxClient:
         Lists the contents of a folder on Dropbox.
 
         :param dbx_path: Path of folder on Dropbox.
-        :param max_retries_on_timeout: Number of times to try again if Dropbox servers do
-            not respond within the timeout. Occasional timeouts may occur for very large
-            Dropbox folders.
+        :param max_retries_on_timeout: Number of times to try again if Dropbox servers
+            do not respond within the timeout. Occasional timeouts may occur for very
+            large Dropbox folders.
         :param include_non_downloadable_files: If ``True``, files that cannot be
             downloaded (at the moment only G-suite files on Dropbox) will be included.
         :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
@@ -884,8 +885,8 @@ class DropboxClient:
         results: List[files.ListFolderResult],
     ) -> files.ListFolderResult:
         """
-        Flattens a list of :class:`files.ListFolderResult` instances to a single instance
-        with the cursor of the last entry in the list.
+        Flattens a list of :class:`files.ListFolderResult` instances to a single
+        instance with the cursor of the last entry in the list.
 
         :param results: List of :class:`files.ListFolderResult` instances.
         :returns: Flattened list folder result.
@@ -950,7 +951,7 @@ class DropboxClient:
         return results
 
 
-# ==== conversion functions to generate error messages and types =========================
+# ==== conversion functions to generate error messages and types =======================
 
 
 def os_to_maestral_error(
@@ -1097,7 +1098,7 @@ def dropbox_to_maestral_error(
     """
 
     err_cls: Type[MaestralApiError]
-    # --------------------------- Dropbox API Errors -------------------------------------
+    # ---- Dropbox API Errors ----------------------------------------------------------
     if isinstance(exc, exceptions.ApiError):
 
         error = exc.error
@@ -1365,7 +1366,7 @@ def dropbox_to_maestral_error(
                 "information from the logs."
             )
 
-    # ----------------------- Authentication errors --------------------------------------
+    # ---- Authentication errors -------------------------------------------------------
     elif isinstance(exc, exceptions.AuthError):
         error = exc.error
         if isinstance(error, auth.AuthError):
@@ -1388,8 +1389,9 @@ def dropbox_to_maestral_error(
                 title = "Authentication error"
                 text = "Your user account has been suspended."
             else:
-                # Other tags are invalid_select_admin, invalid_select_user, missing_scope,
-                # route_access_denied. Neither should occur in our SDK usage.
+                # Other tags are invalid_select_admin, invalid_select_user,
+                # missing_scope, route_access_denied. Neither should occur in our SDK
+                # usage.
                 err_cls = MaestralApiError
                 title = "An unexpected error occurred"
                 text = (
@@ -1404,7 +1406,7 @@ def dropbox_to_maestral_error(
                 "Please check if you can log into your account on the Dropbox website."
             )
 
-    # -------------------------- OAuth2 flow errors --------------------------------------
+    # ---- OAuth2 flow errors ----------------------------------------------------------
     elif isinstance(exc, requests.HTTPError):
         err_cls = DropboxAuthError
         title = "Authentication failed"
@@ -1420,14 +1422,14 @@ def dropbox_to_maestral_error(
         title = "Not approved error"
         text = "Please grant Maestral access to your Dropbox to start syncing."
 
-    # ----------------------------- Bad input errors -------------------------------------
+    # ---- Bad input errors ------------------------------------------------------------
     # should only occur due to user input from console scripts
     elif isinstance(exc, exceptions.BadInputError):
         err_cls = BadInputError
         title = "Bad input to API call"
         text = exc.message
 
-    # ---------------------- Internal Dropbox error --------------------------------------
+    # ---- Internal Dropbox error ------------------------------------------------------
     elif isinstance(exc, exceptions.InternalServerError):
         err_cls = DropboxServerError
         title = "Could not sync file or folder"
@@ -1437,7 +1439,7 @@ def dropbox_to_maestral_error(
             "again if it failed."
         )
 
-    # -------------------------- Everything else -----------------------------------------
+    # ---- Everything else -------------------------------------------------------------
     else:
         err_cls = MaestralApiError
         title = "An unexpected error occurred"

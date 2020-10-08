@@ -7,8 +7,9 @@
 This module handles desktop notifications for Maestral and supports multiple backends,
 depending on the platform. A single :class:`DesktopNotifier` instance is created for all
 all sync daemons and a :class:`MaestralDesktopNotifier` instance is created for each
-daemon individually. Notification settings such as as snoozing and levels can be modified
-through :class:`MaestralDesktopNotifier`.
+daemon individually. Notification settings such as as snoozing and levels can be
+modified through :class:`MaestralDesktopNotifier`.
+
 """
 
 # system imports
@@ -28,10 +29,10 @@ class DesktopNotifier:
     """
     Cross-platform desktop notifications for macOS and Linux. Uses different backends
     depending on the platform version and available services. The Dbus backend requires
-    a running asyncio loop. The Cocoa implementations will dispatch notifications without
-    an event loop but require a running CFRunLoop *in the main thread* to react to user
-    interactions with the notification. Packages such as :mod:`rubicon.objc` can be used
-    to integrate asyncio with a CFRunLoop.
+    a running asyncio loop. The Cocoa implementations will dispatch notifications
+    without an event loop but require a running CFRunLoop *in the main thread* to react
+    to user interactions with the notification. Packages such as :mod:`rubicon.objc` can
+    be used to integrate asyncio with a CFRunLoop.
 
     :param app_name: Name of app which sends notifications.
     :param app_id: Bundle identifier of the app. This is typically a reverse domain name
@@ -72,9 +73,9 @@ class DesktopNotifier:
         :param message: Notification message.
         :param urgency: Notification level: low, normal or critical. This is ignored by
             some implementations.
-        :param icon: Path to an icon to use for the notification, typically the app icon.
-            This is ignored by some implementations, e.g., on macOS where the icon of the
-            app bundle is always used.
+        :param icon: Path to an icon to use for the notification, typically the app
+            icon. This is ignored by some implementations, e.g., on macOS where the icon
+            of the app bundle is always used.
         :param action: Handler to call when the notification is clicked. This is ignored
             by some implementations.
         :param buttons: A dictionary with button names and callbacks to show in the
@@ -194,7 +195,8 @@ class MaestralDesktopNotifier(logging.Handler):
         :param level: Notification level of the message.
         :param on_click: A callback to execute when the notification is clicked. The
             provided callable must not take any arguments.
-        :param buttons: A dictionary with button names and callbacks for the notification.
+        :param buttons: A dictionary with button names and callbacks for the
+            notification.
         """
 
         ignore = self.snoozed and level == MaestralDesktopNotifier.FILECHANGE

@@ -58,8 +58,8 @@ def clamp(n: _N, minn: _N, maxn: _N) -> _N:
 
 def get_newer_version(version: str, releases: Iterable[str]) -> Optional[str]:
     """
-    Checks a given release version against a version list of releases to see if an update
-    is available. Only offers newer versions if they are not a prerelease.
+    Checks a given release version against a version list of releases to see if an
+    update is available. Only offers newer versions if they are not a prerelease.
 
     :param version: The current version.
     :param releases: A list of valid cleaned releases.

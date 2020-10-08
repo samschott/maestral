@@ -37,12 +37,12 @@ class Notification:
     :param urgency: Notification level: low, normal or critical. This is ignored by some
         implementations.
     :param icon: Path to an icon to use for the notification, typically the app icon.
-        This is ignored by some implementations, e.g., on macOS where the icon of the app
-        bundle is always used.
+        This is ignored by some implementations, e.g., on macOS where the icon of the
+        app bundle is always used.
     :param action: Handler to call when the notification is clicked. This is ignored by
         some implementations.
-    :param buttons: A dictionary with button names to show in the notification and handler
-        to call when the respective button is clicked. This is ignored by some
+    :param buttons: A dictionary with button names to show in the notification and
+        handler to call when the respective button is clicked. This is ignored by some
         implementations.
 
     :ivar identifier: An identifier which gets assigned to the notification after it is
@@ -73,8 +73,8 @@ class Notification:
 
 class DesktopNotifierBase:
     """
-    Base class for desktop notifications. Notification levels CRITICAL, NORMAL and LOW may
-    be used by some implementations to determine how a notification is displayed.
+    Base class for desktop notifications. Notification levels CRITICAL, NORMAL and LOW
+    may be used by some implementations to determine how a notification is displayed.
 
     :param app_name: Name to identify the application in the notification center. On
         Linux, this should correspond to the application name in a desktop entry. On

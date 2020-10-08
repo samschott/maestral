@@ -230,8 +230,8 @@ elif Version(macos_version) <= Version("11.0.0"):
                     notification_info.action()
 
     class CocoaNotificationCenterLegacy(DesktopNotifierBase):
-        """NSUserNotificationCenter backend for macOS. Pre macOS Mojave. We don't support
-        buttons here."""
+        """NSUserNotificationCenter backend for macOS. Pre macOS Mojave. We don't
+        support buttons here."""
 
         def __init__(self, app_name: str, app_id: str) -> None:
             super().__init__(app_name, app_id)

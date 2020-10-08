@@ -73,8 +73,8 @@ class OAuth2Session:
     as needed.
 
     If the auth flow was previously completed before Dropbox migrated to short-lived
-    tokens, the ``token_access_type`` will be 'legacy' and only a long-lived access token
-    will be available.
+    tokens, the ``token_access_type`` will be 'legacy' and only a long-lived access
+    token will be available.
 
     .. warning:: Unlike MacOS Keychain, Gnome Keyring and KWallet do not support
         app-specific access to passwords. If the user unlocks those keyrings, we and any
@@ -124,9 +124,9 @@ class OAuth2Session:
 
     def _get_keyring_backend(self) -> KeyringBackend:
         """
-        Returns the keyring backend currently used. If none is used because we are not yet
-        linked, use the backend specified in the config file (if valid) or choose the most
-        secure of the available and supported keyring backends.
+        Returns the keyring backend currently used. If none is used because we are not
+        yet linked, use the backend specified in the config file (if valid) or choose
+        the most secure of the available and supported keyring backends.
         """
 
         import keyring.backends
@@ -214,10 +214,10 @@ class OAuth2Session:
     @property
     def access_token(self) -> Optional[str]:
         """Returns the access token (read only). This will always be set for a 'legacy'
-        token. For an 'offline' token, this will only be set if we completed the auth flow
-        in the current session. In case of an 'offline' token, use the refresh token to
-        retrieve a short-lived access token through the Dropbox API instead. The call may
-        block until the keyring is unlocked."""
+        token. For an 'offline' token, this will only be set if we completed the auth
+        flow in the current session. In case of an 'offline' token, use the refresh
+        token to retrieve a short-lived access token through the Dropbox API instead.
+        The call may block until the keyring is unlocked."""
 
         with self._lock:
             if not self.loaded:
@@ -242,7 +242,7 @@ class OAuth2Session:
         set for an 'offline' token and if we completed the flow during the current
         session."""
 
-        # no loading necessary, this will only be set if we linked in the current session
+        # this will only be set if we linked in the current session
 
         return self._expires_at
 

@@ -4,8 +4,8 @@
 
 (c) Sam Schott; This work is licensed under the MIT licence.
 
-This module contains functions to retrieve platform dependent locations to store app data.
-It supports macOS and Linux.
+This module contains functions to retrieve platform dependent locations to store app
+data. It supports macOS and Linux.
 
 """
 

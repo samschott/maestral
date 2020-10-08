@@ -7,8 +7,8 @@
 This module defines Maestral's error classes. It should be kept free of memory heavy
 imports.
 
-All errors inherit from MaestralApiError which has title and message attributes to display
-the error to the user.
+All errors inherit from MaestralApiError which has title and message attributes to
+display the error to the user.
 
 Errors are divided into "fatal errors" which will prevent any syncing or "sync errors"
 which will only prevent syncing of an individual file or folder. Fatal errors can be for
@@ -30,16 +30,16 @@ class MaestralApiError(Exception):
     """
     Base class for errors originating from the Dropbox API or the 'local API'.
 
-    :param title: A short description of the error type. This can be used in a CLI or GUI
-        to give a short error summary.
+    :param title: A short description of the error type. This can be used in a CLI or
+        GUI to give a short error summary.
     :param message: A more verbose description which can include instructions on how to
         proceed to fix the error.
     :param dbx_path: Dropbox path of the file that caused the error.
-    :param dbx_path_dst: Dropbox destination path of the file that caused the error. This
-        should be set for instance when error occurs when moving an item.
+    :param dbx_path_dst: Dropbox destination path of the file that caused the error.
+        This should be set for instance when error occurs when moving an item.
     :param local_path: Local path of the file that caused the error.
-    :param local_path_dst: Local destination path of the file that caused the error. This
-        should be set for instance when error occurs when moving an item.
+    :param local_path_dst: Local destination path of the file that caused the error.
+        This should be set for instance when error occurs when moving an item.
     """
 
     def __init__(
@@ -62,7 +62,7 @@ class MaestralApiError(Exception):
         return ". ".join([self.title, self.message])
 
 
-# ==== regular sync errors ===============================================================
+# ==== regular sync errors =============================================================
 
 
 class SyncError(MaestralApiError):
@@ -134,8 +134,8 @@ class DropboxServerError(SyncError):
 
 
 class RestrictedContentError(SyncError):
-    """Raised when trying to sync restricted content, for instance when adding a file with
-    a DMCA takedown notice to a public folder."""
+    """Raised when trying to sync restricted content, for instance when adding a file
+    with a DMCA takedown notice to a public folder."""
 
     pass
 
@@ -148,9 +148,9 @@ class UnsupportedFileError(SyncError):
 
 
 class FileSizeError(SyncError):
-    """Raised when attempting to upload a file larger than 350 GB in an upload session or
-    larger than 150 MB in a single upload. Also raised when attempting to download a file
-    with a size that exceeds file system's limit."""
+    """Raised when attempting to upload a file larger than 350 GB in an upload session
+    or larger than 150 MB in a single upload. Also raised when attempting to download a
+    file with a size that exceeds file system's limit."""
 
     pass
 
@@ -161,7 +161,7 @@ class FileReadError(SyncError):
     pass
 
 
-# ==== errors which are not related to a specific sync event =============================
+# ==== errors which are not related to a specific sync event ===========================
 
 
 class NotLinkedError(MaestralApiError):

@@ -6,8 +6,8 @@
 (c) Sam Schott; This work is licensed under the MIT licence.
 
 This file defines the functions to configure and interact with Maestral from the command
-line. Some imports are deferred to the functions that required them in order to reduce the
-startup time of individual CLI commands.
+line. Some imports are deferred to the functions that required them in order to reduce
+the startup time of individual CLI commands.
 
 """
 
@@ -360,9 +360,9 @@ def format_table(
     return "\n".join(lines)
 
 
-# ========================================================================================
+# ======================================================================================
 # Command groups
-# ========================================================================================
+# ======================================================================================
 
 
 class SpecialHelpOrder(click.Group):
@@ -521,9 +521,9 @@ def log():
     """View and manage Maestral's log."""
 
 
-# ========================================================================================
+# ======================================================================================
 # Main commands
-# ========================================================================================
+# ======================================================================================
 
 
 @main.command(help_priority=0)
@@ -578,7 +578,7 @@ def gui(config_name: str) -> None:
 def start(foreground: bool, verbose: bool, config_name: str) -> None:
     """Starts the Maestral daemon."""
 
-    # ---- run setup if necessary --------------------------------------------------------
+    # ---- run setup if necessary ------------------------------------------------------
 
     # We run the setup in the current process. This avoids starting a subprocess despite
     # running with the --foreground flag, prevents leaving a zombie process if the setup
@@ -635,6 +635,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
             m.set_excluded_items(excluded_items)
 
+    # free resources
     del m
 
     if foreground:
@@ -1095,8 +1096,8 @@ def rebuild_index(config_name: str) -> None:
             "Rebuilding the index may take several minutes, depending on the size of "
             "your Dropbox. Any changes to local files will be synced once rebuilding "
             "has completed. If you stop the daemon during the process, rebuilding will "
-            "start again on the next launch.\nIf the daemon is not currently running, a "
-            "rebuild will be schedules for the next startup.",
+            "start again on the next launch.\nIf the daemon is not currently running, "
+            "a rebuild will be schedules for the next startup.",
             width=width,
         )
 
@@ -1218,9 +1219,9 @@ def analytics(yes: bool, no: bool, config_name: str) -> None:
     """
     Enables or disables sharing of error reports.
 
-    Sharing is disabled by default. If enabled, error reports are shared with bugsnag and
-    no personal information will typically be collected. Shared tracebacks may however
-    include file names, depending on the error.
+    Sharing is disabled by default. If enabled, error reports are shared with bugsnag
+    and no personal information will typically be collected. Shared tracebacks may
+    however include file names, depending on the error.
     """
 
     if yes or no:
@@ -1273,9 +1274,9 @@ def about() -> None:
     click.echo("")
 
 
-# ========================================================================================
+# ======================================================================================
 # Exclude commands
-# ========================================================================================
+# ======================================================================================
 
 
 @excluded.command(name="list", help_priority=0)
@@ -1345,9 +1346,9 @@ def excluded_remove(dropbox_path: str, config_name: str) -> None:
         )
 
 
-# ========================================================================================
+# ======================================================================================
 # Log commands
-# ========================================================================================
+# ======================================================================================
 
 
 @log.command(name="show", help_priority=0)
@@ -1425,9 +1426,9 @@ def log_level(level_name: str, config_name: str) -> None:
             click.echo(f"Log level: {level_name}")
 
 
-# ========================================================================================
+# ======================================================================================
 # Notification commands
-# ========================================================================================
+# ======================================================================================
 
 
 @notify.command(name="level", help_priority=0)

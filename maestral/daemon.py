@@ -4,8 +4,8 @@
 
 (c) Sam Schott; This work is licensed under the MIT licence.
 
-This module defines functions to start and stop the sync daemon and retrieve proxy objects
-for a running daemon.
+This module defines functions to start and stop the sync daemon and retrieve proxy
+objects for a running daemon.
 
 """
 
@@ -66,10 +66,12 @@ MaestralProxyType = Union["Maestral", Proxy]
 
 
 def freeze_support() -> None:
-    """Freeze support for multiprocessing and daemon startup. This works by checking for
+    """
+    Freeze support for multiprocessing and daemon startup. This works by checking for
     '--multiprocessing-fork' and '--frozen-daemon' command line arguments. Call this
-    function at the entry point of the executable, as soon as possible and ideally before
-    any heavy imports."""
+    function at the entry point of the executable, as soon as possible and ideally
+    before any heavy imports.
+    """
 
     import argparse
     import multiprocessing as mp
@@ -116,7 +118,7 @@ class Start(enum.Enum):
     Failed = 2
 
 
-# ==== error serialization ===============================================================
+# ==== error serialization =============================================================
 
 
 def serpent_deserialize_api_error(class_name: str, d: dict) -> MaestralApiError:
@@ -144,7 +146,7 @@ for err_cls in itertools.chain(SYNC_ERRORS, FATAL_ERRORS):
     )
 
 
-# ==== interprocess locking ==============================================================
+# ==== interprocess locking ============================================================
 
 
 def _get_lockdata() -> Tuple[bytes, str, int]:
@@ -191,8 +193,8 @@ def _get_lockdata() -> Tuple[bytes, str, int]:
 class Lock:
     """
     A inter-process and inter-thread lock. This reuses uses code from oslo.concurrency
-    but provides non-blocking acquire. Use the :meth:`singleton` class method to retrieve
-    an existing instance for thread-safe usage.
+    but provides non-blocking acquire. Use the :meth:`singleton` class method to
+    retrieve an existing instance for thread-safe usage.
     """
 
     _instances: Dict[str, "Lock"] = dict()
@@ -201,8 +203,8 @@ class Lock:
     @classmethod
     def singleton(cls, name: str, lock_path: Optional[str] = None) -> "Lock":
         """
-        Retrieve an existing lock object with a given 'name' or create a new one. Use this
-        method for thread-safe locks.
+        Retrieve an existing lock object with a given 'name' or create a new one. Use
+        this method for thread-safe locks.
 
         :param name: Name of lock file.
         :param lock_path: Directory for lock files. Defaults to the temporary directory
@@ -272,8 +274,8 @@ class Lock:
     def locking_pid(self) -> Optional[int]:
         """
         Returns the PID of the process which currently holds the lock or ``None``. This
-        should work on macOS, OpenBSD and Linux but may fail on some platforms. Always use
-        :meth:`locked` to check if the lock is held by any process.
+        should work on macOS, OpenBSD and Linux but may fail on some platforms. Always
+        use :meth:`locked` to check if the lock is held by any process.
 
         :returns: The PID of the process which currently holds the lock or ``None``.
         """
@@ -303,7 +305,7 @@ class Lock:
             return None
 
 
-# ==== helpers for daemon management =====================================================
+# ==== helpers for daemon management ===================================================
 
 
 def _sigterm_handler(signal_number: int, frame: FrameType) -> None:
@@ -319,9 +321,9 @@ def _send_term(pid: int) -> None:
 
 def maestral_lock(config_name: str) -> Lock:
     """
-    Returns an inter-process and inter-thread lock for Maestral. This is a wrapper around
-    :class:`Lock` which fills out the appropriate lockfile name and directory for the
-    given config name.
+    Returns an inter-process and inter-thread lock for Maestral. This is a wrapper
+    around :class:`Lock` which fills out the appropriate lockfile name and directory for
+    the given config name.
     """
     name = f"{config_name}.lock"
     path = get_runtime_path("maestral")
@@ -382,7 +384,7 @@ def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
     return Start.Failed
 
 
-# ==== main functions to manage daemon ===================================================
+# ==== main functions to manage daemon =================================================
 
 
 async def _periodic_watchdog() -> None:
@@ -402,12 +404,12 @@ def start_maestral_daemon(
     Starts the Maestral daemon with event loop in the current thread. Startup is race
     free: there will never be two daemons running for the same config.
 
-    Wraps :class:`main.Maestral` as Pyro daemon object, creates a new instance and starts
-    an asyncio event loop to listen for requests on a unix domain socket. This call will
-    block until the event loop shuts down. When this function is called from the main
-    thread on macOS, the asyncio event loop uses Cocoa's CFRunLoop to process event. This
-    allows integration with Cocoa frameworks which use callbacks to process use input such
-    as clicked notifications, etc, and potentially allows showing a GUI.
+    Wraps :class:`main.Maestral` as Pyro daemon object, creates a new instance and
+    starts an asyncio event loop to listen for requests on a unix domain socket. This
+    call will block until the event loop shuts down. When this function is called from
+    the main thread on macOS, the asyncio event loop uses Cocoa's CFRunLoop to process
+    event. This allows integration with Cocoa frameworks which use callbacks to process
+    use input such as clicked notifications, etc, and potentially allows showing a GUI.
 
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stdout: If ``True``, write logs to stdout.
@@ -555,9 +557,9 @@ def start_maestral_daemon_process(
     This function assumes that ``sys.executable`` points to the Python executable or a
     frozen executable. In case of a frozen executable, the executable must take the
     command line argument '--frozen-daemon' to start a daemon process which is *not
-    syncing* by calling :func:`start_maestral_daemon`. This is currently supported through
-    :func:`freeze_support` which should be called from the main entry point, as soon as
-    possible after startup.
+    syncing* by calling :func:`start_maestral_daemon`. This is currently supported
+    through :func:`freeze_support` which should be called from the main entry point, as
+    soon as possible after startup.
 
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stdout: If ``True``, write logs to stdout.
@@ -595,14 +597,14 @@ def stop_maestral_daemon_process(
 ) -> Stop:
     """Stops a maestral daemon process by finding its PID and shutting it down.
 
-    This function first tries to shut down Maestral gracefully. If this fails and we know
-    its PID, it will send SIGTERM. If that fails as well, it will send SIGKILL to the
-    process.
+    This function first tries to shut down Maestral gracefully. If this fails and we
+    know its PID, it will send SIGTERM. If that fails as well, it will send SIGKILL to
+    the process.
 
     :param config_name: The name of the Maestral configuration to use.
     :param timeout: Number of sec to wait for daemon to shut down before killing it.
-    :returns: ``Stop.Ok`` if successful, ``Stop.Killed`` if killed, ``Stop.NotRunning`` if
-        the daemon was not running and ``Exit.Failed`` if killing the process failed
+    :returns: ``Stop.Ok`` if successful, ``Stop.Killed`` if killed, ``Stop.NotRunning``
+        if the daemon was not running and ``Exit.Failed`` if killing the process failed
         because we could not retrieve its PID.
     """
 
@@ -650,8 +652,8 @@ def get_maestral_proxy(
     :param fallback: If ``True``, a new instance of Maestral will be returned when
         the daemon cannot be reached.
     :returns: Pyro proxy of Maestral or a new instance.
-    :raises: :class:`Pyro5.errors.CommunicationError` if the daemon cannot be reached and
-        ``fallback`` is ``False``.
+    :raises: :class:`Pyro5.errors.CommunicationError` if the daemon cannot be reached
+        and ``fallback`` is ``False``.
     """
 
     if is_running(config_name):

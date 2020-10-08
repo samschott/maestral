@@ -29,7 +29,7 @@ def is_fs_case_sensitive(path: str) -> bool:
     """
     Checks if ``path`` lies on a partition with a case-sensitive file system.
 
-    :param str path: Path to check.
+    :param path: Path to check.
     :returns: Whether ``path`` lies on a partition with a case-sensitive file system.
     """
     if path.islower():
@@ -48,8 +48,8 @@ def is_child(path: str, parent: str) -> bool:
     Checks if ``path`` semantically is inside ``parent``. Neither path needs to
     refer to an actual item on the drive. This function is case sensitive.
 
-    :param str path: Item path.
-    :param str parent: Parent path.
+    :param path: Item path.
+    :param parent: Parent path.
     :returns: Whether ``path`` semantically lies inside ``parent``.
     """
 
@@ -64,8 +64,8 @@ def is_equal_or_child(path: str, parent: str) -> bool:
     Checks if ``path`` semantically is inside ``parent`` or equals ``parent``. Neither
     path needs to refer to an actual item on the drive. This function is case sensitive.
 
-    :param str path: Item path.
-    :param str parent: Parent path.
+    :param path: Item path.
+    :param parent: Parent path.
     :returns: ``True`` if ``path`` semantically lies inside ``parent`` or
         ``path == parent``.
     """
@@ -79,16 +79,16 @@ def cased_path_candidates(
     """
     Returns a list of cased versions of the given path as far as corresponding nodes
     exist in the given root directory. For instance, if a case sensitive root directory
-    contains two folders "/parent/subfolder/child" and "/parent/Subfolder/child",
-    there will be two matches for "/parent/subfolder/child/file.txt". If the root
-    directory does not exist, only one candidate ``os.path.join(root, path)`` is returned.
+    contains two folders "/parent/subfolder/child" and "/parent/Subfolder/child", there
+    will be two matches for "/parent/subfolder/child/file.txt". If the root directory
+    does not exist, only one candidate ``os.path.join(root, path)`` is returned.
 
-    :param str path: Original path relative to ``root``.
-    :param str root: Parent directory to search in. There are significant performance
+    :param path: Original path relative to ``root``.
+    :param root: Parent directory to search in. There are significant performance
         improvements if a root directory with a small tree is given.
-    :param bool is_fs_case_sensitive: Bool indicating if the file system is case
-        sensitive. If ``False``, we know that there can be at most one match and choose
-        a faster algorithm.
+    :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
+        If ``False``, we know that there can be at most one match and choose a faster
+        algorithm.
     :returns: Candidates for correctly cased local paths.
     """
 
@@ -164,15 +164,15 @@ def to_cased_path(
     """
     Returns a cased version of the given path as far as corresponding nodes (with
     arbitrary casing) exist in the given root directory. If multiple matches are found,
-    only one is returned. If ``path`` does not exist in root ``root`` or ``root`` does not
-    exist, the return value will be ``os.path.join(root, path)``.
+    only one is returned. If ``path`` does not exist in root ``root`` or ``root`` does
+    not exist, the return value will be ``os.path.join(root, path)``.
 
-    :param str path: Original path relative to ``root``.
-    :param str root: Parent directory to search in. There are significant performance
+    :param path: Original path relative to ``root``.
+    :param root: Parent directory to search in. There are significant performance
         improvements if a root directory with a small tree is given.
-    :param bool is_fs_case_sensitive: Bool indicating if the file system is case
-        sensitive. If ``False``, we know that there can be at most one match and choose a
-        faster algorithm.
+    :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
+        If ``False``, we know that there can be at most one match and choose a faster
+        algorithm.
     :returns: Absolute and cased version of given path.
     """
 
@@ -185,15 +185,15 @@ def to_existing_cased_path(
 ) -> str:
     """
     Returns a cased version of the given path if corresponding nodes (with arbitrary
-    casing) exist in the given root directory. If multiple matches are found, only one is
-    returned.
+    casing) exist in the given root directory. If multiple matches are found, only one
+    is returned.
 
-    :param str path: Original path relative to ``root``.
-    :param str root: Parent directory to search in. There are significant performance
+    :param path: Original path relative to ``root``.
+    :param root: Parent directory to search in. There are significant performance
         improvements if a root directory with a small tree is given.
-    :param bool is_fs_case_sensitive: Bool indicating if the file system is case
-        sensitive. If ``False``, we know that there can be at most one match and choose a
-        faster algorithm.
+    :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
+        If ``False``, we know that there can be at most one match and choose a faster
+        algorithm.
     :returns: Absolute and cased version of given path.
     :raises: :class:`FileNotFoundError` if ``path`` does not exist in root ``root`` or
         ``root`` itself does not exist.
@@ -212,15 +212,15 @@ def path_exists_case_insensitive(
     path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True
 ) -> bool:
     """
-    Checks if a ``path`` exists in given ``root`` directory, similar to ``os.path.exists``
-    but case-insensitive.
+    Checks if a ``path`` exists in given ``root`` directory, similar to
+    ``os.path.exists`` but case-insensitive.
 
     :param path: Path relative to ``root``.
     :param root: Directory where we will look for ``path``. There are significant
         performance improvements if a root directory with a small tree is given.
-    :param bool is_fs_case_sensitive: Bool indicating if the file system is case
-        sensitive. If ``False``, we know that there can be at most one match and choose a
-        faster algorithm.
+    :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
+        If ``False``, we know that there can be at most one match and choose a faster
+        algorithm.
     :returns: Whether an arbitrarily cased version of ``path`` exists.
     """
 
@@ -247,15 +247,15 @@ def generate_cc_name(
 
         'my_file.txt' -> 'my_file (conflicting copy).txt'
 
-    If a file with the resulting path already exists (case-insensitive!), we additionally
-    append an integer number, for instance:
+    If a file with the resulting path already exists (case-insensitive!), we
+    additionally append an integer number, for instance:
 
         'my_file.txt' -> 'my_file (conflicting copy 1).txt'
 
     :param path: Original path name.
     :param suffix: Suffix to use. Defaults to 'conflicting copy'.
-    :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive. If
-        ``False``, we know that there can be at most one match and choose a faster
+    :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
+        If ``False``, we know that there can be at most one match and choose a faster
         algorithm.
     :returns: New path.
     """
@@ -278,8 +278,8 @@ def delete(path: str, raise_error: bool = False) -> Optional[OSError]:
     Deletes a file or folder at ``path``.
 
     :param path: Path of item to delete.
-    :param raise_error: If ``True``, raise any OSErrors. If ``False``, catch OSErrors and
-        return them.
+    :param raise_error: If ``True``, raise any OSErrors. If ``False``, catch OSErrors
+        and return them.
     :returns: Any caught exception during the deletion.
     """
     err = None
@@ -310,13 +310,14 @@ def move(
     exceptions are either raised or returned if ``raise_error`` is False.
 
     :param src_path: Path of item to move.
-    :param dest_path: Destination path. Any existing file at this path will be replaced by
-        the move. Any existing **empty** folder will be replaced if the source is also a
-        folder.
-    :param raise_error: If ``True``, raise any OSErrors. If ``False``, catch OSErrors and
-        return them.
-    :param preserve_dest_permissions: If ``True``, attempt to preserve the permissions of
-        any file at the destination. If ``False``, the permissions of src_path will be used.
+    :param dest_path: Destination path. Any existing file at this path will be replaced
+        by the move. Any existing **empty** folder will be replaced if the source is
+        also a folder.
+    :param raise_error: If ``True``, raise any OSErrors. If ``False``, catch OSErrors
+        and return them.
+    :param preserve_dest_permissions: If ``True``, attempt to preserve the permissions
+        of any file at the destination. If ``False``, the permissions of src_path will
+        be used.
     :returns: Any caught exception during the move.
     """
 

@@ -7,15 +7,15 @@
 This module handles starting Maestral on user login and supports multiple platform
 specific backends such as launchd or systemd. Additionally, this module also provides
 support for GUIs via launchd or xdg-desktop entries by passing the ``gui`` option to the
-``maestral`` command or executable. Therefore, only GUIs which are explicitly supported by
-the CLI with the `maestral gui` command or frozen executables which provide their own GUI
-are supported.
+``maestral`` command or executable. Therefore, only GUIs which are explicitly supported
+by the CLI with the `maestral gui` command or frozen executables which provide their own
+GUI are supported.
 
 Note that launchd agents will not show as "login items" in macOS system preferences. As
 a result, the user does not have a convenient UI to remove Maestral autostart entries
 manually outside of Maestral itself. Login items however only support app bundles and
-provide no option to pass command line arguments to the app. They would therefore neither
-support pip installs or multiple configurations.
+provide no option to pass command line arguments to the app. They would therefore
+neither support pip installs or multiple configurations.
 
 """
 
@@ -189,8 +189,8 @@ class AutoStartLaunchd(AutoStartBase):
 
 class AutoStartXDGDesktop(AutoStartBase):
     """
-    Autostart backend for XDG desktop entries. Used to start a GUI on user login for most
-    Linux desktops. For a full specifications, please see:
+    Autostart backend for XDG desktop entries. Used to start a GUI on user login for
+    most Linux desktops. For a full specifications, please see:
 
     https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html
 
