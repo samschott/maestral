@@ -18,7 +18,7 @@ from maestral.utils.appdirs import get_data_path, get_log_path
 from maestral.utils.path import delete
 
 
-_C = TypeVar('_C', bound=str)
+_C = TypeVar("_C", bound=str)
 
 
 def remove_configuration(config_name: str) -> None:
@@ -30,12 +30,12 @@ def remove_configuration(config_name: str) -> None:
 
     MaestralConfig(config_name).cleanup()
     MaestralState(config_name).cleanup()
-    index_file = get_data_path('maestral', f'{config_name}.index')  # deprecated
-    db_file = get_data_path('maestral', f'{config_name}.db')
+    index_file = get_data_path("maestral", f"{config_name}.index")  # deprecated
+    db_file = get_data_path("maestral", f"{config_name}.db")
     delete(index_file)
     delete(db_file)
 
-    log_dir = get_log_path('maestral')
+    log_dir = get_log_path("maestral")
 
     log_files = []
 
@@ -56,6 +56,6 @@ def validate_config_name(string: _C) -> _C:
     :raises: :class:`ValueError` if the config name contains whitespace
     """
     if len(string.split()) > 1:
-        raise ValueError('Config name may not contain any whitespace')
+        raise ValueError("Config name may not contain any whitespace")
 
     return string

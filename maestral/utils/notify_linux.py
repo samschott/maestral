@@ -19,8 +19,8 @@ through :class:`MaestralDesktopNotifier`.
 
 # system imports
 import asyncio
-import traceback
-from typing import Optional, Type
+import logging
+from typing import Optional, Type, Coroutine
 
 # external imports
 from dbus_next import Variant  # type: ignore
@@ -29,6 +29,8 @@ from dbus_next.aio import MessageBus  # type: ignore
 # local imports
 from .notify_base import Notification, DesktopNotifierBase, NotificationLevel
 
+
+logger = logging.getLogger(__name__)
 
 Impl: Optional[Type[DesktopNotifierBase]]
 
@@ -39,30 +41,50 @@ class DBusDesktopNotifier(DesktopNotifierBase):
     with a running asyncio loop to handle clicked notifications."""
 
     _to_native_urgency = {
-        NotificationLevel.Low: Variant('y', 0),
-        NotificationLevel.Normal: Variant('y', 1),
-        NotificationLevel.Critical: Variant('y', 2),
+        NotificationLevel.Low: Variant("y", 0),
+        NotificationLevel.Normal: Variant("y", 1),
+        NotificationLevel.Critical: Variant("y", 2),
     }
 
     def __init__(self, app_name: str, app_id: str) -> None:
         super().__init__(app_name, app_id)
         self._loop = asyncio.get_event_loop()
-        asyncio.run_coroutine_threadsafe(self._init_dbus(), self._loop)
+        self._force_run_in_loop(self._init_dbus())
+
+    def _force_run_in_loop(self, coro: Coroutine) -> None:
+
+        if self._loop.is_running():
+            asyncio.run_coroutine_threadsafe(coro, self._loop)
+        else:
+            self._loop.run_until_complete(coro)
 
     async def _init_dbus(self) -> None:
-        self.bus = await MessageBus().connect()
-        introspection = await self.bus.introspect('org.freedesktop.Notifications',
-                                                  '/org/freedesktop/Notifications')
-        self.proxy_object = self.bus.get_proxy_object('org.freedesktop.Notifications',
-                                                      '/org/freedesktop/Notifications',
-                                                      introspection)
-        self.interface = self.proxy_object.get_interface('org.freedesktop.Notifications')
-        self.interface.on_action_invoked(self._on_action)
+
+        try:
+            self.bus = await MessageBus().connect()
+            introspection = await self.bus.introspect(
+                "org.freedesktop.Notifications", "/org/freedesktop/Notifications"
+            )
+            self.proxy_object = self.bus.get_proxy_object(
+                "org.freedesktop.Notifications",
+                "/org/freedesktop/Notifications",
+                introspection,
+            )
+            self.interface = self.proxy_object.get_interface(
+                "org.freedesktop.Notifications"
+            )
+            self.interface.on_action_invoked(self._on_action)
+        except Exception:
+            self.interface = None
+            logger.warning("Could not connect to DBUS interface", exc_info=True)
 
     def send(self, notification: Notification) -> None:
-        asyncio.run_coroutine_threadsafe(self._send(notification), self._loop)
+        self._force_run_in_loop(self._send(notification))
 
     async def _send(self, notification: Notification) -> None:
+
+        if not self.interface:
+            return
 
         internal_nid = self._next_nid()
         notification_to_replace = self.current_notifications.get(internal_nid)
@@ -72,29 +94,27 @@ class DBusDesktopNotifier(DesktopNotifierBase):
         else:
             replaces_nid = 0
 
-        actions = ['default', 'default']
+        actions = ["default", "default"]
 
         for button_name in notification.buttons.keys():
             actions += [button_name, button_name]
 
         try:
             platform_nid = await self.interface.call_notify(
-                self.app_name,            # app_name
-                replaces_nid,             # replaces_id
-                notification.icon or '',  # app_icon
-                notification.title,       # summary
-                notification.message,     # body
-                actions,                  # actions
-                {                         # hints
-                    'urgency': self._to_native_urgency[notification.urgency]
-                },
-                -1,                       # expire_timeout (-1 = default)
+                self.app_name,  # app_name
+                replaces_nid,  # replaces_id
+                notification.icon or "",  # app_icon
+                notification.title,  # summary
+                notification.message,  # body
+                actions,  # actions
+                {"urgency": self._to_native_urgency[notification.urgency]},  # hints
+                -1,  # expire_timeout (-1 = default)
             )
         except Exception:
             # This may fail for several reasons: there may not be a systemd service
             # file for 'org.freedesktop.Notifications' or the system configuration
             # may have changed after DesktopNotifierFreedesktopDBus was initialized.
-            traceback.print_exc()
+            logger.warning("Notification failed", exc_info=True)
         else:
             notification.identifier = platform_nid
             self.current_notifications[internal_nid] = notification
@@ -103,10 +123,13 @@ class DBusDesktopNotifier(DesktopNotifierBase):
 
         nid = int(nid)
         action_key = str(action_key)
-        notification = next(iter(n for n in self.current_notifications.values() if n.identifier == nid), None)
+        notification = next(
+            iter(n for n in self.current_notifications.values() if n.identifier == nid),
+            None,
+        )
 
         if notification:
-            if action_key == 'default' and notification.action:
+            if action_key == "default" and notification.action:
                 notification.action()
             else:
                 callback = notification.buttons.get(action_key)

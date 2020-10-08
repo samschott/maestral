@@ -17,19 +17,30 @@ import tempfile
 from typing import Optional
 
 # local imports
-from maestral.config.base import get_home_dir, get_conf_path, get_data_path, _to_full_path
+from maestral.config.base import (
+    get_home_dir,
+    get_conf_path,
+    get_data_path,
+    _to_full_path,
+)
 
 
 __all__ = [
-    'get_home_dir', 'get_conf_path', 'get_data_path', 'get_log_path',
-    'get_cache_path', 'get_autostart_path', 'get_runtime_path'
+    "get_home_dir",
+    "get_conf_path",
+    "get_data_path",
+    "get_log_path",
+    "get_cache_path",
+    "get_autostart_path",
+    "get_runtime_path",
 ]
 
 _home_dir = get_home_dir()
 
 
-def get_cache_path(subfolder: Optional[str] = None, filename: Optional[str] = None,
-                   create: bool = True) -> str:
+def get_cache_path(
+    subfolder: Optional[str] = None, filename: Optional[str] = None, create: bool = True
+) -> str:
     """
     Returns the default cache path for the platform. This will be:
 
@@ -41,19 +52,20 @@ def get_cache_path(subfolder: Optional[str] = None, filename: Optional[str] = No
     :param filename: The filename to append for the app.
     :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
-    if platform.system() == 'Darwin':
+    if platform.system() == "Darwin":
         cache_path = get_conf_path(create=False)
-    elif platform.system() == 'Linux':
-        fallback = osp.join(_home_dir, '.cache')
-        cache_path = os.environ.get('XDG_CACHE_HOME', fallback)
+    elif platform.system() == "Linux":
+        fallback = osp.join(_home_dir, ".cache")
+        cache_path = os.environ.get("XDG_CACHE_HOME", fallback)
     else:
-        raise RuntimeError('Platform not supported')
+        raise RuntimeError("Platform not supported")
 
     return _to_full_path(cache_path, subfolder, filename, create)
 
 
-def get_log_path(subfolder: Optional[str] = None, filename: Optional[str] = None,
-                 create: bool = True) -> str:
+def get_log_path(
+    subfolder: Optional[str] = None, filename: Optional[str] = None, create: bool = True
+) -> str:
     """
     Returns the default log path for the platform. This will be:
 
@@ -66,18 +78,17 @@ def get_log_path(subfolder: Optional[str] = None, filename: Optional[str] = None
     :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
 
-    if platform.system() == 'Darwin':
-        log_path = osp.join(_home_dir, 'Library', 'Logs')
-    elif platform.system() == 'Linux':
+    if platform.system() == "Darwin":
+        log_path = osp.join(_home_dir, "Library", "Logs")
+    elif platform.system() == "Linux":
         log_path = get_cache_path(create=False)
     else:
-        raise RuntimeError('Platform not supported')
+        raise RuntimeError("Platform not supported")
 
     return _to_full_path(log_path, subfolder, filename, create)
 
 
-def get_autostart_path(filename: Optional[str] = None,
-                       create: bool = True) -> str:
+def get_autostart_path(filename: Optional[str] = None, create: bool = True) -> str:
     """
     Returns the default path for login items for the platform. This will be:
 
@@ -88,12 +99,12 @@ def get_autostart_path(filename: Optional[str] = None,
     :param filename: The filename to append for the app.
     :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
-    if platform.system() == 'Darwin':
-        autostart_path = osp.join(_home_dir, 'Library', 'LaunchAgents')
-    elif platform.system() == 'Linux':
-        autostart_path = get_conf_path('autostart', create=create)
+    if platform.system() == "Darwin":
+        autostart_path = osp.join(_home_dir, "Library", "LaunchAgents")
+    elif platform.system() == "Linux":
+        autostart_path = get_conf_path("autostart", create=create)
     else:
-        raise RuntimeError('Platform not supported')
+        raise RuntimeError("Platform not supported")
 
     if filename:
         autostart_path = osp.join(autostart_path, filename)
@@ -101,8 +112,9 @@ def get_autostart_path(filename: Optional[str] = None,
     return autostart_path
 
 
-def get_runtime_path(subfolder: Optional[str] = None, filename: Optional[str] = None,
-                     create: bool = True) -> str:
+def get_runtime_path(
+    subfolder: Optional[str] = None, filename: Optional[str] = None, create: bool = True
+) -> str:
     """
     Returns the default runtime path for the platform. This will be:
 
@@ -115,19 +127,20 @@ def get_runtime_path(subfolder: Optional[str] = None, filename: Optional[str] = 
     :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
 
-    if platform.system() == 'Darwin':
+    if platform.system() == "Darwin":
         runtime_path = get_conf_path(create=False)
-    elif platform.system() == 'Linux':
+    elif platform.system() == "Linux":
         fallback = get_cache_path(create=False)
-        runtime_path = os.environ.get('XDG_RUNTIME_DIR', fallback)
+        runtime_path = os.environ.get("XDG_RUNTIME_DIR", fallback)
     else:
-        raise RuntimeError('Platform not supported')
+        raise RuntimeError("Platform not supported")
 
     return _to_full_path(runtime_path, subfolder, filename, create)
 
 
-def get_old_runtime_path(subfolder: Optional[str] = None, filename: Optional[str] = None,
-                         create: bool = True) -> str:
+def get_old_runtime_path(
+    subfolder: Optional[str] = None, filename: Optional[str] = None, create: bool = True
+) -> str:
     """
     Returns the default runtime path for the platform. This will be:
 
@@ -140,12 +153,12 @@ def get_old_runtime_path(subfolder: Optional[str] = None, filename: Optional[str
     :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
 
-    if platform.system() == 'Darwin':
+    if platform.system() == "Darwin":
         runtime_path = tempfile.gettempdir()
-    elif platform.system() == 'Linux':
+    elif platform.system() == "Linux":
         fallback = get_cache_path(create=False)
-        runtime_path = os.environ.get('XDG_RUNTIME_DIR', fallback)
+        runtime_path = os.environ.get("XDG_RUNTIME_DIR", fallback)
     else:
-        raise RuntimeError('Platform not supported')
+        raise RuntimeError("Platform not supported")
 
     return _to_full_path(runtime_path, subfolder, filename, create)

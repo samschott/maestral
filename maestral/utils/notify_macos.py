@@ -11,20 +11,24 @@ import uuid
 import platform
 import subprocess
 import shutil
+import logging
 from typing import Type, Optional, Dict, Tuple
 
 # external imports
 from packaging.version import Version
-from rubicon.objc import ObjCClass, objc_method  # type: ignore
-from rubicon.objc.runtime import load_library  # type: ignore
+from rubicon.objc import ObjCClass, objc_method, py_from_ns  # type: ignore
+from rubicon.objc.runtime import load_library, objc_id  # type: ignore
 
 # local imports
 from .notify_base import Notification, DesktopNotifierBase
 
-uns = load_library('UserNotifications')
-foundation = load_library('Foundation')
 
-NSObject = ObjCClass('NSObject')
+logger = logging.getLogger(__name__)
+
+uns = load_library("UserNotifications")
+foundation = load_library("Foundation")
+
+NSObject = ObjCClass("NSObject")
 
 macos_version, *_ = platform.mac_ver()
 
@@ -32,26 +36,30 @@ macos_version, *_ = platform.mac_ver()
 Impl: Optional[Type[DesktopNotifierBase]]
 
 
-if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'):
+if getattr(sys, "frozen", False) and Version(macos_version) >= Version("10.14.0"):
 
     # use UNUserNotificationCenter in macOS Mojave and higher if we are in an app bundle
 
-    UNUserNotificationCenter = ObjCClass('UNUserNotificationCenter')
-    UNMutableNotificationContent = ObjCClass('UNMutableNotificationContent')
-    UNNotificationRequest = ObjCClass('UNNotificationRequest')
-    UNNotificationAction = ObjCClass('UNNotificationAction')
-    UNNotificationCategory = ObjCClass('UNNotificationCategory')
+    UNUserNotificationCenter = ObjCClass("UNUserNotificationCenter")
+    UNMutableNotificationContent = ObjCClass("UNMutableNotificationContent")
+    UNNotificationRequest = ObjCClass("UNNotificationRequest")
+    UNNotificationAction = ObjCClass("UNNotificationAction")
+    UNNotificationCategory = ObjCClass("UNNotificationCategory")
 
-    NSSet = ObjCClass('NSSet')
+    NSSet = ObjCClass("NSSet")
 
-    UNNotificationDefaultActionIdentifier = 'com.apple.UNNotificationDefaultActionIdentifier'
-    UNNotificationDismissActionIdentifier = 'com.apple.UNNotificationDismissActionIdentifier'
+    UNNotificationDefaultActionIdentifier = (
+        "com.apple.UNNotificationDefaultActionIdentifier"
+    )
+    UNNotificationDismissActionIdentifier = (
+        "com.apple.UNNotificationDismissActionIdentifier"
+    )
 
-    UNAuthorizationOptionBadge = (1 << 0)
-    UNAuthorizationOptionSound = (1 << 1)
-    UNAuthorizationOptionAlert = (1 << 2)
+    UNAuthorizationOptionBadge = 1 << 0
+    UNAuthorizationOptionSound = 1 << 1
+    UNAuthorizationOptionAlert = 1 << 2
 
-    UNNotificationActionOptionForeground = (1 << 2)
+    UNNotificationActionOptionForeground = 1 << 2
 
     UNNotificationCategoryOptionNone = 0
 
@@ -61,11 +69,14 @@ if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'
         # to handle clicked notifications
 
         @objc_method
-        def userNotificationCenter_didReceiveNotificationResponse_withCompletionHandler_(self, center, response,
-                                                                                         completion_handler) -> None:
+        def userNotificationCenter_didReceiveNotificationResponse_withCompletionHandler_(
+            self, center, response, completion_handler
+        ) -> None:
 
-            internal_nid = response.notification.request.content.userInfo['internal_nid']
-            notification = self.interface.current_notifications.get(internal_nid)
+            internal_nid = py_from_ns(
+                response.notification.request.content.userInfo["internal_nid"]
+            )
+            notification = self.interface.current_notifications[internal_nid]
 
             if response.actionIdentifier == UNNotificationDefaultActionIdentifier:
 
@@ -91,17 +102,26 @@ if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'
         def __init__(self, app_name: str, app_id: str) -> None:
             super().__init__(app_name, app_id)
             self.nc = UNUserNotificationCenter.alloc().initWithBundleIdentifier(app_id)
-            self.nc.delegate = NotificationCenterDelegate.alloc().init()
-            self.nc.delegate.interface = self
+            self.nc_delegate = NotificationCenterDelegate.alloc().init()
+            self.nc_delegate.interface = self
+            self.nc.delegate = self.nc_delegate
+
+            def _on_auth_completed(granted: bool, error: objc_id) -> None:
+                if granted:
+                    logger.debug("UNUserNotificationCenter: authorisation granted")
+                else:
+                    logger.debug("UNUserNotificationCenter: authorisation denied")
+
+                if error:
+                    error = py_from_ns(error)
+                    logger.warning("UNUserNotificationCenter: ", str(error))
 
             self.nc.requestAuthorizationWithOptions(
                 UNAuthorizationOptionAlert
                 | UNAuthorizationOptionSound
                 | UNAuthorizationOptionBadge,
-                completionHandler=None
+                completionHandler=_on_auth_completed,
             )
-
-            self._notification_categories = dict()
 
         def send(self, notification: Notification) -> None:
 
@@ -120,23 +140,22 @@ if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'
             content.title = notification.title
             content.body = notification.message
             content.categoryIdentifier = category_id
-            content.userInfo = {'internal_nid': internal_nid}
+            content.userInfo = {"internal_nid": internal_nid}
 
             notification_request = UNNotificationRequest.requestWithIdentifier(
-                platform_nid,
-                content=content,
-                trigger=None
+                platform_nid, content=content, trigger=None
             )
 
             self.nc.addNotificationRequest(
-                notification_request,
-                withCompletionHandler=None
+                notification_request, withCompletionHandler=None
             )
 
             notification.identifier = platform_nid
             self.current_notifications[internal_nid] = notification
 
-        def _category_id_for_button_names(self, button_names: Tuple[str, ...]) -> Optional[str]:
+        def _category_id_for_button_names(
+            self, button_names: Tuple[str, ...]
+        ) -> Optional[str]:
 
             if not button_names:
                 return None
@@ -148,9 +167,7 @@ if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'
 
                 for name in button_names:
                     action = UNNotificationAction.actionWithIdentifier(
-                        name,
-                        title=name,
-                        options=UNNotificationActionOptionForeground
+                        name, title=name, options=UNNotificationActionOptionForeground
                     )
                     actions.append(action)
 
@@ -161,7 +178,7 @@ if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'
                         category_id,
                         actions=actions,
                         intentIdentifiers=[],
-                        options=UNNotificationCategoryOptionNone
+                        options=UNNotificationCategoryOptionNone,
                     )
                 )
                 self.nc.notificationCategories = new_categories
@@ -174,14 +191,14 @@ if getattr(sys, 'frozen', False) and Version(macos_version) >= Version('10.14.0'
     else:
         Impl = None
 
-elif Version(macos_version) <= Version('11.0.0'):
+elif Version(macos_version) <= Version("11.0.0"):
 
     # use NSUserNotificationCenter outside of app bundles for macOS Big Sur and lower
     # and for macOS High Sierra and lower
 
-    NSUserNotification = ObjCClass('NSUserNotification')
-    NSUserNotificationCenter = ObjCClass('NSUserNotificationCenter')
-    NSDate = ObjCClass('NSDate')
+    NSUserNotification = ObjCClass("NSUserNotification")
+    NSUserNotificationCenter = ObjCClass("NSUserNotificationCenter")
+    NSDate = ObjCClass("NSDate")
 
     NSUserNotificationActivationTypeContentsClicked = 1
     NSUserNotificationActivationTypeActionButtonClicked = 2
@@ -193,12 +210,14 @@ elif Version(macos_version) <= Version('11.0.0'):
         # to handle clicked notifications
 
         @objc_method
-        def userNotificationCenter_didActivateNotification_(self, center, notification) -> None:
+        def userNotificationCenter_didActivateNotification_(
+            self, center, notification
+        ) -> None:
 
-            internal_nid = notification.userInfo['internal_nid']
-            notification_info = self.interface.current_notifications.get(internal_nid)
+            internal_nid = py_from_ns(notification.userInfo["internal_nid"])
+            notification_info = self.interface.current_notifications[internal_nid]
 
-            if Version(macos_version) == Version('11.0.0'):
+            if Version(macos_version) == Version("11.0.0"):
                 # macOS Big Sur has a 'Show' button by default
                 condition = NSUserNotificationActivationTypeActionButtonClicked
             else:
@@ -235,7 +254,7 @@ elif Version(macos_version) <= Version('11.0.0'):
             n.title = notification.title
             n.informativeText = notification.message
             n.identifier = platform_nid
-            n.userInfo = {'internal_nid': internal_nid}
+            n.userInfo = {"internal_nid": internal_nid}
             n.deliveryDate = NSDate.dateWithTimeInterval(0, sinceDate=NSDate.date())
 
             self.nc.scheduleNotification(n)
@@ -248,7 +267,7 @@ elif Version(macos_version) <= Version('11.0.0'):
     else:
         Impl = None
 
-elif shutil.which('osascript'):
+elif shutil.which("osascript"):
 
     # fall back to apple script
 
@@ -256,10 +275,13 @@ elif shutil.which('osascript'):
         """Apple script backend for macOS."""
 
         def send(self, notification: Notification) -> None:
-            subprocess.call([
-                'osascript', '-e',
-                f'display notification "{notification.message}" with title "{notification.title}"'
-            ])
+            subprocess.call(
+                [
+                    "osascript",
+                    "-e",
+                    f'display notification "{notification.message}" with title "{notification.title}"',
+                ]
+            )
 
     Impl = DesktopNotifierOsaScript
 

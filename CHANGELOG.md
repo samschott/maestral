@@ -1,3 +1,49 @@
+## v1.2.1.dev
+
+This update provides bug fixes and some improvements to error handling. Major changes
+don't regard Maestral itself but its distribution: a Docker image is now available, thanks
+to @aries1980, and the macOS app bundle has been rebuilt with the macOS 11 SDK, providing
+full compatibility from macOS 10.13 High Sierra to macOS 11.0 Big Sur.
+
+#### Added:
+
+- Added a Docker image, thanks to @aries1980. The docker image is based on Linux and does
+  not currently include a GUI.
+- Added `-V, --version` option to the command line interface to show the version and exit.
+
+#### Changed:
+
+- Improves handling of database related errors such as database integrity, missing read /
+  write permissions for the database file, etc.
+- Improves handling of errors when the keyring cannot be unlocked to delete credentials
+  during an unlink.
+- Improves handling of errors when the keyring where Dropbox credentials are stored
+  becomes unavailable, e.g., has been uninstalled.
+- Never start a subprocess when maestral is run with the `-f, --foreground` option. 
+  Previously, any required setup such as linking, etc, would still be performed in a
+  subprocess.
+- Minor tweaks and improvements to the macOS GUI.
+- Allow sending desktop notifications in Linux before the daemon's event loop has started.
+  This is useful for error messages which occur early during the initialization.
+- Improves log messages when the connection to Dropbox is lost.
+
+#### Fixes:
+
+- Fixes a database integrity error due to an unfulfilled unique constraint.
+- Fixes an issue when the daemon is launched with systemd where systemd would unexpectedly
+  receive notifications from a subprocess instead of the main process.
+- Fixes an issue which would prevent syncing from automatically resuming after moving the
+  local Dropbox directory with `maestral move-dir` or through the GUI.
+- Fixed a green background for sync issue views in the macOS GUI.
+- Fixes an issue where the system tray icon in KDE Plasma could fall back to the regular
+  app icon or not show up at all, 
+- Fixes an issue where the user may be asked to unlock or grant access to the system
+  keyring twice on startup if access denied the first time.
+
+#### Dependencies:
+
+- Adds `alembic` dependency for database migrations.
+
 ## v1.2.0
 
 The local file index and sync history are now stored in a SQLite database. After the
@@ -16,7 +62,7 @@ Finally, this release introduces support for macOS 11 (Big Sur).
 
 #### Added:
 
-- Added an option `--external`/`-e` to `maestral log show` to open the log in the
+- Added an option `-e, --external` to `maestral log show` to open the log in the
   platform's default program instead of showing it in the console.
 - Added a CLI command `history` to show all sync events of the past week.
 - Added a "Activity" window to show all sync events of the past week.
@@ -91,7 +137,7 @@ login items.
 #### Added:
 
 - Added `--include-deleted` option to `maestral ls`.
-- Added `--long` option to `maestral ls` to include metadata in listing.
+- Added `-l, --long` option to `maestral ls` to include metadata in listing.
 - Added `maestral revs` command to list revisions of a file.
 - Added `maestral restore` command to restore an old revision of a file.
 
@@ -242,8 +288,8 @@ un-indexed, resulting in incorrect conflict resolution.
 - Config option to set the keyring backend. This defaults to 'automatic' but can be used
   to specify a preferred backend such as `keyrings.backends.kwallet.DBusKeyring`. You will
   need to migrate your credentials manually to the new keyring if you change this setting.
-- Added a `--verbose` flag to `maestral start` and `maestral restart` commands to print
-  log output to stdout.
+- Added a `-v, --verbose` flag to `maestral start` and `maestral restart` commands to 
+  print log output to stdout.
 - Added an API documentation for developers, available on
   [Read the Docs](https://maestral-dropbox.readthedocs.io).
 
@@ -397,8 +443,8 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
   previously only supported in the GUI. Files and folders in the existing directory will
   be merged with your Dropbox.
 - The CLI command `maestral restart` now supports restarting Maestral into the current
-  process instead of spawning a new process. This is enabled by passing the `--foreground`
-  (`-f`) option.
+  process instead of spawning a new process. This is enabled by passing the 
+  `-f, --foreground` option.
 - Added a native Cocoa GUI for macOS. This removes the PyQt5 dependency for macOS and
   reduces the size of the bundled app from 50 MB to 15 MB. It also eliminates a few
   inconsistencies in GUI appearance. Especially the sync issues window looks a lot better
@@ -418,7 +464,7 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
     - A configuration is automatically removed when unlinking a Dropbox account.
     - All configurations can be listed together with the account emails with
       `maestral configs`. This replaces `maestral config list`.
-- For app bundles on macOS, you can now pass a config option `--config-name` to the
+- For app bundles on macOS, you can now pass a config option `-c, --config-name` to the
   bundle's executable ("Maestral.app/Contents/MacOS/main"). It will then use the specified
   configuration if it already exists or to create a new one.
 - The GUI no longer restarts after completing the setup dialog.

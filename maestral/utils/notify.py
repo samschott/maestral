@@ -43,9 +43,9 @@ class DesktopNotifier:
     def __init__(self, app_name: str, app_id: str) -> None:
         self._lock = Lock()
 
-        if platform.system() == 'Darwin':
+        if platform.system() == "Darwin":
             from .notify_macos import Impl
-        elif platform.system() == 'Linux':
+        elif platform.system() == "Linux":
             from .notify_linux import Impl  # type: ignore
         else:
             Impl = None  # type: ignore
@@ -55,13 +55,15 @@ class DesktopNotifier:
         else:
             self._impl = None
 
-    def send(self,
-             title: str,
-             message: str,
-             urgency: NotificationLevel = NotificationLevel.Normal,
-             icon: Optional[str] = None,
-             action: Optional[Callable] = None,
-             buttons: Optional[Dict[str, Optional[Callable]]] = None) -> None:
+    def send(
+        self,
+        title: str,
+        message: str,
+        urgency: NotificationLevel = NotificationLevel.Normal,
+        icon: Optional[str] = None,
+        action: Optional[Callable] = None,
+        buttons: Optional[Dict[str, Optional[Callable]]] = None,
+    ) -> None:
         """
         Sends a desktop notification. Some arguments may be ignored, depending on the
         backend.
@@ -78,9 +80,7 @@ class DesktopNotifier:
         :param buttons: A dictionary with button names and callbacks to show in the
             notification. This is ignored by some implementations.
         """
-        notification = Notification(
-            title, message, urgency, icon, action, buttons
-        )
+        notification = Notification(title, message, urgency, icon, action, buttons)
 
         if self._impl:
             with self._lock:
@@ -102,7 +102,7 @@ class MaestralDesktopNotifier(logging.Handler):
     :cvar int FILECHANGE: Notification level for file changes.
     """
 
-    _instances: ClassVar[Dict[str, 'MaestralDesktopNotifier']] = dict()
+    _instances: ClassVar[Dict[str, "MaestralDesktopNotifier"]] = dict()
     _lock = Lock()
 
     NONE = 100
@@ -111,17 +111,17 @@ class MaestralDesktopNotifier(logging.Handler):
     FILECHANGE = 15
 
     _levelToName = {
-        NONE: 'NONE',
-        ERROR: 'ERROR',
-        SYNCISSUE: 'SYNCISSUE',
-        FILECHANGE: 'FILECHANGE',
+        NONE: "NONE",
+        ERROR: "ERROR",
+        SYNCISSUE: "SYNCISSUE",
+        FILECHANGE: "FILECHANGE",
     }
 
     _nameToLevel = {
-        'NONE': 100,
-        'ERROR': 40,
-        'SYNCISSUE': 30,
-        'FILECHANGE': 15,
+        "NONE": 100,
+        "ERROR": 40,
+        "SYNCISSUE": 30,
+        "FILECHANGE": 15,
     }
 
     @classmethod
@@ -135,7 +135,7 @@ class MaestralDesktopNotifier(logging.Handler):
         return cls._nameToLevel[name]
 
     @classmethod
-    def for_config(cls, config_name: str) -> 'MaestralDesktopNotifier':
+    def for_config(cls, config_name: str) -> "MaestralDesktopNotifier":
         """
         Returns an existing instance for the config or creates a new one if none exists.
         Use this method to prevent creating multiple instances.
@@ -153,7 +153,7 @@ class MaestralDesktopNotifier(logging.Handler):
 
     def __init__(self, config_name: str) -> None:
         super().__init__()
-        self.setFormatter(logging.Formatter(fmt='%(message)s'))
+        self.setFormatter(logging.Formatter(fmt="%(message)s"))
         self._conf = MaestralConfig(config_name)
         self._snooze = 0.0
 
@@ -161,12 +161,12 @@ class MaestralDesktopNotifier(logging.Handler):
     def notify_level(self) -> int:
         """Custom notification level. Notifications with a lower level will be
         discarded."""
-        return self._conf.get('app', 'notification_level')
+        return self._conf.get("app", "notification_level")
 
     @notify_level.setter
     def notify_level(self, level: int) -> None:
         """Setter: notify_level."""
-        self._conf.set('app', 'notification_level', level)
+        self._conf.set("app", "notification_level", level)
 
     @property
     def snoozed(self) -> float:
@@ -178,9 +178,14 @@ class MaestralDesktopNotifier(logging.Handler):
         """Setter: snoozed."""
         self._snooze = time.time() + minutes * 60.0
 
-    def notify(self, title: str, message: str, level: int = FILECHANGE,
-               on_click: Optional[Callable] = None,
-               buttons: Optional[Dict[str, Optional[Callable]]] = None) -> None:
+    def notify(
+        self,
+        title: str,
+        message: str,
+        level: int = FILECHANGE,
+        on_click: Optional[Callable] = None,
+        buttons: Optional[Dict[str, Optional[Callable]]] = None,
+    ) -> None:
         """
         Sends a desktop notification from maestral. The title defaults to 'Maestral'.
 
@@ -210,5 +215,8 @@ class MaestralDesktopNotifier(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emits a log record as a desktop notification."""
-        self.format(record)
-        self.notify(record.levelname, record.message, level=record.levelno)
+
+        # avoid recursive notifications from our own logger
+        if not record.name.startswith(__name__):
+            self.format(record)
+            self.notify(record.levelname, record.message, level=record.levelno)

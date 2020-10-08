@@ -9,28 +9,32 @@ import os
 import os.path as osp
 import tempfile
 from maestral.utils.path import (
-    path_exists_case_insensitive, cased_path_candidates, to_cased_path,
-    is_fs_case_sensitive, is_child, delete
+    path_exists_case_insensitive,
+    cased_path_candidates,
+    to_cased_path,
+    is_fs_case_sensitive,
+    is_child,
+    delete,
 )
 from maestral.utils.appdirs import get_home_dir
 
 
 def test_path_exists_case_insensitive():
     # choose a path which exists on all Unix systems
-    path = '/usr/local/share'
+    path = "/usr/local/share"
 
     assert to_cased_path(path) == path
     assert to_cased_path(path.title()) == path
     assert to_cased_path(path.upper()) == path
 
     # choose a random path that likely does not exist
-    path = '/usr/local/share/test_folder/path_928'
+    path = "/usr/local/share/test_folder/path_928"
     if not osp.exists(path):
         assert not path_exists_case_insensitive(path)
 
     # choose a random parent that likely does not exist
-    path = '/test_folder/path_928'
-    root = '/usr'
+    path = "/test_folder/path_928"
+    root = "/usr"
     if not osp.exists(root):
         assert not path_exists_case_insensitive(path, root)
 
@@ -38,42 +42,43 @@ def test_path_exists_case_insensitive():
 def test_cased_path_candidates():
 
     # choose a path which exists on all Unix systems
-    path = '/usr/local/share'.upper()
+    path = "/usr/local/share".upper()
     candidates = cased_path_candidates(path)
 
     assert len(candidates) == 1
-    assert '/usr/local/share' in candidates
+    assert "/usr/local/share" in candidates
 
-    candidates = cased_path_candidates('/test', root='/usr/local/share')
+    candidates = cased_path_candidates("/test", root="/usr/local/share")
 
     assert len(candidates) == 1
-    assert '/usr/local/share/test' in candidates
+    assert "/usr/local/share/test" in candidates
 
     home = get_home_dir()
 
     if is_fs_case_sensitive(home):
 
-        parent0 = osp.join(home, 'test folder/subfolder')
-        parent1 = osp.join(home, 'Test Folder/subfolder')
+        parent0 = osp.join(home, "test folder/subfolder")
+        parent1 = osp.join(home, "Test Folder/subfolder")
 
         os.makedirs(parent0)
         os.makedirs(parent1)
 
-        path = osp.join(parent0.lower(), 'File.txt')
+        path = osp.join(parent0.lower(), "File.txt")
 
         try:
             candidates = cased_path_candidates(path)
 
             assert len(candidates) == 2
-            assert osp.join(parent0, 'File.txt') in candidates
-            assert osp.join(parent1, 'File.txt') in candidates
+            assert osp.join(parent0, "File.txt") in candidates
+            assert osp.join(parent1, "File.txt") in candidates
 
-            candidates = cased_path_candidates('/test folder/subfolder/File.txt',
-                                               root=home)
+            candidates = cased_path_candidates(
+                "/test folder/subfolder/File.txt", root=home
+            )
 
             assert len(candidates) == 2
-            assert osp.join(parent0, 'File.txt') in candidates
-            assert osp.join(parent1, 'File.txt') in candidates
+            assert osp.join(parent0, "File.txt") in candidates
+            assert osp.join(parent1, "File.txt") in candidates
 
         finally:
             delete(parent0)
@@ -81,10 +86,10 @@ def test_cased_path_candidates():
 
 
 def test_is_child():
-    assert is_child('/parent/path/child', '/parent/path/')
-    assert is_child('/parent/path/child/', '/parent/path')
-    assert not is_child('/parent/path', '/parent/path')
-    assert not is_child('/path1', '/path2')
+    assert is_child("/parent/path/child", "/parent/path/")
+    assert is_child("/parent/path/child/", "/parent/path")
+    assert not is_child("/parent/path", "/parent/path")
+    assert not is_child("/path1", "/path2")
 
 
 def test_delete():

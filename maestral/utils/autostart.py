@@ -52,9 +52,10 @@ class SupportedImplementations(Enum):
     :cvar str launchd: Linux launchd.
     :cvar str xdg_desktop: Linux autostart xdg desktop entries.
     """
-    systemd = 'systemd'
-    launchd = 'launchd'
-    xdg_desktop = 'xdg_desktop'
+
+    systemd = "systemd"
+    launchd = "launchd"
+    xdg_desktop = "xdg_desktop"
 
 
 class AutoStartBase:
@@ -64,11 +65,11 @@ class AutoStartBase:
 
     def enable(self) -> None:
         """Enable autostart. Must be implemented in subclass."""
-        raise NotImplementedError('No supported implementation')
+        raise NotImplementedError("No supported implementation")
 
     def disable(self) -> None:
         """Disable autostart. Must be implemented in subclass."""
-        raise NotImplementedError('No supported implementation')
+        raise NotImplementedError("No supported implementation")
 
     @property
     def enabled(self) -> bool:
@@ -88,56 +89,59 @@ class AutoStartSystemd(AutoStartBase):
     :param install_dict: Dictionary of additional keys and values for the Install
         section.
     """
-    def __init__(self,
-                 service_name: str,
-                 start_cmd: str,
-                 unit_dict: Optional[Dict[str, str]] = None,
-                 service_dict: Optional[Dict[str, str]] = None,
-                 install_dict: Optional[Dict[str, str]] = None) -> None:
+
+    def __init__(
+        self,
+        service_name: str,
+        start_cmd: str,
+        unit_dict: Optional[Dict[str, str]] = None,
+        service_dict: Optional[Dict[str, str]] = None,
+        install_dict: Optional[Dict[str, str]] = None,
+    ) -> None:
         super().__init__()
 
         # strip any instance specifiers from template service name
-        filename = re.sub(r'@[^"]*\.service', '@.service', service_name)
+        filename = re.sub(r'@[^"]*\.service', "@.service", service_name)
 
         self.service_name = service_name
-        self.destination = get_data_path(osp.join('systemd', 'user'), filename)
+        self.destination = get_data_path(osp.join("systemd", "user"), filename)
 
         self.service_config = configparser.ConfigParser(interpolation=None)
         # set to preserve key casing
         self.service_config.optionxform = str  # type: ignore
 
-        self.service_config.add_section('Unit')
-        self.service_config.add_section('Service')
-        self.service_config.add_section('Install')
+        self.service_config.add_section("Unit")
+        self.service_config.add_section("Service")
+        self.service_config.add_section("Install")
 
         # fill out some default values for a minimum systemd unit
-        self.service_config['Service']['Type'] = 'exec'
-        self.service_config['Service']['ExecStart'] = start_cmd
-        self.service_config['Install']['WantedBy'] = 'default.target'
+        self.service_config["Service"]["Type"] = "exec"
+        self.service_config["Service"]["ExecStart"] = start_cmd
+        self.service_config["Install"]["WantedBy"] = "default.target"
 
         # update with user-specified dicts
         if unit_dict:
-            self.service_config['Unit'].update(unit_dict)
+            self.service_config["Unit"].update(unit_dict)
         if service_dict:
-            self.service_config['Service'].update(service_dict)
+            self.service_config["Service"].update(service_dict)
         if install_dict:
-            self.service_config['Install'].update(install_dict)
+            self.service_config["Install"].update(install_dict)
 
         # write to file in ~/.local/share/systemd/user
-        with open(self.destination, 'w') as f:
+        with open(self.destination, "w") as f:
             self.service_config.write(f)
 
     def enable(self) -> None:
-        subprocess.run(['systemctl', '--user', 'enable', self.service_name])
+        subprocess.run(["systemctl", "--user", "enable", self.service_name])
 
     def disable(self) -> None:
-        subprocess.run(['systemctl', '--user', 'disable', self.service_name])
+        subprocess.run(["systemctl", "--user", "disable", self.service_name])
 
     @property
     def enabled(self) -> bool:
         """Checks if the systemd service is enabled."""
         res = subprocess.call(
-            ['systemctl', '--user', '--quiet', 'is-enabled', self.service_name]
+            ["systemctl", "--user", "--quiet", "is-enabled", self.service_name]
         )
         return res == 0
 
@@ -153,25 +157,22 @@ class AutoStartLaunchd(AutoStartBase):
     def __init__(self, bundle_id: str, start_cmd: str) -> None:
 
         super().__init__()
-        filename = bundle_id + '.plist'
+        filename = bundle_id + ".plist"
 
-        self.path = osp.join(get_home_dir(), 'Library', 'LaunchAgents')
+        self.path = osp.join(get_home_dir(), "Library", "LaunchAgents")
         self.destination = osp.join(self.path, filename)
 
         self.plist_dict: Dict[str, Any] = dict(
-            Label=None,
-            ProcessType='Interactive',
-            ProgramArguments=[],
-            RunAtLoad=True
+            Label=None, ProcessType="Interactive", ProgramArguments=[], RunAtLoad=True
         )
 
-        self.plist_dict['Label'] = str(bundle_id)
-        self.plist_dict['ProgramArguments'] = shlex.split(start_cmd)
+        self.plist_dict["Label"] = str(bundle_id)
+        self.plist_dict["ProgramArguments"] = shlex.split(start_cmd)
 
     def enable(self) -> None:
         os.makedirs(self.path, exist_ok=True)
 
-        with open(self.destination, 'wb') as f:
+        with open(self.destination, "wb") as f:
             plistlib.dump(self.plist_dict, f, sort_keys=False)
 
     def disable(self) -> None:
@@ -203,8 +204,9 @@ class AutoStartXDGDesktop(AutoStartBase):
         be performed.
     """
 
-    def __init__(self, app_name: str, start_cmd: str, filename: Optional[str],
-                 **kwargs: str) -> None:
+    def __init__(
+        self, app_name: str, start_cmd: str, filename: Optional[str], **kwargs: str
+    ) -> None:
         super().__init__()
 
         # create desktop file content
@@ -212,20 +214,20 @@ class AutoStartXDGDesktop(AutoStartBase):
         # set to preserve key casing
         self.config.optionxform = str  # type: ignore
 
-        self.config['Desktop Entry'] = {
-            'Version': '1.0',
-            'Type': 'Application',
-            'Name': app_name,
-            'Exec': start_cmd
+        self.config["Desktop Entry"] = {
+            "Version": "1.0",
+            "Type": "Application",
+            "Name": app_name,
+            "Exec": start_cmd,
         }
-        self.config['Desktop Entry'].update(kwargs)
+        self.config["Desktop Entry"].update(kwargs)
 
-        filename = filename or f'{app_name}.desktop'
-        self.destination = get_conf_path('autostart', filename)
+        filename = filename or f"{app_name}.desktop"
+        self.destination = get_conf_path("autostart", filename)
 
     def enable(self) -> None:
 
-        with open(self.destination, 'w') as f:
+        with open(self.destination, "w") as f:
             self.config.write(f)
 
         st = os.stat(self.destination)
@@ -257,56 +259,50 @@ class AutoStart:
         self.implementation = self._get_available_implementation()
 
         if gui:
-            start_cmd = f'{self.maestral_path} gui -c {config_name}'
-            bundle_id = '{}.{}'.format(BUNDLE_ID, config_name)
+            start_cmd = f"{self.maestral_path} gui -c {config_name}"
+            bundle_id = "{}.{}".format(BUNDLE_ID, config_name)
         else:
-            start_cmd = f'{self.maestral_path} start -f -c {config_name}'
-            bundle_id = '{}-{}.{}'.format(BUNDLE_ID, 'daemon', config_name)
+            start_cmd = f"{self.maestral_path} start -f -c {config_name}"
+            bundle_id = "{}-{}.{}".format(BUNDLE_ID, "daemon", config_name)
 
         if self.implementation == SupportedImplementations.launchd:
             self._impl = AutoStartLaunchd(bundle_id, start_cmd)
 
         elif self.implementation == SupportedImplementations.xdg_desktop:
             self._impl = AutoStartXDGDesktop(
-                filename=f'maestral-{config_name}.desktop',
-                app_name='Maestral',
+                filename=f"maestral-{config_name}.desktop",
+                app_name="Maestral",
                 start_cmd=start_cmd,
                 TryExec=self.maestral_path,
-                Icon='maestral',
-                Terminal='false',
-                Categories='Network;FileTransfer;',
-                GenericName='File Synchronizer',
-                Comment='Sync your files with Dropbox',
+                Icon="maestral",
+                Terminal="false",
+                Categories="Network;FileTransfer;",
+                GenericName="File Synchronizer",
+                Comment="Sync your files with Dropbox",
             )
 
         elif self.implementation == SupportedImplementations.systemd:
 
             notify_failure = (
-                'if [ ${SERVICE_RESULT} != success ]; '
-                'then notify-send Maestral \'Daemon failed: ${SERVICE_RESULT}\'; '
-                'fi'
+                "if [ ${SERVICE_RESULT} != success ]; "
+                "then notify-send Maestral 'Daemon failed: ${SERVICE_RESULT}'; "
+                "fi"
             )
 
             self._impl = AutoStartSystemd(
-                service_name=f'maestral-daemon@{config_name}.service',
-                start_cmd=f'{self.maestral_path} start -f -c %i',
-                unit_dict={
-                    'Description': 'Maestral daemon for the config %i'
-                },
+                service_name=f"maestral-daemon@{config_name}.service",
+                start_cmd=f"{self.maestral_path} start -f -c %i",
+                unit_dict={"Description": "Maestral daemon for the config %i"},
                 service_dict={
-                    'Type': 'notify',
-                    'WatchdogSec': '30',
-                    'ExecStop': f'{self.maestral_path} stop -c %i',
-                    'ExecStopPost': f'/usr/bin/env bash -c "{notify_failure}"',
-                }
+                    "Type": "notify",
+                    "WatchdogSec": "30",
+                    "ExecStop": f"{self.maestral_path} stop -c %i",
+                    "ExecStopPost": f'/usr/bin/env bash -c "{notify_failure}"',
+                },
             )
 
         else:
             self._impl = AutoStartBase()
-
-    def toggle(self) -> None:
-        """Toggles autostart on or off."""
-        self.enabled = not self.enabled
 
     @property
     def enabled(self) -> bool:
@@ -314,19 +310,37 @@ class AutoStart:
         return self._impl.enabled
 
     @enabled.setter
-    def enabled(self, yes: bool) -> None:
+    def enabled(self, value: bool) -> None:
+        if value:
+            self.enable()
+        else:
+            self.disable()
+
+    def toggle(self) -> None:
+        """Toggles autostart on or off."""
+        if self.enabled:
+            self.disable()
+        else:
+            self.enable()
+
+    def enable(self) -> None:
         """Setter: True if autostart is enabled."""
 
-        if self.enabled == yes:
+        if self.enabled:
             return
 
-        if yes:
-            if self.maestral_path:
-                self._impl.enable()
-            else:
-                raise OSError('Could not find path of maestral executable')
+        if self.maestral_path:
+            self._impl.enable()
         else:
-            self._impl.disable()
+            raise OSError("Could not find path of maestral executable")
+
+    def disable(self) -> None:
+        """Setter: True if autostart is enabled."""
+
+        if not self.enabled:
+            return
+
+        self._impl.disable()
 
     def get_maestral_command_path(self) -> str:
         """
@@ -335,18 +349,26 @@ class AutoStart:
         # try to get location of console script from package metadata
         # fall back to 'which' otherwise
 
-        if self._gui and getattr(sys, 'frozen', False):
+        if self._gui and getattr(sys, "frozen", False):
             return sys.executable
 
         try:
-            pkg_path = next(p for p in files('maestral')
-                            if str(p).endswith('/bin/maestral'))
-            path = pkg_path.locate().resolve()
-        except (StopIteration, PackageNotFoundError):
-            path = ''
+            dist_files = files("maestral")
+        except PackageNotFoundError:
+            # we may be in an app bundle or have installation issues
+            dist_files = []
+
+        if dist_files:
+            try:
+                rel_path = next(p for p in dist_files if p.match("**/bin/maestral"))
+                path = rel_path.locate().resolve()
+            except StopIteration:
+                path = ""
+        else:
+            path = ""
 
         if not osp.isfile(path):
-            path = shutil.which('maestral')
+            path = shutil.which("maestral")
 
         return str(path)
 
@@ -355,13 +377,13 @@ class AutoStart:
 
         system = platform.system()
 
-        if system == 'Darwin':
+        if system == "Darwin":
             return SupportedImplementations.launchd
-        elif system == 'Linux' and self._gui:
+        elif system == "Linux" and self._gui:
             return SupportedImplementations.xdg_desktop
         else:
-            res = subprocess.check_output(['ps', '-p', '1']).decode()
-            if 'systemd' in res:
+            res = subprocess.check_output(["ps", "-p", "1"]).decode()
+            if "systemd" in res:
                 return SupportedImplementations.systemd
             else:
                 return None

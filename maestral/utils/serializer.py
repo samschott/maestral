@@ -52,10 +52,11 @@ def error_to_dict(err: Exception) -> ErrorType:
     err_dict: ErrorType = dict(
         type=err.__class__.__name__,
         inherits=[base.__name__ for base in err.__class__.__bases__],
-        traceback=''.join(traceback.format_exception(err.__class__,
-                                                     err, err.__traceback__)),
-        title='An unexpected error occurred',
-        message='Please restart Maestral to continue syncing.',
+        traceback="".join(
+            traceback.format_exception(err.__class__, err, err.__traceback__)
+        ),
+        title="An unexpected error occurred",
+        message="Please restart Maestral to continue syncing.",
     )
     for key, value in err.__dict__.items():
 
@@ -77,7 +78,7 @@ def sync_event_to_dict(event: SyncEvent) -> StoneType:
     """
     serialized = dict()
 
-    for field in [x for x in dir(event) if not x.startswith('_') and x != 'metadata']:
+    for field in [x for x in dir(event) if not x.startswith("_") and x != "metadata"]:
         data = event.__getattribute__(field)
         if isinstance(data, Enum):
             new_data = data.value

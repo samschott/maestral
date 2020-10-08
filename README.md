@@ -44,7 +44,8 @@ $ python3 -m pip install --upgrade maestral
 ```
 
 If you intend to use the graphical user interface, you also need to specify the GUI option
-during installation. This will install the `maestral-qt` frontend and `PyQt5`:
+during installation or upgrade. This will install the `maestral-qt` frontend and `PyQt5`
+on Linux and `maestral-cocoa` on macOS:
 
 ```console
 $ python3 -m pip install --upgrade maestral[gui]
@@ -59,10 +60,10 @@ Run `maestral gui` in the command line (or open the Maestral app on macOS) to st
 Maestral with a graphical user interface. On its first run, Maestral will guide you
 through linking and configuring your Dropbox and will then start syncing.
 
-![screenshot macOS](https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/macOS_light.png)
-![screenshot Fedora](https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/Ubuntu.png)
+<img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/macOS_light.png" alt="screenshot macOS" width="840"/>
+<img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/Ubuntu.png" alt="screenshot Fedora" width="840"/>
 
-## Command line usage
+### Command line usage
 
 After installation, Maestral will be available as a command line script by typing
 `maestral` in the command prompt. Type `maestral --help` to get a full list of available
@@ -105,6 +106,37 @@ work         user@mycorp.org
 By default, the Dropbox folder names will contain the capitalised config-name in braces.
 In the above case, this will be "Dropbox (Personal)" and "Dropbox (Work)".
 
+### Docker usage
+
+The Docker image is available for x86, arm/v7 (32bit) and arm64 platforms. You can do
+everything that you supposed to do in the command line, except running the GUI.
+
+For the first run, get access to the shell within the Docker container 
+
+```console
+$ docker run -it -v /mnt/dropbox:/dropbox maestraldbx/maestral:latest ash
+```
+
+where `/mnt/dropbox` is the directory that which contains the `Dropbox` directory.
+Maestral runs with `UID` 1000, make sure that the user owns `/mnt/dropbox` and the
+contents within (`chown -R 1000 /mnt/dropbox`).
+
+Later, if you want just a `maestral start`, just execute
+
+```console
+$ docker run \
+  -d \
+  --name maestral \
+  --rm \
+  -v /mnt/dropbox:/dropbox \
+  maestraldbx/maestral:latest
+```
+
+- To step into the Maestral container: `docker exec -it maestral ash`
+- List the logs of the container: `docker logs maestral`
+- Get the build info of a running container: `docker inspect maestral | jq ".[].Config.Labels"`
+
+
 ## Contribute
 
 There are multiple topics that could use your help. Some of them are easy, such as adding
@@ -119,14 +151,13 @@ Relevant resources are:
 - [Dropbox Python SDK docs](https://dropbox-sdk-python.readthedocs.io/en/latest/)
 
 If you are using the macOS app bundle, please consider sponsoring the project with £1 per 
-month to offset the cost of an Apple Develper account to sign and notiarize the bundle.
+month to offset the cost of an Apple Developer account to sign and notiarize the bundle.
 
-## Dependencies
+## System requirements
 
 - macOS (10.13 or higher for binary) or Linux
 - Python 3.6 or higher
-- For the GUI only:
-  - PyQt 5.9 or higher
+- For the system tray icon on Linux:
   - [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
     on Gnome 3.26 and higher
 
@@ -137,4 +168,3 @@ month to offset the cost of an Apple Develper account to sign and notiarize the 
 - Error reporting is powered by bugsnag:
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <a href="https://bugsnag.com"> <img src="https://global-uploads.webflow.com/5c741219fd0819540590e785/5c741219fd0819856890e790_asset%2039.svg" title="Bugsnag text" height="20"></a>
-

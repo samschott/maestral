@@ -17,10 +17,19 @@
 # limitations under the License.
 
 from watchdog.observers.fsevents import (  # type: ignore
-    FSEventsEmitter, FSEventsObserver, DirectorySnapshot,
-    FileDeletedEvent, FileModifiedEvent, FileMovedEvent, FileCreatedEvent,
-    DirDeletedEvent, DirModifiedEvent, DirMovedEvent, DirCreatedEvent,
-    DEFAULT_OBSERVER_TIMEOUT, BaseObserver
+    FSEventsEmitter,
+    FSEventsObserver,
+    DirectorySnapshot,
+    FileDeletedEvent,
+    FileModifiedEvent,
+    FileMovedEvent,
+    FileCreatedEvent,
+    DirDeletedEvent,
+    DirModifiedEvent,
+    DirMovedEvent,
+    DirCreatedEvent,
+    DEFAULT_OBSERVER_TIMEOUT,
+    BaseObserver,
 )
 
 
@@ -104,6 +113,7 @@ class OrderedFSEventsEmitter(FSEventsEmitter):
 
 
 class OrderedFSEventsObserver(FSEventsObserver):
-
     def __init__(self, timeout=DEFAULT_OBSERVER_TIMEOUT):
-        BaseObserver.__init__(self, emitter_class=OrderedFSEventsEmitter, timeout=timeout)
+        BaseObserver.__init__(
+            self, emitter_class=OrderedFSEventsEmitter, timeout=timeout
+        )

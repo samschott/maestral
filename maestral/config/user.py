@@ -33,6 +33,7 @@ InputDefaultsType = Union[DefaultsType, Dict[str, Any], None]
 # Auxiliary classes
 # =============================================================================
 
+
 class NoDefault:
     pass
 
@@ -40,6 +41,7 @@ class NoDefault:
 # =============================================================================
 # Defaults class
 # =============================================================================
+
 
 class DefaultsConfig(cp.ConfigParser):
     """
@@ -87,14 +89,15 @@ class DefaultsConfig(cp.ConfigParser):
                     time.sleep(0.05)
                     self.__write_file(fpath)
                 except Exception:
-                    logger.warning('Failed to write user configuration to disk',
-                                   exc_info=True)
+                    logger.warning(
+                        "Failed to write user configuration to disk", exc_info=True
+                    )
 
     def __write_file(self, fpath: str) -> None:
 
         os.makedirs(self._path, exist_ok=True)
 
-        with open(fpath, 'w', encoding='utf-8') as configfile:
+        with open(fpath, "w", encoding="utf-8") as configfile:
             self.write(configfile)
 
     def get_config_fpath(self) -> str:
@@ -112,6 +115,7 @@ class DefaultsConfig(cp.ConfigParser):
 # =============================================================================
 # User config class
 # =============================================================================
+
 
 class UserConfig(DefaultsConfig):
     """
@@ -139,16 +143,20 @@ class UserConfig(DefaultsConfig):
     The 'get' and 'set' arguments number and type differ from the reimplemented
     methods. 'defaults' is an attribute and not a method.
     """
-    DEFAULT_SECTION_NAME = 'main'
 
-    def __init__(self, path: str,
-                 name: str,
-                 defaults: InputDefaultsType = None,
-                 load: bool = True,
-                 version: str = '0.0.0',
-                 backup: bool = False,
-                 remove_obsolete: bool = False,
-                 suffix: str = '.ini') -> None:
+    DEFAULT_SECTION_NAME = "main"
+
+    def __init__(
+        self,
+        path: str,
+        name: str,
+        defaults: InputDefaultsType = None,
+        load: bool = True,
+        version: str = "0.0.0",
+        backup: bool = False,
+        remove_obsolete: bool = False,
+        suffix: str = ".ini",
+    ) -> None:
         """UserConfig class, based on ConfigParser."""
         super(UserConfig, self).__init__(path=path, name=name, suffix=suffix)
 
@@ -157,10 +165,10 @@ class UserConfig(DefaultsConfig):
         self._backup = backup
         self._remove_obsolete = remove_obsolete
 
-        self._defaults_folder = 'defaults'
-        self._backup_folder = 'backups'
-        self._backup_suffix = '.bak'
-        self._defaults_name_prefix = 'defaults'
+        self._defaults_folder = "defaults"
+        self._backup_folder = "backups"
+        self._backup_suffix = ".bak"
+        self._defaults_name_prefix = "defaults"
 
         self.default_config = self._check_defaults(defaults)
 
@@ -206,20 +214,22 @@ class UserConfig(DefaultsConfig):
     @staticmethod
     def _get_minor_version(version: str) -> str:
         """Return the 'major.minor' components of the version."""
-        return version[:version.rfind('.')]
+        return version[: version.rfind(".")]
 
     @staticmethod
     def _get_major_version(version: str) -> str:
         """Return the 'major' component of the version."""
-        return version[:version.find('.')]
+        return version[: version.find(".")]
 
     @staticmethod
     def _check_version(version: str) -> str:
         """Check version is compliant with format."""
-        regex_check = re.match(r'^(\d+).(\d+).(\d+)$', version)
+        regex_check = re.match(r"^(\d+).(\d+).(\d+)$", version)
         if regex_check is None:
-            raise ValueError('Version number {} is incorrect - must be in '
-                             'major.minor.micro format'.format(version))
+            raise ValueError(
+                "Version number {} is incorrect - must be in "
+                "major.minor.micro format".format(version)
+            )
 
         return version
 
@@ -237,7 +247,7 @@ class UserConfig(DefaultsConfig):
                 for opt, _ in options.items():
                     assert isinstance(opt, str)
         else:
-            raise ValueError('`defaults` must be a dict or a list of tuples!')
+            raise ValueError("`defaults` must be a dict or a list of tuples!")
 
         # This attribute is overriding a method from cp.ConfigParser
         self.default_config = defaults
@@ -247,7 +257,7 @@ class UserConfig(DefaultsConfig):
 
         for sec, options in defaults:
             if sec == self.DEFAULT_SECTION_NAME:
-                options['version'] = self._version
+                options["version"] = self._version
 
         return defaults
 
@@ -264,8 +274,9 @@ class UserConfig(DefaultsConfig):
 
         return section
 
-    def _make_backup(self, version: Optional[str] = None,
-                     old_version: Optional[str] = None) -> None:
+    def _make_backup(
+        self, version: Optional[str] = None, old_version: Optional[str] = None
+    ) -> None:
         """
         Make a backup of the configuration file.
 
@@ -275,7 +286,8 @@ class UserConfig(DefaultsConfig):
         """
         fpath = self.get_config_fpath()
         fpath_backup = self.get_backup_fpath_from_version(
-            version=version, old_version=old_version)
+            version=version, old_version=old_version
+        )
         path = os.path.dirname(fpath_backup)
 
         if not osp.isdir(path):
@@ -291,9 +303,9 @@ class UserConfig(DefaultsConfig):
 
         with self._lock:
             try:
-                self.read(fpath, encoding='utf-8')
+                self.read(fpath, encoding="utf-8")
             except cp.MissingSectionHeaderError:
-                logger.error('File contains no section headers.')
+                logger.error("File contains no section headers.")
 
     def _load_old_defaults(self, old_version: str) -> cp.ConfigParser:
         """Read old defaults."""
@@ -338,8 +350,9 @@ class UserConfig(DefaultsConfig):
         """
         return self.get_config_fpath()
 
-    def get_backup_fpath_from_version(self, version: Optional[str] = None,
-                                      old_version: Optional[str] = None) -> str:
+    def get_backup_fpath_from_version(
+        self, version: Optional[str] = None, old_version: Optional[str] = None
+    ) -> str:
         """
         Get backup location based on version.
 
@@ -352,24 +365,27 @@ class UserConfig(DefaultsConfig):
         path = osp.join(osp.dirname(fpath), self._backup_folder)
         new_fpath = osp.join(path, osp.basename(fpath))
         if version is None:
-            backup_fpath = '{}{}'.format(new_fpath, self._backup_suffix)
+            backup_fpath = "{}{}".format(new_fpath, self._backup_suffix)
         else:
             backup_fpath = "{}-{}{}".format(new_fpath, version, self._backup_suffix)
         return backup_fpath
 
-    def get_defaults_path_name_from_version(self, old_version: Optional[str] = None) -> Tuple[str, str]:
+    def get_defaults_path_name_from_version(
+        self, old_version: Optional[str] = None
+    ) -> Tuple[str, str]:
         """
         Get defaults location based on version.
 
         To be reimplemented if versions changed defaults location.
         """
         version = old_version if old_version else self._version
-        defaults_path = osp.join(osp.dirname(self.get_config_fpath()),
-                                 self._defaults_folder)
+        defaults_path = osp.join(
+            osp.dirname(self.get_config_fpath()), self._defaults_folder
+        )
         if version is None:
-            name = '{}-{}'.format(self._defaults_name_prefix, self._name)
+            name = "{}-{}".format(self._defaults_name_prefix, self._name)
         else:
-            name = '{}-{}-{}'.format(self._defaults_name_prefix, self._name, version)
+            name = "{}-{}-{}".format(self._defaults_name_prefix, self._name, version)
         if not osp.isdir(defaults_path):
             os.makedirs(defaults_path)
 
@@ -394,16 +410,18 @@ class UserConfig(DefaultsConfig):
         pass
 
     # --- Public API ---------------------------------------------------------------------
-    def get_version(self, version: str = '0.0.0') -> str:
+    def get_version(self, version: str = "0.0.0") -> str:
         """Return configuration (not application!) version."""
-        return self.get(self.DEFAULT_SECTION_NAME, 'version', version)
+        return self.get(self.DEFAULT_SECTION_NAME, "version", version)
 
-    def set_version(self, version: str = '0.0.0', save: bool = True) -> None:
+    def set_version(self, version: str = "0.0.0", save: bool = True) -> None:
         """Set configuration (not application!) version."""
         version = self._check_version(version)
-        self.set(self.DEFAULT_SECTION_NAME, 'version', version, save=save)
+        self.set(self.DEFAULT_SECTION_NAME, "version", version, save=save)
 
-    def reset_to_defaults(self, save: bool = True, section: Optional[str] = None) -> None:
+    def reset_to_defaults(
+        self, save: bool = True, section: Optional[str] = None
+    ) -> None:
         """Reset config to Default values."""
         for sec, options in self.default_config:
             if section is None or section == sec:
@@ -488,9 +506,11 @@ class UserConfig(DefaultsConfig):
                 value = raw_value
 
         if default_value is not NoDefault and type(default_value) is not type(value):
-            logger.error(f'Inconsistent config type for [{section}][{option}]. '
-                         f'Expected {default_value.__class__.__name__} but '
-                         f'got {value.__class__.__name__}.')
+            logger.error(
+                f"Inconsistent config type for [{section}][{option}]. "
+                f"Expected {default_value.__class__.__name__} but "
+                f"got {value.__class__.__name__}."
+            )
 
         return value
 
@@ -572,7 +592,7 @@ class UserConfig(DefaultsConfig):
 
         # remove saved defaults
         for file in os.scandir(defaults_path):
-            if file.name.startswith(f'{self._defaults_name_prefix}-{self._name}'):
+            if file.name.startswith(f"{self._defaults_name_prefix}-{self._name}"):
                 try:
                     os.remove(file.path)
                 except FileNotFoundError:

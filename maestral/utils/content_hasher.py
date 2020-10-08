@@ -43,7 +43,8 @@ class DropboxContentHasher:
     def update(self, new_data):
         if self._overall_hasher is None:
             raise RuntimeError(
-                "can't use this object anymore; you already called digest()")
+                "can't use this object anymore; you already called digest()"
+            )
 
         if not isinstance(new_data, bytes):
             raise ValueError("Expecting a byte string, got {!r}".format(new_data))
@@ -56,7 +57,7 @@ class DropboxContentHasher:
                 self._block_pos = 0
 
             space_in_block = self.BLOCK_SIZE - self._block_pos
-            part = new_data[new_data_pos:(new_data_pos + space_in_block)]
+            part = new_data[new_data_pos : (new_data_pos + space_in_block)]
             self._block_hasher.update(part)
 
             self._block_pos += len(part)
@@ -64,7 +65,9 @@ class DropboxContentHasher:
 
     def _finish(self):
         if self._overall_hasher is None:
-            raise RuntimeError("can't use this object anymore; you already called digest() or hexdigest()")
+            raise RuntimeError(
+                "can't use this object anymore; you already called digest() or hexdigest()"
+            )
 
         if self._block_pos > 0:
             self._overall_hasher.update(self._block_hasher.digest())
