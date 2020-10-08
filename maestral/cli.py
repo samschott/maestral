@@ -546,8 +546,8 @@ def gui(config_name: str) -> None:
 
     if default_entry_point:
         # check gui requirements
-        maestral_dist = pkg_resources.get_distribution("maestral")
-        gui_requirements = set(maestral_dist.requires(extras=("gui",))) - set(maestral_dist.requires())
+        dist = pkg_resources.get_distribution("maestral")
+        gui_requirements = set(dist.requires(extras=("gui",))) - set(dist.requires())
 
         for r in gui_requirements:
             pkg_resources.working_set.find(r)
