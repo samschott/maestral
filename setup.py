@@ -59,6 +59,7 @@ setup(
     zip_safe=False,
     entry_points={
         "console_scripts": ["maestral=maestral.cli:main"],
+        "pyinstaller40": ["hook-dirs=maestral.__pyinstaller:get_hook_dirs"],
     },
     python_requires=">=3.6",
     classifiers=[
