@@ -44,7 +44,8 @@ $ python3 -m pip install --upgrade maestral
 ```
 
 If you intend to use the graphical user interface, you also need to specify the GUI option
-during installation. This will install the `maestral-qt` frontend and `PyQt5`:
+during installation or upgrade. This will install the `maestral-qt` frontend and `PyQt5`
+on Linux and `maestral-cocoa` on macOS:
 
 ```console
 $ python3 -m pip install --upgrade maestral[gui]
@@ -150,11 +151,11 @@ Relevant resources are:
 - [Dropbox Python SDK docs](https://dropbox-sdk-python.readthedocs.io/en/latest/)
 
 If you are using the macOS app bundle, please consider sponsoring the project with £1 per 
-month to offset the cost of an Apple Develper account to sign and notiarize the bundle.
+month to offset the cost of an Apple Developer account to sign and notiarize the bundle.
 
 ## System requirements
 
-- macOS (10.14 or higher for binary) or Linux
+- macOS (10.13 or higher for binary) or Linux
 - Python 3.6 or higher
 - For the system tray icon on Linux:
   - [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
