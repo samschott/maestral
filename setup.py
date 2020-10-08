@@ -2,7 +2,6 @@
 
 # system imports
 from setuptools import setup, find_packages
-import importlib.util
 
 
 # proceed with actual install
@@ -33,12 +32,6 @@ gui_requires = [
 ]
 
 syslog_requires = ["systemd-python"]
-
-# if GUI is installed, always update it as well
-if importlib.util.find_spec("maestral_qt") or importlib.util.find_spec(
-    "maestral_cocoa"
-):
-    install_requires.extend(gui_requires)
 
 
 setup(
