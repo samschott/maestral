@@ -60,7 +60,7 @@ Run `maestral gui` in the command line (or open the Maestral app on macOS) to st
 Maestral with a graphical user interface. On its first run, Maestral will guide you
 through linking and configuring your Dropbox and will then start syncing.
 
-<img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/macOS_light.png" alt="screenshot macOS" width="840"/>
+<img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/macOS_dark.png" alt="screenshot macOS" width="840"/>
 <img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/Ubuntu.png" alt="screenshot Fedora" width="840"/>
 
 ### Command line usage
