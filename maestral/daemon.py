@@ -333,12 +333,16 @@ def maestral_lock(config_name: str) -> Lock:
 def sockpath_for_config(config_name: str) -> str:
     """
     Returns the unix socket location to be used for the config. This should default to
-    the apps runtime directory + '/maestral/CONFIG_NAME.sock'.
+    the apps runtime directory + 'CONFIG_NAME.sock'.
     """
     return get_runtime_path("maestral", f"{config_name}.sock")
 
 
 def lockpath_for_config(config_name: str) -> str:
+    """
+    Returns the lock file location to be used for the config. This should default to
+    the apps runtime directory + 'CONFIG_NAME.lock'.
+    """
     return get_runtime_path("maestral", f"{config_name}.lock")
 
 
