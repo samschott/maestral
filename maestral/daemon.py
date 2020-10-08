@@ -25,7 +25,8 @@ import tempfile
 import itertools
 import asyncio
 import logging
-from typing import Optional, Union, Tuple, Dict, Type, TYPE_CHECKING
+import warnings
+from typing import Optional, Any, Union, Tuple, Dict, Iterable, Type, TYPE_CHECKING
 from types import TracebackType, FrameType
 
 # external imports
@@ -646,58 +647,111 @@ def stop_maestral_daemon_process(
             return Stop.Failed
 
 
-def get_maestral_proxy(
-    config_name: str = "maestral", fallback: bool = False
-) -> MaestralProxyType:
+class MaestralProxy:
     """
-    Returns a Pyro proxy of the a running Maestral instance.
+    A Proxy to the Maestral daemon. All methods and properties of Maestral's public API
+    are accessible and calls / access will be forwarded to the corresponding Maestral
+    instance. This class can be used as a context manager to close the connection to the
+    daemon on exit.
+
+    :Example:
+
+        Use MaestralProxy as a context manager:
+
+        >>> with MaestralProxy() as m:
+        ...     print(m.status)
+
+        Use MaestralProxy directly:
+
+        >>> m = MaestralProxy()
+        >>> print(m.status)
+        >>> m._disconnect()
 
     :param config_name: The name of the Maestral configuration to use.
-    :param fallback: If ``True``, a new instance of Maestral will be returned when
-        the daemon cannot be reached.
-    :returns: Pyro proxy of Maestral or a new instance.
+    :param fallback: If ``True``, a new instance of Maestral will created in the current
+        process when the daemon cannot be reached.
     :raises: :class:`Pyro5.errors.CommunicationError` if the daemon cannot be reached
         and ``fallback`` is ``False``.
     """
 
-    if is_running(config_name):
-        sock_name = sockpath_for_config(config_name)
-
-        sys.excepthook = Pyro5.errors.excepthook
-        maestral_daemon = Proxy(URI.format(config_name, "./u:" + sock_name))
-        try:
-            maestral_daemon._pyroBind()
-            return maestral_daemon
-        except CommunicationError:
-            maestral_daemon._pyroRelease()
-
-    if fallback:
-        from maestral.main import Maestral
-
-        return Maestral(config_name)
-    else:
-        raise CommunicationError("Could not get proxy")
-
-
-class MaestralProxy:
-    """
-    A context manager to open and close a proxy to the Maestral daemon.
-
-    :param config_name: The name of the Maestral configuration to use.
-    :param fallback: If ``True``, a new instance of Maestral will be returned when
-        the daemon cannot be reached.
-    """
+    _m: MaestralProxyType
 
     def __init__(self, config_name: str = "maestral", fallback: bool = False) -> None:
-        self.m = get_maestral_proxy(config_name, fallback)
+
+        self._config_name = config_name
+
+        if is_running(config_name):
+
+            sock_name = sockpath_for_config(config_name)
+
+            sys.excepthook = Pyro5.errors.excepthook
+            self._m = Proxy(URI.format(config_name, "./u:" + sock_name))
+            try:
+                self._m._pyroBind()
+            except CommunicationError:
+                self._m._pyroRelease()
+                raise
+
+        else:
+            # If daemon is not running, fall back to new Maestral instance
+            # or raise a CommunicationError if fallback not allowed.
+            if fallback:
+                from maestral.main import Maestral
+
+                self._m = Maestral(config_name)
+            else:
+                raise CommunicationError("Could not get proxy")
+
+        self._is_fallback = not isinstance(self._m, Proxy)
+
+    def _disconnect(self) -> None:
+        if not self._is_fallback:
+            self._m._pyroRelease()
 
     def __enter__(self) -> MaestralProxyType:
-        return self.m
+        return self._m
 
     def __exit__(
         self, exc_type: Type[Exception], exc_value: Exception, tb: TracebackType
-    ):
-        if isinstance(self.m, Proxy):
-            self.m._pyroRelease()
+    ) -> None:
+        self._disconnect()
+        del self._m
 
-        del self.m
+    def __getattr__(self, item: str) -> Any:
+        if item.startswith("_"):
+            super().__getattribute__(item)
+        elif self._is_fallback:
+            return self._m.__getattribute__(item)
+        else:
+            return self._m.__getattr__(item)
+
+    def __setattr__(self, key, value) -> None:
+        if key.startswith("_"):
+            super().__setattr__(key, value)
+        else:
+            return self._m.__setattr__(key, value)
+
+    def __dir__(self) -> Iterable[str]:
+        own_result = dir(self.__class__) + list(self.__dict__.keys())
+        proxy_result = list(k for k in self._m.__dir__() if not k.startswith("_"))
+
+        return sorted(set(own_result) | set(proxy_result))
+
+    def __repr__(self) -> str:
+        return (
+            f"<{self.__class__.__name__}(config={self._config_name!r}, "
+            f"is_fallback={self._is_fallback})>"
+        )
+
+
+def get_maestral_proxy(
+    config_name: str = "maestral", fallback: bool = False
+) -> MaestralProxyType:
+
+    warnings.warn(
+        "'get_maestral_proxy' is deprecated, please use 'MaestralProxy' instead",
+        DeprecationWarning,
+    )
+
+    m = MaestralProxy(config_name, fallback=fallback)
+    return m._m
