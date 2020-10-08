@@ -14,11 +14,10 @@ import os
 import platform
 import sys
 from enum import Enum
-import pkg_resources
 
 
 _resources = getattr(
-    sys, "_MEIPASS", pkg_resources.resource_filename("maestral", "resources")
+    sys, "_MEIPASS", os.path.join(os.path.dirname(__file__), "resources")
 )
 
 # app
