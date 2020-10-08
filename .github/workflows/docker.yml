@@ -21,7 +21,7 @@ jobs:
         # Needed for getting the latest Git tag in the "Prepare" step.
         
       - name: Fetching tags 
-        run: git fetch --prune --unshallow --tags
+        run: git fetch --prune --unshallow --force --tags
 
       - name: Prepare
         id: prep
