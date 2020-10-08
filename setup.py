@@ -27,8 +27,8 @@ install_requires = [
 ]
 
 gui_requires = [
-    'maestral-qt>=1.2.1;sys_platform=="linux"',
-    'maestral-cocoa>=1.2.1;sys_platform=="darwin"',
+    'maestral-qt>=1.2.2.dev0;sys_platform=="linux"',
+    'maestral-cocoa>=1.2.2.dev0;sys_platform=="darwin"',
 ]
 
 syslog_requires = ["systemd-python"]
@@ -38,7 +38,7 @@ setup(
     name="maestral",
     author="Sam Schott",
     author_email="ss2151@cam.ac.uk",
-    version="1.2.1",
+    version="1.2.2.dev0",
     url="https://github.com/SamSchott/maestral",
     description="Open-source Dropbox client for macOS and Linux.",
     license="MIT",
