@@ -1,4 +1,4 @@
-## v1.2.1.dev
+## v1.2.1
 
 This update provides bug fixes and some improvements to error handling. Major changes
 don't regard Maestral itself but its distribution: a Docker image is now available, thanks
@@ -26,6 +26,7 @@ full compatibility from macOS 10.13 High Sierra to macOS 11.0 Big Sur.
 - Allow sending desktop notifications in Linux before the daemon's event loop has started.
   This is useful for error messages which occur early during the initialization.
 - Improves log messages when the connection to Dropbox is lost.
+- Performance improvements to `maestral activity` in case of very large sync queues.
 
 #### Fixes:
 
