@@ -247,7 +247,7 @@ def catch_requirement_errors(func: Callable) -> Callable:
             raise click.ClickException(f"Please install {exc.req.project_name}")
         except VersionConflict as exc:
             raise click.ClickException(
-                f"{exc.req.project_name}{str(exc.req.specifier)}"
+                f"{exc.req.project_name}{str(exc.req.specifier)} "
                 f"required but you have {exc.dist.version}"
             )
 
@@ -547,17 +547,17 @@ def gui(config_name: str) -> None:
     if default_entry_point:
         # check gui requirements
         maestral_dist = pkg_resources.get_distribution("maestral")
-        requirements = maestral_dist.requires(extras=("gui",))
+        gui_requirements = set(maestral_dist.requires(extras=("gui",))) - set(maestral_dist.requires())
 
-        for r in requirements:
+        for r in gui_requirements:
             pkg_resources.working_set.find(r)
 
         # load entry point
-        run = default_entry_point.load()
+        run = default_entry_point.resolve()
 
     else:
         fallback_entry_point = next(iter(entry_points))
-        run = fallback_entry_point.load()
+        run = fallback_entry_point.resolve()
 
     run(config_name)
 
