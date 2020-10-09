@@ -31,6 +31,7 @@ import subprocess
 import shlex
 import plistlib
 import configparser
+from pathlib import Path
 from enum import Enum
 from typing import Optional, Dict, Any
 
@@ -344,10 +345,9 @@ class AutoStart:
 
     def get_maestral_command_path(self) -> str:
         """
-        :returns: The path to the maestral executable.
+        :returns: The path to the maestral executable. May be an empty string if the
+            executable cannot be found.
         """
-        # try to get location of console script from package metadata
-        # fall back to 'which' otherwise
 
         if self._gui and getattr(sys, "frozen", False):
             return sys.executable
@@ -358,19 +358,25 @@ class AutoStart:
             # we may be in an app bundle or have installation issues
             dist_files = []
 
+        path: Optional[os.PathLike]
+
         if dist_files:
             try:
                 rel_path = next(p for p in dist_files if p.match("**/bin/maestral"))
-                path = rel_path.locate().resolve()
+                path = rel_path.locate()
             except StopIteration:
-                path = ""
+                path = None
         else:
-            path = ""
+            path = None
 
-        if not osp.isfile(path):
-            path = shutil.which("maestral")
+        if isinstance(path, Path):
+            # resolve any symlinks and “..” components
+            path = path.resolve()
 
-        return str(path)
+        if path and osp.isfile(path):
+            return str(path)
+        else:
+            return shutil.which("maestral") or ""
 
     def _get_available_implementation(self) -> Optional[SupportedImplementations]:
         """Returns the supported implementation depending on the platform."""

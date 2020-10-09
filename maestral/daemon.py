@@ -684,7 +684,9 @@ class MaestralProxy:
 
             sock_name = sockpath_for_config(config_name)
 
+            # print remote tracebacks locally
             sys.excepthook = Pyro5.errors.excepthook
+
             self._m = Proxy(URI.format(config_name, "./u:" + sock_name))
             try:
                 self._m._pyroBind()
@@ -705,7 +707,7 @@ class MaestralProxy:
         self._is_fallback = not isinstance(self._m, Proxy)
 
     def _disconnect(self) -> None:
-        if not self._is_fallback:
+        if isinstance(self._m, Proxy):
             self._m._pyroRelease()
 
     def __enter__(self) -> MaestralProxyType:
@@ -720,16 +722,16 @@ class MaestralProxy:
     def __getattr__(self, item: str) -> Any:
         if item.startswith("_"):
             super().__getattribute__(item)
-        elif self._is_fallback:
-            return self._m.__getattribute__(item)
-        else:
+        elif isinstance(self._m, Proxy):
             return self._m.__getattr__(item)
+        else:
+            return self._m.__getattribute__(item)
 
     def __setattr__(self, key, value) -> None:
         if key.startswith("_"):
             super().__setattr__(key, value)
         else:
-            return self._m.__setattr__(key, value)
+            self._m.__setattr__(key, value)
 
     def __dir__(self) -> Iterable[str]:
         own_result = dir(self.__class__) + list(self.__dict__.keys())
