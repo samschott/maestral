@@ -606,6 +606,9 @@ class SyncEvent(Base):  # type: ignore
             except IsAFolderError:
                 item_type = ItemType.Folder
                 change_dbid = None
+            except NotFoundError:
+                item_type = None
+                change_dbid = None
 
         elif isinstance(md, FolderMetadata):
             # there is currently no API call to determine who added a folder
