@@ -1492,7 +1492,7 @@ class SyncEngine:
         """
 
         if is_equal_or_child(local_path, self.dropbox_path):
-            dbx_path = osp.sep + local_path.replace(self.dropbox_path, "", 1).lstrip(
+            dbx_path = osp.sep + removeprefix(local_path, self.dropbox_path).lstrip(
                 osp.sep
             )
             return dbx_path.replace(osp.sep, "/")
@@ -4077,6 +4077,21 @@ class SyncMonitor:
 # ======================================================================================
 # Helper functions
 # ======================================================================================
+
+
+def removeprefix(self: str, prefix: str, /) -> str:
+    """
+    Removes the given prefix from a string. Only the first instance of the prefix is
+    removed. The original string is returned if it does not start with the given prefix.
+
+    :param self: Original string.
+    :param prefix: Prefix to remove.
+    :returns: String without prefix.
+    """
+    if self.startswith(prefix):
+        return self[len(prefix) :]
+    else:
+        return self[:]
 
 
 def _exc_info(exc: BaseException) -> ExecInfoType:
