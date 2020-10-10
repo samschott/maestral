@@ -4080,10 +4080,18 @@ class SyncMonitor:
 
 
 def _exc_info(exc: BaseException) -> ExecInfoType:
+    """Creates ac exc-info tuple from an exception."""
     return type(exc), exc, exc.__traceback__
 
 
 def get_dest_path(event: FileSystemEvent) -> str:
+    """
+    Returns the dest_path of a file system event if present (moved events only)
+    otherwise returns the src_path (which is also the "destination").
+
+    :param event: Watchdog file system event.
+    :returns: Destination path for moved event, source path otherwise.
+    """
     return getattr(event, "dest_path", event.src_path)
 
 
@@ -4108,6 +4116,12 @@ def split_moved_event(
 
 
 def entries_to_str(entries: List[Metadata]) -> str:
+    """
+    Generates a nicely formatted string from a list of Dropbox metadata.
+
+    :param entries: List of Dropbox metadata.
+    :returns: String representation of the list.
+    """
     str_reps = [
         f"<{e.__class__.__name__}(path_display={e.path_display})>" for e in entries
     ]
@@ -4120,6 +4134,16 @@ _last_emit = time.time()
 def throttled_log(
     log: logging.Logger, msg: str, level: int = logging.INFO, limit: int = 2
 ) -> None:
+    """
+    Emits the given log message only if the previous message was emitted more than
+    ``limit`` seconds ago. This can be used to prevent spamming a log with frequent
+    updates.
+
+    :param log: Logger used to emit the message.
+    :param msg: Log message.
+    :param level: Log level.
+    :param limit: Minimum time between log messages.
+    """
 
     global _last_emit
 
@@ -4129,7 +4153,8 @@ def throttled_log(
 
 
 def cpu_usage_percent(interval: float = 0.1) -> float:
-    """Returns a float representing the CPU utilization of the current process as a
+    """
+    Returns a float representing the CPU utilization of the current process as a
     percentage. This duplicates the similar method from psutil to avoid the psutil
     dependency.
 
