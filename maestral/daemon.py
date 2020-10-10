@@ -47,7 +47,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
-sd_notifier = sdnotify.SystemdNotifier()
 
 
 # systemd environment
@@ -392,7 +391,7 @@ def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
 # ==== main functions to manage daemon =================================================
 
 
-async def _periodic_watchdog() -> None:
+async def _periodic_watchdog(sd_notifier: sdnotify.SystemdNotifier) -> None:
 
     if WATCHDOG_USEC:
 
@@ -464,6 +463,8 @@ def start_maestral_daemon(
     # get the default event loop
     loop = asyncio.get_event_loop()
 
+    sd_notifier = sdnotify.SystemdNotifier()
+
     # notify systemd that we have started
     if NOTIFY_SOCKET:
         logger.debug("Running as systemd notify service")
@@ -475,7 +476,7 @@ def start_maestral_daemon(
         logger.debug("Running as systemd watchdog service")
         logger.debug("WATCHDOG_USEC = %s", WATCHDOG_USEC)
         logger.debug("WATCHDOG_PID = %s", WATCHDOG_PID)
-        loop.create_task(_periodic_watchdog())
+        loop.create_task(_periodic_watchdog(sd_notifier))
 
     # get socket for config name
     sockpath = sockpath_for_config(config_name)
