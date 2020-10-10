@@ -2973,9 +2973,9 @@ class SyncEngine:
             else:
                 change_type = "changed"
 
-            if all(e.item_type == ItemType.File for e in sync_events):
+            if all(e.is_file for e in sync_events):
                 file_name = f"{n_changed} files"
-            elif all(e.item_type == ItemType.Folder for e in sync_events):
+            elif all(e.is_directory for e in sync_events):
                 file_name = f"{n_changed} folders"
             else:
                 file_name = f"{n_changed} items"
