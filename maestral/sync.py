@@ -196,10 +196,13 @@ class ItemType(enum.Enum):
 
     :cvar File: File type.
     :cvar Folder: Folder type.
+    :cvar Unknown: Item type could not be determined. This can occur for remote deleted
+        events, see issue #198.
     """
 
     File = "file"
     Folder = "folder"
+    Unknown = "unknown"
 
 
 class ChangeType(enum.Enum):
@@ -457,7 +460,8 @@ class SyncEvent(Base):  # type: ignore
     FileSystemEvent, respectively.
 
     :param direction: Direction of the sync: upload or download.
-    :param item_type: The item type: file or folder.
+    :param item_type: The item type: file or folder or undetermined (in rare cases where
+        we cannot determine the type of a deleted file).
     :param sync_time: The time the SyncEvent was registered.
     :param dbx_id: A unique dropbox ID for the file or folder. Will only be set for
         download events which are not deletions.
@@ -607,7 +611,7 @@ class SyncEvent(Base):  # type: ignore
                 item_type = ItemType.Folder
                 change_dbid = None
             except NotFoundError:
-                item_type = None
+                item_type = ItemType.Unknown
                 change_dbid = None
 
         elif isinstance(md, FolderMetadata):
