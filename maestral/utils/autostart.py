@@ -388,8 +388,11 @@ class AutoStart:
         elif system == "Linux" and self._gui:
             return SupportedImplementations.xdg_desktop
         else:
-            res = subprocess.check_output(["ps", "-p", "1"]).decode()
-            if "systemd" in res:
-                return SupportedImplementations.systemd
-            else:
+            try:
+                res = subprocess.check_output(["ps", "-p", "1"]).decode()
+                if "systemd" in res:
+                    return SupportedImplementations.systemd
+                else:
+                    return None
+            except:
                 return None
