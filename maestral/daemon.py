@@ -547,7 +547,7 @@ def _subprocess_launcher(
             f'maestral.daemon.start_maestral_daemon("{cc}", {std_log}, {start_sync})'
         )
 
-        subprocess.Popen([sys.executable, "-c", cmd], start_new_session=True)
+        subprocess.Popen([sys.executable, "-OO", "-c", cmd], start_new_session=True)
 
 
 def start_maestral_daemon_process(
