@@ -100,7 +100,7 @@ jobs:
         shell: bash --noprofile --norc -eo pipefail {0}
         run: |
           cd package
-          python3 -m PyInstaller -y --clean -w maestral_macos.spec
+          python3 -OO -m PyInstaller -y --clean -w maestral_macos.spec
           cp bin/maestral_cli dist/Maestral.app/Contents/MacOS/maestral_cli
           cd "$GITHUB_WORKSPACE"
           xattr -cr package/dist/Maestral.app
