@@ -12,12 +12,11 @@ the startup time of individual CLI commands.
 """
 
 # system imports
+import sys
 import os
 import os.path as osp
 import functools
-import logging
 import textwrap
-import platform
 import time
 from typing import Optional, List, Dict, Iterable, Callable, Union, TypeVar, cast
 
@@ -530,7 +529,7 @@ def gui(config_name: str) -> None:
         )
 
     # check if 1st party defaults "maestral_cocoa" or "maestral_qt" are installed
-    default_gui = "maestral_cocoa" if platform.system() == "Darwin" else "maestral_qt"
+    default_gui = "maestral_cocoa" if sys.platform == "darwin" else "maestral_qt"
     default_entry_point = next(
         (e for e in gui_entry_points if e.name == default_gui), None
     )
@@ -1419,6 +1418,8 @@ def log_clear(config_name: str) -> None:
 )
 @existing_config_option
 def log_level(level_name: str, config_name: str) -> None:
+
+    import logging
 
     with MaestralProxy(config_name, fallback=True) as m:
         if level_name:
