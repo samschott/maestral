@@ -3612,6 +3612,8 @@ def download_worker(
 
                     sync.client.get_space_usage()
 
+                    gc.collect()
+
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)
         except ConnectionError:
