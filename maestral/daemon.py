@@ -22,8 +22,6 @@ import threading
 import fcntl
 import struct
 import tempfile
-import itertools
-import asyncio
 import logging
 import warnings
 from typing import Optional, Any, Union, Tuple, Dict, Iterable, Type, TYPE_CHECKING
@@ -140,7 +138,7 @@ def serpent_deserialize_api_error(class_name: str, d: dict) -> MaestralApiError:
     return err
 
 
-for err_cls in itertools.chain(SYNC_ERRORS, FATAL_ERRORS):
+for err_cls in (*SYNC_ERRORS, *FATAL_ERRORS):
     register_dict_to_class(
         err_cls.__module__ + "." + err_cls.__name__, serpent_deserialize_api_error
     )
@@ -391,16 +389,6 @@ def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
 # ==== main functions to manage daemon =================================================
 
 
-async def _periodic_watchdog(sd_notifier: sdnotify.SystemdNotifier) -> None:
-
-    if WATCHDOG_USEC:
-
-        sleep = int(WATCHDOG_USEC)
-        while True:
-            sd_notifier.notify("WATCHDOG=1")
-            await asyncio.sleep(sleep / (2 * 10 ** 6))
-
-
 def start_maestral_daemon(
     config_name: str = "maestral", log_to_stdout: bool = False, start_sync: bool = False
 ) -> None:
@@ -422,6 +410,7 @@ def start_maestral_daemon(
         running.
     """
 
+    import asyncio
     from maestral.main import Maestral
 
     if threading.current_thread() is not threading.main_thread():
@@ -473,10 +462,20 @@ def start_maestral_daemon(
 
     # notify systemd periodically if alive
     if IS_WATCHDOG and WATCHDOG_USEC:
+
+        async def _periodic_watchdog() -> None:
+
+            if WATCHDOG_USEC:
+
+                sleep = int(WATCHDOG_USEC)
+                while True:
+                    sd_notifier.notify("WATCHDOG=1")
+                    await asyncio.sleep(sleep / (2 * 10 ** 6))
+
         logger.debug("Running as systemd watchdog service")
         logger.debug("WATCHDOG_USEC = %s", WATCHDOG_USEC)
         logger.debug("WATCHDOG_PID = %s", WATCHDOG_PID)
-        loop.create_task(_periodic_watchdog(sd_notifier))
+        loop.create_task(_periodic_watchdog())
 
     # get socket for config name
     sockpath = sockpath_for_config(config_name)
