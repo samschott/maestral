@@ -1025,8 +1025,8 @@ class SyncEngine:
 
     @property
     def last_reindex(self) -> float:
-        """Time stamp of last full indexing. This is used to determine when the next full
-        indexing should take place."""
+        """Time stamp of last full indexing. This is used to determine when the next
+        full indexing should take place."""
         return self._state.get("sync", "last_reindex")
 
     @property
@@ -1851,7 +1851,7 @@ class SyncEngine:
 
         :param timeout: If no changes are detected within timeout (sec), an empty list
             is returned.
-        :param delay: Delay in sec to wait for subsequent changes that may be duplicates.
+        :param delay: Delay in sec to wait for subsequent changes before returning.
         :returns: (list of sync times events, time_stamp)
         """
 
@@ -2436,7 +2436,7 @@ class SyncEngine:
 
         :param event: SyncEvent corresponding to local created event.
         :raises: :class:`errors.MaestralApiError`
-        :returns: SyncEvent for created remote item or None if no remote item is created.
+        :returns: Sync event for created item or None if no remote item is created.
         """
 
         if self._handle_selective_sync_conflict(event):
@@ -2618,7 +2618,7 @@ class SyncEngine:
 
         :param event: SyncEvent for local deletion.
         :raises: :class:`errors.MaestralApiError`
-        :returns: SyncEvent for deleted remote item or None if no remote item is deleted.
+        :returns: Sync event for deleted item or None if no remote item is deleted.
         """
 
         if self.is_excluded_by_user(event.dbx_path):
@@ -2801,11 +2801,11 @@ class SyncEngine:
         Blocks until changes to the remote Dropbox are available.
 
         :param last_cursor: Cursor form last sync.
-        :param timeout: Timeout in seconds before returning even if there are no changes.
-            Dropbox adds random jitter of up to 90 sec to this value.
-        :param delay: Delay in sec to wait for subsequent changes that may be duplicates.
-            This delay is typically only necessary folders are shared / un-shared with
-            other Dropbox accounts.
+        :param timeout: Timeout in seconds before returning even if there are no
+            changes. Dropbox adds random jitter of up to 90 sec to this value.
+        :param delay: Delay in sec to wait for subsequent changes that may be
+            duplicates. This delay is typically only necessary folders are shared /
+            un-shared with other Dropbox accounts.
         """
         logger.debug("Waiting for remote changes since cursor:\n%s", last_cursor)
         has_changes = self.client.wait_for_remote_changes(last_cursor, timeout=timeout)
