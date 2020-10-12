@@ -4079,7 +4079,7 @@ class SyncMonitor:
 # ======================================================================================
 
 
-def removeprefix(self: str, prefix: str, /) -> str:
+def removeprefix(self: str, prefix: str) -> str:
     """
     Removes the given prefix from a string. Only the first instance of the prefix is
     removed. The original string is returned if it does not start with the given prefix.
