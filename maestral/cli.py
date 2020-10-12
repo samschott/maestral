@@ -19,8 +19,6 @@ import logging
 import textwrap
 import platform
 import time
-import pkg_resources
-from pkg_resources import VersionConflict, DistributionNotFound
 from typing import Optional, List, Dict, Iterable, Callable, Union, TypeVar, cast
 
 # external imports
@@ -229,27 +227,6 @@ def catch_maestral_errors(func: Callable) -> Callable:
             raise click.ClickException(f"{exc.title}. {exc.message}")
         except ConnectionError:
             raise click.ClickException("Could not connect to Dropbox.")
-
-    return wrapper
-
-
-def catch_requirement_errors(func: Callable) -> Callable:
-    """
-    Decorator that catches a VersionConflict and prints it as a useful message to the
-    command line instead of printing the full stacktrace.
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except DistributionNotFound as exc:
-            raise click.ClickException(f"Please install {exc.req.project_name}")
-        except VersionConflict as exc:
-            raise click.ClickException(
-                f"{exc.req.project_name}{str(exc.req.specifier)} "
-                f"required but you have {exc.dist.version}"
-            )
 
     return wrapper
 
@@ -534,35 +511,50 @@ def log():
 
 @main.command(help_priority=0, help="Runs Maestral with a GUI.")
 @config_option
-@catch_requirement_errors
 def gui(config_name: str) -> None:
 
-    default_name = "maestral_cocoa" if platform.system() == "Darwin" else "maestral_qt"
-    entry_points = list(pkg_resources.iter_entry_points("maestral_gui"))
+    from packaging.version import Version
+    from packaging.requirements import Requirement
 
-    if len(entry_points) == 0:
+    try:
+        from importlib.metadata import entry_points, requires, version
+    except ImportError:
+        from importlib_metadata import entry_points, requires, version
+
+    # find all "maestral_gui" entry points registered by other packages
+    gui_entry_points = entry_points().get("maestral_gui")
+
+    if not gui_entry_points or len(gui_entry_points) == 0:
         raise click.ClickException(
             "No maestral GUI installed. Please run 'pip3 install maestral[gui]'."
         )
 
+    # check if 1st party defaults "maestral_cocoa" or "maestral_qt" are installed
+    default_gui = "maestral_cocoa" if platform.system() == "Darwin" else "maestral_qt"
     default_entry_point = next(
-        (e for e in entry_points if e.name == default_name), None
+        (e for e in gui_entry_points if e.name == default_gui), None
     )
 
     if default_entry_point:
         # check gui requirements
-        dist = pkg_resources.get_distribution("maestral")
-        gui_requirements = set(dist.requires(extras=("gui",))) - set(dist.requires())
+        requirements = [Requirement(r) for r in requires("maestral")]
 
-        for r in gui_requirements:
-            pkg_resources.working_set.find(r)
+        for r in requirements:
+            if r.marker and r.marker.evaluate({"extra": "gui"}):
+                version_str = version(r.name)
+                if not r.specifier.contains(Version(version_str), prereleases=True):
+                    raise click.ClickException(
+                        f"{r.name}{r.specifier} "
+                        f"required but you have {version_str}"
+                    )
 
         # load entry point
-        run = default_entry_point.resolve()
+        run = default_entry_point.load()
 
     else:
-        fallback_entry_point = next(iter(entry_points))
-        run = fallback_entry_point.resolve()
+        # load any 3rd party GUI
+        fallback_entry_point = next(iter(gui_entry_points))
+        run = fallback_entry_point.load()
 
     run(config_name)
 
