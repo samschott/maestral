@@ -517,7 +517,7 @@ def gui(config_name: str) -> None:
     from packaging.requirements import Requirement
 
     try:
-        from importlib.metadata import entry_points, requires, version
+        from importlib.metadata import entry_points, requires, version  # type: ignore
     except ImportError:
         from importlib_metadata import entry_points, requires, version  # type: ignore
 
@@ -544,8 +544,7 @@ def gui(config_name: str) -> None:
                 version_str = version(r.name)
                 if not r.specifier.contains(Version(version_str), prereleases=True):
                     raise click.ClickException(
-                        f"{r.name}{r.specifier} "
-                        f"required but you have {version_str}"
+                        f"{r.name}{r.specifier} required but you have {version_str}"
                     )
 
         # load entry point
