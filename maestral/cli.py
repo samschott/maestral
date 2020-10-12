@@ -519,7 +519,7 @@ def gui(config_name: str) -> None:
     try:
         from importlib.metadata import entry_points, requires, version
     except ImportError:
-        from importlib_metadata import entry_points, requires, version
+        from importlib_metadata import entry_points, requires, version  # type: ignore
 
     # find all "maestral_gui" entry points registered by other packages
     gui_entry_points = entry_points().get("maestral_gui")
@@ -537,7 +537,7 @@ def gui(config_name: str) -> None:
 
     if default_entry_point:
         # check gui requirements
-        requirements = [Requirement(r) for r in requires("maestral")]
+        requirements = [Requirement(r) for r in requires("maestral")]  # type: ignore
 
         for r in requirements:
             if r.marker and r.marker.evaluate({"extra": "gui"}):
