@@ -1,3 +1,13 @@
+## v1.2.2.dev
+
+#### Changes:
+
+- Runs the daemon in a Python interpreter with -OO flags. This strips docstrings and saves
+  a few MB of memory.
+- Moves from `pkg_resources` to locate entry points and other metadata to the faster and
+  more light-weight `importlib.metadata`.
+- Update scripts are no longer run after a fresh install or for a new config.
+
 ## v1.2.1
 
 This update provides bug fixes and some improvements to error handling. Major changes
