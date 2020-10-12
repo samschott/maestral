@@ -3,7 +3,7 @@ name: build
 on:
   push:
     tags:
-    - 'v*.*.*'
+      - 'v*.*.*'
 
   pull_request:
 
@@ -15,7 +15,6 @@ on:
 jobs:
   build_macos:
     runs-on: macos-latest
-
     steps:
       - name: Checkout project
         uses: actions/checkout@v2
