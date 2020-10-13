@@ -580,7 +580,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
     from maestral.main import Maestral
 
-    m = Maestral(config_name)
+    m = Maestral(config_name, log_to_stdout=verbose)
 
     if m.pending_link:  # this may raise KeyringAccessError
         link_dialog(m)
