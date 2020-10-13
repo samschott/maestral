@@ -88,9 +88,6 @@ class DesktopNotifier:
                 self._impl.send(notification)
 
 
-system_notifier = DesktopNotifier(APP_NAME, BUNDLE_ID)
-
-
 class MaestralDesktopNotifier(logging.Handler):
     """
     Can be used as a standalone notifier or as a logging handler. When used as a logging
@@ -157,6 +154,7 @@ class MaestralDesktopNotifier(logging.Handler):
         self.setFormatter(logging.Formatter(fmt="%(message)s"))
         self._conf = MaestralConfig(config_name)
         self._snooze = 0.0
+        self._system_notifier = DesktopNotifier(APP_NAME, BUNDLE_ID)
 
     @property
     def notify_level(self) -> int:
@@ -206,7 +204,7 @@ class MaestralDesktopNotifier(logging.Handler):
             urgency = NotificationLevel.Normal
 
         if level >= self.notify_level and not ignore:
-            system_notifier.send(
+            self._system_notifier.send(
                 title=title,
                 message=message,
                 icon=APP_ICON_PATH,
