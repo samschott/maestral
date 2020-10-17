@@ -35,6 +35,7 @@ from typing import (
     Union,
     Iterator,
     Callable,
+    Hashable,
     Type,
     cast,
     TypeVar,
@@ -1939,7 +1940,7 @@ class SyncEngine:
                     res = self._create_remote_entry(event)
                     results.append(res)
 
-                # apply file created events in parallel since order does not matter
+                # apply other events in parallel since order does not matter
                 with ThreadPoolExecutor(
                     max_workers=self._num_threads,
                     thread_name_prefix="maestral-upload-pool",
@@ -2008,24 +2009,17 @@ class SyncEngine:
         # has other events associated with it or is excluded from sync.
 
         histories: Dict[str, List[FileSystemEvent]] = dict()
+
         for i, event in enumerate(events):
             if isinstance(event, (FileMovedEvent, DirMovedEvent)):
                 deleted, created = split_moved_event(event)
                 deleted.id = i
                 created.id = i
-                try:
-                    histories[deleted.src_path].append(deleted)
-                except KeyError:
-                    histories[deleted.src_path] = [deleted]
-                try:
-                    histories[created.src_path].append(created)
-                except KeyError:
-                    histories[created.src_path] = [created]
+
+                add_to_bin(histories, deleted.src_path, deleted)
+                add_to_bin(histories, created.src_path, created)
             else:
-                try:
-                    histories[event.src_path].append(event)
-                except KeyError:
-                    histories[event.src_path] = [event]
+                add_to_bin(histories, event.src_path, event)
 
         unique_events = []
 
@@ -2095,10 +2089,7 @@ class SyncEngine:
         moved_events: Dict[str, List[FileSystemEvent]] = dict()
         for event in cleaned_events:
             if hasattr(event, "id"):
-                try:
-                    moved_events[event.id].append(event)
-                except KeyError:
-                    moved_events[event.id] = [event]
+                add_to_bin(moved_events, event.id, event)
 
         for event_list in moved_events.values():
             if len(event_list) == 2:
@@ -2864,43 +2855,58 @@ class SyncEngine:
                 self.excluded_items = new_excluded
 
         # sort changes into folders, files and deleted
-        folders: List[SyncEvent] = []
-        files: List[SyncEvent] = []
-        deleted: List[SyncEvent] = []
+        # sort according to path hierarchy:
+        # do not create sub-folder / file before parent exists
+        # delete parents before deleting children to save some work
+        files: List[SyncEvent] = list()
+        folders: Dict[int, List[SyncEvent]] = dict()
+        deleted: Dict[int, List[SyncEvent]] = dict()
 
         for event in changes_included:
 
-            if event.is_deleted:
-                deleted.append(event)
-            elif event.is_directory:
-                folders.append(event)
-            elif event.is_file:
+            level = event.dbx_path.count("/")
+
+            if event.is_file:
                 files.append(event)
+            elif event.is_directory:
+                add_to_bin(folders, level, event)
+            elif event.is_deleted:
+                add_to_bin(deleted, level, event)
 
             # housekeeping
             self.syncing.append(event)
-
-        # sort according to path hierarchy
-        # do not create sub-folder / file before parent exists
-        deleted.sort(key=lambda x: x.dbx_path.count("/"))
-        folders.sort(key=lambda x: x.dbx_path.count("/"))
-        files.sort(key=lambda x: x.dbx_path.count("/"))
 
         results = []  # local list of all changes
 
         # apply deleted items
         if deleted:
             logger.info("Applying deletions...")
-        for item in deleted:
-            res = self._create_local_entry(item)
-            results.append(res)
+        for items in deleted.values():
+            with ThreadPoolExecutor(
+                    max_workers=self._num_threads,
+                    thread_name_prefix="maestral-download-pool"
+            ) as executor:
+                fs = (executor.submit(self._create_local_entry, item) for item in items)
+
+                n_items = len(items)
+                for f, n in zip(as_completed(fs), range(1, n_items + 1)):
+                    throttled_log(logger, f"Deleting {n}/{n_items}...")
+                    results.append(f.result())
 
         # create local folders, start with top-level and work your way down
         if folders:
             logger.info("Creating folders...")
-        for folder in folders:
-            res = self._create_local_entry(folder)
-            results.append(res)
+        for items in folders.values():
+            with ThreadPoolExecutor(
+                    max_workers=self._num_threads,
+                    thread_name_prefix="maestral-download-pool"
+            ) as executor:
+                fs = (executor.submit(self._create_local_entry, item) for item in items)
+
+                n_items = len(items)
+                for f, n in zip(as_completed(fs), range(1, n_items + 1)):
+                    throttled_log(logger, f"Creating folder {n}/{n_items}...")
+                    results.append(f.result())
 
         # apply created files
         with ThreadPoolExecutor(
@@ -2908,9 +2914,9 @@ class SyncEngine:
         ) as executor:
             fs = (executor.submit(self._create_local_entry, file) for file in files)
 
-            n_files = len(files)
-            for f, n in zip(as_completed(fs), range(1, n_files + 1)):
-                throttled_log(logger, f"Downloading {n}/{n_files}...")
+            n_items = len(files)
+            for f, n in zip(as_completed(fs), range(1, n_items + 1)):
+                throttled_log(logger, f"Downloading {n}/{n_items}...")
                 results.append(f.result())
 
         if cursor and not self.cancel_pending.is_set():
@@ -3137,10 +3143,7 @@ class SyncEngine:
 
         histories: Dict[str, List[Metadata]] = dict()
         for entry in changes.entries:
-            try:
-                histories[entry.path_lower].append(entry)
-            except KeyError:
-                histories[entry.path_lower] = [entry]
+            add_to_bin(histories, entry.path_lower, entry)
 
         new_entries = []
 
@@ -4081,10 +4084,20 @@ class SyncMonitor:
 # ======================================================================================
 
 
+def add_to_bin(d: Dict[Hashable, List], key: Hashable, value: Any):
+
+    try:
+        d[key].append(value)
+    except KeyError:
+        d[key] = [value]
+
+
 def removeprefix(self: str, prefix: str) -> str:
     """
     Removes the given prefix from a string. Only the first instance of the prefix is
     removed. The original string is returned if it does not start with the given prefix.
+
+    This follows the Python 3.9 implementation of ``str.removeprefix``.
 
     :param self: Original string.
     :param prefix: Prefix to remove.
