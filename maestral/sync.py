@@ -2730,13 +2730,14 @@ class SyncEngine:
             ]
 
             # download in batches of 5,000 to reduce memory usage
-            for chunk in chunks(sync_events, 5000):
+            for chunk in chunks(sync_events, 5000, consume=True):
                 res = self.apply_remote_changes(chunk, cursor=None)
 
                 s = all(e.status in (SyncStatus.Done, SyncStatus.Skipped) for e in res)
                 success = s and success
 
                 # free memory
+                del chunk
                 del res
                 gc.collect()
 
