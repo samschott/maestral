@@ -108,6 +108,7 @@ from maestral.client import (
     os_to_maestral_error,
     fswatch_to_maestral_error,
 )
+from maestral.utils import chunks
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.path import (
     generate_cc_name,
@@ -133,7 +134,7 @@ db_naming_convention = {
     "pk": "pk_%(table_name)s",
 }
 Base = declarative_base(metadata=MetaData(naming_convention=db_naming_convention))
-Session = sessionmaker(expire_on_commit=False)
+Session = sessionmaker()
 
 ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
 FT = TypeVar("FT", bound=Callable[..., Any])
@@ -1748,6 +1749,14 @@ class SyncEngine:
             else:
                 raise new_exc
 
+    def reset_db_session(self):
+
+        with self._database_access():
+            self._db_session.flush()
+            self._db_session.close()
+            gc.collect()  # free up memory
+            self._db_session = Session()
+
     # ==== Upload sync =================================================================
 
     def upload_local_changes_while_inactive(self) -> None:
@@ -2681,7 +2690,7 @@ class SyncEngine:
 
     # ==== Download sync ===============================================================
 
-    def get_remote_folder(self, dbx_path: str = "/") -> List[SyncEvent]:
+    def get_remote_folder(self, dbx_path: str = "/") -> bool:
         """
         Gets all files/folders from Dropbox and writes them to the local folder
         :attr:`dropbox_path`. Call this method on first run of the Maestral. Indexing
@@ -2696,30 +2705,23 @@ class SyncEngine:
 
             dbx_path = dbx_path or "/"
             is_dbx_root = dbx_path == "/"
-            results = []
+            success = True
 
             if is_dbx_root:
                 logger.info("Downloading your Dropbox")
             else:
                 logger.info("Downloading %s", dbx_path)
 
-            if any(is_child(folder, dbx_path) for folder in self.excluded_items):
-                # if there are excluded subfolders, index and download only included
-                recursive = False
-            else:
-                # else index all at once
-                recursive = True
-
             # get a cursor and list the folder content
             try:
                 cursor = self.client.get_latest_cursor(dbx_path)
                 root_result = self.client.list_folder(
-                    dbx_path, recursive=recursive, include_deleted=False
+                    dbx_path, recursive=True, include_deleted=False
                 )
             except SyncError as e:
                 self._handle_sync_error(e, direction=SyncDirection.Down)
                 # TODO: return failed SyncEvent?
-                return []
+                return False
 
             # convert metadata to sync_events
             root_result.entries.sort(key=lambda x: x.path_lower.count("/"))
@@ -2727,17 +2729,16 @@ class SyncEngine:
                 SyncEvent.from_dbx_metadata(md, self) for md in root_result.entries
             ]
 
-            # download top-level folders / files first
-            res = self.apply_remote_changes(sync_events, cursor=None)
-            results.extend(res)
+            # download in batches of 5,000 to reduce memory usage
+            for chunk in chunks(sync_events, 5000):
+                res = self.apply_remote_changes(chunk, cursor=None)
 
-            if not recursive:
-                # download sub-folders if not excluded
-                for md in root_result.entries:
-                    if isinstance(md, FolderMetadata) and not self.is_excluded_by_user(
-                        md.path_display
-                    ):
-                        results.extend(self.get_remote_folder(md.path_display))
+                s = all(e.status in (SyncStatus.Done, SyncStatus.Skipped) for e in res)
+                success = s and success
+
+                # free memory
+                del res
+                gc.collect()
 
             if is_dbx_root:
                 # always save remote cursor if this is the root folder,
@@ -2745,9 +2746,9 @@ class SyncEngine:
                 self.remote_cursor = cursor
                 self._state.set("sync", "last_reindex", time.time())
 
-            return results
+            return success
 
-    def get_remote_item(self, dbx_path: str) -> List[SyncEvent]:
+    def get_remote_item(self, dbx_path: str) -> bool:
         """
         Downloads a remote file or folder and updates its local rev. If the remote item
         no longer exists, the corresponding local item will be deleted. Given paths will
@@ -2771,19 +2772,16 @@ class SyncEngine:
             event = SyncEvent.from_dbx_metadata(md, self)
 
             if event.is_directory:
-                results = self.get_remote_folder(dbx_path)
+                success = self.get_remote_folder(dbx_path)
             else:
                 self.syncing.append(event)
-                results = [self._create_local_entry(event)]
-
-            success = all(
-                e.status in (SyncStatus.Done, SyncStatus.Skipped) for e in results
-            )
+                e = self._create_local_entry(event)
+                success = e.status in (SyncStatus.Done, SyncStatus.Skipped)
 
             if success:
                 self.pending_downloads.discard(dbx_path.lower())
 
-            return results
+            return success
 
     def wait_for_remote_changes(
         self, last_cursor: str, timeout: int = 40, delay: float = 2
