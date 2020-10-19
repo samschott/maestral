@@ -3617,14 +3617,17 @@ def download_worker(
                         sync.remote_cursor
                     )
 
-                    downloaded = sync.apply_remote_changes(changes, remote_cursor)
-                    sync.notify_user(downloaded)
+                    # download changes in chunks to reduce memory usage
+                    for chunk in chunks(changes, 5000, consume=True):
+                        downloaded = sync.apply_remote_changes(chunk, remote_cursor)
+                        sync.notify_user(downloaded)
+
+                        del chunk
+                        gc.collect()
 
                     logger.info(IDLE)
 
                     sync.client.get_space_usage()
-
-                    gc.collect()
 
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)
