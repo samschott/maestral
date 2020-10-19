@@ -2811,6 +2811,7 @@ class SyncEngine:
         :param last_cursor: Cursor from last download sync.
         :returns: Tuple with remote changes and corresponding cursor
         """
+        logger.info("Fetching remote changes...")
         changes = self.client.list_remote_changes(last_cursor)
         logger.debug("Listed remote changes:\n%s", entries_to_str(changes.entries))
         clean_changes = self._clean_remote_changes(changes)
