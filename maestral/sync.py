@@ -2884,8 +2884,8 @@ class SyncEngine:
             logger.info("Applying deletions...")
         for items in deleted.values():
             with ThreadPoolExecutor(
-                    max_workers=self._num_threads,
-                    thread_name_prefix="maestral-download-pool"
+                max_workers=self._num_threads,
+                thread_name_prefix="maestral-download-pool",
             ) as executor:
                 fs = (executor.submit(self._create_local_entry, item) for item in items)
 
@@ -2899,8 +2899,8 @@ class SyncEngine:
             logger.info("Creating folders...")
         for items in folders.values():
             with ThreadPoolExecutor(
-                    max_workers=self._num_threads,
-                    thread_name_prefix="maestral-download-pool"
+                max_workers=self._num_threads,
+                thread_name_prefix="maestral-download-pool",
             ) as executor:
                 fs = (executor.submit(self._create_local_entry, item) for item in items)
 
