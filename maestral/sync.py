@@ -972,8 +972,8 @@ class SyncEngine:
         """Maximum CPU usage for parallel downloads or uploads in percent of the total
         available CPU time per core. Individual workers in a thread pool will pause
         until the usage drops below this value. Tasks in the main thread such as
-        indexing file changes may still use more CPU time. Setting this to 100% means
-        that no limits on CPU usage will be applied."""
+        indexing file changes may still use more CPU time. Setting this to 200% means
+        that two full logical CPU core can be used."""
         return self._max_cpu_percent
 
     @max_cpu_percent.setter
