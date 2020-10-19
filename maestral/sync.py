@@ -2715,7 +2715,7 @@ class SyncEngine:
             # get a cursor and list the folder content
             try:
                 cursor = self.client.get_latest_cursor(dbx_path)
-                root_result = self.client.list_folder(
+                result = self.client.list_folder(
                     dbx_path, recursive=True, include_deleted=False
                 )
             except SyncError as e:
@@ -2724,20 +2724,19 @@ class SyncEngine:
                 return False
 
             # convert metadata to sync_events
-            root_result.entries.sort(key=lambda x: x.path_lower.count("/"))
-            sync_events = [
-                SyncEvent.from_dbx_metadata(md, self) for md in root_result.entries
-            ]
+            result.entries.sort(key=lambda x: x.path_lower.count("/"))
 
             # download in batches of 5,000 to reduce memory usage
-            for chunk in chunks(sync_events, 5000, consume=True):
-                res = self.apply_remote_changes(chunk, cursor=None)
+            for chunk in chunks(result.entries, 5000, consume=True):
+                sync_events = [SyncEvent.from_dbx_metadata(md, self) for md in chunk]
+                res = self.apply_remote_changes(sync_events, cursor=None)
 
                 s = all(e.status in (SyncStatus.Done, SyncStatus.Skipped) for e in res)
                 success = s and success
 
                 # free memory
                 del chunk
+                del sync_events
                 del res
                 gc.collect()
 
