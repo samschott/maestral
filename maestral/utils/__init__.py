@@ -26,16 +26,25 @@ def natural_size(num: float, unit: str = "B", sep: bool = True) -> str:
     return f"{num:.1f}{sep_char}{prefix}{unit}"
 
 
-def chunks(lst: List, n: int) -> Iterator[List]:
+def chunks(lst: List, n: int, consume: bool = False) -> Iterator[List]:
     """
     Partitions an iterable into chunks of length ``n``.
 
     :param lst: Iterable to partition.
     :param n: Chunk size.
+    :param consume: If True, the list will be consumed (emptied) during the iteration.
+        This can be used to free memory in case of large lists.
     :returns: Iterator over chunks.
     """
-    for i in range(0, len(lst), n):
-        yield lst[i : i + n]
+
+    if consume:
+        while lst:
+            chunk = lst[0:n]
+            del lst[0:n]
+            yield chunk
+    else:
+        for i in range(0, len(lst), n):
+            yield lst[i : i + n]
 
 
 def clamp(n: _N, minn: _N, maxn: _N) -> _N:
