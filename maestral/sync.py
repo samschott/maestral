@@ -4095,7 +4095,7 @@ class SyncMonitor:
 # ======================================================================================
 
 
-def add_to_bin(d: Dict[Hashable, List], key: Hashable, value: Any):
+def add_to_bin(d: Dict[Any, List], key: Hashable, value: Any):
 
     try:
         d[key].append(value)
