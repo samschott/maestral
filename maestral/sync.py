@@ -3030,6 +3030,13 @@ class SyncEngine:
         when uploading and a change will be carried out by Dropbox itself.
 
         Checks are carried out against our index, reflecting the latest sync state.
+        We compare the following values:
+
+        1) Local vs remote rev: 'folder' for folders, actual revision for files and None
+           for deleted or not present items.
+        2) Local vs remote content hash: 'folder' for folders, actual hash for files and
+           None for deletions.
+        3) Local ctime vs last sync time: This is calculated recursively for folders.
 
         :param event: Download SyncEvent.
         :returns: Conflict check result.
@@ -3039,8 +3046,8 @@ class SyncEngine:
         local_rev = self.get_local_rev(event.dbx_path)
 
         if event.rev == local_rev:
-            # Local change has the same rev. The local item (or deletion) be newer and
-            # not yet synced or identical to the remote state. Don't overwrite.
+            # Local change has the same rev. The local item (or deletion) must be newer
+            # and not yet synced or identical to the remote state. Don't overwrite.
             logger.debug(
                 'Equal revs for "%s": local item is the same or newer '
                 "than on Dropbox",
@@ -3049,19 +3056,14 @@ class SyncEngine:
             return Conflict.LocalNewerOrIdentical
 
         else:
-            # Dropbox server version has a different rev, likely is newer. If the local
-            # version has been modified while sync was stopped, those changes will be
-            # uploaded before any downloads can begin. Conflict resolution will then be
-            # handled by Dropbox. If the local version has been modified while sync was
-            # running but changes were not uploaded before the remote version was
-            # changed as well, the local ctime will be newer than last_sync:
-            # (a) The upload of the changed file has already started. Upload thread will
-            #     hold the lock and we won't be here checking for conflicts.
-            # (b) The upload has not started yet. Manually check for conflict.
+            # Dropbox server version has a different rev, possibly is newer. Perform
+            # conflict checks.
 
             local_hash = self.get_local_hash(event.local_path)
 
             if event.content_hash == local_hash:
+                # Content hashes are equal, therefore items are identical. Folders will
+                # have a content hash of 'folder'.
                 logger.debug(
                     'Equal content hashes for "%s": no conflict', event.dbx_path
                 )
@@ -3069,6 +3071,8 @@ class SyncEngine:
             elif any(
                 is_equal_or_child(p, event.dbx_path.lower()) for p in self.upload_errors
             ):
+                # Local version could not be uploaded due to a sync error. Do not over-
+                # write unsynced changes but declare a conflict.
                 logger.debug(
                     'Unresolved upload error for "%s": conflict', event.dbx_path
                 )
@@ -3076,21 +3080,27 @@ class SyncEngine:
             elif self._get_ctime(event.local_path) <= self.get_last_sync(
                 event.dbx_path
             ):
+                # Last change time of local item (recursive for folders) is older than
+                # the last time the item was synced. Remote must be newer.
                 logger.debug(
-                    'Ctime is older than last sync for "%s": remote item ' "is newer",
+                    'Local ctime is older than last sync for "%s": '
+                    "remote item is newer",
                     event.dbx_path,
                 )
                 return Conflict.RemoteNewer
-            elif not event.rev:
+            elif event.is_deleted:
+                # Remote item was deleted but local item has been modified since then.
                 logger.debug(
-                    'No remote rev for "%s": Local item has been modified '
-                    "since remote deletion",
+                    'Local ctime is newer than last sync for "%s" and remote was '
+                    "deleted: local item is newer",
                     event.dbx_path,
                 )
                 return Conflict.LocalNewerOrIdentical
             else:
+                # Both remote and local items have unsynced changes: conflict.
                 logger.debug(
-                    'Ctime is newer than last sync for "%s": conflict', event.dbx_path
+                    'Local ctime is newer than last sync for "%s": conflict',
+                    event.dbx_path,
                 )
                 return Conflict.Conflict
 
