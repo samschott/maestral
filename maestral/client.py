@@ -25,6 +25,7 @@ from typing import (
     Type,
     Tuple,
     List,
+    Iterator,
     TypeVar,
     Optional,
     TYPE_CHECKING,
@@ -880,6 +881,60 @@ class DropboxClient:
 
         return self.flatten_results(results)
 
+    @to_maestral_error(dbx_path_arg=1)
+    def list_folder_iterator(
+        self,
+        dbx_path: str,
+        max_retries_on_timeout: int = 4,
+        include_non_downloadable_files: bool = False,
+        **kwargs,
+    ) -> Iterator[files.ListFolderResult]:
+        """
+        Lists the contents of a folder on Dropbox. Does the same as :meth:`list_folder`
+        but returns an iterator yielding :class:`files.ListFolderResult` instances.
+        This is useful to save memory when indexing a large number of items.
+
+        :param dbx_path: Path of folder on Dropbox.
+        :param max_retries_on_timeout: Number of times to try again if Dropbox servers
+            do not respond within the timeout. Occasional timeouts may occur for very
+            large Dropbox folders.
+        :param include_non_downloadable_files: If ``True``, files that cannot be
+            downloaded (at the moment only G-suite files on Dropbox) will be included.
+        :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
+        :returns: Iterator over content of given folder.
+        """
+
+        dbx_path = "" if dbx_path == "/" else dbx_path
+
+        res = self.dbx.files_list_folder(
+            dbx_path,
+            include_non_downloadable_files=include_non_downloadable_files,
+            **kwargs,
+        )
+
+        yield res
+
+        idx = 0
+
+        while res.has_more:
+
+            idx += len(res.entries)
+            logger.info(f"Indexing {idx}...")
+
+            attempt = 0
+
+            while True:
+                try:
+                    res = self.dbx.files_list_folder_continue(res.cursor)
+                    yield res
+                    break
+                except requests.exceptions.ReadTimeout:
+                    attempt += 1
+                    if attempt <= max_retries_on_timeout:
+                        time.sleep(5.0)
+                    else:
+                        raise
+
     @staticmethod
     def flatten_results(
         results: List[files.ListFolderResult],
@@ -949,6 +1004,28 @@ class DropboxClient:
         results = self.flatten_results(results)
 
         return results
+
+    @to_maestral_error()
+    def list_remote_changes_iterator(
+        self, last_cursor: str
+    ) -> Iterator[files.ListFolderResult]:
+        """
+        Lists changes to remote Dropbox since ``last_cursor``. Does the same as
+        :meth:`list_remote_changes` but returns an iterator yielding
+        :class:`files.ListFolderResult` instances. This is useful to save memory when
+        indexing a large number of items.
+
+        :param last_cursor: Last to cursor to compare for changes.
+        :returns: Iterator over remote changes since given cursor.
+        """
+
+        result = self.dbx.files_list_folder_continue(last_cursor)
+
+        yield result
+
+        while result.has_more:
+            result = self.dbx.files_list_folder_continue(result.cursor)
+            yield result
 
 
 # ==== conversion functions to generate error messages and types =======================

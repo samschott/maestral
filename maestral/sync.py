@@ -1049,13 +1049,22 @@ class SyncEngine:
 
     def get_index(self) -> List[IndexEntry]:
         """
-        Returns a copy of the revision index containing the revision numbers for all
-        synced files and folders.
+        Returns a copy of the local index of synced files and folders.
 
-        :returns: Copy of revision index.
+        :returns: List of index entries.
         """
         with self._database_access():
             return self._db_session.query(IndexEntry).all()
+
+    def iter_index(self) -> Iterator[IndexEntry]:
+        """
+        Returns an iterator over the local index of synced files and folders.
+
+        :returns: Iterator over index entries.
+        """
+        with self._database_access():
+            for entry in self._db_session.query(IndexEntry).yield_per(1000):
+                yield entry
 
     def get_local_rev(self, dbx_path: str) -> Optional[str]:
         """
@@ -2819,6 +2828,35 @@ class SyncEngine:
 
         sync_events = [SyncEvent.from_dbx_metadata(md, self) for md in changes.entries]
         return sync_events, changes.cursor
+
+    def list_remote_changes_iterator(
+        self, last_cursor: str
+    ) -> Iterator[Tuple[List[SyncEvent], Optional[str]]]:
+        """
+        Lists remote changes since the last download sync. Works the same as
+        :meth:`list_remote_changes` but returns an iterator over remote changes. Only
+        the last result will have a valid cursor which is not None.
+
+        :param last_cursor: Cursor from last download sync.
+        :returns: Iterator yielding tuples with remote changes and corresponding cursor.
+        """
+
+        logger.info("Fetching remote changes...")
+        changes_iter = self.client.list_remote_changes_iterator(last_cursor)
+
+        for changes in changes_iter:
+            logger.debug("Listed remote changes:\n%s", entries_to_str(changes.entries))
+            clean_changes = self._clean_remote_changes(changes)
+            logger.debug(
+                "Cleaned remote changes:\n%s", entries_to_str(clean_changes.entries)
+            )
+
+            sync_events = [
+                SyncEvent.from_dbx_metadata(md, self) for md in changes.entries
+            ]
+
+            cursor = changes.cursor if not changes.has_more else None
+            yield sync_events, cursor
 
     def apply_remote_changes(
         self, sync_events: List[SyncEvent], cursor: Optional[str]
