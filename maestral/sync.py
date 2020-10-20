@@ -816,7 +816,7 @@ class SyncEngine:
     syncing: List[SyncEvent]
     _case_conversion_cache: Dict[str, str]
 
-    _max_history = 30
+    _max_history = 1000
     _num_threads = min(32, _cpu_count * 3)
 
     def __init__(self, client: DropboxClient, fs_events_handler: FSEventHandler):
@@ -1032,10 +1032,13 @@ class SyncEngine:
 
     @property
     def history(self) -> List[SyncEvent]:
-        """All list of all SyncEvents in our history."""
+        """A list of the last SyncEvents in our history. History will be kept for the
+         interval specified by the config value``keep_history`` (defaults to two weeks)
+         and at most ``_max_history`` events will be returned (defaults to 1,000)."""
         with self._database_access():
             query = self._db_session.query(SyncEvent)
-            return query.order_by(SyncEvent.change_time_or_sync_time).all()
+            ordered_query = query.order_by(SyncEvent.change_time_or_sync_time)
+            return ordered_query.limit(self._max_history).all()
 
     def clear_sync_history(self) -> None:
         """Clears the sync history."""
@@ -3963,7 +3966,9 @@ class SyncMonitor:
 
     @property
     def history(self) -> List[SyncEvent]:
-        """Returns a list all past SyncEvents."""
+        """A list of the last SyncEvents in our history. History will be kept for the
+         interval specified by the config value``keep_history`` (defaults to two weeks)
+         and at most ``_max_history`` events will be returned (defaults to 1,000)."""
         return self.sync.history
 
     @_with_lock

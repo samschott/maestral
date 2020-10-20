@@ -675,11 +675,11 @@ class Maestral:
         else:
             return FileStatus.Unwatched.value
 
-    def get_activity(self, max_len: Optional[int] = 100) -> List[StoneType]:
+    def get_activity(self, limit: Optional[int] = 100) -> List[StoneType]:
         """
         Returns the current upload / download activity.
 
-        :param max_len: Maximum number of items to return. If None, all entries will be
+        :param limit: Maximum number of items to return. If None, all entries will be
             returned.
         :returns: A lists of all sync events currently queued for or being uploaded or
             downloaded with the events furthest up in the queue coming first.
@@ -687,15 +687,17 @@ class Maestral:
         """
 
         self._check_linked()
-        if max_len:
-            activity = [sync_event_to_dict(e) for e in self.monitor.activity[:max_len]]
+        if limit:
+            activity = [sync_event_to_dict(e) for e in self.monitor.activity[:limit]]
         else:
             activity = [sync_event_to_dict(e) for e in self.monitor.activity]
         return activity
 
     def get_history(self) -> List[StoneType]:
         """
-        Returns the historic upload / download activity.
+        Returns the historic upload / download activity. Up to 1,000 sync events can be
+        returned. Any events which occurred before the interval sepecified by the
+        ``keep_history`` config value are discarded.
 
         :returns: A lists of all sync events from the last week.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
