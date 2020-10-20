@@ -134,7 +134,7 @@ db_naming_convention = {
     "pk": "pk_%(table_name)s",
 }
 Base = declarative_base(metadata=MetaData(naming_convention=db_naming_convention))
-Session = sessionmaker()
+Session = sessionmaker(expire_on_commit=False)
 
 ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
 FT = TypeVar("FT", bound=Callable[..., Any])
