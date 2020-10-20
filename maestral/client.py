@@ -163,6 +163,22 @@ class SpaceUsage(users.SpaceUsage):
         return cls(used=su.used, allocation=su.allocation)
 
 
+@contextlib.contextmanager
+def convert_api_errors(
+    dbx_path: Optional[str] = None, local_path: Optional[str] = None
+) -> Iterator[None]:
+
+    try:
+        yield
+    except exceptions.DropboxException as exc:
+        raise dropbox_to_maestral_error(exc, dbx_path, local_path)
+    # catch connection errors first, they may inherit from OSError
+    except CONNECTION_ERRORS:
+        raise ConnectionError("Cannot connect to Dropbox")
+    except OSError as exc:
+        raise os_to_maestral_error(exc, dbx_path, local_path)
+
+
 def to_maestral_error(
     dbx_path_arg: Optional[int] = None, local_path_arg: Optional[int] = None
 ) -> Callable[[_FT], _FT]:
@@ -181,15 +197,8 @@ def to_maestral_error(
             dbx_path = args[dbx_path_arg] if dbx_path_arg else None
             local_path = args[local_path_arg] if local_path_arg else None
 
-            try:
+            with convert_api_errors(dbx_path, local_path):
                 return func(*args, **kwargs)
-            except exceptions.DropboxException as exc:
-                raise dropbox_to_maestral_error(exc, dbx_path, local_path)
-            # catch connection errors first, they may inherit from OSError
-            except CONNECTION_ERRORS:
-                raise ConnectionError("Cannot connect to Dropbox")
-            except OSError as exc:
-                raise os_to_maestral_error(exc, dbx_path, local_path)
 
         return wrapper
 
@@ -881,7 +890,6 @@ class DropboxClient:
 
         return self.flatten_results(results)
 
-    @to_maestral_error(dbx_path_arg=1)
     def list_folder_iterator(
         self,
         dbx_path: str,
@@ -906,36 +914,38 @@ class DropboxClient:
         :returns: Iterator over content of given folder.
         """
 
-        dbx_path = "" if dbx_path == "/" else dbx_path
+        with convert_api_errors(dbx_path):
 
-        res = self.dbx.files_list_folder(
-            dbx_path,
-            include_non_downloadable_files=include_non_downloadable_files,
-            **kwargs,
-        )
+            dbx_path = "" if dbx_path == "/" else dbx_path
 
-        yield res
+            res = self.dbx.files_list_folder(
+                dbx_path,
+                include_non_downloadable_files=include_non_downloadable_files,
+                **kwargs,
+            )
 
-        idx = 0
+            yield res
 
-        while res.has_more:
+            idx = 0
 
-            idx += len(res.entries)
-            logger.info(f"Indexing {idx}...")
+            while res.has_more:
 
-            attempt = 0
+                idx += len(res.entries)
+                logger.info(f"Indexing {idx}...")
 
-            while True:
-                try:
-                    res = self.dbx.files_list_folder_continue(res.cursor)
-                    yield res
-                    break
-                except requests.exceptions.ReadTimeout:
-                    attempt += 1
-                    if attempt <= max_retries_on_timeout:
-                        time.sleep(5.0)
-                    else:
-                        raise
+                attempt = 0
+
+                while True:
+                    try:
+                        res = self.dbx.files_list_folder_continue(res.cursor)
+                        yield res
+                        break
+                    except requests.exceptions.ReadTimeout:
+                        attempt += 1
+                        if attempt <= max_retries_on_timeout:
+                            time.sleep(5.0)
+                        else:
+                            raise
 
     @staticmethod
     def flatten_results(
@@ -1007,7 +1017,6 @@ class DropboxClient:
 
         return results
 
-    @to_maestral_error()
     def list_remote_changes_iterator(
         self, last_cursor: str
     ) -> Iterator[files.ListFolderResult]:
@@ -1023,13 +1032,15 @@ class DropboxClient:
         :returns: Iterator over remote changes since given cursor.
         """
 
-        result = self.dbx.files_list_folder_continue(last_cursor)
+        with convert_api_errors():
 
-        yield result
+            result = self.dbx.files_list_folder_continue(last_cursor)
 
-        while result.has_more:
-            result = self.dbx.files_list_folder_continue(result.cursor)
             yield result
+
+            while result.has_more:
+                result = self.dbx.files_list_folder_continue(result.cursor)
+                yield result
 
 
 # ==== conversion functions to generate error messages and types =======================
