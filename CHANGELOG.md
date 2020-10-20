@@ -7,6 +7,9 @@
 - Moves from `pkg_resources` to locate entry points and other metadata to the faster and
   more light-weight `importlib.metadata`.
 - Update scripts are no longer run after a fresh install or for a new config.
+- Significantly reduces memory usage during the initial sync of a Dropbox folder with many
+  (> 10,000) items and when downloading a large set of changes.
+- The returned sync history is now limited to the last 1,000 sync events.
 
 ## v1.2.1
 
