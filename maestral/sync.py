@@ -3543,7 +3543,9 @@ class SyncEngine:
         if osp.isfile(local_path):
             self.fs_events.local_file_event_queue.put(FileModifiedEvent(local_path))
         elif osp.isdir(local_path):
+
             # add created and deleted events of children as appropriate
+
             snapshot = DirectorySnapshot(local_path)
             lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
             local_path_lower = local_path.lower()
@@ -3554,14 +3556,18 @@ class SyncEngine:
                 else:
                     self.fs_events.local_file_event_queue.put(FileModifiedEvent(path))
 
-            # get deleted items
-            entries = self.get_index()
+            # add deleted events
+
+            with self._database_access():
+                entries = (
+                    self._db_session.query(IndexEntry)
+                    .filter(IndexEntry.dbx_path_lower.like(f"{local_path_lower}%"))
+                    .all()
+                )
+
             for entry in entries:
                 child_path_uncased = (self.dropbox_path + entry.dbx_path_lower).lower()
-                if (
-                    child_path_uncased.startswith(local_path_lower)
-                    and child_path_uncased not in lowercase_snapshot_paths
-                ):
+                if child_path_uncased not in lowercase_snapshot_paths:
                     local_child_path = self.to_local_path_from_cased(
                         entry.dbx_path_cased
                     )
