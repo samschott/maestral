@@ -891,7 +891,9 @@ class DropboxClient:
     ) -> Iterator[files.ListFolderResult]:
         """
         Lists the contents of a folder on Dropbox. Does the same as :meth:`list_folder`
-        but returns an iterator yielding :class:`files.ListFolderResult` instances.
+        but returns an iterator yielding :class:`files.ListFolderResult` instances. The
+        number of entries returned in each iteration corresponds to the number of
+        entries returned by a single Dropbox API call and will be typically around 500.
         This is useful to save memory when indexing a large number of items.
 
         :param dbx_path: Path of folder on Dropbox.
@@ -1010,9 +1012,11 @@ class DropboxClient:
         self, last_cursor: str
     ) -> Iterator[files.ListFolderResult]:
         """
-        Lists changes to remote Dropbox since ``last_cursor``. Does the same as
+        Lists changes to the remote Dropbox since ``last_cursor``. Does the same as
         :meth:`list_remote_changes` but returns an iterator yielding
-        :class:`files.ListFolderResult` instances. This is useful to save memory when
+        :class:`files.ListFolderResult` instances. The number of entries returned in
+        each iteration corresponds to the number of entries returned by a single Dropbox
+        API call and will be typically around 500. This is useful to save memory when
         indexing a large number of items.
 
         :param last_cursor: Last to cursor to compare for changes.
