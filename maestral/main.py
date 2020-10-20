@@ -18,7 +18,7 @@ import logging.handlers
 from collections import deque
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from typing import Union, List, Dict, Optional, Deque, Any
+from typing import Union, List, Iterator, Dict, Optional, Deque, Any
 
 # external imports
 import requests
@@ -793,7 +793,7 @@ class Maestral:
     def list_folder(self, dbx_path: str, **kwargs) -> List[StoneType]:
         """
         List all items inside the folder given by ``dbx_path``. Keyword arguments are
-        passed on the the Dropbox API call :meth:`client.DropboxClient.list_folder`.
+        passed on the Dropbox API call :meth:`client.DropboxClient.list_folder`.
 
         :param dbx_path: Path to folder on Dropbox.
         :returns: List of Dropbox item metadata as dicts. See
@@ -812,6 +812,35 @@ class Maestral:
         entries = [dropbox_stone_to_dict(e) for e in res.entries]
 
         return entries
+
+    def list_folder_iterator(
+        self, dbx_path: str, **kwargs
+    ) -> Iterator[List[StoneType]]:
+        """
+        Returns an iterator over items inside the folder given by ``dbx_path``. Keyword
+        arguments are passed on the client call
+        :meth:`client.DropboxClient.list_folder_iterator`. Each iteration will yield a
+        list of approximately 500 entries, depending on the number of entries returned
+        by an individual API call.
+
+        :param dbx_path: Path to folder on Dropbox.
+        :returns: Iterator over list of Dropbox item metadata as dicts. See
+            :class:`dropbox.files.Metadata` for keys and values.
+        :raises: :class:`errors.NotFoundError` if there is nothing at the given path
+        :raises: :class:`errors.NotAFolderError` if the given path refers to a file
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token
+        :raises: :class:`errors.DropboxServerError` for internal Dropbox errors
+        :raises: :class:`ConnectionError` if connection to Dropbox fails
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+        """
+
+        self._check_linked()
+
+        res_iter = self.client.list_folder_iterator(dbx_path, **kwargs)
+
+        for res in res_iter:
+            entries = [dropbox_stone_to_dict(e) for e in res.entries]
+            yield entries
 
     def list_revisions(self, dbx_path: str, limit: int = 10) -> List[StoneType]:
         """
