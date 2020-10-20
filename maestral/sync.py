@@ -108,7 +108,6 @@ from maestral.client import (
     os_to_maestral_error,
     fswatch_to_maestral_error,
 )
-from maestral.utils import chunks
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.path import (
     generate_cc_name,
@@ -1315,7 +1314,7 @@ class SyncEngine:
 
             dbx_path_lower = dbx_path.lower()
 
-            for entry in self.get_index():
+            for entry in self.iter_index():
                 # remove children from index
                 if is_equal_or_child(entry.dbx_path_lower, dbx_path_lower):
                     self._db_session.delete(entry)
@@ -1798,12 +1797,12 @@ class SyncEngine:
 
     def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
 
-        # pre-load index for performance
-        self.get_index()
-
         changes = []
         now = time.time()
         snapshot = DirectorySnapshot(self.dropbox_path)
+
+        # don't use iterator here but pre-fetch all entries
+        # this significantly improves performance but can lead to high memory usage
         entries = self.get_index()
 
         # get lowercase paths
@@ -1856,8 +1855,11 @@ class SyncEngine:
                     event = FileDeletedEvent(local_path)
                 changes.append(event)
 
+        # free memory
+        del entries
         del snapshot
         del lowercase_snapshot_paths
+        gc.collect()
 
         return changes, now
 
@@ -2721,33 +2723,58 @@ class SyncEngine:
             else:
                 logger.info("Downloading %s", dbx_path)
 
-            # get a cursor and list the folder content
+            if any(is_child(folder, dbx_path) for folder in self.excluded_items):
+                # if there are excluded subfolders, index and download only included
+                skip_excluded = True
+            else:
+                skip_excluded = False
+
             try:
+                # get a cursor and list the folder content
                 cursor = self.client.get_latest_cursor(dbx_path)
-                result = self.client.list_folder(
-                    dbx_path, recursive=True, include_deleted=False
+
+                # iterate over index and download results
+                list_iter = self.client.list_folder_iterator(
+                    dbx_path, recursive=not skip_excluded, include_deleted=False
                 )
+
+                for res in list_iter:
+                    res.entries.sort(key=lambda x: x.path_lower.count("/"))
+
+                    # convert metadata to sync_events
+                    sync_events = [
+                        SyncEvent.from_dbx_metadata(md, self) for md in res.entries
+                    ]
+                    download_res = self.apply_remote_changes(sync_events, cursor=None)
+
+                    s = all(
+                        e.status in (SyncStatus.Done, SyncStatus.Skipped)
+                        for e in download_res
+                    )
+                    success = s and success
+
+                    if skip_excluded:
+                        # list and download sub-folder contents if not excluded
+                        included_subfolders = [
+                            md
+                            for md in res.entries
+                            if isinstance(md, FolderMetadata)
+                            and not self.is_excluded_by_user(md.path_display)
+                        ]
+                        for md in included_subfolders:
+                            s = self.get_remote_folder(md.path_display)
+                            success = s and success
+
+                        del included_subfolders
+
+                    # free memory
+                    del res
+                    del download_res
+                    gc.collect()
+
             except SyncError as e:
                 self._handle_sync_error(e, direction=SyncDirection.Down)
-                # TODO: return failed SyncEvent?
                 return False
-
-            # convert metadata to sync_events
-            result.entries.sort(key=lambda x: x.path_lower.count("/"))
-
-            # download in batches of 5,000 to reduce memory usage
-            for chunk in chunks(result.entries, 5000, consume=True):
-                sync_events = [SyncEvent.from_dbx_metadata(md, self) for md in chunk]
-                res = self.apply_remote_changes(sync_events, cursor=None)
-
-                s = all(e.status in (SyncStatus.Done, SyncStatus.Skipped) for e in res)
-                success = s and success
-
-                # free memory
-                del chunk
-                del sync_events
-                del res
-                gc.collect()
 
             if is_dbx_root:
                 # always save remote cursor if this is the root folder,
@@ -3651,16 +3678,15 @@ def download_worker(
                 if has_changes:
                     logger.info(SYNCING)
 
-                    changes, remote_cursor = sync.list_remote_changes(
-                        sync.remote_cursor
-                    )
+                    changes_iter = sync.list_remote_changes_iterator(sync.remote_cursor)
 
                     # download changes in chunks to reduce memory usage
-                    for chunk in chunks(changes, 5000, consume=True):
-                        downloaded = sync.apply_remote_changes(chunk, remote_cursor)
+                    for changes, cursor in changes_iter:
+                        downloaded = sync.apply_remote_changes(changes, cursor)
                         sync.notify_user(downloaded)
 
-                        del chunk
+                        # free memory
+                        del changes
                         gc.collect()
 
                     logger.info(IDLE)
