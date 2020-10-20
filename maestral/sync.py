@@ -1033,8 +1033,8 @@ class SyncEngine:
     @property
     def history(self) -> List[SyncEvent]:
         """A list of the last SyncEvents in our history. History will be kept for the
-         interval specified by the config value``keep_history`` (defaults to two weeks)
-         and at most ``_max_history`` events will be returned (defaults to 1,000)."""
+        interval specified by the config value``keep_history`` (defaults to two weeks)
+        and at most ``_max_history`` events will be returned (defaults to 1,000)."""
         with self._database_access():
             query = self._db_session.query(SyncEvent)
             ordered_query = query.order_by(SyncEvent.change_time_or_sync_time)
@@ -3967,8 +3967,8 @@ class SyncMonitor:
     @property
     def history(self) -> List[SyncEvent]:
         """A list of the last SyncEvents in our history. History will be kept for the
-         interval specified by the config value``keep_history`` (defaults to two weeks)
-         and at most ``_max_history`` events will be returned (defaults to 1,000)."""
+        interval specified by the config value``keep_history`` (defaults to two weeks)
+        and at most ``_max_history`` events will be returned (defaults to 1,000)."""
         return self.sync.history
 
     @_with_lock
