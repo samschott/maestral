@@ -30,7 +30,7 @@ or downloading a file if it already exists with the same content locally or in t
 
 ## Warning
 
-- Never sync a folder with both the offical Dropbox client and Maestral at the same time.
+- Never sync a folder with both the official Dropbox client and Maestral at the same time.
 - Network drives and some external hard drives are not supported as locations for the
   Dropbox folder.
 
@@ -155,7 +155,7 @@ month to offset the cost of an Apple Developer account to sign and notiarize the
 
 ## System requirements
 
-- macOS (10.13 or higher for binary) or Linux
+- macOS 10.14 Mojave or higher or Linux
 - Python 3.6 or higher
 - For the system tray icon on Linux:
   - [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
