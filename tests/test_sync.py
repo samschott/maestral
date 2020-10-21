@@ -438,9 +438,6 @@ class TestSync(TestCase):
 
     def tearDown(self):
 
-        # check for fatal errors
-        self.assertFalse(self.m.fatal_errors)
-
         # stop syncing and clean up remote folder
         self.m.stop_sync()
         try:
@@ -613,6 +610,9 @@ class TestSync(TestCase):
         self.assertFalse(self.m.pending_dropbox_folder)
         self.assert_synced(self.m.dropbox_path, "/")
 
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
     def test_file_lifecycle(self):
 
         # test creating a local file
@@ -655,6 +655,9 @@ class TestSync(TestCase):
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
         self.assert_count(self.test_folder_dbx, 0)
 
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
     def test_file_conflict(self):
 
         # create a local file
@@ -685,6 +688,9 @@ class TestSync(TestCase):
         self.assert_conflict(self.test_folder_dbx, "file.txt")
         self.assert_count(self.test_folder_dbx, 2)
 
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
     def test_parallel_deletion_when_paused(self):
 
         # create a local file
@@ -709,6 +715,9 @@ class TestSync(TestCase):
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
         self.assert_count(self.test_folder_dbx, 0)
 
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
     def test_local_and_remote_creation_with_equal_content(self):
 
         self.m.pause_sync()
@@ -727,6 +736,9 @@ class TestSync(TestCase):
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
         self.assert_exists(self.test_folder_dbx, "file.txt")
         self.assert_count(self.test_folder_dbx, 1)
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
 
     def test_local_and_remote_creation_with_different_content(self):
 
@@ -748,6 +760,9 @@ class TestSync(TestCase):
         self.assert_conflict(self.test_folder_dbx, "file.txt")
         self.assert_count(self.test_folder_dbx, 2)
 
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
     def test_local_deletion_during_upload(self):
 
         fake_created_event = FileCreatedEvent(self.test_folder_local + "/file.txt")
@@ -757,6 +772,9 @@ class TestSync(TestCase):
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
         self.assert_count(self.test_folder_dbx, 0)
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
 
     def test_rapid_local_changes(self):
 
@@ -770,6 +788,9 @@ class TestSync(TestCase):
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
         self.assert_exists(self.test_folder_dbx, "file.txt")
         self.assert_count(self.test_folder_dbx, 1)
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
 
     def test_rapid_remote_changes(self):
 
@@ -797,6 +818,9 @@ class TestSync(TestCase):
         self.assert_exists(self.test_folder_dbx, "file.txt")
         self.assert_count(self.test_folder_dbx, 1)
 
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
     def test_folder_tree_local(self):
 
         # test creating tree
@@ -821,6 +845,9 @@ class TestSync(TestCase):
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
         self.assert_count(self.test_folder_dbx, 0)
 
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
     def test_folder_tree_remote(self):
 
         # test creating remote tree
@@ -842,6 +869,9 @@ class TestSync(TestCase):
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
         self.assert_count(self.test_folder_dbx, 0)
 
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
     def test_remote_file_replaced_by_folder(self):
 
         shutil.copy(self.resources + "/file.txt", self.test_folder_local + "/file.txt")
@@ -860,6 +890,9 @@ class TestSync(TestCase):
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
         self.assert_count(self.test_folder_dbx, 1)
         self.assertTrue(os.path.isdir(self.test_folder_local + "/file.txt"))
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
 
     def test_remote_file_replaced_by_folder_and_unsynced_local_changes(self):
 
@@ -885,6 +918,9 @@ class TestSync(TestCase):
         self.assert_conflict(self.test_folder_dbx, "file.txt")
         self.assert_count(self.test_folder_dbx, 2)
 
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
     def test_remote_folder_replaced_by_file(self):
 
         os.mkdir(self.test_folder_local + "/folder")
@@ -905,6 +941,9 @@ class TestSync(TestCase):
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
         self.assertTrue(os.path.isfile(self.test_folder_local + "/folder"))
         self.assert_count(self.test_folder_dbx, 1)
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
 
     def test_remote_folder_replaced_by_file_and_unsynced_local_changes(self):
 
@@ -931,6 +970,9 @@ class TestSync(TestCase):
         self.assert_conflict(self.test_folder_dbx, "folder")
         self.assert_count(self.test_folder_dbx, 3)
 
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
     def test_local_folder_replaced_by_file(self):
 
         os.mkdir(self.test_folder_local + "/folder")
@@ -948,6 +990,9 @@ class TestSync(TestCase):
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
         self.assertTrue(osp.isfile(self.test_folder_local + "/folder"))
         self.assert_count(self.test_folder_dbx, 1)
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
 
     def test_local_folder_replaced_by_file_and_unsynced_remote_changes(self):
 
@@ -975,6 +1020,9 @@ class TestSync(TestCase):
         self.assert_exists(self.test_folder_dbx, "folder")
         self.assert_count(self.test_folder_dbx, 1)
 
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
     def test_local_file_replaced_by_folder(self):
 
         shutil.copy(self.resources + "/file.txt", self.test_folder_local + "/file.txt")
@@ -993,6 +1041,9 @@ class TestSync(TestCase):
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
         self.assertTrue(osp.isdir(self.test_folder_local + "/file.txt"))
         self.assert_count(self.test_folder_dbx, 1)
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
 
     def test_local_file_replaced_by_folder_and_unsynced_remote_changes(self):
 
@@ -1023,6 +1074,9 @@ class TestSync(TestCase):
         self.assert_exists(self.test_folder_dbx, "file.txt")
         self.assert_conflict(self.test_folder_dbx, "file.txt")
         self.assert_count(self.test_folder_dbx, 2)
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
 
     def test_selective_sync_conflict(self):
 
@@ -1061,6 +1115,9 @@ class TestSync(TestCase):
             )
         )
 
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
     @unittest.skipUnless(
         is_fs_case_sensitive("/home"), "file system is not case sensitive"
     )
@@ -1082,6 +1139,9 @@ class TestSync(TestCase):
         )
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
 
     def test_case_change_local(self):
 
@@ -1107,6 +1167,9 @@ class TestSync(TestCase):
         )
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
 
     def test_case_change_remote(self):
 
@@ -1135,6 +1198,9 @@ class TestSync(TestCase):
         )
 
         self.assert_synced(self.test_folder_local, self.test_folder_dbx)
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
 
     def test_mignore(self):
 
@@ -1176,6 +1242,9 @@ class TestSync(TestCase):
 
         self.clean_local()
         self.wait_for_idle()
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
 
 
 if __name__ == "__main__":
