@@ -76,7 +76,7 @@ from maestral.errors import (
     InvalidDbidError,
 )
 from maestral.config import MaestralState
-from maestral.constants import DROPBOX_APP_KEY
+from maestral.constants import DROPBOX_APP_KEY, IDLE
 from maestral.utils import natural_size, chunks, clamp
 
 if TYPE_CHECKING:
@@ -888,6 +888,9 @@ class DropboxClient:
                     else:
                         raise
 
+        if idx > 0:
+            logger.info(IDLE)
+
         return self.flatten_results(results)
 
     def list_folder_iterator(
@@ -946,6 +949,9 @@ class DropboxClient:
                             time.sleep(5.0)
                         else:
                             raise
+
+            if idx > 0:
+                logger.info(IDLE)
 
     @staticmethod
     def flatten_results(
