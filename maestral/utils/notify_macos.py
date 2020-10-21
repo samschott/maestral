@@ -25,9 +25,8 @@ from .notify_base import Notification, DesktopNotifierBase
 
 logger = logging.getLogger(__name__)
 
-uns = load_library("UserNotifications")
-foundation = load_library("Foundation")
 
+foundation = load_library("Foundation")
 NSObject = ObjCClass("NSObject")
 
 macos_version, *_ = platform.mac_ver()
@@ -39,6 +38,8 @@ Impl: Optional[Type[DesktopNotifierBase]]
 if getattr(sys, "frozen", False) and Version(macos_version) >= Version("10.14.0"):
 
     # use UNUserNotificationCenter in macOS Mojave and higher if we are in an app bundle
+
+    uns = load_library("UserNotifications")
 
     UNUserNotificationCenter = ObjCClass("UNUserNotificationCenter")
     UNMutableNotificationContent = ObjCClass("UNMutableNotificationContent")
