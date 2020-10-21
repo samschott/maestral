@@ -59,9 +59,6 @@ class TestAPI(TestCase):
 
     def tearDown(self):
 
-        # check for fatal errors
-        self.assertFalse(self.m.fatal_errors)
-
         # stop syncing and clean up remote folder
         self.m.stop_sync()
         try:
@@ -160,6 +157,9 @@ class TestAPI(TestCase):
         with self.assertRaises(NotFoundError):
             self.m.exclude_item(test_path_dbx)
 
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
     def test_upload_sync_issues(self):
 
         # paths with backslash are not allowed on Dropbox
@@ -184,6 +184,9 @@ class TestAPI(TestCase):
             all(e["local_path"] != test_path_local for e in self.m.sync_errors)
         )
         self.assertTrue(all(e["dbx_path"] != test_path_dbx for e in self.m.sync_errors))
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
 
     def test_download_sync_issues(self):
         test_path_local = self.test_folder_local + "/dmca.gif"
@@ -229,6 +232,9 @@ class TestAPI(TestCase):
         )
         self.assertTrue(all(e["dbx_path"] != test_path_dbx for e in self.m.sync_errors))
         self.assertNotIn(test_path_dbx, self.m.sync.download_errors)
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
 
 
 if __name__ == "__main__":
