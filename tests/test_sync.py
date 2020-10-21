@@ -38,13 +38,14 @@ import unittest
 from unittest import TestCase
 
 
-def path(i):
+def ipath(i):
     """Returns path names '/test 1', '/test 2', ... """
     return f"/test {i}"
 
 
 class TestCleanLocalEvents(TestCase):
     def setUp(self):
+        # noinspection PyTypeChecker
         self.sync = SyncEngine(DropboxClient("test-config"), None)
         self.sync.dropbox_path = "/"
 
@@ -56,17 +57,17 @@ class TestCleanLocalEvents(TestCase):
         # only a single event for every path -> no consolidation
 
         file_events = [
-            FileModifiedEvent(path(1)),
-            FileCreatedEvent(path(2)),
-            FileDeletedEvent(path(3)),
-            FileMovedEvent(path(4), path(5)),
+            FileModifiedEvent(ipath(1)),
+            FileCreatedEvent(ipath(2)),
+            FileDeletedEvent(ipath(3)),
+            FileMovedEvent(ipath(4), ipath(5)),
         ]
 
         res = [
-            FileModifiedEvent(path(1)),
-            FileCreatedEvent(path(2)),
-            FileDeletedEvent(path(3)),
-            FileMovedEvent(path(4), path(5)),
+            FileModifiedEvent(ipath(1)),
+            FileCreatedEvent(ipath(2)),
+            FileDeletedEvent(ipath(3)),
+            FileMovedEvent(ipath(4), ipath(5)),
         ]
 
         cleaned_events = self.sync._clean_local_events(file_events)
@@ -76,22 +77,22 @@ class TestCleanLocalEvents(TestCase):
 
         file_events = [
             # created + deleted -> None
-            FileCreatedEvent(path(1)),
-            FileDeletedEvent(path(1)),
+            FileCreatedEvent(ipath(1)),
+            FileDeletedEvent(ipath(1)),
             # deleted + created -> modified
-            FileDeletedEvent(path(2)),
-            FileCreatedEvent(path(2)),
+            FileDeletedEvent(ipath(2)),
+            FileCreatedEvent(ipath(2)),
             # created + modified -> created
-            FileCreatedEvent(path(3)),
-            FileModifiedEvent(path(3)),
+            FileCreatedEvent(ipath(3)),
+            FileModifiedEvent(ipath(3)),
         ]
 
         res = [
             # created + deleted -> None
             # deleted + created -> modified
-            FileModifiedEvent(path(2)),
+            FileModifiedEvent(ipath(2)),
             # created + modified -> created
-            FileCreatedEvent(path(3)),
+            FileCreatedEvent(ipath(3)),
         ]
 
         cleaned_events = self.sync._clean_local_events(file_events)
@@ -101,31 +102,31 @@ class TestCleanLocalEvents(TestCase):
 
         file_events = [
             # created + moved -> created
-            FileCreatedEvent(path(1)),
-            FileMovedEvent(path(1), path(2)),
+            FileCreatedEvent(ipath(1)),
+            FileMovedEvent(ipath(1), ipath(2)),
             # moved + deleted -> deleted
-            FileMovedEvent(path(1), path(4)),
-            FileDeletedEvent(path(4)),
+            FileMovedEvent(ipath(1), ipath(4)),
+            FileDeletedEvent(ipath(4)),
             # moved + moved back -> modified
-            FileMovedEvent(path(5), path(6)),
-            FileMovedEvent(path(6), path(5)),
+            FileMovedEvent(ipath(5), ipath(6)),
+            FileMovedEvent(ipath(6), ipath(5)),
             # moved + moved -> deleted + created
             # (this is currently not handled as a single moved)
-            FileMovedEvent(path(7), path(8)),
-            FileMovedEvent(path(8), path(9)),
+            FileMovedEvent(ipath(7), ipath(8)),
+            FileMovedEvent(ipath(8), ipath(9)),
         ]
 
         res = [
             # created + moved -> created
-            FileCreatedEvent(path(2)),
+            FileCreatedEvent(ipath(2)),
             # moved + deleted -> deleted
-            FileDeletedEvent(path(1)),
+            FileDeletedEvent(ipath(1)),
             # moved + moved back -> modified
-            FileModifiedEvent(path(5)),
+            FileModifiedEvent(ipath(5)),
             # moved + moved -> deleted + created
             # (this is currently not handled as a single moved)
-            FileDeletedEvent(path(7)),
-            FileCreatedEvent(path(9)),
+            FileDeletedEvent(ipath(7)),
+            FileCreatedEvent(ipath(9)),
         ]
 
         cleaned_events = self.sync._clean_local_events(file_events)
@@ -136,15 +137,15 @@ class TestCleanLocalEvents(TestCase):
         file_events = [
             FileCreatedEvent(".gedit-save-UR4EC0"),  # save new version to tmp file
             FileModifiedEvent(".gedit-save-UR4EC0"),  # modify tmp file
-            FileMovedEvent(path(1), path(1) + "~"),  # move old version to backup
+            FileMovedEvent(ipath(1), ipath(1) + "~"),  # move old version to backup
             FileMovedEvent(
-                ".gedit-save-UR4EC0", path(1)
+                ".gedit-save-UR4EC0", ipath(1)
             ),  # replace old version with tmp
         ]
 
         res = [
-            FileModifiedEvent(path(1)),  # modified file
-            FileCreatedEvent(path(1) + "~"),  # backup
+            FileModifiedEvent(ipath(1)),  # modified file
+            FileCreatedEvent(ipath(1) + "~"),  # backup
         ]
 
         cleaned_events = self.sync._clean_local_events(file_events)
@@ -153,13 +154,15 @@ class TestCleanLocalEvents(TestCase):
     def test_macos_safe_save(self):
 
         file_events = [
-            FileMovedEvent(path(1), path(1) + ".sb-b78ef837-dLht38"),  # move to backup
-            FileCreatedEvent(path(1)),  # create new version
-            FileDeletedEvent(path(1) + ".sb-b78ef837-dLht38"),  # delete backup
+            FileMovedEvent(
+                ipath(1), ipath(1) + ".sb-b78ef837-dLht38"
+            ),  # move to backup
+            FileCreatedEvent(ipath(1)),  # create new version
+            FileDeletedEvent(ipath(1) + ".sb-b78ef837-dLht38"),  # delete backup
         ]
 
         res = [
-            FileModifiedEvent(path(1)),  # modified file
+            FileModifiedEvent(ipath(1)),  # modified file
         ]
 
         cleaned_events = self.sync._clean_local_events(file_events)
@@ -168,15 +171,15 @@ class TestCleanLocalEvents(TestCase):
     def test_msoffice_created(self):
 
         file_events = [
-            FileCreatedEvent(path(1)),
-            FileDeletedEvent(path(1)),
-            FileCreatedEvent(path(1)),
-            FileCreatedEvent("~$" + path(1)),
+            FileCreatedEvent(ipath(1)),
+            FileDeletedEvent(ipath(1)),
+            FileCreatedEvent(ipath(1)),
+            FileCreatedEvent("~$" + ipath(1)),
         ]
 
         res = [
-            FileCreatedEvent(path(1)),  # created file
-            FileCreatedEvent("~$" + path(1)),  # backup
+            FileCreatedEvent(ipath(1)),  # created file
+            FileCreatedEvent("~$" + ipath(1)),  # backup
         ]
 
         cleaned_events = self.sync._clean_local_events(file_events)
@@ -186,20 +189,20 @@ class TestCleanLocalEvents(TestCase):
 
         file_events = [
             # keep as is
-            FileDeletedEvent(path(1)),
-            DirCreatedEvent(path(1)),
+            FileDeletedEvent(ipath(1)),
+            DirCreatedEvent(ipath(1)),
             # keep as is
-            DirDeletedEvent(path(2)),
-            FileCreatedEvent(path(2)),
+            DirDeletedEvent(ipath(2)),
+            FileCreatedEvent(ipath(2)),
         ]
 
         res = [
             # keep as is
-            FileDeletedEvent(path(1)),
-            DirCreatedEvent(path(1)),
+            FileDeletedEvent(ipath(1)),
+            DirCreatedEvent(ipath(1)),
             # keep as is
-            DirDeletedEvent(path(2)),
-            FileCreatedEvent(path(2)),
+            DirDeletedEvent(ipath(2)),
+            FileCreatedEvent(ipath(2)),
         ]
 
         cleaned_events = self.sync._clean_local_events(file_events)
@@ -209,25 +212,25 @@ class TestCleanLocalEvents(TestCase):
 
         file_events = [
             # convert to FileDeleted -> DirCreated
-            FileModifiedEvent(path(1)),
-            FileDeletedEvent(path(1)),
-            FileCreatedEvent(path(1)),
-            FileDeletedEvent(path(1)),
-            DirCreatedEvent(path(1)),
+            FileModifiedEvent(ipath(1)),
+            FileDeletedEvent(ipath(1)),
+            FileCreatedEvent(ipath(1)),
+            FileDeletedEvent(ipath(1)),
+            DirCreatedEvent(ipath(1)),
             # convert to FileDeleted(path1) -> DirCreated(path2)
-            FileModifiedEvent(path(2)),
-            FileDeletedEvent(path(2)),
-            FileCreatedEvent(path(2)),
-            FileDeletedEvent(path(2)),
-            DirCreatedEvent(path(2)),
-            DirMovedEvent(path(2), path(3)),
+            FileModifiedEvent(ipath(2)),
+            FileDeletedEvent(ipath(2)),
+            FileCreatedEvent(ipath(2)),
+            FileDeletedEvent(ipath(2)),
+            DirCreatedEvent(ipath(2)),
+            DirMovedEvent(ipath(2), ipath(3)),
         ]
 
         res = [
-            FileDeletedEvent(path(1)),
-            DirCreatedEvent(path(1)),
-            FileDeletedEvent(path(2)),
-            DirCreatedEvent(path(3)),
+            FileDeletedEvent(ipath(1)),
+            DirCreatedEvent(ipath(1)),
+            FileDeletedEvent(ipath(2)),
+            DirCreatedEvent(ipath(3)),
         ]
 
         cleaned_events = self.sync._clean_local_events(file_events)
@@ -237,22 +240,22 @@ class TestCleanLocalEvents(TestCase):
 
         file_events = [
             # convert to a single DirDeleted
-            DirDeletedEvent(path(1)),
-            FileDeletedEvent(path(1) + "/file1.txt"),
-            FileDeletedEvent(path(1) + "/file2.txt"),
-            DirDeletedEvent(path(1) + "/sub"),
-            FileDeletedEvent(path(1) + "/sub/file3.txt"),
+            DirDeletedEvent(ipath(1)),
+            FileDeletedEvent(ipath(1) + "/file1.txt"),
+            FileDeletedEvent(ipath(1) + "/file2.txt"),
+            DirDeletedEvent(ipath(1) + "/sub"),
+            FileDeletedEvent(ipath(1) + "/sub/file3.txt"),
             # convert to a single DirMoved
-            DirMovedEvent(path(2), path(3)),
-            FileMovedEvent(path(2) + "/file1.txt", path(3) + "/file1.txt"),
-            FileMovedEvent(path(2) + "/file2.txt", path(3) + "/file2.txt"),
-            DirMovedEvent(path(2) + "/sub", path(3) + "/sub"),
-            FileMovedEvent(path(2) + "/sub/file3.txt", path(3) + "/sub/file3.txt"),
+            DirMovedEvent(ipath(2), ipath(3)),
+            FileMovedEvent(ipath(2) + "/file1.txt", ipath(3) + "/file1.txt"),
+            FileMovedEvent(ipath(2) + "/file2.txt", ipath(3) + "/file2.txt"),
+            DirMovedEvent(ipath(2) + "/sub", ipath(3) + "/sub"),
+            FileMovedEvent(ipath(2) + "/sub/file3.txt", ipath(3) + "/sub/file3.txt"),
         ]
 
         res = [
-            DirDeletedEvent(path(1)),
-            DirMovedEvent(path(2), path(3)),
+            DirDeletedEvent(ipath(1)),
+            DirMovedEvent(ipath(2), ipath(3)),
         ]
 
         cleaned_events = self.sync._clean_local_events(file_events)
@@ -261,26 +264,28 @@ class TestCleanLocalEvents(TestCase):
     def test_performance(self):
 
         # 10,000 nested deleted events (5,000 folders, 5,000 files)
-        file_events = [DirDeletedEvent(n * path(1)) for n in range(1, 5001)]
-        file_events += [FileDeletedEvent(n * path(1) + ".txt") for n in range(1, 5001)]
+        file_events = [DirDeletedEvent(n * ipath(1)) for n in range(1, 5001)]
+        file_events += [FileDeletedEvent(n * ipath(1) + ".txt") for n in range(1, 5001)]
 
         # 10,000 nested moved events (5,000 folders, 5,000 files)
-        file_events += [DirMovedEvent(n * path(2), n * path(3)) for n in range(1, 5001)]
         file_events += [
-            FileMovedEvent(n * path(2) + ".txt", n * path(3) + ".txt")
+            DirMovedEvent(n * ipath(2), n * ipath(3)) for n in range(1, 5001)
+        ]
+        file_events += [
+            FileMovedEvent(n * ipath(2) + ".txt", n * ipath(3) + ".txt")
             for n in range(1, 5001)
         ]
 
         # 4,995 unrelated created events
-        file_events += [FileCreatedEvent(path(n)) for n in range(5, 5001)]
+        file_events += [FileCreatedEvent(ipath(n)) for n in range(5, 5001)]
 
         res = [
-            DirDeletedEvent(path(1)),
-            DirMovedEvent(path(2), path(3)),
-            FileDeletedEvent(path(1) + ".txt"),
-            FileMovedEvent(path(2) + ".txt", path(3) + ".txt"),
+            DirDeletedEvent(ipath(1)),
+            DirMovedEvent(ipath(2), ipath(3)),
+            FileDeletedEvent(ipath(1) + ".txt"),
+            FileMovedEvent(ipath(2) + ".txt", ipath(3) + ".txt"),
         ]
-        res += [FileCreatedEvent(path(n)) for n in range(5, 5001)]
+        res += [FileCreatedEvent(ipath(n)) for n in range(5, 5001)]
 
         cleaned_events = self.sync._clean_local_events(file_events)
         self.assertEqual(set(cleaned_events), set(res))
@@ -394,8 +399,8 @@ class TestIgnoreLocalEvents(TestCase):
 @unittest.skipUnless(os.environ.get("DROPBOX_TOKEN"), "Requires auth token")
 class TestSync(TestCase):
     """
-    We do not test individual methods of `maestral.sync` but rather ensure an effective
-    result: successful syncing and conflict resolution in standard and challenging cases.
+    We don't test individual methods of `maestral.sync` but ensure an effective result:
+    successful syncing and conflict resolution in standard and challenging cases.
     """
 
     TEST_LOCK_PATH = "/test.lock"
@@ -501,7 +506,8 @@ class TestSync(TestCase):
         remote_items = self.m.list_folder(remote_folder, recursive=True)
         local_snapshot = DirectorySnapshot(local_folder)
 
-        # assert that all items from server are present locally with the same content hash
+        # assert that all items from server are present locally
+        # with the same content hash
         for r in remote_items:
             dbx_path = r["path_display"]
             local_path = to_existing_cased_path(dbx_path, root=self.m.dropbox_path)
