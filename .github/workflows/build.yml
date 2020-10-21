@@ -73,10 +73,6 @@ jobs:
           curl -L "https://bintray.com/homebrew/bottles/download_file?file_path=gettext-0.21.high_sierra.bottle.tar.gz" -o "gettext-0.21.high_sierra.bottle.tar.gz"
           brew reinstall -f "gettext-0.21.high_sierra.bottle.tar.gz"
 
-          # reinstall zlib
-          curl -L "https://bintray.com/homebrew/bottles/download_file?file_path=zlib-1.2.11.high_sierra.bottle.tar.gz" -o "zlib-1.2.11.high_sierra.bottle.tar.gz"
-          brew reinstall -f "zlib-1.2.11.high_sierra.bottle.tar.gz"
-
           # reinstall openssl
           curl -L "https://bintray.com/homebrew/bottles/download_file?file_path=openssl%401.1-1.1.1h.high_sierra.bottle.tar.gz" -o "openssl%401.1-1.1.1h.high_sierra.bottle.tar.gz"
           brew reinstall -f "openssl%401.1-1.1.1h.high_sierra.bottle.tar.gz"
