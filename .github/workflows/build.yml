@@ -59,14 +59,33 @@ jobs:
           SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
 
       - name: Install dependencies that require building
-        # We build all extension modules (PyInstaller bootloader, watchdog) and Python
+        # We build all extension modules (PyInstaller bootloader, watchdog, etc) and Python
         # itself from source with the latest SDK and a deployment target of macOS 10.13.
         run: |
+          # reinstall Python
           brew uninstall --ignore-dependencies python3
           export HOMEBREW_MACOSX_DEPLOYMENT_TARGET=$MACOSX_DEPLOYMENT_TARGET
           brew tap samschott/python
           brew install -s samschott/python/python@3.8
           python3 -c "import sys; print(sys.version)"
+
+          # reinstall gettext
+          curl -L "https://bintray.com/homebrew/bottles/download_file?file_path=gettext-0.21.high_sierra.bottle.tar.gz" -o "gettext-0.21.high_sierra.bottle.tar.gz"
+          brew reinstall -f "gettext-0.21.high_sierra.bottle.tar.gz"
+
+          # reinstall zlib
+          curl -L "https://bintray.com/homebrew/bottles/download_file?file_path=zlib-1.2.11.high_sierra.bottle.tar.gz" -o "zlib-1.2.11.high_sierra.bottle.tar.gz"
+          brew reinstall -f "zlib-1.2.11.high_sierra.bottle.tar.gz"
+
+          # reinstall openssl
+          curl -L "https://bintray.com/homebrew/bottles/download_file?file_path=openssl%401.1-1.1.1h.high_sierra.bottle.tar.gz" -o "openssl%401.1-1.1.1h.high_sierra.bottle.tar.gz"
+          brew reinstall -f "openssl%401.1-1.1.1h.high_sierra.bottle.tar.gz"
+
+          # reinstall sqlite
+          curl -L "https://bintray.com/homebrew/bottles/download_file?file_path=sqlite-3.33.0.high_sierra.bottle.tar.gz" -o "sqlite-3.33.0.high_sierra.bottle.tar.gz"
+          brew reinstall -f "sqlite-3.33.0.high_sierra.bottle.tar.gz"
+
+          # build and install PyInstaller
           git clone https://github.com/pyinstaller/pyinstaller.git package/build/pyinstaller
           cd package/build/pyinstaller
           git apply ../../patch/pyinstaller_macos_11.patch
@@ -74,6 +93,8 @@ jobs:
           python3 ./waf all
           cd "$GITHUB_WORKSPACE"
           python3 -m pip install --upgrade package/build/pyinstaller
+
+          # build and install watchdog
           python3 -m pip install --upgrade watchdog
         env:
           MACOSX_DEPLOYMENT_TARGET: 10.13
