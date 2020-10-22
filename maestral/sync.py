@@ -816,7 +816,7 @@ class SyncEngine:
     syncing: List[SyncEvent]
     _case_conversion_cache: Dict[str, str]
 
-    _max_history = 30
+    _max_history = 1000
     _num_threads = min(32, _cpu_count * 3)
 
     def __init__(self, client: DropboxClient, fs_events_handler: FSEventHandler):
@@ -1032,10 +1032,13 @@ class SyncEngine:
 
     @property
     def history(self) -> List[SyncEvent]:
-        """All list of all SyncEvents in our history."""
+        """A list of the last SyncEvents in our history. History will be kept for the
+        interval specified by the config value``keep_history`` (defaults to two weeks)
+        and at most ``_max_history`` events will be returned (defaults to 1,000)."""
         with self._database_access():
             query = self._db_session.query(SyncEvent)
-            return query.order_by(SyncEvent.change_time_or_sync_time).all()
+            ordered_query = query.order_by(SyncEvent.change_time_or_sync_time)
+            return ordered_query.limit(self._max_history).all()
 
     def clear_sync_history(self) -> None:
         """Clears the sync history."""
@@ -1048,13 +1051,22 @@ class SyncEngine:
 
     def get_index(self) -> List[IndexEntry]:
         """
-        Returns a copy of the revision index containing the revision numbers for all
-        synced files and folders.
+        Returns a copy of the local index of synced files and folders.
 
-        :returns: Copy of revision index.
+        :returns: List of index entries.
         """
         with self._database_access():
             return self._db_session.query(IndexEntry).all()
+
+    def iter_index(self) -> Iterator[IndexEntry]:
+        """
+        Returns an iterator over the local index of synced files and folders.
+
+        :returns: Iterator over index entries.
+        """
+        with self._database_access():
+            for entry in self._db_session.query(IndexEntry).yield_per(1000):
+                yield entry
 
     def get_local_rev(self, dbx_path: str) -> Optional[str]:
         """
@@ -1305,7 +1317,7 @@ class SyncEngine:
 
             dbx_path_lower = dbx_path.lower()
 
-            for entry in self.get_index():
+            for entry in self.iter_index():
                 # remove children from index
                 if is_equal_or_child(entry.dbx_path_lower, dbx_path_lower):
                     self._db_session.delete(entry)
@@ -1748,6 +1760,14 @@ class SyncEngine:
             else:
                 raise new_exc
 
+    def reset_db_session(self):
+
+        with self._database_access():
+            self._db_session.flush()
+            self._db_session.close()
+            gc.collect()  # free up memory
+            self._db_session = Session()
+
     # ==== Upload sync =================================================================
 
     def upload_local_changes_while_inactive(self) -> None:
@@ -1780,12 +1800,12 @@ class SyncEngine:
 
     def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
 
-        # pre-load index for performance
-        self.get_index()
-
         changes = []
         now = time.time()
         snapshot = DirectorySnapshot(self.dropbox_path)
+
+        # don't use iterator here but pre-fetch all entries
+        # this significantly improves performance but can lead to high memory usage
         entries = self.get_index()
 
         # get lowercase paths
@@ -1838,8 +1858,11 @@ class SyncEngine:
                     event = FileDeletedEvent(local_path)
                 changes.append(event)
 
+        # free memory
+        del entries
         del snapshot
         del lowercase_snapshot_paths
+        gc.collect()
 
         return changes, now
 
@@ -2681,7 +2704,7 @@ class SyncEngine:
 
     # ==== Download sync ===============================================================
 
-    def get_remote_folder(self, dbx_path: str = "/") -> List[SyncEvent]:
+    def get_remote_folder(self, dbx_path: str = "/") -> bool:
         """
         Gets all files/folders from Dropbox and writes them to the local folder
         :attr:`dropbox_path`. Call this method on first run of the Maestral. Indexing
@@ -2696,7 +2719,7 @@ class SyncEngine:
 
             dbx_path = dbx_path or "/"
             is_dbx_root = dbx_path == "/"
-            results = []
+            success = True
 
             if is_dbx_root:
                 logger.info("Downloading your Dropbox")
@@ -2705,39 +2728,56 @@ class SyncEngine:
 
             if any(is_child(folder, dbx_path) for folder in self.excluded_items):
                 # if there are excluded subfolders, index and download only included
-                recursive = False
+                skip_excluded = True
             else:
-                # else index all at once
-                recursive = True
+                skip_excluded = False
 
-            # get a cursor and list the folder content
             try:
+                # get a cursor and list the folder content
                 cursor = self.client.get_latest_cursor(dbx_path)
-                root_result = self.client.list_folder(
-                    dbx_path, recursive=recursive, include_deleted=False
+
+                # iterate over index and download results
+                list_iter = self.client.list_folder_iterator(
+                    dbx_path, recursive=not skip_excluded, include_deleted=False
                 )
+
+                for res in list_iter:
+                    res.entries.sort(key=lambda x: x.path_lower.count("/"))
+
+                    # convert metadata to sync_events
+                    sync_events = [
+                        SyncEvent.from_dbx_metadata(md, self) for md in res.entries
+                    ]
+                    download_res = self.apply_remote_changes(sync_events, cursor=None)
+
+                    s = all(
+                        e.status in (SyncStatus.Done, SyncStatus.Skipped)
+                        for e in download_res
+                    )
+                    success = s and success
+
+                    if skip_excluded:
+                        # list and download sub-folder contents if not excluded
+                        included_subfolders = [
+                            md
+                            for md in res.entries
+                            if isinstance(md, FolderMetadata)
+                            and not self.is_excluded_by_user(md.path_display)
+                        ]
+                        for md in included_subfolders:
+                            s = self.get_remote_folder(md.path_display)
+                            success = s and success
+
+                        del included_subfolders
+
+                    # free memory
+                    del res
+                    del download_res
+                    gc.collect()
+
             except SyncError as e:
                 self._handle_sync_error(e, direction=SyncDirection.Down)
-                # TODO: return failed SyncEvent?
-                return []
-
-            # convert metadata to sync_events
-            root_result.entries.sort(key=lambda x: x.path_lower.count("/"))
-            sync_events = [
-                SyncEvent.from_dbx_metadata(md, self) for md in root_result.entries
-            ]
-
-            # download top-level folders / files first
-            res = self.apply_remote_changes(sync_events, cursor=None)
-            results.extend(res)
-
-            if not recursive:
-                # download sub-folders if not excluded
-                for md in root_result.entries:
-                    if isinstance(md, FolderMetadata) and not self.is_excluded_by_user(
-                        md.path_display
-                    ):
-                        results.extend(self.get_remote_folder(md.path_display))
+                return False
 
             if is_dbx_root:
                 # always save remote cursor if this is the root folder,
@@ -2745,9 +2785,9 @@ class SyncEngine:
                 self.remote_cursor = cursor
                 self._state.set("sync", "last_reindex", time.time())
 
-            return results
+            return success
 
-    def get_remote_item(self, dbx_path: str) -> List[SyncEvent]:
+    def get_remote_item(self, dbx_path: str) -> bool:
         """
         Downloads a remote file or folder and updates its local rev. If the remote item
         no longer exists, the corresponding local item will be deleted. Given paths will
@@ -2771,19 +2811,16 @@ class SyncEngine:
             event = SyncEvent.from_dbx_metadata(md, self)
 
             if event.is_directory:
-                results = self.get_remote_folder(dbx_path)
+                success = self.get_remote_folder(dbx_path)
             else:
                 self.syncing.append(event)
-                results = [self._create_local_entry(event)]
-
-            success = all(
-                e.status in (SyncStatus.Done, SyncStatus.Skipped) for e in results
-            )
+                e = self._create_local_entry(event)
+                success = e.status in (SyncStatus.Done, SyncStatus.Skipped)
 
             if success:
                 self.pending_downloads.discard(dbx_path.lower())
 
-            return results
+            return success
 
     def wait_for_remote_changes(
         self, last_cursor: str, timeout: int = 40, delay: float = 2
@@ -2821,6 +2858,35 @@ class SyncEngine:
 
         sync_events = [SyncEvent.from_dbx_metadata(md, self) for md in changes.entries]
         return sync_events, changes.cursor
+
+    def list_remote_changes_iterator(
+        self, last_cursor: str
+    ) -> Iterator[Tuple[List[SyncEvent], Optional[str]]]:
+        """
+        Lists remote changes since the last download sync. Works the same as
+        :meth:`list_remote_changes` but returns an iterator over remote changes. Only
+        the last result will have a valid cursor which is not None.
+
+        :param last_cursor: Cursor from last download sync.
+        :returns: Iterator yielding tuples with remote changes and corresponding cursor.
+        """
+
+        logger.info("Fetching remote changes...")
+        changes_iter = self.client.list_remote_changes_iterator(last_cursor)
+
+        for changes in changes_iter:
+            logger.debug("Listed remote changes:\n%s", entries_to_str(changes.entries))
+            clean_changes = self._clean_remote_changes(changes)
+            logger.debug(
+                "Cleaned remote changes:\n%s", entries_to_str(clean_changes.entries)
+            )
+
+            sync_events = [
+                SyncEvent.from_dbx_metadata(md, self) for md in changes.entries
+            ]
+
+            cursor = changes.cursor if not changes.has_more else None
+            yield sync_events, cursor
 
     def apply_remote_changes(
         self, sync_events: List[SyncEvent], cursor: Optional[str]
@@ -3480,7 +3546,9 @@ class SyncEngine:
         if osp.isfile(local_path):
             self.fs_events.local_file_event_queue.put(FileModifiedEvent(local_path))
         elif osp.isdir(local_path):
+
             # add created and deleted events of children as appropriate
+
             snapshot = DirectorySnapshot(local_path)
             lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
             local_path_lower = local_path.lower()
@@ -3491,14 +3559,18 @@ class SyncEngine:
                 else:
                     self.fs_events.local_file_event_queue.put(FileModifiedEvent(path))
 
-            # get deleted items
-            entries = self.get_index()
+            # add deleted events
+
+            with self._database_access():
+                entries = (
+                    self._db_session.query(IndexEntry)
+                    .filter(IndexEntry.dbx_path_lower.like(f"{local_path_lower}%"))
+                    .all()
+                )
+
             for entry in entries:
                 child_path_uncased = (self.dropbox_path + entry.dbx_path_lower).lower()
-                if (
-                    child_path_uncased.startswith(local_path_lower)
-                    and child_path_uncased not in lowercase_snapshot_paths
-                ):
+                if child_path_uncased not in lowercase_snapshot_paths:
                     local_child_path = self.to_local_path_from_cased(
                         entry.dbx_path_cased
                     )
@@ -3615,18 +3687,20 @@ def download_worker(
                 if has_changes:
                     logger.info(SYNCING)
 
-                    changes, remote_cursor = sync.list_remote_changes(
-                        sync.remote_cursor
-                    )
+                    changes_iter = sync.list_remote_changes_iterator(sync.remote_cursor)
 
-                    downloaded = sync.apply_remote_changes(changes, remote_cursor)
-                    sync.notify_user(downloaded)
+                    # download changes in chunks to reduce memory usage
+                    for changes, cursor in changes_iter:
+                        downloaded = sync.apply_remote_changes(changes, cursor)
+                        sync.notify_user(downloaded)
+
+                        # free memory
+                        del changes
+                        gc.collect()
 
                     logger.info(IDLE)
 
                     sync.client.get_space_usage()
-
-                    gc.collect()
 
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)
@@ -3892,7 +3966,9 @@ class SyncMonitor:
 
     @property
     def history(self) -> List[SyncEvent]:
-        """Returns a list all past SyncEvents."""
+        """A list of the last SyncEvents in our history. History will be kept for the
+        interval specified by the config value``keep_history`` (defaults to two weeks)
+        and at most ``_max_history`` events will be returned (defaults to 1,000)."""
         return self.sync.history
 
     @_with_lock

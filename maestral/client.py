@@ -25,6 +25,7 @@ from typing import (
     Type,
     Tuple,
     List,
+    Iterator,
     TypeVar,
     Optional,
     TYPE_CHECKING,
@@ -75,7 +76,7 @@ from maestral.errors import (
     InvalidDbidError,
 )
 from maestral.config import MaestralState
-from maestral.constants import DROPBOX_APP_KEY
+from maestral.constants import DROPBOX_APP_KEY, IDLE
 from maestral.utils import natural_size, chunks, clamp
 
 if TYPE_CHECKING:
@@ -162,6 +163,22 @@ class SpaceUsage(users.SpaceUsage):
         return cls(used=su.used, allocation=su.allocation)
 
 
+@contextlib.contextmanager
+def convert_api_errors(
+    dbx_path: Optional[str] = None, local_path: Optional[str] = None
+) -> Iterator[None]:
+
+    try:
+        yield
+    except exceptions.DropboxException as exc:
+        raise dropbox_to_maestral_error(exc, dbx_path, local_path)
+    # catch connection errors first, they may inherit from OSError
+    except CONNECTION_ERRORS:
+        raise ConnectionError("Cannot connect to Dropbox")
+    except OSError as exc:
+        raise os_to_maestral_error(exc, dbx_path, local_path)
+
+
 def to_maestral_error(
     dbx_path_arg: Optional[int] = None, local_path_arg: Optional[int] = None
 ) -> Callable[[_FT], _FT]:
@@ -180,15 +197,8 @@ def to_maestral_error(
             dbx_path = args[dbx_path_arg] if dbx_path_arg else None
             local_path = args[local_path_arg] if local_path_arg else None
 
-            try:
+            with convert_api_errors(dbx_path, local_path):
                 return func(*args, **kwargs)
-            except exceptions.DropboxException as exc:
-                raise dropbox_to_maestral_error(exc, dbx_path, local_path)
-            # catch connection errors first, they may inherit from OSError
-            except CONNECTION_ERRORS:
-                raise ConnectionError("Cannot connect to Dropbox")
-            except OSError as exc:
-                raise os_to_maestral_error(exc, dbx_path, local_path)
 
         return wrapper
 
@@ -878,7 +888,70 @@ class DropboxClient:
                     else:
                         raise
 
+        if idx > 0:
+            logger.info(IDLE)
+
         return self.flatten_results(results)
+
+    def list_folder_iterator(
+        self,
+        dbx_path: str,
+        max_retries_on_timeout: int = 4,
+        include_non_downloadable_files: bool = False,
+        **kwargs,
+    ) -> Iterator[files.ListFolderResult]:
+        """
+        Lists the contents of a folder on Dropbox. Does the same as :meth:`list_folder`
+        but returns an iterator yielding :class:`files.ListFolderResult` instances. The
+        number of entries returned in each iteration corresponds to the number of
+        entries returned by a single Dropbox API call and will be typically around 500.
+        This is useful to save memory when indexing a large number of items.
+
+        :param dbx_path: Path of folder on Dropbox.
+        :param max_retries_on_timeout: Number of times to try again if Dropbox servers
+            do not respond within the timeout. Occasional timeouts may occur for very
+            large Dropbox folders.
+        :param include_non_downloadable_files: If ``True``, files that cannot be
+            downloaded (at the moment only G-suite files on Dropbox) will be included.
+        :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
+        :returns: Iterator over content of given folder.
+        """
+
+        with convert_api_errors(dbx_path):
+
+            dbx_path = "" if dbx_path == "/" else dbx_path
+
+            res = self.dbx.files_list_folder(
+                dbx_path,
+                include_non_downloadable_files=include_non_downloadable_files,
+                **kwargs,
+            )
+
+            yield res
+
+            idx = 0
+
+            while res.has_more:
+
+                idx += len(res.entries)
+                logger.info(f"Indexing {idx}...")
+
+                attempt = 0
+
+                while True:
+                    try:
+                        res = self.dbx.files_list_folder_continue(res.cursor)
+                        yield res
+                        break
+                    except requests.exceptions.ReadTimeout:
+                        attempt += 1
+                        if attempt <= max_retries_on_timeout:
+                            time.sleep(5.0)
+                        else:
+                            raise
+
+            if idx > 0:
+                logger.info(IDLE)
 
     @staticmethod
     def flatten_results(
@@ -949,6 +1022,31 @@ class DropboxClient:
         results = self.flatten_results(results)
 
         return results
+
+    def list_remote_changes_iterator(
+        self, last_cursor: str
+    ) -> Iterator[files.ListFolderResult]:
+        """
+        Lists changes to the remote Dropbox since ``last_cursor``. Does the same as
+        :meth:`list_remote_changes` but returns an iterator yielding
+        :class:`files.ListFolderResult` instances. The number of entries returned in
+        each iteration corresponds to the number of entries returned by a single Dropbox
+        API call and will be typically around 500. This is useful to save memory when
+        indexing a large number of items.
+
+        :param last_cursor: Last to cursor to compare for changes.
+        :returns: Iterator over remote changes since given cursor.
+        """
+
+        with convert_api_errors():
+
+            result = self.dbx.files_list_folder_continue(last_cursor)
+
+            yield result
+
+            while result.has_more:
+                result = self.dbx.files_list_folder_continue(result.cursor)
+                yield result
 
 
 # ==== conversion functions to generate error messages and types =======================

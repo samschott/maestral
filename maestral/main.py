@@ -18,7 +18,7 @@ import logging.handlers
 from collections import deque
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from typing import Union, List, Dict, Optional, Deque, Any
+from typing import Union, List, Iterator, Dict, Optional, Deque, Any
 
 # external imports
 import requests
@@ -675,11 +675,11 @@ class Maestral:
         else:
             return FileStatus.Unwatched.value
 
-    def get_activity(self, max_len: Optional[int] = 100) -> List[StoneType]:
+    def get_activity(self, limit: Optional[int] = 100) -> List[StoneType]:
         """
         Returns the current upload / download activity.
 
-        :param max_len: Maximum number of items to return. If None, all entries will be
+        :param limit: Maximum number of items to return. If None, all entries will be
             returned.
         :returns: A lists of all sync events currently queued for or being uploaded or
             downloaded with the events furthest up in the queue coming first.
@@ -687,15 +687,17 @@ class Maestral:
         """
 
         self._check_linked()
-        if max_len:
-            activity = [sync_event_to_dict(e) for e in self.monitor.activity[:max_len]]
+        if limit:
+            activity = [sync_event_to_dict(e) for e in self.monitor.activity[:limit]]
         else:
             activity = [sync_event_to_dict(e) for e in self.monitor.activity]
         return activity
 
     def get_history(self) -> List[StoneType]:
         """
-        Returns the historic upload / download activity.
+        Returns the historic upload / download activity. Up to 1,000 sync events can be
+        returned. Any events which occurred before the interval sepecified by the
+        ``keep_history`` config value are discarded.
 
         :returns: A lists of all sync events from the last week.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
@@ -791,7 +793,7 @@ class Maestral:
     def list_folder(self, dbx_path: str, **kwargs) -> List[StoneType]:
         """
         List all items inside the folder given by ``dbx_path``. Keyword arguments are
-        passed on the the Dropbox API call :meth:`client.DropboxClient.list_folder`.
+        passed on the Dropbox API call :meth:`client.DropboxClient.list_folder`.
 
         :param dbx_path: Path to folder on Dropbox.
         :returns: List of Dropbox item metadata as dicts. See
@@ -810,6 +812,35 @@ class Maestral:
         entries = [dropbox_stone_to_dict(e) for e in res.entries]
 
         return entries
+
+    def list_folder_iterator(
+        self, dbx_path: str, **kwargs
+    ) -> Iterator[List[StoneType]]:
+        """
+        Returns an iterator over items inside the folder given by ``dbx_path``. Keyword
+        arguments are passed on the client call
+        :meth:`client.DropboxClient.list_folder_iterator`. Each iteration will yield a
+        list of approximately 500 entries, depending on the number of entries returned
+        by an individual API call.
+
+        :param dbx_path: Path to folder on Dropbox.
+        :returns: Iterator over list of Dropbox item metadata as dicts. See
+            :class:`dropbox.files.Metadata` for keys and values.
+        :raises: :class:`errors.NotFoundError` if there is nothing at the given path
+        :raises: :class:`errors.NotAFolderError` if the given path refers to a file
+        :raises: :class:`errors.DropboxAuthError` in case of an invalid access token
+        :raises: :class:`errors.DropboxServerError` for internal Dropbox errors
+        :raises: :class:`ConnectionError` if connection to Dropbox fails
+        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+        """
+
+        self._check_linked()
+
+        res_iter = self.client.list_folder_iterator(dbx_path, **kwargs)
+
+        for res in res_iter:
+            entries = [dropbox_stone_to_dict(e) for e in res.entries]
+            yield entries
 
     def list_revisions(self, dbx_path: str, limit: int = 10) -> List[StoneType]:
         """

@@ -522,8 +522,6 @@ def start_maestral_daemon(
             # notify systemd that we are shutting down
             sd_notifier.notify("STOPPING=1")
 
-        sys.exit(0)
-
 
 def _subprocess_launcher(
     config_name: str, log_to_stdout: bool, start_sync: bool
