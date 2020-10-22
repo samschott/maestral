@@ -2780,6 +2780,10 @@ class SyncEngine:
                 return False
 
             if is_dbx_root:
+                # clear case conversion cache to free memory
+                self._case_conversion_cache.clear()
+                gc.collect()
+
                 # always save remote cursor if this is the root folder,
                 # failed downloads will be tracked and retried individually
                 self.remote_cursor = cursor
