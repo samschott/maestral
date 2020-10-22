@@ -76,7 +76,8 @@ jobs:
           # reinstall openssl
           curl -L "https://bintray.com/homebrew/bottles/download_file?file_path=openssl%401.1-1.1.1h.high_sierra.bottle.tar.gz" -o "openssl%401.1-1.1.1h.high_sierra.bottle.tar.gz"
           brew uninstall --ignore-dependencies openssl
-          brew install -f "openssl%401.1-1.1.1h.high_sierra.bottle.tar.gz"
+          brew uninstall --ignore-dependencies openssl@1.1
+          brew reinstall -f "openssl%401.1-1.1.1h.high_sierra.bottle.tar.gz"
 
           # reinstall sqlite
           curl -L "https://bintray.com/homebrew/bottles/download_file?file_path=sqlite-3.33.0.high_sierra.bottle.tar.gz" -o "sqlite-3.33.0.high_sierra.bottle.tar.gz"
