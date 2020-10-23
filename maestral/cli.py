@@ -1477,7 +1477,3 @@ def notify_snooze(minutes: int, config_name: str) -> None:
             )
         else:
             click.echo("Notifications enabled.")
-
-
-if __name__ == "__main__":
-    main()
