@@ -249,11 +249,12 @@ def _get_available_implementation() -> Optional[SupportedImplementations]:
     if system == "Darwin":
         return SupportedImplementations.launchd
     else:
-        res = subprocess.check_output(["ps", "-p", "1"]).decode()
-        if "systemd" in res:
-            return SupportedImplementations.systemd
-        else:
+        try:
+            res = subprocess.check_output(["ps", "-p", "1"]).decode()
+        except (FileNotFoundError, subprocess.CalledProcessError):
             return None
+        else:
+            return SupportedImplementations.systemd if "systemd" in res else None
 
 
 class AutoStart:
