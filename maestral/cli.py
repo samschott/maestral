@@ -27,7 +27,6 @@ import Pyro5.errors  # type: ignore
 # local imports
 from maestral import __version__
 from maestral.daemon import (
-    freeze_support,
     start_maestral_daemon,
     start_maestral_daemon_process,
     stop_maestral_daemon_process,
@@ -471,8 +470,6 @@ CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
     help="Show version and exit.",
 )
 def main(version: bool):
-
-    freeze_support()
 
     if version:
         from maestral.main import __version__

@@ -12,18 +12,18 @@ be kept free of memory heavy imports.
 # system imports
 import os
 import platform
-import sys
 from enum import Enum
 
+try:
+    from importlib.resources import files
+except ImportError:
+    from importlib_resources import files
 
-_resources = getattr(
-    sys, "_MEIPASS", os.path.join(os.path.dirname(__file__), "resources")
-)
 
 # app
 APP_NAME = "Maestral"
 BUNDLE_ID = "com.samschott.maestral"
-APP_ICON_PATH = os.path.join(_resources, "maestral.png")
+APP_ICON_PATH = os.path.join(files("maestral"), "resources", "maestral.png")
 
 # sync
 OLD_REV_FILE = ".maestral"
@@ -67,11 +67,8 @@ class FileStatus(Enum):
 
 
 # platform detection
-IS_FROZEN = getattr(sys, "frozen", False)
 IS_MACOS = platform.system() == "Darwin"
 IS_LINUX = platform.system() == "Linux"
-IS_MACOS_BUNDLE = IS_FROZEN and IS_MACOS
-IS_LINUX_BUNDLE = IS_FROZEN and IS_LINUX
 
 # keys
 BUGSNAG_API_KEY = "081c05e2bf9730d5f55bc35dea15c833"
