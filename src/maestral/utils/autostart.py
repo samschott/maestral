@@ -4,8 +4,8 @@
 
 (c) Sam Schott; This work is licensed under the MIT licence.
 
-This module handles starting Maestral on user login and supports multiple platform
-specific backends such as launchd or systemd.
+This module handles starting the maestral daemon on user login and supports multiple
+platform specific backends such as launchd or systemd.
 
 Note that launchd agents will not show as "login items" in macOS system preferences. As
 a result, the user does not have a convenient UI to remove Maestral autostart entries
