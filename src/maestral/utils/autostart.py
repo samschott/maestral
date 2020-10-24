@@ -241,7 +241,7 @@ class AutoStartXDGDesktop(AutoStartBase):
         return os.path.isfile(self.destination)
 
 
-def _get_available_implementation() -> Optional[SupportedImplementations]:
+def get_available_implementation() -> Optional[SupportedImplementations]:
     """Returns the supported implementation depending on the platform."""
 
     system = platform.system()
@@ -257,6 +257,39 @@ def _get_available_implementation() -> Optional[SupportedImplementations]:
             return SupportedImplementations.systemd if "systemd" in res else None
 
 
+def get_maestral_command_path() -> str:
+    """
+    Returns the path to the maestral executable. May be an empty string if the
+    executable cannot be found.
+    """
+
+    try:
+        dist_files = files("maestral")
+    except PackageNotFoundError:
+        # we may have had installation issues
+        dist_files = []
+
+    path: Optional[os.PathLike]
+
+    if dist_files:
+        try:
+            rel_path = next(p for p in dist_files if p.match("**/bin/maestral"))
+            path = rel_path.locate()
+        except StopIteration:
+            path = None
+    else:
+        path = None
+
+    if isinstance(path, Path):
+        # resolve any symlinks and “..” components
+        path = path.resolve()
+
+    if path and osp.isfile(path):
+        return str(path)
+    else:
+        return shutil.which("maestral") or ""
+
+
 class AutoStart:
     """Creates auto-start files in the appropriate system location to automatically
     start Maestral when the user logs in. Different backends are used depending on the
@@ -266,8 +299,8 @@ class AutoStart:
 
     def __init__(self, config_name: str) -> None:
 
-        self.maestral_path = self.get_maestral_command_path()
-        self.implementation = _get_available_implementation()
+        self.maestral_path = get_maestral_command_path()
+        self.implementation = get_available_implementation()
 
         start_cmd = f"{self.maestral_path} start -f -c {config_name}"
         bundle_id = f"{BUNDLE_ID}-daemon.{config_name}"
@@ -348,35 +381,3 @@ class AutoStart:
             return
 
         self._impl.disable()
-
-    def get_maestral_command_path(self) -> str:
-        """
-        :returns: The path to the maestral executable. May be an empty string if the
-            executable cannot be found.
-        """
-
-        try:
-            dist_files = files("maestral")
-        except PackageNotFoundError:
-            # we may be in an app bundle or have installation issues
-            dist_files = []
-
-        path: Optional[os.PathLike]
-
-        if dist_files:
-            try:
-                rel_path = next(p for p in dist_files if p.match("**/bin/maestral"))
-                path = rel_path.locate()
-            except StopIteration:
-                path = None
-        else:
-            path = None
-
-        if isinstance(path, Path):
-            # resolve any symlinks and “..” components
-            path = path.resolve()
-
-        if path and osp.isfile(path):
-            return str(path)
-        else:
-            return shutil.which("maestral") or ""
