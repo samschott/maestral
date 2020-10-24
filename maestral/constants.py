@@ -15,9 +15,9 @@ import platform
 from enum import Enum
 
 try:
-    from importlib.resources import files
+    from importlib.resources import files  # type: ignore
 except ImportError:
-    from importlib_resources import files
+    from importlib_resources import files  # type: ignore
 
 
 # app
