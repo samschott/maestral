@@ -20,6 +20,7 @@ from maestral.utils.appdirs import get_home_dir
 
 
 def test_path_exists_case_insensitive():
+
     # choose a path which exists on all Unix systems
     path = "/usr/local/share"
 
@@ -41,7 +42,9 @@ def test_path_exists_case_insensitive():
 
 def test_cased_path_candidates():
 
-    # choose a path which exists on all Unix systems
+    # test that we can find a unique correctly cased path
+    # starting from a candidate with scrambled casing
+
     path = "/usr/local/share".upper()
     candidates = cased_path_candidates(path)
 
@@ -54,6 +57,9 @@ def test_cased_path_candidates():
     assert "/usr/local/share/test" in candidates
 
     home = get_home_dir()
+
+    # test that we can get multiple cased path
+    # candidates on case-sensitive file systems
 
     if is_fs_case_sensitive(home):
 
