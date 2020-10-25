@@ -30,7 +30,16 @@ def setup_test_config(
 
     m = Maestral(config_name)
     m.log_level = logging.DEBUG
+
+    # link with given token
     m.client._init_sdk_with_token(access_token=access_token)
+
+    # get corresponding Dropbox ID and store in keyring for other processes
+    res = m.client.get_account_info()
+    m.client.auth._account_id = res.account_id
+    m.client.auth._access_token = access_token
+    m.client.auth._token_access_type = "legacy"
+    m.client.auth.save_creds()
 
     home = get_home_dir()
     local_dropbox_dir = generate_cc_name(
@@ -64,6 +73,9 @@ def cleanup_test_config(m: Maestral, test_folder_dbx: Optional[str] = None) -> N
         m.client.remove("/.mignore")
     except NotFoundError:
         pass
+
+    # remove creds from system keyring
+    m.client.auth.delete_creds()
 
     # remove local files and folders
     delete(m.dropbox_path)
