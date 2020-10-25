@@ -35,11 +35,7 @@ from maestral.utils.housekeeping import remove_configuration
 import unittest
 from unittest import TestCase
 
-from fixtures import (
-    setup_test_config,
-    cleanup_test_config,
-    DropboxTestLock
-)
+from fixtures import setup_test_config, cleanup_test_config, DropboxTestLock
 
 
 def ipath(i):
@@ -415,7 +411,7 @@ class TestSync(TestCase):
 
         self.m = setup_test_config()
         self.lock = DropboxTestLock(self.m)
-        if not self.lock.acquire(timeout=60*60):
+        if not self.lock.acquire(timeout=60 * 60):
             raise TimeoutError("Could not acquire test lock")
 
         # all our tests will be carried out within this folder
