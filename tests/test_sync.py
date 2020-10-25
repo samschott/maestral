@@ -35,11 +35,10 @@ from maestral.utils.housekeeping import remove_configuration
 import unittest
 from unittest import TestCase
 
-from helpers import (
+from fixtures import (
     setup_test_config,
     cleanup_test_config,
-    acquire_test_lock,
-    release_test_lock,
+    DropboxTestLock
 )
 
 
@@ -408,7 +407,6 @@ class TestSync(TestCase):
     successful syncing and conflict resolution in standard and challenging cases.
     """
 
-    TEST_LOCK_PATH = "/test.lock"
     TEST_FOLDER_PATH = "/sync_tests"
 
     resources = osp.dirname(__file__) + "/resources"
@@ -416,7 +414,9 @@ class TestSync(TestCase):
     def setUp(self):
 
         self.m = setup_test_config()
-        acquire_test_lock(self.m, TestSync.TEST_LOCK_PATH, timeout=60 * 60)
+        self.lock = DropboxTestLock(self.m)
+        if not self.lock.acquire(timeout=60*60):
+            raise TimeoutError("Could not acquire test lock")
 
         # all our tests will be carried out within this folder
         self.test_folder_dbx = TestSync.TEST_FOLDER_PATH
@@ -434,7 +434,7 @@ class TestSync(TestCase):
     def tearDown(self):
 
         cleanup_test_config(self.m, self.test_folder_dbx)
-        release_test_lock(self.m, TestSync.TEST_LOCK_PATH)
+        self.lock.release()
 
     # helper functions
 
