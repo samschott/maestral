@@ -11,7 +11,6 @@ import time
 import shutil
 from pathlib import Path
 from threading import Event
-import logging
 import timeit
 from dropbox.files import WriteMode
 from maestral.sync import (
@@ -28,14 +27,20 @@ from maestral.sync import is_child, is_fs_case_sensitive
 from maestral.sync import DirectorySnapshot
 from maestral.sync import SyncEngine, DropboxClient, Observer, FSEventHandler
 from maestral.sync import SyncDirection, ItemType, ChangeType
-from maestral.errors import NotFoundError, FolderConflictError
-from maestral.main import Maestral
+from maestral.errors import NotFoundError
 from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import to_existing_cased_path
 from maestral.utils.housekeeping import remove_configuration
 
 import unittest
 from unittest import TestCase
+
+from helpers import (
+    setup_test_config,
+    cleanup_test_config,
+    acquire_test_lock,
+    release_test_lock,
+)
 
 
 def ipath(i):
@@ -410,27 +415,12 @@ class TestSync(TestCase):
 
     def setUp(self):
 
-        self.resources = osp.dirname(__file__) + "/resources"
-
-        self.m = Maestral("test-config")
-        self.m.log_level = logging.DEBUG
-        self.m.client._init_sdk_with_token(
-            access_token=os.environ.get("DROPBOX_TOKEN", "")
-        )
-        self.m.create_dropbox_directory("~/Dropbox_Test")
+        self.m = setup_test_config()
+        acquire_test_lock(self.m, TestSync.TEST_LOCK_PATH, timeout=60 * 60)
 
         # all our tests will be carried out within this folder
         self.test_folder_dbx = TestSync.TEST_FOLDER_PATH
         self.test_folder_local = self.m.dropbox_path + self.TEST_FOLDER_PATH
-
-        # acquire test lock
-        while True:
-            try:
-                self.m.client.make_dir(self.TEST_LOCK_PATH)
-            except FolderConflictError:
-                time.sleep(10)
-            else:
-                break
 
         # start syncing
         self.m.start_sync()
@@ -443,27 +433,8 @@ class TestSync(TestCase):
 
     def tearDown(self):
 
-        # stop syncing and clean up remote folder
-        self.m.stop_sync()
-        try:
-            self.m.client.remove(self.test_folder_dbx)
-        except NotFoundError:
-            pass
-
-        try:
-            self.m.client.remove("/.mignore")
-        except NotFoundError:
-            pass
-
-        # release test lock
-        try:
-            self.m.client.remove(self.TEST_LOCK_PATH)
-        except NotFoundError:
-            pass
-
-        # remove local config
-        delete(self.m.dropbox_path)
-        remove_configuration("test-config")
+        cleanup_test_config(self.m, self.test_folder_dbx)
+        release_test_lock(self.m, TestSync.TEST_LOCK_PATH)
 
     # helper functions
 

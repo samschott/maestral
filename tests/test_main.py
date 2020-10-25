@@ -8,14 +8,18 @@
 import os
 import os.path as osp
 import time
-import logging
-from maestral.main import Maestral
-from maestral.errors import NotFoundError, FolderConflictError, PathError
+from maestral.errors import NotFoundError, PathError
 from maestral.utils.path import delete
-from maestral.utils.housekeeping import remove_configuration
 
 import unittest
 from unittest import TestCase
+
+from helpers import (
+    setup_test_config,
+    cleanup_test_config,
+    acquire_test_lock,
+    release_test_lock,
+)
 
 
 @unittest.skipUnless(os.environ.get("DROPBOX_TOKEN"), "Requires auth token")
@@ -24,29 +28,16 @@ class TestAPI(TestCase):
     TEST_LOCK_PATH = "/test.lock"
     TEST_FOLDER_PATH = "/sync_tests"
 
+    resources = osp.dirname(__file__) + "/resources"
+
     def setUp(self):
 
-        self.resources = osp.dirname(__file__) + "/resources"
-
-        self.m = Maestral("test-config")
-        self.m.log_level = logging.DEBUG
-        self.m.client._init_sdk_with_token(
-            access_token=os.environ.get("DROPBOX_TOKEN", "")
-        )
-        self.m.create_dropbox_directory("~/Dropbox_Test")
+        self.m = setup_test_config()
+        acquire_test_lock(self.m, TestAPI.TEST_LOCK_PATH, timeout=60 * 60)
 
         # all our tests will be carried out within this folder
-        self.test_folder_dbx = self.TEST_FOLDER_PATH
+        self.test_folder_dbx = TestAPI.TEST_FOLDER_PATH
         self.test_folder_local = self.m.dropbox_path + self.TEST_FOLDER_PATH
-
-        # acquire test lock
-        while True:
-            try:
-                self.m.client.make_dir(self.TEST_LOCK_PATH)
-            except FolderConflictError:
-                time.sleep(10)
-            else:
-                break
 
         # start syncing
         self.m.start_sync()
@@ -59,27 +50,8 @@ class TestAPI(TestCase):
 
     def tearDown(self):
 
-        # stop syncing and clean up remote folder
-        self.m.stop_sync()
-        try:
-            self.m.client.remove(self.test_folder_dbx)
-        except NotFoundError:
-            pass
-
-        try:
-            self.m.client.remove("/.mignore")
-        except NotFoundError:
-            pass
-
-        # release test lock
-        try:
-            self.m.client.remove(self.TEST_LOCK_PATH)
-        except NotFoundError:
-            pass
-
-        # remove local config
-        delete(self.m.dropbox_path)
-        remove_configuration("test-config")
+        cleanup_test_config(self.m, self.test_folder_dbx)
+        release_test_lock(self.m, TestAPI.TEST_LOCK_PATH)
 
     # helper functions
 
