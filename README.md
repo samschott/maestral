@@ -90,7 +90,7 @@ $ maestral start --config-name="personal"
 $ maestral start --config-name="work"
 ```
 
-This will start two instances of Maestral, syncing a private and a work account,
+This will start two instances of Maestral, syncing a private and a work account, 
 respectively. Configs will be automatically cleared when unlinking an account and you can
 list all currently linked accounts with `maestral configs`:
 
@@ -140,9 +140,9 @@ $ docker run \
 ## Contribute
 
 There are multiple topics that could use your help. Some of them are easy, such as adding
-new CLI commands, others require more experience, such as packaging for non-macOS platforms.
-Look out for issues marked with "good first issue" or "help wanted". Pull requests should be
-made against the develop branch.
+new CLI commands, others require more experience, such as packaging for non-macOS
+platforms. Look out for issues marked with "good first issue" or "help wanted". Pull
+requests should be made against the develop branch.
 
 Relevant resources are:
 
@@ -151,7 +151,7 @@ Relevant resources are:
 - [Dropbox Python SDK docs](https://dropbox-sdk-python.readthedocs.io/en/latest/)
 
 If you are using the macOS app bundle, please consider sponsoring the project with £1 per 
-month to offset the cost of an Apple Developer account to sign and notiarize the bundle.
+month to offset the cost of an Apple Developer account to sign and notarize the bundle.
 
 ## System requirements
 
