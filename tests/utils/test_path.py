@@ -8,6 +8,7 @@
 import os
 import os.path as osp
 import tempfile
+
 from maestral.utils.path import (
     path_exists_case_insensitive,
     cased_path_candidates,

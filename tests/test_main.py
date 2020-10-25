@@ -8,11 +8,11 @@
 import os
 import os.path as osp
 import time
-from maestral.errors import NotFoundError, PathError
-from maestral.utils.path import delete
-
 import unittest
 from unittest import TestCase
+
+from maestral.errors import NotFoundError, PathError
+from maestral.utils.path import delete
 
 from fixtures import setup_test_config, cleanup_test_config, DropboxTestLock
 
