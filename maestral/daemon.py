@@ -643,6 +643,7 @@ class MaestralProxy:
     def __init__(self, config_name: str = "maestral", fallback: bool = False) -> None:
 
         self._config_name = config_name
+        self._is_fallback = False
 
         if is_running(config_name):
 
