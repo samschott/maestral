@@ -45,11 +45,10 @@ setup(
     license="MIT",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    packages=find_packages(),
+    packages=find_packages("src"),
+    package_dir={"": "src"},
     package_data={
-        "maestral": [
-            "resources/*",
-        ],
+        "maestral": ["resources/*"],
     },
     setup_requires=["wheel"],
     install_requires=install_requires,
@@ -75,6 +74,6 @@ setup(
         "Programming Language :: Python :: 3 :: Only",
     ],
     data_files=[
-        ("share/icons/hicolor/512x512/apps", ["maestral/resources/maestral.png"])
+        ("share/icons/hicolor/512x512/apps", ["src/maestral/resources/maestral.png"])
     ],
 )
