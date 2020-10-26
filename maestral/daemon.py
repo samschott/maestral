@@ -440,7 +440,7 @@ def start_maestral_daemon(
     # notify systemd periodically if alive
     if IS_WATCHDOG and WATCHDOG_USEC:
 
-        async def _periodic_watchdog() -> None:
+        async def periodic_watchdog() -> None:
 
             if WATCHDOG_USEC:
 
@@ -452,7 +452,7 @@ def start_maestral_daemon(
         logger.debug("Running as systemd watchdog service")
         logger.debug("WATCHDOG_USEC = %s", WATCHDOG_USEC)
         logger.debug("WATCHDOG_PID = %s", WATCHDOG_PID)
-        loop.create_task(_periodic_watchdog())
+        loop.create_task(periodic_watchdog())
 
     # get socket for config name
     sockpath = sockpath_for_config(config_name)
@@ -500,24 +500,6 @@ def start_maestral_daemon(
             sd_notifier.notify("STOPPING=1")
 
 
-def _subprocess_launcher(
-    config_name: str, log_to_stdout: bool, start_sync: bool
-) -> None:
-    """Launches a daemon subprocess with subprocess.Popen"""
-
-    # protect against injection
-    cc = quote(config_name).strip("'")
-    std_log = bool(log_to_stdout)
-    start_sync = bool(start_sync)
-
-    cmd = (
-        f"import maestral.daemon; "
-        f'maestral.daemon.start_maestral_daemon("{cc}", {std_log}, {start_sync})'
-    )
-
-    subprocess.Popen([sys.executable, "-OO", "-c", cmd], start_new_session=True)
-
-
 def start_maestral_daemon_process(
     config_name: str = "maestral",
     log_to_stdout: bool = False,
@@ -544,7 +526,18 @@ def start_maestral_daemon_process(
         return Start.AlreadyRunning
 
     if detach:
-        _subprocess_launcher(config_name, log_to_stdout, start_sync)
+
+        # protect against injection
+        cc = quote(config_name).strip("'")
+        std_log = bool(log_to_stdout)
+        start_sync = bool(start_sync)
+
+        cmd = (
+            f"import maestral.daemon; "
+            f'maestral.daemon.start_maestral_daemon("{cc}", {std_log}, {start_sync})'
+        )
+
+        subprocess.Popen([sys.executable, "-OO", "-c", cmd], start_new_session=True)
 
     else:
         import multiprocessing as mp
