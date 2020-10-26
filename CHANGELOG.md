@@ -9,11 +9,17 @@
 - Update scripts are no longer run after a fresh install or for a new config.
 - Significantly reduces memory usage during the initial sync of a Dropbox folder with many
   (> 10,000) items and when downloading a large set of changes.
+- The returned sync history is now limited to the last 1,000 sync events.
+
+#### Fixes:
+
+- Fixes an issue which would prevent the daemon from starting on macOS when running with
+  Python 3.6.
+- Fixes a segfault of the macOS GUI on macOS High Sierra and lower.
 - Fixes an issue with the macOS GUI becoming unresponsive when opening the selective sync
   dialog if one of the folders contains a large number (> 2k) of items.
 - Fixes an issue with the Qt GUI crashing when opening the selective sync dialog if one of
   the folders contains a large number (> 2k) of items.
-- The returned sync history is now limited to the last 1,000 sync events.
 
 ## v1.2.1
 
