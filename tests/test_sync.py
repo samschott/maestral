@@ -12,6 +12,9 @@ import shutil
 from pathlib import Path
 from threading import Event
 import timeit
+import unittest
+from unittest import TestCase
+
 from dropbox.files import WriteMode
 from maestral.sync import (
     FileCreatedEvent,
@@ -31,9 +34,6 @@ from maestral.errors import NotFoundError
 from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import to_existing_cased_path
 from maestral.utils.housekeeping import remove_configuration
-
-import unittest
-from unittest import TestCase
 
 from fixtures import setup_test_config, cleanup_test_config, DropboxTestLock
 

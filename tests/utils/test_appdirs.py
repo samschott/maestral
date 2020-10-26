@@ -7,6 +7,7 @@
 """
 import os
 import platform
+
 from maestral.utils.appdirs import (
     get_home_dir,
     get_runtime_path,

@@ -7,6 +7,7 @@
 """
 import builtins
 from requests.exceptions import RequestException
+
 from maestral.errors import SyncError
 from maestral.utils.serializer import error_to_dict
 
