@@ -4,23 +4,18 @@
 
 (c) Sam Schott; This work is licensed under the MIT licence.
 
-This module handles starting Maestral on user login and supports multiple platform
-specific backends such as launchd or systemd. Additionally, this module also provides
-support for GUIs via launchd or xdg-desktop entries by passing the ``gui`` option to the
-``maestral`` command or executable. Therefore, only GUIs which are explicitly supported
-by the CLI with the `maestral gui` command or frozen executables which provide their own
-GUI are supported.
+This module handles starting the maestral daemon on user login and supports multiple
+platform specific backends such as launchd or systemd.
 
 Note that launchd agents will not show as "login items" in macOS system preferences. As
 a result, the user does not have a convenient UI to remove Maestral autostart entries
 manually outside of Maestral itself. Login items however only support app bundles and
 provide no option to pass command line arguments to the app. They would therefore
-neither support pip installs or multiple configurations.
+neither support pip installed packages or multiple configurations.
 
 """
 
 # system imports
-import sys
 import os
 import os.path as osp
 import re
@@ -246,25 +241,69 @@ class AutoStartXDGDesktop(AutoStartBase):
         return os.path.isfile(self.destination)
 
 
+def get_available_implementation() -> Optional[SupportedImplementations]:
+    """Returns the supported implementation depending on the platform."""
+
+    system = platform.system()
+
+    if system == "Darwin":
+        return SupportedImplementations.launchd
+    else:
+        try:
+            res = subprocess.check_output(["ps", "-p", "1"]).decode()
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            return None
+        else:
+            return SupportedImplementations.systemd if "systemd" in res else None
+
+
+def get_maestral_command_path() -> str:
+    """
+    Returns the path to the maestral executable. May be an empty string if the
+    executable cannot be found.
+    """
+
+    try:
+        dist_files = files("maestral")
+    except PackageNotFoundError:
+        # we may have had installation issues
+        dist_files = []
+
+    path: Optional[os.PathLike]
+
+    if dist_files:
+        try:
+            rel_path = next(p for p in dist_files if p.match("**/bin/maestral"))
+            path = rel_path.locate()
+        except StopIteration:
+            path = None
+    else:
+        path = None
+
+    if isinstance(path, Path):
+        # resolve any symlinks and “..” components
+        path = path.resolve()
+
+    if path and osp.isfile(path):
+        return str(path)
+    else:
+        return shutil.which("maestral") or ""
+
+
 class AutoStart:
     """Creates auto-start files in the appropriate system location to automatically
     start Maestral when the user logs in. Different backends are used depending on the
-    platform and if we want to start a GUI or a daemon / service."""
+    platform."""
 
     _impl: AutoStartBase
 
-    def __init__(self, config_name: str, gui: bool = False) -> None:
+    def __init__(self, config_name: str) -> None:
 
-        self._gui = gui
-        self.maestral_path = self.get_maestral_command_path()
-        self.implementation = self._get_available_implementation()
+        self.maestral_path = get_maestral_command_path()
+        self.implementation = get_available_implementation()
 
-        if gui:
-            start_cmd = f"{self.maestral_path} gui -c {config_name}"
-            bundle_id = "{}.{}".format(BUNDLE_ID, config_name)
-        else:
-            start_cmd = f"{self.maestral_path} start -f -c {config_name}"
-            bundle_id = "{}-{}.{}".format(BUNDLE_ID, "daemon", config_name)
+        start_cmd = f"{self.maestral_path} start -f -c {config_name}"
+        bundle_id = f"{BUNDLE_ID}-daemon.{config_name}"
 
         if self.implementation == SupportedImplementations.launchd:
             self._impl = AutoStartLaunchd(bundle_id, start_cmd)
@@ -342,54 +381,3 @@ class AutoStart:
             return
 
         self._impl.disable()
-
-    def get_maestral_command_path(self) -> str:
-        """
-        :returns: The path to the maestral executable. May be an empty string if the
-            executable cannot be found.
-        """
-
-        if self._gui and getattr(sys, "frozen", False):
-            return sys.executable
-
-        try:
-            dist_files = files("maestral")
-        except PackageNotFoundError:
-            # we may be in an app bundle or have installation issues
-            dist_files = []
-
-        path: Optional[os.PathLike]
-
-        if dist_files:
-            try:
-                rel_path = next(p for p in dist_files if p.match("**/bin/maestral"))
-                path = rel_path.locate()
-            except StopIteration:
-                path = None
-        else:
-            path = None
-
-        if isinstance(path, Path):
-            # resolve any symlinks and “..” components
-            path = path.resolve()
-
-        if path and osp.isfile(path):
-            return str(path)
-        else:
-            return shutil.which("maestral") or ""
-
-    def _get_available_implementation(self) -> Optional[SupportedImplementations]:
-        """Returns the supported implementation depending on the platform."""
-
-        system = platform.system()
-
-        if system == "Darwin":
-            return SupportedImplementations.launchd
-        elif system == "Linux" and self._gui:
-            return SupportedImplementations.xdg_desktop
-        else:
-            res = subprocess.check_output(["ps", "-p", "1"]).decode()
-            if "systemd" in res:
-                return SupportedImplementations.systemd
-            else:
-                return None
