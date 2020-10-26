@@ -35,7 +35,7 @@ from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import to_existing_cased_path
 from maestral.utils.housekeeping import remove_configuration
 
-from fixtures import setup_test_config, cleanup_test_config, DropboxTestLock
+from .fixtures import setup_test_config, cleanup_test_config, DropboxTestLock
 
 
 def ipath(i):

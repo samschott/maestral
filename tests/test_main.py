@@ -14,7 +14,7 @@ from unittest import TestCase
 from maestral.errors import NotFoundError, PathError
 from maestral.utils.path import delete
 
-from fixtures import setup_test_config, cleanup_test_config, DropboxTestLock
+from .fixtures import setup_test_config, cleanup_test_config, DropboxTestLock
 
 
 @unittest.skipUnless(os.environ.get("DROPBOX_TOKEN"), "Requires auth token")

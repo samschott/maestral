@@ -30,4 +30,4 @@ jobs:
 
       - name: Type checking with mypy
         run: |
-          mypy maestral
+          mypy src/maestral
