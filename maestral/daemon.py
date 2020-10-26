@@ -417,7 +417,13 @@ def start_maestral_daemon(
         # this is necessary if previous code has run an asyncio loop
 
         loop = asyncio.get_event_loop()
-        pending_tasks = [t for t in asyncio.all_tasks(loop) if not t.done()]
+        try:
+            # Python 3.7 and higher
+            all_tasks = asyncio.all_tasks(loop)
+        except AttributeError:
+            # Python 3.6
+            all_tasks = asyncio.Task.all_tasks(loop)
+        pending_tasks = [t for t in all_tasks if not t.done()]
 
         for task in pending_tasks:
             task.cancel()
