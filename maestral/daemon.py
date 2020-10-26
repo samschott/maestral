@@ -409,6 +409,8 @@ def start_maestral_daemon(
     # integrate with CFRunLoop in macOS, only works in main thread
     if sys.platform == "darwin":
 
+        logger.debug("Cancelling all tasks from asyncio event loop")
+
         from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
 
         # clean up any pending tasks before we change the event loop policy
@@ -422,6 +424,8 @@ def start_maestral_daemon(
 
         loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
         loop.close()
+
+        logger.debug("Integrating with CFEventLoop")
 
         # set new event loop policy
         asyncio.set_event_loop_policy(EventLoopPolicy())
@@ -456,6 +460,7 @@ def start_maestral_daemon(
 
     # get socket for config name
     sockpath = sockpath_for_config(config_name)
+    logger.debug(f"Socket path for '{config_name}' daemon: '{sockpath}'")
 
     # clean up old socket
     try:
@@ -465,6 +470,9 @@ def start_maestral_daemon(
 
     # expose maestral as Pyro server
     # convert management methods to one way calls so that they don't block
+
+    logger.debug("Creating Pyro daemon")
+
     ExposedMaestral = expose(Maestral)
 
     ExposedMaestral.start_sync = oneway(ExposedMaestral.start_sync)
@@ -476,9 +484,12 @@ def start_maestral_daemon(
     maestral_daemon = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
 
     if start_sync:
+        logger.debug("Starting sync")
         maestral_daemon.start_sync()
 
     try:
+
+        logger.debug("Starting event loop")
 
         with Daemon(unixsocket=sockpath) as daemon:
             daemon.register(maestral_daemon, f"maestral.{config_name}")
