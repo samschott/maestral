@@ -1219,6 +1219,86 @@ class TestSync(TestCase):
         # check for fatal errors
         self.assertFalse(self.m.fatal_errors)
 
+    def test_upload_sync_issues(self):
+
+        # paths with backslash are not allowed on Dropbox
+        # we create such a local folder and assert that it triggers a sync issue
+
+        test_path_local = self.test_folder_local + "/folder\\"
+        test_path_dbx = self.test_folder_dbx + "/folder\\"
+
+        n_errors_initial = len(self.m.sync_errors)
+
+        os.mkdir(test_path_local)
+        self.wait_for_idle()
+
+        self.assertEqual(len(self.m.sync_errors), n_errors_initial + 1)
+        self.assertEqual(self.m.sync_errors[-1]["local_path"], test_path_local)
+        self.assertEqual(self.m.sync_errors[-1]["dbx_path"], test_path_dbx)
+        self.assertEqual(self.m.sync_errors[-1]["type"], "PathError")
+
+        # remove folder with invalid name and assert that sync issue is cleared
+
+        delete(test_path_local)
+        self.wait_for_idle()
+
+        self.assertEqual(len(self.m.sync_errors), n_errors_initial)
+        self.assertTrue(
+            all(e["local_path"] != test_path_local for e in self.m.sync_errors)
+        )
+        self.assertTrue(all(e["dbx_path"] != test_path_dbx for e in self.m.sync_errors))
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
+    def test_download_sync_issues(self):
+        test_path_local = self.test_folder_local + "/dmca.gif"
+        test_path_dbx = self.test_folder_dbx + "/dmca.gif"
+
+        self.wait_for_idle()
+
+        n_errors_initial = len(self.m.sync_errors)
+
+        self.m.client.upload(self.resources + "/dmca.gif", test_path_dbx)
+
+        self.wait_for_idle()
+
+        # 1) Check that the sync issue is logged
+
+        self.assertEqual(len(self.m.sync_errors), n_errors_initial + 1)
+        self.assertEqual(self.m.sync_errors[-1]["local_path"], test_path_local)
+        self.assertEqual(self.m.sync_errors[-1]["dbx_path"], test_path_dbx)
+        self.assertEqual(self.m.sync_errors[-1]["type"], "RestrictedContentError")
+        self.assertIn(test_path_dbx, self.m.sync.download_errors)
+
+        # 2) Check that the sync is retried after pause / resume
+
+        self.m.pause_sync()
+        self.m.resume_sync()
+
+        self.wait_for_idle()
+
+        self.assertEqual(len(self.m.sync_errors), n_errors_initial + 1)
+        self.assertEqual(self.m.sync_errors[-1]["local_path"], test_path_local)
+        self.assertEqual(self.m.sync_errors[-1]["dbx_path"], test_path_dbx)
+        self.assertEqual(self.m.sync_errors[-1]["type"], "RestrictedContentError")
+        self.assertIn(test_path_dbx, self.m.sync.download_errors)
+
+        # 3) Check that the error is cleared when the file is deleted
+
+        self.m.client.remove(test_path_dbx)
+        self.wait_for_idle()
+
+        self.assertEqual(len(self.m.sync_errors), n_errors_initial)
+        self.assertTrue(
+            all(e["local_path"] != test_path_local for e in self.m.sync_errors)
+        )
+        self.assertTrue(all(e["dbx_path"] != test_path_dbx for e in self.m.sync_errors))
+        self.assertNotIn(test_path_dbx, self.m.sync.download_errors)
+
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
+
 
 if __name__ == "__main__":
     unittest.main()
