@@ -12,7 +12,8 @@ import unittest
 from unittest import TestCase
 
 from maestral.errors import NotFoundError, PathError
-from maestral.utils.path import delete
+from maestral.main import FileStatus, IDLE
+from maestral.main import logger as maestral_logger
 
 from .fixtures import setup_test_config, cleanup_test_config, DropboxTestLock
 
@@ -62,31 +63,63 @@ class TestAPI(TestCase):
             else:
                 time.sleep(0.1)
 
-    def clean_remote(self):
-        """Recreates a fresh test folder."""
-        try:
-            self.m.client.remove(self.test_folder_dbx)
-        except NotFoundError:
-            pass
+    # API unit tests
 
-        try:
-            self.m.client.remove("/.mignore")
-        except NotFoundError:
-            pass
+    def test_status_properties(self):
+        self.assertEqual(IDLE, self.m.status)
+        self.assertTrue(self.m.running)
+        self.assertTrue(self.m.connected)
+        self.assertTrue(self.m.syncing)
+        self.assertFalse(self.m.paused)
+        self.assertFalse(self.m.sync_errors)
+        self.assertFalse(self.m.fatal_errors)
 
-        self.m.client.make_dir(self.test_folder_dbx)
+        maestral_logger.info("test message")
+        self.assertEqual(self.m.status, "test message")
 
-    # test functions
+    def test_file_status(self):
 
-    def test_selective_sync(self):
+        # test synced folder
+        file_status = self.m.get_file_status(self.test_folder_local)
+        self.assertEqual(FileStatus.Synced.value, file_status)
+
+        # test unwatched outside of dropbox
+        file_status = self.m.get_file_status("/url/local")
+        self.assertEqual(FileStatus.Unwatched.value, file_status)
+
+        # test unwatched non-existent
+        file_status = self.m.get_file_status("/this is not a folder")
+        self.assertEqual(FileStatus.Unwatched.value, file_status)
+
+        # test unwatched when paused
+        self.m.pause_sync()
+        self.wait_for_idle()
+
+        file_status = self.m.get_file_status(self.test_folder_local)
+        self.assertEqual(FileStatus.Unwatched.value, file_status)
+
+        self.m.resume_sync()
+        self.wait_for_idle()
+
+        # test error status
+        invalid_local_folder = self.test_folder_local + "/test_folder\\"
+        os.mkdir(invalid_local_folder)
+        self.wait_for_idle()
+
+        file_status = self.m.get_file_status(invalid_local_folder)
+        self.assertEqual(FileStatus.Error.value, file_status)
+
+    def test_selective_sync_api(self):
         """Test `Maestral.exclude_item` and  Maestral.include_item`."""
 
         test_path_local = self.test_folder_local + "/selective_sync_test_folder"
+        test_path_local_sub = test_path_local + "/subfolder"
         test_path_dbx = self.test_folder_dbx + "/selective_sync_test_folder"
+        test_path_dbx_sub = test_path_dbx + "/subfolder"
 
         # create a local folder 'folder'
         os.mkdir(test_path_local)
-        os.mkdir(test_path_local + "/subfolder")
+        os.mkdir(test_path_local_sub)
         self.wait_for_idle()
 
         # exclude 'folder' from sync
@@ -95,6 +128,9 @@ class TestAPI(TestCase):
 
         self.assertFalse(osp.exists(test_path_local))
         self.assertIn(test_path_dbx, self.m.excluded_items)
+        self.assertEqual(self.m.excluded_status(test_path_dbx), "excluded")
+        self.assertEqual(self.m.excluded_status(test_path_dbx_sub), "excluded")
+        self.assertEqual(self.m.excluded_status(self.test_folder_dbx), "partially excluded")
 
         # include 'folder' in sync
         self.m.include_item(test_path_dbx)
@@ -102,6 +138,8 @@ class TestAPI(TestCase):
 
         self.assertTrue(osp.exists(test_path_local))
         self.assertNotIn(test_path_dbx, self.m.excluded_items)
+        self.assertEqual(self.m.excluded_status(self.test_folder_dbx), "included")
+        self.assertEqual(self.m.excluded_status(test_path_dbx_sub), "included")
 
         # exclude 'folder' again for further tests
         self.m.exclude_item(test_path_dbx)
@@ -127,6 +165,17 @@ class TestAPI(TestCase):
 
         # check for fatal errors
         self.assertFalse(self.m.fatal_errors)
+
+    def test_move_dropbox_folder(self):
+        new_dir_short = "~/New Dropbox"
+        new_dir = osp.realpath(osp.expanduser(new_dir_short))
+
+        self.m.move_dropbox_directory(new_dir_short)
+        self.assertTrue(osp.isdir(new_dir))
+        self.assertEqual(new_dir, self.m.dropbox_path)
+
+        # assert that sync was resumed after moving folder
+        self.assertTrue(self.m.syncing)
 
 
 if __name__ == "__main__":
