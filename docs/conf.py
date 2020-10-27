@@ -8,7 +8,8 @@ import time
 
 sys.path.insert(0, os.path.abspath("."))
 sys.path.insert(0, os.path.abspath(".."))
-sys.path.insert(0, os.path.abspath("../maestral"))
+sys.path.insert(0, os.path.abspath("../src"))
+sys.path.insert(0, os.path.abspath("../src/maestral"))
 
 # -- Project information ---------------------------------------------------------------
 
@@ -38,7 +39,7 @@ language = "en"
 # -- Options for HTML output -----------------------------------------------------------
 
 html_theme = "sphinx_rtd_theme"
-html_logo = "../maestral/resources/maestral.png"
+html_logo = "../src/maestral/resources/maestral.png"
 html_context = {
     "css_files": [
         "https://media.readthedocs.org/css/sphinx_rtd_theme.css",
@@ -57,7 +58,7 @@ latex_documents = [
 
 # autoapi
 autoapi_type = "python"
-autoapi_dirs = ["../maestral"]
+autoapi_dirs = ["../src/maestral"]
 autoapi_options = [
     "members",
     "inherited-members",
