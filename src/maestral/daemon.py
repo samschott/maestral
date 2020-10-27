@@ -685,8 +685,8 @@ class MaestralProxy:
         if isinstance(self._m, Proxy):
             self._m._pyroRelease()
 
-    def __enter__(self) -> MaestralProxyType:
-        return self._m
+    def __enter__(self) -> "MaestralProxy":
+        return self
 
     def __exit__(
         self, exc_type: Type[Exception], exc_value: Exception, tb: TracebackType
