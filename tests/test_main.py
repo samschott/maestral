@@ -130,7 +130,9 @@ class TestAPI(TestCase):
         self.assertIn(test_path_dbx, self.m.excluded_items)
         self.assertEqual(self.m.excluded_status(test_path_dbx), "excluded")
         self.assertEqual(self.m.excluded_status(test_path_dbx_sub), "excluded")
-        self.assertEqual(self.m.excluded_status(self.test_folder_dbx), "partially excluded")
+        self.assertEqual(
+            self.m.excluded_status(self.test_folder_dbx), "partially excluded"
+        )
 
         # include 'folder' in sync
         self.m.include_item(test_path_dbx)
