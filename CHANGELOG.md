@@ -20,6 +20,8 @@
   dialog if one of the folders contains a large number (> 2k) of items.
 - Fixes an issue with the Qt GUI crashing when opening the selective sync dialog if one of
   the folders contains a large number (> 2k) of items.
+- Fixes an issue where `Mastral.excluded_status` would return "included" for items inside
+  an excluded folder.
 
 ## v1.2.1
 
