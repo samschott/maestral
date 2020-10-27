@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# -- Path setup --------------------------------------------------------------------------
+# -- Path setup ------------------------------------------------------------------------
 
 import os
 import sys
@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.abspath("."))
 sys.path.insert(0, os.path.abspath(".."))
 sys.path.insert(0, os.path.abspath("../maestral"))
 
-# -- Project information -----------------------------------------------------------------
+# -- Project information ---------------------------------------------------------------
 
 author = "Sam Schott"
 version = "1.2.2.dev0"
@@ -19,7 +19,7 @@ project = "Maestral"
 title = "Maestral API Documentation"
 copyright = "{}, {}".format(time.localtime().tm_year, author)
 
-# -- General configuration ---------------------------------------------------------------
+# -- General configuration -------------------------------------------------------------
 
 extensions = [
     "sphinx.ext.napoleon",  # support numpy style docstrings in config module
@@ -35,7 +35,7 @@ master_doc = "index"
 language = "en"
 # html4_writer = True
 
-# -- Options for HTML output -------------------------------------------------------------
+# -- Options for HTML output -----------------------------------------------------------
 
 html_theme = "sphinx_rtd_theme"
 html_logo = "../maestral/resources/maestral.png"
@@ -47,13 +47,13 @@ html_context = {
     ],
 }
 
-# -- Options for LaTeX output ------------------------------------------------------------
+# -- Options for LaTeX output ----------------------------------------------------------
 
 latex_documents = [
     (master_doc, "maestral.tex", title, author, "manual"),
 ]
 
-# -- Extension configuration -------------------------------------------------------------
+# -- Extension configuration -----------------------------------------------------------
 
 # autoapi
 autoapi_type = "python"
