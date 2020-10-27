@@ -445,20 +445,6 @@ class TestSync(TestCase):
             else:
                 time.sleep(0.1)
 
-    def clean_remote(self):
-        """Recreates a fresh test folder on remote Dropbox."""
-        try:
-            self.m.client.remove(self.test_folder_dbx)
-        except NotFoundError:
-            pass
-
-        try:
-            self.m.client.remove("/.mignore")
-        except NotFoundError:
-            pass
-
-        self.m.client.make_dir(self.test_folder_dbx)
-
     def clean_local(self):
         """Recreates a fresh test folder locally."""
         delete(self.m.dropbox_path + "/.mignore")
@@ -582,6 +568,7 @@ class TestSync(TestCase):
         self.assertFalse(self.m.pending_link)
         self.assertFalse(self.m.pending_dropbox_folder)
         self.assert_synced(self.m.dropbox_path, "/")
+        self.assertEqual(self.m.status, "Up to date")
 
         # check for fatal errors
         self.assertFalse(self.m.fatal_errors)
@@ -675,12 +662,11 @@ class TestSync(TestCase):
         self.m.pause_sync()
         self.wait_for_idle()
 
-        # delete local files
-        for entry in os.scandir(self.test_folder_local):
-            delete(entry.path)
+        # delete local file
+        delete(self.resources + "/file.txt")
 
-        # delete remote files
-        self.clean_remote()
+        # delete remote file
+        self.m.client.remove(self.test_folder_dbx + "/file.txt")
 
         self.m.resume_sync()
         self.wait_for_idle()
