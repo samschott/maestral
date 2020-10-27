@@ -47,7 +47,12 @@ from maestral.errors import (
 from maestral.config import MaestralConfig, MaestralState
 from maestral.utils import get_newer_version
 from maestral.utils.housekeeping import validate_config_name
-from maestral.utils.path import is_child, to_existing_cased_path, delete
+from maestral.utils.path import (
+    is_child,
+    is_equal_or_child,
+    to_existing_cased_path,
+    delete,
+)
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.serializer import (
     error_to_dict,
@@ -1147,7 +1152,7 @@ class Maestral:
 
         dbx_path = dbx_path.lower().rstrip("/")
 
-        if dbx_path in self.sync.excluded_items:
+        if any(is_equal_or_child(dbx_path, f) for f in self.sync.excluded_items):
             return "excluded"
         elif any(is_child(f, dbx_path) for f in self.sync.excluded_items):
             return "partially excluded"
