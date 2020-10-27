@@ -1174,24 +1174,22 @@ class Maestral:
         self._check_linked()
         self._check_dropbox_dir()
 
-        # pause syncing
-        was_syncing = self.running
-        self.stop_sync()
+        logger.info("Moving Dropbox folder...")
 
         # input checks
         old_path = self.sync.dropbox_path
         new_path = osp.realpath(osp.expanduser(new_path))
 
-        logger.info("Moving Dropbox folder...")
-
         try:
             if osp.samefile(old_path, new_path):
                 logger.info(f'Dropbox folder moved to "{new_path}"')
-                if was_syncing:
-                    self.start_sync()
                 return
         except FileNotFoundError:
             pass
+
+        # pause syncing
+        was_syncing = self.running
+        self.stop_sync()
 
         if osp.exists(new_path):
             raise FileExistsError(f'Path "{new_path}" already exists.')
