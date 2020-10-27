@@ -46,3 +46,7 @@ class TestCLI(TestCase):
 
         with self.assertRaises(Pyro5.errors.CommunicationError):
             MaestralProxy(self.config_name)
+
+
+if __name__ == "__main__":
+    unittest.main()
