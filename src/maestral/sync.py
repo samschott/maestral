@@ -106,6 +106,7 @@ from maestral.errors import (
 from maestral.client import (
     DropboxClient,
     os_to_maestral_error,
+    convert_api_errors,
     fswatch_to_maestral_error,
 )
 from maestral.utils.notify import MaestralDesktopNotifier
@@ -1152,10 +1153,8 @@ class SyncEngine:
             if cache_entry and cache_entry.mtime == mtime:
                 return cache_entry.hash_str
 
-        try:
+        with convert_api_errors(local_path=local_path):
             hash_str, mtime = content_hash(local_path)
-        except OSError as err:
-            raise os_to_maestral_error(err, local_path=local_path)
 
         self.save_local_hash(local_path, hash_str, mtime)
 
@@ -2248,9 +2247,8 @@ class SyncEngine:
 
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
-                exc = move(event.local_path, local_path_cc)
-                if exc:
-                    raise os_to_maestral_error(exc, local_path=local_path_cc)
+                with convert_api_errors(local_path=local_path_cc):
+                    move(event.local_path, local_path_cc, raise_error=True)
 
                 self.rescan(local_path_cc)
 
@@ -2283,9 +2281,8 @@ class SyncEngine:
 
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
-                exc = move(event.local_path, local_path_cc)
-                if exc:
-                    raise os_to_maestral_error(exc, local_path=local_path_cc)
+                with convert_api_errors(local_path=local_path_cc):
+                    move(event.local_path, local_path_cc, raise_error=True)
 
                 self.rescan(local_path_cc)
 
@@ -2413,11 +2410,10 @@ class SyncEngine:
             local_path_cc = self.to_local_path(md_to_new.path_display)
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
-                exc = move(event.local_path, local_path_cc)
-                if exc:
-                    raise os_to_maestral_error(
-                        exc, local_path=local_path_cc, dbx_path=md_to_new.path_display
-                    )
+                with convert_api_errors(
+                    local_path=local_path_cc, dbx_path=md_to_new.path_display
+                ):
+                    move(event.local_path, local_path_cc, raise_error=True)
 
             # Delete entry of old path but don't update entry for new path here. This
             # will force conflict resolution on download in case of intermittent
@@ -2523,11 +2519,10 @@ class SyncEngine:
             local_path_cc = self.to_local_path(md_new.path_display)
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
-                exc = move(event.local_path, local_path_cc)
-                if exc:
-                    raise os_to_maestral_error(
-                        exc, local_path=local_path_cc, dbx_path=md_new.path_display
-                    )
+                with convert_api_errors(
+                    local_path=local_path_cc, dbx_path=md_new.path_display
+                ):
+                    move(event.local_path, local_path_cc, raise_error=True)
 
             # Delete entry of old path but don't update entry for new path here. This
             # will force conflict resolution on download in case of intermittent
@@ -3354,10 +3349,8 @@ class SyncEngine:
             )
             event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(local_path, new_local_path)):
-                exc = move(local_path, new_local_path)
-
-            if exc:
-                raise os_to_maestral_error(exc, local_path=new_local_path)
+                with convert_api_errors(local_path=new_local_path):
+                    move(local_path, new_local_path, raise_error=True)
 
             logger.debug(
                 'Download conflict: renamed "%s" to "%s"', local_path, new_local_path
@@ -3391,14 +3384,13 @@ class SyncEngine:
 
             mtime = os.stat(tmp_fname).st_mtime
 
-            exc = move(
-                tmp_fname, local_path, preserve_dest_permissions=preserve_permissions
-            )
-
-        if exc:
-            raise os_to_maestral_error(
-                exc, dbx_path=event.dbx_path, local_path=local_path
-            )
+            with convert_api_errors(dbx_path=event.dbx_path, local_path=local_path):
+                move(
+                    tmp_fname,
+                    local_path,
+                    preserve_dest_permissions=preserve_permissions,
+                    raise_error=True,
+                )
 
         self.update_index_from_sync_event(event)
         self.save_local_hash(event.local_path, event.content_hash, mtime)
@@ -3436,9 +3428,8 @@ class SyncEngine:
             )
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, new_local_path)):
-                exc = move(event.local_path, new_local_path)
-                if exc:
-                    raise os_to_maestral_error(exc, local_path=new_local_path)
+                with convert_api_errors(local_path=new_local_path):
+                    move(event.local_path, new_local_path, raise_error=True)
 
             logger.debug(
                 'Download conflict: renamed "%s" to "%s"',
