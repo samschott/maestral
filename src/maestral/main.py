@@ -35,7 +35,7 @@ except ImportError:
 
 # local imports
 from maestral import __version__
-from maestral.client import DropboxClient, to_maestral_error
+from maestral.client import DropboxClient, convert_api_errors
 from maestral.sync import SyncMonitor, SyncDirection
 from maestral.errors import (
     MaestralApiError,
@@ -748,7 +748,6 @@ class Maestral:
 
     # ==== control methods for front ends ==============================================
 
-    @to_maestral_error()  # to handle errors when downloading and saving profile pic
     def get_profile_pic(self) -> Optional[str]:
         """
         Attempts to download the user's profile picture from Dropbox. The picture is
@@ -768,9 +767,10 @@ class Maestral:
         res = self.client.get_account_info()
 
         if res.profile_photo_url:
-            res = requests.get(res.profile_photo_url)
-            with open(self.account_profile_pic_path, "wb") as f:
-                f.write(res.content)
+            with convert_api_errors():
+                res = requests.get(res.profile_photo_url)
+                with open(self.account_profile_pic_path, "wb") as f:
+                    f.write(res.content)
             return self.account_profile_pic_path
         else:
             self._delete_old_profile_pics()
