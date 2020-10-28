@@ -14,6 +14,7 @@ from unittest import TestCase
 from maestral.errors import NotFoundError, PathError
 from maestral.main import FileStatus, IDLE
 from maestral.main import logger as maestral_logger
+from maestral.utils.path import delete
 
 from .fixtures import setup_test_config, cleanup_test_config, DropboxTestLock
 
@@ -186,7 +187,29 @@ class TestAPI(TestCase):
         # assert that sync was resumed after moving folder
         self.assertTrue(self.m.syncing)
 
-        self.m.stop_sync()
+    def test_move_dropbox_folder_to_itself(self):
+
+        self.m.move_dropbox_directory(self.m.dropbox_path)
+
+        # assert that sync is still running
+        self.assertTrue(self.m.syncing)
+
+    def test_move_dropbox_folder_to_existing(self):
+        new_dir_short = "~/New Dropbox"
+        new_dir = osp.realpath(osp.expanduser(new_dir_short))
+        os.mkdir(new_dir)
+
+        try:
+
+            with self.assertRaises(FileExistsError):
+                self.m.move_dropbox_directory(new_dir)
+
+            # assert that sync is still running
+            self.assertTrue(self.m.syncing)
+
+        finally:
+            # cleanup
+            delete(new_dir)
 
 
 if __name__ == "__main__":
