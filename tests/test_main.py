@@ -37,11 +37,15 @@ class TestAPI(TestCase):
         self.test_folder_dbx = TestAPI.TEST_FOLDER_PATH
         self.test_folder_local = self.m.dropbox_path + self.TEST_FOLDER_PATH
 
+        # create / clean our temporary test folder
+        try:
+            self.m.client.remove(self.test_folder_dbx)
+        except NotFoundError:
+            pass
+        self.m.client.make_dir(self.test_folder_dbx)
+
         # start syncing
         self.m.start_sync()
-
-        # create our temporary test folder
-        os.mkdir(self.test_folder_local)
 
         # wait until initial sync has completed
         self.wait_for_idle()
@@ -177,8 +181,12 @@ class TestAPI(TestCase):
         self.assertTrue(osp.isdir(new_dir))
         self.assertEqual(new_dir, self.m.dropbox_path)
 
+        self.wait_for_idle()
+
         # assert that sync was resumed after moving folder
         self.assertTrue(self.m.syncing)
+
+        self.m.stop_sync()
 
 
 if __name__ == "__main__":

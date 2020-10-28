@@ -419,11 +419,15 @@ class TestSync(TestCase):
         self.test_folder_dbx = TestSync.TEST_FOLDER_PATH
         self.test_folder_local = self.m.dropbox_path + self.TEST_FOLDER_PATH
 
+        # create / clean our temporary test folder
+        try:
+            self.m.client.remove(self.test_folder_dbx)
+        except NotFoundError:
+            pass
+        self.m.client.make_dir(self.test_folder_dbx)
+
         # start syncing
         self.m.start_sync()
-
-        # create our temporary test folder
-        os.mkdir(self.test_folder_local)
 
         # wait until initial sync has completed
         self.wait_for_idle()
@@ -664,7 +668,7 @@ class TestSync(TestCase):
         self.wait_for_idle()
 
         # delete local file
-        delete(self.resources + "/file.txt")
+        delete(self.test_folder_local + "/file.txt")
 
         # delete remote file
         self.m.client.remove(self.test_folder_dbx + "/file.txt")
