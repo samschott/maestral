@@ -24,7 +24,10 @@ def setup_test_config(
 ) -> Maestral:
     """
     Sets up a new maestral configuration and links it to a Dropbox account with the
-    given token. Creates a new local Dropbox folder for the config.
+    given token. Creates a new local Dropbox folder for the config. The token must be an
+    "access token" which can be used to directly make Dropbox API calls and not a
+    "refresh token". Both short lived and long lived access token will work but short
+    lived tokens must not expire before the tests are complete.
 
     :param config_name: Config name to use or  create.
     :param access_token: The access token to use to link the config to an account.
