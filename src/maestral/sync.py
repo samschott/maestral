@@ -1389,26 +1389,22 @@ class SyncEngine:
         :raises: :class:`errors.CacheDirError`
         """
 
-        err_title = "Cannot create cache directory (errno {})"
-        err_msg = 'Please check if you have write permissions for "{}".'
-
         retries = 0
         max_retries = 3
 
         while not osp.isdir(self.file_cache_path):
             try:
-                # this will still raise an exception if file_cache_path
+                # this will raise FileExistsError if file_cache_path
                 # exists but is a file instead of a directory
                 os.makedirs(self.file_cache_path, exist_ok=True)
             except FileExistsError:
-                err = delete(self._file_cache_path)
-                if err and not isinstance(err, (FileNotFoundError, IsADirectoryError)):
-                    raise CacheDirError(
-                        err_title.format(err.errno), err_msg.format(err.filename)
-                    )
+                # remove the file that's in our way
+                self.clean_cache_dir()
             except OSError as err:
                 raise CacheDirError(
-                    err_title.format(err.errno), err_msg.format(err.filename)
+                    f"Cannot create cache directory (errno {err.errno})",
+                    "Please check if you have write permissions for "
+                    f"{self._file_cache_path}.",
                 )
 
             if retries > max_retries:
@@ -1421,10 +1417,13 @@ class SyncEngine:
         """Removes all items in the cache directory."""
 
         with self.sync_lock:
-            err = delete(self._file_cache_path)
-            if err and not isinstance(err, (FileNotFoundError, IsADirectoryError)):
+            try:
+                delete(self._file_cache_path, raise_error=True)
+            except (FileNotFoundError, IsADirectoryError):
+                pass
+            except OSError as err:
                 raise CacheDirError(
-                    f"Cannot create cache directory (errno {err.errno})",
+                    f"Cannot clean cache directory (errno {err.errno})",
                     "Please check if you have write permissions for "
                     f"{self._file_cache_path}.",
                 )
