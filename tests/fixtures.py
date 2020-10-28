@@ -7,7 +7,7 @@ from datetime import datetime
 import uuid
 from typing import Optional
 
-from dropbox.files import WriteMode, FileMetadata, FolderMetadata
+from dropbox.files import WriteMode, FileMetadata
 from maestral.main import Maestral
 from maestral.errors import NotFoundError, FileConflictError
 from maestral.client import convert_api_errors
