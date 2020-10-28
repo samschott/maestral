@@ -21,6 +21,7 @@ from rubicon.objc.runtime import load_library, objc_id  # type: ignore
 
 # local imports
 from .notify_base import Notification, DesktopNotifierBase
+from ..constants import FROZEN
 
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ macos_version, *_ = platform.mac_ver()
 Impl: Optional[Type[DesktopNotifierBase]]
 
 
-if getattr(sys, "frozen", False) and Version(macos_version) >= Version("10.14.0"):
+if FROZEN and Version(macos_version) >= Version("10.14.0"):
 
     # use UNUserNotificationCenter in macOS Mojave and higher if we are in an app bundle
 
