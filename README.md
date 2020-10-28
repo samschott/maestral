@@ -1,7 +1,7 @@
 [![PyPi Release](https://img.shields.io/pypi/v/maestral.svg)](https://pypi.org/project/maestral/)
 [![Pyversions](https://img.shields.io/pypi/pyversions/maestral.svg)](https://pypi.org/pypi/maestral/)
 [![Documentation Status](https://readthedocs.org/projects/maestral/badge/?version=latest)](https://maestral.readthedocs.io/en/latest/?badge=latest)
-[![codecov](https://codecov.io/gh/SamSchott/maestral/branch/develop/graph/badge.svg?token=V0C7IQ1MAU)](undefined)
+[![codecov](https://codecov.io/gh/SamSchott/maestral/branch/develop/graph/badge.svg?token=V0C7IQ1MAU)](https://codecov.io/gh/SamSchott/maestral)
 
 # Maestral <img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/maestral/resources/maestral.png" align="right" title="Maestral" width="110" height="110">
 
