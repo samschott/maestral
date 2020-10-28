@@ -167,6 +167,11 @@ class SpaceUsage(users.SpaceUsage):
 def convert_api_errors(
     dbx_path: Optional[str] = None, local_path: Optional[str] = None
 ) -> Iterator[None]:
+    """
+    A context manager that catches and re-raises instances of :class:`OSError` and
+    :class:`exceptions.DropboxException` as :class:`errors.MaestralApiError` or
+    :class:`ConnectionError`.
+    """
 
     try:
         yield
@@ -179,12 +184,13 @@ def convert_api_errors(
         raise os_to_maestral_error(exc, dbx_path, local_path)
 
 
-def to_maestral_error(
+def convert_api_errors_decorator(
     dbx_path_arg: Optional[int] = None, local_path_arg: Optional[int] = None
 ) -> Callable[[_FT], _FT]:
     """
-    Returns a decorator that converts instances of :class:`OSError` and
-    :class:`exceptions.DropboxException` to :class:`errors.MaestralApiError`.
+    Returns a decorator that catches and re-raises instances of :class:`OSError` and
+    :class:`exceptions.DropboxException` as :class:`errors.MaestralApiError` or
+    :class:`ConnectionError`.
 
     :param dbx_path_arg: Argument number to take as dbx_path for exception.
     :param local_path_arg: Argument number to take as local_path_arg for exception.
@@ -309,7 +315,7 @@ class DropboxClient:
 
         return res
 
-    @to_maestral_error()
+    @convert_api_errors_decorator()
     def unlink(self) -> None:
         """
         Unlinks the Dropbox account.
@@ -356,7 +362,7 @@ class DropboxClient:
 
     # ---- SDK wrappers ----------------------------------------------------------------
 
-    @to_maestral_error()
+    @convert_api_errors_decorator()
     def get_account_info(self, dbid: Optional[str] = None) -> users.FullAccount:
         """
         Gets current account information.
@@ -388,7 +394,7 @@ class DropboxClient:
 
         return res
 
-    @to_maestral_error()
+    @convert_api_errors_decorator()
     def get_space_usage(self) -> SpaceUsage:
         """
         :returns: The space usage of the currently linked account.
@@ -404,7 +410,7 @@ class DropboxClient:
 
         return space_usage
 
-    @to_maestral_error(dbx_path_arg=1)
+    @convert_api_errors_decorator(dbx_path_arg=1)
     def get_metadata(self, dbx_path: str, **kwargs) -> files.Metadata:
         """
         Gets metadata for an item on Dropbox or returns ``False`` if no metadata is
@@ -424,7 +430,7 @@ class DropboxClient:
             # if a file exists
             pass
 
-    @to_maestral_error(dbx_path_arg=1)
+    @convert_api_errors_decorator(dbx_path_arg=1)
     def list_revisions(
         self, dbx_path: str, mode: str = "path", limit: int = 10
     ) -> files.ListRevisionsResult:
@@ -441,7 +447,7 @@ class DropboxClient:
         mode = files.ListRevisionsMode(mode)
         return self.dbx.files_list_revisions(dbx_path, mode=mode, limit=limit)
 
-    @to_maestral_error(dbx_path_arg=1)
+    @convert_api_errors_decorator(dbx_path_arg=1)
     def restore(self, dbx_path: str, rev: str) -> files.FileMetadata:
         """
         Restore an old revision of a file.
@@ -454,7 +460,7 @@ class DropboxClient:
 
         return self.dbx.files_restore(dbx_path, rev)
 
-    @to_maestral_error(dbx_path_arg=1)
+    @convert_api_errors_decorator(dbx_path_arg=1)
     def download(
         self,
         dbx_path: str,
@@ -513,7 +519,7 @@ class DropboxClient:
 
         return md
 
-    @to_maestral_error(local_path_arg=1, dbx_path_arg=2)
+    @convert_api_errors_decorator(local_path_arg=1, dbx_path_arg=2)
     def upload(
         self,
         local_path: str,
@@ -620,7 +626,7 @@ class DropboxClient:
                         else:
                             raise exc
 
-    @to_maestral_error(dbx_path_arg=1)
+    @convert_api_errors_decorator(dbx_path_arg=1)
     def remove(self, dbx_path: str, **kwargs) -> files.Metadata:
         """
         Removes a file / folder from Dropbox.
@@ -635,7 +641,7 @@ class DropboxClient:
 
         return md
 
-    @to_maestral_error()
+    @convert_api_errors_decorator()
     def remove_batch(
         self, entries: List[Tuple[str, str]], batch_size: int = 900
     ) -> List[Union[files.Metadata, MaestralApiError]]:
@@ -708,7 +714,7 @@ class DropboxClient:
 
         return result_list
 
-    @to_maestral_error(dbx_path_arg=2)
+    @convert_api_errors_decorator(dbx_path_arg=2)
     def move(self, dbx_path: str, new_path: str, **kwargs) -> files.Metadata:
         """
         Moves / renames files or folders on Dropbox.
@@ -729,7 +735,7 @@ class DropboxClient:
 
         return md
 
-    @to_maestral_error(dbx_path_arg=1)
+    @convert_api_errors_decorator(dbx_path_arg=1)
     def make_dir(self, dbx_path: str, **kwargs) -> files.FolderMetadata:
         """
         Creates a folder on Dropbox.
@@ -743,7 +749,7 @@ class DropboxClient:
 
         return md
 
-    @to_maestral_error()
+    @convert_api_errors_decorator()
     def make_dir_batch(
         self, dbx_paths: List[str], batch_size: int = 900, **kwargs
     ) -> List[Union[files.Metadata, MaestralApiError]]:
@@ -808,7 +814,7 @@ class DropboxClient:
 
         return result_list
 
-    @to_maestral_error(dbx_path_arg=1)
+    @convert_api_errors_decorator(dbx_path_arg=1)
     def get_latest_cursor(
         self, dbx_path: str, include_non_downloadable_files: bool = False, **kwargs
     ) -> str:
@@ -833,7 +839,7 @@ class DropboxClient:
 
         return res.cursor
 
-    @to_maestral_error(dbx_path_arg=1)
+    @convert_api_errors_decorator(dbx_path_arg=1)
     def list_folder(
         self,
         dbx_path: str,
@@ -974,7 +980,7 @@ class DropboxClient:
 
         return results_flattened
 
-    @to_maestral_error()
+    @convert_api_errors_decorator()
     def wait_for_remote_changes(self, last_cursor: str, timeout: int = 40) -> bool:
         """
         Waits for remote changes since ``last_cursor``. Call this method after
@@ -1002,7 +1008,7 @@ class DropboxClient:
 
         return result.changes
 
-    @to_maestral_error()
+    @convert_api_errors_decorator()
     def list_remote_changes(self, last_cursor: str) -> files.ListFolderResult:
         """
         Lists changes to remote Dropbox since ``last_cursor``. Call this after
