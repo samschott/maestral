@@ -1187,12 +1187,12 @@ class Maestral:
         except FileNotFoundError:
             pass
 
+        if osp.exists(new_path):
+            raise FileExistsError(f'Path "{new_path}" already exists.')
+
         # pause syncing
         was_syncing = self.running
         self.stop_sync()
-
-        if osp.exists(new_path):
-            raise FileExistsError(f'Path "{new_path}" already exists.')
 
         # move folder from old location or create a new one if no old folder exists
         if osp.isdir(old_path):
