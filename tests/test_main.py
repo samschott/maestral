@@ -21,13 +21,14 @@ from .fixtures import setup_test_config, cleanup_test_config, DropboxTestLock
 @unittest.skipUnless(os.environ.get("DROPBOX_TOKEN"), "Requires auth token")
 class TestAPI(TestCase):
 
-    TEST_FOLDER_PATH = "/sync_tests"
+    config_name = "api-test-config"
 
+    TEST_FOLDER_PATH = "/sync_tests"
     resources = osp.dirname(__file__) + "/resources"
 
     def setUp(self):
 
-        self.m = setup_test_config()
+        self.m = setup_test_config(self.config_name)
         self.lock = DropboxTestLock(self.m)
         if not self.lock.acquire(timeout=60 * 60):
             raise TimeoutError("Could not acquire test lock")
