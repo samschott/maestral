@@ -698,19 +698,24 @@ class Maestral:
             activity = [sync_event_to_dict(e) for e in self.monitor.activity]
         return activity
 
-    def get_history(self) -> List[StoneType]:
+    def get_history(self, limit: Optional[int] = 100) -> List[StoneType]:
         """
-        Returns the historic upload / download activity. Up to 1,000 sync events can be
-        returned. Any events which occurred before the interval sepecified by the
-        ``keep_history`` config value are discarded.
+        Returns the historic upload / download activity. Up to 1,000 sync events are
+        kept in the database. Any events which occurred before the interval specified by
+        the ``keep_history`` config value are discarded.
 
-        :returns: A lists of all sync events from the last week.
+        :param limit: Maximum number of items to return. If None, all entries will be
+            returned.
+        :returns: A lists of all sync events since ``keep_history`` sorted by time with
+            the oldest event first.
         :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
         """
 
         self._check_linked()
-
-        history = [sync_event_to_dict(event) for event in self.monitor.history]
+        if limit:
+            history = [sync_event_to_dict(e) for e in self.monitor.history[-limit:]]
+        else:
+            history = [sync_event_to_dict(e) for e in self.monitor.history]
 
         return history
 
