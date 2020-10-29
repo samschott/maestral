@@ -6,7 +6,6 @@
 
 """
 # system imports
-import sys
 import uuid
 import platform
 import subprocess
