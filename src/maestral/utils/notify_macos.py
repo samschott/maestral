@@ -102,7 +102,7 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
 
         def __init__(self, app_name: str, app_id: str) -> None:
             super().__init__(app_name, app_id)
-            self.nc = UNUserNotificationCenter.currentNotificationCenter()
+            self.nc = UNUserNotificationCenter.alloc().initWithBundleIdentifier(app_id)
             self.nc_delegate = NotificationCenterDelegate.alloc().init()
             self.nc_delegate.interface = self
             self.nc.delegate = self.nc_delegate
