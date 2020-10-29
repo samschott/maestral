@@ -187,10 +187,8 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
 
                 return category_id
 
-    if UNUserNotificationCenter.currentNotificationCenter():
-        Impl = CocoaNotificationCenter
-    else:
-        Impl = None
+    Impl = CocoaNotificationCenter
+
 
 elif Version(macos_version) <= Version("11.0.0"):
 
