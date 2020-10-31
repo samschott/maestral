@@ -115,7 +115,7 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
 
                 if error:
                     error = py_from_ns(error)
-                    logger.warning("UNUserNotificationCenter: ", str(error))
+                    logger.warning("UNUserNotificationCenter: %s", str(error))
 
             self.nc.requestAuthorizationWithOptions(
                 UNAuthorizationOptionAlert
