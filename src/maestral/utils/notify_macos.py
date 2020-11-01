@@ -35,7 +35,7 @@ macos_version, *_ = platform.mac_ver()
 Impl: Optional[Type[DesktopNotifierBase]]
 
 
-if FROZEN and Version(macos_version) >= Version("10.14.0"):
+if FROZEN and Version(macos_version) >= Version("11.1.0"):
 
     # use UNUserNotificationCenter in macOS Mojave and higher if we are in an app bundle
 
@@ -190,7 +190,7 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
     Impl = CocoaNotificationCenter
 
 
-elif Version(macos_version) <= Version("11.0.0"):
+elif Version(macos_version) < Version("11.1.0"):
 
     # use NSUserNotificationCenter outside of app bundles for macOS Big Sur and lower
     # and for macOS High Sierra and lower
