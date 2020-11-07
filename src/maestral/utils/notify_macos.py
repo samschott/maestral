@@ -32,10 +32,10 @@ NSObject = ObjCClass("NSObject")
 macos_version, *_ = platform.mac_ver()
 
 
-Impl: Optional[Type[DesktopNotifierBase]]
+Impl: Optional[Type[DesktopNotifierBase]] = None
 
 
-if FROZEN and Version(macos_version) >= Version("11.1.0"):
+if FROZEN and Version(macos_version) >= Version("10.14.0"):
 
     # use UNUserNotificationCenter in macOS Mojave and higher if we are in an app bundle
 
@@ -102,7 +102,7 @@ if FROZEN and Version(macos_version) >= Version("11.1.0"):
 
         def __init__(self, app_name: str, app_id: str) -> None:
             super().__init__(app_name, app_id)
-            self.nc = UNUserNotificationCenter.alloc().initWithBundleIdentifier(app_id)
+            self.nc = UNUserNotificationCenter.currentNotificationCenter()
             self.nc_delegate = NotificationCenterDelegate.alloc().init()
             self.nc_delegate.interface = self
             self.nc.delegate = self.nc_delegate
@@ -187,7 +187,8 @@ if FROZEN and Version(macos_version) >= Version("11.1.0"):
 
                 return category_id
 
-    Impl = CocoaNotificationCenter
+    if UNUserNotificationCenter.currentNotificationCenter():
+        Impl = CocoaNotificationCenter
 
 
 elif Version(macos_version) < Version("11.1.0"):
@@ -263,10 +264,9 @@ elif Version(macos_version) < Version("11.1.0"):
 
     if NSUserNotificationCenter.defaultUserNotificationCenter:
         Impl = CocoaNotificationCenterLegacy
-    else:
-        Impl = None
 
-elif shutil.which("osascript"):
+
+if Impl is None and shutil.which("osascript"):
 
     # fall back to apple script
 
@@ -283,6 +283,3 @@ elif shutil.which("osascript"):
             )
 
     Impl = DesktopNotifierOsaScript
-
-else:
-    Impl = None
