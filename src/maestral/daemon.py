@@ -36,7 +36,7 @@ from fasteners import InterProcessLock  # type: ignore
 
 # local imports
 from maestral.errors import SYNC_ERRORS, FATAL_ERRORS, MaestralApiError
-from maestral.constants import IS_MACOS
+from maestral.constants import IS_MACOS, FROZEN
 from maestral.utils.appdirs import get_runtime_path
 
 
@@ -549,12 +549,17 @@ def start_maestral_daemon_process(
         std_log = bool(log_to_stdout)
         start_sync = bool(start_sync)
 
-        cmd = (
+        script = (
             f"import maestral.daemon; "
             f'maestral.daemon.start_maestral_daemon("{cc}", {std_log}, {start_sync})'
         )
 
-        subprocess.Popen([sys.executable, "-OO", "-c", cmd], start_new_session=True)
+        if FROZEN and IS_MACOS:
+            cmd = [sys.executable, "--run-python", "-OO", "-c", script]
+        else:
+            cmd = [sys.executable, "-OO", "-c", script]
+
+        subprocess.Popen(cmd, start_new_session=True)
 
     else:
         import multiprocessing as mp
