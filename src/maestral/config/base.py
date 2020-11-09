@@ -17,7 +17,10 @@ import os.path as osp
 from typing import Optional, List
 
 
-def _to_full_path(
+__all__ = ["get_conf_path", "get_data_path", "get_home_dir"]
+
+
+def to_full_path(
     path: str, subfolder: Optional[str], filename: Optional[str], create: bool
 ) -> str:
 
@@ -90,7 +93,7 @@ def get_conf_path(
     else:
         raise RuntimeError("Platform not supported")
 
-    return _to_full_path(conf_path, subfolder, filename, create)
+    return to_full_path(conf_path, subfolder, filename, create)
 
 
 def get_data_path(
@@ -118,7 +121,7 @@ def get_data_path(
     else:
         raise RuntimeError("Platform not supported")
 
-    return _to_full_path(state_path, subfolder, filename, create)
+    return to_full_path(state_path, subfolder, filename, create)
 
 
 def list_configs() -> List[str]:

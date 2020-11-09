@@ -13,7 +13,6 @@ data. It supports macOS and Linux.
 import os
 import os.path as osp
 import platform
-import tempfile
 from typing import Optional
 
 # local imports
@@ -21,7 +20,7 @@ from maestral.config.base import (
     get_home_dir,
     get_conf_path,
     get_data_path,
-    _to_full_path,
+    to_full_path,
 )
 
 
@@ -35,7 +34,7 @@ __all__ = [
     "get_runtime_path",
 ]
 
-_home_dir = get_home_dir()
+home_dir = get_home_dir()
 
 
 def get_cache_path(
@@ -55,12 +54,12 @@ def get_cache_path(
     if platform.system() == "Darwin":
         cache_path = get_conf_path(create=False)
     elif platform.system() == "Linux":
-        fallback = osp.join(_home_dir, ".cache")
+        fallback = osp.join(home_dir, ".cache")
         cache_path = os.environ.get("XDG_CACHE_HOME", fallback)
     else:
         raise RuntimeError("Platform not supported")
 
-    return _to_full_path(cache_path, subfolder, filename, create)
+    return to_full_path(cache_path, subfolder, filename, create)
 
 
 def get_log_path(
@@ -79,13 +78,13 @@ def get_log_path(
     """
 
     if platform.system() == "Darwin":
-        log_path = osp.join(_home_dir, "Library", "Logs")
+        log_path = osp.join(home_dir, "Library", "Logs")
     elif platform.system() == "Linux":
         log_path = get_cache_path(create=False)
     else:
         raise RuntimeError("Platform not supported")
 
-    return _to_full_path(log_path, subfolder, filename, create)
+    return to_full_path(log_path, subfolder, filename, create)
 
 
 def get_autostart_path(filename: Optional[str] = None, create: bool = True) -> str:
@@ -100,7 +99,7 @@ def get_autostart_path(filename: Optional[str] = None, create: bool = True) -> s
     :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
     """
     if platform.system() == "Darwin":
-        autostart_path = osp.join(_home_dir, "Library", "LaunchAgents")
+        autostart_path = osp.join(home_dir, "Library", "LaunchAgents")
     elif platform.system() == "Linux":
         autostart_path = get_conf_path("autostart", create=create)
     else:
@@ -135,30 +134,4 @@ def get_runtime_path(
     else:
         raise RuntimeError("Platform not supported")
 
-    return _to_full_path(runtime_path, subfolder, filename, create)
-
-
-def get_old_runtime_path(
-    subfolder: Optional[str] = None, filename: Optional[str] = None, create: bool = True
-) -> str:
-    """
-    Returns the default runtime path for the platform. This will be:
-
-        - macOS: tempfile.gettempdir() + 'SUBFOLDER/FILENAME'
-        - Linux: '$XDG_RUNTIME_DIR/SUBFOLDER/FILENAME'
-        - fallback: '$HOME/.cache/SUBFOLDER/FILENAME'
-
-    :param subfolder: The subfolder for the app.
-    :param filename: The filename to append for the app.
-    :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
-    """
-
-    if platform.system() == "Darwin":
-        runtime_path = tempfile.gettempdir()
-    elif platform.system() == "Linux":
-        fallback = get_cache_path(create=False)
-        runtime_path = os.environ.get("XDG_RUNTIME_DIR", fallback)
-    else:
-        raise RuntimeError("Platform not supported")
-
-    return _to_full_path(runtime_path, subfolder, filename, create)
+    return to_full_path(runtime_path, subfolder, filename, create)
