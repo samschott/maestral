@@ -369,15 +369,13 @@ def excluded():
 
 
 @main.group(
-    cls=SpecialHelpOrder, help_priority=18, help="Manage Desktop notifications."
+    cls=SpecialHelpOrder, help_priority=18, help="Manage desktop notifications."
 )
 def notify():
     pass
 
 
-@main.group(
-    cls=SpecialHelpOrder, help_priority=19, help="View and manage Maestral's log."
-)
+@main.group(cls=SpecialHelpOrder, help_priority=19, help="View and manage the log.")
 def log():
     pass
 
@@ -436,7 +434,7 @@ def gui(config_name: str) -> None:
     run(config_name)
 
 
-@main.command(help_priority=1, help="Starts the Maestral daemon.")
+@main.command(help_priority=1, help="Starts the sync daemon.")
 @click.option(
     "--foreground",
     "-f",
@@ -541,13 +539,13 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
             click.echo("Please check logs for more information.")
 
 
-@main.command(help_priority=2, help="Stops the Maestral daemon.")
+@main.command(help_priority=2, help="Stops the sync daemon.")
 @existing_config_option
 def stop(config_name: str) -> None:
     stop_daemon_with_cli_feedback(config_name)
 
 
-@main.command(help_priority=3, help="Restarts the Maestral daemon.")
+@main.command(help_priority=3, help="Restarts the sync daemon.")
 @click.option(
     "--foreground",
     "-f",
@@ -631,9 +629,7 @@ def resume(config_name: str) -> None:
         click.echo("Maestral daemon is not running.")
 
 
-@main.command(
-    help_priority=7, help="Returns the current status of the Maestral daemon."
-)
+@main.command(help_priority=7, help="Returns the status of the sync daemon.")
 @existing_config_option
 @catch_maestral_errors
 def status(config_name: str) -> None:
@@ -965,7 +961,7 @@ def move_dir(new_path: str, config_name: str) -> None:
 @main.command(
     help_priority=15,
     help="""
-Rebuilds Maestral's index.
+Rebuilds the sync index.
 
 Rebuilding may take several minutes, depending on the size of your Dropbox.
 """,
@@ -1241,9 +1237,7 @@ def excluded_remove(dropbox_path: str, config_name: str) -> None:
             click.echo(f"Included '{dropbox_path}'. Now downloading...")
 
     except Pyro5.errors.CommunicationError:
-        raise click.ClickException(
-            "Maestral daemon must be running to download folders."
-        )
+        raise click.ClickException("Daemon must be running to download folders.")
 
 
 # ======================================================================================
@@ -1280,7 +1274,7 @@ def log_show(external: bool, config_name: str) -> None:
         raise click.ClickException(f"Could not open log file at '{log_file}'")
 
 
-@log.command(name="clear", help_priority=1, help="Clears Maestral's log file.")
+@log.command(name="clear", help_priority=1, help="Clears the log files.")
 @existing_config_option
 def log_clear(config_name: str) -> None:
 
@@ -1298,9 +1292,9 @@ def log_clear(config_name: str) -> None:
     try:
         for file in log_files:
             open(file, "w").close()
-        click.echo("Cleared Maestral's log.")
+        click.echo("Cleared log files.")
     except FileNotFoundError:
-        click.echo("Cleared Maestral's log.")
+        click.echo("Cleared log files.")
     except OSError:
         raise click.ClickException(
             f"Could not clear log at '{log_dir}'. " f"Please try to delete it manually"
