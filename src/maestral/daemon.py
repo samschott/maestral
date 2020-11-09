@@ -60,7 +60,7 @@ IS_WATCHDOG = WATCHDOG_USEC and (
 URI = "PYRO:maestral.{0}@{1}"
 Pyro5.config.THREADPOOL_SIZE_MIN = 2
 
-MaestralProxyType = Union["Maestral", Proxy]
+MaestralProxyType = Union["Maestral", "MaestralProxy"]
 
 
 class Stop(enum.Enum):
@@ -653,7 +653,7 @@ class MaestralProxy:
         cannot be reached or if the daemon is not running and ``fallback`` is ``False``.
     """
 
-    _m: MaestralProxyType
+    _m: Union["Maestral", Proxy]
 
     def __init__(self, config_name: str = "maestral", fallback: bool = False) -> None:
 
