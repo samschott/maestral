@@ -5,6 +5,7 @@ usage has been improved when syncing a Dropbox folder with a large number of ite
 
 #### Changes:
 
+- `maestral file-status` now accepts relative paths.
 - Runs the daemon in a Python interpreter with -OO flags. This strips docstrings and saves
   a few MB of memory.
 - Moves from `pkg_resources` to locate entry points and other metadata to the faster and
