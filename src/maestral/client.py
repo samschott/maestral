@@ -1262,7 +1262,7 @@ def dropbox_to_maestral_error(
                 )
                 err_cls = SyncError
             else:
-                text = "Please check the logs for more information"
+                text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
 
         elif isinstance(error, (files.CreateFolderError, files.CreateFolderEntryError)):
@@ -1271,7 +1271,7 @@ def dropbox_to_maestral_error(
                 write_error = error.get_path()
                 text, err_cls = _get_write_error_msg(write_error)
             else:
-                text = "Please check the logs for more information"
+                text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
 
         elif isinstance(error, files.DeleteError):
@@ -1295,7 +1295,7 @@ def dropbox_to_maestral_error(
                 )
                 err_cls = SyncError
             else:
-                text = "Please check the logs for more information"
+                text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
 
         elif isinstance(error, files.UploadError):
@@ -1309,7 +1309,7 @@ def dropbox_to_maestral_error(
                 err_cls = MaestralApiError
                 err_cls = SyncError
             else:
-                text = "Please check the logs for more information"
+                text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
 
         elif isinstance(error, files.UploadSessionFinishError):
@@ -1331,7 +1331,7 @@ def dropbox_to_maestral_error(
                 )
                 err_cls = SyncError
             else:
-                text = "Please check the logs for more information"
+                text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
 
         elif isinstance(error, files.UploadSessionLookupError):
@@ -1347,7 +1347,7 @@ def dropbox_to_maestral_error(
                 text = "This file type cannot be downloaded but must be exported."
                 err_cls = UnsupportedFileError
             else:
-                text = "Please check the logs for more information"
+                text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
 
         elif isinstance(error, files.ListFolderError):
