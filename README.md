@@ -3,7 +3,7 @@
 [![Documentation Status](https://readthedocs.org/projects/maestral/badge/?version=latest)](https://maestral.readthedocs.io/en/latest/?badge=latest)
 [![codecov](https://codecov.io/gh/SamSchott/maestral/branch/develop/graph/badge.svg?token=V0C7IQ1MAU)](https://codecov.io/gh/SamSchott/maestral)
 
-# Maestral <img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/maestral/resources/maestral.png" align="right" title="Maestral" width="110" height="110">
+# Maestral <img src="https://raw.githubusercontent.com/SamSchott/maestral/master/src/maestral/resources/maestral.png" align="right" title="Maestral" width="110" height="110">
 
 A light-weight and open-source Dropbox client for macOS and Linux.
 
