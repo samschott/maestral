@@ -16,18 +16,24 @@ import platform
 from enum import Enum
 
 try:
-    from importlib.metadata import metadata  # type: ignore
+    from importlib.metadata import metadata, PackageNotFoundError  # type: ignore
 except ImportError:
     # Backwards compatibility Python 3.7 and lower
-    from importlib_metadata import metadata  # type: ignore
+    from importlib_metadata import metadata, PackageNotFoundError  # type: ignore
 try:
     from importlib.resources import files  # type: ignore
 except ImportError:
     from importlib_resources import files  # type: ignore
 
 
-_app_module = sys.modules["__main__"].__package__
-_md = metadata(_app_module)
+# get metadata of maestral-related packages
+_md_list = []
+
+for dist_name in ("maestral", "maestral-cocoa", "maestral-qt", "maestral-gui"):
+    try:
+        _md_list.append(metadata(dist_name))
+    except PackageNotFoundError:
+        pass
 
 # app
 APP_NAME = "Maestral"
@@ -78,7 +84,10 @@ class FileStatus(Enum):
 # platform detection
 IS_MACOS = platform.system() == "Darwin"
 IS_LINUX = platform.system() == "Linux"
-FROZEN = "Briefcase-Version" in _md or getattr(sys, "frozen", False)
+
+# frozen app / bundle detection
+BRIEFCASE = any("Briefcase-Version" in md for md in _md_list)
+FROZEN = BRIEFCASE or getattr(sys, "frozen", False)
 
 # keys
 BUGSNAG_API_KEY = "081c05e2bf9730d5f55bc35dea15c833"
