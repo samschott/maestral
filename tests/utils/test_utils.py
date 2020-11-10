@@ -9,6 +9,7 @@ from maestral.utils import get_newer_version
 
 
 def test_has_newer_version():
+
     releases = (
         "0.6.1",
         "0.7.0",

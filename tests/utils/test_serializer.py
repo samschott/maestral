@@ -6,26 +6,26 @@
 
 """
 import builtins
+
+import pytest
 from requests.exceptions import RequestException
 
 from maestral.errors import SyncError
 from maestral.utils.serializer import error_to_dict
 
 
-def test_error_to_dict():
+@pytest.mark.parametrize(
+    "exc", [RequestException("test error"), SyncError("test", "test")]
+)
+def test_error_to_dict(exc):
 
-    exc1 = RequestException("test error")
-    exc2 = SyncError("test", "test")
-
-    serialized_excs = [error_to_dict(exc) for exc in (exc1, exc2)]
+    serialized_exc = error_to_dict(exc)
 
     default_keys = ("type", "inherits", "traceback", "title", "message")
-
     builtin_types = dir(builtins) + [type(None).__name__]
 
-    for serialized_exc in serialized_excs:
-        assert all(isinstance(key, str) for key in serialized_exc.keys())
-        assert all(
-            type(val).__name__ in builtin_types for val in serialized_exc.values()
-        )
-        assert all(key in serialized_exc for key in default_keys)
+    assert all(isinstance(key, str) for key in serialized_exc.keys()), "Non-string key"
+    assert all(
+        type(val).__name__ in builtin_types for val in serialized_exc.values()
+    ), "Non-builtin value"
+    assert all(key in serialized_exc for key in default_keys), "Default key missing"
