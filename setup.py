@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # system imports
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages  # type: ignore
 
 
 # proceed with actual install
@@ -12,7 +12,8 @@ install_requires = [
     "dropbox>=10.4.1",
     'dbus-next>=0.1.4;sys_platform=="linux"',
     "fasteners>=0.15",
-    'importlib_metadata;python_version<"3.8"',
+    "importlib_metadata;python_version<'3.8'",
+    "importlib_resources;python_version<'3.9'",
     "keyring>=19.0.0",
     "keyrings.alt>=3.1.0",
     "packaging",
@@ -27,8 +28,8 @@ install_requires = [
 ]
 
 gui_requires = [
-    'maestral-qt>=1.2.1;sys_platform=="linux"',
-    'maestral-cocoa>=1.2.1;sys_platform=="darwin"',
+    'maestral-qt>=1.2.2;sys_platform=="linux"',
+    'maestral-cocoa>=1.2.2;sys_platform=="darwin"',
 ]
 
 syslog_requires = ["systemd-python"]
@@ -38,17 +39,16 @@ setup(
     name="maestral",
     author="Sam Schott",
     author_email="ss2151@cam.ac.uk",
-    version="1.2.1",
+    version="1.2.2",
     url="https://github.com/SamSchott/maestral",
     description="Open-source Dropbox client for macOS and Linux.",
     license="MIT",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    packages=find_packages(),
+    packages=find_packages("src"),
+    package_dir={"": "src"},
     package_data={
-        "maestral": [
-            "resources/*",
-        ],
+        "maestral": ["resources/*"],
     },
     setup_requires=["wheel"],
     install_requires=install_requires,
@@ -70,9 +70,10 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3 :: Only",
     ],
     data_files=[
-        ("share/icons/hicolor/512x512/apps", ["maestral/resources/maestral.png"])
+        ("share/icons/hicolor/512x512/apps", ["src/maestral/resources/maestral.png"])
     ],
 )

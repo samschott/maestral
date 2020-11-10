@@ -7,6 +7,7 @@
 """
 import os
 import platform
+
 from maestral.utils.appdirs import (
     get_home_dir,
     get_runtime_path,
@@ -34,6 +35,8 @@ def test_macos_dirs():
 def test_linux_dirs():
     platform.system = lambda: "Linux"
 
+    # test that XDG environment variables for app dirs are respected
+
     os.environ["XDG_CONFIG_HOME"] = "/xdg_config_home"
     os.environ["XDG_CACHE_HOME"] = "/xdg_cache_home"
     os.environ["XDG_DATA_HOME"] = "/xdg_data_dir"
@@ -45,6 +48,8 @@ def test_linux_dirs():
     assert get_runtime_path(create=False) == "/xdg_runtime_dir"
     assert get_log_path(create=False) == "/xdg_cache_home"
     assert get_autostart_path(create=False) == "/xdg_config_home/autostart"
+
+    # test that we have reasonable fallbacks if XDG environment variables are not set
 
     del os.environ["XDG_CONFIG_HOME"]
     del os.environ["XDG_CACHE_HOME"]

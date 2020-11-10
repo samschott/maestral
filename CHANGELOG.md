@@ -1,3 +1,39 @@
+## v1.2.2
+
+This release focuses on bug fixes and performance improvements. In particular, memory
+usage has been improved when syncing a Dropbox folder with a large number of items.
+
+#### Changes:
+
+- `maestral file-status` now accepts relative paths.
+- Runs the daemon in a Python interpreter with -OO flags. This strips docstrings and saves
+  a few MB of memory.
+- Moves from `pkg_resources` to locate entry points and other metadata to the faster and
+  more light-weight `importlib.metadata`.
+- Update scripts are no longer run after a fresh install or for a new config.
+- Significantly reduces memory usage during the initial sync of a Dropbox folder with many
+  (> 10,000) items and when downloading a large set of changes. To achieve this, new APIs
+  have been added to `SyncEngine` and `DropboxClient` that return iterators over remote
+  changes. Dropbox servers are queried on every iteration.
+- `Maestral.get_history` now returns only the last 100 sync events by default. This can be
+  increased by setting the `limit` argument manually.
+- The total sync history kept in out database is limited to the last 1,000 events.
+- Switch from PyInstaller to [briefcase](https://github.com/beeware/briefcase) for
+  packaging on macOS.
+
+#### Fixes:
+
+- Fixes an issue which would prevent the daemon from starting on macOS when running with
+  Python 3.6.
+- Fixes a segfault of the macOS GUI on macOS High Sierra.
+- Fixes an issue with the macOS GUI becoming unresponsive when opening the selective sync
+  dialog if one of the displayed folders contains a large number (> 2k) of immediate
+  children.
+- Fixes an issue with the Qt GUI crashing when opening the selective sync dialog if one of
+  the folders contains a large number (> 2k) of immediate children.
+- Fixes an issue where `Mastral.excluded_status` would return "included" for items inside
+  an excluded folder.
+
 ## v1.2.1
 
 This update provides bug fixes and some improvements to error handling. Major changes
@@ -19,7 +55,7 @@ full compatibility from macOS 10.13 High Sierra to macOS 11.0 Big Sur.
   during an unlink.
 - Improves handling of errors when the keyring where Dropbox credentials are stored
   becomes unavailable, e.g., has been uninstalled.
-- Never start a subprocess when maestral is run with the `-f, --foreground` option. 
+- Never start a subprocess when maestral is run with the `-f, --foreground` option.
   Previously, any required setup such as linking, etc, would still be performed in a
   subprocess.
 - Minor tweaks and improvements to the macOS GUI.
@@ -37,7 +73,7 @@ full compatibility from macOS 10.13 High Sierra to macOS 11.0 Big Sur.
   local Dropbox directory with `maestral move-dir` or through the GUI.
 - Fixed a green background for sync issue views in the macOS GUI.
 - Fixes an issue where the system tray icon in KDE Plasma could fall back to the regular
-  app icon or not show up at all, 
+  app icon or not show up at all,
 - Fixes an issue where the user may be asked to unlock or grant access to the system
   keyring twice on startup if access denied the first time.
 
@@ -289,7 +325,7 @@ un-indexed, resulting in incorrect conflict resolution.
 - Config option to set the keyring backend. This defaults to 'automatic' but can be used
   to specify a preferred backend such as `keyrings.backends.kwallet.DBusKeyring`. You will
   need to migrate your credentials manually to the new keyring if you change this setting.
-- Added a `-v, --verbose` flag to `maestral start` and `maestral restart` commands to 
+- Added a `-v, --verbose` flag to `maestral start` and `maestral restart` commands to
   print log output to stdout.
 - Added an API documentation for developers, available on
   [Read the Docs](https://maestral-dropbox.readthedocs.io).
@@ -444,7 +480,7 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
   previously only supported in the GUI. Files and folders in the existing directory will
   be merged with your Dropbox.
 - The CLI command `maestral restart` now supports restarting Maestral into the current
-  process instead of spawning a new process. This is enabled by passing the 
+  process instead of spawning a new process. This is enabled by passing the
   `-f, --foreground` option.
 - Added a native Cocoa GUI for macOS. This removes the PyQt5 dependency for macOS and
   reduces the size of the bundled app from 50 MB to 15 MB. It also eliminates a few

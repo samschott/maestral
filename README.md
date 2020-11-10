@@ -1,6 +1,7 @@
 [![PyPi Release](https://img.shields.io/pypi/v/maestral.svg)](https://pypi.org/project/maestral/)
 [![Pyversions](https://img.shields.io/pypi/pyversions/maestral.svg)](https://pypi.org/pypi/maestral/)
 [![Documentation Status](https://readthedocs.org/projects/maestral/badge/?version=latest)](https://maestral.readthedocs.io/en/latest/?badge=latest)
+[![codecov](https://codecov.io/gh/SamSchott/maestral/branch/develop/graph/badge.svg?token=V0C7IQ1MAU)](https://codecov.io/gh/SamSchott/maestral)
 
 # Maestral <img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/maestral/resources/maestral.png" align="right" title="Maestral" width="110" height="110">
 
@@ -30,7 +31,7 @@ or downloading a file if it already exists with the same content locally or in t
 
 ## Warning
 
-- Never sync a folder with both the offical Dropbox client and Maestral at the same time.
+- Never sync a folder with both the official Dropbox client and Maestral at the same time.
 - Network drives and some external hard drives are not supported as locations for the
   Dropbox folder.
 
@@ -60,7 +61,7 @@ Run `maestral gui` in the command line (or open the Maestral app on macOS) to st
 Maestral with a graphical user interface. On its first run, Maestral will guide you
 through linking and configuring your Dropbox and will then start syncing.
 
-<img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/macOS_light.png" alt="screenshot macOS" width="840"/>
+<img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/macOS_dark.png" alt="screenshot macOS" width="840"/>
 <img src="https://raw.githubusercontent.com/SamSchott/maestral-dropbox/master/screenshots/Ubuntu.png" alt="screenshot Fedora" width="840"/>
 
 ### Command line usage
@@ -90,7 +91,7 @@ $ maestral start --config-name="personal"
 $ maestral start --config-name="work"
 ```
 
-This will start two instances of Maestral, syncing a private and a work account,
+This will start two instances of Maestral, syncing a private and a work account, 
 respectively. Configs will be automatically cleared when unlinking an account and you can
 list all currently linked accounts with `maestral configs`:
 
@@ -140,9 +141,9 @@ $ docker run \
 ## Contribute
 
 There are multiple topics that could use your help. Some of them are easy, such as adding
-new CLI commands, others require more experience, such as packaging for non-macOS platforms.
-Look out for issues marked with "good first issue" or "help wanted". Pull requests should be
-made against the develop branch.
+new CLI commands, others require more experience, such as packaging for non-macOS
+platforms. Look out for issues marked with "good first issue" or "help wanted". Pull
+requests should be made against the develop branch.
 
 Relevant resources are:
 
@@ -151,11 +152,11 @@ Relevant resources are:
 - [Dropbox Python SDK docs](https://dropbox-sdk-python.readthedocs.io/en/latest/)
 
 If you are using the macOS app bundle, please consider sponsoring the project with £1 per 
-month to offset the cost of an Apple Developer account to sign and notiarize the bundle.
+month to offset the cost of an Apple Developer account to sign and notarize the bundle.
 
 ## System requirements
 
-- macOS (10.13 or higher for binary) or Linux
+- macOS 10.14 Mojave or higher or Linux
 - Python 3.6 or higher
 - For the system tray icon on Linux:
   - [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)

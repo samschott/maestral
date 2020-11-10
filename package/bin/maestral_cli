@@ -1,5 +1,0 @@
-#!/bin/sh
-
-SCRIPTPATH="$(dirname "$(readlink "$0")")"
-
-"$SCRIPTPATH/Maestral" --cli "$@"

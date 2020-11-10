@@ -7,7 +7,7 @@ on:
     tags:
       - 'v*.*.*'
 
-  pull_request:
+  pull_request_target:
 
   schedule:
     - cron: "19 4 * * *" # everyday at 04:19
@@ -16,10 +16,11 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout project
         uses: actions/checkout@v2
-        # Needed for getting the latest Git tag in the "Prepare" step.
-        
+        with:
+          ref: ${{ github.event.pull_request.merged.sha }}
+
       - name: Fetching tags 
         run: git fetch --prune --unshallow --force --tags
 
@@ -33,6 +34,8 @@ jobs:
           GIT_BRANCH=${GITHUB_REF##*/}
           if [ "${{ github.event_name }}" = "schedule" ]; then
             VERSION=nightly
+          elif [ "${{ github.event_name }}" = "pull_request_target" ]; then
+            VERSION=pr-${{ github.event.number }}
           elif [[ $GITHUB_REF == refs/tags/* ]]; then
             VERSION=${GITHUB_REF#refs/tags/}
           elif [[ $GITHUB_REF == refs/heads/* ]]; then
@@ -40,8 +43,6 @@ jobs:
             if [ "${{ github.event.repository.default_branch }}" = "$VERSION" ]; then
               VERSION=edge
             fi
-          elif [[ $GITHUB_REF == refs/pull/* ]]; then
-            VERSION=pr-${{ github.event.number }}
           fi
           TAGS="${DOCKER_IMAGE}:${VERSION}"
           if [[ $VERSION =~ ^v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
@@ -101,6 +102,5 @@ jobs:
             org.opencontainers.image.url=${{ github.event.repository.html_url }}
             org.opencontainers.image.version=${{ steps.prep.outputs.version }}
           platforms: linux/amd64,linux/arm64,linux/arm/v7
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.prep.outputs.tags }}
-

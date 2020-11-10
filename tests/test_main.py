@@ -8,81 +8,53 @@
 import os
 import os.path as osp
 import time
-import logging
-from maestral.main import Maestral
-from maestral.errors import NotFoundError, FolderConflictError, PathError
-from maestral.utils.path import delete
-from maestral.utils.housekeeping import remove_configuration
-
 import unittest
 from unittest import TestCase
+
+from maestral.errors import NotFoundError, PathError
+from maestral.main import FileStatus, IDLE
+from maestral.main import logger as maestral_logger
+from maestral.utils.path import delete
+
+from .fixtures import setup_test_config, cleanup_test_config, DropboxTestLock
 
 
 @unittest.skipUnless(os.environ.get("DROPBOX_TOKEN"), "Requires auth token")
 class TestAPI(TestCase):
 
-    TEST_LOCK_PATH = "/test.lock"
+    config_name = "api-test-config"
+
     TEST_FOLDER_PATH = "/sync_tests"
+    resources = osp.dirname(__file__) + "/resources"
 
     def setUp(self):
 
-        self.resources = osp.dirname(__file__) + "/resources"
-
-        self.m = Maestral("test-config")
-        self.m.log_level = logging.DEBUG
-        self.m.client._init_sdk_with_token(
-            access_token=os.environ.get("DROPBOX_TOKEN", "")
-        )
-        self.m.create_dropbox_directory("~/Dropbox_Test")
+        self.m = setup_test_config(self.config_name)
+        self.lock = DropboxTestLock(self.m)
+        if not self.lock.acquire(timeout=60 * 60):
+            raise TimeoutError("Could not acquire test lock")
 
         # all our tests will be carried out within this folder
-        self.test_folder_dbx = self.TEST_FOLDER_PATH
+        self.test_folder_dbx = TestAPI.TEST_FOLDER_PATH
         self.test_folder_local = self.m.dropbox_path + self.TEST_FOLDER_PATH
 
-        # acquire test lock
-        while True:
-            try:
-                self.m.client.make_dir(self.TEST_LOCK_PATH)
-            except FolderConflictError:
-                time.sleep(10)
-            else:
-                break
+        # create / clean our temporary test folder
+        try:
+            self.m.client.remove(self.test_folder_dbx)
+        except NotFoundError:
+            pass
+        self.m.client.make_dir(self.test_folder_dbx)
 
         # start syncing
         self.m.start_sync()
-
-        # create our temporary test folder
-        os.mkdir(self.test_folder_local)
 
         # wait until initial sync has completed
         self.wait_for_idle()
 
     def tearDown(self):
 
-        # check for fatal errors
-        self.assertFalse(self.m.fatal_errors)
-
-        # stop syncing and clean up remote folder
-        self.m.stop_sync()
-        try:
-            self.m.client.remove(self.test_folder_dbx)
-        except NotFoundError:
-            pass
-
-        try:
-            self.m.client.remove("/.mignore")
-        except NotFoundError:
-            pass
-
-        # release test lock
-        try:
-            self.m.client.remove(self.TEST_LOCK_PATH)
-        except NotFoundError:
-            pass
-
-        # remove local config
-        delete(self.m.dropbox_path)
-        remove_configuration("test-config")
+        cleanup_test_config(self.m, self.test_folder_dbx)
+        self.lock.release()
 
     # helper functions
 
@@ -97,31 +69,63 @@ class TestAPI(TestCase):
             else:
                 time.sleep(0.1)
 
-    def clean_remote(self):
-        """Recreates a fresh test folder."""
-        try:
-            self.m.client.remove(self.test_folder_dbx)
-        except NotFoundError:
-            pass
+    # API unit tests
 
-        try:
-            self.m.client.remove("/.mignore")
-        except NotFoundError:
-            pass
+    def test_status_properties(self):
+        self.assertEqual(IDLE, self.m.status)
+        self.assertTrue(self.m.running)
+        self.assertTrue(self.m.connected)
+        self.assertTrue(self.m.syncing)
+        self.assertFalse(self.m.paused)
+        self.assertFalse(self.m.sync_errors)
+        self.assertFalse(self.m.fatal_errors)
 
-        self.m.client.make_dir(self.test_folder_dbx)
+        maestral_logger.info("test message")
+        self.assertEqual(self.m.status, "test message")
 
-    # test functions
+    def test_file_status(self):
 
-    def test_selective_sync(self):
+        # test synced folder
+        file_status = self.m.get_file_status(self.test_folder_local)
+        self.assertEqual(FileStatus.Synced.value, file_status)
+
+        # test unwatched outside of dropbox
+        file_status = self.m.get_file_status("/url/local")
+        self.assertEqual(FileStatus.Unwatched.value, file_status)
+
+        # test unwatched non-existent
+        file_status = self.m.get_file_status("/this is not a folder")
+        self.assertEqual(FileStatus.Unwatched.value, file_status)
+
+        # test unwatched when paused
+        self.m.pause_sync()
+        self.wait_for_idle()
+
+        file_status = self.m.get_file_status(self.test_folder_local)
+        self.assertEqual(FileStatus.Unwatched.value, file_status)
+
+        self.m.resume_sync()
+        self.wait_for_idle()
+
+        # test error status
+        invalid_local_folder = self.test_folder_local + "/test_folder\\"
+        os.mkdir(invalid_local_folder)
+        self.wait_for_idle()
+
+        file_status = self.m.get_file_status(invalid_local_folder)
+        self.assertEqual(FileStatus.Error.value, file_status)
+
+    def test_selective_sync_api(self):
         """Test `Maestral.exclude_item` and  Maestral.include_item`."""
 
         test_path_local = self.test_folder_local + "/selective_sync_test_folder"
+        test_path_local_sub = test_path_local + "/subfolder"
         test_path_dbx = self.test_folder_dbx + "/selective_sync_test_folder"
+        test_path_dbx_sub = test_path_dbx + "/subfolder"
 
         # create a local folder 'folder'
         os.mkdir(test_path_local)
-        os.mkdir(test_path_local + "/subfolder")
+        os.mkdir(test_path_local_sub)
         self.wait_for_idle()
 
         # exclude 'folder' from sync
@@ -130,6 +134,11 @@ class TestAPI(TestCase):
 
         self.assertFalse(osp.exists(test_path_local))
         self.assertIn(test_path_dbx, self.m.excluded_items)
+        self.assertEqual(self.m.excluded_status(test_path_dbx), "excluded")
+        self.assertEqual(self.m.excluded_status(test_path_dbx_sub), "excluded")
+        self.assertEqual(
+            self.m.excluded_status(self.test_folder_dbx), "partially excluded"
+        )
 
         # include 'folder' in sync
         self.m.include_item(test_path_dbx)
@@ -137,6 +146,8 @@ class TestAPI(TestCase):
 
         self.assertTrue(osp.exists(test_path_local))
         self.assertNotIn(test_path_dbx, self.m.excluded_items)
+        self.assertEqual(self.m.excluded_status(self.test_folder_dbx), "included")
+        self.assertEqual(self.m.excluded_status(test_path_dbx_sub), "included")
 
         # exclude 'folder' again for further tests
         self.m.exclude_item(test_path_dbx)
@@ -160,75 +171,45 @@ class TestAPI(TestCase):
         with self.assertRaises(NotFoundError):
             self.m.exclude_item(test_path_dbx)
 
-    def test_upload_sync_issues(self):
+        # check for fatal errors
+        self.assertFalse(self.m.fatal_errors)
 
-        # paths with backslash are not allowed on Dropbox
-        test_path_local = self.test_folder_local + "/folder\\"
-        test_path_dbx = self.test_folder_dbx + "/folder\\"
+    def test_move_dropbox_folder(self):
+        new_dir_short = "~/New Dropbox"
+        new_dir = osp.realpath(osp.expanduser(new_dir_short))
 
-        n_errors_initial = len(self.m.sync_errors)
-
-        os.mkdir(test_path_local)
-        self.wait_for_idle()
-
-        self.assertEqual(len(self.m.sync_errors), n_errors_initial + 1)
-        self.assertEqual(self.m.sync_errors[-1]["local_path"], test_path_local)
-        self.assertEqual(self.m.sync_errors[-1]["dbx_path"], test_path_dbx)
-        self.assertEqual(self.m.sync_errors[-1]["type"], "PathError")
-
-        delete(test_path_local)
-        self.wait_for_idle()
-
-        self.assertEqual(len(self.m.sync_errors), n_errors_initial)
-        self.assertTrue(
-            all(e["local_path"] != test_path_local for e in self.m.sync_errors)
-        )
-        self.assertTrue(all(e["dbx_path"] != test_path_dbx for e in self.m.sync_errors))
-
-    def test_download_sync_issues(self):
-        test_path_local = self.test_folder_local + "/dmca.gif"
-        test_path_dbx = self.test_folder_dbx + "/dmca.gif"
+        self.m.move_dropbox_directory(new_dir_short)
+        self.assertTrue(osp.isdir(new_dir))
+        self.assertEqual(new_dir, self.m.dropbox_path)
 
         self.wait_for_idle()
 
-        n_errors_initial = len(self.m.sync_errors)
+        # assert that sync was resumed after moving folder
+        self.assertTrue(self.m.syncing)
 
-        self.m.client.upload(self.resources + "/dmca.gif", test_path_dbx)
+    def test_move_dropbox_folder_to_itself(self):
 
-        self.wait_for_idle()
+        self.m.move_dropbox_directory(self.m.dropbox_path)
 
-        # 1) Check that the sync issue is logged
+        # assert that sync is still running
+        self.assertTrue(self.m.syncing)
 
-        self.assertEqual(len(self.m.sync_errors), n_errors_initial + 1)
-        self.assertEqual(self.m.sync_errors[-1]["local_path"], test_path_local)
-        self.assertEqual(self.m.sync_errors[-1]["dbx_path"], test_path_dbx)
-        self.assertEqual(self.m.sync_errors[-1]["type"], "RestrictedContentError")
-        self.assertIn(test_path_dbx, self.m.sync.download_errors)
+    def test_move_dropbox_folder_to_existing(self):
+        new_dir_short = "~/New Dropbox"
+        new_dir = osp.realpath(osp.expanduser(new_dir_short))
+        os.mkdir(new_dir)
 
-        # 2) Check that the sync is retried after pause / resume
+        try:
 
-        self.m.pause_sync()
-        self.m.resume_sync()
+            with self.assertRaises(FileExistsError):
+                self.m.move_dropbox_directory(new_dir)
 
-        self.wait_for_idle()
+            # assert that sync is still running
+            self.assertTrue(self.m.syncing)
 
-        self.assertEqual(len(self.m.sync_errors), n_errors_initial + 1)
-        self.assertEqual(self.m.sync_errors[-1]["local_path"], test_path_local)
-        self.assertEqual(self.m.sync_errors[-1]["dbx_path"], test_path_dbx)
-        self.assertEqual(self.m.sync_errors[-1]["type"], "RestrictedContentError")
-        self.assertIn(test_path_dbx, self.m.sync.download_errors)
-
-        # 3) Check that the error is cleared when the file is deleted
-
-        self.m.client.remove(test_path_dbx)
-        self.wait_for_idle()
-
-        self.assertEqual(len(self.m.sync_errors), n_errors_initial)
-        self.assertTrue(
-            all(e["local_path"] != test_path_local for e in self.m.sync_errors)
-        )
-        self.assertTrue(all(e["dbx_path"] != test_path_dbx for e in self.m.sync_errors))
-        self.assertNotIn(test_path_dbx, self.m.sync.download_errors)
+        finally:
+            # cleanup
+            delete(new_dir)
 
 
 if __name__ == "__main__":
