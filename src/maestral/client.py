@@ -1304,7 +1304,9 @@ def dropbox_to_maestral_error(
                 write_error = error.get_path().reason  # returns UploadWriteFailed
                 text, err_cls = _get_write_error_msg(write_error)
             elif error.is_properties_error():
+                # this is a programming error in maestral
                 text = "Invalid property group provided."
+                err_cls = MaestralApiError
                 err_cls = SyncError
             else:
                 text = "Please check the logs for more information"
@@ -1319,8 +1321,9 @@ def dropbox_to_maestral_error(
                 write_error = error.get_path()
                 text, err_cls = _get_write_error_msg(write_error)
             elif error.is_properties_error():
+                # this is a programming error in maestral
                 text = "Invalid property group provided."
-                err_cls = SyncError
+                err_cls = MaestralApiError
             elif error.is_too_many_write_operations():
                 text = (
                     "There are too many write operations happening in your "
