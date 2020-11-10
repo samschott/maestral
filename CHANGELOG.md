@@ -15,11 +15,12 @@
 
 - Fixes an issue which would prevent the daemon from starting on macOS when running with
   Python 3.6.
-- Fixes a segfault of the macOS GUI on macOS High Sierra and lower.
+- Fixes a segfault of the macOS GUI on macOS High Sierra.
 - Fixes an issue with the macOS GUI becoming unresponsive when opening the selective sync
-  dialog if one of the folders contains a large number (> 2k) of items.
+  dialog if one of the displayed folders contains a large number (> 2k) of immediate
+  children.
 - Fixes an issue with the Qt GUI crashing when opening the selective sync dialog if one of
-  the folders contains a large number (> 2k) of items.
+  the folders contains a large number (> 2k) of immediate children.
 - Fixes an issue where `Mastral.excluded_status` would return "included" for items inside
   an excluded folder.
 
