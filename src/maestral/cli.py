@@ -785,7 +785,7 @@ Returned value will be 'uploading', 'downloading', 'up to date', 'error', or
 'unwatched' if syncing is paused.
 """,
 )
-@click.argument("local_path", type=click.Path(exists=True))
+@click.argument("local_path", type=click.Path(exists=True, resolve_path=True))
 @existing_config_option
 def file_status(local_path: str, config_name: str) -> None:
 
