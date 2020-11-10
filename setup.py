@@ -9,7 +9,7 @@ install_requires = [
     "alembic>=1.3.0",
     "bugsnag>=3.4.0",
     "click>=7.1.1",
-    "dropbox>=10.4.1",
+    "dropbox>=10.9.0",
     'dbus-next>=0.1.4;sys_platform=="linux"',
     "fasteners>=0.15",
     "importlib_metadata;python_version<'3.8'",
