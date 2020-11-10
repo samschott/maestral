@@ -1307,7 +1307,20 @@ def dropbox_to_maestral_error(
                 # this is a programming error in maestral
                 text = "Invalid property group provided."
                 err_cls = MaestralApiError
+            else:
+                text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
+
+        elif isinstance(error, files.UploadSessionStartError):
+            title = "Could not upload file"
+            if error.is_concurrent_session_close_not_allowed():
+                # this is a programming error in maestral
+                text = "Can not start a closed concurrent upload session."
+                err_cls = MaestralApiError
+            elif error.is_concurrent_session_data_not_allowed():
+                # this is a programming error in maestral
+                text = "Uploading data not allowed when starting concurrent upload session."
+                err_cls = MaestralApiError
             else:
                 text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
