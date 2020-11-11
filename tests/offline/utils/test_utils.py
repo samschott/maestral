@@ -29,4 +29,4 @@ releases = (
     ],
 )
 def test_has_newer_version(current_version, newer_version):
-    assert get_newer_version(current_version, releases) is newer_version
+    assert get_newer_version(current_version, releases) == newer_version
