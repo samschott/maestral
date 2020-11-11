@@ -90,7 +90,9 @@ def test_multiple_cased_path_candidates(tmp_path):
     assert osp.join(dir1, "File.txt") in candidates
 
     # find matches for children
-    candidates = cased_path_candidates("/test folder/subfolder/File.txt", root=tmp_path)
+    candidates = cased_path_candidates(
+        "/test folder/subfolder/File.txt", root=str(tmp_path)
+    )
 
     assert len(candidates) == 2
     assert osp.join(dir0, "File.txt") in candidates
