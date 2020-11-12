@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module contains helper functions for config management. Paths for config files are
 defined here instead of the :mod:`utils.appdirs` module to avoid imports from outside the

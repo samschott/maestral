@@ -1,9 +1,5 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
 
 This file defines the functions to configure and interact with Maestral from the command
 line. Some imports are deferred to the functions that required them in order to reduce
