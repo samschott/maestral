@@ -110,6 +110,7 @@ from .client import (
     fswatch_to_maestral_error,
 )
 from .utils import removeprefix
+from .utils.caches import LRUCache
 from .utils.notify import MaestralDesktopNotifier
 from .utils.path import (
     generate_cc_name,
@@ -816,7 +817,7 @@ class SyncEngine:
 
     sync_errors: Set[SyncError]
     syncing: List[SyncEvent]
-    _case_conversion_cache: Dict[str, str]
+    _case_conversion_cache: LRUCache
 
     _max_history = 1000
     _num_threads = min(32, _cpu_count * 3)
@@ -889,7 +890,7 @@ class SyncEngine:
         self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * _cpu_count
 
         # caches
-        self._case_conversion_cache = dict()
+        self._case_conversion_cache = LRUCache(capacity=5000)
 
         # clean our file cache
         self.clean_cache_dir()
@@ -1508,7 +1509,8 @@ class SyncEngine:
 
             path_cased = f"{parent_path_cased}/{basename}"
 
-        self._case_conversion_cache[dbx_path_lower] = path_cased
+        # add our result to the cache
+        self._case_conversion_cache.put(dbx_path_lower, path_cased)
 
         return path_cased
 
