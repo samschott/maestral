@@ -1448,7 +1448,7 @@ class SyncEngine:
 
         changes = []
         snapshot_time = time.time()
-        snapshot = DirectorySnapshot(self.dropbox_path)
+        snapshot = self._dir_snapshot_with_mignore(self.dropbox_path)
         lowercase_snapshot_paths: Set[str] = set()
 
         # don't use iterator here but pre-fetch all entries
@@ -3262,7 +3262,7 @@ class SyncEngine:
 
             # add created and deleted events of children as appropriate
 
-            snapshot = DirectorySnapshot(local_path)
+            snapshot = self._dir_snapshot_with_mignore(local_path)
             lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
             local_path_lower = local_path.lower()
 
@@ -3333,6 +3333,19 @@ class SyncEngine:
 
             # commit to drive
             self._db_session.commit()
+
+    def _scandir_with_mignore(self, path: str) -> List:
+        return [
+            f
+            for f in os.scandir(path)
+            if not self._is_mignore_path(self.to_dbx_path(f.path), f.is_dir())
+        ]
+
+    def _dir_snapshot_with_mignore(self, path: str) -> DirectorySnapshot:
+        return DirectorySnapshot(
+            path,
+            listdir=self._scandir_with_mignore,
+        )
 
 
 # ======================================================================================
