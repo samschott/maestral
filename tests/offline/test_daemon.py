@@ -4,6 +4,7 @@ import time
 import subprocess
 import threading
 import multiprocessing as mp
+import uuid
 import unittest
 from unittest import TestCase
 
@@ -26,9 +27,10 @@ from maestral.errors import NotLinkedError
 
 class TestDaemonLock(TestCase):
     def test_locking_from_same_thread(self):
+        lock_name = "test-lock-" + str(uuid.uuid4())
 
         # initialise lock
-        lock = Lock.singleton("test-lock")
+        lock = Lock.singleton(lock_name)
         self.assertFalse(lock.locked())
 
         # acquire lock
@@ -53,15 +55,16 @@ class TestDaemonLock(TestCase):
             lock.release()
 
     def test_locking_threaded(self):
+        lock_name = "test-lock-" + str(uuid.uuid4())
 
         # initialise lock
-        lock = Lock.singleton("test-lock")
+        lock = Lock.singleton(lock_name)
         self.assertFalse(lock.locked())
 
         # acquire lock from thread
 
         def acquire_in_thread():
-            l = Lock.singleton("test-lock")
+            l = Lock.singleton(lock_name)
             l.acquire()
 
         t = threading.Thread(
@@ -90,16 +93,17 @@ class TestDaemonLock(TestCase):
             lock.release()
 
     def test_locking_multiprocess(self):
+        lock_name = "test-lock-" + str(uuid.uuid4())
 
         # initialise lock
-        lock = Lock.singleton("test-lock")
+        lock = Lock.singleton(lock_name)
         self.assertFalse(lock.locked())
 
         # acquire lock from different process
 
         cmd = (
             "import time; from maestral.daemon import Lock; "
-            "l = Lock.singleton('test-lock'); l.acquire(); "
+            f"l = Lock.singleton({lock_name!r}); l.acquire(); "
             "time.sleep(60);"
         )
 
