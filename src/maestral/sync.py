@@ -21,7 +21,6 @@ from collections import abc
 from contextlib import contextmanager
 import enum
 import pprint
-import socket
 import gc
 from datetime import timezone
 from functools import wraps
@@ -123,6 +122,7 @@ from .utils.path import (
     content_hash,
 )
 from .utils.appdirs import get_data_path, get_home_dir
+from .utils.networkstate import NetworkConnectionNotifier
 
 
 logger = logging.getLogger(__name__)
@@ -3666,35 +3666,21 @@ def helper(mm: "SyncMonitor") -> None:
     """
     A worker for periodic maintenance:
 
-     1) Checks for a connection to Dropbox servers.
-     2) Pauses syncing when the connection is lost and resumes syncing when reconnected
-        and syncing has not been paused by the user.
-     3) Triggers weekly reindexing.
+     1) Triggers periodic / weekly reindexing.
 
     :param mm: MaestralMonitor instance.
     """
 
     while mm.running.is_set():
 
-        if check_connection("www.dropbox.com"):
-            if not mm.connected.is_set() and not mm.paused_by_user.is_set():
-                mm.startup.set()
-            # rebuild the index periodically
-            elif (
-                time.time() - mm.sync.last_reindex > mm.reindex_interval
-                and mm.idle_time > 20 * 60
-            ):
-                mm.rebuild_index()
-            mm.connected.set()
-            time.sleep(mm.connection_check_interval)
+        # rebuild the index periodically
+        if (
+            time.time() - mm.sync.last_reindex > mm.reindex_interval
+            and mm.idle_time > 20 * 60
+        ):
+            mm.rebuild_index()
 
-        else:
-            if mm.connected.is_set():
-                logger.info(DISCONNECTED)
-            mm.syncing.clear()
-            mm.connected.clear()
-            mm.startup.clear()
-            time.sleep(mm.connection_check_interval)
+        time.sleep(60*10)  # check every 10 min
 
 
 def download_worker(
@@ -3955,7 +3941,6 @@ class SyncMonitor:
     """
 
     added_item_queue: "Queue[str]"
-    connection_check_interval: float = 2.0
 
     def __init__(self, client: DropboxClient):
 
@@ -3979,6 +3964,12 @@ class SyncMonitor:
         self.sync = SyncEngine(self.client, self.fs_event_handler)
 
         self._startup_time = -1.0
+
+        self.connection_manager = NetworkConnectionNotifier(
+            host="www.dropbox.com",
+            on_connect=self.on_connected,
+            on_disconnect=self.on_disconnected,
+        )
 
     def _with_lock(fn: FT) -> FT:  # type: ignore
         @wraps(fn)
@@ -4008,6 +3999,17 @@ class SyncMonitor:
         and at most ``_max_history`` events will be returned (defaults to 1,000)."""
         return self.sync.history
 
+    @property
+    def idle_time(self) -> float:
+        """Returns the idle time in seconds since the last file change or since startup
+        if there haven't been any changes in our current session."""
+
+        now = time.time()
+        time_since_startup = now - self._startup_time
+        time_since_last_sync = now - self.sync.last_change
+
+        return min(time_since_startup, time_since_last_sync)
+
     @_with_lock
     def start(self) -> None:
         """Creates observer threads and starts syncing."""
@@ -4018,7 +4020,7 @@ class SyncMonitor:
 
         self.running = Event()  # create new event to let old threads shut down
 
-        self.local_observer_thread = Observer()
+        self.local_observer_thread = Observer(timeout=5)
         self.local_observer_thread.setName("maestral-fsobserver")
         self._watch = self.local_observer_thread.schedule(
             self.fs_event_handler, self.sync.dropbox_path, recursive=True
@@ -4151,16 +4153,23 @@ class SyncMonitor:
 
         logger.info(STOPPED)
 
-    @property
-    def idle_time(self) -> float:
-        """Returns the idle time in seconds since the last file change or since startup
-        if there haven't been any changes in our current session."""
+    @_with_lock
+    def on_connected(self) -> None:
 
-        now = time.time()
-        time_since_startup = now - self._startup_time
-        time_since_last_sync = now - self.sync.last_change
+        if self.running.is_set():
+            if not self.connected.is_set() and not self.paused_by_user.is_set():
+                self.startup.set()
+            self.connected.set()
 
-        return min(time_since_startup, time_since_last_sync)
+    @_with_lock
+    def on_disconnected(self) -> None:
+
+        if self.running.is_set():
+            if self.connected.is_set():
+                logger.info(DISCONNECTED)
+            self.syncing.clear()
+            self.connected.clear()
+            self.startup.clear()
 
     def reset_sync_state(self) -> None:
         """Resets all saved sync state."""
@@ -4331,19 +4340,3 @@ def cpu_usage_percent(interval: float = 0.1) -> float:
     else:
         single_cpu_percent = overall_cpus_percent * _cpu_count
         return round(single_cpu_percent, 1)
-
-
-def check_connection(hostname: str) -> bool:
-    """
-    A low latency check for an internet connection.
-
-    :param hostname: Hostname to use for connection check.
-    :returns: Connection availability.
-    """
-    try:
-        host = socket.gethostbyname(hostname)
-        s = socket.create_connection((host, 80), 2)
-        s.close()
-        return True
-    except Exception:
-        return False
