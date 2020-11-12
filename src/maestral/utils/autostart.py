@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module handles starting the maestral daemon on user login and supports multiple
 platform specific backends such as launchd or systemd.

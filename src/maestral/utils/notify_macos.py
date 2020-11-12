@@ -1,8 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under the MIT licence.
+Notification backend for macOS. Includes three implementations, in order of preference:
+
+1) UNUserNotificationCenter: Introduced in macOS 10.14 and cross-platform with iOS and
+   iPadOS. Only available from signed app bundles if called from the main executable.
+   Not available from interactive Python interpreter.
+2) NSUserNotificationCenter: Deprecated but still available in macOS 11.0. Can be used
+   from Python framework.
+3) Apple Script: Always available but notifications are sent from Apple Script and not
+   Python or Maestral app. No callbacks when the user clicks on notification.
+
+The first two implementations require a running CFRunLoop to invoke callbacks.
 
 """
 # system imports
@@ -125,6 +134,11 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
             )
 
         def send(self, notification: Notification) -> None:
+            """
+            Sends a notification.
+
+            :param notification: Notification to send.
+            """
 
             internal_nid = self._next_nid()
             notification_to_replace = self.current_notifications.get(internal_nid)
@@ -241,6 +255,11 @@ elif Version(macos_version) < Version("11.1.0"):
             self.nc.delegate.interface = self
 
         def send(self, notification: Notification) -> None:
+            """
+            Sends a notification.
+
+            :param notification: Notification to send.
+            """
 
             internal_nid = self._next_nid()
             notification_to_replace = self.current_notifications.get(internal_nid)
@@ -274,6 +293,11 @@ if Impl is None and shutil.which("osascript"):
         """Apple script backend for macOS."""
 
         def send(self, notification: Notification) -> None:
+            """
+            Sends a notification.
+
+            :param notification: Notification to send.
+            """
             subprocess.call(
                 [
                     "osascript",

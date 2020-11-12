@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+
+Module containing cache implementations.
+
+"""
 from collections import OrderedDict
 from threading import RLock
 from typing import Any
@@ -6,7 +11,7 @@ from typing import Any
 
 class LRUCache:
     """
-    A simple LRU cache implementation from Sachin Negi.
+    A simple LRU cache implementation.
 
     :param capacity: Maximum number of of entries to keep.
     """

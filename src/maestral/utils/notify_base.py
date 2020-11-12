@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module defines base classes for desktop notifications. All platform implementations
 must inherit from :class:`DesktopNotifierBase`.
+
 """
 
 # system imports

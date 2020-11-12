@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module contains functions to retrieve platform dependent locations to store app
 data. It supports macOS and Linux.

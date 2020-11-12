@@ -1,19 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under the MIT licence.
-
-This module handles desktop notifications for Maestral and supports multiple backends,
-depending on the platform. A single :class:`DesktopNotifier` instance is created for all
-all sync daemons and a :class:`MaestralDesktopNotifier` instance is created for each
-daemon individually. Notification settings such as as snoozing and levels can be
-modified through :class:`MaestralDesktopNotifier`.
-
-:constant int NONE: No desktop notifications.
-:constant int ERROR: Notifications on errors.
-:constant int SYNCISSUE: Notifications on sync issues.
-:constant int FILECHANGE: Notifications on file changes.
+Notification backend for Linux. Includes an implementation to send desktop notifications
+over Dbus.
 
 """
 
@@ -79,6 +68,11 @@ class DBusDesktopNotifier(DesktopNotifierBase):
             logger.warning("Could not connect to DBUS interface", exc_info=True)
 
     def send(self, notification: Notification) -> None:
+        """
+        Sends a notification.
+
+        :param notification: Notification to send.
+        """
         self._force_run_in_loop(self._send(notification))
 
     async def _send(self, notification: Notification) -> None:

@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
 
 This module handles desktop notifications for Maestral and supports multiple backends,
 depending on the platform. A single :class:`DesktopNotifier` instance is created for all
-all sync daemons and a :class:`MaestralDesktopNotifier` instance is created for each
-daemon individually. Notification settings such as as snoozing and levels can be
-modified through :class:`MaestralDesktopNotifier`.
+sync daemons and a :class:`MaestralDesktopNotifier` instance is created for each  daemon
+individually. Notification settings such as as snoozing and levels can be modified
+through :class:`MaestralDesktopNotifier`.
 
 """
 
