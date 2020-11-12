@@ -1450,6 +1450,25 @@ class SyncEngine:
     def correct_case(self, dbx_path: str) -> str:
         """
         Converts a Dropbox path with correctly cased basename to a fully cased path.
+        This is because Dropbox metadata guarantees the correct casing for the basename
+        only. In practice, casing of parent directories is often incorrect.
+        This is done by retrieving the correct casing of the dirname, either from our
+        cache, our database or from Dropbox servers.
+
+        Performance may vary significantly with the number of parent folders:
+
+        1) If the parent directory is already in our cache, performance is O(1).
+        2) If the parent directory is already in our sync index, performance is O(1) but
+           slower than the first case because it requires a SQLAlchemy query.
+        3) If the parent directory is unknown to us, its metadata (including the correct
+           casing of directory's basename) is queried from Dropbox. This is used to
+           construct a correctly cased path by calling :meth:`correct_case` again. At
+           best, performance will be of O(2) if the parent directory is known to us, at
+           worst if will be of order O(n) involving queries to Dropbox servers for each
+           parent directory.
+
+        When running :meth:`correct_case` on a large tree of paths, it is therefore best
+        to do so in hierarchical order.
 
         :param dbx_path: Dropbox path with correctly cased basename, as provided by
             ``Metadata.path_display`` or ``Metadata.name``.
@@ -1470,7 +1489,7 @@ class SyncEngine:
             parent_path_cased = self._case_conversion_cache.get(dirname_lower)
 
             if not parent_path_cased:
-                # try to get dirname casing from our index
+                # try to get dirname casing from our index, this is slower
                 with self._database_access():
                     parent_entry = self.get_index_entry(dirname_lower)
 
