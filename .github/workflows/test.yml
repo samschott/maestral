@@ -4,7 +4,7 @@ on:
   pull_request_target:
     paths:
       # run tests only when the python code has changed
-      - 'maestral/**.py'
+      - 'src/**.py'
       - 'tests/**.py'
 
   workflow_dispatch:
