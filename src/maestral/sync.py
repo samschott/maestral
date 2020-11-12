@@ -109,6 +109,7 @@ from maestral.client import (
     convert_api_errors,
     fswatch_to_maestral_error,
 )
+from maestral.utils import removeprefix
 from maestral.utils.notify import MaestralDesktopNotifier
 from maestral.utils.path import (
     generate_cc_name,
@@ -1754,7 +1755,7 @@ class SyncEngine:
 
         if new_exc:
             if log_errors:
-                logger.error(title, exc_info=_exc_info(new_exc))
+                logger.error(title, exc_info=exc_info_tuple(new_exc))
             else:
                 raise new_exc
 
@@ -2848,11 +2849,9 @@ class SyncEngine:
         """
         logger.info("Fetching remote changes...")
         changes = self.client.list_remote_changes(last_cursor)
-        logger.debug("Listed remote changes:\n%s", entries_to_str(changes.entries))
+        logger.debug("Listed remote changes:\n%s", entries_repr(changes.entries))
         clean_changes = self._clean_remote_changes(changes)
-        logger.debug(
-            "Cleaned remote changes:\n%s", entries_to_str(clean_changes.entries)
-        )
+        logger.debug("Cleaned remote changes:\n%s", entries_repr(clean_changes.entries))
 
         sync_events = [SyncEvent.from_dbx_metadata(md, self) for md in changes.entries]
         return sync_events, changes.cursor
@@ -2873,10 +2872,10 @@ class SyncEngine:
         changes_iter = self.client.list_remote_changes_iterator(last_cursor)
 
         for changes in changes_iter:
-            logger.debug("Listed remote changes:\n%s", entries_to_str(changes.entries))
+            logger.debug("Listed remote changes:\n%s", entries_repr(changes.entries))
             clean_changes = self._clean_remote_changes(changes)
             logger.debug(
-                "Cleaned remote changes:\n%s", entries_to_str(clean_changes.entries)
+                "Cleaned remote changes:\n%s", entries_repr(clean_changes.entries)
             )
 
             sync_events = [
@@ -4043,7 +4042,7 @@ class SyncMonitor:
         except OSError as err:
             new_err = fswatch_to_maestral_error(err)
             title = getattr(new_err, "title", "Unexpected error")
-            logger.error(title, exc_info=_exc_info(new_err))
+            logger.error(title, exc_info=exc_info_tuple(new_err))
 
         self.running.set()
         self.syncing.clear()
@@ -4173,25 +4172,8 @@ def add_to_bin(d: Dict[Any, List], key: Hashable, value: Any):
         d[key] = [value]
 
 
-def removeprefix(self: str, prefix: str) -> str:
-    """
-    Removes the given prefix from a string. Only the first instance of the prefix is
-    removed. The original string is returned if it does not start with the given prefix.
-
-    This follows the Python 3.9 implementation of ``str.removeprefix``.
-
-    :param self: Original string.
-    :param prefix: Prefix to remove.
-    :returns: String without prefix.
-    """
-    if self.startswith(prefix):
-        return self[len(prefix) :]
-    else:
-        return self[:]
-
-
-def _exc_info(exc: BaseException) -> ExecInfoType:
-    """Creates ac exc-info tuple from an exception."""
+def exc_info_tuple(exc: BaseException) -> ExecInfoType:
+    """Creates an exc-info tuple from an exception."""
     return type(exc), exc, exc.__traceback__
 
 
@@ -4210,7 +4192,8 @@ def split_moved_event(
     event: Union[FileMovedEvent, DirMovedEvent]
 ) -> Tuple[FileSystemEvent, FileSystemEvent]:
     """
-    Splits a given FileSystemEvent into Deleted and Created events of the same type.
+    Splits a FileMovedEvent or DirMovedEvent into "deleted" and "created" events of the
+    same type.
 
     :param event: Original event.
     :returns: Tuple of deleted and created events.
@@ -4226,9 +4209,9 @@ def split_moved_event(
     return deleted_event_cls(event.src_path), created_event_cls(event.dest_path)
 
 
-def entries_to_str(entries: List[Metadata]) -> str:
+def entries_repr(entries: List[Metadata]) -> str:
     """
-    Generates a nicely formatted string from a list of Dropbox metadata.
+    Generates a nicely formatted string repr from a list of Dropbox metadata.
 
     :param entries: List of Dropbox metadata.
     :returns: String representation of the list.

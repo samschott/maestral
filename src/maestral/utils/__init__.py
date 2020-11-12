@@ -80,3 +80,21 @@ def get_newer_version(version: str, releases: Iterable[str]) -> Optional[str]:
     latest_release = releases[-1]
 
     return latest_release if Version(version) < Version(latest_release) else None
+
+
+def removeprefix(string: str, prefix: str) -> str:
+    """
+    Removes the given prefix from a string. Only the first instance of the prefix is
+    removed. The original string is returned if it does not start with the given prefix.
+
+    This follows the Python 3.9 implementation of ``str.removeprefix``.
+
+    :param string: Original string.
+    :param prefix: Prefix to remove.
+    :returns: String without prefix.
+    """
+
+    if string.startswith(prefix):
+        return string[len(prefix) :]
+    else:
+        return string[:]
