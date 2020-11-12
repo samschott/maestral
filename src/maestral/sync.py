@@ -1970,7 +1970,7 @@ class SyncEngine:
 
                     n_items = len(other)
                     for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                        throttled_log(logger, f"Uploading {n}/{n_items}...")
+                        throttled_log(logger, f"Syncing ↓ {n}/{n_items}...")
                         results.append(f.result())
 
                 self._clean_history()
@@ -2716,9 +2716,9 @@ class SyncEngine:
             success = True
 
             if is_dbx_root:
-                logger.info("Downloading your Dropbox")
+                logger.info("Fetching your Dropbox")
             else:
-                logger.info("Downloading %s", dbx_path)
+                logger.info("Syncing ↓ %s", dbx_path)
 
             if any(is_child(folder, dbx_path) for folder in self.excluded_items):
                 # if there are excluded subfolders, index and download only included
@@ -2981,7 +2981,7 @@ class SyncEngine:
 
             n_items = len(files)
             for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                throttled_log(logger, f"Downloading {n}/{n_items}...")
+                throttled_log(logger, f"Syncing ↓ {n}/{n_items}...")
                 results.append(f.result())
 
         if cursor and not self.cancel_pending.is_set():
@@ -3839,18 +3839,18 @@ def startup_worker(
 
                 # retry failed downloads
                 if len(sync.download_errors) > 0:
-                    logger.info("Retrying failed downloads...")
+                    logger.info("Retrying failed syncs...")
 
                 for dbx_path in list(sync.download_errors):
-                    logger.info(f"Downloading {dbx_path}...")
+                    logger.info(f"Syncing ↓ {dbx_path}...")
                     sync.get_remote_item(dbx_path)
 
                 # resume interrupted downloads
                 if len(sync.pending_downloads) > 0:
-                    logger.info("Resuming interrupted downloads...")
+                    logger.info("Resuming interrupted syncs...")
 
                 for dbx_path in list(sync.pending_downloads):
-                    logger.info(f"Downloading {dbx_path}...")
+                    logger.info(f"Syncing ↓ {dbx_path}...")
                     sync.get_remote_item(dbx_path)
 
                 # retry failed / interrupted uploads by scheduling additional events
