@@ -50,7 +50,7 @@ jobs:
         env:
           OS: ${{ matrix.platform }}
           PYTHON: ${{ matrix.python-version }}
-          TYPE: "linked"
+          TYPE: 'offline'
 
   online-tests:
     name: Run online tests
@@ -115,4 +115,4 @@ jobs:
         env:
           OS: ${{ matrix.platform }}
           PYTHON: ${{ matrix.python-version }}
-          TYPE: "linked"
+          TYPE: 'linked'
