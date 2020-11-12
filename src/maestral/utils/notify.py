@@ -22,6 +22,15 @@ from ..constants import APP_NAME, BUNDLE_ID, APP_ICON_PATH
 from .notify_base import DesktopNotifierBase, NotificationLevel, Notification
 
 
+__all__ = [
+    "DesktopNotifier",
+    "DesktopNotifierBase",
+    "MaestralDesktopNotifier",
+    "NotificationLevel",
+    "Notification",
+]
+
+
 class DesktopNotifier:
     """
     Cross-platform desktop notifications for macOS and Linux. Uses different backends
