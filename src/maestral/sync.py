@@ -1504,7 +1504,7 @@ class SyncEngine:
                         parent_path_cased = self.correct_case(md_parent.path_display)
                     else:
                         # give up
-                        parent_path_cased = osp.dirname(dbx_path)
+                        parent_path_cased = dirname
 
             path_cased = f"{parent_path_cased}/{basename}"
 
