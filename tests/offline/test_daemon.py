@@ -136,7 +136,10 @@ class TestDaemonLifecycle(TestCase):
     config_name = "daemon-lifecycle-test"
 
     def cleanUp(self):
-        stop_maestral_daemon_process(self.config_name)
+        res = stop_maestral_daemon_process(self.config_name)
+
+        if res in Stop.Failed:
+            raise RuntimeError("Could not stop test daemon")
 
     def test_lifecycle_detached(self):
 
@@ -190,7 +193,10 @@ class TestMaestralProxy(TestCase):
     config_name = "daemon-proxy-test"
 
     def cleanUp(self):
-        stop_maestral_daemon_process(self.config_name)
+        res = stop_maestral_daemon_process(self.config_name)
+
+        if res in Stop.Failed:
+            raise RuntimeError("Could not stop test daemon")
 
     def test_connection(self):
 
