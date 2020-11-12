@@ -4018,7 +4018,7 @@ class SyncMonitor:
 
         self.running = Event()  # create new event to let old threads shut down
 
-        self.local_observer_thread = Observer(timeout=0.3)
+        self.local_observer_thread = Observer()
         self.local_observer_thread.setName("maestral-fsobserver")
         self._watch = self.local_observer_thread.schedule(
             self.fs_event_handler, self.sync.dropbox_path, recursive=True
