@@ -102,7 +102,8 @@ def serpent_deserialize_api_error(class_name: str, d: dict) -> MaestralApiError:
     :returns: Class instance.
     """
     # import maestral errors for evaluation
-    from . import errors  # noqa: F401
+    # this import needs to be absolute to reconstruct the Exception class
+    import maestral.errors  # noqa: F401
 
     cls = eval(class_name)
     err = cls(*d["args"])
