@@ -42,9 +42,9 @@ from dropbox import (  # type: ignore
 )
 
 # local imports
-from maestral import __version__
-from maestral.oauth import OAuth2Session
-from maestral.errors import (
+from . import __version__
+from .oauth import OAuth2Session
+from .errors import (
     MaestralApiError,
     SyncError,
     InsufficientPermissionsError,
@@ -72,12 +72,12 @@ from maestral.errors import (
     NotLinkedError,
     InvalidDbidError,
 )
-from maestral.config import MaestralState
-from maestral.constants import DROPBOX_APP_KEY, IDLE
-from maestral.utils import natural_size, chunks, clamp
+from .config import MaestralState
+from .constants import DROPBOX_APP_KEY, IDLE
+from .utils import natural_size, chunks, clamp
 
 if TYPE_CHECKING:
-    from maestral.sync import SyncEvent
+    from .sync import SyncEvent
 
 logger = logging.getLogger(__name__)
 

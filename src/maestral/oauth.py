@@ -25,9 +25,9 @@ import requests
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect  # type: ignore
 
 # local imports
-from maestral.config import MaestralConfig, MaestralState
-from maestral.constants import DROPBOX_APP_KEY
-from maestral.errors import KeyringAccessError
+from .config import MaestralConfig, MaestralState
+from .constants import DROPBOX_APP_KEY
+from .errors import KeyringAccessError
 
 
 logger = logging.getLogger(__name__)

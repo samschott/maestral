@@ -20,7 +20,7 @@ from dropbox.stone_serializers import json_encode  # type: ignore
 from dropbox.stone_validators import Struct  # type: ignore
 
 # local imports
-from maestral.sync import SyncEvent
+from ..sync import SyncEvent
 
 
 StoneType = Dict[str, Union[str, float, bool, None]]

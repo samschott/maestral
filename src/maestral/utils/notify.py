@@ -20,8 +20,8 @@ from threading import Lock
 from typing import Optional, Dict, ClassVar, Callable
 
 # local imports
-from maestral.config import MaestralConfig
-from maestral.constants import APP_NAME, BUNDLE_ID, APP_ICON_PATH
+from ..config import MaestralConfig
+from ..constants import APP_NAME, BUNDLE_ID, APP_ICON_PATH
 from .notify_base import DesktopNotifierBase, NotificationLevel, Notification
 
 

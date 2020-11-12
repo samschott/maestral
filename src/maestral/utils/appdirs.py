@@ -16,7 +16,7 @@ import platform
 from typing import Optional
 
 # local imports
-from maestral.config.base import (
+from ..config.base import (
     get_home_dir,
     get_conf_path,
     get_data_path,

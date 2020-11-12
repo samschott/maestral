@@ -13,9 +13,9 @@ import os
 from typing import TypeVar
 
 # local imports
-from maestral.config import MaestralConfig, MaestralState
-from maestral.utils.appdirs import get_data_path, get_log_path
-from maestral.utils.path import delete
+from ..config import MaestralConfig, MaestralState
+from ..utils.appdirs import get_data_path, get_log_path
+from ..utils.path import delete
 
 
 _C = TypeVar("_C", bound=str)

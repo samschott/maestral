@@ -21,8 +21,8 @@ import click
 import Pyro5.errors  # type: ignore
 
 # local imports
-from maestral import __version__
-from maestral.daemon import (
+from . import __version__
+from .daemon import (
     start_maestral_daemon,
     start_maestral_daemon_process,
     stop_maestral_daemon_process,
@@ -32,8 +32,8 @@ from maestral.daemon import (
     MaestralProxyType,
     is_running,
 )
-from maestral.config import MaestralConfig, MaestralState, list_configs
-from maestral.utils.housekeeping import remove_configuration, validate_config_name
+from .config import MaestralConfig, MaestralState, list_configs
+from .utils.housekeeping import remove_configuration, validate_config_name
 
 
 OK = click.style("[OK]", fg="green")
@@ -73,8 +73,8 @@ def select_dbx_path_dialog(
     :returns: Path given by user.
     """
 
-    from maestral.utils.appdirs import get_home_dir
-    from maestral.utils.path import delete
+    from .utils.appdirs import get_home_dir
+    from .utils.path import delete
 
     default_dir_name = default_dir_name or f"Dropbox ({config_name.capitalize()})"
     default = osp.join(get_home_dir(), default_dir_name)
@@ -211,7 +211,7 @@ def catch_maestral_errors(func: Callable) -> Callable:
     command line instead of printing the full stacktrace.
     """
 
-    from maestral.errors import MaestralApiError
+    from .errors import MaestralApiError
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -468,7 +468,7 @@ CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 def main(version: bool):
 
     if version:
-        from maestral.main import __version__
+        from . import __version__
 
         click.echo(__version__)
     else:
@@ -571,7 +571,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
     # running with the --foreground flag, prevents leaving a zombie process if the setup
     # fails with an exception and does not confuse systemd.
 
-    from maestral.main import Maestral
+    from .main import Maestral
 
     m = Maestral(config_name, log_to_stdout=verbose)
 
@@ -685,7 +685,7 @@ configuration on user login.
 @existing_config_option
 def autostart(yes: bool, no: bool, config_name: str) -> None:
 
-    from maestral.utils.autostart import AutoStart
+    from .utils.autostart import AutoStart
 
     auto_start = AutoStart(config_name)
 
@@ -805,7 +805,7 @@ def activity(config_name: str) -> None:
 
     import curses
     import time
-    from maestral.utils import natural_size
+    from .utils import natural_size
 
     try:
         with MaestralProxy(config_name) as m:
@@ -908,7 +908,7 @@ def activity(config_name: str) -> None:
 def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -> None:
 
     from datetime import datetime
-    from maestral.utils import natural_size
+    from .utils import natural_size
 
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
@@ -973,7 +973,7 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 
     else:
 
-        from maestral.utils import chunks
+        from .utils import chunks
 
         names = []
         colors = []
@@ -1038,7 +1038,7 @@ def unlink(config_name: str) -> None:
 
     if click.confirm("Are you sure you want unlink your account?"):
 
-        from maestral.main import Maestral
+        from .main import Maestral
 
         stop_daemon_with_cli_feedback(config_name)
         m = Maestral(config_name)
@@ -1251,9 +1251,9 @@ def account_info(config_name: str) -> None:
 def about() -> None:
 
     import time
-    from maestral import __url__
-    from maestral import __author__
-    from maestral import __version__
+    from . import __url__
+    from . import __author__
+    from . import __version__
 
     year = time.localtime().tm_year
     click.echo("")
@@ -1356,7 +1356,7 @@ def excluded_remove(dropbox_path: str, config_name: str) -> None:
 @existing_config_option
 def log_show(external: bool, config_name: str) -> None:
 
-    from maestral.utils.appdirs import get_log_path
+    from .utils.appdirs import get_log_path
 
     log_file = get_log_path("maestral", config_name + ".log")
 
@@ -1380,7 +1380,7 @@ def log_show(external: bool, config_name: str) -> None:
 @existing_config_option
 def log_clear(config_name: str) -> None:
 
-    from maestral.utils.appdirs import get_log_path
+    from .utils.appdirs import get_log_path
 
     log_dir = get_log_path("maestral")
     log_name = config_name + ".log"
@@ -1441,7 +1441,7 @@ def log_level(level_name: str, config_name: str) -> None:
 @existing_config_option
 def notify_level(level_name: str, config_name: str) -> None:
 
-    from maestral.utils.notify import MaestralDesktopNotifier as MDN
+    from .utils.notify import MaestralDesktopNotifier as MDN
 
     with MaestralProxy(config_name, fallback=True) as m:
         if level_name:

@@ -32,13 +32,13 @@ import sdnotify  # type: ignore
 from fasteners import InterProcessLock  # type: ignore
 
 # local imports
-from maestral.errors import SYNC_ERRORS, FATAL_ERRORS, MaestralApiError
-from maestral.constants import IS_MACOS, FROZEN
-from maestral.utils.appdirs import get_runtime_path
+from .errors import SYNC_ERRORS, FATAL_ERRORS, MaestralApiError
+from .constants import IS_MACOS, FROZEN
+from .utils.appdirs import get_runtime_path
 
 
 if TYPE_CHECKING:
-    from maestral.main import Maestral
+    from .main import Maestral
 
 
 logger = logging.getLogger(__name__)
@@ -102,7 +102,7 @@ def serpent_deserialize_api_error(class_name: str, d: dict) -> MaestralApiError:
     :returns: Class instance.
     """
     # import maestral errors for evaluation
-    import maestral.errors  # noqa: F401
+    from . import errors  # noqa: F401
 
     cls = eval(class_name)
     err = cls(*d["args"])
@@ -385,7 +385,7 @@ def start_maestral_daemon(
     """
 
     import asyncio
-    from maestral.main import Maestral
+    from .main import Maestral
 
     if threading.current_thread() is not threading.main_thread():
         raise RuntimeError("Must run daemon in main thread")
@@ -675,7 +675,7 @@ class MaestralProxy:
             # If daemon is not running, fall back to new Maestral instance
             # or raise a CommunicationError if fallback not allowed.
             if fallback:
-                from maestral.main import Maestral
+                from .main import Maestral
 
                 self._m = Maestral(config_name)
             else:

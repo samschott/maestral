@@ -77,9 +77,9 @@ from watchdog.events import (
 from watchdog.utils.dirsnapshot import DirectorySnapshot  # type: ignore
 
 # local imports
-from maestral.config import MaestralConfig, MaestralState
-from maestral.fsevents import Observer
-from maestral.constants import (
+from .config import MaestralConfig, MaestralState
+from .fsevents import Observer
+from .constants import (
     IDLE,
     SYNCING,
     PAUSED,
@@ -90,7 +90,7 @@ from maestral.constants import (
     MIGNORE_FILE,
     FILE_CACHE,
 )
-from maestral.errors import (
+from .errors import (
     SyncError,
     NoDropboxDirError,
     CacheDirError,
@@ -103,15 +103,15 @@ from maestral.errors import (
     InvalidDbidError,
     DatabaseError,
 )
-from maestral.client import (
+from .client import (
     DropboxClient,
     os_to_maestral_error,
     convert_api_errors,
     fswatch_to_maestral_error,
 )
-from maestral.utils import removeprefix
-from maestral.utils.notify import MaestralDesktopNotifier
-from maestral.utils.path import (
+from .utils import removeprefix
+from .utils.notify import MaestralDesktopNotifier
+from .utils.path import (
     generate_cc_name,
     cased_path_candidates,
     is_fs_case_sensitive,
@@ -121,7 +121,7 @@ from maestral.utils.path import (
     is_equal_or_child,
     content_hash,
 )
-from maestral.utils.appdirs import get_data_path, get_home_dir
+from .utils.appdirs import get_data_path, get_home_dir
 
 
 logger = logging.getLogger(__name__)

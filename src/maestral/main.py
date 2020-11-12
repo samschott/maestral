@@ -31,35 +31,35 @@ except ImportError:
     journal = None
 
 # local imports
-from maestral import __version__
-from maestral.client import DropboxClient, convert_api_errors
-from maestral.sync import SyncMonitor, SyncDirection
-from maestral.errors import (
+from . import __version__
+from .client import DropboxClient, convert_api_errors
+from .sync import SyncMonitor, SyncDirection
+from .errors import (
     MaestralApiError,
     NotLinkedError,
     NoDropboxDirError,
     NotFoundError,
     PathError,
 )
-from maestral.config import MaestralConfig, MaestralState
-from maestral.utils import get_newer_version
-from maestral.utils.housekeeping import validate_config_name
-from maestral.utils.path import (
+from .config import MaestralConfig, MaestralState
+from .utils import get_newer_version
+from .utils.housekeeping import validate_config_name
+from .utils.path import (
     is_child,
     is_equal_or_child,
     to_existing_cased_path,
     delete,
 )
-from maestral.utils.notify import MaestralDesktopNotifier
-from maestral.utils.serializer import (
+from .utils.notify import MaestralDesktopNotifier
+from .utils.serializer import (
     error_to_dict,
     dropbox_stone_to_dict,
     sync_event_to_dict,
     StoneType,
     ErrorType,
 )
-from maestral.utils.appdirs import get_log_path, get_cache_path, get_data_path
-from maestral.constants import (
+from .utils.appdirs import get_log_path, get_cache_path, get_data_path
+from .constants import (
     BUGSNAG_API_KEY,
     IDLE,
     FileStatus,
@@ -1374,7 +1374,7 @@ class Maestral:
 
         logger.info("Recreating autostart entries after update from pre v1.2.1")
 
-        from maestral.utils.autostart import AutoStart
+        from .utils.autostart import AutoStart
 
         autostart = AutoStart(self.config_name)
 
@@ -1387,8 +1387,8 @@ class Maestral:
         from alembic.migration import MigrationContext  # type: ignore
         from alembic.operations import Operations  # type: ignore
         from sqlalchemy.engine import reflection  # type: ignore
-        from maestral.sync import db_naming_convention as nc
-        from maestral.sync import IndexEntry
+        from .sync import db_naming_convention as nc
+        from .sync import IndexEntry
 
         table_name = IndexEntry.__tablename__
 
