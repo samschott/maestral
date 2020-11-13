@@ -1,33 +1,38 @@
 name: Lint with black and mypy
 
-on: pull_request
+on:
+  push:
+    branches:
+      - master
+      - develop
+
+  pull_request:
 
 jobs:
-  black:
+  checks:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-      - uses: psf/black@stable
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
 
-  mypy:
-    name: Type checking with mypy
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout prohect
-        uses: actions/checkout@v2
-
-      - name: Set up Python 3.6
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.6
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install --upgrade mypy
-          pip install .
-
-      - name: Type checking with mypy
-        run: |
-          mypy src/maestral
+    - name: Install
+      run: |
+        python -m pip install -U pip
+        python -m pip install -U black
+        python -m pip install -U flake8
+        python -m pip install -U isort
+        python -m pip install -U mypy
+        pip install --progress-bar off -U .[checking]
+    - name: black
+      run: black . --check --diff
+    - name: flake8
+      run: flake8 .
+    - name: isort
+      run: isort . --check --diff
+    - name: mypy
+      run: mypy .
+    - name: blackdoc
+      run: blackdoc . --check
