@@ -13,7 +13,7 @@ from typing import Optional, Type, Coroutine
 
 # external imports
 from dbus_next import Variant  # type: ignore
-from dbus_next.aio import MessageBus  # type: ignore
+from dbus_next.aio import MessageBus, ProxyInterface  # type: ignore
 
 # local imports
 from .notify_base import Notification, DesktopNotifierBase, NotificationLevel
@@ -38,6 +38,7 @@ class DBusDesktopNotifier(DesktopNotifierBase):
     def __init__(self, app_name: str, app_id: str) -> None:
         super().__init__(app_name, app_id)
         self._loop = asyncio.get_event_loop()
+        self.interface: Optional[ProxyInterface] = None
         self._force_run_in_loop(self._init_dbus())
 
     def _force_run_in_loop(self, coro: Coroutine) -> None:

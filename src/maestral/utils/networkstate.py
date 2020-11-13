@@ -11,6 +11,8 @@ import logging
 from typing import Callable, Optional
 import platform
 
+from .networkstate_base import NetworkConnectionNotifierBase
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,6 +25,8 @@ class NetworkConnectionNotifier:
     :param on_connect: Callback to invoke when connection is lost.
     :param on_disconnect: Callback to invoke when connection is established.
     """
+
+    _impl: NetworkConnectionNotifierBase
 
     def __init__(
         self,

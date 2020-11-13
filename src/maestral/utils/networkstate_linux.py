@@ -3,10 +3,10 @@ import logging
 import socket
 import threading
 import time
-from typing import Callable, Coroutine
+from typing import Callable, Coroutine, Optional
 
-from dbus_next import BusType
-from dbus_next.aio import MessageBus
+from dbus_next import BusType  # type: ignore
+from dbus_next.aio import MessageBus, ProxyInterface  # type: ignore
 
 from .networkstate_base import NetworkConnectionNotifierBase
 
@@ -21,6 +21,7 @@ class NetworkConnectionNotifierDbus(NetworkConnectionNotifierBase):
     def __init__(self, host: str, callback: Callable) -> None:
         super().__init__(host, callback)
         self._loop = asyncio.get_event_loop()
+        self.interface: Optional[ProxyInterface] = None
         self._force_run_in_loop(self._init_dbus())
 
     def _force_run_in_loop(self, coro: Coroutine) -> None:
@@ -65,7 +66,7 @@ class NetworkConnectionNotifierPolling(NetworkConnectionNotifierBase):
         super().__init__(host, callback)
 
         self.interval = interval
-        self._old_state = None
+        self._old_state: Optional[bool] = None
 
         self._thread = threading.Thread(
             target=self._polling_worker,
