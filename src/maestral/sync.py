@@ -3638,6 +3638,7 @@ class SyncEngine:
 # Workers for upload, download and connection monitoring threads
 # ======================================================================================
 
+
 def download_worker(
     sync: SyncEngine, syncing: Event, running: Event, connected: Event
 ) -> None:
