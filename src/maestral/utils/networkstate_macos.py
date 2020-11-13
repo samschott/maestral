@@ -32,7 +32,7 @@ from ctypes import (
     c_uint32,
 )
 
-from rubicon.objc.runtime import load_library
+from rubicon.objc.runtime import load_library  # type: ignore
 
 from .networkstate_base import NetworkConnectionNotifierBase
 
