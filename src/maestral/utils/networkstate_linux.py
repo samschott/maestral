@@ -17,7 +17,6 @@ NM_CONNECTIVITY_FULL = 4
 
 
 class NetworkConnectionNotifierDbus(NetworkConnectionNotifierBase):
-
     def __init__(self, host: str, callback: Callable) -> None:
         super().__init__(host, callback)
         self._loop = asyncio.get_event_loop()
@@ -64,7 +63,6 @@ class NetworkConnectionNotifierDbus(NetworkConnectionNotifierBase):
 
 
 class NetworkConnectionNotifierPolling(NetworkConnectionNotifierBase):
-
     def __init__(self, host: str, callback: Callable, interval: float = 2.0) -> None:
         super().__init__(host, callback)
 
