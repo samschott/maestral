@@ -17,7 +17,7 @@ from collections import deque
 import asyncio
 import random
 from concurrent.futures import ThreadPoolExecutor
-from typing import Union, List, Iterator, Dict, Optional, Deque, Any
+from typing import Union, List, Iterator, Dict, Set, Deque, Awaitable, Optional, Any
 
 # external imports
 import requests
@@ -235,13 +235,15 @@ class Maestral:
 
         # schedule background tasks
         self._loop = asyncio.get_event_loop()
+        self._tasks: Set[asyncio.Task] = set()
         self._thread_pool = ThreadPoolExecutor(
             thread_name_prefix="maestral-thread-pool",
             max_workers=2,
         )
-        self._refresh_info_task = self._loop.create_task(self._periodic_refresh_info())
-        self._update_task = self._loop.create_task(self._period_update_check())
-        self._reindex_task = self._loop.create_task(self._period_reindexing())
+
+        self._schedule_task(self._periodic_refresh_info())
+        self._schedule_task(self._period_update_check())
+        self._schedule_task(self._period_reindexing())
 
         # create a future which will return once `shutdown_daemon` is called
         # can be used by an event loop wait until maestral has been stopped
@@ -1324,14 +1326,15 @@ class Maestral:
 
         self.stop_sync()
 
-        self._refresh_info_task.cancel()
-        self._update_task.cancel()
+        for task in self._tasks:
+            task.cancel()
+
         self._thread_pool.shutdown(wait=False)
 
         if self._loop.is_running():
             self._loop.call_soon_threadsafe(self.shutdown_complete.set_result, True)
 
-    # ==== private methods =============================================================
+    # ==== verifiers ===================================================================
 
     def _check_linked(self) -> None:
 
@@ -1347,6 +1350,8 @@ class Maestral:
                 "No local Dropbox directory",
                 'Call "create_dropbox_directory" to set up.',
             )
+
+    # ==== housekeeping on update  =====================================================
 
     def _check_and_run_post_update_scripts(self) -> None:
         """
@@ -1412,6 +1417,13 @@ class Maestral:
                             }
 
                         batch_op.drop_constraint(constraint_name=name, type_="unique")
+
+    # ==== period async jobs ===========================================================
+
+    def _schedule_task(self, coro: Awaitable) -> None:
+
+        task = self._loop.create_task(coro)
+        self._tasks.add(task)
 
     async def _periodic_refresh_info(self) -> None:
 
