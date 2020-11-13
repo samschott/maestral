@@ -688,7 +688,7 @@ class MaestralProxy:
 
                 self._m = Maestral(config_name)
             else:
-                raise CommunicationError("Could not get proxy")
+                raise CommunicationError(f"Could not get proxy for '{config_name}'")
 
         self._is_fallback = not isinstance(self._m, Proxy)
 
