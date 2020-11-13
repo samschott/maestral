@@ -1908,7 +1908,7 @@ class SyncEngine:
         return changes, now
 
     def wait_for_local_changes(
-        self, timeout: float = 5, delay: float = 1
+        self, timeout: float = 40, delay: float = 1
     ) -> Tuple[List[SyncEvent], float]:
         """
         Waits for local file changes. Returns a list of local changes with at most one
@@ -4020,13 +4020,13 @@ class SyncMonitor:
 
         self.running = Event()  # create new event to let old threads shut down
 
-        self.local_observer_thread = Observer(timeout=5)
+        self.local_observer_thread = Observer(timeout=40)
         self.local_observer_thread.setName("maestral-fsobserver")
         self._watch = self.local_observer_thread.schedule(
             self.fs_event_handler, self.sync.dropbox_path, recursive=True
         )
-        for emitter in self.local_observer_thread.emitters:
-            emitter.setName("maestral-fsemitter")
+        for i, emitter in enumerate(self.local_observer_thread.emitters):
+            emitter.setName(f"maestral-fsemitter-{i}")
 
         self.helper_thread = Thread(
             target=helper, daemon=True, args=(self,), name="maestral-helper"
@@ -4147,9 +4147,9 @@ class SyncMonitor:
         self.sync.cancel_pending.clear()
 
         self.local_observer_thread.stop()
-        self.local_observer_thread.join()
-        self.helper_thread.join()
-        self.upload_thread.join()
+        # self.local_observer_thread.join()
+        # self.helper_thread.join()
+        # self.upload_thread.join()
 
         logger.info(STOPPED)
 
