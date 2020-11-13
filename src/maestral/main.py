@@ -14,6 +14,7 @@ import shutil
 import logging.handlers
 from collections import deque
 import asyncio
+import random
 from concurrent.futures import ThreadPoolExecutor
 from typing import Union, List, Iterator, Dict, Optional, Deque, Any
 
@@ -237,9 +238,8 @@ class Maestral:
             thread_name_prefix="maestral-thread-pool",
             max_workers=2,
         )
-        self._refresh_task = self._loop.create_task(
-            self._periodic_refresh(),
-        )
+        self._refresh_info_task = self._loop.create_task(self._periodic_refresh_info())
+        self._update_task = self._loop.create_task(self._period_update_check())
 
         # create a future which will return once `shutdown_daemon` is called
         # can be used by an event loop wait until maestral has been stopped
@@ -1322,7 +1322,8 @@ class Maestral:
 
         self.stop_sync()
 
-        self._refresh_task.cancel()
+        self._refresh_info_task.cancel()
+        self._update_task.cancel()
         self._thread_pool.shutdown(wait=False)
 
         if self._loop.is_running():
@@ -1410,7 +1411,9 @@ class Maestral:
 
                         batch_op.drop_constraint(constraint_name=name, type_="unique")
 
-    async def _periodic_refresh(self) -> None:
+    async def _periodic_refresh_info(self) -> None:
+
+        await asyncio.sleep(60 * 5)
 
         while True:
             # update account info
@@ -1425,6 +1428,13 @@ class Maestral:
                         self._thread_pool, self.get_profile_pic
                     )
 
+            await asyncio.sleep(60 * (44.5 + random.random()))  # (45 +/- 1) min
+
+    async def _period_update_check(self) -> None:
+
+        await asyncio.sleep(60 * 3)
+
+        while True:
             # check for maestral updates
             res = await self._loop.run_in_executor(
                 self._thread_pool, self.check_for_updates
@@ -1433,7 +1443,7 @@ class Maestral:
             if not res["error"]:
                 self._state.set("app", "latest_release", res["latest_release"])
 
-            await asyncio.sleep(60 * 60)  # 60 min
+            await asyncio.sleep(60 * (59.5 + random.random()))  # (60 +/- 1) min
 
     def __repr__(self) -> str:
 
