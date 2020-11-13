@@ -11,6 +11,7 @@ import os
 import os.path as osp
 import platform
 import shutil
+import time
 import logging.handlers
 from collections import deque
 import asyncio
@@ -240,6 +241,7 @@ class Maestral:
         )
         self._refresh_info_task = self._loop.create_task(self._periodic_refresh_info())
         self._update_task = self._loop.create_task(self._period_update_check())
+        self._reindex_task = self._loop.create_task(self._period_reindexing())
 
         # create a future which will return once `shutdown_daemon` is called
         # can be used by an event loop wait until maestral has been stopped
@@ -1437,7 +1439,6 @@ class Maestral:
         await asyncio.sleep(60 * 3)
 
         while True:
-            # check for maestral updates
             res = await self._loop.run_in_executor(
                 self._thread_pool, self.check_for_updates
             )
@@ -1446,6 +1447,19 @@ class Maestral:
                 self._state.set("app", "latest_release", res["latest_release"])
 
             await asyncio.sleep(60 * (59.5 + random.random()))  # (60 +/- 1) min
+
+    async def _period_reindexing(self) -> None:
+
+        while True:
+
+            if self.monitor.running.is_set():
+                reindexing_due = (
+                    time.time() - self.sync.last_reindex > self.monitor.reindex_interval
+                )
+                if reindexing_due and self.monitor.idle_time > 20 * 60:
+                    self.monitor.rebuild_index()
+
+            await asyncio.sleep(60 * (9.5 + random.random()))  # (10 +/- 1) min
 
     def __repr__(self) -> str:
 

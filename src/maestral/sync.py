@@ -3638,28 +3638,6 @@ class SyncEngine:
 # Workers for upload, download and connection monitoring threads
 # ======================================================================================
 
-
-def helper(mm: "SyncMonitor") -> None:
-    """
-    A worker for periodic maintenance:
-
-     1) Triggers periodic / weekly reindexing.
-
-    :param mm: MaestralMonitor instance.
-    """
-
-    while mm.running.is_set():
-
-        # rebuild the index periodically
-        if (
-            time.time() - mm.sync.last_reindex > mm.reindex_interval
-            and mm.idle_time > 20 * 60
-        ):
-            mm.rebuild_index()
-
-        time.sleep(60*10)  # check every 10 min
-
-
 def download_worker(
     sync: SyncEngine, syncing: Event, running: Event, connected: Event
 ) -> None:
@@ -3911,8 +3889,7 @@ class SyncMonitor:
     Class to sync changes between Dropbox and a local folder. It creates five threads:
     `observer` to retrieve local file system events, `startup_thread` to carry out any
     startup jobs such as initial syncs, `upload_thread` to upload local changes to
-    Dropbox, `download_thread` to query for and download remote changes, and
-    `helper_thread` which periodically checks the connection to Dropbox servers.
+    Dropbox, and `download_thread` to query for and download remote changes.
 
     :param client: The Dropbox API client, a wrapper around the Dropbox Python SDK.
     """
@@ -4005,10 +3982,6 @@ class SyncMonitor:
         for i, emitter in enumerate(self.local_observer_thread.emitters):
             emitter.setName(f"maestral-fsemitter-{i}")
 
-        self.helper_thread = Thread(
-            target=helper, daemon=True, args=(self,), name="maestral-helper"
-        )
-
         self.startup_thread = Thread(
             target=startup_worker,
             daemon=True,
@@ -4072,7 +4045,6 @@ class SyncMonitor:
         self.connected.set()
         self.startup.set()
 
-        self.helper_thread.start()
         self.startup_thread.start()
         self.upload_thread.start()
         self.download_thread.start()
@@ -4125,7 +4097,6 @@ class SyncMonitor:
 
         self.local_observer_thread.stop()
         # self.local_observer_thread.join()
-        # self.helper_thread.join()
         # self.upload_thread.join()
 
         logger.info(STOPPED)
