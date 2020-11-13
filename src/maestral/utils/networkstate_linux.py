@@ -56,8 +56,11 @@ class NetworkConnectionNotifierDbus(NetworkConnectionNotifierBase):
 
     @property
     def connected(self) -> bool:
-        res = self.interface.check_connectivity()
-        return res == NM_CONNECTIVITY_FULL
+        if self.interface:
+            res = self.interface.check_connectivity()
+            return res == NM_CONNECTIVITY_FULL
+        else:
+            raise RuntimeError("Could not connect to DBUS interface")
 
 
 class NetworkConnectionNotifierPolling(NetworkConnectionNotifierBase):
