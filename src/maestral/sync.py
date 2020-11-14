@@ -1844,16 +1844,18 @@ class SyncEngine:
         changes = []
         snapshot_time = time.time()
         snapshot = DirectorySnapshot(self.dropbox_path)
+        lowercase_snapshot_paths: Set[str] = set()
 
         # don't use iterator here but pre-fetch all entries
         # this significantly improves performance but can lead to high memory usage
         entries = self.get_index()
 
-        # get lowercase paths
-        lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
-
         # get modified or added items
         for path in snapshot.paths:
+
+            # generate lower-case snapshot paths for later
+            lowercase_snapshot_paths.add(path.lower())
+
             if path != self.dropbox_path:
 
                 dbx_path_lower = self.to_dbx_path(path).lower()
