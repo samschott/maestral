@@ -2,7 +2,8 @@
 """
 
 Notification backend for Linux. Includes an implementation to send desktop notifications
-over Dbus.
+over Dbus. Responding to user interaction with a notification requires a running asyncio
+event loop.
 
 """
 
@@ -77,10 +78,15 @@ class DBusDesktopNotifier(DesktopNotifierBase):
 
     async def _send(self, notification: Notification) -> None:
 
+        # Do nothing if we couldn't connect.
         if not self.interface:
             return
 
+        # Get an internal ID for the notifications. This will recycle an old ID if we
+        # are above the max number of notifications.
         internal_nid = self._next_nid()
+
+        # Get the old notification to replace, if any.
         notification_to_replace = self.current_notifications.get(internal_nid)
 
         if notification_to_replace:
@@ -88,12 +94,14 @@ class DBusDesktopNotifier(DesktopNotifierBase):
         else:
             replaces_nid = 0
 
+        # Create list of actions with default and user-supplied.
         actions = ["default", "default"]
 
         for button_name in notification.buttons.keys():
             actions += [button_name, button_name]
 
         try:
+            # Post the new notification and record the platform ID assigned to it.
             platform_nid = await self.interface.call_notify(
                 self.app_name,  # app_name
                 replaces_nid,  # replaces_id
@@ -110,11 +118,14 @@ class DBusDesktopNotifier(DesktopNotifierBase):
             # may have changed after DesktopNotifierFreedesktopDBus was initialized.
             logger.warning("Notification failed", exc_info=True)
         else:
+            # Store the notification for future replacement and to keep track of
+            # user-supplied callbacks.
             notification.identifier = platform_nid
             self.current_notifications[internal_nid] = notification
 
     def _on_action(self, nid, action_key) -> None:
 
+        # Get the notification instance from the platform ID.
         nid = int(nid)
         action_key = str(action_key)
         notification = next(
@@ -122,6 +133,7 @@ class DBusDesktopNotifier(DesktopNotifierBase):
             None,
         )
 
+        # Execute any callbacks for button clicks.
         if notification:
             if action_key == "default" and notification.action:
                 notification.action()

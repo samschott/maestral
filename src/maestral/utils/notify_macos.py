@@ -74,20 +74,20 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
     UNNotificationCategoryOptionNone = 0
 
     class NotificationCenterDelegate(NSObject):  # type: ignore
-
-        # subclass UNUserNotificationCenter and define delegate method
-        # to handle clicked notifications
+        """Delegate to handle user interaction with a notification"""
 
         @objc_method
         def userNotificationCenter_didReceiveNotificationResponse_withCompletionHandler_(
             self, center, response, completion_handler
         ) -> None:
 
+            # Get the notification which was clicked from the platform ID.
             internal_nid = py_from_ns(
                 response.notification.request.content.userInfo["internal_nid"]
             )
             notification = self.interface.current_notifications[internal_nid]
 
+            # Get and call the callback which corresponds to the user interaction.
             if response.actionIdentifier == UNNotificationDefaultActionIdentifier:
 
                 callback = notification.action
@@ -105,7 +105,16 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
             completion_handler()
 
     class CocoaNotificationCenter(DesktopNotifierBase):
-        """UNUserNotificationCenter backend for macOS. For macOS Catalina and newer."""
+        """
+        UNUserNotificationCenter backend for macOS. For macOS Catalina and newer. Both
+        app name and bundle identifier will be ignored. The notification center
+        automatically uses the values provided by the app bundle. This implementation
+        only works from within signed app bundles and if called from the main
+        executable.
+
+        :param app_name: The name of the app.
+        :param app_id: The bundle identifier of the app.
+        """
 
         _notification_categories: Dict[Tuple[str, ...], str]
 
@@ -140,7 +149,11 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
             :param notification: Notification to send.
             """
 
+            # Get an internal ID for the notifications. This will recycle an old ID if
+            # we are above the max number of notifications.
             internal_nid = self._next_nid()
+
+            # Get the old notification to replace, if any.
             notification_to_replace = self.current_notifications.get(internal_nid)
 
             if notification_to_replace:
@@ -148,9 +161,12 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
             else:
                 platform_nid = str(uuid.uuid4())
 
+            # Set up buttons for notification. On macOS, we need need to register a new
+            # notification category for every unique set of buttons.
             button_names = tuple(notification.buttons.keys())
             category_id = self._category_id_for_button_names(button_names)
 
+            # Create the native notification + notification request.
             content = UNMutableNotificationContent.alloc().init()
             content.title = notification.title
             content.body = notification.message
@@ -161,16 +177,23 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
                 platform_nid, content=content, trigger=None
             )
 
+            # Post the notification.
             self.nc.addNotificationRequest(
                 notification_request, withCompletionHandler=None
             )
 
+            # Store the notification for future replacement and to keep track of
+            # user-supplied callbacks.
             notification.identifier = platform_nid
             self.current_notifications[internal_nid] = notification
 
         def _category_id_for_button_names(
             self, button_names: Tuple[str, ...]
         ) -> Optional[str]:
+            """
+            Creates a and registers a new notification category with the given buttons
+            or retrieves an existing one.
+            """
 
             if not button_names:
                 return None
