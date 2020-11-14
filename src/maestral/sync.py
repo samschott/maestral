@@ -1681,6 +1681,9 @@ class SyncEngine:
         return self.mignore_rules.match_file(relative_path)
 
     def _slow_down(self) -> None:
+        """
+        Pauses if CPU usage is too high if called from one of our thread pools.
+        """
 
         if self._max_cpu_percent == 100:
             return
@@ -1819,6 +1822,18 @@ class SyncEngine:
                 logger.debug("No local changes while inactive")
 
     def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
+        """
+        Retrieves all local changes since the last sync by performing a full scan of the
+        local folder. Changes are detected by comparing the new directory snapshot to
+        our index.
+
+        Added items: Are present in the snapshot but not in our index.
+        Deleted items: Are present in our index but not in the snapshot.
+        Modified items: Are present in both but have a ctime newer than the last sync.
+
+        :returns: Tuple containing local file system events and a cursor / timestamp
+            for the changes.
+        """
 
         changes = []
         now = time.time()
