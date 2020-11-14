@@ -1842,7 +1842,7 @@ class SyncEngine:
         """
 
         changes = []
-        now = time.time()
+        snapshot_time = time.time()
         snapshot = DirectorySnapshot(self.dropbox_path)
 
         # don't use iterator here but pre-fetch all entries
@@ -1855,17 +1855,22 @@ class SyncEngine:
         # get modified or added items
         for path in snapshot.paths:
             if path != self.dropbox_path:
-                stats = snapshot.stat_info(path)
-                # check if item was created or modified since last sync
-                # but before we started the FileEventHandler (~now)
+
                 dbx_path_lower = self.to_dbx_path(path).lower()
-                ctime_check = now > stats.st_ctime > self.get_last_sync(dbx_path_lower)
+
+                # check if item was created or modified since last sync
+                # but before we started the FileEventHandler (~snapshot_time)
+                stats = snapshot.stat_info(path)
+                ctime_check = (
+                    snapshot_time > stats.st_ctime > self.get_last_sync(dbx_path_lower)
+                )
 
                 # always upload untracked items, check ctime of tracked items
                 local_entry = self.get_index_entry(dbx_path_lower)
-                is_modified = local_entry and ctime_check
+                is_new = local_entry is None
+                is_modified = ctime_check and not is_new
 
-                if not local_entry:
+                if is_new:
                     if snapshot.isdir(path):
                         event = DirCreatedEvent(path)
                     else:
@@ -1905,7 +1910,7 @@ class SyncEngine:
         del lowercase_snapshot_paths
         gc.collect()
 
-        return changes, now
+        return changes, snapshot_time
 
     def wait_for_local_changes(
         self, timeout: float = 40, delay: float = 1
