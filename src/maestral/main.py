@@ -16,7 +16,7 @@ import logging.handlers
 from collections import deque
 import asyncio
 import random
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, Future, InvalidStateError, wait
 from typing import Union, List, Iterator, Dict, Set, Deque, Awaitable, Optional, Any
 
 # external imports
@@ -122,6 +122,7 @@ class CachedHandler(logging.Handler):
     ) -> None:
         logging.Handler.__init__(self, level=level)
         self.cached_records = deque([], maxlen)
+        self._emit_future = Future()
 
     def emit(self, record: logging.LogRecord) -> None:
         """
@@ -132,13 +133,24 @@ class CachedHandler(logging.Handler):
         self.format(record)
         self.cached_records.append(record)
 
+        # notify any waiting coroutines that we have a status change
+        try:
+            self._emit_future.set_result(record)
+        except InvalidStateError:
+            pass
+
+    def wait_for_emit(self, timeout: Optional[float]) -> bool:
+        done, not_done = wait([self._emit_future], timeout=timeout)
+        self._emit_future = Future()  # reset future
+        return len(done) == 1
+
     def getLastMessage(self) -> str:
         """
         :returns: The log message of the last record or an empty string.
         """
-        if len(self.cached_records) > 0:
+        try:
             return self.cached_records[-1].message
-        else:
+        except IndexError:
             return ""
 
     def getAllMessages(self) -> List[str]:
@@ -536,6 +548,9 @@ class Maestral:
         self.desktop_notifier.notify_level = level
 
     # ==== state information  ==========================================================
+
+    def status_change_longpoll(self, timeout: Optional[float] = 60) -> bool:
+        return self._log_handler_info_cache.wait_for_emit(timeout)
 
     @property
     def pending_link(self) -> bool:
