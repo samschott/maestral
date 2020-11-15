@@ -135,11 +135,17 @@ class CachedHandler(logging.Handler):
 
         # notify any waiting coroutines that we have a status change
         try:
-            self._emit_future.set_result(record)
+            self._emit_future.set_result(True)
         except InvalidStateError:
             pass
 
     def wait_for_emit(self, timeout: Optional[float]) -> bool:
+        """
+        Blocks until a new record is emitted.
+
+        :param timeout: Maximum time to block before returning.
+        :returns: ``True``if there was a status change, ``False`` in case of a timeout.
+        """
         done, not_done = wait([self._emit_future], timeout=timeout)
         self._emit_future = Future()  # reset future
         return len(done) == 1
@@ -548,6 +554,14 @@ class Maestral:
     # ==== state information  ==========================================================
 
     def status_change_longpoll(self, timeout: Optional[float] = 60) -> bool:
+        """
+        Blocks until there is a change in status or until a timeout occurs. This method
+        can be used by frontends to wait for status changes without constant polling.
+
+        :param timeout: Maximum time to block before returning, even if there is no
+            status change.
+        :returns: ``True``if there was a status change, ``False`` in case of a timeout.
+        """
         return self._log_handler_info_cache.wait_for_emit(timeout)
 
     @property
