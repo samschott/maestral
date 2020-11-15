@@ -116,6 +116,7 @@ class CachedHandler(logging.Handler):
     """
 
     cached_records: Deque[logging.LogRecord]
+    _emit_future: Future
 
     def __init__(
         self, level: int = logging.NOTSET, maxlen: Optional[int] = None
