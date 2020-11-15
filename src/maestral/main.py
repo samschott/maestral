@@ -50,7 +50,7 @@ from .utils.path import (
     to_existing_cased_path,
     delete,
 )
-from .utils.notify import MaestralDesktopNotifier
+from .utils.notify import MaestralDesktopNotificationHandler
 from .utils.serializer import (
     error_to_dict,
     dropbox_stone_to_dict,
@@ -348,7 +348,7 @@ class Maestral:
         else:
             self.log_handler_journal = None
 
-        # notify systemd of status updates
+        # log to NOTIFY_SOCKET when launched as systemd notify service
         if os.getenv("NOTIFY_SOCKET"):
             self.log_handler_sd = SdNotificationHandler()
             self.log_handler_sd.setFormatter(log_fmt_short)
@@ -364,7 +364,7 @@ class Maestral:
         self.log_handler_stream.setLevel(level)
         self._logger.addHandler(self.log_handler_stream)
 
-        # log to cached handlers for GUI and CLI
+        # log to cached handlers for status and error APIs
         self._log_handler_info_cache = CachedHandler(maxlen=1)
         self._log_handler_info_cache.setFormatter(log_fmt_short)
         self._log_handler_info_cache.setLevel(logging.INFO)
@@ -375,12 +375,10 @@ class Maestral:
         self._log_handler_error_cache.setLevel(logging.ERROR)
         self._logger.addHandler(self._log_handler_error_cache)
 
-        # log to desktop notifications
-        # 'file changed' events will be collated and sent as desktop
-        # notifications by the monitor directly, we don't handle them here
-        self.desktop_notifier = MaestralDesktopNotifier.for_config(self.config_name)
-        self.desktop_notifier.setLevel(logging.WARNING)
-        self._logger.addHandler(self.desktop_notifier)
+        # log errors to desktop notifications
+        self._log_handler_desktop_notifier = MaestralDesktopNotificationHandler()
+        self._log_handler_desktop_notifier.setLevel(logging.ERROR)
+        self._logger.addHandler(self._log_handler_desktop_notifier)
 
         # log to bugsnag (disabled by default)
         self._log_handler_bugsnag = BugsnagHandler()
@@ -513,23 +511,23 @@ class Maestral:
     def notification_snooze(self) -> float:
         """Snooze time for desktop notifications in minutes. Defaults to 0.0 if
         notifications are not snoozed."""
-        return self.desktop_notifier.snoozed
+        return self.sync.notifier.snoozed
 
     @notification_snooze.setter
     def notification_snooze(self, minutes: float) -> None:
         """Setter: notification_snooze."""
-        self.desktop_notifier.snoozed = minutes
+        self.sync.notifier.snoozed = minutes
 
     @property
     def notification_level(self) -> int:
         """Level for desktop notifications. See :mod:`utils.notify` for level
         definitions."""
-        return self.desktop_notifier.notify_level
+        return self.sync.notifier.notify_level
 
     @notification_level.setter
     def notification_level(self, level: int) -> None:
         """Setter: notification_level."""
-        self.desktop_notifier.notify_level = level
+        self.sync.notifier.notify_level = level
 
     # ==== state information  ==========================================================
 

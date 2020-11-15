@@ -1436,19 +1436,19 @@ def log_level(level_name: str, config_name: str) -> None:
 @click.argument(
     "level_name",
     required=False,
-    type=click.Choice(["NONE", "ERROR", "SYNCISSUE", "FILECHANGE"]),
+    type=click.Choice(["ERROR", "SYNCISSUE", "FILECHANGE"]),
 )
 @existing_config_option
 def notify_level(level_name: str, config_name: str) -> None:
 
-    from .utils.notify import MaestralDesktopNotifier as MDN
+    from .utils.notify import MaestralDesktopNotifier as Notifier
 
     with MaestralProxy(config_name, fallback=True) as m:
         if level_name:
-            m.notification_level = MDN.level_name_to_number(level_name)
+            m.notification_level = Notifier.level_name_to_number(level_name)
             click.echo(f"Notification level set to {level_name}.")
         else:
-            level_name = MDN.level_number_to_name(m.notification_level)
+            level_name = Notifier.level_number_to_name(m.notification_level)
             click.echo(f"Notification level: {level_name}.")
 
 

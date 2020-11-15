@@ -834,7 +834,8 @@ class SyncEngine:
 
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
-        self._notifier = MaestralDesktopNotifier.for_config(self.config_name)
+
+        self.notifier = MaestralDesktopNotifier(self.config_name)
 
         # upload_errors / download_errors: contains failed uploads / downloads
         # (from sync errors) to retry later
@@ -1731,6 +1732,11 @@ class SyncEngine:
             # we have a file / folder associated with the sync error
             file_name = osp.basename(err.dbx_path)
             logger.warning("Could not sync %s", file_name, exc_info=True)
+            self.notifier.notify(
+                "Sync error",
+                f"Could not sync {file_name}",
+                level=self.notifier.SYNCISSUE,
+            )
             self.sync_errors.add(err)
 
             # save download errors to retry later
@@ -3099,7 +3105,7 @@ class SyncEngine:
         else:
             msg = f"{file_name} {change_type}"
 
-        self._notifier.notify("Items synced", msg, on_click=callback)
+        self.notifier.notify("Items synced", msg, on_click=callback)
 
     def _filter_excluded_changes_remote(
         self, changes: List[SyncEvent]
