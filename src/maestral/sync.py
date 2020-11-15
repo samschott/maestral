@@ -1732,6 +1732,11 @@ class SyncEngine:
             # we have a file / folder associated with the sync error
             file_name = osp.basename(err.dbx_path)
             logger.warning("Could not sync %s", file_name, exc_info=True)
+            self.notifier.notify(
+                "Sync error",
+                f"Could not sync {file_name}",
+                level=self.notifier.SYNCISSUE,
+            )
             self.sync_errors.add(err)
 
             # save download errors to retry later
