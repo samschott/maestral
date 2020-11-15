@@ -16,8 +16,14 @@ import logging.handlers
 from collections import deque
 import asyncio
 import random
-from concurrent.futures import ThreadPoolExecutor, Future, InvalidStateError, wait
+from concurrent.futures import ThreadPoolExecutor, Future, wait
 from typing import Union, List, Iterator, Dict, Set, Deque, Awaitable, Optional, Any
+
+try:
+    from concurrent.futures import InvalidStateError
+except ImportError:
+    # Python 3.7 and lower
+    InvalidStateError = RuntimeError
 
 # external imports
 import requests
