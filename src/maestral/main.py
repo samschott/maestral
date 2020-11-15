@@ -570,6 +570,8 @@ class Maestral:
         :param timeout: Maximum time to block before returning, even if there is no
             status change.
         :returns: ``True``if there was a status change, ``False`` in case of a timeout.
+
+        .. versionadded:: 1.3.0
         """
         return self._log_handler_info_cache.wait_for_emit(timeout)
 
