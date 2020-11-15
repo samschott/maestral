@@ -1,24 +1,24 @@
 # -*- coding: utf-8 -*-
-#
-# Copyright 2012 Canonical Ltd.
-#
-# This program is free software: you can redistribute it and/or modify it
-# under the terms of the GNU General Public License version 3, as published
-# by the Free Software Foundation.
-#
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranties of
-# MERCHANTABILITY, SATISFACTORY QUALITY, or FITNESS FOR A PARTICULAR
-# PURPOSE.  See the GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Network state detection on OS X.
+"""
 
-NetworkManagerState: class with listening thread, calls back with state changes
+Network state detection on macOS using the System Configuration framework.
 
-TODO: This is taken from the Ubuntu Single Sign-On Python library and can likely be
-  simplified using NWPathMonitor
+Parts of this code are taken from the Ubuntu Single Sign-On Python library under the
+following licence:
+
+Copyright 2012 Canonical Ltd.
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License version 3, as published
+by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranties of
+MERCHANTABILITY, SATISFACTORY QUALITY, or FITNESS FOR A PARTICULAR
+PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
 from ctypes import (
@@ -124,14 +124,14 @@ class SCNRContext(Structure):
 class NetworkConnectionNotifierMacOS(NetworkConnectionNotifierBase):
     def __init__(self, host: str, callback) -> None:
         super().__init__(host, callback)
-        self.result_cb = callback
+        self.callback = callback
         self.hostname = host
         self.start_listening()
 
     def start_listening(self) -> None:
         """Setup callback and listen for changes."""
 
-        def reachability_state_changed_cb(targetref, flags, info):
+        def scnr_state_changed_callback(targetref, flags, info):
             """Callback for SCNetworkReachability API
 
             This callback is passed to the SCNetworkReachability API,
@@ -139,9 +139,9 @@ class NetworkConnectionNotifierMacOS(NetworkConnectionNotifierBase):
             we declare it here and just call _state_changed with
             flags."""
             state = check_connected_state(self.hostname)
-            self.result_cb(state)
+            self.callback(state)
 
-        self._c_callback = SCNRCallbackType(reachability_state_changed_cb)
+        self._c_callback = SCNRCallbackType(scnr_state_changed_callback)
         self._context = SCNRContext(0, None, None, None, None)
 
         self._target = SCNRCreateWithName(None, self.hostname)
