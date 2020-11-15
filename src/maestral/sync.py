@@ -834,7 +834,8 @@ class SyncEngine:
 
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
-        self._notifier = MaestralDesktopNotifier.for_config(self.config_name)
+
+        self.notifier = MaestralDesktopNotifier(self.config_name)
 
         # upload_errors / download_errors: contains failed uploads / downloads
         # (from sync errors) to retry later
@@ -3099,7 +3100,7 @@ class SyncEngine:
         else:
             msg = f"{file_name} {change_type}"
 
-        self._notifier.notify("Items synced", msg, on_click=callback)
+        self.notifier.notify("Items synced", msg, on_click=callback)
 
     def _filter_excluded_changes_remote(
         self, changes: List[SyncEvent]
