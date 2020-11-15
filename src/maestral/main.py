@@ -377,7 +377,7 @@ class Maestral:
 
         # log errors to desktop notifications
         self._log_handler_desktop_notifier = MaestralDesktopNotificationHandler()
-        self._log_handler_desktop_notifier.setLevel(logging.ERROR)
+        self._log_handler_desktop_notifier.setLevel(logging.WARNING)
         self._logger.addHandler(self._log_handler_desktop_notifier)
 
         # log to bugsnag (disabled by default)
