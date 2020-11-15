@@ -2,10 +2,7 @@
 """
 
 This module handles desktop notifications for Maestral and supports multiple backends,
-depending on the platform. A single :class:`DesktopNotifier` instance is created for all
-sync daemons and a :class:`MaestralDesktopNotifier` instance is created for each  daemon
-individually. Notification settings such as as snoozing and levels can be modified
-through :class:`MaestralDesktopNotifier`.
+depending on the platform.
 
 """
 
@@ -85,11 +82,12 @@ class DesktopNotifier:
                 self._impl.send(notification)
 
 
-class MaestralDesktopNotifier(logging.Handler):
+_desktop_notifier_maestral = DesktopNotifier(APP_NAME, BUNDLE_ID)
+
+
+class MaestralDesktopNotifier:
     """
-    Can be used as a standalone notifier or as a logging handler. When used as a logging
-    handler, the log level should be set with ``setLevel``. The ``notify_level`` will be
-    applied in addition to the log level.
+    Desktop notifier with notification levels and snooze functionality.
 
     :cvar int NONE: Notification level for no desktop notifications.
     :cvar int ERROR: Notification level for errors.
@@ -129,29 +127,9 @@ class MaestralDesktopNotifier(logging.Handler):
         """Converts a Maestral notification level name to number."""
         return cls._nameToLevel[name]
 
-    @classmethod
-    def for_config(cls, config_name: str) -> "MaestralDesktopNotifier":
-        """
-        Returns an existing instance for the config or creates a new one if none exists.
-        Use this method to prevent creating multiple instances.
-
-        :param config_name: Name of maestral config.
-        """
-
-        with cls._lock:
-            try:
-                return cls._instances[config_name]
-            except KeyError:
-                instance = cls(config_name)
-                cls._instances[config_name] = instance
-                return instance
-
     def __init__(self, config_name: str) -> None:
-        super().__init__()
-        self.setFormatter(logging.Formatter(fmt="%(message)s"))
         self._conf = MaestralConfig(config_name)
         self._snooze = 0.0
-        self._system_notifier = DesktopNotifier(APP_NAME, BUNDLE_ID)
 
     @property
     def notify_level(self) -> int:
@@ -183,7 +161,7 @@ class MaestralDesktopNotifier(logging.Handler):
         buttons: Optional[Dict[str, Optional[Callable]]] = None,
     ) -> None:
         """
-        Sends a desktop notification from maestral. The title defaults to 'Maestral'.
+        Sends a desktop notification.
 
         :param title: Notification title.
         :param message: Notification message.
@@ -201,7 +179,7 @@ class MaestralDesktopNotifier(logging.Handler):
             urgency = NotificationLevel.Normal
 
         if level >= self.notify_level and not ignore:
-            self._system_notifier.send(
+            _desktop_notifier_maestral.send(
                 title=title,
                 message=message,
                 icon=APP_ICON_PATH,
@@ -210,10 +188,33 @@ class MaestralDesktopNotifier(logging.Handler):
                 buttons=buttons,
             )
 
+
+class MaestralDesktopNotificationHandler(logging.Handler):
+    """
+    A logging handler to emit records as desktop notifications.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setFormatter(logging.Formatter(fmt="%(message)s"))
+
     def emit(self, record: logging.LogRecord) -> None:
         """Emits a log record as a desktop notification."""
 
         # avoid recursive notifications from our own logger
-        if not record.name.startswith(__name__):
-            self.format(record)
-            self.notify(record.levelname, record.message, level=record.levelno)
+        if record.name.startswith(__name__):
+            return
+
+        self.format(record)
+
+        if record.levelno == logging.ERROR:
+            urgency = NotificationLevel.Critical
+        else:
+            urgency = NotificationLevel.Normal
+
+        _desktop_notifier_maestral.send(
+            title=record.levelname,
+            message=record.message,
+            icon=APP_ICON_PATH,
+            urgency=urgency,
+        )
