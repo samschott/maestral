@@ -2989,7 +2989,8 @@ class SyncEngine:
         # apply deleted items
         if deleted:
             logger.info("Applying deletions...")
-        for items in deleted.values():
+        for level in sorted(deleted):
+            items = deleted[level]
             with ThreadPoolExecutor(
                 max_workers=self._num_threads,
                 thread_name_prefix="maestral-download-pool",
@@ -3004,7 +3005,8 @@ class SyncEngine:
         # create local folders, start with top-level and work your way down
         if folders:
             logger.info("Creating folders...")
-        for items in folders.values():
+        for level in sorted(folders):
+            items = folders[level]
             with ThreadPoolExecutor(
                 max_workers=self._num_threads,
                 thread_name_prefix="maestral-download-pool",
