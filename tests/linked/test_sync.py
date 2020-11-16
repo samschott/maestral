@@ -356,6 +356,7 @@ class TestSync(TestCase):
 
     def test_local_deletion_during_upload(self):
 
+        # we mimic a deletion during upload by queueing a fake FileCreatedEvent
         fake_created_event = FileCreatedEvent(self.test_folder_local + "/file.txt")
         self.m.monitor.fs_event_handler.local_file_event_queue.put(fake_created_event)
 
