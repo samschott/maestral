@@ -1,3 +1,18 @@
+## Unreleased
+
+#### Added:
+
+* Added a public API `Maetral.status_change_longpoll` for frontends to wait for status
+  changes without frequent polling. `status_change_longpoll` blocks until there is a
+  change in status and then returns ``True``. The default timeout iss 60 sec.
+* Added `utils.networkstatus` module which uses platform APIs to subscribe to changes in
+  network status if available and falls back to polling of the connection otherwise.
+
+#### Changes:
+
+* Increased timeout for all event queues.
+* Decreased the frequeny of Pyro daemon housekeeping tasks.
+
 ## v1.2.2
 
 This release focuses on bug fixes and performance improvements. In particular, memory
