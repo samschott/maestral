@@ -498,6 +498,11 @@ def start_maestral_daemon(
         with Daemon(unixsocket=sockpath) as daemon:
             daemon.register(maestral_daemon, f"maestral.{config_name}")
 
+            # reduce Pyro's housekeeping frequency from 2 sec to 20 sec
+            # this avoids constantly waking the CPU when we are idle
+            if daemon.transportServer.housekeeper:
+                daemon.transportServer.housekeeper.waittime = 20
+
             for socket in daemon.sockets:
                 loop.add_reader(socket.fileno(), daemon.events, daemon.sockets)
 
@@ -505,6 +510,9 @@ def start_maestral_daemon(
 
             for socket in daemon.sockets:
                 loop.remove_reader(socket.fileno())
+
+            # prevent housekeeping from blocking shutdown
+            daemon.transportServer.housekeeper = None
 
     except Exception:
         traceback.print_exc()
@@ -680,7 +688,7 @@ class MaestralProxy:
 
                 self._m = Maestral(config_name)
             else:
-                raise CommunicationError("Could not get proxy")
+                raise CommunicationError(f"Could not get proxy for '{config_name}'")
 
         self._is_fallback = not isinstance(self._m, Proxy)
 

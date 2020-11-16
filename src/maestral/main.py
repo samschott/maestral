@@ -11,11 +11,19 @@ import os
 import os.path as osp
 import platform
 import shutil
+import time
 import logging.handlers
 from collections import deque
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
-from typing import Union, List, Iterator, Dict, Optional, Deque, Any
+import random
+from concurrent.futures import ThreadPoolExecutor, Future, wait
+from typing import Union, List, Iterator, Dict, Set, Deque, Awaitable, Optional, Any
+
+try:
+    from concurrent.futures import InvalidStateError  # type: ignore
+except ImportError:
+    # Python 3.7 and lower
+    InvalidStateError = RuntimeError
 
 # external imports
 import requests
@@ -114,12 +122,14 @@ class CachedHandler(logging.Handler):
     """
 
     cached_records: Deque[logging.LogRecord]
+    _emit_future: Future
 
     def __init__(
         self, level: int = logging.NOTSET, maxlen: Optional[int] = None
     ) -> None:
         logging.Handler.__init__(self, level=level)
         self.cached_records = deque([], maxlen)
+        self._emit_future = Future()
 
     def emit(self, record: logging.LogRecord) -> None:
         """
@@ -130,13 +140,30 @@ class CachedHandler(logging.Handler):
         self.format(record)
         self.cached_records.append(record)
 
+        # notify any waiting coroutines that we have a status change
+        try:
+            self._emit_future.set_result(True)
+        except InvalidStateError:
+            pass
+
+    def wait_for_emit(self, timeout: Optional[float]) -> bool:
+        """
+        Blocks until a new record is emitted.
+
+        :param timeout: Maximum time to block before returning.
+        :returns: ``True``if there was a status change, ``False`` in case of a timeout.
+        """
+        done, not_done = wait([self._emit_future], timeout=timeout)
+        self._emit_future = Future()  # reset future
+        return len(done) == 1
+
     def getLastMessage(self) -> str:
         """
         :returns: The log message of the last record or an empty string.
         """
-        if len(self.cached_records) > 0:
+        try:
             return self.cached_records[-1].message
-        else:
+        except IndexError:
             return ""
 
     def getAllMessages(self) -> List[str]:
@@ -233,13 +260,15 @@ class Maestral:
 
         # schedule background tasks
         self._loop = asyncio.get_event_loop()
+        self._tasks: Set[asyncio.Task] = set()
         self._thread_pool = ThreadPoolExecutor(
             thread_name_prefix="maestral-thread-pool",
             max_workers=2,
         )
-        self._refresh_task = self._loop.create_task(
-            self._periodic_refresh(),
-        )
+
+        self._schedule_task(self._periodic_refresh_info())
+        self._schedule_task(self._period_update_check())
+        self._schedule_task(self._period_reindexing())
 
         # create a future which will return once `shutdown_daemon` is called
         # can be used by an event loop wait until maestral has been stopped
@@ -530,6 +559,19 @@ class Maestral:
         self.sync.notifier.notify_level = level
 
     # ==== state information  ==========================================================
+
+    def status_change_longpoll(self, timeout: Optional[float] = 60) -> bool:
+        """
+        Blocks until there is a change in status or until a timeout occurs. This method
+        can be used by frontends to wait for status changes without constant polling.
+
+        :param timeout: Maximum time to block before returning, even if there is no
+            status change.
+        :returns: ``True``if there was a status change, ``False`` in case of a timeout.
+
+        .. versionadded:: 1.3.0
+        """
+        return self._log_handler_info_cache.wait_for_emit(timeout)
 
     @property
     def pending_link(self) -> bool:
@@ -1322,13 +1364,15 @@ class Maestral:
 
         self.stop_sync()
 
-        self._refresh_task.cancel()
+        for task in self._tasks:
+            task.cancel()
+
         self._thread_pool.shutdown(wait=False)
 
         if self._loop.is_running():
             self._loop.call_soon_threadsafe(self.shutdown_complete.set_result, True)
 
-    # ==== private methods =============================================================
+    # ==== verifiers ===================================================================
 
     def _check_linked(self) -> None:
 
@@ -1344,6 +1388,8 @@ class Maestral:
                 "No local Dropbox directory",
                 'Call "create_dropbox_directory" to set up.',
             )
+
+    # ==== housekeeping on update  =====================================================
 
     def _check_and_run_post_update_scripts(self) -> None:
         """
@@ -1410,7 +1456,16 @@ class Maestral:
 
                         batch_op.drop_constraint(constraint_name=name, type_="unique")
 
-    async def _periodic_refresh(self) -> None:
+    # ==== period async jobs ===========================================================
+
+    def _schedule_task(self, coro: Awaitable) -> None:
+
+        task = self._loop.create_task(coro)
+        self._tasks.add(task)
+
+    async def _periodic_refresh_info(self) -> None:
+
+        await asyncio.sleep(60 * 5)
 
         while True:
             # update account info
@@ -1425,7 +1480,13 @@ class Maestral:
                         self._thread_pool, self.get_profile_pic
                     )
 
-            # check for maestral updates
+            await asyncio.sleep(60 * (44.5 + random.random()))  # (45 +/- 1) min
+
+    async def _period_update_check(self) -> None:
+
+        await asyncio.sleep(60 * 3)
+
+        while True:
             res = await self._loop.run_in_executor(
                 self._thread_pool, self.check_for_updates
             )
@@ -1433,7 +1494,20 @@ class Maestral:
             if not res["error"]:
                 self._state.set("app", "latest_release", res["latest_release"])
 
-            await asyncio.sleep(60 * 60)  # 60 min
+            await asyncio.sleep(60 * (59.5 + random.random()))  # (60 +/- 1) min
+
+    async def _period_reindexing(self) -> None:
+
+        while True:
+
+            if self.monitor.running.is_set():
+                reindexing_due = (
+                    time.time() - self.sync.last_reindex > self.monitor.reindex_interval
+                )
+                if reindexing_due and self.monitor.idle_time > 20 * 60:
+                    self.monitor.rebuild_index()
+
+            await asyncio.sleep(60 * (9.5 + random.random()))  # (10 +/- 1) min
 
     def __repr__(self) -> str:
 
