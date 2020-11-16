@@ -31,6 +31,7 @@ from dropbox import (  # type: ignore
     Dropbox,
     create_session,
     files,
+    sharing,
     users,
     exceptions,
     async_,
@@ -479,15 +480,11 @@ class DropboxClient:
                             sync_event.completed = f.tell()
 
         # dropbox SDK provides naive datetime in UTC
-        client_mod_timestamp = md.client_modified.replace(
-            tzinfo=timezone.utc
-        ).timestamp()
-        server_mod_timestamp = md.server_modified.replace(
-            tzinfo=timezone.utc
-        ).timestamp()
+        client_mod = md.client_modified.replace(tzinfo=timezone.utc)
+        server_mod = md.server_modified.replace(tzinfo=timezone.utc)
 
         # enforce client_modified < server_modified
-        timestamp = min(client_mod_timestamp, server_mod_timestamp, time.time())
+        timestamp = min(client_mod.timestamp(), server_mod.timestamp(), time.time())
         # set mtime of downloaded file
         os.utime(local_path, (time.time(), timestamp))
 
@@ -967,6 +964,85 @@ class DropboxClient:
             while result.has_more:
                 result = self.dbx.files_list_folder_continue(result.cursor)
                 yield result
+
+    @convert_api_errors_decorator(dbx_path_arg=1)
+    def create_shared_link(
+        self,
+        dbx_path: str,
+        visibility: sharing.RequestedVisibility = sharing.RequestedVisibility.public,
+        password: Optional[str] = None,
+        expires: Optional[datetime] = None,
+    ) -> sharing.SharedLinkMetadata:
+        """
+        Creates a shared link for the given path. Some options are only available for
+        Professional and Business accounts
+
+        :param dbx_path: Dropbox path to file or folder to share.
+        :param visibility: The visibility of the shared item. Can be public, team-only,
+            or password protected. In case of the latter, the password argument must be
+            given. Only available for Professional and Business accounts.
+        :param password: Password to protect shared link. Is required if visibility
+            is set to password protected and will be ignored otherwise
+        :param expires: Expiry time for shared link. Only available for Professional and
+            Business accounts.
+        :returns: Metadata for shared link.
+        """
+
+        if visibility.is_password() and not password:
+            raise MaestralApiError(
+                "Invalid shared link setting",
+                "Password is required to share a password-protected link",
+            )
+
+        if not visibility.is_password():
+            password = None
+
+        # convert timestamp to utc time if not naive
+        if expires is not None:
+            has_timezone = expires.tzinfo and expires.tzinfo.utcoffset(expires)
+            if has_timezone:
+                expires.astimezone(timezone.utc)
+
+        settings = sharing.SharedLinkSettings(
+            requested_visibility=visibility,
+            link_password=password,
+            expires=expires,
+        )
+
+        with convert_api_errors(dbx_path=dbx_path):
+            res = self.dbx.sharing_create_shared_link_with_settings(dbx_path, settings)
+
+        return res
+
+    def revoke_shared_link(self, url: str) -> None:
+        """
+        Revokes a shared link.
+
+        :param url: URL to revoke.
+        """
+        with convert_api_errors():
+            self.dbx.sharing_revoke_shared_link(url)
+
+    def list_shared_links(self, dbx_path: str) -> sharing.ListSharedLinksResult:
+        """
+        Lists all shared links for a given Dropbox path (file or folder).
+
+        :param dbx_path: Dropbox path to file or folder.
+        :returns: Shared links for a path, including any shared links for parents
+            through which this path is accessible.
+        """
+
+        results = []
+
+        with convert_api_errors(dbx_path=dbx_path):
+            res = self.dbx.sharing_list_shared_links(dbx_path)
+            results.append(res)
+
+            while results[-1].has_more:
+                res = self.dbx.sharing_list_shared_links(dbx_path, results[-1].cursor)
+                results.append(res)
+
+        return self.flatten_results(results, attribute_name="links")
 
     @staticmethod
     def flatten_results(
