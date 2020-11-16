@@ -3198,7 +3198,6 @@ class SyncEngine:
             )
             return Conflict.Conflict
 
-    def _get_ctime(self, local_path: str, ignore_excluded: bool = True) -> float:
     def has_unsynced_changes(self, local_path: str) -> bool:
         """
         Checks if a local item has any unsynced changes. This is by comparing its ctime
@@ -3246,15 +3245,13 @@ class SyncEngine:
             # check our ctime against index
             return os.stat(local_path).st_ctime > self.get_last_sync(dbx_path)
 
+    def _get_ctime(self, local_path: str) -> float:
         """
         Returns the ctime of a local item or -1.0 if there is nothing at the path. If
-        the item is a directory, return the largest ctime of it and its children.
+        the item is a directory, return the largest ctime of it and its children. Items
+        which are excluded from syncing (eg., .DS_Store files) are ignored.
 
         :param local_path: Absolute path on local drive.
-        :param ignore_excluded: If ``True``, the ctimes of children for which
-            :meth:`is_excluded` evaluates to ``True`` are disregarded. This is only
-            relevant if ``local_path`` points to a directory and has no effect if it
-            points to a path.
         :returns: Ctime or -1.0.
         """
         try:
@@ -3263,9 +3260,15 @@ class SyncEngine:
                 ctime = stat.st_ctime
                 with os.scandir(local_path) as it:
                     for entry in it:
-                        ignore = ignore_excluded and self.is_excluded(entry.name)
-                        if not ignore:
-                            ctime = max(ctime, entry.stat().st_ctime)
+                        if entry.is_dir():
+                            child_ctime = self._get_ctime(entry.path)
+                        elif not self.is_excluded(entry.name):
+                            child_ctime = entry.stat().st_ctime
+                        else:
+                            child_ctime = -1.0
+
+                        ctime = max(ctime, child_ctime)
+
                 return ctime
             else:
                 return os.stat(local_path).st_ctime
