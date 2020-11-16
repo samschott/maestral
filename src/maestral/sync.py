@@ -14,6 +14,7 @@ import logging
 import time
 import tempfile
 import random
+import uuid
 from threading import Thread, Event, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
@@ -255,14 +256,13 @@ class FSEventHandler(FileSystemEventHandler):
     _ignored_events: List[_Ignore]
     local_file_event_queue: "Queue[FileSystemEvent]"
 
-    ignore_timeout = 2.0
-
     def __init__(self, syncing: Event, startup: Event) -> None:
 
         self.syncing = syncing
         self.startup = startup
 
         self._ignored_events = []
+        self.ignore_timeout = 2.0
         self.local_file_event_queue = Queue()
 
     @contextmanager
@@ -2076,27 +2076,33 @@ class SyncEngine:
         # COMBINE EVENTS TO ONE EVENT PER PATH
 
         # Move events are difficult to combine with other event types, we split them
-        # into deleted and created events and recombine them later if none of the paths
-        # has other events associated with it or is excluded from sync.
+        # into deleted and created events and recombine them later if neither the source
+        # of the destination path of has other events associated with it or is excluded
+        # from sync.
 
         histories: Dict[str, List[FileSystemEvent]] = dict()
+        moved_events: Dict[str, List[FileSystemEvent]] = dict()
+        unique_events: List[FileSystemEvent] = []
 
-        for i, event in enumerate(events):
+        for event in events:
             if isinstance(event, (FileMovedEvent, DirMovedEvent)):
                 deleted, created = split_moved_event(event)
-                deleted.id = i
-                created.id = i
-
                 add_to_bin(histories, deleted.src_path, deleted)
                 add_to_bin(histories, created.src_path, created)
             else:
                 add_to_bin(histories, event.src_path, event)
 
-        unique_events = []
+        # for every path, keep only a single event which represents all changes
 
         for path, events in histories.items():
             if len(events) == 1:
-                unique_events.append(events[0])
+                event = events[0]
+                unique_events.append(event)
+
+                if hasattr(event, "move_id"):
+                    # add to list "moved_events" to recombine line
+                    add_to_bin(moved_events, event.move_id, event)
+
             else:
 
                 n_created = len(
@@ -2118,7 +2124,7 @@ class SyncEngine:
                         unique_events.append(FileDeletedEvent(path))
                 else:
 
-                    first_created_idx = next(
+                    first_created_index = next(
                         iter(
                             i
                             for i, e in enumerate(events)
@@ -2126,7 +2132,7 @@ class SyncEngine:
                         ),
                         -1,
                     )
-                    first_deleted_idx = next(
+                    first_deleted_index = next(
                         iter(
                             i
                             for i, e in enumerate(events)
@@ -2135,7 +2141,7 @@ class SyncEngine:
                         -1,
                     )
 
-                    if n_created == 0 or first_deleted_idx < first_created_idx:
+                    if n_created == 0 or first_deleted_index < first_created_index:
                         # item was modified
                         if events[0].is_directory and events[-1].is_directory:
                             unique_events.append(DirModifiedEvent(path))
@@ -2157,26 +2163,27 @@ class SyncEngine:
         cleaned_events = set(unique_events)
 
         # recombine moved events
-        moved_events: Dict[str, List[FileSystemEvent]] = dict()
-        for event in cleaned_events:
-            if hasattr(event, "id"):
-                add_to_bin(moved_events, event.id, event)
 
-        for event_list in moved_events.values():
-            if len(event_list) == 2:
+        for split_events in moved_events.values():
+            if len(split_events) == 2:
                 src_path = next(
-                    e.src_path for e in event_list if e.event_type == EVENT_TYPE_DELETED
+                    e.src_path
+                    for e in split_events
+                    if e.event_type == EVENT_TYPE_DELETED
                 )
                 dest_path = next(
-                    e.src_path for e in event_list if e.event_type == EVENT_TYPE_CREATED
+                    e.src_path
+                    for e in split_events
+                    if e.event_type == EVENT_TYPE_CREATED
                 )
-                if event_list[0].is_directory:
+                if split_events[0].is_directory:
                     new_event = DirMovedEvent(src_path, dest_path)
                 else:
                     new_event = FileMovedEvent(src_path, dest_path)
 
+                # only recombine events if neither is in an excluded path
                 if not self._should_split_excluded(new_event):
-                    cleaned_events.difference_update(event_list)
+                    cleaned_events.difference_update(split_events)
                     cleaned_events.add(new_event)
 
         # COMBINE MOVED AND DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
@@ -2209,8 +2216,8 @@ class SyncEngine:
                     except KeyError:
                         pass
 
-            for event_list in child_moved_events.values():
-                cleaned_events.difference_update(event_list)
+            for split_events in child_moved_events.values():
+                cleaned_events.difference_update(split_events)
 
         # 2) combine deleted events of folders and their children to one event
         dir_deleted_paths = set(
@@ -2230,8 +2237,8 @@ class SyncEngine:
                     except KeyError:
                         pass
 
-            for event_list in child_deleted_events.values():
-                cleaned_events.difference_update(event_list)
+            for split_events in child_deleted_events.values():
+                cleaned_events.difference_update(split_events)
 
         logger.debug(
             "Cleaned up local file events:\n%s", pprint.pformat(cleaned_events)
@@ -4264,7 +4271,7 @@ def split_moved_event(
 ) -> Tuple[FileSystemEvent, FileSystemEvent]:
     """
     Splits a FileMovedEvent or DirMovedEvent into "deleted" and "created" events of the
-    same type.
+    same type. A new attribute ``move_id`` is added to both instances.
 
     :param event: Original event.
     :returns: Tuple of deleted and created events.
@@ -4277,7 +4284,15 @@ def split_moved_event(
         created_event_cls = FileCreatedEvent
         deleted_event_cls = FileDeletedEvent
 
-    return deleted_event_cls(event.src_path), created_event_cls(event.dest_path)
+    deleted_event = deleted_event_cls(event.src_path)
+    created_event = created_event_cls(event.dest_path)
+
+    move_id = uuid.uuid4()
+
+    deleted_event.move_id = move_id
+    created_event.move_id = move_id
+
+    return deleted_event, created_event
 
 
 def entries_repr(entries: List[Metadata]) -> str:
