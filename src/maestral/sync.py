@@ -2974,12 +2974,12 @@ class SyncEngine:
 
             level = event.dbx_path.count("/")
 
-            if event.is_file:
+            if event.is_deleted:
+                add_to_bin(deleted, level, event)
+            elif event.is_file:
                 files.append(event)
             elif event.is_directory:
                 add_to_bin(folders, level, event)
-            elif event.is_deleted:
-                add_to_bin(deleted, level, event)
 
             # housekeeping
             self.syncing.append(event)
