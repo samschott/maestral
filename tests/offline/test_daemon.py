@@ -5,8 +5,8 @@ import subprocess
 import threading
 import multiprocessing as mp
 import uuid
-import unittest
-from unittest import TestCase
+
+import pytest
 
 from maestral.daemon import (
     CommunicationError,
@@ -20,236 +20,231 @@ from maestral.daemon import (
     Lock,
     IS_MACOS,
 )
-from maestral.utils.housekeeping import remove_configuration
 from maestral.main import Maestral
 from maestral.errors import NotLinkedError
+from maestral.config import list_configs
+from maestral.utils.housekeeping import remove_configuration
 
 
-class TestDaemonLock(TestCase):
-    def test_locking_from_same_thread(self):
-        lock_name = "test-lock-" + str(uuid.uuid4())
+@pytest.fixture
+def config_name(prefix: str = "test-config"):
 
-        # initialise lock
-        lock = Lock.singleton(lock_name)
-        self.assertFalse(lock.locked())
+    i = 0
+    config_name = f"{prefix}-{i}"
 
-        # acquire lock
-        res = lock.acquire()
-        self.assertTrue(res)
-        self.assertTrue(lock.locked())
+    while config_name in list_configs():
+        i += 1
+        config_name = f"{prefix}-{i}"
 
-        # try to reacquire
-        res = lock.acquire()
-        self.assertFalse(res)
-        self.assertTrue(lock.locked())
+    yield config_name
 
-        # check pid of locking process
-        self.assertEqual(lock.locking_pid(), os.getpid())
+    res = stop_maestral_daemon_process(config_name)
 
-        # release lock
+    if res is Stop.Failed:
+        raise RuntimeError("Could not stop test daemon")
+
+    remove_configuration(config_name)
+
+
+# locking tests
+
+
+def test_locking_from_same_thread():
+    lock_name = "test-lock-" + str(uuid.uuid4())
+
+    # initialise lock
+    lock = Lock.singleton(lock_name)
+    assert not lock.locked()
+
+    # acquire lock
+    res = lock.acquire()
+    assert res
+    assert lock.locked()
+
+    # try to reacquire
+    res = lock.acquire()
+    assert not res
+    assert lock.locked()
+
+    # check pid of locking process
+    assert lock.locking_pid() == os.getpid()
+
+    # release lock
+    lock.release()
+    assert not lock.locked()
+
+    # try to re-release lock
+    with pytest.raises(RuntimeError):
         lock.release()
-        self.assertFalse(lock.locked())
 
-        # try to re-release lock
-        with self.assertRaises(RuntimeError):
-            lock.release()
 
-    def test_locking_threaded(self):
-        lock_name = "test-lock-" + str(uuid.uuid4())
+def test_locking_threaded():
+    lock_name = "test-lock-" + str(uuid.uuid4())
 
-        # initialise lock
-        lock = Lock.singleton(lock_name)
-        self.assertFalse(lock.locked())
+    # initialise lock
+    lock = Lock.singleton(lock_name)
+    assert not lock.locked()
 
-        # acquire lock from thread
+    # acquire lock from thread
 
-        def acquire_in_thread():
-            l = Lock.singleton(lock_name)
-            l.acquire()
+    def acquire_in_thread():
+        l = Lock.singleton(lock_name)
+        l.acquire()
 
-        t = threading.Thread(
-            target=acquire_in_thread,
-            daemon=True,
-        )
-        t.start()
+    t = threading.Thread(
+        target=acquire_in_thread,
+        daemon=True,
+    )
+    t.start()
 
-        # check that lock is acquired
-        self.assertTrue(lock.locked())
+    # check that lock is acquired
+    assert lock.locked()
 
-        # try to re-acquire
-        res = lock.acquire()
-        self.assertFalse(res)
-        self.assertTrue(lock.locked())
+    # try to re-acquire
+    res = lock.acquire()
+    assert not res
+    assert lock.locked()
 
-        # check pid of locking process
-        self.assertEqual(lock.locking_pid(), os.getpid())
+    # check pid of locking process
+    assert lock.locking_pid() == os.getpid()
 
-        # release lock
+    # release lock
+    lock.release()
+    assert not lock.locked()
+
+    # try to re-release lock
+    with pytest.raises(RuntimeError):
         lock.release()
-        self.assertFalse(lock.locked())
-
-        # try to re-release lock
-        with self.assertRaises(RuntimeError):
-            lock.release()
-
-    def test_locking_multiprocess(self):
-        lock_name = "test-lock-" + str(uuid.uuid4())
-
-        # initialise lock
-        lock = Lock.singleton(lock_name)
-        self.assertFalse(lock.locked())
-
-        # acquire lock from different process
-
-        cmd = (
-            "import time; from maestral.daemon import Lock; "
-            f"l = Lock.singleton({lock_name!r}); l.acquire(); "
-            "time.sleep(60);"
-        )
-
-        p = subprocess.Popen([sys.executable, "-c", cmd])
-
-        time.sleep(1)
-
-        # check that lock is acquired
-        self.assertTrue(lock.locked())
-
-        # try to re-acquire
-        res = lock.acquire()
-        self.assertFalse(res)
-        self.assertTrue(lock.locked())
-
-        # try to release lock, will fail because it is owned by a different process
-        with self.assertRaises(RuntimeError):
-            lock.release()
-
-        # check pid of locking process
-        self.assertEqual(lock.locking_pid(), p.pid)
-
-        # release lock by terminating process
-        p.terminate()
-        p.wait()
-        self.assertFalse(lock.locked())
 
 
-class TestDaemonLifecycle(TestCase):
-    config_name = "daemon-lifecycle-test"
+def test_locking_multiprocess():
+    lock_name = "test-lock-" + str(uuid.uuid4())
 
-    def cleanUp(self):
-        res = stop_maestral_daemon_process(self.config_name)
+    # initialise lock
+    lock = Lock.singleton(lock_name)
+    assert not lock.locked()
 
-        if res is Stop.Failed:
-            raise RuntimeError("Could not stop test daemon")
+    # acquire lock from different process
 
-    def test_lifecycle_detached(self):
+    cmd = (
+        "import time; from maestral.daemon import Lock; "
+        f"l = Lock.singleton({lock_name!r}); l.acquire(); "
+        "time.sleep(60);"
+    )
 
-        # start daemon process
-        res = start_maestral_daemon_process(self.config_name)
-        self.assertEqual(res, Start.Ok)
+    p = subprocess.Popen([sys.executable, "-c", cmd])
 
-        # retry start daemon process
-        res = start_maestral_daemon_process(self.config_name)
-        self.assertEqual(res, Start.AlreadyRunning)
+    time.sleep(1)
 
-        # retry start daemon in-process
-        with self.assertRaises(RuntimeError):
-            start_maestral_daemon(self.config_name)
+    # check that lock is acquired
+    assert lock.locked()
 
-        # stop daemon
-        res = stop_maestral_daemon_process(self.config_name)
-        self.assertEqual(res, Stop.Ok)
+    # try to re-acquire
+    res = lock.acquire()
+    assert not res
+    assert lock.locked()
 
-        # retry stop daemon
-        res = stop_maestral_daemon_process(self.config_name)
-        self.assertEqual(res, Stop.NotRunning)
+    # try to release lock, will fail because it is owned by a different process
+    with pytest.raises(RuntimeError):
+        lock.release()
 
-        # clean up config
-        remove_configuration(self.config_name)
+    # check pid of locking process
+    assert lock.locking_pid() == p.pid
 
-    def test_lifecycle_attached(self):
-
-        # start daemon process
-        res = start_maestral_daemon_process(self.config_name, detach=False)
-        self.assertEqual(res, Start.Ok)
-
-        # check that we have attached process
-        ctx = mp.get_context("spawn" if IS_MACOS else "fork")
-        daemon = ctx.active_children()[0]
-        self.assertEqual(daemon.name, "maestral-daemon")
-
-        # stop daemon
-        res = stop_maestral_daemon_process(self.config_name)
-        self.assertEqual(res, Stop.Ok)
-
-        # retry stop daemon
-        res = stop_maestral_daemon_process(self.config_name)
-        self.assertEqual(res, Stop.NotRunning)
-
-        # clean up config
-        remove_configuration(self.config_name)
+    # release lock by terminating process
+    p.terminate()
+    p.wait()
+    assert not lock.locked()
 
 
-class TestMaestralProxy(TestCase):
-    config_name = "daemon-proxy-test"
-
-    def cleanUp(self):
-        res = stop_maestral_daemon_process(self.config_name)
-
-        if res is Stop.Failed:
-            raise RuntimeError("Could not stop test daemon")
-
-    def test_connection(self):
-
-        # start daemon process
-        res = start_maestral_daemon_process(self.config_name)
-        self.assertEqual(Start.Ok, res)
-
-        # create proxy
-        with MaestralProxy(self.config_name) as m:
-            self.assertEqual(m.config_name, self.config_name)
-            self.assertFalse(m._is_fallback)
-            self.assertIsInstance(m._m, Proxy)
-
-        # stop daemon
-        res = stop_maestral_daemon_process(self.config_name)
-        self.assertEqual(res, Stop.Ok)
-
-        # clean up config
-        remove_configuration(self.config_name)
-
-    def test_fallback(self):
-
-        config_name = "daemon-lifecycle-test"
-
-        # create proxy w/o fallback
-        with self.assertRaises(CommunicationError):
-            MaestralProxy(config_name)
-
-        # create proxy w/ fallback
-        with MaestralProxy(config_name, fallback=True) as m:
-            self.assertEqual(m.config_name, config_name)
-            self.assertTrue(m._is_fallback)
-            self.assertIsInstance(m._m, Maestral)
-
-        # clean up config
-        remove_configuration(config_name)
-
-    def test_remote_exceptions(self):
-
-        # start daemon process
-        start_maestral_daemon_process(self.config_name)
-
-        # create proxy and call a remote method which raises an error
-        with MaestralProxy(self.config_name) as m:
-            with self.assertRaises(NotLinkedError):
-                m.get_account_info()
-
-        # stop daemon
-        stop_maestral_daemon_process(self.config_name)
-
-        # clean up config
-        remove_configuration(self.config_name)
+# daemon lifecycle tests
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_lifecycle_detached(config_name):
+
+    # start daemon process
+    res = start_maestral_daemon_process(config_name)
+    assert res is Start.Ok
+
+    # retry start daemon process
+    res = start_maestral_daemon_process(config_name)
+    assert res is Start.AlreadyRunning
+
+    # retry start daemon in-process
+    with pytest.raises(RuntimeError):
+        start_maestral_daemon(config_name)
+
+    # stop daemon
+    res = stop_maestral_daemon_process(config_name)
+    assert res is Stop.Ok
+
+    # retry stop daemon
+    res = stop_maestral_daemon_process(config_name)
+    assert res is Stop.NotRunning
+
+
+def test_lifecycle_attached(config_name):
+
+    # start daemon process
+    res = start_maestral_daemon_process(config_name, detach=False)
+    assert res is Start.Ok
+
+    # check that we have attached process
+    ctx = mp.get_context("spawn" if IS_MACOS else "fork")
+    daemon = ctx.active_children()[0]
+    assert daemon.name == "maestral-daemon"
+
+    # stop daemon
+    res = stop_maestral_daemon_process(config_name)
+    assert res is Stop.Ok
+
+    # retry stop daemon
+    res = stop_maestral_daemon_process(config_name)
+    assert res is Stop.NotRunning
+
+
+# proxy tests
+
+
+def test_connection(config_name):
+
+    # start daemon process
+    res = start_maestral_daemon_process(config_name)
+    assert res is Start.Ok
+
+    # create proxy
+    with MaestralProxy(config_name) as m:
+        assert m.config_name == config_name
+        assert not m._is_fallback
+        assert isinstance(m._m, Proxy)
+
+    # stop daemon
+    res = stop_maestral_daemon_process(config_name)
+    assert res is Stop.Ok
+
+
+def test_fallback(config_name):
+
+    # create proxy w/o fallback
+    with pytest.raises(CommunicationError):
+        MaestralProxy(config_name)
+
+    # create proxy w/ fallback
+    with MaestralProxy(config_name, fallback=True) as m:
+        assert m.config_name == config_name
+        assert m._is_fallback
+        assert isinstance(m._m, Maestral)
+
+
+def test_remote_exceptions(config_name):
+
+    # start daemon process
+    start_maestral_daemon_process(config_name)
+
+    # create proxy and call a remote method which raises an error
+    with MaestralProxy(config_name) as m:
+        with pytest.raises(NotLinkedError):
+            m.get_account_info()
+
+    # stop daemon
+    stop_maestral_daemon_process(config_name)
