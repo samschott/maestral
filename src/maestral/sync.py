@@ -1870,7 +1870,7 @@ class SyncEngine:
                 # always upload untracked items, check ctime of tracked items
                 local_entry = self.get_index_entry(dbx_path_lower)
                 is_new = local_entry is None
-                is_modified = ctime_check and not is_new
+                is_modified = ctime_check and local_entry is not None
 
                 if is_new:
                     if snapshot.isdir(path):
@@ -1880,10 +1880,10 @@ class SyncEngine:
                     changes.append(event)
 
                 elif is_modified:
-                    if snapshot.isdir(path) and local_entry.is_directory:
+                    if snapshot.isdir(path) and local_entry.is_directory:  # type: ignore
                         event = DirModifiedEvent(path)
                         changes.append(event)
-                    elif not snapshot.isdir(path) and not local_entry.is_directory:
+                    elif not snapshot.isdir(path) and not local_entry.is_directory:  # type: ignore
                         event = FileModifiedEvent(path)
                         changes.append(event)
                     elif snapshot.isdir(path):
