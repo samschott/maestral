@@ -2013,7 +2013,7 @@ class SyncEngine:
 
                     n_items = len(other)
                     for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                        throttled_log(logger, f"Syncing ↓ {n}/{n_items}...")
+                        throttled_log(logger, f"Syncing ↑ {n}/{n_items}...")
                         results.append(f.result())
 
                 self._clean_history()
@@ -2894,8 +2894,8 @@ class SyncEngine:
         logger.debug("Listed remote changes:\n%s", entries_repr(changes.entries))
         clean_changes = self._clean_remote_changes(changes)
         logger.debug("Cleaned remote changes:\n%s", entries_repr(clean_changes.entries))
-
         sync_events = [SyncEvent.from_dbx_metadata(md, self) for md in changes.entries]
+        logger.debug("Converted remote changes to SyncEvents")
         return sync_events, changes.cursor
 
     def list_remote_changes_iterator(
@@ -2923,6 +2923,8 @@ class SyncEngine:
             sync_events = [
                 SyncEvent.from_dbx_metadata(md, self) for md in changes.entries
             ]
+
+            logger.debug("Converted remote changes to SyncEvents")
 
             cursor = changes.cursor if not changes.has_more else None
             yield sync_events, cursor
