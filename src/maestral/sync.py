@@ -2773,7 +2773,7 @@ class SyncEngine:
             success = True
 
             if is_dbx_root:
-                logger.info("Fetching your Dropbox")
+                logger.info("Fetching remote Dropbox")
             else:
                 logger.info("Syncing ↓ %s", dbx_path)
 
@@ -2904,12 +2904,19 @@ class SyncEngine:
         :returns: Tuple with remote changes and corresponding cursor
         """
         logger.info("Fetching remote changes...")
+
         changes = self.client.list_remote_changes(last_cursor)
         logger.debug("Listed remote changes:\n%s", entries_repr(changes.entries))
+
         clean_changes = self._clean_remote_changes(changes)
         logger.debug("Cleaned remote changes:\n%s", entries_repr(clean_changes.entries))
-        sync_events = [SyncEvent.from_dbx_metadata(md, self) for md in changes.entries]
+
+        clean_changes.entries.sort(key=lambda x: x.path_lower.count("/"))
+        sync_events = [
+            SyncEvent.from_dbx_metadata(md, self) for md in clean_changes.entries
+        ]
         logger.debug("Converted remote changes to SyncEvents")
+
         return sync_events, changes.cursor
 
     def list_remote_changes_iterator(
@@ -2925,17 +2932,21 @@ class SyncEngine:
         """
 
         logger.info("Fetching remote changes...")
+
         changes_iter = self.client.list_remote_changes_iterator(last_cursor)
 
         for changes in changes_iter:
+
             logger.debug("Listed remote changes:\n%s", entries_repr(changes.entries))
+
             clean_changes = self._clean_remote_changes(changes)
             logger.debug(
                 "Cleaned remote changes:\n%s", entries_repr(clean_changes.entries)
             )
 
+            clean_changes.entries.sort(key=lambda x: x.path_lower.count("/"))
             sync_events = [
-                SyncEvent.from_dbx_metadata(md, self) for md in changes.entries
+                SyncEvent.from_dbx_metadata(md, self) for md in clean_changes.entries
             ]
 
             logger.debug("Converted remote changes to SyncEvents")
