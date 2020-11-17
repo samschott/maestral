@@ -14,6 +14,7 @@ import logging
 import time
 import tempfile
 import random
+import uuid
 from threading import Thread, Event, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
@@ -98,7 +99,6 @@ from .errors import (
     DropboxServerError,
     FileConflictError,
     FolderConflictError,
-    IsAFolderError,
     InvalidDbidError,
     DatabaseError,
 )
@@ -255,14 +255,13 @@ class FSEventHandler(FileSystemEventHandler):
     _ignored_events: List[_Ignore]
     local_file_event_queue: "Queue[FileSystemEvent]"
 
-    ignore_timeout = 2.0
-
     def __init__(self, syncing: Event, startup: Event) -> None:
 
         self.syncing = syncing
         self.startup = startup
 
         self._ignored_events = []
+        self.ignore_timeout = 2.0
         self.local_file_event_queue = Queue()
 
     @contextmanager
@@ -598,25 +597,15 @@ class SyncEvent(Base):  # type: ignore
             rev = None
             hash_str = None
             dbx_id = None
+            change_dbid = None
 
-            try:
-                old_md = sync_engine.client.list_revisions(
-                    md.path_lower, limit=1
-                ).entries[0]
-                item_type = ItemType.File
-                if not old_md.sharing_info:
-                    # file is not in a shared folder, therefore
-                    # the current user must have deleted it
-                    change_dbid = sync_engine.client.account_id
-                else:
-                    # we cannot determine who deleted the item
-                    change_dbid = None
-            except IsAFolderError:
+            local_rev = sync_engine.get_local_rev(md.path_lower)
+            if local_rev == "folder":
                 item_type = ItemType.Folder
-                change_dbid = None
-            except NotFoundError:
+            elif local_rev is not None:
+                item_type = ItemType.File
+            else:
                 item_type = ItemType.Unknown
-                change_dbid = None
 
         elif isinstance(md, FolderMetadata):
             # there is currently no API call to determine who added a folder
@@ -1842,30 +1831,37 @@ class SyncEngine:
         """
 
         changes = []
-        now = time.time()
+        snapshot_time = time.time()
         snapshot = DirectorySnapshot(self.dropbox_path)
+        lowercase_snapshot_paths: Set[str] = set()
 
         # don't use iterator here but pre-fetch all entries
         # this significantly improves performance but can lead to high memory usage
         entries = self.get_index()
 
-        # get lowercase paths
-        lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
-
         # get modified or added items
         for path in snapshot.paths:
+
+            # generate lower-case snapshot paths for later
+            lowercase_snapshot_paths.add(path.lower())
+
             if path != self.dropbox_path:
-                stats = snapshot.stat_info(path)
-                # check if item was created or modified since last sync
-                # but before we started the FileEventHandler (~now)
+
                 dbx_path_lower = self.to_dbx_path(path).lower()
-                ctime_check = now > stats.st_ctime > self.get_last_sync(dbx_path_lower)
+
+                # check if item was created or modified since last sync
+                # but before we started the FileEventHandler (~snapshot_time)
+                stats = snapshot.stat_info(path)
+                ctime_check = (
+                    snapshot_time > stats.st_ctime > self.get_last_sync(dbx_path_lower)
+                )
 
                 # always upload untracked items, check ctime of tracked items
                 local_entry = self.get_index_entry(dbx_path_lower)
-                is_modified = local_entry and ctime_check
+                is_new = local_entry is None
+                is_modified = ctime_check and local_entry is not None
 
-                if not local_entry:
+                if is_new:
                     if snapshot.isdir(path):
                         event = DirCreatedEvent(path)
                     else:
@@ -1873,10 +1869,10 @@ class SyncEngine:
                     changes.append(event)
 
                 elif is_modified:
-                    if snapshot.isdir(path) and local_entry.is_directory:
+                    if snapshot.isdir(path) and local_entry.is_directory:  # type: ignore
                         event = DirModifiedEvent(path)
                         changes.append(event)
-                    elif not snapshot.isdir(path) and not local_entry.is_directory:
+                    elif not snapshot.isdir(path) and not local_entry.is_directory:  # type: ignore
                         event = FileModifiedEvent(path)
                         changes.append(event)
                     elif snapshot.isdir(path):
@@ -1905,7 +1901,7 @@ class SyncEngine:
         del lowercase_snapshot_paths
         gc.collect()
 
-        return changes, now
+        return changes, snapshot_time
 
     def wait_for_local_changes(
         self, timeout: float = 40, delay: float = 1
@@ -2013,7 +2009,7 @@ class SyncEngine:
 
                     n_items = len(other)
                     for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                        throttled_log(logger, f"Syncing ↑ {n}/{n_items}...")
+                        throttled_log(logger, f"Syncing ↑ {n}/{n_items}")
                         results.append(f.result())
 
                 self._clean_history()
@@ -2069,27 +2065,33 @@ class SyncEngine:
         # COMBINE EVENTS TO ONE EVENT PER PATH
 
         # Move events are difficult to combine with other event types, we split them
-        # into deleted and created events and recombine them later if none of the paths
-        # has other events associated with it or is excluded from sync.
+        # into deleted and created events and recombine them later if neither the source
+        # of the destination path of has other events associated with it or is excluded
+        # from sync.
 
         histories: Dict[str, List[FileSystemEvent]] = dict()
+        moved_events: Dict[str, List[FileSystemEvent]] = dict()
+        unique_events: List[FileSystemEvent] = []
 
-        for i, event in enumerate(events):
+        for event in events:
             if isinstance(event, (FileMovedEvent, DirMovedEvent)):
                 deleted, created = split_moved_event(event)
-                deleted.id = i
-                created.id = i
-
                 add_to_bin(histories, deleted.src_path, deleted)
                 add_to_bin(histories, created.src_path, created)
             else:
                 add_to_bin(histories, event.src_path, event)
 
-        unique_events = []
+        # for every path, keep only a single event which represents all changes
 
         for path, events in histories.items():
             if len(events) == 1:
-                unique_events.append(events[0])
+                event = events[0]
+                unique_events.append(event)
+
+                if hasattr(event, "move_id"):
+                    # add to list "moved_events" to recombine line
+                    add_to_bin(moved_events, event.move_id, event)
+
             else:
 
                 n_created = len(
@@ -2111,7 +2113,7 @@ class SyncEngine:
                         unique_events.append(FileDeletedEvent(path))
                 else:
 
-                    first_created_idx = next(
+                    first_created_index = next(
                         iter(
                             i
                             for i, e in enumerate(events)
@@ -2119,7 +2121,7 @@ class SyncEngine:
                         ),
                         -1,
                     )
-                    first_deleted_idx = next(
+                    first_deleted_index = next(
                         iter(
                             i
                             for i, e in enumerate(events)
@@ -2128,7 +2130,7 @@ class SyncEngine:
                         -1,
                     )
 
-                    if n_created == 0 or first_deleted_idx < first_created_idx:
+                    if n_created == 0 or first_deleted_index < first_created_index:
                         # item was modified
                         if events[0].is_directory and events[-1].is_directory:
                             unique_events.append(DirModifiedEvent(path))
@@ -2150,26 +2152,27 @@ class SyncEngine:
         cleaned_events = set(unique_events)
 
         # recombine moved events
-        moved_events: Dict[str, List[FileSystemEvent]] = dict()
-        for event in cleaned_events:
-            if hasattr(event, "id"):
-                add_to_bin(moved_events, event.id, event)
 
-        for event_list in moved_events.values():
-            if len(event_list) == 2:
+        for split_events in moved_events.values():
+            if len(split_events) == 2:
                 src_path = next(
-                    e.src_path for e in event_list if e.event_type == EVENT_TYPE_DELETED
+                    e.src_path
+                    for e in split_events
+                    if e.event_type == EVENT_TYPE_DELETED
                 )
                 dest_path = next(
-                    e.src_path for e in event_list if e.event_type == EVENT_TYPE_CREATED
+                    e.src_path
+                    for e in split_events
+                    if e.event_type == EVENT_TYPE_CREATED
                 )
-                if event_list[0].is_directory:
+                if split_events[0].is_directory:
                     new_event = DirMovedEvent(src_path, dest_path)
                 else:
                     new_event = FileMovedEvent(src_path, dest_path)
 
+                # only recombine events if neither is in an excluded path
                 if not self._should_split_excluded(new_event):
-                    cleaned_events.difference_update(event_list)
+                    cleaned_events.difference_update(split_events)
                     cleaned_events.add(new_event)
 
         # COMBINE MOVED AND DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
@@ -2202,8 +2205,8 @@ class SyncEngine:
                     except KeyError:
                         pass
 
-            for event_list in child_moved_events.values():
-                cleaned_events.difference_update(event_list)
+            for split_events in child_moved_events.values():
+                cleaned_events.difference_update(split_events)
 
         # 2) combine deleted events of folders and their children to one event
         dir_deleted_paths = set(
@@ -2223,8 +2226,8 @@ class SyncEngine:
                     except KeyError:
                         pass
 
-            for event_list in child_deleted_events.values():
-                cleaned_events.difference_update(event_list)
+            for split_events in child_deleted_events.values():
+                cleaned_events.difference_update(split_events)
 
         logger.debug(
             "Cleaned up local file events:\n%s", pprint.pformat(cleaned_events)
@@ -2759,9 +2762,9 @@ class SyncEngine:
             success = True
 
             if is_dbx_root:
-                logger.info("Fetching your Dropbox")
+                logger.info("Fetching remote Dropbox")
             else:
-                logger.info("Syncing ↓ %s", dbx_path)
+                logger.info(f"Syncing ↓ {dbx_path}")
 
             if any(is_child(folder, dbx_path) for folder in self.excluded_items):
                 # if there are excluded subfolders, index and download only included
@@ -2890,12 +2893,19 @@ class SyncEngine:
         :returns: Tuple with remote changes and corresponding cursor
         """
         logger.info("Fetching remote changes...")
+
         changes = self.client.list_remote_changes(last_cursor)
         logger.debug("Listed remote changes:\n%s", entries_repr(changes.entries))
+
         clean_changes = self._clean_remote_changes(changes)
         logger.debug("Cleaned remote changes:\n%s", entries_repr(clean_changes.entries))
-        sync_events = [SyncEvent.from_dbx_metadata(md, self) for md in changes.entries]
+
+        clean_changes.entries.sort(key=lambda x: x.path_lower.count("/"))
+        sync_events = [
+            SyncEvent.from_dbx_metadata(md, self) for md in clean_changes.entries
+        ]
         logger.debug("Converted remote changes to SyncEvents")
+
         return sync_events, changes.cursor
 
     def list_remote_changes_iterator(
@@ -2911,17 +2921,21 @@ class SyncEngine:
         """
 
         logger.info("Fetching remote changes...")
+
         changes_iter = self.client.list_remote_changes_iterator(last_cursor)
 
         for changes in changes_iter:
+
             logger.debug("Listed remote changes:\n%s", entries_repr(changes.entries))
+
             clean_changes = self._clean_remote_changes(changes)
             logger.debug(
                 "Cleaned remote changes:\n%s", entries_repr(clean_changes.entries)
             )
 
+            clean_changes.entries.sort(key=lambda x: x.path_lower.count("/"))
             sync_events = [
-                SyncEvent.from_dbx_metadata(md, self) for md in changes.entries
+                SyncEvent.from_dbx_metadata(md, self) for md in clean_changes.entries
             ]
 
             logger.debug("Converted remote changes to SyncEvents")
@@ -3026,7 +3040,7 @@ class SyncEngine:
 
             n_items = len(files)
             for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                throttled_log(logger, f"Syncing ↓ {n}/{n_items}...")
+                throttled_log(logger, f"Syncing ↓ {n}/{n_items}")
                 results.append(f.result())
 
         if cursor and not self.cancel_pending.is_set():
@@ -3889,7 +3903,7 @@ def startup_worker(
                     logger.info("Retrying failed syncs...")
 
                 for dbx_path in list(sync.download_errors):
-                    logger.info(f"Syncing ↓ {dbx_path}...")
+                    logger.info(f"Syncing ↓ {dbx_path}")
                     sync.get_remote_item(dbx_path)
 
                 # resume interrupted downloads
@@ -3897,7 +3911,7 @@ def startup_worker(
                     logger.info("Resuming interrupted syncs...")
 
                 for dbx_path in list(sync.pending_downloads):
-                    logger.info(f"Syncing ↓ {dbx_path}...")
+                    logger.info(f"Syncing ↓ {dbx_path}")
                     sync.get_remote_item(dbx_path)
 
                 # retry failed / interrupted uploads by scheduling additional events
@@ -4257,7 +4271,7 @@ def split_moved_event(
 ) -> Tuple[FileSystemEvent, FileSystemEvent]:
     """
     Splits a FileMovedEvent or DirMovedEvent into "deleted" and "created" events of the
-    same type.
+    same type. A new attribute ``move_id`` is added to both instances.
 
     :param event: Original event.
     :returns: Tuple of deleted and created events.
@@ -4270,7 +4284,15 @@ def split_moved_event(
         created_event_cls = FileCreatedEvent
         deleted_event_cls = FileDeletedEvent
 
-    return deleted_event_cls(event.src_path), created_event_cls(event.dest_path)
+    deleted_event = deleted_event_cls(event.src_path)
+    created_event = created_event_cls(event.dest_path)
+
+    move_id = uuid.uuid4()
+
+    deleted_event.move_id = move_id
+    created_event.move_id = move_id
+
+    return deleted_event, created_event
 
 
 def entries_repr(entries: List[Metadata]) -> str:
