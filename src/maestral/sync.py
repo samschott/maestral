@@ -598,25 +598,15 @@ class SyncEvent(Base):  # type: ignore
             rev = None
             hash_str = None
             dbx_id = None
+            change_dbid = None
 
-            try:
-                old_md = sync_engine.client.list_revisions(
-                    md.path_lower, limit=1
-                ).entries[0]
-                item_type = ItemType.File
-                if not old_md.sharing_info:
-                    # file is not in a shared folder, therefore
-                    # the current user must have deleted it
-                    change_dbid = sync_engine.client.account_id
-                else:
-                    # we cannot determine who deleted the item
-                    change_dbid = None
-            except IsAFolderError:
+            local_rev = sync_engine.get_local_rev(md.path_lower)
+            if local_rev == "folder":
                 item_type = ItemType.Folder
-                change_dbid = None
-            except NotFoundError:
+            elif local_rev is not None:
+                item_type = ItemType.File
+            else:
                 item_type = ItemType.Unknown
-                change_dbid = None
 
         elif isinstance(md, FolderMetadata):
             # there is currently no API call to determine who added a folder
