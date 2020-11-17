@@ -99,7 +99,6 @@ from .errors import (
     DropboxServerError,
     FileConflictError,
     FolderConflictError,
-    IsAFolderError,
     InvalidDbidError,
     DatabaseError,
 )
