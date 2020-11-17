@@ -85,7 +85,7 @@ def cleanup_test_config(m: Maestral, test_folder_dbx: Optional[str] = None) -> N
 
     # remove local files and folders
     delete(m.dropbox_path)
-    remove_configuration("test-config")
+    remove_configuration(m.config_name)
 
 
 class DropboxTestLock:

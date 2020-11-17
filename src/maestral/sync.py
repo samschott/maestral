@@ -2974,12 +2974,12 @@ class SyncEngine:
 
             level = event.dbx_path.count("/")
 
-            if event.is_file:
+            if event.is_deleted:
+                add_to_bin(deleted, level, event)
+            elif event.is_file:
                 files.append(event)
             elif event.is_directory:
                 add_to_bin(folders, level, event)
-            elif event.is_deleted:
-                add_to_bin(deleted, level, event)
 
             # housekeeping
             self.syncing.append(event)
@@ -2989,7 +2989,8 @@ class SyncEngine:
         # apply deleted items
         if deleted:
             logger.info("Applying deletions...")
-        for items in deleted.values():
+        for level in sorted(deleted):
+            items = deleted[level]
             with ThreadPoolExecutor(
                 max_workers=self._num_threads,
                 thread_name_prefix="maestral-download-pool",
@@ -3004,7 +3005,8 @@ class SyncEngine:
         # create local folders, start with top-level and work your way down
         if folders:
             logger.info("Creating folders...")
-        for items in folders.values():
+        for level in sorted(folders):
+            items = folders[level]
             with ThreadPoolExecutor(
                 max_workers=self._num_threads,
                 thread_name_prefix="maestral-download-pool",
@@ -3162,65 +3164,96 @@ class SyncEngine:
             )
             return Conflict.LocalNewerOrIdentical
 
+        elif event.content_hash == self.get_local_hash(event.local_path):
+            # Content hashes are equal, therefore items are identical. Folders will
+            # have a content hash of 'folder'.
+            logger.debug('Equal content hashes for "%s": no conflict', event.dbx_path)
+            return Conflict.Identical
+        elif any(
+            is_equal_or_child(p, event.dbx_path.lower()) for p in self.upload_errors
+        ):
+            # Local version could not be uploaded due to a sync error. Do not over-
+            # write unsynced changes but declare a conflict.
+            logger.debug('Unresolved upload error for "%s": conflict', event.dbx_path)
+            return Conflict.Conflict
+        elif not self.has_unsynced_changes(event.local_path):
+            # Last change time of local item (recursive for folders) is older than
+            # the last time the item was synced. Remote must be newer.
+            logger.debug(
+                'Local item "%s" has no unsynced changes: remote item is newer',
+                event.dbx_path,
+            )
+            return Conflict.RemoteNewer
+        elif event.is_deleted:
+            # Remote item was deleted but local item has been modified since then.
+            logger.debug(
+                'Local item "%s" has unsynced changes and remote was '
+                "deleted: local item is newer",
+                event.dbx_path,
+            )
+            return Conflict.LocalNewerOrIdentical
         else:
-            # Dropbox server version has a different rev, possibly is newer. Perform
-            # conflict checks.
+            # Both remote and local items have unsynced changes: conflict.
+            logger.debug(
+                'Local item "%s" has unsynced local changes: conflict',
+                event.dbx_path,
+            )
+            return Conflict.Conflict
 
-            local_hash = self.get_local_hash(event.local_path)
+    def has_unsynced_changes(self, local_path: str) -> bool:
+        """
+        Checks if a local item has any unsynced changes. This is by comparing its ctime
+        to the ``last_sync`` time saved in our index. In case of folders, we recursively
+        check the ctime of children.
 
-            if event.content_hash == local_hash:
-                # Content hashes are equal, therefore items are identical. Folders will
-                # have a content hash of 'folder'.
-                logger.debug(
-                    'Equal content hashes for "%s": no conflict', event.dbx_path
-                )
-                return Conflict.Identical
-            elif any(
-                is_equal_or_child(p, event.dbx_path.lower()) for p in self.upload_errors
-            ):
-                # Local version could not be uploaded due to a sync error. Do not over-
-                # write unsynced changes but declare a conflict.
-                logger.debug(
-                    'Unresolved upload error for "%s": conflict', event.dbx_path
-                )
-                return Conflict.Conflict
-            elif self._get_ctime(event.local_path) <= self.get_last_sync(
-                event.dbx_path
-            ):
-                # Last change time of local item (recursive for folders) is older than
-                # the last time the item was synced. Remote must be newer.
-                logger.debug(
-                    'Local ctime is older than last sync for "%s": '
-                    "remote item is newer",
-                    event.dbx_path,
-                )
-                return Conflict.RemoteNewer
-            elif event.is_deleted:
-                # Remote item was deleted but local item has been modified since then.
-                logger.debug(
-                    'Local ctime is newer than last sync for "%s" and remote was '
-                    "deleted: local item is newer",
-                    event.dbx_path,
-                )
-                return Conflict.LocalNewerOrIdentical
-            else:
-                # Both remote and local items have unsynced changes: conflict.
-                logger.debug(
-                    'Local ctime is newer than last sync for "%s": conflict',
-                    event.dbx_path,
-                )
-                return Conflict.Conflict
+        :param local_path: Local path of item to check.
+        :returns: Whether the local item has unsynced changes.
+        """
 
-    def _get_ctime(self, local_path: str, ignore_excluded: bool = True) -> float:
+        if self.is_excluded(local_path):
+            # excluded names such as .DS_Store etc never count as unsynced changes
+            return False
+
+        dbx_path = self.to_dbx_path(local_path)
+        index_entry = self.get_index_entry(dbx_path)
+
+        try:
+            stat = os.stat(local_path)
+        except FileNotFoundError:
+            # don't check ctime for deleted items (os won't give stat info)
+            # but confirm absence from index
+            return index_entry is not None
+
+        if S_ISDIR(stat.st_mode):
+
+            # don't check ctime for folders but to index entry type
+            if index_entry is None or index_entry.is_file:
+                return True
+
+            # recurse over children
+            with os.scandir(local_path) as it:
+                for entry in it:
+                    if entry.is_dir():
+                        if self.has_unsynced_changes(entry.path):
+                            return True
+                    elif not self.is_excluded(entry.name):
+                        child_dbx_path = self.to_dbx_path(entry.path)
+                        if entry.stat().st_ctime > self.get_last_sync(child_dbx_path):
+                            return True
+
+            return False
+
+        else:
+            # check our ctime against index
+            return os.stat(local_path).st_ctime > self.get_last_sync(dbx_path)
+
+    def _get_ctime(self, local_path: str) -> float:
         """
         Returns the ctime of a local item or -1.0 if there is nothing at the path. If
-        the item is a directory, return the largest ctime of it and its children.
+        the item is a directory, return the largest ctime of it and its children. Items
+        which are excluded from syncing (eg., .DS_Store files) are ignored.
 
         :param local_path: Absolute path on local drive.
-        :param ignore_excluded: If ``True``, the ctimes of children for which
-            :meth:`is_excluded` evaluates to ``True`` are disregarded. This is only
-            relevant if ``local_path`` points to a directory and has no effect if it
-            points to a path.
         :returns: Ctime or -1.0.
         """
         try:
@@ -3229,9 +3262,15 @@ class SyncEngine:
                 ctime = stat.st_ctime
                 with os.scandir(local_path) as it:
                     for entry in it:
-                        ignore = ignore_excluded and self.is_excluded(entry.name)
-                        if not ignore:
-                            ctime = max(ctime, entry.stat().st_ctime)
+                        if entry.is_dir():
+                            child_ctime = self._get_ctime(entry.path)
+                        elif not self.is_excluded(entry.name):
+                            child_ctime = entry.stat().st_ctime
+                        else:
+                            child_ctime = -1.0
+
+                        ctime = max(ctime, child_ctime)
+
                 return ctime
             else:
                 return os.stat(local_path).st_ctime
