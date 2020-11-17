@@ -34,5 +34,3 @@ jobs:
       run: isort . --check --diff
     - name: mypy
       run: mypy .
-    - name: blackdoc
-      run: blackdoc . --check
