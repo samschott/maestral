@@ -2010,7 +2010,7 @@ class SyncEngine:
 
                     n_items = len(other)
                     for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                        throttled_log(logger, f"Syncing ↑ {n}/{n_items}...")
+                        throttled_log(logger, f"Syncing ↑ {n}/{n_items}")
                         results.append(f.result())
 
                 self._clean_history()
@@ -2765,7 +2765,7 @@ class SyncEngine:
             if is_dbx_root:
                 logger.info("Fetching remote Dropbox")
             else:
-                logger.info("Syncing ↓ %s", dbx_path)
+                logger.info(f"Syncing ↓ {dbx_path}")
 
             if any(is_child(folder, dbx_path) for folder in self.excluded_items):
                 # if there are excluded subfolders, index and download only included
@@ -3041,7 +3041,7 @@ class SyncEngine:
 
             n_items = len(files)
             for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                throttled_log(logger, f"Syncing ↓ {n}/{n_items}...")
+                throttled_log(logger, f"Syncing ↓ {n}/{n_items}")
                 results.append(f.result())
 
         if cursor and not self.cancel_pending.is_set():
@@ -3904,7 +3904,7 @@ def startup_worker(
                     logger.info("Retrying failed syncs...")
 
                 for dbx_path in list(sync.download_errors):
-                    logger.info(f"Syncing ↓ {dbx_path}...")
+                    logger.info(f"Syncing ↓ {dbx_path}")
                     sync.get_remote_item(dbx_path)
 
                 # resume interrupted downloads
@@ -3912,7 +3912,7 @@ def startup_worker(
                     logger.info("Resuming interrupted syncs...")
 
                 for dbx_path in list(sync.pending_downloads):
-                    logger.info(f"Syncing ↓ {dbx_path}...")
+                    logger.info(f"Syncing ↓ {dbx_path}")
                     sync.get_remote_item(dbx_path)
 
                 # retry failed / interrupted uploads by scheduling additional events
