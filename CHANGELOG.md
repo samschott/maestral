@@ -11,7 +11,11 @@
 #### Changes:
 
 * Increased timeout for all event queues.
-* Decreased the frequeny of Pyro daemon housekeeping tasks.
+* Decreased the frequency of Pyro daemon housekeeping tasks.
+
+#### Fixes:
+
+* Fixes an issue where `maestral ls` would fail when run with the `-l, --long` flag.
 
 ## v1.2.2
 
