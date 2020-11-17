@@ -916,89 +916,91 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
     with MaestralProxy(config_name, fallback=True) as m:
 
         entries = m.list_folder(
-            dropbox_path, recursive=False, include_deleted=include_deleted
+            dropbox_path,
+            recursive=False,
+            include_deleted=include_deleted,
         )
         entries.sort(key=lambda x: cast(str, x["name"]).lower())
 
-    if long:
+        if long:
 
-        names = []
-        types = []
-        sizes = []
-        shared = []
-        last_modified = []
-        excluded = []
+            names = []
+            types = []
+            sizes = []
+            shared = []
+            last_modified = []
+            excluded = []
 
-        to_short_type = {
-            "FileMetadata": "file",
-            "FolderMetadata": "folder",
-            "DeletedMetadata": "deleted",
-        }
+            to_short_type = {
+                "FileMetadata": "file",
+                "FolderMetadata": "folder",
+                "DeletedMetadata": "deleted",
+            }
 
-        for e in entries:
+            for e in entries:
 
-            long_type = cast(str, e["type"])
-            name = cast(str, e["name"])
-            path_lower = cast(str, e["path_lower"])
+                long_type = cast(str, e["type"])
+                name = cast(str, e["name"])
+                path_lower = cast(str, e["path_lower"])
 
-            types.append(to_short_type[long_type])
-            names.append(name)
+                types.append(to_short_type[long_type])
+                names.append(name)
 
-            shared.append("shared" if "sharing_info" in e else "private")
-            excluded.append(m.excluded_status(path_lower))
+                shared.append("shared" if "sharing_info" in e else "private")
+                excluded.append(m.excluded_status(path_lower))
 
-            if "size" in e:
-                size = cast(float, e["size"])
-                sizes.append(natural_size(size))
-            else:
-                sizes.append("-")
+                if "size" in e:
+                    size = cast(float, e["size"])
+                    sizes.append(natural_size(size))
+                else:
+                    sizes.append("-")
 
-            if "client_modified" in e:
-                cm = cast(str, e["client_modified"])
-                dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
-                last_modified.append(dt.strftime("%d %b %Y %H:%M"))
-            else:
-                last_modified.append("-")
+                if "client_modified" in e:
+                    cm = cast(str, e["client_modified"])
+                    dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
+                    last_modified.append(dt.strftime("%d %b %Y %H:%M"))
+                else:
+                    last_modified.append("-")
 
-        click.echo("")
-        click.echo(
-            format_table(
-                headers=["Name", "Type", "Size", "Shared", "Syncing", "Last modified"],
-                columns=[names, types, sizes, shared, excluded, last_modified],
-                alignment=[LEFT, LEFT, RIGHT, LEFT, LEFT, LEFT],
-                wrap=False,
-            ),
-        )
-        click.echo("")
+            click.echo("")
+            click.echo(
+                format_table(
+                    headers=["Name", "Type", "Size", "Shared", "Syncing", "Modified"],
+                    columns=[names, types, sizes, shared, excluded, last_modified],
+                    alignment=[LEFT, LEFT, RIGHT, LEFT, LEFT, LEFT],
+                    wrap=False,
+                ),
+            )
+            click.echo("")
 
-    else:
+        else:
 
-        from .utils import chunks
+            from .utils import chunks
 
-        names = []
-        colors = []
-        formatted_names = []
-        max_len = 0
+            names = []
+            colors = []
+            formatted_names = []
+            max_len = 0
 
-        for e in entries:
-            name = cast(str, e["name"])
+            for e in entries:
+                name = cast(str, e["name"])
 
-            max_len = max(max_len, len(name))
-            names.append(name)
-            colors.append("blue" if e["type"] == "DeletedMetadata" else None)
+                max_len = max(max_len, len(name))
+                names.append(name)
+                colors.append("blue" if e["type"] == "DeletedMetadata" else None)
 
-        max_len += 2  # add 2 spaces padding
+            max_len += 2  # add 2 spaces padding
 
-        for name, color in zip(names, colors):
-            formatted_names.append(click.style(name.ljust(max_len), fg=color))
+            for name, color in zip(names, colors):
+                formatted_names.append(click.style(name.ljust(max_len), fg=color))
 
-        width, height = click.get_terminal_size()
-        n_columns = max(width // max_len, 1)
+            width, height = click.get_terminal_size()
+            n_columns = max(width // max_len, 1)
 
-        rows = chunks(formatted_names, n_columns)
+            rows = chunks(formatted_names, n_columns)
 
-        for row in rows:
-            click.echo("".join(row))
+            for row in rows:
+                click.echo("".join(row))
 
 
 @main.command(help_priority=11, help="Links Maestral with your Dropbox account.")
@@ -1153,26 +1155,24 @@ def history(config_name: str) -> None:
     from datetime import datetime
 
     with MaestralProxy(config_name, fallback=True) as m:
-
         history = m.get_history()
-        paths = []
-        change_times = []
-        change_types = []
 
-        for event in history:
+    paths = []
+    change_times = []
+    change_types = []
 
-            dbx_path = cast(str, event["dbx_path"])
-            change_type = cast(str, event["change_type"])
-            change_time_or_sync_time = cast(float, event["change_time_or_sync_time"])
-            dt = datetime.fromtimestamp(change_time_or_sync_time)
+    for event in history:
 
-            paths.append(dbx_path)
-            change_times.append(dt.strftime("%d %b %Y %H:%M"))
-            change_types.append(change_type)
+        dbx_path = cast(str, event["dbx_path"])
+        change_type = cast(str, event["change_type"])
+        change_time_or_sync_time = cast(float, event["change_time_or_sync_time"])
+        dt = datetime.fromtimestamp(change_time_or_sync_time)
 
-        click.echo(
-            format_table(columns=[paths, change_types, change_times], wrap=False)
-        )
+        paths.append(dbx_path)
+        change_times.append(dt.strftime("%d %b %Y %H:%M"))
+        change_types.append(change_type)
+
+    click.echo(format_table(columns=[paths, change_types, change_times], wrap=False))
 
 
 @main.command(help_priority=19, help="Lists all configured Dropbox accounts.")
@@ -1237,12 +1237,12 @@ def account_info(config_name: str) -> None:
         usage = m.get_state("account", "usage")
         dbid = m.get_conf("account", "account_id")
 
-        click.echo("")
-        click.echo(f"Email:             {email}")
-        click.echo(f"Account-type:      {account_type}")
-        click.echo(f"Usage:             {usage}")
-        click.echo(f"Dropbox-ID:        {dbid}")
-        click.echo("")
+    click.echo("")
+    click.echo(f"Email:             {email}")
+    click.echo(f"Account-type:      {account_type}")
+    click.echo(f"Usage:             {usage}")
+    click.echo(f"Dropbox-ID:        {dbid}")
+    click.echo("")
 
 
 @main.command(
