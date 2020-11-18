@@ -1,26 +1,35 @@
 # -*- coding: utf-8 -*-
+"""Module to print neatly formatted tables and grids to the terminal."""
 
 import enum
 import textwrap
 from datetime import datetime
-from typing import Optional, List, Union, TypeVar, Iterator, Sequence, Any
+from typing import Optional, List, Union, Iterator, Sequence, Any
 
 import click
 
 
-_T = TypeVar("_T")
-
-
-def _transpose(ll: List[List[_T]]) -> List[List[_T]]:
-    return list(map(list, zip(*ll)))
-
-
 class Align(enum.Enum):
+    """
+    Text alignment in column.
+
+    :cvar Left: Left alignment.
+    :cvar Right: Right alignment.
+    """
+
     Left = 0
     Right = 1
 
 
 class Elide(enum.Enum):
+    """
+    Elide directives.
+
+    :cvar Leading: Truncate beginning of text.
+    :cvar Center: Truncate center of text.
+    :cvar Trailing: Truncate end of text.
+    """
+
     Leading = 0
     Center = 1
     Trailing = 2
@@ -29,6 +38,15 @@ class Elide(enum.Enum):
 def elide(
     text: str, width: int, placeholder: str = "...", elide: Elide = Elide.Trailing
 ) -> str:
+    """
+    Elides a string to fit into the given width.
+
+    :param text: Text to truncate.
+    :param width: Target width.
+    :param placeholder: Placeholder string to indicate truncated text.
+    :param elide: Which part to truncate.
+    :returns: Truncated text.
+    """
 
     if len(text) <= width:
         return text
@@ -45,6 +63,16 @@ def elide(
 
 
 def adjust(text: str, width: int, align: Align = Align.Left) -> str:
+    """
+    Pads a string with spaces up the desired width. Preserves ANSI color codes without
+    counting them towards the width.
+
+    This function is similar to ``str.ljust`` and ``str.rjust``.
+
+    :param text: Initial string.
+    :param width: Target width. If smaller than the given text, nothing is done.
+    :param align: Side to align the padded string: to the left or to the right.
+    """
 
     needed = width - len(click.unstyle(text))
 
@@ -58,15 +86,38 @@ def adjust(text: str, width: int, align: Align = Align.Left) -> str:
 
 
 class Field:
+    """Base class to represent a field in a table."""
+
     @property
     def display_width(self) -> int:
+        """
+        The requested total width of the content in characters when not wrapped or
+        shortened in any way.
+        """
         raise NotImplementedError()
 
     def format(self, width: int) -> List[str]:
+        """
+        Returns the field content formatted to fit the requested width.
+
+        :param width: Width to fit.
+        :returns: Shortened or wrapped string.
+        """
         raise NotImplementedError()
 
 
 class TextField(Field):
+    """
+    A text field for a table.
+
+    :param text: Text to represent.
+    :param align: Text alignment: right or left.
+    :param wraps: Whether to wrap the text instead of truncating it to fit into a
+        requested width.
+    :elide: Truncation strategy: trailing, center or leading.
+    :param style: Styling passed on to :meth:`click.style` when styling the text.
+    """
+
     def __init__(
         self,
         text: str,
@@ -104,8 +155,17 @@ class TextField(Field):
 
 
 class DateField(Field):
-    def __init__(self, dt: datetime) -> None:
+    """
+    A datetime field for a table. The formatting of the datetime will be adjusted
+    depending on the available width. Does not currently support localisation.
+
+    :param dt: Datetime to represent.
+    :param style: Styling passed on to :meth:`click.style` when styling the text.
+    """
+
+    def __init__(self, dt: datetime, **style) -> None:
         self.dt = dt
+        self.style = style
 
     @property
     def display_width(self) -> int:
@@ -113,17 +173,38 @@ class DateField(Field):
 
     def format(self, width: int) -> List[str]:
         if width >= 20:
-            return [self.dt.strftime("%d %b %Y at %H:%M")]
+            string = self.dt.strftime("%d %b %Y at %H:%M")
         elif width >= 17:
-            return [self.dt.strftime("%x, %H:%M")]
+            string = self.dt.strftime("%x, %H:%M")
         else:
-            return [self.dt.strftime("%x")]
+            string = self.dt.strftime("%x")
+
+        if self.style:
+            return [click.style(string, **self.style)]
+        else:
+            return [string]
 
     def __repr__(self):
         return f"<{self.__class__.__name__}('{self.format(17)}')>"
 
 
 class Column:
+    """
+    A table column.
+
+    :param title: Column title.
+    :param fields: Fields in the table. Any sequence of objects can be given and will be
+        converted to :class:`Field` instances as appropriate.
+    :param align: How to align text inside the column. Will only be used for
+        :class:`TextField`s.
+    :param wraps: Whether to wrap fields to fit into the column width instead of
+        truncating them. Will only be used for :class:`TextField`s.
+    :param elide: How to elide text which is too wide for a column. Will only be used
+        for :class:`TextField`s.
+    """
+
+    fields: List[Field]
+
     def __init__(
         self,
         title: str,
@@ -177,6 +258,13 @@ class Column:
 
 
 class Table:
+    """
+    A table which can be printed to stdout.
+
+    :param columns: Table columns. Can be a list of :class:`Column` instances or table
+        titles.
+    :param padding: Padding between columns.
+    """
 
     columns: List[Column]
 
@@ -190,28 +278,47 @@ class Table:
             else:
                 self.columns.append(Column(col))
 
+    @property
+    def ncols(self) -> int:
+        """The number of columns"""
+        return len(self.columns)
+
+    @property
+    def nrows(self) -> int:
+        """The number of rows"""
+        return max(len(col) for col in self.columns)
+
     def append(self, row: Sequence) -> None:
+        """
+        Appends a new row to the table.
+
+        :param row: List of fields to append to each column. Length must match the
+            number of columns.
+        """
+
+        if len(row) != self.ncols:
+            raise ValueError(f"Got {len(row)} fields but have {self.ncols} columns")
+
         for i, col in enumerate(self.columns):
             col.append(row[i])
 
-    def insert(self, index: int, row: Sequence) -> None:
-        for i, col in enumerate(self.columns):
-            col.insert(index, row[i])
-
-    def __getitem__(self, item: int) -> List[Field]:
-        return [col[item] for col in self.columns]
-
-    def __setitem__(self, key: int, value: Sequence):
-        for i, col in enumerate(self.columns):
-            col[key] = value[i]
-
-    def __iter__(self) -> Iterator[List[Field]]:
-        return iter([col[i] for col in self.columns] for i in range(len(self)))
+    def rows(self) -> List[List[Field]]:
+        """
+        Returns a list of rows in the table. Each row is a list of fields.
+        """
+        return [[col[i] for col in self.columns] for i in range(len(self))]
 
     def __len__(self) -> int:
-        return max(len(col) for col in self.columns)
+        return self.nrows
 
     def format_lines(self, width: Optional[int] = None) -> Iterator[str]:
+        """
+        Iterator over formatted lines of the table. Fields may span multiple lines if
+        they are set to wrap instead of truncate.
+
+        :param width: Width to fit the table.
+        :returns: Iterator over lines which can be printed to the terminal.
+        """
 
         # get terminal width if no width is given
         if not width:
@@ -232,7 +339,7 @@ class Table:
         # generate lines
         spacer = " " * self.padding
 
-        for row in self:
+        for row in self.rows():
             cells = []
 
             for field, alloc_width in zip(row, allocated_col_widths):
@@ -254,14 +361,29 @@ class Table:
                 yield line.rstrip()
 
     def format(self, width: Optional[int] = None) -> str:
+        """
+        Returns a fully formatted table as a string with linebreaks.
+
+        :param width: Width to fit the table.
+        :returns: Formatted table.
+        """
         return "\n".join(self.format_lines(width))
 
     def echo(self):
+        """Prints the table to the terminal."""
         for line in self.format_lines():
             click.echo(line)
 
 
 class Grid:
+    """
+    A grid of fields which can be printed to stdout.
+
+    :param fields: A sequence of fields (strings, datetimes, any objects with a string
+        representation).
+    :param padding: Padding between fields.
+    :param align: Alignment of strings in the grid.
+    """
 
     fields: List[Field]
 
@@ -276,17 +398,9 @@ class Grid:
         for field in fields:
             self.fields.append(self._to_field(field))
 
-    def append(self, field) -> None:
+    def append(self, field: Any) -> None:
+        """Appends a field to the grid."""
         self.fields.append(self._to_field(field))
-
-    def insert(self, index: int, field: Any) -> None:
-        self.fields.insert(index, self._to_field(field))
-
-    def __getitem__(self, item) -> Field:
-        return self.fields[item]
-
-    def __setitem__(self, key: int, value: Field):
-        self.fields[key] = self._to_field(value)
 
     def __iter__(self) -> Iterator:
         return iter(self.fields)
@@ -303,6 +417,12 @@ class Grid:
             return TextField(str(field), align=self.align)
 
     def format_lines(self, width: Optional[int] = None) -> Iterator[str]:
+        """
+        Iterator over formatted lines of the grid.
+
+        :param width: Width to fit the grid.
+        :returns: Iterator over lines which can be printed to the terminal.
+        """
 
         from . import chunks
 
@@ -324,8 +444,15 @@ class Grid:
             yield line.rstrip()
 
     def format(self, width: Optional[int] = None) -> str:
+        """
+        Returns a fully formatted grid as a string with linebreaks.
+
+        :param width: Width to fit the table.
+        :returns: Formatted grid.
+        """
         return "\n".join(self.format_lines(width))
 
     def echo(self):
+        """Prints the grid to the terminal."""
         for line in self.format_lines():
             click.echo(line)
