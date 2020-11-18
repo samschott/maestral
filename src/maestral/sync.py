@@ -15,6 +15,7 @@ import time
 import tempfile
 import random
 import uuid
+import urllib.parse
 from threading import Thread, Event, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
@@ -1721,10 +1722,19 @@ class SyncEngine:
             # we have a file / folder associated with the sync error
             file_name = osp.basename(err.dbx_path)
             logger.info("Could not sync %s", file_name, exc_info=True)
+
+            def callback():
+                if err.local_path:
+                    click.launch(err.local_path, locate=True)
+                else:
+                    url_path = urllib.parse.quote(err.dbx_path)
+                    click.launch("https://www.dropbox.com/preview" + url_path)
+
             self.notifier.notify(
                 "Sync error",
                 f"Could not sync {file_name}",
                 level=self.notifier.SYNCISSUE,
+                on_click=callback,
             )
             self.sync_errors.add(err)
 
