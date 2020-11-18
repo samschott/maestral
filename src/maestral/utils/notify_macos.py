@@ -97,7 +97,9 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
 
             elif response.actionIdentifier != UNNotificationDismissActionIdentifier:
 
-                callback = notification.buttons.get(response.actionIdentifier)
+                action_id_str = py_from_ns(response.actionIdentifier)
+
+                callback = notification.buttons.get(action_id_str)
 
                 if callback:
                     callback()
@@ -124,6 +126,8 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
             self.nc_delegate = NotificationCenterDelegate.alloc().init()
             self.nc_delegate.interface = self
             self.nc.delegate = self.nc_delegate
+
+            self._notification_categories = {}
 
             def _on_auth_completed(granted: bool, error: objc_id) -> None:
                 if granted:
