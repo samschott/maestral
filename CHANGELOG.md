@@ -7,6 +7,8 @@
   change in status and then returns ``True``. The default timeout iss 60 sec.
 * Added `utils.networkstatus` module which uses platform APIs to subscribe to changes in
   network status if available and falls back to polling of the connection otherwise.
+* Desktop notifications for sync errors are now clickable and will show related file or
+  folder either on Dropbox or locally.
 
 #### Changes:
 
