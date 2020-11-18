@@ -424,24 +424,29 @@ class Grid:
         :returns: Iterator over lines which can be printed to the terminal.
         """
 
-        from . import chunks
+        if len(self.fields) > 0:
 
-        # get terminal width if no width is given
-        if not width:
-            width, height = click.get_terminal_size()
+            from . import chunks
 
-        field_width = max(field.display_width for field in self.fields)
-        field_width = min(field_width, width)  # cap at terminal / total width
-        field_texts = [field.format(field_width)[0] for field in self.fields]
+            # get terminal width if no width is given
+            if not width:
+                width, height = click.get_terminal_size()
 
-        n_columns = max(width // (field_width + self.padding), 1)
+            field_width = max(field.display_width for field in self.fields)
+            field_width = min(field_width, width)  # cap at terminal / total width
+            field_texts = [field.format(field_width)[0] for field in self.fields]
 
-        rows = chunks(field_texts, n_columns)
-        spacer = " " * self.padding
+            n_columns = max(width // (field_width + self.padding), 1)
 
-        for row in rows:
-            line = spacer.join(row)
-            yield line.rstrip()
+            rows = chunks(field_texts, n_columns)
+            spacer = " " * self.padding
+
+            for row in rows:
+                line = spacer.join(row)
+                yield line.rstrip()
+
+        else:
+            yield ""
 
     def format(self, width: Optional[int] = None) -> str:
         """
