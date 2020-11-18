@@ -254,17 +254,24 @@ elif Version(macos_version) < Version("11.1.0"):
             internal_nid = py_from_ns(notification.userInfo["internal_nid"])
             notification_info = self.interface.current_notifications[internal_nid]
 
-            if Version(macos_version) == Version("11.0.0"):
-                # macOS Big Sur has a 'Show' button by default
-                condition = NSUserNotificationActivationTypeActionButtonClicked
-            else:
-                # macOS Catalina and lower doesn't show a button by default
-                condition = NSUserNotificationActivationTypeContentsClicked
-
-            if notification.activationType == condition:
+            if (
+                notification.activationType
+                == NSUserNotificationActivationTypeContentsClicked
+            ):
 
                 if notification_info.action:
                     notification_info.action()
+
+            elif (
+                notification.activationType
+                == NSUserNotificationActivationTypeActionButtonClicked
+            ):
+
+                button_title = py_from_ns(notification.actionButtonTitle)
+                callback = notification_info.buttons.get(button_title)
+
+                if callback:
+                    callback()
 
     class CocoaNotificationCenterLegacy(DesktopNotifierBase):
         """NSUserNotificationCenter backend for macOS. Pre macOS Mojave. We don't
@@ -298,6 +305,14 @@ elif Version(macos_version) < Version("11.1.0"):
             n.identifier = platform_nid
             n.userInfo = {"internal_nid": internal_nid}
             n.deliveryDate = NSDate.dateWithTimeInterval(0, sinceDate=NSDate.date())
+
+            if notification.buttons:
+                if len(notification.buttons) > 1:
+                    logger.debug(
+                        "NSUserNotificationCenter: only a single button is supported"
+                    )
+                n.hasActionButton = True
+                n.actionButtonTitle = list(notification.buttons.keys())[0]
 
             self.nc.scheduleNotification(n)
 
