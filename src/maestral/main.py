@@ -24,7 +24,7 @@ try:
     from concurrent.futures import InvalidStateError  # type: ignore
 except ImportError:
     # Python 3.7 and lower
-    InvalidStateError = RuntimeError
+    InvalidStateError = RuntimeError  # type: ignore
 
 # external imports
 import requests
