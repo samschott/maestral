@@ -12,6 +12,7 @@ import os.path as osp
 import platform
 import shutil
 import time
+import warnings
 import logging.handlers
 from collections import deque
 import asyncio
@@ -484,16 +485,44 @@ class Maestral:
     @property
     def excluded_items(self) -> List[str]:
         """
-        Returns a list of files and folders excluded by selective sync (read only). Use
-        :meth:`exclude_item`, :meth:`include_item` or :meth:`set_excluded_items` to
-        change which items are excluded from syncing.
+        The list of files and folders excluded by selective sync. Any changes to this
+        list will be applied immediately if we have already performed the initial sync.
+        I.e., paths which have been added to the list will be deleted from the local
+        drive and paths which have been removed will be downloaded.
 
-        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+        Use :meth:`exclude_item` and :meth:`include_item` to add or remove individual
+        items from selective sync.
         """
         if self.pending_link:
             return []
         else:
             return self.sync.excluded_items
+
+    @excluded_items.setter
+    def excluded_items(self, items: List[str]) -> None:
+        """Setter: excluded_items"""
+
+        excluded_items = self.sync.clean_excluded_items_list(items)
+        old_excluded_items = self.excluded_items
+
+        added_excluded_items = set(excluded_items) - set(old_excluded_items)
+        added_included_items = set(old_excluded_items) - set(excluded_items)
+
+        self.sync.excluded_items = excluded_items
+
+        if self.pending_first_download:
+            return
+
+        # apply changes
+        for path in added_excluded_items:
+            logger.info("Excluded %s", path)
+            self._remove_after_excluded(path)
+        for path in added_included_items:
+            if not self.sync.is_excluded_by_user(path):
+                logger.info("Included %s", path)
+                self.monitor.added_item_queue.put(path)
+
+        logger.info(IDLE)
 
     @property
     def log_level(self) -> int:
@@ -1012,6 +1041,13 @@ class Maestral:
 
         self._check_linked()
         self.monitor.reset_sync_state()
+
+    def set_excluded_items(self, items: List[str]) -> None:
+        warnings.warn(
+            "'set_excluded_items' is deprecated, please set 'excluded_items' directly",
+            DeprecationWarning,
+        )
+        self.excluded_items = items
 
     def exclude_item(self, dbx_path: str) -> None:
         """
