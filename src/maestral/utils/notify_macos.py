@@ -25,7 +25,7 @@ from typing import Type, Optional, Dict, Tuple
 # external imports
 from packaging.version import Version
 from rubicon.objc import ObjCClass, objc_method, py_from_ns  # type: ignore
-from rubicon.objc.runtime import load_library, objc_id  # type: ignore
+from rubicon.objc.runtime import load_library, objc_id, objc_block  # type: ignore
 
 # local imports
 from .notify_base import Notification, DesktopNotifierBase
@@ -78,7 +78,7 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
 
         @objc_method
         def userNotificationCenter_didReceiveNotificationResponse_withCompletionHandler_(
-            self, center, response, completion_handler
+            self, center, response, completion_handler: objc_block
         ) -> None:
 
             # Get the notification which was clicked from the platform ID.
