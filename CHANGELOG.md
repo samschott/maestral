@@ -5,19 +5,23 @@
 * Added a public API `Maetral.status_change_longpoll` for frontends to wait for status
   changes without frequent polling. `status_change_longpoll` blocks until there is a
   change in status and then returns ``True``. The default timeout iss 60 sec.
-* Added `utils.networkstatus` module which uses platform APIs to subscribe to changes in
-  network status if available and falls back to polling of the connection otherwise.
-* Desktop notifications for sync errors are now clickable and will show related file or
-  folder either on Dropbox or locally.
+* Added `utils.networkstate` module which uses platform APIs to subscribe to changes in
+  the network state if available and falls back to polling of the connection otherwise.
+* Desktop notifications for sync errors are now clickable and will show the related file 
+  or folder either on Dropbox or locally.
+* Desktop notifications which can be clicked to reveal a file now have a "Show" button.
 
-#### Changes:
+#### Changed:
 
 * Increased timeout for all event queues.
 * Decreased the frequency of Pyro daemon housekeeping tasks.
+* Improved performance when syncing a large number of remote deletions.
 
 #### Fixes:
 
 * Fixes an issue where `maestral ls` would fail when run with the `-l, --long` flag.
+* Fixes an `IndexError` during a download sync when trying to query past versions of a
+  deleted item.
 
 ## v1.2.2
 
