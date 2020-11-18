@@ -9,6 +9,7 @@ This module contains the main syncing functionality.
 import os
 import os.path as osp
 from stat import S_ISDIR
+import socket
 import resource
 import logging
 import time
@@ -123,7 +124,6 @@ from .utils.path import (
     content_hash,
 )
 from .utils.appdirs import get_data_path, get_home_dir
-from .utils.networkstate import NetworkConnectionNotifier
 
 
 logger = logging.getLogger(__name__)
@@ -4006,11 +4006,13 @@ class SyncMonitor:
 
         self._startup_time = -1.0
 
-        self.connection_manager = NetworkConnectionNotifier(
-            host="www.dropbox.com",
-            on_connect=self.on_connected,
-            on_disconnect=self.on_disconnected,
+        self.connection_check_interval = 10
+        self.connection_helper = Thread(
+            target=self.connection_monitor,
+            name="maestral-connection-helper",
+            daemon=True,
         )
+        self.connection_helper.start()
 
     def _with_lock(fn: FT) -> FT:  # type: ignore
         @wraps(fn)
@@ -4188,8 +4190,23 @@ class SyncMonitor:
 
         logger.info(STOPPED)
 
+    def connection_monitor(self) -> None:
+        """
+        Monitors the connection to Dropbox servers. Pauses syncing when the connection
+        is lost and resumes syncing when reconnected and syncing has not been paused by
+        the user.
+        """
+
+        while True:
+            if check_connection("www.dropbox.com"):
+                self.on_connect()
+            else:
+                self.on_disconnect()
+
+            time.sleep(self.connection_check_interval)
+
     @_with_lock
-    def on_connected(self) -> None:
+    def on_connect(self) -> None:
 
         if self.running.is_set():
             if not self.connected.is_set() and not self.paused_by_user.is_set():
@@ -4197,7 +4214,7 @@ class SyncMonitor:
             self.connected.set()
 
     @_with_lock
-    def on_disconnected(self) -> None:
+    def on_disconnect(self) -> None:
 
         if self.running.is_set():
             if self.connected.is_set():
@@ -4383,3 +4400,19 @@ def cpu_usage_percent(interval: float = 0.1) -> float:
     else:
         single_cpu_percent = overall_cpus_percent * _cpu_count
         return round(single_cpu_percent, 1)
+
+
+def check_connection(hostname: str) -> bool:
+    """
+    A low latency check for an internet connection.
+
+    :param hostname: Hostname to use for connection check.
+    :returns: Connection availability.
+    """
+    try:
+        host = socket.gethostbyname(hostname)
+        s = socket.create_connection((host, 80), 2)
+        s.close()
+        return True
+    except Exception:
+        return False

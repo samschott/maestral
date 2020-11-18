@@ -5,8 +5,6 @@
 * Added a public API `Maetral.status_change_longpoll` for frontends to wait for status
   changes without frequent polling. `status_change_longpoll` blocks until there is a
   change in status and then returns ``True``. The default timeout iss 60 sec.
-* Added `utils.networkstate` module which uses platform APIs to subscribe to changes in
-  the network state if available and falls back to polling of the connection otherwise.
 * Desktop notifications for sync errors are now clickable and will show the related file 
   or folder either on Dropbox or locally.
 * Desktop notifications which can be clicked to reveal a file now have a "Show" button.

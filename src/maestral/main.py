@@ -261,7 +261,7 @@ class Maestral:
         # schedule background tasks
         self._loop = asyncio.get_event_loop()
         self._tasks: Set[asyncio.Task] = set()
-        self._thread_pool = ThreadPoolExecutor(
+        self._pool = ThreadPoolExecutor(
             thread_name_prefix="maestral-thread-pool",
             max_workers=2,
         )
@@ -1367,7 +1367,7 @@ class Maestral:
         for task in self._tasks:
             task.cancel()
 
-        self._thread_pool.shutdown(wait=False)
+        self._pool.shutdown(wait=False)
 
         if self._loop.is_running():
             self._loop.call_soon_threadsafe(self.shutdown_complete.set_result, True)
@@ -1473,41 +1473,36 @@ class Maestral:
                 # only run if we have loaded the keyring, we don't
                 # want to trigger any keyring access from here
                 if self.client.linked:
-                    await self._loop.run_in_executor(
-                        self._thread_pool, self.get_account_info
-                    )
-                    await self._loop.run_in_executor(
-                        self._thread_pool, self.get_profile_pic
-                    )
+                    await self._loop.run_in_executor(self._pool, self.get_account_info)
+                    await self._loop.run_in_executor(self._pool, self.get_profile_pic)
 
-            await asyncio.sleep(60 * (44.5 + random.random()))  # (45 +/- 1) min
+            await sleep_rand(60 * 45)
 
     async def _period_update_check(self) -> None:
 
         await asyncio.sleep(60 * 3)
 
         while True:
-            res = await self._loop.run_in_executor(
-                self._thread_pool, self.check_for_updates
-            )
+            res = await self._loop.run_in_executor(self._pool, self.check_for_updates)
 
             if not res["error"]:
                 self._state.set("app", "latest_release", res["latest_release"])
 
-            await asyncio.sleep(60 * (59.5 + random.random()))  # (60 +/- 1) min
+            await sleep_rand(60 * 60)
 
     async def _period_reindexing(self) -> None:
 
         while True:
 
             if self.monitor.running.is_set():
-                reindexing_due = (
-                    time.time() - self.sync.last_reindex > self.monitor.reindex_interval
-                )
-                if reindexing_due and self.monitor.idle_time > 20 * 60:
+                elapsed = time.time() - self.sync.last_reindex
+                reindexing_due = elapsed > self.monitor.reindex_interval
+                is_idle = self.monitor.idle_time > 20 * 60
+
+                if reindexing_due and is_idle:
                     self.monitor.rebuild_index()
 
-            await asyncio.sleep(60 * (9.5 + random.random()))  # (10 +/- 1) min
+            await sleep_rand(60 * 5)
 
     def __repr__(self) -> str:
 
@@ -1518,3 +1513,7 @@ class Maestral:
             f"<{self.__class__.__name__}(config={self._config_name!r}, "
             f"account=({email!r}, {account_type!r}))>"
         )
+
+
+async def sleep_rand(target: float, jitter: float = 60):
+    await asyncio.sleep(target + random.random() * jitter)
