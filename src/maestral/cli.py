@@ -33,7 +33,7 @@ from .daemon import (
     is_running,
 )
 from .config import MaestralConfig, MaestralState, list_configs
-from .utils.cli import Column, Table, Align, Elide, Grid, TextField
+from .utils.cli import Column, Table, Align, Elide, Grid, TextField, DateField
 from .utils.housekeeping import remove_configuration, validate_config_name
 
 
@@ -844,8 +844,14 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
                 name = cast(str, entry["name"])
                 path_lower = cast(str, entry["path_lower"])
 
-                shared = "shared" if "sharing_info" in entry else "private"
-                excluded = m.excluded_status(path_lower)
+                text = "shared" if "sharing_info" in entry else "private"
+                color = "bright_black" if text == "private" else None
+                shared_field = TextField(text, fg=color)
+
+                excluded_status = m.excluded_status(path_lower)
+                color = "green" if excluded_status == "included" else None
+                text = "✓" if excluded_status == "included" else excluded_status
+                excluded_field = TextField(text, fg=color)
 
                 if "size" in entry:
                     size = natural_size(cast(float, entry["size"]))
@@ -855,10 +861,13 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
                 if "client_modified" in entry:
                     cm = cast(str, entry["client_modified"])
                     dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
+                    dt_field = DateField(dt)
                 else:
-                    dt = "-"
+                    dt_field = TextField("-")
 
-                table.append([name, item_type, size, shared, excluded, dt])
+                table.append(
+                    [name, item_type, size, shared_field, excluded_field, dt_field]
+                )
 
             click.echo("")
             table.echo()
