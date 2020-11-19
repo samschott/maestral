@@ -11,7 +11,7 @@ on:
 
 jobs:
   offline-tests:
-    name: offline tests
+    name: offline
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
@@ -53,7 +53,7 @@ jobs:
           TYPE: 'offline'
 
   online-tests:
-    name: online tests
+    name: online
     needs: offline-tests
     strategy:
       max-parallel: 2
