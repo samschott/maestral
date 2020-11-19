@@ -4,6 +4,7 @@ import os
 import os.path as osp
 import time
 import shutil
+import timeit
 
 import pytest
 
@@ -11,7 +12,7 @@ from dropbox.files import WriteMode
 from maestral.sync import FileCreatedEvent
 from maestral.sync import delete, move
 from maestral.sync import is_fs_case_sensitive
-from maestral.sync import DirectorySnapshot
+from maestral.sync import DirectorySnapshot, SyncEvent
 
 from .fixtures import m, assert_synced, wait_for_idle, resources
 
@@ -748,6 +749,33 @@ def test_excluded_folder_cleared_on_deletion(m):
 
     # check for fatal errors
     assert not m.fatal_errors
+
+
+def test_indexing_performance(m):
+
+    # generate tree with 5 entries
+    shutil.copytree(resources + "/test_folder", m.test_folder_local + "/test_folder")
+    wait_for_idle(m)
+    m.pause_sync()
+
+    res = m.client.list_folder("/sync_tests", recursive=True)
+
+    def setup():
+        m.sync.clear_index()
+        m.sync.clear_hash_cache()
+        m.sync._case_conversion_cache.clear()
+
+    def generate_sync_events():
+        cleaned_res = m.sync._clean_remote_changes(res)
+        cleaned_res.entries.sort(key=lambda x: x.path_lower.count("/"))
+        for md in cleaned_res.entries:
+            SyncEvent.from_dbx_metadata(md, m.sync)
+
+    n_loops = 1000  # equivalent to to 5,000 items
+
+    duration = timeit.timeit(stmt=generate_sync_events, setup=setup, number=n_loops)
+
+    assert duration < 3  # expected ~ 1.8 sec
 
 
 # ==== helper functions ================================================================
