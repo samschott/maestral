@@ -10,7 +10,7 @@ from maestral.main import FileStatus, IDLE
 from maestral.main import logger as maestral_logger
 from maestral.utils.path import delete
 
-from .fixtures import wait_for_idle, m
+from .conftest import wait_for_idle
 
 
 if not os.environ.get("DROPBOX_TOKEN"):

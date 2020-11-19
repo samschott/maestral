@@ -14,7 +14,7 @@ from maestral.sync import delete, move
 from maestral.sync import is_fs_case_sensitive
 from maestral.sync import DirectorySnapshot, SyncEvent
 
-from .fixtures import m, assert_synced, wait_for_idle, resources
+from .conftest import assert_synced, wait_for_idle, resources
 
 
 if not os.environ.get("DROPBOX_TOKEN"):
