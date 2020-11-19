@@ -210,7 +210,8 @@ class UserConfig(DefaultsConfig):
                 # If no defaults are defined set file settings as default
                 self.set_as_defaults()
 
-    # --- Helpers and checkers -----------------------------------------------------------
+    # --- Helpers and checkers ---------------------------------------------------------
+
     @staticmethod
     def _get_minor_version(version: str) -> str:
         """Return the 'major.minor' components of the version."""
@@ -336,7 +337,7 @@ class UserConfig(DefaultsConfig):
                     except cp.NoSectionError:
                         self.remove_section(section)
 
-    # --- Compatibility API --------------------------------------------------------------
+    # --- Compatibility API ------------------------------------------------------------
 
     def get_previous_config_fpath(self) -> str:
         """Return the last configuration file used if found."""
@@ -409,7 +410,8 @@ class UserConfig(DefaultsConfig):
         """
         pass
 
-    # --- Public API ---------------------------------------------------------------------
+    # --- Public API -------------------------------------------------------------------
+
     def get_version(self, version: str = "0.0.0") -> str:
         """Return configuration (not application!) version."""
         return self.get(self.DEFAULT_SECTION_NAME, "version", version)
@@ -570,7 +572,10 @@ class UserConfig(DefaultsConfig):
         return res
 
     def cleanup(self) -> None:
-        """Remove files associated with config."""
+        """Remove files associated with config and reset to defaults."""
+
+        self.reset_to_defaults(save=False)
+
         fpath = self.get_config_fpath()
 
         backup_path = osp.join(self._path, self._backup_folder)

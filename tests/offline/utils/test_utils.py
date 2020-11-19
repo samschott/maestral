@@ -1,10 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-@author: Sam Schott  (ss2151@cam.ac.uk)
 
-(c) Sam Schott; This work is licensed under the MIT licence.
-
-"""
 import pytest
 
 from maestral.utils import get_newer_version

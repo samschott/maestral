@@ -5,39 +5,36 @@ import logging
 import time
 from datetime import datetime
 import uuid
-from typing import Optional
+
+import pytest
 
 from dropbox.files import WriteMode, FileMetadata
 from maestral.main import Maestral
 from maestral.errors import NotFoundError, FileConflictError
 from maestral.client import convert_api_errors
 from maestral.utils.housekeeping import remove_configuration
-from maestral.utils.path import generate_cc_name, delete
+from maestral.utils.path import (
+    generate_cc_name,
+    delete,
+    to_existing_cased_path,
+    is_child,
+)
+from maestral.sync import DirectorySnapshot
 from maestral.utils.appdirs import get_home_dir
 
 
-env_token = os.environ.get("DROPBOX_TOKEN", "")
+resources = os.path.dirname(__file__) + "/resources"
 
 
-def setup_test_config(
-    config_name: str = "test-config", access_token: Optional[str] = env_token
-) -> Maestral:
-    """
-    Sets up a new maestral configuration and links it to a Dropbox account with the
-    given token. Creates a new local Dropbox folder for the config. The token must be an
-    "access token" which can be used to directly make Dropbox API calls and not a
-    "refresh token". Both short lived and long lived access token will work but short
-    lived tokens must not expire before the tests are complete.
-
-    :param config_name: Config name to use or  create.
-    :param access_token: The access token to use to link the config to an account.
-    :returns: A linked Maestral instance.
-    """
+@pytest.fixture
+def m():
+    config_name = "test-config"
 
     m = Maestral(config_name)
     m.log_level = logging.DEBUG
 
     # link with given token
+    access_token = os.environ.get("DROPBOX_TOKEN", "")
     m.client._init_sdk_with_token(access_token=access_token)
 
     # get corresponding Dropbox ID and store in keyring for other processes
@@ -47,33 +44,40 @@ def setup_test_config(
     m.client.auth._token_access_type = "legacy"
     m.client.auth.save_creds()
 
+    # set local Dropbox directory
     home = get_home_dir()
-    local_dropbox_dir = generate_cc_name(
-        os.path.join(home, "Dropbox"), suffix="test runner"
-    )
+    local_dropbox_dir = generate_cc_name(home + "/Dropbox", suffix="test runner")
     m.create_dropbox_directory(local_dropbox_dir)
 
-    return m
+    # acquire test lock and perform initial sync
+    lock = DropboxTestLock(m)
+    if not lock.acquire(timeout=60 * 60):
+        raise TimeoutError("Could not acquire test lock")
 
+    # create / clean our temporary test folder
+    m.test_folder_dbx = "/sync_tests"
+    m.test_folder_local = m.to_local_path(m.test_folder_dbx)
 
-def cleanup_test_config(m: Maestral, test_folder_dbx: Optional[str] = None) -> None:
-    """
-    Shuts down syncing for the given Maestral instance, removes all local files and
-    folders related to that instance, including the local Dropbox folder, and removes
-    any '.mignore' files.
+    try:
+        m.client.remove(m.test_folder_dbx)
+    except NotFoundError:
+        pass
+    m.client.make_dir(m.test_folder_dbx)
 
-    :param m: Maestral instance.
-    :param test_folder_dbx: Optional test folder to clean up.
-    """
+    # start syncing
+    m.start_sync()
+    wait_for_idle(m)
+
+    # return synced and running instance
+    yield m
 
     # stop syncing and clean up remote folder
     m.stop_sync()
 
-    if test_folder_dbx:
-        try:
-            m.client.remove(test_folder_dbx)
-        except NotFoundError:
-            pass
+    try:
+        m.client.remove(m.test_folder_dbx)
+    except NotFoundError:
+        pass
 
     try:
         m.client.remove("/.mignore")
@@ -86,6 +90,87 @@ def cleanup_test_config(m: Maestral, test_folder_dbx: Optional[str] = None) -> N
     # remove local files and folders
     delete(m.dropbox_path)
     remove_configuration(m.config_name)
+
+    # release lock
+    lock.release()
+
+
+# helper functions
+
+
+def wait_for_idle(m: Maestral, minimum: int = 4):
+    """Blocks until Maestral instance is idle for at least `minimum` sec."""
+
+    t0 = time.time()
+    while time.time() - t0 < minimum:
+        if m.sync.busy():
+            m.monitor._wait_for_idle()
+            t0 = time.time()
+        else:
+            time.sleep(0.1)
+
+
+def assert_synced(m: Maestral):
+    """Asserts that the `local_folder` and `remote_folder` are synced."""
+
+    remote_items = m.list_folder("/", recursive=True)
+    local_snapshot = DirectorySnapshot(m.dropbox_path)
+
+    # assert that all items from server are present locally
+    # with the same content hash
+    for r in remote_items:
+        dbx_path = r["path_display"]
+        local_path = to_existing_cased_path(dbx_path, root=m.dropbox_path)
+
+        remote_hash = r["content_hash"] if r["type"] == "FileMetadata" else "folder"
+        assert (
+            m.sync.get_local_hash(local_path) == remote_hash
+        ), f'different file content for "{dbx_path}"'
+
+    # assert that all local items are present on server
+    for path in local_snapshot.paths:
+        if not m.sync.is_excluded(path) and is_child(path, m.dropbox_path):
+            if not m.sync.is_excluded(path):
+                dbx_path = m.sync.to_dbx_path(path).lower()
+                matching_items = list(
+                    r for r in remote_items if r["path_lower"] == dbx_path
+                )
+                assert (
+                    len(matching_items) == 1
+                ), f'local item "{path}" does not exist on dbx'
+
+    # check that our index is correct
+    for entry in m.sync.get_index():
+
+        if is_child(entry.dbx_path_lower, "/"):
+            # check that there is a match on the server
+            matching_items = list(
+                r for r in remote_items if r["path_lower"] == entry.dbx_path_lower
+            )
+            assert (
+                len(matching_items) == 1
+            ), f'indexed item "{entry.dbx_path_lower}" does not exist on dbx'
+
+            r = matching_items[0]
+            remote_rev = r["rev"] if r["type"] == "FileMetadata" else "folder"
+
+            # check if revs are equal on server and locally
+            assert (
+                entry.rev == remote_rev
+            ), f'different revs for "{entry.dbx_path_lower}"'
+
+            # check if casing on drive is the same as in index
+            local_path_expected_casing = m.dropbox_path + entry.dbx_path_cased
+            local_path_actual_casing = to_existing_cased_path(
+                local_path_expected_casing
+            )
+
+            assert (
+                local_path_expected_casing == local_path_actual_casing
+            ), "casing on drive does not match index"
+
+
+# test lock
 
 
 class DropboxTestLock:
