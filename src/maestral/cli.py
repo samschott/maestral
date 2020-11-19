@@ -33,7 +33,7 @@ from .daemon import (
     is_running,
 )
 from .config import MaestralConfig, MaestralState, list_configs
-from .utils.cli import Column, Table, Align, Elide, Grid, TextField, DateField
+from .utils.cli import Column, Table, Align, Elide, Grid, TextField, DateField, Field
 from .utils.housekeeping import remove_configuration, validate_config_name
 
 
@@ -857,6 +857,8 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
                     size = natural_size(cast(float, entry["size"]))
                 else:
                     size = "-"
+
+                dt_field: Field
 
                 if "client_modified" in entry:
                     cm = cast(str, entry["client_modified"])
