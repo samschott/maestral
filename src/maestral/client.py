@@ -25,8 +25,14 @@ from typing import (
     Iterator,
     TypeVar,
     Optional,
+    cast,
     TYPE_CHECKING,
 )
+
+try:
+    from typing import Protocol  # type: ignore
+except ImportError:
+    from typing_extensions import Protocol  # type: ignore
 
 # external imports
 import requests
@@ -113,8 +119,20 @@ SessionLookupErrorType = Type[
         FileSizeError,
     ]
 ]
-_FT = Callable[..., Any]
-_T = TypeVar("_T")
+FT = TypeVar("FT", bound=Callable[..., Any])
+
+
+class ResultType(Protocol):
+    def __init__(self, entries: list, cursor: str, has_more: bool) -> None:
+        ...
+
+    @property
+    def cursor(self) -> str:
+        ...
+
+    @property
+    def has_more(self) -> bool:
+        ...
 
 
 # create single requests session for all clients
@@ -184,7 +202,7 @@ def convert_api_errors(
 
 def convert_api_errors_decorator(
     dbx_path_arg: Optional[int] = None, local_path_arg: Optional[int] = None
-) -> Callable[[_FT], _FT]:
+) -> Callable[[FT], FT]:
     """
     Returns a decorator that catches and re-raises instances of :class:`OSError` and
     :class:`exceptions.DropboxException` as :class:`errors.MaestralApiError` or
@@ -194,7 +212,7 @@ def convert_api_errors_decorator(
     :param local_path_arg: Argument number to take as local_path_arg for exception.
     """
 
-    def decorator(func: _FT) -> _FT:
+    def decorator(func: FT) -> FT:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
 
@@ -204,7 +222,7 @@ def convert_api_errors_decorator(
             with convert_api_errors(dbx_path, local_path):
                 return func(*args, **kwargs)
 
-        return wrapper
+        return cast(FT, wrapper)
 
     return decorator
 
@@ -1103,7 +1121,7 @@ class DropboxClient:
         return self._flatten_results(results, attribute_name="links")
 
     @staticmethod
-    def _flatten_results(results: List[_T], attribute_name: str) -> _T:
+    def _flatten_results(results: List[ResultType], attribute_name: str) -> ResultType:
         """
         Flattens a list of Dropbox API results from a pagination to a single result with
         the cursor of the last entry in the list.
@@ -1118,14 +1136,8 @@ class DropboxClient:
         for result in results:
             all_entries += getattr(result, attribute_name)
 
-        kwargs = {
-            attribute_name: all_entries,
-            "cursor": results[-1].cursor,
-            "has_more": False,
-        }
-
         result_cls = type(results[0])
-        results_flattened = result_cls(**kwargs)
+        results_flattened = result_cls(all_entries, results[-1].cursor, False)
 
         return results_flattened
 
