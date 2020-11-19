@@ -24,6 +24,7 @@ install_requires = [
     "setuptools",
     "sdnotify>=0.3.2",
     "sqlalchemy>=1.3.0",
+    "typing_extensions;python_version<'3.8'",
     "watchdog>=0.10.0",
 ]
 
