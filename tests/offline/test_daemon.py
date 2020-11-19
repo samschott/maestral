@@ -90,8 +90,8 @@ def test_locking_threaded():
     # acquire lock from thread
 
     def acquire_in_thread():
-        l = Lock.singleton(lock_name)
-        l.acquire()
+        lock_thread = Lock.singleton(lock_name)
+        lock_thread.acquire()
 
     t = threading.Thread(
         target=acquire_in_thread,
