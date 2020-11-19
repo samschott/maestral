@@ -32,7 +32,7 @@ def sync():
     remove_configuration("test-config")
 
 
-def test_single_file_events():
+def test_single_file_events(sync):
 
     # only a single event for every path -> no consolidation
 
@@ -54,7 +54,7 @@ def test_single_file_events():
     assert set(cleaned_events) == set(res)
 
 
-def test_single_path_cases():
+def test_single_path_cases(sync):
 
     file_events = [
         # created + deleted -> None
@@ -80,7 +80,7 @@ def test_single_path_cases():
     assert set(cleaned_events) == set(res)
 
 
-def test_move_events():
+def test_move_events(sync):
 
     file_events = [
         # created + moved -> created
@@ -115,7 +115,7 @@ def test_move_events():
     assert set(cleaned_events) == set(res)
 
 
-def test_gedit_save():
+def test_gedit_save(sync):
 
     file_events = [
         FileCreatedEvent(".gedit-save-UR4EC0"),  # save new version to tmp file
@@ -133,7 +133,7 @@ def test_gedit_save():
     assert set(cleaned_events) == set(res)
 
 
-def test_macos_safe_save():
+def test_macos_safe_save(sync):
 
     file_events = [
         FileMovedEvent(ipath(1), ipath(1) + ".sb-b78ef837-dLht38"),  # move to backup
@@ -149,7 +149,7 @@ def test_macos_safe_save():
     assert set(cleaned_events) == set(res)
 
 
-def test_msoffice_created():
+def test_msoffice_created(sync):
 
     file_events = [
         FileCreatedEvent(ipath(1)),
@@ -167,7 +167,7 @@ def test_msoffice_created():
     assert set(cleaned_events) == set(res)
 
 
-def test_type_changes():
+def test_type_changes(sync):
 
     file_events = [
         # keep as is
@@ -191,7 +191,7 @@ def test_type_changes():
     assert set(cleaned_events) == set(res)
 
 
-def test_type_changes_difficult():
+def test_type_changes_difficult(sync):
 
     file_events = [
         # convert to FileDeleted -> DirCreated
@@ -220,7 +220,7 @@ def test_type_changes_difficult():
     assert set(cleaned_events) == set(res)
 
 
-def test_nested_events():
+def test_nested_events(sync):
 
     file_events = [
         # convert to a single DirDeleted
@@ -246,7 +246,7 @@ def test_nested_events():
     assert set(cleaned_events) == set(res)
 
 
-def test_performance():
+def test_performance(sync):
 
     # 10,000 nested deleted events (5,000 folders, 5,000 files)
     file_events = [DirDeletedEvent(n * ipath(1)) for n in range(1, 5001)]
