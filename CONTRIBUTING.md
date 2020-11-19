@@ -8,7 +8,7 @@ Coding style is checked with [flake8](http://flake8.pycqa.org).
 Type hints, [PEP484](https://www.python.org/dev/peps/pep-0484/), are checked with
 [mypy](http://mypy-lang.org/).
 
-You can check the format, coding style, and type hint at the same time just by executing
+You can check the format, coding style, and type hints at the same time just by executing
 a script `scripts/linting.sh`. If your environment misses some dependencies such as
 black, flake8, or mypy,  you will be asked to install them.
 
@@ -16,14 +16,14 @@ black, flake8, or mypy,  you will be asked to install them.
 # Without any fixes.
 bash scripts/linting.sh
 
-# With fixes on the format by `black` and the import order by `isort`.
+# With fixes on the format by `black`
 bash scripts/linting.sh -u
 ```
 
 ### Documentation
 
-Documentation is mostly based on doc strings and inline comments should be used whenever
-code may be difficult to understand for others. Type hints should be throughout.
+The API documentation is mostly based on doc strings. Inline comments should be used 
+whenever code may be difficult to understand for others. Type hints should be throughout.
 
 ## Tests
 
