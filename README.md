@@ -151,6 +151,9 @@ Relevant resources are:
 - [Dropbox API docs](https://www.dropbox.com/developers/documentation/http/documentation)
 - [Dropbox Python SDK docs](https://dropbox-sdk-python.readthedocs.io/en/latest/)
 
+[CONTRIBUTING.md](CONTRIBUTING.md) contains detailed information on the expected code
+style and test format.
+
 If you are using the macOS app bundle, please consider sponsoring the project with £1 per 
 month to offset the cost of an Apple Developer account to sign and notarize the bundle.
 
