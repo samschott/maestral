@@ -14,7 +14,7 @@ import os.path as osp
 import functools
 import textwrap
 import time
-from typing import Optional, List, Dict, Iterable, Callable, Union, TypeVar, cast
+from typing import Optional, List, Dict, Iterable, Callable, cast
 
 # external imports
 import click
@@ -33,16 +33,13 @@ from .daemon import (
     is_running,
 )
 from .config import MaestralConfig, MaestralState, list_configs
+from .utils.cli import Column, Table, Align, Elide, Grid, TextField, DateField, Field
 from .utils.housekeeping import remove_configuration, validate_config_name
 
 
 OK = click.style("[OK]", fg="green")
 FAILED = click.style("[FAILED]", fg="red")
 KILLED = click.style("[KILLED]", fg="red")
-
-LEFT, CENTER, RIGHT = range(3)
-
-T = TypeVar("T")
 
 
 def stop_daemon_with_cli_feedback(config_name: str) -> None:
@@ -223,112 +220,6 @@ def catch_maestral_errors(func: Callable) -> Callable:
             raise click.ClickException("Could not connect to Dropbox.")
 
     return wrapper
-
-
-def _transpose(ll: List[List[T]]) -> List[List[T]]:
-    return list(map(list, zip(*ll)))
-
-
-def format_table(
-    rows: Optional[List[List[str]]] = None,
-    columns: Optional[List[List[str]]] = None,
-    headers: Optional[List[str]] = None,
-    padding: int = 2,
-    alignment: Optional[Union[int, List[int]]] = None,
-    wrap: bool = True,
-):
-    """
-    Prints given data as a pretty table. Either rows or columns must be given.
-
-    :param rows: List of strings for table rows.
-    :param columns: List of strings for table columns.
-    :param headers: List of strings for column titles.
-    :param padding: Padding between columns.
-    :param alignment: List of alignments for every column. Values can be ``LEFT``,
-        ``CENTER``, ``RIGHT``. If not given, defaults to left alignment.
-    :param wrap: If ``True``, wrap cell content to fit the terminal width.
-    :returns: Formatted multi-line string.
-    """
-
-    if rows and columns:
-        raise ValueError("Cannot give both rows and columns as input.")
-
-    if not columns:
-        if rows:
-            columns = list(columns) if columns else _transpose(rows)
-        else:
-            raise ValueError("Must give either rows or columns as input.")
-
-    if headers:
-        for i, col in enumerate(columns):
-            col.insert(0, headers[i])
-
-    # return early if all columns are empty (including headers)
-    if all(len(col) == 0 for col in columns):
-        return ""
-
-    # default to left alignment
-    if not alignment:
-        alignment = [LEFT] * len(columns)
-    elif isinstance(alignment, int):
-        alignment = [alignment] * len(columns)
-    elif len(alignment) != len(columns):
-        raise ValueError("Must give an alignment for every column.")
-
-    # determine column widths from terminal width and padding
-
-    col_widths = tuple(max(len(cell) for cell in col) for col in columns)
-
-    if wrap:
-
-        terminal_width, terminal_height = click.get_terminal_size()
-        available_width = terminal_width - padding * len(columns)
-
-        n = 3
-        sum_widths = sum(w ** n for w in col_widths)
-        subtract = max([sum(col_widths) - available_width, 0])
-        col_widths = tuple(
-            round(w - subtract * w ** n / sum_widths) for w in col_widths
-        )
-
-    # wrap strings to fit column
-
-    wrapped_columns: List[List[List[str]]] = []
-
-    for column, width in zip(columns, col_widths):
-        wrapped_columns.append([textwrap.wrap(cell, width=width) for cell in column])
-
-    wrapped_rows = _transpose(wrapped_columns)
-
-    # generate lines by filling columns
-
-    lines = []
-
-    for row in wrapped_rows:
-        n_lines = max(len(cell) for cell in row)
-        for cell in row:
-            cell += [""] * (n_lines - len(cell))
-
-        for i in range(n_lines):
-            line = ""
-            for cell, width, align in zip(row, col_widths, alignment):
-
-                if align == LEFT:
-                    line += cell[i].ljust(width)
-                elif align == RIGHT:
-                    line += cell[i].rjust(width)
-                elif align == CENTER:
-                    line += cell[i].center(width)
-                else:
-                    raise ValueError(
-                        "Alignment must be LEFT = 0, CENTER = 1, RIGHT = 2"
-                    )
-
-                line += " " * padding
-
-            lines.append(line)
-
-    return "\n".join(lines)
 
 
 # ======================================================================================
@@ -757,14 +648,20 @@ def status(config_name: str) -> None:
 
             check_for_fatal_errors(m)
 
-            sync_err_list = m.sync_errors
+            sync_errors = m.sync_errors
 
-            if len(sync_err_list) > 0:
-                headers = ["PATH", "ERROR"]
-                col0 = ["'{}'".format(err["dbx_path"]) for err in sync_err_list]
-                col1 = ["{title}. {message}".format(**err) for err in sync_err_list]
+            if len(sync_errors) > 0:
 
-                click.echo(format_table(columns=[col0, col1], headers=headers))
+                path_column = Column(title="Path")
+                message_column = Column(title="Error", wraps=True)
+
+                for error in sync_errors:
+                    path_column.append(error["dbx_path"])
+                    message_column.append("{title}. {message}".format(**error))
+
+                table = Table([path_column, message_column])
+
+                table.echo()
                 click.echo("")
 
     except Pyro5.errors.CommunicationError:
@@ -924,83 +821,71 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 
         if long:
 
-            names = []
-            types = []
-            sizes = []
-            shared = []
-            last_modified = []
-            excluded = []
-
             to_short_type = {
                 "FileMetadata": "file",
                 "FolderMetadata": "folder",
                 "DeletedMetadata": "deleted",
             }
 
-            for e in entries:
+            table = Table(
+                columns=[
+                    Column("Name"),
+                    Column("Type"),
+                    Column("Size", align=Align.Right),
+                    Column("Shared"),
+                    Column("Syncing"),
+                    Column("Last Modified"),
+                ]
+            )
 
-                long_type = cast(str, e["type"])
-                name = cast(str, e["name"])
-                path_lower = cast(str, e["path_lower"])
+            for entry in entries:
 
-                types.append(to_short_type[long_type])
-                names.append(name)
+                item_type = to_short_type[cast(str, entry["type"])]
+                name = cast(str, entry["name"])
+                path_lower = cast(str, entry["path_lower"])
 
-                shared.append("shared" if "sharing_info" in e else "private")
-                excluded.append(m.excluded_status(path_lower))
+                text = "shared" if "sharing_info" in entry else "private"
+                color = "bright_black" if text == "private" else None
+                shared_field = TextField(text, fg=color)
 
-                if "size" in e:
-                    size = cast(float, e["size"])
-                    sizes.append(natural_size(size))
+                excluded_status = m.excluded_status(path_lower)
+                color = "green" if excluded_status == "included" else None
+                text = "✓" if excluded_status == "included" else excluded_status
+                excluded_field = TextField(text, fg=color)
+
+                if "size" in entry:
+                    size = natural_size(cast(float, entry["size"]))
                 else:
-                    sizes.append("-")
+                    size = "-"
 
-                if "client_modified" in e:
-                    cm = cast(str, e["client_modified"])
+                dt_field: Field
+
+                if "client_modified" in entry:
+                    cm = cast(str, entry["client_modified"])
                     dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
-                    last_modified.append(dt.strftime("%d %b %Y %H:%M"))
+                    dt_field = DateField(dt)
                 else:
-                    last_modified.append("-")
+                    dt_field = TextField("-")
+
+                table.append(
+                    [name, item_type, size, shared_field, excluded_field, dt_field]
+                )
 
             click.echo("")
-            click.echo(
-                format_table(
-                    headers=["Name", "Type", "Size", "Shared", "Syncing", "Modified"],
-                    columns=[names, types, sizes, shared, excluded, last_modified],
-                    alignment=[LEFT, LEFT, RIGHT, LEFT, LEFT, LEFT],
-                    wrap=False,
-                ),
-            )
+            table.echo()
             click.echo("")
 
         else:
 
-            from .utils import chunks
+            grid = Grid()
 
-            names = []
-            colors = []
-            formatted_names = []
-            max_len = 0
+            for entry in entries:
+                name = cast(str, entry["name"])
+                color = "blue" if entry["type"] == "DeletedMetadata" else None
 
-            for e in entries:
-                name = cast(str, e["name"])
+                grid.append(TextField(name, fg=color))
 
-                max_len = max(max_len, len(name))
-                names.append(name)
-                colors.append("blue" if e["type"] == "DeletedMetadata" else None)
-
-            max_len += 2  # add 2 spaces padding
-
-            for name, color in zip(names, colors):
-                formatted_names.append(click.style(name.ljust(max_len), fg=color))
-
-            width, height = click.get_terminal_size()
-            n_columns = max(width // max_len, 1)
-
-            rows = chunks(formatted_names, n_columns)
-
-            for row in rows:
-                click.echo("".join(row))
+            grid.echo()
 
 
 @main.command(help_priority=11, help="Links Maestral with your Dropbox account.")
@@ -1117,20 +1002,19 @@ def revs(dropbox_path: str, config_name: str) -> None:
 
         entries = m.list_revisions(dropbox_path)
 
-    revs = []
-    last_modified = []
+    table = Table(["Revision", "Last Modified"])
 
-    for e in entries:
+    for entry in entries:
 
-        rev = cast(str, e["rev"])
-        cm = cast(str, e["client_modified"])
-
-        revs.append(rev)
+        rev = cast(str, entry["rev"])
+        cm = cast(str, entry["client_modified"])
 
         dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
-        last_modified.append(dt.strftime("%d %b %Y %H:%M"))
+        table.append([rev, dt])
 
-    click.echo(format_table(columns=[revs, last_modified]))
+    click.echo("")
+    table.echo()
+    click.echo("")
 
 
 @main.command(
@@ -1157,9 +1041,9 @@ def history(config_name: str) -> None:
     with MaestralProxy(config_name, fallback=True) as m:
         history = m.get_history()
 
-    paths = []
-    change_times = []
-    change_types = []
+    table = Table(
+        [Column("Path", elide=Elide.Leading), Column("Change"), Column("Time")]
+    )
 
     for event in history:
 
@@ -1168,11 +1052,11 @@ def history(config_name: str) -> None:
         change_time_or_sync_time = cast(float, event["change_time_or_sync_time"])
         dt = datetime.fromtimestamp(change_time_or_sync_time)
 
-        paths.append(dbx_path)
-        change_times.append(dt.strftime("%d %b %Y %H:%M"))
-        change_types.append(change_type)
+        table.append([dbx_path, change_type, dt])
 
-    click.echo(format_table(columns=[paths, change_types, change_times], wrap=False))
+    click.echo("")
+    table.echo()
+    click.echo("")
 
 
 @main.command(help_priority=19, help="Lists all configured Dropbox accounts.")
@@ -1190,10 +1074,10 @@ def configs() -> None:
     names = list_configs()
     emails = [MaestralState(c).get("account", "email") for c in names]
 
+    table = Table([Column("Config name", names), Column("Account", emails)])
+
     click.echo("")
-    click.echo(
-        format_table(columns=[names, emails], headers=["Config name", "Account"])
-    )
+    table.echo()
     click.echo("")
 
 
