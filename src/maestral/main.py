@@ -48,7 +48,6 @@ from .errors import (
     NotLinkedError,
     NoDropboxDirError,
     NotFoundError,
-    PathError,
 )
 from .config import MaestralConfig, MaestralState
 from .utils import get_newer_version
