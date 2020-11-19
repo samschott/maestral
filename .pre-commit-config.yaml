@@ -10,11 +10,6 @@ repos:
     hooks:
     -   id: flake8
 
--   repo: https://github.com/pre-commit/mirrors-isort
-    rev: master
-    hooks:
-    -   id: isort
-
 -   repo: https://github.com/pre-commit/mirrors-mypy
     rev: master
     hooks:

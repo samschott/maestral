@@ -2,10 +2,6 @@
 line-length = 88
 target-version = ["py36", "py37", "py38"]
 
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-
 [build-system]
 requires = ["setuptools>=41.0", "wheel"]
 build-backend = "setuptools.build_meta"

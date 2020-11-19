@@ -1,7 +1,7 @@
 #!/bin/bash
 # As described in `CONTRIBUTING.md`, this script checks the source codes for formatting,
-# coding style and type hints. The `-u` option enables automatic formatting by `black`
-# and `isort`. This script is taken from the Optuna project.
+# coding style and type hints. The `-u` option enables automatic formatting by `black`.
+# This script is taken from the Optuna project.
 
 set -e
 
@@ -12,9 +12,6 @@ if [ ! "$(echo $res_pip_list | grep black)" ] ; then
 fi
 if [ ! "$(echo $res_pip_list | grep flake8)" ] ; then
   missing_dependencies+=(flake8)
-fi
-if [ ! "$(echo $res_pip_list | grep isort)" ] ; then
-  missing_dependencies+=(isort)
 fi
 if [ ! "$(echo $res_pip_list | grep mypy)" ] ; then
   missing_dependencies+=(mypy)
@@ -63,20 +60,6 @@ if [ $? -eq 1 ] ; then
   res_all=1
 else
   echo "flake8 succeeded."
-fi
-
-res_isort=$(isort $target --check 2>&1)
-if [ $? -eq 1 ] ; then
-  if [ $update -eq 1 ] ; then
-    echo "isort failed. The code will be formatted by isort."
-    isort .
-  else
-    echo "$res_isort"
-    echo "isort failed."
-    res_all=1
-  fi
-else
-  echo "isort succeeded."
 fi
 
 res_mypy=$(mypy $mypy_target)
