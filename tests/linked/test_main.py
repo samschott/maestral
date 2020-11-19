@@ -116,19 +116,19 @@ class TestAPI(TestCase):
         self.assertEqual(FileStatus.Error.value, file_status)
 
     def test_selective_sync_api(self):
-        """Test `Maestral.exclude_item` and  Maestral.include_item`."""
+        """Test `Maestral.exclude_item` and Maestral.include_item`."""
 
         test_path_local = self.test_folder_local + "/selective_sync_test_folder"
         test_path_local_sub = test_path_local + "/subfolder"
         test_path_dbx = self.test_folder_dbx + "/selective_sync_test_folder"
         test_path_dbx_sub = test_path_dbx + "/subfolder"
 
-        # create a local folder 'folder'
+        # create a local folder test_path_local
         os.mkdir(test_path_local)
         os.mkdir(test_path_local_sub)
         self.wait_for_idle()
 
-        # exclude 'folder' from sync
+        # exclude test_path_dbx from sync
         self.m.exclude_item(test_path_dbx)
         self.wait_for_idle()
 
@@ -140,7 +140,7 @@ class TestAPI(TestCase):
             self.m.excluded_status(self.test_folder_dbx), "partially excluded"
         )
 
-        # include 'folder' in sync
+        # include test_path_dbx in sync, check that it worked
         self.m.include_item(test_path_dbx)
         self.wait_for_idle()
 
@@ -149,13 +149,18 @@ class TestAPI(TestCase):
         self.assertEqual(self.m.excluded_status(self.test_folder_dbx), "included")
         self.assertEqual(self.m.excluded_status(test_path_dbx_sub), "included")
 
-        # exclude 'folder' again for further tests
+        # exclude test_path_dbx again for further tests
         self.m.exclude_item(test_path_dbx)
         self.wait_for_idle()
 
-        # test including a folder inside 'folder'
-        with self.assertRaises(PathError):
-            self.m.include_item(test_path_dbx + "/subfolder")
+        # test including a folder inside test_path_dbx,
+        # test_path_dbx should become included itself
+        self.m.include_item(test_path_dbx + "/subfolder")
+        self.assertNotIn(
+            test_path_dbx,
+            self.m.excluded_items,
+            'test_path_dbx still in "excluded_items" list',
+        )
 
         # test that 'folder' is removed from excluded_list on deletion
         self.m.client.remove(test_path_dbx)

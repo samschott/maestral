@@ -14,12 +14,21 @@
 * Increased timeout for all event queues.
 * Decreased the frequency of Pyro daemon housekeeping tasks.
 * Improved performance when syncing a large number of remote deletions.
+* The `Maestral.exclude_item()` API now accepts paths which lie inside an excluded 
+  folder. When called with such a path, all immediate parents will be included as well.
+* The `Maestral.excluded_items` property is no longer read-only.
 
 #### Fixes:
 
 * Fixes an issue where `maestral ls` would fail when run with the `-l, --long` flag.
 * Fixes an `IndexError` during a download sync when trying to query past versions of a
   deleted item.
+* Fixes an issue which could case a segfault of the selective sync dialog on macOS.
+
+#### Deprecated:
+
+* Deprecated the `Maestral.set_excluded_items` API. Use the setter for
+  `Maestral.excluded_items` instead.
 
 ## v1.2.2
 

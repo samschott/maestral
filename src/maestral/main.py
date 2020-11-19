@@ -12,6 +12,7 @@ import os.path as osp
 import platform
 import shutil
 import time
+import warnings
 import logging.handlers
 from collections import deque
 import asyncio
@@ -23,7 +24,7 @@ try:
     from concurrent.futures import InvalidStateError  # type: ignore
 except ImportError:
     # Python 3.7 and lower
-    InvalidStateError = RuntimeError
+    InvalidStateError = RuntimeError  # type: ignore
 
 # external imports
 import requests
@@ -484,16 +485,44 @@ class Maestral:
     @property
     def excluded_items(self) -> List[str]:
         """
-        Returns a list of files and folders excluded by selective sync (read only). Use
-        :meth:`exclude_item`, :meth:`include_item` or :meth:`set_excluded_items` to
-        change which items are excluded from syncing.
+        The list of files and folders excluded by selective sync. Any changes to this
+        list will be applied immediately if we have already performed the initial sync.
+        I.e., paths which have been added to the list will be deleted from the local
+        drive and paths which have been removed will be downloaded.
 
-        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+        Use :meth:`exclude_item` and :meth:`include_item` to add or remove individual
+        items from selective sync.
         """
         if self.pending_link:
             return []
         else:
             return self.sync.excluded_items
+
+    @excluded_items.setter
+    def excluded_items(self, items: List[str]) -> None:
+        """Setter: excluded_items"""
+
+        excluded_items = self.sync.clean_excluded_items_list(items)
+        old_excluded_items = self.excluded_items
+
+        added_excluded_items = set(excluded_items) - set(old_excluded_items)
+        added_included_items = set(old_excluded_items) - set(excluded_items)
+
+        self.sync.excluded_items = excluded_items
+
+        if self.pending_first_download:
+            return
+
+        # apply changes
+        for path in added_excluded_items:
+            logger.info("Excluded %s", path)
+            self._remove_after_excluded(path)
+        for path in added_included_items:
+            if not self.sync.is_excluded_by_user(path):
+                logger.info("Included %s", path)
+                self.monitor.added_item_queue.put(path)
+
+        logger.info(IDLE)
 
     @property
     def log_level(self) -> int:
@@ -1013,6 +1042,13 @@ class Maestral:
         self._check_linked()
         self.monitor.reset_sync_state()
 
+    def set_excluded_items(self, items: List[str]) -> None:
+        warnings.warn(
+            "'set_excluded_items' is deprecated, please set 'excluded_items' directly",
+            DeprecationWarning,
+        )
+        self.excluded_items = items
+
     def exclude_item(self, dbx_path: str) -> None:
         """
         Excludes file or folder from sync and deletes it locally. It is safe to call
@@ -1082,12 +1118,16 @@ class Maestral:
         to call this method with items which have already been included, they will not
         be downloaded again.
 
+        If the path lies inside an excluded folder, all its immediate parents will be
+        included. Other children of the excluded folder will remain excluded.
+
+        If any children of dbx_path were excluded, they will now be included.
+
         Any downloads will be carried out by the sync threads. Errors during the
         download can be accessed through :attr:`sync_errors` or :attr:`maestral_errors`.
 
         :param dbx_path: Dropbox path of item to include.
         :raises: :class:`errors.NotFoundError` if there is nothing at the given path
-        :raises: :class:`errors.PathError` if the path lies inside an excluded folder
         :raises: :class:`errors.DropboxAuthError` in case of an invalid access token
         :raises: :class:`errors.DropboxServerError` for internal Dropbox errors
         :raises: :class:`ConnectionError` if connection to Dropbox fails
@@ -1098,87 +1138,56 @@ class Maestral:
         self._check_linked()
         self._check_dropbox_dir()
 
-        # input validation
+        # ---- input validation --------------------------------------------------------
         md = self.client.get_metadata(dbx_path)
 
         if not md:
             raise NotFoundError(
-                "Cannot include item", f'"{dbx_path}" does not exist on Dropbox'
+                "Cannot include item",
+                f'"{dbx_path}" does not exist on Dropbox',
             )
 
         dbx_path = dbx_path.lower().rstrip("/")
 
-        old_excluded_items = self.sync.excluded_items
+        # ---- update excluded items list ----------------------------------------------
 
-        for folder in old_excluded_items:
+        excluded_items = set(self.sync.excluded_items)
+
+        # remove dbx_path from list
+        try:
+            excluded_items.remove(dbx_path)
+        except KeyError:
+            pass
+
+        excluded_parent: Optional[str] = None
+
+        for folder in excluded_items.copy():
+
+            # include all parents which are required to download dbx_path
             if is_child(dbx_path, folder):
-                raise PathError(
-                    "Cannot include item",
-                    f'"{dbx_path}" lies inside the excluded folder '
-                    f'"{folder}". Please include "{folder}" first.',
-                )
+                # remove parent folder from excluded list
+                excluded_items.remove(folder)
+                # add all children of parent folder which do not lead to dbx_path
+                for res in self.client.list_folder_iterator(folder):
+                    for entry in res.entries:
+                        if not is_equal_or_child(dbx_path, entry.path_lower):
+                            excluded_items.add(entry.path_lower)
 
-        # Get items which will need to be downloaded, do not attempt to download
-        # children of `dbx_path` which were already included.
-        # `new_included_items` will either be empty (`dbx_path` was already
-        # included), just contain `dbx_path` itself (the item was fully excluded) or
-        # only contain children of `dbx_path` (`dbx_path` was partially included).
-        new_included_items = tuple(
-            x for x in old_excluded_items if x == dbx_path or is_child(x, dbx_path)
-        )
+                excluded_parent = folder
 
-        if new_included_items:
-            # remove `dbx_path` or all excluded children from the excluded list
-            excluded_items = list(set(old_excluded_items) - set(new_included_items))
+            # include all children of dbx_path
+            if is_child(folder, dbx_path):
+                excluded_items.remove(folder)
+
+        self.sync.excluded_items = list(excluded_items)
+
+        # download item from Dropbox
+        if excluded_parent:
+            logger.info("Included %s and parent directories", dbx_path)
+            self.monitor.added_item_queue.put(excluded_parent)
         else:
-            logger.info("%s was already included", dbx_path)
-            return
-
-        self.sync.excluded_items = excluded_items
-
-        logger.info("Included %s", dbx_path)
-
-        # download items from Dropbox
-        for folder in new_included_items:
-            self.monitor.added_item_queue.put(folder)
-
-    def set_excluded_items(self, items: List[str]) -> None:
-        """
-        Sets the list of excluded files or folders. Items which are not in ``items`` but
-        were previously excluded will be downloaded.
-
-        Any downloads will be carried out by the sync threads. Errors during the
-        download can be accessed through :attr:`sync_errors` or :attr:`maestral_errors`.
-
-        On initial sync, this does not trigger any downloads.
-
-        :param items: List of excluded files or folders to set.
-        :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
-        :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up
-        """
-
-        self._check_linked()
-        self._check_dropbox_dir()
-
-        excluded_items = self.sync.clean_excluded_items_list(items)
-        old_excluded_items = self.sync.excluded_items
-
-        added_excluded_items = set(excluded_items) - set(old_excluded_items)
-        added_included_items = set(old_excluded_items) - set(excluded_items)
-
-        self.sync.excluded_items = excluded_items
-
-        if not self.pending_first_download:
-            # apply changes
-            for path in added_excluded_items:
-                logger.info("Excluded %s", path)
-                self._remove_after_excluded(path)
-            for path in added_included_items:
-                if not self.sync.is_excluded_by_user(path):
-                    logger.info("Included %s", path)
-                    self.monitor.added_item_queue.put(path)
-
-        logger.info(IDLE)
+            logger.info("Included %s", dbx_path)
+            self.monitor.added_item_queue.put(dbx_path)
 
     def excluded_status(self, dbx_path: str) -> str:
         """
