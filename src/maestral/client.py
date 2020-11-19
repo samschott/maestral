@@ -22,8 +22,14 @@ from typing import (
     Iterator,
     TypeVar,
     Optional,
+    cast,
     TYPE_CHECKING,
 )
+
+try:
+    from typing import Protocol  # type: ignore
+except ImportError:
+    from typing_extensions import Protocol  # type: ignore
 
 # external imports
 import requests
@@ -121,8 +127,20 @@ SessionLookupErrorType = Type[
         FileSizeError,
     ]
 ]
-_FT = Callable[..., Any]
-_T = TypeVar("_T")
+FT = TypeVar("FT", bound=Callable[..., Any])
+
+
+class ResultType(Protocol):
+    def __init__(self, entries: list, cursor: str, has_more: bool) -> None:
+        ...
+
+    @property
+    def cursor(self) -> str:
+        ...
+
+    @property
+    def has_more(self) -> bool:
+        ...
 
 
 # create single requests session for all clients
