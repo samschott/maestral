@@ -1,0 +1,140 @@
+:mod:`maestral.oauth`
+=====================
+
+.. py:module:: maestral.oauth
+
+.. autoapi-nested-parse::
+
+   This module is responsible for authorization and token store in the system keyring.
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   maestral.oauth.OAuth2Session
+
+
+
+.. py:class:: OAuth2Session(config_name: str, app_key: str = DROPBOX_APP_KEY)
+
+   OAuth2Session provides OAuth 2 login and token store in the preferred system keyring.
+   To authenticate with Dropbox, run :meth:`get_auth_url` first and direct the user to
+   visit that URL and retrieve an auth token. Verify the provided auth token with
+   :meth:`verify_auth_token` and save it in the system keyring together with the
+   corresponding Dropbox ID by calling :meth:`save_creds`. Supported keyring backends
+   are, in order of preference:
+
+       * MacOS Keychain
+       * Any keyring implementing the SecretService Dbus specification
+       * KWallet
+       * Gnome Keyring
+       * Plain text storage
+
+   When the auth flow is completed, a short-lived access token and a long-lived refresh
+   token are generated. Only the long-lived refresh token will be saved in the system
+   keychain for future sessions, it can be used to generate short-lived access tokens
+   as needed.
+
+   If the auth flow was previously completed before Dropbox migrated to short-lived
+   tokens, the ``token_access_type`` will be 'legacy' and only a long-lived access
+   token will be available.
+
+   .. warning:: Unlike MacOS Keychain, Gnome Keyring and KWallet do not support
+       app-specific access to passwords. If the user unlocks those keyrings, we and any
+       other application in the same user session get access to *all* saved passwords.
+
+   :param config_name: Name of maestral config.
+
+   :cvar int Success: Exit code for successful auth.
+   :cvar int InvalidToken: Exit code for invalid token.
+   :cvar int ConnectionFailed: Exit code for connection errors.
+
+   .. method:: linked(self) -> bool
+      :property:
+
+      Returns ``True`` if we have full auth credentials, ``False`` otherwise.
+
+
+   .. method:: account_id(self) -> Optional[str]
+      :property:
+
+      Returns the account ID (read only). This call may block until the keyring is
+      unlocked.
+
+
+   .. method:: token_access_type(self) -> Optional[str]
+      :property:
+
+      Returns the type of access token. If 'legacy', we have a long-lived access
+      token. If 'offline', we have a short-lived access token with an expiry time and
+      a long-lived refresh token to generate new access tokens.
+
+
+   .. method:: access_token(self) -> Optional[str]
+      :property:
+
+      Returns the access token (read only). This will always be set for a 'legacy'
+      token. For an 'offline' token, this will only be set if we completed the auth
+      flow in the current session. In case of an 'offline' token, use the refresh
+      token to retrieve a short-lived access token through the Dropbox API instead.
+      The call may block until the keyring is unlocked.
+
+
+   .. method:: refresh_token(self) -> Optional[str]
+      :property:
+
+      Returns the refresh token (read only). This will only be set for an 'offline'
+      token. The call may block until the keyring is unlocked.
+
+
+   .. method:: access_token_expiration(self) -> Optional[datetime]
+      :property:
+
+      Returns the expiry time for the short-lived access token. This will only be
+      set for an 'offline' token and if we completed the flow during the current
+      session.
+
+
+   .. method:: load_token(self) -> None
+
+      Loads auth token from system keyring. This will be called automatically when
+      accessing of the properties :attr:`linked`, :attr:`access_token`,
+      :attr:`refresh_token` or :attr:`token_access_type`.
+
+      :raises: :class:`keyring.errors.KeyringLocked` if the system keyring is locked.
+
+
+   .. method:: get_auth_url(self) -> str
+
+      Gets the auth URL to start the OAuth2 implicit grant flow.
+
+      :returns: Dropbox auth URL.
+
+
+   .. method:: verify_auth_token(self, token) -> int
+
+      Verify the provided authorization token with Dropbox servers.
+
+      :returns: :attr:`Success`, :attr:`InvalidToken`, or :attr:`ConnectionFailed`.
+
+
+   .. method:: save_creds(self) -> None
+
+      Saves the auth token to system keyring. Falls back to plain text storage if the
+      user denies access to keyring.
+
+
+   .. method:: delete_creds(self) -> None
+
+      Deletes auth token from system keyring.
+
+      :raises: :class:`keyring.errors.KeyringLocked` if the system keyring is locked.
+
+
+

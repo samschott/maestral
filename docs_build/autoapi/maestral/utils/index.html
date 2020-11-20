@@ -1,0 +1,354 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>maestral.utils &mdash; Maestral 1.3.0.dev0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="https://media.readthedocs.org/css/sphinx_rtd_theme.css" type="text/css" />
+  <link rel="stylesheet" href="https://media.readthedocs.org/css/readthedocs-doc-embed.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home" alt="Documentation Home"> Maestral
+          
+
+          
+            
+            <img src="../../../_static/maestral.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.3.0.dev0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Table of Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../config_files.html">Config files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../state_files.html">State files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index.html">API Reference</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Maestral</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils</span></code></li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../../_sources/autoapi/maestral/utils/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-maestral.utils">
+<span id="maestral-utils"></span><h1><a class="reference internal" href="#module-maestral.utils" title="maestral.utils"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils</span></code></a><a class="headerlink" href="#module-maestral.utils" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="appdirs/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.appdirs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="autostart/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.autostart</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="caches/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.caches</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.cli</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="content_hasher/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.content_hasher</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="housekeeping/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.housekeeping</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="notify/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.notify</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="notify_base/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.notify_base</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="notify_linux/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.notify_linux</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="notify_macos/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.notify_macos</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="path/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.path</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="serializer/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.serializer</span></code></a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="package-contents">
+<h2>Package Contents<a class="headerlink" href="#package-contents" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="functions">
+<h3>Functions<a class="headerlink" href="#functions" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.natural_size" title="maestral.utils.natural_size"><code class="xref py py-obj docutils literal notranslate"><span class="pre">natural_size</span></code></a>(num: float, unit: str = 'B', sep: bool = True) → str</p></td>
+<td><p>Convert number to a human readable string with decimal prefix.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.utils.chunks" title="maestral.utils.chunks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">chunks</span></code></a>(lst: List, n: int, consume: bool = False) → Iterator[List]</p></td>
+<td><p>Partitions an iterable into chunks of length <code class="docutils literal notranslate"><span class="pre">n</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.clamp" title="maestral.utils.clamp"><code class="xref py py-obj docutils literal notranslate"><span class="pre">clamp</span></code></a>(n: _N, minn: _N, maxn: _N) → _N</p></td>
+<td><p>Clamps a number between a minimum and maximum value.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.utils.get_newer_version" title="maestral.utils.get_newer_version"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_newer_version</span></code></a>(version: str, releases: Iterable[str]) → Optional[str]</p></td>
+<td><p>Checks a given release version against a version list of releases to see if an</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.removeprefix" title="maestral.utils.removeprefix"><code class="xref py py-obj docutils literal notranslate"><span class="pre">removeprefix</span></code></a>(string: str, prefix: str) → str</p></td>
+<td><p>Removes the given prefix from a string. Only the first instance of the prefix is</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py function">
+<dt id="maestral.utils.natural_size">
+<code class="sig-prename descclassname">maestral.utils.</code><code class="sig-name descname">natural_size</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">num</span><span class="p">:</span> <span class="n">float</span></em>, <em class="sig-param"><span class="n">unit</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">'B'</span></em>, <em class="sig-param"><span class="n">sep</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.utils.natural_size" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert number to a human readable string with decimal prefix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>num</strong> (<em>float</em>) – Value in given unit.</p></li>
+<li><p><strong>unit</strong> – Unit suffix.</p></li>
+<li><p><strong>sep</strong> – Whether to separate unit and value with a space.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Human readable string with decimal prefixes.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.chunks">
+<code class="sig-prename descclassname">maestral.utils.</code><code class="sig-name descname">chunks</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">lst</span><span class="p">:</span> <span class="n">List</span></em>, <em class="sig-param"><span class="n">n</span><span class="p">:</span> <span class="n">int</span></em>, <em class="sig-param"><span class="n">consume</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em><span class="sig-paren">)</span> &#x2192; Iterator<span class="p">[</span>List<span class="p">]</span><a class="headerlink" href="#maestral.utils.chunks" title="Permalink to this definition">¶</a></dt>
+<dd><p>Partitions an iterable into chunks of length <code class="docutils literal notranslate"><span class="pre">n</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>lst</strong> – Iterable to partition.</p></li>
+<li><p><strong>n</strong> – Chunk size.</p></li>
+<li><p><strong>consume</strong> – If True, the list will be consumed (emptied) during the iteration.
+This can be used to free memory in case of large lists.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Iterator over chunks.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.clamp">
+<code class="sig-prename descclassname">maestral.utils.</code><code class="sig-name descname">clamp</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">n</span><span class="p">:</span> <span class="n">_N</span></em>, <em class="sig-param"><span class="n">minn</span><span class="p">:</span> <span class="n">_N</span></em>, <em class="sig-param"><span class="n">maxn</span><span class="p">:</span> <span class="n">_N</span></em><span class="sig-paren">)</span> &#x2192; _N<a class="headerlink" href="#maestral.utils.clamp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clamps a number between a minimum and maximum value.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n</strong> – Original value.</p></li>
+<li><p><strong>minn</strong> – Minimum allowed value.</p></li>
+<li><p><strong>maxn</strong> – Maximum allowed value.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Clamped value.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.get_newer_version">
+<code class="sig-prename descclassname">maestral.utils.</code><code class="sig-name descname">get_newer_version</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">version</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">releases</span><span class="p">:</span> <span class="n">Iterable<span class="p">[</span>str<span class="p">]</span></span></em><span class="sig-paren">)</span> &#x2192; Optional<span class="p">[</span>str<span class="p">]</span><a class="headerlink" href="#maestral.utils.get_newer_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks a given release version against a version list of releases to see if an
+update is available. Only offers newer versions if they are not a prerelease.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>version</strong> – The current version.</p></li>
+<li><p><strong>releases</strong> – A list of valid cleaned releases.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The version string of the latest release if a newer release is available.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.removeprefix">
+<code class="sig-prename descclassname">maestral.utils.</code><code class="sig-name descname">removeprefix</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">string</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">prefix</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.utils.removeprefix" title="Permalink to this definition">¶</a></dt>
+<dd><p>Removes the given prefix from a string. Only the first instance of the prefix is
+removed. The original string is returned if it does not start with the given prefix.</p>
+<p>This follows the Python 3.9 implementation of <code class="docutils literal notranslate"><span class="pre">str.removeprefix</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>string</strong> – Original string.</p></li>
+<li><p><strong>prefix</strong> – Prefix to remove.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>String without prefix.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, Sam Schott
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

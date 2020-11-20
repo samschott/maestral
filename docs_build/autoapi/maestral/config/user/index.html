@@ -1,0 +1,409 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>maestral.config.user &mdash; Maestral 1.3.0.dev0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="https://media.readthedocs.org/css/sphinx_rtd_theme.css" type="text/css" />
+  <link rel="stylesheet" href="https://media.readthedocs.org/css/readthedocs-doc-embed.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../../index.html" class="icon icon-home" alt="Documentation Home"> Maestral
+          
+
+          
+            
+            <img src="../../../../_static/maestral.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.3.0.dev0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Table of Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../config_files.html">Config files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../state_files.html">State files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../index.html">API Reference</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Maestral</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.config.user</span></code></li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../../../_sources/autoapi/maestral/config/user/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-maestral.config.user">
+<span id="maestral-config-user"></span><h1><a class="reference internal" href="#module-maestral.config.user" title="maestral.config.user"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.config.user</span></code></a><a class="headerlink" href="#module-maestral.config.user" title="Permalink to this headline">¶</a></h1>
+<p>This module provides user configuration file management and is mostly copied from the
+config module of the Spyder IDE.</p>
+<div class="section" id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="classes">
+<h3>Classes<a class="headerlink" href="#classes" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.config.user.DefaultsConfig" title="maestral.config.user.DefaultsConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DefaultsConfig</span></code></a></p></td>
+<td><p>Class used to save defaults to a file and as base class for UserConfig.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.config.user.UserConfig" title="maestral.config.user.UserConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UserConfig</span></code></a></p></td>
+<td><p>UserConfig class, based on ConfigParser.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py class">
+<dt id="maestral.config.user.DefaultsConfig">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.config.user.</code><code class="sig-name descname">DefaultsConfig</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">name</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">suffix</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span><a class="headerlink" href="#maestral.config.user.DefaultsConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">configparser.ConfigParser</span></code></p>
+<p>Class used to save defaults to a file and as base class for UserConfig.</p>
+<dl class="py method">
+<dt id="maestral.config.user.DefaultsConfig.save">
+<code class="sig-name descname">save</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#maestral.config.user.DefaultsConfig.save" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save config into the associated file.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.DefaultsConfig.get_config_fpath">
+<code class="sig-name descname">get_config_fpath</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.config.user.DefaultsConfig.get_config_fpath" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the ini file where this configuration is stored.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.DefaultsConfig.set_defaults">
+<code class="sig-name descname">set_defaults</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">defaults</span><span class="p">:</span> <span class="n">DefaultsType</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#maestral.config.user.DefaultsConfig.set_defaults" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set default values and save to defaults folder location.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="maestral.config.user.UserConfig">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.config.user.</code><code class="sig-name descname">UserConfig</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">name</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">defaults</span><span class="p">:</span> <span class="n">InputDefaultsType</span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">load</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="n">version</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">'0.0.0'</span></em>, <em class="sig-param"><span class="n">backup</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">remove_obsolete</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">suffix</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">'.ini'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#maestral.config.user.UserConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#maestral.config.user.DefaultsConfig" title="maestral.config.user.DefaultsConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">maestral.config.user.DefaultsConfig</span></code></a></p>
+<p>UserConfig class, based on ConfigParser.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> (<em>str</em>) – Configuration file will be saved to this path.</p></li>
+<li><p><strong>defaults</strong> (<em>{}</em><em> or </em><em>[</em><em>(</em><em>str</em><em>, </em><em>{}</em><em>)</em><em>,</em><em>]</em>) – Dictionary containing options <em>or</em> list of tuples (sec_name, options)</p></li>
+<li><p><strong>load</strong> (<em>bool</em>) – If a previous configuration file is found, load will take the values
+from this existing file, instead of using default values.</p></li>
+<li><p><strong>version</strong> (<em>str</em>) – version of the configuration file in ‘major.minor.micro’ format.</p></li>
+<li><p><strong>backup</strong> (<em>bool</em>) – A backup will be created on version changes and on initial setup.</p></li>
+<li><p><strong>remove_obsolete</strong> (<em>bool</em>) – If <cite>True</cite>, values that were removed from the configuration on version
+change, are removed from the saved configuration file.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The ‘get’ and ‘set’ arguments number and type differ from the reimplemented
+methods. ‘defaults’ is an attribute and not a method.</p>
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.get_previous_config_fpath">
+<code class="sig-name descname">get_previous_config_fpath</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.config.user.UserConfig.get_previous_config_fpath" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the last configuration file used if found.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.get_config_fpath_from_version">
+<code class="sig-name descname">get_config_fpath_from_version</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">version</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.config.user.UserConfig.get_config_fpath_from_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the configuration path for given version.</p>
+<p>If no version is provided, it returns the current file path.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.get_backup_fpath_from_version">
+<code class="sig-name descname">get_backup_fpath_from_version</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">version</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">old_version</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.config.user.UserConfig.get_backup_fpath_from_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get backup location based on version.</p>
+<p><cite>old_version</cite> can be used for checking compatibility whereas <cite>version</cite>
+relates to adding the version to the file name.</p>
+<p>To be reimplemented if versions changed backup location.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.get_defaults_path_name_from_version">
+<code class="sig-name descname">get_defaults_path_name_from_version</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">old_version</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; Tuple<span class="p">[</span>str<span class="p">, </span>str<span class="p">]</span><a class="headerlink" href="#maestral.config.user.UserConfig.get_defaults_path_name_from_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get defaults location based on version.</p>
+<p>To be reimplemented if versions changed defaults location.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.get_defaults_fpath_from_version">
+<code class="sig-name descname">get_defaults_fpath_from_version</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">old_version</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.config.user.UserConfig.get_defaults_fpath_from_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get defaults location based on version.</p>
+<p>To be reimplemented if versions changed defaults location.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.apply_configuration_patches">
+<code class="sig-name descname">apply_configuration_patches</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">old_version</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#maestral.config.user.UserConfig.apply_configuration_patches" title="Permalink to this definition">¶</a></dt>
+<dd><p>Apply any patch to configuration values on version changes.</p>
+<p>To be reimplemented if patches to configuration values are needed.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.get_version">
+<code class="sig-name descname">get_version</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">version</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">'0.0.0'</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.config.user.UserConfig.get_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return configuration (not application!) version.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.set_version">
+<code class="sig-name descname">set_version</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">version</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">'0.0.0'</span></em>, <em class="sig-param"><span class="n">save</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#maestral.config.user.UserConfig.set_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set configuration (not application!) version.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.reset_to_defaults">
+<code class="sig-name descname">reset_to_defaults</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">save</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="n">section</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#maestral.config.user.UserConfig.reset_to_defaults" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reset config to Default values.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.set_as_defaults">
+<code class="sig-name descname">set_as_defaults</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#maestral.config.user.UserConfig.set_as_defaults" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set defaults from the current config.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.get_default">
+<code class="sig-name descname">get_default</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">section</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">option</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; Any<a class="headerlink" href="#maestral.config.user.UserConfig.get_default" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get default value for a given <cite>section</cite> and <cite>option</cite>.</p>
+<p>This is useful for type checking in <cite>get</cite> method.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.get">
+<code class="sig-name descname">get</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">section</span></em>, <em class="sig-param"><span class="n">option</span></em>, <em class="sig-param"><span class="n">default</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="default_value">NoDefault</span></em><span class="sig-paren">)</span> &#x2192; Any<a class="headerlink" href="#maestral.config.user.UserConfig.get" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get an option.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>section</strong> (<em>str</em>) – Section name. If <cite>None</cite> is provide use the default section name.</p></li>
+<li><p><strong>option</strong> (<em>str</em>) – Option name for <cite>section</cite>.</p></li>
+<li><p><strong>default</strong> – Default value (if not specified, an exception will be raised if
+option doesn’t exist).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.set_default">
+<code class="sig-name descname">set_default</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">section</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">option</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">default_value</span><span class="p">:</span> <span class="n">Any</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#maestral.config.user.UserConfig.set_default" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set Default value for a given <cite>section</cite>, <cite>option</cite>.</p>
+<p>If no defaults exist, no default is created. To be able to set
+defaults, a call to set_as_defaults is needed to create defaults
+based on current values.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.set">
+<code class="sig-name descname">set</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">section</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">option</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">value</span><span class="p">:</span> <span class="n">Any</span></em>, <em class="sig-param"><span class="n">save</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#maestral.config.user.UserConfig.set" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set an <cite>option</cite> on a given <cite>section</cite>.</p>
+<p>If section is None, the <cite>option</cite> is added to the default section.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.remove_section">
+<code class="sig-name descname">remove_section</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">section</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#maestral.config.user.UserConfig.remove_section" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove <cite>section</cite> and all options within it.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.remove_option">
+<code class="sig-name descname">remove_option</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">section</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">option</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#maestral.config.user.UserConfig.remove_option" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove <cite>option</cite> from <cite>section</cite>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.config.user.UserConfig.cleanup">
+<code class="sig-name descname">cleanup</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#maestral.config.user.UserConfig.cleanup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove files associated with config and reset to defaults.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, Sam Schott
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

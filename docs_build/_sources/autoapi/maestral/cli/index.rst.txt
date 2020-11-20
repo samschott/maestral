@@ -1,0 +1,115 @@
+:mod:`maestral.cli`
+===================
+
+.. py:module:: maestral.cli
+
+.. autoapi-nested-parse::
+
+   This file defines the functions to configure and interact with Maestral from the command
+   line. Some imports are deferred to the functions that required them in order to reduce
+   the startup time of individual CLI commands.
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   maestral.cli.SpecialHelpOrder
+
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+
+   maestral.cli.stop_daemon_with_cli_feedback
+   maestral.cli.select_dbx_path_dialog
+   maestral.cli.link_dialog
+   maestral.cli.check_for_updates
+   maestral.cli.check_for_fatal_errors
+   maestral.cli.catch_maestral_errors
+
+
+.. function:: stop_daemon_with_cli_feedback(config_name: str) -> None
+
+   Wrapper around :meth:`daemon.stop_maestral_daemon_process`
+   with command line feedback.
+
+
+.. function:: select_dbx_path_dialog(config_name: str, default_dir_name: Optional[str] = None, allow_merge: bool = False) -> str
+
+   A CLI dialog to ask for a local Dropbox folder location.
+
+   :param config_name: The configuration to use for the default folder name.
+   :param default_dir_name: The default directory name. Defaults to
+       "Dropbox ({config_name})" if not given.
+   :param allow_merge: If ``True``, allows the selection of an existing folder without
+       deleting it. Defaults to ``False``.
+   :returns: Path given by user.
+
+
+.. function:: link_dialog(m: MaestralProxyType) -> None
+
+   A CLI dialog for linking a Dropbox account.
+
+   :param m: Maestral or MaestralProxy instance.
+
+
+.. function:: check_for_updates() -> None
+
+   Checks if updates are available by reading the cached release number from the
+   config file and notifies the user. Prints an update note to the command line.
+
+
+.. function:: check_for_fatal_errors(m: MaestralProxyType) -> bool
+
+   Checks the given Maestral instance for fatal errors such as revoked Dropbox access,
+   deleted Dropbox folder etc. Prints a nice representation to the command line.
+
+   :param m: Maestral or MaestralProxy instance.
+   :returns: True in case of fatal errors, False otherwise.
+
+
+.. function:: catch_maestral_errors(func: Callable) -> Callable
+
+   Decorator that catches a MaestralApiError and prints it as a useful message to the
+   command line instead of printing the full stacktrace.
+
+
+.. py:class:: SpecialHelpOrder(*args, **kwargs)
+
+   Bases: :class:`click.Group`
+
+   Click command group with customizable order of help output.
+
+   .. method:: get_help(self, ctx: click.Context) -> str
+
+      Formats the help into a string and returns it.
+
+      Calls :meth:`format_help` internally.
+
+
+   .. method:: list_commands_for_help(self, ctx: click.Context) -> Iterable[str]
+
+      reorder the list of commands when listing the help
+
+
+   .. method:: command(self, *args, **kwargs) -> Callable
+
+      Behaves the same as `click.Group.command()` except capture
+      a priority for listing command names in help.
+
+
+   .. method:: group(self, *args, **kwargs) -> Callable
+
+      Behaves the same as `click.Group.group()` except capture
+      a priority for listing command names in help.
+
+
+

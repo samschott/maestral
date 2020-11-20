@@ -1,0 +1,8 @@
+:orphan:
+
+:mod:`maestral.__pyinstaller`
+=============================
+
+.. py:module:: maestral.__pyinstaller
+
+

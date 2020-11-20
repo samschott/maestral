@@ -1,0 +1,97 @@
+:orphan:
+
+:mod:`maestral.utils`
+=====================
+
+.. py:module:: maestral.utils
+
+
+Submodules
+----------
+.. toctree::
+   :titlesonly:
+   :maxdepth: 1
+
+   appdirs/index.rst
+   autostart/index.rst
+   caches/index.rst
+   cli/index.rst
+   content_hasher/index.rst
+   housekeeping/index.rst
+   notify/index.rst
+   notify_base/index.rst
+   notify_linux/index.rst
+   notify_macos/index.rst
+   path/index.rst
+   serializer/index.rst
+
+
+Package Contents
+----------------
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+
+   maestral.utils.natural_size
+   maestral.utils.chunks
+   maestral.utils.clamp
+   maestral.utils.get_newer_version
+   maestral.utils.removeprefix
+
+
+.. function:: natural_size(num: float, unit: str = 'B', sep: bool = True) -> str
+
+   Convert number to a human readable string with decimal prefix.
+
+   :param float num: Value in given unit.
+   :param unit: Unit suffix.
+   :param sep: Whether to separate unit and value with a space.
+   :returns: Human readable string with decimal prefixes.
+
+
+.. function:: chunks(lst: List, n: int, consume: bool = False) -> Iterator[List]
+
+   Partitions an iterable into chunks of length ``n``.
+
+   :param lst: Iterable to partition.
+   :param n: Chunk size.
+   :param consume: If True, the list will be consumed (emptied) during the iteration.
+       This can be used to free memory in case of large lists.
+   :returns: Iterator over chunks.
+
+
+.. function:: clamp(n: _N, minn: _N, maxn: _N) -> _N
+
+   Clamps a number between a minimum and maximum value.
+
+   :param n: Original value.
+   :param minn: Minimum allowed value.
+   :param maxn: Maximum allowed value.
+   :returns: Clamped value.
+
+
+.. function:: get_newer_version(version: str, releases: Iterable[str]) -> Optional[str]
+
+   Checks a given release version against a version list of releases to see if an
+   update is available. Only offers newer versions if they are not a prerelease.
+
+   :param version: The current version.
+   :param releases: A list of valid cleaned releases.
+   :returns: The version string of the latest release if a newer release is available.
+
+
+.. function:: removeprefix(string: str, prefix: str) -> str
+
+   Removes the given prefix from a string. Only the first instance of the prefix is
+   removed. The original string is returned if it does not start with the given prefix.
+
+   This follows the Python 3.9 implementation of ``str.removeprefix``.
+
+   :param string: Original string.
+   :param prefix: Prefix to remove.
+   :returns: String without prefix.
+
+

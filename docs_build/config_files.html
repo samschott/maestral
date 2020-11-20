@@ -1,0 +1,286 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Config files &mdash; Maestral 1.3.0.dev0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="https://media.readthedocs.org/css/sphinx_rtd_theme.css" type="text/css" />
+  <link rel="stylesheet" href="https://media.readthedocs.org/css/readthedocs-doc-embed.css" type="text/css" />
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="State files" href="state_files.html" />
+    <link rel="prev" title="Welcome to Maestral’s developer documentation" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home" alt="Documentation Home"> Maestral
+          
+
+          
+            
+            <img src="_static/maestral.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.3.0.dev0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Table of Contents</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Config files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="state_files.html">State files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="autoapi/maestral/index.html">API Reference</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Maestral</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>Config files</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/config_files.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="config-files">
+<h1>Config files<a class="headerlink" href="#config-files" title="Permalink to this headline">¶</a></h1>
+<p>The config files are located at <code class="docutils literal notranslate"><span class="pre">$XDG_CONFIG_HOME/maestral</span></code> on Linux (typically
+<code class="docutils literal notranslate"><span class="pre">~/.config/maestral</span></code>) and <code class="docutils literal notranslate"><span class="pre">~/Library/Application</span> <span class="pre">Support/maestral</span></code> on macOS. Each
+configuration will get its own INI file with the settings documented below.</p>
+<p>Config values in the sections <code class="docutils literal notranslate"><span class="pre">main</span></code> and <code class="docutils literal notranslate"><span class="pre">account</span></code> should not be edited manually but
+rather through the corresponding CLI commands or GUI options. This is because changes of
+these settings require Maestral to perform accompanying actions, e.g., download items
+which have been removed from the excluded list or move the local Dropbox directory.
+Those will not be performed if the user edits the options manually.</p>
+<p>Changes to the other sections may be performed manually but will only take effect once
+Maestral is restarted. Maestral will overwrite the entire config file if any change is
+made to one of the options through the <code class="docutils literal notranslate"><span class="pre">maestral.config</span></code> module.</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="k">[main]</span>
+
+<span class="c1"># The current Dropbox directory</span>
+<span class="na">path</span> <span class="o">=</span> <span class="s">/Users/samschott/Dropbox (Maestral)</span>
+
+<span class="c1"># Default directory name for the config</span>
+<span class="na">default_dir_name</span> <span class="o">=</span> <span class="s">Dropbox (Maestral)</span>
+
+<span class="c1"># List of excluded files and folders</span>
+<span class="na">excluded_items</span> <span class="o">=</span> <span class="s">[&#39;/test_folder&#39;, &#39;/sub/folder&#39;]</span>
+
+<span class="c1"># Config file version (not the Maestral version!)</span>
+<span class="na">version</span> <span class="o">=</span> <span class="s">12.0.0</span>
+
+<span class="k">[account]</span>
+
+<span class="c1"># Unique Dropbox account ID. The account&#39;s email</span>
+<span class="c1"># address may change and is therefore not stored here.</span>
+<span class="na">account_id</span> <span class="o">=</span> <span class="s">dbid:AABP7CC5bpYd8cGHqIColDFrMoc9SdhACA4</span>
+
+<span class="k">[app]</span>
+
+<span class="c1"># Level for desktop notifications:</span>
+<span class="c1"># 15 = FILECHAANGE</span>
+<span class="c1"># 30 = SYNCISSUE</span>
+<span class="c1"># 40 = ERROR</span>
+<span class="c1"># 100 = NONE</span>
+<span class="na">notification_level</span> <span class="o">=</span> <span class="s">15</span>
+
+<span class="c1"># Level for log messages:</span>
+<span class="c1"># 10 = DEBUG</span>
+<span class="c1"># 20 = INFO</span>
+<span class="c1"># 30 = WARNING</span>
+<span class="c1"># 40 = ERR0R</span>
+<span class="na">log_level</span> <span class="o">=</span> <span class="s">20</span>
+
+<span class="c1"># Interval in sec to check for updates</span>
+<span class="na">update_notification_interval</span> <span class="o">=</span> <span class="s">604800</span>
+
+<span class="c1"># Enable or disable automatic error reports</span>
+<span class="na">analytics</span> <span class="o">=</span> <span class="s">False</span>
+
+<span class="k">[sync]</span>
+
+<span class="c1"># Interval in sec to perform a full reindexing</span>
+<span class="na">reindex_interval</span> <span class="o">=</span> <span class="s">604800</span>
+<span class="c1"># Maximum CPU usage per core</span>
+<span class="na">max_cpu_percent</span> <span class="o">=</span> <span class="s">20.0</span>
+</pre></div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="state_files.html" class="btn btn-neutral float-right" title="State files" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to Maestral’s developer documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, Sam Schott
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

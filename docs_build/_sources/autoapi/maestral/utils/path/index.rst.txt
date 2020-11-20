@@ -1,0 +1,184 @@
+:mod:`maestral.utils.path`
+==========================
+
+.. py:module:: maestral.utils.path
+
+.. autoapi-nested-parse::
+
+   This module contains functions for common path operations used by Maestral.
+
+
+
+Module Contents
+---------------
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+
+   maestral.utils.path.is_fs_case_sensitive
+   maestral.utils.path.is_child
+   maestral.utils.path.is_equal_or_child
+   maestral.utils.path.cased_path_candidates
+   maestral.utils.path.to_cased_path
+   maestral.utils.path.to_existing_cased_path
+   maestral.utils.path.path_exists_case_insensitive
+   maestral.utils.path.generate_cc_name
+   maestral.utils.path.delete
+   maestral.utils.path.move
+   maestral.utils.path.content_hash
+
+
+.. function:: is_fs_case_sensitive(path: str) -> bool
+
+   Checks if ``path`` lies on a partition with a case-sensitive file system.
+
+   :param path: Path to check.
+   :returns: Whether ``path`` lies on a partition with a case-sensitive file system.
+
+
+.. function:: is_child(path: str, parent: str) -> bool
+
+   Checks if ``path`` semantically is inside ``parent``. Neither path needs to
+   refer to an actual item on the drive. This function is case sensitive.
+
+   :param path: Item path.
+   :param parent: Parent path.
+   :returns: Whether ``path`` semantically lies inside ``parent``.
+
+
+.. function:: is_equal_or_child(path: str, parent: str) -> bool
+
+   Checks if ``path`` semantically is inside ``parent`` or equals ``parent``. Neither
+   path needs to refer to an actual item on the drive. This function is case sensitive.
+
+   :param path: Item path.
+   :param parent: Parent path.
+   :returns: ``True`` if ``path`` semantically lies inside ``parent`` or
+       ``path == parent``.
+
+
+.. function:: cased_path_candidates(path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True) -> List[str]
+
+   Returns a list of cased versions of the given path as far as corresponding nodes
+   exist in the given root directory. For instance, if a case sensitive root directory
+   contains two folders "/parent/subfolder/child" and "/parent/Subfolder/child", there
+   will be two matches for "/parent/subfolder/child/file.txt". If the root directory
+   does not exist, only one candidate ``os.path.join(root, path)`` is returned.
+
+   :param path: Original path relative to ``root``.
+   :param root: Parent directory to search in. There are significant performance
+       improvements if a root directory with a small tree is given.
+   :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
+       If ``False``, we know that there can be at most one match and choose a faster
+       algorithm.
+   :returns: Candidates for correctly cased local paths.
+
+
+.. function:: to_cased_path(path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True) -> str
+
+   Returns a cased version of the given path as far as corresponding nodes (with
+   arbitrary casing) exist in the given root directory. If multiple matches are found,
+   only one is returned. If ``path`` does not exist in root ``root`` or ``root`` does
+   not exist, the return value will be ``os.path.join(root, path)``.
+
+   :param path: Original path relative to ``root``.
+   :param root: Parent directory to search in. There are significant performance
+       improvements if a root directory with a small tree is given.
+   :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
+       If ``False``, we know that there can be at most one match and choose a faster
+       algorithm.
+   :returns: Absolute and cased version of given path.
+
+
+.. function:: to_existing_cased_path(path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True) -> str
+
+   Returns a cased version of the given path if corresponding nodes (with arbitrary
+   casing) exist in the given root directory. If multiple matches are found, only one
+   is returned.
+
+   :param path: Original path relative to ``root``.
+   :param root: Parent directory to search in. There are significant performance
+       improvements if a root directory with a small tree is given.
+   :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
+       If ``False``, we know that there can be at most one match and choose a faster
+       algorithm.
+   :returns: Absolute and cased version of given path.
+   :raises: :class:`FileNotFoundError` if ``path`` does not exist in root ``root`` or
+       ``root`` itself does not exist.
+
+
+.. function:: path_exists_case_insensitive(path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True) -> bool
+
+   Checks if a ``path`` exists in given ``root`` directory, similar to
+   ``os.path.exists`` but case-insensitive.
+
+   :param path: Path relative to ``root``.
+   :param root: Directory where we will look for ``path``. There are significant
+       performance improvements if a root directory with a small tree is given.
+   :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
+       If ``False``, we know that there can be at most one match and choose a faster
+       algorithm.
+   :returns: Whether an arbitrarily cased version of ``path`` exists.
+
+
+.. function:: generate_cc_name(path: str, suffix: str = 'conflicting copy', is_fs_case_sensitive: bool = True) -> str
+
+   Generates a path for a conflicting copy of ``path``. The file name is created by
+   inserting the given ``suffix`` between the the filename and extension. For instance:
+
+       'my_file.txt' -> 'my_file (conflicting copy).txt'
+
+   If a file with the resulting path already exists (case-insensitive!), we
+   additionally append an integer number, for instance:
+
+       'my_file.txt' -> 'my_file (conflicting copy 1).txt'
+
+   :param path: Original path name.
+   :param suffix: Suffix to use. Defaults to 'conflicting copy'.
+   :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
+       If ``False``, we know that there can be at most one match and choose a faster
+       algorithm.
+   :returns: New path.
+
+
+.. function:: delete(path: str, raise_error: bool = False) -> Optional[OSError]
+
+   Deletes a file or folder at ``path``.
+
+   :param path: Path of item to delete.
+   :param raise_error: If ``True``, raise any OSErrors. If ``False``, catch OSErrors
+       and return them.
+   :returns: Any caught exception during the deletion.
+
+
+.. function:: move(src_path: str, dest_path: str, raise_error: bool = False, preserve_dest_permissions=False) -> Optional[OSError]
+
+   Moves a file or folder from ``src_path`` to ``dest_path``. If either the source or
+   the destination path no longer exist, this function does nothing. Any other
+   exceptions are either raised or returned if ``raise_error`` is False.
+
+   :param src_path: Path of item to move.
+   :param dest_path: Destination path. Any existing file at this path will be replaced
+       by the move. Any existing **empty** folder will be replaced if the source is
+       also a folder.
+   :param raise_error: If ``True``, raise any OSErrors. If ``False``, catch OSErrors
+       and return them.
+   :param preserve_dest_permissions: If ``True``, attempt to preserve the permissions
+       of any file at the destination. If ``False``, the permissions of src_path will
+       be used.
+   :returns: Any caught exception during the move.
+
+
+.. function:: content_hash(local_path: str, chunk_size: int = 1024) -> Tuple[Optional[str], Optional[float]]
+
+   Computes content hash of a local file.
+
+   :param local_path: Absolute path on local drive.
+   :param chunk_size: Size of chunks to hash in bites.
+   :returns: Content hash to compare with Dropbox's content hash and mtime just before
+       the hash was computed.
+
+

@@ -2,14 +2,8 @@
 
 # -- Path setup ------------------------------------------------------------------------
 
-import os
-import sys
 import time
 
-sys.path.insert(0, os.path.abspath("."))
-sys.path.insert(0, os.path.abspath(".."))
-sys.path.insert(0, os.path.abspath("../src"))
-sys.path.insert(0, os.path.abspath("../src/maestral"))
 
 # -- Project information ---------------------------------------------------------------
 
@@ -25,11 +19,10 @@ copyright = "{}, {}".format(time.localtime().tm_year, author)
 extensions = [
     "sphinx.ext.napoleon",  # support numpy style docstrings in config module
     "sphinx.ext.todo",  # parse todo list
-    "sphinx.ext.intersphinx",  # support for if-clauses in docs
-    "sphinx.ext.ifconfig",  # support for linking between documentations
+    "sphinx.ext.intersphinx",  # support for linking between documentations
+    "sphinx.ext.ifconfig",  # support for if-clauses in docs
     "autoapi.extension",  # builds API docs from doc strings without importing module
-    "sphinx_click.ext",  # support for click commands
-    "m2r",  # convert markdown to rest
+    "m2r2",  # convert markdown to rest
 ]
 source_suffix = [".rst", ".md"]
 master_doc = "index"
@@ -56,13 +49,13 @@ latex_documents = [
 
 # -- Extension configuration -----------------------------------------------------------
 
+autodoc_typehints = "description"
+
 # autoapi
 autoapi_type = "python"
 autoapi_dirs = ["../src/maestral"]
 autoapi_options = [
     "members",
-    "inherited-members",
-    "special-members",
     "show-inheritance",
     "show-module-summary",
     "imported-members",

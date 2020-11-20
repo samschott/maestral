@@ -1,0 +1,51 @@
+:mod:`maestral.utils.serializer`
+================================
+
+.. py:module:: maestral.utils.serializer
+
+.. autoapi-nested-parse::
+
+   This module contains functions to serialize class instances for communication between
+   the daemon and frontends.
+
+
+
+Module Contents
+---------------
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+
+   maestral.utils.serializer.dropbox_stone_to_dict
+   maestral.utils.serializer.error_to_dict
+   maestral.utils.serializer.sync_event_to_dict
+
+
+.. function:: dropbox_stone_to_dict(obj: Any) -> StoneType
+
+   Converts the result of a Dropbox SDK call to a dictionary.
+
+
+.. function:: error_to_dict(err: Exception) -> ErrorType
+
+   Converts an exception to a dict. Keys will be strings and entries are native Python
+   types.
+
+   :param err: Exception to convert.
+   :returns: Dictionary where all keys and values are strings. The following keys will
+       always be present but may contain emtpy strings: 'type', 'inherits', 'title',
+       'traceback', 'title', and 'message'.
+
+
+.. function:: sync_event_to_dict(event: SyncEvent) -> StoneType
+
+   Converts a SyncEvent to a dict. Keys will be strings and entries are native Python
+   types.
+
+   :param event: SyncEvent to convert.
+   :returns: Serialized SyncEvent.
+
+

@@ -1,0 +1,247 @@
+:mod:`maestral.errors`
+======================
+
+.. py:module:: maestral.errors
+
+.. autoapi-nested-parse::
+
+   This module defines Maestral's error classes. It should be kept free of memory heavy
+   imports.
+
+   All errors inherit from MaestralApiError which has title and message attributes to
+   display the error to the user.
+
+   Errors are divided into "fatal errors" which will prevent any syncing or "sync errors"
+   which will only prevent syncing of an individual file or folder. Fatal errors can be for
+   example revoked Dropbox authorization, a deleted local Dropbox folder, insufficient RAM,
+   etc. Sync errors include invalid file names, too large file sizes, and many more.
+
+
+
+Module Contents
+---------------
+
+.. py:exception:: MaestralApiError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`Exception`
+
+   Base class for errors originating from the Dropbox API or the 'local API'.
+
+   :param title: A short description of the error type. This can be used in a CLI or
+       GUI to give a short error summary.
+   :param message: A more verbose description which can include instructions on how to
+       proceed to fix the error.
+   :param dbx_path: Dropbox path of the file that caused the error.
+   :param dbx_path_dst: Dropbox destination path of the file that caused the error.
+       This should be set for instance when error occurs when moving an item.
+   :param local_path: Local path of the file that caused the error.
+   :param local_path_dst: Local destination path of the file that caused the error.
+       This should be set for instance when error occurs when moving an item.
+
+
+.. py:exception:: SyncError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.MaestralApiError`
+
+   Base class for recoverable sync issues.
+
+
+.. py:exception:: InsufficientPermissionsError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.SyncError`
+
+   Raised when accessing a file or folder fails due to insufficient permissions,
+   both locally and on Dropbox servers.
+
+
+.. py:exception:: InsufficientSpaceError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.SyncError`
+
+   Raised when the Dropbox account or local drive has insufficient storage space.
+
+
+.. py:exception:: PathError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.SyncError`
+
+   Raised when there is an issue with the provided file or folder path such as
+   invalid characters, a too long file name, etc.
+
+
+.. py:exception:: NotFoundError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.SyncError`
+
+   Raised when a file or folder is requested but does not exist.
+
+
+.. py:exception:: ConflictError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.SyncError`
+
+   Raised when trying to create a file or folder which already exists.
+
+
+.. py:exception:: FileConflictError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.ConflictError`
+
+   Raised when trying to create a file which already exists.
+
+
+.. py:exception:: FolderConflictError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.SyncError`
+
+   Raised when trying to create or folder which already exists.
+
+
+.. py:exception:: IsAFolderError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.SyncError`
+
+   Raised when a file is required but a folder is provided.
+
+
+.. py:exception:: NotAFolderError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.SyncError`
+
+   Raised when a folder is required but a file is provided.
+
+
+.. py:exception:: DropboxServerError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.SyncError`
+
+   Raised in case of internal Dropbox errors.
+
+
+.. py:exception:: RestrictedContentError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.SyncError`
+
+   Raised when trying to sync restricted content, for instance when adding a file
+   with a DMCA takedown notice to a public folder.
+
+
+.. py:exception:: UnsupportedFileError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.SyncError`
+
+   Raised when this file type cannot be downloaded but only exported. This is the
+   case for G-suite files.
+
+
+.. py:exception:: FileSizeError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.SyncError`
+
+   Raised when attempting to upload a file larger than 350 GB in an upload session
+   or larger than 150 MB in a single upload. Also raised when attempting to download a
+   file with a size that exceeds file system's limit.
+
+
+.. py:exception:: FileReadError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.SyncError`
+
+   Raised when reading a local file failed.
+
+
+.. py:exception:: NotLinkedError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.MaestralApiError`
+
+   Raised when no Dropbox account is linked.
+
+
+.. py:exception:: InvalidDbidError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.MaestralApiError`
+
+   Raised when the given Dropbox ID does not correspond to an existing account.
+
+
+.. py:exception:: KeyringAccessError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.MaestralApiError`
+
+   Raised when retrieving a saved auth token from the user keyring fails.
+
+
+.. py:exception:: NoDropboxDirError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.MaestralApiError`
+
+   Raised when the local Dropbox folder cannot be found.
+
+
+.. py:exception:: CacheDirError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.MaestralApiError`
+
+   Raised when creating the cache directory fails.
+
+
+.. py:exception:: InotifyError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.MaestralApiError`
+
+   Raised when the local Dropbox folder is too large to monitor with inotify.
+
+
+.. py:exception:: OutOfMemoryError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.MaestralApiError`
+
+   Raised when there is insufficient memory to complete an operation.
+
+
+.. py:exception:: DatabaseError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.MaestralApiError`
+
+   Raised when reading or writing to the database fails.
+
+
+.. py:exception:: DropboxAuthError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.MaestralApiError`
+
+   Raised when authentication fails.
+
+
+.. py:exception:: TokenExpiredError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.DropboxAuthError`
+
+   Raised when authentication fails because the user's token has expired.
+
+
+.. py:exception:: TokenRevokedError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.DropboxAuthError`
+
+   Raised when authentication fails because the user's token has been revoked.
+
+
+.. py:exception:: CursorResetError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.MaestralApiError`
+
+   Raised when the cursor used for a longpoll or list-folder request has been
+   invalidated. Dropbox will very rarely invalidate a cursor. If this happens, a new
+   cursor for the respective folder has to be obtained through files_list_folder. This
+   may require re-syncing the entire Dropbox.
+
+
+.. py:exception:: BadInputError(title: str, message: str, dbx_path: Optional[str] = None, dbx_path_dst: Optional[str] = None, local_path: Optional[str] = None, local_path_dst: Optional[str] = None)
+
+   Bases: :class:`maestral.errors.MaestralApiError`
+
+   Raised when an API request is made with bad input. This should not happen
+   during syncing but only in case of manual API calls.
+
+

@@ -1,0 +1,8 @@
+:orphan:
+
+:mod:`maestral.__pyinstaller.hook-maestral`
+===========================================
+
+.. py:module:: maestral.__pyinstaller.hook-maestral
+
+

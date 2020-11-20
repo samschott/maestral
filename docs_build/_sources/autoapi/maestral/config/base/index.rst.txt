@@ -1,0 +1,62 @@
+:mod:`maestral.config.base`
+===========================
+
+.. py:module:: maestral.config.base
+
+.. autoapi-nested-parse::
+
+   This module contains helper functions for config management. Paths for config files are
+   defined here instead of the :mod:`utils.appdirs` module to avoid imports from outside the
+   config module.
+
+
+
+Module Contents
+---------------
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+
+   maestral.config.base.get_home_dir
+   maestral.config.base.get_conf_path
+   maestral.config.base.get_data_path
+
+
+.. function:: get_home_dir() -> str
+
+   Returns user home directory. This will be determined from the first
+   valid result out of (osp.expanduser('~'), $HOME, $USERPROFILE, $TMP).
+
+
+.. function:: get_conf_path(subfolder: Optional[str] = None, filename: Optional[str] = None, create: bool = True) -> str
+
+   Returns the default config path for the platform. This will be:
+
+       - macOS: '~/Library/Application Support/<subfolder>/<filename>.'
+       - Linux: 'XDG_CONFIG_HOME/<subfolder>/<filename>'
+       - other: '~/.config/<subfolder>/<filename>'
+
+   :param subfolder: The subfolder for the app.
+   :param filename: The filename to append for the app.
+   :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
+
+
+.. function:: get_data_path(subfolder: Optional[str] = None, filename: Optional[str] = None, create: bool = True) -> str
+
+   Returns the default path to save application data for the platform. This will be:
+
+       - macOS: '~/Library/Application Support/SUBFOLDER/FILENAME'
+       - Linux: '$XDG_DATA_DIR/SUBFOLDER/FILENAME'
+       - fallback: '$HOME/.local/share/SUBFOLDER/FILENAME'
+
+   Note: We do not use '~/Library/Saved Application State' on macOS since this folder is
+   reserved for user interface state and can be cleared by the user / system.
+
+   :param subfolder: The subfolder for the app.
+   :param filename: The filename to append for the app.
+   :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
+
+

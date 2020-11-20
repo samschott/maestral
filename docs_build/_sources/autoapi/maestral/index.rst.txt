@@ -1,0 +1,43 @@
+:mod:`maestral`
+===============
+
+.. py:module:: maestral
+
+.. autoapi-nested-parse::
+
+   The following APIs should remain stable for frontends:
+
+   * maestral.main.Maestral
+   * maestral.constants
+   * maestral.daemon
+   * maestral.errors
+   * maestral.utils.appdirs
+   * maestral.utils.autostart
+
+
+
+Subpackages
+-----------
+.. toctree::
+   :titlesonly:
+   :maxdepth: 3
+
+   fsevents/index.rst
+
+
+Submodules
+----------
+.. toctree::
+   :titlesonly:
+   :maxdepth: 1
+
+   cli/index.rst
+   client/index.rst
+   constants/index.rst
+   daemon/index.rst
+   errors/index.rst
+   main/index.rst
+   oauth/index.rst
+   sync/index.rst
+
+

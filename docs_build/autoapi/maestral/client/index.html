@@ -1,0 +1,829 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>maestral.client &mdash; Maestral 1.3.0.dev0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="https://media.readthedocs.org/css/sphinx_rtd_theme.css" type="text/css" />
+  <link rel="stylesheet" href="https://media.readthedocs.org/css/readthedocs-doc-embed.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="maestral.constants" href="../constants/index.html" />
+    <link rel="prev" title="maestral.cli" href="../cli/index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home" alt="Documentation Home"> Maestral
+          
+
+          
+            
+            <img src="../../../_static/maestral.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.3.0.dev0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Table of Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../config_files.html">Config files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../state_files.html">State files</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../index.html#subpackages">Subpackages</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.cli</span></code></a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.client</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#module-contents">Module Contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../constants/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.constants</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../daemon/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.daemon</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../errors/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.errors</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../main/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.main</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../oauth/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.oauth</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../sync/index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.sync</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Maestral</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../index.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral</span></code></a> &raquo;</li>
+        
+      <li><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.client</span></code></li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../../_sources/autoapi/maestral/client/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-maestral.client">
+<span id="maestral-client"></span><h1><a class="reference internal" href="#module-maestral.client" title="maestral.client"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.client</span></code></a><a class="headerlink" href="#module-maestral.client" title="Permalink to this headline">¶</a></h1>
+<p>This modules contains the Dropbox API client. It wraps calls to the Dropbox Python SDK
+and handles exceptions, chunked uploads or downloads, etc.</p>
+<div class="section" id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="classes">
+<h3>Classes<a class="headerlink" href="#classes" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.client.SpaceUsage" title="maestral.client.SpaceUsage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SpaceUsage</span></code></a></p></td>
+<td><p>Information about a user’s space usage and quota.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.client.DropboxClient" title="maestral.client.DropboxClient"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DropboxClient</span></code></a></p></td>
+<td><p>Client for the Dropbox SDK.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="functions">
+<h3>Functions<a class="headerlink" href="#functions" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.client.convert_api_errors" title="maestral.client.convert_api_errors"><code class="xref py py-obj docutils literal notranslate"><span class="pre">convert_api_errors</span></code></a>(dbx_path: Optional[str] = None, local_path: Optional[str] = None) → Iterator[None]</p></td>
+<td><p>A context manager that catches and re-raises instances of <code class="xref py py-class docutils literal notranslate"><span class="pre">OSError</span></code> and</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.client.convert_api_errors_decorator" title="maestral.client.convert_api_errors_decorator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">convert_api_errors_decorator</span></code></a>(dbx_path_arg: Optional[int] = None, local_path_arg: Optional[int] = None) → Callable[[_FT], _FT]</p></td>
+<td><p>Returns a decorator that catches and re-raises instances of <code class="xref py py-class docutils literal notranslate"><span class="pre">OSError</span></code> and</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.client.os_to_maestral_error" title="maestral.client.os_to_maestral_error"><code class="xref py py-obj docutils literal notranslate"><span class="pre">os_to_maestral_error</span></code></a>(exc: OSError, dbx_path: Optional[str] = None, local_path: Optional[str] = None) → LocalError</p></td>
+<td><p>Converts a <code class="xref py py-class docutils literal notranslate"><span class="pre">OSError</span></code> to a <code class="xref py py-class docutils literal notranslate"><span class="pre">MaestralApiError</span></code> and tries to add a</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.client.fswatch_to_maestral_error" title="maestral.client.fswatch_to_maestral_error"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fswatch_to_maestral_error</span></code></a>(exc: OSError) → LocalError</p></td>
+<td><p>Converts a <code class="xref py py-class docutils literal notranslate"><span class="pre">OSError</span></code> when starting a file system watch to a</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.client.dropbox_to_maestral_error" title="maestral.client.dropbox_to_maestral_error"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dropbox_to_maestral_error</span></code></a>(exc: exceptions.DropboxException, dbx_path: Optional[str] = None, local_path: Optional[str] = None) → MaestralApiError</p></td>
+<td><p>Converts a Dropbox SDK exception to a <code class="xref py py-class docutils literal notranslate"><span class="pre">MaestralApiError</span></code> and tries to add a</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py class">
+<dt id="maestral.client.SpaceUsage">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.client.</code><code class="sig-name descname">SpaceUsage</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">used</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">allocation</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#maestral.client.SpaceUsage" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">dropbox.users.SpaceUsage</span></code></p>
+<p>Information about a user’s space usage and quota.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>users.SpaceUsage.used</strong> – The user’s total space usage (bytes).</p></li>
+<li><p><strong>users.SpaceUsage.allocation</strong> – The user’s space allocation.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.client.convert_api_errors">
+<code class="sig-prename descclassname">maestral.client.</code><code class="sig-name descname">convert_api_errors</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dbx_path</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">local_path</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; Iterator<span class="p">[</span>None<span class="p">]</span><a class="headerlink" href="#maestral.client.convert_api_errors" title="Permalink to this definition">¶</a></dt>
+<dd><p>A context manager that catches and re-raises instances of <code class="xref py py-class docutils literal notranslate"><span class="pre">OSError</span></code> and
+<code class="xref py py-class docutils literal notranslate"><span class="pre">exceptions.DropboxException</span></code> as <code class="xref py py-class docutils literal notranslate"><span class="pre">errors.MaestralApiError</span></code> or
+<code class="xref py py-class docutils literal notranslate"><span class="pre">ConnectionError</span></code>.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.client.convert_api_errors_decorator">
+<code class="sig-prename descclassname">maestral.client.</code><code class="sig-name descname">convert_api_errors_decorator</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dbx_path_arg</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>int<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">local_path_arg</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>int<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; Callable<span class="p">[</span><span class="p">[</span>_FT<span class="p">]</span><span class="p">, </span>_FT<span class="p">]</span><a class="headerlink" href="#maestral.client.convert_api_errors_decorator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a decorator that catches and re-raises instances of <code class="xref py py-class docutils literal notranslate"><span class="pre">OSError</span></code> and
+<code class="xref py py-class docutils literal notranslate"><span class="pre">exceptions.DropboxException</span></code> as <code class="xref py py-class docutils literal notranslate"><span class="pre">errors.MaestralApiError</span></code> or
+<code class="xref py py-class docutils literal notranslate"><span class="pre">ConnectionError</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dbx_path_arg</strong> – Argument number to take as dbx_path for exception.</p></li>
+<li><p><strong>local_path_arg</strong> – Argument number to take as local_path_arg for exception.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt id="maestral.client.DropboxClient">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.client.</code><code class="sig-name descname">DropboxClient</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config_name</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">timeout</span><span class="p">:</span> <span class="n">float</span> <span class="o">=</span> <span class="default_value">100</span></em><span class="sig-paren">)</span><a class="headerlink" href="#maestral.client.DropboxClient" title="Permalink to this definition">¶</a></dt>
+<dd><p>Client for the Dropbox SDK.</p>
+<p>This client defines basic methods to wrap Dropbox Python SDK calls, such as
+creating, moving, modifying and deleting files and folders on Dropbox and
+downloading files from Dropbox.</p>
+<p>All Dropbox SDK exceptions and <code class="xref py py-class docutils literal notranslate"><span class="pre">OSError</span></code> instances if related to accessing or
+saving local files will be caught and reraised as a
+<code class="xref py py-class docutils literal notranslate"><span class="pre">errors.MaestralApiError</span></code>. Connection errors from requests will be caught and
+reraised as <code class="xref py py-class docutils literal notranslate"><span class="pre">ConnectionError</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config_name</strong> – Name of config file and state file to use.</p></li>
+<li><p><strong>timeout</strong> – Timeout for individual requests. Defaults to 100 sec if not given.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.dbx">
+<em class="property">property </em><code class="sig-name descname">dbx</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; Dropbox<a class="headerlink" href="#maestral.client.DropboxClient.dbx" title="Permalink to this definition">¶</a></dt>
+<dd><p>The actual Python Dropbox SDK</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.linked">
+<em class="property">property </em><code class="sig-name descname">linked</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#maestral.client.DropboxClient.linked" title="Permalink to this definition">¶</a></dt>
+<dd><p>Indicates if the client is linked to a Dropbox account (read only). This will
+block until the user’s keyring is unlocked to load the saved auth token.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">errors.KeyringAccessError</span></code> if keyring access fails.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.get_auth_url">
+<code class="sig-name descname">get_auth_url</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.client.DropboxClient.get_auth_url" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a URL to authorize access to a Dropbox account. To link a Dropbox
+account, retrieve an auth token from the URL and link Maestral by calling
+<a class="reference internal" href="#maestral.client.DropboxClient.link" title="maestral.client.DropboxClient.link"><code class="xref py py-meth docutils literal notranslate"><span class="pre">link()</span></code></a> with the provided token.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>URL to retrieve an OAuth token.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.link">
+<code class="sig-name descname">link</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">token</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#maestral.client.DropboxClient.link" title="Permalink to this definition">¶</a></dt>
+<dd><p>Links Maestral with a Dropbox account using the given access token. The token
+will be stored for future usage as documented in the <code class="xref py py-mod docutils literal notranslate"><span class="pre">oauth</span></code> module.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>token</strong> – OAuth token for Dropbox access.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>0 on success, 1 for an invalid token and 2 for connection errors.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.unlink">
+<code class="sig-name descname">unlink</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#maestral.client.DropboxClient.unlink" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unlinks the Dropbox account.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">errors.KeyringAccessError</span></code></p>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">errors.DropboxAuthError</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.account_id">
+<em class="property">property </em><code class="sig-name descname">account_id</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; Optional<span class="p">[</span>str<span class="p">]</span><a class="headerlink" href="#maestral.client.DropboxClient.account_id" title="Permalink to this definition">¶</a></dt>
+<dd><p>The unique Dropbox ID of the linked account</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.get_account_info">
+<code class="sig-name descname">get_account_info</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">dbid</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; users.FullAccount<a class="headerlink" href="#maestral.client.DropboxClient.get_account_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets current account information.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>dbid</strong> – Dropbox ID of account. If not given, will get the info of the
+currently linked account.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Account info.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.get_space_usage">
+<code class="sig-name descname">get_space_usage</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; <a class="reference internal" href="#maestral.client.SpaceUsage" title="maestral.client.SpaceUsage">SpaceUsage</a><a class="headerlink" href="#maestral.client.DropboxClient.get_space_usage" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>The space usage of the currently linked account.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.get_metadata">
+<code class="sig-name descname">get_metadata</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">dbx_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span> &#x2192; files.Metadata<a class="headerlink" href="#maestral.client.DropboxClient.get_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets metadata for an item on Dropbox or returns <code class="docutils literal notranslate"><span class="pre">False</span></code> if no metadata is
+available. Keyword arguments are passed on to Dropbox SDK files_get_metadata
+call.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dbx_path</strong> – Path of folder on Dropbox.</p></li>
+<li><p><strong>kwargs</strong> – Keyword arguments for Dropbox SDK files_download_to_file.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Metadata of item at the given path or <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.list_revisions">
+<code class="sig-name descname">list_revisions</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">dbx_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">mode</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">'path'</span></em>, <em class="sig-param"><span class="n">limit</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">10</span></em><span class="sig-paren">)</span> &#x2192; files.ListRevisionsResult<a class="headerlink" href="#maestral.client.DropboxClient.list_revisions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lists all file revisions for the given file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dbx_path</strong> – Path to file on Dropbox.</p></li>
+<li><p><strong>mode</strong> – Must be ‘path’ or ‘id’. If ‘id’, specify the Dropbox file ID
+instead of the file path to get revisions across move and rename events.</p></li>
+<li><p><strong>limit</strong> – Maximum number of revisions to list. Defaults to 10.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>File revision history.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.restore">
+<code class="sig-name descname">restore</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">dbx_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">rev</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; files.FileMetadata<a class="headerlink" href="#maestral.client.DropboxClient.restore" title="Permalink to this definition">¶</a></dt>
+<dd><p>Restore an old revision of a file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dbx_path</strong> – The path to save the restored file.</p></li>
+<li><p><strong>rev</strong> – The revision to restore. Old revisions can be listed with
+<a class="reference internal" href="#maestral.client.DropboxClient.list_revisions" title="maestral.client.DropboxClient.list_revisions"><code class="xref py py-meth docutils literal notranslate"><span class="pre">list_revisions()</span></code></a>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Metadata of restored file.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.download">
+<code class="sig-name descname">download</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">dbx_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">local_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">sync_event</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>SyncEvent<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span> &#x2192; files.FileMetadata<a class="headerlink" href="#maestral.client.DropboxClient.download" title="Permalink to this definition">¶</a></dt>
+<dd><p>Downloads file from Dropbox to our local folder.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dbx_path</strong> – Path to file on Dropbox or rev number.</p></li>
+<li><p><strong>local_path</strong> – Path to local download destination.</p></li>
+<li><p><strong>sync_event</strong> – If given, the sync event will be updated with the number of
+downloaded bytes.</p></li>
+<li><p><strong>kwargs</strong> – Keyword arguments for Dropbox SDK files_download_to_file.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Metadata of downloaded item.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.upload">
+<code class="sig-name descname">upload</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">local_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">dbx_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">chunk_size</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">5 * 10 ** 6</span></em>, <em class="sig-param"><span class="n">sync_event</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>SyncEvent<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span> &#x2192; files.FileMetadata<a class="headerlink" href="#maestral.client.DropboxClient.upload" title="Permalink to this definition">¶</a></dt>
+<dd><p>Uploads local file to Dropbox.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>local_path</strong> – Path of local file to upload.</p></li>
+<li><p><strong>dbx_path</strong> – Path to save file on Dropbox.</p></li>
+<li><p><strong>kwargs</strong> – Keyword arguments for Dropbox SDK files_upload.</p></li>
+<li><p><strong>chunk_size</strong> – Maximum size for individual uploads. If larger than 150 MB,
+it will be set to 150 MB.</p></li>
+<li><p><strong>sync_event</strong> – If given, the sync event will be updated with the number of
+downloaded bytes.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Metadata of uploaded file.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.remove">
+<code class="sig-name descname">remove</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">dbx_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span> &#x2192; files.Metadata<a class="headerlink" href="#maestral.client.DropboxClient.remove" title="Permalink to this definition">¶</a></dt>
+<dd><p>Removes a file / folder from Dropbox.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dbx_path</strong> – Path to file on Dropbox.</p></li>
+<li><p><strong>kwargs</strong> – Keyword arguments for Dropbox SDK files_delete_v2.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Metadata of deleted item.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.remove_batch">
+<code class="sig-name descname">remove_batch</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">entries</span><span class="p">:</span> <span class="n">List<span class="p">[</span>Tuple<span class="p">[</span>str<span class="p">, </span>str<span class="p">]</span><span class="p">]</span></span></em>, <em class="sig-param"><span class="n">batch_size</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">900</span></em><span class="sig-paren">)</span> &#x2192; List<span class="p">[</span>Union<span class="p">[</span>files.Metadata<span class="p">, </span>MaestralApiError<span class="p">]</span><span class="p">]</span><a class="headerlink" href="#maestral.client.DropboxClient.remove_batch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Delete multiple items on Dropbox in a batch job.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>entries</strong> – List of Dropbox paths and “rev”s to delete. If a “rev” is not
+None, the file will only be deleted if it matches the rev on Dropbox. This
+is not supported when deleting a folder.</p></li>
+<li><p><strong>batch_size</strong> – Number of items to delete in each batch. Dropbox allows
+batches of up to 1,000 items. Larger values will be capped automatically.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>List of Metadata for deleted items or <code class="xref py py-class docutils literal notranslate"><span class="pre">errors.SyncError</span></code> for
+failures. Results will be in the same order as the original input.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.move">
+<code class="sig-name descname">move</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">dbx_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">new_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span> &#x2192; files.Metadata<a class="headerlink" href="#maestral.client.DropboxClient.move" title="Permalink to this definition">¶</a></dt>
+<dd><p>Moves / renames files or folders on Dropbox.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dbx_path</strong> – Path to file/folder on Dropbox.</p></li>
+<li><p><strong>new_path</strong> – New path on Dropbox to move to.</p></li>
+<li><p><strong>kwargs</strong> – Keyword arguments for Dropbox SDK files_move_v2.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Metadata of moved item.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.make_dir">
+<code class="sig-name descname">make_dir</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">dbx_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span> &#x2192; files.FolderMetadata<a class="headerlink" href="#maestral.client.DropboxClient.make_dir" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a folder on Dropbox.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dbx_path</strong> – Path of Dropbox folder.</p></li>
+<li><p><strong>kwargs</strong> – Keyword arguments for Dropbox SDK files_create_folder_v2.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Metadata of created folder.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.make_dir_batch">
+<code class="sig-name descname">make_dir_batch</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">dbx_paths</span><span class="p">:</span> <span class="n">List<span class="p">[</span>str<span class="p">]</span></span></em>, <em class="sig-param"><span class="n">batch_size</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">900</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span> &#x2192; List<span class="p">[</span>Union<span class="p">[</span>files.Metadata<span class="p">, </span>MaestralApiError<span class="p">]</span><span class="p">]</span><a class="headerlink" href="#maestral.client.DropboxClient.make_dir_batch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates multiple folders on Dropbox in a batch job.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dbx_paths</strong> – List of dropbox folder paths.</p></li>
+<li><p><strong>batch_size</strong> – Number of folders to create in each batch. Dropbox allows
+batches of up to 1,000 folders. Larger values will be capped automatically.</p></li>
+<li><p><strong>kwargs</strong> – Keyword arguments for Dropbox SDK files_create_folder_batch.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>List of Metadata for created folders or SyncError for failures.
+Entries will be in the same order as given paths.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.get_latest_cursor">
+<code class="sig-name descname">get_latest_cursor</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">dbx_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">include_non_downloadable_files</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.client.DropboxClient.get_latest_cursor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets the latest cursor for the given folder and subfolders.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dbx_path</strong> – Path of folder on Dropbox.</p></li>
+<li><p><strong>include_non_downloadable_files</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, files that cannot be
+downloaded (at the moment only G-suite files on Dropbox) will be included.</p></li>
+<li><p><strong>kwargs</strong> – Other keyword arguments for Dropbox SDK files_list_folder.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The latest cursor representing a state of a folder and its subfolders.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.list_folder">
+<code class="sig-name descname">list_folder</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">dbx_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">max_retries_on_timeout</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">4</span></em>, <em class="sig-param"><span class="n">include_non_downloadable_files</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span> &#x2192; files.ListFolderResult<a class="headerlink" href="#maestral.client.DropboxClient.list_folder" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lists the contents of a folder on Dropbox.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dbx_path</strong> – Path of folder on Dropbox.</p></li>
+<li><p><strong>max_retries_on_timeout</strong> – Number of times to try again if Dropbox servers
+do not respond within the timeout. Occasional timeouts may occur for very
+large Dropbox folders.</p></li>
+<li><p><strong>include_non_downloadable_files</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, files that cannot be
+downloaded (at the moment only G-suite files on Dropbox) will be included.</p></li>
+<li><p><strong>kwargs</strong> – Other keyword arguments for Dropbox SDK files_list_folder.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Content of given folder.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.list_folder_iterator">
+<code class="sig-name descname">list_folder_iterator</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">dbx_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">max_retries_on_timeout</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">4</span></em>, <em class="sig-param"><span class="n">include_non_downloadable_files</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span> &#x2192; Iterator<span class="p">[</span>files.ListFolderResult<span class="p">]</span><a class="headerlink" href="#maestral.client.DropboxClient.list_folder_iterator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lists the contents of a folder on Dropbox. Does the same as <a class="reference internal" href="#maestral.client.DropboxClient.list_folder" title="maestral.client.DropboxClient.list_folder"><code class="xref py py-meth docutils literal notranslate"><span class="pre">list_folder()</span></code></a>
+but returns an iterator yielding <code class="xref py py-class docutils literal notranslate"><span class="pre">files.ListFolderResult</span></code> instances. The
+number of entries returned in each iteration corresponds to the number of
+entries returned by a single Dropbox API call and will be typically around 500.
+This is useful to save memory when indexing a large number of items.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dbx_path</strong> – Path of folder on Dropbox.</p></li>
+<li><p><strong>max_retries_on_timeout</strong> – Number of times to try again if Dropbox servers
+do not respond within the timeout. Occasional timeouts may occur for very
+large Dropbox folders.</p></li>
+<li><p><strong>include_non_downloadable_files</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, files that cannot be
+downloaded (at the moment only G-suite files on Dropbox) will be included.</p></li>
+<li><p><strong>kwargs</strong> – Other keyword arguments for Dropbox SDK files_list_folder.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Iterator over content of given folder.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.flatten_results">
+<em class="property">static </em><code class="sig-name descname">flatten_results</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">results</span><span class="p">:</span> <span class="n">List<span class="p">[</span>files.ListFolderResult<span class="p">]</span></span></em><span class="sig-paren">)</span> &#x2192; files.ListFolderResult<a class="headerlink" href="#maestral.client.DropboxClient.flatten_results" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flattens a list of <code class="xref py py-class docutils literal notranslate"><span class="pre">files.ListFolderResult</span></code> instances to a single
+instance with the cursor of the last entry in the list.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>results</strong> – List of <code class="xref py py-class docutils literal notranslate"><span class="pre">files.ListFolderResult</span></code> instances.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Flattened list folder result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.wait_for_remote_changes">
+<code class="sig-name descname">wait_for_remote_changes</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">last_cursor</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">timeout</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">40</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#maestral.client.DropboxClient.wait_for_remote_changes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Waits for remote changes since <code class="docutils literal notranslate"><span class="pre">last_cursor</span></code>. Call this method after
+starting the Dropbox client and periodically to get the latest updates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>last_cursor</strong> – Last to cursor to compare for changes.</p></li>
+<li><p><strong>timeout</strong> – Seconds to wait until timeout. Must be between 30 and 480.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">True</span></code> if changes are available, <code class="docutils literal notranslate"><span class="pre">False</span></code> otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.list_remote_changes">
+<code class="sig-name descname">list_remote_changes</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">last_cursor</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; files.ListFolderResult<a class="headerlink" href="#maestral.client.DropboxClient.list_remote_changes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lists changes to remote Dropbox since <code class="docutils literal notranslate"><span class="pre">last_cursor</span></code>. Call this after
+<a class="reference internal" href="#maestral.client.DropboxClient.wait_for_remote_changes" title="maestral.client.DropboxClient.wait_for_remote_changes"><code class="xref py py-meth docutils literal notranslate"><span class="pre">wait_for_remote_changes()</span></code></a> returns <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>last_cursor</strong> – Last to cursor to compare for changes.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Remote changes since given cursor.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.client.DropboxClient.list_remote_changes_iterator">
+<code class="sig-name descname">list_remote_changes_iterator</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">last_cursor</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; Iterator<span class="p">[</span>files.ListFolderResult<span class="p">]</span><a class="headerlink" href="#maestral.client.DropboxClient.list_remote_changes_iterator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lists changes to the remote Dropbox since <code class="docutils literal notranslate"><span class="pre">last_cursor</span></code>. Does the same as
+<a class="reference internal" href="#maestral.client.DropboxClient.list_remote_changes" title="maestral.client.DropboxClient.list_remote_changes"><code class="xref py py-meth docutils literal notranslate"><span class="pre">list_remote_changes()</span></code></a> but returns an iterator yielding
+<code class="xref py py-class docutils literal notranslate"><span class="pre">files.ListFolderResult</span></code> instances. The number of entries returned in
+each iteration corresponds to the number of entries returned by a single Dropbox
+API call and will be typically around 500. This is useful to save memory when
+indexing a large number of items.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>last_cursor</strong> – Last to cursor to compare for changes.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Iterator over remote changes since given cursor.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.client.os_to_maestral_error">
+<code class="sig-prename descclassname">maestral.client.</code><code class="sig-name descname">os_to_maestral_error</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">exc</span><span class="p">:</span> <span class="n">OSError</span></em>, <em class="sig-param"><span class="n">dbx_path</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">local_path</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; LocalError<a class="headerlink" href="#maestral.client.os_to_maestral_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts a <code class="xref py py-class docutils literal notranslate"><span class="pre">OSError</span></code> to a <code class="xref py py-class docutils literal notranslate"><span class="pre">MaestralApiError</span></code> and tries to add a
+reasonably informative error title and message.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The following exception types should not typically be raised during syncing:</p>
+<p>InterruptedError: Python will automatically retry on interrupted connections.
+NotADirectoryError: If raised, this likely is a Maestral bug.
+IsADirectoryError: If raised, this likely is a Maestral bug.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exc</strong> – Python Exception.</p></li>
+<li><p><strong>dbx_path</strong> – Dropbox path of file which triggered the error.</p></li>
+<li><p><strong>local_path</strong> – Local path of file which triggered the error.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">MaestralApiError</span></code> instance or <code class="xref py py-class docutils literal notranslate"><span class="pre">OSError</span></code> instance.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.client.fswatch_to_maestral_error">
+<code class="sig-prename descclassname">maestral.client.</code><code class="sig-name descname">fswatch_to_maestral_error</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">exc</span><span class="p">:</span> <span class="n">OSError</span></em><span class="sig-paren">)</span> &#x2192; LocalError<a class="headerlink" href="#maestral.client.fswatch_to_maestral_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts a <code class="xref py py-class docutils literal notranslate"><span class="pre">OSError</span></code> when starting a file system watch to a
+<code class="xref py py-class docutils literal notranslate"><span class="pre">MaestralApiError</span></code> and tries to add a reasonably informative error title and
+message. Error messages and types differ from <a class="reference internal" href="#maestral.client.os_to_maestral_error" title="maestral.client.os_to_maestral_error"><code class="xref py py-func docutils literal notranslate"><span class="pre">os_to_maestral_error()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>exc</strong> – Python Exception.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">MaestralApiError</span></code> instance or <code class="xref py py-class docutils literal notranslate"><span class="pre">OSError</span></code> instance.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.client.dropbox_to_maestral_error">
+<code class="sig-prename descclassname">maestral.client.</code><code class="sig-name descname">dropbox_to_maestral_error</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">exc</span><span class="p">:</span> <span class="n">exceptions.DropboxException</span></em>, <em class="sig-param"><span class="n">dbx_path</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">local_path</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; MaestralApiError<a class="headerlink" href="#maestral.client.dropbox_to_maestral_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts a Dropbox SDK exception to a <code class="xref py py-class docutils literal notranslate"><span class="pre">MaestralApiError</span></code> and tries to add a
+reasonably informative error title and message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exc</strong> – <code class="xref py py-class docutils literal notranslate"><span class="pre">dropbox.exceptions.DropboxException</span></code> instance.</p></li>
+<li><p><strong>dbx_path</strong> – Dropbox path of file which triggered the error.</p></li>
+<li><p><strong>local_path</strong> – Local path of file which triggered the error.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">MaestralApiError</span></code> instance.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../constants/index.html" class="btn btn-neutral float-right" title="maestral.constants" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="../cli/index.html" class="btn btn-neutral float-left" title="maestral.cli" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, Sam Schott
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

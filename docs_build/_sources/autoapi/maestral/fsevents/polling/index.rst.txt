@@ -1,0 +1,49 @@
+:orphan:
+
+:mod:`maestral.fsevents.polling`
+================================
+
+.. py:module:: maestral.fsevents.polling
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   maestral.fsevents.polling.OrderedPollingEmitter
+   maestral.fsevents.polling.OrderedPollingObserver
+
+
+
+.. py:class:: OrderedPollingEmitter(event_queue, watch, timeout=DEFAULT_EMITTER_TIMEOUT, stat=default_stat, listdir=scandir)
+
+   Bases: :class:`watchdog.observers.polling.PollingEmitter`
+
+   Platform-independent emitter that polls a directory to detect file
+   system changes.
+
+   .. method:: queue_events(self, timeout)
+
+      Override this method to populate the event queue with events
+      per interval period.
+
+      :param timeout:
+          Timeout (in seconds) between successive attempts at
+          reading events.
+      :type timeout:
+          ``float``
+
+
+
+.. py:class:: OrderedPollingObserver(timeout=DEFAULT_OBSERVER_TIMEOUT)
+
+   Bases: :class:`watchdog.observers.polling.PollingObserver`
+
+   Platform-independent observer that polls a directory to detect file
+   system changes.
+
+

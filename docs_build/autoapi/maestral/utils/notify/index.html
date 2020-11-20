@@ -1,0 +1,420 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>maestral.utils.notify &mdash; Maestral 1.3.0.dev0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="https://media.readthedocs.org/css/sphinx_rtd_theme.css" type="text/css" />
+  <link rel="stylesheet" href="https://media.readthedocs.org/css/readthedocs-doc-embed.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../../index.html" class="icon icon-home" alt="Documentation Home"> Maestral
+          
+
+          
+            
+            <img src="../../../../_static/maestral.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.3.0.dev0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Table of Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../config_files.html">Config files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../state_files.html">State files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../index.html">API Reference</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Maestral</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.notify</span></code></li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../../../_sources/autoapi/maestral/utils/notify/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-maestral.utils.notify">
+<span id="maestral-utils-notify"></span><h1><a class="reference internal" href="#module-maestral.utils.notify" title="maestral.utils.notify"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.notify</span></code></a><a class="headerlink" href="#module-maestral.utils.notify" title="Permalink to this headline">¶</a></h1>
+<p>This module handles desktop notifications for Maestral and supports multiple backends,
+depending on the platform.</p>
+<div class="section" id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="classes">
+<h3>Classes<a class="headerlink" href="#classes" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.notify.DesktopNotifierBase" title="maestral.utils.notify.DesktopNotifierBase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DesktopNotifierBase</span></code></a></p></td>
+<td><p>Base class for desktop notifications. Notification levels CRITICAL, NORMAL and LOW</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.utils.notify.NotificationLevel" title="maestral.utils.notify.NotificationLevel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">NotificationLevel</span></code></a></p></td>
+<td><p>Enumeration of notification levels. The interpretation and visuals will depend</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.notify.Notification" title="maestral.utils.notify.Notification"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Notification</span></code></a></p></td>
+<td><p>A desktop notification</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.utils.notify.DesktopNotifier" title="maestral.utils.notify.DesktopNotifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DesktopNotifier</span></code></a></p></td>
+<td><p>Cross-platform desktop notifications for macOS and Linux. Uses different backends</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.notify.MaestralDesktopNotifier" title="maestral.utils.notify.MaestralDesktopNotifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">MaestralDesktopNotifier</span></code></a></p></td>
+<td><p>Desktop notifier with notification levels and snooze functionality.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py class">
+<dt id="maestral.utils.notify.DesktopNotifierBase">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.utils.notify.</code><code class="sig-name descname">DesktopNotifierBase</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">app_name</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">''</span></em>, <em class="sig-param"><span class="n">app_id</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">''</span></em>, <em class="sig-param"><span class="n">notification_limit</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">5</span></em><span class="sig-paren">)</span><a class="headerlink" href="#maestral.utils.notify.DesktopNotifierBase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for desktop notifications. Notification levels CRITICAL, NORMAL and LOW
+may be used by some implementations to determine how a notification is displayed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>app_name</strong> – Name to identify the application in the notification center. On
+Linux, this should correspond to the application name in a desktop entry. On
+macOS, this field is discarded and the app is identified by the bundle id of the
+sending program (e.g., Python).</p></li>
+<li><p><strong>notification_limit</strong> – Maximum number of notifications to keep in the system’s
+notification center. This may be ignored by some implementations.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="maestral.utils.notify.DesktopNotifierBase.send">
+<em class="property">abstract </em><code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">notification</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#maestral.utils.notify.Notification" title="maestral.utils.notify.Notification">Notification</a></span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#maestral.utils.notify.DesktopNotifierBase.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Some arguments may be ignored, depending on the implementation.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="maestral.utils.notify.NotificationLevel">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.utils.notify.</code><code class="sig-name descname">NotificationLevel</code><a class="headerlink" href="#maestral.utils.notify.NotificationLevel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<p>Enumeration of notification levels. The interpretation and visuals will depend
+on the platform.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Critical</strong> – For critical errors.</p></li>
+<li><p><strong>Normal</strong> – Default platform notification level.</p></li>
+<li><p><strong>Low</strong> – Low priority notification.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt id="maestral.utils.notify.Notification">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.utils.notify.</code><code class="sig-name descname">Notification</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">title</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">message</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">urgency</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#maestral.utils.notify.NotificationLevel" title="maestral.utils.notify.NotificationLevel">NotificationLevel</a></span> <span class="o">=</span> <span class="default_value">NotificationLevel.Normal</span></em>, <em class="sig-param"><span class="n">icon</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">action</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>Callable<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">buttons</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>Dict<span class="p">[</span>str<span class="p">, </span>Optional<span class="p">[</span>Callable<span class="p">]</span><span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#maestral.utils.notify.Notification" title="Permalink to this definition">¶</a></dt>
+<dd><p>A desktop notification</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>title</strong> – Notification title.</p></li>
+<li><p><strong>message</strong> – Notification message.</p></li>
+<li><p><strong>urgency</strong> – Notification level: low, normal or critical. This is ignored by some
+implementations.</p></li>
+<li><p><strong>icon</strong> – Path to an icon to use for the notification, typically the app icon.
+This is ignored by some implementations, e.g., on macOS where the icon of the
+app bundle is always used.</p></li>
+<li><p><strong>action</strong> – Handler to call when the notification is clicked. This is ignored by
+some implementations.</p></li>
+<li><p><strong>buttons</strong> – A dictionary with button names to show in the notification and
+handler to call when the respective button is clicked. This is ignored by some
+implementations.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Variables</dt>
+<dd class="field-even"><p><strong>identifier</strong> – An identifier which gets assigned to the notification after it is
+sent. This may be a str or int, depending on the type of identifier used by the
+platform.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt id="maestral.utils.notify.DesktopNotifier">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.utils.notify.</code><code class="sig-name descname">DesktopNotifier</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">app_name</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">app_id</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span><a class="headerlink" href="#maestral.utils.notify.DesktopNotifier" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cross-platform desktop notifications for macOS and Linux. Uses different backends
+depending on the platform version and available services. The Dbus backend requires
+a running asyncio loop. The Cocoa implementations will dispatch notifications
+without an event loop but require a running CFRunLoop <em>in the main thread</em> to react
+to user interactions with the notification. Packages such as <code class="xref py py-mod docutils literal notranslate"><span class="pre">rubicon.objc</span></code> can
+be used to integrate asyncio with a CFRunLoop.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>app_name</strong> – Name of app which sends notifications.</p></li>
+<li><p><strong>app_id</strong> – Bundle identifier of the app. This is typically a reverse domain name
+such as ‘com.google.app’.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="maestral.utils.notify.DesktopNotifier.send">
+<code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">title</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">message</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">urgency</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#maestral.utils.notify.NotificationLevel" title="maestral.utils.notify.NotificationLevel">NotificationLevel</a></span> <span class="o">=</span> <span class="default_value">NotificationLevel.Normal</span></em>, <em class="sig-param"><span class="n">icon</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">action</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>Callable<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">buttons</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>Dict<span class="p">[</span>str<span class="p">, </span>Optional<span class="p">[</span>Callable<span class="p">]</span><span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#maestral.utils.notify.DesktopNotifier.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sends a desktop notification. Some arguments may be ignored, depending on the
+backend.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>title</strong> – Notification title.</p></li>
+<li><p><strong>message</strong> – Notification message.</p></li>
+<li><p><strong>urgency</strong> – Notification level: low, normal or critical. This is ignored by
+some implementations.</p></li>
+<li><p><strong>icon</strong> – Path to an icon to use for the notification, typically the app
+icon. This is ignored by some implementations, e.g., on macOS where the icon
+of the app bundle is always used.</p></li>
+<li><p><strong>action</strong> – Handler to call when the notification is clicked. This is ignored
+by some implementations.</p></li>
+<li><p><strong>buttons</strong> – A dictionary with button names and callbacks to show in the
+notification. This is ignored by some implementations.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="maestral.utils.notify.MaestralDesktopNotifier">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.utils.notify.</code><code class="sig-name descname">MaestralDesktopNotifier</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config_name</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span><a class="headerlink" href="#maestral.utils.notify.MaestralDesktopNotifier" title="Permalink to this definition">¶</a></dt>
+<dd><p>Desktop notifier with notification levels and snooze functionality.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>NONE</strong> (<em>int</em>) – Notification level for no desktop notifications.</p></li>
+<li><p><strong>ERROR</strong> (<em>int</em>) – Notification level for errors.</p></li>
+<li><p><strong>SYNCISSUE</strong> (<em>int</em>) – Notification level for sync issues.</p></li>
+<li><p><strong>FILECHANGE</strong> (<em>int</em>) – Notification level for file changes.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="maestral.utils.notify.MaestralDesktopNotifier.level_number_to_name">
+<em class="property">classmethod </em><code class="sig-name descname">level_number_to_name</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">cls</span></em>, <em class="sig-param"><span class="n">number</span><span class="p">:</span> <span class="n">int</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.utils.notify.MaestralDesktopNotifier.level_number_to_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts a Maestral notification level number to name.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.notify.MaestralDesktopNotifier.level_name_to_number">
+<em class="property">classmethod </em><code class="sig-name descname">level_name_to_number</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">cls</span></em>, <em class="sig-param"><span class="n">name</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#maestral.utils.notify.MaestralDesktopNotifier.level_name_to_number" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts a Maestral notification level name to number.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.notify.MaestralDesktopNotifier.notify_level">
+<em class="property">property </em><code class="sig-name descname">notify_level</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#maestral.utils.notify.MaestralDesktopNotifier.notify_level" title="Permalink to this definition">¶</a></dt>
+<dd><p>Custom notification level. Notifications with a lower level will be
+discarded.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.notify.MaestralDesktopNotifier.snoozed">
+<em class="property">property </em><code class="sig-name descname">snoozed</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#maestral.utils.notify.MaestralDesktopNotifier.snoozed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Time in minutes to snooze notifications. Applied to FILECHANGE level only.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.notify.MaestralDesktopNotifier.notify">
+<code class="sig-name descname">notify</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">title</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">message</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">level</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">FILECHANGE</span></em>, <em class="sig-param"><span class="n">on_click</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>Callable<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">buttons</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>Dict<span class="p">[</span>str<span class="p">, </span>Optional<span class="p">[</span>Callable<span class="p">]</span><span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#maestral.utils.notify.MaestralDesktopNotifier.notify" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sends a desktop notification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>title</strong> – Notification title.</p></li>
+<li><p><strong>message</strong> – Notification message.</p></li>
+<li><p><strong>level</strong> – Notification level of the message.</p></li>
+<li><p><strong>on_click</strong> – A callback to execute when the notification is clicked. The
+provided callable must not take any arguments.</p></li>
+<li><p><strong>buttons</strong> – A dictionary with button names and callbacks for the
+notification.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, Sam Schott
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

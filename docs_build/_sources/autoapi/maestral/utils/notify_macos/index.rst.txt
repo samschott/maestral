@@ -1,0 +1,47 @@
+:mod:`maestral.utils.notify_macos`
+==================================
+
+.. py:module:: maestral.utils.notify_macos
+
+.. autoapi-nested-parse::
+
+   Notification backend for macOS. Includes three implementations, in order of preference:
+
+   1) UNUserNotificationCenter: Introduced in macOS 10.14 and cross-platform with iOS and
+      iPadOS. Only available from signed app bundles if called from the main executable.
+      Not available from interactive Python interpreter.
+   2) NSUserNotificationCenter: Deprecated but still available in macOS 11.0. Can be used
+      from Python framework.
+   3) Apple Script: Always available but notifications are sent from Apple Script and not
+      Python or Maestral app. No callbacks when the user clicks on notification.
+
+   The first two implementations require a running CFRunLoop to invoke callbacks.
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   maestral.utils.notify_macos.DesktopNotifierOsaScript
+
+
+
+.. py:class:: DesktopNotifierOsaScript(app_name: str = '', app_id: str = '', notification_limit: int = 5)
+
+   Bases: :class:`maestral.utils.notify_base.DesktopNotifierBase`
+
+   Apple script backend for macOS.
+
+   .. method:: send(self, notification: Notification) -> None
+
+      Sends a notification.
+
+      :param notification: Notification to send.
+
+
+

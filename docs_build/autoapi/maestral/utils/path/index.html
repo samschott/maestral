@@ -1,0 +1,502 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>maestral.utils.path &mdash; Maestral 1.3.0.dev0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="https://media.readthedocs.org/css/sphinx_rtd_theme.css" type="text/css" />
+  <link rel="stylesheet" href="https://media.readthedocs.org/css/readthedocs-doc-embed.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../../index.html" class="icon icon-home" alt="Documentation Home"> Maestral
+          
+
+          
+            
+            <img src="../../../../_static/maestral.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.3.0.dev0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Table of Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../config_files.html">Config files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../state_files.html">State files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../index.html">API Reference</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Maestral</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.path</span></code></li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../../../_sources/autoapi/maestral/utils/path/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-maestral.utils.path">
+<span id="maestral-utils-path"></span><h1><a class="reference internal" href="#module-maestral.utils.path" title="maestral.utils.path"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.path</span></code></a><a class="headerlink" href="#module-maestral.utils.path" title="Permalink to this headline">¶</a></h1>
+<p>This module contains functions for common path operations used by Maestral.</p>
+<div class="section" id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="functions">
+<h3>Functions<a class="headerlink" href="#functions" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.path.is_fs_case_sensitive" title="maestral.utils.path.is_fs_case_sensitive"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_fs_case_sensitive</span></code></a>(path: str) → bool</p></td>
+<td><p>Checks if <code class="docutils literal notranslate"><span class="pre">path</span></code> lies on a partition with a case-sensitive file system.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.utils.path.is_child" title="maestral.utils.path.is_child"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_child</span></code></a>(path: str, parent: str) → bool</p></td>
+<td><p>Checks if <code class="docutils literal notranslate"><span class="pre">path</span></code> semantically is inside <code class="docutils literal notranslate"><span class="pre">parent</span></code>. Neither path needs to</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.path.is_equal_or_child" title="maestral.utils.path.is_equal_or_child"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_equal_or_child</span></code></a>(path: str, parent: str) → bool</p></td>
+<td><p>Checks if <code class="docutils literal notranslate"><span class="pre">path</span></code> semantically is inside <code class="docutils literal notranslate"><span class="pre">parent</span></code> or equals <code class="docutils literal notranslate"><span class="pre">parent</span></code>. Neither</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.utils.path.cased_path_candidates" title="maestral.utils.path.cased_path_candidates"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cased_path_candidates</span></code></a>(path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True) → List[str]</p></td>
+<td><p>Returns a list of cased versions of the given path as far as corresponding nodes</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.path.to_cased_path" title="maestral.utils.path.to_cased_path"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_cased_path</span></code></a>(path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True) → str</p></td>
+<td><p>Returns a cased version of the given path as far as corresponding nodes (with</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.utils.path.to_existing_cased_path" title="maestral.utils.path.to_existing_cased_path"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_existing_cased_path</span></code></a>(path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True) → str</p></td>
+<td><p>Returns a cased version of the given path if corresponding nodes (with arbitrary</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.path.path_exists_case_insensitive" title="maestral.utils.path.path_exists_case_insensitive"><code class="xref py py-obj docutils literal notranslate"><span class="pre">path_exists_case_insensitive</span></code></a>(path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True) → bool</p></td>
+<td><p>Checks if a <code class="docutils literal notranslate"><span class="pre">path</span></code> exists in given <code class="docutils literal notranslate"><span class="pre">root</span></code> directory, similar to</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.utils.path.generate_cc_name" title="maestral.utils.path.generate_cc_name"><code class="xref py py-obj docutils literal notranslate"><span class="pre">generate_cc_name</span></code></a>(path: str, suffix: str = 'conflicting copy', is_fs_case_sensitive: bool = True) → str</p></td>
+<td><p>Generates a path for a conflicting copy of <code class="docutils literal notranslate"><span class="pre">path</span></code>. The file name is created by</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.path.delete" title="maestral.utils.path.delete"><code class="xref py py-obj docutils literal notranslate"><span class="pre">delete</span></code></a>(path: str, raise_error: bool = False) → Optional[OSError]</p></td>
+<td><p>Deletes a file or folder at <code class="docutils literal notranslate"><span class="pre">path</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.utils.path.move" title="maestral.utils.path.move"><code class="xref py py-obj docutils literal notranslate"><span class="pre">move</span></code></a>(src_path: str, dest_path: str, raise_error: bool = False, preserve_dest_permissions=False) → Optional[OSError]</p></td>
+<td><p>Moves a file or folder from <code class="docutils literal notranslate"><span class="pre">src_path</span></code> to <code class="docutils literal notranslate"><span class="pre">dest_path</span></code>. If either the source or</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.path.content_hash" title="maestral.utils.path.content_hash"><code class="xref py py-obj docutils literal notranslate"><span class="pre">content_hash</span></code></a>(local_path: str, chunk_size: int = 1024) → Tuple[Optional[str], Optional[float]]</p></td>
+<td><p>Computes content hash of a local file.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py function">
+<dt id="maestral.utils.path.is_fs_case_sensitive">
+<code class="sig-prename descclassname">maestral.utils.path.</code><code class="sig-name descname">is_fs_case_sensitive</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#maestral.utils.path.is_fs_case_sensitive" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks if <code class="docutils literal notranslate"><span class="pre">path</span></code> lies on a partition with a case-sensitive file system.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>path</strong> – Path to check.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Whether <code class="docutils literal notranslate"><span class="pre">path</span></code> lies on a partition with a case-sensitive file system.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.path.is_child">
+<code class="sig-prename descclassname">maestral.utils.path.</code><code class="sig-name descname">is_child</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">parent</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#maestral.utils.path.is_child" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks if <code class="docutils literal notranslate"><span class="pre">path</span></code> semantically is inside <code class="docutils literal notranslate"><span class="pre">parent</span></code>. Neither path needs to
+refer to an actual item on the drive. This function is case sensitive.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> – Item path.</p></li>
+<li><p><strong>parent</strong> – Parent path.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Whether <code class="docutils literal notranslate"><span class="pre">path</span></code> semantically lies inside <code class="docutils literal notranslate"><span class="pre">parent</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.path.is_equal_or_child">
+<code class="sig-prename descclassname">maestral.utils.path.</code><code class="sig-name descname">is_equal_or_child</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">parent</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#maestral.utils.path.is_equal_or_child" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks if <code class="docutils literal notranslate"><span class="pre">path</span></code> semantically is inside <code class="docutils literal notranslate"><span class="pre">parent</span></code> or equals <code class="docutils literal notranslate"><span class="pre">parent</span></code>. Neither
+path needs to refer to an actual item on the drive. This function is case sensitive.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> – Item path.</p></li>
+<li><p><strong>parent</strong> – Parent path.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">True</span></code> if <code class="docutils literal notranslate"><span class="pre">path</span></code> semantically lies inside <code class="docutils literal notranslate"><span class="pre">parent</span></code> or
+<code class="docutils literal notranslate"><span class="pre">path</span> <span class="pre">==</span> <span class="pre">parent</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.path.cased_path_candidates">
+<code class="sig-prename descclassname">maestral.utils.path.</code><code class="sig-name descname">cased_path_candidates</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">root</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">osp.sep</span></em>, <em class="sig-param"><span class="n">is_fs_case_sensitive</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em><span class="sig-paren">)</span> &#x2192; List<span class="p">[</span>str<span class="p">]</span><a class="headerlink" href="#maestral.utils.path.cased_path_candidates" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of cased versions of the given path as far as corresponding nodes
+exist in the given root directory. For instance, if a case sensitive root directory
+contains two folders “/parent/subfolder/child” and “/parent/Subfolder/child”, there
+will be two matches for “/parent/subfolder/child/file.txt”. If the root directory
+does not exist, only one candidate <code class="docutils literal notranslate"><span class="pre">os.path.join(root,</span> <span class="pre">path)</span></code> is returned.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> – Original path relative to <code class="docutils literal notranslate"><span class="pre">root</span></code>.</p></li>
+<li><p><strong>root</strong> – Parent directory to search in. There are significant performance
+improvements if a root directory with a small tree is given.</p></li>
+<li><p><strong>is_fs_case_sensitive</strong> – Bool indicating if the file system is case sensitive.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code>, we know that there can be at most one match and choose a faster
+algorithm.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Candidates for correctly cased local paths.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.path.to_cased_path">
+<code class="sig-prename descclassname">maestral.utils.path.</code><code class="sig-name descname">to_cased_path</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">root</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">osp.sep</span></em>, <em class="sig-param"><span class="n">is_fs_case_sensitive</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.utils.path.to_cased_path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a cased version of the given path as far as corresponding nodes (with
+arbitrary casing) exist in the given root directory. If multiple matches are found,
+only one is returned. If <code class="docutils literal notranslate"><span class="pre">path</span></code> does not exist in root <code class="docutils literal notranslate"><span class="pre">root</span></code> or <code class="docutils literal notranslate"><span class="pre">root</span></code> does
+not exist, the return value will be <code class="docutils literal notranslate"><span class="pre">os.path.join(root,</span> <span class="pre">path)</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> – Original path relative to <code class="docutils literal notranslate"><span class="pre">root</span></code>.</p></li>
+<li><p><strong>root</strong> – Parent directory to search in. There are significant performance
+improvements if a root directory with a small tree is given.</p></li>
+<li><p><strong>is_fs_case_sensitive</strong> – Bool indicating if the file system is case sensitive.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code>, we know that there can be at most one match and choose a faster
+algorithm.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Absolute and cased version of given path.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.path.to_existing_cased_path">
+<code class="sig-prename descclassname">maestral.utils.path.</code><code class="sig-name descname">to_existing_cased_path</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">root</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">osp.sep</span></em>, <em class="sig-param"><span class="n">is_fs_case_sensitive</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.utils.path.to_existing_cased_path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a cased version of the given path if corresponding nodes (with arbitrary
+casing) exist in the given root directory. If multiple matches are found, only one
+is returned.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> – Original path relative to <code class="docutils literal notranslate"><span class="pre">root</span></code>.</p></li>
+<li><p><strong>root</strong> – Parent directory to search in. There are significant performance
+improvements if a root directory with a small tree is given.</p></li>
+<li><p><strong>is_fs_case_sensitive</strong> – Bool indicating if the file system is case sensitive.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code>, we know that there can be at most one match and choose a faster
+algorithm.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Absolute and cased version of given path.</p>
+</dd>
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">FileNotFoundError</span></code> if <code class="docutils literal notranslate"><span class="pre">path</span></code> does not exist in root <code class="docutils literal notranslate"><span class="pre">root</span></code> or
+<code class="docutils literal notranslate"><span class="pre">root</span></code> itself does not exist.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.path.path_exists_case_insensitive">
+<code class="sig-prename descclassname">maestral.utils.path.</code><code class="sig-name descname">path_exists_case_insensitive</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">root</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">osp.sep</span></em>, <em class="sig-param"><span class="n">is_fs_case_sensitive</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#maestral.utils.path.path_exists_case_insensitive" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks if a <code class="docutils literal notranslate"><span class="pre">path</span></code> exists in given <code class="docutils literal notranslate"><span class="pre">root</span></code> directory, similar to
+<code class="docutils literal notranslate"><span class="pre">os.path.exists</span></code> but case-insensitive.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> – Path relative to <code class="docutils literal notranslate"><span class="pre">root</span></code>.</p></li>
+<li><p><strong>root</strong> – Directory where we will look for <code class="docutils literal notranslate"><span class="pre">path</span></code>. There are significant
+performance improvements if a root directory with a small tree is given.</p></li>
+<li><p><strong>is_fs_case_sensitive</strong> – Bool indicating if the file system is case sensitive.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code>, we know that there can be at most one match and choose a faster
+algorithm.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Whether an arbitrarily cased version of <code class="docutils literal notranslate"><span class="pre">path</span></code> exists.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.path.generate_cc_name">
+<code class="sig-prename descclassname">maestral.utils.path.</code><code class="sig-name descname">generate_cc_name</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">suffix</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">'conflicting copy'</span></em>, <em class="sig-param"><span class="n">is_fs_case_sensitive</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.utils.path.generate_cc_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generates a path for a conflicting copy of <code class="docutils literal notranslate"><span class="pre">path</span></code>. The file name is created by
+inserting the given <code class="docutils literal notranslate"><span class="pre">suffix</span></code> between the the filename and extension. For instance:</p>
+<blockquote>
+<div><p>‘my_file.txt’ -&gt; ‘my_file (conflicting copy).txt’</p>
+</div></blockquote>
+<p>If a file with the resulting path already exists (case-insensitive!), we
+additionally append an integer number, for instance:</p>
+<blockquote>
+<div><p>‘my_file.txt’ -&gt; ‘my_file (conflicting copy 1).txt’</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> – Original path name.</p></li>
+<li><p><strong>suffix</strong> – Suffix to use. Defaults to ‘conflicting copy’.</p></li>
+<li><p><strong>is_fs_case_sensitive</strong> – Bool indicating if the file system is case sensitive.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code>, we know that there can be at most one match and choose a faster
+algorithm.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>New path.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.path.delete">
+<code class="sig-prename descclassname">maestral.utils.path.</code><code class="sig-name descname">delete</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">raise_error</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em><span class="sig-paren">)</span> &#x2192; Optional<span class="p">[</span>OSError<span class="p">]</span><a class="headerlink" href="#maestral.utils.path.delete" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deletes a file or folder at <code class="docutils literal notranslate"><span class="pre">path</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> – Path of item to delete.</p></li>
+<li><p><strong>raise_error</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, raise any OSErrors. If <code class="docutils literal notranslate"><span class="pre">False</span></code>, catch OSErrors
+and return them.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Any caught exception during the deletion.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.path.move">
+<code class="sig-prename descclassname">maestral.utils.path.</code><code class="sig-name descname">move</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">src_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">dest_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">raise_error</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">preserve_dest_permissions</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span> &#x2192; Optional<span class="p">[</span>OSError<span class="p">]</span><a class="headerlink" href="#maestral.utils.path.move" title="Permalink to this definition">¶</a></dt>
+<dd><p>Moves a file or folder from <code class="docutils literal notranslate"><span class="pre">src_path</span></code> to <code class="docutils literal notranslate"><span class="pre">dest_path</span></code>. If either the source or
+the destination path no longer exist, this function does nothing. Any other
+exceptions are either raised or returned if <code class="docutils literal notranslate"><span class="pre">raise_error</span></code> is False.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>src_path</strong> – Path of item to move.</p></li>
+<li><p><strong>dest_path</strong> – Destination path. Any existing file at this path will be replaced
+by the move. Any existing <strong>empty</strong> folder will be replaced if the source is
+also a folder.</p></li>
+<li><p><strong>raise_error</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, raise any OSErrors. If <code class="docutils literal notranslate"><span class="pre">False</span></code>, catch OSErrors
+and return them.</p></li>
+<li><p><strong>preserve_dest_permissions</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, attempt to preserve the permissions
+of any file at the destination. If <code class="docutils literal notranslate"><span class="pre">False</span></code>, the permissions of src_path will
+be used.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Any caught exception during the move.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.path.content_hash">
+<code class="sig-prename descclassname">maestral.utils.path.</code><code class="sig-name descname">content_hash</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">local_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">chunk_size</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">1024</span></em><span class="sig-paren">)</span> &#x2192; Tuple<span class="p">[</span>Optional<span class="p">[</span>str<span class="p">]</span><span class="p">, </span>Optional<span class="p">[</span>float<span class="p">]</span><span class="p">]</span><a class="headerlink" href="#maestral.utils.path.content_hash" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes content hash of a local file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>local_path</strong> – Absolute path on local drive.</p></li>
+<li><p><strong>chunk_size</strong> – Size of chunks to hash in bites.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Content hash to compare with Dropbox’s content hash and mtime just before
+the hash was computed.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, Sam Schott
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

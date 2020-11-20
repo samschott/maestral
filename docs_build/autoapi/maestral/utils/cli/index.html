@@ -1,0 +1,600 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>maestral.utils.cli &mdash; Maestral 1.3.0.dev0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="https://media.readthedocs.org/css/sphinx_rtd_theme.css" type="text/css" />
+  <link rel="stylesheet" href="https://media.readthedocs.org/css/readthedocs-doc-embed.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../../index.html" class="icon icon-home" alt="Documentation Home"> Maestral
+          
+
+          
+            
+            <img src="../../../../_static/maestral.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.3.0.dev0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Table of Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../config_files.html">Config files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../state_files.html">State files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../index.html">API Reference</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Maestral</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.cli</span></code></li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../../../_sources/autoapi/maestral/utils/cli/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-maestral.utils.cli">
+<span id="maestral-utils-cli"></span><h1><a class="reference internal" href="#module-maestral.utils.cli" title="maestral.utils.cli"><code class="xref py py-mod docutils literal notranslate"><span class="pre">maestral.utils.cli</span></code></a><a class="headerlink" href="#module-maestral.utils.cli" title="Permalink to this headline">¶</a></h1>
+<p>Module to print neatly formatted tables and grids to the terminal.</p>
+<div class="section" id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="classes">
+<h3>Classes<a class="headerlink" href="#classes" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.cli.Align" title="maestral.utils.cli.Align"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Align</span></code></a></p></td>
+<td><p>Text alignment in column.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.utils.cli.Elide" title="maestral.utils.cli.Elide"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Elide</span></code></a></p></td>
+<td><p>Elide directives.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.cli.Field" title="maestral.utils.cli.Field"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Field</span></code></a></p></td>
+<td><p>Base class to represent a field in a table.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.utils.cli.TextField" title="maestral.utils.cli.TextField"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TextField</span></code></a></p></td>
+<td><p>A text field for a table.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.cli.DateField" title="maestral.utils.cli.DateField"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DateField</span></code></a></p></td>
+<td><p>A datetime field for a table. The formatting of the datetime will be adjusted</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.utils.cli.Column" title="maestral.utils.cli.Column"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Column</span></code></a></p></td>
+<td><p>A table column.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.cli.Table" title="maestral.utils.cli.Table"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Table</span></code></a></p></td>
+<td><p>A table which can be printed to stdout.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.utils.cli.Grid" title="maestral.utils.cli.Grid"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Grid</span></code></a></p></td>
+<td><p>A grid of fields which can be printed to stdout.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="functions">
+<h3>Functions<a class="headerlink" href="#functions" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#maestral.utils.cli.elide" title="maestral.utils.cli.elide"><code class="xref py py-obj docutils literal notranslate"><span class="pre">elide</span></code></a>(text: str, width: int, placeholder: str = '…', elide: Elide = Elide.Trailing) → str</p></td>
+<td><p>Elides a string to fit into the given width.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#maestral.utils.cli.adjust" title="maestral.utils.cli.adjust"><code class="xref py py-obj docutils literal notranslate"><span class="pre">adjust</span></code></a>(text: str, width: int, align: Align = Align.Left) → str</p></td>
+<td><p>Pads a string with spaces up the desired width. Preserves ANSI color codes without</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py class">
+<dt id="maestral.utils.cli.Align">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.utils.cli.</code><code class="sig-name descname">Align</code><a class="headerlink" href="#maestral.utils.cli.Align" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<p>Text alignment in column.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Left</strong> – Left alignment.</p></li>
+<li><p><strong>Right</strong> – Right alignment.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt id="maestral.utils.cli.Elide">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.utils.cli.</code><code class="sig-name descname">Elide</code><a class="headerlink" href="#maestral.utils.cli.Elide" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<p>Elide directives.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Leading</strong> – Truncate beginning of text.</p></li>
+<li><p><strong>Center</strong> – Truncate center of text.</p></li>
+<li><p><strong>Trailing</strong> – Truncate end of text.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.cli.elide">
+<code class="sig-prename descclassname">maestral.utils.cli.</code><code class="sig-name descname">elide</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">text</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">width</span><span class="p">:</span> <span class="n">int</span></em>, <em class="sig-param"><span class="n">placeholder</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">'...'</span></em>, <em class="sig-param"><span class="n">elide</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#maestral.utils.cli.Elide" title="maestral.utils.cli.Elide">Elide</a></span> <span class="o">=</span> <span class="default_value">Elide.Trailing</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.utils.cli.elide" title="Permalink to this definition">¶</a></dt>
+<dd><p>Elides a string to fit into the given width.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> – Text to truncate.</p></li>
+<li><p><strong>width</strong> – Target width.</p></li>
+<li><p><strong>placeholder</strong> – Placeholder string to indicate truncated text.</p></li>
+<li><p><strong>elide</strong> – Which part to truncate.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Truncated text.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="maestral.utils.cli.adjust">
+<code class="sig-prename descclassname">maestral.utils.cli.</code><code class="sig-name descname">adjust</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">text</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">width</span><span class="p">:</span> <span class="n">int</span></em>, <em class="sig-param"><span class="n">align</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#maestral.utils.cli.Align" title="maestral.utils.cli.Align">Align</a></span> <span class="o">=</span> <span class="default_value">Align.Left</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.utils.cli.adjust" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pads a string with spaces up the desired width. Preserves ANSI color codes without
+counting them towards the width.</p>
+<p>This function is similar to <code class="docutils literal notranslate"><span class="pre">str.ljust</span></code> and <code class="docutils literal notranslate"><span class="pre">str.rjust</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> – Initial string.</p></li>
+<li><p><strong>width</strong> – Target width. If smaller than the given text, nothing is done.</p></li>
+<li><p><strong>align</strong> – Side to align the padded string: to the left or to the right.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt id="maestral.utils.cli.Field">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.utils.cli.</code><code class="sig-name descname">Field</code><a class="headerlink" href="#maestral.utils.cli.Field" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class to represent a field in a table.</p>
+<dl class="py method">
+<dt id="maestral.utils.cli.Field.display_width">
+<em class="property">property </em><code class="sig-name descname">display_width</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#maestral.utils.cli.Field.display_width" title="Permalink to this definition">¶</a></dt>
+<dd><p>The requested total width of the content in characters when not wrapped or
+shortened in any way.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.cli.Field.format">
+<em class="property">abstract </em><code class="sig-name descname">format</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">width</span><span class="p">:</span> <span class="n">int</span></em><span class="sig-paren">)</span> &#x2192; List<span class="p">[</span>str<span class="p">]</span><a class="headerlink" href="#maestral.utils.cli.Field.format" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the field content formatted to fit the requested width.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>width</strong> – Width to fit.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Shortened or wrapped string.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="maestral.utils.cli.TextField">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.utils.cli.</code><code class="sig-name descname">TextField</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">text</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">align</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#maestral.utils.cli.Align" title="maestral.utils.cli.Align">Align</a></span> <span class="o">=</span> <span class="default_value">Align.Left</span></em>, <em class="sig-param"><span class="n">wraps</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">elide</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#maestral.utils.cli.Elide" title="maestral.utils.cli.Elide">Elide</a></span> <span class="o">=</span> <span class="default_value">Elide.Trailing</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">style</span></em><span class="sig-paren">)</span><a class="headerlink" href="#maestral.utils.cli.TextField" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#maestral.utils.cli.Field" title="maestral.utils.cli.Field"><code class="xref py py-class docutils literal notranslate"><span class="pre">maestral.utils.cli.Field</span></code></a></p>
+<p>A text field for a table.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> – Text to represent.</p></li>
+<li><p><strong>align</strong> – Text alignment: right or left.</p></li>
+<li><p><strong>wraps</strong> – Whether to wrap the text instead of truncating it to fit into a
+requested width.</p></li>
+<li><p><strong>style</strong> – Styling passed on to <code class="xref py py-meth docutils literal notranslate"><span class="pre">click.style()</span></code> when styling the text.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Elide</dt>
+<dd class="field-even"><p>Truncation strategy: trailing, center or leading.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="maestral.utils.cli.TextField.display_width">
+<em class="property">property </em><code class="sig-name descname">display_width</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#maestral.utils.cli.TextField.display_width" title="Permalink to this definition">¶</a></dt>
+<dd><p>The requested total width of the content in characters when not wrapped or
+shortened in any way.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.cli.TextField.format">
+<code class="sig-name descname">format</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">width</span><span class="p">:</span> <span class="n">int</span></em><span class="sig-paren">)</span> &#x2192; List<span class="p">[</span>str<span class="p">]</span><a class="headerlink" href="#maestral.utils.cli.TextField.format" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the field content formatted to fit the requested width.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>width</strong> – Width to fit.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Shortened or wrapped string.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="maestral.utils.cli.DateField">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.utils.cli.</code><code class="sig-name descname">DateField</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dt</span><span class="p">:</span> <span class="n">datetime</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">style</span></em><span class="sig-paren">)</span><a class="headerlink" href="#maestral.utils.cli.DateField" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#maestral.utils.cli.Field" title="maestral.utils.cli.Field"><code class="xref py py-class docutils literal notranslate"><span class="pre">maestral.utils.cli.Field</span></code></a></p>
+<p>A datetime field for a table. The formatting of the datetime will be adjusted
+depending on the available width. Does not currently support localisation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dt</strong> – Datetime to represent.</p></li>
+<li><p><strong>style</strong> – Styling passed on to <code class="xref py py-meth docutils literal notranslate"><span class="pre">click.style()</span></code> when styling the text.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="maestral.utils.cli.DateField.display_width">
+<em class="property">property </em><code class="sig-name descname">display_width</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#maestral.utils.cli.DateField.display_width" title="Permalink to this definition">¶</a></dt>
+<dd><p>The requested total width of the content in characters when not wrapped or
+shortened in any way.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.cli.DateField.format">
+<code class="sig-name descname">format</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">width</span><span class="p">:</span> <span class="n">int</span></em><span class="sig-paren">)</span> &#x2192; List<span class="p">[</span>str<span class="p">]</span><a class="headerlink" href="#maestral.utils.cli.DateField.format" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the field content formatted to fit the requested width.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>width</strong> – Width to fit.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Shortened or wrapped string.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="maestral.utils.cli.Column">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.utils.cli.</code><code class="sig-name descname">Column</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">title</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span> <span class="o">=</span> <span class="default_value">()</span></em>, <em class="sig-param"><span class="n">align</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#maestral.utils.cli.Align" title="maestral.utils.cli.Align">Align</a></span> <span class="o">=</span> <span class="default_value">Align.Left</span></em>, <em class="sig-param"><span class="n">wraps</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">elide</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#maestral.utils.cli.Elide" title="maestral.utils.cli.Elide">Elide</a></span> <span class="o">=</span> <span class="default_value">Elide.Trailing</span></em><span class="sig-paren">)</span><a class="headerlink" href="#maestral.utils.cli.Column" title="Permalink to this definition">¶</a></dt>
+<dd><p>A table column.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>title</strong> – Column title.</p></li>
+<li><p><strong>fields</strong> – Fields in the table. Any sequence of objects can be given and will be
+converted to <a class="reference internal" href="#maestral.utils.cli.Field" title="maestral.utils.cli.Field"><code class="xref py py-class docutils literal notranslate"><span class="pre">Field</span></code></a> instances as appropriate.</p></li>
+<li><p><strong>align</strong> – How to align text inside the column. Will only be used for
+:class:<a href="#id1"><span class="problematic" id="id2">`</span></a>TextField`s.</p></li>
+<li><p><strong>wraps</strong> – Whether to wrap fields to fit into the column width instead of
+truncating them. Will only be used for :class:<a href="#id3"><span class="problematic" id="id4">`</span></a>TextField`s.</p></li>
+<li><p><strong>elide</strong> – How to elide text which is too wide for a column. Will only be used
+for :class:<a href="#id5"><span class="problematic" id="id6">`</span></a>TextField`s.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt id="maestral.utils.cli.Table">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.utils.cli.</code><code class="sig-name descname">Table</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">columns</span><span class="p">:</span> <span class="n">List<span class="p">[</span>Union<span class="p">[</span><a class="reference internal" href="#maestral.utils.cli.Column" title="maestral.utils.cli.Column">Column</a><span class="p">, </span>str<span class="p">]</span><span class="p">]</span></span></em>, <em class="sig-param"><span class="n">padding</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">2</span></em><span class="sig-paren">)</span><a class="headerlink" href="#maestral.utils.cli.Table" title="Permalink to this definition">¶</a></dt>
+<dd><p>A table which can be printed to stdout.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>columns</strong> – Table columns. Can be a list of <a class="reference internal" href="#maestral.utils.cli.Column" title="maestral.utils.cli.Column"><code class="xref py py-class docutils literal notranslate"><span class="pre">Column</span></code></a> instances or table
+titles.</p></li>
+<li><p><strong>padding</strong> – Padding between columns.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="maestral.utils.cli.Table.ncols">
+<em class="property">property </em><code class="sig-name descname">ncols</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#maestral.utils.cli.Table.ncols" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of columns</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.cli.Table.nrows">
+<em class="property">property </em><code class="sig-name descname">nrows</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#maestral.utils.cli.Table.nrows" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of rows</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.cli.Table.append">
+<code class="sig-name descname">append</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">row</span><span class="p">:</span> <span class="n">Sequence</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#maestral.utils.cli.Table.append" title="Permalink to this definition">¶</a></dt>
+<dd><p>Appends a new row to the table.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>row</strong> – List of fields to append to each column. Length must match the
+number of columns.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.cli.Table.rows">
+<code class="sig-name descname">rows</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span> &#x2192; List<span class="p">[</span>List<span class="p">[</span><a class="reference internal" href="#maestral.utils.cli.Field" title="maestral.utils.cli.Field">Field</a><span class="p">]</span><span class="p">]</span><a class="headerlink" href="#maestral.utils.cli.Table.rows" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of rows in the table. Each row is a list of fields.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.cli.Table.format_lines">
+<code class="sig-name descname">format_lines</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">width</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>int<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; Iterator<span class="p">[</span>str<span class="p">]</span><a class="headerlink" href="#maestral.utils.cli.Table.format_lines" title="Permalink to this definition">¶</a></dt>
+<dd><p>Iterator over formatted lines of the table. Fields may span multiple lines if
+they are set to wrap instead of truncate.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>width</strong> – Width to fit the table.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Iterator over lines which can be printed to the terminal.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.cli.Table.format">
+<code class="sig-name descname">format</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">width</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>int<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.utils.cli.Table.format" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a fully formatted table as a string with linebreaks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>width</strong> – Width to fit the table.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Formatted table.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.cli.Table.echo">
+<code class="sig-name descname">echo</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span><a class="headerlink" href="#maestral.utils.cli.Table.echo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prints the table to the terminal.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="maestral.utils.cli.Grid">
+<em class="property">class </em><code class="sig-prename descclassname">maestral.utils.cli.</code><code class="sig-name descname">Grid</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span> <span class="o">=</span> <span class="default_value">()</span></em>, <em class="sig-param"><span class="n">padding</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">2</span></em>, <em class="sig-param"><span class="n">align</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#maestral.utils.cli.Align" title="maestral.utils.cli.Align">Align</a></span> <span class="o">=</span> <span class="default_value">Align.Left</span></em><span class="sig-paren">)</span><a class="headerlink" href="#maestral.utils.cli.Grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>A grid of fields which can be printed to stdout.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fields</strong> – A sequence of fields (strings, datetimes, any objects with a string
+representation).</p></li>
+<li><p><strong>padding</strong> – Padding between fields.</p></li>
+<li><p><strong>align</strong> – Alignment of strings in the grid.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="maestral.utils.cli.Grid.append">
+<code class="sig-name descname">append</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">field</span><span class="p">:</span> <span class="n">Any</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#maestral.utils.cli.Grid.append" title="Permalink to this definition">¶</a></dt>
+<dd><p>Appends a field to the grid.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.cli.Grid.format_lines">
+<code class="sig-name descname">format_lines</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">width</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>int<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; Iterator<span class="p">[</span>str<span class="p">]</span><a class="headerlink" href="#maestral.utils.cli.Grid.format_lines" title="Permalink to this definition">¶</a></dt>
+<dd><p>Iterator over formatted lines of the grid.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>width</strong> – Width to fit the grid.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Iterator over lines which can be printed to the terminal.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.cli.Grid.format">
+<code class="sig-name descname">format</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">width</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>int<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#maestral.utils.cli.Grid.format" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a fully formatted grid as a string with linebreaks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>width</strong> – Width to fit the table.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Formatted grid.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="maestral.utils.cli.Grid.echo">
+<code class="sig-name descname">echo</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span><a class="headerlink" href="#maestral.utils.cli.Grid.echo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prints the grid to the terminal.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, Sam Schott
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

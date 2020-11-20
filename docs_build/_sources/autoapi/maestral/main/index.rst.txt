@@ -1,0 +1,659 @@
+:mod:`maestral.main`
+====================
+
+.. py:module:: maestral.main
+
+.. autoapi-nested-parse::
+
+   This module defines the main API which is exposed to the CLI or GUI.
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   maestral.main.CachedHandler
+   maestral.main.SdNotificationHandler
+   maestral.main.Maestral
+
+
+
+.. py:class:: CachedHandler(level: int = logging.NOTSET, maxlen: Optional[int] = None)
+
+   Bases: :class:`logging.Handler`
+
+   Handler which stores past records. This is used to populate Maestral's status and
+   error interfaces.
+
+   :param level: Initial log level. Defaults to NOTSET.
+   :param maxlen: Maximum number of records to store. If ``None``, all records will be
+       stored. Defaults to ``None``.
+
+   .. method:: emit(self, record: logging.LogRecord) -> None
+
+      Logs the specified log record and saves it to the cache.
+
+      :param record: Log record.
+
+
+   .. method:: wait_for_emit(self, timeout: Optional[float]) -> bool
+
+      Blocks until a new record is emitted.
+
+      :param timeout: Maximum time to block before returning.
+      :returns: ``True``if there was a status change, ``False`` in case of a timeout.
+
+
+   .. method:: getLastMessage(self) -> str
+
+      :returns: The log message of the last record or an empty string.
+
+
+   .. method:: getAllMessages(self) -> List[str]
+
+      :returns: A list of all record messages.
+
+
+   .. method:: clear(self) -> None
+
+      Clears all cached records.
+
+
+
+.. py:class:: SdNotificationHandler(level=NOTSET)
+
+   Bases: :class:`logging.Handler`
+
+   Handler which emits messages as systemd notifications.
+
+   .. method:: emit(self, record: logging.LogRecord) -> None
+
+      Sends the record massage to systemd as service status.
+
+      :param record: Log record.
+
+
+
+.. py:class:: Maestral(config_name: str = 'maestral', log_to_stdout: bool = False)
+
+   The public API.
+
+   All methods and properties return objects or raise exceptions which can safely be
+   serialized, i.e., pure Python types. The only exception are instances of
+   :class:`errors.MaestralApiError`: they need to be registered explicitly with the
+   serpent serializer which is used for communication to frontends.
+
+   Sync errors and fatal errors which occur in the sync threads can be read with the
+   properties :attr:`sync_errors` and :attr:`fatal_errors`, respectively.
+
+   :Example:
+
+       First create an instance with a new config_name. In this example, we choose
+       "private" to sync a private Dropbox account. Then link the created config to an
+       existing Dropbox account and set up the local Dropbox folder. If successful,
+       invoke :meth:`start_sync` to start syncing.
+
+       >>> from maestral.main import Maestral
+       >>> m = Maestral(config_name='private')
+       >>> url = m.get_auth_url()  # get token from Dropbox website
+       >>> print(f'Please go to {url} to retrieve a Dropbox authorization token.')
+       >>> token = input('Enter auth token: ')
+       >>> res = m.link(token)
+       >>> if res == 0:
+       ...     m.create_dropbox_directory('~/Dropbox (Private)')
+       ...     m.start_sync()
+
+   :param config_name: Name of maestral configuration to run. Must not contain any
+       whitespace. If the given config file does exist, it will be created.
+   :param log_to_stdout: If ``True``, Maestral will print log messages to stdout.
+       When started as a systemd services, this can result in duplicate log messages.
+       Defaults to ``False``.
+
+   .. method:: version(self) -> str
+      :property:
+
+      Returns the current Maestral version.
+
+
+   .. method:: get_auth_url(self) -> str
+
+      Returns a URL to authorize access to a Dropbox account. To link a Dropbox
+      account, retrieve an auth token from the URL and link Maestral by calling
+      :meth:`link` with the provided token.
+
+      :returns: URL to retrieve an OAuth token.
+
+
+   .. method:: link(self, token: str) -> int
+
+      Links Maestral with a Dropbox account using the given access token. The token
+      will be stored for future usage as documented in the :mod:`oauth` module.
+      Supported keyring backends are, in order of preference:
+
+          * MacOS Keychain
+          * Any keyring implementing the SecretService Dbus specification
+          * KWallet
+          * Gnome Keyring
+          * Plain text storage
+
+      :param token: OAuth token for Dropbox access.
+      :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
+
+
+   .. method:: unlink(self) -> None
+
+      Unlinks the configured Dropbox account but leaves all downloaded files in place.
+      All syncing metadata will be removed as well. Connection and API errors will be
+      handled silently but the Dropbox access key will always be removed from the
+      user's PC.
+
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+      :raises: :class:`errors.KeyringAccessError` if deleting the auth key fails
+          because the user's keyring is locked
+
+
+   .. method:: config_name(self) -> str
+      :property:
+
+      The selected configuration.
+
+
+   .. method:: set_conf(self, section: str, name: str, value: Any) -> None
+
+      Sets a configuration option.
+
+      :param section: Name of section in config file.
+      :param name: Name of config option.
+      :param value: Config value. May be any type accepted by ``ast.literal_eval``.
+
+
+   .. method:: get_conf(self, section: str, name: str) -> Any
+
+      Gets a configuration option.
+
+      :param section: Name of section in config file.
+      :param name: Name of config option.
+      :returns: Config value. May be any type accepted by ``ast.literal_eval``.
+
+
+   .. method:: set_state(self, section: str, name: str, value: Any) -> None
+
+      Sets a state value.
+
+      :param section: Name of section in state file.
+      :param name: Name of state variable.
+      :param value: State value. May be any type accepted by ``ast.literal_eval``.
+
+
+   .. method:: get_state(self, section: str, name: str) -> Any
+
+      Gets a state value.
+
+      :param section: Name of section in state file.
+      :param name: Name of state variable.
+      :returns: State value. May be any type accepted by ``ast.literal_eval``.
+
+
+   .. method:: dropbox_path(self) -> str
+      :property:
+
+      Returns the path to the local Dropbox folder (read only). This will be an empty
+      string if not Dropbox folder has been set up yet. Use
+      :meth:`create_dropbox_directory` or :meth:`move_dropbox_directory` to set or
+      change the Dropbox directory location instead.
+
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+
+
+   .. method:: excluded_items(self) -> List[str]
+      :property:
+
+      The list of files and folders excluded by selective sync. Any changes to this
+      list will be applied immediately if we have already performed the initial sync.
+      I.e., paths which have been added to the list will be deleted from the local
+      drive and paths which have been removed will be downloaded.
+
+      Use :meth:`exclude_item` and :meth:`include_item` to add or remove individual
+      items from selective sync.
+
+
+   .. method:: log_level(self) -> int
+      :property:
+
+      Log level for log files, stdout and the systemd journal.
+
+
+   .. method:: log_to_stdout(self) -> bool
+      :property:
+
+      Enables or disables logging to stdout.
+
+
+   .. method:: analytics(self) -> bool
+      :property:
+
+      Enables or disables logging of errors to bugsnag.
+
+
+   .. method:: notification_snooze(self) -> float
+      :property:
+
+      Snooze time for desktop notifications in minutes. Defaults to 0.0 if
+      notifications are not snoozed.
+
+
+   .. method:: notification_level(self) -> int
+      :property:
+
+      Level for desktop notifications. See :mod:`utils.notify` for level
+      definitions.
+
+
+   .. method:: status_change_longpoll(self, timeout: Optional[float] = 60) -> bool
+
+      Blocks until there is a change in status or until a timeout occurs. This method
+      can be used by frontends to wait for status changes without constant polling.
+
+      :param timeout: Maximum time to block before returning, even if there is no
+          status change.
+      :returns: ``True``if there was a status change, ``False`` in case of a timeout.
+
+      .. versionadded:: 1.3.0
+
+
+   .. method:: pending_link(self) -> bool
+      :property:
+
+      Indicates if Maestral is linked to a Dropbox account (read only). This will
+      block until the user's keyring is unlocked to load the saved auth token.
+
+
+   .. method:: pending_dropbox_folder(self) -> bool
+      :property:
+
+      Indicates if a local Dropbox directory has been created (read only).
+
+
+   .. method:: pending_first_download(self) -> bool
+      :property:
+
+      Indicates if the initial download has already occurred (read only).
+
+
+   .. method:: syncing(self) -> bool
+      :property:
+
+      Indicates if Maestral is syncing (read only). It will be ``True`` if syncing
+      is not paused by the user *and* Maestral is connected to the internet.
+
+
+   .. method:: paused(self) -> bool
+      :property:
+
+      Indicates if syncing is paused by the user (read only). This is set by
+      calling :meth:`pause`.
+
+
+   .. method:: running(self) -> bool
+      :property:
+
+      Indicates if sync threads are running (read only). They will be stopped
+      before :meth:`start_sync` is called, when shutting down or because of an
+      exception.
+
+
+   .. method:: connected(self) -> bool
+      :property:
+
+      Indicates if Dropbox servers can be reached (read only).
+
+
+   .. method:: status(self) -> str
+      :property:
+
+      The last status message (read only). This can be displayed as information to
+      the user but should not be relied on otherwise.
+
+
+   .. method:: sync_errors(self) -> List[ErrorType]
+      :property:
+
+      A list of current sync errors as dicts (read only). This list is populated by
+      the sync threads. The following keys will always be present but may contain
+      empty values: "type", "inherits", "title", "traceback", "title", "message",
+      "local_path", "dbx_path".
+
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+
+
+   .. method:: fatal_errors(self) -> List[ErrorType]
+      :property:
+
+      Returns a list of fatal errors as dicts (read only). This does not include lost
+      internet connections or file sync errors which only emit warnings and are
+      tracked and cleared separately. Errors listed here must be acted upon for
+      Maestral to continue syncing.
+
+      The following keys will always be present but may contain empty values: "type",
+      "inherits", "title", "traceback", "title", and "message".s
+
+      This list is populated from all log messages with level ERROR or higher that
+      have ``exc_info`` attached.
+
+
+   .. method:: clear_fatal_errors(self) -> None
+
+      Manually clears all fatal errors. This should be used after they have been
+      resolved by the user through the GUI or CLI.
+
+
+   .. method:: account_profile_pic_path(self) -> str
+      :property:
+
+      The path of the current account's profile picture (read only). There may not be
+      an actual file at that path if the user did not set a profile picture or the
+      picture has not yet been downloaded.
+
+
+   .. method:: get_file_status(self, local_path: str) -> str
+
+      Returns the sync status of an individual file.
+
+      :param local_path: Path to file on the local drive. May be relative to the
+          current working directory.
+      :returns: String indicating the sync status. Can be 'uploading', 'downloading',
+          'up to date', 'error', or 'unwatched' (for files outside of the Dropbox
+          directory). This will always be 'unwatched' if syncing is paused.
+
+
+   .. method:: get_activity(self, limit: Optional[int] = 100) -> List[StoneType]
+
+      Returns the current upload / download activity.
+
+      :param limit: Maximum number of items to return. If None, all entries will be
+          returned.
+      :returns: A lists of all sync events currently queued for or being uploaded or
+          downloaded with the events furthest up in the queue coming first.
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+
+
+   .. method:: get_history(self, limit: Optional[int] = 100) -> List[StoneType]
+
+      Returns the historic upload / download activity. Up to 1,000 sync events are
+      kept in the database. Any events which occurred before the interval specified by
+      the ``keep_history`` config value are discarded.
+
+      :param limit: Maximum number of items to return. If None, all entries will be
+          returned.
+      :returns: A lists of all sync events since ``keep_history`` sorted by time with
+          the oldest event first.
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+
+
+   .. method:: get_account_info(self) -> StoneType
+
+      Returns the account information from Dropbox and returns it as a dictionary.
+
+      :returns: Dropbox account information.
+      :raises: :class:`errors.DropboxAuthError` in case of an invalid access token
+      :raises: :class:`errors.DropboxServerError` for internal Dropbox errors
+      :raises: :class:`ConnectionError` if connection to Dropbox fails
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+
+
+   .. method:: get_space_usage(self) -> StoneType
+
+      Gets the space usage from Dropbox and returns it as a dictionary.
+
+      :returns: Dropbox space usage information.
+      :raises: :class:`errors.DropboxAuthError` in case of an invalid access token
+      :raises: :class:`errors.DropboxServerError` for internal Dropbox errors
+      :raises: :class:`ConnectionError` if connection to Dropbox fails
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+
+
+   .. method:: get_profile_pic(self) -> Optional[str]
+
+      Attempts to download the user's profile picture from Dropbox. The picture is
+      saved in Maestral's cache directory for retrieval when there is no internet
+      connection.
+
+      :returns: Path to saved profile picture or ``None`` if no profile picture was
+          downloaded.
+      :raises: :class:`errors.DropboxAuthError` in case of an invalid access token
+      :raises: :class:`errors.DropboxServerError` for internal Dropbox errors
+      :raises: :class:`ConnectionError` if connection to Dropbox fails
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+
+
+   .. method:: get_metadata(self, dbx_path: str) -> StoneType
+
+      Returns metadata for a file or folder on Dropbox.
+
+      :param dbx_path: Path to file or folder on Dropbox.
+      :returns: Dropbox item metadata as dict. See :class:`dropbox.files.Metadata` for
+          keys and values.
+      :raises: :class:`errors.NotFoundError` if there is nothing at the given path
+      :raises: :class:`errors.DropboxAuthError` in case of an invalid access token
+      :raises: :class:`errors.DropboxServerError` for internal Dropbox errors
+      :raises: :class:`ConnectionError` if connection to Dropbox fails
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+
+
+   .. method:: list_folder(self, dbx_path: str, **kwargs) -> List[StoneType]
+
+      List all items inside the folder given by ``dbx_path``. Keyword arguments are
+      passed on the Dropbox API call :meth:`client.DropboxClient.list_folder`.
+
+      :param dbx_path: Path to folder on Dropbox.
+      :returns: List of Dropbox item metadata as dicts. See
+          :class:`dropbox.files.Metadata` for keys and values.
+      :raises: :class:`errors.NotFoundError` if there is nothing at the given path
+      :raises: :class:`errors.NotAFolderError` if the given path refers to a file
+      :raises: :class:`errors.DropboxAuthError` in case of an invalid access token
+      :raises: :class:`errors.DropboxServerError` for internal Dropbox errors
+      :raises: :class:`ConnectionError` if connection to Dropbox fails
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+
+
+   .. method:: list_folder_iterator(self, dbx_path: str, **kwargs) -> Iterator[List[StoneType]]
+
+      Returns an iterator over items inside the folder given by ``dbx_path``. Keyword
+      arguments are passed on the client call
+      :meth:`client.DropboxClient.list_folder_iterator`. Each iteration will yield a
+      list of approximately 500 entries, depending on the number of entries returned
+      by an individual API call.
+
+      :param dbx_path: Path to folder on Dropbox.
+      :returns: Iterator over list of Dropbox item metadata as dicts. See
+          :class:`dropbox.files.Metadata` for keys and values.
+      :raises: :class:`errors.NotFoundError` if there is nothing at the given path
+      :raises: :class:`errors.NotAFolderError` if the given path refers to a file
+      :raises: :class:`errors.DropboxAuthError` in case of an invalid access token
+      :raises: :class:`errors.DropboxServerError` for internal Dropbox errors
+      :raises: :class:`ConnectionError` if connection to Dropbox fails
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+
+
+   .. method:: list_revisions(self, dbx_path: str, limit: int = 10) -> List[StoneType]
+
+      List revisions of old files at the given path ``dbx_path``. This will also
+      return revisions if the file has already been deleted.
+
+      :param dbx_path: Path to file on Dropbox.
+      :param limit: Maximum number of revisions to list.
+      :returns: List of Dropbox file metadata as dicts. See
+          :class:`dropbox.files.Metadata` for keys and values.
+      :raises: :class:`errors.NotFoundError` if there never was a file at the given
+          path.
+      :raises: :class:`errors.IsAFolderError` if the given path refers to a folder
+      :raises: :class:`errors.DropboxAuthError` in case of an invalid access token
+      :raises: :class:`errors.DropboxServerError` for internal Dropbox errors
+      :raises: :class:`ConnectionError` if connection to Dropbox fails
+
+
+   .. method:: restore(self, dbx_path: str, rev: str) -> StoneType
+
+      Restore an old revision of a file.
+
+      :param dbx_path: The path to save the restored file.
+      :param rev: The revision to restore. Old revisions can be listed with
+          :meth:`list_revisions`.
+      :returns: Metadata of the returned file. See
+          :class:`dropbox.files.FileMetadata` for keys and values
+      :raises: :class:`errors.DropboxAuthError` in case of an invalid access token
+      :raises: :class:`errors.DropboxServerError` for internal Dropbox errors
+      :raises: :class:`ConnectionError` if connection to Dropbox fails
+
+
+   .. method:: rebuild_index(self) -> None
+
+      Rebuilds the rev file by comparing remote with local files and updating rev
+      numbers from the Dropbox server. Files are compared by their content hashes and
+      conflicting copies are created if the contents differ. File changes during the
+      rebuild process will be queued and uploaded once rebuilding has completed.
+
+      Rebuilding will be performed asynchronously and errors can be accessed through
+      :attr:`sync_errors` or :attr:`maestral_errors`.
+
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+      :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up
+
+
+   .. method:: start_sync(self) -> None
+
+      Creates syncing threads and starts syncing.
+
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+      :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up
+
+
+   .. method:: resume_sync(self) -> None
+
+      Resumes syncing if paused.
+
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+      :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up
+
+
+   .. method:: pause_sync(self) -> None
+
+      Pauses the syncing if running.
+
+
+   .. method:: stop_sync(self) -> None
+
+      Stops all syncing threads if running. Call :meth:`start_sync` to restart
+      syncing.
+
+
+   .. method:: reset_sync_state(self) -> None
+
+      Resets the sync index and state. Only call this to clean up leftover state
+      information if a Dropbox was improperly unlinked (e.g., auth token has been
+      manually deleted). Otherwise leave state management to Maestral.
+
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked.
+
+
+   .. method:: exclude_item(self, dbx_path: str) -> None
+
+      Excludes file or folder from sync and deletes it locally. It is safe to call
+      this method with items which have already been excluded.
+
+      :param dbx_path: Dropbox path of item to exclude.
+      :raises: :class:`errors.NotFoundError` if there is nothing at the given path
+      :raises: :class:`ConnectionError` if connection to Dropbox fails
+      :raises: :class:`errors.DropboxAuthError` in case of an invalid access token
+      :raises: :class:`errors.DropboxServerError` for internal Dropbox errors
+      :raises: :class:`ConnectionError` if connection to Dropbox fails
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+      :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up
+
+
+   .. method:: include_item(self, dbx_path: str) -> None
+
+      Includes a file or folder in sync and downloads it in the background. It is safe
+      to call this method with items which have already been included, they will not
+      be downloaded again.
+
+      If the path lies inside an excluded folder, all its immediate parents will be
+      included. Other children of the excluded folder will remain excluded.
+
+      If any children of dbx_path were excluded, they will now be included.
+
+      Any downloads will be carried out by the sync threads. Errors during the
+      download can be accessed through :attr:`sync_errors` or :attr:`maestral_errors`.
+
+      :param dbx_path: Dropbox path of item to include.
+      :raises: :class:`errors.NotFoundError` if there is nothing at the given path
+      :raises: :class:`errors.DropboxAuthError` in case of an invalid access token
+      :raises: :class:`errors.DropboxServerError` for internal Dropbox errors
+      :raises: :class:`ConnectionError` if connection to Dropbox fails
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+      :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up
+
+
+   .. method:: excluded_status(self, dbx_path: str) -> str
+
+      Returns 'excluded', 'partially excluded' or 'included'. This function will not
+      check if the item actually exists on Dropbox.
+
+      :param dbx_path: Path to item on Dropbox.
+      :returns: Excluded status.
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+
+
+   .. method:: move_dropbox_directory(self, new_path: str) -> None
+
+      Sets the local Dropbox directory. This moves all local files to the new location
+      and resumes syncing afterwards.
+
+      :param new_path: Full path to local Dropbox folder. "~" will be expanded to the
+          user's home directory.
+      :raises: :class:`OSError` if moving the directory fails
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+      :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up
+
+
+   .. method:: create_dropbox_directory(self, path: str) -> None
+
+      Creates a new Dropbox directory. Only call this during setup.
+
+      :param path: Full path to local Dropbox folder. "~" will be expanded to the
+          user's home directory.
+      :raises: :class:`OSError` if creation fails
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+
+
+   .. method:: to_local_path(self, dbx_path: str) -> str
+
+      Converts a path relative to the Dropbox folder to a correctly cased local file
+      system path.
+
+      :param dbx_path: Path relative to Dropbox root.
+      :returns: Corresponding path on local hard drive.
+      :raises: :class:`errors.NotLinkedError` if no Dropbox account is linked
+      :raises: :class:`errors.NoDropboxDirError` if local Dropbox folder is not set up
+
+
+   .. method:: check_for_updates(self) -> Dict[str, Union[str, bool, None]]
+
+      Checks if an update is available.
+
+      :returns: A dictionary with information about the latest release with the fields
+          'update_available' (bool), 'latest_release' (str), 'release_notes' (str)
+          and 'error' (str or None).
+
+
+   .. method:: shutdown_daemon(self) -> None
+
+      Stop the event loop. This will also shut down the pyro daemon if running.
+
+
+
