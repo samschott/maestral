@@ -1,8 +1,79 @@
 # -*- coding: utf-8 -*-
 """
-
 This class provides constants used throughout the maestral, the GUI and CLI. It should
 be kept free of memory heavy imports.
+
+.. data:: APP_NAME
+
+   The name of the app: "Maestral"
+
+.. data:: BUNDLE_ID
+
+   The bundle identifier of the app: "com.samschott.maestral"
+
+.. data:: APP_ICON_PATH
+
+   The path to the app icon.
+
+.. data:: OLD_REV_FILE
+
+   The old file used to store file revisions.
+
+.. data:: MIGNORE_FILE
+
+   The name of the mignore file: ".mignore"
+
+.. data:: FILE_CACHE
+
+   The name of the cache folder: ".maestral.cache"
+
+.. data:: OLD_REV_FILE
+
+   The old file used to store file revisions.
+
+.. data:: OLD_REV_FILE
+
+   The old file used to store file revisions.
+
+.. data:: EXCLUDED_FILE_NAMES
+
+   Set of file names which are always excluded from syncing.
+
+.. data:: EXCLUDED_DIR_NAMES
+
+   Set of directories names which are always excluded from syncing.
+
+.. data:: BUGSNAG_API_KEY
+
+   API Key for Bugsnag error logging.
+
+.. data:: BUGSNAG_API_KEY
+
+   API Key for Bugsnag error logging.
+
+.. data:: DROPBOX_APP_KEY
+
+   Key for the Dropbox API.
+
+.. data:: GITHUB_RELEASES_API
+
+   URL of the Github releases API.
+
+.. data:: IS_MACOS
+
+   True on macOS.
+
+.. data:: IS_LINUX
+
+   True on Linux.
+
+.. data:: BRIEFCASE
+
+   True if we have been packaged with Briefcase.
+
+.. data:: FROZEN
+
+   True if we are in a frozen environment, for instance with Pyinstaller.
 
 """
 
@@ -71,6 +142,15 @@ ERROR = "Fatal error"
 
 # file status enum
 class FileStatus(Enum):
+    """Enumeration of sync status
+
+    :cvar Unwatched: Item is not excluded in sync.
+    :cvar Uploading: Item is uploading.
+    :cvar Downloading: Item is downloading.
+    :cvar Error: Item could not sync.
+    :cvar Synced: Item is synced.
+    """
+
     Unwatched = "unwatched"
     Uploading = "uploading"
     Downloading = "downloading"

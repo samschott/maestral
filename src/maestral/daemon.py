@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-
 This module defines functions to start and stop the sync daemon and retrieve proxy
 objects for a running daemon.
-
 """
 
 # system imports
@@ -62,7 +60,7 @@ MaestralProxyType = Union["Maestral", "MaestralProxy"]
 
 class Stop(enum.Enum):
     """
-    Enumeration of daemon exit results.
+    Enumeration of daemon exit results
 
     :cvar Ok: Daemon quit successfully.
     :cvar Killed: Daemon process was killed.
@@ -78,7 +76,7 @@ class Stop(enum.Enum):
 
 class Start(enum.Enum):
     """
-    Enumeration of daemon start results.
+    Enumeration of daemon start results
 
     :cvar Ok: Daemon started successfully.
     :cvar AlreadyRunning: Daemon was already running.
@@ -164,10 +162,11 @@ def _get_lockdata() -> Tuple[bytes, str, int]:
 
 
 class Lock:
-    """
-    A inter-process and inter-thread lock. This reuses uses code from oslo.concurrency
-    but provides non-blocking acquire. Use the :meth:`singleton` class method to
-    retrieve an existing instance for thread-safe usage.
+    """A inter-process and inter-thread lock
+
+    This reuses uses code from :module:`oslo.concurrency` but provides non-blocking
+    acquire. Use the :meth:`singleton` class method to retrieve an existing instance for
+    thread-safe usage.
     """
 
     _instances: Dict[str, "Lock"] = dict()
@@ -342,8 +341,10 @@ def is_running(config_name: str) -> bool:
 
 
 def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
-    """Checks if we can communicate with the maestral daemon. Returns ``Start.Ok`` if
-    communication succeeds within timeout, ``Start.Failed``  otherwise."""
+    """
+    Checks if we can communicate with the maestral daemon. Returns :attr:`Start.Ok` if
+    communication succeeds within timeout, :attr:`Start.Failed` otherwise.
+    """
 
     sock_name = sockpath_for_config(config_name)
     maestral_daemon = Proxy(URI.format(config_name, "./u:" + sock_name))
@@ -633,11 +634,11 @@ def stop_maestral_daemon_process(
 
 
 class MaestralProxy:
-    """
-    A Proxy to the Maestral daemon. All methods and properties of Maestral's public API
-    are accessible and calls / access will be forwarded to the corresponding Maestral
-    instance. This class can be used as a context manager to close the connection to the
-    daemon on exit.
+    """A Proxy to the Maestral daemon
+
+    All methods and properties of Maestral's public API are accessible and calls /
+    access will be forwarded to the corresponding Maestral instance. This class can be
+    used as a context manager to close the connection to the daemon on exit.
 
     :Example:
 

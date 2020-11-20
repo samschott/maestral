@@ -5,10 +5,8 @@
 # (see spyder/__init__.py for details)
 
 """
-
 This module provides user configuration file management and is mostly copied from the
 config module of the Spyder IDE.
-
 """
 
 import ast

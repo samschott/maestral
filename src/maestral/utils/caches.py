@@ -1,17 +1,13 @@
 # -*- coding: utf-8 -*-
-"""
+"""Module containing cache implementations."""
 
-Module containing cache implementations.
-
-"""
 from collections import OrderedDict
 from threading import RLock
 from typing import Any
 
 
 class LRUCache:
-    """
-    A simple LRU cache implementation.
+    """A simple LRU cache implementation
 
     :param capacity: Maximum number of of entries to keep.
     """

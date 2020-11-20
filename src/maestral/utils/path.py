@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-
-This module contains functions for common path operations used by Maestral.
-
+This module contains functions for common path operations.
 """
 
 # system imports

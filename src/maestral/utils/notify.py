@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-
-This module handles desktop notifications for Maestral and supports multiple backends,
-depending on the platform.
-
+This module handles desktop notifications and supports multiple backends, depending on
+the platform.
 """
 
 # system imports
@@ -29,13 +27,13 @@ __all__ = [
 
 
 class DesktopNotifier:
-    """
-    Cross-platform desktop notifications for macOS and Linux. Uses different backends
-    depending on the platform version and available services. The Dbus backend requires
-    a running asyncio loop. The Cocoa implementations will dispatch notifications
-    without an event loop but require a running CFRunLoop *in the main thread* to react
-    to user interactions with the notification. Packages such as :mod:`rubicon.objc` can
-    be used to integrate asyncio with a CFRunLoop.
+    """Cross-platform desktop notifications
+
+    Uses different backends depending on the platform version and available services.
+    The Dbus backend requires a running asyncio loop. The Cocoa implementations will
+    dispatch notifications without an event loop but require a running CFRunLoop *in the
+    main thread* to react to user interactions with the notification. Packages such as
+    :mod:`rubicon.objc` can be used to integrate asyncio with a CFRunLoop.
 
     :param app_name: Name of app which sends notifications.
     :param app_id: Bundle identifier of the app. This is typically a reverse domain name
@@ -95,8 +93,9 @@ _desktop_notifier_maestral = DesktopNotifier(APP_NAME, BUNDLE_ID)
 
 
 class MaestralDesktopNotifier:
-    """
-    Desktop notifier with notification levels and snooze functionality.
+    """Desktop notifications for Maestral
+
+    Desktop notifier with snooze functionality and variable notification levels.
 
     :cvar int NONE: Notification level for no desktop notifications.
     :cvar int ERROR: Notification level for errors.
@@ -199,16 +198,18 @@ class MaestralDesktopNotifier:
 
 
 class MaestralDesktopNotificationHandler(logging.Handler):
-    """
-    A logging handler to emit records as desktop notifications.
-    """
+    """A logging handler to desktop notifications."""
 
     def __init__(self) -> None:
         super().__init__()
         self.setFormatter(logging.Formatter(fmt="%(message)s"))
 
     def emit(self, record: logging.LogRecord) -> None:
-        """Emits a log record as a desktop notification."""
+        """
+        Emits a logging message as a desktop notification.
+
+        :param record: Log record.
+        """
 
         # avoid recursive notifications from our own logger
         if record.name.startswith(__name__):

@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
-# -- Path setup ------------------------------------------------------------------------
-
+import sys
 import time
 
+# -- Path setup ------------------------------------------------------------------------
+
+sys.path.insert(0, "../src")
 
 # -- Project information ---------------------------------------------------------------
 
@@ -20,7 +22,7 @@ extensions = [
     "sphinx.ext.napoleon",  # support numpy style docstrings in config module
     "sphinx.ext.todo",  # parse todo list
     "sphinx.ext.intersphinx",  # support for linking between documentations
-    "sphinx.ext.ifconfig",  # support for if-clauses in docs
+    "sphinx.ext.autodoc",
     "autoapi.extension",  # builds API docs from doc strings without importing module
     "m2r2",  # convert markdown to rest
 ]

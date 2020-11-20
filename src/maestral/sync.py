@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-
-This module contains the main syncing functionality.
-
-"""
+"""This module contains the main syncing functionality."""
 
 # system imports
 import os
@@ -149,8 +145,7 @@ FT = TypeVar("FT", bound=Callable[..., Any])
 
 
 class Conflict(enum.Enum):
-    """
-    Enumeration of sync conflict types.
+    """Enumeration of sync conflict types
 
     :cvar RemoteNewer: Remote item is newer.
     :cvar Conflict: Conflict.
@@ -165,8 +160,7 @@ class Conflict(enum.Enum):
 
 
 class SyncDirection(enum.Enum):
-    """
-    Enumeration of sync direction.
+    """Enumeration of sync directions
 
     :cvar Up: Upload.
     :cvar Down: Download.
@@ -177,8 +171,7 @@ class SyncDirection(enum.Enum):
 
 
 class SyncStatus(enum.Enum):
-    """
-    Enumeration of sync status values.
+    """Enumeration of sync status
 
     :cvar Queued: Queued for syncing.
     :cvar Syncing: Sync in progress.
@@ -196,8 +189,7 @@ class SyncStatus(enum.Enum):
 
 
 class ItemType(enum.Enum):
-    """
-    Enumeration of SyncEvent types.
+    """Enumeration of SyncEvent types
 
     :cvar File: File type.
     :cvar Folder: Folder type.
@@ -211,8 +203,7 @@ class ItemType(enum.Enum):
 
 
 class ChangeType(enum.Enum):
-    """
-    Enumeration of SyncEvent change types.
+    """Enumeration of SyncEvent change types
 
     :cvar Added: An added file or folder.
     :cvar Removed: A deleted file or folder.
@@ -241,7 +232,8 @@ class _Ignore:
 
 
 class FSEventHandler(FileSystemEventHandler):
-    """
+    """A local file event handler
+
     Handles captured file events and adds them to :class:`SyncEngine`'s file event queue
     to be uploaded by :meth:`upload_worker`. This acts as a translation layer between
     :class:`watchdog.Observer` and :class:`SyncEngine`.
@@ -269,13 +261,13 @@ class FSEventHandler(FileSystemEventHandler):
     def ignore(
         self, *events: FileSystemEvent, recursive: bool = True
     ) -> Iterator[None]:
-        """
-        A context manager to ignore file events. Once a matching event has been
-        registered, further matching events will no longer be ignored unless
-        ``recursive`` is ``True``. If no matching event has occurred before leaving the
-        context, the event will be ignored for ``ignore_timeout`` sec after leaving then
-        context and then discarded. This accounts for possible delays in the emission of
-        local file system events.
+        """A context manager to ignore local file events
+
+        Once a matching event has been registered, further matching events will no
+        longer be ignored unless``recursive`` is ``True``. If no matching event has
+        occurred before leaving the context, the event will be ignored for
+        ``ignore_timeout`` sec after leaving then context and then discarded. This
+        accounts for possible delays in the emission of local file system events.
 
         This context manager is used to filter out file system events caused by maestral
         itself, for instance during a download or when moving a conflict.
@@ -357,9 +349,9 @@ class FSEventHandler(FileSystemEventHandler):
 
     def on_any_event(self, event: FileSystemEvent) -> None:
         """
-        Callback on any event. Checks if the system file event should be ignored. If
-        not, adds it to the queue for events to upload. If syncing is paused or stopped,
-        all events will be ignored.
+        Checks if the system file event should be ignored. If not, adds it to the queue
+        for events to upload. If syncing is paused or stopped, all events will be
+        ignored.
 
         :param event: Watchdog file event.
         """
@@ -380,9 +372,7 @@ class FSEventHandler(FileSystemEventHandler):
 
 
 class PersistentStateMutableSet(abc.MutableSet):
-    """
-    A wrapper for a list of Python types in the saved state that implements a MutableSet
-    interface.
+    """Wraps a list in our state file as a MutableSet
 
     :param config_name: Name of config (determines name of state file).
     :param section: Section name in state file.
@@ -450,14 +440,14 @@ class PersistentStateMutableSet(abc.MutableSet):
 
 
 class SyncEvent(Base):  # type: ignore
-    """
-    Represents a file or folder change in the sync queue. This is used to abstract the
-    :class:`watchdog.events.FileSystemEvent` created for local changes and the
-    :class:`dropbox.files.Metadata` created for remote changes. All arguments are used
-    to construct instance attributes and some attributes may not be set for all event
-    types. Note that some instance attributes depend on the state of the Maestral
-    instance, e.g., :attr:`local_path` will depend on the current path of the local
-    Dropbox folder. They may therefore become invalid after sync sessions.
+    """Represents a file or folder change in the sync queue
+
+    This is used to abstract the :class:`watchdog.events.FileSystemEvent` created for
+    local changes and the :class:`dropbox.files.Metadata` created for remote changes.
+    All arguments are used to construct instance attributes and some attributes may not
+    be set for all event types. Note that some instance attributes depend on the state
+    of the Maestral instance, e.g., :attr:`local_path` will depend on the current path
+    of the local Dropbox folder. They may therefore become invalid after sync sessions.
 
     The convenience methods :meth:`from_dbx_metadata` and :meth:`from_file_system_event`
     should be used to properly construct a SyncEvent from Dropbox Metadata or a local
@@ -733,10 +723,10 @@ class SyncEvent(Base):  # type: ignore
 
 
 class IndexEntry(Base):  # type: ignore
-    """
-    Represents an entry in our local sync index. All arguments are used to construct
-    instance attributes. All arguments apart from ```content_hash`` and
-    ``content_hash_ctime`` are required.
+    """Represents an entry in our local sync index
+
+    All arguments are used to construct instance attributes. All arguments apart from
+    ```content_hash`` and ``content_hash_ctime`` are required.
 
     :param dbx_path_cased: Dropbox path of the item, correctly cased.
     :param dbx_path_lower: Dropbox path of the item in lower case. This acts as a
@@ -782,8 +772,7 @@ class IndexEntry(Base):  # type: ignore
 
 
 class HashCacheEntry(Base):  # type: ignore
-    """
-    An entry in our cache of content hashes.
+    """Represents an entry in our cache of content hashes
 
     :param local_path: The local path for which the hash is stored.
     :param hash_str: The content hash. 'folder' for folders.
@@ -799,8 +788,10 @@ class HashCacheEntry(Base):  # type: ignore
 
 
 class SyncEngine:
-    """
-    Class that contains methods to sync local file events with Dropbox and vice versa.
+    """Class that handles syncing with Dropbox
+
+    Provides methods to wait for local or remote changes and sync them, including
+    conflict resolution and updates to our index.
 
     :param client: Dropbox API client instance.
     :param fs_events_handler: File system event handler to inform us of local events.
@@ -3973,11 +3964,12 @@ def startup_worker(
 
 
 class SyncMonitor:
-    """
-    Class to sync changes between Dropbox and a local folder. It creates five threads:
-    `observer` to retrieve local file system events, `startup_thread` to carry out any
-    startup jobs such as initial syncs, `upload_thread` to upload local changes to
-    Dropbox, and `download_thread` to query for and download remote changes.
+    """Class to manage sync threads
+
+    It creates five threads: ``observer`` to retrieve local file system events,
+    ``startup_thread`` to carry out any startup jobs such as initial syncs,
+    ``upload_thread`` to upload local changes to Dropbox, and ``download_thread`` to
+    query for and download remote changes.
 
     :param client: The Dropbox API client, a wrapper around the Dropbox Python SDK.
     """

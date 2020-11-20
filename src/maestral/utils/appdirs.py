@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-
 This module contains functions to retrieve platform dependent locations to store app
 data. It supports macOS and Linux.
-
 """
 
 # system imports

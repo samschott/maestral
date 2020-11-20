@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-
-Module for content hashing.
-
-"""
+"""Module for content hashing."""
 
 # system imports
 import hashlib

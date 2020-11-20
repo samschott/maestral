@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-
 This modules contains the Dropbox API client. It wraps calls to the Dropbox Python SDK
 and handles exceptions, chunked uploads or downloads, etc.
-
 """
 
 # system imports
@@ -209,7 +207,7 @@ def convert_api_errors_decorator(
 
 
 class DropboxClient:
-    """Client for the Dropbox SDK.
+    """Client for the Dropbox SDK
 
     This client defines basic methods to wrap Dropbox Python SDK calls, such as
     creating, moving, modifying and deleting files and folders on Dropbox and
@@ -1065,9 +1063,10 @@ def os_to_maestral_error(
     .. note::
         The following exception types should not typically be raised during syncing:
 
-        InterruptedError: Python will automatically retry on interrupted connections.
-        NotADirectoryError: If raised, this likely is a Maestral bug.
-        IsADirectoryError: If raised, this likely is a Maestral bug.
+        * InterruptedError: The client will automatically retry on interrupted
+          connections.
+        * NotADirectoryError: If raised, this is likely a bug.
+        * IsADirectoryError: If raised, this is likely a bug.
 
     :param exc: Python Exception.
     :param dbx_path: Dropbox path of file which triggered the error.

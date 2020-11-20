@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-
-This module defines the main API which is exposed to the CLI or GUI.
-
-"""
+"""This module defines the main API which is exposed to the CLI or GUI."""
 
 # system imports
 import sys
@@ -113,8 +109,9 @@ bugsnag.before_notify(bugsnag_global_callback)
 
 
 class CachedHandler(logging.Handler):
-    """Handler which stores past records. This is used to populate Maestral's status and
-    error interfaces.
+    """Handler which stores past records
+
+    This is used to populate Maestral's status and error interfaces.
 
     :param level: Initial log level. Defaults to NOTSET.
     :param maxlen: Maximum number of records to store. If ``None``, all records will be
@@ -197,7 +194,7 @@ class SdNotificationHandler(logging.Handler):
 
 
 class Maestral:
-    """The public API.
+    """The public API
 
     All methods and properties return objects or raise exceptions which can safely be
     serialized, i.e., pure Python types. The only exception are instances of

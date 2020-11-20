@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-
 This module handles starting the maestral daemon on user login and supports multiple
 platform specific backends such as launchd or systemd.
 
@@ -9,7 +8,6 @@ a result, the user does not have a convenient UI to remove Maestral autostart en
 manually outside of Maestral itself. Login items however only support app bundles and
 provide no option to pass command line arguments to the app. They would therefore
 neither support pip installed packages or multiple configurations.
-
 """
 
 # system imports
@@ -38,8 +36,7 @@ from ..constants import BUNDLE_ID
 
 
 class SupportedImplementations(Enum):
-    """
-    Enumeration of supported implementations.
+    """Enumeration of supported implementations
 
     :cvar str systemd: macOS systemd.
     :cvar str launchd: Linux launchd.
@@ -52,9 +49,7 @@ class SupportedImplementations(Enum):
 
 
 class AutoStartBase:
-    """
-    Base class for autostart backends.
-    """
+    """Base class for autostart backends"""
 
     def enable(self) -> None:
         """Enable autostart. Must be implemented in subclass."""
@@ -71,8 +66,7 @@ class AutoStartBase:
 
 
 class AutoStartSystemd(AutoStartBase):
-    """
-    Autostart backend for systemd. Used to start a daemon on Linux.
+    """Autostart backend for systemd
 
     :param service_name: Name of systemd service.
     :param start_cmd: Absolute path to executable and optional program arguments.
@@ -140,8 +134,7 @@ class AutoStartSystemd(AutoStartBase):
 
 
 class AutoStartLaunchd(AutoStartBase):
-    """
-    Autostart backend for launchd. Used to start a GUI or daemon on macOS.
+    """Autostart backend for launchd
 
     :param bundle_id: Bundle ID for the, e.g., "com.google.calendar".
     :param start_cmd: Absolute path to executable and optional program arguments.
@@ -181,9 +174,10 @@ class AutoStartLaunchd(AutoStartBase):
 
 
 class AutoStartXDGDesktop(AutoStartBase):
-    """
-    Autostart backend for XDG desktop entries. Used to start a GUI on user login for
-    most Linux desktops. For a full specifications, please see:
+    """Autostart backend for XDG desktop entries
+
+    Used to start a GUI on user login for most Linux desktops. For a full
+    specifications, please see:
 
     https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html
 
@@ -288,9 +282,14 @@ def get_maestral_command_path() -> str:
 
 
 class AutoStart:
-    """Creates auto-start files in the appropriate system location to automatically
-    start Maestral when the user logs in. Different backends are used depending on the
-    platform."""
+    """Starts Maestral on user log-in
+
+    Creates auto-start files in the appropriate system location to automatically start
+    Maestral when the user logs in. Different backends are used depending on the
+    platform.
+
+    :param config_name: Name of Maestral config.
+    """
 
     _impl: AutoStartBase
 

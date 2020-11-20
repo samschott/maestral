@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-
 This module is responsible for authorization and token store in the system keyring.
-
 """
 
 # system imports
@@ -50,7 +48,8 @@ CONNECTION_ERRORS = (
 
 
 class OAuth2Session:
-    """
+    """Provides Dropbox OAuth flow and key store interface
+
     OAuth2Session provides OAuth 2 login and token store in the preferred system keyring.
     To authenticate with Dropbox, run :meth:`get_auth_url` first and direct the user to
     visit that URL and retrieve an auth token. Verify the provided auth token with
@@ -70,7 +69,7 @@ class OAuth2Session:
     as needed.
 
     If the auth flow was previously completed before Dropbox migrated to short-lived
-    tokens, the ``token_access_type`` will be 'legacy' and only a long-lived access
+    tokens, the :attr:`token_access_type` will be 'legacy' and only a long-lived access
     token will be available.
 
     .. warning:: Unlike MacOS Keychain, Gnome Keyring and KWallet do not support

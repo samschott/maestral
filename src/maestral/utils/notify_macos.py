@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-
 Notification backend for macOS. Includes three implementations, in order of preference:
 
 1) UNUserNotificationCenter: Introduced in macOS 10.14 and cross-platform with iOS and
@@ -12,8 +11,8 @@ Notification backend for macOS. Includes three implementations, in order of pref
    Python or Maestral app. No callbacks when the user clicks on notification.
 
 The first two implementations require a running CFRunLoop to invoke callbacks.
-
 """
+
 # system imports
 import uuid
 import platform
@@ -74,7 +73,7 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
     UNNotificationCategoryOptionNone = 0
 
     class NotificationCenterDelegate(NSObject):  # type: ignore
-        """Delegate to handle user interaction with a notification"""
+        """Delegate to handle user interactions with notifications"""
 
         @objc_method
         def userNotificationCenter_didReceiveNotificationResponse_withCompletionHandler_(
@@ -107,12 +106,12 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
             completion_handler()
 
     class CocoaNotificationCenter(DesktopNotifierBase):
-        """
-        UNUserNotificationCenter backend for macOS. For macOS Catalina and newer. Both
-        app name and bundle identifier will be ignored. The notification center
-        automatically uses the values provided by the app bundle. This implementation
-        only works from within signed app bundles and if called from the main
-        executable.
+        """UNUserNotificationCenter backend for macOS
+
+        Can be used with macOS Catalina and newer. Both app name and bundle identifier
+        will be ignored. The notification center automatically uses the values provided
+        by the app bundle. This implementation only works from within signed app bundles
+        and if called from the main executable.
 
         :param app_name: The name of the app.
         :param app_id: The bundle identifier of the app.
@@ -246,6 +245,7 @@ elif Version(macos_version) < Version("11.1.0"):
     NSUserNotificationActivationTypeAdditionalActionClicked = 4
 
     class NotificationCenterDelegate(NSObject):  # type: ignore
+        """Delegate to handle user interactions with notifications"""
 
         # subclass UNUserNotificationCenter and define delegate method
         # to handle clicked notifications
@@ -278,8 +278,16 @@ elif Version(macos_version) < Version("11.1.0"):
                     callback()
 
     class CocoaNotificationCenterLegacy(DesktopNotifierBase):
-        """NSUserNotificationCenter backend for macOS. Pre macOS Mojave. We don't
-        support buttons here."""
+        """NSUserNotificationCenter backend for macOS
+
+        Should be used for macOS High Sierra and earlier or outside of app bundles.
+        Supports only a single button per notification. Both app name and bundle
+        identifier will be ignored. The notification center automatically uses the
+        values provided by the app bundle or the Python framework.
+
+        :param app_name: The name of the app.
+        :param app_id: The bundle identifier of the app.
+        """
 
         def __init__(self, app_name: str, app_id: str) -> None:
             super().__init__(app_name, app_id)
@@ -332,7 +340,11 @@ if Impl is None and shutil.which("osascript"):
     # fall back to apple script
 
     class DesktopNotifierOsaScript(DesktopNotifierBase):
-        """Apple script backend for macOS."""
+        """Apple script backend for macOS
+
+        Sends desktop notifications via apple script. Does not support buttons or
+        callbacks. Apple script will always appear as the sending application.
+        """
 
         def send(self, notification: Notification) -> None:
             """

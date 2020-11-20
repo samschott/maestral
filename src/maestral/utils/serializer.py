@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-
 This module contains functions to serialize class instances for communication between
 the daemon and frontends.
-
 """
 
 # system imports

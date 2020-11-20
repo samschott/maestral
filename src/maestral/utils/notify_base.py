@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-
 This module defines base classes for desktop notifications. All platform implementations
 must inherit from :class:`DesktopNotifierBase`.
-
 """
 
 # system imports
@@ -12,9 +10,9 @@ from typing import Optional, Dict, Callable, Union
 
 
 class NotificationLevel(Enum):
-    """
-    Enumeration of notification levels. The interpretation and visuals will depend
-    on the platform.
+    """Enumeration of notification levels
+
+    The interpretation and visuals will depend on the platform.
 
     :cvar Critical: For critical errors.
     :cvar Normal: Default platform notification level.
@@ -27,8 +25,7 @@ class NotificationLevel(Enum):
 
 
 class Notification:
-    """
-    A desktop notification
+    """A desktop notification
 
     :param title: Notification title.
     :param message: Notification message.
@@ -70,9 +67,10 @@ class Notification:
 
 
 class DesktopNotifierBase:
-    """
-    Base class for desktop notifications. Notification levels CRITICAL, NORMAL and LOW
-    may be used by some implementations to determine how a notification is displayed.
+    """Base class for desktop notifier implementations
+
+    Notification levels CRITICAL, NORMAL and LOW may be used by some implementations to
+    determine how a notification is displayed.
 
     :param app_name: Name to identify the application in the notification center. On
         Linux, this should correspond to the application name in a desktop entry. On
@@ -96,7 +94,12 @@ class DesktopNotifierBase:
         self._current_nid = 0
 
     def send(self, notification: Notification) -> None:
-        """Some arguments may be ignored, depending on the implementation."""
+        """
+        Sends a desktop notification. Some arguments may be ignored, depending on the
+        implementation.
+
+        :param notification: Notification to send.
+        """
         raise NotImplementedError()
 
     def _next_nid(self) -> int:

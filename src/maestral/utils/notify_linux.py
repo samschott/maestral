@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-
 Notification backend for Linux. Includes an implementation to send desktop notifications
 over Dbus. Responding to user interaction with a notification requires a running asyncio
 event loop.
-
 """
 
 # system imports
@@ -26,9 +24,11 @@ Impl: Optional[Type[DesktopNotifierBase]]
 
 
 class DBusDesktopNotifier(DesktopNotifierBase):
-    """DBus notification backend for Linux. This implements the
-    org.freedesktop.Notifications standard. The DBUS connection is created in a thread
-    with a running asyncio loop to handle clicked notifications."""
+    """DBus notification backend for Linux
+
+    This implements the org.freedesktop.Notifications standard. The DBUS connection is
+    created in a thread with a running asyncio loop to handle clicked notifications.
+    """
 
     _to_native_urgency = {
         NotificationLevel.Low: Variant("y", 0),

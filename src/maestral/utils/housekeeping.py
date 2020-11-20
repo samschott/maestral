@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-
-This module contains migration code to run after an update.
-
-"""
+"""This module contains migration code to run after an update."""
 
 # system imports
 import os

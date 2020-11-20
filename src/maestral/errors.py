@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-
 This module defines Maestral's error classes. It should be kept free of memory heavy
 imports.
 
@@ -11,7 +10,6 @@ Errors are divided into "fatal errors" which will prevent any syncing or "sync e
 which will only prevent syncing of an individual file or folder. Fatal errors can be for
 example revoked Dropbox authorization, a deleted local Dropbox folder, insufficient RAM,
 etc. Sync errors include invalid file names, too large file sizes, and many more.
-
 """
 
 from typing import Optional
@@ -24,8 +22,13 @@ CONNECTION_ERROR_MSG = (
 
 
 class MaestralApiError(Exception):
-    """
-    Base class for errors originating from the Dropbox API or the 'local API'.
+    """Base class for Maestral errors
+
+    MaestralApiError provides attributes that can be used to generate human-readable
+    error messages and metadata regarding affected file paths (if any).
+
+    Errors originating from the Dropbox API or the 'local API' both inherit from
+    MaestralApiError.
 
     :param title: A short description of the error type. This can be used in a CLI or
         GUI to give a short error summary.
