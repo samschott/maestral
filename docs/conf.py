@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 
+import os
 import sys
 import time
 
 # -- Path setup ------------------------------------------------------------------------
 
-sys.path.insert(0, "../src")
+sys.path.insert(0, os.path.abspath("../src"))
 
 # -- Project information ---------------------------------------------------------------
 
@@ -19,12 +20,13 @@ copyright = "{}, {}".format(time.localtime().tm_year, author)
 # -- General configuration -------------------------------------------------------------
 
 extensions = [
-    "sphinx.ext.napoleon",  # support numpy style docstrings in config module
-    "sphinx.ext.todo",  # parse todo list
-    "sphinx.ext.intersphinx",  # support for linking between documentations
+    "sphinx.ext.viewcode",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.todo",
+    "sphinx.ext.intersphinx",
     "sphinx.ext.autodoc",
-    "autoapi.extension",  # builds API docs from doc strings without importing module
-    "m2r2",  # convert markdown to rest
+    "autoapi.extension",
+    "m2r2",
 ]
 source_suffix = [".rst", ".md"]
 master_doc = "index"
@@ -51,9 +53,10 @@ latex_documents = [
 
 # -- Extension configuration -----------------------------------------------------------
 
+# sphinx.ext.autodoc
 autodoc_typehints = "description"
 
-# autoapi
+# autoapi.extension
 autoapi_type = "python"
 autoapi_dirs = ["../src/maestral"]
 autoapi_options = [
@@ -64,5 +67,14 @@ autoapi_options = [
 ]
 autoapi_add_toctree_entry = False
 
-# todo list support
+# sphinx.ext.todo
 todo_include_todos = True
+
+# sphinx.ext.intersphinx
+intersphinx_mapping = {
+    "click": ("https://click.palletsprojects.com/en/master/", None),
+    "dropbox": ("https://dropbox-sdk-python.readthedocs.io/en/master/", None),
+    "python": ("https://docs.python.org/3/", None),
+    "requests": ("https://requests.readthedocs.io/en/master/", None),
+    "sqlalchemy": ("https://docs.sqlalchemy.org/en/latest/", None),
+}
