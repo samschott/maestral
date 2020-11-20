@@ -11,6 +11,7 @@ refer to the `wiki <https://github.com/SamSchott/maestral-dropbox/wiki>`_.
    :caption: Table of Contents
    :maxdepth: 1
 
+   sync_logic
    config_files
    state_files
    API Reference <autoapi/maestral/index>
