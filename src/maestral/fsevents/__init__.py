@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-This module provides custom event emitters for the :obj:`watchdog` package which sort
+This module provides custom event emitters for the :obj:`watchdog` package that sort
 file system events in an order which can be applied to reproduce the new state from the
 old state. This is only required for event emitters which internally use
 :class:`watchdog.utils.dirsnapshot.DirectorySnapshotDiff` to generate file system

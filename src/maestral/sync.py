@@ -443,70 +443,109 @@ class SyncEvent(Base):  # type: ignore
     The convenience methods :meth:`from_dbx_metadata` and :meth:`from_file_system_event`
     should be used to properly construct a SyncEvent from Dropbox Metadata or a local
     FileSystemEvent, respectively.
-
-    :param direction: Direction of the sync: upload or download.
-    :param item_type: The item type: file or folder or undetermined (in rare cases where
-        we cannot determine the type of a deleted file).
-    :param sync_time: The time the SyncEvent was registered.
-    :param dbx_id: A unique dropbox ID for the file or folder. Will only be set for
-        download events which are not deletions.
-    :param dbx_path: Dropbox path of the item to sync. If the sync represents a move
-        operation, this will be the destination path. Follows the casing from server.
-    :param dbx_path_from: Dropbox path that this item was moved from. Will only be set
-        if ``change_type`` is :attr:`ChangeType.Moved`. Follows the casing from server.
-    :param local_path: Local path of the item to sync. If the sync represents a move
-        operation, this will be the destination path. Follows the casing from server.
-    :param local_path_from: Local path that this item was moved from. Will only be set
-        if ``change_type`` is :attr:`ChangeType.Moved`. Follows the casing from server.
-    :param rev: The file revision. Will only be set for remote changes. Will be
-        'folder' for folders and None for deletions.
-    :param content_hash: A hash representing the file content. Will be 'folder' for
-        folders and None for deleted items. Set for both local and remote changes.
-    :param change_type: The type of change: deleted, moved, added or changed. Remote
-        SyncEvents currently do not generate moved events but are reported as deleted
-        and added at the new location.
-    :param change_time: The time of the change: Local ctime or remote client_modified
-        time for files. None for folders or for remote deletions. Note that the
-        client_modified may not be reliable as it is set by other clients and not
-        verified.
-    :param change_dbid: The Dropbox ID of the account which performed the changes. This
-        may not be set for added folders or deletions on the server.
-    :param change_user_name: The user name corresponding to ``change_dbid``, if the
-        account still exists. This field may not be set for performance reasons.
-    :param status: Field containing the sync status: queued, syncing, done, failed,
-        skipped (item was already in sync) or aborted (by the user).
-    :param size: Size of the item in bytes. Always zero for folders.
-    :param completed: File size in bytes which has already been uploaded or downloaded.
-        Always zero for folders.
-
-    :ivar id: A unique identifier of the SyncEvent.
-    :ivar change_time_or_sync_time: Change time when available, otherwise sync time.
-        This can be used for sorting or user information purposes.
     """
 
     __tablename__ = "history"
 
     id = Column(Integer, primary_key=True)
+    """A unique identifier of the SyncEvent."""
+
     direction = Column(Enum(SyncDirection), nullable=False)
+    """The :class:`SyncDirection`."""
+
     item_type = Column(Enum(ItemType), nullable=False)
+    """
+    The :class:`ItemType`. May be undetermined for remote deletions.
+    """
+
     sync_time = Column(Float, nullable=False)
+    """The time the SyncEvent was registered."""
+
     dbx_id = Column(String)
+    """
+    A unique dropbox ID for the file or folder. Will only be set for download events
+    which are not deletions.
+    """
+
     dbx_path = Column(String, nullable=False)
+    """
+    Dropbox path of the item to sync. If the sync represents a move operation, this will
+    be the destination path. Follows the casing from server.
+    """
+
     local_path = Column(String, nullable=False)
+    """
+    Local path of the item to sync. If the sync represents a move operation, this will
+    be the destination path. Follows the casing from server.
+    """
+
     dbx_path_from = Column(String)
+    """
+    Dropbox path that this item was moved from. Will only be set if :attr:`change_type`
+    is :attr:`ChangeType.Moved`. Follows the casing from server.
+    """
+
     local_path_from = Column(String)
+    """
+    Local path of the item to sync. If the sync represents a move operation, this will
+    be the destination path. Follows the casing from server.
+    """
+
     rev = Column(String)
+    """
+    The file revision. Will only be set for remote changes. Will be ``'folder'`` for
+    folders and ``None`` for deletions.
+    """
+
     content_hash = Column(String)
+    """
+    A hash representing the file content. Will be ``'folder'`` for folders and ``None``
+    for deletions. Set for both local and remote changes.
+    """
+
     change_type = Column(Enum(ChangeType), nullable=False)
+    """
+    The :class:`ChangeType`. Remote SyncEvents currently do not generate moved events
+    but are reported as deleted and added at the new location.
+    """
+
     change_time = Column(Float)
+    """
+    Local ctime or remote ``client_modified`` time for files. ``None`` for folders or
+    for remote deletions. Note that ``client_modified`` may not be reliable as it is set
+    by other clients and not verified.
+    """
+
     change_dbid = Column(String)
+    """
+    The Dropbox ID of the account which performed the changes. This may not be set for
+    added folders or deletions on the server.
+    """
+
     change_user_name = Column(String)
+    """
+    The user name corresponding to :attr:`change_dbid`, if the account still exists.
+    This field may not be set for performance reasons.
+    """
+
     status = Column(Enum(SyncStatus), nullable=False)
+    """The :class:`SyncStatus`."""
+
     size = Column(Integer, nullable=False)
+    """Size of the item in bytes. Always zero for folders."""
+
     completed = Column(Integer, default=0)
+    """
+    File size in bytes which has already been uploaded or downloaded. Always zero for
+    folders.
+    """
 
     @hybrid_property
     def change_time_or_sync_time(self) -> float:
+        """
+        Change time when available, otherwise sync time. This can be used for sorting or
+        user information purposes.
+        """
         return self.change_time or self.sync_time
 
     @change_time_or_sync_time.expression  # type: ignore
@@ -714,36 +753,38 @@ class SyncEvent(Base):  # type: ignore
 
 
 class IndexEntry(Base):  # type: ignore
-    """Represents an entry in our local sync index
-
-    All arguments are used to construct instance attributes. All arguments apart from
-    ```content_hash`` and ``content_hash_ctime`` are required.
-
-    :param dbx_path_cased: Dropbox path of the item, correctly cased.
-    :param dbx_path_lower: Dropbox path of the item in lower case. This acts as a
-        primary key for the SQL database since there can only be one entry per case-
-        insensitive Dropbox path.
-    :param dbx_id: A unique dropbox ID for the file or folder.
-    :param item_type: The item type: file or folder.
-    :param last_sync: The last time a local change was uploaded. Should be the ctime of
-        the local file or folder.
-    :param rev: The file revision. Will be 'folder' for folders.
-    :param content_hash: A hash representing the file content. Will be 'folder' for
-        folders. May be None if not yet calculated.
-    :param content_hash_ctime: The ctime for which the content_hash was calculated. If
-        this is older than the current ctime, the content_hash will be invalid and has
-        to recalculated.
-    """
+    """Represents an entry in our local sync index"""
 
     __tablename__ = "index"
 
     dbx_path_lower = Column(String, nullable=False, primary_key=True)
+    """
+    Dropbox path of the item in lower case. This acts as a primary key for the SQLites
+    database since there can only be one entry per case-insensitive Dropbox path.
+    """
+
     dbx_path_cased = Column(String, nullable=False)
+    """Dropbox path of the item, correctly cased."""
+
     dbx_id = Column(String, nullable=False)
+    """The unique dropbox ID for the item."""
+
     item_type = Column(Enum(ItemType), nullable=False)
+    """The :class:`ItemType`."""
+
     last_sync = Column(Float)
+    """
+    The last time a local change was uploaded. Should be the ctime of the local item.
+    """
+
     rev = Column(String, nullable=False)
+    """The file revision. Will be ``'folder'`` for folders."""
+
     content_hash = Column(String)
+    """
+    A hash representing the file content. Will be ``'folder'`` for folders. May be
+    ``None`` if not yet calculated.
+    """
 
     @property
     def is_file(self) -> bool:
@@ -763,19 +804,21 @@ class IndexEntry(Base):  # type: ignore
 
 
 class HashCacheEntry(Base):  # type: ignore
-    """Represents an entry in our cache of content hashes
-
-    :param local_path: The local path for which the hash is stored.
-    :param hash_str: The content hash. 'folder' for folders.
-    :param mtime: The mtime of the item just before the hash was computed. When the
-        current ctime is newer, the hash_str will need to be recalculated.
-    """
+    """Represents an entry in our cache of content hashes"""
 
     __tablename__ = "hash_cache"
 
     local_path = Column(String, nullable=False, primary_key=True)
+    """The local path of the item."""
+
     hash_str = Column(String)
+    """The content hash of the item."""
+
     mtime = Column(Float)
+    """
+    The mtime of the item just before the hash was computed. When the current ctime is
+    newer, the hash will need to be recalculated.
+    """
 
 
 class SyncEngine:
@@ -1446,7 +1489,8 @@ class SyncEngine:
         to do so in hierarchical order.
 
         :param dbx_path: Dropbox path with correctly cased basename, as provided by
-            :attr:`Metadata.path_display` or :attr:`Metadata.name`.
+            :attr:`dropbox.files.Metadata.path_display` or
+            :attr:`dropbox.files.Metadata.name`.
         :returns: Correctly cased Dropbox path.
         """
 
@@ -3957,15 +4001,11 @@ def startup_worker(
 class SyncMonitor:
     """Class to manage sync threads
 
-    It creates five threads: ``observer`` to retrieve local file system events,
-    ``startup_thread`` to carry out any startup jobs such as initial syncs,
-    ``upload_thread`` to upload local changes to Dropbox, and ``download_thread`` to
-    query for and download remote changes.
-
     :param client: The Dropbox API client, a wrapper around the Dropbox Python SDK.
     """
 
     added_item_queue: "Queue[str]"
+    """Queue of dropbox paths which have been newly included in syncing."""
 
     def __init__(self, client: DropboxClient):
 
@@ -4008,10 +4048,14 @@ class SyncMonitor:
 
     @property
     def reindex_interval(self) -> float:
+        """
+        Interval in sec for period reindexing. Changes will be saved to state file.
+        """
         return self._conf.get("sync", "reindex_interval")
 
     @reindex_interval.setter
     def reindex_interval(self, interval: float) -> None:
+        """Setter: reindex_interval"""
         self._conf.set("sync", "reindex_interval", interval)
 
     @property
@@ -4028,8 +4072,10 @@ class SyncMonitor:
 
     @property
     def idle_time(self) -> float:
-        """Returns the idle time in seconds since the last file change or since startup
-        if there haven't been any changes in our current session."""
+        """
+        Returns the idle time in seconds since the last file change or since startup if
+        there haven't been any changes in our current session.
+        """
 
         now = time.time()
         time_since_startup = now - self._startup_time
@@ -4191,6 +4237,7 @@ class SyncMonitor:
 
     @_with_lock
     def on_connect(self) -> None:
+        """Callback to run when we have lost the connection to Dropbox"""
 
         if self.running.is_set():
             if not self.connected.is_set() and not self.paused_by_user.is_set():
@@ -4199,6 +4246,7 @@ class SyncMonitor:
 
     @_with_lock
     def on_disconnect(self) -> None:
+        """Callback to run when we have reestablished the connection to Dropbox"""
 
         if self.running.is_set():
             if self.connected.is_set():
@@ -4208,7 +4256,7 @@ class SyncMonitor:
             self.startup.clear()
 
     def reset_sync_state(self) -> None:
-        """Resets all saved sync state."""
+        """Resets all saved sync state. Settings are not affected."""
 
         if self.syncing.is_set() or self.startup.is_set() or self.sync.busy():
             raise RuntimeError("Cannot reset sync state while syncing.")
