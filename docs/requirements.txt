@@ -1,6 +1,4 @@
 m2r2
 sphinx
-sphinx-click
-sphinx-autodoc-typehints
 sphinx-autoapi
 sphinx_rtd_theme
