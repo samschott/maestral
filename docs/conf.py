@@ -26,7 +26,6 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.autodoc",
     "autoapi.extension",
-    "sphinx_autodoc_typehints",
     "m2r2",
 ]
 source_suffix = [".rst", ".md"]
