@@ -20,7 +20,7 @@ copyright = "{}, {}".format(time.localtime().tm_year, author)
 # -- General configuration -------------------------------------------------------------
 
 extensions = [
-    "sphinx.ext.viewcode",
+    # "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
     "sphinx.ext.intersphinx",
@@ -55,7 +55,7 @@ autoapi_options = [
     "members",
     "show-inheritance",
     "show-module-summary",
-    "imported-members",
+    "undoc-members",
 ]
 autoapi_add_toctree_entry = False
 
