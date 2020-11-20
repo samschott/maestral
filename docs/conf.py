@@ -26,6 +26,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.autodoc",
     "autoapi.extension",
+    "sphinx_autodoc_typehints",
     "m2r2",
 ]
 source_suffix = [".rst", ".md"]
@@ -36,14 +37,6 @@ language = "en"
 # -- Options for HTML output -----------------------------------------------------------
 
 html_theme = "sphinx_rtd_theme"
-html_logo = "../src/maestral/resources/maestral.png"
-html_context = {
-    "css_files": [
-        "https://media.readthedocs.org/css/sphinx_rtd_theme.css",
-        "https://media.readthedocs.org/css/readthedocs-doc-embed.css",
-        "_static/custom.css",
-    ],
-}
 
 # -- Options for LaTeX output ----------------------------------------------------------
 
