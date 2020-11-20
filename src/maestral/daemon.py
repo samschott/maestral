@@ -55,8 +55,6 @@ IS_WATCHDOG = WATCHDOG_USEC and (
 URI = "PYRO:maestral.{0}@{1}"
 Pyro5.config.THREADPOOL_SIZE_MIN = 2
 
-MaestralProxyType = Union["Maestral", "MaestralProxy"]
-
 
 class Stop(enum.Enum):
     """
@@ -735,7 +733,7 @@ class MaestralProxy:
 
 def get_maestral_proxy(
     config_name: str = "maestral", fallback: bool = False
-) -> MaestralProxyType:
+) -> Union["Maestral", Proxy]:
 
     warnings.warn(
         "'get_maestral_proxy' is deprecated, please use 'MaestralProxy' instead",
