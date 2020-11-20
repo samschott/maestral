@@ -248,7 +248,7 @@ class OAuth2Session:
         accessing of the properties :attr:`linked`, :attr:`access_token`,
         :attr:`refresh_token` or :attr:`token_access_type`.
 
-        :raises KeyringLocked: If the system keyring is locked.
+        :raises KeyringAccessError: If the system keyring is locked.
         """
 
         logger.debug(f"Using keyring: {self.keyring}")
@@ -356,11 +356,7 @@ class OAuth2Session:
                 self.save_creds()
 
     def delete_creds(self) -> None:
-        """
-        Deletes auth token from system keyring.
-
-        :raises KeyringLocked: If the system keyring is locked.
-        """
+        """Deletes auth token from system keyring."""
 
         with self._lock:
 
