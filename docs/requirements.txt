@@ -1,4 +1,4 @@
 m2r2
-sphinx
+sphinx>=3.0
 sphinx-autoapi
 sphinx_rtd_theme
