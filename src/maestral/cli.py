@@ -12,7 +12,7 @@ import os.path as osp
 import functools
 import textwrap
 import time
-from typing import Optional, List, Dict, Iterable, Callable, cast
+from typing import Optional, List, Dict, Iterable, Callable, Union, cast, TYPE_CHECKING
 
 # external imports
 import click
@@ -27,12 +27,15 @@ from .daemon import (
     Start,
     Stop,
     MaestralProxy,
-    MaestralProxyType,
     is_running,
 )
 from .config import MaestralConfig, MaestralState, list_configs
 from .utils.cli import Column, Table, Align, Elide, Grid, TextField, DateField, Field
 from .utils.housekeeping import remove_configuration, validate_config_name
+
+
+if TYPE_CHECKING:
+    from .main import Maestral
 
 
 OK = click.style("[OK]", fg="green")
@@ -119,11 +122,11 @@ def select_dbx_path_dialog(
             return dropbox_path
 
 
-def link_dialog(m: MaestralProxyType) -> None:
+def link_dialog(m: Union[MaestralProxy, "Maestral"]) -> None:
     """
     A CLI dialog for linking a Dropbox account.
 
-    :param m: Maestral or MaestralProxy instance.
+    :param m: Proxy to Maestral daemon.
     """
 
     authorize_url = m.get_auth_url()
@@ -169,12 +172,12 @@ def check_for_updates() -> None:
         )
 
 
-def check_for_fatal_errors(m: MaestralProxyType) -> bool:
+def check_for_fatal_errors(m: Union[MaestralProxy, "Maestral"]) -> bool:
     """
     Checks the given Maestral instance for fatal errors such as revoked Dropbox access,
     deleted Dropbox folder etc. Prints a nice representation to the command line.
 
-    :param m: Maestral or MaestralProxy instance.
+    :param m: Proxy to Maestral daemon or Maestral instance.
     :returns: True in case of fatal errors, False otherwise.
     """
 
