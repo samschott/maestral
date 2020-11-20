@@ -145,13 +145,7 @@ FT = TypeVar("FT", bound=Callable[..., Any])
 
 
 class Conflict(enum.Enum):
-    """Enumeration of sync conflict types
-
-    :cvar RemoteNewer: Remote item is newer.
-    :cvar Conflict: Conflict.
-    :cvar Identical: Items are identical.
-    :cvar LocalNewerOrIdentical: Local item is newer or identical.
-    """
+    """Enumeration of sync conflict types"""
 
     RemoteNewer = "remote newer"
     Conflict = "conflict"
@@ -160,25 +154,14 @@ class Conflict(enum.Enum):
 
 
 class SyncDirection(enum.Enum):
-    """Enumeration of sync directions
-
-    :cvar Up: Upload.
-    :cvar Down: Download.
-    """
+    """Enumeration of sync directions"""
 
     Up = "up"
     Down = "down"
 
 
 class SyncStatus(enum.Enum):
-    """Enumeration of sync status
-
-    :cvar Queued: Queued for syncing.
-    :cvar Syncing: Sync in progress.
-    :cvar Done: Sync successfully completed.
-    :cvar Failed: Sync failed.
-    :cvar Skipped: Item was already in sync.
-    """
+    """Enumeration of sync status"""
 
     Queued = "queued"
     Syncing = "syncing"
@@ -189,27 +172,15 @@ class SyncStatus(enum.Enum):
 
 
 class ItemType(enum.Enum):
-    """Enumeration of SyncEvent types
-
-    :cvar File: File type.
-    :cvar Folder: Folder type.
-    :cvar Unknown: Item type could not be determined. This can occur for remote deleted
-        events, see issue #198.
-    """
+    """Enumeration of SyncEvent types"""
 
     File = "file"
     Folder = "folder"
-    Unknown = "unknown"
+    Unknown = "unknown"  # This can occur for remote deleted events, see issue #198
 
 
 class ChangeType(enum.Enum):
-    """Enumeration of SyncEvent change types
-
-    :cvar Added: An added file or folder.
-    :cvar Removed: A deleted file or folder.
-    :cvar Moved: A moved file or folder.
-    :cvar Modified: A modified file. Does not apply to folders.
-    """
+    """Enumeration of SyncEvent change types"""
 
     Added = "added"
     Removed = "removed"

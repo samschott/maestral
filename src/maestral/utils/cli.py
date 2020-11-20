@@ -10,25 +10,14 @@ import click
 
 
 class Align(enum.Enum):
-    """
-    Text alignment in column.
-
-    :cvar Left: Left alignment.
-    :cvar Right: Right alignment.
-    """
+    """Text alignment in column"""
 
     Left = 0
     Right = 1
 
 
 class Elide(enum.Enum):
-    """
-    Elide directives.
-
-    :cvar Leading: Truncate beginning of text.
-    :cvar Center: Truncate center of text.
-    :cvar Trailing: Truncate end of text.
-    """
+    """Elide directives"""
 
     Leading = 0
     Center = 1

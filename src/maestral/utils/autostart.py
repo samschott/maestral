@@ -36,12 +36,7 @@ from ..constants import BUNDLE_ID
 
 
 class SupportedImplementations(Enum):
-    """Enumeration of supported implementations
-
-    :cvar str systemd: macOS systemd.
-    :cvar str launchd: Linux launchd.
-    :cvar str xdg_desktop: Linux autostart xdg desktop entries.
-    """
+    """Enumeration of supported implementations"""
 
     systemd = "systemd"
     launchd = "launchd"

@@ -57,14 +57,7 @@ Pyro5.config.THREADPOOL_SIZE_MIN = 2
 
 
 class Stop(enum.Enum):
-    """
-    Enumeration of daemon exit results
-
-    :cvar Ok: Daemon quit successfully.
-    :cvar Killed: Daemon process was killed.
-    :cvar NotRunning: Daemon was not running.
-    :cvar Failed: Could not shut down daemon.
-    """
+    """Enumeration of daemon exit results"""
 
     Ok = 0
     Killed = 1
@@ -73,13 +66,7 @@ class Stop(enum.Enum):
 
 
 class Start(enum.Enum):
-    """
-    Enumeration of daemon start results
-
-    :cvar Ok: Daemon started successfully.
-    :cvar AlreadyRunning: Daemon was already running.
-    :cvar Failed: Could not start daemon.
-    """
+    """Enumeration of daemon start results"""
 
     Ok = 0
     AlreadyRunning = 1

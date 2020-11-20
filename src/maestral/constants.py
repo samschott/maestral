@@ -142,14 +142,7 @@ ERROR = "Fatal error"
 
 # file status enum
 class FileStatus(Enum):
-    """Enumeration of sync status
-
-    :cvar Unwatched: Item is not excluded in sync.
-    :cvar Uploading: Item is uploading.
-    :cvar Downloading: Item is downloading.
-    :cvar Error: Item could not sync.
-    :cvar Synced: Item is synced.
-    """
+    """Enumeration of sync status"""
 
     Unwatched = "unwatched"
     Uploading = "uploading"
