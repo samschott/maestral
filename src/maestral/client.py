@@ -77,6 +77,17 @@ from .utils import natural_size, chunks, clamp
 if TYPE_CHECKING:
     from .sync import SyncEvent
 
+
+__all__ = [
+    "CONNECTION_ERRORS",
+    "DropboxClient",
+    "dropbox_to_maestral_error",
+    "os_to_maestral_error",
+    "fswatch_to_maestral_error",
+    "convert_api_errors",
+]
+
+
 logger = logging.getLogger(__name__)
 
 # type definitions

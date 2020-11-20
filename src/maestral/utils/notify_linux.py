@@ -18,6 +18,8 @@ from dbus_next.aio import MessageBus, ProxyInterface  # type: ignore
 from .notify_base import Notification, DesktopNotifierBase, NotificationLevel
 
 
+__all__ = ["Impl", "DBusDesktopNotifier"]
+
 logger = logging.getLogger(__name__)
 
 Impl: Optional[Type[DesktopNotifierBase]]

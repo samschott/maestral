@@ -39,6 +39,23 @@ if TYPE_CHECKING:
     from .main import Maestral
 
 
+__all__ = [
+    "Stop",
+    "Start",
+    "Lock",
+    "maestral_lock",
+    "get_maestral_pid",
+    "sockpath_for_config",
+    "lockpath_for_config",
+    "is_running",
+    "start_maestral_daemon",
+    "start_maestral_daemon_process",
+    "stop_maestral_daemon_process",
+    "MaestralProxy",
+    "CommunicationError",
+]
+
+
 logger = logging.getLogger(__name__)
 
 

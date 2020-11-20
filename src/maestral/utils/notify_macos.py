@@ -31,21 +31,20 @@ from .notify_base import Notification, DesktopNotifierBase
 from ..constants import FROZEN
 
 
-logger = logging.getLogger(__name__)
+__all__ = ["Impl", "CocoaNotificationCenter", "CocoaNotificationCenterLegacy"]
 
+logger = logging.getLogger(__name__)
+macos_version, *_ = platform.mac_ver()
 
 foundation = load_library("Foundation")
-NSObject = ObjCClass("NSObject")
 
-macos_version, *_ = platform.mac_ver()
+NSObject = ObjCClass("NSObject")
 
 
 Impl: Optional[Type[DesktopNotifierBase]] = None
 
 
 if FROZEN and Version(macos_version) >= Version("10.14.0"):
-
-    # use UNUserNotificationCenter in macOS Mojave and higher if we are in an app bundle
 
     uns = load_library("UserNotifications")
 
@@ -232,9 +231,6 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
 
 
 elif Version(macos_version) < Version("11.1.0"):
-
-    # use NSUserNotificationCenter outside of app bundles for macOS Big Sur and lower
-    # and for macOS High Sierra and lower
 
     NSUserNotification = ObjCClass("NSUserNotification")
     NSUserNotificationCenter = ObjCClass("NSUserNotificationCenter")

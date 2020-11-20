@@ -18,16 +18,16 @@ from .notify_base import DesktopNotifierBase, NotificationLevel, Notification
 
 
 __all__ = [
-    "DesktopNotifier",
-    "DesktopNotifierBase",
-    "MaestralDesktopNotifier",
-    "NotificationLevel",
     "Notification",
+    "NotificationLevel",
+    "DesktopNotifier",
+    "MaestralDesktopNotifier",
+    "MaestralDesktopNotificationHandler",
 ]
 
 
 class DesktopNotifier:
-    """Cross-platform desktop notifications
+    """Cross-platform desktop notification emitter
 
     Uses different backends depending on the platform version and available services.
     The Dbus backend requires a running asyncio loop. The Cocoa implementations will
@@ -93,7 +93,7 @@ _desktop_notifier_maestral = DesktopNotifier(APP_NAME, BUNDLE_ID)
 
 
 class MaestralDesktopNotifier:
-    """Desktop notifications for Maestral
+    """Desktop notification emitter for Maestral
 
     Desktop notifier with snooze functionality and variable notification levels.
 
@@ -198,7 +198,7 @@ class MaestralDesktopNotifier:
 
 
 class MaestralDesktopNotificationHandler(logging.Handler):
-    """A logging handler to desktop notifications."""
+    """A logging handler to send desktop notifications."""
 
     def __init__(self) -> None:
         super().__init__()

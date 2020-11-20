@@ -122,6 +122,26 @@ from .utils.path import (
 from .utils.appdirs import get_data_path, get_home_dir
 
 
+__all__ = [
+    "Conflict",
+    "SyncDirection",
+    "SyncStatus",
+    "ItemType",
+    "ChangeType",
+    "FSEventHandler",
+    "PersistentStateMutableSet",
+    "SyncEvent",
+    "IndexEntry",
+    "HashCacheEntry",
+    "SyncEngine",
+    "SyncMonitor",
+    "upload_worker",
+    "download_worker",
+    "download_worker_added_item",
+    "startup_worker",
+]
+
+
 logger = logging.getLogger(__name__)
 _cpu_count = os.cpu_count() or 1  # os.cpu_count can return None
 

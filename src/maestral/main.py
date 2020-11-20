@@ -37,7 +37,7 @@ except ImportError:
 
 # local imports
 from . import __version__
-from .client import DropboxClient, convert_api_errors
+from .client import CONNECTION_ERRORS, DropboxClient, convert_api_errors
 from .sync import SyncMonitor, SyncDirection
 from .errors import (
     MaestralApiError,
@@ -71,16 +71,15 @@ from .constants import (
 )
 
 
+__all__ = [
+    "CachedHandler",
+    "SdNotificationHandler",
+    "Maestral",
+]
+
+
 logger = logging.getLogger(__name__)
 sd_notifier = sdnotify.SystemdNotifier()
-
-CONNECTION_ERRORS = (
-    requests.exceptions.Timeout,
-    requests.exceptions.ConnectionError,
-    requests.exceptions.ReadTimeout,
-    requests.exceptions.RetryError,
-    ConnectionError,
-)
 
 
 # set up error reporting but do not activate

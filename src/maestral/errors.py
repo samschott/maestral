@@ -15,12 +15,6 @@ etc. Sync errors include invalid file names, too large file sizes, and many more
 from typing import Optional
 
 
-CONNECTION_ERROR_MSG = (
-    "Cannot connect to Dropbox servers. Please check "
-    "your internet connection and try again later."
-)
-
-
 class MaestralApiError(Exception):
     """Base class for Maestral errors
 

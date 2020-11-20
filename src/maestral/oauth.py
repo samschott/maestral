@@ -28,6 +28,8 @@ from .constants import DROPBOX_APP_KEY
 from .errors import KeyringAccessError
 
 
+__all__ = ["OAuth2Session"]
+
 logger = logging.getLogger(__name__)
 
 supported_keyring_backends = (
