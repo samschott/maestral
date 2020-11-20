@@ -264,9 +264,9 @@ class FSEventHandler(FileSystemEventHandler):
         """A context manager to ignore local file events
 
         Once a matching event has been registered, further matching events will no
-        longer be ignored unless``recursive`` is ``True``. If no matching event has
+        longer be ignored unless ``recursive`` is ``True``. If no matching event has
         occurred before leaving the context, the event will be ignored for
-        ``ignore_timeout`` sec after leaving then context and then discarded. This
+        :attr:`ignore_timeout` sec after leaving then context and then discarded. This
         accounts for possible delays in the emission of local file system events.
 
         This context manager is used to filter out file system events caused by maestral
@@ -462,11 +462,11 @@ class SyncEvent(Base):  # type: ignore
     :param dbx_path: Dropbox path of the item to sync. If the sync represents a move
         operation, this will be the destination path. Follows the casing from server.
     :param dbx_path_from: Dropbox path that this item was moved from. Will only be set
-        if ``change_type`` is ``ChangeType.Moved``. Follows the casing from server.
+        if ``change_type`` is :attr:`ChangeType.Moved`. Follows the casing from server.
     :param local_path: Local path of the item to sync. If the sync represents a move
         operation, this will be the destination path. Follows the casing from server.
     :param local_path_from: Local path that this item was moved from. Will only be set
-        if ``change_type`` is ``ChangeType.Moved``. Follows the casing from server.
+        if ``change_type`` is :attr:`ChangeType.Moved`. Follows the casing from server.
     :param rev: The file revision. Will only be set for remote changes. Will be
         'folder' for folders and None for deletions.
     :param content_hash: A hash representing the file content. Will be 'folder' for
@@ -699,7 +699,7 @@ class SyncEvent(Base):  # type: ignore
             size = stat.st_size if stat else 0
 
         # Note: We get the content hash here instead of later, even though the
-        # calculation may be slow and ``from_file_system_event`` may be called
+        # calculation may be slow and :meth:`from_file_system_event` may be called
         # serially and not from a thread pool. This is because hashing is CPU bound
         # and parallelization would cause large multi-core CPU usage (or result in
         # throttling of our thread-pool).
@@ -1019,8 +1019,8 @@ class SyncEngine:
     @property
     def history(self) -> List[SyncEvent]:
         """A list of the last SyncEvents in our history. History will be kept for the
-        interval specified by the config value``keep_history`` (defaults to two weeks)
-        and at most ``_max_history`` events will be returned (defaults to 1,000)."""
+        interval specified by the config value ``keep_history`` (defaults to two weeks)
+        but at most 1,000 events will be kept."""
         with self._database_access():
             query = self._db_session.query(SyncEvent)
             ordered_query = query.order_by(SyncEvent.change_time_or_sync_time)
@@ -1455,7 +1455,7 @@ class SyncEngine:
         to do so in hierarchical order.
 
         :param dbx_path: Dropbox path with correctly cased basename, as provided by
-            ``Metadata.path_display`` or ``Metadata.name``.
+            :attr:`Metadata.path_display` or :attr:`Metadata.name`.
         :returns: Correctly cased Dropbox path.
         """
 
@@ -4032,7 +4032,7 @@ class SyncMonitor:
     def history(self) -> List[SyncEvent]:
         """A list of the last SyncEvents in our history. History will be kept for the
         interval specified by the config value``keep_history`` (defaults to two weeks)
-        and at most ``_max_history`` events will be returned (defaults to 1,000)."""
+        but at most 1,000 events will kept."""
         return self.sync.history
 
     @property

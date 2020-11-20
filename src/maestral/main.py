@@ -424,7 +424,7 @@ class Maestral:
 
         :param section: Name of section in config file.
         :param name: Name of config option.
-        :param value: Config value. May be any type accepted by ``ast.literal_eval``.
+        :param value: Config value. May be any type accepted by :obj:`ast.literal_eval`.
         """
         self._conf.set(section, name, value)
 
@@ -434,7 +434,7 @@ class Maestral:
 
         :param section: Name of section in config file.
         :param name: Name of config option.
-        :returns: Config value. May be any type accepted by ``ast.literal_eval``.
+        :returns: Config value. May be any type accepted by :obj:`ast.literal_eval`.
         """
         return self._conf.get(section, name)
 
@@ -444,7 +444,7 @@ class Maestral:
 
         :param section: Name of section in state file.
         :param name: Name of state variable.
-        :param value: State value. May be any type accepted by ``ast.literal_eval``.
+        :param value: State value. May be any type accepted by :obj:`ast.literal_eval`.
         """
         self._state.set(section, name, value)
 
@@ -454,7 +454,7 @@ class Maestral:
 
         :param section: Name of section in state file.
         :param name: Name of state variable.
-        :returns: State value. May be any type accepted by ``ast.literal_eval``.
+        :returns: State value. May be any type accepted by :obj:`ast.literal_eval`.
         """
         return self._state.get(section, name)
 

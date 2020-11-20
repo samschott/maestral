@@ -530,7 +530,7 @@ def start_maestral_daemon_process(
     """
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
     Startup is race free: there will never be two daemons running for the same config.
-    This function requires that ``sys.executable`` points to a Python executable and
+    This function requires that :obj:`sys.executable` points to a Python executable and
     therefore may not work "frozen" apps.
 
     :param config_name: The name of the Maestral configuration to use.
@@ -538,9 +538,10 @@ def start_maestral_daemon_process(
     :param start_sync: If ``True``, start syncing once the daemon has started.
     :param detach: If ``True``, the daemon process will be detached. If ``False``,
         the daemon processes will run in the same session as the current process.
-    :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
-        already running or ``Start.Failed`` if startup failed. It is possible that
-        Start.Ok is returned instead of Start.AlreadyRunning in case of a race.
+    :returns: :attr:`Start.Ok` if successful, :attr:`Start.AlreadyRunning` if the daemon
+        was already running or :attr:`Start.Failed` if startup failed. It is possible
+        that :attr:`Start.Ok` may be returned instead of :attr:`Start.AlreadyRunning`
+        in case of a race but the daemon is nevertheless started only once.
     """
 
     if is_running(config_name):
@@ -591,9 +592,9 @@ def stop_maestral_daemon_process(
 
     :param config_name: The name of the Maestral configuration to use.
     :param timeout: Number of sec to wait for daemon to shut down before killing it.
-    :returns: ``Stop.Ok`` if successful, ``Stop.Killed`` if killed, ``Stop.NotRunning``
-        if the daemon was not running and ``Exit.Failed`` if killing the process failed
-        because we could not retrieve its PID.
+    :returns: :attr:`Stop.Ok` if successful, :attr:`Stop.Killed` if killed,
+        :attr:`Stop.NotRunning` if the daemon was not running and `:attr:`Stop.Failed`
+        if killing the process failed because we could not retrieve its PID.
     """
 
     if not is_running(config_name):
