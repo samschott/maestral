@@ -26,12 +26,8 @@ wheels/
 MANIFEST
 debian/
 .pybuild/
+docs_build/
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-bundle_version_macos.txt
 
 # Installer logs
 pip-log.txt
@@ -149,9 +145,6 @@ Temporary Items
 .idea/encodings.xml
 *.iml
 *.xml
-
-# custom excluded items
-app_icon/
 
 # Snap parts
 /parts/
