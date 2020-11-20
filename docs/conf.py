@@ -20,7 +20,7 @@ copyright = "{}, {}".format(time.localtime().tm_year, author)
 # -- General configuration -------------------------------------------------------------
 
 extensions = [
-    # "sphinx.ext.viewcode",
+    "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
     "sphinx.ext.intersphinx",
@@ -65,7 +65,7 @@ todo_include_todos = True
 # sphinx.ext.intersphinx
 intersphinx_mapping = {
     "click": ("https://click.palletsprojects.com/en/master/", None),
-    "dropbox": ("https://dropbox-sdk-python.readthedocs.io/en/master/", None),
+    "dropbox": ("https://dropbox-sdk-python.readthedocs.io/en/latest/", None),
     "Pyro5": ("https://pyro5.readthedocs.io/en/latest/", None),
     "python": ("https://docs.python.org/3/", None),
     "requests": ("https://requests.readthedocs.io/en/master/", None),
