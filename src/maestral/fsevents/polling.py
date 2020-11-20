@@ -34,9 +34,11 @@ from watchdog.observers.polling import (  # type: ignore
 
 
 class OrderedPollingEmitter(PollingEmitter):
-    """
-    Platform-independent emitter that polls a directory to detect file
-    system changes.
+    """Ordered polling file system event emitter
+
+    Platform-independent emitter that polls a directory to detect file system changes.
+    Events are emitted in an order which can be used to produce the new file system
+    state from the old one.
     """
 
     def queue_events(self, timeout):
