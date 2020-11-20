@@ -1,4 +1,5 @@
 m2r2
-sphinx>=3.0
-sphinx-autoapi
-sphinx_rtd_theme
+sphinx==3.3.1
+sphinx-autoapi==1.5.1
+sphinx_rtd_theme==0.5.0
+sphinx_autodoc_typehints==1.11.1
