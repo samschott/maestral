@@ -1,8 +1,0 @@
-:orphan:
-
-:mod:`maestral.resources`
-=========================
-
-.. py:module:: maestral.resources
-
-

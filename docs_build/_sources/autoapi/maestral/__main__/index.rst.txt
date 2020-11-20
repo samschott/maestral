@@ -1,8 +1,0 @@
-:orphan:
-
-:mod:`maestral.__main__`
-========================
-
-.. py:module:: maestral.__main__
-
-
