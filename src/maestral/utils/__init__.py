@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+"""Utility modules and functions"""
+
 from packaging.version import Version
 from typing import List, Iterator, TypeVar, Optional, Iterable
 
