@@ -352,12 +352,12 @@ if Impl is None and shutil.which("osascript"):
 
             :param notification: Notification to send.
             """
-            subprocess.call(
-                [
-                    "osascript",
-                    "-e",
-                    f'display notification "{notification.message}" with title "{notification.title}"',
-                ]
+
+            script = (
+                f'display notification "{notification.message}" '
+                f'with title "{notification.title}"'
             )
+
+            subprocess.call(["osascript", "-e", script])
 
     Impl = DesktopNotifierOsaScript
