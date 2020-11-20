@@ -46,7 +46,7 @@ def validate_config_name(string: _C) -> _C:
 
     :param string: String to validate.
     :returns: The input value.
-    :raises: :class:`ValueError` if the config name contains whitespace
+    :raises ValueError: if the config name contains whitespace.
     """
     if len(string.split()) > 1:
         raise ValueError("Config name may not contain any whitespace")

@@ -254,7 +254,7 @@ class DropboxClient:
         Indicates if the client is linked to a Dropbox account (read only). This will
         block until the user's keyring is unlocked to load the saved auth token.
 
-        :raises: :class:`errors.KeyringAccessError` if keyring access fails.
+        :raises KeyringAccessError: if keyring access fails.
         """
 
         if self._dbx:
@@ -315,8 +315,8 @@ class DropboxClient:
         """
         Unlinks the Dropbox account.
 
-        :raises: :class:`errors.KeyringAccessError`
-        :raises: :class:`errors.DropboxAuthError`
+        :raises KeyringAccessError: if keyring access fails.
+        :raises DropboxAuthError: if we cannot authenticate with Dropbox.
         """
         self.auth.delete_creds()
         self.dbx.auth_token_revoke()  # should only raise auth errors

@@ -248,7 +248,7 @@ class OAuth2Session:
         accessing of the properties :attr:`linked`, :attr:`access_token`,
         :attr:`refresh_token` or :attr:`token_access_type`.
 
-        :raises: :class:`keyring.errors.KeyringLocked` if the system keyring is locked.
+        :raises KeyringLocked: If the system keyring is locked.
         """
 
         logger.debug(f"Using keyring: {self.keyring}")
@@ -359,7 +359,7 @@ class OAuth2Session:
         """
         Deletes auth token from system keyring.
 
-        :raises: :class:`keyring.errors.KeyringLocked` if the system keyring is locked.
+        :raises KeyringLocked: If the system keyring is locked.
         """
 
         with self._lock:

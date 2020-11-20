@@ -1356,7 +1356,7 @@ class SyncEngine:
         """
         Checks if the Dropbox folder still exists where we expect it to be.
 
-        :raises: :class:`errors.DropboxDeletedError`
+        :raises DropboxDeletedError: When localal Dropbox directory does not exist.
         """
 
         if not osp.isdir(self.dropbox_path):
@@ -1371,7 +1371,7 @@ class SyncEngine:
         """
         Checks for or creates a directory at :attr:`file_cache_path`.
 
-        :raises: :class:`errors.CacheDirError`
+        :raises CacheDirError: When local cache directory cannot be created.
         """
 
         retries = 0
@@ -1504,7 +1504,7 @@ class SyncEngine:
 
         :param local_path: Absolute path on local drive.
         :returns: Relative path with respect to Dropbox folder.
-        :raises: :class:`ValueError` the path lies outside of the local Dropbox folder.
+        :raises ValueError: When the path lies outside of the local Dropbox folder.
         """
 
         if is_equal_or_child(local_path, self.dropbox_path):
@@ -2423,8 +2423,8 @@ class SyncEngine:
         remained the same.
 
         :param event: SyncEvent for local moved event.
-        :raises: :class:`errors.MaestralApiError`
         :returns: SyncEvent for created remote item at destination.
+        :raises MaestralApiError: For any issues when syncing the item.
         """
 
         if self._handle_selective_sync_conflict(event):
@@ -2492,8 +2492,8 @@ class SyncEngine:
         Call when a local item is created.
 
         :param event: SyncEvent corresponding to local created event.
-        :raises: :class:`errors.MaestralApiError`
         :returns: Sync event for created item or None if no remote item is created.
+        :raises MaestralApiError: For any issues when syncing the item.
         """
 
         if self._handle_selective_sync_conflict(event):
@@ -2592,9 +2592,9 @@ class SyncEngine:
         Call when local item is modified.
 
         :param event: SyncEvent for local modified event.
-        :raises: :class:`errors.MaestralApiError`
         :returns: SyncEvent corresponding to modified remote item or None if no remote
             item is modified.
+        :raises MaestralApiError: For any issues when syncing the item.
         """
 
         if event.is_directory:  # ignore directory modified events
@@ -2673,8 +2673,8 @@ class SyncEngine:
         been modified since the last sync.
 
         :param event: SyncEvent for local deletion.
-        :raises: :class:`errors.MaestralApiError`
         :returns: Sync event for deleted item or None if no remote item is deleted.
+        :raises MaestralApiError: For any issues when syncing the item.
         """
 
         if self.is_excluded_by_user(event.dbx_path):
@@ -3165,7 +3165,7 @@ class SyncEngine:
 
         :param event: Download SyncEvent.
         :returns: Conflict check result.
-        :raises: :class:`errors.MaestralApiError`
+        :raises MaestralApiError: For any issues when syncing the item.
         """
 
         local_rev = self.get_local_rev(event.dbx_path)

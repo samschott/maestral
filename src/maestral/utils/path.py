@@ -190,8 +190,8 @@ def to_existing_cased_path(
         If ``False``, we know that there can be at most one match and choose a faster
         algorithm.
     :returns: Absolute and cased version of given path.
-    :raises: :class:`FileNotFoundError` if ``path`` does not exist in root ``root`` or
-        ``root`` itself does not exist.
+    :raises FileNotFoundError: if ``path`` does not exist in root ``root`` or ``root``
+        itself does not exist.
     """
 
     candidates = cased_path_candidates(path, root, is_fs_case_sensitive)

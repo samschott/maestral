@@ -380,8 +380,7 @@ def start_maestral_daemon(
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stdout: If ``True``, write logs to stdout.
     :param start_sync: If ``True``, start syncing once the daemon has started.
-    :raises: :class:`RuntimeError` if a daemon for the given ``config_name`` is already
-        running.
+    :raises RuntimeError: if a daemon for the given ``config_name`` is already running.
     """
 
     import asyncio
@@ -654,8 +653,8 @@ class MaestralProxy:
     :param config_name: The name of the Maestral configuration to use.
     :param fallback: If ``True``, a new instance of Maestral will created in the current
         process when the daemon is not running.
-    :raises: :class:`Pyro5.errors.CommunicationError` if the daemon is running but
-        cannot be reached or if the daemon is not running and ``fallback`` is ``False``.
+    :raises CommunicationError:if the daemon is running but cannot be reached or if the
+        daemon is not running and ``fallback`` is ``False``.
     """
 
     _m: Union["Maestral", Proxy]
