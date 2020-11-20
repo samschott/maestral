@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
-
+This module provides custom watchdog observers which sort file system events in a way
+that allows the file system state to be generated from the old state by applying all
+events in order.
 """
 
 from watchdog.utils import platform  # type: ignore
