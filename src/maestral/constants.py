@@ -41,7 +41,7 @@ be kept free of memory heavy imports.
 
 .. data:: EXCLUDED_DIR_NAMES
 
-   Set of directories names which are always excluded from syncing.
+   Set of directory names which are always excluded from syncing.
 
 .. data:: BUGSNAG_API_KEY
 
