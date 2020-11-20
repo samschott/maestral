@@ -42,7 +42,7 @@ system keyring (e.g., macOS Keychain or Gnome Keyring).
     >>> res = m.link(token)
 
 The call to :meth:`link` will return 0 on success, 1 for an invalid code and 2 for
-connection errors. We verify that linking succeeded and and proceed to create a local
+connection errors. We verify that linking succeeded and proceed to create a local
 Dropbox folder and start syncing:
 
     >>> if res == 0:
