@@ -1326,7 +1326,7 @@ def log_level(level_name: str, config_name: str) -> None:
 @existing_config_option
 def notify_level(level_name: str, config_name: str) -> None:
 
-    from .utils.notify import MaestralDesktopNotifier as Notifier
+    from .notify import MaestralDesktopNotifier as Notifier
 
     with MaestralProxy(config_name, fallback=True) as m:
         if level_name:

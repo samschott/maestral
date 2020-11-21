@@ -46,6 +46,7 @@ from .errors import (
     NotFoundError,
 )
 from .config import MaestralConfig, MaestralState
+from .notify import MaestralDesktopNotificationHandler
 from .utils import get_newer_version
 from .utils.housekeeping import validate_config_name
 from .utils.path import (
@@ -54,7 +55,6 @@ from .utils.path import (
     to_existing_cased_path,
     delete,
 )
-from .utils.notify import MaestralDesktopNotificationHandler
 from .utils.serializer import (
     error_to_dict,
     dropbox_stone_to_dict,

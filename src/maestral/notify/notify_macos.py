@@ -28,7 +28,7 @@ from rubicon.objc.runtime import load_library, objc_id, objc_block  # type: igno
 
 # local imports
 from .notify_base import Notification, DesktopNotifierBase
-from ..constants import FROZEN
+from maestral.constants import FROZEN
 
 
 __all__ = ["Impl", "CocoaNotificationCenter", "CocoaNotificationCenterLegacy"]

@@ -76,6 +76,7 @@ from watchdog.utils.dirsnapshot import DirectorySnapshot  # type: ignore
 
 # local imports
 from .config import MaestralConfig, MaestralState
+from .notify import MaestralDesktopNotifier
 from .fsevents import Observer
 from .constants import (
     IDLE,
@@ -108,7 +109,6 @@ from .client import (
 )
 from .utils import removeprefix
 from .utils.caches import LRUCache
-from .utils.notify import MaestralDesktopNotifier
 from .utils.path import (
     generate_cc_name,
     cased_path_candidates,
