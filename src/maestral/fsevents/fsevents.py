@@ -19,7 +19,6 @@
 from watchdog.observers.fsevents import (  # type: ignore
     FSEventsEmitter,
     FSEventsObserver,
-    DirectorySnapshot,
     FileDeletedEvent,
     FileModifiedEvent,
     FileMovedEvent,
@@ -31,6 +30,7 @@ from watchdog.observers.fsevents import (  # type: ignore
     DEFAULT_OBSERVER_TIMEOUT,
     BaseObserver,
 )
+from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 
 class OrderedFSEventsEmitter(FSEventsEmitter):

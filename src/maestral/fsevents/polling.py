@@ -19,7 +19,6 @@
 from watchdog.observers.polling import (  # type: ignore
     PollingEmitter,
     PollingObserver,
-    DirectorySnapshotDiff,
     FileDeletedEvent,
     FileModifiedEvent,
     FileMovedEvent,
@@ -31,6 +30,7 @@ from watchdog.observers.polling import (  # type: ignore
     DEFAULT_OBSERVER_TIMEOUT,
     BaseObserver,
 )
+from watchdog.utils.dirsnapshot import DirectorySnapshotDiff
 
 
 class OrderedPollingEmitter(PollingEmitter):
