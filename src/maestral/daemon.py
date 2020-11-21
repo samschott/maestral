@@ -166,9 +166,9 @@ def _get_lockdata() -> Tuple[bytes, str, int]:
 class Lock:
     """A inter-process and inter-thread lock
 
-    This reuses uses code from :module:`oslo.concurrency` but provides non-blocking
-    acquire. Use the :meth:`singleton` class method to retrieve an existing instance for
-    thread-safe usage.
+    This internally uses :class:`fasteners.InterProcessLock` but provides non-blocking
+    acquire. It also guarantees thread-safety when using the :meth:`singleton` class
+    method to create / retrieve a lock instance.
     """
 
     _instances: Dict[str, "Lock"] = dict()
