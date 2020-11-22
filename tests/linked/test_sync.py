@@ -29,6 +29,7 @@ def test_setup(m):
 
 
 def test_file_lifecycle(m):
+    """Tests creating, modifying and deleting a file."""
 
     # test creating a local file
 
@@ -75,6 +76,7 @@ def test_file_lifecycle(m):
 
 
 def test_file_conflict(m):
+    """Tests conflicting local vs remote file changes."""
 
     # create a local file
     shutil.copy(resources + "/file.txt", m.test_folder_local)
@@ -109,6 +111,7 @@ def test_file_conflict(m):
 
 
 def test_parallel_deletion_when_paused(m):
+    """Tests parallel remote and local deletions of an item."""
 
     # create a local file
     shutil.copy(resources + "/file.txt", m.test_folder_local)
@@ -136,6 +139,7 @@ def test_parallel_deletion_when_paused(m):
 
 
 def test_local_and_remote_creation_with_equal_content(m):
+    """Tests parallel and equal remote and local changes of an item."""
 
     m.pause_sync()
     wait_for_idle(m)
@@ -157,6 +161,7 @@ def test_local_and_remote_creation_with_equal_content(m):
 
 
 def test_local_and_remote_creation_with_different_content(m):
+    """Tests parallel and different remote and local changes of an item."""
 
     m.pause_sync()
     wait_for_idle(m)
@@ -179,6 +184,7 @@ def test_local_and_remote_creation_with_different_content(m):
 
 
 def test_local_deletion_during_upload(m):
+    """Tests the case where a local item is deleted during the upload."""
 
     # we mimic a deletion during upload by queueing a fake FileCreatedEvent
     fake_created_event = FileCreatedEvent(m.test_folder_local + "/file.txt")
@@ -194,6 +200,7 @@ def test_local_deletion_during_upload(m):
 
 
 def test_rapid_local_changes(m):
+    """Tests local changes to the content of a file with varying intervals."""
 
     for t in (0.1, 0.1, 0.5, 0.5, 1.0, 1.0, 2.0, 2.0):
         time.sleep(t)
@@ -211,6 +218,7 @@ def test_rapid_local_changes(m):
 
 
 def test_rapid_remote_changes(m):
+    """Tests remote changes to the content of a file with varying intervals."""
 
     shutil.copy(resources + "/file.txt", m.test_folder_local)
     wait_for_idle(m)
@@ -241,6 +249,7 @@ def test_rapid_remote_changes(m):
 
 
 def test_folder_tree_created_local(m):
+    """Tests the upload sync of a nested local folder structure."""
 
     # test creating tree
 
@@ -267,6 +276,7 @@ def test_folder_tree_created_local(m):
 
 
 def test_folder_tree_created_remote(m):
+    """Tests the download sync of a nested remote folder structure."""
 
     # test creating remote tree
 
@@ -292,6 +302,7 @@ def test_folder_tree_created_remote(m):
 
 
 def test_remote_file_replaced_by_folder(m):
+    """Tests the download sync when a file is replaced by a folder."""
 
     shutil.copy(resources + "/file.txt", m.test_folder_local + "/file.txt")
     wait_for_idle(m)
@@ -315,6 +326,10 @@ def test_remote_file_replaced_by_folder(m):
 
 
 def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m):
+    """
+    Tests the download sync when a file is replaced by a folder and the local file has
+    unsynced changes.
+    """
 
     shutil.copy(resources + "/file.txt", m.test_folder_local + "/file.txt")
     wait_for_idle(m)
@@ -343,6 +358,7 @@ def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m):
 
 
 def test_remote_folder_replaced_by_file(m):
+    """Tests the download sync when a folder is replaced by a file."""
 
     os.mkdir(m.test_folder_local + "/folder")
     wait_for_idle(m)
@@ -366,6 +382,10 @@ def test_remote_folder_replaced_by_file(m):
 
 
 def test_remote_folder_replaced_by_file_and_unsynced_local_changes(m):
+    """
+    Tests the download sync when a folder is replaced by a file and the local folder has
+    unsynced changes.
+    """
 
     os.mkdir(m.test_folder_local + "/folder")
     wait_for_idle(m)
@@ -393,6 +413,7 @@ def test_remote_folder_replaced_by_file_and_unsynced_local_changes(m):
 
 
 def test_local_folder_replaced_by_file(m):
+    """Tests the upload sync when a local folder is replaced by a file."""
 
     os.mkdir(m.test_folder_local + "/folder")
     wait_for_idle(m)
@@ -415,6 +436,10 @@ def test_local_folder_replaced_by_file(m):
 
 
 def test_local_folder_replaced_by_file_and_unsynced_remote_changes(m):
+    """
+    Tests the upload sync when a local folder is replaced by a file and the remote
+    folder has unsynced changes.
+    """
 
     # remote folder is currently not checked for unsynced changes but replaced
 
@@ -443,6 +468,7 @@ def test_local_folder_replaced_by_file_and_unsynced_remote_changes(m):
 
 
 def test_local_file_replaced_by_folder(m):
+    """Tests the upload sync when a local file is replaced by a folder."""
 
     shutil.copy(resources + "/file.txt", m.test_folder_local + "/file.txt")
     wait_for_idle(m)
@@ -466,6 +492,10 @@ def test_local_file_replaced_by_folder(m):
 
 
 def test_local_file_replaced_by_folder_and_unsynced_remote_changes(m):
+    """
+    Tests the upload sync when a local file is replaced by a folder and the remote
+    file has unsynced changes.
+    """
 
     # Check if server-modified time > last_sync of file and only delete file if
     # older. Otherwise, let Dropbox handle creating a conflicting copy.
@@ -500,6 +530,10 @@ def test_local_file_replaced_by_folder_and_unsynced_remote_changes(m):
 
 
 def test_selective_sync_conflict(m):
+    """
+    Tests the creation of a selective sync conflict when a local item is created with a
+    path that is excluded by selective sync.
+    """
 
     os.mkdir(m.test_folder_local + "/folder")
     wait_for_idle(m)
@@ -532,6 +566,10 @@ def test_selective_sync_conflict(m):
     not is_fs_case_sensitive("/home"), reason="file system is not case sensitive"
 )
 def test_case_conflict(m):
+    """
+    Tests the creation of a case conflict when a local item is created with a path that
+    only differs in casing from an existing path.
+    """
 
     os.mkdir(m.test_folder_local + "/folder")
     wait_for_idle(m)
@@ -551,6 +589,10 @@ def test_case_conflict(m):
 
 
 def test_case_change_local(m):
+    """
+    Tests the upload sync of local rename which only changes the casing of the local
+    file name.
+    """
 
     # start with nested folders
     os.mkdir(m.test_folder_local + "/folder")
@@ -576,6 +618,10 @@ def test_case_change_local(m):
 
 
 def test_case_change_remote(m):
+    """
+    Tests the download sync of remote rename which only changes the casing of the remote
+    file name.
+    """
 
     # start with nested folders
     os.mkdir(m.test_folder_local + "/folder")
@@ -601,6 +647,7 @@ def test_case_change_remote(m):
 
 
 def test_mignore(m):
+    """Tests the exclusion of local items by an mignore file."""
 
     # 1) test that tracked items are unaffected
 
@@ -646,6 +693,10 @@ def test_mignore(m):
 
 
 def test_upload_sync_issues(m):
+    """
+    Tests error handling for issues during upload sync. This is done by creating a local
+    folder with a name that ends with a backslash (not allowed by Dropbox).
+    """
 
     # paths with backslash are not allowed on Dropbox
     # we create such a local folder and assert that it triggers a sync issue
@@ -677,6 +728,12 @@ def test_upload_sync_issues(m):
 
 
 def test_download_sync_issues(m):
+    """
+    Tests error handling for issues during download sync. This is done by attempting to
+    download sync a file with a DMCA take down notice (not allowed through the public
+    API).
+    """
+
     test_path_local = m.test_folder_local + "/dmca.gif"
     test_path_dbx = "/sync_tests/dmca.gif"
 
@@ -724,6 +781,11 @@ def test_download_sync_issues(m):
 
 
 def test_excluded_folder_cleared_on_deletion(m):
+    """
+    Tests that an entry in our selective sync excluded list gets removed when the
+    corresponding item is deleted.
+    """
+
     dbx_path = "/sync_tests/selective_sync_test_folder"
     local_path = m.to_local_path("/sync_tests/selective_sync_test_folder")
 
@@ -752,6 +814,9 @@ def test_excluded_folder_cleared_on_deletion(m):
 
 
 def test_indexing_performance(m):
+    """
+    Tests the performance of converting remote file changes to SyncEvents.
+    """
 
     # generate tree with 5 entries
     shutil.copytree(resources + "/test_folder", m.test_folder_local + "/test_folder")
