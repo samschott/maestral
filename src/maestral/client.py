@@ -417,7 +417,7 @@ class DropboxClient:
         return space_usage
 
     @convert_api_errors_decorator(dbx_path_arg=1)
-    def get_metadata(self, dbx_path: str, **kwargs) -> files.Metadata:
+    def get_metadata(self, dbx_path: str, **kwargs) -> Optional[files.Metadata]:
         """
         Gets metadata for an item on Dropbox or returns ``False`` if no metadata is
         available. Keyword arguments are passed on to Dropbox SDK files_get_metadata
@@ -425,16 +425,18 @@ class DropboxClient:
 
         :param dbx_path: Path of folder on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
-        :returns: Metadata of item at the given path or ``None``.
+        :returns: Metadata of item at the given path or ``None`` if item cannot be found.
         """
 
         try:
             return self.dbx.files_get_metadata(dbx_path, **kwargs)
-        except exceptions.ApiError:
-            # DropboxAPI error is only raised when the item does not exist on Dropbox
-            # this is handled on a DEBUG level since we use call `get_metadata` to check
-            # if a file exists
-            pass
+        except exceptions.ApiError as exc:
+
+            if isinstance(exc.error, files.GetMetadataError):
+                # this will be only lookup errors
+                return None
+            else:
+                raise exc
 
     @convert_api_errors_decorator(dbx_path_arg=1)
     def list_revisions(

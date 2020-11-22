@@ -842,7 +842,7 @@ class Maestral:
             self._delete_old_profile_pics()
             return None
 
-    def get_metadata(self, dbx_path: str) -> StoneType:
+    def get_metadata(self, dbx_path: str) -> Optional[StoneType]:
         """
         Returns metadata for a file or folder on Dropbox.
 
@@ -859,7 +859,11 @@ class Maestral:
         self._check_linked()
 
         res = self.client.get_metadata(dbx_path)
-        return dropbox_stone_to_dict(res)
+
+        if res is None:
+            return None
+        else:
+            return dropbox_stone_to_dict(res)
 
     def list_folder(self, dbx_path: str, **kwargs) -> List[StoneType]:
         """
