@@ -4,8 +4,8 @@
 
 * Added a public API `Maetral.status_change_longpoll` for frontends to wait for status
   changes without frequent polling. `status_change_longpoll` blocks until there is a
-  change in status and then returns ``True``. The default timeout iss 60 sec.
-* Desktop notifications for sync errors are now clickable and will show the related file 
+  change in status and then returns `True`. The default timeout iss 60 sec.
+* Desktop notifications for sync errors are now clickable and will show the related file
   or folder either on Dropbox or locally.
 * Desktop notifications which can be clicked to reveal a file now have a "Show" button.
 
@@ -14,7 +14,7 @@
 * Increased timeout for all event queues.
 * Decreased the frequency of Pyro daemon housekeeping tasks.
 * Improved performance when syncing a large number of remote deletions.
-* The `Maestral.exclude_item()` API now accepts paths which lie inside an excluded 
+* The `Maestral.exclude_item()` API now accepts paths which lie inside an excluded
   folder. When called with such a path, all immediate parents will be included as well.
 * The `Maestral.excluded_items` property is no longer read-only.
 
@@ -23,12 +23,18 @@
 * Fixes an issue where `maestral ls` would fail when run with the `-l, --long` flag.
 * Fixes an `IndexError` during a download sync when trying to query past versions of a
   deleted item.
-* Fixes an issue which could case a segfault of the selective sync dialog on macOS.
+* Fixes an issue which could cause a segfault of the selective sync dialog on macOS.
+* Fixes an where the selective sync dialog on Linux would not load the contents of more
+  than 10 folders.
 
 #### Deprecated:
 
 * Deprecated the `Maestral.set_excluded_items` API. Use the setter for
   `Maestral.excluded_items` instead.
+
+#### Dependencies:
+
+* Require `watchdog<=10.3` because of unresolved bug in watchdog 0.10.4 on macOS.
 
 ## v1.2.2
 

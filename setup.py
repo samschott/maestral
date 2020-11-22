@@ -24,7 +24,7 @@ install_requires = [
     "setuptools",
     "sdnotify>=0.3.2",
     "sqlalchemy>=1.3.0",
-    "watchdog>=0.10.0",
+    "watchdog>=0.10.0,<=0.10.3",
 ]
 
 gui_requires = [
