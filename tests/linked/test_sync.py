@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import os
 import os.path as osp
 import time
@@ -13,6 +14,7 @@ from maestral.sync import FileCreatedEvent
 from maestral.sync import delete, move
 from maestral.sync import is_fs_case_sensitive
 from maestral.sync import DirectorySnapshot, SyncEvent
+from maestral.utils import sanitize_string
 
 from .conftest import assert_synced, wait_for_idle, resources
 
@@ -704,12 +706,10 @@ def test_upload_sync_issues(m):
     test_path_local = m.test_folder_local + "/folder\\"
     test_path_dbx = "/sync_tests/folder\\"
 
-    n_errors_initial = len(m.sync_errors)
-
     os.mkdir(test_path_local)
     wait_for_idle(m)
 
-    assert len(m.sync_errors) == n_errors_initial + 1
+    assert len(m.sync_errors) == 1
     assert m.sync_errors[-1]["local_path"] == test_path_local
     assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
     assert m.sync_errors[-1]["type"] == "PathError"
@@ -719,7 +719,7 @@ def test_upload_sync_issues(m):
     delete(test_path_local)
     wait_for_idle(m)
 
-    assert len(m.sync_errors) == n_errors_initial
+    assert len(m.sync_errors) == 0
     assert all(e["local_path"] != test_path_local for e in m.sync_errors)
     assert all(e["dbx_path"] != test_path_dbx for e in m.sync_errors)
 
@@ -737,17 +737,13 @@ def test_download_sync_issues(m):
     test_path_local = m.test_folder_local + "/dmca.gif"
     test_path_dbx = "/sync_tests/dmca.gif"
 
-    wait_for_idle(m)
-
-    n_errors_initial = len(m.sync_errors)
-
     m.client.upload(resources + "/dmca.gif", test_path_dbx)
 
     wait_for_idle(m)
 
     # 1) Check that the sync issue is logged
 
-    assert len(m.sync_errors) == n_errors_initial + 1
+    assert len(m.sync_errors) == 1
     assert m.sync_errors[-1]["local_path"] == test_path_local
     assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
     assert m.sync_errors[-1]["type"] == "RestrictedContentError"
@@ -760,7 +756,7 @@ def test_download_sync_issues(m):
 
     wait_for_idle(m)
 
-    assert len(m.sync_errors) == n_errors_initial + 1
+    assert len(m.sync_errors) == 1
     assert m.sync_errors[-1]["local_path"] == test_path_local
     assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
     assert m.sync_errors[-1]["type"] == "RestrictedContentError"
@@ -771,7 +767,7 @@ def test_download_sync_issues(m):
     m.client.remove(test_path_dbx)
     wait_for_idle(m)
 
-    assert len(m.sync_errors) == n_errors_initial
+    assert len(m.sync_errors) == 0
     assert all(e["local_path"] != test_path_local for e in m.sync_errors)
     assert all(e["dbx_path"] != test_path_dbx for e in m.sync_errors)
     assert test_path_dbx not in m.sync.download_errors
@@ -811,6 +807,71 @@ def test_excluded_folder_cleared_on_deletion(m):
 
     # check for fatal errors
     assert not m.fatal_errors
+
+
+@pytest.mark.skipif(sys.platform != "linux")
+def test_unknown_path_encoding(m, capsys):
+    """
+    Tests the handling of a local path with bytes that cannot be decoded with the
+    file system encoding reported by the platform.
+    """
+
+    # create a path with Python surrogate escapes and convert it to bytes
+    test_path_dbx = "/sync_tests/my_folder_\udce4"
+    test_path_local = m.sync.to_local_path(test_path_dbx)
+    test_path_local_bytes = os.fsencode(test_path_local)
+
+    # create the local directory while we are syncing
+    os.mkdir(test_path_local_bytes)
+    wait_for_idle(m)
+
+    # 1) Check that the sync issue is logged
+
+    # This requires that our "syncing" logic from the emitted watchdog event all the
+    # way to `SyncEngine._on_local_created` can handle strings with surrogate escapes.
+
+    assert len(m.fatal_errors) == 0
+    assert len(m.sync_errors) == 1
+    assert m.sync_errors[-1]["local_path"] == test_path_local
+    assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
+    assert m.sync_errors[-1]["type"] == "PathError"
+
+    # 2) Check that the sync is retried after pause / resume
+
+    # This requires that our logic to save failed paths in our state file and retry the
+    # sync on startup can handle strings with surrogate escapes.
+
+    m.pause_sync()
+    m.resume_sync()
+
+    wait_for_idle(m)
+
+    assert len(m.fatal_errors) == 0
+    assert len(m.sync_errors) == 1
+    assert m.sync_errors[-1]["local_path"] == test_path_local
+    assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
+    assert m.sync_errors[-1]["type"] == "RestrictedContentError"
+    assert test_path_dbx in m.sync.download_errors
+
+    # 3) Check that we can print the sync error to the console
+
+    print(m.sync_errors)
+    out, err = capsys.readouterr()
+    assert sanitize_string(test_path_dbx) in out
+
+    # 4) Check that the error is cleared when the file is deleted
+
+    # This requires that `SyncEngine.upload_local_changes_while_inactive` can handle
+    # strings with surrogate escapes all they way to `SyncEngine._on_local_deleted`.
+
+    m.client.remove(test_path_dbx)
+    wait_for_idle(m)
+
+    assert len(m.fatal_errors) == 0
+    assert len(m.sync_errors) == 0
+    assert all(e["local_path"] != test_path_local for e in m.sync_errors)
+    assert all(e["dbx_path"] != test_path_dbx for e in m.sync_errors)
+    assert test_path_dbx not in m.sync.download_errors
 
 
 def test_indexing_performance(m):
