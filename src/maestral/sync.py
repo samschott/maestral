@@ -2,6 +2,7 @@
 """This module contains the main syncing functionality."""
 
 # system imports
+import sys
 import os
 import os.path as osp
 from stat import S_ISDIR
@@ -107,7 +108,7 @@ from .database import (
     ItemType,
     ChangeType,
 )
-from .utils import removeprefix
+from .utils import removeprefix, sanitize_string
 from .utils.caches import LRUCache
 from .utils.path import (
     generate_cc_name,
@@ -1312,7 +1313,9 @@ class SyncEngine:
 
         if err.dbx_path:
             # we have a file / folder associated with the sync error
-            file_name = osp.basename(err.dbx_path)
+            # use sanitised path so that the error can be printed to the terminal, etc
+            file_name = sanitize_string(osp.basename(err.dbx_path))
+
             logger.info("Could not sync %s", file_name, exc_info=True)
 
             def callback():
@@ -2029,6 +2032,9 @@ class SyncEngine:
         :raises MaestralApiError: For any issues when syncing the item.
         """
 
+        # fail fast on badly decoded paths
+        validate_encoding(event.local_path)
+
         if self._handle_selective_sync_conflict(event):
             return None
         if self._handle_case_conflict(event):
@@ -2097,6 +2103,9 @@ class SyncEngine:
         :returns: Sync event for created item or None if no remote item is created.
         :raises MaestralApiError: For any issues when syncing the item.
         """
+
+        # fail fast on badly decoded paths
+        validate_encoding(event.local_path)
 
         if self._handle_selective_sync_conflict(event):
             return None
@@ -4015,3 +4024,35 @@ def check_connection(hostname: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def validate_encoding(local_path: str) -> None:
+    """
+    Validate that the path contains only characters in the reported file system
+    encoding. On Unix, paths are fundamentally bytes and some platforms do not enforce
+    a uniform encoding of file names despite reporting a file system encoding. Such
+    paths will be handed to us in Python with "surrogate escapes" in place of the
+    unknown characters.
+
+    Since the Dropbox API and our database both require utf-8 encoded paths, we use this
+    method to check and fail early on unknown characters.
+
+    :param local_path: Path to check.
+    :raises PathError: if the path contains characters with an unknown encoding.
+    """
+
+    try:
+        local_path.encode()
+    except UnicodeEncodeError:
+
+        fs_encoding = sys.getfilesystemencoding()
+
+        error = PathError(
+            "Could not upload item",
+            f"The file name contains characters outside of the "
+            f"{fs_encoding} encoding of your file system",
+        )
+
+        error.local_path = local_path
+
+        raise error
