@@ -1471,6 +1471,19 @@ def dropbox_to_maestral_error(
                 )
                 err_cls = MaestralApiError
 
+        elif isinstance(error, files.GetMetadataError):
+            title = "Could not get metadata"
+
+            if error.is_path():
+                lookup_error = error.get_path()
+                text, err_cls = _get_lookup_error_msg(lookup_error)
+            else:
+                text = (
+                    "Please contact the developer with the traceback "
+                    "information from the logs."
+                )
+                err_cls = MaestralApiError
+
         elif isinstance(error, users.GetAccountError):
             title = "Could not get account info"
 
