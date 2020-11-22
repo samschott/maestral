@@ -713,6 +713,7 @@ def test_upload_sync_issues(m):
     assert m.sync_errors[-1]["local_path"] == test_path_local
     assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
     assert m.sync_errors[-1]["type"] == "PathError"
+    assert test_path_dbx in m.sync.upload_errors
 
     # remove folder with invalid name and assert that sync issue is cleared
 
@@ -720,8 +721,7 @@ def test_upload_sync_issues(m):
     wait_for_idle(m)
 
     assert len(m.sync_errors) == 0
-    assert all(e["local_path"] != test_path_local for e in m.sync_errors)
-    assert all(e["dbx_path"] != test_path_dbx for e in m.sync_errors)
+    assert test_path_dbx not in m.sync.upload_errors
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -768,8 +768,6 @@ def test_download_sync_issues(m):
     wait_for_idle(m)
 
     assert len(m.sync_errors) == 0
-    assert all(e["local_path"] != test_path_local for e in m.sync_errors)
-    assert all(e["dbx_path"] != test_path_dbx for e in m.sync_errors)
     assert test_path_dbx not in m.sync.download_errors
 
     # check for fatal errors
@@ -834,9 +832,10 @@ def test_unknown_path_encoding(m, capsys):
 
     assert len(m.fatal_errors) == 0
     assert len(m.sync_errors) == 1
-    assert m.sync_errors[-1]["local_path"] == test_path_local
-    assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
+    assert m.sync_errors[-1]["local_path"] == sanitize_string(test_path_local)
+    assert m.sync_errors[-1]["dbx_path"] == sanitize_string(test_path_dbx)
     assert m.sync_errors[-1]["type"] == "PathError"
+    assert test_path_dbx in m.sync.upload_errors
 
     # 2) Check that the sync is retried after pause / resume
 
@@ -850,18 +849,12 @@ def test_unknown_path_encoding(m, capsys):
 
     assert len(m.fatal_errors) == 0
     assert len(m.sync_errors) == 1
-    assert m.sync_errors[-1]["local_path"] == test_path_local
-    assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
-    assert m.sync_errors[-1]["type"] == "RestrictedContentError"
-    assert test_path_dbx in m.sync.download_errors
+    assert m.sync_errors[-1]["local_path"] == sanitize_string(test_path_local)
+    assert m.sync_errors[-1]["dbx_path"] == sanitize_string(test_path_dbx)
+    assert m.sync_errors[-1]["type"] == "PathError"
+    assert test_path_dbx in m.sync.upload_errors
 
-    # 3) Check that we can print the sync error to the console
-
-    print(m.sync_errors)
-    out, err = capsys.readouterr()
-    assert sanitize_string(test_path_dbx) in out
-
-    # 4) Check that the error is cleared when the file is deleted
+    # 3) Check that the error is cleared when the file is deleted
 
     # This requires that `SyncEngine.upload_local_changes_while_inactive` can handle
     # strings with surrogate escapes all they way to `SyncEngine._on_local_deleted`.
@@ -871,9 +864,7 @@ def test_unknown_path_encoding(m, capsys):
 
     assert len(m.fatal_errors) == 0
     assert len(m.sync_errors) == 0
-    assert all(e["local_path"] != test_path_local for e in m.sync_errors)
-    assert all(e["dbx_path"] != test_path_dbx for e in m.sync_errors)
-    assert test_path_dbx not in m.sync.download_errors
+    assert test_path_dbx not in m.sync.upload_errors
 
 
 def test_indexing_performance(m):
