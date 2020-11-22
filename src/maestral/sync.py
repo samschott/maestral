@@ -2207,7 +2207,9 @@ class SyncEngine:
                 else:
                     new_event = FileMovedEvent(src_path, dest_path)
 
-                # only recombine events if neither is in an excluded path
+                # Only recombine events if neither has an excluded path: We want to
+                # treat renaming from / to an excluded path as a creation / deletion,
+                # respectively.
                 if not self._should_split_excluded(new_event):
                     cleaned_events.difference_update(split_events)
                     cleaned_events.add(new_event)
