@@ -1438,8 +1438,8 @@ class Maestral:
         from alembic.migration import MigrationContext  # type: ignore
         from alembic.operations import Operations  # type: ignore
         from sqlalchemy.engine import reflection  # type: ignore
-        from .sync import db_naming_convention as nc
-        from .sync import IndexEntry
+        from .database import db_naming_convention as nc
+        from .database import IndexEntry
 
         table_name = IndexEntry.__tablename__
 
