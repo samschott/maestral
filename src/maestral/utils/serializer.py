@@ -8,7 +8,7 @@ the daemon and frontends.
 import json
 import traceback
 from enum import Enum
-from typing import Dict, Union, Any, Sequence
+from typing import Dict, Union, Sequence, TYPE_CHECKING
 
 # external imports
 from dropbox.stone_serializers import json_encode  # type: ignore
@@ -17,12 +17,15 @@ from dropbox.stone_validators import Struct  # type: ignore
 # local imports
 from ..sync import SyncEvent
 
+if TYPE_CHECKING:
+    from dropbox.stone_base import Struct as StoneStruct
+
 
 StoneType = Dict[str, Union[str, float, bool, None]]
 ErrorType = Dict[str, Union[str, Sequence[str], None]]
 
 
-def dropbox_stone_to_dict(obj: Any) -> StoneType:
+def dropbox_stone_to_dict(obj: "StoneStruct") -> StoneType:
     """Converts the result of a Dropbox SDK call to a dictionary."""
 
     obj_string = json_encode(Struct(type(obj)), obj)
