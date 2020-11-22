@@ -92,6 +92,27 @@ class ChangeType(enum.Enum):
     Modified = "modified"
 
 
+class StringPath(sqltypes.TypeDecorator):
+    """
+    Database column type which accepts strings the Python surrogate escapes as input.
+    Those may be passed when the local path contains bytes outside of the reported file
+    system encoding.
+    """
+
+    # TODO: bijective conversion of surrogate escapes in our database
+
+    impl = sqltypes.String
+
+    def process_bind_param(self, value: Optional[str], dialect) -> Optional[str]:
+        if value is None:
+            return value
+        else:
+            return os.fsencode(value).decode(errors="replace")
+
+    def process_result_value(self, value: Optional[str], dialect) -> Optional[str]:
+        return value
+
+
 class SyncEvent(Base):  # type: ignore
     """Represents a file or folder change in the sync queue
 
@@ -129,25 +150,25 @@ class SyncEvent(Base):  # type: ignore
     which are not deletions.
     """
 
-    dbx_path = Column(sqltypes.String, nullable=False)
+    dbx_path = Column(StringPath, nullable=False)
     """
     Dropbox path of the item to sync. If the sync represents a move operation, this will
     be the destination path. Follows the casing from server.
     """
 
-    local_path = Column(sqltypes.String, nullable=False)
+    local_path = Column(StringPath, nullable=False)
     """
     Local path of the item to sync. If the sync represents a move operation, this will
     be the destination path. Follows the casing from server.
     """
 
-    dbx_path_from = Column(sqltypes.String)
+    dbx_path_from = Column(StringPath)
     """
     Dropbox path that this item was moved from. Will only be set if :attr:`change_type`
     is :attr:`ChangeType.Moved`. Follows the casing from server.
     """
 
-    local_path_from = Column(sqltypes.String)
+    local_path_from = Column(StringPath)
     """
     Local path of the item to sync. If the sync represents a move operation, this will
     be the destination path. Follows the casing from server.
@@ -419,13 +440,13 @@ class IndexEntry(Base):  # type: ignore
 
     __tablename__ = "index"
 
-    dbx_path_lower = Column(sqltypes.String, nullable=False, primary_key=True)
+    dbx_path_lower = Column(StringPath, nullable=False, primary_key=True)
     """
     Dropbox path of the item in lower case. This acts as a primary key for the SQLites
     database since there can only be one entry per case-insensitive Dropbox path.
     """
 
-    dbx_path_cased = Column(sqltypes.String, nullable=False)
+    dbx_path_cased = Column(StringPath, nullable=False)
     """Dropbox path of the item, correctly cased."""
 
     dbx_id = Column(sqltypes.String, nullable=False)
@@ -470,7 +491,7 @@ class HashCacheEntry(Base):  # type: ignore
 
     __tablename__ = "hash_cache"
 
-    local_path = Column(sqltypes.String, nullable=False, primary_key=True)
+    local_path = Column(StringPath, nullable=False, primary_key=True)
     """The local path of the item."""
 
     hash_str = Column(sqltypes.String)
