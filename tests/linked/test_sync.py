@@ -809,7 +809,9 @@ def test_excluded_folder_cleared_on_deletion(m):
     assert not m.fatal_errors
 
 
-@pytest.mark.skipif(sys.platform != "linux")
+@pytest.mark.skipif(
+    sys.platform != "linux", reason="macOS enforces utf-8 path encoding"
+)
 def test_unknown_path_encoding(m, capsys):
     """
     Tests the handling of a local path with bytes that cannot be decoded with the
