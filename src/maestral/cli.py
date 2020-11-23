@@ -10,8 +10,8 @@ import sys
 import os
 import os.path as osp
 import functools
-import textwrap
 import time
+from packaging.version import Version
 from typing import Optional, List, Dict, Iterable, Callable, Union, cast, TYPE_CHECKING
 
 # external imports
@@ -19,23 +19,14 @@ import click
 import Pyro5.errors  # type: ignore
 
 # local imports
-from . import __version__
-from .daemon import (
-    start_maestral_daemon,
-    start_maestral_daemon_process,
-    stop_maestral_daemon_process,
-    Start,
-    Stop,
-    MaestralProxy,
-    is_running,
-)
+from . import __version__, __author__, __url__
 from .config import MaestralConfig, MaestralState, list_configs
 from .utils.cli import Column, Table, Align, Elide, Grid, TextField, DateField, Field
-from .utils.housekeeping import remove_configuration, validate_config_name
 
 
 if TYPE_CHECKING:
     from .main import Maestral
+    from .daemon import MaestralProxy
 
 
 OK = click.style("[OK]", fg="green")
@@ -46,6 +37,8 @@ KILLED = click.style("[KILLED]", fg="red")
 def stop_daemon_with_cli_feedback(config_name: str) -> None:
     """Wrapper around :meth:`daemon.stop_maestral_daemon_process`
     with command line feedback."""
+
+    from .daemon import stop_maestral_daemon_process, Stop
 
     click.echo("Stopping Maestral...", nl=False)
     res = stop_maestral_daemon_process(config_name)
@@ -122,7 +115,7 @@ def select_dbx_path_dialog(
             return dropbox_path
 
 
-def link_dialog(m: Union[MaestralProxy, "Maestral"]) -> None:
+def link_dialog(m: Union["MaestralProxy", "Maestral"]) -> None:
     """
     A CLI dialog for linking a Dropbox account.
 
@@ -151,7 +144,6 @@ def check_for_updates() -> None:
     Checks if updates are available by reading the cached release number from the
     config file and notifies the user. Prints an update note to the command line.
     """
-    from packaging.version import Version
 
     conf = MaestralConfig("maestral")
     state = MaestralState("maestral")
@@ -172,7 +164,7 @@ def check_for_updates() -> None:
         )
 
 
-def check_for_fatal_errors(m: Union[MaestralProxy, "Maestral"]) -> bool:
+def check_for_fatal_errors(m: Union["MaestralProxy", "Maestral"]) -> bool:
     """
     Checks the given Maestral instance for fatal errors such as revoked Dropbox access,
     deleted Dropbox folder etc. Prints a nice representation to the command line.
@@ -180,6 +172,8 @@ def check_for_fatal_errors(m: Union[MaestralProxy, "Maestral"]) -> bool:
     :param m: Proxy to Maestral daemon or Maestral instance.
     :returns: True in case of fatal errors, False otherwise.
     """
+
+    import textwrap
 
     maestral_err_list = m.fatal_errors
 
@@ -311,6 +305,8 @@ def _validate_config_name(
     :param value: Value  of click parameter, in our case the selected config.
     """
 
+    from .utils.housekeeping import validate_config_name
+
     try:
         return validate_config_name(value)
     except ValueError:
@@ -360,8 +356,6 @@ CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 def main(version: bool):
 
     if version:
-        from . import __version__
-
         click.echo(__version__)
     else:
         check_for_updates()
@@ -464,6 +458,15 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
     # fails with an exception and does not confuse systemd.
 
     from .main import Maestral
+    from .daemon import (
+        start_maestral_daemon,
+        start_maestral_daemon_process,
+        is_running,
+        Start,
+    )
+
+    if foreground and is_running(config_name):
+        raise click.ClickException("Daemon is already running, please stop first")
 
     m = Maestral(config_name, log_to_stdout=verbose)
 
@@ -518,8 +521,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
     del m
 
     if foreground:
-        # stop daemon process after setup and restart in our current process
-        stop_maestral_daemon_process(config_name)
+        # start our current process
         start_maestral_daemon(config_name, log_to_stdout=verbose, start_sync=True)
     else:
 
@@ -604,6 +606,8 @@ def autostart(yes: bool, no: bool, config_name: str) -> None:
 @existing_config_option
 def pause(config_name: str) -> None:
 
+    from .daemon import MaestralProxy
+
     try:
         with MaestralProxy(config_name) as m:
             m.pause_sync()
@@ -615,6 +619,7 @@ def pause(config_name: str) -> None:
 @main.command(help_priority=6, help="Resumes syncing.")
 @existing_config_option
 def resume(config_name: str) -> None:
+    from .daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
@@ -632,6 +637,8 @@ def resume(config_name: str) -> None:
 @existing_config_option
 @catch_maestral_errors
 def status(config_name: str) -> None:
+
+    from .daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
@@ -683,6 +690,8 @@ Returned value will be 'uploading', 'downloading', 'up to date', 'error', or
 @existing_config_option
 def file_status(local_path: str, config_name: str) -> None:
 
+    from .daemon import MaestralProxy
+
     try:
         with MaestralProxy(config_name) as m:
 
@@ -702,8 +711,8 @@ def file_status(local_path: str, config_name: str) -> None:
 def activity(config_name: str) -> None:
 
     import curses
-    import time
     from .utils import natural_size
+    from .daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
@@ -807,6 +816,7 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 
     from datetime import datetime
     from .utils import natural_size
+    from .daemon import MaestralProxy
 
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
@@ -900,6 +910,7 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 @config_option
 @catch_maestral_errors
 def link(relink: bool, config_name: str) -> None:
+    from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
 
@@ -941,6 +952,7 @@ def unlink(config_name: str) -> None:
 @click.argument("new_path", required=False, type=click.Path(writable=True))
 @existing_config_option
 def move_dir(new_path: str, config_name: str) -> None:
+    from .daemon import MaestralProxy
 
     new_path = new_path or select_dbx_path_dialog(config_name)
 
@@ -963,6 +975,7 @@ Rebuilding may take several minutes, depending on the size of your Dropbox.
 def rebuild_index(config_name: str) -> None:
 
     import textwrap
+    from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
 
@@ -995,6 +1008,7 @@ def rebuild_index(config_name: str) -> None:
 def revs(dropbox_path: str, config_name: str) -> None:
 
     from datetime import datetime
+    from .daemon import MaestralProxy
 
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
@@ -1026,6 +1040,7 @@ def revs(dropbox_path: str, config_name: str) -> None:
 @existing_config_option
 @catch_maestral_errors
 def restore(dropbox_path: str, rev: str, config_name: str) -> None:
+    from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
         m.restore(dropbox_path, rev)
@@ -1038,6 +1053,7 @@ def restore(dropbox_path: str, rev: str, config_name: str) -> None:
 def history(config_name: str) -> None:
 
     from datetime import datetime
+    from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
         history = m.get_history()
@@ -1062,6 +1078,9 @@ def history(config_name: str) -> None:
 
 @main.command(help_priority=19, help="Lists all configured Dropbox accounts.")
 def configs() -> None:
+
+    from .daemon import is_running
+    from .utils.housekeeping import remove_configuration
 
     # clean up stale configs
     config_names = list_configs()
@@ -1096,6 +1115,7 @@ file names, depending on the error.
 @click.option("--no", "-N", is_flag=True, default=False)
 @existing_config_option
 def analytics(yes: bool, no: bool, config_name: str) -> None:
+    from .daemon import MaestralProxy
 
     if yes or no:
         with MaestralProxy(config_name, fallback=True) as m:
@@ -1114,6 +1134,7 @@ def analytics(yes: bool, no: bool, config_name: str) -> None:
 @main.command(help_priority=23, help="Shows your Dropbox account information.")
 @existing_config_option
 def account_info(config_name: str) -> None:
+    from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
 
@@ -1135,11 +1156,6 @@ def account_info(config_name: str) -> None:
 )
 def about() -> None:
 
-    import time
-    from . import __url__
-    from . import __author__
-    from . import __version__
-
     year = time.localtime().tm_year
     click.echo("")
     click.echo(f"Version:    {__version__}")
@@ -1158,6 +1174,7 @@ def about() -> None:
 )
 @existing_config_option
 def excluded_list(config_name: str) -> None:
+    from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
 
@@ -1180,6 +1197,7 @@ def excluded_list(config_name: str) -> None:
 @existing_config_option
 @catch_maestral_errors
 def excluded_add(dropbox_path: str, config_name: str) -> None:
+    from .daemon import MaestralProxy
 
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
@@ -1205,6 +1223,7 @@ def excluded_add(dropbox_path: str, config_name: str) -> None:
 @existing_config_option
 @catch_maestral_errors
 def excluded_remove(dropbox_path: str, config_name: str) -> None:
+    from .daemon import MaestralProxy
 
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
@@ -1298,6 +1317,7 @@ def log_clear(config_name: str) -> None:
 def log_level(level_name: str, config_name: str) -> None:
 
     import logging
+    from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
         if level_name:
@@ -1327,6 +1347,7 @@ def log_level(level_name: str, config_name: str) -> None:
 def notify_level(level_name: str, config_name: str) -> None:
 
     from .notify import MaestralDesktopNotifier as Notifier
+    from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
         if level_name:
@@ -1345,6 +1366,7 @@ def notify_level(level_name: str, config_name: str) -> None:
 @click.argument("minutes", type=click.IntRange(min=0))
 @existing_config_option
 def notify_snooze(minutes: int, config_name: str) -> None:
+    from .daemon import MaestralProxy
 
     try:
         with MaestralProxy(config_name) as m:
