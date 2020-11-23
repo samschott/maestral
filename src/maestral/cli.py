@@ -765,10 +765,6 @@ def file_status(local_path: str, config_name: str) -> None:
 
     try:
         with MaestralProxy(config_name) as m:
-
-            if check_for_fatal_errors(m):
-                return
-
             stat = m.get_file_status(local_path)
             click.echo(stat)
 
@@ -1275,9 +1271,6 @@ def excluded_add(dropbox_path: str, config_name: str) -> None:
         return
 
     with MaestralProxy(config_name, fallback=True) as m:
-        if check_for_fatal_errors(m):
-            return
-
         m.exclude_item(dropbox_path)
         click.echo(f"Excluded '{dropbox_path}'.")
 
@@ -1302,9 +1295,6 @@ def excluded_remove(dropbox_path: str, config_name: str) -> None:
 
     try:
         with MaestralProxy(config_name) as m:
-            if check_for_fatal_errors(m):
-                return
-
             m.include_item(dropbox_path)
             click.echo(f"Included '{dropbox_path}'. Now downloading...")
 
