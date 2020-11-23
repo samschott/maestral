@@ -52,8 +52,13 @@ MovedEvents which are not unique (their paths appear in other events) will be sp
 into Deleted and Created events by Maestral.
 """
 
+import os
+from typing import Union
+
 from watchdog.utils import platform  # type: ignore
 from watchdog.utils import UnsupportedLibc
+from watchdog.utils import unicode_paths
+
 
 if platform.is_darwin():
     from .fsevents import OrderedFSEventsObserver as Observer
@@ -66,3 +71,22 @@ else:
     from watchdog.observers import Observer  # type: ignore
 
 __all__ = ["Observer"]
+
+
+# patch encoding / decoding of paths in watchdog
+
+
+def _patched_decode(path: Union[str, bytes]) -> str:
+    if isinstance(path, bytes):
+        return os.fsdecode(path)
+    return path
+
+
+def _patched_encode(path: Union[str, bytes]) -> bytes:
+    if isinstance(path, str):
+        return os.fsencode(path)
+    return path
+
+
+unicode_paths.decode = _patched_decode
+unicode_paths.encode = _patched_encode
