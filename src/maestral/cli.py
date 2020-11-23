@@ -586,7 +586,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
                         path_lower = cast(str, e["path_lower"])
                         excluded_items.append(path_lower)
 
-            m.set_excluded_items(excluded_items)
+            m.excluded_items = excluded_items
 
     # free resources
     del m
