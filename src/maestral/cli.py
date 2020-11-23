@@ -664,13 +664,15 @@ def autostart(yes: bool, no: bool, config_name: str) -> None:
     if yes or no:
         if yes:
             auto_start.enable()
+            click.echo("Enabled start on login.")
         else:
             auto_start.disable()
-        enabled_str = "Enabled" if yes else "Disabled"
-        click.echo(f"{enabled_str} start on login.")
+            click.echo("Disabled start on login.")
     else:
-        enabled_str = "enabled" if auto_start.enabled else "disabled"
-        click.echo(f"Autostart is currently {enabled_str}. Use -Y | -N to change.")
+        if auto_start.enabled:
+            click.echo("Autostart is enabled. Use -N to disable.")
+        else:
+            click.echo("Autostart is disabled. Use -Y to enable.")
 
 
 @main.command(help_priority=5, help="Pause syncing.")
@@ -1187,14 +1189,16 @@ def analytics(yes: bool, no: bool, config_name: str) -> None:
         with MaestralProxy(config_name, fallback=True) as m:
             m.analytics = yes
 
-        enabled_str = "Enabled" if yes else "Disabled"
-        click.echo(f"{enabled_str} automatic error reports.")
+        status_str = "Enabled" if yes else "Disabled"
+        click.echo(f"{status_str} automatic error reports.")
     else:
         with MaestralProxy(config_name, fallback=True) as m:
-            state = m.analytics
+            enabled = m.analytics
 
-        enabled_str = "enabled" if state else "disabled"
-        click.echo(f"Automatic error reports are {enabled_str}.")
+        if enabled:
+            click.echo("Analytics are enabled. Use -N to disable")
+        else:
+            click.echo("Analytics are disabled. Use -Y to enable")
 
 
 @main.command(help_priority=23, help="Show linked Dropbox account information.")
