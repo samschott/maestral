@@ -10,17 +10,10 @@ import shutil
 import time
 import warnings
 import logging.handlers
-from collections import deque
 import asyncio
 import random
-from concurrent.futures import ThreadPoolExecutor, Future, wait
-from typing import Union, List, Iterator, Dict, Set, Deque, Awaitable, Optional, Any
-
-try:
-    from concurrent.futures import InvalidStateError  # type: ignore
-except ImportError:
-    # Python 3.7 and lower
-    InvalidStateError = RuntimeError  # type: ignore
+from concurrent.futures import ThreadPoolExecutor
+from typing import Union, List, Iterator, Dict, Set, Awaitable, Optional, Any
 
 # external imports
 import requests
@@ -28,7 +21,6 @@ from watchdog.events import DirDeletedEvent, FileDeletedEvent  # type: ignore
 import bugsnag  # type: ignore
 from bugsnag.handlers import BugsnagHandler  # type: ignore
 from packaging.version import Version
-import sdnotify  # type: ignore
 
 try:
     from systemd import journal  # type: ignore
@@ -47,6 +39,7 @@ from .errors import (
 )
 from .config import MaestralConfig, MaestralState
 from .notify import MaestralDesktopNotificationHandler
+from .logging import CachedHandler, SdNotificationHandler, safe_journal_sender
 from .utils import get_newer_version
 from .utils.housekeeping import validate_config_name
 from .utils.path import (
@@ -63,23 +56,15 @@ from .utils.serializer import (
     ErrorType,
 )
 from .utils.appdirs import get_log_path, get_cache_path, get_data_path
-from .constants import (
-    BUGSNAG_API_KEY,
-    IDLE,
-    FileStatus,
-    GITHUB_RELEASES_API,
-)
+from .constants import BUGSNAG_API_KEY, IDLE, FileStatus, GITHUB_RELEASES_API
 
 
 __all__ = [
-    "CachedHandler",
-    "SdNotificationHandler",
     "Maestral",
 ]
 
 
 logger = logging.getLogger(__name__)
-sd_notifier = sdnotify.SystemdNotifier()
 
 
 # set up error reporting but do not activate
@@ -105,86 +90,6 @@ bugsnag.before_notify(bugsnag_global_callback)
 
 
 # custom logging handlers
-
-
-class CachedHandler(logging.Handler):
-    """Handler which stores past records
-
-    This is used to populate Maestral's status and error interfaces.
-
-    :param level: Initial log level. Defaults to NOTSET.
-    :param maxlen: Maximum number of records to store. If ``None``, all records will be
-        stored. Defaults to ``None``.
-    """
-
-    cached_records: Deque[logging.LogRecord]
-    _emit_future: Future
-
-    def __init__(
-        self, level: int = logging.NOTSET, maxlen: Optional[int] = None
-    ) -> None:
-        logging.Handler.__init__(self, level=level)
-        self.cached_records = deque([], maxlen)
-        self._emit_future = Future()
-
-    def emit(self, record: logging.LogRecord) -> None:
-        """
-        Logs the specified log record and saves it to the cache.
-
-        :param record: Log record.
-        """
-        self.format(record)
-        self.cached_records.append(record)
-
-        # notify any waiting coroutines that we have a status change
-        try:
-            self._emit_future.set_result(True)
-        except InvalidStateError:
-            pass
-
-    def wait_for_emit(self, timeout: Optional[float]) -> bool:
-        """
-        Blocks until a new record is emitted.
-
-        :param timeout: Maximum time to block before returning.
-        :returns: ``True``if there was a status change, ``False`` in case of a timeout.
-        """
-        done, not_done = wait([self._emit_future], timeout=timeout)
-        self._emit_future = Future()  # reset future
-        return len(done) == 1
-
-    def getLastMessage(self) -> str:
-        """
-        :returns: The log message of the last record or an empty string.
-        """
-        try:
-            return self.cached_records[-1].message
-        except IndexError:
-            return ""
-
-    def getAllMessages(self) -> List[str]:
-        """
-        :returns: A list of all record messages.
-        """
-        return [r.message for r in self.cached_records]
-
-    def clear(self) -> None:
-        """
-        Clears all cached records.
-        """
-        self.cached_records.clear()
-
-
-class SdNotificationHandler(logging.Handler):
-    """Handler which emits messages as systemd notifications."""
-
-    def emit(self, record: logging.LogRecord) -> None:
-        """
-        Sends the record massage to systemd as service status.
-
-        :param record: Log record.
-        """
-        sd_notifier.notify(f"STATUS={record.message}")
 
 
 # ======================================================================================
@@ -343,7 +248,7 @@ class Maestral:
         self._logger.setLevel(logging.DEBUG)
 
         # clean up any previous handlers
-        # TODO: use namespaced handlers for config
+        # TODO: use namespaced handlers for config?
         self._logger.handlers = []
 
         log_fmt_long = logging.Formatter(
@@ -353,9 +258,11 @@ class Maestral:
         log_fmt_short = logging.Formatter(fmt="%(message)s")
 
         # log to file
-        rfh_log_file = get_log_path("maestral", self._config_name + ".log")
+        log_file_path = get_log_path("maestral", self._config_name + ".log")
         self.log_handler_file = logging.handlers.RotatingFileHandler(
-            rfh_log_file, maxBytes=10 ** 7, backupCount=1
+            log_file_path,
+            maxBytes=10 ** 7,
+            backupCount=1,
         )
         self.log_handler_file.setFormatter(log_fmt_long)
         self.log_handler_file.setLevel(self.log_level)
@@ -365,7 +272,7 @@ class Maestral:
         if journal and os.getenv("INVOCATION_ID"):
             # noinspection PyUnresolvedReferences
             self.log_handler_journal = journal.JournalHandler(
-                SYSLOG_IDENTIFIER="maestral"
+                SYSLOG_IDENTIFIER="maestral", sender_function=safe_journal_sender
             )
             self.log_handler_journal.setFormatter(log_fmt_short)
             self.log_handler_journal.setLevel(self.log_level)
