@@ -859,7 +859,7 @@ def test_unknown_path_encoding(m, capsys):
     # This requires that `SyncEngine.upload_local_changes_while_inactive` can handle
     # strings with surrogate escapes all they way to `SyncEngine._on_local_deleted`.
 
-    m.client.remove(test_path_dbx)
+    delete(test_path_local_bytes)  # type: ignore
     wait_for_idle(m)
 
     assert len(m.fatal_errors) == 0
