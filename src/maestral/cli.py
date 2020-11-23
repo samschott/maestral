@@ -321,7 +321,7 @@ existing_config_option = click.option(
     expose_value=True,
     metavar="NAME",
     callback=_check_config_exists,
-    help="Select an existing configuration for the command.",
+    help="Select an existing config for the command.",
 )
 
 config_option = click.option(
@@ -332,7 +332,7 @@ config_option = click.option(
     expose_value=True,
     metavar="NAME",
     callback=_validate_config_name,
-    help="Run Maestral with the given configuration name.",
+    help="Run command with the given config name.",
 )
 
 
@@ -385,7 +385,7 @@ def log():
 # ======================================================================================
 
 
-@main.command(help_priority=0, help="Runs Maestral with a GUI.")
+@main.command(help_priority=0, help="Run the GUI if installed.")
 @config_option
 def gui(config_name: str) -> None:
 
@@ -434,7 +434,7 @@ def gui(config_name: str) -> None:
     run(config_name)
 
 
-@main.command(help_priority=1, help="Starts the sync daemon.")
+@main.command(help_priority=1, help="Start the sync daemon.")
 @click.option(
     "--foreground",
     "-f",
@@ -539,13 +539,13 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
             click.echo("Please check logs for more information.")
 
 
-@main.command(help_priority=2, help="Stops the sync daemon.")
+@main.command(help_priority=2, help="Stop the sync daemon.")
 @existing_config_option
 def stop(config_name: str) -> None:
     stop_daemon_with_cli_feedback(config_name)
 
 
-@main.command(help_priority=3, help="Restarts the sync daemon.")
+@main.command(help_priority=3, help="Restart the sync daemon.")
 @click.option(
     "--foreground",
     "-f",
@@ -566,7 +566,7 @@ def restart(ctx, foreground: bool, verbose: bool, config_name: str) -> None:
 @main.command(
     help_priority=4,
     help="""
-Automatically start the maestral daemon on log-in.
+Automatically start the sync daemon on login.
 
 A systemd or launchd service will be created to start a sync daemon for the given
 configuration on user login.
@@ -597,10 +597,10 @@ def autostart(yes: bool, no: bool, config_name: str) -> None:
         click.echo(f"{enabled_str} start on login.")
     else:
         enabled_str = "enabled" if auto_start.enabled else "disabled"
-        click.echo(f"Autostart is currently {enabled_str}.")
+        click.echo(f"Autostart is currently {enabled_str}. Use -Y | -N to change.")
 
 
-@main.command(help_priority=5, help="Pauses syncing.")
+@main.command(help_priority=5, help="Pause syncing.")
 @existing_config_option
 def pause(config_name: str) -> None:
 
@@ -614,7 +614,7 @@ def pause(config_name: str) -> None:
         click.echo("Maestral daemon is not running.")
 
 
-@main.command(help_priority=6, help="Resumes syncing.")
+@main.command(help_priority=6, help="Resume syncing.")
 @existing_config_option
 def resume(config_name: str) -> None:
     from .daemon import MaestralProxy
@@ -629,7 +629,7 @@ def resume(config_name: str) -> None:
         click.echo("Maestral daemon is not running.")
 
 
-@main.command(help_priority=7, help="Returns the status of the sync daemon.")
+@main.command(help_priority=7, help="Show the status of the daemon.")
 @existing_config_option
 @catch_maestral_errors
 def status(config_name: str) -> None:
@@ -675,7 +675,7 @@ def status(config_name: str) -> None:
 @main.command(
     help_priority=8,
     help="""
-Returns the current sync status of a given file or folder.
+Show the sync status of a file or folder.
 
 Returned value will be 'uploading', 'downloading', 'up to date', 'error', or
 'unwatched' (for files outside of the Dropbox directory). This will always be
@@ -790,7 +790,7 @@ def activity(config_name: str) -> None:
         click.echo("Maestral daemon is not running.")
 
 
-@main.command(help_priority=10, help="Lists contents of a Dropbox directory.")
+@main.command(help_priority=10, help="List contents of a Dropbox directory.")
 @click.argument("dropbox_path", type=click.Path(), default="")
 @click.option(
     "-l",
@@ -895,7 +895,7 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
             grid.echo()
 
 
-@main.command(help_priority=11, help="Links Maestral with your Dropbox account.")
+@main.command(help_priority=11, help="Link with a Dropbox account.")
 @click.option(
     "-r",
     "relink",
@@ -942,9 +942,7 @@ def unlink(config_name: str) -> None:
         click.echo("Unlinked Maestral.")
 
 
-@main.command(
-    help_priority=13, help="Change the location of your local Dropbox folder."
-)
+@main.command(help_priority=13, help="Change the location of the local Dropbox folder.")
 @click.argument("new_path", required=False, type=click.Path(writable=True))
 @existing_config_option
 def move_dir(new_path: str, config_name: str) -> None:
@@ -961,7 +959,7 @@ def move_dir(new_path: str, config_name: str) -> None:
 @main.command(
     help_priority=15,
     help="""
-Rebuilds the sync index.
+Rebuild the sync index.
 
 Rebuilding may take several minutes, depending on the size of your Dropbox.
 """,
@@ -997,7 +995,7 @@ def rebuild_index(config_name: str) -> None:
             click.echo("Daemon is not running. Rebuilding scheduled for next startup.")
 
 
-@main.command(help_priority=16, help="Lists old revisions of a file.")
+@main.command(help_priority=16, help="List old file revisions.")
 @click.argument("dropbox_path", type=click.Path())
 @existing_config_option
 @catch_maestral_errors
@@ -1028,9 +1026,7 @@ def revs(dropbox_path: str, config_name: str) -> None:
     click.echo("")
 
 
-@main.command(
-    help_priority=17, help="Restores an old revision of a file to the given path."
-)
+@main.command(help_priority=17, help="Restore an old file revision.")
 @click.argument("dropbox_path", type=click.Path())
 @click.argument("rev")
 @existing_config_option
@@ -1044,7 +1040,7 @@ def restore(dropbox_path: str, rev: str, config_name: str) -> None:
     click.echo(f'Restored {rev} to "{dropbox_path}"')
 
 
-@main.command(help_priority=18, help="Shows a list of recently changed or added files.")
+@main.command(help_priority=18, help="Show recently changed or added files.")
 @existing_config_option
 def history(config_name: str) -> None:
 
@@ -1072,7 +1068,7 @@ def history(config_name: str) -> None:
     click.echo("")
 
 
-@main.command(help_priority=19, help="Lists all configured Dropbox accounts.")
+@main.command(help_priority=19, help="List all configured Dropbox accounts.")
 def configs() -> None:
 
     from .daemon import is_running
@@ -1100,7 +1096,7 @@ def configs() -> None:
 @main.command(
     help_priority=21,
     help="""
-Enables or disables sharing of error reports.
+Enable or disables sharing of error reports.
 
 Sharing is disabled by default. If enabled, error reports are shared with bugsnag and no
 personal information will typically be collected. Shared tracebacks may however include
@@ -1127,7 +1123,7 @@ def analytics(yes: bool, no: bool, config_name: str) -> None:
         click.echo(f"Automatic error reports are {enabled_str}.")
 
 
-@main.command(help_priority=23, help="Shows your Dropbox account information.")
+@main.command(help_priority=23, help="Show linked Dropbox account information.")
 @existing_config_option
 def account_info(config_name: str) -> None:
     from .daemon import MaestralProxy
@@ -1147,9 +1143,7 @@ def account_info(config_name: str) -> None:
     click.echo("")
 
 
-@main.command(
-    help_priority=24, help="Returns the version number and other information."
-)
+@main.command(help_priority=24, help="Return the version number and other information.")
 def about() -> None:
 
     year = time.localtime().tm_year
@@ -1166,7 +1160,7 @@ def about() -> None:
 
 
 @excluded.command(
-    name="list", help_priority=0, help="Lists all excluded files and folders."
+    name="list", help_priority=0, help="List all excluded files and folders."
 )
 @existing_config_option
 def excluded_list(config_name: str) -> None:
@@ -1187,7 +1181,7 @@ def excluded_list(config_name: str) -> None:
 @excluded.command(
     name="add",
     help_priority=1,
-    help="Adds a file or folder to the excluded list and re-syncs.",
+    help="Add a file or folder to the excluded list and re-sync.",
 )
 @click.argument("dropbox_path", type=click.Path())
 @existing_config_option
@@ -1213,7 +1207,7 @@ def excluded_add(dropbox_path: str, config_name: str) -> None:
 @excluded.command(
     name="remove",
     help_priority=2,
-    help="Removes a file or folder from the excluded list and re-syncs.",
+    help="Remove a file or folder from the excluded list and re-sync.",
 )
 @click.argument("dropbox_path", type=click.Path())
 @existing_config_option
@@ -1245,9 +1239,7 @@ def excluded_remove(dropbox_path: str, config_name: str) -> None:
 # ======================================================================================
 
 
-@log.command(
-    name="show", help_priority=0, help="Prints Maestral's logs to the console."
-)
+@log.command(name="show", help_priority=0, help="Print logs to the console.")
 @click.option(
     "--external", "-e", is_flag=True, default=False, help="Open in external program."
 )
@@ -1274,7 +1266,7 @@ def log_show(external: bool, config_name: str) -> None:
         raise click.ClickException(f"Could not open log file at '{log_file}'")
 
 
-@log.command(name="clear", help_priority=1, help="Clears the log files.")
+@log.command(name="clear", help_priority=1, help="Clear the log files.")
 @existing_config_option
 def log_clear(config_name: str) -> None:
 
@@ -1301,7 +1293,7 @@ def log_clear(config_name: str) -> None:
         )
 
 
-@log.command(name="level", help_priority=2, help="Gets or sets the log level.")
+@log.command(name="level", help_priority=2, help="Get or set the log level.")
 @click.argument(
     "level_name",
     required=False,
@@ -1330,7 +1322,7 @@ def log_level(level_name: str, config_name: str) -> None:
 @notify.command(
     name="level",
     help_priority=0,
-    help="Gets or sets the level for desktop notifications.",
+    help="Get or sets the level for desktop notifications.",
 )
 @click.argument(
     "level_name",
@@ -1355,7 +1347,7 @@ def notify_level(level_name: str, config_name: str) -> None:
 @notify.command(
     name="snooze",
     help_priority=1,
-    help="Snoozes desktop notifications of file changes.",
+    help="Snooze desktop notifications of file changes.",
 )
 @click.argument("minutes", type=click.IntRange(min=0))
 @existing_config_option
