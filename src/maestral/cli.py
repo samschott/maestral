@@ -800,10 +800,7 @@ def activity(config_name: str) -> None:
                     n_errors = len(m.sync_errors)
 
                     # create header
-                    lines = [
-                        f"Status: {status}, Sync errors: {n_errors}",
-                        "",
-                    ]
+                    lines = [f"Status: {status}, Sync errors: {n_errors}", ""]
 
                     # create table
 
@@ -1221,6 +1218,7 @@ def account_info(config_name: str) -> None:
 def about() -> None:
 
     year = time.localtime().tm_year
+
     click.echo("")
     click.echo(f"Version:    {__version__}")
     click.echo(f"Website:    {__url__}")
