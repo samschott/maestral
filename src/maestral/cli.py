@@ -11,7 +11,6 @@ import os
 import os.path as osp
 import functools
 import time
-from packaging.version import Version
 from typing import Optional, List, Dict, Iterable, Callable, Union, cast, TYPE_CHECKING
 
 # external imports
@@ -20,7 +19,6 @@ import Pyro5.errors  # type: ignore
 
 # local imports
 from . import __version__, __author__, __url__
-from .config import MaestralConfig, MaestralState, list_configs
 from .utils.cli import Column, Table, Align, Elide, Grid, TextField, DateField, Field
 
 
@@ -32,6 +30,11 @@ if TYPE_CHECKING:
 OK = click.style("[OK]", fg="green")
 FAILED = click.style("[FAILED]", fg="red")
 KILLED = click.style("[KILLED]", fg="red")
+
+
+# ======================================================================================
+# CLI dialogs and helper functions
+# ======================================================================================
 
 
 def stop_daemon_with_cli_feedback(config_name: str) -> None:
@@ -139,31 +142,6 @@ def link_dialog(m: Union["MaestralProxy", "Maestral"]) -> None:
             click.secho("Could not connect to Dropbox. Please try again.", fg="red")
 
 
-def check_for_updates() -> None:
-    """
-    Checks if updates are available by reading the cached release number from the
-    config file and notifies the user. Prints an update note to the command line.
-    """
-
-    conf = MaestralConfig("maestral")
-    state = MaestralState("maestral")
-
-    interval = conf.get("app", "update_notification_interval")
-    last_update_check = state.get("app", "update_notification_last")
-    latest_release = state.get("app", "latest_release")
-
-    if interval == 0 or time.time() - last_update_check < interval:
-        return
-
-    has_update = Version(__version__) < Version(latest_release)
-
-    if has_update:
-        click.echo(
-            f"Maestral v{latest_release} has been released, you have v{__version__}. "
-            f"Please use your package manager to update."
-        )
-
-
 def check_for_fatal_errors(m: Union["MaestralProxy", "Maestral"]) -> bool:
     """
     Checks the given Maestral instance for fatal errors such as revoked Dropbox access,
@@ -218,14 +196,154 @@ def catch_maestral_errors(func: Callable) -> Callable:
 
 
 # ======================================================================================
+# Custom parameter types
+# ======================================================================================
+
+# A custom parameter:
+# * needs a name
+# * needs to pass through None unchanged
+# * needs to convert from a string
+# * needs to convert its result type through unchanged (eg: needs to be idempotent)
+# * needs to be able to deal with param and context being None. This can be the case
+#   when the object is used with prompt inputs.
+
+
+class DropboxPath(click.ParamType):
+    """A command line parameter representing a Dropbox path
+
+    :param file_okay: Controls if a file is a possible value.
+    :param dir_okay: Controls if a directory is a possible value.
+    """
+
+    name = "Dropbox path"
+    envvar_list_splitter = osp.pathsep
+
+    def __init__(self, file_okay: bool = True, dir_okay: bool = True) -> None:
+        self.file_okay = file_okay
+        self.dir_okay = dir_okay
+
+    #
+    # def shell_complete(
+    #     self,
+    #     ctx: Optional[click.Context],
+    #     param: Optional[click.Parameter],
+    #     incomplete: str,
+    # ) -> List["CompletionItem"]:
+    #
+    #     from click.shell_completion import CompletionItem
+    #     from .utils import removeprefix
+    #
+    #     matches: List[str] = []
+    #
+    #     # check if we have been given an absolute path
+    #     incomplete = incomplete.lstrip("/")
+    #
+    #     # get the Maestral config for which to complete paths
+    #     try:
+    #         config_name = ctx.params["config_name"]
+    #     except (KeyError, AttributeError):
+    #         # attribute error occurs when ctx = None
+    #         config_name = "maestral"
+    #
+    #     # get all matching paths in our local Dropbox folder
+    #     # TODO: query from server if not too slow
+    #
+    #     config = MaestralConfig(config_name)
+    #     dropbox_dir = config.get("main", "path")
+    #     local_incomplete = osp.join(dropbox_dir, incomplete)
+    #     local_dirname = osp.dirname(local_incomplete)
+    #
+    #     if osp.isdir(local_dirname):
+    #
+    #         with os.scandir(local_dirname) as it:
+    #             for entry in it:
+    #                 if entry.path.startswith(local_incomplete):
+    #                     if entry.is_dir() and self.dir_okay:
+    #                         dbx_path = removeprefix(entry.path, dropbox_dir)
+    #                         matches.append(dbx_path + "/")
+    #                     elif entry.is_file() and self.file_okay:
+    #                         dbx_path = removeprefix(entry.path, dropbox_dir)
+    #                         matches.append(dbx_path)
+    #
+    #     # get all matching excluded items
+    #
+    #     for dbx_path in config.get("main", "excluded_items"):
+    #         if dbx_path.startswith("/" + incomplete):
+    #             matches.append(dbx_path)
+    #
+    #     return [CompletionItem(m.lstrip("/")) for m in matches]
+
+
+class ConfigName(click.ParamType):
+    """ "A command line parameter representing a Dropbox path
+
+    :param existing: If ``True`` require an existing config, otherwise create a new
+        config on demand.
+    """
+
+    name = "config"
+
+    def __init__(self, existing: bool = True) -> None:
+        self.existing = existing
+
+    def convert(
+        self,
+        value: Optional[str],
+        param: Optional[click.Parameter],
+        ctx: Optional[click.Context],
+    ) -> Optional[str]:
+
+        if value is None:
+            return value
+
+        if not self.existing:
+            from .utils.housekeeping import validate_config_name
+
+            # accept all valid config names
+            try:
+                return validate_config_name(value)
+            except ValueError:
+                self.fail(
+                    "Configuration name may not contain any whitespace",
+                    param,
+                    ctx,
+                )
+
+        else:
+
+            from .config import list_configs
+
+            # accept only existing config names
+            if value in list_configs():
+                return value
+            else:
+                self.fail(
+                    f"Configuration '{value}' does not exist. You can list all "
+                    f"existing configurations with 'maestral configs'.",
+                    param,
+                    ctx,
+                )
+
+    #
+    # def shell_complete(
+    #     self,
+    #     ctx: Optional[click.Context],
+    #     param: Optional[click.Parameter],
+    #     incomplete: str,
+    # ) -> List["CompletionItem"]:
+    #
+    #     matches = [conf for conf in list_configs() if conf.startswith(incomplete)]
+    #     return [CompletionItem(m) for m in matches]
+    #
+
+
+# ======================================================================================
 # Command groups
 # ======================================================================================
 
 
 class SpecialHelpOrder(click.Group):
-    """
-    Click command group with customizable order of help output.
-    """
+    """Click command group with customizable order of help output."""
 
     def __init__(self, *args, **kwargs) -> None:
         self.help_priorities: Dict[str, int] = {}
@@ -274,74 +392,9 @@ class SpecialHelpOrder(click.Group):
         return decorator
 
 
-def _check_config_exists(ctx: click.Context, param: click.Parameter, value: str) -> str:
-    """
-    Checks if the selected config name, passed as :param:`value`, is valid.
-
-    :param ctx: Click context to be passed to command.
-    :param param: Name of click parameter, in our case 'config_name'.
-    :param value: Value  of click parameter, in our case the selected config.
-    """
-
-    # check if valid config
-    if value not in list_configs() and not value == "maestral":
-        raise click.ClickException(
-            f"Configuration '{value}' does not exist. You can "
-            f"list all existing configurations with "
-            f"'maestral configs'."
-        )
-
-    return value
-
-
-def _validate_config_name(
-    ctx: click.Context, param: click.Parameter, value: str
-) -> str:
-    """
-    Checks if the selected config name, passed as :param:`value`, is valid.
-
-    :param ctx: Click context to be passed to command.
-    :param param: Name of click parameter, in our case 'config_name'.
-    :param value: Value  of click parameter, in our case the selected config.
-    """
-
-    from .utils.housekeeping import validate_config_name
-
-    try:
-        return validate_config_name(value)
-    except ValueError:
-        raise click.ClickException("Configuration name may not contain any whitespace")
-
-
-existing_config_option = click.option(
-    "-c",
-    "--config-name",
-    default="maestral",
-    is_eager=True,
-    expose_value=True,
-    metavar="NAME",
-    callback=_check_config_exists,
-    help="Select an existing config for the command.",
-)
-
-config_option = click.option(
-    "-c",
-    "--config-name",
-    default="maestral",
-    is_eager=True,
-    expose_value=True,
-    metavar="NAME",
-    callback=_validate_config_name,
-    help="Run command with the given config name.",
-)
-
-
-CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
-
-
 @click.group(
     cls=SpecialHelpOrder,
-    context_settings=CONTEXT_SETTINGS,
+    context_settings={"help_option_names": ["-h", "--help"]},
     invoke_without_command=True,
     no_args_is_help=True,
     help="Maestral Dropbox client for Linux and macOS.",
@@ -357,8 +410,6 @@ def main(version: bool):
 
     if version:
         click.echo(__version__)
-    else:
-        check_for_updates()
 
 
 @main.group(
@@ -383,6 +434,26 @@ def log():
 # ======================================================================================
 # Main commands
 # ======================================================================================
+
+config_option = click.option(
+    "-c",
+    "--config-name",
+    default="maestral",
+    type=ConfigName(existing=False),
+    is_eager=True,
+    expose_value=True,
+    help="Run command with the given configuration.",
+)
+
+existing_config_option = click.option(
+    "-c",
+    "--config-name",
+    default="maestral",
+    type=ConfigName(),
+    is_eager=True,
+    expose_value=True,
+    help="Run command with the given configuration.",
+)
 
 
 @main.command(help_priority=0, help="Run the GUI if installed.")
@@ -463,8 +534,8 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
         Start,
     )
 
-    if foreground and is_running(config_name):
-        raise click.ClickException("Daemon is already running, please stop first")
+    if is_running(config_name):
+        raise click.ClickException("Daemon is already running.")
 
     m = Maestral(config_name, log_to_stdout=verbose)
 
@@ -551,7 +622,7 @@ def stop(config_name: str) -> None:
     "-f",
     is_flag=True,
     default=False,
-    help="Starts Maestral in the foreground.",
+    help="Start the sync daemon in the foreground.",
 )
 @click.option(
     "--verbose", "-v", is_flag=True, default=False, help="Print log messages to stdout."
@@ -804,7 +875,7 @@ def activity(config_name: str) -> None:
     "--include-deleted",
     is_flag=True,
     default=False,
-    help="Include deleted items in listing. This can be slow.",
+    help="Include deleted items in listing.",
 )
 @existing_config_option
 @catch_maestral_errors
@@ -1072,6 +1143,7 @@ def history(config_name: str) -> None:
 def configs() -> None:
 
     from .daemon import is_running
+    from .config import MaestralConfig, MaestralState, list_configs
     from .utils.housekeeping import remove_configuration
 
     # clean up stale configs
@@ -1322,7 +1394,7 @@ def log_level(level_name: str, config_name: str) -> None:
 @notify.command(
     name="level",
     help_priority=0,
-    help="Get or sets the level for desktop notifications.",
+    help="Get or set the level for desktop notifications.",
 )
 @click.argument(
     "level_name",
