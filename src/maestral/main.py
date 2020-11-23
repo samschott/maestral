@@ -382,9 +382,9 @@ class Maestral:
         else:
             self.log_handler_sd = None
 
-        # log to stdout (disabled by default)
+        # log to stderr (disabled by default)
         level = self.log_level if self._log_to_stdout else 100
-        self.log_handler_stream = logging.StreamHandler(sys.stdout)
+        self.log_handler_stream = logging.StreamHandler(sys.stderr)
         self.log_handler_stream.setFormatter(log_fmt_long)
         self.log_handler_stream.setLevel(level)
         self._logger.addHandler(self.log_handler_stream)
