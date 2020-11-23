@@ -51,6 +51,8 @@ def stop_daemon_with_cli_feedback(config_name: str) -> None:
         click.echo("Maestral daemon is not running.")
     elif res == Stop.Killed:
         click.echo("\rStopping Maestral...        " + KILLED)
+    elif res == Stop.Failed:
+        click.echo("\rStopping Maestral...        " + FAILED)
 
 
 def select_dbx_path_dialog(
