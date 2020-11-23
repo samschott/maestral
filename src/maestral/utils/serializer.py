@@ -15,6 +15,7 @@ from dropbox.stone_serializers import json_encode  # type: ignore
 from dropbox.stone_validators import Struct  # type: ignore
 
 # local imports
+from . import sanitize_string
 from ..sync import SyncEvent
 
 if TYPE_CHECKING:
@@ -47,7 +48,7 @@ def error_to_dict(err: Exception) -> ErrorType:
         'traceback', 'title', and 'message'.
     """
 
-    err_dict: ErrorType = dict(
+    serialized: ErrorType = dict(
         type=err.__class__.__name__,
         inherits=[base.__name__ for base in err.__class__.__bases__],
         traceback="".join(
@@ -59,11 +60,13 @@ def error_to_dict(err: Exception) -> ErrorType:
     for key, value in err.__dict__.items():
 
         if value is None:
-            err_dict[key] = value
+            serialized[key] = value
+        elif isinstance(value, str):
+            serialized[key] = sanitize_string(value)
         else:
-            err_dict[key] = str(value)
+            serialized[key] = str(value)
 
-    return err_dict
+    return serialized
 
 
 def sync_event_to_dict(event: SyncEvent) -> StoneType:
@@ -74,18 +77,22 @@ def sync_event_to_dict(event: SyncEvent) -> StoneType:
     :param event: SyncEvent to convert.
     :returns: Serialized SyncEvent.
     """
+
+    attributes = [x for x in dir(event) if not x.startswith("_") and x != "metadata"]
+
     serialized = dict()
+    keep_types = (int, float, type(None))
 
-    for field in [x for x in dir(event) if not x.startswith("_") and x != "metadata"]:
-        data = event.__getattribute__(field)
-        if isinstance(data, Enum):
-            new_data = data.value
-        else:
-            new_data = data
+    for attr_name in attributes:
+        value = getattr(event, attr_name)
 
-        if isinstance(new_data, (str, int, float)) or new_data is None:
-            serialized[field] = new_data
+        if isinstance(value, Enum):
+            serialized[attr_name] = value.value
+        elif isinstance(value, str):
+            serialized[attr_name] = sanitize_string(value)
+        elif isinstance(value, keep_types):
+            serialized[attr_name] = value
         else:
-            serialized[field] = str(new_data)
+            serialized[attr_name] = str(value)
 
     return serialized
