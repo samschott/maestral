@@ -107,9 +107,9 @@ def sanitize_string(string: str) -> str:
     """
     Converts a string provided by file system APIs, which may contain surrogate escapes
     for bytes with unknown encoding, to a string which can always be displayed or
-    printed. This is done by replacing invalid characters with "?".
+    printed. This is done by replacing invalid characters with "�".
 
     :param string: Original string.
-    :returns: Sanitised path where all surrogate escapes have been replaced with "?".
+    :returns: Sanitised path where all surrogate escapes have been replaced with "�".
     """
     return os.fsencode(string).decode(errors="replace")
