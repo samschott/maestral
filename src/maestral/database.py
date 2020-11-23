@@ -159,7 +159,7 @@ class SyncEvent(Base):  # type: ignore
     local_path = Column(StringPath, nullable=False)
     """
     Local path of the item to sync. If the sync represents a move operation, this will
-    be the destination path. Follows the casing from server.
+    be the destination path. This will be correctly cased.
     """
 
     dbx_path_from = Column(StringPath)
@@ -170,8 +170,8 @@ class SyncEvent(Base):  # type: ignore
 
     local_path_from = Column(StringPath)
     """
-    Local path of the item to sync. If the sync represents a move operation, this will
-    be the destination path. Follows the casing from server.
+    Local path that this item was moved from. Will only be set if :attr:`change_type`
+    is :attr:`ChangeType.Moved`. This will be correctly cased.
     """
 
     rev = Column(sqltypes.String)
