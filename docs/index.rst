@@ -12,6 +12,7 @@ refer to the `wiki <https://github.com/SamSchott/maestral-dropbox/wiki>`_.
    :maxdepth: 1
 
    sync_logic
+   logging
    config_files
    state_files
    API Reference <autoapi/maestral/index>

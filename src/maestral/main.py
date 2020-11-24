@@ -88,9 +88,6 @@ def bugsnag_global_callback(notification):
 bugsnag.before_notify(bugsnag_global_callback)
 
 
-# custom logging handlers
-
-
 # ======================================================================================
 # Main API
 # ======================================================================================

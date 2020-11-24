@@ -1,0 +1,5 @@
+﻿Level,Typical messages
+DEBUG,"Individual sync progress, conflict resolution, daemon startup and environment info"
+INFO,"Cumulative sync progress, sync errors that require user resolution (e.g., insufficient space)"
+WARNING,"Failure to initialise non-critical functionality (e.g., desktop notifications, sytem keyring)"
+ERROR,"Errors that prevent all syncing (revoked access token, deleted folder, etc)"
