@@ -25,7 +25,7 @@ install_requires = [
     "setuptools",
     "stone>=3.2.0",
     "sqlalchemy>=1.3,<1.4",
-	"survey>2.0.6",
+    "survey>=2.0.6",
     "watchdog>=0.10.0,<=0.10.3",
 ]
 

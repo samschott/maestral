@@ -2,11 +2,25 @@
 """Module to print neatly formatted tables and grids to the terminal."""
 
 import enum
-import textwrap
-from datetime import datetime
-from typing import Optional, List, Union, Iterator, Sequence, Any
+from typing import (
+    Optional,
+    List,
+    Union,
+    Iterator,
+    Sequence,
+    Any,
+    Callable,
+    TYPE_CHECKING,
+)
 
 import click
+import survey
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+
+# ==== enums ===========================================================================
 
 
 class Align(enum.Enum):
@@ -22,6 +36,18 @@ class Elide(enum.Enum):
     Leading = 0
     Center = 1
     Trailing = 2
+
+
+class Prefix(enum.Enum):
+    """Prefix for command line output"""
+
+    Info = 0
+    Ok = 1
+    Warn = 2
+    NONE = 3
+
+
+# ==== text adjustment helpers =========================================================
 
 
 def elide(
@@ -72,6 +98,9 @@ def adjust(text: str, width: int, align: Align = Align.Left) -> str:
             return " " * needed + text
     else:
         return text
+
+
+# ==== printing structured data to console =============================================
 
 
 class Field:
@@ -127,6 +156,8 @@ class TextField(Field):
 
     def format(self, width: int) -> List[str]:
 
+        import textwrap
+
         if self.wraps:
             lines = textwrap.wrap(self.text, width=width)
         else:
@@ -152,7 +183,7 @@ class DateField(Field):
     :param style: Styling passed on to :meth:`click.style` when styling the text.
     """
 
-    def __init__(self, dt: datetime, **style) -> None:
+    def __init__(self, dt: "datetime", **style) -> None:
         self.dt = dt
         self.style = style
 
@@ -243,6 +274,9 @@ class Column:
         return len(self.fields)
 
     def _to_field(self, field: Any) -> Field:
+
+        from datetime import datetime
+
         if isinstance(field, Field):
             return field
         elif isinstance(field, datetime):
@@ -422,6 +456,9 @@ class Grid:
         return len(self.fields)
 
     def _to_field(self, field: Any) -> Field:
+
+        from datetime import datetime
+
         if isinstance(field, Field):
             return field
         elif isinstance(field, datetime):
@@ -474,3 +511,214 @@ class Grid:
         """Prints the grid to the terminal."""
         for line in self.format_lines():
             click.echo(line)
+
+
+# ==== interactive prompts =============================================================
+
+
+def echo(message: str, nl: bool = True, prefix: Prefix = Prefix.NONE) -> None:
+
+    if prefix is Prefix.Ok:
+        pre = click.style("✓", fg="green") + " "
+    elif prefix is Prefix.Warn:
+        pre = click.style("!", fg="red") + " "
+    elif prefix is Prefix.Info:
+        pre = "- "
+    else:
+        pre = ""
+
+    click.echo(f"{pre}{message}", nl=nl)
+
+
+def info(message: str, nl: bool = True) -> None:
+    echo(message, nl=nl, prefix=Prefix.Info)
+
+
+def warn(message: str, nl: bool = True) -> None:
+    echo(message, nl=nl, prefix=Prefix.Warn)
+
+
+def ok(message: str, nl: bool = True) -> None:
+    echo(message, nl=nl, prefix=Prefix.Ok)
+
+
+def _style_message(message: str) -> str:
+    pre = click.style("?", fg="green", bold=True)
+    return f"{pre} {click.style(message, bold=True)} "
+
+
+def _syle_hint(hint: str) -> str:
+    return click.style(hint, fg="white") + " " if hint else ""
+
+
+orange = "\x1b[38;5;214m"
+cyan = "\x1b[38;5;6m"
+grey = "\x1b[90m"
+bold = "\x1b[1m"
+
+response_color = cyan
+focus_color = f"{response_color}{bold}"
+
+
+def prompt(message: str, default: str = "", validate: Optional[Callable] = None) -> str:
+
+    styled_default = _syle_hint(default)
+    styled_message = _style_message(message)
+
+    def view(value):
+        response = value or default
+        return (response,)
+
+    def check(value):
+        if validate is None:
+            return True
+        elif value == "" and default:
+            return True
+        else:
+            return validate(value)
+
+    res = survey.api.edit(styled_message, hint=styled_default, view=view, check=check)
+
+    survey.api.respond(response_color)
+
+    return res
+
+
+def confirm(message: str, default: Optional[bool] = True) -> bool:
+    styled_message = _style_message(message)
+    return survey.confirm(styled_message, default=default, color=response_color)
+
+
+def select(message: str, options: Sequence[str], hint="") -> int:
+
+    try:
+        styled_hint = _syle_hint(hint)
+        styled_message = _style_message(message)
+
+        index = survey.select(
+            options,
+            styled_message,
+            focus=focus_color,
+            color=response_color,
+            hint=styled_hint,
+        )
+
+        return index
+    except (KeyboardInterrupt, SystemExit):
+        survey.api.respond()
+        raise
+
+
+def select_multiple(message: str, options: Sequence[str], hint="") -> List[int]:
+
+    try:
+        styled_hint = _syle_hint(hint)
+        styled_message = _style_message(message)
+
+        kwargs = {"hint": styled_hint} if hint else {}
+
+        def view(value):
+
+            chosen = [options[index] for index in value]
+            response = ", ".join(chosen)
+
+            if len(response) > 50:
+                response = f"[{len(value)} chosen]"
+
+            return (response,)
+
+        indices = survey.select(
+            options,
+            styled_message,
+            multi=True,
+            focus=focus_color,
+            color=response_color,
+            pin="[✓] ",
+            unpin="[ ] ",
+            view=view,
+            **kwargs,
+        )
+
+        return indices
+
+    except (KeyboardInterrupt, SystemExit):
+        survey.api.respond()
+        raise
+
+
+def select_path(
+    message: str,
+    default: str = "",
+    validate: Any = None,
+    exists: bool = False,
+    only_directories: bool = False,
+) -> str:
+
+    import os
+
+    styled_default = _syle_hint(f"[{default}]")
+    styled_message = _style_message(message)
+
+    validate = validate or (lambda x: True)
+
+    def view(value):
+        response = value or default
+        return (response,)
+
+    failed = False
+
+    def check(value):
+
+        nonlocal failed
+
+        if value == "" and default:
+            return True
+
+        full_path = os.path.expanduser(value)
+        dir_condition = os.path.isdir(full_path) or not only_directories
+        exist_condition = os.path.exists(full_path) or not exists
+
+        if not dir_condition:
+            survey.update(click.style("(not a directory) ", fg="red"))
+        elif not exist_condition:
+            survey.update(click.style("(does not exist) ", fg="red"))
+
+        passed = dir_condition and exist_condition and validate(value)
+        failed = not passed
+
+        return passed
+
+    def callback(event, result, *args):
+        nonlocal failed
+
+        if event == "delete" and failed:
+            survey.update(styled_default)
+            failed = False
+
+    res = survey.api.edit(
+        styled_message,
+        hint=styled_default,
+        view=view,
+        check=check,
+        callback=callback,
+    )
+    survey.api.respond(response_color)
+
+    return res or default
+
+
+class RemoteApiError(click.ClickException):
+    def __init__(self, title: str, message: str) -> None:
+        super().__init__(message)
+        self.title = title
+
+    def format_message(self) -> str:
+        return f"{self.title}. {self.message}"
+
+    def show(self, file=None) -> None:
+        warn(self.format_message())
+
+
+class CliException(click.ClickException):
+    def show(self, file=None) -> None:
+        warn(self.format_message())
