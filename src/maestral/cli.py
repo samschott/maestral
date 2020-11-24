@@ -787,54 +787,53 @@ def activity(config_name: str) -> None:
             if check_for_fatal_errors(m):
                 return
 
-            def curses_loop(screen):
+            def curses_loop(screen) -> None:  # no type hints for screen provided yet
 
                 curses.use_default_colors()  # don't change terminal background
                 screen.nodelay(1)  # sets `screen.getch()` to non-blocking
 
                 while True:
 
-                    # get info from daemon
-                    activity = m.get_activity()
-                    status = m.status
-                    n_errors = len(m.sync_errors)
+                    height, width = screen.getmaxyx()
 
                     # create header
-                    lines = [f"Status: {status}, Sync errors: {n_errors}", ""]
+                    lines = [f"Status: {m.status}, Sync errors: {len(m.sync_errors)}"]
+                    lines.append("")
 
                     # create table
-
-                    file_names = ["PATH"]
-                    states = ["STATUS"]
+                    filenames = ["Path"]
+                    states = ["Status"]
                     col_len = 4
 
-                    for event in activity:
+                    for event in m.get_activity(limit=height - 3):
 
                         dbx_path = cast(str, event["dbx_path"])
                         direction = cast(str, event["direction"])
-                        status = cast(str, event["status"])
+                        state = cast(str, event["status"])
                         size = cast(int, event["size"])
                         completed = cast(int, event["completed"])
 
                         filename = os.path.basename(dbx_path)
-                        file_names.append(filename)
+                        filenames.append(filename)
+
+                        arrow = "↓" if direction == "down" else "↑"
 
                         if completed > 0:
                             done_str = natural_size(completed, sep=False)
                             todo_str = natural_size(size, sep=False)
-                            states.append(f"{done_str}/{todo_str}")
+                            states.append(f"{done_str}/{todo_str} {arrow}")
                         else:
-                            if status == "syncing" and direction == "up":
+                            if state == "syncing" and direction == "up":
                                 states.append("uploading")
-                            elif status == "syncing" and direction == "down":
+                            elif state == "syncing" and direction == "down":
                                 states.append("downloading")
                             else:
-                                states.append(status)
+                                states.append(state)
 
                         col_len = max(len(filename), col_len)
 
-                    for fn, s in zip(file_names, states):  # create rows
-                        lines.append(fn.ljust(col_len + 2) + s)
+                    for name, state in zip(filenames, states):  # create rows
+                        lines.append(name.ljust(col_len + 2) + state)
 
                     # print to console screen
                     screen.clear()
