@@ -4,7 +4,7 @@
 
 * Added a public API `Maetral.status_change_longpoll` for frontends to wait for status
   changes without frequent polling. `status_change_longpoll` blocks until there is a
-  change in status and then returns `True`. The default timeout iss 60 sec.
+  change in status and then returns `True`. The default timeout is 60 sec.
 * Desktop notifications for sync errors are now clickable and will show the related file
   or folder either on Dropbox or locally.
 * Desktop notifications which can be clicked to reveal a file now have a "Show" button.
@@ -17,6 +17,11 @@
 * The `Maestral.exclude_item()` API now accepts paths which lie inside an excluded
   folder. When called with such a path, all immediate parents will be included as well.
 * The `Maestral.excluded_items` property is no longer read-only.
+* Increased speed of many CLI commands by importing only necessary modules.
+* Improved output of some CLI commands, including `maestral ls -l`, `maestral acivity`.
+* Shortened help texts for CLI commands.
+* Introduced CLI parameter types `DropboxPath` and `ConfigName` in preparation for shell
+  completion support.
 
 #### Fixes:
 
@@ -26,6 +31,9 @@
 * Fixes an issue which could cause a segfault of the selective sync dialog on macOS.
 * Fixes an where the selective sync dialog on Linux would not load the contents of more
   than 10 folders.
+* Fixes a regression with the autostart functionality of the Linux GUI. Autostart
+  entries created with v1.2.2 will need be reset by toggling the checkbox "start on
+  login".
 
 #### Deprecated:
 
