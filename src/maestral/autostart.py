@@ -31,8 +31,8 @@ except ImportError:  # Python 3.7 and lower
     from importlib_metadata import files, PackageNotFoundError  # type: ignore
 
 # local imports
-from ..utils.appdirs import get_home_dir, get_conf_path, get_data_path
-from ..constants import BUNDLE_ID
+from maestral.utils.appdirs import get_home_dir, get_conf_path, get_data_path
+from maestral.constants import BUNDLE_ID
 
 
 class SupportedImplementations(Enum):

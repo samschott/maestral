@@ -650,7 +650,7 @@ configuration on user login.
 @existing_config_option
 def autostart(yes: bool, no: bool, config_name: str) -> None:
 
-    from .utils.autostart import AutoStart
+    from .autostart import AutoStart
 
     auto_start = AutoStart(config_name)
 

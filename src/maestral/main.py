@@ -1332,7 +1332,7 @@ class Maestral:
 
         logger.info("Recreating autostart entries after update from pre v1.2.1")
 
-        from .utils.autostart import AutoStart
+        from .autostart import AutoStart
 
         autostart = AutoStart(self.config_name)
 

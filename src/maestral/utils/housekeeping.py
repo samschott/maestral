@@ -21,14 +21,14 @@ def remove_configuration(config_name: str) -> None:
     :param config_name: The configuration to remove.
     """
 
+    index_file = get_data_path("maestral", f"{config_name}.index")  # obsolete
+    db_file = get_data_path("maestral", f"{config_name}.db")
+    log_dir = get_log_path("maestral")
+
     MaestralConfig(config_name).cleanup()
     MaestralState(config_name).cleanup()
-    index_file = get_data_path("maestral", f"{config_name}.index")  # deprecated
-    db_file = get_data_path("maestral", f"{config_name}.db")
     delete(index_file)
     delete(db_file)
-
-    log_dir = get_log_path("maestral")
 
     log_files = []
 
