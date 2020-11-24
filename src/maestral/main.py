@@ -37,11 +37,10 @@ from .errors import (
     NoDropboxDirError,
     NotFoundError,
 )
-from .config import MaestralConfig, MaestralState
+from .config import MaestralConfig, MaestralState, validate_config_name
 from .notify import MaestralDesktopNotificationHandler
 from .logging import CachedHandler, SdNotificationHandler, safe_journal_sender
 from .utils import get_newer_version
-from .utils.housekeeping import validate_config_name
 from .utils.path import (
     is_child,
     is_equal_or_child,

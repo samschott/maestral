@@ -24,8 +24,7 @@ from maestral.daemon import (
 )
 from maestral.main import Maestral
 from maestral.errors import NotLinkedError
-from maestral.config import list_configs
-from maestral.utils.housekeeping import remove_configuration
+from maestral.config import list_configs, remove_configuration
 
 
 @pytest.fixture

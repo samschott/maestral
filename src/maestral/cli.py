@@ -298,8 +298,9 @@ class ConfigName(click.ParamType):
         if value is None:
             return value
 
+        from .config import validate_config_name, list_configs
+
         if not self.existing:
-            from .utils.housekeeping import validate_config_name
 
             # accept all valid config names
             try:
@@ -312,8 +313,6 @@ class ConfigName(click.ParamType):
                 )
 
         else:
-
-            from .config import list_configs
 
             # accept only existing config names
             if value in list_configs():
@@ -1139,8 +1138,12 @@ def history(config_name: str) -> None:
 def configs() -> None:
 
     from .daemon import is_running
-    from .config import MaestralConfig, MaestralState, list_configs
-    from .utils.housekeeping import remove_configuration
+    from .config import (
+        MaestralConfig,
+        MaestralState,
+        list_configs,
+        remove_configuration,
+    )
 
     # clean up stale configs
     config_names = list_configs()

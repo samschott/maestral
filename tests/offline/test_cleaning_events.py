@@ -14,7 +14,7 @@ from maestral.sync import (
     DirMovedEvent,
 )
 from maestral.sync import SyncEngine, DropboxClient
-from maestral.utils.housekeeping import remove_configuration
+from maestral.config import remove_configuration
 
 
 def ipath(i):

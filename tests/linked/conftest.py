@@ -12,7 +12,7 @@ from dropbox.files import WriteMode, FileMetadata
 from maestral.main import Maestral
 from maestral.errors import NotFoundError, FileConflictError
 from maestral.client import convert_api_errors
-from maestral.utils.housekeeping import remove_configuration
+from maestral.config import remove_configuration
 from maestral.utils.path import (
     generate_cc_name,
     delete,

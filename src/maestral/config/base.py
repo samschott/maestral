@@ -9,10 +9,7 @@ the config module.
 import platform
 import os
 import os.path as osp
-from typing import Optional, List
-
-
-__all__ = ["get_conf_path", "get_data_path", "get_home_dir"]
+from typing import Optional
 
 
 def to_full_path(
@@ -117,17 +114,3 @@ def get_data_path(
         raise RuntimeError("Platform not supported")
 
     return to_full_path(state_path, subfolder, filename, create)
-
-
-def list_configs() -> List[str]:
-    """
-    Lists all maestral configs.
-
-    :returns: A list of all currently existing config files.
-    """
-    configs = []
-    for file in os.listdir(get_conf_path("maestral")):
-        if file.endswith(".ini"):
-            configs.append(os.path.splitext(os.path.basename(file))[0])
-
-    return configs

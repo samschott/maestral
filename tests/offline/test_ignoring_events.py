@@ -12,7 +12,7 @@ from maestral.sync import delete, move
 from maestral.sync import SyncEngine, DropboxClient, Observer, FSEventHandler
 from maestral.sync import SyncDirection, ItemType, ChangeType
 from maestral.utils.appdirs import get_home_dir
-from maestral.utils.housekeeping import remove_configuration
+from maestral.config import remove_configuration
 
 
 def ipath(i):
