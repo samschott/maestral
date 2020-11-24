@@ -196,23 +196,33 @@ class Column:
 
     def __init__(
         self,
-        title: str,
+        title: Optional[str],
         fields: Sequence = (),
         align: Align = Align.Left,
         wraps: bool = False,
         elide: Elide = Elide.Trailing,
     ) -> None:
-        self.fields = [TextField(title, align=align, bold=True)]
+        self.title = TextField(title, align=align, bold=True) if title else None
         self.align = align
         self.wraps = wraps
         self.elide = elide
+
+        self.fields = []
 
         for field in fields:
             self.fields.append(self._to_field(field))
 
     @property
     def display_width(self) -> int:
-        return max(field.display_width for field in self.fields)
+        if self.title:
+            all_fields = self.fields + [self.title]
+        else:
+            all_fields = self.fields
+        return max(field.display_width for field in all_fields)
+
+    @property
+    def has_title(self):
+        return self.title is not None
 
     def append(self, field: Any) -> None:
         self.fields.append(self._to_field(field))
@@ -243,7 +253,8 @@ class Column:
             )
 
     def __repr__(self):
-        return f"<{self.__class__.__name__}(title='{self.fields[0].text}')>"
+        title = self.title.text if self.title else "untitled"
+        return f"<{self.__class__.__name__}(title='{title}')>"
 
 
 class Table:
@@ -325,9 +336,22 @@ class Table:
             round(w - subtract * w ** n / sum_widths) for w in raw_col_widths
         )
 
-        # generate lines
         spacer = " " * self.padding
 
+        # generate line for titles
+        if any(col.has_title for col in self.columns):
+            titles: List[str] = []
+
+            for col, width in zip(self.columns, allocated_col_widths):
+                if col.title:
+                    titles.append(col.title.format(width)[0])
+                else:
+                    titles.append(adjust("", width))
+
+            line = spacer.join(titles)
+            yield line.rstrip()
+
+        # generate lines for rows
         for row in self.rows():
             cells = []
 
