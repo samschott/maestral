@@ -899,12 +899,15 @@ class SyncEngine:
 
         with self._database_access():
 
-            dbx_path_lower = dbx_path.lower()
+            dbx_path_lower = dbx_path.lower().rstrip("/")
+            match = f"{dbx_path_lower}/%"
 
-            for entry in self.iter_index():
-                # remove children from index
-                if is_equal_or_child(entry.dbx_path_lower, dbx_path_lower):
-                    self._db_session.delete(entry)
+            self._db_session.query(IndexEntry).filter(
+                IndexEntry.dbx_path_lower == dbx_path_lower
+            ).delete(synchronize_session="fetch")
+            self._db_session.query(IndexEntry).filter(
+                IndexEntry.dbx_path_lower.ilike(match)
+            ).delete(synchronize_session="fetch")
 
             self._db_session.commit()
 
