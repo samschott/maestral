@@ -14,7 +14,6 @@ from typing import (
 )
 
 import click
-import survey
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -562,6 +561,8 @@ focus_color = f"{response_color}{bold}"
 
 def prompt(message: str, default: str = "", validate: Optional[Callable] = None) -> str:
 
+    import survey
+
     styled_default = _syle_hint(default)
     styled_message = _style_message(message)
 
@@ -585,11 +586,17 @@ def prompt(message: str, default: str = "", validate: Optional[Callable] = None)
 
 
 def confirm(message: str, default: Optional[bool] = True) -> bool:
+
+    import survey
+
     styled_message = _style_message(message)
+
     return survey.confirm(styled_message, default=default, color=response_color)
 
 
 def select(message: str, options: Sequence[str], hint="") -> int:
+
+    import survey
 
     try:
         styled_hint = _syle_hint(hint)
@@ -610,6 +617,8 @@ def select(message: str, options: Sequence[str], hint="") -> int:
 
 
 def select_multiple(message: str, options: Sequence[str], hint="") -> List[int]:
+
+    import survey
 
     try:
         styled_hint = _syle_hint(hint)
@@ -655,6 +664,8 @@ def select_path(
 ) -> str:
 
     import os
+
+    import survey
 
     styled_default = _syle_hint(f"[{default}]")
     styled_message = _style_message(message)
