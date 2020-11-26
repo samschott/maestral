@@ -429,13 +429,13 @@ def excluded():
 
 
 @main.group(
-    cls=SpecialHelpOrder, help_priority=18, help="Manage desktop notifications."
+    cls=SpecialHelpOrder, help_priority=17, help="Manage desktop notifications."
 )
 def notify():
     pass
 
 
-@main.group(cls=SpecialHelpOrder, help_priority=19, help="View and manage the log.")
+@main.group(cls=SpecialHelpOrder, help_priority=18, help="View and manage the log.")
 def log():
     pass
 
@@ -1064,12 +1064,19 @@ def rebuild_index(config_name: str) -> None:
                 cli.ok("Daemon is not running. Rebuilding scheduled for next startup.")
 
 
-@main.command(help_priority=16, help="List old file revisions.")
+@main.command(
+    help_priority=16,
+    help="""
+Restore a previous version of a file.
+
+If no revision number is given, old revisions will be listed.
+""",
+)
 @click.argument("dropbox_path", type=click.Path())
+@click.option("-v", "--rev", help="Revision to restore", default="")
 @existing_config_option
 @catch_maestral_errors
-def revs(dropbox_path: str, config_name: str) -> None:
-
+def restore(dropbox_path: str, rev: str, config_name: str) -> None:
     from datetime import datetime
     from .daemon import MaestralProxy
 
@@ -1078,38 +1085,29 @@ def revs(dropbox_path: str, config_name: str) -> None:
 
     with MaestralProxy(config_name, fallback=True) as m:
 
-        entries = m.list_revisions(dropbox_path)
+        if not rev:
+            cli.echo("Loading...\r", nl=False)
+            entries = m.list_revisions(dropbox_path)
+            dates = []
+            for entry in entries:
+                cm = cast(str, entry["client_modified"])
+                dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
+                field = cli.DateField(dt)
+                dates.append(field.format(40)[0])
 
-    table = cli.Table(["Revision", "Last Modified"])
+            index = cli.select(
+                message="Select a version to restore:",
+                options=dates,
+                hint="(↓ to see more)" if len(entries) > 6 else "",
+            )
+            rev = cast(str, entries[index]["rev"])
 
-    for entry in entries:
-
-        rev = cast(str, entry["rev"])
-        cm = cast(str, entry["client_modified"])
-
-        dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
-        table.append([rev, dt])
-
-    cli.echo("")
-    table.echo()
-    cli.echo("")
-
-
-@main.command(help_priority=17, help="Restore an old file revision.")
-@click.argument("dropbox_path", type=click.Path())
-@click.argument("rev")
-@existing_config_option
-@catch_maestral_errors
-def restore(dropbox_path: str, rev: str, config_name: str) -> None:
-    from .daemon import MaestralProxy
-
-    with MaestralProxy(config_name, fallback=True) as m:
         m.restore(dropbox_path, rev)
 
     cli.ok(f'Restored {rev} to "{dropbox_path}"')
 
 
-@main.command(help_priority=18, help="Show recently changed or added files.")
+@main.command(help_priority=17, help="Show recently changed or added files.")
 @existing_config_option
 def history(config_name: str) -> None:
 
@@ -1141,7 +1139,7 @@ def history(config_name: str) -> None:
     cli.echo("")
 
 
-@main.command(help_priority=19, help="List all configured Dropbox accounts.")
+@main.command(help_priority=18, help="List all configured Dropbox accounts.")
 def configs() -> None:
 
     from .daemon import is_running
@@ -1172,7 +1170,7 @@ def configs() -> None:
 
 
 @main.command(
-    help_priority=21,
+    help_priority=20,
     help="""
 Enable or disables sharing of error reports.
 
@@ -1203,7 +1201,7 @@ def analytics(yes: bool, no: bool, config_name: str) -> None:
             cli.echo("Analytics are disabled. Use -Y to enable")
 
 
-@main.command(help_priority=23, help="Show linked Dropbox account information.")
+@main.command(help_priority=22, help="Show linked Dropbox account information.")
 @existing_config_option
 def account_info(config_name: str) -> None:
     from .daemon import MaestralProxy
@@ -1216,14 +1214,14 @@ def account_info(config_name: str) -> None:
         dbid = m.get_conf("account", "account_id")
 
     cli.echo("")
-    cli.echo(f"Email:             {email}")
-    cli.echo(f"Account-type:      {account_type}")
-    cli.echo(f"Usage:             {usage}")
-    cli.echo(f"Dropbox-ID:        {dbid}")
+    cli.echo(f"Email:         {email}")
+    cli.echo(f"Account-type:  {account_type}")
+    cli.echo(f"Usage:         {usage}")
+    cli.echo(f"Dropbox-ID:    {dbid}")
     cli.echo("")
 
 
-@main.command(help_priority=24, help="Return the version number and other information.")
+@main.command(help_priority=23, help="Return the version number and other information.")
 def about() -> None:
 
     year = time.localtime().tm_year
