@@ -607,7 +607,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
             ]
 
             choices = cli.select_multiple(
-                "Please choose which top-level folders to include", options=names
+                "Choose which folders to include", options=names
             )
 
             excluded_paths = [
