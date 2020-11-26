@@ -1,6 +1,13 @@
 
 ## Guidelines
 
+To start, install maestral with the `dev` extra to get all dependencies required for
+development:
+
+```
+pip3 install maestral[dev]
+```
+
 ### Checking the Format, Coding Style, and Type Hints
 
 Code is formatted with [black](https://github.com/psf/black).
@@ -10,7 +17,7 @@ Type hints, [PEP484](https://www.python.org/dev/peps/pep-0484/), are checked wit
 
 You can check the format, coding style, and type hints at the same time just by executing
 a script `scripts/linting.sh`. If your environment misses some dependencies such as
-black, flake8, or mypy,  you will be asked to install them.
+black, flake8, or mypy, you will be asked to install them.
 
 ```bash
 # Without any fixes.
@@ -20,10 +27,23 @@ bash scripts/linting.sh
 bash scripts/linting.sh -u
 ```
 
+You can also install the provided pre-commit hook to run checks on every commit. This
+will however slow down commits. 
+
 ### Documentation
 
+The documentation is built using [sphinx](https://www.sphinx-doc.org/en/master/) and a
+few of its extensions. It is built from the develop and master branches and hosted on
+[Read The Docs](https://maestral.readthedocs.io/en/latest/). If you want to build the 
+documentation locally, install maestral with the `docs` extra to get all required
+dependencies:
+
+```
+pip3 install maestral[docs]
+```
+
 The API documentation is mostly based on doc strings. Inline comments should be used 
-whenever code may be difficult to understand for others. Type hints should be throughout.
+whenever code may be difficult to understand for others.
 
 ## Tests
 
