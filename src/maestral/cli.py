@@ -885,6 +885,8 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 
     with MaestralProxy(config_name, fallback=True) as m:
 
+        cli.echo("Loading...\r", nl=False)
+
         entries = m.list_folder(
             dropbox_path,
             recursive=False,
@@ -944,9 +946,9 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
                     [name, item_type, size, shared_field, excluded_field, dt_field]
                 )
 
-            cli.echo("")
+            cli.echo(" " * 15)
             table.echo()
-            cli.echo("")
+            cli.echo(" " * 15)
 
         else:
 
