@@ -999,7 +999,7 @@ class Maestral:
 
         # book keeping
         self.sync.clear_sync_error(dbx_path=dbx_path)
-        self.sync.remove_path_from_index(dbx_path)
+        self.sync.remove_node_from_index(dbx_path)
 
         # remove folder from local drive
         local_path = self.sync.to_local_path_from_cased(dbx_path)
