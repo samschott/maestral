@@ -1041,7 +1041,7 @@ def unlink(config_name: str) -> None:
         cli.ok("Unlinked Maestral.")
 
 
-@main.command(help_priority=13, help="Change the location of the local Dropbox folder.")
+@main.command(help_priority=13, help="Move the local Dropbox folder.")
 @click.argument("new_path", required=False, type=click.Path(writable=True))
 @existing_config_option
 def move_dir(new_path: str, config_name: str) -> None:
