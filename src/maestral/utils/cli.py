@@ -578,9 +578,13 @@ def prompt(message: str, default: str = "", validate: Optional[Callable] = None)
         else:
             return validate(value)
 
-    res = survey.api.edit(styled_message, hint=styled_default, view=view, check=check)
-
-    survey.api.respond(response_color)
+    res = survey.input(
+        styled_message,
+        hint=styled_default,
+        view=view,
+        check=check,
+        color=response_color,
+    )
 
     return res
 
@@ -706,14 +710,14 @@ def select_path(
             survey.update(styled_default)
             failed = False
 
-    res = survey.api.edit(
+    res = survey.input(
         styled_message,
         hint=styled_default,
         view=view,
         check=check,
         callback=callback,
+        color=response_color,
     )
-    survey.api.respond(response_color)
 
     return res or default
 
