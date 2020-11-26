@@ -34,6 +34,20 @@ gui_requires = [
 
 syslog_requires = ["systemd-python"]
 
+dev_requires = [
+    "black",
+    "bump2version",
+    "flake8",
+    "mypy",
+    "pre-commit",
+]
+
+docs_require = [
+    "sphinx",
+    "m2r2",
+    "sphinx-autoapi",
+    "sphinx_rtd_theme",
+]
 
 setup(
     name="maestral",
@@ -55,6 +69,8 @@ setup(
     extras_require={
         "gui": gui_requires,
         "syslog": syslog_requires,
+        "dev": dev_requires,
+        "docs": docs_require,
     },
     zip_safe=False,
     entry_points={
