@@ -2803,7 +2803,7 @@ class SyncEngine:
             # write unsynced changes but declare a conflict.
             logger.debug('Unresolved upload error for "%s": conflict', event.dbx_path)
             return Conflict.Conflict
-        elif not self.has_unsynced_changes(event.local_path):
+        elif not self._ctime_newer_than_last_sync(event.local_path):
             # Last change time of local item (recursive for folders) is older than
             # the last time the item was synced. Remote must be newer.
             logger.debug(
@@ -2827,7 +2827,7 @@ class SyncEngine:
             )
             return Conflict.Conflict
 
-    def has_unsynced_changes(self, local_path: str) -> bool:
+    def _ctime_newer_than_last_sync(self, local_path: str) -> bool:
         """
         Checks if a local item has any unsynced changes. This is by comparing its ctime
         to the ``last_sync`` time saved in our index. In case of folders, we recursively
@@ -2861,7 +2861,7 @@ class SyncEngine:
             with os.scandir(local_path) as it:
                 for entry in it:
                     if entry.is_dir():
-                        if self.has_unsynced_changes(entry.path):
+                        if self._ctime_newer_than_last_sync(entry.path):
                             return True
                     elif not self.is_excluded(entry.name):
                         child_dbx_path = self.to_dbx_path(entry.path)
