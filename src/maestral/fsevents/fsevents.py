@@ -45,27 +45,46 @@ class OrderedFSEventsEmitter(FSEventsEmitter):
             if not self.watch.is_recursive and self.watch.path not in self.pathnames:
                 return
             new_snapshot = DirectorySnapshot(self.watch.path, self.watch.is_recursive)
-            events = new_snapshot - self.snapshot
+            diff = new_snapshot - self.snapshot
+
+            # add metadata modified events which will be missed by regular diff
+            try:
+                ctime_files_modified = set()
+
+                for path in self.snapshot.paths & new_snapshot.paths:
+                    if not self.snapshot.isdir(path):
+                        if self.snapshot.inode(path) == new_snapshot.inode(path):
+                            if (
+                                self.snapshot.stat_info(path).st_ctime
+                                != new_snapshot.stat_info(path).st_ctime
+                            ):
+                                ctime_files_modified.add(path)
+
+                files_modified = set(ctime_files_modified) | set(diff.files_modified)
+            except Exception as exc:
+                print(exc)
+
+            # replace cached snapshot
             self.snapshot = new_snapshot
 
             # Files.
-            for src_path in events.files_deleted:
+            for src_path in diff.files_deleted:
                 self.queue_event(FileDeletedEvent(src_path))
-            for src_path in events.files_modified:
+            for src_path in files_modified:
                 self.queue_event(FileModifiedEvent(src_path))
-            for src_path, dest_path in events.files_moved:
+            for src_path, dest_path in diff.files_moved:
                 self.queue_event(FileMovedEvent(src_path, dest_path))
-            for src_path in events.files_created:
+            for src_path in diff.files_created:
                 self.queue_event(FileCreatedEvent(src_path))
 
             # Directories.
-            for src_path in events.dirs_deleted:
+            for src_path in diff.dirs_deleted:
                 self.queue_event(DirDeletedEvent(src_path))
-            for src_path in events.dirs_modified:
+            for src_path in diff.dirs_modified:
                 self.queue_event(DirModifiedEvent(src_path))
-            for src_path, dest_path in events.dirs_moved:
+            for src_path, dest_path in diff.dirs_moved:
                 self.queue_event(DirMovedEvent(src_path, dest_path))
-            for src_path in events.dirs_created:
+            for src_path in diff.dirs_created:
                 self.queue_event(DirCreatedEvent(src_path))
 
 
