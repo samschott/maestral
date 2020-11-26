@@ -15,6 +15,7 @@ from maestral.sync import delete, move
 from maestral.sync import is_fs_case_sensitive
 from maestral.sync import DirectorySnapshot, SyncEvent
 from maestral.utils import sanitize_string
+from maestral.utils.appdirs import get_home_dir
 
 from .conftest import assert_synced, wait_for_idle, resources
 
@@ -805,6 +806,41 @@ def test_excluded_folder_cleared_on_deletion(m):
 
     # check for fatal errors
     assert not m.fatal_errors
+
+
+def test_unix_permissions(m):
+    """
+    Tests that a newly downloaded file is created with default permissions for our
+    process and that any locally set permissions are preserved on remote file
+    modifications.
+    """
+
+    dbx_path = "/sync_tests/file"
+    local_path = m.to_local_path(dbx_path)
+
+    m.client.upload(resources + "/file.txt", dbx_path)
+    wait_for_idle(m)
+
+    # create a local file and compare its permissions to the new download
+    reference_file = osp.join(get_home_dir(), "reference")
+
+    try:
+        open(reference_file, "ab").close()
+        assert os.stat(local_path).st_mode == os.stat(reference_file).st_mode
+    finally:
+        delete(reference_file)
+
+    # make the local file executable
+    os.chmod(local_path, 0o744)
+    new_mode = os.stat(local_path).st_mode  # might not be 744...
+    wait_for_idle(m)
+
+    # perform some remote modifications
+    m.client.upload(resources + "/file1.txt", dbx_path, mode=WriteMode.overwrite)
+    wait_for_idle(m)
+
+    # check that the local permissions have not changed
+    assert os.stat(local_path).st_mode == new_mode
 
 
 @pytest.mark.skipif(
