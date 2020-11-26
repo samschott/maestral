@@ -6,30 +6,30 @@ from setuptools import setup, find_packages  # type: ignore
 
 # proceed with actual install
 install_requires = [
-    "alembic>=1.3.0",
-    "bugsnag>=3.4.0",
-    "click>=7.1.1",
-    "dropbox>=10.9.0",
+    "alembic>=1.3,<1.5",
+    "bugsnag>=3.4,<5.0",
+    "click>=7.1.1,<8.0",
+    "dropbox>=10.9.0,<11",
     'dbus-next>=0.1.4;sys_platform=="linux"',
     "fasteners>=0.15",
     "importlib_metadata;python_version<'3.8'",
     "importlib_resources;python_version<'3.9'",
-    "keyring>=19.0.0",
-    "keyrings.alt>=3.1.0",
+    "keyring>=19,<22",
+    "keyrings.alt>=3.1.0,<5.0",
     "packaging",
     "pathspec>=0.5.8",
     "Pyro5>=5.10",
     "requests>=2.16.2",
-    'rubicon-objc>=0.3.1;sys_platform=="darwin"',
+    "rubicon-objc>=0.3.1;sys_platform=='darwin'",
     "setuptools",
     "sdnotify>=0.3.2",
-    "sqlalchemy>=1.3.0",
+    "sqlalchemy>=1.3,<1.4",
     "watchdog>=0.10.0,<=0.10.3",
 ]
 
 gui_requires = [
-    'maestral-qt>=1.2.2;sys_platform=="linux"',
-    'maestral-cocoa>=1.2.2;sys_platform=="darwin"',
+    "maestral-qt>=1.2.2;sys_platform=='linux'",
+    "maestral-cocoa>=1.2.2;sys_platform=='darwin'",
 ]
 
 syslog_requires = ["systemd-python"]
