@@ -1020,9 +1020,9 @@ class SyncEngine:
             with tempfile.NamedTemporaryFile(
                 dir=self.file_cache_path, delete=False
             ) as f:
-                umask = os.umask(0)
+                umask = os.umask(0o22)
                 os.umask(umask)
-                os.chmod(f.name, 0o777 & ~umask)
+                os.chmod(f.name, 0o666 & ~umask, follow_symlinks=False)
                 return f.name
         except OSError as err:
             raise CacheDirError(
