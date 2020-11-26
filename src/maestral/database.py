@@ -116,16 +116,15 @@ class StringPath(sqltypes.TypeDecorator):
 class SyncEvent(Base):  # type: ignore
     """Represents a file or folder change in the sync queue
 
-    This is used to abstract the :class:`watchdog.events.FileSystemEvent` created for
-    local changes and the :class:`dropbox.files.Metadata` created for remote changes.
-    All arguments are used to construct instance attributes and some attributes may not
-    be set for all event types. Note that some instance attributes depend on the state
-    of the Maestral instance, e.g., :attr:`local_path` will depend on the current path
-    of the local Dropbox folder. They may therefore become invalid after sync sessions.
+    This class is used to represent both local and remote file system changes and track
+    their sync progress. Some instance attributes will depend on the state of the sync
+    session, e.g., :attr:`local_path` will depend on the current path of the local
+    Dropbox folder. They may therefore become invalid between sync sessions.
 
-    The convenience methods :meth:`from_dbx_metadata` and :meth:`from_file_system_event`
-    should be used to properly construct a SyncEvent from Dropbox Metadata or a local
-    FileSystemEvent, respectively.
+    The class methods :meth:`from_dbx_metadata` and :meth:`from_file_system_event`
+    should be used to properly construct a :class:`SyncEvent` from a
+    :class:`dropbox.files.Metadata` instance or a
+    :class:`watchdog.events.FileSystemEvent` instance, respectively.
     """
 
     __tablename__ = "history"

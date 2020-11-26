@@ -14,8 +14,8 @@ Database
 The index is stored in a SQLite database with contains the sync index, the sync event
 history of the last week and a cache of locally calculated content hashes. SQLAlchemy is
 used to manage the database and the table declarations are given by the definitions of
-:class:`maestral.sync.IndexEntry`, :class:`maestral.sync.SyncEvent` and
-:class:`maestral.sync.HashCacheEntry`.
+:class:`maestral.database.IndexEntry`, :class:`maestral.database.SyncEvent` and
+:class:`maestral.database.HashCacheEntry`.
 
 State file
 **********
