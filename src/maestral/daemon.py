@@ -30,7 +30,7 @@ import sdnotify  # type: ignore
 from fasteners import InterProcessLock  # type: ignore
 
 # local imports
-from .errors import SYNC_ERRORS, FATAL_ERRORS, MaestralApiError
+from .errors import SYNC_ERRORS, GENERAL_ERRORS, MaestralApiError
 from .constants import IS_MACOS, FROZEN
 from .utils.appdirs import get_runtime_path
 
@@ -113,7 +113,7 @@ def serpent_deserialize_api_error(class_name: str, d: dict) -> MaestralApiError:
     return err
 
 
-for err_cls in (*SYNC_ERRORS, *FATAL_ERRORS):
+for err_cls in (*SYNC_ERRORS, *GENERAL_ERRORS):
     register_dict_to_class(
         err_cls.__module__ + "." + err_cls.__name__, serpent_deserialize_api_error
     )
