@@ -1316,7 +1316,13 @@ def excluded_add(dropbox_path: str, config_name: str) -> None:
 @excluded.command(
     name="remove",
     help_priority=2,
-    help="Remove a file or folder from the excluded list and re-sync.",
+    help="""
+Remove a file or folder from the excluded list and re-sync.
+
+It is safe to call this method with items which have already been included, they will
+not be downloaded again. If the given path lies inside an excluded folder, the parent
+folder will be included as well (but no other items inside it).
+""",
 )
 @click.argument("dropbox_path", type=click.Path())
 @existing_config_option
