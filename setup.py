@@ -40,6 +40,8 @@ dev_requires = [
     "flake8",
     "mypy",
     "pre-commit",
+    "pytest",
+    "pytest-cov",
 ]
 
 docs_require = [
