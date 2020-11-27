@@ -36,6 +36,7 @@ from .errors import (
     NotLinkedError,
     NoDropboxDirError,
     NotFoundError,
+    BusyError,
 )
 from .config import MaestralConfig, MaestralState, validate_config_name
 from .notify import MaestralDesktopNotificationHandler
@@ -406,21 +407,38 @@ class Maestral:
         added_excluded_items = set(excluded_items) - set(old_excluded_items)
         added_included_items = set(old_excluded_items) - set(excluded_items)
 
-        self.sync.excluded_items = excluded_items
+        has_changes = len(added_excluded_items) > 0 or len(added_included_items) > 0
 
-        if self.pending_first_download:
-            return
+        if has_changes:
 
-        # apply changes
-        for path in added_excluded_items:
-            logger.info("Excluded %s", path)
-            self._remove_after_excluded(path)
-        for path in added_included_items:
-            if not self.sync.is_excluded_by_user(path):
-                logger.info("Included %s", path)
-                self.monitor.added_item_queue.put(path)
+            if self.sync.sync_lock.acquire(blocking=False):
 
-        logger.info(IDLE)
+                try:
+
+                    self.sync.excluded_items = excluded_items
+
+                    if self.pending_first_download:
+                        return
+
+                    # apply changes
+                    for path in added_excluded_items:
+                        logger.info("Excluded %s", path)
+                        self._remove_after_excluded(path)
+
+                    for path in added_included_items:
+                        if not self.sync.is_excluded_by_user(path):
+                            logger.info("Included %s", path)
+                            self.monitor.added_item_queue.put(path)
+
+                    logger.info(IDLE)
+
+                finally:
+                    self.sync.sync_lock.release()
+
+            else:
+                raise BusyError(
+                    "Cannot set excluded items", "Please try again when idle."
+                )
 
     @property
     def log_level(self) -> int:
@@ -968,7 +986,10 @@ class Maestral:
         self._check_linked()
         self._check_dropbox_dir()
 
-        # input validation
+        dbx_path = dbx_path.lower().rstrip("/")
+
+        # ---- input validation --------------------------------------------------------
+
         md = self.client.get_metadata(dbx_path)
 
         if not md:
@@ -976,24 +997,33 @@ class Maestral:
                 "Cannot exclude item", f'"{dbx_path}" does not exist on Dropbox'
             )
 
-        dbx_path = dbx_path.lower().rstrip("/")
-
-        # add the path to excluded list
         if self.sync.is_excluded_by_user(dbx_path):
             logger.info("%s was already excluded", dbx_path)
             logger.info(IDLE)
             return
 
-        excluded_items = self.sync.excluded_items
-        excluded_items.append(dbx_path)
+        if self.sync.sync_lock.acquire(blocking=False):
 
-        self.sync.excluded_items = excluded_items
+            try:
 
-        logger.info("Excluded %s", dbx_path)
+                # ---- update excluded items list --------------------------------------
 
-        self._remove_after_excluded(dbx_path)
+                excluded_items = self.sync.excluded_items
+                excluded_items.append(dbx_path)
 
-        logger.info(IDLE)
+                self.sync.excluded_items = excluded_items
+
+                # ---- remove item from local Dropbox ----------------------------------
+
+                self._remove_after_excluded(dbx_path)
+
+                logger.info("Excluded %s", dbx_path)
+                logger.info(IDLE)
+            finally:
+                self.sync.sync_lock.release()
+
+        else:
+            raise BusyError("Cannot exclude item", "Please try again when idle.")
 
     def _remove_after_excluded(self, dbx_path: str) -> None:
 
@@ -1039,16 +1069,22 @@ class Maestral:
         self._check_linked()
         self._check_dropbox_dir()
 
+        dbx_path = dbx_path.lower().rstrip("/")
+
         # ---- input validation --------------------------------------------------------
+
         md = self.client.get_metadata(dbx_path)
 
         if not md:
             raise NotFoundError(
                 "Cannot include item",
-                f'"{dbx_path}" does not exist on Dropbox',
+                f"'{dbx_path}' does not exist on Dropbox",
             )
 
-        dbx_path = dbx_path.lower().rstrip("/")
+        if not self.sync.is_excluded_by_user(dbx_path):
+            logger.info("'%s' is already included, nothing to do", dbx_path)
+            logger.info(IDLE)
+            return
 
         # ---- update excluded items list ----------------------------------------------
 
@@ -1066,9 +1102,9 @@ class Maestral:
 
             # include all parents which are required to download dbx_path
             if is_child(dbx_path, folder):
-                # remove parent folder from excluded list
+                # remove parent folders from excluded list
                 excluded_items.remove(folder)
-                # add all children of parent folder which do not lead to dbx_path
+                # re-add their children (except parents of dbx_path)
                 for res in self.client.list_folder_iterator(folder):
                     for entry in res.entries:
                         if not is_equal_or_child(dbx_path, entry.path_lower):
@@ -1080,15 +1116,25 @@ class Maestral:
             if is_child(folder, dbx_path):
                 excluded_items.remove(folder)
 
-        self.sync.excluded_items = list(excluded_items)
+        if self.sync.sync_lock.acquire(blocking=False):
 
-        # download item from Dropbox
-        if excluded_parent:
-            logger.info("Included %s and parent directories", dbx_path)
-            self.monitor.added_item_queue.put(excluded_parent)
+            try:
+
+                self.sync.excluded_items = list(excluded_items)
+
+                # ---- download item from Dropbox --------------------------------------
+
+                if excluded_parent:
+                    logger.info("Included '%s' and parent directories", dbx_path)
+                    self.monitor.added_item_queue.put(excluded_parent)
+                else:
+                    logger.info("Included '%s'", dbx_path)
+                    self.monitor.added_item_queue.put(dbx_path)
+            finally:
+                self.sync.sync_lock.release()
+
         else:
-            logger.info("Included %s", dbx_path)
-            self.monitor.added_item_queue.put(dbx_path)
+            raise BusyError("Cannot include item", "Please try again when idle.")
 
     def excluded_status(self, dbx_path: str) -> str:
         """
