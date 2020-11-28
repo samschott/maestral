@@ -9,6 +9,7 @@ from typing import (
     Iterator,
     Sequence,
     Any,
+    Tuple,
     Callable,
     TYPE_CHECKING,
 )
@@ -601,11 +602,11 @@ def prompt(message: str, default: str = "", validate: Optional[Callable] = None)
     styled_default = _syle_hint(default)
     styled_message = _style_message(message)
 
-    def view(value):
+    def view(value: str) -> Tuple[str]:
         response = value or default
         return (response,)
 
-    def check(value):
+    def check(value: str) -> bool:
         if validate is None:
             return True
         elif value == "" and default:
@@ -665,7 +666,7 @@ def select_multiple(message: str, options: Sequence[str], hint="") -> List[int]:
 
         kwargs = {"hint": styled_hint} if hint else {}
 
-        def view(value):
+        def view(value: Sequence[int]) -> Tuple[str]:
 
             chosen = [options[index] for index in value]
             response = ", ".join(chosen)
@@ -697,7 +698,7 @@ def select_multiple(message: str, options: Sequence[str], hint="") -> List[int]:
 def select_path(
     message: str,
     default: str = "",
-    validate: Any = None,
+    validate: Callable = lambda x: True,
     exists: bool = False,
     only_directories: bool = False,
 ) -> str:
@@ -709,15 +710,13 @@ def select_path(
     styled_default = _syle_hint(f"[{default}]")
     styled_message = _style_message(message)
 
-    validate = validate or (lambda x: True)
-
-    def view(value):
+    def view(value: str) -> Tuple[str]:
         response = value or default
         return (response,)
 
     failed = False
 
-    def check(value):
+    def check(value: str) -> bool:
 
         nonlocal failed
 
@@ -738,7 +737,7 @@ def select_path(
 
         return passed
 
-    def callback(event, result, *args):
+    def callback(event: str, result: str, *args) -> None:
         nonlocal failed
 
         if event == "delete" and failed:
