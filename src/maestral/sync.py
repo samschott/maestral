@@ -2468,6 +2468,18 @@ class SyncEngine:
 
             self.pending_downloads.add(dbx_path.lower())
             md = self.client.get_metadata(dbx_path, include_deleted=True)
+
+            if md is None:
+                # create a fake deleted event
+                index_entry = self.get_index_entry(dbx_path)
+                cased_path = index_entry.dbx_path_cased if index_entry else dbx_path
+
+                md = DeletedMetadata(
+                    name=osp.basename(dbx_path),
+                    path_lower=dbx_path.lower(),
+                    path_display=cased_path,
+                )
+
             event = SyncEvent.from_dbx_metadata(md, self)
 
             if event.is_directory:
