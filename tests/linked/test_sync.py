@@ -933,6 +933,29 @@ def test_indexing_performance(m):
     assert duration < 3  # expected ~ 1.8 sec
 
 
+def test_invalid_pending_download(m):
+    """
+    Tests error handling when an invalid path is saved in the pending downloads list.
+    This can happen for instance when Dropbox servers have a hickup or when our state
+    file gets corrupted.
+    """
+
+    # add a non-existent path to the pending downloads list
+    bogus_path = "/bogus path"
+    m.sync.pending_downloads.add(bogus_path)
+
+    # trigger a resync
+    m.pause_sync()
+    m.resume_sync()
+    wait_for_idle(m)
+
+    # assert that there are no sync errors / fatal errors and that the invalid path
+    # was cleared
+    assert bogus_path not in m.sync.pending_downloads
+    assert len(m.sync_errors) == 0
+    assert len(m.fatal_errors) == 0
+
+
 # ==== helper functions ================================================================
 
 
