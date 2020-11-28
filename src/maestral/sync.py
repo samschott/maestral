@@ -2450,12 +2450,10 @@ class SyncEngine:
     def get_remote_item(self, dbx_path: str) -> bool:
         """
         Downloads a remote file or folder and updates its local rev. If the remote item
-        no longer exists, the corresponding local item will be deleted. Given paths will
-        be added to the (persistent) pending_downloads list for the duration of the
-        download so that they will be resumed in case Maestral is terminated during the
-        download. If ``dbx_path`` refers to a folder, the download will be handled by
-        :meth:`get_remote_folder`. If it refers to a single file, the download will be
-        performed by :meth:`_create_local_entry`.
+        does not exist, any corresponding local items will be deleted. If ``dbx_path``
+        refers to a folder, the download will be handled by :meth:`get_remote_folder`.
+        If it refers to a single file, the download will be performed by
+        :meth:`_create_local_entry`.
 
         This method can be used to fetch individual items outside of the regular sync
         cycle, for instance when including a previously excluded file or folder.
@@ -2466,8 +2464,19 @@ class SyncEngine:
 
         with self.sync_lock:
 
-            self.pending_downloads.add(dbx_path.lower())
             md = self.client.get_metadata(dbx_path, include_deleted=True)
+
+            if md is None:
+                # create a fake deleted event
+                index_entry = self.get_index_entry(dbx_path)
+                cased_path = index_entry.dbx_path_cased if index_entry else dbx_path
+
+                md = DeletedMetadata(
+                    name=osp.basename(dbx_path),
+                    path_lower=dbx_path.lower(),
+                    path_display=cased_path,
+                )
+
             event = SyncEvent.from_dbx_metadata(md, self)
 
             if event.is_directory:
@@ -2476,9 +2485,6 @@ class SyncEngine:
                 self.syncing.append(event)
                 e = self._create_local_entry(event)
                 success = e.status in (SyncStatus.Done, SyncStatus.Skipped)
-
-            if success:
-                self.pending_downloads.discard(dbx_path.lower())
 
             return success
 
@@ -3411,13 +3417,17 @@ def download_worker_added_item(
 
         try:
             dbx_path = added_item_queue.get()
+            sync.pending_downloads.add(dbx_path.lower())  # protect against crashes
 
             with sync.sync_lock:
+
                 if not (running.is_set() and syncing.is_set()):
-                    sync.pending_downloads.add(dbx_path.lower())
+                    # try again later
                     continue
 
                 sync.get_remote_item(dbx_path)
+                sync.pending_downloads.discard(dbx_path)
+
                 logger.info(IDLE)
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)
@@ -3529,6 +3539,7 @@ def startup_worker(
                 for dbx_path in list(sync.pending_downloads):
                     logger.info(f"Syncing ↓ {dbx_path}")
                     sync.get_remote_item(dbx_path)
+                    sync.pending_downloads.discard(dbx_path)
 
                 # retry failed / interrupted uploads by scheduling additional events
                 # if len(sync.upload_errors) > 0:
