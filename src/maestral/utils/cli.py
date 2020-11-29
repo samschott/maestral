@@ -671,7 +671,7 @@ def select_multiple(message: str, options: Sequence[str], hint="") -> List[int]:
             chosen = [options[index] for index in value]
             response = ", ".join(chosen)
 
-            if len(response) > 50:
+            if len(value) == 0 or len(response) > 50:
                 response = f"[{len(value)} chosen]"
 
             return (response,)
