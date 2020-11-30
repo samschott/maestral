@@ -15,20 +15,15 @@ Coding style is checked with [flake8](http://flake8.pycqa.org).
 Type hints, [PEP484](https://www.python.org/dev/peps/pep-0484/), are checked with
 [mypy](http://mypy-lang.org/).
 
-You can check the format, coding style, and type hints at the same time just by executing
-a script `scripts/linting.sh`. If your environment misses some dependencies such as
-black, flake8, or mypy, you will be asked to install them.
+You can check the format, coding style, and type hints at the same time by running the
+provided pre-commit hook from the git directory:
 
 ```bash
-# Without any fixes.
-bash scripts/linting.sh
-
-# With fixes on the format by `black`
-bash scripts/linting.sh -u
+pre-commit run -a
 ```
 
 You can also install the provided pre-commit hook to run checks on every commit. This
-will however slow down commits. 
+will however significantly slow down commits.
 
 ### Documentation
 
