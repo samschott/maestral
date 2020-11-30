@@ -27,9 +27,9 @@
 
 * Fixes an issue where all newly downloaded files would be created with 755 permissions.
   They are now created with the user's default permissions for new files instead.
-* Fixes an unexpected crash when the list of `pending_downloads` or `download_errors` to
-  be retried on startup would contain an invalid path, i.e., a Dropbox path for which
-  we cannot get any current or deleted metadata.
+* Fixes an unexpected crash when the list of `pending_downloads` or `download_errors`
+  would contain an invalid path, i.e., a Dropbox path for which we cannot get any
+  current or deleted metadata.
 * Fixes an issue where `maestral ls` would fail when run with the `-l, --long` flag.
 * Fixes an `IndexError` during a download sync when trying to query past versions of a
   deleted item.
@@ -38,7 +38,9 @@
   than 10 folders.
 * Fixes a regression with the autostart functionality of the Linux GUI. Autostart
   entries created with v1.2.2 will need be reset by toggling the checkbox "start on
-  login".
+  login" off and on.
+* Fixes an issue where two configs linked to the same Dropbox account would both be
+  unlinked when trying to unlink only one of them.
 
 #### Deprecated:
 
