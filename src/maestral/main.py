@@ -37,6 +37,7 @@ from .errors import (
     NoDropboxDirError,
     NotFoundError,
     BusyError,
+    KeyringAccessError,
 )
 from .config import MaestralConfig, MaestralState, validate_config_name
 from .notify import MaestralDesktopNotificationHandler
@@ -213,17 +214,20 @@ class Maestral:
         user's PC.
 
         :raises NotLinkedError: if no Dropbox account is linked.
-        :raises KeyringAccessError: If deleting the auth key fails because the user's
-            keyring is locked.
         """
 
         self._check_linked()
         self.stop_sync()
 
         try:
-            self.client.unlink()
+            self.client.dbx.auth_token_revoke()
         except (ConnectionError, MaestralApiError):
             logger.debug("Could not invalidate token with Dropbox", exc_info=True)
+
+        try:
+            self.client.auth.delete_creds()
+        except KeyringAccessError:
+            logger.debug("Could not remove token from keyring", exc_info=True)
 
         # clean up config + state
         self.sync.clear_index()
