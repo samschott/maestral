@@ -107,8 +107,10 @@ class OAuth2Session:
             token_access_type=self.default_token_access_type,
         )
 
-        self._account_id = self._conf.get("account", "account_id") or None
-        self._token_access_type = (
+        self._account_id: Optional[str] = (
+            self._conf.get("account", "account_id") or None
+        )
+        self._token_access_type: Optional[str] = (
             self._state.get("account", "token_access_type") or None
         )
 
@@ -129,7 +131,7 @@ class OAuth2Session:
 
         import keyring.backends
 
-        keyring_class = self._conf.get("app", "keyring").strip()
+        keyring_class: str = self._conf.get("app", "keyring").strip()
 
         if self._account_id and keyring_class != "automatic":
             # we are already linked and have a keyring set
@@ -143,7 +145,7 @@ class OAuth2Session:
                 self._conf.set("app", "keyring", "automatic")
 
                 title = f"Cannot load keyring {keyring_class}"
-                message = "Please relink Maestral to get new access token"
+                message = "Please relink Maestral to get a new access token"
                 new_exc = KeyringAccessError(title, message).with_traceback(
                     exc.__traceback__
                 )
