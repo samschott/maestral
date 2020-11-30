@@ -17,7 +17,7 @@ import keyring.backends.SecretService  # type: ignore
 import keyring.backends.kwallet  # type: ignore
 from keyring.backend import KeyringBackend  # type: ignore
 from keyring.core import load_keyring  # type: ignore
-from keyring.errors import KeyringLocked, PasswordDeleteError  # type: ignore
+from keyring.errors import KeyringLocked, PasswordDeleteError, InitError  # type: ignore
 import keyrings.alt.file  # type: ignore
 import requests
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect  # type: ignore
@@ -287,7 +287,7 @@ class OAuth2Session:
 
                 self._token_access_type = access_type
 
-        except KeyringLocked:
+        except (KeyringLocked, InitError):
             title = f"Could not load auth token, {self.keyring.name} is locked"
             msg = "Please unlock the keyring and try again."
             exc = KeyringAccessError(title, msg)
@@ -353,7 +353,7 @@ class OAuth2Session:
                         " > Warning: No supported keyring found, "
                         "Dropbox credentials stored in plain text."
                     )
-            except KeyringLocked:
+            except (KeyringLocked, InitError):
                 # switch to plain text keyring if user won't unlock
                 self.keyring = keyrings.alt.file.PlaintextKeyring()
                 self._conf.set("app", "keyring", "keyrings.alt.file.PlaintextKeyring")
@@ -372,7 +372,7 @@ class OAuth2Session:
             try:
                 self.keyring.delete_password("Maestral", self._account_id)
                 click.echo(" > Credentials removed.")
-            except KeyringLocked:
+            except (KeyringLocked, InitError):
                 title = f"Could not delete auth token, {self.keyring.name} is locked"
                 msg = "Please unlock the keyring and try again."
                 exc = KeyringAccessError(title, msg)
