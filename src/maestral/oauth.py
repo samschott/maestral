@@ -178,6 +178,15 @@ class OAuth2Session:
 
             return ring
 
+    def _get_accessor(self) -> str:
+        return f"config:{self._config_name}:{self._account_id}"
+
+    def _migrate_keyring(self) -> None:
+        token = self.keyring.get_password("Maestral", self._account_id)
+        if token:
+            self.keyring.set_password("Maestral", self._get_accessor(), token)
+            self.keyring.delete_password("Maestral", self._account_id)
+
     @property
     def linked(self) -> bool:
         """Returns ``True`` if we have full auth credentials, ``False`` otherwise."""
@@ -262,7 +271,9 @@ class OAuth2Session:
 
         try:
 
-            token = self.keyring.get_password("Maestral", self._account_id)
+            self._migrate_keyring()
+
+            token = self.keyring.get_password("Maestral", self._get_accessor())
             access_type = self._state.get("account", "token_access_type")
 
             if not access_type:
@@ -346,7 +357,7 @@ class OAuth2Session:
                 token = self.access_token
 
             try:
-                self.keyring.set_password("Maestral", self._account_id, token)
+                self.keyring.set_password("Maestral", self._get_accessor(), token)
                 click.echo(" > Credentials written.")
                 if isinstance(self.keyring, keyrings.alt.file.PlaintextKeyring):
                     click.echo(
@@ -370,7 +381,7 @@ class OAuth2Session:
                 return
 
             try:
-                self.keyring.delete_password("Maestral", self._account_id)
+                self.keyring.delete_password("Maestral", self._get_accessor())
                 click.echo(" > Credentials removed.")
             except (KeyringLocked, InitError):
                 title = f"Could not delete auth token, {self.keyring.name} is locked"
