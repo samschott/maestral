@@ -329,8 +329,8 @@ class DropboxClient:
         :raises KeyringAccessError: if keyring access fails.
         :raises DropboxAuthError: if we cannot authenticate with Dropbox.
         """
+        self.dbx.auth_token_revoke()
         self.auth.delete_creds()
-        self.dbx.auth_token_revoke()  # should only raise auth errors
 
     def _init_sdk_with_token(
         self,
