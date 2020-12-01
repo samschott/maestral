@@ -123,8 +123,7 @@ def link_dialog(m: Union["MaestralProxy", "Maestral"]) -> None:
 
     authorize_url = m.get_auth_url()
 
-    config_name = click.style(m.config_name, bold=True)
-    cli.info(f"Linking new account for {config_name} config")
+    cli.info(f"Linking new account for '{m.config_name}' config")
     cli.info("Retrieving auth code from Dropbox")
     choice = cli.select(
         "How would you like to you link your account?",
@@ -145,7 +144,7 @@ def link_dialog(m: Union["MaestralProxy", "Maestral"]) -> None:
         res = m.link(auth_code)
 
         if res == 0:
-            email = click.style(m.get_state("account", "email"), bold=True)
+            email = m.get_state("account", "email")
             cli.ok(f"Linked to {email}")
         elif res == 1:
             cli.warn("Invalid token, please try again")
@@ -352,12 +351,9 @@ class ConfigName(click.ParamType):
             if value in list_configs():
                 return value
             else:
-                bv = click.style(value, bold=True)
-                bc = click.style("maestral configs", bold=True)
-
                 raise cli.CliException(
-                    f"Configuration {bv} does not exist. You can list "
-                    f"all existing configurations with {bc}."
+                    f"Configuration '{value}' does not exist. "
+                    f"Use 'maestral configs' to list all configurations."
                 )
 
     #
@@ -1198,8 +1194,7 @@ def excluded_add(dropbox_path: str, config_name: str) -> None:
 
     with MaestralProxy(config_name, fallback=True) as m:
         m.exclude_item(dropbox_path)
-        path_str = click.style(dropbox_path, bold=True)
-        cli.ok(f"Excluded {path_str}.")
+        cli.ok(f"Excluded '{dropbox_path}'.")
 
 
 @excluded.command(
@@ -1227,8 +1222,7 @@ def excluded_remove(dropbox_path: str, config_name: str) -> None:
     try:
         with MaestralProxy(config_name) as m:
             m.include_item(dropbox_path)
-            path_str = click.style(dropbox_path, bold=True)
-            cli.ok(f"Included {path_str}. Now downloading...")
+            cli.ok(f"Included '{dropbox_path}'. Now downloading...")
 
     except Pyro5.errors.CommunicationError:
         raise cli.CliException("Daemon must be running to download folders.")
@@ -1371,10 +1365,8 @@ def rebuild_index(config_name: str) -> None:
 
             m.rebuild_index()
 
-            status_command = click.style("maestral status", bold=True)
-
             if m._is_fallback:
-                cli.ok(f"Rebuilding now. Run {status_command} to view progress.")
+                cli.ok("Rebuilding now. Run 'maestral status' to view progress.")
             else:
                 cli.ok("Daemon is not running. Rebuilding scheduled for next startup.")
 

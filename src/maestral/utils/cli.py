@@ -543,8 +543,8 @@ def ok(message: str, nl: bool = True) -> None:
 
 
 def _style_message(message: str) -> str:
-    pre = click.style("?", fg="green", bold=True)
-    return f"{pre} {click.style(message, bold=True)} "
+    pre = click.style("?", fg="green")
+    return f"{pre} {message} "
 
 
 def _syle_hint(hint: str) -> str:
@@ -557,7 +557,7 @@ grey = "\x1b[90m"
 bold = "\x1b[1m"
 
 response_color = cyan
-focus_color = f"{response_color}{bold}"
+focus_color = f"{response_color}"
 
 
 class loading:
