@@ -1326,7 +1326,7 @@ class SyncEngine:
                     click.launch(err.local_path, locate=True)
                 else:
                     url_path = urllib.parse.quote(err.dbx_path)
-                    click.launch("https://www.dropbox.com/preview" + url_path)
+                    click.launch(f"https://www.dropbox.com/preview{url_path}")
 
             self.notifier.notify(
                 "Sync error",
@@ -1494,7 +1494,7 @@ class SyncEngine:
 
         # get deleted items
         for entry in entries:
-            local_path_uncased = (self.dropbox_path + entry.dbx_path_lower).lower()
+            local_path_uncased = f"{self.dropbox_path}{entry.dbx_path_lower}".lower()
             if local_path_uncased not in lowercase_snapshot_paths:
                 local_path = self.to_local_path_from_cased(entry.dbx_path_cased)
                 if entry.is_directory:
@@ -3281,7 +3281,9 @@ class SyncEngine:
                 )
 
             for entry in entries:
-                child_path_uncased = (self.dropbox_path + entry.dbx_path_lower).lower()
+                child_path_uncased = (
+                    f"{self.dropbox_path}{entry.dbx_path_lower}".lower()
+                )
                 if child_path_uncased not in lowercase_snapshot_paths:
                     local_child_path = self.to_local_path_from_cased(
                         entry.dbx_path_cased
