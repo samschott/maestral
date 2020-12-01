@@ -1984,7 +1984,7 @@ class SyncEngine:
             else:
                 res = None
 
-            if res:
+            if res is not None:
                 event.status = SyncStatus.Done
             else:
                 event.status = SyncStatus.Skipped
@@ -2019,7 +2019,7 @@ class SyncEngine:
         except OSError:
             return
 
-    def _on_local_moved(self, event: SyncEvent) -> Optional[SyncEvent]:
+    def _on_local_moved(self, event: SyncEvent) -> Optional[Metadata]:
         """
         Call when a local item is moved.
 
@@ -2031,7 +2031,7 @@ class SyncEngine:
         remained the same.
 
         :param event: SyncEvent for local moved event.
-        :returns: SyncEvent for created remote item at destination.
+        :returns: Metadata for created remote item at destination.
         :raises MaestralApiError: For any issues when syncing the item.
         """
 
@@ -2087,7 +2087,7 @@ class SyncEngine:
             self._update_index_recursive(md_to_new)
             logger.debug('Moved "%s" to "%s" on Dropbox', dbx_path_from, event.dbx_path)
 
-        return SyncEvent.from_dbx_metadata(md_to_new, self)
+        return md_to_new
 
     def _update_index_recursive(self, md):
 
@@ -2098,12 +2098,12 @@ class SyncEngine:
             for md in result.entries:
                 self.update_index_from_dbx_metadata(md)
 
-    def _on_local_created(self, event: SyncEvent) -> Optional[SyncEvent]:
+    def _on_local_created(self, event: SyncEvent) -> Optional[Metadata]:
         """
         Call when a local item is created.
 
         :param event: SyncEvent corresponding to local created event.
-        :returns: Sync event for created item or None if no remote item is created.
+        :returns: Metadata for created item or None if no remote item is created.
         :raises MaestralApiError: For any issues when syncing the item.
         """
 
@@ -2199,14 +2199,14 @@ class SyncEngine:
             self.update_index_from_dbx_metadata(md_new)
             logger.debug('Created "%s" on Dropbox', event.dbx_path)
 
-        return SyncEvent.from_dbx_metadata(md_new, self)
+        return md_new
 
-    def _on_local_modified(self, event: SyncEvent) -> Optional[SyncEvent]:
+    def _on_local_modified(self, event: SyncEvent) -> Optional[Metadata]:
         """
         Call when local item is modified.
 
         :param event: SyncEvent for local modified event.
-        :returns: SyncEvent corresponding to modified remote item or None if no remote
+        :returns: Metadata corresponding to modified remote item or None if no remote
             item is modified.
         :raises MaestralApiError: For any issues when syncing the item.
         """
@@ -2279,15 +2279,15 @@ class SyncEngine:
             self.update_index_from_dbx_metadata(md_new)
             logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
 
-        return SyncEvent.from_dbx_metadata(md_new, self)
+        return md_new
 
-    def _on_local_deleted(self, event: SyncEvent) -> Optional[SyncEvent]:
+    def _on_local_deleted(self, event: SyncEvent) -> Optional[Metadata]:
         """
         Call when local item is deleted. We try not to delete remote items which have
         been modified since the last sync.
 
         :param event: SyncEvent for local deletion.
-        :returns: Sync event for deleted item or None if no remote item is deleted.
+        :returns: Metadata for deleted item or None if no remote item is deleted.
         :raises MaestralApiError: For any issues when syncing the item.
         """
 
@@ -2353,10 +2353,7 @@ class SyncEngine:
         # remove revision metadata
         self.remove_node_from_index(event.dbx_path)
 
-        if md_deleted:
-            return SyncEvent.from_dbx_metadata(md_deleted, self)
-        else:
-            return None
+        return md_deleted
 
     # ==== Download sync ===============================================================
 
@@ -3004,7 +3001,7 @@ class SyncEngine:
             else:
                 res = None
 
-            if res:
+            if res is not None:
                 event.status = SyncStatus.Done
             else:
                 event.status = SyncStatus.Skipped
@@ -3185,8 +3182,8 @@ class SyncEngine:
         Applies a remote deletion locally.
 
         :param event: Dropbox deleted metadata.
-        :returns: Dropbox metadata corresponding to local deletion or None if no local
-            changes are made.
+        :returns: SyncEvent corresponding to local deletion or None if no local changes
+            are made.
         """
 
         self._apply_case_change(event)
