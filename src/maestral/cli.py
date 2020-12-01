@@ -803,11 +803,12 @@ def status(config_name: str) -> None:
 @main.command(
     section="Information",
     help="""
-Show the sync status of a file or folder.
+Show the sync status of a local file or folder.
 
-Returned value will be 'uploading', 'downloading', 'up to date', 'error', or
-'unwatched' (for files outside of the Dropbox directory). This will always be
-'unwatched' if syncing is paused.
+Returned value will be 'uploading', 'downloading', 'up to date', 'error', or 'unwatched'
+(for files outside of the Dropbox directory). This will always be 'unwatched' if syncing
+is paused. This command can be used to for instance to query information for a plugin to
+a file-manager.
 """,
 )
 @click.argument("local_path", type=click.Path(exists=True, resolve_path=True))
