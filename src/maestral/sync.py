@@ -15,7 +15,7 @@ import random
 import uuid
 import urllib.parse
 from threading import Thread, Event, RLock, current_thread
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from queue import Queue, Empty
 from collections import abc
 from contextlib import contextmanager
@@ -1591,14 +1591,12 @@ class SyncEngine:
                     max_workers=self._num_threads,
                     thread_name_prefix="maestral-upload-pool",
                 ) as executor:
-                    fs = (
-                        executor.submit(self._create_remote_entry, e) for e in deleted
-                    )
+                    res = executor.map(self._create_remote_entry, deleted)
 
                     n_items = len(deleted)
-                    for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                        throttled_log(logger, f"Deleting {n}/{n_items}...")
-                        results.append(f.result())
+                    for n, r in enumerate(res):
+                        throttled_log(logger, f"Deleting {n + 1}/{n_items}...")
+                        results.append(r)
 
                 if dir_moved:
                     logger.info("Moving folders...")
@@ -1613,12 +1611,12 @@ class SyncEngine:
                     max_workers=self._num_threads,
                     thread_name_prefix="maestral-upload-pool",
                 ) as executor:
-                    fs = (executor.submit(self._create_remote_entry, e) for e in other)
+                    res = executor.map(self._create_remote_entry, other)
 
                     n_items = len(other)
-                    for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                        throttled_log(logger, f"Syncing ↑ {n}/{n_items}")
-                        results.append(f.result())
+                    for n, r in enumerate(res):
+                        throttled_log(logger, f"Syncing ↑ {n + 1}/{n_items}")
+                        results.append(r)
 
                 self._clean_history()
 
@@ -2628,12 +2626,12 @@ class SyncEngine:
                 max_workers=self._num_threads,
                 thread_name_prefix="maestral-download-pool",
             ) as executor:
-                fs = (executor.submit(self._create_local_entry, item) for item in items)
+                res = executor.map(self._create_local_entry, items)
 
                 n_items = len(items)
-                for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                    throttled_log(logger, f"Deleting {n}/{n_items}...")
-                    results.append(f.result())
+                for n, r in enumerate(res):
+                    throttled_log(logger, f"Deleting {n + 1}/{n_items}...")
+                    results.append(r)
 
         # create local folders, start with top-level and work your way down
         if folders:
@@ -2644,23 +2642,23 @@ class SyncEngine:
                 max_workers=self._num_threads,
                 thread_name_prefix="maestral-download-pool",
             ) as executor:
-                fs = (executor.submit(self._create_local_entry, item) for item in items)
+                res = executor.map(self._create_local_entry, items)
 
                 n_items = len(items)
-                for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                    throttled_log(logger, f"Creating folder {n}/{n_items}...")
-                    results.append(f.result())
+                for n, r in enumerate(res):
+                    throttled_log(logger, f"Creating folder {n + 1}/{n_items}...")
+                    results.append(r)
 
         # apply created files
         with ThreadPoolExecutor(
             max_workers=self._num_threads, thread_name_prefix="maestral-download-pool"
         ) as executor:
-            fs = (executor.submit(self._create_local_entry, file) for file in files)
+            res = executor.map(self._create_local_entry, files)
 
             n_items = len(files)
-            for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                throttled_log(logger, f"Syncing ↓ {n}/{n_items}")
-                results.append(f.result())
+            for n, r in enumerate(res):
+                throttled_log(logger, f"Syncing ↓ {n + 1}/{n_items}")
+                results.append(r)
 
         if cursor and not self.cancel_pending.is_set():
             # always save remote cursor if not aborted by user,
