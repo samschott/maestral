@@ -495,7 +495,7 @@ class DropboxClient:
 
         md, http_resp = self.dbx.files_download(dbx_path, **kwargs)
 
-        chunksize = 2 ** 16
+        chunksize = 2 ** 13
 
         with open(local_path, "wb") as f:
             with contextlib.closing(http_resp):
