@@ -1386,13 +1386,21 @@ class SyncEngine:
             else:
                 raise new_exc
 
-    def reset_db_session(self):
+    def free_memory(self) -> None:
+        """
+        Frees memory by resetting our database session and the requests session,
+        clearing out case-conversion cache and clearing all expired event ignores and.
+        """
 
         with self._database_access():
             self._db_session.flush()
             self._db_session.close()
-            gc.collect()  # free up memory
             self._db_session = Session()
+
+        self.client.dbx.close()  # resets requests session
+        self._case_conversion_cache.clear()
+        self.fs_events.expire_ignored_events()
+        gc.collect()
 
     # ==== Upload sync =================================================================
 
@@ -2421,20 +2429,11 @@ class SyncEngine:
 
                         del included_subfolders
 
-                    # free memory
-                    del res
-                    del download_res
-                    gc.collect()
-
             except SyncError as e:
                 self._handle_sync_error(e, direction=SyncDirection.Down)
                 return False
 
             if is_dbx_root:
-                # clear case conversion cache to free memory
-                self._case_conversion_cache.clear()
-                gc.collect()
-
                 # always save remote cursor if this is the root folder,
                 # failed downloads will be tracked and retried individually
                 self.remote_cursor = cursor
@@ -3368,13 +3367,13 @@ def download_worker(
                         downloaded = sync.apply_remote_changes(changes, cursor)
                         sync.notify_user(downloaded)
 
-                        # free memory
-                        del changes
-                        gc.collect()
-
+                    sync.client.get_space_usage()  # update space usage
                     logger.info(IDLE)
 
-                    sync.client.get_space_usage()
+                    # free memory
+                    del changes
+                    del downloaded
+                    sync.free_memory()
 
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)
@@ -3426,6 +3425,10 @@ def download_worker_added_item(
                 sync.pending_downloads.discard(dbx_path)
 
                 logger.info(IDLE)
+
+                # free some memory
+                sync.free_memory()
+
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)
         except ConnectionError:
@@ -3470,6 +3473,10 @@ def upload_worker(
 
                 if len(changes) > 0:
                     logger.info(IDLE)
+
+                # free some memory
+                del changes
+                sync.free_memory()
 
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)
@@ -3560,10 +3567,12 @@ def startup_worker(
                     syncing.set()
 
                 startup.clear()
-
-                gc.collect()
-
                 logger.info(IDLE)
+
+                # free some memory
+                del changes
+                del downloaded
+                sync.free_memory()
 
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)
