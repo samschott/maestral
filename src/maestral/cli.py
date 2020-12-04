@@ -1468,7 +1468,7 @@ def diff(dbx_path: str, old_rev: str, new_rev: str, config_name: str) -> None:
             old_location = m.download_rev_to_file(dbx_path=abs_dbx_path, rev=old_rev)
 
             # Use the current version if new_version_hash is None
-            if new_rev != None:
+            if new_rev is not None:
                 new_location = m.download_rev_to_file(
                     dbx_path=abs_dbx_path, rev=new_rev
                 )
