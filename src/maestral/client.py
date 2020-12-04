@@ -30,7 +30,7 @@ from typing import (
 import requests
 from dropbox import (  # type: ignore
     Dropbox,
-    dropbox,
+    create_session,
     files,
     users,
     exceptions,
@@ -126,7 +126,7 @@ _T = TypeVar("_T")
 
 
 # create single requests session for all clients
-SESSION = dropbox.create_session()
+SESSION = create_session()
 _major_minor_version = ".".join(__version__.split(".")[:2])
 USER_AGENT = f"Maestral/v{_major_minor_version}"
 
