@@ -21,8 +21,9 @@ install_requires = [
     "Pyro5>=5.10",
     "requests>=2.16.2",
     "rubicon-objc>=0.3.1;sys_platform=='darwin'",
-    "setuptools",
     "sdnotify>=0.3.2",
+    "setuptools",
+    "stone>=3.2.0",
     "sqlalchemy>=1.3,<1.4",
     "watchdog>=0.10.0,<=0.10.3",
 ]
