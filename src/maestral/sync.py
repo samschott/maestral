@@ -2693,7 +2693,7 @@ class SyncEngine:
 
         # find out who changed the item(s), show the user name if its only a single user
         user_name: Optional[str]
-        dbid_list = set(e.change_dbid for e in changes)
+        dbid_list = set(e.change_dbid for e in changes if e.change_dbid is not None)
         if len(dbid_list) == 1:
             # all files have been modified by the same user
             dbid = dbid_list.pop()
