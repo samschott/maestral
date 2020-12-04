@@ -1445,7 +1445,7 @@ If the second revision is omitted, it will compare the file to the current versi
 )
 @click.argument("dbx_path")
 @click.argument("old_rev")
-@click.argument("new_rev", required = False)
+@click.argument("new_rev", required=False)
 @existing_config_option
 # If new_version_hash is omitted, use the current version of the file
 def diff(dbx_path: str, old_rev: str, new_rev: str, config_name: str) -> None:
@@ -1465,16 +1465,12 @@ def diff(dbx_path: str, old_rev: str, new_rev: str, config_name: str) -> None:
         with MaestralProxy(config_name) as m:
             # Download specific revisions to cache
             new_location = os.path.join(m.dropbox_path, rel_dbx_path)
-            old_location = m.download_rev_to_file(
-                dbx_path = abs_dbx_path,
-                rev = old_rev
-            )
+            old_location = m.download_rev_to_file(dbx_path=abs_dbx_path, rev=old_rev)
 
             # Use the current version if new_version_hash is None
             if new_rev != None:
                 new_location = m.download_rev_to_file(
-                    dbx_path = abs_dbx_path,
-                    rev = new_rev
+                    dbx_path=abs_dbx_path, rev=new_rev
                 )
 
             # TODO: is there a better function?
@@ -1484,11 +1480,13 @@ def diff(dbx_path: str, old_rev: str, new_rev: str, config_name: str) -> None:
                 old_content = f.readlines()
 
             for line in difflib.context_diff(
-                new_content, old_content,
+                new_content,
+                old_content,
                 # TODO: True paths or something simpler?
-                fromfile = new_location, tofile = old_location
+                fromfile=new_location,
+                tofile=old_location,
             ):
-                click.echo(line, nl = False)
+                click.echo(line, nl=False)
 
     except Pyro5.errors.CommunicationError:
         click.echo("unwatched")

@@ -527,16 +527,12 @@ class DropboxClient:
 
         return md
 
-    def download_rev_to_file(
-        self,
-        dbx_path: str,
-        rev: str
-    ) -> str:
+    def download_rev_to_file(self, dbx_path: str, rev: str) -> str:
         """
         Downloads specific revision from Dropbox into a temporary file in the
         users cache directory. The path will be returned by the function and is
         equal to 'name_revhash'.
-        
+
         :param dbx_path: Path to retrieve file on Dropbox.
         :param rev: Revision of file to download.
         """
