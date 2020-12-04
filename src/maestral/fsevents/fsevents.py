@@ -87,6 +87,10 @@ class OrderedFSEventsEmitter(FSEventsEmitter):
             for src_path in diff.dirs_created:
                 self.queue_event(DirCreatedEvent(src_path))
 
+            # free some memory
+            del diff
+            del files_modified
+
 
 class OrderedFSEventsObserver(FSEventsObserver):
     def __init__(self, timeout=DEFAULT_OBSERVER_TIMEOUT):
