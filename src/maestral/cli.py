@@ -20,7 +20,6 @@ import Pyro5.errors  # type: ignore
 # local imports
 from . import __version__, __author__, __url__
 from .utils.cli import Column, Table, Align, Elide, Grid, TextField, DateField, Field
-from .utils.appdirs import get_cache_path
 
 
 if TYPE_CHECKING:

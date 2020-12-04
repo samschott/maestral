@@ -73,7 +73,6 @@ from .errors import (
 from .config import MaestralState
 from .constants import DROPBOX_APP_KEY, IDLE
 from .utils import natural_size, chunks, clamp
-from .utils.appdirs import get_cache_path
 
 if TYPE_CHECKING:
     from .sync import SyncEvent
