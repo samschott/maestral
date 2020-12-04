@@ -7,21 +7,26 @@
   change in status and then returns `True`. The default timeout is 60 sec.
 * Desktop notifications for sync errors are now clickable and will show the related file
   or folder either on Dropbox or locally.
-* Desktop notifications which can be clicked to reveal a file now have a "Show" button.
+* Desktop notifications now have a "Show" button to show a recently changed file.
 
 #### Changed:
 
-* Increased timeout for all event queues.
-* Decreased the frequency of Pyro daemon housekeeping tasks.
+* Significant improvements to the command line interface:
+    * Overhauled all CLI dialogs with nicer formatting and more interactive prompts 
+      using the `survey` package.
+    * Improved output of many CLI commands, including `ls`, `activity`, and `restore`.
+    * Increased speed of many CLI commands by importing only necessary modules.
+    * Shortened help texts for CLI commands.
+* Reduced the CPU usage of daemon and GUIs in the idle state:
+    * Increased timeouts for all event queues.
+    * Decreased the frequency of daemon housekeeping tasks.
+    * GUIs now use longpoll APIs to wait for state changes instead of frequent polling.
 * Improved performance when syncing a large number of remote deletions.
-* The `Maestral.exclude_item()` API now accepts paths which lie inside an excluded
+* The `Maestral.include_item()` API now accepts paths which lie inside an excluded
   folder. When called with such a path, all immediate parents will be included as well.
+  This change also applies to the `maestral excluded remove`.
 * The `Maestral.excluded_items` property is no longer read-only.
-* Increased speed of many CLI commands by importing only necessary modules.
-* Improved output of some CLI commands, including `maestral ls -l`, `maestral acivity`.
-* Shortened help texts for CLI commands.
-* Introduced CLI parameter types `DropboxPath` and `ConfigName` in preparation for shell
-  completion support.
+* Some refactoring of the `cli` module to prepare for shell completion support.
 
 #### Fixes:
 
@@ -31,16 +36,21 @@
   would contain an invalid path, i.e., a Dropbox path for which we cannot get any
   current or deleted metadata.
 * Fixes an issue where `maestral ls` would fail when run with the `-l, --long` flag.
-* Fixes an `IndexError` during a download sync when trying to query past versions of a
-  deleted item.
+* Fixes an occasional `IndexError` during a download sync when trying to query past 
+  versions of a deleted item.
 * Fixes an issue which could cause a segfault of the selective sync dialog on macOS.
-* Fixes an where the selective sync dialog on Linux would not load the contents of more
-  than 10 folders.
+* Fixes an issue where the selective sync dialog on Linux would not load the contents of 
+  more than 10 folders.
 * Fixes a regression with the autostart functionality of the Linux GUI. Autostart
   entries created with v1.2.2 will need be reset by toggling the checkbox "start on
   login" off and on.
 * Fixes an issue where two configs linked to the same Dropbox account would both be
   unlinked when trying to unlink only one of them.
+
+#### Removed:
+
+* Removed the `maestral rev` command to list old file revisions. Instead
+  `maestral restore` will list possible revisions to restore.
 
 #### Deprecated:
 
@@ -49,7 +59,7 @@
 
 #### Dependencies:
 
-* Require `watchdog<=10.3` because of unresolved bug in watchdog 0.10.4 on macOS.
+* Require `watchdog<=10.3` because of an unresolved bug in watchdog 0.10.4 on macOS.
 
 ## v1.2.2
 

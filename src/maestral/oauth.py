@@ -10,7 +10,6 @@ from typing import Optional
 from datetime import datetime
 
 # external imports
-import click
 import keyring.backends  # type: ignore
 import keyring.backends.OS_X  # type: ignore
 import keyring.backends.SecretService  # type: ignore
@@ -26,6 +25,7 @@ from dropbox.oauth import DropboxOAuth2FlowNoRedirect  # type: ignore
 from .config import MaestralConfig, MaestralState
 from .constants import DROPBOX_APP_KEY
 from .errors import KeyringAccessError
+from .utils import cli
 
 
 __all__ = ["OAuth2Session"]
@@ -358,11 +358,10 @@ class OAuth2Session:
 
             try:
                 self.keyring.set_password("Maestral", self._get_accessor(), token)
-                click.echo(" > Credentials written.")
+                cli.ok("Credentials written")
                 if isinstance(self.keyring, keyrings.alt.file.PlaintextKeyring):
-                    click.echo(
-                        " > Warning: No supported keyring found, "
-                        "Dropbox credentials stored in plain text."
+                    cli.warn(
+                        "No supported keyring found, credentials stored in plain text"
                     )
             except (KeyringLocked, InitError):
                 # switch to plain text keyring if user won't unlock
@@ -382,7 +381,7 @@ class OAuth2Session:
 
             try:
                 self.keyring.delete_password("Maestral", self._get_accessor())
-                click.echo(" > Credentials removed.")
+                cli.ok("Credentials removed")
             except (KeyringLocked, InitError):
                 title = f"Could not delete auth token, {self.keyring.name} is locked"
                 msg = "Please unlock the keyring and try again."
