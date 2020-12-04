@@ -5,7 +5,6 @@
 import sys
 import os
 import os.path as osp
-import platform
 import shutil
 import time
 import warnings
@@ -18,8 +17,6 @@ from typing import Union, List, Iterator, Dict, Set, Awaitable, Optional, Any
 # external imports
 import requests
 from watchdog.events import DirDeletedEvent, FileDeletedEvent  # type: ignore
-import bugsnag  # type: ignore
-from bugsnag.handlers import BugsnagHandler  # type: ignore
 from packaging.version import Version
 
 try:
@@ -57,37 +54,13 @@ from .utils.serializer import (
     ErrorType,
 )
 from .utils.appdirs import get_log_path, get_cache_path, get_data_path
-from .constants import BUGSNAG_API_KEY, IDLE, FileStatus, GITHUB_RELEASES_API
+from .constants import IDLE, FileStatus, GITHUB_RELEASES_API
 
 
-__all__ = [
-    "Maestral",
-]
+__all__ = ["Maestral"]
 
 
 logger = logging.getLogger(__name__)
-
-
-# set up error reporting but do not activate
-
-bugsnag.configure(
-    api_key=BUGSNAG_API_KEY,
-    app_version=__version__,
-    auto_notify=False,
-    auto_capture_sessions=False,
-)
-
-
-def bugsnag_global_callback(notification):
-    notification.add_tab(
-        "system", {"platform": platform.platform(), "python": platform.python_version()}
-    )
-    cause = notification.exception.__cause__
-    if cause:
-        notification.add_tab("original exception", error_to_dict(cause))
-
-
-bugsnag.before_notify(bugsnag_global_callback)
 
 
 # ======================================================================================
@@ -140,9 +113,6 @@ class Maestral:
         self._config_name = validate_config_name(config_name)
         self._conf = MaestralConfig(self._config_name)
         self._state = MaestralState(self._config_name)
-
-        # enable / disable automatic reporting of errors
-        bugsnag.configure(auto_notify=self.analytics)
 
         # set up logging
         self._log_to_stdout = log_to_stdout
@@ -241,8 +211,7 @@ class Maestral:
     def _setup_logging(self) -> None:
         """
         Sets up logging to log files, status and error properties, desktop notifications,
-        the systemd journal if available, bugsnag if error reports are enabled, and to
-        stdout if requested.
+        the systemd journal if available, and to stdout if requested.
         """
 
         self._logger = logging.getLogger("maestral")
@@ -312,11 +281,6 @@ class Maestral:
         self._log_handler_desktop_notifier = MaestralDesktopNotificationHandler()
         self._log_handler_desktop_notifier.setLevel(logging.WARNING)
         self._logger.addHandler(self._log_handler_desktop_notifier)
-
-        # log to bugsnag (disabled by default)
-        self._log_handler_bugsnag = BugsnagHandler()
-        self._log_handler_bugsnag.setLevel(logging.ERROR if self.analytics else 100)
-        self._logger.addHandler(self._log_handler_bugsnag)
 
     # ==== methods to access config and saved state ====================================
 
@@ -470,20 +434,6 @@ class Maestral:
         self._log_to_stdout = enabled
         level = self.log_level if enabled else 100
         self.log_handler_stream.setLevel(level)
-
-    @property
-    def analytics(self) -> bool:
-        """Enables or disables logging of errors to bugsnag."""
-        return self._conf.get("app", "analytics")
-
-    @analytics.setter
-    def analytics(self, enabled: bool) -> None:
-        """Setter: analytics."""
-
-        bugsnag.configure(auto_notify=self.analytics)
-        self._log_handler_bugsnag.setLevel(logging.ERROR if enabled else 100)
-
-        self._conf.set("app", "analytics", enabled)
 
     @property
     def notification_snooze(self) -> float:
