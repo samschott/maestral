@@ -20,6 +20,7 @@ import Pyro5.errors  # type: ignore
 # local imports
 from . import __version__, __author__, __url__
 from .utils.cli import Column, Table, Align, Elide, Grid, TextField, DateField, Field
+from .utils.appdirs import get_cache_path
 
 
 if TYPE_CHECKING:
@@ -1434,3 +1435,61 @@ def notify_snooze(minutes: int, config_name: str) -> None:
             )
         else:
             click.echo("Notifications enabled.")
+
+
+@main.command(
+    help_priority=8,
+    help="""
+Compare changes of two revisions of a file.
+If the second revision is omitted, it will compare the file to the current version.
+""",
+)
+@click.argument("dbx_path")
+@click.argument("old_rev")
+@click.argument("new_rev", required = False)
+@existing_config_option
+# If new_version_hash is omitted, use the current version of the file
+def diff(dbx_path: str, old_rev: str, new_rev: str, config_name: str) -> None:
+
+    import difflib
+    from .daemon import MaestralProxy
+
+    # Reason for rel_dbx_path: os.path.join does not like leading /
+    if dbx_path.startswith("/"):
+        abs_dbx_path = dbx_path
+        rel_dbx_path = dbx_path[1:]
+    else:
+        rel_dbx_path = dbx_path
+        abs_dbx_path = "/" + dbx_path
+
+    try:
+        with MaestralProxy(config_name) as m:
+            # Download specific revisions to cache
+            new_location = os.path.join(m.dropbox_path, rel_dbx_path)
+            old_location = m.download_rev_to_file(
+                dbx_path = abs_dbx_path,
+                rev = old_rev
+            )
+
+            # Use the current version if new_version_hash is None
+            if new_rev != None:
+                new_location = m.download_rev_to_file(
+                    dbx_path = abs_dbx_path,
+                    rev = new_rev
+                )
+
+            # TODO: is there a better function?
+            with open(new_location) as f:
+                new_content = f.readlines()
+            with open(old_location) as f:
+                old_content = f.readlines()
+
+            for line in difflib.context_diff(
+                new_content, old_content,
+                # TODO: True paths or something simpler?
+                fromfile = new_location, tofile = old_location
+            ):
+                click.echo(line, nl = False)
+
+    except Pyro5.errors.CommunicationError:
+        click.echo("unwatched")

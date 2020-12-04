@@ -73,6 +73,7 @@ from .errors import (
 from .config import MaestralState
 from .constants import DROPBOX_APP_KEY, IDLE
 from .utils import natural_size, chunks, clamp
+from .utils.appdirs import get_cache_path
 
 if TYPE_CHECKING:
     from .sync import SyncEvent
@@ -526,6 +527,25 @@ class DropboxClient:
         os.utime(local_path, (time.time(), timestamp))
 
         return md
+
+    def download_rev_to_file(
+        self,
+        dbx_path: str,
+        rev: str
+    ) -> str:
+        """
+        Downloads specific revision from Dropbox into a temporary file in the
+        users cache directory. The path will be returned by the function and is
+        equal to 'name_revhash'.
+        
+        :param dbx_path: Path to retrieve file on Dropbox.
+        :param rev: Revision of file to download.
+        """
+
+        # TODO: better temp file solution?
+        local_path = os.path.join("/tmp", f"{rev}")
+        self.dbx.files_download_to_file(local_path, dbx_path, rev)
+        return local_path
 
     @convert_api_errors_decorator(local_path_arg=1, dbx_path_arg=2)
     def upload(
