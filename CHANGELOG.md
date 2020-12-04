@@ -2,12 +2,12 @@
 
 #### Added:
 
-* Added a public API `Maetral.status_change_longpoll` for frontends to wait for status
-  changes without frequent polling. `status_change_longpoll` blocks until there is a
-  change in status and then returns `True`. The default timeout is 60 sec.
 * Desktop notifications for sync errors are now clickable and will show the related file
   or folder either on Dropbox or locally.
 * Desktop notifications now have a "Show" button to show a recently changed file.
+* Added a public API `Maetral.status_change_longpoll` for frontends to wait for status
+  changes without frequent polling. `status_change_longpoll` blocks until there is a
+  change in status and then returns `True`. The default timeout is 60 sec.
 
 #### Changed:
 
@@ -17,6 +17,7 @@
     * Improved output of many CLI commands, including `ls`, `activity`, and `restore`.
     * Increased speed of many CLI commands by importing only necessary modules.
     * Shortened help texts for CLI commands.
+    * Group help output by function.
 * Reduced the CPU usage of daemon and GUIs in the idle state:
     * Increased timeouts for all event queues.
     * Decreased the frequency of daemon housekeeping tasks.
@@ -35,6 +36,11 @@
 * Fixes an unexpected crash when the list of `pending_downloads` or `download_errors`
   would contain an invalid path, i.e., a Dropbox path for which we cannot get any
   current or deleted metadata.
+* Fixes an error when a local file name contains bytes which cannot be decoded by
+  reported file system encoding. This now raises a sync error instead of crashing and
+  all log handlers have been updated to deal with the resulting surrogate escapes.
+* Fixes possible loss of data when excluding an item from syncing while it is
+  downloaded. This is no longer possible and will raise a `BusyError` instead.
 * Fixes an issue where `maestral ls` would fail when run with the `-l, --long` flag.
 * Fixes an occasional `IndexError` during a download sync when trying to query past 
   versions of a deleted item.
@@ -46,6 +52,7 @@
   login" off and on.
 * Fixes an issue where two configs linked to the same Dropbox account would both be
   unlinked when trying to unlink only one of them.
+* Fixes an import error with v11.0 of the Dropbox SDK.
 
 #### Removed:
 
@@ -57,9 +64,17 @@
 * Deprecated the `Maestral.set_excluded_items` API. Use the setter for
   `Maestral.excluded_items` instead.
 
+#### Development:
+
+* Updated tests and migrated fully to pytest.
+* Improved API documentation, including sections on the sync logic and on logging.
+* Added contributing guidelines.
+
 #### Dependencies:
 
-* Require `watchdog<=10.3` because of an unresolved bug in watchdog 0.10.4 on macOS.
+* Require `watchdog<=10.3` because of an unresolved issue in watchdog 0.10.4 on macOS.
+* Pin `dropbox<12.0` to avoid bad surprises in case of breaking changes.
+* Add `survey>=2.1.0` for an interactive CLI.
 
 ## v1.2.2
 
