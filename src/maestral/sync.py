@@ -1,29 +1,27 @@
 # -*- coding: utf-8 -*-
-"""
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
-"""
+"""This module contains the main syncing functionality."""
 
 # system imports
+import sys
 import os
 import os.path as osp
 from stat import S_ISDIR
+import socket
 import resource
 import logging
 import time
 import tempfile
 import random
+import uuid
+import urllib.parse
 from threading import Thread, Event, RLock, current_thread
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from queue import Queue, Empty
 from collections import abc
 from contextlib import contextmanager
 import enum
 import pprint
-import socket
 import gc
-from datetime import timezone
 from functools import wraps
 from typing import (
     Optional,
@@ -47,22 +45,12 @@ import click
 import sqlalchemy.exc  # type: ignore
 import sqlalchemy.engine.url  # type: ignore
 from sqlalchemy.sql import func  # type: ignore
-from sqlalchemy.ext.declarative import declarative_base  # type: ignore
-from sqlalchemy.orm import sessionmaker  # type: ignore
-from sqlalchemy.sql import case  # type: ignore
-from sqlalchemy.sql.elements import Case  # type: ignore
-from sqlalchemy.ext.hybrid import hybrid_property  # type: ignore
-from sqlalchemy import MetaData, Column, Integer, String, Enum, Float, create_engine  # type: ignore
+from sqlalchemy import create_engine  # type: ignore
 import pathspec  # type: ignore
 import dropbox  # type: ignore
 from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata  # type: ignore
 from watchdog.events import FileSystemEventHandler  # type: ignore
-from watchdog.events import (
-    EVENT_TYPE_CREATED,
-    EVENT_TYPE_DELETED,
-    EVENT_TYPE_MOVED,
-    EVENT_TYPE_MODIFIED,
-)
+from watchdog.events import EVENT_TYPE_CREATED, EVENT_TYPE_DELETED, EVENT_TYPE_MOVED
 from watchdog.events import (
     DirModifiedEvent,
     FileModifiedEvent,
@@ -77,9 +65,10 @@ from watchdog.events import (
 from watchdog.utils.dirsnapshot import DirectorySnapshot  # type: ignore
 
 # local imports
-from maestral.config import MaestralConfig, MaestralState
-from maestral.fsevents import Observer
-from maestral.constants import (
+from .config import MaestralConfig, MaestralState
+from .notify import MaestralDesktopNotifier
+from .fsevents import Observer
+from .constants import (
     IDLE,
     SYNCING,
     PAUSED,
@@ -90,7 +79,7 @@ from maestral.constants import (
     MIGNORE_FILE,
     FILE_CACHE,
 )
-from maestral.errors import (
+from .errors import (
     SyncError,
     NoDropboxDirError,
     CacheDirError,
@@ -99,18 +88,29 @@ from maestral.errors import (
     DropboxServerError,
     FileConflictError,
     FolderConflictError,
-    IsAFolderError,
     InvalidDbidError,
     DatabaseError,
 )
-from maestral.client import (
+from .client import (
     DropboxClient,
     os_to_maestral_error,
     convert_api_errors,
     fswatch_to_maestral_error,
 )
-from maestral.utils.notify import MaestralDesktopNotifier
-from maestral.utils.path import (
+from .database import (
+    Base,
+    Session,
+    SyncEvent,
+    HashCacheEntry,
+    IndexEntry,
+    SyncDirection,
+    SyncStatus,
+    ItemType,
+    ChangeType,
+)
+from .utils import removeprefix, sanitize_string
+from .utils.caches import LRUCache
+from .utils.path import (
     generate_cc_name,
     cased_path_candidates,
     is_fs_case_sensitive,
@@ -120,22 +120,33 @@ from maestral.utils.path import (
     is_equal_or_child,
     content_hash,
 )
-from maestral.utils.appdirs import get_data_path, get_home_dir
+from .utils.appdirs import get_data_path, get_home_dir
+
+
+__all__ = [
+    "Conflict",
+    "SyncDirection",
+    "SyncStatus",
+    "ItemType",
+    "ChangeType",
+    "FSEventHandler",
+    "PersistentStateMutableSet",
+    "SyncEvent",
+    "IndexEntry",
+    "HashCacheEntry",
+    "SyncEngine",
+    "SyncMonitor",
+    "upload_worker",
+    "download_worker",
+    "download_worker_added_item",
+    "startup_worker",
+]
 
 
 logger = logging.getLogger(__name__)
 _cpu_count = os.cpu_count() or 1  # os.cpu_count can return None
 
-db_naming_convention = {
-    "ix": "ix_%(column_0_label)s",
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
-    "ck": "ck_%(table_name)s_%(column_0_name)s",
-    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    "pk": "pk_%(table_name)s",
-}
-Base = declarative_base(metadata=MetaData(naming_convention=db_naming_convention))
-Session = sessionmaker(expire_on_commit=False)
-
+# type definitions
 ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
 FT = TypeVar("FT", bound=Callable[..., Any])
 
@@ -146,81 +157,12 @@ FT = TypeVar("FT", bound=Callable[..., Any])
 
 
 class Conflict(enum.Enum):
-    """
-    Enumeration of sync conflict types.
-
-    :cvar RemoteNewer: Remote item is newer.
-    :cvar Conflict: Conflict.
-    :cvar Identical: Items are identical.
-    :cvar LocalNewerOrIdentical: Local item is newer or identical.
-    """
+    """Enumeration of sync conflict types"""
 
     RemoteNewer = "remote newer"
     Conflict = "conflict"
     Identical = "identical"
     LocalNewerOrIdentical = "local newer or identical"
-
-
-class SyncDirection(enum.Enum):
-    """
-    Enumeration of sync direction.
-
-    :cvar Up: Upload.
-    :cvar Down: Download.
-    """
-
-    Up = "up"
-    Down = "down"
-
-
-class SyncStatus(enum.Enum):
-    """
-    Enumeration of sync status values.
-
-    :cvar Queued: Queued for syncing.
-    :cvar Syncing: Sync in progress.
-    :cvar Done: Sync successfully completed.
-    :cvar Failed: Sync failed.
-    :cvar Skipped: Item was already in sync.
-    """
-
-    Queued = "queued"
-    Syncing = "syncing"
-    Done = "done"
-    Failed = "failed"
-    Skipped = "skipped"
-    Aborted = "aborted"
-
-
-class ItemType(enum.Enum):
-    """
-    Enumeration of SyncEvent types.
-
-    :cvar File: File type.
-    :cvar Folder: Folder type.
-    :cvar Unknown: Item type could not be determined. This can occur for remote deleted
-        events, see issue #198.
-    """
-
-    File = "file"
-    Folder = "folder"
-    Unknown = "unknown"
-
-
-class ChangeType(enum.Enum):
-    """
-    Enumeration of SyncEvent change types.
-
-    :cvar Added: An added file or folder.
-    :cvar Removed: A deleted file or folder.
-    :cvar Moved: A moved file or folder.
-    :cvar Modified: A modified file. Does not apply to folders.
-    """
-
-    Added = "added"
-    Removed = "removed"
-    Moved = "moved"
-    Modified = "modified"
 
 
 class _Ignore:
@@ -238,7 +180,8 @@ class _Ignore:
 
 
 class FSEventHandler(FileSystemEventHandler):
-    """
+    """A local file event handler
+
     Handles captured file events and adds them to :class:`SyncEngine`'s file event queue
     to be uploaded by :meth:`upload_worker`. This acts as a translation layer between
     :class:`watchdog.Observer` and :class:`SyncEngine`.
@@ -253,27 +196,26 @@ class FSEventHandler(FileSystemEventHandler):
     _ignored_events: List[_Ignore]
     local_file_event_queue: "Queue[FileSystemEvent]"
 
-    ignore_timeout = 2.0
-
     def __init__(self, syncing: Event, startup: Event) -> None:
 
         self.syncing = syncing
         self.startup = startup
 
         self._ignored_events = []
+        self.ignore_timeout = 2.0
         self.local_file_event_queue = Queue()
 
     @contextmanager
     def ignore(
         self, *events: FileSystemEvent, recursive: bool = True
     ) -> Iterator[None]:
-        """
-        A context manager to ignore file events. Once a matching event has been
-        registered, further matching events will no longer be ignored unless
-        ``recursive`` is ``True``. If no matching event has occurred before leaving the
-        context, the event will be ignored for ``ignore_timeout`` sec after leaving then
-        context and then discarded. This accounts for possible delays in the emission of
-        local file system events.
+        """A context manager to ignore local file events
+
+        Once a matching event has been registered, further matching events will no
+        longer be ignored unless ``recursive`` is ``True``. If no matching event has
+        occurred before leaving the context, the event will be ignored for
+        :attr:`ignore_timeout` sec after leaving then context and then discarded. This
+        accounts for possible delays in the emission of local file system events.
 
         This context manager is used to filter out file system events caused by maestral
         itself, for instance during a download or when moving a conflict.
@@ -302,7 +244,7 @@ class FSEventHandler(FileSystemEventHandler):
             for ignore in new_ignores:
                 ignore.ttl = time.time() + self.ignore_timeout
 
-    def _expire_ignored_events(self) -> None:
+    def expire_ignored_events(self) -> None:
         """Removes all expired ignore entries."""
 
         now = time.time()
@@ -324,7 +266,7 @@ class FSEventHandler(FileSystemEventHandler):
         :returns: Whether the event should be ignored.
         """
 
-        self._expire_ignored_events()
+        self.expire_ignored_events()
 
         for ignore in self._ignored_events.copy():
             ignore_event = ignore.event
@@ -355,9 +297,9 @@ class FSEventHandler(FileSystemEventHandler):
 
     def on_any_event(self, event: FileSystemEvent) -> None:
         """
-        Callback on any event. Checks if the system file event should be ignored. If
-        not, adds it to the queue for events to upload. If syncing is paused or stopped,
-        all events will be ignored.
+        Checks if the system file event should be ignored. If not, adds it to the queue
+        for events to upload. If syncing is paused or stopped, all events will be
+        ignored.
 
         :param event: Watchdog file event.
         """
@@ -378,9 +320,7 @@ class FSEventHandler(FileSystemEventHandler):
 
 
 class PersistentStateMutableSet(abc.MutableSet):
-    """
-    A wrapper for a list of Python types in the saved state that implements a MutableSet
-    interface.
+    """Wraps a list in our state file as a MutableSet
 
     :param config_name: Name of config (determines name of state file).
     :param section: Section name in state file.
@@ -447,367 +387,11 @@ class PersistentStateMutableSet(abc.MutableSet):
         )
 
 
-class SyncEvent(Base):  # type: ignore
-    """
-    Represents a file or folder change in the sync queue. This is used to abstract the
-    :class:`watchdog.events.FileSystemEvent` created for local changes and the
-    :class:`dropbox.files.Metadata` created for remote changes. All arguments are used
-    to construct instance attributes and some attributes may not be set for all event
-    types. Note that some instance attributes depend on the state of the Maestral
-    instance, e.g., :attr:`local_path` will depend on the current path of the local
-    Dropbox folder. They may therefore become invalid after sync sessions.
-
-    The convenience methods :meth:`from_dbx_metadata` and :meth:`from_file_system_event`
-    should be used to properly construct a SyncEvent from Dropbox Metadata or a local
-    FileSystemEvent, respectively.
-
-    :param direction: Direction of the sync: upload or download.
-    :param item_type: The item type: file or folder or undetermined (in rare cases where
-        we cannot determine the type of a deleted file).
-    :param sync_time: The time the SyncEvent was registered.
-    :param dbx_id: A unique dropbox ID for the file or folder. Will only be set for
-        download events which are not deletions.
-    :param dbx_path: Dropbox path of the item to sync. If the sync represents a move
-        operation, this will be the destination path. Follows the casing from server.
-    :param dbx_path_from: Dropbox path that this item was moved from. Will only be set
-        if ``change_type`` is ``ChangeType.Moved``. Follows the casing from server.
-    :param local_path: Local path of the item to sync. If the sync represents a move
-        operation, this will be the destination path. Follows the casing from server.
-    :param local_path_from: Local path that this item was moved from. Will only be set
-        if ``change_type`` is ``ChangeType.Moved``. Follows the casing from server.
-    :param rev: The file revision. Will only be set for remote changes. Will be
-        'folder' for folders and None for deletions.
-    :param content_hash: A hash representing the file content. Will be 'folder' for
-        folders and None for deleted items. Set for both local and remote changes.
-    :param change_type: The type of change: deleted, moved, added or changed. Remote
-        SyncEvents currently do not generate moved events but are reported as deleted
-        and added at the new location.
-    :param change_time: The time of the change: Local ctime or remote client_modified
-        time for files. None for folders or for remote deletions. Note that the
-        client_modified may not be reliable as it is set by other clients and not
-        verified.
-    :param change_dbid: The Dropbox ID of the account which performed the changes. This
-        may not be set for added folders or deletions on the server.
-    :param change_user_name: The user name corresponding to ``change_dbid``, if the
-        account still exists. This field may not be set for performance reasons.
-    :param status: Field containing the sync status: queued, syncing, done, failed,
-        skipped (item was already in sync) or aborted (by the user).
-    :param size: Size of the item in bytes. Always zero for folders.
-    :param completed: File size in bytes which has already been uploaded or downloaded.
-        Always zero for folders.
-
-    :ivar id: A unique identifier of the SyncEvent.
-    :ivar change_time_or_sync_time: Change time when available, otherwise sync time.
-        This can be used for sorting or user information purposes.
-    """
-
-    __tablename__ = "history"
-
-    id = Column(Integer, primary_key=True)
-    direction = Column(Enum(SyncDirection), nullable=False)
-    item_type = Column(Enum(ItemType), nullable=False)
-    sync_time = Column(Float, nullable=False)
-    dbx_id = Column(String)
-    dbx_path = Column(String, nullable=False)
-    local_path = Column(String, nullable=False)
-    dbx_path_from = Column(String)
-    local_path_from = Column(String)
-    rev = Column(String)
-    content_hash = Column(String)
-    change_type = Column(Enum(ChangeType), nullable=False)
-    change_time = Column(Float)
-    change_dbid = Column(String)
-    change_user_name = Column(String)
-    status = Column(Enum(SyncStatus), nullable=False)
-    size = Column(Integer, nullable=False)
-    completed = Column(Integer, default=0)
-
-    @hybrid_property
-    def change_time_or_sync_time(self) -> float:
-        return self.change_time or self.sync_time
-
-    @change_time_or_sync_time.expression  # type: ignore
-    def change_time_or_sync_time(cls) -> Case:
-        return case(
-            [(cls.change_time != None, cls.change_time)], else_=cls.sync_time
-        )  # noqa: E711
-
-    @property
-    def is_file(self) -> bool:
-        """Returns True for file changes"""
-        return self.item_type == ItemType.File
-
-    @property
-    def is_directory(self) -> bool:
-        """Returns True for folder changes"""
-        return self.item_type == ItemType.Folder
-
-    @property
-    def is_added(self) -> bool:
-        """Returns True for added items"""
-        return self.change_type == ChangeType.Added
-
-    @property
-    def is_moved(self) -> bool:
-        """Returns True for moved items"""
-        return self.change_type == ChangeType.Moved
-
-    @property
-    def is_changed(self) -> bool:
-        """Returns True for changed file contents"""
-        return self.change_type == ChangeType.Modified
-
-    @property
-    def is_deleted(self) -> bool:
-        """Returns True for deleted items"""
-        return self.change_type == ChangeType.Removed
-
-    @property
-    def is_upload(self) -> bool:
-        """Returns True for changes to upload"""
-        return self.direction == SyncDirection.Up
-
-    @property
-    def is_download(self) -> bool:
-        """Returns True for changes to download"""
-        return self.direction == SyncDirection.Down
-
-    def __repr__(self):
-        return (
-            f"<{self.__class__.__name__}(direction={self.direction.name}, "
-            f"change_type={self.change_type.name}, dbx_path='{self.dbx_path}')>"
-        )
-
-    @classmethod
-    def from_dbx_metadata(cls, md: Metadata, sync_engine: "SyncEngine") -> "SyncEvent":
-        """
-        Initializes a SyncEvent from the given Dropbox metadata.
-
-        :param md: Dropbox Metadata.
-        :param sync_engine: SyncEngine instance.
-        :returns: An instance of this class with attributes populated from the given
-            Dropbox Metadata.
-        """
-        if isinstance(md, DeletedMetadata):
-            # there is currently no API call to determine who deleted a file or folder
-            change_type = ChangeType.Removed
-            change_time = None
-            size = 0
-            rev = None
-            hash_str = None
-            dbx_id = None
-
-            try:
-                old_md = sync_engine.client.list_revisions(
-                    md.path_lower, limit=1
-                ).entries[0]
-                item_type = ItemType.File
-                if not old_md.sharing_info:
-                    # file is not in a shared folder, therefore
-                    # the current user must have deleted it
-                    change_dbid = sync_engine.client.account_id
-                else:
-                    # we cannot determine who deleted the item
-                    change_dbid = None
-            except IsAFolderError:
-                item_type = ItemType.Folder
-                change_dbid = None
-            except NotFoundError:
-                item_type = ItemType.Unknown
-                change_dbid = None
-
-        elif isinstance(md, FolderMetadata):
-            # there is currently no API call to determine who added a folder
-            change_type = ChangeType.Added
-            item_type = ItemType.Folder
-            size = 0
-            rev = "folder"
-            hash_str = "folder"
-            dbx_id = md.id
-            change_time = None
-            change_dbid = None
-
-        elif isinstance(md, FileMetadata):
-            item_type = ItemType.File
-            rev = md.rev
-            hash_str = md.content_hash
-            dbx_id = md.id
-            size = md.size
-            change_time = md.client_modified.replace(tzinfo=timezone.utc).timestamp()
-            if sync_engine.get_local_rev(md.path_lower):
-                change_type = ChangeType.Modified
-            else:
-                change_type = ChangeType.Added
-            if md.sharing_info:
-                change_dbid = md.sharing_info.modified_by
-            else:
-                # file is not a shared folder, therefore
-                # the current user must have added or modified it
-                change_dbid = sync_engine.client.account_id
-        else:
-            raise RuntimeError(f"Cannot convert {md} to SyncEvent")
-
-        dbx_path_cased = sync_engine.correct_case(md.path_display)
-
-        return cls(
-            direction=SyncDirection.Down,
-            item_type=item_type,
-            sync_time=time.time(),
-            dbx_path=dbx_path_cased,
-            dbx_id=dbx_id,
-            local_path=sync_engine.to_local_path_from_cased(dbx_path_cased),
-            rev=rev,
-            content_hash=hash_str,
-            change_type=change_type,
-            change_time=change_time,
-            change_dbid=change_dbid,
-            status=SyncStatus.Queued,
-            size=size,
-            completed=0,
-        )
-
-    @classmethod
-    def from_file_system_event(
-        cls, event: FileSystemEvent, sync_engine: "SyncEngine"
-    ) -> "SyncEvent":
-        """
-        Initializes a SyncEvent from the given local file system event.
-
-        :param event: Local file system event.
-        :param sync_engine: SyncEngine instance.
-        :returns: An instance of this class with attributes populated from the given
-            SyncEvent.
-        """
-
-        change_dbid = sync_engine.client.account_id
-        to_path = get_dest_path(event)
-        from_path = None
-
-        if event.event_type == EVENT_TYPE_CREATED:
-            change_type = ChangeType.Added
-        elif event.event_type == EVENT_TYPE_DELETED:
-            change_type = ChangeType.Removed
-        elif event.event_type == EVENT_TYPE_MOVED:
-            change_type = ChangeType.Moved
-            from_path = event.src_path
-        elif event.event_type == EVENT_TYPE_MODIFIED:
-            change_type = ChangeType.Modified
-        else:
-            raise RuntimeError(f"Cannot convert {event} to SyncEvent")
-
-        change_time: Optional[float]
-        stat: Optional[os.stat_result]
-
-        try:
-            stat = os.stat(to_path)
-        except OSError:
-            stat = None
-
-        if event.is_directory:
-            item_type = ItemType.Folder
-            size = 0
-            try:
-                change_time = stat.st_birthtime  # type: ignore
-            except AttributeError:
-                change_time = None
-        else:
-            item_type = ItemType.File
-            change_time = stat.st_ctime if stat else None
-            size = stat.st_size if stat else 0
-
-        # Note: We get the content hash here instead of later, even though the
-        # calculation may be slow and ``from_file_system_event`` may be called
-        # serially and not from a thread pool. This is because hashing is CPU bound
-        # and parallelization would cause large multi-core CPU usage (or result in
-        # throttling of our thread-pool).
-
-        return cls(
-            direction=SyncDirection.Up,
-            item_type=item_type,
-            sync_time=time.time(),
-            dbx_path=sync_engine.to_dbx_path(to_path),
-            local_path=to_path,
-            dbx_path_from=sync_engine.to_dbx_path(from_path) if from_path else None,
-            local_path_from=from_path,
-            content_hash=sync_engine.get_local_hash(to_path),
-            change_type=change_type,
-            change_time=change_time,
-            change_dbid=change_dbid,
-            status=SyncStatus.Queued,
-            size=size,
-            completed=0,
-        )
-
-
-class IndexEntry(Base):  # type: ignore
-    """
-    Represents an entry in our local sync index. All arguments are used to construct
-    instance attributes. All arguments apart from ```content_hash`` and
-    ``content_hash_ctime`` are required.
-
-    :param dbx_path_cased: Dropbox path of the item, correctly cased.
-    :param dbx_path_lower: Dropbox path of the item in lower case. This acts as a
-        primary key for the SQL database since there can only be one entry per case-
-        insensitive Dropbox path.
-    :param dbx_id: A unique dropbox ID for the file or folder.
-    :param item_type: The item type: file or folder.
-    :param last_sync: The last time a local change was uploaded. Should be the ctime of
-        the local file or folder.
-    :param rev: The file revision. Will be 'folder' for folders.
-    :param content_hash: A hash representing the file content. Will be 'folder' for
-        folders. May be None if not yet calculated.
-    :param content_hash_ctime: The ctime for which the content_hash was calculated. If
-        this is older than the current ctime, the content_hash will be invalid and has
-        to recalculated.
-    """
-
-    __tablename__ = "index"
-
-    dbx_path_lower = Column(String, nullable=False, primary_key=True)
-    dbx_path_cased = Column(String, nullable=False)
-    dbx_id = Column(String, nullable=False)
-    item_type = Column(Enum(ItemType), nullable=False)
-    last_sync = Column(Float)
-    rev = Column(String, nullable=False)
-    content_hash = Column(String)
-
-    @property
-    def is_file(self) -> bool:
-        """Returns True for file changes"""
-        return self.item_type == ItemType.File
-
-    @property
-    def is_directory(self) -> bool:
-        """Returns True for folder changes"""
-        return self.item_type == ItemType.Folder
-
-    def __repr__(self):
-        return (
-            f"<{self.__class__.__name__}(item_type={self.item_type.name}, "
-            f"dbx_path='{self.dbx_path_cased}')>"
-        )
-
-
-class HashCacheEntry(Base):  # type: ignore
-    """
-    An entry in our cache of content hashes.
-
-    :param local_path: The local path for which the hash is stored.
-    :param hash_str: The content hash. 'folder' for folders.
-    :param mtime: The mtime of the item just before the hash was computed. When the
-        current ctime is newer, the hash_str will need to be recalculated.
-    """
-
-    __tablename__ = "hash_cache"
-
-    local_path = Column(String, nullable=False, primary_key=True)
-    hash_str = Column(String)
-    mtime = Column(Float)
-
-
 class SyncEngine:
-    """
-    Class that contains methods to sync local file events with Dropbox and vice versa.
+    """Class that handles syncing with Dropbox
+
+    Provides methods to wait for local or remote changes and sync them, including
+    conflict resolution and updates to our index.
 
     :param client: Dropbox API client instance.
     :param fs_events_handler: File system event handler to inform us of local events.
@@ -815,7 +399,7 @@ class SyncEngine:
 
     sync_errors: Set[SyncError]
     syncing: List[SyncEvent]
-    _case_conversion_cache: Dict[str, str]
+    _case_conversion_cache: LRUCache
 
     _max_history = 1000
     _num_threads = min(32, _cpu_count * 3)
@@ -832,7 +416,8 @@ class SyncEngine:
 
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
-        self._notifier = MaestralDesktopNotifier.for_config(self.config_name)
+
+        self.notifier = MaestralDesktopNotifier(self.config_name)
 
         # upload_errors / download_errors: contains failed uploads / downloads
         # (from sync errors) to retry later
@@ -888,7 +473,7 @@ class SyncEngine:
         self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * _cpu_count
 
         # caches
-        self._case_conversion_cache = dict()
+        self._case_conversion_cache = LRUCache(capacity=5000)
 
         # clean our file cache
         self.clean_cache_dir()
@@ -1034,8 +619,8 @@ class SyncEngine:
     @property
     def history(self) -> List[SyncEvent]:
         """A list of the last SyncEvents in our history. History will be kept for the
-        interval specified by the config value``keep_history`` (defaults to two weeks)
-        and at most ``_max_history`` events will be returned (defaults to 1,000)."""
+        interval specified by the config value ``keep_history`` (defaults to two weeks)
+        but at most 1,000 events will be kept."""
         with self._database_access():
             query = self._db_session.query(SyncEvent)
             ordered_query = query.order_by(SyncEvent.change_time_or_sync_time)
@@ -1219,9 +804,9 @@ class SyncEngine:
             # remove any entries for deleted or moved items
 
             if event.change_type is ChangeType.Removed:
-                self.remove_path_from_index(dbx_path_lower)
+                self.remove_node_from_index(dbx_path_lower)
             elif event.change_type is ChangeType.Moved:
-                self.remove_path_from_index(event.dbx_path_from.lower())
+                self.remove_node_from_index(event.dbx_path_from.lower())
 
             # add or update entries for created or modified items
 
@@ -1264,7 +849,7 @@ class SyncEngine:
         with self._database_access():
 
             if isinstance(md, DeletedMetadata):
-                self.remove_path_from_index(md.path_lower)
+                self.remove_node_from_index(md.path_lower)
 
             else:
 
@@ -1305,7 +890,7 @@ class SyncEngine:
 
             self._db_session.commit()
 
-    def remove_path_from_index(self, dbx_path: str) -> None:
+    def remove_node_from_index(self, dbx_path: str) -> None:
         """
         Removes any local index entries for the given path and all its children.
 
@@ -1314,12 +899,15 @@ class SyncEngine:
 
         with self._database_access():
 
-            dbx_path_lower = dbx_path.lower()
+            dbx_path_lower = dbx_path.lower().rstrip("/")
+            match = f"{dbx_path_lower}/%"
 
-            for entry in self.iter_index():
-                # remove children from index
-                if is_equal_or_child(entry.dbx_path_lower, dbx_path_lower):
-                    self._db_session.delete(entry)
+            self._db_session.query(IndexEntry).filter(
+                IndexEntry.dbx_path_lower == dbx_path_lower
+            ).delete(synchronize_session="fetch")
+            self._db_session.query(IndexEntry).filter(
+                IndexEntry.dbx_path_lower.ilike(match)
+            ).delete(synchronize_session="fetch")
 
             self._db_session.commit()
 
@@ -1371,7 +959,7 @@ class SyncEngine:
         """
         Checks if the Dropbox folder still exists where we expect it to be.
 
-        :raises: :class:`errors.DropboxDeletedError`
+        :raises DropboxDeletedError: When localal Dropbox directory does not exist.
         """
 
         if not osp.isdir(self.dropbox_path):
@@ -1386,7 +974,7 @@ class SyncEngine:
         """
         Checks for or creates a directory at :attr:`file_cache_path`.
 
-        :raises: :class:`errors.CacheDirError`
+        :raises CacheDirError: When local cache directory cannot be created.
         """
 
         retries = 0
@@ -1435,9 +1023,9 @@ class SyncEngine:
             with tempfile.NamedTemporaryFile(
                 dir=self.file_cache_path, delete=False
             ) as f:
-                umask = os.umask(0)
+                umask = os.umask(0o22)
                 os.umask(umask)
-                os.chmod(f.name, 0o777 & ~umask)
+                os.fchmod(f.fileno(), 0o666 & ~umask)
                 return f.name
         except OSError as err:
             raise CacheDirError(
@@ -1449,9 +1037,29 @@ class SyncEngine:
     def correct_case(self, dbx_path: str) -> str:
         """
         Converts a Dropbox path with correctly cased basename to a fully cased path.
+        This is because Dropbox metadata guarantees the correct casing for the basename
+        only. In practice, casing of parent directories is often incorrect.
+        This is done by retrieving the correct casing of the dirname, either from our
+        cache, our database or from Dropbox servers.
+
+        Performance may vary significantly with the number of parent folders:
+
+        1) If the parent directory is already in our cache, performance is O(1).
+        2) If the parent directory is already in our sync index, performance is O(1) but
+           slower than the first case because it requires a SQLAlchemy query.
+        3) If the parent directory is unknown to us, its metadata (including the correct
+           casing of directory's basename) is queried from Dropbox. This is used to
+           construct a correctly cased path by calling :meth:`correct_case` again. At
+           best, performance will be of O(2) if the parent directory is known to us, at
+           worst if will be of order O(n) involving queries to Dropbox servers for each
+           parent directory.
+
+        When running :meth:`correct_case` on a large tree of paths, it is therefore best
+        to do so in hierarchical order.
 
         :param dbx_path: Dropbox path with correctly cased basename, as provided by
-            ``Metadata.path_display`` or ``Metadata.name``.
+            :attr:`dropbox.files.Metadata.path_display` or
+            :attr:`dropbox.files.Metadata.name`.
         :returns: Correctly cased Dropbox path.
         """
 
@@ -1469,7 +1077,7 @@ class SyncEngine:
             parent_path_cased = self._case_conversion_cache.get(dirname_lower)
 
             if not parent_path_cased:
-                # try to get dirname casing from our index
+                # try to get dirname casing from our index, this is slower
                 with self._database_access():
                     parent_entry = self.get_index_entry(dirname_lower)
 
@@ -1484,11 +1092,12 @@ class SyncEngine:
                         parent_path_cased = self.correct_case(md_parent.path_display)
                     else:
                         # give up
-                        parent_path_cased = osp.dirname(dbx_path)
+                        parent_path_cased = dirname
 
             path_cased = f"{parent_path_cased}/{basename}"
 
-        self._case_conversion_cache[dbx_path_lower] = path_cased
+        # add our result to the cache
+        self._case_conversion_cache.put(dbx_path_lower, path_cased)
 
         return path_cased
 
@@ -1499,7 +1108,7 @@ class SyncEngine:
 
         :param local_path: Absolute path on local drive.
         :returns: Relative path with respect to Dropbox folder.
-        :raises: :class:`ValueError` the path lies outside of the local Dropbox folder.
+        :raises ValueError: When the path lies outside of the local Dropbox folder.
         """
 
         if is_equal_or_child(local_path, self.dropbox_path):
@@ -1659,6 +1268,9 @@ class SyncEngine:
         return self.mignore_rules.match_file(relative_path)
 
     def _slow_down(self) -> None:
+        """
+        Pauses if CPU usage is too high if called from one of our thread pools.
+        """
 
         if self._max_cpu_percent == 100:
             return
@@ -1704,8 +1316,24 @@ class SyncEngine:
 
         if err.dbx_path:
             # we have a file / folder associated with the sync error
-            file_name = osp.basename(err.dbx_path)
-            logger.warning("Could not sync %s", file_name, exc_info=True)
+            # use sanitised path so that the error can be printed to the terminal, etc
+            file_name = sanitize_string(osp.basename(err.dbx_path))
+
+            logger.info("Could not sync %s", file_name, exc_info=True)
+
+            def callback():
+                if err.local_path:
+                    click.launch(err.local_path, locate=True)
+                else:
+                    url_path = urllib.parse.quote(err.dbx_path)
+                    click.launch(f"https://www.dropbox.com/preview{url_path}")
+
+            self.notifier.notify(
+                "Sync error",
+                f"Could not sync {file_name}",
+                level=self.notifier.SYNCISSUE,
+                buttons={"Show": callback},
+            )
             self.sync_errors.add(err)
 
             # save download errors to retry later
@@ -1754,17 +1382,25 @@ class SyncEngine:
 
         if new_exc:
             if log_errors:
-                logger.error(title, exc_info=_exc_info(new_exc))
+                logger.error(title, exc_info=exc_info_tuple(new_exc))
             else:
                 raise new_exc
 
-    def reset_db_session(self):
+    def free_memory(self) -> None:
+        """
+        Frees memory by resetting our database session and the requests session,
+        clearing out case-conversion cache and clearing all expired event ignores and.
+        """
 
         with self._database_access():
             self._db_session.flush()
             self._db_session.close()
-            gc.collect()  # free up memory
             self._db_session = Session()
+
+        self.client.dbx.close()  # resets requests session
+        self._case_conversion_cache.clear()
+        self.fs_events.expire_ignored_events()
+        gc.collect()
 
     # ==== Upload sync =================================================================
 
@@ -1797,32 +1433,51 @@ class SyncEngine:
                 logger.debug("No local changes while inactive")
 
     def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
+        """
+        Retrieves all local changes since the last sync by performing a full scan of the
+        local folder. Changes are detected by comparing the new directory snapshot to
+        our index.
+
+        Added items: Are present in the snapshot but not in our index.
+        Deleted items: Are present in our index but not in the snapshot.
+        Modified items: Are present in both but have a ctime newer than the last sync.
+
+        :returns: Tuple containing local file system events and a cursor / timestamp
+            for the changes.
+        """
 
         changes = []
-        now = time.time()
+        snapshot_time = time.time()
         snapshot = DirectorySnapshot(self.dropbox_path)
+        lowercase_snapshot_paths: Set[str] = set()
 
         # don't use iterator here but pre-fetch all entries
         # this significantly improves performance but can lead to high memory usage
         entries = self.get_index()
 
-        # get lowercase paths
-        lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
-
         # get modified or added items
         for path in snapshot.paths:
+
+            # generate lower-case snapshot paths for later
+            lowercase_snapshot_paths.add(path.lower())
+
             if path != self.dropbox_path:
-                stats = snapshot.stat_info(path)
-                # check if item was created or modified since last sync
-                # but before we started the FileEventHandler (~now)
+
                 dbx_path_lower = self.to_dbx_path(path).lower()
-                ctime_check = now > stats.st_ctime > self.get_last_sync(dbx_path_lower)
+
+                # check if item was created or modified since last sync
+                # but before we started the FileEventHandler (~snapshot_time)
+                stats = snapshot.stat_info(path)
+                ctime_check = (
+                    snapshot_time > stats.st_ctime > self.get_last_sync(dbx_path_lower)
+                )
 
                 # always upload untracked items, check ctime of tracked items
                 local_entry = self.get_index_entry(dbx_path_lower)
-                is_modified = local_entry and ctime_check
+                is_new = local_entry is None
+                is_modified = ctime_check and local_entry is not None
 
-                if not local_entry:
+                if is_new:
                     if snapshot.isdir(path):
                         event = DirCreatedEvent(path)
                     else:
@@ -1830,10 +1485,10 @@ class SyncEngine:
                     changes.append(event)
 
                 elif is_modified:
-                    if snapshot.isdir(path) and local_entry.is_directory:
+                    if snapshot.isdir(path) and local_entry.is_directory:  # type: ignore
                         event = DirModifiedEvent(path)
                         changes.append(event)
-                    elif not snapshot.isdir(path) and not local_entry.is_directory:
+                    elif not snapshot.isdir(path) and not local_entry.is_directory:  # type: ignore
                         event = FileModifiedEvent(path)
                         changes.append(event)
                     elif snapshot.isdir(path):
@@ -1847,7 +1502,7 @@ class SyncEngine:
 
         # get deleted items
         for entry in entries:
-            local_path_uncased = (self.dropbox_path + entry.dbx_path_lower).lower()
+            local_path_uncased = f"{self.dropbox_path}{entry.dbx_path_lower}".lower()
             if local_path_uncased not in lowercase_snapshot_paths:
                 local_path = self.to_local_path_from_cased(entry.dbx_path_cased)
                 if entry.is_directory:
@@ -1862,10 +1517,10 @@ class SyncEngine:
         del lowercase_snapshot_paths
         gc.collect()
 
-        return changes, now
+        return changes, snapshot_time
 
     def wait_for_local_changes(
-        self, timeout: float = 5, delay: float = 1
+        self, timeout: float = 40, delay: float = 1
     ) -> Tuple[List[SyncEvent], float]:
         """
         Waits for local file changes. Returns a list of local changes with at most one
@@ -1944,14 +1599,12 @@ class SyncEngine:
                     max_workers=self._num_threads,
                     thread_name_prefix="maestral-upload-pool",
                 ) as executor:
-                    fs = (
-                        executor.submit(self._create_remote_entry, e) for e in deleted
-                    )
+                    res = executor.map(self._create_remote_entry, deleted)
 
                     n_items = len(deleted)
-                    for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                        throttled_log(logger, f"Deleting {n}/{n_items}...")
-                        results.append(f.result())
+                    for n, r in enumerate(res):
+                        throttled_log(logger, f"Deleting {n + 1}/{n_items}...")
+                        results.append(r)
 
                 if dir_moved:
                     logger.info("Moving folders...")
@@ -1966,12 +1619,12 @@ class SyncEngine:
                     max_workers=self._num_threads,
                     thread_name_prefix="maestral-upload-pool",
                 ) as executor:
-                    fs = (executor.submit(self._create_remote_entry, e) for e in other)
+                    res = executor.map(self._create_remote_entry, other)
 
                     n_items = len(other)
-                    for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                        throttled_log(logger, f"Uploading {n}/{n_items}...")
-                        results.append(f.result())
+                    for n, r in enumerate(res):
+                        throttled_log(logger, f"Syncing ↑ {n + 1}/{n_items}")
+                        results.append(r)
 
                 self._clean_history()
 
@@ -2026,27 +1679,33 @@ class SyncEngine:
         # COMBINE EVENTS TO ONE EVENT PER PATH
 
         # Move events are difficult to combine with other event types, we split them
-        # into deleted and created events and recombine them later if none of the paths
-        # has other events associated with it or is excluded from sync.
+        # into deleted and created events and recombine them later if neither the source
+        # of the destination path of has other events associated with it or is excluded
+        # from sync.
 
         histories: Dict[str, List[FileSystemEvent]] = dict()
+        moved_events: Dict[str, List[FileSystemEvent]] = dict()
+        unique_events: List[FileSystemEvent] = []
 
-        for i, event in enumerate(events):
+        for event in events:
             if isinstance(event, (FileMovedEvent, DirMovedEvent)):
                 deleted, created = split_moved_event(event)
-                deleted.id = i
-                created.id = i
-
                 add_to_bin(histories, deleted.src_path, deleted)
                 add_to_bin(histories, created.src_path, created)
             else:
                 add_to_bin(histories, event.src_path, event)
 
-        unique_events = []
+        # for every path, keep only a single event which represents all changes
 
         for path, events in histories.items():
             if len(events) == 1:
-                unique_events.append(events[0])
+                event = events[0]
+                unique_events.append(event)
+
+                if hasattr(event, "move_id"):
+                    # add to list "moved_events" to recombine line
+                    add_to_bin(moved_events, event.move_id, event)
+
             else:
 
                 n_created = len(
@@ -2068,7 +1727,7 @@ class SyncEngine:
                         unique_events.append(FileDeletedEvent(path))
                 else:
 
-                    first_created_idx = next(
+                    first_created_index = next(
                         iter(
                             i
                             for i, e in enumerate(events)
@@ -2076,7 +1735,7 @@ class SyncEngine:
                         ),
                         -1,
                     )
-                    first_deleted_idx = next(
+                    first_deleted_index = next(
                         iter(
                             i
                             for i, e in enumerate(events)
@@ -2085,7 +1744,7 @@ class SyncEngine:
                         -1,
                     )
 
-                    if n_created == 0 or first_deleted_idx < first_created_idx:
+                    if n_created == 0 or first_deleted_index < first_created_index:
                         # item was modified
                         if events[0].is_directory and events[-1].is_directory:
                             unique_events.append(DirModifiedEvent(path))
@@ -2107,26 +1766,29 @@ class SyncEngine:
         cleaned_events = set(unique_events)
 
         # recombine moved events
-        moved_events: Dict[str, List[FileSystemEvent]] = dict()
-        for event in cleaned_events:
-            if hasattr(event, "id"):
-                add_to_bin(moved_events, event.id, event)
 
-        for event_list in moved_events.values():
-            if len(event_list) == 2:
+        for split_events in moved_events.values():
+            if len(split_events) == 2:
                 src_path = next(
-                    e.src_path for e in event_list if e.event_type == EVENT_TYPE_DELETED
+                    e.src_path
+                    for e in split_events
+                    if e.event_type == EVENT_TYPE_DELETED
                 )
                 dest_path = next(
-                    e.src_path for e in event_list if e.event_type == EVENT_TYPE_CREATED
+                    e.src_path
+                    for e in split_events
+                    if e.event_type == EVENT_TYPE_CREATED
                 )
-                if event_list[0].is_directory:
+                if split_events[0].is_directory:
                     new_event = DirMovedEvent(src_path, dest_path)
                 else:
                     new_event = FileMovedEvent(src_path, dest_path)
 
+                # Only recombine events if neither has an excluded path: We want to
+                # treat renaming from / to an excluded path as a creation / deletion,
+                # respectively.
                 if not self._should_split_excluded(new_event):
-                    cleaned_events.difference_update(event_list)
+                    cleaned_events.difference_update(split_events)
                     cleaned_events.add(new_event)
 
         # COMBINE MOVED AND DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
@@ -2159,8 +1821,8 @@ class SyncEngine:
                     except KeyError:
                         pass
 
-            for event_list in child_moved_events.values():
-                cleaned_events.difference_update(event_list)
+            for split_events in child_moved_events.values():
+                cleaned_events.difference_update(split_events)
 
         # 2) combine deleted events of folders and their children to one event
         dir_deleted_paths = set(
@@ -2180,8 +1842,8 @@ class SyncEngine:
                     except KeyError:
                         pass
 
-            for event_list in child_deleted_events.values():
-                cleaned_events.difference_update(event_list)
+            for split_events in child_deleted_events.values():
+                cleaned_events.difference_update(split_events)
 
         logger.debug(
             "Cleaned up local file events:\n%s", pprint.pformat(cleaned_events)
@@ -2328,7 +1990,7 @@ class SyncEngine:
             else:
                 res = None
 
-            if res:
+            if res is not None:
                 event.status = SyncStatus.Done
             else:
                 event.status = SyncStatus.Skipped
@@ -2363,7 +2025,7 @@ class SyncEngine:
         except OSError:
             return
 
-    def _on_local_moved(self, event: SyncEvent) -> Optional[SyncEvent]:
+    def _on_local_moved(self, event: SyncEvent) -> Optional[Metadata]:
         """
         Call when a local item is moved.
 
@@ -2375,9 +2037,12 @@ class SyncEngine:
         remained the same.
 
         :param event: SyncEvent for local moved event.
-        :raises: :class:`errors.MaestralApiError`
-        :returns: SyncEvent for created remote item at destination.
+        :returns: Metadata for created remote item at destination.
+        :raises MaestralApiError: For any issues when syncing the item.
         """
+
+        # fail fast on badly decoded paths
+        validate_encoding(event.local_path)
 
         if self._handle_selective_sync_conflict(event):
             return None
@@ -2401,7 +2066,7 @@ class SyncEngine:
 
         md_to_new = self.client.move(dbx_path_from, event.dbx_path, autorename=True)
 
-        self.remove_path_from_index(dbx_path_from)
+        self.remove_node_from_index(dbx_path_from)
 
         if md_to_new.path_lower != event.dbx_path.lower():
             # TODO: test this
@@ -2417,7 +2082,7 @@ class SyncEngine:
             # Delete entry of old path but don't update entry for new path here. This
             # will force conflict resolution on download in case of intermittent
             # changes.
-            self.remove_path_from_index(event.dbx_path)
+            self.remove_node_from_index(event.dbx_path)
             logger.info(
                 'Upload conflict: renamed "%s" to "%s"',
                 event.dbx_path,
@@ -2428,7 +2093,7 @@ class SyncEngine:
             self._update_index_recursive(md_to_new)
             logger.debug('Moved "%s" to "%s" on Dropbox', dbx_path_from, event.dbx_path)
 
-        return SyncEvent.from_dbx_metadata(md_to_new, self)
+        return md_to_new
 
     def _update_index_recursive(self, md):
 
@@ -2439,14 +2104,17 @@ class SyncEngine:
             for md in result.entries:
                 self.update_index_from_dbx_metadata(md)
 
-    def _on_local_created(self, event: SyncEvent) -> Optional[SyncEvent]:
+    def _on_local_created(self, event: SyncEvent) -> Optional[Metadata]:
         """
         Call when a local item is created.
 
         :param event: SyncEvent corresponding to local created event.
-        :raises: :class:`errors.MaestralApiError`
-        :returns: Sync event for created item or None if no remote item is created.
+        :returns: Metadata for created item or None if no remote item is created.
+        :raises MaestralApiError: For any issues when syncing the item.
         """
+
+        # fail fast on badly decoded paths
+        validate_encoding(event.local_path)
 
         if self._handle_selective_sync_conflict(event):
             return None
@@ -2526,7 +2194,7 @@ class SyncEngine:
             # Delete entry of old path but don't update entry for new path here. This
             # will force conflict resolution on download in case of intermittent
             # changes.
-            self.remove_path_from_index(event.dbx_path)
+            self.remove_node_from_index(event.dbx_path)
             logger.debug(
                 'Upload conflict: renamed "%s" to "%s"',
                 event.dbx_path,
@@ -2537,16 +2205,16 @@ class SyncEngine:
             self.update_index_from_dbx_metadata(md_new)
             logger.debug('Created "%s" on Dropbox', event.dbx_path)
 
-        return SyncEvent.from_dbx_metadata(md_new, self)
+        return md_new
 
-    def _on_local_modified(self, event: SyncEvent) -> Optional[SyncEvent]:
+    def _on_local_modified(self, event: SyncEvent) -> Optional[Metadata]:
         """
         Call when local item is modified.
 
         :param event: SyncEvent for local modified event.
-        :raises: :class:`errors.MaestralApiError`
-        :returns: SyncEvent corresponding to modified remote item or None if no remote
+        :returns: Metadata corresponding to modified remote item or None if no remote
             item is modified.
+        :raises MaestralApiError: For any issues when syncing the item.
         """
 
         if event.is_directory:  # ignore directory modified events
@@ -2606,7 +2274,7 @@ class SyncEngine:
 
             # Delete revs of old path but don't set revs for new path here. This will
             # force conflict resolution on download in case of intermittent changes.
-            self.remove_path_from_index(event.dbx_path)
+            self.remove_node_from_index(event.dbx_path)
             logger.debug(
                 'Upload conflict: renamed "%s" to "%s"',
                 event.dbx_path,
@@ -2617,16 +2285,16 @@ class SyncEngine:
             self.update_index_from_dbx_metadata(md_new)
             logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
 
-        return SyncEvent.from_dbx_metadata(md_new, self)
+        return md_new
 
-    def _on_local_deleted(self, event: SyncEvent) -> Optional[SyncEvent]:
+    def _on_local_deleted(self, event: SyncEvent) -> Optional[Metadata]:
         """
         Call when local item is deleted. We try not to delete remote items which have
         been modified since the last sync.
 
         :param event: SyncEvent for local deletion.
-        :raises: :class:`errors.MaestralApiError`
-        :returns: Sync event for deleted item or None if no remote item is deleted.
+        :returns: Metadata for deleted item or None if no remote item is deleted.
+        :raises MaestralApiError: For any issues when syncing the item.
         """
 
         if self.is_excluded_by_user(event.dbx_path):
@@ -2653,7 +2321,7 @@ class SyncEngine:
                     md.path_display,
                 )
                 # mark local folder as untracked
-                self.remove_path_from_index(event.dbx_path)
+                self.remove_node_from_index(event.dbx_path)
                 return None
 
         if event.is_file and isinstance(md, FolderMetadata):
@@ -2667,7 +2335,7 @@ class SyncEngine:
                 md.path_display,
             )
             # mark local file as untracked
-            self.remove_path_from_index(event.dbx_path)
+            self.remove_node_from_index(event.dbx_path)
             return None
 
         try:
@@ -2689,12 +2357,9 @@ class SyncEngine:
             md_deleted = None
 
         # remove revision metadata
-        self.remove_path_from_index(event.dbx_path)
+        self.remove_node_from_index(event.dbx_path)
 
-        if md_deleted:
-            return SyncEvent.from_dbx_metadata(md_deleted, self)
-        else:
-            return None
+        return md_deleted
 
     # ==== Download sync ===============================================================
 
@@ -2716,9 +2381,9 @@ class SyncEngine:
             success = True
 
             if is_dbx_root:
-                logger.info("Downloading your Dropbox")
+                logger.info("Fetching remote Dropbox")
             else:
-                logger.info("Downloading %s", dbx_path)
+                logger.info(f"Syncing ↓ {dbx_path}")
 
             if any(is_child(folder, dbx_path) for folder in self.excluded_items):
                 # if there are excluded subfolders, index and download only included
@@ -2764,20 +2429,11 @@ class SyncEngine:
 
                         del included_subfolders
 
-                    # free memory
-                    del res
-                    del download_res
-                    gc.collect()
-
             except SyncError as e:
                 self._handle_sync_error(e, direction=SyncDirection.Down)
                 return False
 
             if is_dbx_root:
-                # clear case conversion cache to free memory
-                self._case_conversion_cache.clear()
-                gc.collect()
-
                 # always save remote cursor if this is the root folder,
                 # failed downloads will be tracked and retried individually
                 self.remote_cursor = cursor
@@ -2788,12 +2444,10 @@ class SyncEngine:
     def get_remote_item(self, dbx_path: str) -> bool:
         """
         Downloads a remote file or folder and updates its local rev. If the remote item
-        no longer exists, the corresponding local item will be deleted. Given paths will
-        be added to the (persistent) pending_downloads list for the duration of the
-        download so that they will be resumed in case Maestral is terminated during the
-        download. If ``dbx_path`` refers to a folder, the download will be handled by
-        :meth:`get_remote_folder`. If it refers to a single file, the download will be
-        performed by :meth:`_create_local_entry`.
+        does not exist, any corresponding local items will be deleted. If ``dbx_path``
+        refers to a folder, the download will be handled by :meth:`get_remote_folder`.
+        If it refers to a single file, the download will be performed by
+        :meth:`_create_local_entry`.
 
         This method can be used to fetch individual items outside of the regular sync
         cycle, for instance when including a previously excluded file or folder.
@@ -2804,8 +2458,19 @@ class SyncEngine:
 
         with self.sync_lock:
 
-            self.pending_downloads.add(dbx_path.lower())
             md = self.client.get_metadata(dbx_path, include_deleted=True)
+
+            if md is None:
+                # create a fake deleted event
+                index_entry = self.get_index_entry(dbx_path)
+                cased_path = index_entry.dbx_path_cased if index_entry else dbx_path
+
+                md = DeletedMetadata(
+                    name=osp.basename(dbx_path),
+                    path_lower=dbx_path.lower(),
+                    path_display=cased_path,
+                )
+
             event = SyncEvent.from_dbx_metadata(md, self)
 
             if event.is_directory:
@@ -2814,9 +2479,6 @@ class SyncEngine:
                 self.syncing.append(event)
                 e = self._create_local_entry(event)
                 success = e.status in (SyncStatus.Done, SyncStatus.Skipped)
-
-            if success:
-                self.pending_downloads.discard(dbx_path.lower())
 
             return success
 
@@ -2847,14 +2509,19 @@ class SyncEngine:
         :returns: Tuple with remote changes and corresponding cursor
         """
         logger.info("Fetching remote changes...")
-        changes = self.client.list_remote_changes(last_cursor)
-        logger.debug("Listed remote changes:\n%s", entries_to_str(changes.entries))
-        clean_changes = self._clean_remote_changes(changes)
-        logger.debug(
-            "Cleaned remote changes:\n%s", entries_to_str(clean_changes.entries)
-        )
 
-        sync_events = [SyncEvent.from_dbx_metadata(md, self) for md in changes.entries]
+        changes = self.client.list_remote_changes(last_cursor)
+        logger.debug("Listed remote changes:\n%s", entries_repr(changes.entries))
+
+        clean_changes = self._clean_remote_changes(changes)
+        logger.debug("Cleaned remote changes:\n%s", entries_repr(clean_changes.entries))
+
+        clean_changes.entries.sort(key=lambda x: x.path_lower.count("/"))
+        sync_events = [
+            SyncEvent.from_dbx_metadata(md, self) for md in clean_changes.entries
+        ]
+        logger.debug("Converted remote changes to SyncEvents")
+
         return sync_events, changes.cursor
 
     def list_remote_changes_iterator(
@@ -2870,18 +2537,24 @@ class SyncEngine:
         """
 
         logger.info("Fetching remote changes...")
+
         changes_iter = self.client.list_remote_changes_iterator(last_cursor)
 
         for changes in changes_iter:
-            logger.debug("Listed remote changes:\n%s", entries_to_str(changes.entries))
+
+            logger.debug("Listed remote changes:\n%s", entries_repr(changes.entries))
+
             clean_changes = self._clean_remote_changes(changes)
             logger.debug(
-                "Cleaned remote changes:\n%s", entries_to_str(clean_changes.entries)
+                "Cleaned remote changes:\n%s", entries_repr(clean_changes.entries)
             )
 
+            clean_changes.entries.sort(key=lambda x: x.path_lower.count("/"))
             sync_events = [
-                SyncEvent.from_dbx_metadata(md, self) for md in changes.entries
+                SyncEvent.from_dbx_metadata(md, self) for md in clean_changes.entries
             ]
+
+            logger.debug("Converted remote changes to SyncEvents")
 
             cursor = changes.cursor if not changes.has_more else None
             yield sync_events, cursor
@@ -2931,12 +2604,12 @@ class SyncEngine:
 
             level = event.dbx_path.count("/")
 
-            if event.is_file:
+            if event.is_deleted:
+                add_to_bin(deleted, level, event)
+            elif event.is_file:
                 files.append(event)
             elif event.is_directory:
                 add_to_bin(folders, level, event)
-            elif event.is_deleted:
-                add_to_bin(deleted, level, event)
 
             # housekeeping
             self.syncing.append(event)
@@ -2946,43 +2619,45 @@ class SyncEngine:
         # apply deleted items
         if deleted:
             logger.info("Applying deletions...")
-        for items in deleted.values():
+        for level in sorted(deleted):
+            items = deleted[level]
             with ThreadPoolExecutor(
                 max_workers=self._num_threads,
                 thread_name_prefix="maestral-download-pool",
             ) as executor:
-                fs = (executor.submit(self._create_local_entry, item) for item in items)
+                res = executor.map(self._create_local_entry, items)
 
                 n_items = len(items)
-                for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                    throttled_log(logger, f"Deleting {n}/{n_items}...")
-                    results.append(f.result())
+                for n, r in enumerate(res):
+                    throttled_log(logger, f"Deleting {n + 1}/{n_items}...")
+                    results.append(r)
 
         # create local folders, start with top-level and work your way down
         if folders:
             logger.info("Creating folders...")
-        for items in folders.values():
+        for level in sorted(folders):
+            items = folders[level]
             with ThreadPoolExecutor(
                 max_workers=self._num_threads,
                 thread_name_prefix="maestral-download-pool",
             ) as executor:
-                fs = (executor.submit(self._create_local_entry, item) for item in items)
+                res = executor.map(self._create_local_entry, items)
 
                 n_items = len(items)
-                for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                    throttled_log(logger, f"Creating folder {n}/{n_items}...")
-                    results.append(f.result())
+                for n, r in enumerate(res):
+                    throttled_log(logger, f"Creating folder {n + 1}/{n_items}...")
+                    results.append(r)
 
         # apply created files
         with ThreadPoolExecutor(
             max_workers=self._num_threads, thread_name_prefix="maestral-download-pool"
         ) as executor:
-            fs = (executor.submit(self._create_local_entry, file) for file in files)
+            res = executor.map(self._create_local_entry, files)
 
             n_items = len(files)
-            for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                throttled_log(logger, f"Downloading {n}/{n_items}...")
-                results.append(f.result())
+            for n, r in enumerate(res):
+                throttled_log(logger, f"Syncing ↓ {n + 1}/{n_items}")
+                results.append(r)
 
         if cursor and not self.cancel_pending.is_set():
             # always save remote cursor if not aborted by user,
@@ -3012,7 +2687,7 @@ class SyncEngine:
 
         # find out who changed the item(s), show the user name if its only a single user
         user_name: Optional[str]
-        dbid_list = set(e.change_dbid for e in changes)
+        dbid_list = set(e.change_dbid for e in changes if e.change_dbid is not None)
         if len(dbid_list) == 1:
             # all files have been modified by the same user
             dbid = dbid_list.pop()
@@ -3064,7 +2739,7 @@ class SyncEngine:
         else:
             msg = f"{file_name} {change_type}"
 
-        self._notifier.notify("Items synced", msg, on_click=callback)
+        self.notifier.notify("Items synced", msg, buttons={"Show": callback})
 
     def _filter_excluded_changes_remote(
         self, changes: List[SyncEvent]
@@ -3104,7 +2779,7 @@ class SyncEngine:
 
         :param event: Download SyncEvent.
         :returns: Conflict check result.
-        :raises: :class:`errors.MaestralApiError`
+        :raises MaestralApiError: For any issues when syncing the item.
         """
 
         local_rev = self.get_local_rev(event.dbx_path)
@@ -3119,65 +2794,96 @@ class SyncEngine:
             )
             return Conflict.LocalNewerOrIdentical
 
+        elif event.content_hash == self.get_local_hash(event.local_path):
+            # Content hashes are equal, therefore items are identical. Folders will
+            # have a content hash of 'folder'.
+            logger.debug('Equal content hashes for "%s": no conflict', event.dbx_path)
+            return Conflict.Identical
+        elif any(
+            is_equal_or_child(p, event.dbx_path.lower()) for p in self.upload_errors
+        ):
+            # Local version could not be uploaded due to a sync error. Do not over-
+            # write unsynced changes but declare a conflict.
+            logger.debug('Unresolved upload error for "%s": conflict', event.dbx_path)
+            return Conflict.Conflict
+        elif not self._ctime_newer_than_last_sync(event.local_path):
+            # Last change time of local item (recursive for folders) is older than
+            # the last time the item was synced. Remote must be newer.
+            logger.debug(
+                'Local item "%s" has no unsynced changes: remote item is newer',
+                event.dbx_path,
+            )
+            return Conflict.RemoteNewer
+        elif event.is_deleted:
+            # Remote item was deleted but local item has been modified since then.
+            logger.debug(
+                'Local item "%s" has unsynced changes and remote was '
+                "deleted: local item is newer",
+                event.dbx_path,
+            )
+            return Conflict.LocalNewerOrIdentical
         else:
-            # Dropbox server version has a different rev, possibly is newer. Perform
-            # conflict checks.
+            # Both remote and local items have unsynced changes: conflict.
+            logger.debug(
+                'Local item "%s" has unsynced local changes: conflict',
+                event.dbx_path,
+            )
+            return Conflict.Conflict
 
-            local_hash = self.get_local_hash(event.local_path)
+    def _ctime_newer_than_last_sync(self, local_path: str) -> bool:
+        """
+        Checks if a local item has any unsynced changes. This is by comparing its ctime
+        to the ``last_sync`` time saved in our index. In case of folders, we recursively
+        check the ctime of children.
 
-            if event.content_hash == local_hash:
-                # Content hashes are equal, therefore items are identical. Folders will
-                # have a content hash of 'folder'.
-                logger.debug(
-                    'Equal content hashes for "%s": no conflict', event.dbx_path
-                )
-                return Conflict.Identical
-            elif any(
-                is_equal_or_child(p, event.dbx_path.lower()) for p in self.upload_errors
-            ):
-                # Local version could not be uploaded due to a sync error. Do not over-
-                # write unsynced changes but declare a conflict.
-                logger.debug(
-                    'Unresolved upload error for "%s": conflict', event.dbx_path
-                )
-                return Conflict.Conflict
-            elif self._get_ctime(event.local_path) <= self.get_last_sync(
-                event.dbx_path
-            ):
-                # Last change time of local item (recursive for folders) is older than
-                # the last time the item was synced. Remote must be newer.
-                logger.debug(
-                    'Local ctime is older than last sync for "%s": '
-                    "remote item is newer",
-                    event.dbx_path,
-                )
-                return Conflict.RemoteNewer
-            elif event.is_deleted:
-                # Remote item was deleted but local item has been modified since then.
-                logger.debug(
-                    'Local ctime is newer than last sync for "%s" and remote was '
-                    "deleted: local item is newer",
-                    event.dbx_path,
-                )
-                return Conflict.LocalNewerOrIdentical
-            else:
-                # Both remote and local items have unsynced changes: conflict.
-                logger.debug(
-                    'Local ctime is newer than last sync for "%s": conflict',
-                    event.dbx_path,
-                )
-                return Conflict.Conflict
+        :param local_path: Local path of item to check.
+        :returns: Whether the local item has unsynced changes.
+        """
 
-    def _get_ctime(self, local_path: str, ignore_excluded: bool = True) -> float:
+        if self.is_excluded(local_path):
+            # excluded names such as .DS_Store etc never count as unsynced changes
+            return False
+
+        dbx_path = self.to_dbx_path(local_path)
+        index_entry = self.get_index_entry(dbx_path)
+
+        try:
+            stat = os.stat(local_path)
+        except FileNotFoundError:
+            # don't check ctime for deleted items (os won't give stat info)
+            # but confirm absence from index
+            return index_entry is not None
+
+        if S_ISDIR(stat.st_mode):
+
+            # don't check ctime for folders but to index entry type
+            if index_entry is None or index_entry.is_file:
+                return True
+
+            # recurse over children
+            with os.scandir(local_path) as it:
+                for entry in it:
+                    if entry.is_dir():
+                        if self._ctime_newer_than_last_sync(entry.path):
+                            return True
+                    elif not self.is_excluded(entry.name):
+                        child_dbx_path = self.to_dbx_path(entry.path)
+                        if entry.stat().st_ctime > self.get_last_sync(child_dbx_path):
+                            return True
+
+            return False
+
+        else:
+            # check our ctime against index
+            return os.stat(local_path).st_ctime > self.get_last_sync(dbx_path)
+
+    def _get_ctime(self, local_path: str) -> float:
         """
         Returns the ctime of a local item or -1.0 if there is nothing at the path. If
-        the item is a directory, return the largest ctime of it and its children.
+        the item is a directory, return the largest ctime of it and its children. Items
+        which are excluded from syncing (eg., .DS_Store files) are ignored.
 
         :param local_path: Absolute path on local drive.
-        :param ignore_excluded: If ``True``, the ctimes of children for which
-            :meth:`is_excluded` evaluates to ``True`` are disregarded. This is only
-            relevant if ``local_path`` points to a directory and has no effect if it
-            points to a path.
         :returns: Ctime or -1.0.
         """
         try:
@@ -3186,9 +2892,15 @@ class SyncEngine:
                 ctime = stat.st_ctime
                 with os.scandir(local_path) as it:
                     for entry in it:
-                        ignore = ignore_excluded and self.is_excluded(entry.name)
-                        if not ignore:
-                            ctime = max(ctime, entry.stat().st_ctime)
+                        if entry.is_dir():
+                            child_ctime = self._get_ctime(entry.path)
+                        elif not self.is_excluded(entry.name):
+                            child_ctime = entry.stat().st_ctime
+                        else:
+                            child_ctime = -1.0
+
+                        ctime = max(ctime, child_ctime)
+
                 return ctime
             else:
                 return os.stat(local_path).st_ctime
@@ -3286,7 +2998,7 @@ class SyncEngine:
             else:
                 res = None
 
-            if res:
+            if res is not None:
                 event.status = SyncStatus.Done
             else:
                 event.status = SyncStatus.Skipped
@@ -3467,8 +3179,8 @@ class SyncEngine:
         Applies a remote deletion locally.
 
         :param event: Dropbox deleted metadata.
-        :returns: Dropbox metadata corresponding to local deletion or None if no local
-            changes are made.
+        :returns: SyncEvent corresponding to local deletion or None if no local changes
+            are made.
         """
 
         self._apply_case_change(event)
@@ -3563,7 +3275,9 @@ class SyncEngine:
                 )
 
             for entry in entries:
-                child_path_uncased = (self.dropbox_path + entry.dbx_path_lower).lower()
+                child_path_uncased = (
+                    f"{self.dropbox_path}{entry.dbx_path_lower}".lower()
+                )
                 if child_path_uncased not in lowercase_snapshot_paths:
                     local_child_path = self.to_local_path_from_cased(
                         entry.dbx_path_cased
@@ -3619,41 +3333,6 @@ class SyncEngine:
 # ======================================================================================
 
 
-def helper(mm: "SyncMonitor") -> None:
-    """
-    A worker for periodic maintenance:
-
-     1) Checks for a connection to Dropbox servers.
-     2) Pauses syncing when the connection is lost and resumes syncing when reconnected
-        and syncing has not been paused by the user.
-     3) Triggers weekly reindexing.
-
-    :param mm: MaestralMonitor instance.
-    """
-
-    while mm.running.is_set():
-
-        if check_connection("www.dropbox.com"):
-            if not mm.connected.is_set() and not mm.paused_by_user.is_set():
-                mm.startup.set()
-            # rebuild the index periodically
-            elif (
-                time.time() - mm.sync.last_reindex > mm.reindex_interval
-                and mm.idle_time > 20 * 60
-            ):
-                mm.rebuild_index()
-            mm.connected.set()
-            time.sleep(mm.connection_check_interval)
-
-        else:
-            if mm.connected.is_set():
-                logger.info(DISCONNECTED)
-            mm.syncing.clear()
-            mm.connected.clear()
-            mm.startup.clear()
-            time.sleep(mm.connection_check_interval)
-
-
 def download_worker(
     sync: SyncEngine, syncing: Event, running: Event, connected: Event
 ) -> None:
@@ -3688,13 +3367,13 @@ def download_worker(
                         downloaded = sync.apply_remote_changes(changes, cursor)
                         sync.notify_user(downloaded)
 
-                        # free memory
-                        del changes
-                        gc.collect()
-
+                    sync.client.get_space_usage()  # update space usage
                     logger.info(IDLE)
 
-                    sync.client.get_space_usage()
+                    # free memory
+                    del changes
+                    del downloaded
+                    sync.free_memory()
 
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)
@@ -3734,14 +3413,22 @@ def download_worker_added_item(
 
         try:
             dbx_path = added_item_queue.get()
+            sync.pending_downloads.add(dbx_path.lower())  # protect against crashes
 
             with sync.sync_lock:
+
                 if not (running.is_set() and syncing.is_set()):
-                    sync.pending_downloads.add(dbx_path.lower())
+                    # try again later
                     continue
 
                 sync.get_remote_item(dbx_path)
+                sync.pending_downloads.discard(dbx_path)
+
                 logger.info(IDLE)
+
+                # free some memory
+                sync.free_memory()
+
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)
         except ConnectionError:
@@ -3786,6 +3473,10 @@ def upload_worker(
 
                 if len(changes) > 0:
                     logger.info(IDLE)
+
+                # free some memory
+                del changes
+                sync.free_memory()
 
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)
@@ -3839,19 +3530,20 @@ def startup_worker(
 
                 # retry failed downloads
                 if len(sync.download_errors) > 0:
-                    logger.info("Retrying failed downloads...")
+                    logger.info("Retrying failed syncs...")
 
                 for dbx_path in list(sync.download_errors):
-                    logger.info(f"Downloading {dbx_path}...")
+                    logger.info(f"Syncing ↓ {dbx_path}")
                     sync.get_remote_item(dbx_path)
 
                 # resume interrupted downloads
                 if len(sync.pending_downloads) > 0:
-                    logger.info("Resuming interrupted downloads...")
+                    logger.info("Resuming interrupted syncs...")
 
                 for dbx_path in list(sync.pending_downloads):
-                    logger.info(f"Downloading {dbx_path}...")
+                    logger.info(f"Syncing ↓ {dbx_path}")
                     sync.get_remote_item(dbx_path)
+                    sync.pending_downloads.discard(dbx_path)
 
                 # retry failed / interrupted uploads by scheduling additional events
                 # if len(sync.upload_errors) > 0:
@@ -3875,10 +3567,12 @@ def startup_worker(
                     syncing.set()
 
                 startup.clear()
-
-                gc.collect()
-
                 logger.info(IDLE)
+
+                # free some memory
+                del changes
+                del downloaded
+                sync.free_memory()
 
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)
@@ -3901,18 +3595,13 @@ def startup_worker(
 
 
 class SyncMonitor:
-    """
-    Class to sync changes between Dropbox and a local folder. It creates five threads:
-    `observer` to retrieve local file system events, `startup_thread` to carry out any
-    startup jobs such as initial syncs, `upload_thread` to upload local changes to
-    Dropbox, `download_thread` to query for and download remote changes, and
-    `helper_thread` which periodically checks the connection to Dropbox servers.
+    """Class to manage sync threads
 
     :param client: The Dropbox API client, a wrapper around the Dropbox Python SDK.
     """
 
     added_item_queue: "Queue[str]"
-    connection_check_interval: float = 2.0
+    """Queue of dropbox paths which have been newly included in syncing."""
 
     def __init__(self, client: DropboxClient):
 
@@ -3937,6 +3626,14 @@ class SyncMonitor:
 
         self._startup_time = -1.0
 
+        self.connection_check_interval = 10
+        self.connection_helper = Thread(
+            target=self.connection_monitor,
+            name="maestral-connection-helper",
+            daemon=True,
+        )
+        self.connection_helper.start()
+
     def _with_lock(fn: FT) -> FT:  # type: ignore
         @wraps(fn)
         def wrapper(self, *args, **kwargs):
@@ -3947,10 +3644,14 @@ class SyncMonitor:
 
     @property
     def reindex_interval(self) -> float:
+        """
+        Interval in sec for period reindexing. Changes will be saved to state file.
+        """
         return self._conf.get("sync", "reindex_interval")
 
     @reindex_interval.setter
     def reindex_interval(self, interval: float) -> None:
+        """Setter: reindex_interval"""
         self._conf.set("sync", "reindex_interval", interval)
 
     @property
@@ -3962,8 +3663,21 @@ class SyncMonitor:
     def history(self) -> List[SyncEvent]:
         """A list of the last SyncEvents in our history. History will be kept for the
         interval specified by the config value``keep_history`` (defaults to two weeks)
-        and at most ``_max_history`` events will be returned (defaults to 1,000)."""
+        but at most 1,000 events will kept."""
         return self.sync.history
+
+    @property
+    def idle_time(self) -> float:
+        """
+        Returns the idle time in seconds since the last file change or since startup if
+        there haven't been any changes in our current session.
+        """
+
+        now = time.time()
+        time_since_startup = now - self._startup_time
+        time_since_last_sync = now - self.sync.last_change
+
+        return min(time_since_startup, time_since_last_sync)
 
     @_with_lock
     def start(self) -> None:
@@ -3975,17 +3689,13 @@ class SyncMonitor:
 
         self.running = Event()  # create new event to let old threads shut down
 
-        self.local_observer_thread = Observer(timeout=0.3)
+        self.local_observer_thread = Observer(timeout=40)
         self.local_observer_thread.setName("maestral-fsobserver")
         self._watch = self.local_observer_thread.schedule(
             self.fs_event_handler, self.sync.dropbox_path, recursive=True
         )
-        for emitter in self.local_observer_thread.emitters:
-            emitter.setName("maestral-fsemitter")
-
-        self.helper_thread = Thread(
-            target=helper, daemon=True, args=(self,), name="maestral-helper"
-        )
+        for i, emitter in enumerate(self.local_observer_thread.emitters):
+            emitter.setName(f"maestral-fsemitter-{i}")
 
         self.startup_thread = Thread(
             target=startup_worker,
@@ -4043,14 +3753,13 @@ class SyncMonitor:
         except OSError as err:
             new_err = fswatch_to_maestral_error(err)
             title = getattr(new_err, "title", "Unexpected error")
-            logger.error(title, exc_info=_exc_info(new_err))
+            logger.error(title, exc_info=exc_info_tuple(new_err))
 
         self.running.set()
         self.syncing.clear()
         self.connected.set()
         self.startup.set()
 
-        self.helper_thread.start()
         self.startup_thread.start()
         self.upload_thread.start()
         self.download_thread.start()
@@ -4102,25 +3811,48 @@ class SyncMonitor:
         self.sync.cancel_pending.clear()
 
         self.local_observer_thread.stop()
-        self.local_observer_thread.join()
-        self.helper_thread.join()
-        self.upload_thread.join()
+        # self.local_observer_thread.join()
+        # self.upload_thread.join()
 
         logger.info(STOPPED)
 
-    @property
-    def idle_time(self) -> float:
-        """Returns the idle time in seconds since the last file change or since startup
-        if there haven't been any changes in our current session."""
+    def connection_monitor(self) -> None:
+        """
+        Monitors the connection to Dropbox servers. Pauses syncing when the connection
+        is lost and resumes syncing when reconnected and syncing has not been paused by
+        the user.
+        """
 
-        now = time.time()
-        time_since_startup = now - self._startup_time
-        time_since_last_sync = now - self.sync.last_change
+        while True:
+            if check_connection("www.dropbox.com"):
+                self.on_connect()
+            else:
+                self.on_disconnect()
 
-        return min(time_since_startup, time_since_last_sync)
+            time.sleep(self.connection_check_interval)
+
+    @_with_lock
+    def on_connect(self) -> None:
+        """Callback to run when we have lost the connection to Dropbox"""
+
+        if self.running.is_set():
+            if not self.connected.is_set() and not self.paused_by_user.is_set():
+                self.startup.set()
+            self.connected.set()
+
+    @_with_lock
+    def on_disconnect(self) -> None:
+        """Callback to run when we have reestablished the connection to Dropbox"""
+
+        if self.running.is_set():
+            if self.connected.is_set():
+                logger.info(DISCONNECTED)
+            self.syncing.clear()
+            self.connected.clear()
+            self.startup.clear()
 
     def reset_sync_state(self) -> None:
-        """Resets all saved sync state."""
+        """Resets all saved sync state. Settings are not affected."""
 
         if self.syncing.is_set() or self.startup.is_set() or self.sync.busy():
             raise RuntimeError("Cannot reset sync state while syncing.")
@@ -4173,25 +3905,8 @@ def add_to_bin(d: Dict[Any, List], key: Hashable, value: Any):
         d[key] = [value]
 
 
-def removeprefix(self: str, prefix: str) -> str:
-    """
-    Removes the given prefix from a string. Only the first instance of the prefix is
-    removed. The original string is returned if it does not start with the given prefix.
-
-    This follows the Python 3.9 implementation of ``str.removeprefix``.
-
-    :param self: Original string.
-    :param prefix: Prefix to remove.
-    :returns: String without prefix.
-    """
-    if self.startswith(prefix):
-        return self[len(prefix) :]
-    else:
-        return self[:]
-
-
-def _exc_info(exc: BaseException) -> ExecInfoType:
-    """Creates ac exc-info tuple from an exception."""
+def exc_info_tuple(exc: BaseException) -> ExecInfoType:
+    """Creates an exc-info tuple from an exception."""
     return type(exc), exc, exc.__traceback__
 
 
@@ -4210,7 +3925,8 @@ def split_moved_event(
     event: Union[FileMovedEvent, DirMovedEvent]
 ) -> Tuple[FileSystemEvent, FileSystemEvent]:
     """
-    Splits a given FileSystemEvent into Deleted and Created events of the same type.
+    Splits a FileMovedEvent or DirMovedEvent into "deleted" and "created" events of the
+    same type. A new attribute ``move_id`` is added to both instances.
 
     :param event: Original event.
     :returns: Tuple of deleted and created events.
@@ -4223,12 +3939,20 @@ def split_moved_event(
         created_event_cls = FileCreatedEvent
         deleted_event_cls = FileDeletedEvent
 
-    return deleted_event_cls(event.src_path), created_event_cls(event.dest_path)
+    deleted_event = deleted_event_cls(event.src_path)
+    created_event = created_event_cls(event.dest_path)
+
+    move_id = uuid.uuid4()
+
+    deleted_event.move_id = move_id
+    created_event.move_id = move_id
+
+    return deleted_event, created_event
 
 
-def entries_to_str(entries: List[Metadata]) -> str:
+def entries_repr(entries: List[Metadata]) -> str:
     """
-    Generates a nicely formatted string from a list of Dropbox metadata.
+    Generates a nicely formatted string repr from a list of Dropbox metadata.
 
     :param entries: List of Dropbox metadata.
     :returns: String representation of the list.
@@ -4320,3 +4044,35 @@ def check_connection(hostname: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def validate_encoding(local_path: str) -> None:
+    """
+    Validate that the path contains only characters in the reported file system
+    encoding. On Unix, paths are fundamentally bytes and some platforms do not enforce
+    a uniform encoding of file names despite reporting a file system encoding. Such
+    paths will be handed to us in Python with "surrogate escapes" in place of the
+    unknown characters.
+
+    Since the Dropbox API and our database both require utf-8 encoded paths, we use this
+    method to check and fail early on unknown characters.
+
+    :param local_path: Path to check.
+    :raises PathError: if the path contains characters with an unknown encoding.
+    """
+
+    try:
+        local_path.encode()
+    except UnicodeEncodeError:
+
+        fs_encoding = sys.getfilesystemencoding()
+
+        error = PathError(
+            "Could not upload item",
+            f"The file name contains characters outside of the "
+            f"{fs_encoding} encoding of your file system",
+        )
+
+        error.local_path = local_path
+
+        raise error

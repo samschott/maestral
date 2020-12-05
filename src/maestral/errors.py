@@ -1,34 +1,24 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
-
 This module defines Maestral's error classes. It should be kept free of memory heavy
 imports.
 
-All errors inherit from MaestralApiError which has title and message attributes to
-display the error to the user.
-
-Errors are divided into "fatal errors" which will prevent any syncing or "sync errors"
-which will only prevent syncing of an individual file or folder. Fatal errors can be for
-example revoked Dropbox authorization, a deleted local Dropbox folder, insufficient RAM,
-etc. Sync errors include invalid file names, too large file sizes, and many more.
-
+All errors inherit from :class:`MaestralApiError` which has title and message attributes
+to display the error to the user. Errors which are related to syncing a specific
+file or folder inherit from :class:`SyncError`, a subclass of :class:`MaestralApiError`.
 """
 
 from typing import Optional
 
 
-CONNECTION_ERROR_MSG = (
-    "Cannot connect to Dropbox servers. Please check "
-    "your internet connection and try again later."
-)
-
-
 class MaestralApiError(Exception):
-    """
-    Base class for errors originating from the Dropbox API or the 'local API'.
+    """Base class for Maestral errors
+
+    MaestralApiError provides attributes that can be used to generate human-readable
+    error messages and metadata regarding affected file paths (if any).
+
+    Errors originating from the Dropbox API or the 'local API' both inherit from
+    MaestralApiError.
 
     :param title: A short description of the error type. This can be used in a CLI or
         GUI to give a short error summary.
@@ -246,26 +236,18 @@ class BadInputError(MaestralApiError):
     pass
 
 
+class BusyError(MaestralApiError):
+    """Raised when trying to perform an action which is only possible in the idle
+    state and we cannot block or queue the job."""
+
+    pass
+
+
 # connection errors are handled as warnings
 # sync errors only appear in the sync errors list
 # all other errors raise an error dialog in the GUI
 
-SYNC_ERRORS = (
-    SyncError,
-    InsufficientPermissionsError,
-    InsufficientSpaceError,
-    PathError,
-    NotFoundError,
-    ConflictError,
-    IsAFolderError,
-    NotAFolderError,
-    DropboxServerError,
-    RestrictedContentError,
-    UnsupportedFileError,
-    FileSizeError,
-)
-
-FATAL_ERRORS = (
+GENERAL_ERRORS = (
     MaestralApiError,
     NotLinkedError,
     InvalidDbidError,
@@ -280,4 +262,20 @@ FATAL_ERRORS = (
     CursorResetError,
     BadInputError,
     OutOfMemoryError,
+    BusyError,
+)
+
+SYNC_ERRORS = (
+    SyncError,
+    InsufficientPermissionsError,
+    InsufficientSpaceError,
+    PathError,
+    NotFoundError,
+    ConflictError,
+    IsAFolderError,
+    NotAFolderError,
+    DropboxServerError,
+    RestrictedContentError,
+    UnsupportedFileError,
+    FileSizeError,
 )

@@ -19,7 +19,6 @@
 from watchdog.observers.fsevents import (  # type: ignore
     FSEventsEmitter,
     FSEventsObserver,
-    DirectorySnapshot,
     FileDeletedEvent,
     FileModifiedEvent,
     FileMovedEvent,
@@ -31,56 +30,14 @@ from watchdog.observers.fsevents import (  # type: ignore
     DEFAULT_OBSERVER_TIMEOUT,
     BaseObserver,
 )
+from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 
 class OrderedFSEventsEmitter(FSEventsEmitter):
-    """
+    """Ordered file system event emitter for macOS
+
     This subclasses FSEventsEmitter to guarantee an order of events which can be applied
     to reproduce the new state from the old state.
-
-    Looking at the source code for DirectorySnapshotDiff, the event types are categorised
-    as follows:
-
-    Created event: The inode is unique to the new snapshot. The path may be unique to the
-    new snapshot or exist in both. In the second case, there will be a preceding Deleted
-    event or a Moved event with the path as starting point (the old item was deleted or
-    moved away).
-
-    Deleted event: The inode is unique to the old snapshot. The path may be unique to the
-    old snapshot or exist in both. In the second case, there will be a subsequent Created
-    event or a Moved event with the path as end point (something else was created at or
-    moved to the location).
-
-    Moved event: The inode exists in both snapshots but with different paths.
-
-    Modified event: The inode exists in both snapshots and the mtime or file size are
-    different. DirectorySnapshotDiff will always use the inode’s path from the old
-    snapshot.
-
-    From the above classification, there can be at most two created/deleted/moved events
-    that share the same path in one snapshot diff:
-
-        Deleted(path1)      + Created(path1)
-        Moved(path1, path2) + Created(path1)
-        Deleted(path1)      + Moved(path0, path1)
-
-    And any Modified event will come before a Moved event or stand alone. Modified events
-    will never be combined by themselves with created or deleted events because they
-    require the inode to be present in both snapshots.
-
-    From the above, we could achieve correct ordering for every path by always adding
-    Deleted events to the queue first, Modified events second, Moved events third and
-    Created events last:
-
-        Deleted -> Modified -> Moved -> Created
-
-    The ordering won’t be correct between unrelated paths and between files and folder.
-    The first does not matter for syncing. We solve the second by assuming that when a
-    directory is deleted, so are its children. And before a child is created, there must
-    be a directory.
-
-    MovedEvents which are not unique (their paths appear in other events) will be split
-    into Deleted and Created events by Maestral.
     """
 
     def queue_events(self, timeout):
@@ -88,28 +45,51 @@ class OrderedFSEventsEmitter(FSEventsEmitter):
             if not self.watch.is_recursive and self.watch.path not in self.pathnames:
                 return
             new_snapshot = DirectorySnapshot(self.watch.path, self.watch.is_recursive)
-            events = new_snapshot - self.snapshot
+            diff = new_snapshot - self.snapshot
+
+            # add metadata modified events which will be missed by regular diff
+            try:
+                ctime_files_modified = set()
+
+                for path in self.snapshot.paths & new_snapshot.paths:
+                    if not self.snapshot.isdir(path):
+                        if self.snapshot.inode(path) == new_snapshot.inode(path):
+                            if (
+                                self.snapshot.stat_info(path).st_ctime
+                                != new_snapshot.stat_info(path).st_ctime
+                            ):
+                                ctime_files_modified.add(path)
+
+                files_modified = set(ctime_files_modified) | set(diff.files_modified)
+            except Exception as exc:
+                print(exc)
+
+            # replace cached snapshot
             self.snapshot = new_snapshot
 
             # Files.
-            for src_path in events.files_deleted:
+            for src_path in diff.files_deleted:
                 self.queue_event(FileDeletedEvent(src_path))
-            for src_path in events.files_modified:
+            for src_path in files_modified:
                 self.queue_event(FileModifiedEvent(src_path))
-            for src_path, dest_path in events.files_moved:
+            for src_path, dest_path in diff.files_moved:
                 self.queue_event(FileMovedEvent(src_path, dest_path))
-            for src_path in events.files_created:
+            for src_path in diff.files_created:
                 self.queue_event(FileCreatedEvent(src_path))
 
             # Directories.
-            for src_path in events.dirs_deleted:
+            for src_path in diff.dirs_deleted:
                 self.queue_event(DirDeletedEvent(src_path))
-            for src_path in events.dirs_modified:
+            for src_path in diff.dirs_modified:
                 self.queue_event(DirModifiedEvent(src_path))
-            for src_path, dest_path in events.dirs_moved:
+            for src_path, dest_path in diff.dirs_moved:
                 self.queue_event(DirMovedEvent(src_path, dest_path))
-            for src_path in events.dirs_created:
+            for src_path in diff.dirs_created:
                 self.queue_event(DirCreatedEvent(src_path))
+
+            # free some memory
+            del diff
+            del files_modified
 
 
 class OrderedFSEventsObserver(FSEventsObserver):

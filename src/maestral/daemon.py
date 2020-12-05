@@ -1,12 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
-
 This module defines functions to start and stop the sync daemon and retrieve proxy
 objects for a running daemon.
-
 """
 
 # system imports
@@ -35,13 +30,30 @@ import sdnotify  # type: ignore
 from fasteners import InterProcessLock  # type: ignore
 
 # local imports
-from maestral.errors import SYNC_ERRORS, FATAL_ERRORS, MaestralApiError
-from maestral.constants import IS_MACOS, FROZEN
-from maestral.utils.appdirs import get_runtime_path
+from .errors import SYNC_ERRORS, GENERAL_ERRORS, MaestralApiError
+from .constants import IS_MACOS, FROZEN
+from .utils.appdirs import get_runtime_path
 
 
 if TYPE_CHECKING:
-    from maestral.main import Maestral
+    from .main import Maestral
+
+
+__all__ = [
+    "Stop",
+    "Start",
+    "Lock",
+    "maestral_lock",
+    "get_maestral_pid",
+    "sockpath_for_config",
+    "lockpath_for_config",
+    "is_running",
+    "start_maestral_daemon",
+    "start_maestral_daemon_process",
+    "stop_maestral_daemon_process",
+    "MaestralProxy",
+    "CommunicationError",
+]
 
 
 logger = logging.getLogger(__name__)
@@ -60,18 +72,9 @@ IS_WATCHDOG = WATCHDOG_USEC and (
 URI = "PYRO:maestral.{0}@{1}"
 Pyro5.config.THREADPOOL_SIZE_MIN = 2
 
-MaestralProxyType = Union["Maestral", "MaestralProxy"]
-
 
 class Stop(enum.Enum):
-    """
-    Enumeration of daemon exit results.
-
-    :cvar Ok: Daemon quit successfully.
-    :cvar Killed: Daemon process was killed.
-    :cvar NotRunning: Daemon was not running.
-    :cvar Failed: Could not shut down daemon.
-    """
+    """Enumeration of daemon exit results"""
 
     Ok = 0
     Killed = 1
@@ -80,13 +83,7 @@ class Stop(enum.Enum):
 
 
 class Start(enum.Enum):
-    """
-    Enumeration of daemon start results.
-
-    :cvar Ok: Daemon started successfully.
-    :cvar AlreadyRunning: Daemon was already running.
-    :cvar Failed: Could not start daemon.
-    """
+    """Enumeration of daemon start results"""
 
     Ok = 0
     AlreadyRunning = 1
@@ -105,6 +102,7 @@ def serpent_deserialize_api_error(class_name: str, d: dict) -> MaestralApiError:
     :returns: Class instance.
     """
     # import maestral errors for evaluation
+    # this import needs to be absolute to reconstruct the Exception class
     import maestral.errors  # noqa: F401
 
     cls = eval(class_name)
@@ -115,7 +113,7 @@ def serpent_deserialize_api_error(class_name: str, d: dict) -> MaestralApiError:
     return err
 
 
-for err_cls in (*SYNC_ERRORS, *FATAL_ERRORS):
+for err_cls in (*SYNC_ERRORS, *GENERAL_ERRORS):
     register_dict_to_class(
         err_cls.__module__ + "." + err_cls.__name__, serpent_deserialize_api_error
     )
@@ -166,10 +164,11 @@ def _get_lockdata() -> Tuple[bytes, str, int]:
 
 
 class Lock:
-    """
-    A inter-process and inter-thread lock. This reuses uses code from oslo.concurrency
-    but provides non-blocking acquire. Use the :meth:`singleton` class method to
-    retrieve an existing instance for thread-safe usage.
+    """A inter-process and inter-thread lock
+
+    This internally uses :class:`fasteners.InterProcessLock` but provides non-blocking
+    acquire. It also guarantees thread-safety when using the :meth:`singleton` class
+    method to create / retrieve a lock instance.
     """
 
     _instances: Dict[str, "Lock"] = dict()
@@ -344,8 +343,10 @@ def is_running(config_name: str) -> bool:
 
 
 def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
-    """Checks if we can communicate with the maestral daemon. Returns ``Start.Ok`` if
-    communication succeeds within timeout, ``Start.Failed``  otherwise."""
+    """
+    Checks if we can communicate with the maestral daemon. Returns :attr:`Start.Ok` if
+    communication succeeds within timeout, :attr:`Start.Failed` otherwise.
+    """
 
     sock_name = sockpath_for_config(config_name)
     maestral_daemon = Proxy(URI.format(config_name, "./u:" + sock_name))
@@ -383,12 +384,11 @@ def start_maestral_daemon(
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stdout: If ``True``, write logs to stdout.
     :param start_sync: If ``True``, start syncing once the daemon has started.
-    :raises: :class:`RuntimeError` if a daemon for the given ``config_name`` is already
-        running.
+    :raises RuntimeError: if a daemon for the given ``config_name`` is already running.
     """
 
     import asyncio
-    from maestral.main import Maestral
+    from .main import Maestral
 
     if threading.current_thread() is not threading.main_thread():
         raise RuntimeError("Must run daemon in main thread")
@@ -500,6 +500,11 @@ def start_maestral_daemon(
         with Daemon(unixsocket=sockpath) as daemon:
             daemon.register(maestral_daemon, f"maestral.{config_name}")
 
+            # reduce Pyro's housekeeping frequency from 2 sec to 20 sec
+            # this avoids constantly waking the CPU when we are idle
+            if daemon.transportServer.housekeeper:
+                daemon.transportServer.housekeeper.waittime = 20
+
             for socket in daemon.sockets:
                 loop.add_reader(socket.fileno(), daemon.events, daemon.sockets)
 
@@ -507,6 +512,9 @@ def start_maestral_daemon(
 
             for socket in daemon.sockets:
                 loop.remove_reader(socket.fileno())
+
+            # prevent housekeeping from blocking shutdown
+            daemon.transportServer.housekeeper = None
 
     except Exception:
         traceback.print_exc()
@@ -526,7 +534,7 @@ def start_maestral_daemon_process(
     """
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
     Startup is race free: there will never be two daemons running for the same config.
-    This function requires that ``sys.executable`` points to a Python executable and
+    This function requires that :obj:`sys.executable` points to a Python executable and
     therefore may not work "frozen" apps.
 
     :param config_name: The name of the Maestral configuration to use.
@@ -534,9 +542,10 @@ def start_maestral_daemon_process(
     :param start_sync: If ``True``, start syncing once the daemon has started.
     :param detach: If ``True``, the daemon process will be detached. If ``False``,
         the daemon processes will run in the same session as the current process.
-    :returns: ``Start.Ok`` if successful, ``Start.AlreadyRunning`` if the daemon was
-        already running or ``Start.Failed`` if startup failed. It is possible that
-        Start.Ok is returned instead of Start.AlreadyRunning in case of a race.
+    :returns: :attr:`Start.Ok` if successful, :attr:`Start.AlreadyRunning` if the daemon
+        was already running or :attr:`Start.Failed` if startup failed. It is possible
+        that :attr:`Start.Ok` may be returned instead of :attr:`Start.AlreadyRunning`
+        in case of a race but the daemon is nevertheless started only once.
     """
 
     if is_running(config_name):
@@ -587,9 +596,9 @@ def stop_maestral_daemon_process(
 
     :param config_name: The name of the Maestral configuration to use.
     :param timeout: Number of sec to wait for daemon to shut down before killing it.
-    :returns: ``Stop.Ok`` if successful, ``Stop.Killed`` if killed, ``Stop.NotRunning``
-        if the daemon was not running and ``Exit.Failed`` if killing the process failed
-        because we could not retrieve its PID.
+    :returns: :attr:`Stop.Ok` if successful, :attr:`Stop.Killed` if killed,
+        :attr:`Stop.NotRunning` if the daemon was not running and `:attr:`Stop.Failed`
+        if killing the process failed because we could not retrieve its PID.
     """
 
     if not is_running(config_name):
@@ -627,11 +636,11 @@ def stop_maestral_daemon_process(
 
 
 class MaestralProxy:
-    """
-    A Proxy to the Maestral daemon. All methods and properties of Maestral's public API
-    are accessible and calls / access will be forwarded to the corresponding Maestral
-    instance. This class can be used as a context manager to close the connection to the
-    daemon on exit.
+    """A Proxy to the Maestral daemon
+
+    All methods and properties of Maestral's public API are accessible and calls /
+    access will be forwarded to the corresponding Maestral instance. This class can be
+    used as a context manager to close the connection to the daemon on exit.
 
     :Example:
 
@@ -646,11 +655,14 @@ class MaestralProxy:
         >>> print(m.status)
         >>> m._disconnect()
 
+    :ivar _is_fallback: Whether we are using an actual Maestral instance as fallback
+        instead of a Proxy.
+
     :param config_name: The name of the Maestral configuration to use.
     :param fallback: If ``True``, a new instance of Maestral will created in the current
         process when the daemon is not running.
-    :raises: :class:`Pyro5.errors.CommunicationError` if the daemon is running but
-        cannot be reached or if the daemon is not running and ``fallback`` is ``False``.
+    :raises CommunicationError: if the daemon is running but cannot be reached or if the
+        daemon is not running and ``fallback`` is ``False``.
     """
 
     _m: Union["Maestral", Proxy]
@@ -678,11 +690,11 @@ class MaestralProxy:
             # If daemon is not running, fall back to new Maestral instance
             # or raise a CommunicationError if fallback not allowed.
             if fallback:
-                from maestral.main import Maestral
+                from .main import Maestral
 
                 self._m = Maestral(config_name)
             else:
-                raise CommunicationError("Could not get proxy")
+                raise CommunicationError(f"Could not get proxy for '{config_name}'")
 
         self._is_fallback = not isinstance(self._m, Proxy)
 
@@ -728,7 +740,7 @@ class MaestralProxy:
 
 def get_maestral_proxy(
     config_name: str = "maestral", fallback: bool = False
-) -> MaestralProxyType:
+) -> Union["Maestral", Proxy]:
 
     warnings.warn(
         "'get_maestral_proxy' is deprecated, please use 'MaestralProxy' instead",

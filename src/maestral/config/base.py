@@ -1,23 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
-
 This module contains helper functions for config management. Paths for config files are
-defined here instead of the :mod:`utils.appdirs` module to avoid imports from outside the
-config module.
-
+defined here instead of the :mod:`utils.appdirs` module to avoid imports from outside
+the config module.
 """
 
 # system imports
 import platform
 import os
 import os.path as osp
-from typing import Optional, List
-
-
-__all__ = ["get_conf_path", "get_data_path", "get_home_dir"]
+from typing import Optional
 
 
 def to_full_path(
@@ -39,7 +31,7 @@ def to_full_path(
 def get_home_dir() -> str:
     """
     Returns user home directory. This will be determined from the first
-    valid result out of (osp.expanduser('~'), $HOME, $USERPROFILE, $TMP).
+    valid result out of (osp.expanduser("~"), $HOME, $USERPROFILE, $TMP).
     """
     try:
         # expanduser() returns a raw byte string which needs to be
@@ -65,7 +57,7 @@ def get_home_dir() -> str:
 
     if not path:
         raise RuntimeError(
-            "Please set the environment variable HOME to " "your user/home directory."
+            "Please set the environment variable HOME to your user/home directory."
         )
 
     return path
@@ -77,13 +69,13 @@ def get_conf_path(
     """
     Returns the default config path for the platform. This will be:
 
-        - macOS: '~/Library/Application Support/<subfolder>/<filename>.'
-        - Linux: 'XDG_CONFIG_HOME/<subfolder>/<filename>'
-        - other: '~/.config/<subfolder>/<filename>'
+        - macOS: "~/Library/Application Support/<subfolder>/<filename>."
+        - Linux: ``XDG_CONFIG_HOME/<subfolder>/<filename>"
+        - other: "~/.config/<subfolder>/<filename>"
 
     :param subfolder: The subfolder for the app.
     :param filename: The filename to append for the app.
-    :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
+    :param create: If ``True``, the folder ``subfolder`` will be created on-demand.
     """
     if platform.system() == "Darwin":
         conf_path = osp.join(get_home_dir(), "Library", "Application Support")
@@ -102,16 +94,16 @@ def get_data_path(
     """
     Returns the default path to save application data for the platform. This will be:
 
-        - macOS: '~/Library/Application Support/SUBFOLDER/FILENAME'
-        - Linux: '$XDG_DATA_DIR/SUBFOLDER/FILENAME'
-        - fallback: '$HOME/.local/share/SUBFOLDER/FILENAME'
+        - macOS: "~/Library/Application Support/SUBFOLDER/FILENAME"
+        - Linux: "$XDG_DATA_DIR/SUBFOLDER/FILENAME"
+        - fallback: "$HOME/.local/share/SUBFOLDER/FILENAME"
 
-    Note: We do not use '~/Library/Saved Application State' on macOS since this folder is
-    reserved for user interface state and can be cleared by the user / system.
+    Note: We do not use "~/Library/Saved Application State" on macOS since this folder
+    is reserved for user interface state and can be cleared by the user / system.
 
     :param subfolder: The subfolder for the app.
     :param filename: The filename to append for the app.
-    :param create: If ``True``, the folder '<subfolder>' will be created on-demand.
+    :param create: If ``True``, the folder ``subfolder`` will be created on-demand.
     """
     if platform.system() == "Darwin":
         state_path = osp.join(get_home_dir(), "Library", "Application Support")
@@ -122,17 +114,3 @@ def get_data_path(
         raise RuntimeError("Platform not supported")
 
     return to_full_path(state_path, subfolder, filename, create)
-
-
-def list_configs() -> List[str]:
-    """
-    Lists all maestral configs.
-
-    :returns: A list of all currently existing config files.
-    """
-    configs = []
-    for file in os.listdir(get_conf_path("maestral")):
-        if file.endswith(".ini"):
-            configs.append(os.path.splitext(os.path.basename(file))[0])
-
-    return configs

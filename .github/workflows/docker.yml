@@ -7,8 +7,6 @@ on:
     tags:
       - 'v*.*.*'
 
-  pull_request_target:
-
   schedule:
     - cron: "19 4 * * *" # everyday at 04:19
 
@@ -18,8 +16,6 @@ jobs:
     steps:
       - name: Checkout project
         uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.merged.sha }}
 
       - name: Fetching tags 
         run: git fetch --prune --unshallow --force --tags

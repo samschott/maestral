@@ -1,12 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
-
 This module contains the default configuration and state values and functions to return
 existing config or state instances for a specified config_name.
-
 """
 
 import copy
@@ -26,7 +21,7 @@ CONFIG_DIR_NAME = "maestral"
 #  Defaults
 # =============================================================================
 
-DEFAULTS = [
+DEFAULTS_CONFIG = [
     (
         "main",
         {
@@ -134,7 +129,7 @@ def MaestralConfig(config_name: str) -> UserConfig:
             return _config_instances[config_name]
         except KeyError:
 
-            defaults: DefaultsType = copy.deepcopy(DEFAULTS)  # type: ignore
+            defaults: DefaultsType = copy.deepcopy(DEFAULTS_CONFIG)  # type: ignore
 
             # set default dir name according to config
             for sec, options in defaults:

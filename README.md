@@ -151,6 +151,9 @@ Relevant resources are:
 - [Dropbox API docs](https://www.dropbox.com/developers/documentation/http/documentation)
 - [Dropbox Python SDK docs](https://dropbox-sdk-python.readthedocs.io/en/latest/)
 
+[CONTRIBUTING.md](CONTRIBUTING.md) contains detailed information on the expected code
+style and test format.
+
 If you are using the macOS app bundle, please consider sponsoring the project with £1 per 
 month to offset the cost of an Apple Developer account to sign and notarize the bundle.
 
@@ -166,6 +169,4 @@ month to offset the cost of an Apple Developer account to sign and notarize the 
 
 - The config module uses code from the [Spyder IDE](https://github.com/spyder-ide)
 - The DropboxClient is inspired by work from [Orphilia](https://github.com/ksiazkowicz/orphilia-dropbox)
-- Error reporting is powered by bugsnag:
-
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <a href="https://bugsnag.com"> <img src="https://global-uploads.webflow.com/5c741219fd0819540590e785/5c741219fd0819856890e790_asset%2039.svg" title="Bugsnag text" height="20"></a>
+- Error reporting is powered by bugsnag.

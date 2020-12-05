@@ -1,12 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
-
 This modules contains the Dropbox API client. It wraps calls to the Dropbox Python SDK
 and handles exceptions, chunked uploads or downloads, etc.
-
 """
 
 # system imports
@@ -35,7 +30,7 @@ from typing import (
 import requests
 from dropbox import (  # type: ignore
     Dropbox,
-    dropbox,
+    create_session,
     files,
     users,
     exceptions,
@@ -45,9 +40,9 @@ from dropbox import (  # type: ignore
 )
 
 # local imports
-from maestral import __version__
-from maestral.oauth import OAuth2Session
-from maestral.errors import (
+from . import __version__
+from .oauth import OAuth2Session
+from .errors import (
     MaestralApiError,
     SyncError,
     InsufficientPermissionsError,
@@ -75,12 +70,23 @@ from maestral.errors import (
     NotLinkedError,
     InvalidDbidError,
 )
-from maestral.config import MaestralState
-from maestral.constants import DROPBOX_APP_KEY, IDLE
-from maestral.utils import natural_size, chunks, clamp
+from .config import MaestralState
+from .constants import DROPBOX_APP_KEY, IDLE
+from .utils import natural_size, chunks, clamp
 
 if TYPE_CHECKING:
-    from maestral.sync import SyncEvent
+    from .sync import SyncEvent
+
+
+__all__ = [
+    "CONNECTION_ERRORS",
+    "DropboxClient",
+    "dropbox_to_maestral_error",
+    "os_to_maestral_error",
+    "fswatch_to_maestral_error",
+    "convert_api_errors",
+]
+
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +126,7 @@ _T = TypeVar("_T")
 
 
 # create single requests session for all clients
-SESSION = dropbox.create_session()
+SESSION = create_session()
 _major_minor_version = ".".join(__version__.split(".")[:2])
 USER_AGENT = f"Maestral/v{_major_minor_version}"
 
@@ -212,7 +218,7 @@ def convert_api_errors_decorator(
 
 
 class DropboxClient:
-    """Client for the Dropbox SDK.
+    """Client for the Dropbox SDK
 
     This client defines basic methods to wrap Dropbox Python SDK calls, such as
     creating, moving, modifying and deleting files and folders on Dropbox and
@@ -259,7 +265,7 @@ class DropboxClient:
         Indicates if the client is linked to a Dropbox account (read only). This will
         block until the user's keyring is unlocked to load the saved auth token.
 
-        :raises: :class:`errors.KeyringAccessError` if keyring access fails.
+        :raises KeyringAccessError: if keyring access fails.
         """
 
         if self._dbx:
@@ -320,11 +326,11 @@ class DropboxClient:
         """
         Unlinks the Dropbox account.
 
-        :raises: :class:`errors.KeyringAccessError`
-        :raises: :class:`errors.DropboxAuthError`
+        :raises KeyringAccessError: if keyring access fails.
+        :raises DropboxAuthError: if we cannot authenticate with Dropbox.
         """
+        self.dbx.auth_token_revoke()
         self.auth.delete_creds()
-        self.dbx.auth_token_revoke()  # should only raise auth errors
 
     def _init_sdk_with_token(
         self,
@@ -411,7 +417,7 @@ class DropboxClient:
         return space_usage
 
     @convert_api_errors_decorator(dbx_path_arg=1)
-    def get_metadata(self, dbx_path: str, **kwargs) -> files.Metadata:
+    def get_metadata(self, dbx_path: str, **kwargs) -> Optional[files.Metadata]:
         """
         Gets metadata for an item on Dropbox or returns ``False`` if no metadata is
         available. Keyword arguments are passed on to Dropbox SDK files_get_metadata
@@ -419,16 +425,18 @@ class DropboxClient:
 
         :param dbx_path: Path of folder on Dropbox.
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
-        :returns: Metadata of item at the given path or ``None``.
+        :returns: Metadata of item at the given path or ``None`` if item cannot be found.
         """
 
         try:
             return self.dbx.files_get_metadata(dbx_path, **kwargs)
-        except exceptions.ApiError:
-            # DropboxAPI error is only raised when the item does not exist on Dropbox
-            # this is handled on a DEBUG level since we use call `get_metadata` to check
-            # if a file exists
-            pass
+        except exceptions.ApiError as exc:
+
+            if isinstance(exc.error, files.GetMetadataError):
+                # this will be only lookup errors
+                return None
+            else:
+                raise exc
 
     @convert_api_errors_decorator(dbx_path_arg=1)
     def list_revisions(
@@ -487,22 +495,14 @@ class DropboxClient:
 
         md, http_resp = self.dbx.files_download(dbx_path, **kwargs)
 
-        chunksize = 2 ** 16
-        size_str = natural_size(md.size)
+        chunksize = 2 ** 13
 
         with open(local_path, "wb") as f:
             with contextlib.closing(http_resp):
                 for c in http_resp.iter_content(chunksize):
                     f.write(c)
-                    downloaded = f.tell()
-                    logger.debug(
-                        "Downloading %s: %s/%s",
-                        dbx_path,
-                        natural_size(downloaded),
-                        size_str,
-                    )
                     if sync_event:
-                        sync_event.completed = downloaded
+                        sync_event.completed = f.tell()
 
         # dropbox SDK provides naive datetime in UTC
         client_mod_timestamp = md.client_modified.replace(
@@ -544,7 +544,6 @@ class DropboxClient:
         chunk_size = clamp(chunk_size, 10 ** 5, 150 * 10 ** 6)
 
         size = osp.getsize(local_path)
-        size_str = natural_size(size)
 
         # dropbox SDK takes naive datetime in UTC
         mtime = osp.getmtime(local_path)
@@ -590,12 +589,6 @@ class DropboxClient:
 
                         # housekeeping
                         uploaded = f.tell()
-                        logger.debug(
-                            "Uploading %s: %s/%s",
-                            dbx_path,
-                            natural_size(uploaded),
-                            size_str,
-                        )
                         if sync_event:
                             sync_event.completed = uploaded
 
@@ -1068,9 +1061,10 @@ def os_to_maestral_error(
     .. note::
         The following exception types should not typically be raised during syncing:
 
-        InterruptedError: Python will automatically retry on interrupted connections.
-        NotADirectoryError: If raised, this likely is a Maestral bug.
-        IsADirectoryError: If raised, this likely is a Maestral bug.
+        * InterruptedError: The client will automatically retry on interrupted
+          connections.
+        * NotADirectoryError: If raised, this is likely a bug.
+        * IsADirectoryError: If raised, this is likely a bug.
 
     :param exc: Python Exception.
     :param dbx_path: Dropbox path of file which triggered the error.
@@ -1262,7 +1256,7 @@ def dropbox_to_maestral_error(
                 )
                 err_cls = SyncError
             else:
-                text = "Please check the logs for more information"
+                text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
 
         elif isinstance(error, (files.CreateFolderError, files.CreateFolderEntryError)):
@@ -1271,7 +1265,7 @@ def dropbox_to_maestral_error(
                 write_error = error.get_path()
                 text, err_cls = _get_write_error_msg(write_error)
             else:
-                text = "Please check the logs for more information"
+                text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
 
         elif isinstance(error, files.DeleteError):
@@ -1295,7 +1289,7 @@ def dropbox_to_maestral_error(
                 )
                 err_cls = SyncError
             else:
-                text = "Please check the logs for more information"
+                text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
 
         elif isinstance(error, files.UploadError):
@@ -1304,10 +1298,25 @@ def dropbox_to_maestral_error(
                 write_error = error.get_path().reason  # returns UploadWriteFailed
                 text, err_cls = _get_write_error_msg(write_error)
             elif error.is_properties_error():
+                # this is a programming error in maestral
                 text = "Invalid property group provided."
-                err_cls = SyncError
+                err_cls = MaestralApiError
             else:
-                text = "Please check the logs for more information"
+                text = "Please check the logs or traceback for more information"
+                err_cls = SyncError
+
+        elif isinstance(error, files.UploadSessionStartError):
+            title = "Could not upload file"
+            if error.is_concurrent_session_close_not_allowed():
+                # this is a programming error in maestral
+                text = "Can not start a closed concurrent upload session."
+                err_cls = MaestralApiError
+            elif error.is_concurrent_session_data_not_allowed():
+                # this is a programming error in maestral
+                text = "Uploading data not allowed when starting concurrent upload session."
+                err_cls = MaestralApiError
+            else:
+                text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
 
         elif isinstance(error, files.UploadSessionFinishError):
@@ -1319,8 +1328,9 @@ def dropbox_to_maestral_error(
                 write_error = error.get_path()
                 text, err_cls = _get_write_error_msg(write_error)
             elif error.is_properties_error():
+                # this is a programming error in maestral
                 text = "Invalid property group provided."
-                err_cls = SyncError
+                err_cls = MaestralApiError
             elif error.is_too_many_write_operations():
                 text = (
                     "There are too many write operations happening in your "
@@ -1328,7 +1338,7 @@ def dropbox_to_maestral_error(
                 )
                 err_cls = SyncError
             else:
-                text = "Please check the logs for more information"
+                text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
 
         elif isinstance(error, files.UploadSessionLookupError):
@@ -1344,7 +1354,7 @@ def dropbox_to_maestral_error(
                 text = "This file type cannot be downloaded but must be exported."
                 err_cls = UnsupportedFileError
             else:
-                text = "Please check the logs for more information"
+                text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
 
         elif isinstance(error, files.ListFolderError):
@@ -1439,6 +1449,19 @@ def dropbox_to_maestral_error(
             elif error.is_path_write():
                 write_error = error.get_path_write()
                 text, err_cls = _get_write_error_msg(write_error)
+            else:
+                text = (
+                    "Please contact the developer with the traceback "
+                    "information from the logs."
+                )
+                err_cls = MaestralApiError
+
+        elif isinstance(error, files.GetMetadataError):
+            title = "Could not get metadata"
+
+            if error.is_path():
+                lookup_error = error.get_path()
+                text, err_cls = _get_lookup_error_msg(lookup_error)
             else:
                 text = (
                     "Please contact the developer with the traceback "

@@ -19,7 +19,6 @@
 from watchdog.observers.polling import (  # type: ignore
     PollingEmitter,
     PollingObserver,
-    DirectorySnapshotDiff,
     FileDeletedEvent,
     FileModifiedEvent,
     FileMovedEvent,
@@ -31,12 +30,15 @@ from watchdog.observers.polling import (  # type: ignore
     DEFAULT_OBSERVER_TIMEOUT,
     BaseObserver,
 )
+from watchdog.utils.dirsnapshot import DirectorySnapshotDiff
 
 
 class OrderedPollingEmitter(PollingEmitter):
-    """
-    Platform-independent emitter that polls a directory to detect file
-    system changes.
+    """Ordered polling file system event emitter
+
+    Platform-independent emitter that polls a directory to detect file system changes.
+    Events are emitted in an order which can be used to produce the new file system
+    state from the old one.
     """
 
     def queue_events(self, timeout):

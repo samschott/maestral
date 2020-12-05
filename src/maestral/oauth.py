@@ -1,11 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
-
 This module is responsible for authorization and token store in the system keyring.
-
 """
 
 # system imports
@@ -15,23 +10,25 @@ from typing import Optional
 from datetime import datetime
 
 # external imports
-import click
 import keyring.backends  # type: ignore
 import keyring.backends.OS_X  # type: ignore
 import keyring.backends.SecretService  # type: ignore
 import keyring.backends.kwallet  # type: ignore
 from keyring.backend import KeyringBackend  # type: ignore
 from keyring.core import load_keyring  # type: ignore
-from keyring.errors import KeyringLocked, PasswordDeleteError  # type: ignore
+from keyring.errors import KeyringLocked, PasswordDeleteError, InitError  # type: ignore
 import keyrings.alt.file  # type: ignore
 import requests
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect  # type: ignore
 
 # local imports
-from maestral.config import MaestralConfig, MaestralState
-from maestral.constants import DROPBOX_APP_KEY
-from maestral.errors import KeyringAccessError
+from .config import MaestralConfig, MaestralState
+from .constants import DROPBOX_APP_KEY
+from .errors import KeyringAccessError
+from .utils import cli
 
+
+__all__ = ["OAuth2Session"]
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +50,8 @@ CONNECTION_ERRORS = (
 
 
 class OAuth2Session:
-    """
+    """Provides Dropbox OAuth flow and key store interface
+
     OAuth2Session provides OAuth 2 login and token store in the preferred system keyring.
     To authenticate with Dropbox, run :meth:`get_auth_url` first and direct the user to
     visit that URL and retrieve an auth token. Verify the provided auth token with
@@ -73,7 +71,7 @@ class OAuth2Session:
     as needed.
 
     If the auth flow was previously completed before Dropbox migrated to short-lived
-    tokens, the ``token_access_type`` will be 'legacy' and only a long-lived access
+    tokens, the :attr:`token_access_type` will be 'legacy' and only a long-lived access
     token will be available.
 
     .. warning:: Unlike MacOS Keychain, Gnome Keyring and KWallet do not support
@@ -109,8 +107,10 @@ class OAuth2Session:
             token_access_type=self.default_token_access_type,
         )
 
-        self._account_id = self._conf.get("account", "account_id") or None
-        self._token_access_type = (
+        self._account_id: Optional[str] = (
+            self._conf.get("account", "account_id") or None
+        )
+        self._token_access_type: Optional[str] = (
             self._state.get("account", "token_access_type") or None
         )
 
@@ -131,7 +131,7 @@ class OAuth2Session:
 
         import keyring.backends
 
-        keyring_class = self._conf.get("app", "keyring").strip()
+        keyring_class: str = self._conf.get("app", "keyring").strip()
 
         if self._account_id and keyring_class != "automatic":
             # we are already linked and have a keyring set
@@ -145,7 +145,7 @@ class OAuth2Session:
                 self._conf.set("app", "keyring", "automatic")
 
                 title = f"Cannot load keyring {keyring_class}"
-                message = "Please relink Maestral to get new access token"
+                message = "Please relink Maestral to get a new access token"
                 new_exc = KeyringAccessError(title, message).with_traceback(
                     exc.__traceback__
                 )
@@ -177,6 +177,15 @@ class OAuth2Session:
             )
 
             return ring
+
+    def _get_accessor(self) -> str:
+        return f"config:{self._config_name}:{self._account_id}"
+
+    def _migrate_keyring(self) -> None:
+        token = self.keyring.get_password("Maestral", self._account_id)
+        if token:
+            self.keyring.set_password("Maestral", self._get_accessor(), token)
+            self.keyring.delete_password("Maestral", self._account_id)
 
     @property
     def linked(self) -> bool:
@@ -252,7 +261,7 @@ class OAuth2Session:
         accessing of the properties :attr:`linked`, :attr:`access_token`,
         :attr:`refresh_token` or :attr:`token_access_type`.
 
-        :raises: :class:`keyring.errors.KeyringLocked` if the system keyring is locked.
+        :raises KeyringAccessError: If the system keyring is locked.
         """
 
         logger.debug(f"Using keyring: {self.keyring}")
@@ -262,7 +271,9 @@ class OAuth2Session:
 
         try:
 
-            token = self.keyring.get_password("Maestral", self._account_id)
+            self._migrate_keyring()
+
+            token = self.keyring.get_password("Maestral", self._get_accessor())
             access_type = self._state.get("account", "token_access_type")
 
             if not access_type:
@@ -287,7 +298,7 @@ class OAuth2Session:
 
                 self._token_access_type = access_type
 
-        except KeyringLocked:
+        except (KeyringLocked, InitError):
             title = f"Could not load auth token, {self.keyring.name} is locked"
             msg = "Please unlock the keyring and try again."
             exc = KeyringAccessError(title, msg)
@@ -346,25 +357,20 @@ class OAuth2Session:
                 token = self.access_token
 
             try:
-                self.keyring.set_password("Maestral", self._account_id, token)
-                click.echo(" > Credentials written.")
+                self.keyring.set_password("Maestral", self._get_accessor(), token)
+                cli.ok("Credentials written")
                 if isinstance(self.keyring, keyrings.alt.file.PlaintextKeyring):
-                    click.echo(
-                        " > Warning: No supported keyring found, "
-                        "Dropbox credentials stored in plain text."
+                    cli.warn(
+                        "No supported keyring found, credentials stored in plain text"
                     )
-            except KeyringLocked:
+            except (KeyringLocked, InitError):
                 # switch to plain text keyring if user won't unlock
                 self.keyring = keyrings.alt.file.PlaintextKeyring()
                 self._conf.set("app", "keyring", "keyrings.alt.file.PlaintextKeyring")
                 self.save_creds()
 
     def delete_creds(self) -> None:
-        """
-        Deletes auth token from system keyring.
-
-        :raises: :class:`keyring.errors.KeyringLocked` if the system keyring is locked.
-        """
+        """Deletes auth token from system keyring."""
 
         with self._lock:
 
@@ -374,9 +380,9 @@ class OAuth2Session:
                 return
 
             try:
-                self.keyring.delete_password("Maestral", self._account_id)
-                click.echo(" > Credentials removed.")
-            except KeyringLocked:
+                self.keyring.delete_password("Maestral", self._get_accessor())
+                cli.ok("Credentials removed")
+            except (KeyringLocked, InitError):
                 title = f"Could not delete auth token, {self.keyring.name} is locked"
                 msg = "Please unlock the keyring and try again."
                 exc = KeyringAccessError(title, msg)

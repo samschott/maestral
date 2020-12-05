@@ -1,12 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
-
 This class provides constants used throughout the maestral, the GUI and CLI. It should
 be kept free of memory heavy imports.
-
 """
 
 # system imports
@@ -74,6 +69,8 @@ ERROR = "Fatal error"
 
 # file status enum
 class FileStatus(Enum):
+    """Enumeration of sync status"""
+
     Unwatched = "unwatched"
     Uploading = "uploading"
     Downloading = "downloading"

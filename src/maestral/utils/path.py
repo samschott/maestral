@@ -1,11 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-@author: Sam Schott  (ss2151@cam.ac.uk)
-
-(c) Sam Schott; This work is licensed under the MIT licence.
-
-This module contains functions for common path operations used by Maestral.
-
+This module contains functions for common path operations.
 """
 
 # system imports
@@ -195,8 +190,8 @@ def to_existing_cased_path(
         If ``False``, we know that there can be at most one match and choose a faster
         algorithm.
     :returns: Absolute and cased version of given path.
-    :raises: :class:`FileNotFoundError` if ``path`` does not exist in root ``root`` or
-        ``root`` itself does not exist.
+    :raises FileNotFoundError: if ``path`` does not exist in root ``root`` or ``root``
+        itself does not exist.
     """
 
     candidates = cased_path_candidates(path, root, is_fs_case_sensitive)
@@ -245,15 +240,15 @@ def generate_cc_name(
     Generates a path for a conflicting copy of ``path``. The file name is created by
     inserting the given ``suffix`` between the the filename and extension. For instance:
 
-        'my_file.txt' -> 'my_file (conflicting copy).txt'
+        "my_file.txt" -> "my_file (conflicting copy).txt"
 
     If a file with the resulting path already exists (case-insensitive!), we
     additionally append an integer number, for instance:
 
-        'my_file.txt' -> 'my_file (conflicting copy 1).txt'
+        "my_file.txt" -> "my_file (conflicting copy 1).txt"
 
     :param path: Original path name.
-    :param suffix: Suffix to use. Defaults to 'conflicting copy'.
+    :param suffix: Suffix to use. Defaults to "conflicting copy".
     :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
         If ``False``, we know that there can be at most one match and choose a faster
         algorithm.

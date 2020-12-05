@@ -1,20 +1,17 @@
 # -*- coding: utf-8 -*-
 
-# -- Path setup ------------------------------------------------------------------------
-
 import os
 import sys
 import time
 
-sys.path.insert(0, os.path.abspath("."))
-sys.path.insert(0, os.path.abspath(".."))
+# -- Path setup ------------------------------------------------------------------------
+
 sys.path.insert(0, os.path.abspath("../src"))
-sys.path.insert(0, os.path.abspath("../src/maestral"))
 
 # -- Project information ---------------------------------------------------------------
 
 author = "Sam Schott"
-version = "1.2.2"
+version = "1.3.0"
 release = version
 project = "Maestral"
 title = "Maestral API Documentation"
@@ -23,13 +20,13 @@ copyright = "{}, {}".format(time.localtime().tm_year, author)
 # -- General configuration -------------------------------------------------------------
 
 extensions = [
-    "sphinx.ext.napoleon",  # support numpy style docstrings in config module
-    "sphinx.ext.todo",  # parse todo list
-    "sphinx.ext.intersphinx",  # support for if-clauses in docs
-    "sphinx.ext.ifconfig",  # support for linking between documentations
-    "autoapi.extension",  # builds API docs from doc strings without importing module
-    "sphinx_click.ext",  # support for click commands
-    "m2r",  # convert markdown to rest
+    "sphinx.ext.viewcode",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.todo",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.autodoc",
+    "autoapi.extension",
+    "m2r2",
 ]
 source_suffix = [".rst", ".md"]
 master_doc = "index"
@@ -39,14 +36,7 @@ language = "en"
 # -- Options for HTML output -----------------------------------------------------------
 
 html_theme = "sphinx_rtd_theme"
-html_logo = "../src/maestral/resources/maestral.png"
-html_context = {
-    "css_files": [
-        "https://media.readthedocs.org/css/sphinx_rtd_theme.css",
-        "https://media.readthedocs.org/css/readthedocs-doc-embed.css",
-        "_static/custom.css",
-    ],
-}
+html_logo = "maestral-symbolic.svg"
 
 # -- Options for LaTeX output ----------------------------------------------------------
 
@@ -56,18 +46,31 @@ latex_documents = [
 
 # -- Extension configuration -----------------------------------------------------------
 
-# autoapi
+# sphinx.ext.autodoc
+autodoc_typehints = "description"
+
+# autoapi.extension
 autoapi_type = "python"
 autoapi_dirs = ["../src/maestral"]
 autoapi_options = [
     "members",
-    "inherited-members",
-    "special-members",
     "show-inheritance",
     "show-module-summary",
-    "imported-members",
+    "undoc-members",
 ]
 autoapi_add_toctree_entry = False
 
-# todo list support
+# sphinx.ext.todo
 todo_include_todos = True
+
+# sphinx.ext.intersphinx
+intersphinx_mapping = {
+    "click": ("https://click.palletsprojects.com/en/master/", None),
+    "dropbox": ("https://dropbox-sdk-python.readthedocs.io/en/latest/", None),
+    "fasteners": ("https://fasteners.readthedocs.io/en/latest/", None),
+    "Pyro5": ("https://pyro5.readthedocs.io/en/latest/", None),
+    "python": ("https://docs.python.org/3/", None),
+    "requests": ("https://requests.readthedocs.io/en/master/", None),
+    "sqlalchemy": ("https://docs.sqlalchemy.org/en/latest/", None),
+    "watchdog": ("https://python-watchdog.readthedocs.io/en/v0.10.3/", None),
+}

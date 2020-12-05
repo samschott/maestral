@@ -4,3 +4,13 @@ repos:
     hooks:
     - id: black
       language_version: python3
+
+-   repo: https://gitlab.com/pycqa/flake8
+    rev: master
+    hooks:
+    -   id: flake8
+
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: master
+    hooks:
+    -   id: mypy

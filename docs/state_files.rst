@@ -8,14 +8,14 @@ index and ``{config_name}.state`` for anything else. Both files are located at
 ``~/Library/Application Support/maestral`` on macOS. Each configuration will get its
 own state file.
 
-Index file
-**********
+Database
+********
 
-The index file is a SQLite database with contains the sync index, the sync event history
-of the last week and a cache of locally calculated content hashes. SQLAlchemy is used to
-manage the database and the table declarations are given by the definitions of
-:class:`maestral.sync.IndexEntry`, :class:`maestral.sync.SyncEvent` and
-:class:`maestral.sync.HashCacheEntry`.
+The index is stored in a SQLite database with contains the sync index, the sync event
+history of the last week and a cache of locally calculated content hashes. SQLAlchemy is
+used to manage the database and the table declarations are given by the definitions of
+:class:`maestral.database.IndexEntry`, :class:`maestral.database.SyncEvent` and
+:class:`maestral.database.HashCacheEntry`.
 
 State file
 **********
