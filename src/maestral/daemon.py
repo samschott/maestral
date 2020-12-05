@@ -535,7 +535,7 @@ def start_maestral_daemon_process(
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
     Startup is race free: there will never be two daemons running for the same config.
     This function requires that :obj:`sys.executable` points to a Python executable and
-    therefore may not work "frozen" apps.
+    therefore may not work for "frozen" apps.
 
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stdout: If ``True``, write logs to stdout.
@@ -597,7 +597,7 @@ def stop_maestral_daemon_process(
     :param config_name: The name of the Maestral configuration to use.
     :param timeout: Number of sec to wait for daemon to shut down before killing it.
     :returns: :attr:`Stop.Ok` if successful, :attr:`Stop.Killed` if killed,
-        :attr:`Stop.NotRunning` if the daemon was not running and `:attr:`Stop.Failed`
+        :attr:`Stop.NotRunning` if the daemon was not running and :attr:`Stop.Failed`
         if killing the process failed because we could not retrieve its PID.
     """
 

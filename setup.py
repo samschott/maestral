@@ -29,7 +29,7 @@ install_requires = [
 ]
 
 gui_requires = [
-    "maestral-qt>=1.3.0;sys_platform=='linux'",
+    "maestral-qt>=1.3.1;sys_platform=='linux'",
     "maestral-cocoa>=1.3.0;sys_platform=='darwin'",
 ]
 
@@ -56,7 +56,7 @@ setup(
     name="maestral",
     author="Sam Schott",
     author_email="ss2151@cam.ac.uk",
-    version="1.3.0",
+    version="1.3.1",
     url="https://github.com/SamSchott/maestral",
     description="Open-source Dropbox client for macOS and Linux.",
     license="MIT",
