@@ -10,7 +10,7 @@ install_requires = [
     "bugsnag>=3.4,<5.0",
     "click>=7.1.1,<8.0",
     "dropbox>=10.9.0,<12.0",
-    'dbus-next>=0.1.4;sys_platform=="linux"',
+    "dbus-next>=0.1.4;sys_platform=='linux'",
     "fasteners>=0.15",
     "importlib_metadata;python_version<'3.8'",
     "importlib_resources;python_version<'3.9'",
@@ -24,7 +24,7 @@ install_requires = [
     "sdnotify>=0.3.2",
     "setuptools",
     "sqlalchemy>=1.3,<1.4",
-    "survey>=2.1.0",
+    "survey>=2.1.0,<3.0",
     "watchdog>=0.10.0,<=0.10.3",
 ]
 
