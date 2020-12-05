@@ -15,7 +15,7 @@ import random
 import uuid
 import urllib.parse
 from threading import Thread, Event, RLock, current_thread
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from queue import Queue, Empty
 from collections import abc
 from contextlib import contextmanager
@@ -244,7 +244,7 @@ class FSEventHandler(FileSystemEventHandler):
             for ignore in new_ignores:
                 ignore.ttl = time.time() + self.ignore_timeout
 
-    def _expire_ignored_events(self) -> None:
+    def expire_ignored_events(self) -> None:
         """Removes all expired ignore entries."""
 
         now = time.time()
@@ -266,7 +266,7 @@ class FSEventHandler(FileSystemEventHandler):
         :returns: Whether the event should be ignored.
         """
 
-        self._expire_ignored_events()
+        self.expire_ignored_events()
 
         for ignore in self._ignored_events.copy():
             ignore_event = ignore.event
@@ -1326,7 +1326,7 @@ class SyncEngine:
                     click.launch(err.local_path, locate=True)
                 else:
                     url_path = urllib.parse.quote(err.dbx_path)
-                    click.launch("https://www.dropbox.com/preview" + url_path)
+                    click.launch(f"https://www.dropbox.com/preview{url_path}")
 
             self.notifier.notify(
                 "Sync error",
@@ -1386,13 +1386,21 @@ class SyncEngine:
             else:
                 raise new_exc
 
-    def reset_db_session(self):
+    def free_memory(self) -> None:
+        """
+        Frees memory by resetting our database session and the requests session,
+        clearing out case-conversion cache and clearing all expired event ignores and.
+        """
 
         with self._database_access():
             self._db_session.flush()
             self._db_session.close()
-            gc.collect()  # free up memory
             self._db_session = Session()
+
+        self.client.dbx.close()  # resets requests session
+        self._case_conversion_cache.clear()
+        self.fs_events.expire_ignored_events()
+        gc.collect()
 
     # ==== Upload sync =================================================================
 
@@ -1494,7 +1502,7 @@ class SyncEngine:
 
         # get deleted items
         for entry in entries:
-            local_path_uncased = (self.dropbox_path + entry.dbx_path_lower).lower()
+            local_path_uncased = f"{self.dropbox_path}{entry.dbx_path_lower}".lower()
             if local_path_uncased not in lowercase_snapshot_paths:
                 local_path = self.to_local_path_from_cased(entry.dbx_path_cased)
                 if entry.is_directory:
@@ -1591,14 +1599,12 @@ class SyncEngine:
                     max_workers=self._num_threads,
                     thread_name_prefix="maestral-upload-pool",
                 ) as executor:
-                    fs = (
-                        executor.submit(self._create_remote_entry, e) for e in deleted
-                    )
+                    res = executor.map(self._create_remote_entry, deleted)
 
                     n_items = len(deleted)
-                    for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                        throttled_log(logger, f"Deleting {n}/{n_items}...")
-                        results.append(f.result())
+                    for n, r in enumerate(res):
+                        throttled_log(logger, f"Deleting {n + 1}/{n_items}...")
+                        results.append(r)
 
                 if dir_moved:
                     logger.info("Moving folders...")
@@ -1613,12 +1619,12 @@ class SyncEngine:
                     max_workers=self._num_threads,
                     thread_name_prefix="maestral-upload-pool",
                 ) as executor:
-                    fs = (executor.submit(self._create_remote_entry, e) for e in other)
+                    res = executor.map(self._create_remote_entry, other)
 
                     n_items = len(other)
-                    for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                        throttled_log(logger, f"Syncing ↑ {n}/{n_items}")
-                        results.append(f.result())
+                    for n, r in enumerate(res):
+                        throttled_log(logger, f"Syncing ↑ {n + 1}/{n_items}")
+                        results.append(r)
 
                 self._clean_history()
 
@@ -1984,7 +1990,7 @@ class SyncEngine:
             else:
                 res = None
 
-            if res:
+            if res is not None:
                 event.status = SyncStatus.Done
             else:
                 event.status = SyncStatus.Skipped
@@ -2019,7 +2025,7 @@ class SyncEngine:
         except OSError:
             return
 
-    def _on_local_moved(self, event: SyncEvent) -> Optional[SyncEvent]:
+    def _on_local_moved(self, event: SyncEvent) -> Optional[Metadata]:
         """
         Call when a local item is moved.
 
@@ -2031,7 +2037,7 @@ class SyncEngine:
         remained the same.
 
         :param event: SyncEvent for local moved event.
-        :returns: SyncEvent for created remote item at destination.
+        :returns: Metadata for created remote item at destination.
         :raises MaestralApiError: For any issues when syncing the item.
         """
 
@@ -2087,7 +2093,7 @@ class SyncEngine:
             self._update_index_recursive(md_to_new)
             logger.debug('Moved "%s" to "%s" on Dropbox', dbx_path_from, event.dbx_path)
 
-        return SyncEvent.from_dbx_metadata(md_to_new, self)
+        return md_to_new
 
     def _update_index_recursive(self, md):
 
@@ -2098,12 +2104,12 @@ class SyncEngine:
             for md in result.entries:
                 self.update_index_from_dbx_metadata(md)
 
-    def _on_local_created(self, event: SyncEvent) -> Optional[SyncEvent]:
+    def _on_local_created(self, event: SyncEvent) -> Optional[Metadata]:
         """
         Call when a local item is created.
 
         :param event: SyncEvent corresponding to local created event.
-        :returns: Sync event for created item or None if no remote item is created.
+        :returns: Metadata for created item or None if no remote item is created.
         :raises MaestralApiError: For any issues when syncing the item.
         """
 
@@ -2199,14 +2205,14 @@ class SyncEngine:
             self.update_index_from_dbx_metadata(md_new)
             logger.debug('Created "%s" on Dropbox', event.dbx_path)
 
-        return SyncEvent.from_dbx_metadata(md_new, self)
+        return md_new
 
-    def _on_local_modified(self, event: SyncEvent) -> Optional[SyncEvent]:
+    def _on_local_modified(self, event: SyncEvent) -> Optional[Metadata]:
         """
         Call when local item is modified.
 
         :param event: SyncEvent for local modified event.
-        :returns: SyncEvent corresponding to modified remote item or None if no remote
+        :returns: Metadata corresponding to modified remote item or None if no remote
             item is modified.
         :raises MaestralApiError: For any issues when syncing the item.
         """
@@ -2279,15 +2285,15 @@ class SyncEngine:
             self.update_index_from_dbx_metadata(md_new)
             logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
 
-        return SyncEvent.from_dbx_metadata(md_new, self)
+        return md_new
 
-    def _on_local_deleted(self, event: SyncEvent) -> Optional[SyncEvent]:
+    def _on_local_deleted(self, event: SyncEvent) -> Optional[Metadata]:
         """
         Call when local item is deleted. We try not to delete remote items which have
         been modified since the last sync.
 
         :param event: SyncEvent for local deletion.
-        :returns: Sync event for deleted item or None if no remote item is deleted.
+        :returns: Metadata for deleted item or None if no remote item is deleted.
         :raises MaestralApiError: For any issues when syncing the item.
         """
 
@@ -2353,10 +2359,7 @@ class SyncEngine:
         # remove revision metadata
         self.remove_node_from_index(event.dbx_path)
 
-        if md_deleted:
-            return SyncEvent.from_dbx_metadata(md_deleted, self)
-        else:
-            return None
+        return md_deleted
 
     # ==== Download sync ===============================================================
 
@@ -2426,20 +2429,11 @@ class SyncEngine:
 
                         del included_subfolders
 
-                    # free memory
-                    del res
-                    del download_res
-                    gc.collect()
-
             except SyncError as e:
                 self._handle_sync_error(e, direction=SyncDirection.Down)
                 return False
 
             if is_dbx_root:
-                # clear case conversion cache to free memory
-                self._case_conversion_cache.clear()
-                gc.collect()
-
                 # always save remote cursor if this is the root folder,
                 # failed downloads will be tracked and retried individually
                 self.remote_cursor = cursor
@@ -2631,12 +2625,12 @@ class SyncEngine:
                 max_workers=self._num_threads,
                 thread_name_prefix="maestral-download-pool",
             ) as executor:
-                fs = (executor.submit(self._create_local_entry, item) for item in items)
+                res = executor.map(self._create_local_entry, items)
 
                 n_items = len(items)
-                for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                    throttled_log(logger, f"Deleting {n}/{n_items}...")
-                    results.append(f.result())
+                for n, r in enumerate(res):
+                    throttled_log(logger, f"Deleting {n + 1}/{n_items}...")
+                    results.append(r)
 
         # create local folders, start with top-level and work your way down
         if folders:
@@ -2647,23 +2641,23 @@ class SyncEngine:
                 max_workers=self._num_threads,
                 thread_name_prefix="maestral-download-pool",
             ) as executor:
-                fs = (executor.submit(self._create_local_entry, item) for item in items)
+                res = executor.map(self._create_local_entry, items)
 
                 n_items = len(items)
-                for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                    throttled_log(logger, f"Creating folder {n}/{n_items}...")
-                    results.append(f.result())
+                for n, r in enumerate(res):
+                    throttled_log(logger, f"Creating folder {n + 1}/{n_items}...")
+                    results.append(r)
 
         # apply created files
         with ThreadPoolExecutor(
             max_workers=self._num_threads, thread_name_prefix="maestral-download-pool"
         ) as executor:
-            fs = (executor.submit(self._create_local_entry, file) for file in files)
+            res = executor.map(self._create_local_entry, files)
 
             n_items = len(files)
-            for f, n in zip(as_completed(fs), range(1, n_items + 1)):
-                throttled_log(logger, f"Syncing ↓ {n}/{n_items}")
-                results.append(f.result())
+            for n, r in enumerate(res):
+                throttled_log(logger, f"Syncing ↓ {n + 1}/{n_items}")
+                results.append(r)
 
         if cursor and not self.cancel_pending.is_set():
             # always save remote cursor if not aborted by user,
@@ -2693,7 +2687,7 @@ class SyncEngine:
 
         # find out who changed the item(s), show the user name if its only a single user
         user_name: Optional[str]
-        dbid_list = set(e.change_dbid for e in changes)
+        dbid_list = set(e.change_dbid for e in changes if e.change_dbid is not None)
         if len(dbid_list) == 1:
             # all files have been modified by the same user
             dbid = dbid_list.pop()
@@ -3004,7 +2998,7 @@ class SyncEngine:
             else:
                 res = None
 
-            if res:
+            if res is not None:
                 event.status = SyncStatus.Done
             else:
                 event.status = SyncStatus.Skipped
@@ -3185,8 +3179,8 @@ class SyncEngine:
         Applies a remote deletion locally.
 
         :param event: Dropbox deleted metadata.
-        :returns: Dropbox metadata corresponding to local deletion or None if no local
-            changes are made.
+        :returns: SyncEvent corresponding to local deletion or None if no local changes
+            are made.
         """
 
         self._apply_case_change(event)
@@ -3281,7 +3275,9 @@ class SyncEngine:
                 )
 
             for entry in entries:
-                child_path_uncased = (self.dropbox_path + entry.dbx_path_lower).lower()
+                child_path_uncased = (
+                    f"{self.dropbox_path}{entry.dbx_path_lower}".lower()
+                )
                 if child_path_uncased not in lowercase_snapshot_paths:
                     local_child_path = self.to_local_path_from_cased(
                         entry.dbx_path_cased
@@ -3371,13 +3367,13 @@ def download_worker(
                         downloaded = sync.apply_remote_changes(changes, cursor)
                         sync.notify_user(downloaded)
 
-                        # free memory
-                        del changes
-                        gc.collect()
-
+                    sync.client.get_space_usage()  # update space usage
                     logger.info(IDLE)
 
-                    sync.client.get_space_usage()
+                    # free memory
+                    del changes
+                    del downloaded
+                    sync.free_memory()
 
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)
@@ -3429,6 +3425,10 @@ def download_worker_added_item(
                 sync.pending_downloads.discard(dbx_path)
 
                 logger.info(IDLE)
+
+                # free some memory
+                sync.free_memory()
+
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)
         except ConnectionError:
@@ -3473,6 +3473,10 @@ def upload_worker(
 
                 if len(changes) > 0:
                     logger.info(IDLE)
+
+                # free some memory
+                del changes
+                sync.free_memory()
 
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)
@@ -3563,10 +3567,12 @@ def startup_worker(
                     syncing.set()
 
                 startup.clear()
-
-                gc.collect()
-
                 logger.info(IDLE)
+
+                # free some memory
+                del changes
+                del downloaded
+                sync.free_memory()
 
         except DropboxServerError:
             logger.info("Dropbox server error", exc_info=True)

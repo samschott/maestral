@@ -9,7 +9,7 @@ install_requires = [
     "alembic>=1.3,<1.5",
     "bugsnag>=3.4,<5.0",
     "click>=7.1.1,<8.0",
-    "dropbox>=10.9.0,<11",
+    "dropbox>=10.9.0,<12.0",
     'dbus-next>=0.1.4;sys_platform=="linux"',
     "fasteners>=0.15",
     "importlib_metadata;python_version<'3.8'",
@@ -21,9 +21,10 @@ install_requires = [
     "Pyro5>=5.10",
     "requests>=2.16.2",
     "rubicon-objc>=0.3.1;sys_platform=='darwin'",
-    "setuptools",
     "sdnotify>=0.3.2",
+    "setuptools",
     "sqlalchemy>=1.3,<1.4",
+    "survey>=2.1.0",
     "watchdog>=0.10.0,<=0.10.3",
 ]
 

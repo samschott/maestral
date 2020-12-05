@@ -655,6 +655,9 @@ class MaestralProxy:
         >>> print(m.status)
         >>> m._disconnect()
 
+    :ivar _is_fallback: Whether we are using an actual Maestral instance as fallback
+        instead of a Proxy.
+
     :param config_name: The name of the Maestral configuration to use.
     :param fallback: If ``True``, a new instance of Maestral will created in the current
         process when the daemon is not running.

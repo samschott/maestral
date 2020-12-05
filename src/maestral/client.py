@@ -30,7 +30,7 @@ from typing import (
 import requests
 from dropbox import (  # type: ignore
     Dropbox,
-    dropbox,
+    create_session,
     files,
     users,
     exceptions,
@@ -126,7 +126,7 @@ _T = TypeVar("_T")
 
 
 # create single requests session for all clients
-SESSION = dropbox.create_session()
+SESSION = create_session()
 _major_minor_version = ".".join(__version__.split(".")[:2])
 USER_AGENT = f"Maestral/v{_major_minor_version}"
 
@@ -495,22 +495,14 @@ class DropboxClient:
 
         md, http_resp = self.dbx.files_download(dbx_path, **kwargs)
 
-        chunksize = 2 ** 16
-        size_str = natural_size(md.size)
+        chunksize = 2 ** 13
 
         with open(local_path, "wb") as f:
             with contextlib.closing(http_resp):
                 for c in http_resp.iter_content(chunksize):
                     f.write(c)
-                    downloaded = f.tell()
-                    logger.debug(
-                        "Downloading %s: %s/%s",
-                        dbx_path,
-                        natural_size(downloaded),
-                        size_str,
-                    )
                     if sync_event:
-                        sync_event.completed = downloaded
+                        sync_event.completed = f.tell()
 
         # dropbox SDK provides naive datetime in UTC
         client_mod_timestamp = md.client_modified.replace(
@@ -567,7 +559,6 @@ class DropboxClient:
         chunk_size = clamp(chunk_size, 10 ** 5, 150 * 10 ** 6)
 
         size = osp.getsize(local_path)
-        size_str = natural_size(size)
 
         # dropbox SDK takes naive datetime in UTC
         mtime = osp.getmtime(local_path)
@@ -613,12 +604,6 @@ class DropboxClient:
 
                         # housekeeping
                         uploaded = f.tell()
-                        logger.debug(
-                            "Uploading %s: %s/%s",
-                            dbx_path,
-                            natural_size(uploaded),
-                            size_str,
-                        )
                         if sync_event:
                             sync_event.completed = uploaded
 

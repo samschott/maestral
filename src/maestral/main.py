@@ -259,7 +259,7 @@ class Maestral:
         log_fmt_short = logging.Formatter(fmt="%(message)s")
 
         # log to file
-        log_file_path = get_log_path("maestral", self._config_name + ".log")
+        log_file_path = get_log_path("maestral", f"{self._config_name }.log")
         self.log_handler_file = logging.handlers.RotatingFileHandler(
             log_file_path,
             maxBytes=10 ** 7,
@@ -629,7 +629,7 @@ class Maestral:
         an actual file at that path if the user did not set a profile picture or the
         picture has not yet been downloaded.
         """
-        return get_cache_path("maestral", self._config_name + "_profile_pic.jpeg")
+        return get_cache_path("maestral", f"{self._config_name}_profile_pic.jpeg")
 
     def get_file_status(self, local_path: str) -> str:
         """
@@ -898,7 +898,7 @@ class Maestral:
 
     def _delete_old_profile_pics(self):
         for file in os.listdir(get_cache_path("maestral")):
-            if file.startswith(self._config_name + "_profile_pic"):
+            if file.startswith(f"{self._config_name}_profile_pic"):
                 try:
                     os.unlink(osp.join(get_cache_path("maestral"), file))
                 except OSError:
