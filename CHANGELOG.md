@@ -1,3 +1,9 @@
+## v1.3.1
+
+#### Fixes:
+
+* Fixes an incorrect entry point for the Qt GUI.
+
 ## v1.3.0
 
 This release features an overhaul of the command line interface: commands are grouped
