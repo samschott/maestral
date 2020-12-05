@@ -29,7 +29,7 @@ install_requires = [
 ]
 
 gui_requires = [
-    "maestral-qt>=1.3.0;sys_platform=='linux'",
+    "maestral-qt>=1.3.1;sys_platform=='linux'",
     "maestral-cocoa>=1.3.0;sys_platform=='darwin'",
 ]
 
