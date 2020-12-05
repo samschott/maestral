@@ -1495,56 +1495,99 @@ def log_level(level_name: str, config_name: str) -> None:
 
 
 @main.command(
-    help_priority=8,
+    section="Maintenance",
     help="""
 Compare changes of two revisions of a file.
 If the second revision is omitted, it will compare the file to the current version.
 """,
 )
-@click.argument("dbx_path")
-@click.argument("old_rev")
-@click.argument("new_rev", required=False)
+@click.argument("dropbox_path", type=click.Path())
+@click.option(
+    "-v",
+    "--rev",
+    help="Revisions to compare (mulitple allowed to compare two old revs)",
+    multiple=True,
+    default=[],
+)
+@catch_maestral_errors
 @existing_config_option
 # If new_version_hash is omitted, use the current version of the file
-def diff(dbx_path: str, old_rev: str, new_rev: str, config_name: str) -> None:
+def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
 
     import difflib
+    from datetime import datetime
     from .daemon import MaestralProxy
 
     # Reason for rel_dbx_path: os.path.join does not like leading /
-    if dbx_path.startswith("/"):
-        abs_dbx_path = dbx_path
-        rel_dbx_path = dbx_path[1:]
+    if dropbox_path.startswith("/"):
+        abs_dbx_path = dropbox_path
+        rel_dbx_path = dropbox_path[1:]
     else:
-        rel_dbx_path = dbx_path
-        abs_dbx_path = "/" + dbx_path
+        rel_dbx_path = dropbox_path
+        abs_dbx_path = "/" + dropbox_path
+
+    def download_and_compare(m: MaestralProxy, old_rev: str, new_rev: str = None):
+        # Download specific revisions to cache
+        new_location = os.path.join(m.dropbox_path, rel_dbx_path)
+        old_location = m.download_rev_to_file(dbx_path=abs_dbx_path, rev=old_rev)
+
+        # Use the current version if new_version_hash is None
+        if new_rev is not None:
+            new_location = m.download_rev_to_file(dbx_path=abs_dbx_path, rev=new_rev)
+
+        # TODO: is there a better function?
+        with open(new_location) as f:
+            new_content = f.readlines()
+        with open(old_location) as f:
+            old_content = f.readlines()
+
+        for line in difflib.context_diff(
+            new_content,
+            old_content,
+            # TODO: True paths or something simpler?
+            fromfile=new_location,
+            tofile=old_location,
+        ):
+            click.echo(line, nl=False)
 
     try:
         with MaestralProxy(config_name) as m:
-            # Download specific revisions to cache
-            new_location = os.path.join(m.dropbox_path, rel_dbx_path)
-            old_location = m.download_rev_to_file(dbx_path=abs_dbx_path, rev=old_rev)
+            if len(rev) == 0:
+                entries = m.list_revisions(abs_dbx_path)
+                dates = []
+                for entry in entries:
+                    cm = cast(str, entry["client_modified"])
+                    dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
+                    field = cli.DateField(dt)
+                    dates.append(field.format(40)[0])
 
-            # Use the current version if new_version_hash is None
-            if new_rev is not None:
-                new_location = m.download_rev_to_file(
-                    dbx_path=abs_dbx_path, rev=new_rev
+                base = cli.select(
+                    message="Select a version as a base:",
+                    options=dates,
+                    hint="(↓ to see more)" if len(dates) > 6 else "",
                 )
 
-            # TODO: is there a better function?
-            with open(new_location) as f:
-                new_content = f.readlines()
-            with open(old_location) as f:
-                old_content = f.readlines()
-
-            for line in difflib.context_diff(
-                new_content,
-                old_content,
-                # TODO: True paths or something simpler?
-                fromfile=new_location,
-                tofile=old_location,
-            ):
-                click.echo(line, nl=False)
-
+                # Remove the option of 'Current Version'
+                dates = dates[base + 1 :]
+                to_compare = cli.select(
+                    message="Select a version to compare to:",
+                    options=dates,
+                    hint="(↓ to see more)" if len(dates) > 6 else "",
+                )
+                # First index = current version
+                if base == 0:
+                    download_and_compare(m, entries[base + to_compare]["rev"])
+                else:
+                    download_and_compare(
+                        m,
+                        entries[base + to_compare]["rev"],
+                        new_rev=entries[base]["rev"],
+                    )
+            elif len(rev) == 1:
+                download_and_compare(m, rev[0])
+            elif len(rev) == 2:
+                download_and_compare(m, rev[0], new_rev=rev[1])
+            else:
+                click.echo("You can only compare two revisions at a time")
     except Pyro5.errors.CommunicationError:
         click.echo("unwatched")
