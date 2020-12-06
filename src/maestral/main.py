@@ -21,6 +21,7 @@ from watchdog.events import DirDeletedEvent, FileDeletedEvent  # type: ignore
 import bugsnag  # type: ignore
 from bugsnag.handlers import BugsnagHandler  # type: ignore
 from packaging.version import Version
+from dropbox import files 
 
 try:
     from systemd import journal  # type: ignore
@@ -865,7 +866,9 @@ class Maestral:
 
         return entries
 
-    def download_revision(self, dbx_path: str, local_path: str, rev: str) -> files.Metadata:
+    def download_revision(
+        self, dbx_path: str, local_path: str, rev: str
+    ) -> files.Metadata:
         """
         Downloads specific revision from Dropbox into a local file.
         Returns metadata about the downloaded file.
