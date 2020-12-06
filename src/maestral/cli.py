@@ -1514,7 +1514,7 @@ If the second revision is omitted, it will compare the file to the current versi
 # If new_version_hash is omitted, use the current version of the file
 def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
 
-    import difflib
+    import difflib, tempfile
     from datetime import datetime
     from .daemon import MaestralProxy
 
@@ -1523,19 +1523,25 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
         dropbox_path = "/" + dropbox_path
 
     def download_and_compare(m: MaestralProxy, old_rev: str, new_rev: str = None):
+        # Create a temporary directory to store all downloaded files
+        tempdir = tempfile.TemporaryDirectory()
+
         # Get the dates of the revisions
         entries = m.list_revisions(dropbox_path)
         new_date = entries[0]["client_modified"]
         old_date = check_rev(entries, rev)
         new_location = os.path.join(m.dropbox_path, dropbox_path[1:])
+        old_location = os.path.join(tempdir.name, old_rev)
+
         # Download specific revision to cache
-        old_location = m.download_rev_to_file(dropbox_path, old_rev)
+        old_md = m.download_revision(dropbox_path, old_location, old_rev)
 
         # Use the current version if new_version_hash is None
         # Saves space (unnecessary downloads omitted)
         if new_rev:
             new_date = check_rev(entries, new_rev)
-            new_location = m.download_rev_to_file(dropbox_path, new_rev)
+            new_location = os.path.join(tempdir.name, new_rev)
+            new_md = m.download_revision(dropbox_path, new_location, new_rev)
 
         # TODO: is there a better function?
         with open(new_location) as f:
@@ -1547,8 +1553,8 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
             new_content,
             old_content,
             # TODO: True paths or something simpler?
-            fromfile=os.path.join(m.dropbox_path, dropbox_path),
-            tofile=os.path.join(m.dropbox_path, dropbox_path),
+            fromfile=os.path.join(m.dropbox_path, dropbox_path[1:]),
+            tofile=os.path.join(m.dropbox_path, dropbox_path[1:]),
             fromfiledate=new_date,
             tofiledate=old_date,
         ):
@@ -1595,5 +1601,6 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
                 download_and_compare(m, rev[0], rev[1])
             else:
                 click.echo("You can only compare two revisions at a time")
+
     except Pyro5.errors.CommunicationError:
         click.echo("unwatched")

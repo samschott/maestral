@@ -865,17 +865,17 @@ class Maestral:
 
         return entries
 
-    def download_rev_to_file(self, dbx_path: str, rev: str) -> str:
+    def download_revision(self, dbx_path: str, local_path: str, rev: str) -> files.Metadata:
         """
-        Downloads specific revision from Dropbox into a temporary file in the
-        users cache directory. The path will be returned by the function and is
-        equal to 'name_revhash'.
+        Downloads specific revision from Dropbox into a local file.
+        Returns metadata about the downloaded file.
 
         :param dbx_path: Path to retrieve file on Dropbox.
+        :param local_path: Path to save file on local computer.
         :param rev: Revision of file to download.
         """
 
-        return self.client.download_rev_to_file(dbx_path, rev)
+        return self.client.download(dbx_path, local_path, rev=rev)
 
     def restore(self, dbx_path: str, rev: str) -> StoneType:
         """
