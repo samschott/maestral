@@ -1519,21 +1519,23 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
     from .daemon import MaestralProxy
 
     # Reason for rel_dbx_path: os.path.join does not like leading /
-    if dropbox_path.startswith("/"):
-        abs_dbx_path = dropbox_path
-        rel_dbx_path = dropbox_path[1:]
-    else:
-        rel_dbx_path = dropbox_path
-        abs_dbx_path = "/" + dropbox_path
+    if not dropbox_path.startswith("/"):
+        dropbox_path = "/" + dropbox_path
 
     def download_and_compare(m: MaestralProxy, old_rev: str, new_rev: str = None):
-        # Download specific revisions to cache
-        new_location = os.path.join(m.dropbox_path, rel_dbx_path)
-        old_location = m.download_rev_to_file(dbx_path=abs_dbx_path, rev=old_rev)
+        # Get the dates of the revisions
+        entries = m.list_revisions(dropbox_path)
+        new_date = entries[0]["client_modified"]
+        old_date = check_rev(entries, rev)
+        new_location = os.path.join(m.dropbox_path, dropbox_path[1:])
+        # Download specific revision to cache
+        old_location = m.download_rev_to_file(dropbox_path, old_rev)
 
         # Use the current version if new_version_hash is None
-        if new_rev is not None:
-            new_location = m.download_rev_to_file(dbx_path=abs_dbx_path, rev=new_rev)
+        # Saves space (unnecessary downloads omitted)
+        if new_rev:
+            new_date = check_rev(entries, new_rev)
+            new_location = m.download_rev_to_file(dropbox_path, new_rev)
 
         # TODO: is there a better function?
         with open(new_location) as f:
@@ -1545,15 +1547,24 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
             new_content,
             old_content,
             # TODO: True paths or something simpler?
-            fromfile=new_location,
-            tofile=old_location,
+            fromfile=os.path.join(m.dropbox_path, dropbox_path),
+            tofile=os.path.join(m.dropbox_path, dropbox_path),
+            fromfiledate=new_date,
+            tofiledate=old_date,
         ):
             click.echo(line, nl=False)
+
+    # Check if a revision exists and return the date ("client_modified")
+    def check_rev(revs: List[str], rev: str) -> str:
+        for r in revs:
+            if r["rev"] == revs:
+                return r["client_modified"]
+        return None
 
     try:
         with MaestralProxy(config_name) as m:
             if len(rev) == 0:
-                entries = m.list_revisions(abs_dbx_path)
+                entries = m.list_revisions(dropbox_path)
                 dates = []
                 for entry in entries:
                     cm = cast(str, entry["client_modified"])
@@ -1567,26 +1578,21 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
                     hint="(↓ to see more)" if len(dates) > 6 else "",
                 )
 
-                # Remove the option of 'Current Version'
-                dates = dates[base + 1 :]
                 to_compare = cli.select(
                     message="Select a version to compare to:",
-                    options=dates,
-                    hint="(↓ to see more)" if len(dates) > 6 else "",
-                )
+                    options=dates[base + 1 :],
+                    hint="(↓ to see more)" if len(dates[base + 1 :]) > 6 else "",
+                ) + base + 1
+
                 # First index = current version
                 if base == 0:
-                    download_and_compare(m, entries[base + to_compare]["rev"])
+                    download_and_compare(m, entries[to_compare]["rev"])
                 else:
-                    download_and_compare(
-                        m,
-                        entries[base + to_compare]["rev"],
-                        new_rev=entries[base]["rev"],
-                    )
+                    download_and_compare(m, entries[to_compare]["rev"], entries[base]["rev"])
             elif len(rev) == 1:
                 download_and_compare(m, rev[0])
             elif len(rev) == 2:
-                download_and_compare(m, rev[0], new_rev=rev[1])
+                download_and_compare(m, rev[0], rev[1])
             else:
                 click.echo("You can only compare two revisions at a time")
     except Pyro5.errors.CommunicationError:
