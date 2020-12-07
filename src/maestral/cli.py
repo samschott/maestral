@@ -1521,6 +1521,14 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
     from datetime import datetime
     from .daemon import MaestralProxy
 
+    # Some colors
+    RED = "\033[91m"
+    CYAN = "\033[96m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+
     # Reason for rel_dbx_path: os.path.join does not like leading /
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
@@ -1562,14 +1570,30 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
         with open(old_location) as f:
             old_content = f.readlines()
 
-        for line in difflib.context_diff(
-            new_content,
-            old_content,
-            fromfile=os.path.join(m.dropbox_path, dropbox_path[1:]),
-            tofile=os.path.join(m.dropbox_path, dropbox_path[1:]),
-            fromfiledate=new_date,
-            tofiledate=old_date,
+        for ind, line in enumerate(
+            difflib.context_diff(
+                old_content,
+                new_content,
+                fromfile=os.path.join(m.dropbox_path, dropbox_path[1:]),
+                tofile=os.path.join(m.dropbox_path, dropbox_path[1:]),
+                fromfiledate=old_date,
+                tofiledate=new_date,
+            )
         ):
+            # Inspiration for colors from 'git diff'
+            if ind < 2:
+                line = BOLD + line + RESET
+            if line.startswith("! "):
+                line = YELLOW + line + RESET
+            elif line.startswith("+ "):
+                line = GREEN + line + RESET
+            elif line.startswith("- "):
+                line = RED + line + RESET
+            # Don't highlight these in the intro
+            elif line.startswith("*** ") and ind > 2:
+                line = CYAN + line + RESET
+            elif line.startswith("--- ") and ind > 2:
+                line = CYAN + line + RESET
             click.echo(line, nl=False)
 
     # Check if a revision exists and return the date ("client_modified")
@@ -1605,14 +1629,14 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
                     dates.append(field.format(40)[0])
 
                 base = cli.select(
-                    message="Select a version as a base:",
+                    message="New revision:",
                     options=dates,
                     hint="(↓ to see more)" if len(dates) > 6 else "",
                 )
 
                 to_compare = (
                     cli.select(
-                        message="Select a version to compare to:",
+                        message="Old revision:",
                         options=dates[base + 1 :],
                         hint="(↓ to see more)" if len(dates[base + 1 :]) > 6 else "",
                     )
