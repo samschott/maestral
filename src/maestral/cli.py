@@ -1515,7 +1515,7 @@ If the second revision is omitted, it will compare the file to the current versi
 # If new_version_hash is omitted, use the current version of the file
 def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
 
-    import difflib, tempfile
+    import difflib, tempfile, magic
     from datetime import datetime
     from .daemon import MaestralProxy
 
@@ -1526,35 +1526,35 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
     # Returns False if a revision does not exist
     def download_and_compare(
         m: MaestralProxy, old_rev: str, new_rev: str = None
-    ) -> bool:
+    ):
         # Create a temporary directory to store all downloaded files
         tempdir = tempfile.TemporaryDirectory()
 
         # Get the dates of the revisions
         entries = m.list_revisions(dropbox_path)
-        new_date = cast(str, entries[0]["client_modified"])
+        new_date = check_rev(entries, entries[0]["rev"])
         od = check_rev(entries, old_rev)
-        if not od:
-            return False
-        else:
-            old_date = cast(str, od)
+        if od == None:
+            click.echo("Selected revision was not found")
+            return
+        old_date = cast(str, od)
 
         new_location = os.path.join(m.dropbox_path, dropbox_path[1:])
         old_location = os.path.join(tempdir.name, old_rev)
 
         # Download specific revision to cache
-        old_md = m.download_revision(dropbox_path, old_location, old_rev)
+        _ = m.download_revision(dropbox_path, old_location, old_rev)
 
         # Use the current version if new_version_hash is None
         # Saves space (unnecessary downloads omitted)
         if new_rev:
             nd = check_rev(entries, new_rev)
-            if not nd:
-                return False
-            else:
-                new_date = cast(str, nd)
+            if nd == None:
+                click.echo("Selected revision was not found")
+                return
+            new_date = cast(str, nd)
             new_location = os.path.join(tempdir.name, new_rev)
-            new_md = m.download_revision(dropbox_path, new_location, new_rev)
+            _ = m.download_revision(dropbox_path, new_location, new_rev)
 
         with open(new_location) as f:
             new_content = f.readlines()
@@ -1571,17 +1571,25 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
         ):
             click.echo(line, nl=False)
 
-        return True
-
     # Check if a revision exists and return the date ("client_modified")
     def check_rev(revs: List[StoneType], rev: str) -> Optional[str]:
         for r in revs:
-            if r["rev"] == revs:
-                return cast(str, r["client_modified"])
+            if r["rev"] == rev:
+                d = r["client_modified"]
+                return str(datetime.strptime(d, "%Y-%m-%dT%H:%M:%S%z").astimezone())
         return None
 
     try:
         with MaestralProxy(config_name) as m:
+            # Check the file type is supported
+            # If not, ask user if he wants to download revs and
+            # compare them manually
+            full_path = os.path.join(m.dropbox_path, dropbox_path[1:])
+            if not magic.from_file(full_path, mime=True).startswith("text/"):
+                click.echo("Bad file type, only files with the type 'text/*' are supported.")
+                click.echo("You can look at an old version manually with 'maestral restore'.")
+                return
+
             if len(rev) == 0:
                 entries = m.list_revisions(dropbox_path)
                 dates = []
@@ -1609,23 +1617,15 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
 
                 # First index = current version
                 if base == 0:
-                    if not download_and_compare(m, entries[to_compare]["rev"]):
-                        click.echo("Selected revision was not found")
-                        return
+                    download_and_compare(m, entries[to_compare]["rev"])
                 else:
-                    if not download_and_compare(
+                    download_and_compare(
                         m, entries[to_compare]["rev"], entries[base]["rev"]
-                    ):
-                        click.echo("Selected revision was not found")
-                        return
+                    )
             elif len(rev) == 1:
-                if not download_and_compare(m, rev[0]):
-                    click.echo("Selected revision was not found")
-                    return
+                download_and_compare(m, rev[0])
             elif len(rev) == 2:
-                if not download_and_compare(m, rev[0], rev[1]):
-                    click.echo("Selected revision was not found")
-                    return
+                download_and_compare(m, rev[0], rev[1])
             else:
                 click.echo("You can only compare two revisions at a time")
 
