@@ -1524,20 +1524,20 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
         dropbox_path = "/" + dropbox_path
 
     # Returns False if a revision does not exist
-    def download_and_compare(
-        m: MaestralProxy, old_rev: str, new_rev: str = None
-    ):
+    def download_and_compare(m: MaestralProxy, old_rev: str, new_rev: str = None):
         # Create a temporary directory to store all downloaded files
         tempdir = tempfile.TemporaryDirectory()
 
         # Get the dates of the revisions
         entries = m.list_revisions(dropbox_path)
         new_date = check_rev(entries, entries[0]["rev"])
-        od = check_rev(entries, old_rev)
-        if od == None:
+        if new_date is None:
+            click.echo("Selected revision was not found")
+            return 
+        old_date = check_rev(entries, old_rev)
+        if old_date is None:
             click.echo("Selected revision was not found")
             return
-        old_date = cast(str, od)
 
         new_location = os.path.join(m.dropbox_path, dropbox_path[1:])
         old_location = os.path.join(tempdir.name, old_rev)
@@ -1548,11 +1548,10 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
         # Use the current version if new_version_hash is None
         # Saves space (unnecessary downloads omitted)
         if new_rev:
-            nd = check_rev(entries, new_rev)
-            if nd == None:
+            new_date = check_rev(entries, new_rev)
+            if new_date is None:
                 click.echo("Selected revision was not found")
                 return
-            new_date = cast(str, nd)
             new_location = os.path.join(tempdir.name, new_rev)
             _ = m.download_revision(dropbox_path, new_location, new_rev)
 
@@ -1575,7 +1574,7 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
     def check_rev(revs: List[StoneType], rev: str) -> Optional[str]:
         for r in revs:
             if r["rev"] == rev:
-                d = r["client_modified"]
+                d = cast(str, r["client_modified"])
                 return str(datetime.strptime(d, "%Y-%m-%dT%H:%M:%S%z").astimezone())
         return None
 
@@ -1586,9 +1585,13 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
             # compare them manually
             full_path = os.path.join(m.dropbox_path, dropbox_path[1:])
             mime_type = magic.from_file(full_path, mime=True)
-            if not mime_type.startswith("text/"): 
-                click.echo(f"Bad file type: '{mime_type}'. Only files with the type 'text/*' are supported.")
-                click.echo("You can look at an old version with 'maestral restore' to compare them manually.")
+            if not mime_type.startswith("text/"):
+                click.echo(
+                    f"Bad file type: '{mime_type}'. Only files with the type 'text/*' are supported."
+                )
+                click.echo(
+                    "You can look at an old version with 'maestral restore' to compare them manually."
+                )
                 return
 
             if len(rev) == 0:

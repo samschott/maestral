@@ -865,9 +865,7 @@ class Maestral:
 
         return entries
 
-    def download_revision(
-        self, dbx_path: str, local_path: str, rev: str
-    ) -> StoneType:
+    def download_revision(self, dbx_path: str, local_path: str, rev: str) -> StoneType:
         """
         Downloads specific revision from Dropbox into a local file.
         Returns metadata about the downloaded file.
