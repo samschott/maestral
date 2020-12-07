@@ -1515,7 +1515,9 @@ If the second revision is omitted, it will compare the file to the current versi
 # If new_version_hash is omitted, use the current version of the file
 def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
 
-    import difflib, tempfile, magic
+    import difflib
+    import tempfile
+    import magic
     from datetime import datetime
     from .daemon import MaestralProxy
 
@@ -1586,9 +1588,8 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
             full_path = os.path.join(m.dropbox_path, dropbox_path[1:])
             mime_type = magic.from_file(full_path, mime=True)
             if not mime_type.startswith("text/"):
-                click.echo(
-                    f"Bad file type: '{mime_type}'. Only files with the type 'text/*' are supported."
-                )
+                click.echo(f"Bad file type: '{mime_type}'.")
+                click.echo("Only files with the type 'text/*' are supported.")
                 click.echo(
                     "You can look at an old version with 'maestral restore' to compare them manually."
                 )
