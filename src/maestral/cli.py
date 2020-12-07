@@ -1585,9 +1585,10 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
             # If not, ask user if he wants to download revs and
             # compare them manually
             full_path = os.path.join(m.dropbox_path, dropbox_path[1:])
-            if not magic.from_file(full_path, mime=True).startswith("text/"):
-                click.echo("Bad file type, only files with the type 'text/*' are supported.")
-                click.echo("You can look at an old version manually with 'maestral restore'.")
+            mime_type = magic.from_file(full_path, mime=True)
+            if not mime_type.startswith("text/"): 
+                click.echo(f"Bad file type: '{mime_type}'. Only files with the type 'text/*' are supported.")
+                click.echo("You can look at an old version with 'maestral restore' to compare them manually.")
                 return
 
             if len(rev) == 0:
