@@ -21,7 +21,7 @@ from watchdog.events import DirDeletedEvent, FileDeletedEvent  # type: ignore
 import bugsnag  # type: ignore
 from bugsnag.handlers import BugsnagHandler  # type: ignore
 from packaging.version import Version
-from dropbox import files 
+from dropbox import files
 
 try:
     from systemd import journal  # type: ignore

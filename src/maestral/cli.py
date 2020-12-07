@@ -1524,7 +1524,9 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
         dropbox_path = "/" + dropbox_path
 
     # Returns False if a revision does not exist
-    def download_and_compare(m: MaestralProxy, old_rev: str, new_rev: str = None) -> bool:
+    def download_and_compare(
+        m: MaestralProxy, old_rev: str, new_rev: str = None
+    ) -> bool:
         # Create a temporary directory to store all downloaded files
         tempdir = tempfile.TemporaryDirectory()
 
