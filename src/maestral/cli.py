@@ -1533,7 +1533,7 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
         new_date = check_rev(entries, entries[0]["rev"])
         if new_date is None:
             click.echo("Selected revision was not found")
-            return 
+            return
         old_date = check_rev(entries, old_rev)
         if old_date is None:
             click.echo("Selected revision was not found")
