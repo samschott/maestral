@@ -1570,20 +1570,11 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
         with open(old_location) as f:
             old_content = f.readlines()
 
-        for ind, line in enumerate(
-            difflib.context_diff(
-                old_content,
-                new_content,
-                fromfile=os.path.join(m.dropbox_path, dropbox_path[1:]),
-                tofile=os.path.join(m.dropbox_path, dropbox_path[1:]),
-                fromfiledate=old_date,
-                tofiledate=new_date,
-            )
-        ):
-            # Inspiration for colors from 'git diff'
+        # Inspiration for colors from 'git diff'
+        def color(ind: int, line: str) -> str:
             if ind < 2:
                 line = BOLD + line + RESET
-            if line.startswith("! "):
+            elif line.startswith("! "):
                 line = YELLOW + line + RESET
             elif line.startswith("+ "):
                 line = GREEN + line + RESET
@@ -1594,7 +1585,28 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
                 line = CYAN + line + RESET
             elif line.startswith("--- ") and ind > 2:
                 line = CYAN + line + RESET
-            click.echo(line, nl=False)
+            return line
+
+        # TODO: enter less if diff is long
+        delta = [
+            color(i, l)
+            for i, l in enumerate(
+                difflib.context_diff(
+                    old_content,
+                    new_content,
+                    fromfile=os.path.join(m.dropbox_path, dropbox_path[1:]),
+                    tofile=os.path.join(m.dropbox_path, dropbox_path[1:]),
+                    fromfiledate=old_date,
+                    tofiledate=new_date,
+                )
+            )
+        ]
+
+        lines = "".join(delta)
+        if len(delta) > 50:
+            os.system(f"echo '{lines}' | less -R")
+        else:
+            click.echo(lines)
 
     # Check if a revision exists and return the date ("client_modified")
     def check_rev(revs: List[StoneType], rev: str) -> Optional[str]:
