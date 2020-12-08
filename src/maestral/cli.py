@@ -1533,8 +1533,13 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
 
-    # Returns False if a revision does not exist
     def download_and_compare(m: MaestralProxy, old_rev: str, new_rev: str = None):
+        """
+        Download up to two revisions to a local temporary folder
+        and compare them with a 'diff'. Only text files are supported.
+        If an unknown file type was found, everything that doesn't match
+        'text/*', an error message gets printed.
+        """
         # Create a temporary directory to store all downloaded files
         tempdir = tempfile.TemporaryDirectory()
 
@@ -1572,6 +1577,11 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
 
         # Inspiration for colors from 'git diff'
         def color(ind: int, line: str) -> str:
+            """
+            Color diff lines.
+            Inspiration for colors was taken from the
+            well known command 'git diff'.
+            """
             if ind < 2:
                 line = BOLD + line + RESET
             elif line.startswith("! "):
@@ -1587,7 +1597,6 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
                 line = CYAN + line + RESET
             return line
 
-        # TODO: enter less if diff is long
         delta = [
             color(i, l)
             for i, l in enumerate(
@@ -1603,6 +1612,7 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
         ]
 
         lines = "".join(delta)
+        # Enter 'less' if diff is too long
         if len(delta) > 50:
             os.system(f"echo '{lines}' | less -R")
         else:
@@ -1627,7 +1637,7 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
                 click.echo(f"Bad file type: '{mime_type}'.")
                 click.echo("Only files with the type 'text/*' are supported.")
                 click.echo(
-                    "You can look at an old version with 'maestral restore' to compare them manually."
+                    "You can look at an old version with 'maestral restore' to compare manually."
                 )
                 return
 
