@@ -9,7 +9,6 @@ from typing import (
     Iterator,
     Sequence,
     Any,
-    Tuple,
     Callable,
     TYPE_CHECKING,
 )
@@ -543,21 +542,11 @@ def ok(message: str, nl: bool = True) -> None:
 
 
 def _style_message(message: str) -> str:
-    pre = click.style("?", fg="green")
-    return f"{pre} {message} "
+    return f"{message} "
 
 
 def _syle_hint(hint: str) -> str:
-    return click.style(hint, fg="white") + " " if hint else ""
-
-
-orange = "\x1b[38;5;214m"
-cyan = "\x1b[38;5;6m"
-grey = "\x1b[90m"
-bold = "\x1b[1m"
-
-response_color = cyan
-focus_color = f"{response_color}"
+    return f"{hint} " if hint else ""
 
 
 class loading:
@@ -602,10 +591,6 @@ def prompt(message: str, default: str = "", validate: Optional[Callable] = None)
     styled_default = _syle_hint(default)
     styled_message = _style_message(message)
 
-    def view(value: str) -> Tuple[str]:
-        response = value or default
-        return (response,)
-
     def check(value: str) -> bool:
         if validate is None:
             return True
@@ -614,15 +599,12 @@ def prompt(message: str, default: str = "", validate: Optional[Callable] = None)
         else:
             return validate(value)
 
-    res = survey.input(
-        styled_message,
-        hint=styled_default,
-        view=view,
-        check=check,
-        color=response_color,
-    )
+    res = survey.input(styled_message, hint=styled_default, check=check, auto=False)
 
-    return res
+    response = res or default
+    survey.respond(response)
+
+    return response
 
 
 def confirm(message: str, default: Optional[bool] = True) -> bool:
@@ -631,7 +613,7 @@ def confirm(message: str, default: Optional[bool] = True) -> bool:
 
     styled_message = _style_message(message)
 
-    return survey.confirm(styled_message, default=default, color=response_color)
+    return survey.confirm(styled_message, default=default)
 
 
 def select(message: str, options: Sequence[str], hint="") -> int:
@@ -645,14 +627,12 @@ def select(message: str, options: Sequence[str], hint="") -> int:
         index = survey.select(
             options,
             styled_message,
-            focus=focus_color,
-            color=response_color,
             hint=styled_hint,
         )
 
         return index
     except (KeyboardInterrupt, SystemExit):
-        survey.api.respond()
+        survey.respond()
         raise
 
 
@@ -666,32 +646,27 @@ def select_multiple(message: str, options: Sequence[str], hint="") -> List[int]:
 
         kwargs = {"hint": styled_hint} if hint else {}
 
-        def view(value: Sequence[int]) -> Tuple[str]:
-
-            chosen = [options[index] for index in value]
-            response = ", ".join(chosen)
-
-            if len(value) == 0 or len(response) > 50:
-                response = f"[{len(value)} chosen]"
-
-            return (response,)
-
         indices = survey.select(
             options,
             styled_message,
             multi=True,
-            focus=focus_color,
-            color=response_color,
             pin="[✓] ",
             unpin="[ ] ",
-            view=view,
             **kwargs,
         )
+
+        chosen = [options[index] for index in indices]
+        response = ", ".join(chosen)
+
+        if len(indices) == 0 or len(response) > 50:
+            response = f"[{len(indices)} chosen]"
+
+        survey.respond(response)
 
         return indices
 
     except (KeyboardInterrupt, SystemExit):
-        survey.api.respond()
+        survey.respond()
         raise
 
 
@@ -706,13 +681,12 @@ def select_path(
     import os
 
     import survey
+    import wrapio
+
+    track = wrapio.Track()
 
     styled_default = _syle_hint(f"[{default}]")
     styled_message = _style_message(message)
-
-    def view(value: str) -> Tuple[str]:
-        response = value or default
-        return (response,)
 
     failed = False
 
@@ -737,23 +711,27 @@ def select_path(
 
         return passed
 
-    def callback(event: str, result: str, *args) -> None:
+    @track.call("delete")
+    def handle(result: str, *args) -> None:
         nonlocal failed
 
-        if event == "delete" and failed:
-            survey.update(styled_default)
+        if failed:
+            survey.update("")
             failed = False
 
     res = survey.input(
         styled_message,
         hint=styled_default,
-        view=view,
         check=check,
-        callback=callback,
-        color=response_color,
+        callback=track.invoke,
+        auto=False,
     )
 
-    return res or default
+    response = res or default
+
+    survey.respond(response)
+
+    return response
 
 
 class RemoteApiError(click.ClickException):
