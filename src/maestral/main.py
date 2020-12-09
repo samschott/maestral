@@ -13,7 +13,7 @@ import logging.handlers
 import asyncio
 import random
 from concurrent.futures import ThreadPoolExecutor
-from typing import Union, List, Iterator, Dict, Set, Awaitable, Optional, Any
+from typing import Union, List, Iterator, Dict, Set, Awaitable, Optional, Any, cast
 
 # external imports
 import requests
@@ -892,23 +892,40 @@ class Maestral:
         :raises FileNotFoundError: if the created temporary file was not found.
         """
 
-        import tempfile 
         import difflib
+        import tempfile
+        from datetime import datetime
+
+        def pretty_date(s) -> str:
+            """
+            Pretty print the 'client_modified' metadata.
+            """
+            return (
+                datetime.strptime(cast(str, s), "%Y-%m-%dT%H:%M:%S%z")
+                .astimezone()
+                .strftime("%d %b %Y at %H:%M")
+            )
 
         full_path = os.path.join(self.dropbox_path, dbx_path[1:])
 
         new_location = full_path
-        new_date = self.list_revisions(dbx_path)[0]["client_modified"]
+        new_date = pretty_date(self.list_revisions(dbx_path)[0]["client_modified"])
         old_location = tempfile.NamedTemporaryFile().name
-        
+
         # Check if the revision is the newest
         # If true, there is no reason to download the revision
         entries = self.list_revisions(dbx_path)
         if new_rev is not None:
             new_location = tempfile.NamedTemporaryFile().name
-            new_date = self.download_revision(dbx_path, new_location, new_rev)["client_modified"]
+            new_date = pretty_date(
+                self.download_revision(dbx_path, new_location, new_rev)[
+                    "client_modified"
+                ],
+            )
 
-        old_date = self.download_revision(dbx_path, old_location, old_rev)["client_modified"]
+        old_date = pretty_date(
+            self.download_revision(dbx_path, old_location, old_rev)["client_modified"],
+        )
 
         with open(new_location) as f:
             new_content = f.readlines()
@@ -922,7 +939,7 @@ class Maestral:
                 fromfile=full_path,
                 tofile=full_path,
                 fromfiledate=old_date,
-                tofiledate=new_date
+                tofiledate=new_date,
             )
         )
 

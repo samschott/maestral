@@ -1511,12 +1511,20 @@ If the second revision is omitted, it will compare the file to the current versi
     multiple=True,
     default=[],
 )
-@click.option("--nocolor", help="Don't use any colors when creating the diff", is_flag=True)
-@click.option("--nopager", help="Don't display pager if the number of lines is bigger than 50", is_flag=True)
+@click.option(
+    "--nocolor", help="Don't use any colors when creating the diff", is_flag=True
+)
+@click.option(
+    "--nopager",
+    help="Don't display pager if the number of lines is bigger than 50",
+    is_flag=True,
+)
 @catch_maestral_errors
 @existing_config_option
 # If new_version_hash is omitted, use the current version of the file
-def diff(dropbox_path: str, rev: List[str], nocolor: bool, nopager: bool, config_name: str) -> None:
+def diff(
+    dropbox_path: str, rev: List[str], nocolor: bool, nopager: bool, config_name: str
+) -> None:
 
     import magic
     from datetime import datetime
@@ -1533,13 +1541,18 @@ def diff(dropbox_path: str, rev: List[str], nocolor: bool, nopager: bool, config
         If an unknown file type was found, everything that doesn't match
         'text/*', an error message gets printed.
         """
-        
+
         try:
             diff = m.get_file_diff(dropbox_path, old_rev, new_rev)
         except FileNotFoundError:
             cli.warn("Downloaded files were not found")
+            return
         except PathError:
             cli.warn("Selected revision was not found")
+            return
+        except:
+            cli.warn("An unknown error occured, failed to get the diff")
+            return
 
         def color(ind: int, line: str) -> str:
             """
