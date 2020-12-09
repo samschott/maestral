@@ -20,7 +20,7 @@ import Pyro5.errors  # type: ignore
 # local imports
 from . import __version__, __author__, __url__
 from .utils import cli
-from .errors import PathError
+from .errors import PathError, UnsupportedFileTypeForDiff
 
 if TYPE_CHECKING:
     from .main import Maestral
@@ -1549,6 +1549,10 @@ def diff(
         except PathError:
             cli.warn("Selected revision was not found")
             return
+        except UnsupportedFileTypeForDiff as e:
+            cli.warn(e.title)
+            cli.warn(e.message)
+            return
 
         def color(ind: int, line: str) -> str:
             """
@@ -1583,22 +1587,6 @@ def diff(
 
     try:
         with MaestralProxy(config_name) as m:
-            # Check the file type is supported
-            # If not, ask user to restore and compare files manually
-            # Maybe there will be PDF support in the future (only text)
-            full_path = os.path.join(m.dropbox_path, dropbox_path[1:])
-            try:
-                mime_type = magic.from_file(full_path, mime=True)
-                if not mime_type.startswith("text/"):
-                    click.echo(f"Bad file type: '{mime_type}'.")
-                    click.echo("Only files with the type 'text/*' are supported.")
-                    click.echo(
-                        "You can look at an old version with 'maestral restore' to compare manually."
-                    )
-                    return
-            except FileNotFoundError:
-                cli.warn("File was not found locally, continuing anyway ...")
-
             if len(rev) == 0:
                 entries = m.list_revisions(dropbox_path)
                 dates = []

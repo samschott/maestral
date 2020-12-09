@@ -243,6 +243,12 @@ class BusyError(MaestralApiError):
     pass
 
 
+class UnsupportedFileTypeForDiff(MaestralApiError):
+    """Raised when a diff for an unsupported file type was issued."""
+
+    pass
+
+
 # connection errors are handled as warnings
 # sync errors only appear in the sync errors list
 # all other errors raise an error dialog in the GUI
@@ -263,6 +269,7 @@ GENERAL_ERRORS = (
     BadInputError,
     OutOfMemoryError,
     BusyError,
+    UnsupportedFileTypeForDiff,
 )
 
 SYNC_ERRORS = (

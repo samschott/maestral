@@ -38,6 +38,7 @@ from .errors import (
     NotFoundError,
     BusyError,
     KeyringAccessError,
+    UnsupportedFileTypeForDiff,
 )
 from .config import MaestralConfig, MaestralState, validate_config_name
 from .notify import MaestralDesktopNotificationHandler
@@ -887,10 +888,10 @@ class Maestral:
         :param old_rev: Hash of old revision.
         :param new_rev: Hash of new revision.
         :returns: Diff as a string.
-        :raises PathError: if revision was not found.
-        :raises FileNotFoundError: if the created temporary file was not found.
+        :raises UnsupportedFileTypeForDiff: if file type is not supported.
         """
 
+        import magic
         import difflib
         import tempfile
         from datetime import datetime
@@ -924,6 +925,14 @@ class Maestral:
         old_date = pretty_date(
             self.download_revision(dbx_path, old_location, old_rev)["client_modified"],
         )
+
+        # Check if a diff is possible
+        mime_type = magic.from_file(new_location, mime=True)
+        if not mime_type.startswith("text/"):
+            raise UnsupportedFileTypeForDiff(
+                f"Bad file type: '{mime_type}'",
+                "Only files with the type 'text/*' are supported. You can look at an old version with 'maestral restore' to compare manually.",
+            )
 
         with open(new_location) as f:
             new_content = f.readlines()
