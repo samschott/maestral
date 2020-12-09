@@ -1543,7 +1543,7 @@ def diff(
 
         try:
             diff = m.get_file_diff(dropbox_path, old_rev, new_rev)
-        except FileNotFoundError:
+        except OSError:
             cli.warn("Downloaded files were not found")
             return
         except PathError:
