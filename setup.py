@@ -26,6 +26,7 @@ install_requires = [
     "sqlalchemy>=1.3,<1.4",
     "survey>=2.1.0",
     "watchdog>=0.10.0,<=0.10.3",
+    "python-magic==0.4.18",
 ]
 
 gui_requires = [

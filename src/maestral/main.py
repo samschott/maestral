@@ -38,7 +38,6 @@ from .errors import (
     NotFoundError,
     BusyError,
     KeyringAccessError,
-    PathError,
 )
 from .config import MaestralConfig, MaestralState, validate_config_name
 from .notify import MaestralDesktopNotificationHandler
@@ -914,7 +913,6 @@ class Maestral:
 
         # Check if the revision is the newest
         # If true, there is no reason to download the revision
-        entries = self.list_revisions(dbx_path)
         if new_rev is not None:
             new_location = tempfile.NamedTemporaryFile().name
             new_date = pretty_date(
