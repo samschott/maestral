@@ -2675,7 +2675,7 @@ class SyncEngine:
         :param sync_events: List of SyncEvents from download sync.
         """
 
-        callback: Optional[Callable]
+        buttons: Dict[str, Callable]
 
         changes = [e for e in sync_events if e.status != SyncStatus.Skipped]
 
@@ -2712,6 +2712,8 @@ class SyncEngine:
             def callback():
                 click.launch(event.local_path, locate=True)
 
+            buttons = {"Show": callback}
+
         else:
 
             if all(e.change_type == sync_events[0].change_type for e in sync_events):
@@ -2726,7 +2728,7 @@ class SyncEngine:
             else:
                 file_name = f"{n_changed} items"
 
-            callback = None
+            buttons = {}
 
         if change_type == ChangeType.Removed.value:
 
@@ -2734,12 +2736,14 @@ class SyncEngine:
                 # show dropbox website with deleted files
                 click.launch("https://www.dropbox.com/deleted_files")
 
+            buttons = {"Show": callback}
+
         if user_name:
             msg = f"{user_name} {change_type} {file_name}"
         else:
             msg = f"{file_name} {change_type}"
 
-        self.notifier.notify("Items synced", msg, buttons={"Show": callback})
+        self.notifier.notify("Items synced", msg, buttons=buttons)
 
     def _filter_excluded_changes_remote(
         self, changes: List[SyncEvent]
