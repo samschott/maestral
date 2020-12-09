@@ -1366,9 +1366,9 @@ def rebuild_index(config_name: str) -> None:
             m.rebuild_index()
 
             if m._is_fallback:
-                cli.ok("Rebuilding now. Run 'maestral status' to view progress.")
-            else:
                 cli.ok("Daemon is not running. Rebuilding scheduled for next startup.")
+            else:
+                cli.ok("Rebuilding now. Run 'maestral status' to view progress.")
 
 
 @main.command(
