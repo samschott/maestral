@@ -64,7 +64,7 @@ class DesktopNotifier:
         urgency: NotificationLevel = NotificationLevel.Normal,
         icon: Optional[str] = None,
         action: Optional[Callable] = None,
-        buttons: Optional[Dict[str, Optional[Callable]]] = None,
+        buttons: Optional[Dict[str, Callable]] = None,
     ) -> None:
         """
         Sends a desktop notification. Some arguments may be ignored, depending on the
@@ -166,7 +166,7 @@ class MaestralDesktopNotifier:
         message: str,
         level: int = FILECHANGE,
         on_click: Optional[Callable] = None,
-        buttons: Optional[Dict[str, Optional[Callable]]] = None,
+        buttons: Optional[Dict[str, Callable]] = None,
     ) -> None:
         """
         Sends a desktop notification.
