@@ -21,6 +21,7 @@ import Pyro5.errors  # type: ignore
 from . import __version__, __author__, __url__
 from .utils import cli
 from .utils.serializer import StoneType
+from .errors import PathError
 
 if TYPE_CHECKING:
     from .main import Maestral
@@ -1510,24 +1511,16 @@ If the second revision is omitted, it will compare the file to the current versi
     multiple=True,
     default=[],
 )
+@click.option("--nocolor", help="Don't use any colors when creating the diff", is_flag=True)
+@click.option("--nopager", help="Don't display pager if the number of lines is bigger than 50", is_flag=True)
 @catch_maestral_errors
 @existing_config_option
 # If new_version_hash is omitted, use the current version of the file
-def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
+def diff(dropbox_path: str, rev: List[str], nocolor: bool, nopager: bool, config_name: str) -> None:
 
-    import difflib
-    import tempfile
     import magic
     from datetime import datetime
     from .daemon import MaestralProxy
-
-    # Some colors
-    RED = "\033[91m"
-    CYAN = "\033[96m"
-    GREEN = "\033[92m"
-    YELLOW = "\033[93m"
-    RESET = "\033[0m"
-    BOLD = "\033[1m"
 
     # Reason for rel_dbx_path: os.path.join does not like leading /
     if not dropbox_path.startswith("/"):
@@ -1540,106 +1533,59 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
         If an unknown file type was found, everything that doesn't match
         'text/*', an error message gets printed.
         """
-        # Create a temporary directory to store all downloaded files
-        tempdir = tempfile.TemporaryDirectory()
+        
+        try:
+            diff = m.get_file_diff(dropbox_path, old_rev, new_rev)
+        except FileNotFoundError:
+            cli.warn("Downloaded files were not found")
+        except PathError:
+            cli.warn("Selected revision was not found")
 
-        # Get the dates of the revisions
-        entries = m.list_revisions(dropbox_path)
-        new_date = check_rev(entries, entries[0]["rev"])
-        if new_date is None:
-            click.echo("Selected revision was not found")
-            return
-        old_date = check_rev(entries, old_rev)
-        if old_date is None:
-            click.echo("Selected revision was not found")
-            return
-
-        new_location = os.path.join(m.dropbox_path, dropbox_path[1:])
-        old_location = os.path.join(tempdir.name, old_rev)
-
-        # Download specific revision to cache
-        _ = m.download_revision(dropbox_path, old_location, old_rev)
-
-        # Use the current version if new_version_hash is None
-        # Saves space (unnecessary downloads omitted)
-        if new_rev:
-            new_date = check_rev(entries, new_rev)
-            if new_date is None:
-                click.echo("Selected revision was not found")
-                return
-            new_location = os.path.join(tempdir.name, new_rev)
-            _ = m.download_revision(dropbox_path, new_location, new_rev)
-
-        with open(new_location) as f:
-            new_content = f.readlines()
-        with open(old_location) as f:
-            old_content = f.readlines()
-
-        # Inspiration for colors from 'git diff'
         def color(ind: int, line: str) -> str:
             """
             Color diff lines.
             Inspiration for colors was taken from the
             well known command 'git diff'.
             """
+
             if ind < 2:
-                line = BOLD + line + RESET
-            elif line.startswith("! "):
-                line = YELLOW + line + RESET
-            elif line.startswith("+ "):
-                line = GREEN + line + RESET
-            elif line.startswith("- "):
-                line = RED + line + RESET
+                line = click.style(line, bold=True)
+            elif line.startswith("+"):
+                line = click.style(line, fg="green")
+            elif line.startswith("-"):
+                line = click.style(line, fg="red")
             # Don't highlight these in the intro
-            elif line.startswith("*** ") and ind > 2:
-                line = CYAN + line + RESET
-            elif line.startswith("--- ") and ind > 2:
-                line = CYAN + line + RESET
+            elif line.startswith("@@ "):
+                line = click.style(line, fg="cyan")
             return line
 
-        delta = [
-            color(i, l)
-            for i, l in enumerate(
-                difflib.context_diff(
-                    old_content,
-                    new_content,
-                    fromfile=os.path.join(m.dropbox_path, dropbox_path[1:]),
-                    tofile=os.path.join(m.dropbox_path, dropbox_path[1:]),
-                    fromfiledate=old_date,
-                    tofiledate=new_date,
-                )
-            )
-        ]
+        # Color the lines
+        diff = diff.split("\n")
+        if not nocolor:
+            diff = [color(i, l) for i, l in enumerate(diff)]
 
-        lines = "".join(delta)
-        # Enter 'less' if diff is too long
-        if len(delta) > 50:
-            os.system(f"echo '{lines}' | less -R")
-        else:
-            click.echo(lines)
+        # Enter pager if diff is too long
+        if not nopager:
+            if len(diff) > 30:
+                click.echo_via_pager("\n".join(diff), color=True)
+                return
 
-    # Check if a revision exists and return the date ("client_modified")
-    def check_rev(revs: List[StoneType], rev: str) -> Optional[str]:
-        for r in revs:
-            if r["rev"] == rev:
-                d = cast(str, r["client_modified"])
-                return str(datetime.strptime(d, "%Y-%m-%dT%H:%M:%S%z").astimezone())
-        return None
+        click.echo("\n".join(diff))
 
     try:
         with MaestralProxy(config_name) as m:
             # Check the file type is supported
-            # If not, ask user if he wants to download revs and
-            # compare them manually
-            full_path = os.path.join(m.dropbox_path, dropbox_path[1:])
-            mime_type = magic.from_file(full_path, mime=True)
-            if not mime_type.startswith("text/"):
-                click.echo(f"Bad file type: '{mime_type}'.")
-                click.echo("Only files with the type 'text/*' are supported.")
-                click.echo(
-                    "You can look at an old version with 'maestral restore' to compare manually."
-                )
-                return
+            # If not, ask user to restore and compare files manually
+            # Maybe there will be PDF support in the future (only text)
+            # full_path = os.path.join(m.dropbox_path, dropbox_path[1:])
+            # mime_type = magic.from_file(full_path, mime=True)
+            # if not mime_type.startswith("text/"):
+            #     click.echo(f"Bad file type: '{mime_type}'.")
+            #     click.echo("Only files with the type 'text/*' are supported.")
+            #     click.echo(
+            #         "You can look at an old version with 'maestral restore' to compare manually."
+            #     )
+            #     return
 
             if len(rev) == 0:
                 entries = m.list_revisions(dropbox_path)
@@ -1678,7 +1624,7 @@ def diff(dropbox_path: str, rev: List[str], config_name: str) -> None:
             elif len(rev) == 2:
                 download_and_compare(m, rev[0], rev[1])
             else:
-                click.echo("You can only compare two revisions at a time")
+                cli.warn("You can only compare two revisions at a time")
 
     except Pyro5.errors.CommunicationError:
         click.echo("unwatched")

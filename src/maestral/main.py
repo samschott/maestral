@@ -38,6 +38,7 @@ from .errors import (
     NotFoundError,
     BusyError,
     KeyringAccessError,
+    PathError,
 )
 from .config import MaestralConfig, MaestralState, validate_config_name
 from .notify import MaestralDesktopNotificationHandler
@@ -877,6 +878,53 @@ class Maestral:
 
         md = self.client.download(dbx_path, local_path, rev=rev)
         return dropbox_stone_to_dict(md)
+
+    def get_file_diff(self, dbx_path: str, old_rev: str, new_rev: str = None) -> str:
+        """
+        Download the two revisions if necessary and create a
+        diff with the python difflib library. If new_rev is None,
+        it will compare the old revision to the current file.
+
+        :param old_rev: Hash of old revision.
+        :param new_rev: Hash of new revision.
+        :returns: Diff as a string.
+        :raises PathError: if revision was not found.
+        :raises FileNotFoundError: if the created temporary file was not found.
+        """
+
+        import tempfile 
+        import difflib
+
+        full_path = os.path.join(self.dropbox_path, dbx_path[1:])
+
+        new_location = full_path
+        new_date = self.list_revisions(dbx_path)[0]["client_modified"]
+        old_location = tempfile.NamedTemporaryFile().name
+        
+        # Check if the revision is the newest
+        # If true, there is no reason to download the revision
+        entries = self.list_revisions(dbx_path)
+        if new_rev is not None:
+            new_location = tempfile.NamedTemporaryFile().name
+            new_date = self.download_revision(dbx_path, new_location, new_rev)["client_modified"]
+
+        old_date = self.download_revision(dbx_path, old_location, old_rev)["client_modified"]
+
+        with open(new_location) as f:
+            new_content = f.readlines()
+        with open(old_location) as f:
+            old_content = f.readlines()
+
+        return "".join(
+            difflib.unified_diff(
+                old_content,
+                new_content,
+                fromfile=full_path,
+                tofile=full_path,
+                fromfiledate=old_date,
+                tofiledate=new_date
+            )
+        )
 
     def restore(self, dbx_path: str, rev: str) -> StoneType:
         """
