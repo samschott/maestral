@@ -25,7 +25,7 @@ install_requires = [
     "setuptools",
     "sqlalchemy>=1.3,<1.4",
     "survey>=3.0,<4.0",
-    "watchdog>=0.10.0,<=0.10.3",
+    "watchdog>=0.10.0,<0.10.5",
 ]
 
 gui_requires = [
