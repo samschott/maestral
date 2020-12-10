@@ -588,23 +588,17 @@ def prompt(message: str, default: str = "", validate: Optional[Callable] = None)
 
     import survey
 
-    styled_default = _syle_hint(default)
     styled_message = _style_message(message)
 
     def check(value: str) -> bool:
-        if validate is None:
-            return True
-        elif value == "" and default:
-            return True
-        else:
+        if validate is not None:
             return validate(value)
+        else:
+            return True
 
-    res = survey.input(styled_message, hint=styled_default, check=check, auto=False)
+    res = survey.input(styled_message, default=default, check=check)
 
-    response = res or default
-    survey.respond(response)
-
-    return response
+    return res
 
 
 def confirm(message: str, default: Optional[bool] = True) -> bool:
@@ -624,11 +618,7 @@ def select(message: str, options: Sequence[str], hint="") -> int:
         styled_hint = _syle_hint(hint)
         styled_message = _style_message(message)
 
-        index = survey.select(
-            options,
-            styled_message,
-            hint=styled_hint,
-        )
+        index = survey.select(options, styled_message, hint=styled_hint)
 
         return index
     except (KeyboardInterrupt, SystemExit):
@@ -647,12 +637,7 @@ def select_multiple(message: str, options: Sequence[str], hint="") -> List[int]:
         kwargs = {"hint": styled_hint} if hint else {}
 
         indices = survey.select(
-            options,
-            styled_message,
-            multi=True,
-            pin="[✓] ",
-            unpin="[ ] ",
-            **kwargs,
+            options, styled_message, multi=True, pin="[✓] ", unpin="[ ] ", **kwargs
         )
 
         chosen = [options[index] for index in indices]
@@ -685,7 +670,6 @@ def select_path(
 
     track = wrapio.Track()
 
-    styled_default = _syle_hint(f"[{default}]")
     styled_message = _style_message(message)
 
     failed = False
@@ -704,13 +688,14 @@ def select_path(
         if not dir_condition:
             survey.update(click.style("(not a directory) ", fg="red"))
         elif not exist_condition:
-            survey.update(click.style("(does not exist) ", fg="red"))
+            survey.update(click.style("(not found) ", fg="red"))
 
         passed = dir_condition and exist_condition and validate(value)
         failed = not passed
 
         return passed
 
+    @track.call("insert")
     @track.call("delete")
     def handle(result: str, *args) -> None:
         nonlocal failed
@@ -721,17 +706,12 @@ def select_path(
 
     res = survey.input(
         styled_message,
-        hint=styled_default,
-        check=check,
+        default=default,
         callback=track.invoke,
-        auto=False,
+        check=check,
     )
 
-    response = res or default
-
-    survey.respond(response)
-
-    return response
+    return res
 
 
 class RemoteApiError(click.ClickException):
