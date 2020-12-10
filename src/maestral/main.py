@@ -910,12 +910,15 @@ class Maestral:
 
         new_location = full_path
         new_date = pretty_date(self.list_revisions(dbx_path)[0]["client_modified"])
-        old_location = tempfile.NamedTemporaryFile().name
+
+        old_f = tempfile.NamedTemporaryFile()
+        old_location = old_f.name
 
         # Check if the revision is the newest
         # If true, there is no reason to download the revision
         if new_rev is not None:
-            new_location = tempfile.NamedTemporaryFile().name
+            new_f = tempfile.NamedTemporaryFile()
+            new_location = new_f.name
             new_date = pretty_date(
                 self.download_revision(dbx_path, new_location, new_rev)[
                     "client_modified"
