@@ -1525,7 +1525,6 @@ def diff(
     dropbox_path: str, rev: List[str], nocolor: bool, nopager: bool, config_name: str
 ) -> None:
 
-    import magic
     from datetime import datetime
     from .daemon import MaestralProxy
 
