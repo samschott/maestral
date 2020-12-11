@@ -920,7 +920,7 @@ class Maestral:
 
         # Check if the revision is the newest
         # If true, there is no reason to download the revision
-        if new_rev is not None:
+        if new_rev is not None or not os.path.exists(full_path):
             new_f = tempfile.NamedTemporaryFile()
             new_location = new_f.name
             new_date = pretty_date(
