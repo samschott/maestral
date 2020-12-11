@@ -962,8 +962,8 @@ class Maestral:
             difflib.unified_diff(
                 old_content,
                 new_content,
-                fromfile=full_path,
-                tofile=full_path,
+                fromfile=dbx_path,
+                tofile=dbx_path,
                 fromfiledate=old_date,
                 tofiledate=new_date,
             )
