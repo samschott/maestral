@@ -1526,6 +1526,7 @@ def diff(
 ) -> None:
 
     from datetime import datetime
+    from .errors import MaestralApiError
     from .daemon import MaestralProxy
 
     # Reason for rel_dbx_path: os.path.join does not like leading /
@@ -1542,13 +1543,7 @@ def diff(
 
         try:
             diff = m.get_file_diff(dropbox_path, old_rev, new_rev)
-        except OSError:
-            cli.warn("Downloaded files were not found")
-            return
-        except PathError:
-            cli.warn("Selected revision was not found")
-            return
-        except UnsupportedFileTypeForDiff as e:
+        except (MaestralApiError, UnsupportedFileTypeForDiff) as e:
             cli.warn(e.title)
             cli.warn(e.message)
             return

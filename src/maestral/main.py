@@ -2,6 +2,7 @@
 """This module defines the main API which is exposed to the CLI or GUI."""
 
 # system imports
+import errno
 import sys
 import os
 import os.path as osp
@@ -889,6 +890,8 @@ class Maestral:
         :param new_rev: Hash of new revision.
         :returns: Diff as a string.
         :raises UnsupportedFileTypeForDiff: if file type is not supported.
+        :raises UnsupportedFileTypeForDiff: if file content could not be decoded.
+        :raises MaestralApiError: if file could not be read for any other reason.
         """
 
         import magic
@@ -900,6 +903,7 @@ class Maestral:
             """
             Pretty print the 'client_modified' metadata.
             """
+
             return (
                 datetime.strptime(cast(str, s), "%Y-%m-%dT%H:%M:%S%z")
                 .astimezone()
@@ -933,14 +937,26 @@ class Maestral:
         mime_type = magic.from_file(new_location, mime=True)
         if not mime_type.startswith("text/"):
             raise UnsupportedFileTypeForDiff(
-                f"Bad file type: '{mime_type}'",
-                "Only files with the type 'text/*' are supported. You can look at an old version with 'maestral restore' to compare manually.",
+                title=f"Bad file type: '{mime_type}'",
+                message="Only files with the type 'text/*' are supported."
+                "You can look at an old version with 'maestral restore' and compare manually.",
             )
 
-        with open(new_location) as f:
-            new_content = f.readlines()
-        with open(old_location) as f:
-            old_content = f.readlines()
+        try:
+            with convert_api_errors():
+                with open(new_location) as f:
+                    new_content = f.readlines()
+                with open(old_location) as f:
+                    old_content = f.readlines()
+        # TODO: Implement redownloading ...
+        except FileNotFoundError:
+            raise FileNotFoundError
+        except UnicodeDecodeError as e:
+            raise UnsupportedFileTypeForDiff(
+                title="File could not be decoded",
+                message="Maestral failed to read from the file,"
+                "because some character could not be decoded.",
+            )
 
         return "".join(
             difflib.unified_diff(
