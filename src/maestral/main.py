@@ -918,9 +918,8 @@ class Maestral:
         mime, _ = mimetypes.guess_type(full_path)
         if mime != None and not mime.startswith("text/"):
             raise UnsupportedFileTypeForDiff(
-                title=f"Bad file type: '{mime_type}'",
-                message="Only files with the type 'text/*' are supported."
-                "You can look at an old version with 'maestral restore' and compare manually.",
+                f"Bad file type: '{mime}'",
+                "Only files of type 'text/*' are supported."
             )
 
 
@@ -946,19 +945,19 @@ class Maestral:
         )
 
         try:
-            # with convert_api_errors():
-            with open(new_location) as f:
-                new_content = f.readlines()
-            with open(old_location) as f:
-                old_content = f.readlines()
+            with convert_api_errors():
+                with open(new_location) as f:
+                    new_content = f.readlines()
+                with open(old_location) as f:
+                    old_content = f.readlines()
         # TODO: Implement redownloading ...
         except FileNotFoundError:
-            raise FileNotFoundError
+            pass 
         except UnicodeDecodeError:
             raise UnsupportedFileTypeForDiff(
-                title="File could not be decoded",
-                message="Maestral failed to read from the file,"
-                "because some character could not be decoded.",
+                "File failed to decode",
+                "Maestral failed to read from the file, "
+                "because some characters could not be decoded.",
             )
 
         return "".join(
