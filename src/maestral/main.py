@@ -894,7 +894,7 @@ class Maestral:
         :raises MaestralApiError: if file could not be read for any other reason.
         """
 
-        import magic
+        import mimetypes
         import difflib
         import tempfile
         from datetime import datetime
@@ -911,6 +911,18 @@ class Maestral:
             )
 
         full_path = os.path.join(self.dropbox_path, dbx_path[1:])
+
+        # Check if a diff is possible
+        # If mime is None, procede because most files without
+        # an extension are just text files
+        mime, _ = mimetypes.guess_type(full_path)
+        if mime != None and not mime.startswith("text/"):
+            raise UnsupportedFileTypeForDiff(
+                title=f"Bad file type: '{mime_type}'",
+                message="Only files with the type 'text/*' are supported."
+                "You can look at an old version with 'maestral restore' and compare manually.",
+            )
+
 
         new_location = full_path
         new_date = pretty_date(self.list_revisions(dbx_path)[0]["client_modified"])
@@ -933,25 +945,16 @@ class Maestral:
             self.download_revision(dbx_path, old_location, old_rev)["client_modified"],
         )
 
-        # Check if a diff is possible
-        mime_type = magic.from_file(new_location, mime=True)
-        if not mime_type.startswith("text/"):
-            raise UnsupportedFileTypeForDiff(
-                title=f"Bad file type: '{mime_type}'",
-                message="Only files with the type 'text/*' are supported."
-                "You can look at an old version with 'maestral restore' and compare manually.",
-            )
-
         try:
-            with convert_api_errors():
-                with open(new_location) as f:
-                    new_content = f.readlines()
-                with open(old_location) as f:
-                    old_content = f.readlines()
+            # with convert_api_errors():
+            with open(new_location) as f:
+                new_content = f.readlines()
+            with open(old_location) as f:
+                old_content = f.readlines()
         # TODO: Implement redownloading ...
         except FileNotFoundError:
             raise FileNotFoundError
-        except UnicodeDecodeError as e:
+        except UnicodeDecodeError:
             raise UnsupportedFileTypeForDiff(
                 title="File could not be decoded",
                 message="Maestral failed to read from the file,"
