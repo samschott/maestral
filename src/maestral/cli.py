@@ -1574,7 +1574,7 @@ def diff(
         # Enter pager if diff is too long
         if not nopager:
             if len(diff) > 30:
-                click.echo_via_pager("\n".join(diff), color=True)
+                click.echo_via_pager("\n".join(diff))
                 return
 
         click.echo("\n".join(diff))
