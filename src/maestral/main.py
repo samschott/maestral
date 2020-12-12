@@ -13,7 +13,18 @@ import logging.handlers
 import asyncio
 import random
 from concurrent.futures import ThreadPoolExecutor
-from typing import Union, List, Iterator, Dict, Set, Awaitable, Optional, Any, cast
+from typing import (
+    Union,
+    List,
+    Iterator,
+    Dict,
+    Set,
+    Tuple,
+    Awaitable,
+    Optional,
+    Any,
+    cast,
+)
 
 # external imports
 import requests
@@ -896,7 +907,7 @@ class Maestral:
                 .strftime("%d %b %Y at %H:%M")
             )
 
-        def download_tmp_rev(rev: str) -> (str, str):
+        def download_tmp_rev(rev: str) -> Tuple[str, str]:
             """
             Download a revision of the dbx_path
             to a temporary file.
@@ -910,7 +921,6 @@ class Maestral:
                 ],
             )
             return (location, date)
-
 
         all_revs = self.list_revisions(dbx_path)
         full_path = os.path.join(self.dropbox_path, dbx_path[1:])
@@ -937,34 +947,26 @@ class Maestral:
 
         old_location, old_date = download_tmp_rev(old_rev)
 
-        # Is there an easier way? This seems really weird.
-        # More important: Does it actually work?
-        def read_content(stop=False) -> (str, str):
-            """
-            Extract the content of the downloaded files.
-            Redownloads the new_rev if necessary.
-            """
-
-            try:
-                with convert_api_errors():
-                    try:
-                        with open(new_location) as f:
-                            new_content = f.readlines()
-                    except FileNotFoundError:
-                        # Redownload the new_rev once
-                        if stop:
-                            raise FileNotFoundError
-                        new_location, new_date = download_tmp_rev(new_rev)
-                        return read_content(stop=True)
-                    with open(old_location) as f:
-                        old_content = f.readlines()
-            except UnicodeDecodeError:
-                raise UnsupportedFileTypeForDiff(
-                    "File failed to decode",
-                    "Maestral failed to read from the file, "
-                    "because some characters could not be decoded.",
-                )
-            return (new_content, old_content)
+        # Is there a better way?
+        try:
+            with convert_api_errors():
+                try:
+                    with open(new_location) as f:
+                        new_content = f.readlines()
+                # If the file was not found, retry download once
+                # Possible if the file is only stored in the cloud
+                except FileNotFoundError:
+                    new_location, new_date = download_tmp_rev(new_rev)
+                    with open(new_location) as f:
+                        new_content = f.readlines()
+                with open(old_location) as f:
+                    old_content = f.readlines()
+        except UnicodeDecodeError:
+            raise UnsupportedFileTypeForDiff(
+                "File failed to decode",
+                "Maestral failed to read from the file, "
+                "because some characters could not be decoded.",
+            )
 
         return "".join(
             difflib.unified_diff(
