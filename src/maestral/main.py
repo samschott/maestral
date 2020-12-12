@@ -950,9 +950,6 @@ class Maestral:
                     new_content = f.readlines()
                 with open(old_location) as f:
                     old_content = f.readlines()
-        # TODO: Implement redownloading ...
-        except FileNotFoundError:
-            pass 
         except UnicodeDecodeError:
             raise UnsupportedFileTypeForDiff(
                 "File failed to decode",
