@@ -866,19 +866,6 @@ class Maestral:
 
         return entries
 
-    def download_revision(self, dbx_path: str, local_path: str, rev: str) -> StoneType:
-        """
-        Downloads specific revision from Dropbox into a local file.
-        Returns metadata about the downloaded file.
-
-        :param dbx_path: Path to retrieve file on Dropbox.
-        :param local_path: Path to save file on local computer.
-        :param rev: Revision of file to download.
-        """
-
-        md = self.client.download(dbx_path, local_path, rev=rev)
-        return dropbox_stone_to_dict(md)
-
     def get_file_diff(self, dbx_path: str, old_rev: str, new_rev: str = None) -> str:
         """
         Download the two revisions if necessary and create a
