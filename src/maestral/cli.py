@@ -1500,6 +1500,7 @@ def log_level(level_name: str, config_name: str) -> None:
     help="""
 Compare changes of two revisions of a file.
 If the second revision is omitted, it will compare the file to the current version.
+This will download the revisions if necessary.
 """,
 )
 @click.argument("dropbox_path", type=click.Path())
@@ -1511,10 +1512,10 @@ If the second revision is omitted, it will compare the file to the current versi
     default=[],
 )
 @click.option(
-    "--nocolor", help="Don't use any colors when creating the diff", is_flag=True
+    "--no-color", help="Don't use any colors when creating the diff", is_flag=True
 )
 @click.option(
-    "--nopager",
+    "--no-pager",
     help="Don't display pager if the number of lines is bigger than 50",
     is_flag=True,
 )

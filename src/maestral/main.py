@@ -900,7 +900,7 @@ class Maestral:
 
         def pretty_date(s) -> str:
             """
-            Pretty print the 'client_modified' metadata.
+            Prettify the 'client_modified' metadata.
             """
 
             return (
@@ -908,6 +908,22 @@ class Maestral:
                 .astimezone()
                 .strftime("%d %b %Y at %H:%M")
             )
+
+        def download_tmp_rev(rev: str) -> (str, str):
+            """
+            Download a revision of the dbx_path
+            to a temporary file.
+            """
+
+            tmp_f = tempfile.NamedTemporaryFile()
+            location = tmp_f.name
+            date = pretty_date(
+                self.client.download(dbx_path, new_location, new_rev)[
+                    "client_modified"
+                ],
+            )
+            return (location, date)
+
 
         all_revs = self.list_revisions(dbx_path)
         full_path = os.path.join(self.dropbox_path, dbx_path[1:])
@@ -929,33 +945,39 @@ class Maestral:
 
         # Check if the revision is the newest
         # and see if it is avaible locally; download it if not
-        if new_rev is not all_revs[0]["rev"] or not os.path.exists(full_path):
-            new_f = tempfile.NamedTemporaryFile()
-            new_location = new_f.name
-            new_date = pretty_date(
-                self.download_revision(dbx_path, new_location, new_rev)[
-                    "client_modified"
-                ],
-            )
+        if new_rev is not all_revs[0]["rev"]:
+            new_location, new_date = download_tmp_rev(new_rev)
 
-        old_f = tempfile.NamedTemporaryFile()
-        old_location = old_f.name
-        old_date = pretty_date(
-            self.download_revision(dbx_path, old_location, old_rev)["client_modified"],
-        )
+        old_location, old_date = download_tmp_rev(old_rev)
 
-        try:
-            with convert_api_errors():
-                with open(new_location) as f:
-                    new_content = f.readlines()
-                with open(old_location) as f:
-                    old_content = f.readlines()
-        except UnicodeDecodeError:
-            raise UnsupportedFileTypeForDiff(
-                "File failed to decode",
-                "Maestral failed to read from the file, "
-                "because some characters could not be decoded.",
-            )
+        # Is there an easier way? This seems really weird.
+        # More important: Does it actually work?
+        def read_content(stop=False) -> (str, str):
+            """
+            Extract the content of the downloaded files.
+            Redownloads the new_rev if necessary.
+            """
+
+            try:
+                with convert_api_errors():
+                    try:
+                        with open(new_location) as f:
+                            new_content = f.readlines()
+                    except FileNotFoundError:
+                        # Redownload the new_rev once
+                        if stop:
+                            raise FileNotFoundError
+                        new_location, new_date = download_tmp_rev(new_rev)
+                        return read_content(stop=True)
+                    with open(old_location) as f:
+                        old_content = f.readlines()
+            except UnicodeDecodeError:
+                raise UnsupportedFileTypeForDiff(
+                    "File failed to decode",
+                    "Maestral failed to read from the file, "
+                    "because some characters could not be decoded.",
+                )
+            return (new_content, old_content)
 
         return "".join(
             difflib.unified_diff(
