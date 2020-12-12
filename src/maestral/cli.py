@@ -20,7 +20,7 @@ import Pyro5.errors  # type: ignore
 # local imports
 from . import __version__, __author__, __url__
 from .utils import cli
-from .errors import PathError, UnsupportedFileTypeForDiff
+from .errors import UnsupportedFileTypeForDiff
 
 if TYPE_CHECKING:
     from .main import Maestral
