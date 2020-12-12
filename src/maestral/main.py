@@ -910,28 +910,27 @@ class Maestral:
                 .strftime("%d %b %Y at %H:%M")
             )
 
+        all_revs = self.list_revisions(dbx_path)
         full_path = os.path.join(self.dropbox_path, dbx_path[1:])
 
         # Check if a diff is possible
         # If mime is None, procede because most files without
         # an extension are just text files
         mime, _ = mimetypes.guess_type(full_path)
-        if mime != None and not mime.startswith("text/"):
+        if mime is not None and not mime.startswith("text/"):
             raise UnsupportedFileTypeForDiff(
-                f"Bad file type: '{mime}'",
-                "Only files of type 'text/*' are supported."
+                f"Bad file type: '{mime}'", "Only files of type 'text/*' are supported."
             )
 
-
+        # if new_rev is None, make it to the newest one
+        if new_rev is None:
+            new_rev = cast(str, all_revs[0]["rev"])
         new_location = full_path
-        new_date = pretty_date(self.list_revisions(dbx_path)[0]["client_modified"])
-
-        old_f = tempfile.NamedTemporaryFile()
-        old_location = old_f.name
+        new_date = pretty_date(all_revs[0]["client_modified"])
 
         # Check if the revision is the newest
-        # If true, there is no reason to download the revision
-        if new_rev is not None or not os.path.exists(full_path):
+        # and see if it is avaible locally; download it if not
+        if new_rev is not all_revs[0]["rev"] or not os.path.exists(full_path):
             new_f = tempfile.NamedTemporaryFile()
             new_location = new_f.name
             new_date = pretty_date(
@@ -940,6 +939,8 @@ class Maestral:
                 ],
             )
 
+        old_f = tempfile.NamedTemporaryFile()
+        old_location = old_f.name
         old_date = pretty_date(
             self.download_revision(dbx_path, old_location, old_rev)["client_modified"],
         )
