@@ -205,3 +205,45 @@ def test_selective_sync_api_nested(m):
 
     # check for fatal errors
     assert not m.fatal_errors
+
+
+def test_restore(m):
+    """Tests restoring an old revision"""
+
+    dbx_path = "/sync_tests/file.txt"
+    local_path = m.to_local_path(dbx_path)
+
+    # create a local file and sync it, remember its rev
+    with open(local_path, "w") as f:
+        f.write("old content")
+
+    wait_for_idle(m)
+
+    old_md = m.client.get_metadata(dbx_path)
+
+    # modify the file and sync it
+    with open(local_path, "w") as f:
+        f.write("new content")
+
+    wait_for_idle(m)
+
+    new_md = m.client.get_metadata(dbx_path)
+
+    assert new_md.content_hash == m.sync.get_local_hash(local_path)
+
+    # restore the old rev
+
+    m.restore(dbx_path, old_md.rev)
+    wait_for_idle(m)
+
+    with open(local_path) as f:
+        restored_content = f.read()
+
+    assert restored_content == "old content"
+
+
+def test_restore_failed(m):
+    """Tests restoring a non-existing file"""
+
+    with pytest.raises(NotFoundError):
+        m.restore("/sync_tests/restored-file", "015982ea314dac40000000154e40990")
