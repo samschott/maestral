@@ -9,10 +9,10 @@ import multiprocessing as mp
 import uuid
 
 import pytest
+from Pyro5.api import Proxy
 
 from maestral.daemon import (
     CommunicationError,
-    Proxy,
     MaestralProxy,
     start_maestral_daemon,
     start_maestral_daemon_process,
@@ -20,11 +20,11 @@ from maestral.daemon import (
     Start,
     Stop,
     Lock,
-    IS_MACOS,
 )
 from maestral.main import Maestral
 from maestral.errors import NotLinkedError
 from maestral.config import list_configs, remove_configuration
+from maestral.constants import IS_MACOS
 
 
 @pytest.fixture
@@ -161,7 +161,6 @@ def test_locking_multiprocess():
 # daemon lifecycle tests
 
 
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Test is flaky on Github")
 def test_lifecycle_detached(config_name):
 
     # start daemon process
@@ -185,7 +184,6 @@ def test_lifecycle_detached(config_name):
     assert res is Stop.NotRunning
 
 
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Test is flaky on Github")
 def test_lifecycle_attached(config_name):
 
     # start daemon process
@@ -209,7 +207,6 @@ def test_lifecycle_attached(config_name):
 # proxy tests
 
 
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Test is flaky on Github")
 def test_connection(config_name):
 
     # start daemon process
@@ -227,7 +224,6 @@ def test_connection(config_name):
     assert res is Stop.Ok
 
 
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Test is flaky on Github")
 def test_fallback(config_name):
 
     # create proxy w/o fallback
@@ -241,7 +237,6 @@ def test_fallback(config_name):
         assert isinstance(m._m, Maestral)
 
 
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Test is flaky on Github")
 def test_remote_exceptions(config_name):
 
     # start daemon process
