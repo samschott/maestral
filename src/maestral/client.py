@@ -1442,7 +1442,7 @@ def dropbox_to_maestral_error(
 
             if error.is_invalid_revision():
                 text = "Invalid revision."
-                err_cls = PathError
+                err_cls = NotFoundError
             elif error.is_path_lookup():
                 lookup_error = error.get_path_lookup()
                 text, err_cls = _get_lookup_error_msg(lookup_error)
