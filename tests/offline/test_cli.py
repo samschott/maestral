@@ -75,8 +75,13 @@ def test_autostart(m):
     result = runner.invoke(main, ["autostart", "-Y", "-c", "test-config"])
 
     assert result.exit_code == 0
-    assert "Enabled" in result.output
-    assert autostart.enabled
+
+    if autostart.implementation:
+        assert "Enabled" in result.output
+        assert autostart.enabled
+    else:
+        assert "not supported" in result.output
+        assert not autostart.enabled
 
     result = runner.invoke(main, ["autostart", "-N", "-c", "test-config"])
 
