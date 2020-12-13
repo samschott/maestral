@@ -1499,8 +1499,9 @@ def log_level(level_name: str, config_name: str) -> None:
     section="Maintenance",
     help="""
 Compare changes of two revisions of a file.
-If the second revision is omitted, it will compare the file to the current version.
-This will download the revisions if necessary.
+
+If the second revision is omitted, it will compare the file to the currently downloaded version.
+The specified revisions will be downloaded if necessary. A pager will be used, if there are more than 50 lines.
 """,
 )
 @click.argument("dropbox_path", type=click.Path())
@@ -1511,19 +1512,13 @@ This will download the revisions if necessary.
     multiple=True,
     default=[],
 )
-@click.option(
-    "--no-color", help="Don't use any colors when creating the diff", is_flag=True
-)
-@click.option(
-    "--no-pager",
-    help="Don't display pager if the number of lines is bigger than 50",
-    is_flag=True,
-)
+@click.option("--no-color", help="Don't use any colors for the diff", is_flag=True)
+@click.option("--no-pager", help="Don't use a pager for output", is_flag=True)
 @catch_maestral_errors
 @existing_config_option
 # If new_version_hash is omitted, use the current version of the file
 def diff(
-    dropbox_path: str, rev: List[str], nocolor: bool, nopager: bool, config_name: str
+    dropbox_path: str, rev: List[str], no_color: bool, no_pager: bool, config_name: str
 ) -> None:
 
     from datetime import datetime
@@ -1542,12 +1537,7 @@ def diff(
         'text/*', an error message gets printed.
         """
 
-        try:
-            diff = m.get_file_diff(dropbox_path, old_rev, new_rev)
-        except (MaestralApiError, UnsupportedFileTypeForDiff) as e:
-            cli.warn(e.title)
-            cli.warn(e.message)
-            return
+        diff = m.get_file_diff(dropbox_path, old_rev, new_rev)
 
         def color(ind: int, line: str) -> str:
             """
@@ -1568,58 +1558,53 @@ def diff(
             return line
 
         # Color the lines
-        diff = diff.split("\n")
-        if not nocolor:
+        if not no_color:
             diff = [color(i, l) for i, l in enumerate(diff)]
 
         # Enter pager if diff is too long
-        if not nopager:
+        if not no_pager:
             if len(diff) > 30:
-                click.echo_via_pager("\n".join(diff))
+                click.echo_via_pager("".join(diff))
                 return
 
-        click.echo("\n".join(diff))
+        click.echo("".join(diff))
 
-    try:
-        with MaestralProxy(config_name) as m:
-            if len(rev) == 0:
-                entries = m.list_revisions(dropbox_path)
-                dates = []
-                for entry in entries:
-                    cm = cast(str, entry["client_modified"])
-                    dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
-                    field = cli.DateField(dt)
-                    dates.append(field.format(40)[0])
+    with MaestralProxy(config_name, fallback=True) as m:
+        if len(rev) == 0:
+            entries = m.list_revisions(dropbox_path)
+            dates = []
+            for entry in entries:
+                cm = cast(str, entry["client_modified"])
+                dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
+                field = cli.DateField(dt)
+                dates.append(field.format(40)[0])
 
-                base = cli.select(
-                    message="New revision:",
-                    options=dates,
-                    hint="(↓ to see more)" if len(dates) > 6 else "",
+            base = cli.select(
+                message="New revision:",
+                options=dates,
+                hint="(↓ to see more)" if len(dates) > 6 else "",
+            )
+
+            to_compare = (
+                cli.select(
+                    message="Old revision:",
+                    options=dates[base + 1 :],
+                    hint="(↓ to see more)" if len(dates[base + 1 :]) > 6 else "",
                 )
+                + base
+                + 1
+            )
 
-                to_compare = (
-                    cli.select(
-                        message="Old revision:",
-                        options=dates[base + 1 :],
-                        hint="(↓ to see more)" if len(dates[base + 1 :]) > 6 else "",
-                    )
-                    + base
-                    + 1
-                )
-
-                # First index = current version
-                if base == 0:
-                    download_and_compare(m, entries[to_compare]["rev"])
-                else:
-                    download_and_compare(
-                        m, entries[to_compare]["rev"], entries[base]["rev"]
-                    )
-            elif len(rev) == 1:
-                download_and_compare(m, rev[0])
-            elif len(rev) == 2:
-                download_and_compare(m, rev[0], rev[1])
+            # First index = current version
+            if base == 0:
+                download_and_compare(m, entries[to_compare]["rev"])
             else:
-                cli.warn("You can only compare two revisions at a time")
-
-    except Pyro5.errors.CommunicationError:
-        click.echo("unwatched")
+                download_and_compare(
+                    m, entries[to_compare]["rev"], entries[base]["rev"]
+                )
+        elif len(rev) == 1:
+            download_and_compare(m, rev[0])
+        elif len(rev) == 2:
+            download_and_compare(m, rev[0], rev[1])
+        else:
+            cli.warn("You can only compare two revisions at a time")
