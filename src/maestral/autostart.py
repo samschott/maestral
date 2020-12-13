@@ -114,10 +114,10 @@ class AutoStartSystemd(AutoStartBase):
             self.service_config.write(f)
 
     def enable(self) -> None:
-        subprocess.run(["systemctl", "--user", "enable", self.service_name])
+        subprocess.check_output(["systemctl", "--user", "enable", self.service_name])
 
     def disable(self) -> None:
-        subprocess.run(["systemctl", "--user", "disable", self.service_name])
+        subprocess.check_output(["systemctl", "--user", "disable", self.service_name])
 
     @property
     def enabled(self) -> bool:
