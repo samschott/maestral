@@ -6,7 +6,7 @@ import pytest
 from click.testing import CliRunner
 
 from maestral.cli import main
-from maestral.main import Maestral
+from maestral.main import Maestral, logger
 from maestral.config import remove_configuration
 from maestral.autostart import AutoStart
 from maestral.notify import MaestralDesktopNotifier
@@ -160,3 +160,32 @@ def test_log_level(m):
     result = runner.invoke(main, ["notify", "level", "INVALID", "-c", "test-config"])
     assert result.exit_code == 2
     assert isinstance(result.exception, SystemExit)
+
+
+def test_log_show(m):
+    # log a message
+    logger.info("Hello from pytest!")
+    runner = CliRunner()
+    result = runner.invoke(main, ["log", "show", "-c", "test-config"])
+
+    assert result.exit_code == 0
+    assert "Hello from pytest!" in result.output
+
+
+def test_log_clear(m):
+    # log a message
+    logger.info("Hello from pytest!")
+    runner = CliRunner()
+    result = runner.invoke(main, ["log", "show", "-c", "test-config"])
+
+    assert result.exit_code == 0
+    assert "Hello from pytest!" in result.output
+
+    # clear the logs
+    result = runner.invoke(main, ["log", "clear", "-c", "test-config"])
+    assert result.exit_code == 0
+
+    with open(m.log_handler_file.stream.name) as f:
+        log_content = f.read()
+
+    assert log_content == ""
