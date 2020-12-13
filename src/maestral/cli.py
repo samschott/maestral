@@ -20,7 +20,6 @@ import Pyro5.errors  # type: ignore
 # local imports
 from . import __version__, __author__, __url__
 from .utils import cli
-from .errors import UnsupportedFileTypeForDiff
 
 if TYPE_CHECKING:
     from .main import Maestral
@@ -1522,7 +1521,6 @@ def diff(
 ) -> None:
 
     from datetime import datetime
-    from .errors import MaestralApiError
     from .daemon import MaestralProxy
 
     # Reason for rel_dbx_path: os.path.join does not like leading /
