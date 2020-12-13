@@ -8,6 +8,7 @@ from maestral.cli import main
 from maestral.main import logger
 from maestral.autostart import AutoStart
 from maestral.notify import MaestralDesktopNotifier
+from maestral.daemon import start_maestral_daemon_process, Start
 
 
 def test_help():
@@ -27,6 +28,29 @@ def test_invalid_config(m):
         result.output == "! Configuration 'non-existent-config' does not exist. "
         "Use 'maestral configs' to list all configurations.\n"
     )
+
+
+def test_start(config_name):
+
+    res = start_maestral_daemon_process(config_name)
+    assert res is Start.Ok
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["start", "-c", config_name])
+
+    assert result.exit_code == 0
+    assert "already running" in result.output
+
+
+def test_stop(config_name):
+
+    res = start_maestral_daemon_process(config_name)
+    assert res is Start.Ok
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["stop", "-c", config_name])
+
+    assert result.exit_code == 0
 
 
 def test_file_status(m):
