@@ -31,12 +31,12 @@ def test_invalid_config(m):
 
 def test_file_status(m):
     runner = CliRunner()
-    result = runner.invoke(main, ["file-status", "/usr", "-c", "test-config"])
+    result = runner.invoke(main, ["file-status", "/usr", "-c", m.config_name])
 
     assert result.exit_code == 0
     assert result.output == "unwatched\n"
 
-    result = runner.invoke(main, ["file-status", "/invalid-dir", "-c", "test-config"])
+    result = runner.invoke(main, ["file-status", "/invalid-dir", "-c", m.config_name])
 
     # the exception will be already raised by click's argument check
     assert result.exit_code == 2
@@ -46,7 +46,7 @@ def test_file_status(m):
 
 def test_history(m):
     runner = CliRunner()
-    result = runner.invoke(main, ["history", "-c", "test-config"])
+    result = runner.invoke(main, ["history", "-c", m.config_name])
 
     assert result.exit_code == 1
     assert isinstance(result.exception, SystemExit)
@@ -55,7 +55,7 @@ def test_history(m):
 
 def test_ls(m):
     runner = CliRunner()
-    result = runner.invoke(main, ["ls", "/", "-c", "test-config"])
+    result = runner.invoke(main, ["ls", "/", "-c", m.config_name])
 
     assert result.exit_code == 1
     assert isinstance(result.exception, SystemExit)
@@ -67,12 +67,12 @@ def test_autostart(m):
     autostart.disable()
 
     runner = CliRunner()
-    result = runner.invoke(main, ["autostart", "-c", "test-config"])
+    result = runner.invoke(main, ["autostart", "-c", m.config_name])
 
     assert result.exit_code == 0
     assert "disabled" in result.output
 
-    result = runner.invoke(main, ["autostart", "-Y", "-c", "test-config"])
+    result = runner.invoke(main, ["autostart", "-Y", "-c", m.config_name])
 
     if autostart.implementation:
         if result.exit_code == 0:
@@ -85,7 +85,7 @@ def test_autostart(m):
         assert "not supported" in result.output
         assert not autostart.enabled
 
-    result = runner.invoke(main, ["autostart", "-N", "-c", "test-config"])
+    result = runner.invoke(main, ["autostart", "-N", "-c", m.config_name])
 
     assert result.exit_code == 0
     assert "Disabled" in result.output
@@ -94,7 +94,7 @@ def test_autostart(m):
 
 def test_excluded_list(m):
     runner = CliRunner()
-    result = runner.invoke(main, ["excluded", "list", "-c", "test-config"])
+    result = runner.invoke(main, ["excluded", "list", "-c", m.config_name])
 
     assert result.exit_code == 0
     assert result.output == "No excluded files or folders.\n"
@@ -102,7 +102,7 @@ def test_excluded_list(m):
 
 def test_excluded_add(m):
     runner = CliRunner()
-    result = runner.invoke(main, ["excluded", "add", "/test", "-c", "test-config"])
+    result = runner.invoke(main, ["excluded", "add", "/test", "-c", m.config_name])
 
     assert result.exit_code == 1
     assert isinstance(result.exception, SystemExit)
@@ -111,7 +111,7 @@ def test_excluded_add(m):
 
 def test_excluded_remove(m):
     runner = CliRunner()
-    result = runner.invoke(main, ["excluded", "remove", "/test", "-c", "test-config"])
+    result = runner.invoke(main, ["excluded", "remove", "/test", "-c", m.config_name])
 
     assert result.exit_code == 1
     assert isinstance(result.exception, SystemExit)
@@ -120,36 +120,36 @@ def test_excluded_remove(m):
 
 def test_notify_level(m):
     runner = CliRunner()
-    result = runner.invoke(main, ["notify", "level", "-c", "test-config"])
+    result = runner.invoke(main, ["notify", "level", "-c", m.config_name])
 
     level_name = MaestralDesktopNotifier.level_number_to_name(m.notification_level)
 
     assert result.exit_code == 0
     assert level_name in result.output
 
-    result = runner.invoke(main, ["notify", "level", "SYNCISSUE", "-c", "test-config"])
+    result = runner.invoke(main, ["notify", "level", "SYNCISSUE", "-c", m.config_name])
     assert result.exit_code == 0
     assert "SYNCISSUE" in result.output
 
-    result = runner.invoke(main, ["notify", "level", "INVALID", "-c", "test-config"])
+    result = runner.invoke(main, ["notify", "level", "INVALID", "-c", m.config_name])
     assert result.exit_code == 2
     assert isinstance(result.exception, SystemExit)
 
 
 def test_log_level(m):
     runner = CliRunner()
-    result = runner.invoke(main, ["log", "level", "-c", "test-config"])
+    result = runner.invoke(main, ["log", "level", "-c", m.config_name])
 
     level_name = logging.getLevelName(m.log_level)
 
     assert result.exit_code == 0
     assert level_name in result.output
 
-    result = runner.invoke(main, ["log", "level", "DEBUG", "-c", "test-config"])
+    result = runner.invoke(main, ["log", "level", "DEBUG", "-c", m.config_name])
     assert result.exit_code == 0
     assert "DEBUG" in result.output
 
-    result = runner.invoke(main, ["notify", "level", "INVALID", "-c", "test-config"])
+    result = runner.invoke(main, ["notify", "level", "INVALID", "-c", m.config_name])
     assert result.exit_code == 2
     assert isinstance(result.exception, SystemExit)
 
@@ -158,7 +158,7 @@ def test_log_show(m):
     # log a message
     logger.info("Hello from pytest!")
     runner = CliRunner()
-    result = runner.invoke(main, ["log", "show", "-c", "test-config"])
+    result = runner.invoke(main, ["log", "show", "-c", m.config_name])
 
     assert result.exit_code == 0
     assert "Hello from pytest!" in result.output
@@ -168,13 +168,13 @@ def test_log_clear(m):
     # log a message
     logger.info("Hello from pytest!")
     runner = CliRunner()
-    result = runner.invoke(main, ["log", "show", "-c", "test-config"])
+    result = runner.invoke(main, ["log", "show", "-c", m.config_name])
 
     assert result.exit_code == 0
     assert "Hello from pytest!" in result.output
 
     # clear the logs
-    result = runner.invoke(main, ["log", "clear", "-c", "test-config"])
+    result = runner.invoke(main, ["log", "clear", "-c", m.config_name])
     assert result.exit_code == 0
 
     with open(m.log_handler_file.stream.name) as f:
