@@ -3084,7 +3084,10 @@ class SyncEngine:
         else:
             preserve_permissions = False
 
-        ignore_events = [FileMovedEvent(tmp_fname, local_path)]
+        ignore_events = [
+            FileMovedEvent(tmp_fname, local_path),
+            FileCreatedEvent(local_path),  # sometimes emitted on macOS
+        ]
 
         if preserve_permissions:
             # ignore FileModifiedEvent when changing permissions
