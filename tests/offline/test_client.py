@@ -2,15 +2,7 @@
 
 import pytest
 
-from maestral.config import remove_configuration
-from maestral.client import DropboxClient
 from maestral.errors import NotLinkedError
-
-
-@pytest.fixture
-def client():
-    yield DropboxClient("test-config")
-    remove_configuration("test-config")
 
 
 def test_client_not_linked(client):

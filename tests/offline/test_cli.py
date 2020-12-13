@@ -2,20 +2,12 @@
 
 import logging
 
-import pytest
 from click.testing import CliRunner
 
 from maestral.cli import main
-from maestral.main import Maestral, logger
-from maestral.config import remove_configuration
+from maestral.main import logger
 from maestral.autostart import AutoStart
 from maestral.notify import MaestralDesktopNotifier
-
-
-@pytest.fixture
-def m():
-    yield Maestral("test-config")
-    remove_configuration("test-config")
 
 
 def test_help():

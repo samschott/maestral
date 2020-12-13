@@ -1,49 +1,17 @@
 # -*- coding: utf-8 -*-
 
 import os
-import os.path as osp
 from pathlib import Path
-from threading import Event
 
-import pytest
+from watchdog.events import DirCreatedEvent, DirMovedEvent
 
-from maestral.sync import DirCreatedEvent, DirMovedEvent
-from maestral.sync import delete, move
-from maestral.sync import SyncEngine, DropboxClient, Observer, FSEventHandler
 from maestral.sync import SyncDirection, ItemType, ChangeType
-from maestral.utils.appdirs import get_home_dir
-from maestral.config import remove_configuration
+from maestral.utils.path import move
 
 
 def ipath(i):
     """Returns path names '/test 1', '/test 2', ... """
     return f"/test {i}"
-
-
-@pytest.fixture
-def sync():
-    syncing = Event()
-    startup = Event()
-    syncing.set()
-
-    local_dir = osp.join(get_home_dir(), "dummy_dir")
-    os.mkdir(local_dir)
-
-    sync = SyncEngine(DropboxClient("test-config"), FSEventHandler(syncing, startup))
-
-    sync.dropbox_path = local_dir
-
-    observer = Observer()
-    observer.schedule(sync.fs_events, sync.dropbox_path, recursive=True)
-    observer.start()
-
-    yield sync
-
-    observer.stop()
-    observer.join()
-
-    remove_configuration("test-config")
-    delete(sync.dropbox_path)
 
 
 def test_receiving_events(sync):

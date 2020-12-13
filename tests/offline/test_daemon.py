@@ -23,28 +23,7 @@ from maestral.daemon import (
 )
 from maestral.main import Maestral
 from maestral.errors import NotLinkedError
-from maestral.config import list_configs, remove_configuration
 from maestral.constants import IS_MACOS
-
-
-@pytest.fixture
-def config_name(prefix: str = "test-config"):
-
-    i = 0
-    config_name = f"{prefix}-{i}"
-
-    while config_name in list_configs():
-        i += 1
-        config_name = f"{prefix}-{i}"
-
-    yield config_name
-
-    res = stop_maestral_daemon_process(config_name)
-
-    if res is Stop.Failed:
-        raise RuntimeError("Could not stop test daemon")
-
-    remove_configuration(config_name)
 
 
 # locking tests

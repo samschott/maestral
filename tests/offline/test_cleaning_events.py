@@ -3,8 +3,7 @@
 import timeit
 
 import pytest
-
-from maestral.sync import (
+from watchdog.events import (
     FileCreatedEvent,
     FileDeletedEvent,
     FileModifiedEvent,
@@ -13,13 +12,10 @@ from maestral.sync import (
     DirDeletedEvent,
     DirMovedEvent,
 )
-from maestral.sync import SyncEngine, DropboxClient
+
+from maestral.sync import SyncEngine
+from maestral.client import DropboxClient
 from maestral.config import remove_configuration
-
-
-def ipath(i):
-    """Returns path names '/test 1', '/test 2', ... """
-    return f"/test {i}"
 
 
 @pytest.fixture
@@ -30,6 +26,11 @@ def sync():
     yield sync
 
     remove_configuration("test-config")
+
+
+def ipath(i):
+    """Returns path names '/test 1', '/test 2', ... """
+    return f"/test {i}"
 
 
 def test_single_file_events(sync):
