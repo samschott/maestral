@@ -18,6 +18,14 @@ def m():
     remove_configuration("test-config")
 
 
+def test_help():
+    runner = CliRunner()
+    result = runner.invoke(main)
+
+    assert result.exit_code == 0
+    assert result.output.startswith("Usage: main [OPTIONS] COMMAND [ARGS]")
+
+
 def test_invalid_config(m):
     runner = CliRunner()
     result = runner.invoke(main, ["resume", "-c", "non-existent-config"])
