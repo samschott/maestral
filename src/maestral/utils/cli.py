@@ -549,41 +549,6 @@ def _syle_hint(hint: str) -> str:
     return f"{hint} " if hint else ""
 
 
-class loading:
-
-    _animation = ("...", "   ", ".  ", ".. ")
-
-    def __init__(self, iterable, prefix="Loading", animation=None, clear=True):
-
-        import itertools
-
-        self.iterable = iterable
-        self.prefix = prefix
-        self.clear = clear
-        self.indicator = itertools.cycle(animation or loading._animation)
-
-    def _render(self) -> None:
-        click.echo(self.prefix + next(self.indicator) + "\r", nl=False)
-
-    def __enter__(self) -> "loading":
-        self._render()
-        return self
-
-    def __iter__(self) -> "loading":
-        return self
-
-    def __next__(self) -> Any:
-        res = next(self.iterable)
-        self._render()
-        return res
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        if self.clear:
-            click.echo(" " * (len(self.prefix) + 3) + "\r", nl=False)
-        else:
-            click.echo("")
-
-
 def prompt(message: str, default: str = "", validate: Optional[Callable] = None) -> str:
 
     import survey
