@@ -909,6 +909,7 @@ def activity(config_name: str) -> None:
 
 @main.command(section="Information", help="Show recently changed or added files.")
 @existing_config_option
+@catch_maestral_errors
 def history(config_name: str) -> None:
 
     from datetime import datetime
