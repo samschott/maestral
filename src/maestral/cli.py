@@ -1585,6 +1585,10 @@ def diff(
                 hint="(↓ to see more)" if len(dates) > 6 else "",
             )
 
+            if base == len(dates) - 1:
+                cli.warn("Oldest version selected as base")
+                return
+
             to_compare = (
                 cli.select(
                     message="Old revision:",
@@ -1595,16 +1599,8 @@ def diff(
                 + 1
             )
 
-            # First index = current version
-            if base == 0:
-                download_and_compare(m, entries[to_compare]["rev"])
-            else:
-                download_and_compare(
-                    m, entries[to_compare]["rev"], entries[base]["rev"]
-                )
-        elif len(rev) == 1:
-            download_and_compare(m, rev[0])
-        elif len(rev) == 2:
-            download_and_compare(m, rev[0], rev[1])
-        else:
+            rev = [entries[to_compare]["rev"], entries[base]["rev"]]
+        elif len(rev) > 2:
             cli.warn("You can only compare two revisions at a time")
+            return
+        download_and_compare(m, *rev)
