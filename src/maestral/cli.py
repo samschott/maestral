@@ -312,7 +312,7 @@ class DropboxPath(click.ParamType):
 
 
 class ConfigName(click.ParamType):
-    """ "A command line parameter representing a Dropbox path
+    """A command line parameter representing a Dropbox path
 
     :param existing: If ``True`` require an existing config, otherwise create a new
         config on demand.
@@ -1275,7 +1275,7 @@ def notify_snooze(minutes: int, config_name: str) -> None:
     else:
         if minutes > 0:
             cli.ok(
-                f"Notifications snoozed for {minutes} min. " "Set snooze to 0 to reset."
+                f"Notifications snoozed for {minutes} min. Set snooze to 0 to reset."
             )
         else:
             cli.ok("Notifications enabled.")
