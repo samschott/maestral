@@ -342,34 +342,32 @@ def is_running(config_name: str) -> bool:
     return maestral_lock(config_name).locked()
 
 
-def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
+def _wait_for_startup(config_name: str, timeout: float) -> None:
     """
-    Checks if we can communicate with the maestral daemon. Returns :attr:`Start.Ok` if
-    communication succeeds within timeout, :attr:`Start.Failed` otherwise.
+    Waits until we can communicate with the maestral daemon for ``config_name``.
+
+    :param config_name: Configuration to connect to.
+    :param timeout: Timeout it seconds until we raise an error.
+    :raises CommunicationError: if we cannot communicate with the daemon within the
+        given timeout.
     """
 
     sock_name = sockpath_for_config(config_name)
     maestral_daemon = Proxy(URI.format(config_name, "./u:" + sock_name))
 
-    exc: Optional[Exception] = None
+    t0 = time.time()
 
-    while timeout > 0:
+    while True:
         try:
             maestral_daemon._pyroBind()
-            return Start.Ok
-        except Exception as e:
-            exc = e
-            time.sleep(0.2)
-            timeout -= 0.2
+            return
+        except Exception as exc:
+            if time.time() - t0 > timeout:
+                raise exc
+            else:
+                time.sleep(0.2)
         finally:
             maestral_daemon._pyroRelease()
-
-    if exc:
-        logger.debug(
-            "Could not start daemon", exc_info=(type(exc), exc, exc.__traceback__)
-        )
-
-    return Start.Failed
 
 
 # ==== main functions to manage daemon =================================================
@@ -590,7 +588,15 @@ def start_maestral_daemon_process(
             daemon=True,
         ).start()
 
-    return _wait_for_startup(config_name)
+    try:
+        _wait_for_startup(config_name, timeout=5)
+    except Exception as exc:
+        logger.debug(
+            "Could not start daemon", exc_info=(type(exc), exc, exc.__traceback__)
+        )
+        return Start.Failed
+    else:
+        return Start.Ok
 
 
 def stop_maestral_daemon_process(
