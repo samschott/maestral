@@ -1,3 +1,14 @@
+## v1.3.2.dev
+
+#### Fixes:
+
+* Fixes an issue with CLI on Python 3.6 where commands that print datetimes to the
+  console would raise an exception.
+
+#### Dependencies:
+
+* Bumped survey to version >=3.2.2,<4.0.
+
 ## v1.3.1
 
 #### Fixes:
