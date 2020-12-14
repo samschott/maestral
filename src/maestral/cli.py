@@ -1020,7 +1020,8 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
                 dt_field: cli.Field
 
                 if "client_modified" in entry:
-                    cm = cast(str, entry["client_modified"])
+                    # replacing Z with +0000 is required for Python 3.6
+                    cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
                     dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
                     dt_field = cli.DateField(dt)
                 else:
@@ -1398,7 +1399,7 @@ def restore(dropbox_path: str, rev: str, config_name: str) -> None:
             entries = m.list_revisions(dropbox_path)
             dates = []
             for entry in entries:
-                cm = cast(str, entry["client_modified"])
+                cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
                 dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
                 field = cli.DateField(dt)
                 dates.append(field.format(40)[0])
