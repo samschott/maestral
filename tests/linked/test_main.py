@@ -210,7 +210,7 @@ def test_selective_sync_api_nested(m):
 
 def test_create_file_diff(m):
     """Tests file diffs for supported and unsupported files."""
-    
+
     # dbx_path_success = "/sync_tests/file.txt"
     dbx_path_fail_pdf = "/sync_tests/diff.pdf"
     dbx_path_fail_ext = "/sync_tests/bin.txt"
@@ -231,7 +231,7 @@ def test_create_file_diff(m):
         new_rev = m.client.get_metadata(dbx_path_fail_pdf).rev
 
         m.get_file_diff(dbx_path_fail_pdf, old_rev, new_rev)
-    
+
     with pytest.raises(UnsupportedFileTypeForDiff) as e:
         # Add a compiled helloworld c file with .txt extension
         shutil.copy(resources + "/bin.txt", m.test_folder_local)
