@@ -415,6 +415,9 @@ def start_maestral_daemon(
     import asyncio
     from .main import Maestral
 
+    if log_to_stdout:
+        logger.setLevel(logging.DEBUG)
+
     if threading.current_thread() is not threading.main_thread():
         raise RuntimeError("Must run daemon in main thread")
 
