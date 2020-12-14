@@ -72,6 +72,25 @@ IS_WATCHDOG = WATCHDOG_USEC and (
 URI = "PYRO:maestral.{0}@{1}"
 Pyro5.config.THREADPOOL_SIZE_MIN = 2
 
+if FROZEN and IS_MACOS:
+    EXECUTABLE = [sys.executable, "--run-python", "-OO"]
+else:
+    EXECUTABLE = [sys.executable, "-OO"]
+
+
+def set_executable(executable: str, *argv) -> None:
+    """
+    Sets the path of the Python interpreter to use when starting the daemon. By default
+    sys.executable is used. Can be used in case of an embedded Python executable.
+
+    :param executable: Path to Python executable which is used to start the daemon
+        process.
+    :param argv: Any command line arguments to be injected before the daemon startup
+        command. By default, "-OO" will be used.
+    """
+    global EXECUTABLE
+    EXECUTABLE = [executable, *argv]
+
 
 class Stop(enum.Enum):
     """Enumeration of daemon exit results"""
@@ -535,19 +554,16 @@ def start_maestral_daemon_process(
     config_name: str = "maestral",
     log_to_stdout: bool = False,
     start_sync: bool = False,
-    detach: bool = True,
 ) -> Start:
     """
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
     Startup is race free: there will never be two daemons running for the same config.
-    This function requires that :obj:`sys.executable` points to a Python executable and
-    therefore may not work for "frozen" apps.
+    This function expects that :obj:`sys.executable` points to a Python executable. Use
+    :func:`set_executable` to override the default behavior.
 
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stdout: If ``True``, write logs to stdout.
     :param start_sync: If ``True``, start syncing once the daemon has started.
-    :param detach: If ``True``, the daemon process will be detached. If ``False``,
-        the daemon processes will run in the same session as the current process.
     :returns: :attr:`Start.Ok` if successful, :attr:`Start.AlreadyRunning` if the daemon
         was already running or :attr:`Start.Failed` if startup failed. It is possible
         that :attr:`Start.Ok` may be returned instead of :attr:`Start.AlreadyRunning`
@@ -557,36 +573,19 @@ def start_maestral_daemon_process(
     if is_running(config_name):
         return Start.AlreadyRunning
 
-    if detach:
+    # protect against injection
+    cc = quote(config_name).strip("'")
+    std_log = bool(log_to_stdout)
+    start_sync = bool(start_sync)
 
-        # protect against injection
-        cc = quote(config_name).strip("'")
-        std_log = bool(log_to_stdout)
-        start_sync = bool(start_sync)
+    script = (
+        f"import maestral.daemon; "
+        f'maestral.daemon.start_maestral_daemon("{cc}", {std_log}, {start_sync})'
+    )
 
-        script = (
-            f"import maestral.daemon; "
-            f'maestral.daemon.start_maestral_daemon("{cc}", {std_log}, {start_sync})'
-        )
+    cmd = [*EXECUTABLE, "-OO", "-c", script]
 
-        if FROZEN and IS_MACOS:
-            cmd = [sys.executable, "--run-python", "-OO", "-c", script]
-        else:
-            cmd = [sys.executable, "-OO", "-c", script]
-
-        subprocess.Popen(cmd, start_new_session=True)
-
-    else:
-        import multiprocessing as mp
-
-        ctx = mp.get_context("spawn" if IS_MACOS else "fork")
-
-        ctx.Process(
-            target=start_maestral_daemon,
-            args=(config_name, log_to_stdout, start_sync),
-            name="maestral-daemon",
-            daemon=True,
-        ).start()
+    process = subprocess.Popen(cmd, start_new_session=True)
 
     try:
         _wait_for_startup(config_name, timeout=5)
@@ -594,6 +593,7 @@ def start_maestral_daemon_process(
         logger.debug(
             "Could not start daemon", exc_info=(type(exc), exc, exc.__traceback__)
         )
+        process.kill()  # make sure we don't leave a stray process
         return Start.Failed
     else:
         return Start.Ok
