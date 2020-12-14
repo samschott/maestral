@@ -141,11 +141,11 @@ def test_locking_multiprocess():
 def test_lifecycle_detached(config_name):
 
     # start daemon process
-    res = start_maestral_daemon_process(config_name)
+    res = start_maestral_daemon_process(config_name, log_to_stdout=True)
     assert res is Start.Ok
 
     # retry start daemon process
-    res = start_maestral_daemon_process(config_name)
+    res = start_maestral_daemon_process(config_name, log_to_stdout=True)
     assert res is Start.AlreadyRunning
 
     # retry start daemon in-process
@@ -167,7 +167,7 @@ def test_lifecycle_detached(config_name):
 def test_connection(config_name):
 
     # start daemon process
-    res = start_maestral_daemon_process(config_name)
+    res = start_maestral_daemon_process(config_name, log_to_stdout=True)
     assert res is Start.Ok
 
     # create proxy
@@ -197,7 +197,7 @@ def test_fallback(config_name):
 def test_remote_exceptions(config_name):
 
     # start daemon process
-    start_maestral_daemon_process(config_name, detach=False)
+    start_maestral_daemon_process(config_name, log_to_stdout=True)
 
     # create proxy and call a remote method which raises an error
     with MaestralProxy(config_name) as m:
