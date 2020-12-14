@@ -30,7 +30,7 @@ def test_upload_large_file(m):
     assert md.content_hash == m.sync.get_local_hash(large_file)
 
 
-@pytest.mark.parametrize("batch_size", [5, 30])
+@pytest.mark.parametrize("batch_size", [10, 30])
 @pytest.mark.parametrize("force_async", [True, False])
 def test_batch_methods(m, batch_size, force_async):
     # batch methods are not currently used by sync module
