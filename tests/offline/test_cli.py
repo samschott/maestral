@@ -8,7 +8,7 @@ from maestral.cli import main
 from maestral.main import logger
 from maestral.autostart import AutoStart
 from maestral.notify import MaestralDesktopNotifier
-from maestral.daemon import start_maestral_daemon_process, Start
+from maestral.daemon import MaestralProxy, start_maestral_daemon_process, Start
 
 
 def test_help():
@@ -142,7 +142,11 @@ def test_excluded_remove(m):
     assert "Daemon must be running to download folders." in result.output
 
 
-def test_notify_level(m):
+def test_notify_level(config_name):
+
+    start_maestral_daemon_process(config_name)
+    m = MaestralProxy(config_name)
+
     runner = CliRunner()
     result = runner.invoke(main, ["notify", "level", "-c", m.config_name])
 
@@ -151,13 +155,35 @@ def test_notify_level(m):
     assert result.exit_code == 0
     assert level_name in result.output
 
-    result = runner.invoke(main, ["notify", "level", "SYNCISSUE", "-c", m.config_name])
+    level_name = "SYNCISSUE"
+    level_number = MaestralDesktopNotifier.level_name_to_number(level_name)
+    result = runner.invoke(main, ["notify", "level", level_name, "-c", m.config_name])
+
     assert result.exit_code == 0
-    assert "SYNCISSUE" in result.output
+    assert level_name in result.output
+    assert m.notification_level == level_number
 
     result = runner.invoke(main, ["notify", "level", "INVALID", "-c", m.config_name])
+
     assert result.exit_code == 2
     assert isinstance(result.exception, SystemExit)
+
+
+def test_notify_snooze(config_name):
+
+    start_maestral_daemon_process(config_name)
+    m = MaestralProxy(config_name)
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["notify", "snooze", "20", "-c", m.config_name])
+
+    assert result.exit_code == 0
+    assert 0 < m.notification_snooze <= 20
+
+    result = runner.invoke(main, ["notify", "snooze", "0", "-c", m.config_name])
+
+    assert result.exit_code == 0
+    assert m.notification_snooze == 0
 
 
 def test_log_level(m):
