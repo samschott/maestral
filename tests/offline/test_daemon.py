@@ -5,7 +5,6 @@ import os
 import time
 import subprocess
 import threading
-import multiprocessing as mp
 import uuid
 
 import pytest
@@ -23,7 +22,6 @@ from maestral.daemon import (
 )
 from maestral.main import Maestral
 from maestral.errors import NotLinkedError
-from maestral.constants import IS_MACOS
 
 
 # locking tests
@@ -153,26 +151,6 @@ def test_lifecycle_detached(config_name):
     # retry start daemon in-process
     with pytest.raises(RuntimeError):
         start_maestral_daemon(config_name)
-
-    # stop daemon
-    res = stop_maestral_daemon_process(config_name)
-    assert res is Stop.Ok
-
-    # retry stop daemon
-    res = stop_maestral_daemon_process(config_name)
-    assert res is Stop.NotRunning
-
-
-def test_lifecycle_attached(config_name):
-
-    # start daemon process
-    res = start_maestral_daemon_process(config_name, detach=False)
-    assert res is Start.Ok
-
-    # check that we have attached process
-    ctx = mp.get_context("spawn" if IS_MACOS else "fork")
-    daemon = ctx.active_children()[0]
-    assert daemon.name == "maestral-daemon"
 
     # stop daemon
     res = stop_maestral_daemon_process(config_name)
