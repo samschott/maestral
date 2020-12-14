@@ -7,8 +7,9 @@ from datetime import datetime
 import uuid
 
 import pytest
-
+from watchdog.utils.dirsnapshot import DirectorySnapshot
 from dropbox.files import WriteMode, FileMetadata
+
 from maestral.main import Maestral
 from maestral.errors import NotFoundError, FileConflictError
 from maestral.client import convert_api_errors
@@ -19,8 +20,9 @@ from maestral.utils.path import (
     to_existing_cased_path,
     is_child,
 )
-from maestral.sync import DirectorySnapshot
 from maestral.utils.appdirs import get_home_dir
+from maestral.daemon import MaestralProxy
+from maestral.daemon import start_maestral_daemon_process, stop_maestral_daemon_process
 
 
 resources = os.path.dirname(__file__) + "/resources"
@@ -93,6 +95,15 @@ def m():
 
     # release lock
     lock.release()
+
+
+@pytest.fixture
+def proxy(m):
+    m.stop_sync()
+    start_maestral_daemon_process(m.config_name)
+    yield MaestralProxy(m.config_name)
+
+    stop_maestral_daemon_process(m.config_name)
 
 
 # helper functions
