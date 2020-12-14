@@ -9,16 +9,16 @@ import sys
 import os
 import time
 import signal
-import traceback
 import enum
 import subprocess
-from shlex import quote
+import traceback
 import threading
 import fcntl
 import struct
 import tempfile
 import logging
 import warnings
+from shlex import quote
 from typing import Optional, Any, Union, Tuple, Dict, Iterable, Type, TYPE_CHECKING
 from types import TracebackType, FrameType
 
@@ -351,15 +351,23 @@ def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
     sock_name = sockpath_for_config(config_name)
     maestral_daemon = Proxy(URI.format(config_name, "./u:" + sock_name))
 
+    exc: Optional[Exception] = None
+
     while timeout > 0:
         try:
             maestral_daemon._pyroBind()
             return Start.Ok
-        except Exception:
+        except Exception as e:
+            exc = e
             time.sleep(0.2)
             timeout -= 0.2
         finally:
             maestral_daemon._pyroRelease()
+
+    if exc:
+        logger.debug(
+            "Could not start daemon", exc_info=(type(exc), exc, exc.__traceback__)
+        )
 
     return Start.Failed
 
