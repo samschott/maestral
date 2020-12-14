@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
 
 import os
+import shutil
 import os.path as osp
 
 import pytest
 
-from maestral.errors import NotFoundError
+from maestral.errors import NotFoundError, MaestralApiError, UnsupportedFileTypeForDiff
 from maestral.main import FileStatus, IDLE
 from maestral.main import logger as maestral_logger
 from maestral.utils.path import delete
 
-from .conftest import wait_for_idle
+from .conftest import wait_for_idle, resources
 
 
 if not os.environ.get("DROPBOX_TOKEN"):
@@ -205,3 +206,42 @@ def test_selective_sync_api_nested(m):
 
     # check for fatal errors
     assert not m.fatal_errors
+
+
+def test_create_file_diff(m):
+    """Tests file diffs for supported and unsupported files."""
+    
+    # dbx_path_success = "/sync_tests/file.txt"
+    dbx_path_fail_pdf = "/sync_tests/diff.pdf"
+    dbx_path_fail_ext = "/sync_tests/bin.txt"
+
+    local_path_fail_pdf = m.to_local_path(dbx_path_fail_pdf)
+    local_path_fail_ext = m.to_local_path(dbx_path_fail_ext)
+
+    with pytest.raises(UnsupportedFileTypeForDiff) as e:
+        # Write some dummy stuff to create two revs
+        with open(local_path_fail_pdf, "w") as f:
+            f.write("old")
+        wait_for_idle(m)
+        old_rev = m.client.get_metadata(dbx_path_fail_pdf).rev
+
+        with open(local_path_fail_pdf, "w") as f:
+            f.write("new")
+        wait_for_idle(m)
+        new_rev = m.client.get_metadata(dbx_path_fail_pdf).rev
+
+        m.get_file_diff(dbx_path_fail_pdf, old_rev, new_rev)
+    
+    with pytest.raises(UnsupportedFileTypeForDiff) as e:
+        # Add a compiled helloworld c file with .txt extension
+        shutil.copy(resources + "/bin.txt", m.test_folder_local)
+        wait_for_idle(m)
+        old_rev = m.client.get_metadata(dbx_path_fail_ext).rev
+
+        # Just some bytes
+        with open(local_path_fail_ext, "ab") as f:
+            f.write("\10\10")
+        wait_for_idle(m)
+        new_rev = m.client.get_metadata(dbx_path_fail_ext).rev
+
+        m.get_file_diff(dbx_path_fail_ext, old_rev, new_rev)
