@@ -2,17 +2,21 @@
 
 import os
 import os.path as osp
+import logging
 from threading import Event
 
 import pytest
 
-from maestral.main import Maestral
+from maestral.main import Maestral, logger
 from maestral.sync import SyncEngine, Observer, FSEventHandler
 from maestral.client import DropboxClient
 from maestral.config import list_configs, remove_configuration
 from maestral.daemon import stop_maestral_daemon_process, Stop
 from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import delete
+
+
+logger.setLevel(logging.DEBUG)
 
 
 @pytest.fixture

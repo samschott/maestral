@@ -10,7 +10,7 @@ import pytest
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 from dropbox.files import WriteMode, FileMetadata
 
-from maestral.main import Maestral
+from maestral.main import Maestral, logger
 from maestral.errors import NotFoundError, FileConflictError
 from maestral.client import convert_api_errors
 from maestral.config import remove_configuration
@@ -26,6 +26,8 @@ from maestral.daemon import start_maestral_daemon_process, stop_maestral_daemon_
 
 
 resources = os.path.dirname(__file__) + "/resources"
+
+logger.setLevel(logging.DEBUG)
 
 
 @pytest.fixture
