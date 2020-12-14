@@ -219,7 +219,7 @@ def test_fallback(config_name):
 def test_remote_exceptions(config_name):
 
     # start daemon process
-    start_maestral_daemon_process(config_name)
+    start_maestral_daemon_process(config_name, detach=False)
 
     # create proxy and call a remote method which raises an error
     with MaestralProxy(config_name) as m:
