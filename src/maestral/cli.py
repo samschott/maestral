@@ -524,8 +524,8 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
     # running with the --foreground flag, prevents leaving a zombie process if the setup
     # fails with an exception and does not confuse systemd.
 
-    from .main import Maestral
     from .daemon import (
+        MaestralProxy,
         start_maestral_daemon,
         start_maestral_daemon_process,
         is_running,
@@ -538,7 +538,22 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
         click.echo("Daemon is already running.")
         return
 
-    m = Maestral(config_name, log_to_stdout=verbose)
+    if not foreground:
+        # start daemon process
+        cli.echo("Starting Maestral...", nl=False)
+
+        res = start_maestral_daemon_process(config_name)
+
+        if res == Start.Ok:
+            cli.echo(" " * 8 + OK)
+        elif res == Start.AlreadyRunning:
+            cli.echo(" " * 8 + "Already running.")
+        else:
+            cli.echo(" " * 8 + FAILED)
+            cli.echo("Please check logs for more information.")
+            return
+
+    m = MaestralProxy(config_name, fallback=True)
 
     if m.pending_link:  # this may raise KeyringAccessError
         link_dialog(m)
@@ -578,28 +593,13 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
             m.excluded_items = excluded_paths
 
-    # free resources
-    del m
+        cli.ok("Setup completed. Starting sync.")
 
     if foreground:
-        # start our current process
+        del m
         start_maestral_daemon(config_name, log_to_stdout=verbose, start_sync=True)
     else:
-
-        # start daemon process
-        cli.echo("Starting Maestral...", nl=False)
-
-        res = start_maestral_daemon_process(
-            config_name, log_to_stdout=verbose, start_sync=True
-        )
-
-        if res == Start.Ok:
-            cli.echo(" " * 8 + OK)
-        elif res == Start.AlreadyRunning:
-            cli.echo(" " * 8 + "Already running.")
-        else:
-            cli.echo(" " * 8 + FAILED)
-            cli.echo("Please check logs for more information.")
+        m.start_sync()
 
 
 @main.command(section="Core Commands", help="Stop the sync daemon.")
