@@ -424,7 +424,9 @@ def start_maestral_daemon(
     # acquire PID lock file
     lock = maestral_lock(config_name)
 
-    if not lock.acquire():
+    if lock.acquire():
+        logger.debug("Acquired daemon lock")
+    else:
         raise RuntimeError("Maestral daemon is already running")
 
     # Nice ourselves to give other processes priority. We will likely only
@@ -494,7 +496,7 @@ def start_maestral_daemon(
 
     # get socket for config name
     sockpath = sockpath_for_config(config_name)
-    logger.debug(f"Socket path for '{config_name}' daemon: '{sockpath}'")
+    logger.debug(f"Socket path: '{sockpath}'")
 
     # clean up old socket
     try:
@@ -594,9 +596,16 @@ def start_maestral_daemon_process(
         _wait_for_startup(config_name, timeout=5)
     except Exception as exc:
         logger.debug(
-            "Could not start daemon", exc_info=(type(exc), exc, exc.__traceback__)
+            "Could not communicate with daemon",
+            exc_info=(type(exc), exc, exc.__traceback__),
         )
-        process.kill()  # make sure we don't leave a stray process
+
+        returncode = process.poll()
+        if returncode is None:
+            logger.debug("Daemon is running but not responsive, killing now")
+            process.kill()  # make sure we don't leave a stray process
+        else:
+            logger.debug("Daemon stopped with return code %s", returncode)
         return Start.Failed
     else:
         return Start.Ok
