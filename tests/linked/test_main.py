@@ -222,7 +222,7 @@ def test_create_file_diff(m):
             f.write(content)
         wait_for_idle(m)
         return m.client.get_metadata(dbx_path).rev
-        
+
     dbx_path_success = "/sync_tests/file.txt"
     dbx_path_fail_pdf = "/sync_tests/diff.pdf"
     dbx_path_fail_ext = "/sync_tests/bin.txt"
