@@ -211,10 +211,11 @@ def test_selective_sync_api_nested(m):
 def test_create_file_diff(m):
     """Tests file diffs for supported and unsupported files."""
 
-    # dbx_path_success = "/sync_tests/file.txt"
+    dbx_path_success = "/sync_tests/file.txt"
     dbx_path_fail_pdf = "/sync_tests/diff.pdf"
     dbx_path_fail_ext = "/sync_tests/bin.txt"
 
+    local_path_success = m.to_local_path(dbx_path_success)
     local_path_fail_pdf = m.to_local_path(dbx_path_fail_pdf)
     local_path_fail_ext = m.to_local_path(dbx_path_fail_ext)
 
@@ -245,3 +246,17 @@ def test_create_file_diff(m):
         new_rev = m.client.get_metadata(dbx_path_fail_ext).rev
 
         m.get_file_diff(dbx_path_fail_ext, old_rev, new_rev)
+
+    with open(local_path_success, "w") as f:
+        f.write("old")
+    wait_for_idle(m)
+    old_rev = m.client.get_metadata(dbx_path_fail_ext).rev
+
+    with open(local_path_success, "w") as f:
+        f.write("new")
+    wait_for_idle(m)
+    new_rev = m.client.get_metadata(dbx_path_fail_ext).rev
+
+    # If this does not raise an error,
+    # the function should have been successful
+    diff = m.get_file_diff(dbx_path_success, old_rev, new_rev)
