@@ -549,7 +549,9 @@ def _syle_hint(hint: str) -> str:
     return f"{hint} " if hint else ""
 
 
-def prompt(message: str, default: str = "", validate: Optional[Callable] = None) -> str:
+def prompt(
+    message: str, default: Optional[str] = None, validate: Optional[Callable] = None
+) -> str:
 
     import survey
 
@@ -622,10 +624,11 @@ def select_multiple(message: str, options: Sequence[str], hint="") -> List[int]:
 
 def select_path(
     message: str,
-    default: str = "",
+    default: Optional[str] = None,
     validate: Callable = lambda x: True,
     exists: bool = False,
-    only_directories: bool = False,
+    files_allowed: bool = True,
+    dirs_allowed: bool = True,
 ) -> str:
 
     import os
@@ -647,18 +650,25 @@ def select_path(
             return True
 
         full_path = os.path.expanduser(value)
-        dir_condition = os.path.isdir(full_path) or not only_directories
+        forbidden_dir = os.path.isdir(full_path) and not dirs_allowed
+        forbidden_file = os.path.isfile(full_path) and not files_allowed
         exist_condition = os.path.exists(full_path) or not exists
 
-        if not dir_condition:
-            survey.update(click.style("(not a directory) ", fg="red"))
-        elif not exist_condition:
+        if not exist_condition:
             survey.update(click.style("(not found) ", fg="red"))
+        elif forbidden_dir:
+            survey.update(click.style("(not a file) ", fg="red"))
+        elif forbidden_file:
+            survey.update(click.style("(not a folder) ", fg="red"))
 
-        passed = dir_condition and exist_condition and validate(value)
-        failed = not passed
+        failed = (
+            not exist_condition
+            or forbidden_dir
+            or forbidden_file
+            or not validate(value)
+        )
 
-        return passed
+        return not failed
 
     @track.call("insert")
     @track.call("delete")

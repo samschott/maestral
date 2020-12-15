@@ -75,7 +75,7 @@ def select_dbx_path_dialog(
         res = cli.select_path(
             "Please choose a local Dropbox folder:",
             default=f"~/{default_dir_name}",
-            only_directories=True,
+            files_allowed=False,
         )
         res = res.rstrip(osp.sep)
 
