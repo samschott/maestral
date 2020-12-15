@@ -138,7 +138,7 @@ def test_locking_multiprocess():
 # daemon lifecycle tests
 
 
-def test_lifecycle_detached(config_name):
+def test_lifecycle(config_name):
 
     # start daemon process
     res = start_maestral_daemon_process(config_name, log_to_stdout=True, timeout=20)

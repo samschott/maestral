@@ -18,6 +18,7 @@ import struct
 import tempfile
 import logging
 import warnings
+import faulthandler
 from shlex import quote
 from typing import Optional, Any, Union, Tuple, Dict, Iterable, Type, TYPE_CHECKING
 from types import TracebackType, FrameType
@@ -412,6 +413,8 @@ def start_maestral_daemon(
     :raises RuntimeError: if a daemon for the given ``config_name`` is already running.
     """
 
+    faulthandler.register(signal.SIGTERM, file=sys.stderr, chain=True)
+
     import asyncio
     from .main import Maestral
 
@@ -592,7 +595,7 @@ def start_maestral_daemon_process(
 
     cmd = [*EXECUTABLE, "-OO", "-c", script]
 
-    process = subprocess.Popen(cmd, start_new_session=True)
+    process = subprocess.Popen(cmd, start_new_session=True, stderr=subprocess.PIPE)
 
     try:
         _wait_for_startup(config_name, timeout=timeout)
@@ -602,10 +605,13 @@ def start_maestral_daemon_process(
             exc_info=(type(exc), exc, exc.__traceback__),
         )
 
+        # let's check what the daemon has been doing
         returncode = process.poll()
         if returncode is None:
             logger.debug("Daemon is running but not responsive, killing now")
-            process.kill()  # make sure we don't leave a stray process
+            process.terminate()  # make sure we don't leave a stray process
+            stdout, stderr = process.communicate()
+            print("stderr from daemon:", stderr)
         else:
             logger.debug("Daemon stopped with return code %s", returncode)
         return Start.Failed
