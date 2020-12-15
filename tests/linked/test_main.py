@@ -211,7 +211,7 @@ def test_selective_sync_api_nested(m):
 def test_create_file_diff(m):
     """Tests file diffs for supported and unsupported files."""
 
-    def write_and_get_rev(dbx_path: str, content: str, o: str = "w") -> str:
+    def write_and_get_rev(dbx_path, content, o="w"):
         """
         Open the dbx_path locally and write the content to the string.
         If it should append something, you can set 'o = "a"'.
@@ -239,7 +239,7 @@ def test_create_file_diff(m):
         wait_for_idle(m)
         old_rev = m.client.get_metadata(dbx_path_fail_ext).rev
         # Just some bytes
-        new_rev = write_and_get_rev(dbx_path_fail_ext, "\01\01", o="ab")
+        new_rev = write_and_get_rev(dbx_path_fail_ext, "hi".encode(), o="ab")
         m.get_file_diff(dbx_path_fail_ext, old_rev, new_rev)
 
     old_rev = write_and_get_rev(dbx_path_fail_ext, "old")
