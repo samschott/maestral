@@ -206,8 +206,21 @@ def convert_api_errors_decorator(
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
 
-            dbx_path = args[dbx_path_arg] if dbx_path_arg else None
-            local_path = args[local_path_arg] if local_path_arg else None
+            if dbx_path_arg:
+                try:
+                    dbx_path = args[dbx_path_arg]
+                except IndexError:
+                    dbx_path = None
+            else:
+                dbx_path = None
+
+            if local_path_arg:
+                try:
+                    local_path = args[local_path_arg]
+                except IndexError:
+                    local_path = None
+            else:
+                local_path = None
 
             with convert_api_errors(dbx_path, local_path):
                 return func(*args, **kwargs)
@@ -1442,7 +1455,7 @@ def dropbox_to_maestral_error(
 
             if error.is_invalid_revision():
                 text = "Invalid revision."
-                err_cls = PathError
+                err_cls = NotFoundError
             elif error.is_path_lookup():
                 lookup_error = error.get_path_lookup()
                 text, err_cls = _get_lookup_error_msg(lookup_error)

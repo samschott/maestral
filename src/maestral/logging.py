@@ -22,6 +22,14 @@ except ImportError:
 from .utils import sanitize_string
 
 
+__all__ = [
+    "EncodingSafeLogRecord",
+    "CachedHandler",
+    "SdNotificationHandler",
+    "safe_journal_sender",
+]
+
+
 if journal:
 
     def safe_journal_sender(MESSAGE: str, **kwargs) -> None:
@@ -46,7 +54,7 @@ class EncodingSafeLogRecord(logging.LogRecord):
 
     This is useful when log messages may contain file paths generates by OS APIs. In
     Python, such path strings may contain surrogate escapes and will therefore raise
-    :class:`UnicodeEncodingError`s under many circumstances (printing to stdout, etc).
+    a :class:`UnicodeEncodeError` under many circumstances (printing to stdout, etc).
     """
 
     def getMessage(self) -> str:
@@ -101,7 +109,7 @@ class CachedHandler(logging.Handler):
         Blocks until a new record is emitted.
 
         :param timeout: Maximum time to block before returning.
-        :returns: ``True``if there was a status change, ``False`` in case of a timeout.
+        :returns: ``True`` if there was a status change, ``False`` in case of a timeout.
         """
         done, not_done = wait([self._emit_future], timeout=timeout)
         self._emit_future = Future()  # reset future
@@ -135,8 +143,6 @@ class SdNotificationHandler(logging.Handler):
 
     This is useful when used from a systemd service and will do nothing when no
     NOTIFY_SOCKET is provided.
-
-    :param level: Initial log level. Defaults to NOTSET.
     """
 
     notifier = sdnotify.SystemdNotifier()

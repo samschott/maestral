@@ -66,7 +66,9 @@ class DBusDesktopNotifier(DesktopNotifierBase):
             self.interface = self.proxy_object.get_interface(
                 "org.freedesktop.Notifications"
             )
-            self.interface.on_action_invoked(self._on_action)
+            if hasattr(self.interface, "on_action_invoked"):
+                # some older interfaces may not support notification actions
+                self.interface.on_action_invoked(self._on_action)
         except Exception:
             self.interface = None
             logger.warning("Could not connect to DBUS interface", exc_info=True)

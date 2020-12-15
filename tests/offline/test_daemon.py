@@ -9,10 +9,10 @@ import multiprocessing as mp
 import uuid
 
 import pytest
+from Pyro5.api import Proxy
 
 from maestral.daemon import (
     CommunicationError,
-    Proxy,
     MaestralProxy,
     start_maestral_daemon,
     start_maestral_daemon_process,
@@ -20,31 +20,10 @@ from maestral.daemon import (
     Start,
     Stop,
     Lock,
-    IS_MACOS,
 )
 from maestral.main import Maestral
 from maestral.errors import NotLinkedError
-from maestral.config import list_configs, remove_configuration
-
-
-@pytest.fixture
-def config_name(prefix: str = "test-config"):
-
-    i = 0
-    config_name = f"{prefix}-{i}"
-
-    while config_name in list_configs():
-        i += 1
-        config_name = f"{prefix}-{i}"
-
-    yield config_name
-
-    res = stop_maestral_daemon_process(config_name)
-
-    if res is Stop.Failed:
-        raise RuntimeError("Could not stop test daemon")
-
-    remove_configuration(config_name)
+from maestral.constants import IS_MACOS
 
 
 # locking tests
@@ -161,7 +140,6 @@ def test_locking_multiprocess():
 # daemon lifecycle tests
 
 
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Test is flaky on Github")
 def test_lifecycle_detached(config_name):
 
     # start daemon process
@@ -185,7 +163,6 @@ def test_lifecycle_detached(config_name):
     assert res is Stop.NotRunning
 
 
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Test is flaky on Github")
 def test_lifecycle_attached(config_name):
 
     # start daemon process
@@ -209,7 +186,6 @@ def test_lifecycle_attached(config_name):
 # proxy tests
 
 
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Test is flaky on Github")
 def test_connection(config_name):
 
     # start daemon process
@@ -227,7 +203,6 @@ def test_connection(config_name):
     assert res is Stop.Ok
 
 
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Test is flaky on Github")
 def test_fallback(config_name):
 
     # create proxy w/o fallback
@@ -241,11 +216,10 @@ def test_fallback(config_name):
         assert isinstance(m._m, Maestral)
 
 
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Test is flaky on Github")
 def test_remote_exceptions(config_name):
 
     # start daemon process
-    start_maestral_daemon_process(config_name)
+    start_maestral_daemon_process(config_name, detach=False)
 
     # create proxy and call a remote method which raises an error
     with MaestralProxy(config_name) as m:

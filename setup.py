@@ -10,7 +10,7 @@ install_requires = [
     "bugsnag>=3.4,<5.0",
     "click>=7.1.1,<8.0",
     "dropbox>=10.9.0,<12.0",
-    'dbus-next>=0.1.4;sys_platform=="linux"',
+    "dbus-next>=0.1.4;sys_platform=='linux'",
     "fasteners>=0.15",
     "importlib_metadata;python_version<'3.8'",
     "importlib_resources;python_version<'3.9'",
@@ -24,13 +24,13 @@ install_requires = [
     "sdnotify>=0.3.2",
     "setuptools",
     "sqlalchemy>=1.3,<1.4",
-    "survey>=2.1.0",
+    "survey>=3.2.2,<4.0",
     "watchdog>=0.10.0,<=0.10.3",
 ]
 
 gui_requires = [
-    "maestral-qt>=1.2.2;sys_platform=='linux'",
-    "maestral-cocoa>=1.2.2;sys_platform=='darwin'",
+    "maestral-qt>=1.3.1;sys_platform=='linux'",
+    "maestral-cocoa>=1.3.0;sys_platform=='darwin'",
 ]
 
 syslog_requires = ["systemd-python"]
@@ -56,7 +56,7 @@ setup(
     name="maestral",
     author="Sam Schott",
     author_email="ss2151@cam.ac.uk",
-    version="1.3.0.dev0",
+    version="1.3.2.dev0",
     url="https://github.com/SamSchott/maestral",
     description="Open-source Dropbox client for macOS and Linux.",
     license="MIT",

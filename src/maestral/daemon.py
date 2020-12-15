@@ -9,16 +9,16 @@ import sys
 import os
 import time
 import signal
-import traceback
 import enum
 import subprocess
-from shlex import quote
+import traceback
 import threading
 import fcntl
 import struct
 import tempfile
 import logging
 import warnings
+from shlex import quote
 from typing import Optional, Any, Union, Tuple, Dict, Iterable, Type, TYPE_CHECKING
 from types import TracebackType, FrameType
 
@@ -351,15 +351,23 @@ def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
     sock_name = sockpath_for_config(config_name)
     maestral_daemon = Proxy(URI.format(config_name, "./u:" + sock_name))
 
+    exc: Optional[Exception] = None
+
     while timeout > 0:
         try:
             maestral_daemon._pyroBind()
             return Start.Ok
-        except Exception:
+        except Exception as e:
+            exc = e
             time.sleep(0.2)
             timeout -= 0.2
         finally:
             maestral_daemon._pyroRelease()
+
+    if exc:
+        logger.debug(
+            "Could not start daemon", exc_info=(type(exc), exc, exc.__traceback__)
+        )
 
     return Start.Failed
 
@@ -535,7 +543,7 @@ def start_maestral_daemon_process(
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
     Startup is race free: there will never be two daemons running for the same config.
     This function requires that :obj:`sys.executable` points to a Python executable and
-    therefore may not work "frozen" apps.
+    therefore may not work for "frozen" apps.
 
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stdout: If ``True``, write logs to stdout.
@@ -597,7 +605,7 @@ def stop_maestral_daemon_process(
     :param config_name: The name of the Maestral configuration to use.
     :param timeout: Number of sec to wait for daemon to shut down before killing it.
     :returns: :attr:`Stop.Ok` if successful, :attr:`Stop.Killed` if killed,
-        :attr:`Stop.NotRunning` if the daemon was not running and `:attr:`Stop.Failed`
+        :attr:`Stop.NotRunning` if the daemon was not running and :attr:`Stop.Failed`
         if killing the process failed because we could not retrieve its PID.
     """
 

@@ -75,7 +75,7 @@ def select_dbx_path_dialog(
         res = cli.select_path(
             "Please choose a local Dropbox folder:",
             default=f"~/{default_dir_name}",
-            only_directories=True,
+            files_allowed=False,
         )
         res = res.rstrip(osp.sep)
 
@@ -312,7 +312,7 @@ class DropboxPath(click.ParamType):
 
 
 class ConfigName(click.ParamType):
-    """ "A command line parameter representing a Dropbox path
+    """A command line parameter representing a Dropbox path
 
     :param existing: If ``True`` require an existing config, otherwise create a new
         config on demand.
@@ -909,6 +909,7 @@ def activity(config_name: str) -> None:
 
 @main.command(section="Information", help="Show recently changed or added files.")
 @existing_config_option
+@catch_maestral_errors
 def history(config_name: str) -> None:
 
     from datetime import datetime
@@ -1019,7 +1020,8 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
                 dt_field: cli.Field
 
                 if "client_modified" in entry:
-                    cm = cast(str, entry["client_modified"])
+                    # replacing Z with +0000 is required for Python 3.6
+                    cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
                     dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
                     dt_field = cli.DateField(dt)
                 else:
@@ -1274,7 +1276,7 @@ def notify_snooze(minutes: int, config_name: str) -> None:
     else:
         if minutes > 0:
             cli.ok(
-                f"Notifications snoozed for {minutes} min. " "Set snooze to 0 to reset."
+                f"Notifications snoozed for {minutes} min. Set snooze to 0 to reset."
             )
         else:
             cli.ok("Notifications enabled.")
@@ -1366,9 +1368,9 @@ def rebuild_index(config_name: str) -> None:
             m.rebuild_index()
 
             if m._is_fallback:
-                cli.ok("Rebuilding now. Run 'maestral status' to view progress.")
-            else:
                 cli.ok("Daemon is not running. Rebuilding scheduled for next startup.")
+            else:
+                cli.ok("Rebuilding now. Run 'maestral status' to view progress.")
 
 
 @main.command(
@@ -1397,7 +1399,7 @@ def restore(dropbox_path: str, rev: str, config_name: str) -> None:
             entries = m.list_revisions(dropbox_path)
             dates = []
             for entry in entries:
-                cm = cast(str, entry["client_modified"])
+                cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
                 dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
                 field = cli.DateField(dt)
                 dates.append(field.format(40)[0])

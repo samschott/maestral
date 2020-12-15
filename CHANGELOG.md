@@ -1,4 +1,28 @@
-## Unreleased
+## v1.3.2.dev
+
+#### Fixes:
+
+* Fixes an issue with CLI on Python 3.6 where commands that print datetimes to the
+  console would raise an exception.
+
+#### Dependencies:
+
+* Bumped survey to version >=3.2.2,<4.0.
+
+## v1.3.1
+
+#### Fixes:
+
+* Fixes an incorrect entry point for the Qt GUI.
+
+## v1.3.0
+
+This release features an overhaul of the command line interface: commands are grouped
+by sections in the help output, dialogs and output formatting have been improved and
+many commands have become significantly faster.
+
+This release also significantly reduces the CPU usage when idle and provides a whole
+series of bug fixes for GUI and daemon.
 
 #### Added:
 

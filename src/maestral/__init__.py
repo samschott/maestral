@@ -12,6 +12,12 @@ The following APIs should remain stable for frontends:
 
 """
 
-__version__ = "1.3.0.dev0"
+import warnings
+
+__version__ = "1.3.2.dev0"
 __author__ = "Sam Schott"
 __url__ = "https://github.com/SamSchott/maestral"
+
+
+# suppress Python 3.9 warning from rubicon-objc
+warnings.filterwarnings("ignore", module="rubicon", category=UserWarning)

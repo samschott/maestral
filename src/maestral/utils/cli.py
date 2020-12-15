@@ -9,7 +9,6 @@ from typing import (
     Iterator,
     Sequence,
     Any,
-    Tuple,
     Callable,
     TYPE_CHECKING,
 )
@@ -543,84 +542,28 @@ def ok(message: str, nl: bool = True) -> None:
 
 
 def _style_message(message: str) -> str:
-    pre = click.style("?", fg="green")
-    return f"{pre} {message} "
+    return f"{message} "
 
 
 def _syle_hint(hint: str) -> str:
-    return click.style(hint, fg="white") + " " if hint else ""
+    return f"{hint} " if hint else ""
 
 
-orange = "\x1b[38;5;214m"
-cyan = "\x1b[38;5;6m"
-grey = "\x1b[90m"
-bold = "\x1b[1m"
-
-response_color = cyan
-focus_color = f"{response_color}"
-
-
-class loading:
-
-    _animation = ("...", "   ", ".  ", ".. ")
-
-    def __init__(self, iterable, prefix="Loading", animation=None, clear=True):
-
-        import itertools
-
-        self.iterable = iterable
-        self.prefix = prefix
-        self.clear = clear
-        self.indicator = itertools.cycle(animation or loading._animation)
-
-    def _render(self) -> None:
-        click.echo(self.prefix + next(self.indicator) + "\r", nl=False)
-
-    def __enter__(self) -> "loading":
-        self._render()
-        return self
-
-    def __iter__(self) -> "loading":
-        return self
-
-    def __next__(self) -> Any:
-        res = next(self.iterable)
-        self._render()
-        return res
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        if self.clear:
-            click.echo(" " * (len(self.prefix) + 3) + "\r", nl=False)
-        else:
-            click.echo("")
-
-
-def prompt(message: str, default: str = "", validate: Optional[Callable] = None) -> str:
+def prompt(
+    message: str, default: Optional[str] = None, validate: Optional[Callable] = None
+) -> str:
 
     import survey
 
-    styled_default = _syle_hint(default)
     styled_message = _style_message(message)
 
-    def view(value: str) -> Tuple[str]:
-        response = value or default
-        return (response,)
-
     def check(value: str) -> bool:
-        if validate is None:
-            return True
-        elif value == "" and default:
-            return True
-        else:
+        if validate is not None:
             return validate(value)
+        else:
+            return True
 
-    res = survey.input(
-        styled_message,
-        hint=styled_default,
-        view=view,
-        check=check,
-        color=response_color,
-    )
+    res = survey.input(styled_message, default=default, check=check)
 
     return res
 
@@ -631,7 +574,7 @@ def confirm(message: str, default: Optional[bool] = True) -> bool:
 
     styled_message = _style_message(message)
 
-    return survey.confirm(styled_message, default=default, color=response_color)
+    return survey.confirm(styled_message, default=default)
 
 
 def select(message: str, options: Sequence[str], hint="") -> int:
@@ -642,17 +585,11 @@ def select(message: str, options: Sequence[str], hint="") -> int:
         styled_hint = _syle_hint(hint)
         styled_message = _style_message(message)
 
-        index = survey.select(
-            options,
-            styled_message,
-            focus=focus_color,
-            color=response_color,
-            hint=styled_hint,
-        )
+        index = survey.select(options, styled_message, hint=styled_hint)
 
         return index
     except (KeyboardInterrupt, SystemExit):
-        survey.api.respond()
+        survey.respond()
         raise
 
 
@@ -666,53 +603,42 @@ def select_multiple(message: str, options: Sequence[str], hint="") -> List[int]:
 
         kwargs = {"hint": styled_hint} if hint else {}
 
-        def view(value: Sequence[int]) -> Tuple[str]:
-
-            chosen = [options[index] for index in value]
-            response = ", ".join(chosen)
-
-            if len(value) == 0 or len(response) > 50:
-                response = f"[{len(value)} chosen]"
-
-            return (response,)
-
         indices = survey.select(
-            options,
-            styled_message,
-            multi=True,
-            focus=focus_color,
-            color=response_color,
-            pin="[✓] ",
-            unpin="[ ] ",
-            view=view,
-            **kwargs,
+            options, styled_message, multi=True, pin="[✓] ", unpin="[ ] ", **kwargs
         )
+
+        chosen = [options[index] for index in indices]
+        response = ", ".join(chosen)
+
+        if len(indices) == 0 or len(response) > 50:
+            response = f"[{len(indices)} chosen]"
+
+        survey.respond(response)
 
         return indices
 
     except (KeyboardInterrupt, SystemExit):
-        survey.api.respond()
+        survey.respond()
         raise
 
 
 def select_path(
     message: str,
-    default: str = "",
+    default: Optional[str] = None,
     validate: Callable = lambda x: True,
     exists: bool = False,
-    only_directories: bool = False,
+    files_allowed: bool = True,
+    dirs_allowed: bool = True,
 ) -> str:
 
     import os
 
     import survey
+    import wrapio
 
-    styled_default = _syle_hint(f"[{default}]")
+    track = wrapio.Track()
+
     styled_message = _style_message(message)
-
-    def view(value: str) -> Tuple[str]:
-        response = value or default
-        return (response,)
 
     failed = False
 
@@ -724,36 +650,43 @@ def select_path(
             return True
 
         full_path = os.path.expanduser(value)
-        dir_condition = os.path.isdir(full_path) or not only_directories
+        forbidden_dir = os.path.isdir(full_path) and not dirs_allowed
+        forbidden_file = os.path.isfile(full_path) and not files_allowed
         exist_condition = os.path.exists(full_path) or not exists
 
-        if not dir_condition:
-            survey.update(click.style("(not a directory) ", fg="red"))
-        elif not exist_condition:
-            survey.update(click.style("(does not exist) ", fg="red"))
+        if not exist_condition:
+            survey.update(click.style("(not found) ", fg="red"))
+        elif forbidden_dir:
+            survey.update(click.style("(not a file) ", fg="red"))
+        elif forbidden_file:
+            survey.update(click.style("(not a folder) ", fg="red"))
 
-        passed = dir_condition and exist_condition and validate(value)
-        failed = not passed
+        failed = (
+            not exist_condition
+            or forbidden_dir
+            or forbidden_file
+            or not validate(value)
+        )
 
-        return passed
+        return not failed
 
-    def callback(event: str, result: str, *args) -> None:
+    @track.call("insert")
+    @track.call("delete")
+    def handle(result: str, *args) -> None:
         nonlocal failed
 
-        if event == "delete" and failed:
-            survey.update(styled_default)
+        if failed:
+            survey.update("")
             failed = False
 
     res = survey.input(
         styled_message,
-        hint=styled_default,
-        view=view,
+        default=default,
+        callback=track.invoke,
         check=check,
-        callback=callback,
-        color=response_color,
     )
 
-    return res or default
+    return res
 
 
 class RemoteApiError(click.ClickException):

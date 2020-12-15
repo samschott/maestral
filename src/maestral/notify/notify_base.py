@@ -54,7 +54,7 @@ class Notification:
         urgency: NotificationLevel = NotificationLevel.Normal,
         icon: Optional[str] = None,
         action: Optional[Callable] = None,
-        buttons: Optional[Dict[str, Optional[Callable]]] = None,
+        buttons: Optional[Dict[str, Callable]] = None,
     ) -> None:
 
         self.title = title
