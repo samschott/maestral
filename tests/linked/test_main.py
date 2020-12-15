@@ -6,7 +6,7 @@ import os.path as osp
 
 import pytest
 
-from maestral.errors import NotFoundError, MaestralApiError, UnsupportedFileTypeForDiff
+from maestral.errors import NotFoundError, UnsupportedFileTypeForDiff
 from maestral.main import FileStatus, IDLE
 from maestral.main import logger as maestral_logger
 from maestral.utils.path import delete
