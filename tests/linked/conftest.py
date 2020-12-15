@@ -102,7 +102,7 @@ def m():
 @pytest.fixture
 def proxy(m):
     m.stop_sync()
-    start_maestral_daemon_process(m.config_name, log_to_stdout=True, timeout=20)
+    start_maestral_daemon_process(m.config_name, timeout=20)
     yield MaestralProxy(m.config_name)
 
     stop_maestral_daemon_process(m.config_name)
