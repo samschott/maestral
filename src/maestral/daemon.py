@@ -560,7 +560,6 @@ def start_maestral_daemon(
 
 def start_maestral_daemon_process(
     config_name: str = "maestral",
-    log_to_stdout: bool = False,
     start_sync: bool = False,
     timeout: int = 5,
 ) -> Start:
@@ -571,7 +570,6 @@ def start_maestral_daemon_process(
     :func:`set_executable` to override the default behavior.
 
     :param config_name: The name of the Maestral configuration to use.
-    :param log_to_stdout: If ``True``, write logs to stdout.
     :param start_sync: If ``True``, start syncing once the daemon has started.
     :param timeout: Time in sec to wait for daemon to start.
     :returns: :attr:`Start.Ok` if successful, :attr:`Start.AlreadyRunning` if the daemon
@@ -585,17 +583,22 @@ def start_maestral_daemon_process(
 
     # protect against injection
     cc = quote(config_name).strip("'")
-    std_log = bool(log_to_stdout)
     start_sync = bool(start_sync)
 
     script = (
         f"import maestral.daemon; "
-        f'maestral.daemon.start_maestral_daemon("{cc}", {std_log}, {start_sync})'
+        f'maestral.daemon.start_maestral_daemon("{cc}", start_sync={start_sync})'
     )
 
     cmd = [*EXECUTABLE, "-c", script]
 
-    process = subprocess.Popen(cmd, start_new_session=True, stderr=subprocess.PIPE)
+    process = subprocess.Popen(
+        cmd,
+        start_new_session=True,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
     try:
         _wait_for_startup(config_name, timeout=timeout)
@@ -610,8 +613,6 @@ def start_maestral_daemon_process(
         if returncode is None:
             logger.debug("Daemon is running but not responsive, killing now")
             process.terminate()  # make sure we don't leave a stray process
-            stdout, stderr = process.communicate()
-            print("stderr from daemon:", stderr)
         else:
             logger.debug("Daemon stopped with return code %s", returncode)
         return Start.Failed
