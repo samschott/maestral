@@ -559,6 +559,7 @@ def start_maestral_daemon_process(
     config_name: str = "maestral",
     log_to_stdout: bool = False,
     start_sync: bool = False,
+    timeout: int = 5,
 ) -> Start:
     """
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
@@ -569,6 +570,7 @@ def start_maestral_daemon_process(
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stdout: If ``True``, write logs to stdout.
     :param start_sync: If ``True``, start syncing once the daemon has started.
+    :param timeout: Time in sec to wait for daemon to start.
     :returns: :attr:`Start.Ok` if successful, :attr:`Start.AlreadyRunning` if the daemon
         was already running or :attr:`Start.Failed` if startup failed. It is possible
         that :attr:`Start.Ok` may be returned instead of :attr:`Start.AlreadyRunning`
@@ -593,7 +595,7 @@ def start_maestral_daemon_process(
     process = subprocess.Popen(cmd, start_new_session=True)
 
     try:
-        _wait_for_startup(config_name, timeout=5)
+        _wait_for_startup(config_name, timeout=timeout)
     except Exception as exc:
         logger.debug(
             "Could not communicate with daemon",
