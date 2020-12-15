@@ -593,7 +593,7 @@ def start_maestral_daemon_process(
         f'maestral.daemon.start_maestral_daemon("{cc}", {std_log}, {start_sync})'
     )
 
-    cmd = [*EXECUTABLE, "-OO", "-c", script]
+    cmd = [*EXECUTABLE, "-c", script]
 
     process = subprocess.Popen(cmd, start_new_session=True, stderr=subprocess.PIPE)
 
