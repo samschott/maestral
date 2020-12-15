@@ -32,7 +32,7 @@ def test_invalid_config(m):
 
 def test_start(config_name):
 
-    res = start_maestral_daemon_process(config_name, log_to_stdout=True)
+    res = start_maestral_daemon_process(config_name, log_to_stdout=True, timeout=20)
     assert res is Start.Ok
 
     runner = CliRunner()
@@ -44,7 +44,7 @@ def test_start(config_name):
 
 def test_stop(config_name):
 
-    res = start_maestral_daemon_process(config_name, log_to_stdout=True)
+    res = start_maestral_daemon_process(config_name, log_to_stdout=True, timeout=20)
     assert res is Start.Ok
 
     runner = CliRunner()
@@ -144,7 +144,7 @@ def test_excluded_remove(m):
 
 def test_notify_level(config_name):
 
-    start_maestral_daemon_process(config_name, log_to_stdout=True)
+    start_maestral_daemon_process(config_name, log_to_stdout=True, timeout=20)
     m = MaestralProxy(config_name)
 
     runner = CliRunner()
@@ -171,7 +171,7 @@ def test_notify_level(config_name):
 
 def test_notify_snooze(config_name):
 
-    start_maestral_daemon_process(config_name, log_to_stdout=True)
+    start_maestral_daemon_process(config_name, log_to_stdout=True, timeout=20)
     m = MaestralProxy(config_name)
 
     runner = CliRunner()
