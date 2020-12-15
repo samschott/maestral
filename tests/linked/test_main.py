@@ -211,52 +211,39 @@ def test_selective_sync_api_nested(m):
 def test_create_file_diff(m):
     """Tests file diffs for supported and unsupported files."""
 
+    def write_and_get_rev(dbx_path: str, content: str, o: str = "w") -> str:
+        """
+        Open the dbx_path locally and write the content to the string.
+        If it should append something, you can set 'o = "a"'.
+        """
+
+        local_path = m.to_local_path(dbx_path)
+        with open(local_path, o) as f:
+            f.write(content)
+        wait_for_idle(m)
+        return m.client.get_metadata(dbx_path).rev
+        
     dbx_path_success = "/sync_tests/file.txt"
     dbx_path_fail_pdf = "/sync_tests/diff.pdf"
     dbx_path_fail_ext = "/sync_tests/bin.txt"
 
-    local_path_success = m.to_local_path(dbx_path_success)
-    local_path_fail_pdf = m.to_local_path(dbx_path_fail_pdf)
-    local_path_fail_ext = m.to_local_path(dbx_path_fail_ext)
-
-    with pytest.raises(UnsupportedFileTypeForDiff) as e:
+    with pytest.raises(UnsupportedFileTypeForDiff):
         # Write some dummy stuff to create two revs
-        with open(local_path_fail_pdf, "w") as f:
-            f.write("old")
-        wait_for_idle(m)
-        old_rev = m.client.get_metadata(dbx_path_fail_pdf).rev
-
-        with open(local_path_fail_pdf, "w") as f:
-            f.write("new")
-        wait_for_idle(m)
-        new_rev = m.client.get_metadata(dbx_path_fail_pdf).rev
-
+        old_rev = write_and_get_rev(dbx_path_fail_pdf, "old")
+        new_rev = write_and_get_rev(dbx_path_fail_pdf, "new")
         m.get_file_diff(dbx_path_fail_pdf, old_rev, new_rev)
 
-    with pytest.raises(UnsupportedFileTypeForDiff) as e:
+    with pytest.raises(UnsupportedFileTypeForDiff):
         # Add a compiled helloworld c file with .txt extension
         shutil.copy(resources + "/bin.txt", m.test_folder_local)
         wait_for_idle(m)
         old_rev = m.client.get_metadata(dbx_path_fail_ext).rev
-
         # Just some bytes
-        with open(local_path_fail_ext, "ab") as f:
-            f.write("\10\10")
-        wait_for_idle(m)
-        new_rev = m.client.get_metadata(dbx_path_fail_ext).rev
-
+        new_rev = write_and_get_rev(dbx_path_fail_ext, "\01\01", o="ab")
         m.get_file_diff(dbx_path_fail_ext, old_rev, new_rev)
 
-    with open(local_path_success, "w") as f:
-        f.write("old")
-    wait_for_idle(m)
-    old_rev = m.client.get_metadata(dbx_path_fail_ext).rev
-
-    with open(local_path_success, "w") as f:
-        f.write("new")
-    wait_for_idle(m)
-    new_rev = m.client.get_metadata(dbx_path_fail_ext).rev
-
+    old_rev = write_and_get_rev(dbx_path_fail_ext, "old")
+    new_rev = write_and_get_rev(dbx_path_fail_ext, "new")
     # If this does not raise an error,
     # the function should have been successful
-    diff = m.get_file_diff(dbx_path_success, old_rev, new_rev)
+    _ = m.get_file_diff(dbx_path_success, old_rev, new_rev)
