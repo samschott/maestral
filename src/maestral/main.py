@@ -932,7 +932,6 @@ class Maestral:
 
             return (content, date)
 
-        all_revs = self.client.list_revisions(dbx_path).entries
         full_path = self.sync.to_local_path(dbx_path)
 
         # Check if a diff is possible
