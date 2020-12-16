@@ -61,5 +61,38 @@ tests will set this environment variable for you with a temporary access token t
 expires after 4 hours. Tests are run on `ubuntu-latest` and `macos-latest` in parallel
 on different accounts and you should acquire a "lock" on the account before running
 tests. Fixtures to create and clean up a test config and to acquire a lock are provided
-in the `tests/linked/conftest.py`. If you run the tests locally, you will need to
-provide an access token for your own Dropbox account.
+in the `tests/linked/conftest.py`.
+
+If you run the tests locally, you will need to provide an access token for your own
+Dropbox account. If your account is already linked with Maestral, it will have saved a
+long-lived "refresh token" in your system keyring. You can access it manually or through
+the Python API:
+
+```Python
+from maestral.main import Maestral
+
+m = Maestral()
+print(m.client.auth.refresh_token)
+```
+
+This refresh token cannot be used to make API calls directly but should be used to
+retrieve a short-lived access token. This can be done again through Python
+
+```Python
+from maestral.main import Maestral
+
+m.client.dbx.refresh_access_token()  # gets a short-lived auth token from server
+print(m.client.dbx._oauth2_access_token)  # prints the access token
+```
+
+or from the command line:
+
+```shell
+auth_result=$(curl https://api.dropbox.com/oauth2/token \
+    -d grant_type=refresh_token \
+    -d refresh_token=$REFRESH_TOKEN \
+    -d client_id=2jmbq42w7vof78h)
+parse_response="import sys, json; print(json.load(sys.stdin)['access_token'])"
+access_token=$(echo $auth_result | python3 -c "$parse_response")
+```
+
