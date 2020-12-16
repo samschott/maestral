@@ -1,16 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-
-The following APIs should remain stable for frontends:
-
-* maestral.main.Maestral
-* maestral.constants
-* maestral.daemon
-* maestral.errors
-* maestral.utils.appdirs
-* maestral.utils.autostart
-
-"""
 
 import warnings
 
