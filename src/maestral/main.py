@@ -917,13 +917,12 @@ class Maestral:
 
             # By default the file would be opened with "w+b"
             with tempfile.NamedTemporaryFile(mode="w+") as f:
-                location = f.name
                 date = pretty_date(
-                    self.client.download(dbx_path, location, rev=rev).client_modified
+                    self.client.download(dbx_path, f.name, rev=rev).client_modified
                 )
                 # Read from the file
                 try:
-                    with convert_api_errors(dbx_path=dbx_path, local_path=location):
+                    with convert_api_errors(dbx_path=dbx_path, local_path=f.name):
                         content = f.readlines()
                 except UnicodeDecodeError:
                     raise UnsupportedFileTypeForDiff(
@@ -945,33 +944,22 @@ class Maestral:
                 f"Bad file type: '{mime}'", "Only files of type 'text/*' are supported."
             )
 
-        # if new_rev is None, make it to the newest one
+        # If new_rev is None, the local file is used, even if it isn't synced
         if new_rev is None:
-            new_rev = all_revs[0].rev
-        new_location = full_path
-        new_date = pretty_date(all_revs[0].client_modified)
-
-        # Check if the revision is the newest
-        # and see if it is available locally; download it if not
-        if new_rev is not all_revs[0].rev:
+            new_date = "Local version"
+            try:
+                with convert_api_errors(dbx_path=dbx_path, local_path=full_path):
+                    with open(full_path) as f:
+                        new_content = f.readlines()
+            except UnicodeDecodeError:
+                raise UnsupportedFileTypeForDiff(
+                    "Failed to decode the file.",
+                    "Only UTF-8 plain text files are currently supported.",
+                )
+        else:
             new_content, new_date = download_rev(new_rev)
 
         old_content, old_date = download_rev(old_rev)
-
-        try:
-            with convert_api_errors(dbx_path=dbx_path, local_path=new_location):
-                try:
-                    with open(new_location) as f:
-                        new_content = f.readlines()
-                # If the file was not found, retry download once
-                # Possible if the file is only stored in the cloud
-                except FileNotFoundError:
-                    new_content, new_date = download_rev(new_rev)
-        except UnicodeDecodeError:
-            raise UnsupportedFileTypeForDiff(
-                "Failed to decode the file.",
-                "Only UTF-8 plain text files are currently supported.",
-            )
 
         return list(
             difflib.unified_diff(
