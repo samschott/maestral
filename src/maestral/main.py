@@ -23,7 +23,6 @@ from typing import (
     Awaitable,
     Optional,
     Any,
-    IO,
 )
 import tempfile
 import mimetypes
