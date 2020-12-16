@@ -1574,7 +1574,7 @@ def diff(
             entries = m.list_revisions(dropbox_path)
             dates = []
             for entry in entries:
-                cm = cast(str, entry["client_modified"])
+                cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
                 dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
                 field = cli.DateField(dt)
                 dates.append(field.format(40)[0])
@@ -1603,4 +1603,5 @@ def diff(
         elif len(rev) > 2:
             cli.warn("You can only compare two revisions at a time")
             return
+        click.echo("Loading ...")
         download_and_compare(m, *rev)

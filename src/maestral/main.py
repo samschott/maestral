@@ -36,7 +36,7 @@ from watchdog.events import DirDeletedEvent, FileDeletedEvent  # type: ignore
 import bugsnag  # type: ignore
 from bugsnag.handlers import BugsnagHandler  # type: ignore
 from packaging.version import Version
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     from systemd import journal  # type: ignore
@@ -890,9 +890,10 @@ class Maestral:
         diff with the python difflib library. If new_rev is None,
         it will compare the old revision to the current file.
 
-        :param old_rev: Hash of old revision.
-        :param new_rev: Hash of new revision.
-        :returns: Diff as a list of lines.
+        :param dbx_path: Path to file on Dropbox.
+        :param old_rev: Identifier of old revision.
+        :param new_rev: Identifier of new revision.
+        :returns: Diff as a list of strings (lines).
         :raises UnsupportedFileTypeForDiff: if file type is not supported.
         :raises UnsupportedFileTypeForDiff: if file content could not be decoded.
         :raises MaestralApiError: if file could not be read for any other reason.
@@ -903,24 +904,41 @@ class Maestral:
             Prettify the 'client_modified' metadata.
             """
 
-            return s.astimezone().strftime("%d %b %Y at %H:%M")
-
-        def download_rev(f: IO[bytes], rev: str) -> Tuple[str, str]:
-            """
-            Download a rev to 'f' and return the location and the date.
-            """
-
-            location = f.name
-            date = pretty_date(
-                self.client.download(dbx_path, location, rev=rev).client_modified
+            return (
+                s.replace(tzinfo=timezone.utc)
+                .astimezone()
+                .strftime("%d %b %Y at %H:%M")
             )
-            return (location, date)
+
+        def download_rev(rev: str) -> Tuple[List[str], str]:
+            """
+            Download a rev to a temporary file, read it and return
+            the content + the date and time of the modification.
+            """
+
+            # By default the file would be opened with "w+b"
+            with tempfile.NamedTemporaryFile(mode="w+") as f:
+                location = f.name
+                date = pretty_date(
+                    self.client.download(dbx_path, location, rev=rev).client_modified
+                )
+                # Read from the file
+                try:
+                    with convert_api_errors(dbx_path=dbx_path, local_path=location):
+                        content = f.readlines()
+                except UnicodeDecodeError:
+                    raise UnsupportedFileTypeForDiff(
+                        "Failed to decode the file.",
+                        "Only UTF-8 plain text files are currently supported.",
+                    )
+
+            return (content, date)
 
         all_revs = self.client.list_revisions(dbx_path).entries
         full_path = self.sync.to_local_path(dbx_path)
 
         # Check if a diff is possible
-        # If mime is None, procede because most files without
+        # If mime is None, proceed because most files without
         # an extension are just text files
         mime, _ = mimetypes.guess_type(full_path)
         if mime is not None and not mime.startswith("text/"):
@@ -935,13 +953,11 @@ class Maestral:
         new_date = pretty_date(all_revs[0].client_modified)
 
         # Check if the revision is the newest
-        # and see if it is avaible locally; download it if not
+        # and see if it is available locally; download it if not
         if new_rev is not all_revs[0].rev:
-            tmp_n = tempfile.NamedTemporaryFile()
-            new_location, new_date = download_rev(tmp_n, new_rev)
+            new_content, new_date = download_rev(new_rev)
 
-        tmp_o = tempfile.NamedTemporaryFile()
-        old_location, old_date = download_rev(tmp_o, old_rev)
+        old_content, old_date = download_rev(old_rev)
 
         try:
             with convert_api_errors(dbx_path=dbx_path, local_path=new_location):
@@ -951,13 +967,7 @@ class Maestral:
                 # If the file was not found, retry download once
                 # Possible if the file is only stored in the cloud
                 except FileNotFoundError:
-                    tmp_n = tempfile.NamedTemporaryFile()
-                    new_location, new_date = self.client.download(tmp_n, new_rev)
-                    with open(new_location) as f:
-                        new_content = f.readlines()
-            with convert_api_errors(dbx_path=dbx_path, local_path=old_location):
-                with open(old_location) as f:
-                    old_content = f.readlines()
+                    new_content, new_date = download_rev(new_rev)
         except UnicodeDecodeError:
             raise UnsupportedFileTypeForDiff(
                 "Failed to decode the file.",
