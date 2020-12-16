@@ -8,14 +8,12 @@ For a user manual and an overview of Maestral's functionality, please
 refer to the `wiki <https://github.com/SamSchott/maestral-dropbox/wiki>`_.
 
 .. toctree::
-   :caption: Table of Contents
-   :maxdepth: 1
+   :caption: Contents
+   :maxdepth: 2
 
-   sync_logic
-   logging
-   config_files
-   state_files
+   background/index
    API Reference <autoapi/maestral/index>
+   contributing
 
 Getting started
 ***************

@@ -1,5 +1,5 @@
 
-## Guidelines
+### Code
 
 To start, install maestral with the `dev` extra to get all dependencies required for
 development:
@@ -8,7 +8,8 @@ development:
 pip3 install maestral[dev]
 ```
 
-### Checking the Format, Coding Style, and Type Hints
+This will install packages to check and enforce the code style, use pre-commit hooks and
+bump the current version.
 
 Code is formatted with [black](https://github.com/psf/black).
 Coding style is checked with [flake8](http://flake8.pycqa.org).
@@ -23,7 +24,8 @@ pre-commit run -a
 ```
 
 You can also install the provided pre-commit hook to run checks on every commit. This
-will however significantly slow down commits.
+will however significantly slow down commits. An introduction to pre-commit commit hooks
+is given at [https://pre-commit.com](https://pre-commit.com).
 
 ### Documentation
 
@@ -40,7 +42,7 @@ pip3 install maestral[docs]
 The API documentation is mostly based on doc strings. Inline comments should be used 
 whenever code may be difficult to understand for others.
 
-## Tests
+### Tests
 
 The test suite uses a mixture of [unittest](https://docs.python.org/3.8/library/unittest.html)
 and [pytest](https://pytest-cov.readthedocs.io/en/latest/), depending on what is most
