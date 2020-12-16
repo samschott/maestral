@@ -40,11 +40,12 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --upgrade pytest
           python -m pip install --upgrade pytest-cov
+          python -m pip install --upgrade pytest-rerunfailures
           python -m pip install .
 
       - name: Test with pytest
         run: |
-          pytest --cov=maestral --cov-report=xml tests/offline
+          pytest  --reruns 5 --cov=maestral --cov-report=xml tests/offline
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
@@ -97,6 +98,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --upgrade pytest
           python -m pip install --upgrade pytest-cov
+          python -m pip install --upgrade pytest-rerunfailures
           python -m pip install .
 
       - name: Get short-lived Dropbox token
@@ -114,7 +116,7 @@ jobs:
 
       - name: Test with pytest
         run: |
-          pytest --cov=maestral --cov-report=xml tests/linked
+          pytest --reruns 5 --cov=maestral --cov-report=xml tests/linked
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
