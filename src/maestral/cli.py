@@ -512,7 +512,11 @@ existing_config_option = click.option(
     help="Starts Maestral in the foreground.",
 )
 @click.option(
-    "--verbose", "-v", is_flag=True, default=False, help="Print log messages to stdout."
+    "--verbose",
+    "-v",
+    is_flag=True,
+    default=False,
+    help="Print log messages to stdout when started with '-f, --foreground' flag.",
 )
 @config_option
 @catch_maestral_errors

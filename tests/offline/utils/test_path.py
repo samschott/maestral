@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import os.path as osp
-import tempfile
 
 import pytest
 
@@ -11,7 +10,6 @@ from maestral.utils.path import (
     to_cased_path,
     is_fs_case_sensitive,
     is_child,
-    delete,
 )
 from maestral.utils.appdirs import get_home_dir
 
@@ -99,17 +97,3 @@ def test_is_child():
     assert is_child("/parent/path/child/", "/parent/path")
     assert not is_child("/parent/path", "/parent/path")
     assert not is_child("/path1", "/path2")
-
-
-def test_delete():
-    # test deleting file
-    test_file = tempfile.NamedTemporaryFile()
-    assert osp.isfile(test_file.name)
-    delete(test_file.name)
-    assert not osp.exists(test_file.name)
-
-    # test deleting directory
-    test_dir = tempfile.TemporaryDirectory()
-    assert osp.isdir(test_dir.name)
-    delete(test_dir.name)
-    assert not osp.exists(test_dir.name)
