@@ -1582,21 +1582,21 @@ def diff(
             base = cli.select(
                 message="New revision:",
                 options=dates,
-                hint="(↓ to see more)" if len(dates) + 1 > 6 else "",
+                hint="(↓ to see more)" if len(dates) > 6 else "",
             )
 
             if base == len(dates) - 1:
                 cli.warn("Oldest version selected, unable to find anything to compare")
                 return
 
+            comparable_versions = dates[base + 1 :]
             to_compare = (
                 cli.select(
                     message="Old revision:",
-                    options=dates[base + 1 :],
-                    hint="(↓ to see more)" if len(dates[base + 1 :]) > 6 else "",
+                    options=comparable_versions,
+                    hint="(↓ to see more)" if len(comparable_versions) > 6 else "",
                 )
                 + base
-                + 1
             )
 
             rev = [
