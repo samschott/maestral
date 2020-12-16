@@ -61,9 +61,14 @@ The current test suite uses a Dropbox access token provided by the environment v
 `DROPBOX_TOKEN` to connect to a real account. The GitHub action which is running the
 tests will set this environment variable for you with a temporary access token that
 expires after 4 hours. Tests are run on `ubuntu-latest` and `macos-latest` in parallel
-on different accounts and you should acquire a "lock" on the account before running
-tests. Fixtures to create and clean up a test config and to acquire a lock are provided
-in the `tests/linked/conftest.py`.
+on different accounts.
+
+When using the GitHub test runner, you should acquire a "lock" on the account before
+running tests to prevent them from interfering which each other by creating a folder
+`test.lock` in the root of the Dropbox folder. This folder should have a 
+`client_modified` time set in the future, to the expiry time of the lock. Fixtures to
+create and clean up a test config and to acquire a lock are provided in the
+`tests/linked/conftest.py`.
 
 If you run the tests locally, you will need to provide an access token for your own
 Dropbox account. If your account is already linked with Maestral, it will have saved a
@@ -96,6 +101,6 @@ parse_response="import sys, json; print(json.load(sys.stdin)['access_token'])"
 access_token=$(echo $auth_result | python3 -c "$parse_response")
 ```
 
-You can then store the retrieved access token in the environement variable
+You can then store the retrieved access token in the environment variable
 `DROPBOX_TOKEN` to be automatically picked up by the tests.
 
