@@ -1572,7 +1572,7 @@ def diff(
     with MaestralProxy(config_name, fallback=True) as m:
         if len(rev) == 0:
             entries = m.list_revisions(dropbox_path)
-            dates = []
+            dates = ["Local version"]
             for entry in entries:
                 cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
                 dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
@@ -1582,7 +1582,7 @@ def diff(
             base = cli.select(
                 message="New revision:",
                 options=dates,
-                hint="(↓ to see more)" if len(dates) > 6 else "",
+                hint="(↓ to see more)" if len(dates) + 1 > 6 else "",
             )
 
             if base == len(dates) - 1:
@@ -1599,7 +1599,11 @@ def diff(
                 + 1
             )
 
-            rev = [entries[to_compare]["rev"], entries[base]["rev"]]
+            rev = [
+                entries[to_compare]["rev"],
+                # None will not download anything and instead use the local version
+                entries[base - 1]["rev"] if base != 0 else None,
+            ]
         elif len(rev) > 2:
             cli.warn("You can only compare two revisions at a time")
             return
