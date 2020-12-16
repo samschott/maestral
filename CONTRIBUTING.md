@@ -79,8 +79,6 @@ This refresh token cannot be used to make API calls directly but should be used 
 retrieve a short-lived access token. This can be done again through Python
 
 ```Python
-from maestral.main import Maestral
-
 m.client.dbx.refresh_access_token()  # gets a short-lived auth token from server
 print(m.client.dbx._oauth2_access_token)  # prints the access token
 ```
@@ -95,4 +93,7 @@ auth_result=$(curl https://api.dropbox.com/oauth2/token \
 parse_response="import sys, json; print(json.load(sys.stdin)['access_token'])"
 access_token=$(echo $auth_result | python3 -c "$parse_response")
 ```
+
+You can then store the retrieved access token in the environement variable
+`DROPBOX_TOKEN` to be automatically picked up by the tests.
 
