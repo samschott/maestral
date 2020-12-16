@@ -49,6 +49,7 @@ __all__ = [
     "sockpath_for_config",
     "lockpath_for_config",
     "is_running",
+    "set_executable",
     "start_maestral_daemon",
     "start_maestral_daemon_process",
     "stop_maestral_daemon_process",
@@ -81,11 +82,10 @@ else:
 
 def set_executable(executable: str, *argv) -> None:
     """
-    Sets the path of the Python interpreter to use when starting the daemon. By default
-    sys.executable is used. Can be used in case of an embedded Python executable.
+    Sets the path of the Python executable to use when starting the daemon. By default
+    :obj:`sys.executable` is used. Can be used when embedding the daemon.
 
-    :param executable: Path to Python executable which is used to start the daemon
-        process.
+    :param executable: Path to custom Python executable.
     :param argv: Any command line arguments to be injected before the daemon startup
         command. By default, "-OO" will be used.
     """
@@ -566,8 +566,8 @@ def start_maestral_daemon_process(
     """
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
     Startup is race free: there will never be two daemons running for the same config.
-    This function expects that :obj:`sys.executable` points to a Python executable. Use
-    :func:`set_executable` to override the default behavior.
+    This function will use :obj:`sys.executable` as a Python executable to start the
+    daemon. Use :func:`set_executable` to use a custom executable instead.
 
     :param config_name: The name of the Maestral configuration to use.
     :param start_sync: If ``True``, start syncing once the daemon has started.
