@@ -1286,38 +1286,6 @@ def notify_snooze(minutes: int, config_name: str) -> None:
             cli.ok("Notifications enabled.")
 
 
-@main.command(
-    section="Settings",
-    help="""
-Enable or disables sharing of error reports.
-
-Sharing is disabled by default. If enabled, error reports are shared with bugsnag and no
-personal information will typically be collected. Shared tracebacks may however include
-file names, depending on the error.
-""",
-)
-@click.option("--yes", "-Y", is_flag=True, default=False)
-@click.option("--no", "-N", is_flag=True, default=False)
-@existing_config_option
-def analytics(yes: bool, no: bool, config_name: str) -> None:
-    from .daemon import MaestralProxy
-
-    if yes or no:
-        with MaestralProxy(config_name, fallback=True) as m:
-            m.analytics = yes
-
-        status_str = "Enabled" if yes else "Disabled"
-        cli.ok(f"{status_str} automatic error reports.")
-    else:
-        with MaestralProxy(config_name, fallback=True) as m:
-            enabled = m.analytics
-
-        if enabled:
-            cli.echo("Analytics are enabled. Use -N to disable")
-        else:
-            cli.echo("Analytics are disabled. Use -Y to enable")
-
-
 # ======================================================================================
 # Maintenance
 # ======================================================================================

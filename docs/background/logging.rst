@@ -18,9 +18,7 @@ internal usage, others for external communication. For instance, cached logging 
 are used to populate the public APIs :attr:`Maestral.status` and
 :attr:`Maestral.fatal_errors` and therefore use fixed log levels. Logging to stderr,
 the systemd journal (if applicable) and to our log files uses the user defined log level
-from :attr:`Maestral.log_level` which defaults to INFO. Finally, the Bugsnag
-error handler which sends all errors to a server for analytics must be explicitly
-enabled by the user and has a fixed log level of ERROR.
+from :attr:`Maestral.log_level` which defaults to INFO.
 
 .. csv-table::
    :file: log_handlers.csv
