@@ -230,7 +230,7 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
         Impl = CocoaNotificationCenter
 
 
-elif Version(macos_version) < Version("11.1.0"):
+elif Version(macos_version) < Version("12.0.0"):
 
     NSUserNotification = ObjCClass("NSUserNotification")
     NSUserNotificationCenter = ObjCClass("NSUserNotificationCenter")
