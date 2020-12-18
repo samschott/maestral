@@ -1499,9 +1499,10 @@ def log_level(level_name: str, config_name: str) -> None:
 @main.command(
     section="Maintenance",
     help="""
-Compare changes of two revisions of a file.
+Compare changes between two revisions of a file.
 
-If the second revision is omitted, it will compare the file to the currently downloaded version.
+If no revs are passed to the cmd, you can select the revisions interactively.
+If only the second revision is omitted, it will compare the file to the currently downloaded version.
 The specified revisions will be downloaded if necessary. A pager will be used, if there are more than 50 lines.
 """,
 )
