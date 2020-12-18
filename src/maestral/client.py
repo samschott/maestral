@@ -210,20 +210,14 @@ def convert_api_errors_decorator(
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
 
-            if dbx_path_arg:
-                try:
-                    dbx_path = args[dbx_path_arg]
-                except IndexError:
-                    dbx_path = None
-            else:
+            try:
+                dbx_path = args[dbx_path_arg]  # type: ignore
+            except (IndexError, TypeError):
                 dbx_path = None
 
-            if local_path_arg:
-                try:
-                    local_path = args[local_path_arg]
-                except IndexError:
-                    local_path = None
-            else:
+            try:
+                local_path = args[local_path_arg]  # type: ignore
+            except (IndexError, TypeError):
                 local_path = None
 
             with convert_api_errors(dbx_path, local_path):
