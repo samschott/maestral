@@ -1515,11 +1515,23 @@ The specified revisions will be downloaded if necessary. A pager will be used, i
 )
 @click.option("--no-color", help="Don't use any colors for the diff", is_flag=True)
 @click.option("--no-pager", help="Don't use a pager for output", is_flag=True)
+@click.option(
+    "-l",
+    "--limit",
+    help="Maximum number of old revisions",
+    type=click.IntRange(min=1, max=100),
+    default=10,
+)
 @catch_maestral_errors
 @existing_config_option
 # If new_version_hash is omitted, use the current version of the file
 def diff(
-    dropbox_path: str, rev: List[str], no_color: bool, no_pager: bool, config_name: str
+    dropbox_path: str,
+    rev: List[str],
+    no_color: bool,
+    no_pager: bool,
+    limit: int,
+    config_name: str,
 ) -> None:
 
     from datetime import datetime
@@ -1571,7 +1583,7 @@ def diff(
 
     with MaestralProxy(config_name, fallback=True) as m:
         if len(rev) == 0:
-            entries = m.list_revisions(dropbox_path)
+            entries = m.list_revisions(dropbox_path, limit=limit)
             dates = ["Local version"]
             for entry in entries:
                 cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
