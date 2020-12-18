@@ -4,10 +4,19 @@
 
 * Fixes an issue with CLI on Python 3.6 where commands that print datetimes to the
   console would raise an exception.
+* Properly handle a rare OSError ([Errno 41] Protocol wrong type for socket) on macOS,
+  see https://bugs.python.org/issue33450.
+  
+#### Removed:
+
+* Removed automatic error reporting via bugsnag. Please file issues directly on GitHub
+  instead. This allows following up on errors and investigating their cause while
+  removing third party access to potentially private information.
 
 #### Dependencies:
 
 * Bumped survey to version >=3.2.2,<4.0.
+* Removed bugsnag dependency.
 
 ## v1.3.1
 
