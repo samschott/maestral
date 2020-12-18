@@ -187,7 +187,11 @@ def convert_api_errors(
     except CONNECTION_ERRORS:
         raise ConnectionError("Cannot connect to Dropbox")
     except OSError as exc:
-        raise os_to_maestral_error(exc, dbx_path, local_path)
+        if exc.errno == errno.EPROTOTYPE:
+            # Can occur on macOS, see https://bugs.python.org/issue33450
+            raise ConnectionError("Cannot connect to Dropbox")
+        else:
+            raise os_to_maestral_error(exc, dbx_path, local_path)
 
 
 def convert_api_errors_decorator(
