@@ -1552,6 +1552,10 @@ def diff(
 
         diff = m.get_file_diff(dropbox_path, old_rev, new_rev)
 
+        if len(diff) == 0:
+            click.echo("There are no changes between the two revisions.")
+            return
+
         def color(ind: int, line: str) -> str:
             """
             Color diff lines.
@@ -1620,5 +1624,7 @@ def diff(
         elif len(rev) > 2:
             cli.warn("You can only compare two revisions at a time")
             return
-        click.echo("Loading ...")
+        # '\r' will put the cursor to the beginning of the line
+        # so the next characters will overwrite it
+        click.echo("Loading ...\r", nl=False)
         download_and_compare(m, *rev)
