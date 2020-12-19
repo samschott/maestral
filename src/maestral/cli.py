@@ -1603,7 +1603,7 @@ def diff(
             )
 
             if base == len(dates) - 1:
-                cli.warn("Oldest version selected, unable to find anything to compare")
+                cli.warn("Oldest revision selected, unable to find anything to compare.")
                 return
 
             comparable_versions = dates[base + 1 :]
@@ -1622,7 +1622,7 @@ def diff(
                 entries[base - 1]["rev"] if base != 0 else None,
             ]
         elif len(rev) > 2:
-            cli.warn("You can only compare two revisions at a time")
+            cli.warn("You can only compare two revisions at a time.")
             return
         # '\r' will put the cursor to the beginning of the line
         # so the next characters will overwrite it
