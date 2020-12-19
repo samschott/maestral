@@ -1603,7 +1603,9 @@ def diff(
             )
 
             if base == len(dates) - 1:
-                cli.warn("Oldest revision selected, unable to find anything to compare.")
+                cli.warn(
+                    "Oldest revision selected, unable to find anything to compare."
+                )
                 return
 
             comparable_versions = dates[base + 1 :]
