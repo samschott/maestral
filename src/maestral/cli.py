@@ -1546,7 +1546,9 @@ def diff(
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
 
-    def download_and_compare(m: MaestralProxy, old_rev: str, new_rev: str = None):
+    def download_and_compare(
+        m: MaestralProxy, old_rev: str, new_rev: Optional[str] = None
+    ) -> None:
         """
         Download up to two revisions to a local temporary folder
         and compare them with a 'diff'. Only text files are supported.
