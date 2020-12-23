@@ -1530,7 +1530,6 @@ and memory.
 )
 @catch_maestral_errors
 @existing_config_option
-# If new_version_hash is omitted, use the current version of the file
 def diff(
     dropbox_path: str,
     rev: List[str],
