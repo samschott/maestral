@@ -1340,6 +1340,34 @@ def rebuild_index(config_name: str) -> None:
                 cli.ok("Rebuilding now. Run 'maestral status' to view progress.")
 
 
+@main.command(section="Maintenance", help="List old file revisions.")
+@click.argument("dropbox_path", type=DropboxPath())
+@existing_config_option
+@catch_maestral_errors
+def revs(dropbox_path: str, config_name: str) -> None:
+
+    from datetime import datetime
+    from .daemon import MaestralProxy
+
+    with MaestralProxy(config_name, fallback=True) as m:
+
+        entries = m.list_revisions(dropbox_path)
+
+    table = cli.Table(["Revision", "Modified Time"])
+
+    for entry in entries:
+
+        rev = cast(str, entry["rev"])
+        cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
+        dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
+
+        table.append([cli.TextField(rev), cli.DateField(dt)])
+
+    cli.echo("")
+    table.echo()
+    cli.echo("")
+
+
 @main.command(
     section="Maintenance",
     help="""
