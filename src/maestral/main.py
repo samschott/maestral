@@ -885,9 +885,9 @@ class Maestral:
         self, dbx_path: str, old_rev: str, new_rev: Optional[str] = None
     ) -> List[str]:
         """
-        Download the two revisions if necessary and create a
-        diff with the python difflib library. If new_rev is None,
-        it will compare the old revision to the current file.
+        Download the two revisions if necessary and create a diff with the python
+        difflib library. If new_rev is None, it will compare the old revision to the
+        local file.
 
         :param dbx_path: Path to file on Dropbox.
         :param old_rev: Identifier of old revision.
@@ -898,13 +898,13 @@ class Maestral:
         :raises MaestralApiError: if file could not be read for any other reason.
         """
 
-        def pretty_date(s: datetime) -> str:
+        def pretty_date(d: datetime) -> str:
             """
             Prettify the 'client_modified' metadata.
             """
 
             return (
-                s.replace(tzinfo=timezone.utc)
+                d.replace(tzinfo=timezone.utc)
                 .astimezone()
                 .strftime("%d %b %Y at %H:%M")
             )
@@ -917,20 +917,20 @@ class Maestral:
 
             # By default the file would be opened with "w+b"
             with tempfile.NamedTemporaryFile(mode="w+") as f:
-                date = pretty_date(
-                    self.client.download(dbx_path, f.name, rev=rev).client_modified
-                )
+                md = self.client.download(dbx_path, f.name, rev=rev)
+                date = pretty_date(md.client_modified)
+
                 # Read from the file
                 try:
                     with convert_api_errors(dbx_path=dbx_path, local_path=f.name):
                         content = f.readlines()
                 except UnicodeDecodeError:
                     raise UnsupportedFileTypeForDiff(
-                        "Failed to decode the file.",
+                        "Failed to decode the file",
                         "Only UTF-8 plain text files are currently supported.",
                     )
 
-            return (content, date)
+            return content, date
 
         full_path = self.sync.to_local_path(dbx_path)
 
@@ -952,7 +952,7 @@ class Maestral:
                         new_content = f.readlines()
             except UnicodeDecodeError:
                 raise UnsupportedFileTypeForDiff(
-                    "Failed to decode the file.",
+                    "Failed to decode the file",
                     "Only UTF-8 plain text files are currently supported.",
                 )
         else:
