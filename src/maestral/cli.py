@@ -1585,12 +1585,10 @@ def diff(
             diff = [color(i, l) for i, l in enumerate(diff)]
 
         # Enter pager if diff is too long
-        if not no_pager:
-            if len(diff) > 30:
-                click.echo_via_pager("".join(diff))
-                return
-
-        click.echo("".join(diff))
+        if len(diff) > 30 and not no_pager:
+            click.echo_via_pager("".join(diff))
+        else:
+            click.echo("".join(diff))
 
     with MaestralProxy(config_name, fallback=True) as m:
         if len(rev) == 0:
