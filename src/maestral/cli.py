@@ -1593,38 +1593,41 @@ def diff(
     with MaestralProxy(config_name, fallback=True) as m:
         if len(rev) == 0:
             entries = m.list_revisions(dropbox_path, limit=limit)
-            dates = ["Local version"]
+
             for entry in entries:
                 cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
                 dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
                 field = cli.DateField(dt)
-                dates.append(field.format(40)[0])
+                entry["desc"] = field.format(40)[0]
 
-            base = cli.select(
+            dbx_path = cast(str, entries[0]["path_display"])
+            local_path = m.to_local_path(dbx_path)
+
+            if osp.isfile(local_path):
+                # prepend local version as an option
+                entries.insert(0, {"desc": "local version", "rev": None})
+
+            index_base = cli.select(
                 message="New revision:",
-                options=dates,
-                hint="(↓ to see more)" if len(dates) > 6 else "",
+                options=list(e["desc"] for e in entries),
+                hint="(↓ to see more)" if len(entries) > 6 else "",
             )
 
-            if base == len(dates) - 1:
+            if index_base == len(entries) - 1:
                 cli.warn(
                     "Oldest revision selected, unable to find anything to compare."
                 )
                 return
 
-            comparable_versions = dates[base + 1 :]
-            to_compare = (
-                cli.select(
-                    message="Old revision:",
-                    options=comparable_versions,
-                    hint="(↓ to see more)" if len(comparable_versions) > 6 else "",
-                )
-                + base
+            comparable_versions = entries[index_base + 1 :]
+            index_new = cli.select(
+                message="Old revision:",
+                options=list(e["desc"] for e in comparable_versions),
+                hint="(↓ to see more)" if len(comparable_versions) > 6 else "",
             )
 
-            old_rev = entries[to_compare]["rev"]
-            # None will not download anything and instead use the local version
-            new_rev = entries[base - 1]["rev"] if base != 0 else None
+            old_rev = entries[index_new + index_base]["rev"]
+            new_rev = entries[index_base]["rev"]
         elif len(rev) == 1:
             old_rev = rev[0]
             new_rev = None
