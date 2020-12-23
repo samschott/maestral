@@ -1354,7 +1354,7 @@ If no revision number is given, old revisions will be listed.
 """,
 )
 @click.argument("dropbox_path", type=click.Path())
-@click.option("-v", "--rev", help="Revision to restore", default="")
+@click.option("-v", "--rev", help="Revision to restore.", default="")
 @existing_config_option
 @catch_maestral_errors
 def restore(dropbox_path: str, rev: str, config_name: str) -> None:
@@ -1466,3 +1466,151 @@ def log_level(level_name: str, config_name: str) -> None:
         else:
             level_name = logging.getLevelName(m.log_level)
             cli.echo(f"Log level: {level_name}")
+
+
+@main.command(
+    section="Maintenance",
+    help="""
+Compare two revisions of a file.
+
+If no revs are passed to the command, you can select the revisions interactively. If
+only one rev is passed, it is compared to the local version of the file. The diff is
+shown via a pager if longer 30 lines.
+
+Warning: The specified revisions will be downloaded to temp files and loaded into memory
+to generate the diff. Depending on the file size, this may use significant disk space
+and memory.
+""",
+)
+@click.argument("dropbox_path", type=DropboxPath())
+@click.option(
+    "-v",
+    "--rev",
+    help="Revisions to compare (multiple allowed).",
+    multiple=True,
+    default=[],
+)
+@click.option("--no-color", help="Don't use colors for the diff.", is_flag=True)
+@click.option("--no-pager", help="Don't use a pager for output.", is_flag=True)
+@click.option(
+    "-l",
+    "--limit",
+    help="Maximum number of revs to list.",
+    show_default=True,
+    type=click.IntRange(min=1, max=100),
+    default=10,
+)
+@catch_maestral_errors
+@existing_config_option
+def diff(
+    dropbox_path: str,
+    rev: List[str],
+    no_color: bool,
+    no_pager: bool,
+    limit: int,
+    config_name: str,
+) -> None:
+
+    from datetime import datetime
+    from .daemon import MaestralProxy
+
+    # Reason for rel_dbx_path: os.path.join does not like leading /
+    if not dropbox_path.startswith("/"):
+        dropbox_path = "/" + dropbox_path
+
+    def download_and_compare(
+        m: MaestralProxy, old_rev: str, new_rev: Optional[str] = None
+    ) -> None:
+        """
+        Download up to two revisions to a local temporary folder
+        and compare them with a 'diff'. Only text files are supported.
+        If an unknown file type was found, everything that doesn't match
+        'text/*', an error message gets printed.
+        """
+
+        diff = m.get_file_diff(dropbox_path, old_rev, new_rev)
+
+        if len(diff) == 0:
+            click.echo("There are no changes between the two revisions.")
+            return
+
+        def color(ind: int, line: str) -> str:
+            """
+            Color diff lines.
+            Inspiration for colors was taken from the
+            well known command 'git diff'.
+            """
+
+            if ind < 2:
+                line = click.style(line, bold=True)
+            elif line.startswith("+"):
+                line = click.style(line, fg="green")
+            elif line.startswith("-"):
+                line = click.style(line, fg="red")
+            # Don't highlight these in the intro
+            elif line.startswith("@@ "):
+                line = click.style(line, fg="cyan")
+            return line
+
+        # Color the lines
+        if not no_color:
+            diff = [color(i, l) for i, l in enumerate(diff)]
+
+        # Enter pager if diff is too long
+        if len(diff) > 30 and not no_pager:
+            click.echo_via_pager("".join(diff))
+        else:
+            click.echo("".join(diff))
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        if len(rev) == 0:
+            entries = m.list_revisions(dropbox_path, limit=limit)
+
+            for entry in entries:
+                cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
+                dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
+                field = cli.DateField(dt)
+                entry["desc"] = field.format(40)[0]
+
+            dbx_path = cast(str, entries[0]["path_display"])
+            local_path = m.to_local_path(dbx_path)
+
+            if osp.isfile(local_path):
+                # prepend local version as an option
+                entries.insert(0, {"desc": "local version", "rev": None})
+
+            index_base = cli.select(
+                message="New revision:",
+                options=list(e["desc"] for e in entries),
+                hint="(↓ to see more)" if len(entries) > 6 else "",
+            )
+
+            if index_base == len(entries) - 1:
+                cli.warn(
+                    "Oldest revision selected, unable to find anything to compare."
+                )
+                return
+
+            comparable_versions = entries[index_base + 1 :]
+            index_new = cli.select(
+                message="Old revision:",
+                options=list(e["desc"] for e in comparable_versions),
+                hint="(↓ to see more)" if len(comparable_versions) > 6 else "",
+            )
+
+            old_rev = entries[index_new + index_base]["rev"]
+            new_rev = entries[index_base]["rev"]
+        elif len(rev) == 1:
+            old_rev = rev[0]
+            new_rev = None
+        elif len(rev) == 2:
+            old_rev = rev[0]
+            new_rev = rev[1]
+        elif len(rev) > 2:
+            cli.warn("You can only compare two revisions at a time.")
+            return
+
+        # '\r' will put the cursor to the beginning of the line
+        # so the next characters will overwrite it
+        click.echo("Loading ...\r", nl=False)
+        download_and_compare(m, old_rev, new_rev)

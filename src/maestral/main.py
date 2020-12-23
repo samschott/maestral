@@ -12,12 +12,27 @@ import logging.handlers
 import asyncio
 import random
 from concurrent.futures import ThreadPoolExecutor
-from typing import Union, List, Iterator, Dict, Set, Awaitable, Optional, Any
+from typing import (
+    Union,
+    List,
+    Iterator,
+    Dict,
+    Set,
+    Tuple,
+    Awaitable,
+    Optional,
+    Any,
+)
+import tempfile
+import mimetypes
+import difflib
+
 
 # external imports
 import requests
 from watchdog.events import DirDeletedEvent, FileDeletedEvent  # type: ignore
 from packaging.version import Version
+from datetime import datetime, timezone
 
 try:
     from systemd import journal  # type: ignore
@@ -35,6 +50,7 @@ from .errors import (
     NotFoundError,
     BusyError,
     KeyringAccessError,
+    UnsupportedFileTypeForDiff,
 )
 from .config import MaestralConfig, MaestralState, validate_config_name
 from .notify import MaestralDesktopNotificationHandler
@@ -814,6 +830,96 @@ class Maestral:
         entries = [dropbox_stone_to_dict(e) for e in res.entries]
 
         return entries
+
+    def get_file_diff(
+        self, dbx_path: str, old_rev: str, new_rev: Optional[str] = None
+    ) -> List[str]:
+        """
+        Download the two revisions if necessary and create a diff with the python
+        difflib library. If new_rev is None, it will compare the old revision to the
+        local file.
+
+        :param dbx_path: Path to file on Dropbox.
+        :param old_rev: Identifier of old revision.
+        :param new_rev: Identifier of new revision.
+        :returns: Diff as a list of strings (lines).
+        :raises UnsupportedFileTypeForDiff: if file type is not supported.
+        :raises UnsupportedFileTypeForDiff: if file content could not be decoded.
+        :raises MaestralApiError: if file could not be read for any other reason.
+        """
+
+        def pretty_date(d: datetime) -> str:
+            """
+            Prettify the 'client_modified' metadata.
+            """
+
+            return (
+                d.replace(tzinfo=timezone.utc)
+                .astimezone()
+                .strftime("%d %b %Y at %H:%M")
+            )
+
+        def download_rev(rev: str) -> Tuple[List[str], str]:
+            """
+            Download a rev to a temporary file, read it and return
+            the content + the date and time of the modification.
+            """
+
+            # By default the file would be opened with "w+b"
+            with tempfile.NamedTemporaryFile(mode="w+") as f:
+                md = self.client.download(dbx_path, f.name, rev=rev)
+                date = pretty_date(md.client_modified)
+
+                # Read from the file
+                try:
+                    with convert_api_errors(dbx_path=dbx_path, local_path=f.name):
+                        content = f.readlines()
+                except UnicodeDecodeError:
+                    raise UnsupportedFileTypeForDiff(
+                        "Failed to decode the file",
+                        "Only UTF-8 plain text files are currently supported.",
+                    )
+
+            return content, date
+
+        full_path = self.sync.to_local_path(dbx_path)
+
+        # Check if a diff is possible
+        # If mime is None, proceed because most files without
+        # an extension are just text files
+        mime, _ = mimetypes.guess_type(full_path)
+        if mime is not None and not mime.startswith("text/"):
+            raise UnsupportedFileTypeForDiff(
+                f"Bad file type: '{mime}'", "Only files of type 'text/*' are supported."
+            )
+
+        # If new_rev is None, the local file is used, even if it isn't synced
+        if new_rev is None:
+            new_date = "Local version"
+            try:
+                with convert_api_errors(dbx_path=dbx_path, local_path=full_path):
+                    with open(full_path) as f:
+                        new_content = f.readlines()
+            except UnicodeDecodeError:
+                raise UnsupportedFileTypeForDiff(
+                    "Failed to decode the file",
+                    "Only UTF-8 plain text files are currently supported.",
+                )
+        else:
+            new_content, new_date = download_rev(new_rev)
+
+        old_content, old_date = download_rev(old_rev)
+
+        return list(
+            difflib.unified_diff(
+                old_content,
+                new_content,
+                fromfile=dbx_path,
+                tofile=dbx_path,
+                fromfiledate=old_date,
+                tofiledate=new_date,
+            )
+        )
 
     def restore(self, dbx_path: str, rev: str) -> StoneType:
         """
