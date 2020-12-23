@@ -1622,15 +1622,20 @@ def diff(
                 + base
             )
 
-            rev = [
-                entries[to_compare]["rev"],
-                # None will not download anything and instead use the local version
-                entries[base - 1]["rev"] if base != 0 else None,
-            ]
+            old_rev = entries[to_compare]["rev"]
+            # None will not download anything and instead use the local version
+            new_rev = entries[base - 1]["rev"] if base != 0 else None
+        elif len(rev) == 1:
+            old_rev = rev[0]
+            new_rev = None
+        elif len(rev) == 2:
+            old_rev = rev[0]
+            new_rev = rev[1]
         elif len(rev) > 2:
             cli.warn("You can only compare two revisions at a time.")
             return
+
         # '\r' will put the cursor to the beginning of the line
         # so the next characters will overwrite it
         click.echo("Loading ...\r", nl=False)
-        download_and_compare(m, *rev)
+        download_and_compare(m, old_rev, new_rev)
