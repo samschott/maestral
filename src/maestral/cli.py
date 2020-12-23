@@ -732,12 +732,15 @@ Unlinks your Dropbox account.
 If Maestral is running, it will be stopped before unlinking.
 """,
 )
+@click.option("--yes", "-Y", is_flag=True, default=False)
 @existing_config_option
 @catch_maestral_errors
-def unlink(config_name: str) -> None:
+def unlink(yes: bool, config_name: str) -> None:
 
-    if cli.confirm("Are you sure you want unlink your account?", default=False):
+    if not yes:
+        cli.confirm("Are you sure you want unlink your account?", default=False)
 
+    if yes:
         from .main import Maestral
 
         stop_daemon_with_cli_feedback(config_name)
