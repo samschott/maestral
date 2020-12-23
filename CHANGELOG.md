@@ -1,5 +1,15 @@
 ## v1.3.2.dev
 
+#### Added:
+
+* Add a command `maestral diff` to compare different versions of a text file. The
+  resulting diff is printed to the console. Thanks to @OrangeFran.
+* Resurrected the command `maestral revs` to list previous versions or a file.
+
+#### Changed:
+
+* Added a `--yes, -Y` flag to the `unlink` to command to skip the confirmation prompt.
+  
 #### Fixes:
 
 * Fixes an issue with CLI on Python 3.6 where commands that print datetimes to the
