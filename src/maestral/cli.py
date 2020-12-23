@@ -1382,7 +1382,7 @@ If no revision number is given, old revisions will be listed.
 """,
 )
 @click.argument("dropbox_path", type=click.Path())
-@click.option("-v", "--rev", help="Revision to restore", default="")
+@click.option("-v", "--rev", help="Revision to restore.", default="")
 @existing_config_option
 @catch_maestral_errors
 def restore(dropbox_path: str, rev: str, config_name: str) -> None:
@@ -1499,27 +1499,32 @@ def log_level(level_name: str, config_name: str) -> None:
 @main.command(
     section="Maintenance",
     help="""
-Compare changes between two revisions of a file.
+Compare two revisions of a file.
 
-If no revs are passed to the cmd, you can select the revisions interactively.
-If only the second revision is omitted, it will compare the file to the currently downloaded version.
-The specified revisions will be downloaded if necessary. A pager will be used, if there are more than 50 lines.
+If no revs are passed to the command, you can select the revisions interactively. If
+only one rev is passed, it is compared to the local version of the file. The diff is
+shown via a pager if longer 30 lines.
+
+Warning: The specified revisions will be downloaded to temp files and loaded into memory
+to generate the diff. Depending on the file size, this may use significant disk space
+and memory.
 """,
 )
-@click.argument("dropbox_path", type=click.Path())
+@click.argument("dropbox_path", type=DropboxPath())
 @click.option(
     "-v",
     "--rev",
-    help="Revisions to compare (mulitple allowed to compare two old revs)",
+    help="Revisions to compare (multiple allowed).",
     multiple=True,
     default=[],
 )
-@click.option("--no-color", help="Don't use any colors for the diff", is_flag=True)
-@click.option("--no-pager", help="Don't use a pager for output", is_flag=True)
+@click.option("--no-color", help="Don't use colors for the diff.", is_flag=True)
+@click.option("--no-pager", help="Don't use a pager for output.", is_flag=True)
 @click.option(
     "-l",
     "--limit",
-    help="Maximum number of old revisions",
+    help="Maximum number of revs to list.",
+    show_default=True,
     type=click.IntRange(min=1, max=100),
     default=10,
 )
