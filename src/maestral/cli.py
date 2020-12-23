@@ -465,17 +465,9 @@ class OrderedGroup(click.Group):
     no_args_is_help=True,
     help="Dropbox client for Linux and macOS.",
 )
-@click.option(
-    "--version",
-    "-V",
-    is_flag=True,
-    default=False,
-    help="Show version and exit.",
-)
-def main(version: bool):
-
-    if version:
-        click.echo(__version__)
+@click.version_option(version=__version__, message=__version__)
+def main():
+    pass
 
 
 # ======================================================================================
