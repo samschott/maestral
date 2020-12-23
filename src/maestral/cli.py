@@ -1371,129 +1371,6 @@ def revs(dropbox_path: str, config_name: str) -> None:
 @main.command(
     section="Maintenance",
     help="""
-Restore a previous version of a file.
-
-If no revision number is given, old revisions will be listed.
-""",
-)
-@click.argument("dropbox_path", type=click.Path())
-@click.option("-v", "--rev", help="Revision to restore.", default="")
-@existing_config_option
-@catch_maestral_errors
-def restore(dropbox_path: str, rev: str, config_name: str) -> None:
-    from datetime import datetime
-    from .daemon import MaestralProxy
-
-    if not dropbox_path.startswith("/"):
-        dropbox_path = "/" + dropbox_path
-
-    with MaestralProxy(config_name, fallback=True) as m:
-
-        if not rev:
-            cli.echo("Loading...\r", nl=False)
-            entries = m.list_revisions(dropbox_path)
-            dates = []
-            for entry in entries:
-                cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
-                dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
-                field = cli.DateField(dt)
-                dates.append(field.format(40)[0])
-
-            index = cli.select(
-                message="Select a version to restore:",
-                options=dates,
-                hint="(↓ to see more)" if len(entries) > 6 else "",
-            )
-            rev = cast(str, entries[index]["rev"])
-
-        m.restore(dropbox_path, rev)
-
-    cli.ok(f'Restored {rev} to "{dropbox_path}"')
-
-
-@main.group(section="Maintenance", help="View and manage the log.")
-def log():
-    pass
-
-
-@log.command(name="show", help="Print logs to the console.")
-@click.option(
-    "--external", "-e", is_flag=True, default=False, help="Open in external program."
-)
-@existing_config_option
-def log_show(external: bool, config_name: str) -> None:
-
-    from .utils.appdirs import get_log_path
-
-    log_file = get_log_path("maestral", config_name + ".log")
-
-    if external:
-        res = click.launch(log_file)
-    else:
-        try:
-            with open(log_file) as f:
-                text = f.read()
-            click.echo_via_pager(text)
-        except OSError:
-            res = 1
-        else:
-            res = 0
-
-    if res > 0:
-        raise cli.CliException(f"Could not open log file at '{log_file}'")
-
-
-@log.command(name="clear", help="Clear the log files.")
-@existing_config_option
-def log_clear(config_name: str) -> None:
-
-    from .utils.appdirs import get_log_path
-
-    log_dir = get_log_path("maestral")
-    log_name = config_name + ".log"
-
-    log_files = []
-
-    for file_name in os.listdir(log_dir):
-        if file_name.startswith(log_name):
-            log_files.append(os.path.join(log_dir, file_name))
-
-    try:
-        for file in log_files:
-            open(file, "w").close()
-        cli.ok("Cleared log files.")
-    except FileNotFoundError:
-        cli.ok("Cleared log files.")
-    except OSError:
-        raise cli.CliException(
-            f"Could not clear log at '{log_dir}'. " f"Please try to delete it manually"
-        )
-
-
-@log.command(name="level", help="Get or set the log level.")
-@click.argument(
-    "level_name",
-    required=False,
-    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
-)
-@existing_config_option
-def log_level(level_name: str, config_name: str) -> None:
-
-    import logging
-    from .daemon import MaestralProxy
-
-    with MaestralProxy(config_name, fallback=True) as m:
-        if level_name:
-            m.log_level = cast(int, getattr(logging, level_name))
-            cli.ok(f"Log level set to {level_name}.")
-        else:
-            level_name = logging.getLevelName(m.log_level)
-            cli.echo(f"Log level: {level_name}")
-
-
-@main.command(
-    section="Maintenance",
-    help="""
 Compare two revisions of a file.
 
 If no revs are passed to the command, you can select the revisions interactively. If
@@ -1637,3 +1514,126 @@ def diff(
         # so the next characters will overwrite it
         click.echo("Loading ...\r", nl=False)
         download_and_compare(m, old_rev, new_rev)
+
+
+@main.command(
+    section="Maintenance",
+    help="""
+Restore a previous version of a file.
+
+If no revision number is given, old revisions will be listed.
+""",
+)
+@click.argument("dropbox_path", type=click.Path())
+@click.option("-v", "--rev", help="Revision to restore.", default="")
+@existing_config_option
+@catch_maestral_errors
+def restore(dropbox_path: str, rev: str, config_name: str) -> None:
+    from datetime import datetime
+    from .daemon import MaestralProxy
+
+    if not dropbox_path.startswith("/"):
+        dropbox_path = "/" + dropbox_path
+
+    with MaestralProxy(config_name, fallback=True) as m:
+
+        if not rev:
+            cli.echo("Loading...\r", nl=False)
+            entries = m.list_revisions(dropbox_path)
+            dates = []
+            for entry in entries:
+                cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
+                dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
+                field = cli.DateField(dt)
+                dates.append(field.format(40)[0])
+
+            index = cli.select(
+                message="Select a version to restore:",
+                options=dates,
+                hint="(↓ to see more)" if len(entries) > 6 else "",
+            )
+            rev = cast(str, entries[index]["rev"])
+
+        m.restore(dropbox_path, rev)
+
+    cli.ok(f'Restored {rev} to "{dropbox_path}"')
+
+
+@main.group(section="Maintenance", help="View and manage the log.")
+def log():
+    pass
+
+
+@log.command(name="show", help="Print logs to the console.")
+@click.option(
+    "--external", "-e", is_flag=True, default=False, help="Open in external program."
+)
+@existing_config_option
+def log_show(external: bool, config_name: str) -> None:
+
+    from .utils.appdirs import get_log_path
+
+    log_file = get_log_path("maestral", config_name + ".log")
+
+    if external:
+        res = click.launch(log_file)
+    else:
+        try:
+            with open(log_file) as f:
+                text = f.read()
+            click.echo_via_pager(text)
+        except OSError:
+            res = 1
+        else:
+            res = 0
+
+    if res > 0:
+        raise cli.CliException(f"Could not open log file at '{log_file}'")
+
+
+@log.command(name="clear", help="Clear the log files.")
+@existing_config_option
+def log_clear(config_name: str) -> None:
+
+    from .utils.appdirs import get_log_path
+
+    log_dir = get_log_path("maestral")
+    log_name = config_name + ".log"
+
+    log_files = []
+
+    for file_name in os.listdir(log_dir):
+        if file_name.startswith(log_name):
+            log_files.append(os.path.join(log_dir, file_name))
+
+    try:
+        for file in log_files:
+            open(file, "w").close()
+        cli.ok("Cleared log files.")
+    except FileNotFoundError:
+        cli.ok("Cleared log files.")
+    except OSError:
+        raise cli.CliException(
+            f"Could not clear log at '{log_dir}'. " f"Please try to delete it manually"
+        )
+
+
+@log.command(name="level", help="Get or set the log level.")
+@click.argument(
+    "level_name",
+    required=False,
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
+)
+@existing_config_option
+def log_level(level_name: str, config_name: str) -> None:
+
+    import logging
+    from .daemon import MaestralProxy
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        if level_name:
+            m.log_level = cast(int, getattr(logging, level_name))
+            cli.ok(f"Log level set to {level_name}.")
+        else:
+            level_name = logging.getLevelName(m.log_level)
+            cli.echo(f"Log level: {level_name}")
