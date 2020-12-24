@@ -1342,16 +1342,23 @@ def rebuild_index(config_name: str) -> None:
 
 @main.command(section="Maintenance", help="List old file revisions.")
 @click.argument("dropbox_path", type=DropboxPath())
+@click.option(
+    "-l",
+    "--limit",
+    help="Maximum number of revs to list.",
+    show_default=True,
+    type=click.IntRange(min=1, max=100),
+    default=10,
+)
 @existing_config_option
 @catch_maestral_errors
-def revs(dropbox_path: str, config_name: str) -> None:
+def revs(dropbox_path: str, limit: int, config_name: str) -> None:
 
     from datetime import datetime
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
-
-        entries = m.list_revisions(dropbox_path)
+        entries = m.list_revisions(dropbox_path, limit=limit)
 
     table = cli.Table(["Revision", "Modified Time"])
 
@@ -1526,9 +1533,17 @@ If no revision number is given, old revisions will be listed.
 )
 @click.argument("dropbox_path", type=click.Path())
 @click.option("-v", "--rev", help="Revision to restore.", default="")
+@click.option(
+    "-l",
+    "--limit",
+    help="Maximum number of revs to list.",
+    show_default=True,
+    type=click.IntRange(min=1, max=100),
+    default=10,
+)
 @existing_config_option
 @catch_maestral_errors
-def restore(dropbox_path: str, rev: str, config_name: str) -> None:
+def restore(dropbox_path: str, rev: str, limit: int, config_name: str) -> None:
     from datetime import datetime
     from .daemon import MaestralProxy
 
@@ -1539,7 +1554,7 @@ def restore(dropbox_path: str, rev: str, config_name: str) -> None:
 
         if not rev:
             cli.echo("Loading...\r", nl=False)
-            entries = m.list_revisions(dropbox_path)
+            entries = m.list_revisions(dropbox_path, limit=limit)
             dates = []
             for entry in entries:
                 cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
