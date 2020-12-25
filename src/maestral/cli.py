@@ -18,7 +18,7 @@ import click
 import Pyro5.errors  # type: ignore
 
 # local imports
-from . import __version__, __author__, __url__
+from . import __version__
 from .utils import cli
 
 if TYPE_CHECKING:
@@ -1094,20 +1094,6 @@ def configs() -> None:
 
     cli.echo("")
     table.echo()
-    cli.echo("")
-
-
-@main.command(
-    section="Information", help="Return the version number and other information."
-)
-def about() -> None:
-
-    year = time.localtime().tm_year
-
-    cli.echo("")
-    cli.echo(f"Version:    {__version__}")
-    cli.echo(f"Website:    {__url__}")
-    cli.echo(f"Copyright:  (c) 2018-{year}, {__author__}.")
     cli.echo("")
 
 
