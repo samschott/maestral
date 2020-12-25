@@ -460,7 +460,6 @@ class OrderedGroup(click.Group):
 
 @click.group(
     cls=OrderedGroup,
-    context_settings={"help_option_names": ["-h", "--help"]},
     invoke_without_command=True,
     no_args_is_help=True,
     help="Dropbox client for Linux and macOS.",
