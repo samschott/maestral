@@ -26,7 +26,6 @@ DEFAULTS_CONFIG = [
         "main",
         {
             "path": "",  # dropbox folder location
-            "default_dir_name": "Dropbox (Maestral)",  # default dropbox folder name
             "excluded_items": [],  # files and folders excluded from sync
         },
     ),
@@ -98,7 +97,7 @@ DEFAULTS_STATE = [
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = "13.0.0"
+CONF_VERSION = "14.0.0"
 
 
 # =============================================================================
@@ -131,11 +130,6 @@ def MaestralConfig(config_name: str) -> UserConfig:
 
             defaults: DefaultsType = copy.deepcopy(DEFAULTS_CONFIG)  # type: ignore
 
-            # set default dir name according to config
-            for sec, options in defaults:
-                if sec == "main":
-                    options["default_dir_name"] = f"Dropbox ({config_name.title()})"
-
             config_path = get_conf_path(CONFIG_DIR_NAME)
 
             try:
@@ -157,10 +151,6 @@ def MaestralConfig(config_name: str) -> UserConfig:
                     remove_obsolete=True,
                     load=False,
                 )
-
-            # adapt folder name to config
-            dirname = f"Dropbox ({config_name.title()})"
-            conf.set_default("main", "default_dir_name", dirname)
 
             _config_instances[config_name] = conf
             return conf
