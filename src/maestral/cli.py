@@ -1055,13 +1055,11 @@ def account_info(config_name: str) -> None:
 
         email = m.get_state("account", "email")
         account_type = m.get_state("account", "type").capitalize()
-        usage = m.get_state("account", "usage")
         dbid = m.get_conf("account", "account_id")
 
     cli.echo("")
     cli.echo(f"Email:         {email}")
     cli.echo(f"Account-type:  {account_type}")
-    cli.echo(f"Usage:         {usage}")
     cli.echo(f"Dropbox-ID:    {dbid}")
     cli.echo("")
 
