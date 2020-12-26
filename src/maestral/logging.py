@@ -3,7 +3,7 @@
 
 import logging
 from collections import deque
-from concurrent.futures._base import Future, wait
+from concurrent.futures import Future, wait
 from typing import Deque, Optional, List
 
 try:
