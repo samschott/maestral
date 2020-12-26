@@ -19,6 +19,7 @@ import platform
 import subprocess
 import shutil
 import logging
+from concurrent.futures import Future, wait
 from typing import Type, Optional, Dict, Tuple
 
 # external imports
@@ -211,7 +212,21 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
                     )
                     actions.append(action)
 
-                categories = self.nc.notificationCategories
+                # get existing notification categories
+
+                future: Future = Future()
+
+                def handler(categories: objc_id) -> None:
+                    categories = py_from_ns(categories)
+                    future.set_result(categories)
+
+                self.nc.getNotificationCategoriesWithCompletionHandler(handler)
+
+                wait([future])
+                categories = future.result()
+
+                # add category for new set of buttons
+
                 category_id = str(uuid.uuid4())
                 new_categories = categories.setByAddingObject(
                     UNNotificationCategory.categoryWithIdentifier(
@@ -221,7 +236,7 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
                         options=UNNotificationCategoryOptionNone,
                     )
                 )
-                self.nc.notificationCategories = new_categories
+                self.nc.setNotificationCategories(new_categories)
                 self._notification_categories[button_names] = category_id
 
                 return category_id
