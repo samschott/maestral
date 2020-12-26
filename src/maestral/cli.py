@@ -737,7 +737,7 @@ If Maestral is running, it will be stopped before unlinking.
 def unlink(yes: bool, config_name: str) -> None:
 
     if not yes:
-        cli.confirm("Are you sure you want unlink your account?", default=False)
+        yes = cli.confirm("Are you sure you want unlink your account?", default=False)
 
     if yes:
         from .main import Maestral
