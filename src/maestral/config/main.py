@@ -4,7 +4,6 @@ This module contains the default configuration and state values and functions to
 existing config or state instances for a specified config_name.
 """
 
-import copy
 import logging
 import threading
 from typing import Dict
@@ -21,7 +20,7 @@ CONFIG_DIR_NAME = "maestral"
 #  Defaults
 # =============================================================================
 
-DEFAULTS_CONFIG = [
+DEFAULTS_CONFIG: DefaultsType = [
     (
         "main",
         {
@@ -55,7 +54,7 @@ DEFAULTS_CONFIG = [
     ),
 ]
 
-DEFAULTS_STATE = [
+DEFAULTS_STATE: DefaultsType = [
     (
         "account",  # account state, periodically updated from dropbox servers
         {
@@ -104,11 +103,43 @@ CONF_VERSION = "14.0.0"
 # Factories
 # =============================================================================
 
-_config_instances: Dict[str, UserConfig] = dict()
-_state_instances: Dict[str, UserConfig] = dict()
 
+def _get_conf(
+    config_name: str,
+    config_path: str,
+    defaults: DefaultsType,
+    registry: Dict[str, UserConfig],
+):
+
+    try:
+        conf = registry[config_name]
+    except KeyError:
+
+        try:
+            conf = UserConfig(
+                config_path,
+                defaults=defaults,
+                version=CONF_VERSION,
+                backup=True,
+                remove_obsolete=True,
+            )
+        except OSError:
+            conf = UserConfig(
+                config_path,
+                defaults=defaults,
+                version=CONF_VERSION,
+                backup=True,
+                remove_obsolete=True,
+                load=False,
+            )
+
+        registry[config_name] = conf
+
+    return conf
+
+
+_config_instances: Dict[str, UserConfig] = dict()
 _config_lock = threading.Lock()
-_state_lock = threading.Lock()
 
 
 def MaestralConfig(config_name: str) -> UserConfig:
@@ -123,37 +154,12 @@ def MaestralConfig(config_name: str) -> UserConfig:
     global _config_instances
 
     with _config_lock:
+        config_path = get_conf_path(CONFIG_DIR_NAME, f"{config_name}.ini")
+        return _get_conf(config_name, config_path, DEFAULTS_CONFIG, _config_instances)
 
-        try:
-            return _config_instances[config_name]
-        except KeyError:
 
-            defaults: DefaultsType = copy.deepcopy(DEFAULTS_CONFIG)  # type: ignore
-
-            config_path = get_conf_path(CONFIG_DIR_NAME)
-
-            try:
-                conf = UserConfig(
-                    config_path,
-                    config_name,
-                    defaults=defaults,
-                    version=CONF_VERSION,
-                    backup=True,
-                    remove_obsolete=True,
-                )
-            except OSError:
-                conf = UserConfig(
-                    config_path,
-                    config_name,
-                    defaults=defaults,
-                    version=CONF_VERSION,
-                    backup=True,
-                    remove_obsolete=True,
-                    load=False,
-                )
-
-            _config_instances[config_name] = conf
-            return conf
+_state_instances: Dict[str, UserConfig] = dict()
+_state_lock = threading.Lock()
 
 
 def MaestralState(config_name: str) -> UserConfig:
@@ -168,35 +174,5 @@ def MaestralState(config_name: str) -> UserConfig:
     global _state_instances
 
     with _state_lock:
-
-        try:
-            return _state_instances[config_name]
-        except KeyError:
-            state_path = get_data_path(CONFIG_DIR_NAME)
-
-            defaults: DefaultsType = copy.deepcopy(DEFAULTS_STATE)  # type: ignore
-
-            try:
-                state = UserConfig(
-                    state_path,
-                    config_name,
-                    defaults=defaults,
-                    version=CONF_VERSION,
-                    backup=True,
-                    remove_obsolete=True,
-                    suffix=".state",
-                )
-            except OSError:
-                state = UserConfig(
-                    state_path,
-                    config_name,
-                    defaults=defaults,
-                    version=CONF_VERSION,
-                    backup=True,
-                    remove_obsolete=True,
-                    suffix=".state",
-                    load=False,
-                )
-
-            _state_instances[config_name] = state
-            return state
+        state_path = get_data_path(CONFIG_DIR_NAME, f"{config_name}.state")
+        return _get_conf(config_name, state_path, DEFAULTS_STATE, _state_instances)
