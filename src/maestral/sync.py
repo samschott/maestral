@@ -10,19 +10,19 @@ import socket
 import resource
 import logging
 import time
-import tempfile
 import random
 import uuid
 import urllib.parse
+import enum
+import pprint
+import gc
 from threading import Thread, Event, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue, Empty
 from collections import abc
 from contextlib import contextmanager
-import enum
-import pprint
-import gc
 from functools import wraps
+from tempfile import NamedTemporaryFile
 from typing import (
     Optional,
     Any,
@@ -1022,9 +1022,7 @@ class SyncEngine:
         """Returns a new temporary file name in our cache directory."""
         self._ensure_cache_dir_present()
         try:
-            with tempfile.NamedTemporaryFile(
-                dir=self.file_cache_path, delete=False
-            ) as f:
+            with NamedTemporaryFile(dir=self.file_cache_path, delete=False) as f:
                 os.fchmod(f.fileno(), 0o666 & ~umask)
                 return f.name
         except OSError as err:
