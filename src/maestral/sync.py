@@ -3385,7 +3385,7 @@ def download_worker(
         except ConnectionError:
             syncing.clear()
             connected.clear()
-            logger.debug("Lost connection", exc_info=True)
+            logger.debug("Connection error", exc_info=True)
             logger.info(DISCONNECTED)
         except Exception as err:
             running.clear()
@@ -3439,7 +3439,7 @@ def download_worker_added_item(
         except ConnectionError:
             syncing.clear()
             connected.clear()
-            logger.debug("Lost connection", exc_info=True)
+            logger.debug("Connection error", exc_info=True)
             logger.info(DISCONNECTED)
         except Exception as err:
             running.clear()
@@ -3488,7 +3488,7 @@ def upload_worker(
         except ConnectionError:
             syncing.clear()
             connected.clear()
-            logger.debug("Lost connection", exc_info=True)
+            logger.debug("Connection error", exc_info=True)
             logger.info(DISCONNECTED)
         except Exception as err:
             running.clear()
@@ -3585,7 +3585,7 @@ def startup_worker(
             syncing.clear()
             connected.clear()
             startup.clear()
-            logger.debug("Lost connection", exc_info=True)
+            logger.debug("Connection error", exc_info=True)
             logger.info(DISCONNECTED)
         except Exception as err:
             running.clear()
@@ -4048,6 +4048,7 @@ def check_connection(hostname: str) -> bool:
         s.close()
         return True
     except Exception:
+        logger.debug("Connection error", exc_info=True)
         return False
 
 
