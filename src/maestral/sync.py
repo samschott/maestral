@@ -145,6 +145,8 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 _cpu_count = os.cpu_count() or 1  # os.cpu_count can return None
+umask = os.umask(0o22)
+os.umask(umask)
 
 # type definitions
 ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
@@ -1023,8 +1025,6 @@ class SyncEngine:
             with tempfile.NamedTemporaryFile(
                 dir=self.file_cache_path, delete=False
             ) as f:
-                umask = os.umask(0o22)
-                os.umask(umask)
                 os.fchmod(f.fileno(), 0o666 & ~umask)
                 return f.name
         except OSError as err:
