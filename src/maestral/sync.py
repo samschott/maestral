@@ -961,7 +961,7 @@ class SyncEngine:
         """
         Checks if the Dropbox folder still exists where we expect it to be.
 
-        :raises DropboxDeletedError: When localal Dropbox directory does not exist.
+        :raises DropboxDeletedError: When local Dropbox directory does not exist.
         """
 
         if not osp.isdir(self.dropbox_path):
