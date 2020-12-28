@@ -1023,7 +1023,7 @@ class SyncEngine:
         self._ensure_cache_dir_present()
         try:
             with NamedTemporaryFile(dir=self.file_cache_path, delete=False) as f:
-                os.fchmod(f.fileno(), 0o666 & ~umask)
+                os.chmod(f.fileno(), 0o666 & ~umask)
                 return f.name
         except OSError as err:
             raise CacheDirError(
