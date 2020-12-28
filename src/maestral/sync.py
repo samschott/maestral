@@ -144,7 +144,7 @@ __all__ = [
 
 
 logger = logging.getLogger(__name__)
-_cpu_count = os.cpu_count() or 1  # os.cpu_count can return None
+cpu_count = os.cpu_count() or 1  # os.cpu_count can return None
 umask = os.umask(0o22)
 os.umask(umask)
 
@@ -404,7 +404,7 @@ class SyncEngine:
     _case_conversion_cache: LRUCache
 
     _max_history = 1000
-    _num_threads = min(32, _cpu_count * 3)
+    _num_threads = min(32, cpu_count * 3)
 
     def __init__(self, client: DropboxClient, fs_events_handler: FSEventHandler):
 
@@ -472,7 +472,7 @@ class SyncEngine:
         self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
         self._mignore_rules = self._load_mignore_rules_form_file()
         self._excluded_items = self._conf.get("main", "excluded_items")
-        self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * _cpu_count
+        self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * cpu_count
 
         # caches
         self._case_conversion_cache = LRUCache(capacity=5000)
@@ -568,7 +568,7 @@ class SyncEngine:
     def max_cpu_percent(self, percent: float) -> None:
         """Setter: max_cpu_percent."""
         self._max_cpu_percent = percent
-        self._conf.set("app", "max_cpu_percent", percent // _cpu_count)
+        self._conf.set("app", "max_cpu_percent", percent // cpu_count)
 
     # ==== sync state ==================================================================
 
@@ -4017,7 +4017,7 @@ def cpu_usage_percent(interval: float = 0.1) -> float:
         raise ValueError(f"interval is not positive (got {interval!r})")
 
     def timer():
-        return time.monotonic() * _cpu_count
+        return time.monotonic() * cpu_count
 
     st1 = timer()
     rt1 = resource.getrusage(resource.RUSAGE_SELF)
@@ -4033,7 +4033,7 @@ def cpu_usage_percent(interval: float = 0.1) -> float:
     except ZeroDivisionError:
         return 0.0
     else:
-        single_cpu_percent = overall_cpus_percent * _cpu_count
+        single_cpu_percent = overall_cpus_percent * cpu_count
         return round(single_cpu_percent, 1)
 
 
