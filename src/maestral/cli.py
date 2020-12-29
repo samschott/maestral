@@ -458,12 +458,7 @@ class OrderedGroup(click.Group):
                         formatter.write_dl(rows)
 
 
-@click.group(
-    cls=OrderedGroup,
-    invoke_without_command=True,
-    no_args_is_help=True,
-    help="Dropbox client for Linux and macOS.",
-)
+@click.group(cls=OrderedGroup, help="Dropbox client for Linux and macOS.")
 @click.version_option(version=__version__, message=__version__)
 def main():
     pass
@@ -500,7 +495,7 @@ existing_config_option = click.option(
     "-f",
     is_flag=True,
     default=False,
-    help="Starts Maestral in the foreground.",
+    help="Start Maestral in the foreground.",
 )
 @click.option(
     "--verbose",
@@ -914,7 +909,7 @@ def history(config_name: str) -> None:
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
-        history = m.get_history()
+        events = m.get_history()
 
     table = cli.Table(
         [
@@ -924,7 +919,7 @@ def history(config_name: str) -> None:
         ]
     )
 
-    for event in history:
+    for event in events:
 
         dbx_path = cast(str, event["dbx_path"])
         change_type = cast(str, event["change_type"])
