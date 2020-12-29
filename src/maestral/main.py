@@ -873,7 +873,7 @@ class Maestral:
 
         md_old = self.client.get_metadata(f"rev:{old_rev}", include_deleted=True)
         dbx_path = self.sync.correct_case(md_old.path_display)
-        full_path = self.sync.to_local_path(md_old.path_display)
+        local_path = self.sync.to_local_path(md_old.path_display)
 
         # Check if a diff is possible
         # If mime is None, proceed because most files without
@@ -888,11 +888,11 @@ class Maestral:
         if new_rev is None:
             new_rev = "local version"
             try:
-                with convert_api_errors(dbx_path=dbx_path, local_path=full_path):
-                    mtime = time.localtime(osp.getmtime(full_path))
+                with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
+                    mtime = time.localtime(osp.getmtime(local_path))
                     date_str_new = time.strftime("%d %b %Y at %H:%M", mtime)
 
-                    with open(full_path) as f:
+                    with open(local_path) as f:
                         content_new = f.readlines()
 
             except UnicodeDecodeError:
