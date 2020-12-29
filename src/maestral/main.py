@@ -33,6 +33,7 @@ import requests
 from watchdog.events import DirDeletedEvent, FileDeletedEvent  # type: ignore
 from packaging.version import Version
 from datetime import datetime, timezone
+from dropbox.files import FileMetadata
 
 try:
     from systemd import journal  # type: ignore
@@ -845,27 +846,18 @@ class Maestral:
         :raises MaestralApiError: if file could not be read for any other reason.
         """
 
-        def pretty_date(d: datetime) -> str:
+        def str_from_date(d: datetime) -> str:
+            """Convert 'client_modified' metadata to string in local timezone"""
+            tz_date = d.replace(tzinfo=timezone.utc).astimezone()
+            return tz_date.strftime("%d %b %Y at %H:%M")
+
+        def download_rev(rev: str) -> Tuple[List[str], FileMetadata]:
             """
-            Prettify the 'client_modified' metadata.
+            Download a rev to a tmp file, read it and return the content + metadata
             """
 
-            return (
-                d.replace(tzinfo=timezone.utc)
-                .astimezone()
-                .strftime("%d %b %Y at %H:%M")
-            )
-
-        def download_rev(rev: str) -> Tuple[List[str], str]:
-            """
-            Download a rev to a temporary file, read it and return
-            the content + the date and time of the modification.
-            """
-
-            # By default the file would be opened with "w+b"
             with tempfile.NamedTemporaryFile(mode="w+") as f:
                 md = self.client.download(dbx_path, f.name, rev=rev)
-                date = pretty_date(md.client_modified)
 
                 # Read from the file
                 try:
@@ -877,7 +869,7 @@ class Maestral:
                         "Only UTF-8 plain text files are currently supported.",
                     )
 
-            return content, date
+            return content, md
 
         md_old = self.client.get_metadata(f"rev:{old_rev}", include_deleted=True)
         dbx_path = self.sync.correct_case(md_old.path_display)
@@ -894,29 +886,35 @@ class Maestral:
 
         # If new_rev is None, the local file is used, even if it isn't synced
         if new_rev is None:
-            new_date = "Local version"
+            new_rev = "local version"
             try:
                 with convert_api_errors(dbx_path=dbx_path, local_path=full_path):
+                    mtime = time.localtime(osp.getmtime(full_path))
+                    date_str_new = time.strftime("%d %b %Y at %H:%M", mtime)
+
                     with open(full_path) as f:
-                        new_content = f.readlines()
+                        content_new = f.readlines()
+
             except UnicodeDecodeError:
                 raise UnsupportedFileTypeForDiff(
                     "Failed to decode the file",
                     "Only UTF-8 plain text files are currently supported.",
                 )
         else:
-            new_content, new_date = download_rev(new_rev)
+            content_new, md_new = download_rev(new_rev)
+            date_str_new = str_from_date(md_new.client_modified)
 
-        old_content, old_date = download_rev(old_rev)
+        content_old, md_old = download_rev(old_rev)
+        date_str_old = str_from_date(md_old.client_modified)
 
         return list(
             difflib.unified_diff(
-                old_content,
-                new_content,
-                fromfile=dbx_path,
-                tofile=dbx_path,
-                fromfiledate=old_date,
-                tofiledate=new_date,
+                content_old,
+                content_new,
+                fromfile=f"{dbx_path} ({old_rev})",
+                tofile=f"{dbx_path} ({new_rev})",
+                fromfiledate=date_str_old,
+                tofiledate=date_str_new,
             )
         )
 
