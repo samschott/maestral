@@ -831,15 +831,12 @@ class Maestral:
 
         return entries
 
-    def get_file_diff(
-        self, dbx_path: str, old_rev: str, new_rev: Optional[str] = None
-    ) -> List[str]:
+    def get_file_diff(self, old_rev: str, new_rev: Optional[str] = None) -> List[str]:
         """
-        Download the two revisions if necessary and create a diff with the python
-        difflib library. If new_rev is None, it will compare the old revision to the
-        local file.
+        Compare to revisions of a text file using Python's difflib. The versions will be
+        downloaded to temporary files. If new_rev is None, the old revision will be
+        compared to the corresponding local file, if any.
 
-        :param dbx_path: Path to file on Dropbox.
         :param old_rev: Identifier of old revision.
         :param new_rev: Identifier of new revision.
         :returns: Diff as a list of strings (lines).
@@ -882,12 +879,14 @@ class Maestral:
 
             return content, date
 
-        full_path = self.sync.to_local_path(dbx_path)
+        md_old = self.client.get_metadata(f"rev:{old_rev}", include_deleted=True)
+        dbx_path = self.sync.correct_case(md_old.path_display)
+        full_path = self.sync.to_local_path(md_old.path_display)
 
         # Check if a diff is possible
         # If mime is None, proceed because most files without
         # an extension are just text files
-        mime, _ = mimetypes.guess_type(full_path)
+        mime, _ = mimetypes.guess_type(dbx_path)
         if mime is not None and not mime.startswith("text/"):
             raise UnsupportedFileTypeForDiff(
                 f"Bad file type: '{mime}'", "Only files of type 'text/*' are supported."

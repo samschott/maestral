@@ -1418,7 +1418,7 @@ def diff(
         'text/*', an error message gets printed.
         """
 
-        diff = m.get_file_diff(dropbox_path, old_rev, new_rev)
+        diff = m.get_file_diff(old_rev, new_rev)
 
         if len(diff) == 0:
             click.echo("There are no changes between the two revisions.")
