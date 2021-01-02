@@ -980,7 +980,7 @@ class SyncEngine:
         """
 
         retries = 0
-        max_retries = 3
+        max_retries = 100
 
         while not osp.isdir(self.file_cache_path):
             try:
