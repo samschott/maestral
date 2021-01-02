@@ -1003,6 +1003,8 @@ class SyncEngine:
                     "Exceeded maximum number of retries",
                 )
 
+            retries += 1
+
     def clean_cache_dir(self) -> None:
         """Removes all items in the cache directory."""
 
