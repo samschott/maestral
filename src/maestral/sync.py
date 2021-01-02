@@ -992,7 +992,7 @@ class SyncEngine:
                 self.clean_cache_dir()
             except OSError as err:
                 raise CacheDirError(
-                    f"Cannot create cache directory (errno {err.errno})",
+                    f"Cannot create cache directory: {os.strerror(err.errno)}",
                     "Please check if you have write permissions for "
                     f"{self._file_cache_path}.",
                 )
@@ -1013,7 +1013,7 @@ class SyncEngine:
                 pass
             except OSError as err:
                 raise CacheDirError(
-                    f"Cannot clean cache directory (errno {err.errno})",
+                    f"Cannot create cache directory: {os.strerror(err.errno)}",
                     "Please check if you have write permissions for "
                     f"{self._file_cache_path}.",
                 )
@@ -1027,7 +1027,7 @@ class SyncEngine:
                 return f.name
         except OSError as err:
             raise CacheDirError(
-                f"Cannot create temporary file (errno {err.errno})",
+                f"Cannot create cache directory: {os.strerror(err.errno)}",
                 "Please check if you have write permissions for "
                 f"{self._file_cache_path}.",
             )
