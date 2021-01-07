@@ -231,7 +231,7 @@ def test_create_file_diff(m):
         # Write some dummy stuff to create two revs
         old_rev = write_and_get_rev(dbx_path_fail_pdf, "old")
         new_rev = write_and_get_rev(dbx_path_fail_pdf, "new")
-        m.get_file_diff(dbx_path_fail_pdf, old_rev, new_rev)
+        m.get_file_diff(old_rev, new_rev)
 
     with pytest.raises(UnsupportedFileTypeForDiff):
         # Add a compiled helloworld c file with .txt extension
@@ -240,13 +240,13 @@ def test_create_file_diff(m):
         old_rev = m.client.get_metadata(dbx_path_fail_ext).rev
         # Just some bytes
         new_rev = write_and_get_rev(dbx_path_fail_ext, "hi".encode(), o="ab")
-        m.get_file_diff(dbx_path_fail_ext, old_rev, new_rev)
+        m.get_file_diff(old_rev, new_rev)
 
-    old_rev = write_and_get_rev(dbx_path_fail_ext, "old")
-    new_rev = write_and_get_rev(dbx_path_fail_ext, "new")
+    old_rev = write_and_get_rev(dbx_path_success, "old")
+    new_rev = write_and_get_rev(dbx_path_success, "new")
     # If this does not raise an error,
     # the function should have been successful
-    _ = m.get_file_diff(dbx_path_success, old_rev, new_rev)
+    _ = m.get_file_diff(old_rev, new_rev)
 
 
 def test_restore(m):
