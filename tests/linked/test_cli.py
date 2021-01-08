@@ -1,10 +1,17 @@
 # -*- coding: utf-8 -*-
 
+import os
+
+import pytest
 from click.testing import CliRunner
 
 from maestral.cli import main
 from maestral.constants import IDLE, PAUSED, STOPPED, ERROR
 from maestral.daemon import MaestralProxy
+
+
+if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.environ):
+    pytest.skip("Requires auth token", allow_module_level=True)
 
 
 def wait_for_idle(m: MaestralProxy, minimum: int = 2):

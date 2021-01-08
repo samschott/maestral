@@ -14,7 +14,7 @@ from maestral.utils.path import delete
 from .conftest import wait_for_idle, resources
 
 
-if not os.environ.get("DROPBOX_TOKEN"):
+if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.environ):
     pytest.skip("Requires auth token", allow_module_level=True)
 
 

@@ -38,14 +38,26 @@ def m():
     m.log_level = logging.DEBUG
 
     # link with given token
-    access_token = os.environ.get("DROPBOX_TOKEN", "")
-    m.client._init_sdk_with_token(access_token=access_token)
+    access_token = os.environ.get("DROPBOX_ACCESS_TOKEN")
+    refresh_token = os.environ.get("DROPBOX_REFRESH_TOKEN")
+
+    if access_token:
+        m.client._init_sdk_with_token(access_token=access_token)
+        m.client.auth._access_token = access_token
+        m.client.auth._token_access_type = "legacy"
+    elif refresh_token:
+        m.client._init_sdk_with_token(refresh_token=refresh_token)
+        m.client.auth._refresh_token = refresh_token
+        m.client.auth._token_access_type = "offline"
+    else:
+        raise RuntimeError(
+            "Either access token or refresh token must be given as environment "
+            "variable DROPBOX_ACCESS_TOKEN or DROPBOX_REFRESH_TOKEN."
+        )
 
     # get corresponding Dropbox ID and store in keyring for other processes
     res = m.client.get_account_info()
     m.client.auth._account_id = res.account_id
-    m.client.auth._access_token = access_token
-    m.client.auth._token_access_type = "legacy"
     m.client.auth.save_creds()
 
     # set local Dropbox directory

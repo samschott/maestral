@@ -112,7 +112,7 @@ jobs:
               -d client_id=2jmbq42w7vof78h)
           token=$(echo $auth_result | python -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
           echo "::add-mask::$token"
-          echo "DROPBOX_TOKEN=$token" >> $GITHUB_ENV
+          echo "DROPBOX_ACCESS_TOKEN=$token" >> $GITHUB_ENV
 
       - name: Test with pytest
         run: |
