@@ -304,7 +304,8 @@ elif Version(macos_version) < Version("12.0.0"):
             super().__init__(app_name, app_id)
 
             self.nc = NSUserNotificationCenter.defaultUserNotificationCenter
-            self.nc.delegate = NotificationCenterDelegate.alloc().init()
+            self.nc_delegate = NotificationCenterDelegate.alloc().init()
+            self.nc.delegate = self.nc_delegate
             self.nc.delegate.interface = self
 
         def send(self, notification: Notification) -> None:
