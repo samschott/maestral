@@ -15,10 +15,10 @@ from dbus_next import Variant  # type: ignore
 from dbus_next.aio import MessageBus, ProxyInterface  # type: ignore
 
 # local imports
-from .notify_base import Notification, DesktopNotifierBase, NotificationLevel
+from .base import Notification, DesktopNotifierBase, NotificationLevel
 
 
-__all__ = ["Impl", "DBusDesktopNotifier"]
+__all__ = ["Impl"]
 
 logger = logging.getLogger(__name__)
 

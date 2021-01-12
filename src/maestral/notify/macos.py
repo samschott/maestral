@@ -28,11 +28,11 @@ from rubicon.objc import ObjCClass, objc_method, py_from_ns  # type: ignore
 from rubicon.objc.runtime import load_library, objc_id, objc_block  # type: ignore
 
 # local imports
-from .notify_base import Notification, DesktopNotifierBase
-from maestral.constants import FROZEN
+from ..constants import FROZEN
+from .base import Notification, DesktopNotifierBase
 
 
-__all__ = ["Impl", "CocoaNotificationCenter", "CocoaNotificationCenterLegacy"]
+__all__ = ["Impl"]
 
 logger = logging.getLogger(__name__)
 macos_version, *_ = platform.mac_ver()

@@ -12,9 +12,9 @@ from threading import Lock
 from typing import Optional, Dict, ClassVar, Callable
 
 # local imports
-from maestral.config import MaestralConfig
-from maestral.constants import APP_NAME, BUNDLE_ID, APP_ICON_PATH
-from .notify_base import DesktopNotifierBase, NotificationLevel, Notification
+from ..config import MaestralConfig
+from ..constants import APP_NAME, BUNDLE_ID, APP_ICON_PATH
+from .base import DesktopNotifierBase, NotificationLevel, Notification
 
 
 __all__ = [
@@ -46,9 +46,9 @@ class DesktopNotifier:
         self._lock = Lock()
 
         if platform.system() == "Darwin":
-            from .notify_macos import Impl
+            from .macos import Impl
         elif platform.system() == "Linux":
-            from .notify_linux import Impl  # type: ignore
+            from .linux import Impl  # type: ignore
         else:
             Impl = None  # type: ignore
 
