@@ -31,7 +31,8 @@ or downloading a file if it already exists with the same content locally or in t
 
 ## Warning
 
-- Never sync a folder with both the official Dropbox client and Maestral at the same time.
+- Never sync a local folder with both the official Dropbox client and Maestral at the same
+  time.
 - Network drives and some external hard drives are not supported as locations for the
   Dropbox folder.
 
