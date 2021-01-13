@@ -53,7 +53,7 @@ class DesktopNotifier:
             Impl = None  # type: ignore
 
         if Impl:
-            self._impl = Impl(app_name, app_id)
+            self._impl = Impl(app_name)
         else:
             self._impl = None
 

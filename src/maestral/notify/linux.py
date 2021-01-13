@@ -38,8 +38,8 @@ class DBusDesktopNotifier(DesktopNotifierBase):
         NotificationLevel.Critical: Variant("y", 2),
     }
 
-    def __init__(self, app_name: str, app_id: str) -> None:
-        super().__init__(app_name, app_id)
+    def __init__(self, app_name: str) -> None:
+        super().__init__(app_name)
         self._loop = asyncio.get_event_loop()
         self.interface: Optional[ProxyInterface] = None
         self._force_run_in_loop(self._init_dbus())

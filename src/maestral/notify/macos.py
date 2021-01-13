@@ -113,14 +113,14 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
         by the app bundle. This implementation only works from within signed app bundles
         and if called from the main executable.
 
-        :param app_name: The name of the app.
-        :param app_id: The bundle identifier of the app.
+        :param app_name: The name of the app. Does not have any effect because the app
+            name is automatically determined from the bundle or framework.
         """
 
         _notification_categories: Dict[Tuple[str, ...], str]
 
-        def __init__(self, app_name: str, app_id: str) -> None:
-            super().__init__(app_name, app_id)
+        def __init__(self, app_name: str) -> None:
+            super().__init__(app_name)
             self.nc = UNUserNotificationCenter.currentNotificationCenter()
             self.nc_delegate = NotificationCenterDelegate.alloc().init()
             self.nc_delegate.interface = self
@@ -194,7 +194,7 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
             self, button_names: Tuple[str, ...]
         ) -> Optional[str]:
             """
-            Creates a and registers a new notification category with the given buttons
+            Creates and registers a new notification category with the given buttons
             or retrieves an existing one.
             """
 
@@ -296,12 +296,12 @@ elif Version(macos_version) < Version("12.0.0"):
         identifier will be ignored. The notification center automatically uses the
         values provided by the app bundle or the Python framework.
 
-        :param app_name: The name of the app.
-        :param app_id: The bundle identifier of the app.
+        :param app_name: The name of the app. Does not have any effect because the app
+            name is automatically determined from the bundle or framework.
         """
 
-        def __init__(self, app_name: str, app_id: str) -> None:
-            super().__init__(app_name, app_id)
+        def __init__(self, app_name: str) -> None:
+            super().__init__(app_name)
 
             self.nc = NSUserNotificationCenter.defaultUserNotificationCenter
             self.nc_delegate = NotificationCenterDelegate.alloc().init()
