@@ -13,7 +13,7 @@ from typing import Optional, Dict, ClassVar, Callable
 
 # local imports
 from ..config import MaestralConfig
-from ..constants import APP_NAME, BUNDLE_ID, APP_ICON_PATH
+from ..constants import APP_NAME, APP_ICON_PATH
 from .base import DesktopNotifierBase, NotificationLevel, Notification
 
 
@@ -36,13 +36,11 @@ class DesktopNotifier:
     :mod:`rubicon.objc` can be used to integrate asyncio with a CFRunLoop.
 
     :param app_name: Name of app which sends notifications.
-    :param app_id: Bundle identifier of the app. This is typically a reverse domain name
-        such as 'com.google.app'.
     """
 
     _impl: Optional[DesktopNotifierBase]
 
-    def __init__(self, app_name: str, app_id: str) -> None:
+    def __init__(self, app_name: str) -> None:
         self._lock = Lock()
 
         if platform.system() == "Darwin":
@@ -89,7 +87,18 @@ class DesktopNotifier:
                 self._impl.send(notification)
 
 
-_desktop_notifier_maestral = DesktopNotifier(APP_NAME, BUNDLE_ID)
+_desktop_notifier: Optional[DesktopNotifier] = None
+
+
+def get_desktop_notifier() -> DesktopNotifier:
+    """Returns a global instance of :class:`DesktopNotifier`."""
+
+    global _desktop_notifier
+
+    if not _desktop_notifier:
+        _desktop_notifier = DesktopNotifier(APP_NAME)
+
+    return _desktop_notifier
 
 
 class MaestralDesktopNotifier:
@@ -187,7 +196,8 @@ class MaestralDesktopNotifier:
             urgency = NotificationLevel.Normal
 
         if level >= self.notify_level and not ignore:
-            _desktop_notifier_maestral.send(
+            desktop_notifier = get_desktop_notifier()
+            desktop_notifier.send(
                 title=title,
                 message=message,
                 icon=APP_ICON_PATH,
@@ -222,7 +232,8 @@ class MaestralDesktopNotificationHandler(logging.Handler):
         else:
             urgency = NotificationLevel.Normal
 
-        _desktop_notifier_maestral.send(
+        desktop_notifier = get_desktop_notifier()
+        desktop_notifier.send(
             title=record.levelname,
             message=record.message,
             icon=APP_ICON_PATH,
