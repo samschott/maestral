@@ -72,6 +72,10 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
 
     UNNotificationCategoryOptionNone = 0
 
+    UNAuthorizationStatusAuthorized = 2
+    UNAuthorizationStatusProvisional = 3
+    UNAuthorizationStatusEphemeral = 4
+
     class NotificationCenterDelegate(NSObject):  # type: ignore
         """Delegate to handle user interactions with notifications"""
 
@@ -125,10 +129,12 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
             self.nc_delegate = NotificationCenterDelegate.alloc().init()
             self.nc_delegate.interface = self
             self.nc.delegate = self.nc_delegate
+            self._did_request_authorisation = False
 
             self._notification_categories = {}
 
-            def _on_auth_completed(granted: bool, error: objc_id) -> None:
+        def _request_authorisation(self) -> None:
+            def on_auth_completed(granted: bool, error: objc_id) -> None:
                 if granted:
                     logger.debug("UNUserNotificationCenter: authorisation granted")
                 else:
@@ -142,8 +148,37 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
                 UNAuthorizationOptionAlert
                 | UNAuthorizationOptionSound
                 | UNAuthorizationOptionBadge,
-                completionHandler=_on_auth_completed,
+                completionHandler=on_auth_completed,
             )
+
+            self._did_request_authorisation = True
+
+        @property
+        def _has_authorisation(self) -> bool:
+
+            # get existing notification categories
+
+            future: Future = Future()
+
+            def handler(settings: objc_id) -> None:
+                settings = py_from_ns(settings)
+                settings.retain()
+                future.set_result(settings)
+
+            self.nc.getNotificationSettingsWithCompletionHandler(handler)
+
+            wait([future])
+            settings = future.result()
+
+            authorized = settings.authorizationStatus in (
+                UNAuthorizationStatusAuthorized,
+                UNAuthorizationStatusProvisional,
+                UNAuthorizationStatusEphemeral,
+            )
+
+            settings.release()
+
+            return authorized
 
         def send(self, notification: Notification) -> None:
             """
@@ -151,6 +186,12 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
 
             :param notification: Notification to send.
             """
+
+            if not self._did_request_authorisation:
+                self._request_authorisation()
+
+            if not self._has_authorisation:
+                return
 
             # Get an internal ID for the notifications. This will recycle an old ID if
             # we are above the max number of notifications.
@@ -218,6 +259,7 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
 
                 def handler(categories: objc_id) -> None:
                     categories = py_from_ns(categories)
+                    categories.retain()
                     future.set_result(categories)
 
                 self.nc.getNotificationCategoriesWithCompletionHandler(handler)
@@ -238,6 +280,8 @@ if FROZEN and Version(macos_version) >= Version("10.14.0"):
                 )
                 self.nc.setNotificationCategories(new_categories)
                 self._notification_categories[button_names] = category_id
+
+                categories.release()
 
                 return category_id
 
