@@ -87,18 +87,7 @@ class DesktopNotifier:
                 self._impl.send(notification)
 
 
-_desktop_notifier: Optional[DesktopNotifier] = None
-
-
-def get_desktop_notifier() -> DesktopNotifier:
-    """Returns a global instance of :class:`DesktopNotifier`."""
-
-    global _desktop_notifier
-
-    if not _desktop_notifier:
-        _desktop_notifier = DesktopNotifier(APP_NAME)
-
-    return _desktop_notifier
+_desktop_notifier = DesktopNotifier(APP_NAME)
 
 
 class MaestralDesktopNotifier:
@@ -196,8 +185,7 @@ class MaestralDesktopNotifier:
             urgency = NotificationLevel.Normal
 
         if level >= self.notify_level and not ignore:
-            desktop_notifier = get_desktop_notifier()
-            desktop_notifier.send(
+            _desktop_notifier.send(
                 title=title,
                 message=message,
                 icon=APP_ICON_PATH,
@@ -232,8 +220,7 @@ class MaestralDesktopNotificationHandler(logging.Handler):
         else:
             urgency = NotificationLevel.Normal
 
-        desktop_notifier = get_desktop_notifier()
-        desktop_notifier.send(
+        _desktop_notifier.send(
             title=record.levelname,
             message=record.message,
             icon=APP_ICON_PATH,
