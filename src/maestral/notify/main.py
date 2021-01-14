@@ -40,7 +40,7 @@ class DesktopNotifier:
 
     _impl: Optional[DesktopNotifierBase]
 
-    def __init__(self, app_name: str) -> None:
+    def __init__(self, app_name: str = "Python") -> None:
         self._lock = Lock()
 
         if platform.system() == "Darwin":
