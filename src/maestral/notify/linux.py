@@ -42,7 +42,7 @@ class DBusDesktopNotifier(DesktopNotifierBase):
         super().__init__(app_name)
         self._loop = asyncio.get_event_loop()
         self.interface: Optional[ProxyInterface] = None
-        self._force_run_in_loop(self._init_dbus())
+        self._did_attempt_connect = False
 
     def _force_run_in_loop(self, coro: Coroutine) -> None:
 
@@ -72,6 +72,8 @@ class DBusDesktopNotifier(DesktopNotifierBase):
         except Exception:
             self.interface = None
             logger.warning("Could not connect to DBUS interface", exc_info=True)
+        finally:
+            self._did_attempt_connect = True
 
     def send(self, notification: Notification) -> None:
         """
@@ -83,7 +85,9 @@ class DBusDesktopNotifier(DesktopNotifierBase):
 
     async def _send(self, notification: Notification) -> None:
 
-        # Do nothing if we couldn't connect.
+        if not self._did_attempt_connect:
+            await self._init_dbus()
+
         if not self.interface:
             return
 
