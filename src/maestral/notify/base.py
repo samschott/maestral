@@ -100,7 +100,7 @@ class DesktopNotifierBase:
 
         :param notification: Notification to send.
         """
-        raise NotImplementedError()
+        pass
 
     def _next_nid(self) -> int:
         self._current_nid += 1

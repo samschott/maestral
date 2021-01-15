@@ -42,7 +42,7 @@ foundation = load_library("Foundation")
 NSObject = ObjCClass("NSObject")
 
 
-Impl: Optional[Type[DesktopNotifierBase]] = None
+Impl: Type[DesktopNotifierBase] = DesktopNotifierBase
 
 
 if FROZEN and Version(macos_version) >= Version("10.14.0"):

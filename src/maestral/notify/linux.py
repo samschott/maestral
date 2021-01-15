@@ -8,7 +8,7 @@ event loop.
 # system imports
 import asyncio
 import logging
-from typing import Optional, Type, Coroutine
+from typing import Optional, Coroutine
 
 # external imports
 from dbus_next import Variant  # type: ignore
@@ -21,8 +21,6 @@ from .base import Notification, DesktopNotifierBase, NotificationLevel
 __all__ = ["Impl"]
 
 logger = logging.getLogger(__name__)
-
-Impl: Optional[Type[DesktopNotifierBase]]
 
 
 class DBusDesktopNotifier(DesktopNotifierBase):
