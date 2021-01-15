@@ -18,10 +18,9 @@ import struct
 import tempfile
 import logging
 import warnings
-import faulthandler
 from shlex import quote
 from typing import Optional, Any, Union, Tuple, Dict, Iterable, Type, TYPE_CHECKING
-from types import TracebackType, FrameType
+from types import TracebackType
 
 # external imports
 import Pyro5  # type: ignore
@@ -302,10 +301,6 @@ class Lock:
 # ==== helpers for daemon management ===================================================
 
 
-def _sigterm_handler(signal_number: int, frame: FrameType) -> None:
-    sys.exit()
-
-
 def _send_term(pid: int) -> None:
     try:
         os.kill(pid, signal.SIGTERM)
@@ -413,8 +408,6 @@ def start_maestral_daemon(
     :raises RuntimeError: if a daemon for the given ``config_name`` is already running.
     """
 
-    faulthandler.register(signal.SIGTERM, file=sys.stderr, chain=True)
-
     import asyncio
     from .main import Maestral
 
@@ -435,9 +428,6 @@ def start_maestral_daemon(
     # Nice ourselves to give other processes priority. We will likely only
     # have significant CPU usage in case of many concurrent downloads.
     os.nice(10)
-
-    # catch sigterm and shut down gracefully
-    signal.signal(signal.SIGTERM, _sigterm_handler)
 
     # integrate with CFRunLoop in macOS, only works in main thread
     if sys.platform == "darwin":
@@ -540,6 +530,11 @@ def start_maestral_daemon(
 
             for socket in daemon.sockets:
                 loop.add_reader(socket.fileno(), daemon.events, daemon.sockets)
+
+            # handle sigterm gracefully
+            signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
+            for s in signals:
+                loop.add_signal_handler(s, maestral_daemon.shutdown_daemon)
 
             loop.run_until_complete(maestral_daemon.shutdown_complete)
 
