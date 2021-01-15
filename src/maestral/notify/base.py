@@ -65,6 +65,9 @@ class Notification:
         self.buttons = buttons or dict()
         self.identifier = None
 
+    def __repr__(self):
+        return f"<{self.__class__.__name__}(title='{self.title}', message='{self.message}')>"
+
 
 class DesktopNotifierBase:
     """Base class for desktop notifier implementations
