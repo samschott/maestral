@@ -8,7 +8,7 @@ event loop.
 # system imports
 import asyncio
 import logging
-from typing import Optional, Type, Coroutine
+from typing import Optional, Coroutine
 
 # external imports
 from dbus_next import Variant  # type: ignore
@@ -21,8 +21,6 @@ from .base import Notification, DesktopNotifierBase, NotificationLevel
 __all__ = ["Impl"]
 
 logger = logging.getLogger(__name__)
-
-Impl: Optional[Type[DesktopNotifierBase]]
 
 
 class DBusDesktopNotifier(DesktopNotifierBase):
@@ -69,9 +67,8 @@ class DBusDesktopNotifier(DesktopNotifierBase):
             if hasattr(self.interface, "on_action_invoked"):
                 # some older interfaces may not support notification actions
                 self.interface.on_action_invoked(self._on_action)
-        except Exception:
-            self.interface = None
-            logger.warning("Could not connect to DBUS interface", exc_info=True)
+        except Exception as exc:
+            logger.warning("Could not connect to DBUS interface: %s", exc.args[0])
         finally:
             self._did_attempt_connect = True
 

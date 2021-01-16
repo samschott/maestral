@@ -38,7 +38,7 @@ class DesktopNotifier:
     :param app_name: Name of app which sends notifications.
     """
 
-    _impl: Optional[DesktopNotifierBase]
+    _impl: DesktopNotifierBase
 
     def __init__(self, app_name: str = "Python") -> None:
         self._lock = Lock()
@@ -48,12 +48,9 @@ class DesktopNotifier:
         elif platform.system() == "Linux":
             from .linux import Impl  # type: ignore
         else:
-            Impl = None  # type: ignore
+            Impl = DesktopNotifierBase  # type: ignore
 
-        if Impl:
-            self._impl = Impl(app_name)
-        else:
-            self._impl = None
+        self._impl = Impl(app_name)
 
     def send(
         self,
@@ -82,9 +79,8 @@ class DesktopNotifier:
         """
         notification = Notification(title, message, urgency, icon, action, buttons)
 
-        if self._impl:
-            with self._lock:
-                self._impl.send(notification)
+        with self._lock:
+            self._impl.send(notification)
 
 
 _desktop_notifier = DesktopNotifier(APP_NAME)
@@ -102,7 +98,6 @@ class MaestralDesktopNotifier:
     """
 
     _instances: ClassVar[Dict[str, "MaestralDesktopNotifier"]] = dict()
-    _lock = Lock()
 
     NONE = 100
     ERROR = 40
@@ -209,8 +204,8 @@ class MaestralDesktopNotificationHandler(logging.Handler):
         :param record: Log record.
         """
 
-        # avoid recursive notifications from our own logger
-        if record.name.startswith(__name__):
+        # avoid recursive notifications
+        if record.name.startswith("maestral.notify"):
             return
 
         self.format(record)

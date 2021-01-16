@@ -58,6 +58,7 @@ def m():
     # get corresponding Dropbox ID and store in keyring for other processes
     res = m.client.get_account_info()
     m.client.auth._account_id = res.account_id
+    m.client.auth.loaded = True
     m.client.auth.save_creds()
 
     # set local Dropbox directory
