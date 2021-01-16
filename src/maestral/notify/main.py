@@ -204,8 +204,8 @@ class MaestralDesktopNotificationHandler(logging.Handler):
         :param record: Log record.
         """
 
-        # avoid recursive notifications from our own logger
-        if record.name.startswith(__name__):
+        # avoid recursive notifications
+        if record.name.startswith("maestral.notify"):
             return
 
         self.format(record)
