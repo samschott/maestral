@@ -239,6 +239,9 @@ class FSEventHandler(FileSystemEventHandler):
         self.file_event_types = file_event_types
         self.dir_event_types = dir_event_types
 
+        self.file_event_types = file_event_types
+        self.dir_event_types = dir_event_types
+
         self._ignored_events = []
         self.ignore_timeout = 2.0
         self.local_file_event_queue = Queue()
