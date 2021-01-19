@@ -8,7 +8,7 @@ the platform.
 import time
 import platform
 from threading import Lock
-from typing import Optional, Dict, ClassVar, Callable
+from typing import Optional, Dict, Callable
 
 # local imports
 from ..config import MaestralConfig
@@ -17,6 +17,12 @@ from .base import DesktopNotifierBase, NotificationLevel, Notification
 
 
 __all__ = [
+    "NONE",
+    "ERROR",
+    "SYNCISSUE",
+    "FILECHANGE",
+    "level_name_to_number",
+    "level_number_to_name",
     "Notification",
     "NotificationLevel",
     "DesktopNotifier",
@@ -84,6 +90,37 @@ class DesktopNotifier:
 _desktop_notifier = DesktopNotifier(APP_NAME)
 
 
+NONE = 100
+ERROR = 40
+SYNCISSUE = 30
+FILECHANGE = 15
+
+
+_levelToName = {
+    NONE: "NONE",
+    ERROR: "ERROR",
+    SYNCISSUE: "SYNCISSUE",
+    FILECHANGE: "FILECHANGE",
+}
+
+_nameToLevel = {
+    "NONE": 100,
+    "ERROR": 40,
+    "SYNCISSUE": 30,
+    "FILECHANGE": 15,
+}
+
+
+def level_number_to_name(number: int) -> str:
+    """Converts a Maestral notification level number to name."""
+    return _levelToName[number]
+
+
+def level_name_to_number(name: str) -> int:
+    """Converts a Maestral notification level name to number."""
+    return _nameToLevel[name]
+
+
 class MaestralDesktopNotifier:
     """Desktop notification emitter for Maestral
 
@@ -94,37 +131,6 @@ class MaestralDesktopNotifier:
     :cvar int SYNCISSUE: Notification level for sync issues.
     :cvar int FILECHANGE: Notification level for file changes.
     """
-
-    _instances: ClassVar[Dict[str, "MaestralDesktopNotifier"]] = dict()
-
-    NONE = 100
-    ERROR = 40
-    SYNCISSUE = 30
-    FILECHANGE = 15
-
-    _levelToName = {
-        NONE: "NONE",
-        ERROR: "ERROR",
-        SYNCISSUE: "SYNCISSUE",
-        FILECHANGE: "FILECHANGE",
-    }
-
-    _nameToLevel = {
-        "NONE": 100,
-        "ERROR": 40,
-        "SYNCISSUE": 30,
-        "FILECHANGE": 15,
-    }
-
-    @classmethod
-    def level_number_to_name(cls, number: int) -> str:
-        """Converts a Maestral notification level number to name."""
-        return cls._levelToName[number]
-
-    @classmethod
-    def level_name_to_number(cls, name: str) -> int:
-        """Converts a Maestral notification level name to number."""
-        return cls._nameToLevel[name]
 
     def __init__(self, config_name: str) -> None:
         self._conf = MaestralConfig(config_name)
@@ -171,8 +177,8 @@ class MaestralDesktopNotifier:
             notification.
         """
 
-        ignore = self.snoozed and level == MaestralDesktopNotifier.FILECHANGE
-        if level == MaestralDesktopNotifier.ERROR:
+        ignore = self.snoozed and level == FILECHANGE
+        if level == ERROR:
             urgency = NotificationLevel.Critical
         else:
             urgency = NotificationLevel.Normal

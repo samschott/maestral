@@ -65,8 +65,8 @@ from watchdog.events import (
 from watchdog.utils.dirsnapshot import DirectorySnapshot  # type: ignore
 
 # local imports
+from . import notify
 from .config import MaestralConfig, MaestralState
-from .notify import MaestralDesktopNotifier
 from .fsevents import Observer
 from .constants import (
     IDLE,
@@ -419,7 +419,7 @@ class SyncEngine:
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
 
-        self.notifier = MaestralDesktopNotifier(self.config_name)
+        self.notifier = notify.MaestralDesktopNotifier(self.config_name)
 
         # upload_errors / download_errors: contains failed uploads / downloads
         # (from sync errors) to retry later
@@ -1331,7 +1331,7 @@ class SyncEngine:
             self.notifier.notify(
                 "Sync error",
                 f"Could not sync {file_name}",
-                level=self.notifier.SYNCISSUE,
+                level=notify.SYNCISSUE,
                 buttons={"Show": callback},
             )
             self.sync_errors.add(err)
@@ -1384,7 +1384,7 @@ class SyncEngine:
         if new_exc:
             if log_errors:
                 logger.error(title, exc_info=exc_info_tuple(new_exc))
-                self.notifier.notify(title, msg, level=self.notifier.ERROR)
+                self.notifier.notify(title, msg, level=notify.ERROR)
             else:
                 raise new_exc
 
@@ -3357,7 +3357,10 @@ class SyncEngine:
 
 @contextmanager
 def _handle_sync_thread_errors(
-    syncing: Event, running: Event, connected: Event, notifier: MaestralDesktopNotifier
+    syncing: Event,
+    running: Event,
+    connected: Event,
+    notifier: notify.MaestralDesktopNotifier,
 ) -> Iterator[None]:
 
     try:
@@ -3374,8 +3377,8 @@ def _handle_sync_thread_errors(
         syncing.clear()
         title = getattr(err, "title", "Unexpected error")
         message = getattr(err, "message", "Please restart to continue syncing")
-        logger.error(f"{title}: {message}", exc_info=True)
-        notifier.notify(title, message, level=notifier.ERROR)
+        logger.error(title, exc_info=True)
+        notifier.notify(title, message, level=notify.ERROR)
 
 
 def download_worker(
@@ -3747,7 +3750,7 @@ class SyncMonitor:
             title = getattr(err, "title", "Unexpected error")
             message = getattr(err, "message", "Please restart to continue syncing")
             logger.error(f"{title}: {message}", exc_info=exc_info_tuple(new_err))
-            self.sync.notifier.notify(title, message, level=self.sync.notifier.ERROR)
+            self.sync.notifier.notify(title, message, level=notify.ERROR)
 
         self.running.set()
         self.syncing.clear()
