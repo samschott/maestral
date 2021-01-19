@@ -9,6 +9,11 @@
 #### Changed:
 
 * Added a `--yes, -Y` flag to the `unlink` to command to skip the confirmation prompt.
+* Performance has been improved by avoiding scanning of objects matching an 
+  `.mignore` pattern (file watches will still be added however). A resulting behavioral change
+  is that **maestral will remove existing matching files from Dropbox as well**. After this change
+  it will be immaterial if an `.mignore` pattern is added before or after having matching files 
+  in Dropbox.
   
 #### Fixes:
 
