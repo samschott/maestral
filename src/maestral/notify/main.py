@@ -7,7 +7,6 @@ the platform.
 # system imports
 import time
 import platform
-import logging
 from threading import Lock
 from typing import Optional, Dict, ClassVar, Callable
 
@@ -22,7 +21,6 @@ __all__ = [
     "NotificationLevel",
     "DesktopNotifier",
     "MaestralDesktopNotifier",
-    "MaestralDesktopNotificationHandler",
 ]
 
 
@@ -188,36 +186,3 @@ class MaestralDesktopNotifier:
                 action=on_click,
                 buttons=buttons,
             )
-
-
-class MaestralDesktopNotificationHandler(logging.Handler):
-    """A logging handler to send desktop notifications."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.setFormatter(logging.Formatter(fmt="%(message)s"))
-
-    def emit(self, record: logging.LogRecord) -> None:
-        """
-        Emits a logging message as a desktop notification.
-
-        :param record: Log record.
-        """
-
-        # avoid recursive notifications
-        if record.name.startswith("maestral.notify"):
-            return
-
-        self.format(record)
-
-        if record.levelno == logging.ERROR:
-            urgency = NotificationLevel.Critical
-        else:
-            urgency = NotificationLevel.Normal
-
-        _desktop_notifier.send(
-            title=record.levelname,
-            message=record.message,
-            icon=APP_ICON_PATH,
-            urgency=urgency,
-        )
