@@ -114,13 +114,24 @@ class OAuth2Session:
             self._state.get("account", "token_access_type") or None
         )
 
-        self.keyring = self._get_keyring_backend()
-
         # defer keyring access until token requested by user
         self.loaded = False
+        self._keyring: Optional[KeyringBackend] = None
         self._access_token: Optional[str] = None
         self._refresh_token: Optional[str] = None
         self._expires_at: Optional[datetime] = None
+
+    @property
+    def keyring(self) -> KeyringBackend:
+
+        if not self._keyring:
+            self._keyring = self._get_keyring_backend()
+
+        return self._keyring
+
+    @keyring.setter
+    def keyring(self, ring: KeyringBackend) -> None:
+        self._keyring = ring
 
     def _get_keyring_backend(self) -> KeyringBackend:
         """
