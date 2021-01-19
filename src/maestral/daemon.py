@@ -409,6 +409,7 @@ def start_maestral_daemon(
     """
 
     import asyncio
+    from . import notify
     from .main import Maestral
 
     if log_to_stdout:
@@ -513,8 +514,14 @@ def start_maestral_daemon(
     maestral_daemon = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
 
     if start_sync:
-        logger.debug("Starting sync")
-        maestral_daemon.start_sync()
+
+        try:
+            maestral_daemon.start_sync()
+        except Exception as exc:
+            title = getattr(exc, "title", "Failed to start sync")
+            message = getattr(exc, "message", "Please inspect the logs")
+            logger.error(title, exc_info=True)
+            maestral_daemon.sync.notify(title, message, level=notify.ERROR)
 
     try:
 
