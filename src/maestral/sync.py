@@ -1353,7 +1353,8 @@ class SyncEngine:
             only logged.
         """
 
-        title = None
+        title = ""
+        msg = ""
         new_exc = None
 
         try:
@@ -1383,6 +1384,7 @@ class SyncEngine:
         if new_exc:
             if log_errors:
                 logger.error(title, exc_info=exc_info_tuple(new_exc))
+                self.notifier.notify(title, msg, level=self.notifier.ERROR)
             else:
                 raise new_exc
 
@@ -3353,6 +3355,29 @@ class SyncEngine:
 # ======================================================================================
 
 
+@contextmanager
+def _handle_sync_thread_errors(
+    syncing: Event, running: Event, connected: Event, notifier: MaestralDesktopNotifier
+) -> Iterator[None]:
+
+    try:
+        yield
+    except DropboxServerError:
+        logger.info("Dropbox server error", exc_info=True)
+    except ConnectionError:
+        syncing.clear()
+        connected.clear()
+        logger.debug("Connection error", exc_info=True)
+        logger.info(DISCONNECTED)
+    except Exception as err:
+        running.clear()
+        syncing.clear()
+        title = getattr(err, "title", "Unexpected error")
+        message = getattr(err, "message", "Please restart to continue syncing")
+        logger.error(f"{title}: {message}", exc_info=True)
+        notifier.notify(title, message, level=notifier.ERROR)
+
+
 def download_worker(
     sync: SyncEngine, syncing: Event, running: Event, connected: Event
 ) -> None:
@@ -3369,7 +3394,7 @@ def download_worker(
 
         syncing.wait()
 
-        try:
+        with _handle_sync_thread_errors(syncing, running, connected, sync.notifier):
             has_changes = sync.wait_for_remote_changes(sync.remote_cursor)
 
             with sync.sync_lock:
@@ -3395,19 +3420,6 @@ def download_worker(
                     del downloaded
                     sync.free_memory()
 
-        except DropboxServerError:
-            logger.info("Dropbox server error", exc_info=True)
-        except ConnectionError:
-            syncing.clear()
-            connected.clear()
-            logger.debug("Connection error", exc_info=True)
-            logger.info(DISCONNECTED)
-        except Exception as err:
-            running.clear()
-            syncing.clear()
-            title = getattr(err, "title", "Unexpected error")
-            logger.error(title, exc_info=True)
-
 
 def download_worker_added_item(
     sync: SyncEngine,
@@ -3431,7 +3443,7 @@ def download_worker_added_item(
 
         syncing.wait()
 
-        try:
+        with _handle_sync_thread_errors(syncing, running, connected, sync.notifier):
             dbx_path = added_item_queue.get()
             sync.pending_downloads.add(dbx_path.lower())  # protect against crashes
 
@@ -3448,19 +3460,6 @@ def download_worker_added_item(
 
                 # free some memory
                 sync.free_memory()
-
-        except DropboxServerError:
-            logger.info("Dropbox server error", exc_info=True)
-        except ConnectionError:
-            syncing.clear()
-            connected.clear()
-            logger.debug("Connection error", exc_info=True)
-            logger.info(DISCONNECTED)
-        except Exception as err:
-            running.clear()
-            syncing.clear()
-            title = getattr(err, "title", "Unexpected error")
-            logger.error(title, exc_info=True)
 
 
 def upload_worker(
@@ -3479,7 +3478,7 @@ def upload_worker(
 
         syncing.wait()
 
-        try:
+        with _handle_sync_thread_errors(syncing, running, connected, sync.notifier):
             changes, local_cursor = sync.wait_for_local_changes()
 
             with sync.sync_lock:
@@ -3497,19 +3496,6 @@ def upload_worker(
                 # free some memory
                 del changes
                 sync.free_memory()
-
-        except DropboxServerError:
-            logger.info("Dropbox server error", exc_info=True)
-        except ConnectionError:
-            syncing.clear()
-            connected.clear()
-            logger.debug("Connection error", exc_info=True)
-            logger.info(DISCONNECTED)
-        except Exception as err:
-            running.clear()
-            syncing.clear()
-            title = getattr(err, "title", "Unexpected error")
-            logger.error(title, exc_info=True)
 
 
 def startup_worker(
@@ -3535,7 +3521,7 @@ def startup_worker(
 
         startup.wait()
 
-        try:
+        with _handle_sync_thread_errors(syncing, running, connected, sync.notifier):
             with sync.sync_lock:
                 # run / resume initial download
                 # local changes during this download will be registered by the local
@@ -3593,20 +3579,6 @@ def startup_worker(
                 del changes
                 del downloaded
                 sync.free_memory()
-
-        except DropboxServerError:
-            logger.info("Dropbox server error", exc_info=True)
-        except ConnectionError:
-            syncing.clear()
-            connected.clear()
-            startup.clear()
-            logger.debug("Connection error", exc_info=True)
-            logger.info(DISCONNECTED)
-        except Exception as err:
-            running.clear()
-            syncing.clear()
-            title = getattr(err, "title", "Unexpected error")
-            logger.error(title, exc_info=True)
 
 
 # ======================================================================================
@@ -3772,8 +3744,10 @@ class SyncMonitor:
             self.local_observer_thread.start()
         except OSError as err:
             new_err = fswatch_to_maestral_error(err)
-            title = getattr(new_err, "title", "Unexpected error")
-            logger.error(title, exc_info=exc_info_tuple(new_err))
+            title = getattr(err, "title", "Unexpected error")
+            message = getattr(err, "message", "Please restart to continue syncing")
+            logger.error(f"{title}: {message}", exc_info=exc_info_tuple(new_err))
+            self.sync.notifier.notify(title, message, level=self.sync.notifier.ERROR)
 
         self.running.set()
         self.syncing.clear()
