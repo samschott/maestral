@@ -7,7 +7,7 @@ from click.testing import CliRunner
 from maestral.cli import main
 from maestral.main import logger
 from maestral.autostart import AutoStart
-from maestral.notify import MaestralDesktopNotifier
+from maestral.notify import level_number_to_name, level_name_to_number
 from maestral.daemon import MaestralProxy, start_maestral_daemon_process, Start
 
 
@@ -150,13 +150,13 @@ def test_notify_level(config_name):
     runner = CliRunner()
     result = runner.invoke(main, ["notify", "level", "-c", m.config_name])
 
-    level_name = MaestralDesktopNotifier.level_number_to_name(m.notification_level)
+    level_name = level_number_to_name(m.notification_level)
 
     assert result.exit_code == 0
     assert level_name in result.output
 
     level_name = "SYNCISSUE"
-    level_number = MaestralDesktopNotifier.level_name_to_number(level_name)
+    level_number = level_name_to_number(level_name)
     result = runner.invoke(main, ["notify", "level", level_name, "-c", m.config_name])
 
     assert result.exit_code == 0

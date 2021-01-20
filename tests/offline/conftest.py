@@ -21,8 +21,10 @@ logger.setLevel(logging.DEBUG)
 
 @pytest.fixture
 def m():
-    yield Maestral("test-config")
-    remove_configuration("test-config")
+    m = Maestral("test-config")
+    m._conf.save()
+    yield m
+    remove_configuration(m.config_name)
 
 
 @pytest.fixture

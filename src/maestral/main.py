@@ -54,7 +54,6 @@ from .errors import (
     UnsupportedFileTypeForDiff,
 )
 from .config import MaestralConfig, MaestralState, validate_config_name
-from .notify import MaestralDesktopNotificationHandler
 from .logging import CachedHandler, SdNotificationHandler, safe_journal_sender
 from .utils import get_newer_version
 from .utils.path import (
@@ -293,11 +292,6 @@ class Maestral:
         self._log_handler_error_cache.setFormatter(log_fmt_short)
         self._log_handler_error_cache.setLevel(logging.ERROR)
         self._logger.addHandler(self._log_handler_error_cache)
-
-        # log errors to desktop notifications
-        self._log_handler_desktop_notifier = MaestralDesktopNotificationHandler()
-        self._log_handler_desktop_notifier.setLevel(logging.WARNING)
-        self._logger.addHandler(self._log_handler_desktop_notifier)
 
     # ==== methods to access config and saved state ====================================
 

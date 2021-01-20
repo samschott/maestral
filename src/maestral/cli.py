@@ -1224,15 +1224,15 @@ def notify():
 @existing_config_option
 def notify_level(level_name: str, config_name: str) -> None:
 
-    from .notify import MaestralDesktopNotifier as Notifier
+    from . import notify as _notify  # prevent conflict with notify command group
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
         if level_name:
-            m.notification_level = Notifier.level_name_to_number(level_name)
+            m.notification_level = _notify.level_name_to_number(level_name)
             cli.ok(f"Notification level set to {level_name}.")
         else:
-            level_name = Notifier.level_number_to_name(m.notification_level)
+            level_name = _notify.level_number_to_name(m.notification_level)
             cli.echo(f"Notification level: {level_name}.")
 
 
