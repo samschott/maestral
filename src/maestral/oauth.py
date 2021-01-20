@@ -149,14 +149,18 @@ class OAuth2Session:
 
             try:
                 ring = load_keyring(keyring_class)
-            except Exception:
-                # reset the keyring and bomb out with an exception
+            except Exception as exc:
+                # reset the keyring and prompt to relink
+                # them bomb out with an exception
 
                 self._conf.set("app", "keyring", "automatic")
 
                 title = f"Cannot load keyring {keyring_class}"
                 message = "Please relink Maestral to get a new access token"
-                new_exc = KeyringAccessError(title, message)
+                new_exc = KeyringAccessError(title, message).with_traceback(
+                    exc.__traceback__
+                )
+                logger.error(title, exc_info=_exc_info(new_exc))
                 raise new_exc
             else:
                 return ring
@@ -298,7 +302,10 @@ class OAuth2Session:
                 elif access_type == "offline":
                     self._refresh_token = token
                 else:
-                    raise RuntimeError("Invalid token access type in state file.")
+                    msg = "Invalid token access type in state file."
+                    err = RuntimeError("Invalid token access type in state file.")
+                    logger.error(msg, exc_info=_exc_info(err))
+                    raise err
 
                 self._token_access_type = access_type
 
@@ -306,6 +313,7 @@ class OAuth2Session:
             title = f"Could not load auth token, {self.keyring.name} is locked"
             msg = "Please unlock the keyring and try again."
             exc = KeyringAccessError(title, msg)
+            logger.error(title, exc_info=_exc_info(exc))
             raise exc
 
     def get_auth_url(self) -> str:
@@ -389,6 +397,7 @@ class OAuth2Session:
                 title = f"Could not delete auth token, {self.keyring.name} is locked"
                 msg = "Please unlock the keyring and try again."
                 exc = KeyringAccessError(title, msg)
+                logger.error(title, exc_info=_exc_info(exc))
                 raise exc
             except PasswordDeleteError as exc:
                 # password does not exist in keyring
@@ -408,3 +417,7 @@ class OAuth2Session:
             f"<{self.__class__.__name__}(config={self._config_name!r}, "
             f"account_id={self._account_id})>"
         )
+
+
+def _exc_info(exc):
+    return type(exc), exc, exc.__traceback__
