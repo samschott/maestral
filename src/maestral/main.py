@@ -135,11 +135,9 @@ class Maestral:
         self._setup_logging()
 
         # set up sync infrastructure
-        self.client = DropboxClient(
-            config_name=self.config_name
-        )  # interface to Dbx SDK
-        self.monitor = SyncMonitor(self.client)  # coordinates sync threads
-        self.sync = self.monitor.sync  # provides core sync functionality
+        self.client = DropboxClient(config_name=self.config_name)
+        self.monitor = SyncMonitor(self.client)
+        self.sync = self.monitor.sync
 
         self._check_and_run_post_update_scripts()
 
