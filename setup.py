@@ -14,7 +14,7 @@ install_requires = [
     "fasteners>=0.15",
     "importlib_metadata;python_version<'3.8'",
     "importlib_resources;python_version<'3.9'",
-    "keyring>=19,<22",
+    "keyring>=22,<23",
     "keyrings.alt>=3.1.0,<5.0",
     "packaging",
     "pathspec>=0.5.8",
