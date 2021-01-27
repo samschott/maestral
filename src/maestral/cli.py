@@ -44,13 +44,13 @@ def stop_daemon_with_cli_feedback(config_name: str) -> None:
     click.echo("Stopping Maestral...", nl=False)
     res = stop_maestral_daemon_process(config_name)
     if res == Stop.Ok:
-        click.echo(" " * 8 + OK)
+        click.echo("\rStopping Maestral...        " + OK)
     elif res == Stop.NotRunning:
         click.echo("\rMaestral daemon is not running.")
     elif res == Stop.Killed:
-        click.echo(" " * 8 + KILLED)
+        click.echo("\rStopping Maestral...        " + KILLED)
     elif res == Stop.Failed:
-        click.echo(" " * 8 + FAILED)
+        click.echo("\rStopping Maestral...        " + FAILED)
 
 
 def select_dbx_path_dialog(
@@ -535,11 +535,11 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
         res = start_maestral_daemon_process(config_name)
 
         if res == Start.Ok:
-            cli.echo(" " * 8 + OK)
+            cli.echo("\rStarting Maestral...        " + OK)
         elif res == Start.AlreadyRunning:
-            cli.echo(" " * 8 + "Already running.")
+            cli.echo("\rStarting Maestral...        " + "Already running.")
         else:
-            cli.echo(" " * 8 + FAILED)
+            cli.echo("\rStarting Maestral...        " + FAILED)
             cli.echo("Please check logs for more information.")
             return
 
