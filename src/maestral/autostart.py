@@ -307,7 +307,6 @@ class AutoStart:
                 TryExec=self.maestral_path,
                 Icon="maestral",
                 Terminal="false",
-                Categories="Network;FileTransfer;",
                 GenericName="File Synchronizer",
                 Comment="Sync your files with Dropbox",
             )
