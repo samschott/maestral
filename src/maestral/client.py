@@ -843,7 +843,6 @@ class DropboxClient:
 
         return res.cursor
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def list_folder(
         self,
         dbx_path: str,
@@ -852,7 +851,9 @@ class DropboxClient:
         **kwargs,
     ) -> files.ListFolderResult:
         """
-        Lists the contents of a folder on Dropbox.
+        Lists the contents of a folder on Dropbox. Similar to
+        :meth:`list_folder_iterator` but returns all entries in a single
+        :class:`files.ListFolderResult` instance.
 
         :param dbx_path: Path of folder on Dropbox.
         :param max_retries_on_timeout: Number of times to try again if Dropbox servers
@@ -864,44 +865,14 @@ class DropboxClient:
         :returns: Content of given folder.
         """
 
-        dbx_path = "" if dbx_path == "/" else dbx_path
-
-        results = []
-
-        res = self.dbx.files_list_folder(
+        iterator = self.list_folder_iterator(
             dbx_path,
-            include_non_downloadable_files=include_non_downloadable_files,
+            max_retries_on_timeout,
+            include_non_downloadable_files,
             **kwargs,
         )
-        results.append(res)
 
-        idx = 0
-
-        while results[-1].has_more:
-
-            idx += len(results[-1].entries)
-            logger.info(f"Indexing {idx}...")
-
-            attempt = 0
-
-            while True:
-                try:
-                    more_results = self.dbx.files_list_folder_continue(
-                        results[-1].cursor
-                    )
-                    results.append(more_results)
-                    break
-                except requests.exceptions.ReadTimeout:
-                    attempt += 1
-                    if attempt <= max_retries_on_timeout:
-                        time.sleep(5.0)
-                    else:
-                        raise
-
-        if idx > 0:
-            logger.info(IDLE)
-
-        return self.flatten_results(results)
+        return self.flatten_results(list(iterator))
 
     def list_folder_iterator(
         self,
@@ -911,11 +882,10 @@ class DropboxClient:
         **kwargs,
     ) -> Iterator[files.ListFolderResult]:
         """
-        Lists the contents of a folder on Dropbox. Does the same as :meth:`list_folder`
-        but returns an iterator yielding :class:`files.ListFolderResult` instances. The
-        number of entries returned in each iteration corresponds to the number of
-        entries returned by a single Dropbox API call and will be typically around 500.
-        This is useful to save memory when indexing a large number of items.
+        Lists the contents of a folder on Dropbox. Returns an iterator yielding
+        :class:`files.ListFolderResult` instances. The number of entries returned in
+        each iteration corresponds to the number of entries returned by a single Dropbox
+        API call and will be typically around 500.
 
         :param dbx_path: Path of folder on Dropbox.
         :param max_retries_on_timeout: Number of times to try again if Dropbox servers
@@ -963,28 +933,6 @@ class DropboxClient:
             if idx > 0:
                 logger.info(IDLE)
 
-    @staticmethod
-    def flatten_results(
-        results: List[files.ListFolderResult],
-    ) -> files.ListFolderResult:
-        """
-        Flattens a list of :class:`files.ListFolderResult` instances to a single
-        instance with the cursor of the last entry in the list.
-
-        :param results: List of :class:`files.ListFolderResult` instances.
-        :returns: Flattened list folder result.
-        """
-        entries_all = []
-        for result in results:
-            entries_all += result.entries
-
-        results_flattened = files.ListFolderResult(
-            entries=entries_all, cursor=results[-1].cursor, has_more=False
-        )
-
-        return results_flattened
-
-    @convert_api_errors_decorator()
     def wait_for_remote_changes(self, last_cursor: str, timeout: int = 40) -> bool:
         """
         Waits for remote changes since ``last_cursor``. Call this method after
@@ -1013,37 +961,30 @@ class DropboxClient:
 
         return result.changes
 
-    @convert_api_errors_decorator()
     def list_remote_changes(self, last_cursor: str) -> files.ListFolderResult:
         """
-        Lists changes to remote Dropbox since ``last_cursor``. Call this after
-        :meth:`wait_for_remote_changes` returns ``True``.
+        Lists changes to remote Dropbox since ``last_cursor``. Same as
+        :meth:`list_remote_changes_iterator` but fetches all changes first and returns
+        a single :class:`files.ListFolderResult`. This may be useful if you want to
+        fetch all changes before starting to process them.
 
         :param last_cursor: Last to cursor to compare for changes.
         :returns: Remote changes since given cursor.
         """
 
-        results = [self.dbx.files_list_folder_continue(last_cursor)]
-
-        while results[-1].has_more:
-            more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
-            results.append(more_results)
-
-        # combine all results into one
-        results = self.flatten_results(results)
-
-        return results
+        iterator = self.list_remote_changes_iterator(last_cursor)
+        return self.flatten_results(list(iterator))
 
     def list_remote_changes_iterator(
         self, last_cursor: str
     ) -> Iterator[files.ListFolderResult]:
         """
-        Lists changes to the remote Dropbox since ``last_cursor``. Does the same as
-        :meth:`list_remote_changes` but returns an iterator yielding
-        :class:`files.ListFolderResult` instances. The number of entries returned in
-        each iteration corresponds to the number of entries returned by a single Dropbox
-        API call and will be typically around 500. This is useful to save memory when
-        indexing a large number of items.
+        Lists changes to the remote Dropbox since ``last_cursor``. Returns an iterator
+        yielding :class:`files.ListFolderResult` instances. The number of entries
+        returned in each iteration corresponds to the number of entries returned by a
+        single Dropbox API call and will be typically around 500.
+
+        Call this after :meth:`wait_for_remote_changes` returns ``True``.
 
         :param last_cursor: Last to cursor to compare for changes.
         :returns: Iterator over remote changes since given cursor.
@@ -1058,6 +999,27 @@ class DropboxClient:
             while result.has_more:
                 result = self.dbx.files_list_folder_continue(result.cursor)
                 yield result
+
+    @staticmethod
+    def flatten_results(
+        results: List[files.ListFolderResult],
+    ) -> files.ListFolderResult:
+        """
+        Flattens a list of :class:`files.ListFolderResult` instances to a single
+        instance with the cursor of the last entry in the list.
+
+        :param results: List of :class:`files.ListFolderResult` instances.
+        :returns: Flattened list folder result.
+        """
+        entries_all = []
+        for result in results:
+            entries_all += result.entries
+
+        results_flattened = files.ListFolderResult(
+            entries=entries_all, cursor=results[-1].cursor, has_more=False
+        )
+
+        return results_flattened
 
 
 # ==== conversion functions to generate error messages and types =======================
