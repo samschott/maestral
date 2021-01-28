@@ -1433,11 +1433,13 @@ class SyncEngine:
                 return
 
             if len(events) > 0:
-                self.apply_local_changes(sync_events, local_cursor)
+                self.apply_local_changes(sync_events)
                 logger.debug("Uploaded local changes while inactive")
             else:
-                self.local_cursor = local_cursor
                 logger.debug("No local changes while inactive")
+
+            if not self.cancel_pending.is_set():
+                self.local_cursor = local_cursor
 
     def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
         """
@@ -1525,26 +1527,46 @@ class SyncEngine:
 
         return changes, snapshot_time
 
-    def wait_for_local_changes(
-        self, timeout: float = 40, delay: float = 1
-    ) -> Tuple[List[SyncEvent], float]:
+    def wait_for_local_changes(self, timeout: float = 40) -> bool:
+
+        with self.fs_events.local_file_event_queue.not_empty:
+            return self.fs_events.local_file_event_queue.not_empty.wait(timeout)
+
+    def upload_sync_cycle(self):
+        """
+        Performs a full upload sync cycle by calling in order:
+
+            1) :meth:`list_local_changes`
+            2) :meth:`apply_local_changes`
+
+        Handles updating the local cursor for you. If monitoring for local file events
+        was interrupted, call :meth:`upload_local_changes_while_inactive` instead.
+        """
+
+        changes, cursor = self.list_local_changes()
+        self.apply_local_changes(changes)
+
+        if not self.cancel_pending.is_set():
+            # Save local cursor if not sync was not aborted by user.
+            # Failed uploads will be tracked and retried individually.
+            self.local_cursor = cursor
+
+        del changes
+        self.free_memory()
+
+    def list_local_changes(self, delay: float = 1) -> Tuple[List[SyncEvent], float]:
         """
         Waits for local file changes. Returns a list of local changes with at most one
         entry per path.
 
-        :param timeout: If no changes are detected within timeout (sec), an empty list
-            is returned.
         :param delay: Delay in sec to wait for subsequent changes before returning.
         :returns: (list of sync times events, time_stamp)
         """
 
         self.ensure_dropbox_folder_present()
 
-        try:
-            events = [self.fs_events.local_file_event_queue.get(timeout=timeout)]
-            local_cursor = time.time()
-        except Empty:
-            return [], time.time()
+        events = []
+        local_cursor = time.time()
 
         # keep collecting events until idle for `delay`
         while True:
@@ -1562,15 +1584,12 @@ class SyncEngine:
 
         return sync_events, local_cursor
 
-    def apply_local_changes(
-        self, sync_events: List[SyncEvent], local_cursor: float
-    ) -> List[SyncEvent]:
+    def apply_local_changes(self, sync_events: List[SyncEvent]) -> List[SyncEvent]:
         """
         Applies locally detected changes to the remote Dropbox. Changes which should be
         ignored (mignore or always ignored files) are skipped.
 
         :param sync_events: List of local file system events.
-        :param local_cursor: Time stamp of last event in ``events``.
         """
 
         with self.sync_lock:
@@ -1633,11 +1652,6 @@ class SyncEngine:
                         results.append(r)
 
                 self._clean_history()
-
-            if not self.cancel_pending.is_set():
-                # always save local cursor if not aborted by user,
-                # failed uploads will be tracked and retried individually
-                self.local_cursor = local_cursor
 
             return results
 
@@ -2371,10 +2385,8 @@ class SyncEngine:
 
     def get_remote_folder(self, dbx_path: str = "/") -> bool:
         """
-        Gets all files/folders from Dropbox and writes them to the local folder
-        :attr:`dropbox_path`. Call this method on first run of the Maestral. Indexing
-        and downloading may take several minutes, depending on the size of the user's
-        Dropbox folder.
+        Gets all files/folders from a Dropbox folder and writes them to the local folder
+        :attr:`dropbox_path`.
 
         :param dbx_path: Path relative to Dropbox folder. Defaults to root ('/').
         :returns: Whether download was successful.
@@ -2383,13 +2395,9 @@ class SyncEngine:
         with self.sync_lock:
 
             dbx_path = dbx_path or "/"
-            is_dbx_root = dbx_path == "/"
             success = True
 
-            if is_dbx_root:
-                logger.info("Fetching remote Dropbox")
-            else:
-                logger.info(f"Syncing ↓ {dbx_path}")
+            logger.info(f"Syncing ↓ {dbx_path}")
 
             if any(is_child(folder, dbx_path) for folder in self.excluded_items):
                 # if there are excluded subfolders, index and download only included
@@ -2398,8 +2406,6 @@ class SyncEngine:
                 skip_excluded = False
 
             try:
-                # get a cursor and list the folder content
-                cursor = self.client.get_latest_cursor(dbx_path)
 
                 # iterate over index and download results
                 list_iter = self.client.list_folder_iterator(
@@ -2413,7 +2419,7 @@ class SyncEngine:
                     sync_events = [
                         SyncEvent.from_dbx_metadata(md, self) for md in res.entries
                     ]
-                    download_res = self.apply_remote_changes(sync_events, cursor=None)
+                    download_res = self.apply_remote_changes(sync_events)
 
                     s = all(
                         e.status in (SyncStatus.Done, SyncStatus.Skipped)
@@ -2438,12 +2444,6 @@ class SyncEngine:
             except SyncError as e:
                 self._handle_sync_error(e, direction=SyncDirection.Down)
                 return False
-
-            if is_dbx_root:
-                # always save remote cursor if this is the root folder,
-                # failed downloads will be tracked and retried individually
-                self.remote_cursor = cursor
-                self._state.set("sync", "last_reindex", time.time())
 
             return success
 
@@ -2488,63 +2488,76 @@ class SyncEngine:
 
             return success
 
-    def wait_for_remote_changes(
-        self, last_cursor: str, timeout: int = 40, delay: float = 2
-    ) -> bool:
+    def wait_for_remote_changes(self, last_cursor: str, timeout: int = 40) -> bool:
         """
         Blocks until changes to the remote Dropbox are available.
 
         :param last_cursor: Cursor form last sync.
         :param timeout: Timeout in seconds before returning even if there are no
             changes. Dropbox adds random jitter of up to 90 sec to this value.
-        :param delay: Delay in sec to wait for subsequent changes that may be
-            duplicates. This delay is typically only necessary folders are shared /
-            un-shared with other Dropbox accounts.
         """
         logger.debug("Waiting for remote changes since cursor:\n%s", last_cursor)
         has_changes = self.client.wait_for_remote_changes(last_cursor, timeout=timeout)
-        time.sleep(delay)
+
+        # For for 2 sec. This delay is typically only necessary folders are shared /
+        # un-shared with other Dropbox accounts.
+        time.sleep(2)
+
         logger.debug("Detected remote changes: %s", has_changes)
         return has_changes
 
-    def list_remote_changes(self, last_cursor: str) -> Tuple[List[SyncEvent], str]:
+    def download_sync_cycle(self) -> None:
         """
-        Lists remote changes since the last download sync.
+        Performs a full download sync cycle by calling in order:
 
-        :param last_cursor: Cursor from last download sync.
-        :returns: Tuple with remote changes and corresponding cursor
+            1) :meth:`list_remote_changes_iterator`
+            2) :meth:`apply_remote_changes`
+            3) :meth:`notify_user`
+
+        Handles updating the remote cursor and resuming interrupted syncs for you.
+        Calling this method will perform a full indexing if this is the first download.
         """
-        logger.info("Fetching remote changes...")
 
-        changes = self.client.list_remote_changes(last_cursor)
-        logger.debug("Listed remote changes:\n%s", entries_repr(changes.entries))
+        changes_iter = self.list_remote_changes_iterator(self.remote_cursor)
 
-        clean_changes = self._clean_remote_changes(changes)
-        logger.debug("Cleaned remote changes:\n%s", entries_repr(clean_changes.entries))
+        # download changes in chunks to reduce memory usage
+        for changes, cursor in changes_iter:
+            downloaded = self.apply_remote_changes(changes)
+            self.notify_user(downloaded)
 
-        clean_changes.entries.sort(key=lambda x: x.path_lower.count("/"))
-        sync_events = [
-            SyncEvent.from_dbx_metadata(md, self) for md in clean_changes.entries
-        ]
-        logger.debug("Converted remote changes to SyncEvents")
+            if self.cancel_pending.is_set():
+                break
+            else:
+                # Save (incremental) remote cursor.
+                self.remote_cursor = cursor
 
-        return sync_events, changes.cursor
+            del changes
+            del downloaded
+
+        self.free_memory()
 
     def list_remote_changes_iterator(
         self, last_cursor: str
-    ) -> Iterator[Tuple[List[SyncEvent], Optional[str]]]:
+    ) -> Iterator[Tuple[List[SyncEvent], str]]:
         """
-        Lists remote changes since the last download sync. Works the same as
-        :meth:`list_remote_changes` but returns an iterator over remote changes. Only
-        the last result will have a valid cursor which is not None.
+        Get remote changes since the last download sync, as specified by
+        ``last_cursor``. If the ``last_cursor`` is from paginating through a previous
+        set of changes, continue where we left off. If ``last_cursor`` is an emtpy
+        string, tart a full indexing of the Dropbox folder.
 
         :param last_cursor: Cursor from last download sync.
         :returns: Iterator yielding tuples with remote changes and corresponding cursor.
         """
 
-        logger.info("Fetching remote changes...")
-
-        changes_iter = self.client.list_remote_changes_iterator(last_cursor)
+        if last_cursor == "":
+            # We are starting from the beginning, do a full indexing.
+            logger.info("Fetching remote Dropbox")
+            changes_iter = self.client.list_folder_iterator("/", recursive=True)
+        else:
+            # Pick up where we left off. This may be an interrupted indexing /
+            # pagination through changes or a completely new set of changes.
+            logger.info("Fetching remote changes...")
+            changes_iter = self.client.list_remote_changes_iterator(last_cursor)
 
         for changes in changes_iter:
 
@@ -2562,12 +2575,9 @@ class SyncEngine:
 
             logger.debug("Converted remote changes to SyncEvents")
 
-            cursor = changes.cursor if not changes.has_more else None
-            yield sync_events, cursor
+            yield sync_events, changes.cursor
 
-    def apply_remote_changes(
-        self, sync_events: List[SyncEvent], cursor: Optional[str]
-    ) -> List[SyncEvent]:
+    def apply_remote_changes(self, sync_events: List[SyncEvent]) -> List[SyncEvent]:
         """
         Applies remote changes to local folder. Call this on the result of
         :meth:`list_remote_changes`. The saved cursor is updated after a set of changes
@@ -2575,9 +2585,6 @@ class SyncEngine:
         successful completion.
 
         :param sync_events: List of remote changes.
-        :param cursor: Remote cursor corresponding to changes. Take care to only pass
-            cursors which represent the state of the entire Dropbox. Pass None instead
-            if you are only downloading a subset of changes.
         :returns: List of changes that were made to local files and bool indicating if
             all download syncs were successful.
         """
@@ -2664,11 +2671,6 @@ class SyncEngine:
             for n, r in enumerate(res):
                 throttled_log(logger, f"Syncing ↓ {n + 1}/{n_items}")
                 results.append(r)
-
-        if cursor and not self.cancel_pending.is_set():
-            # always save remote cursor if not aborted by user,
-            # failed downloads will be tracked and retried individually
-            self.remote_cursor = cursor
 
         self._clean_history()
 
@@ -3411,21 +3413,10 @@ def download_worker(
 
                 if has_changes:
                     logger.info(SYNCING)
-
-                    changes_iter = sync.list_remote_changes_iterator(sync.remote_cursor)
-
-                    # download changes in chunks to reduce memory usage
-                    for changes, cursor in changes_iter:
-                        downloaded = sync.apply_remote_changes(changes, cursor)
-                        sync.notify_user(downloaded)
-
-                    sync.client.get_space_usage()  # update space usage
+                    sync.download_sync_cycle()
                     logger.info(IDLE)
 
-                    # free memory
-                    del changes
-                    del downloaded
-                    sync.free_memory()
+                    sync.client.get_space_usage()  # update space usage
 
 
 def download_worker_added_item(
@@ -3486,23 +3477,16 @@ def upload_worker(
         syncing.wait()
 
         with _handle_sync_thread_errors(syncing, running, connected, sync.notifier):
-            changes, local_cursor = sync.wait_for_local_changes()
+            has_changes = sync.wait_for_local_changes()
 
             with sync.sync_lock:
                 if not (running.is_set() and syncing.is_set()):
                     continue
 
-                if len(changes) > 0:
+                if has_changes:
                     logger.info(SYNCING)
-
-                sync.apply_local_changes(changes, local_cursor)
-
-                if len(changes) > 0:
+                    sync.upload_sync_cycle()
                     logger.info(IDLE)
-
-                # free some memory
-                del changes
-                sync.free_memory()
 
 
 def startup_worker(
@@ -3529,19 +3513,12 @@ def startup_worker(
         startup.wait()
 
         with _handle_sync_thread_errors(syncing, running, connected, sync.notifier):
+
             with sync.sync_lock:
-                # run / resume initial download
-                # local changes during this download will be registered by the local
-                # FileSystemObserver but only uploaded after `syncing` has been set
                 if sync.remote_cursor == "":
                     sync.clear_sync_errors()
-                    sync.get_remote_folder()
-                    sync.local_cursor = time.time()
 
-                if not running.is_set():
-                    continue
-
-                # retry failed downloads
+                # Retry failed downloads.
                 if len(sync.download_errors) > 0:
                     logger.info("Retrying failed syncs...")
 
@@ -3549,7 +3526,7 @@ def startup_worker(
                     logger.info(f"Syncing ↓ {dbx_path}")
                     sync.get_remote_item(dbx_path)
 
-                # resume interrupted downloads
+                # Resume interrupted downloads.
                 if len(sync.pending_downloads) > 0:
                     logger.info("Resuming interrupted syncs...")
 
@@ -3565,13 +3542,13 @@ def startup_worker(
                 # for dbx_path in list(sync.upload_errors):
                 #     sync.rescan(sync.to_local_path(dbx_path))
 
-                # upload changes while inactive
                 sync.upload_local_changes_while_inactive()
 
-                # enforce immediate check for remote changes
-                changes, remote_cursor = sync.list_remote_changes(sync.remote_cursor)
-                downloaded = sync.apply_remote_changes(changes, remote_cursor)
-                sync.notify_user(downloaded)
+                if not running.is_set():
+                    continue
+
+                # Download remote changes / indexing.
+                sync.download_sync_cycle()
 
                 if not running.is_set():
                     continue
@@ -3581,11 +3558,6 @@ def startup_worker(
 
                 startup.clear()
                 logger.info(IDLE)
-
-                # free some memory
-                del changes
-                del downloaded
-                sync.free_memory()
 
 
 # ======================================================================================
