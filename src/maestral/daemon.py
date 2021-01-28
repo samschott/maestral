@@ -11,7 +11,6 @@ import time
 import signal
 import enum
 import subprocess
-import traceback
 import threading
 import fcntl
 import struct
@@ -551,8 +550,8 @@ def start_maestral_daemon(
             # prevent housekeeping from blocking shutdown
             daemon.transportServer.housekeeper = None
 
-    except Exception:
-        traceback.print_exc()
+    except Exception as exc:
+        logger.error(exc.args[0], exc_info=True)
     finally:
 
         if NOTIFY_SOCKET:

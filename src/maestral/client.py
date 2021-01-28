@@ -1006,6 +1006,7 @@ class DropboxClient:
 
         # keep track of last longpoll, back off if requested by SDK
         if result.backoff:
+            logger.debug("Backoff requested for %s sec", result.backoff)
             self._backoff_until = time.time() + result.backoff + 5.0
         else:
             self._backoff_until = 0

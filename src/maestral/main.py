@@ -928,6 +928,8 @@ class Maestral:
 
         self._check_linked()
 
+        logger.info(f"Restoring '{dbx_path} to {rev}'")
+
         res = self.client.restore(dbx_path, rev)
         return dropbox_stone_to_dict(res)
 
