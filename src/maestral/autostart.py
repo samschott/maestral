@@ -210,7 +210,7 @@ class AutoStartXDGDesktop(AutoStartBase):
     def enable(self) -> None:
 
         with open(self.destination, "w") as f:
-            self.config.write(f)
+            self.config.write(f, space_around_delimiters=False)
 
         st = os.stat(self.destination)
         os.chmod(self.destination, st.st_mode | stat.S_IEXEC)
