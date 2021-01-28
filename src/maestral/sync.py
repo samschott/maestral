@@ -410,7 +410,6 @@ class SyncEngine:
 
         self.client = client
         self.config_name = self.client.config_name
-        self.cancel_pending = Event()
         self.fs_events = fs_events_handler
 
         self.sync_lock = RLock()
@@ -442,6 +441,7 @@ class SyncEngine:
 
         # data structures for internal communication
         self.sync_errors = set()
+        self._cancel_requested = Event()
 
         # data structures for user information
         self.syncing = []
@@ -1285,6 +1285,19 @@ class SyncEngine:
             while cpu_usage > self._max_cpu_percent:
                 cpu_usage = cpu_usage_percent(0.5 + 2 * random.random())
 
+    def cancel_sync(self):
+        """
+        Cancels all pending sync jobs and returns when idle.
+        """
+
+        self._cancel_requested.set()
+
+        # Wait until we can acquire the sync lock => we are idle.
+        self.sync_lock.acquire()
+        self.sync_lock.release()
+
+        self._cancel_requested.clear()
+
     def busy(self) -> bool:
         """
         Checks if we are currently syncing.
@@ -1438,7 +1451,7 @@ class SyncEngine:
             else:
                 logger.debug("No local changes while inactive")
 
-            if not self.cancel_pending.is_set():
+            if not self._cancel_requested.is_set():
                 self.local_cursor = local_cursor
 
     def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
@@ -1543,16 +1556,18 @@ class SyncEngine:
         was interrupted, call :meth:`upload_local_changes_while_inactive` instead.
         """
 
-        changes, cursor = self.list_local_changes()
-        self.apply_local_changes(changes)
+        with self.sync_lock:
 
-        if not self.cancel_pending.is_set():
-            # Save local cursor if not sync was not aborted by user.
-            # Failed uploads will be tracked and retried individually.
-            self.local_cursor = cursor
+            changes, cursor = self.list_local_changes()
+            self.apply_local_changes(changes)
 
-        del changes
-        self.free_memory()
+            if not self._cancel_requested.is_set():
+                # Save local cursor if not sync was not aborted by user.
+                # Failed uploads will be tracked and retried individually.
+                self.local_cursor = cursor
+
+            del changes
+            self.free_memory()
 
     def list_local_changes(self, delay: float = 1) -> Tuple[List[SyncEvent], float]:
         """
@@ -1592,68 +1607,66 @@ class SyncEngine:
         :param sync_events: List of local file system events.
         """
 
-        with self.sync_lock:
+        results = []
 
-            results = []
+        if len(sync_events) > 0:
 
-            if len(sync_events) > 0:
+            sync_events, _ = self._filter_excluded_changes_local(sync_events)
 
-                sync_events, _ = self._filter_excluded_changes_local(sync_events)
+            deleted: List[SyncEvent] = []
+            dir_moved: List[SyncEvent] = []
+            other: List[SyncEvent] = []  # file created + moved, dir created
 
-                deleted: List[SyncEvent] = []
-                dir_moved: List[SyncEvent] = []
-                other: List[SyncEvent] = []  # file created + moved, dir created
+            for event in sync_events:
+                if event.is_deleted:
+                    deleted.append(event)
+                elif event.is_directory and event.is_moved:
+                    dir_moved.append(event)
+                else:
+                    other.append(event)
 
-                for event in sync_events:
-                    if event.is_deleted:
-                        deleted.append(event)
-                    elif event.is_directory and event.is_moved:
-                        dir_moved.append(event)
-                    else:
-                        other.append(event)
+                # housekeeping
+                self.syncing.append(event)
 
-                    # housekeeping
-                    self.syncing.append(event)
+            # apply deleted events first, folder moved events second
+            # neither event type requires an actual upload
+            if deleted:
+                logger.info("Uploading deletions...")
 
-                # apply deleted events first, folder moved events second
-                # neither event type requires an actual upload
-                if deleted:
-                    logger.info("Uploading deletions...")
+            with ThreadPoolExecutor(
+                max_workers=self._num_threads,
+                thread_name_prefix="maestral-upload-pool",
+            ) as executor:
+                res = executor.map(self._create_remote_entry, deleted)
 
-                with ThreadPoolExecutor(
-                    max_workers=self._num_threads,
-                    thread_name_prefix="maestral-upload-pool",
-                ) as executor:
-                    res = executor.map(self._create_remote_entry, deleted)
+                n_items = len(deleted)
+                for n, r in enumerate(res):
+                    throttled_log(logger, f"Deleting {n + 1}/{n_items}...")
+                    results.append(r)
 
-                    n_items = len(deleted)
-                    for n, r in enumerate(res):
-                        throttled_log(logger, f"Deleting {n + 1}/{n_items}...")
-                        results.append(r)
+            if dir_moved:
+                logger.info("Moving folders...")
 
-                if dir_moved:
-                    logger.info("Moving folders...")
+            for event in dir_moved:
+                logger.info(f"Moving {event.dbx_path_from}...")
+                res = self._create_remote_entry(event)
+                results.append(res)
 
-                for event in dir_moved:
-                    logger.info(f"Moving {event.dbx_path_from}...")
-                    res = self._create_remote_entry(event)
-                    results.append(res)
+            # apply other events in parallel since order does not matter
+            with ThreadPoolExecutor(
+                max_workers=self._num_threads,
+                thread_name_prefix="maestral-upload-pool",
+            ) as executor:
+                res = executor.map(self._create_remote_entry, other)
 
-                # apply other events in parallel since order does not matter
-                with ThreadPoolExecutor(
-                    max_workers=self._num_threads,
-                    thread_name_prefix="maestral-upload-pool",
-                ) as executor:
-                    res = executor.map(self._create_remote_entry, other)
+                n_items = len(other)
+                for n, r in enumerate(res):
+                    throttled_log(logger, f"Syncing ↑ {n + 1}/{n_items}")
+                    results.append(r)
 
-                    n_items = len(other)
-                    for n, r in enumerate(res):
-                        throttled_log(logger, f"Syncing ↑ {n + 1}/{n_items}")
-                        results.append(r)
+            self._clean_history()
 
-                self._clean_history()
-
-            return results
+        return results
 
     def _filter_excluded_changes_local(
         self, sync_events: List[SyncEvent]
@@ -1986,7 +1999,7 @@ class SyncEngine:
         :returns: SyncEvent with updated status.
         """
 
-        if self.cancel_pending.is_set():
+        if self._cancel_requested.is_set():
             event.status = SyncStatus.Aborted
             self.syncing.remove(event)
             return event
@@ -2518,23 +2531,25 @@ class SyncEngine:
         Calling this method will perform a full indexing if this is the first download.
         """
 
-        changes_iter = self.list_remote_changes_iterator(self.remote_cursor)
+        with self.sync_lock:
 
-        # download changes in chunks to reduce memory usage
-        for changes, cursor in changes_iter:
-            downloaded = self.apply_remote_changes(changes)
-            self.notify_user(downloaded)
+            changes_iter = self.list_remote_changes_iterator(self.remote_cursor)
 
-            if self.cancel_pending.is_set():
-                break
-            else:
-                # Save (incremental) remote cursor.
-                self.remote_cursor = cursor
+            # download changes in chunks to reduce memory usage
+            for changes, cursor in changes_iter:
+                downloaded = self.apply_remote_changes(changes)
+                self.notify_user(downloaded)
 
-            del changes
-            del downloaded
+                if self._cancel_requested.is_set():
+                    break
+                else:
+                    # Save (incremental) remote cursor.
+                    self.remote_cursor = cursor
 
-        self.free_memory()
+                del changes
+                del downloaded
+
+            self.free_memory()
 
     def list_remote_changes_iterator(
         self, last_cursor: str
@@ -2990,7 +3005,7 @@ class SyncEngine:
             :class:`errors.SyncError` and ``None`` if cancelled.
         """
 
-        if self.cancel_pending.is_set():
+        if self._cancel_requested.is_set():
             event.status = SyncStatus.Aborted
             self.syncing.remove(event)
             return event
@@ -3406,17 +3421,15 @@ def download_worker(
         with _handle_sync_thread_errors(syncing, running, connected, sync.notifier):
             has_changes = sync.wait_for_remote_changes(sync.remote_cursor)
 
-            with sync.sync_lock:
+            if not (running.is_set() and syncing.is_set()):
+                continue
 
-                if not (running.is_set() and syncing.is_set()):
-                    continue
+            if has_changes:
+                logger.info(SYNCING)
+                sync.download_sync_cycle()
+                logger.info(IDLE)
 
-                if has_changes:
-                    logger.info(SYNCING)
-                    sync.download_sync_cycle()
-                    logger.info(IDLE)
-
-                    sync.client.get_space_usage()  # update space usage
+                sync.client.get_space_usage()  # update space usage
 
 
 def download_worker_added_item(
@@ -3479,14 +3492,13 @@ def upload_worker(
         with _handle_sync_thread_errors(syncing, running, connected, sync.notifier):
             has_changes = sync.wait_for_local_changes()
 
-            with sync.sync_lock:
-                if not (running.is_set() and syncing.is_set()):
-                    continue
+            if not (running.is_set() and syncing.is_set()):
+                continue
 
-                if has_changes:
-                    logger.info(SYNCING)
-                    sync.upload_sync_cycle()
-                    logger.info(IDLE)
+            if has_changes:
+                logger.info(SYNCING)
+                sync.upload_sync_cycle()
+                logger.info(IDLE)
 
 
 def startup_worker(
@@ -3514,50 +3526,49 @@ def startup_worker(
 
         with _handle_sync_thread_errors(syncing, running, connected, sync.notifier):
 
-            with sync.sync_lock:
-                if sync.remote_cursor == "":
-                    sync.clear_sync_errors()
+            if sync.remote_cursor == "":
+                sync.clear_sync_errors()
 
-                # Retry failed downloads.
-                if len(sync.download_errors) > 0:
-                    logger.info("Retrying failed syncs...")
+            # Retry failed downloads.
+            if len(sync.download_errors) > 0:
+                logger.info("Retrying failed syncs...")
 
-                for dbx_path in list(sync.download_errors):
-                    logger.info(f"Syncing ↓ {dbx_path}")
-                    sync.get_remote_item(dbx_path)
+            for dbx_path in list(sync.download_errors):
+                logger.info(f"Syncing ↓ {dbx_path}")
+                sync.get_remote_item(dbx_path)
 
-                # Resume interrupted downloads.
-                if len(sync.pending_downloads) > 0:
-                    logger.info("Resuming interrupted syncs...")
+            # Resume interrupted downloads.
+            if len(sync.pending_downloads) > 0:
+                logger.info("Resuming interrupted syncs...")
 
-                for dbx_path in list(sync.pending_downloads):
-                    logger.info(f"Syncing ↓ {dbx_path}")
-                    sync.get_remote_item(dbx_path)
-                    sync.pending_downloads.discard(dbx_path)
+            for dbx_path in list(sync.pending_downloads):
+                logger.info(f"Syncing ↓ {dbx_path}")
+                sync.get_remote_item(dbx_path)
+                sync.pending_downloads.discard(dbx_path)
 
-                # retry failed / interrupted uploads by scheduling additional events
-                # if len(sync.upload_errors) > 0:
-                #     logger.debug('Retrying failed uploads...')
-                #
-                # for dbx_path in list(sync.upload_errors):
-                #     sync.rescan(sync.to_local_path(dbx_path))
+            # retry failed / interrupted uploads by scheduling additional events
+            # if len(sync.upload_errors) > 0:
+            #     logger.debug('Retrying failed uploads...')
+            #
+            # for dbx_path in list(sync.upload_errors):
+            #     sync.rescan(sync.to_local_path(dbx_path))
 
-                sync.upload_local_changes_while_inactive()
+            sync.upload_local_changes_while_inactive()
 
-                if not running.is_set():
-                    continue
+            if not running.is_set():
+                continue
 
-                # Download remote changes / indexing.
-                sync.download_sync_cycle()
+            # Download remote changes / indexing.
+            sync.download_sync_cycle()
 
-                if not running.is_set():
-                    continue
+            if not running.is_set():
+                continue
 
-                if not paused_by_user.is_set():
-                    syncing.set()
+            if not paused_by_user.is_set():
+                syncing.set()
 
-                startup.clear()
-                logger.info(IDLE)
+            startup.clear()
+            logger.info(IDLE)
 
 
 # ======================================================================================
@@ -3749,9 +3760,7 @@ class SyncMonitor:
         self.paused_by_user.set()
         self.syncing.clear()
 
-        self.sync.cancel_pending.set()
-        self._wait_for_idle()
-        self.sync.cancel_pending.clear()
+        self.sync.cancel_sync()
 
         logger.info(PAUSED)
 
@@ -3779,9 +3788,7 @@ class SyncMonitor:
         self.paused_by_user.clear()
         self.startup.clear()
 
-        self.sync.cancel_pending.set()
-        self._wait_for_idle()
-        self.sync.cancel_pending.clear()
+        self.sync.cancel_sync()
 
         self.local_observer_thread.stop()
         # self.local_observer_thread.join()
@@ -3858,11 +3865,6 @@ class SyncMonitor:
             self.start()
         else:
             self.resume()
-
-    def _wait_for_idle(self) -> None:
-
-        self.sync.sync_lock.acquire()
-        self.sync.sync_lock.release()
 
 
 # ======================================================================================
