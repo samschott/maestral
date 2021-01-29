@@ -10,18 +10,20 @@
 
 * Added a `--yes, -Y` flag to the `unlink` to command to skip the confirmation prompt.
 * Performance has been improved by avoiding scanning of objects matching an 
-  `.mignore` pattern (file watches will still be added however). A resulting behavioral change
-  is that **maestral will remove existing matching files from Dropbox as well**. After this change
-  it will be immaterial if an `.mignore` pattern is added before or after having matching files 
-  in Dropbox.
-  
+  `.mignore` pattern (file watches will still be added however). A resulting behavioral
+  change is that **maestral will remove existing matching files from Dropbox as well**.
+  After this change it will be immaterial if an `.mignore` pattern is added before or
+  after having matching files  in Dropbox.
+
 #### Fixes:
 
 * Fixes an issue with CLI on Python 3.6 where commands that print datetimes to the
   console would raise an exception.
 * Properly handle a rare OSError ([Errno 41] Protocol wrong type for socket) on macOS,
   see https://bugs.python.org/issue33450.
-  
+* Allow creating local files even if we cannot set their permissions, for instances on
+  some mounted NTFS drives.
+
 #### Removed:
 
 * Removed automatic error reporting via bugsnag. Please file issues directly on GitHub
@@ -31,7 +33,7 @@
 #### Dependencies:
 
 * Bumped survey to version >=3.2.2,<4.0.
-* Bumped keyring to version >=22,<23.  
+* Bumped keyring to version >=22.  
 * Removed bugsnag dependency.
 
 ## v1.3.1
