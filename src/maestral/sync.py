@@ -1025,7 +1025,12 @@ class SyncEngine:
         self._ensure_cache_dir_present()
         try:
             with NamedTemporaryFile(dir=self.file_cache_path, delete=False) as f:
-                os.chmod(f.fileno(), 0o666 & ~umask)
+                try:
+                    os.chmod(f.fileno(), 0o666 & ~umask)
+                except OSError as exc:
+                    # Can occur on file system's that don't support POSIX permissions
+                    # such as NTFS mounted without the permissions option.
+                    logger.debug("Cannot set permissions: errno %s", exc.errno)
                 return f.name
         except OSError as err:
             raise CacheDirError(
