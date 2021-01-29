@@ -1578,8 +1578,6 @@ class SyncEngine:
         :returns: (list of sync times events, time_stamp)
         """
 
-        self.ensure_dropbox_folder_present()
-
         events = []
         local_cursor = time.time()
 
@@ -3420,6 +3418,7 @@ def download_worker(
 
         with _handle_sync_thread_errors(syncing, running, connected, sync.notifier):
             has_changes = sync.wait_for_remote_changes(sync.remote_cursor)
+            sync.ensure_dropbox_folder_present()
 
             if not (running.is_set() and syncing.is_set()):
                 continue
@@ -3491,6 +3490,7 @@ def upload_worker(
 
         with _handle_sync_thread_errors(syncing, running, connected, sync.notifier):
             has_changes = sync.wait_for_local_changes()
+            sync.ensure_dropbox_folder_present()
 
             if not (running.is_set() and syncing.is_set()):
                 continue
@@ -3528,6 +3528,8 @@ def startup_worker(
 
             if sync.remote_cursor == "":
                 sync.clear_sync_errors()
+
+            sync.ensure_dropbox_folder_present()
 
             # Retry failed downloads.
             if len(sync.download_errors) > 0:
@@ -3804,6 +3806,7 @@ class SyncMonitor:
         """
 
         while True:
+
             if check_connection("www.dropbox.com"):
                 self.on_connect()
             else:
