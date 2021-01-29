@@ -31,6 +31,7 @@
 #### Dependencies:
 
 * Bumped survey to version >=3.2.2,<4.0.
+* Bumped keyring to version >=22,<23.  
 * Removed bugsnag dependency.
 
 ## v1.3.1

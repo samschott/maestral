@@ -135,11 +135,9 @@ class Maestral:
         self._setup_logging()
 
         # set up sync infrastructure
-        self.client = DropboxClient(
-            config_name=self.config_name
-        )  # interface to Dbx SDK
-        self.monitor = SyncMonitor(self.client)  # coordinates sync threads
-        self.sync = self.monitor.sync  # provides core sync functionality
+        self.client = DropboxClient(config_name=self.config_name)
+        self.monitor = SyncMonitor(self.client)
+        self.sync = self.monitor.sync
 
         self._check_and_run_post_update_scripts()
 
@@ -1411,6 +1409,8 @@ class Maestral:
             self._update_from_pre_v1_2_0()
         elif Version(updated_from) < Version("1.2.1"):
             self._update_from_pre_v1_2_1()
+        elif Version(updated_from) < Version("1.3.2"):
+            self._update_from_pre_v1_3_2()
 
         self.set_state("app", "updated_scripts_completed", __version__)
 
@@ -1464,6 +1464,12 @@ class Maestral:
                             }
 
                         batch_op.drop_constraint(constraint_name=name, type_="unique")
+
+    def _update_from_pre_v1_3_2(self) -> None:
+
+        if self._conf.get("app", "keyring") == "keyring.backends.OS_X.Keyring":
+            logger.info("Migrating keyring after update from pre v1.3.2")
+            self._conf.set("app", "keyring", "keyring.backends.macOS.Keyring")
 
     # ==== period async jobs ===========================================================
 
