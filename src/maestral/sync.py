@@ -3375,7 +3375,7 @@ class SyncEngine:
 
 
 @contextmanager
-def _handle_sync_thread_errors(
+def handle_sync_thread_errors(
     syncing: Event,
     running: Event,
     connected: Event,
@@ -3416,7 +3416,8 @@ def download_worker(
 
         syncing.wait()
 
-        with _handle_sync_thread_errors(syncing, running, connected, sync.notifier):
+        with handle_sync_thread_errors(syncing, running, connected, sync.notifier):
+
             has_changes = sync.wait_for_remote_changes(sync.remote_cursor)
             sync.ensure_dropbox_folder_present()
 
@@ -3453,7 +3454,8 @@ def download_worker_added_item(
 
         syncing.wait()
 
-        with _handle_sync_thread_errors(syncing, running, connected, sync.notifier):
+        with handle_sync_thread_errors(syncing, running, connected, sync.notifier):
+
             dbx_path = added_item_queue.get()
             sync.pending_downloads.add(dbx_path.lower())  # protect against crashes
 
@@ -3488,7 +3490,8 @@ def upload_worker(
 
         syncing.wait()
 
-        with _handle_sync_thread_errors(syncing, running, connected, sync.notifier):
+        with handle_sync_thread_errors(syncing, running, connected, sync.notifier):
+
             has_changes = sync.wait_for_local_changes()
             sync.ensure_dropbox_folder_present()
 
@@ -3524,7 +3527,7 @@ def startup_worker(
 
         startup.wait()
 
-        with _handle_sync_thread_errors(syncing, running, connected, sync.notifier):
+        with handle_sync_thread_errors(syncing, running, connected, sync.notifier):
 
             if sync.remote_cursor == "":
                 sync.clear_sync_errors()
