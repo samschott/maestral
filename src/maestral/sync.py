@@ -3507,10 +3507,10 @@ def startup_worker(
 
         with handle_sync_thread_errors(syncing, running, connected, sync.notifier):
 
-            if sync.remote_cursor == "":
-                sync.clear_sync_errors()
-
             sync.ensure_dropbox_folder_present()
+
+            # Download remote changes / indexing.
+            sync.download_sync_cycle()
 
             # Retry failed downloads.
             if len(sync.download_errors) > 0:
@@ -3540,9 +3540,6 @@ def startup_worker(
 
             if not running.is_set():
                 continue
-
-            # Download remote changes / indexing.
-            sync.download_sync_cycle()
 
             if not running.is_set():
                 continue
