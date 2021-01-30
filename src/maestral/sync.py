@@ -1475,14 +1475,13 @@ class SyncEngine:
                 # check if item was created or modified since last sync
                 # but before we started the FileEventHandler (~snapshot_time)
                 stats = snapshot.stat_info(path)
-                ctime_check = (
-                    snapshot_time > stats.st_ctime > self.get_last_sync(dbx_path_lower)
-                )
+                last_sync = self.get_last_sync(dbx_path_lower)
+                ctime_check = snapshot_time > stats.st_ctime > last_sync
 
                 # always upload untracked items, check ctime of tracked items
                 local_entry = self.get_index_entry(dbx_path_lower)
                 is_new = local_entry is None
-                is_modified = ctime_check and local_entry is not None
+                is_modified = ctime_check and not is_new
 
                 if is_new:
                     if snapshot.isdir(path):
