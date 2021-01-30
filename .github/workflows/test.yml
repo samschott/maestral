@@ -116,7 +116,7 @@ jobs:
 
       - name: Test with pytest
         run: |
-          pytest --reruns 5 --cov=maestral --cov-report=xml tests/linked
+          pytest -v --reruns 5 --cov=maestral --cov-report=xml tests/linked
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
