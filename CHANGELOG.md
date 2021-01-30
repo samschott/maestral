@@ -14,6 +14,10 @@
   change is that **maestral will remove existing matching files from Dropbox as well**.
   After this change it will be immaterial if an `.mignore` pattern is added before or
   after having matching files  in Dropbox.
+* If Maestral is quit or interrupted during indexing, for instance due to connection
+  problems, it will later resume from the same position instead of restarting the
+  beginning.
+* Indexing will no longer skip excluded folders. This is necessary for the above change.
 
 #### Fixes:
 
