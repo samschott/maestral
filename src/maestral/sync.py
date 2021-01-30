@@ -1441,7 +1441,7 @@ class SyncEngine:
                 sync_events = [
                     SyncEvent.from_file_system_event(e, self) for e in events
                 ]
-            except FileNotFoundError:
+            except (FileNotFoundError, NotADirectoryError):
                 self.ensure_dropbox_folder_present()
                 return
 
@@ -2852,7 +2852,7 @@ class SyncEngine:
 
         try:
             stat = os.stat(local_path)
-        except FileNotFoundError:
+        except (FileNotFoundError, NotADirectoryError):
             # don't check ctime for deleted items (os won't give stat info)
             # but confirm absence from index
             return index_entry is not None
@@ -2907,7 +2907,7 @@ class SyncEngine:
                 return ctime
             else:
                 return os.stat(local_path).st_ctime
-        except FileNotFoundError:
+        except (FileNotFoundError, NotADirectoryError):
             return -1.0
 
     def _clean_remote_changes(
@@ -3210,7 +3210,7 @@ class SyncEngine:
             self.update_index_from_sync_event(event)
             logger.debug('Deleted local item "%s"', event.dbx_path)
             return event
-        elif isinstance(exc, FileNotFoundError):
+        elif isinstance(exc, (FileNotFoundError, NotADirectoryError)):
             self.update_index_from_sync_event(event)
             logger.debug('Deletion failed: "%s" not found', event.dbx_path)
             return None
