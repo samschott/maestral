@@ -2497,7 +2497,6 @@ class SyncEngine:
 
             1) :meth:`list_remote_changes_iterator`
             2) :meth:`apply_remote_changes`
-            3) :meth:`notify_user`
 
         Handles updating the remote cursor and resuming interrupted syncs for you.
         Calling this method will perform a full indexing if this is the first download.
@@ -2505,12 +2504,17 @@ class SyncEngine:
 
         with self.sync_lock:
 
+            is_indexing = self.remote_cursor == ""
+
             changes_iter = self.list_remote_changes_iterator(self.remote_cursor)
 
-            # download changes in chunks to reduce memory usage
+            # Download changes in chunks to reduce memory usage.
             for changes, cursor in changes_iter:
                 downloaded = self.apply_remote_changes(changes)
-                self.notify_user(downloaded)
+
+                if not is_indexing:
+                    # Don't send desktop notifications during indexing.
+                    self.notify_user(downloaded)
 
                 if self._cancel_requested.is_set():
                     break
