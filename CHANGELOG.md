@@ -23,6 +23,8 @@
   see https://bugs.python.org/issue33450.
 * Allow creating local files even if we cannot set their permissions, for instances on
   some mounted NTFS drives.
+* Fixes an issue with the selective sync dialog in the Qt / Linux GUI where the "Update"
+  button could be incorrectly enabled or disabled.
 
 #### Removed:
 
