@@ -3397,10 +3397,11 @@ def download_worker(
         with handle_sync_thread_errors(syncing, running, connected, sync.notifier):
 
             has_changes = sync.wait_for_remote_changes(sync.remote_cursor)
-            sync.ensure_dropbox_folder_present()
 
             if not (running.is_set() and syncing.is_set()):
                 continue
+
+            sync.ensure_dropbox_folder_present()
 
             if has_changes:
                 logger.info(SYNCING)
@@ -3471,10 +3472,11 @@ def upload_worker(
         with handle_sync_thread_errors(syncing, running, connected, sync.notifier):
 
             has_changes = sync.wait_for_local_changes()
-            sync.ensure_dropbox_folder_present()
 
             if not (running.is_set() and syncing.is_set()):
                 continue
+
+            sync.ensure_dropbox_folder_present()
 
             if has_changes:
                 logger.info(SYNCING)
@@ -3506,8 +3508,6 @@ def startup_worker(
         startup.wait()
 
         with handle_sync_thread_errors(syncing, running, connected, sync.notifier):
-
-            sync.ensure_dropbox_folder_present()
 
             # Download remote changes / indexing.
             sync.download_sync_cycle()
