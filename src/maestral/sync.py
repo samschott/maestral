@@ -2394,34 +2394,23 @@ class SyncEngine:
 
     # ==== Download sync ===============================================================
 
-    def get_remote_folder(self, dbx_path: str = "/") -> bool:
+    def get_remote_folder(self, dbx_path: str) -> bool:
         """
         Gets all files/folders from a Dropbox folder and writes them to the local folder
         :attr:`dropbox_path`.
 
-        :param dbx_path: Path relative to Dropbox folder. Defaults to root ('/').
+        :param dbx_path: Path relative to Dropbox folder.
         :returns: Whether download was successful.
         """
 
         with self.sync_lock:
 
-            dbx_path = dbx_path or "/"
-            success = True
-
             logger.info(f"Syncing ↓ {dbx_path}")
-
-            if any(is_child(folder, dbx_path) for folder in self.excluded_items):
-                # if there are excluded subfolders, index and download only included
-                skip_excluded = True
-            else:
-                skip_excluded = False
 
             try:
 
                 # iterate over index and download results
-                list_iter = self.client.list_folder_iterator(
-                    dbx_path, recursive=not skip_excluded, include_deleted=False
-                )
+                list_iter = self.client.list_folder_iterator(dbx_path, recursive=True)
 
                 for res in list_iter:
                     res.entries.sort(key=lambda x: x.path_lower.count("/"))
@@ -2432,25 +2421,10 @@ class SyncEngine:
                     ]
                     download_res = self.apply_remote_changes(sync_events)
 
-                    s = all(
+                    success = all(
                         e.status in (SyncStatus.Done, SyncStatus.Skipped)
                         for e in download_res
                     )
-                    success = s and success
-
-                    if skip_excluded:
-                        # list and download sub-folder contents if not excluded
-                        included_subfolders = [
-                            md
-                            for md in res.entries
-                            if isinstance(md, FolderMetadata)
-                            and not self.is_excluded_by_user(md.path_display)
-                        ]
-                        for md in included_subfolders:
-                            s = self.get_remote_folder(md.path_display)
-                            success = s and success
-
-                        del included_subfolders
 
             except SyncError as e:
                 self._handle_sync_error(e, direction=SyncDirection.Down)
