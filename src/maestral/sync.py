@@ -1494,8 +1494,8 @@ class SyncEngine:
                 ctime_check = snapshot_time > stats.st_ctime > last_sync
 
                 # always upload untracked items, check ctime of tracked items
-                local_entry = self.get_index_entry(dbx_path_lower)
-                is_new = local_entry is None
+                index_entry = self.get_index_entry(dbx_path_lower)
+                is_new = index_entry is None
                 is_modified = ctime_check and not is_new
 
                 if is_new:
@@ -1506,10 +1506,10 @@ class SyncEngine:
                     changes.append(event)
 
                 elif is_modified:
-                    if snapshot.isdir(path) and local_entry.is_directory:  # type: ignore
+                    if snapshot.isdir(path) and index_entry.is_directory:  # type: ignore
                         event = DirModifiedEvent(path)
                         changes.append(event)
-                    elif not snapshot.isdir(path) and not local_entry.is_directory:  # type: ignore
+                    elif not snapshot.isdir(path) and not index_entry.is_directory:  # type: ignore
                         event = FileModifiedEvent(path)
                         changes.append(event)
                     elif snapshot.isdir(path):
@@ -1522,8 +1522,9 @@ class SyncEngine:
                         changes += [event0, event1]
 
         # get deleted items
+        dbx_root_lower = self.dropbox_path.lower()
         for entry in entries:
-            local_path_uncased = f"{self.dropbox_path}{entry.dbx_path_lower}".lower()
+            local_path_uncased = f"{dbx_root_lower}{entry.dbx_path_lower}"
             if local_path_uncased not in lowercase_snapshot_paths:
                 local_path = self.to_local_path_from_cased(entry.dbx_path_cased)
                 if entry.is_directory:
