@@ -11,6 +11,7 @@ import os
 import os.path as osp
 import functools
 import time
+from datetime import datetime
 from typing import Optional, Dict, List, Tuple, Callable, Union, cast, TYPE_CHECKING
 
 # external imports
@@ -905,7 +906,6 @@ def activity(config_name: str) -> None:
 @catch_maestral_errors
 def history(config_name: str) -> None:
 
-    from datetime import datetime
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -953,7 +953,6 @@ def history(config_name: str) -> None:
 @catch_maestral_errors
 def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -> None:
 
-    from datetime import datetime
     from .utils import natural_size
     from .daemon import MaestralProxy
 
@@ -1332,7 +1331,6 @@ def rebuild_index(config_name: str) -> None:
 @catch_maestral_errors
 def revs(dropbox_path: str, limit: int, config_name: str) -> None:
 
-    from datetime import datetime
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -1396,7 +1394,6 @@ def diff(
     config_name: str,
 ) -> None:
 
-    from datetime import datetime
     from .daemon import MaestralProxy
 
     # Reason for rel_dbx_path: os.path.join does not like leading /
@@ -1522,7 +1519,7 @@ If no revision number is given, old revisions will be listed.
 @existing_config_option
 @catch_maestral_errors
 def restore(dropbox_path: str, rev: str, limit: int, config_name: str) -> None:
-    from datetime import datetime
+
     from .daemon import MaestralProxy
 
     if not dropbox_path.startswith("/"):
