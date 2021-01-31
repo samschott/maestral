@@ -3510,9 +3510,6 @@ def startup_worker(
 
         with handle_sync_thread_errors(syncing, running, connected, sync.notifier):
 
-            # Download remote changes / indexing.
-            sync.download_sync_cycle()
-
             # Retry failed downloads.
             if len(sync.download_errors) > 0:
                 logger.info("Retrying failed syncs...")
@@ -3537,6 +3534,7 @@ def startup_worker(
             # for dbx_path in list(sync.upload_errors):
             #     sync.rescan(sync.to_local_path(dbx_path))
 
+            sync.download_sync_cycle()
             sync.upload_local_changes_while_inactive()
 
             if not running.is_set():
