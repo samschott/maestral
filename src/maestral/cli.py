@@ -1219,7 +1219,7 @@ def notify():
 @click.argument(
     "level_name",
     required=False,
-    type=click.Choice(["ERROR", "SYNCISSUE", "FILECHANGE"]),
+    type=click.Choice(["ERROR", "SYNCISSUE", "FILECHANGE"], case_sensitive=False),
 )
 @existing_config_option
 def notify_level(level_name: str, config_name: str) -> None:
@@ -1615,7 +1615,7 @@ def log_clear(config_name: str) -> None:
 @click.argument(
     "level_name",
     required=False,
-    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"], case_sensitive=False),
 )
 @existing_config_option
 def log_level(level_name: str, config_name: str) -> None:
