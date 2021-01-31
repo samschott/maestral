@@ -19,7 +19,8 @@ def test_receiving_events(sync):
     new_dir = Path(sync.dropbox_path) / "parent"
     new_dir.mkdir()
 
-    sync_events, local_cursor = sync.wait_for_local_changes()
+    sync.wait_for_local_changes()
+    sync_events, _ = sync.list_local_changes()
 
     assert len(sync_events) == 1
 
@@ -46,7 +47,8 @@ def test_ignore_tree_creation(sync):
             file = new_dir / f"test_{i}"
             file.touch()
 
-    sync_events, local_cursor = sync.wait_for_local_changes()
+    sync.wait_for_local_changes()
+    sync_events, _ = sync.list_local_changes()
     assert len(sync_events) == 0
 
 
@@ -60,13 +62,15 @@ def test_ignore_tree_move(sync):
         file.touch()
 
     sync.wait_for_local_changes()
+    sync.list_local_changes()
 
     new_dir_1 = Path(sync.dropbox_path) / "parent2"
 
     with sync.fs_events.ignore(DirMovedEvent(str(new_dir), str(new_dir_1))):
         move(new_dir, new_dir_1)
 
-    sync_events, local_cursor = sync.wait_for_local_changes()
+    sync.wait_for_local_changes()
+    sync_events, _ = sync.list_local_changes()
     assert len(sync_events) == 0
 
 
@@ -81,5 +85,6 @@ def test_catching_non_ignored_events(sync):
             file = new_dir / f"test_{i}"
             file.touch()
 
-    sync_events, local_cursor = sync.wait_for_local_changes()
+    sync.wait_for_local_changes()
+    sync_events, _ = sync.list_local_changes()
     assert all(not si.is_directory for si in sync_events)

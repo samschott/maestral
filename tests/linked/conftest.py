@@ -130,7 +130,9 @@ def wait_for_idle(m: Maestral, minimum: int = 4):
     t0 = time.time()
     while time.time() - t0 < minimum:
         if m.sync.busy():
-            m.monitor._wait_for_idle()
+            # Wait until we can acquire the sync lock => we are idle.
+            m.sync.sync_lock.acquire()
+            m.sync.sync_lock.release()
             t0 = time.time()
         else:
             time.sleep(0.1)

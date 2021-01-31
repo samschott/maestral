@@ -10,7 +10,6 @@ import os
 import os.path as osp
 import time
 import logging
-import functools
 import contextlib
 from datetime import datetime, timezone
 from typing import (
@@ -194,40 +193,6 @@ def convert_api_errors(
             raise os_to_maestral_error(exc, dbx_path, local_path)
 
 
-def convert_api_errors_decorator(
-    dbx_path_arg: Optional[int] = None, local_path_arg: Optional[int] = None
-) -> Callable[[_FT], _FT]:
-    """
-    Returns a decorator that catches and re-raises instances of :class:`OSError` and
-    :class:`exceptions.DropboxException` as :class:`errors.MaestralApiError` or
-    :class:`ConnectionError`.
-
-    :param dbx_path_arg: Argument number to take as dbx_path for exception.
-    :param local_path_arg: Argument number to take as local_path_arg for exception.
-    """
-
-    def decorator(func: _FT) -> _FT:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-
-            try:
-                dbx_path = args[dbx_path_arg]  # type: ignore
-            except (IndexError, TypeError):
-                dbx_path = None
-
-            try:
-                local_path = args[local_path_arg]  # type: ignore
-            except (IndexError, TypeError):
-                local_path = None
-
-            with convert_api_errors(dbx_path, local_path):
-                return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
 class DropboxClient:
     """Client for the Dropbox SDK
 
@@ -332,7 +297,6 @@ class DropboxClient:
 
         return res
 
-    @convert_api_errors_decorator()
     def unlink(self) -> None:
         """
         Unlinks the Dropbox account.
@@ -340,8 +304,10 @@ class DropboxClient:
         :raises KeyringAccessError: if keyring access fails.
         :raises DropboxAuthError: if we cannot authenticate with Dropbox.
         """
-        self.dbx.auth_token_revoke()
-        self.auth.delete_creds()
+
+        with convert_api_errors():
+            self.dbx.auth_token_revoke()
+            self.auth.delete_creds()
 
     def _init_sdk_with_token(
         self,
@@ -379,7 +345,6 @@ class DropboxClient:
 
     # ---- SDK wrappers ----------------------------------------------------------------
 
-    @convert_api_errors_decorator()
     def get_account_info(self, dbid: Optional[str] = None) -> users.FullAccount:
         """
         Gets current account information.
@@ -388,10 +353,12 @@ class DropboxClient:
             currently linked account.
         :returns: Account info.
         """
-        if dbid:
-            res = self.dbx.users_get_account(dbid)
-        else:
-            res = self.dbx.users_get_current_account()
+
+        with convert_api_errors():
+            if dbid:
+                res = self.dbx.users_get_account(dbid)
+            else:
+                res = self.dbx.users_get_current_account()
 
         if not dbid:
             # save our own account info to config
@@ -411,12 +378,12 @@ class DropboxClient:
 
         return res
 
-    @convert_api_errors_decorator()
     def get_space_usage(self) -> SpaceUsage:
         """
         :returns: The space usage of the currently linked account.
         """
-        res = self.dbx.users_get_space_usage()
+        with convert_api_errors():
+            res = self.dbx.users_get_space_usage()
 
         # convert from users.SpaceUsage to SpaceUsage
         space_usage = SpaceUsage.from_dbx_space_usage(res)
@@ -427,7 +394,6 @@ class DropboxClient:
 
         return space_usage
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def get_metadata(self, dbx_path: str, **kwargs) -> Optional[files.Metadata]:
         """
         Gets metadata for an item on Dropbox or returns ``False`` if no metadata is
@@ -440,16 +406,11 @@ class DropboxClient:
         """
 
         try:
-            return self.dbx.files_get_metadata(dbx_path, **kwargs)
-        except exceptions.ApiError as exc:
+            with convert_api_errors(dbx_path=dbx_path):
+                return self.dbx.files_get_metadata(dbx_path, **kwargs)
+        except (NotFoundError, PathError):
+            return None
 
-            if isinstance(exc.error, files.GetMetadataError):
-                # this will be only lookup errors
-                return None
-            else:
-                raise exc
-
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def list_revisions(
         self, dbx_path: str, mode: str = "path", limit: int = 10
     ) -> files.ListRevisionsResult:
@@ -463,10 +424,10 @@ class DropboxClient:
         :returns: File revision history.
         """
 
-        mode = files.ListRevisionsMode(mode)
-        return self.dbx.files_list_revisions(dbx_path, mode=mode, limit=limit)
+        with convert_api_errors(dbx_path=dbx_path):
+            mode = files.ListRevisionsMode(mode)
+            return self.dbx.files_list_revisions(dbx_path, mode=mode, limit=limit)
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def restore(self, dbx_path: str, rev: str) -> files.FileMetadata:
         """
         Restore an old revision of a file.
@@ -477,9 +438,9 @@ class DropboxClient:
         :returns: Metadata of restored file.
         """
 
-        return self.dbx.files_restore(dbx_path, rev)
+        with convert_api_errors(dbx_path=dbx_path):
+            return self.dbx.files_restore(dbx_path, rev)
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def download(
         self,
         dbx_path: str,
@@ -497,23 +458,25 @@ class DropboxClient:
         :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
         :returns: Metadata of downloaded item.
         """
-        # create local directory if not present
-        dst_path_directory = osp.dirname(local_path)
-        try:
-            os.makedirs(dst_path_directory)
-        except FileExistsError:
-            pass
 
-        md, http_resp = self.dbx.files_download(dbx_path, **kwargs)
+        with convert_api_errors(dbx_path=dbx_path):
 
-        chunksize = 2 ** 13
+            dst_path_directory = osp.dirname(local_path)
+            try:
+                os.makedirs(dst_path_directory)
+            except FileExistsError:
+                pass
 
-        with open(local_path, "wb") as f:
-            with contextlib.closing(http_resp):
-                for c in http_resp.iter_content(chunksize):
-                    f.write(c)
-                    if sync_event:
-                        sync_event.completed = f.tell()
+            md, http_resp = self.dbx.files_download(dbx_path, **kwargs)
+
+            chunksize = 2 ** 13
+
+            with open(local_path, "wb") as f:
+                with contextlib.closing(http_resp):
+                    for c in http_resp.iter_content(chunksize):
+                        f.write(c)
+                        if sync_event:
+                            sync_event.completed = f.tell()
 
         # dropbox SDK provides naive datetime in UTC
         client_mod_timestamp = md.client_modified.replace(
@@ -530,7 +493,6 @@ class DropboxClient:
 
         return md
 
-    @convert_api_errors_decorator(local_path_arg=1, dbx_path_arg=2)
     def upload(
         self,
         local_path: str,
@@ -554,83 +516,86 @@ class DropboxClient:
 
         chunk_size = clamp(chunk_size, 10 ** 5, 150 * 10 ** 6)
 
-        size = osp.getsize(local_path)
+        with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
 
-        # dropbox SDK takes naive datetime in UTC
-        mtime = osp.getmtime(local_path)
-        mtime_dt = datetime.utcfromtimestamp(mtime)
+            size = osp.getsize(local_path)
 
-        if size <= chunk_size:
-            with open(local_path, "rb") as f:
-                md = self.dbx.files_upload(
-                    f.read(), dbx_path, client_modified=mtime_dt, **kwargs
-                )
-                if sync_event:
-                    sync_event.completed = f.tell()
-            return md
-        else:
-            # Note: We currently do not support resuming interrupted uploads. Dropbox
-            # keeps upload sessions open for 48h so this could be done in the future.
-            with open(local_path, "rb") as f:
-                session_start = self.dbx.files_upload_session_start(f.read(chunk_size))
-                uploaded = f.tell()
+            # dropbox SDK takes naive datetime in UTC
+            mtime = osp.getmtime(local_path)
+            mtime_dt = datetime.utcfromtimestamp(mtime)
 
-                cursor = files.UploadSessionCursor(
-                    session_id=session_start.session_id, offset=uploaded
-                )
-                commit = files.CommitInfo(
-                    path=dbx_path, client_modified=mtime_dt, **kwargs
-                )
+            if size <= chunk_size:
+                with open(local_path, "rb") as f:
+                    md = self.dbx.files_upload(
+                        f.read(), dbx_path, client_modified=mtime_dt, **kwargs
+                    )
+                    if sync_event:
+                        sync_event.completed = f.tell()
+                return md
+            else:
+                # Note: We currently do not support resuming interrupted uploads.
+                # Dropbox keeps upload sessions open for 48h so this could be done in
+                # the future.
+                with open(local_path, "rb") as f:
+                    data = f.read(chunk_size)
+                    session_start = self.dbx.files_upload_session_start(data)
+                    uploaded = f.tell()
 
-                if sync_event:
-                    sync_event.completed = uploaded
+                    cursor = files.UploadSessionCursor(
+                        session_id=session_start.session_id, offset=uploaded
+                    )
+                    commit = files.CommitInfo(
+                        path=dbx_path, client_modified=mtime_dt, **kwargs
+                    )
 
-                while True:
-                    try:
-                        if size - f.tell() <= chunk_size:
-                            md = self.dbx.files_upload_session_finish(
-                                f.read(chunk_size), cursor, commit
-                            )
+                    if sync_event:
+                        sync_event.completed = uploaded
 
-                        else:
-                            self.dbx.files_upload_session_append_v2(
-                                f.read(chunk_size), cursor
-                            )
-                            md = None
+                    while True:
+                        try:
 
-                        # housekeeping
-                        uploaded = f.tell()
-                        if sync_event:
-                            sync_event.completed = uploaded
+                            if size - f.tell() <= chunk_size:
+                                # Wrap up upload session and return metadata.
+                                data = f.read(chunk_size)
+                                md = self.dbx.files_upload_session_finish(
+                                    data, cursor, commit
+                                )
+                                if sync_event:
+                                    sync_event.completed = sync_event.size
+                                return md
+                            else:
+                                # Append to upload session.
+                                data = f.read(chunk_size)
+                                self.dbx.files_upload_session_append_v2(data, cursor)
 
-                        if md:
-                            return md
-                        else:
-                            cursor.offset = uploaded
+                                uploaded = f.tell()
+                                cursor.offset = uploaded
 
-                    except exceptions.DropboxException as exc:
-                        error = getattr(exc, "error", None)
-                        if (
-                            isinstance(error, files.UploadSessionFinishError)
-                            and error.is_lookup_failed()
-                        ):
-                            session_lookup_error = error.get_lookup_failed()
-                        elif isinstance(error, files.UploadSessionLookupError):
-                            session_lookup_error = error
-                        else:
-                            raise exc
+                                if sync_event:
+                                    sync_event.completed = uploaded
 
-                        if session_lookup_error.is_incorrect_offset():
-                            o = (
-                                session_lookup_error.get_incorrect_offset().correct_offset
-                            )
-                            # reset position in file
-                            f.seek(o)
-                            cursor.offset = f.tell()
-                        else:
-                            raise exc
+                        except exceptions.DropboxException as exc:
+                            error = getattr(exc, "error", None)
+                            if (
+                                isinstance(error, files.UploadSessionFinishError)
+                                and error.is_lookup_failed()
+                            ):
+                                session_lookup_error = error.get_lookup_failed()
+                            elif isinstance(error, files.UploadSessionLookupError):
+                                session_lookup_error = error
+                            else:
+                                raise exc
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
+                            if session_lookup_error.is_incorrect_offset():
+                                # reset position in file
+                                offset = (
+                                    session_lookup_error.get_incorrect_offset().correct_offset
+                                )
+                                f.seek(offset)
+                                cursor.offset = f.tell()
+                            else:
+                                raise exc
+
     def remove(self, dbx_path: str, **kwargs) -> files.Metadata:
         """
         Removes a file / folder from Dropbox.
@@ -639,13 +604,11 @@ class DropboxClient:
         :param kwargs: Keyword arguments for Dropbox SDK files_delete_v2.
         :returns: Metadata of deleted item.
         """
-        # try to remove file (response will be metadata, probably)
-        res = self.dbx.files_delete_v2(dbx_path, **kwargs)
-        md = res.metadata
 
-        return md
+        with convert_api_errors(dbx_path=dbx_path):
+            res = self.dbx.files_delete_v2(dbx_path, **kwargs)
+            return res.metadata
 
-    @convert_api_errors_decorator()
     def remove_batch(
         self, entries: List[Tuple[str, str]], batch_size: int = 900
     ) -> List[Union[files.Metadata, MaestralApiError]]:
@@ -671,7 +634,9 @@ class DropboxClient:
         for chunk in chunks(entries, n=batch_size):
 
             arg = [files.DeleteArg(e[0], e[1]) for e in chunk]
-            res = self.dbx.files_delete_batch(arg)
+
+            with convert_api_errors():
+                res = self.dbx.files_delete_batch(arg)
 
             if res.is_complete():
                 batch_res = res.get_complete()
@@ -681,13 +646,16 @@ class DropboxClient:
                 async_job_id = res.get_async_job_id()
 
                 time.sleep(1.0)
-                res = self.dbx.files_delete_batch_check(async_job_id)
+
+                with convert_api_errors():
+                    res = self.dbx.files_delete_batch_check(async_job_id)
 
                 check_interval = round(len(chunk) / 100, 1)
 
                 while res.is_in_progress():
                     time.sleep(check_interval)
-                    res = self.dbx.files_delete_batch_check(async_job_id)
+                    with convert_api_errors():
+                        res = self.dbx.files_delete_batch_check(async_job_id)
 
                 if res.is_complete():
                     batch_res = res.get_complete()
@@ -718,7 +686,6 @@ class DropboxClient:
 
         return result_list
 
-    @convert_api_errors_decorator(dbx_path_arg=2)
     def move(self, dbx_path: str, new_path: str, **kwargs) -> files.Metadata:
         """
         Moves / renames files or folders on Dropbox.
@@ -728,18 +695,17 @@ class DropboxClient:
         :param kwargs: Keyword arguments for Dropbox SDK files_move_v2.
         :returns: Metadata of moved item.
         """
-        res = self.dbx.files_move_v2(
-            dbx_path,
-            new_path,
-            allow_shared_folder=True,
-            allow_ownership_transfer=True,
-            **kwargs,
-        )
-        md = res.metadata
 
-        return md
+        with convert_api_errors(dbx_path=new_path):
+            res = self.dbx.files_move_v2(
+                dbx_path,
+                new_path,
+                allow_shared_folder=True,
+                allow_ownership_transfer=True,
+                **kwargs,
+            )
+            return res.metadata
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def make_dir(self, dbx_path: str, **kwargs) -> files.FolderMetadata:
         """
         Creates a folder on Dropbox.
@@ -748,12 +714,11 @@ class DropboxClient:
         :param kwargs: Keyword arguments for Dropbox SDK files_create_folder_v2.
         :returns: Metadata of created folder.
         """
-        res = self.dbx.files_create_folder_v2(dbx_path, **kwargs)
-        md = res.metadata
 
-        return md
+        with convert_api_errors(dbx_path=dbx_path):
+            res = self.dbx.files_create_folder_v2(dbx_path, **kwargs)
+            return res.metadata
 
-    @convert_api_errors_decorator()
     def make_dir_batch(
         self, dbx_paths: List[str], batch_size: int = 900, **kwargs
     ) -> List[Union[files.Metadata, MaestralApiError]]:
@@ -772,36 +737,38 @@ class DropboxClient:
         entries = []
         result_list = []
 
-        # up two ~ 1,000 entries allowed per batch according to
-        # https://www.dropbox.com/developers/reference/data-ingress-guide
-        for chunk in chunks(dbx_paths, n=batch_size):
-            res = self.dbx.files_create_folder_batch(chunk, **kwargs)
-            if res.is_complete():
-                batch_res = res.get_complete()
-                entries.extend(batch_res.entries)
-            elif res.is_async_job_id():
-                async_job_id = res.get_async_job_id()
+        with convert_api_errors():
 
-                time.sleep(1.0)
-                res = self.dbx.files_create_folder_batch_check(async_job_id)
-
-                check_interval = round(len(chunk) / 100, 1)
-
-                while res.is_in_progress():
-                    time.sleep(check_interval)
-                    res = self.dbx.files_create_folder_batch_check(async_job_id)
-
+            # up two ~ 1,000 entries allowed per batch according to
+            # https://www.dropbox.com/developers/reference/data-ingress-guide
+            for chunk in chunks(dbx_paths, n=batch_size):
+                res = self.dbx.files_create_folder_batch(chunk, **kwargs)
                 if res.is_complete():
                     batch_res = res.get_complete()
                     entries.extend(batch_res.entries)
+                elif res.is_async_job_id():
+                    async_job_id = res.get_async_job_id()
 
-                elif res.is_failed():
-                    error = res.get_failed()
-                    if error.is_too_many_files():
-                        res_list = self.make_dir_batch(
-                            chunk, batch_size=round(batch_size / 2), **kwargs
-                        )
-                        result_list.extend(res_list)
+                    time.sleep(1.0)
+                    res = self.dbx.files_create_folder_batch_check(async_job_id)
+
+                    check_interval = round(len(chunk) / 100, 1)
+
+                    while res.is_in_progress():
+                        time.sleep(check_interval)
+                        res = self.dbx.files_create_folder_batch_check(async_job_id)
+
+                    if res.is_complete():
+                        batch_res = res.get_complete()
+                        entries.extend(batch_res.entries)
+
+                    elif res.is_failed():
+                        error = res.get_failed()
+                        if error.is_too_many_files():
+                            res_list = self.make_dir_batch(
+                                chunk, batch_size=round(batch_size / 2), **kwargs
+                            )
+                            result_list.extend(res_list)
 
         for i, entry in enumerate(entries):
             if entry.is_success():
@@ -818,7 +785,6 @@ class DropboxClient:
 
         return result_list
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def get_latest_cursor(
         self, dbx_path: str, include_non_downloadable_files: bool = False, **kwargs
     ) -> str:
@@ -834,16 +800,16 @@ class DropboxClient:
 
         dbx_path = "" if dbx_path == "/" else dbx_path
 
-        res = self.dbx.files_list_folder_get_latest_cursor(
-            dbx_path,
-            include_non_downloadable_files=include_non_downloadable_files,
-            recursive=True,
-            **kwargs,
-        )
+        with convert_api_errors(dbx_path=dbx_path):
+            res = self.dbx.files_list_folder_get_latest_cursor(
+                dbx_path,
+                include_non_downloadable_files=include_non_downloadable_files,
+                recursive=True,
+                **kwargs,
+            )
 
         return res.cursor
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def list_folder(
         self,
         dbx_path: str,
@@ -852,7 +818,9 @@ class DropboxClient:
         **kwargs,
     ) -> files.ListFolderResult:
         """
-        Lists the contents of a folder on Dropbox.
+        Lists the contents of a folder on Dropbox. Similar to
+        :meth:`list_folder_iterator` but returns all entries in a single
+        :class:`files.ListFolderResult` instance.
 
         :param dbx_path: Path of folder on Dropbox.
         :param max_retries_on_timeout: Number of times to try again if Dropbox servers
@@ -864,44 +832,14 @@ class DropboxClient:
         :returns: Content of given folder.
         """
 
-        dbx_path = "" if dbx_path == "/" else dbx_path
-
-        results = []
-
-        res = self.dbx.files_list_folder(
+        iterator = self.list_folder_iterator(
             dbx_path,
-            include_non_downloadable_files=include_non_downloadable_files,
+            max_retries_on_timeout,
+            include_non_downloadable_files,
             **kwargs,
         )
-        results.append(res)
 
-        idx = 0
-
-        while results[-1].has_more:
-
-            idx += len(results[-1].entries)
-            logger.info(f"Indexing {idx}...")
-
-            attempt = 0
-
-            while True:
-                try:
-                    more_results = self.dbx.files_list_folder_continue(
-                        results[-1].cursor
-                    )
-                    results.append(more_results)
-                    break
-                except requests.exceptions.ReadTimeout:
-                    attempt += 1
-                    if attempt <= max_retries_on_timeout:
-                        time.sleep(5.0)
-                    else:
-                        raise
-
-        if idx > 0:
-            logger.info(IDLE)
-
-        return self.flatten_results(results)
+        return self.flatten_results(list(iterator))
 
     def list_folder_iterator(
         self,
@@ -911,11 +849,10 @@ class DropboxClient:
         **kwargs,
     ) -> Iterator[files.ListFolderResult]:
         """
-        Lists the contents of a folder on Dropbox. Does the same as :meth:`list_folder`
-        but returns an iterator yielding :class:`files.ListFolderResult` instances. The
-        number of entries returned in each iteration corresponds to the number of
-        entries returned by a single Dropbox API call and will be typically around 500.
-        This is useful to save memory when indexing a large number of items.
+        Lists the contents of a folder on Dropbox. Returns an iterator yielding
+        :class:`files.ListFolderResult` instances. The number of entries returned in
+        each iteration corresponds to the number of entries returned by a single Dropbox
+        API call and will be typically around 500.
 
         :param dbx_path: Path of folder on Dropbox.
         :param max_retries_on_timeout: Number of times to try again if Dropbox servers
@@ -963,6 +900,74 @@ class DropboxClient:
             if idx > 0:
                 logger.info(IDLE)
 
+    def wait_for_remote_changes(self, last_cursor: str, timeout: int = 40) -> bool:
+        """
+        Waits for remote changes since ``last_cursor``. Call this method after
+        starting the Dropbox client and periodically to get the latest updates.
+
+        :param last_cursor: Last to cursor to compare for changes.
+        :param timeout: Seconds to wait until timeout. Must be between 30 and 480.
+        :returns: ``True`` if changes are available, ``False`` otherwise.
+        """
+
+        if not 30 <= timeout <= 480:
+            raise ValueError("Timeout must be in range [30, 480]")
+
+        # honour last request to back off
+        time_to_backoff = max(self._backoff_until - time.time(), 0)
+        time.sleep(time_to_backoff)
+
+        with convert_api_errors():
+            res = self.dbx.files_list_folder_longpoll(last_cursor, timeout=timeout)
+
+        # keep track of last longpoll, back off if requested by SDK
+        if res.backoff:
+            logger.debug("Backoff requested for %s sec", res.backoff)
+            self._backoff_until = time.time() + res.backoff + 5.0
+        else:
+            self._backoff_until = 0
+
+        return res.changes
+
+    def list_remote_changes(self, last_cursor: str) -> files.ListFolderResult:
+        """
+        Lists changes to remote Dropbox since ``last_cursor``. Same as
+        :meth:`list_remote_changes_iterator` but fetches all changes first and returns
+        a single :class:`files.ListFolderResult`. This may be useful if you want to
+        fetch all changes before starting to process them.
+
+        :param last_cursor: Last to cursor to compare for changes.
+        :returns: Remote changes since given cursor.
+        """
+
+        iterator = self.list_remote_changes_iterator(last_cursor)
+        return self.flatten_results(list(iterator))
+
+    def list_remote_changes_iterator(
+        self, last_cursor: str
+    ) -> Iterator[files.ListFolderResult]:
+        """
+        Lists changes to the remote Dropbox since ``last_cursor``. Returns an iterator
+        yielding :class:`files.ListFolderResult` instances. The number of entries
+        returned in each iteration corresponds to the number of entries returned by a
+        single Dropbox API call and will be typically around 500.
+
+        Call this after :meth:`wait_for_remote_changes` returns ``True``.
+
+        :param last_cursor: Last to cursor to compare for changes.
+        :returns: Iterator over remote changes since given cursor.
+        """
+
+        with convert_api_errors():
+
+            result = self.dbx.files_list_folder_continue(last_cursor)
+
+            yield result
+
+            while result.has_more:
+                result = self.dbx.files_list_folder_continue(result.cursor)
+                yield result
+
     @staticmethod
     def flatten_results(
         results: List[files.ListFolderResult],
@@ -983,81 +988,6 @@ class DropboxClient:
         )
 
         return results_flattened
-
-    @convert_api_errors_decorator()
-    def wait_for_remote_changes(self, last_cursor: str, timeout: int = 40) -> bool:
-        """
-        Waits for remote changes since ``last_cursor``. Call this method after
-        starting the Dropbox client and periodically to get the latest updates.
-
-        :param last_cursor: Last to cursor to compare for changes.
-        :param timeout: Seconds to wait until timeout. Must be between 30 and 480.
-        :returns: ``True`` if changes are available, ``False`` otherwise.
-        """
-
-        if not 30 <= timeout <= 480:
-            raise ValueError("Timeout must be in range [30, 480]")
-
-        # honour last request to back off
-        time_to_backoff = max(self._backoff_until - time.time(), 0)
-        time.sleep(time_to_backoff)
-
-        result = self.dbx.files_list_folder_longpoll(last_cursor, timeout=timeout)
-
-        # keep track of last longpoll, back off if requested by SDK
-        if result.backoff:
-            logger.debug("Backoff requested for %s sec", result.backoff)
-            self._backoff_until = time.time() + result.backoff + 5.0
-        else:
-            self._backoff_until = 0
-
-        return result.changes
-
-    @convert_api_errors_decorator()
-    def list_remote_changes(self, last_cursor: str) -> files.ListFolderResult:
-        """
-        Lists changes to remote Dropbox since ``last_cursor``. Call this after
-        :meth:`wait_for_remote_changes` returns ``True``.
-
-        :param last_cursor: Last to cursor to compare for changes.
-        :returns: Remote changes since given cursor.
-        """
-
-        results = [self.dbx.files_list_folder_continue(last_cursor)]
-
-        while results[-1].has_more:
-            more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
-            results.append(more_results)
-
-        # combine all results into one
-        results = self.flatten_results(results)
-
-        return results
-
-    def list_remote_changes_iterator(
-        self, last_cursor: str
-    ) -> Iterator[files.ListFolderResult]:
-        """
-        Lists changes to the remote Dropbox since ``last_cursor``. Does the same as
-        :meth:`list_remote_changes` but returns an iterator yielding
-        :class:`files.ListFolderResult` instances. The number of entries returned in
-        each iteration corresponds to the number of entries returned by a single Dropbox
-        API call and will be typically around 500. This is useful to save memory when
-        indexing a large number of items.
-
-        :param last_cursor: Last to cursor to compare for changes.
-        :returns: Iterator over remote changes since given cursor.
-        """
-
-        with convert_api_errors():
-
-            result = self.dbx.files_list_folder_continue(last_cursor)
-
-            yield result
-
-            while result.has_more:
-                result = self.dbx.files_list_folder_continue(result.cursor)
-                yield result
 
 
 # ==== conversion functions to generate error messages and types =======================

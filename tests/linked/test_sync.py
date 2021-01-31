@@ -545,7 +545,7 @@ def test_selective_sync_conflict(m):
     m.exclude_item("/sync_tests/folder")
     wait_for_idle(m)
 
-    assert not (osp.exists(m.test_folder_local + "/folder"))
+    assert not osp.exists(m.test_folder_local + "/folder")
 
     # recreate 'folder' locally
     os.mkdir(m.test_folder_local + "/folder")
