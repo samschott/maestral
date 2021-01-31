@@ -401,7 +401,7 @@ class DropboxClient:
         call.
 
         :param dbx_path: Path of folder on Dropbox.
-        :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
+        :param kwargs: Keyword arguments for Dropbox SDK files_get_metadata.
         :returns: Metadata of item at the given path or ``None`` if item cannot be found.
         """
 
@@ -455,7 +455,7 @@ class DropboxClient:
         :param local_path: Path to local download destination.
         :param sync_event: If given, the sync event will be updated with the number of
             downloaded bytes.
-        :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
+        :param kwargs: Keyword arguments for Dropbox SDK files_download.
         :returns: Metadata of downloaded item.
         """
 
@@ -970,19 +970,25 @@ class DropboxClient:
         visibility: sharing.RequestedVisibility = sharing.RequestedVisibility.public,
         password: Optional[str] = None,
         expires: Optional[datetime] = None,
+        **kwargs,
     ) -> sharing.SharedLinkMetadata:
         """
         Creates a shared link for the given path. Some options are only available for
-        Professional and Business accounts
+        Professional and Business accounts. Note that the requested visibility as access
+        level for the link may not be granted, depending on the Dropbox folder or team
+        settings. Check the returned link metadata to verify the visibility and access
+        level.
 
         :param dbx_path: Dropbox path to file or folder to share.
-        :param visibility: The visibility of the shared item. Can be public, team-only,
+        :param visibility: The visibility of the shared link. Can be public, team-only,
             or password protected. In case of the latter, the password argument must be
             given. Only available for Professional and Business accounts.
         :param password: Password to protect shared link. Is required if visibility
             is set to password protected and will be ignored otherwise
         :param expires: Expiry time for shared link. Only available for Professional and
             Business accounts.
+        :param kwargs: Additional keyword arguments for the
+            :class:`dropbox.sharing.SharedLinkSettings`.
         :returns: Metadata for shared link.
         """
 
@@ -1005,6 +1011,7 @@ class DropboxClient:
             requested_visibility=visibility,
             link_password=password,
             expires=expires,
+            **kwargs,
         )
 
         with convert_api_errors(dbx_path=dbx_path):
