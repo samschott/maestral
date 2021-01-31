@@ -863,7 +863,16 @@ class Maestral:
 
             return content, md
 
+        md_new = self.client.get_metadata(f"rev:{new_rev}", include_deleted=True)
         md_old = self.client.get_metadata(f"rev:{old_rev}", include_deleted=True)
+
+        if md_new is None or md_old is None:
+            missing_rev = new_rev if md_new is None else old_rev
+            raise NotFoundError(
+                f"Could not a file with revision {missing_rev}",
+                "Use 'list_revisions' to list past revisions of a file.",
+            )
+
         dbx_path = self.sync.correct_case(md_old.path_display)
         local_path = self.sync.to_local_path(md_old.path_display)
 
