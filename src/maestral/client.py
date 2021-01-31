@@ -22,14 +22,8 @@ from typing import (
     Iterator,
     TypeVar,
     Optional,
-    cast,
     TYPE_CHECKING,
 )
-
-try:
-    from typing import Protocol  # type: ignore
-except ImportError:
-    from typing_extensions import Protocol  # type: ignore
 
 # external imports
 import requests
@@ -127,21 +121,8 @@ SessionLookupErrorType = Type[
         FileSizeError,
     ]
 ]
+PaginationResultType = Union[sharing.ListSharedLinksResult, files.ListFolderResult]
 FT = TypeVar("FT", bound=Callable[..., Any])
-
-
-class ResultType(Protocol):
-    def __init__(self, entries: list, cursor: str, has_more: bool) -> None:
-        ...
-
-    @property
-    def cursor(self) -> str:
-        ...
-
-    @property
-    def has_more(self) -> bool:
-        ...
-
 
 # create single requests session for all clients
 SESSION = create_session()
@@ -854,7 +835,7 @@ class DropboxClient:
             **kwargs,
         )
 
-        return self.flatten_results(list(iterator))
+        return self.flatten_results(list(iterator), attribute_name="entries")
 
     def list_folder_iterator(
         self,
@@ -956,7 +937,7 @@ class DropboxClient:
         """
 
         iterator = self.list_remote_changes_iterator(last_cursor)
-        return self.flatten_results(list(iterator))
+        return self.flatten_results(list(iterator), attribute_name="entries")
 
     def list_remote_changes_iterator(
         self, last_cursor: str
@@ -983,7 +964,6 @@ class DropboxClient:
                 result = self.dbx.files_list_folder_continue(result.cursor)
                 yield result
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def create_shared_link(
         self,
         dbx_path: str,
@@ -1064,22 +1044,30 @@ class DropboxClient:
 
     @staticmethod
     def flatten_results(
-        results: List[files.ListFolderResult],
-    ) -> files.ListFolderResult:
+        results: List[PaginationResultType], attribute_name: str
+    ) -> PaginationResultType:
         """
-        Flattens a list of :class:`files.ListFolderResult` instances to a single
-        instance with the cursor of the last entry in the list.
+        Flattens a list of Dropbox API results from a pagination to a single result with
+        the cursor of the last entry in the list.
 
-        :param results: List of :class:`files.ListFolderResult` instances.
-        :returns: Flattened list folder result.
+        :param results: List of :results to flatten.
+        :param attribute_name: Name of attribute to flatten.
+        :returns: Flattened result.
         """
-        entries_all = []
+
+        all_entries = []
+
         for result in results:
-            entries_all += result.entries
+            all_entries += getattr(result, attribute_name)
 
-        results_flattened = files.ListFolderResult(
-            entries=entries_all, cursor=results[-1].cursor, has_more=False
-        )
+        kwargs = {
+            attribute_name: all_entries,
+            "cursor": results[-1].cursor,
+            "has_more": False,
+        }
+
+        result_cls = type(results[0])
+        results_flattened = result_cls(**kwargs)
 
         return results_flattened
 
