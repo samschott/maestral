@@ -934,7 +934,7 @@ def history(config_name: str) -> None:
 
 
 @main.command(section="Information", help="List contents of a Dropbox directory.")
-@click.argument("dropbox_path", type=click.Path(), default="")
+@click.argument("dropbox_path", type=DropboxPath(), default="")
 @click.option(
     "-l",
     "--long",
@@ -1159,7 +1159,7 @@ def excluded_list(config_name: str) -> None:
     name="add",
     help="Add a file or folder to the excluded list and re-sync.",
 )
-@click.argument("dropbox_path", type=click.Path())
+@click.argument("dropbox_path", type=DropboxPath())
 @existing_config_option
 @catch_maestral_errors
 def excluded_add(dropbox_path: str, config_name: str) -> None:
@@ -1186,7 +1186,7 @@ not be downloaded again. If the given path lies inside an excluded folder, the p
 folder will be included as well (but no other items inside it).
 """,
 )
-@click.argument("dropbox_path", type=click.Path())
+@click.argument("dropbox_path", type=DropboxPath())
 @existing_config_option
 @catch_maestral_errors
 def excluded_remove(dropbox_path: str, config_name: str) -> None:
@@ -1509,7 +1509,7 @@ Restore a previous version of a file.
 If no revision number is given, old revisions will be listed.
 """,
 )
-@click.argument("dropbox_path", type=click.Path())
+@click.argument("dropbox_path", type=DropboxPath())
 @click.option("-v", "--rev", help="Revision to restore.", default="")
 @click.option(
     "-l",
