@@ -1543,6 +1543,8 @@ class SyncEngine:
 
     def wait_for_local_changes(self, timeout: float = 40) -> bool:
 
+        logger.debug("Waiting for local changes since cursor: %s", self.local_cursor)
+
         with self.fs_events.local_file_event_queue.not_empty:
             return self.fs_events.local_file_event_queue.not_empty.wait(timeout)
 
