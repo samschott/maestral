@@ -745,6 +745,112 @@ def unlink(yes: bool, config_name: str) -> None:
         cli.ok("Unlinked Maestral.")
 
 
+@main.group(section="Core Commands", help="Create and manage shared links.")
+def sharedlink():
+    pass
+
+
+@sharedlink.command(name="create", help="Create a shared link for a file or folder.")
+@click.argument("dropbox_path", type=DropboxPath())
+@click.option(
+    "-p",
+    "--password",
+    help="Optional password for the link.",
+)
+@click.option(
+    "-e",
+    "--expiry",
+    metavar="DATE",
+    type=click.DateTime(formats=["%Y-%m-%d", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M"]),
+    help="Expiry time for the link (e.g. '2025-07-24 20:50').",
+)
+@existing_config_option
+def sharedlink_create(
+    dropbox_path: str,
+    password: str,
+    expiry: Optional[datetime],
+    config_name: str,
+) -> None:
+
+    from .daemon import MaestralProxy
+
+    if not dropbox_path.startswith("/"):
+        dropbox_path = "/" + dropbox_path
+
+    expiry_dt: Optional[float]
+
+    if expiry:
+        expiry_dt = expiry.timestamp()
+    else:
+        expiry_dt = None
+
+    if password:
+        visibility = "password"
+    else:
+        visibility = "public"
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        link_info = m.create_shared_link(dropbox_path, visibility, password, expiry_dt)
+
+    cli.echo(link_info["url"])
+
+
+@sharedlink.command(name="revoke", help="Revoke a shared link.")
+@click.argument("url")
+@existing_config_option
+def sharedlink_revoke(url: str, config_name: str) -> None:
+
+    from .daemon import MaestralProxy
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        m.revoke_shared_link(url)
+
+    cli.echo("Revoked shared link.")
+
+
+@sharedlink.command(name="list", help="List all shared links for a file or folder.")
+@click.argument("dropbox_path", type=DropboxPath())
+@existing_config_option
+def sharedlink_list(dropbox_path: str, config_name: str) -> None:
+
+    from .daemon import MaestralProxy
+
+    if not dropbox_path.startswith("/"):
+        dropbox_path = "/" + dropbox_path
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        links = m.list_shared_links(dropbox_path)
+
+    link_table = cli.Table(
+        [cli.Column("URL"), cli.Column("Visibility"), cli.Column("Expires")]
+    )
+
+    for link in links:
+        url = cast(str, link["url"])
+        visibility = cast(str, link["link_permissions"]["resolved_visibility"][".tag"])
+
+        dt_field: cli.Field
+
+        if "expires" in link:
+            # replacing Z with +0000 is required for Python 3.6
+            expires = cast(str, link["expires"]).replace("Z", "+0000")
+            dt = datetime.strptime(expires, "%Y-%m-%dT%H:%M:%S%z").astimezone()
+            dt_field = cli.DateField(dt)
+        else:
+            dt_field = cli.TextField("-")
+
+        link_table.append([url, visibility, dt_field])
+
+    cli.echo("")
+    link_table.echo()
+    cli.echo("")
+
+
+# ======================================================================================
+# Information commands
+# ======================================================================================
+
+
 @main.command(section="Information", help="Show the status of the daemon.")
 @existing_config_option
 @catch_maestral_errors
