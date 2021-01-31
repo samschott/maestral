@@ -721,7 +721,7 @@ def link(relink: bool, config_name: str) -> None:
 @main.command(
     section="Core Commands",
     help="""
-Unlinks your Dropbox account.
+Unlink your Dropbox account.
 
 If Maestral is running, it will be stopped before unlinking.
 """,
