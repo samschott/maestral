@@ -1545,8 +1545,13 @@ class SyncEngine:
 
         logger.debug("Waiting for local changes since cursor: %s", self.local_cursor)
 
-        with self.fs_events.local_file_event_queue.not_empty:
-            return self.fs_events.local_file_event_queue.not_empty.wait(timeout)
+        try:
+            event = self.fs_events.local_file_event_queue.get(timeout=timeout)
+        except Empty:
+            return False
+
+        self.fs_events.local_file_event_queue.queue.append(event)
+        return True
 
     def upload_sync_cycle(self):
         """
