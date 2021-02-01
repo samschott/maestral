@@ -57,7 +57,6 @@ from typing import Union
 
 from watchdog.utils import platform  # type: ignore
 from watchdog.utils import UnsupportedLibc
-from watchdog.utils import unicode_paths
 
 
 if platform.is_darwin():
@@ -69,8 +68,6 @@ elif platform.is_linux():
         from .polling import OrderedPollingObserver as Observer
 else:
     from watchdog.observers import Observer  # type: ignore
-
-__all__ = ["Observer"]
 
 
 # patch encoding / decoding of paths in watchdog
@@ -88,5 +85,13 @@ def _patched_encode(path: Union[str, bytes]) -> bytes:
     return path
 
 
-unicode_paths.decode = _patched_decode
-unicode_paths.encode = _patched_encode
+try:
+    from watchdog.utils import unicode_paths
+except ImportError:
+    pass
+else:
+    unicode_paths.decode = _patched_decode
+    unicode_paths.encode = _patched_encode
+
+
+__all__ = ["Observer"]
