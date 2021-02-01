@@ -31,6 +31,7 @@ from dropbox import (  # type: ignore
     Dropbox,
     create_session,
     files,
+    sharing,
     users,
     exceptions,
     async_,
@@ -68,6 +69,7 @@ from .errors import (
     InotifyError,
     NotLinkedError,
     InvalidDbidError,
+    SharedLinkError,
 )
 from .config import MaestralState
 from .constants import DROPBOX_APP_KEY, IDLE
@@ -120,9 +122,8 @@ SessionLookupErrorType = Type[
         FileSizeError,
     ]
 ]
-_FT = Callable[..., Any]
-_T = TypeVar("_T")
-
+PaginationResultType = Union[sharing.ListSharedLinksResult, files.ListFolderResult]
+FT = TypeVar("FT", bound=Callable[..., Any])
 
 # create single requests session for all clients
 SESSION = create_session()
@@ -401,7 +402,7 @@ class DropboxClient:
         call.
 
         :param dbx_path: Path of folder on Dropbox.
-        :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
+        :param kwargs: Keyword arguments for Dropbox SDK files_get_metadata.
         :returns: Metadata of item at the given path or ``None`` if item cannot be found.
         """
 
@@ -455,7 +456,7 @@ class DropboxClient:
         :param local_path: Path to local download destination.
         :param sync_event: If given, the sync event will be updated with the number of
             downloaded bytes.
-        :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
+        :param kwargs: Keyword arguments for Dropbox SDK files_download.
         :returns: Metadata of downloaded item.
         """
 
@@ -479,15 +480,11 @@ class DropboxClient:
                             sync_event.completed = f.tell()
 
         # dropbox SDK provides naive datetime in UTC
-        client_mod_timestamp = md.client_modified.replace(
-            tzinfo=timezone.utc
-        ).timestamp()
-        server_mod_timestamp = md.server_modified.replace(
-            tzinfo=timezone.utc
-        ).timestamp()
+        client_mod = md.client_modified.replace(tzinfo=timezone.utc)
+        server_mod = md.server_modified.replace(tzinfo=timezone.utc)
 
         # enforce client_modified < server_modified
-        timestamp = min(client_mod_timestamp, server_mod_timestamp, time.time())
+        timestamp = min(client_mod.timestamp(), server_mod.timestamp(), time.time())
         # set mtime of downloaded file
         os.utime(local_path, (time.time(), timestamp))
 
@@ -839,7 +836,7 @@ class DropboxClient:
             **kwargs,
         )
 
-        return self.flatten_results(list(iterator))
+        return self.flatten_results(list(iterator), attribute_name="entries")
 
     def list_folder_iterator(
         self,
@@ -941,7 +938,7 @@ class DropboxClient:
         """
 
         iterator = self.list_remote_changes_iterator(last_cursor)
-        return self.flatten_results(list(iterator))
+        return self.flatten_results(list(iterator), attribute_name="entries")
 
     def list_remote_changes_iterator(
         self, last_cursor: str
@@ -968,24 +965,120 @@ class DropboxClient:
                 result = self.dbx.files_list_folder_continue(result.cursor)
                 yield result
 
+    def create_shared_link(
+        self,
+        dbx_path: str,
+        visibility: sharing.RequestedVisibility = sharing.RequestedVisibility.public,
+        password: Optional[str] = None,
+        expires: Optional[datetime] = None,
+        **kwargs,
+    ) -> sharing.SharedLinkMetadata:
+        """
+        Creates a shared link for the given path. Some options are only available for
+        Professional and Business accounts. Note that the requested visibility as access
+        level for the link may not be granted, depending on the Dropbox folder or team
+        settings. Check the returned link metadata to verify the visibility and access
+        level.
+
+        :param dbx_path: Dropbox path to file or folder to share.
+        :param visibility: The visibility of the shared link. Can be public, team-only,
+            or password protected. In case of the latter, the password argument must be
+            given. Only available for Professional and Business accounts.
+        :param password: Password to protect shared link. Is required if visibility
+            is set to password protected and will be ignored otherwise
+        :param expires: Expiry time for shared link. Only available for Professional and
+            Business accounts.
+        :param kwargs: Additional keyword arguments for the
+            :class:`dropbox.sharing.SharedLinkSettings`.
+        :returns: Metadata for shared link.
+        """
+
+        if visibility.is_password() and not password:
+            raise MaestralApiError(
+                "Invalid shared link setting",
+                "Password is required to share a password-protected link",
+            )
+
+        if not visibility.is_password():
+            password = None
+
+        # convert timestamp to utc time if not naive
+        if expires is not None:
+            has_timezone = expires.tzinfo and expires.tzinfo.utcoffset(expires)
+            if has_timezone:
+                expires.astimezone(timezone.utc)
+
+        settings = sharing.SharedLinkSettings(
+            requested_visibility=visibility,
+            link_password=password,
+            expires=expires,
+            **kwargs,
+        )
+
+        with convert_api_errors(dbx_path=dbx_path):
+            res = self.dbx.sharing_create_shared_link_with_settings(dbx_path, settings)
+
+        return res
+
+    def revoke_shared_link(self, url: str) -> None:
+        """
+        Revokes a shared link.
+
+        :param url: URL to revoke.
+        """
+        with convert_api_errors():
+            self.dbx.sharing_revoke_shared_link(url)
+
+    def list_shared_links(
+        self, dbx_path: Optional[str] = None
+    ) -> sharing.ListSharedLinksResult:
+        """
+        Lists all shared links for a given Dropbox path (file or folder). If no path is
+        given, list all shared links for the account, up to a maximum of 1,000 links.
+
+        :param dbx_path: Dropbox path to file or folder.
+        :returns: Shared links for a path, including any shared links for parents
+            through which this path is accessible.
+        """
+
+        results = []
+
+        with convert_api_errors(dbx_path=dbx_path):
+            res = self.dbx.sharing_list_shared_links(dbx_path)
+            results.append(res)
+
+            while results[-1].has_more:
+                res = self.dbx.sharing_list_shared_links(dbx_path, results[-1].cursor)
+                results.append(res)
+
+        return self.flatten_results(results, attribute_name="links")
+
     @staticmethod
     def flatten_results(
-        results: List[files.ListFolderResult],
-    ) -> files.ListFolderResult:
+        results: List[PaginationResultType], attribute_name: str
+    ) -> PaginationResultType:
         """
-        Flattens a list of :class:`files.ListFolderResult` instances to a single
-        instance with the cursor of the last entry in the list.
+        Flattens a list of Dropbox API results from a pagination to a single result with
+        the cursor of the last entry in the list.
 
-        :param results: List of :class:`files.ListFolderResult` instances.
-        :returns: Flattened list folder result.
+        :param results: List of :results to flatten.
+        :param attribute_name: Name of attribute to flatten.
+        :returns: Flattened result.
         """
-        entries_all = []
+
+        all_entries = []
+
         for result in results:
-            entries_all += result.entries
+            all_entries += getattr(result, attribute_name)
 
-        results_flattened = files.ListFolderResult(
-            entries=entries_all, cursor=results[-1].cursor, has_more=False
-        )
+        kwargs = {
+            attribute_name: all_entries,
+            "cursor": results[-1].cursor,
+            "has_more": False,
+        }
+
+        result_cls = type(results[0])
+        results_flattened = result_cls(**kwargs)
 
         return results_flattened
 
@@ -1137,7 +1230,10 @@ def dropbox_to_maestral_error(
     :returns: :class:`MaestralApiError` instance.
     """
 
-    err_cls: Type[MaestralApiError]
+    title = "An unexpected error occurred"
+    text = "Please contact the developer with the traceback information from the logs."
+    err_cls = MaestralApiError
+
     # ---- Dropbox API Errors ----------------------------------------------------------
     if isinstance(exc, exceptions.ApiError):
 
@@ -1242,7 +1338,6 @@ def dropbox_to_maestral_error(
             elif error.is_properties_error():
                 # this is a programming error in maestral
                 text = "Invalid property group provided."
-                err_cls = MaestralApiError
             else:
                 text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
@@ -1252,11 +1347,9 @@ def dropbox_to_maestral_error(
             if error.is_concurrent_session_close_not_allowed():
                 # this is a programming error in maestral
                 text = "Can not start a closed concurrent upload session."
-                err_cls = MaestralApiError
             elif error.is_concurrent_session_data_not_allowed():
                 # this is a programming error in maestral
                 text = "Uploading data not allowed when starting concurrent upload session."
-                err_cls = MaestralApiError
             else:
                 text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
@@ -1272,7 +1365,6 @@ def dropbox_to_maestral_error(
             elif error.is_properties_error():
                 # this is a programming error in maestral
                 text = "Invalid property group provided."
-                err_cls = MaestralApiError
             elif error.is_too_many_write_operations():
                 text = (
                     "There are too many write operations happening in your "
@@ -1304,12 +1396,6 @@ def dropbox_to_maestral_error(
             if error.is_path():
                 lookup_error = error.get_path()
                 text, err_cls = _get_lookup_error_msg(lookup_error)
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, files.ListFolderContinueError):
             title = "Could not list folder contents"
@@ -1322,12 +1408,6 @@ def dropbox_to_maestral_error(
                     "Maestral's index to re-sync your Dropbox."
                 )
                 err_cls = CursorResetError
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, files.ListFolderLongpollError):
             title = "Could not get Dropbox changes"
@@ -1337,12 +1417,6 @@ def dropbox_to_maestral_error(
                     "Maestral's index to re-sync your Dropbox."
                 )
                 err_cls = CursorResetError
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, async_.PollError):
 
@@ -1356,13 +1430,9 @@ def dropbox_to_maestral_error(
                 )
                 err_cls = DropboxServerError
             else:
-                # Other tags include invalid_async_job_id. Neither should occur in our
-                # SDK usage.
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
+                # Other tags include invalid_async_job_id.
+                # Neither should occur in our SDK usage.
+                pass
 
         elif isinstance(error, files.ListRevisionsError):
 
@@ -1371,12 +1441,6 @@ def dropbox_to_maestral_error(
             if error.is_path():
                 lookup_error = error.get_path()
                 text, err_cls = _get_lookup_error_msg(lookup_error)
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, files.RestoreError):
 
@@ -1391,12 +1455,6 @@ def dropbox_to_maestral_error(
             elif error.is_path_write():
                 write_error = error.get_path_write()
                 text, err_cls = _get_write_error_msg(write_error)
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, files.GetMetadataError):
             title = "Could not get metadata"
@@ -1404,12 +1462,6 @@ def dropbox_to_maestral_error(
             if error.is_path():
                 lookup_error = error.get_path()
                 text, err_cls = _get_lookup_error_msg(lookup_error)
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, users.GetAccountError):
             title = "Could not get account info"
@@ -1420,20 +1472,55 @@ def dropbox_to_maestral_error(
                     "exist or has been deleted"
                 )
                 err_cls = InvalidDbidError
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
-        else:
-            err_cls = MaestralApiError
-            title = "An unexpected error occurred"
-            text = (
-                "Please contact the developer with the traceback "
-                "information from the logs."
-            )
+        elif isinstance(error, sharing.CreateSharedLinkWithSettingsError):
+            title = "Could not create shared link"
+
+            if error.is_access_denied():
+                text = "You do not have access to create shared links for this path."
+                err_cls = InsufficientPermissionsError
+            elif error.is_email_not_verified():
+                text = "Please verify you email address before creating shared links"
+                err_cls = SharedLinkError
+            elif error.is_path():
+                lookup_error = error.get_path()
+                text, err_cls = _get_lookup_error_msg(lookup_error)
+            elif error.is_settings_error():
+                settings_error = error.get_settings_error()
+                err_cls = SharedLinkError
+                if settings_error.is_invalid_settings():
+                    text = "Please check if the settings are valid."
+                elif settings_error.is_not_authorized():
+                    text = "Basic accounts do not support passwords or expiry dates."
+            elif error.is_shared_link_already_exists():
+                text = "The shared link already exists."
+                err_cls = SharedLinkError
+
+        elif isinstance(error, sharing.RevokeSharedLinkError):
+            title = "Could not revoke shared link"
+
+            if error.is_shared_link_not_found():
+                text = "The given link does not exist."
+                err_cls = NotFoundError
+            elif error.is_shared_link_access_denied():
+                text = "You do not have access to revoke the shared link."
+                err_cls = InsufficientPermissionsError
+            elif error.is_shared_link_malformed():
+                text = "The shared link is malformed."
+                err_cls = SharedLinkError
+            elif error.is_unsupported_link_type():
+                text = "The link type is not supported."
+                err_cls = SharedLinkError
+
+        elif isinstance(error, sharing.ListSharedLinksError):
+            title = "Could not list shared links"
+
+            if error.is_path():
+                lookup_error = error.get_path()
+                text, err_cls = _get_lookup_error_msg(lookup_error)
+            elif error.is_reset():
+                text = "Please try again later."
+                err_cls = SharedLinkError
 
     # ---- Authentication errors -------------------------------------------------------
     elif isinstance(exc, exceptions.AuthError):
@@ -1461,19 +1548,12 @@ def dropbox_to_maestral_error(
                 # Other tags are invalid_select_admin, invalid_select_user,
                 # missing_scope, route_access_denied. Neither should occur in our SDK
                 # usage.
-                err_cls = MaestralApiError
-                title = "An unexpected error occurred"
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
+                pass
 
         else:
             err_cls = DropboxAuthError
             title = "Authentication error"
-            text = (
-                "Please check if you can log into your account on the Dropbox website."
-            )
+            text = "Please check if you can log in on the Dropbox website."
 
     # ---- OAuth2 flow errors ----------------------------------------------------------
     elif isinstance(exc, requests.HTTPError):
@@ -1506,15 +1586,6 @@ def dropbox_to_maestral_error(
             "Something went wrong with the job on Dropbox’s end. Please "
             "verify on the Dropbox website if the job succeeded and try "
             "again if it failed."
-        )
-
-    # ---- Everything else -------------------------------------------------------------
-    else:
-        err_cls = MaestralApiError
-        title = "An unexpected error occurred"
-        text = (
-            "Please contact the developer with the traceback "
-            "information from the logs."
         )
 
     maestral_exc = err_cls(title, text, dbx_path=dbx_path, local_path=local_path)

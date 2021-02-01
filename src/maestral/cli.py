@@ -15,13 +15,13 @@ from typing import Optional, Dict, List, Tuple, Callable, Union, cast, TYPE_CHEC
 
 # external imports
 import click
-import Pyro5.errors  # type: ignore
 
 # local imports
 from . import __version__
 from .utils import cli
 
 if TYPE_CHECKING:
+    from datetime import datetime
     from .main import Maestral
     from .daemon import MaestralProxy
 
@@ -230,6 +230,19 @@ def catch_maestral_errors(func: Callable) -> Callable:
             raise cli.CliException("Could not connect to Dropbox")
 
     return wrapper
+
+
+def _datetime_from_iso_str(time_str: str) -> "datetime":
+    """
+    Converts an ISO 8601 time string such as '2015-05-15T15:50:38Z' to a timezone aware
+    datetime object in the local time zone.
+    """
+
+    from datetime import datetime
+
+    # replace Z with +0000, required for Python 3.6 compatibility
+    time_str = time_str.replace("Z", "+0000")
+    return datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%S%z").astimezone()
 
 
 # ======================================================================================
@@ -669,20 +682,21 @@ def gui(config_name: str) -> None:
 @existing_config_option
 def pause(config_name: str) -> None:
 
-    from .daemon import MaestralProxy
+    from .daemon import MaestralProxy, CommunicationError
 
     try:
         with MaestralProxy(config_name) as m:
             m.pause_sync()
         cli.ok("Syncing paused.")
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("Maestral daemon is not running.")
 
 
 @main.command(section="Core Commands", help="Resume syncing.")
 @existing_config_option
 def resume(config_name: str) -> None:
-    from .daemon import MaestralProxy
+
+    from .daemon import MaestralProxy, CommunicationError
 
     try:
         with MaestralProxy(config_name) as m:
@@ -690,7 +704,7 @@ def resume(config_name: str) -> None:
                 m.resume_sync()
                 cli.ok("Syncing resumed.")
 
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("Maestral daemon is not running.")
 
 
@@ -705,6 +719,7 @@ def resume(config_name: str) -> None:
 @config_option
 @catch_maestral_errors
 def link(relink: bool, config_name: str) -> None:
+
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -721,7 +736,7 @@ def link(relink: bool, config_name: str) -> None:
 @main.command(
     section="Core Commands",
     help="""
-Unlinks your Dropbox account.
+Unlink your Dropbox account.
 
 If Maestral is running, it will be stopped before unlinking.
 """,
@@ -744,12 +759,120 @@ def unlink(yes: bool, config_name: str) -> None:
         cli.ok("Unlinked Maestral.")
 
 
+@main.group(section="Core Commands", help="Create and manage shared links.")
+def sharelink():
+    pass
+
+
+@sharelink.command(name="create", help="Create a shared link for a file or folder.")
+@click.argument("dropbox_path", type=DropboxPath())
+@click.option(
+    "-p",
+    "--password",
+    help="Optional password for the link.",
+)
+@click.option(
+    "-e",
+    "--expiry",
+    metavar="DATE",
+    type=click.DateTime(formats=["%Y-%m-%d", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M"]),
+    help="Expiry time for the link (e.g. '2025-07-24 20:50').",
+)
+@existing_config_option
+@catch_maestral_errors
+def sharelink_create(
+    dropbox_path: str,
+    password: str,
+    expiry: Optional["datetime"],
+    config_name: str,
+) -> None:
+
+    from .daemon import MaestralProxy
+
+    if not dropbox_path.startswith("/"):
+        dropbox_path = "/" + dropbox_path
+
+    expiry_dt: Optional[float]
+
+    if expiry:
+        expiry_dt = expiry.timestamp()
+    else:
+        expiry_dt = None
+
+    if password:
+        visibility = "password"
+    else:
+        visibility = "public"
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        link_info = m.create_shared_link(dropbox_path, visibility, password, expiry_dt)
+
+    cli.echo(link_info["url"])
+
+
+@sharelink.command(name="revoke", help="Revoke a shared link.")
+@click.argument("url")
+@existing_config_option
+@catch_maestral_errors
+def sharelink_revoke(url: str, config_name: str) -> None:
+
+    from .daemon import MaestralProxy
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        m.revoke_shared_link(url)
+
+    cli.echo("Revoked shared link.")
+
+
+@sharelink.command(
+    name="list", help="List shared links for a path or all shared links."
+)
+@click.argument("dropbox_path", required=False, type=DropboxPath())
+@existing_config_option
+@catch_maestral_errors
+def sharelink_list(dropbox_path: Optional[str], config_name: str) -> None:
+
+    from .daemon import MaestralProxy
+
+    if dropbox_path and not dropbox_path.startswith("/"):
+        dropbox_path = "/" + dropbox_path
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        links = m.list_shared_links(dropbox_path)
+
+    link_table = cli.Table(["URL", "Item", "Access", "Expires"])
+
+    for link in links:
+        url = cast(str, link["url"])
+        file_name = cast(str, link["name"])
+        visibility = cast(str, link["link_permissions"]["resolved_visibility"][".tag"])
+
+        dt_field: cli.Field
+
+        if "expires" in link:
+            expires = cast(str, link["expires"])
+            dt_field = cli.DateField(_datetime_from_iso_str(expires))
+        else:
+            dt_field = cli.TextField("-")
+
+        link_table.append([url, file_name, visibility, dt_field])
+
+    cli.echo("")
+    link_table.echo()
+    cli.echo("")
+
+
+# ======================================================================================
+# Information commands
+# ======================================================================================
+
+
 @main.command(section="Information", help="Show the status of the daemon.")
 @existing_config_option
 @catch_maestral_errors
 def status(config_name: str) -> None:
 
-    from .daemon import MaestralProxy
+    from .daemon import MaestralProxy, CommunicationError
 
     check_for_updates()
 
@@ -791,7 +914,7 @@ def status(config_name: str) -> None:
                 table.echo()
                 cli.echo("")
 
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("Maestral daemon is not running.")
 
 
@@ -810,14 +933,14 @@ a file-manager.
 @existing_config_option
 def file_status(local_path: str, config_name: str) -> None:
 
-    from .daemon import MaestralProxy
+    from .daemon import MaestralProxy, CommunicationError
 
     try:
         with MaestralProxy(config_name) as m:
             stat = m.get_file_status(local_path)
             cli.echo(stat)
 
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("unwatched")
 
 
@@ -828,7 +951,7 @@ def activity(config_name: str) -> None:
 
     import curses
     from .utils import natural_size
-    from .daemon import MaestralProxy
+    from .daemon import MaestralProxy, CommunicationError
 
     try:
         with MaestralProxy(config_name) as m:
@@ -902,7 +1025,7 @@ def activity(config_name: str) -> None:
             # enter curses event loop
             curses.wrapper(curses_loop)
 
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("Maestral daemon is not running.")
 
 
@@ -940,7 +1063,7 @@ def history(config_name: str) -> None:
 
 
 @main.command(section="Information", help="List contents of a Dropbox directory.")
-@click.argument("dropbox_path", type=click.Path(), default="")
+@click.argument("dropbox_path", type=DropboxPath(), default="")
 @click.option(
     "-l",
     "--long",
@@ -959,7 +1082,6 @@ def history(config_name: str) -> None:
 @catch_maestral_errors
 def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -> None:
 
-    from datetime import datetime
     from .utils import natural_size
     from .daemon import MaestralProxy
 
@@ -1019,10 +1141,8 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
                 dt_field: cli.Field
 
                 if "client_modified" in entry:
-                    # replacing Z with +0000 is required for Python 3.6
-                    cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
-                    dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
-                    dt_field = cli.DateField(dt)
+                    cm = cast(str, entry["client_modified"])
+                    dt_field = cli.DateField(_datetime_from_iso_str(cm))
                 else:
                     dt_field = cli.TextField("-")
 
@@ -1050,6 +1170,7 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 @main.command(section="Information", help="Show linked Dropbox account information.")
 @existing_config_option
 def account_info(config_name: str) -> None:
+
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -1147,6 +1268,7 @@ def excluded():
 @excluded.command(name="list", help="List all excluded files and folders.")
 @existing_config_option
 def excluded_list(config_name: str) -> None:
+
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -1165,10 +1287,11 @@ def excluded_list(config_name: str) -> None:
     name="add",
     help="Add a file or folder to the excluded list and re-sync.",
 )
-@click.argument("dropbox_path", type=click.Path())
+@click.argument("dropbox_path", type=DropboxPath())
 @existing_config_option
 @catch_maestral_errors
 def excluded_add(dropbox_path: str, config_name: str) -> None:
+
     from .daemon import MaestralProxy
 
     if not dropbox_path.startswith("/"):
@@ -1192,11 +1315,12 @@ not be downloaded again. If the given path lies inside an excluded folder, the p
 folder will be included as well (but no other items inside it).
 """,
 )
-@click.argument("dropbox_path", type=click.Path())
+@click.argument("dropbox_path", type=DropboxPath())
 @existing_config_option
 @catch_maestral_errors
 def excluded_remove(dropbox_path: str, config_name: str) -> None:
-    from .daemon import MaestralProxy
+
+    from .daemon import MaestralProxy, CommunicationError
 
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
@@ -1209,7 +1333,7 @@ def excluded_remove(dropbox_path: str, config_name: str) -> None:
             m.include_item(dropbox_path)
             cli.ok(f"Included '{dropbox_path}'. Now downloading...")
 
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         raise cli.CliException("Daemon must be running to download folders.")
 
 
@@ -1225,12 +1349,12 @@ def notify():
 @click.argument(
     "level_name",
     required=False,
-    type=click.Choice(["ERROR", "SYNCISSUE", "FILECHANGE"]),
+    type=click.Choice(["ERROR", "SYNCISSUE", "FILECHANGE"], case_sensitive=False),
 )
 @existing_config_option
 def notify_level(level_name: str, config_name: str) -> None:
 
-    from . import notify as _notify  # prevent conflict with notify command group
+    from . import notify as _notify
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -1249,12 +1373,13 @@ def notify_level(level_name: str, config_name: str) -> None:
 @click.argument("minutes", type=click.IntRange(min=0))
 @existing_config_option
 def notify_snooze(minutes: int, config_name: str) -> None:
-    from .daemon import MaestralProxy
+
+    from .daemon import MaestralProxy, CommunicationError
 
     try:
         with MaestralProxy(config_name) as m:
             m.notification_snooze = minutes
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("Maestral daemon is not running.")
     else:
         if minutes > 0:
@@ -1274,6 +1399,7 @@ def notify_snooze(minutes: int, config_name: str) -> None:
 @click.argument("new_path", required=False, type=click.Path(writable=True))
 @existing_config_option
 def move_dir(new_path: str, config_name: str) -> None:
+
     from .daemon import MaestralProxy
 
     new_path = new_path or select_dbx_path_dialog(config_name)
@@ -1338,7 +1464,6 @@ def rebuild_index(config_name: str) -> None:
 @catch_maestral_errors
 def revs(dropbox_path: str, limit: int, config_name: str) -> None:
 
-    from datetime import datetime
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -1349,8 +1474,7 @@ def revs(dropbox_path: str, limit: int, config_name: str) -> None:
     for entry in entries:
 
         rev = cast(str, entry["rev"])
-        cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
-        dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
+        dt = _datetime_from_iso_str(cast(str, entry["client_modified"]))
 
         table.append([cli.TextField(rev), cli.DateField(dt)])
 
@@ -1402,7 +1526,6 @@ def diff(
     config_name: str,
 ) -> None:
 
-    from datetime import datetime
     from .daemon import MaestralProxy
 
     # Reason for rel_dbx_path: os.path.join does not like leading /
@@ -1458,9 +1581,8 @@ def diff(
             entries = m.list_revisions(dropbox_path, limit=limit)
 
             for entry in entries:
-                cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
-                dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
-                field = cli.DateField(dt)
+                cm = cast(str, entry["client_modified"])
+                field = cli.DateField(_datetime_from_iso_str(cm))
                 entry["desc"] = field.format(40)[0]
 
             dbx_path = cast(str, entries[0]["path_display"])
@@ -1515,7 +1637,7 @@ Restore a previous version of a file.
 If no revision number is given, old revisions will be listed.
 """,
 )
-@click.argument("dropbox_path", type=click.Path())
+@click.argument("dropbox_path", type=DropboxPath())
 @click.option("-v", "--rev", help="Revision to restore.", default="")
 @click.option(
     "-l",
@@ -1528,7 +1650,7 @@ If no revision number is given, old revisions will be listed.
 @existing_config_option
 @catch_maestral_errors
 def restore(dropbox_path: str, rev: str, limit: int, config_name: str) -> None:
-    from datetime import datetime
+
     from .daemon import MaestralProxy
 
     if not dropbox_path.startswith("/"):
@@ -1541,9 +1663,8 @@ def restore(dropbox_path: str, rev: str, limit: int, config_name: str) -> None:
             entries = m.list_revisions(dropbox_path, limit=limit)
             dates = []
             for entry in entries:
-                cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
-                dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
-                field = cli.DateField(dt)
+                cm = cast(str, entry["client_modified"])
+                field = cli.DateField(_datetime_from_iso_str(cm))
                 dates.append(field.format(40)[0])
 
             index = cli.select(
@@ -1621,7 +1742,7 @@ def log_clear(config_name: str) -> None:
 @click.argument(
     "level_name",
     required=False,
-    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"], case_sensitive=False),
 )
 @existing_config_option
 def log_level(level_name: str, config_name: str) -> None:

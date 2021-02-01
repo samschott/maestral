@@ -101,6 +101,12 @@ def m():
     except NotFoundError:
         pass
 
+    # remove all shared links
+    res = m.client.list_shared_links()
+
+    for link in res.links:
+        m.revoke_shared_link(link.url)
+
     # remove creds from system keyring
     m.client.auth.delete_creds()
 

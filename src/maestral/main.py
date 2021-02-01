@@ -27,13 +27,13 @@ import tempfile
 import mimetypes
 import difflib
 
-
 # external imports
 import requests
 from watchdog.events import DirDeletedEvent, FileDeletedEvent  # type: ignore
 from packaging.version import Version
 from datetime import datetime, timezone
 from dropbox.files import FileMetadata
+from dropbox.sharing import RequestedVisibility
 
 try:
     from systemd import journal  # type: ignore
@@ -1298,6 +1298,87 @@ class Maestral:
         # resume syncing
         if resume:
             self.resume_sync()
+
+    def create_shared_link(
+        self,
+        dbx_path: str,
+        visibility: str = "public",
+        password: Optional[str] = None,
+        expires: Optional[float] = None,
+    ) -> StoneType:
+        """
+        Creates a shared link for the given ``dbx_path``. Returns a dictionary with
+        information regarding the link, including the URL, access permissions, expiry
+        time, etc. The shared link will grant read / download access only. Note that
+        basic accounts do not support password protection or expiry times.
+
+        :param dbx_path: Path to item on Dropbox.
+        :param visibility: Requested visibility of the shared link. Must be "public",
+            "team_only" or "password". The actual visibility may be different, depending
+            on the team and folder settings. Inspect the "link_permissions" entry of the
+            returned dictionary.
+        :param password: An optional password required to access the link. Will be
+            ignored if the visibility is not "password".
+        :param expires: An optional expiry time for the link as POSIX timestamp.
+        :returns: Shared link information as dict. See
+            :class:`dropbox.sharing.SharedLinkMetadata` for keys and values.
+        :raises ValueError: if visibility is 'password' but no password is provided.
+        :raises DropboxAuthError: in case of an invalid access token.
+        :raises DropboxServerError: for internal Dropbox errors.
+        :raises ConnectionError: if the connection to Dropbox fails.
+        :raises NotLinkedError: if no Dropbox account is linked.
+        """
+
+        self._check_linked()
+
+        if visibility not in ("public", "team_only", "password"):
+            raise ValueError("Visibility must be 'public', 'team_only', or 'password'")
+
+        if visibility == "password" and not password:
+            raise ValueError("Please specify a password")
+
+        link_info = self.client.create_shared_link(
+            dbx_path=dbx_path,
+            visibility=RequestedVisibility(visibility),
+            password=password,
+            expires=datetime.utcfromtimestamp(expires) if expires else None,
+        )
+
+        return dropbox_stone_to_dict(link_info)
+
+    def revoke_shared_link(self, url: str) -> None:
+        """
+        Revokes the given shared link. Note that any other links to the same file or
+        folder will remain valid.
+
+        :param url: URL of shared link to revoke.
+        :raises DropboxAuthError: in case of an invalid access token.
+        :raises DropboxServerError: for internal Dropbox errors.
+        :raises ConnectionError: if the connection to Dropbox fails.
+        :raises NotLinkedError: if no Dropbox account is linked.
+        """
+
+        self._check_linked()
+        self.client.revoke_shared_link(url)
+
+    def list_shared_links(self, dbx_path: Optional[str] = None) -> List[StoneType]:
+        """
+        Returns a list of all shared links for the given Dropbox path. If no path is
+        given, return all shared links for the account, up to a maximum of 1,000 links.
+
+        :param dbx_path: Path to item on Dropbox.
+        :returns: List of shared link information as dictionaries. See
+            :class:`dropbox.sharing.SharedLinkMetadata` for keys and values.
+        :raises DropboxAuthError: in case of an invalid access token.
+        :raises DropboxServerError: for internal Dropbox errors.
+        :raises ConnectionError: if the connection to Dropbox fails.
+        :raises NotLinkedError: if no Dropbox account is linked.
+        """
+
+        self._check_linked()
+        res = self.client.list_shared_links(dbx_path)
+
+        return [dropbox_stone_to_dict(link) for link in res.links]
 
     # ==== utility methods for front ends ==============================================
 

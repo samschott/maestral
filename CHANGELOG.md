@@ -2,20 +2,27 @@
 
 #### Added:
 
-* Add a command `maestral diff` to compare different versions of a text file. The
+* Added a command `maestral diff` to compare different versions of a text file. The
   resulting diff is printed to the console. Thanks to @OrangeFran.
-* Resurrected the command `maestral revs` to list previous versions or a file.
+* Resurrected the command `maestral revs` to list previous versions of a file.
+* Added a command group `maestral sharelink` to create and manage shared links.
+  Subcommands are:
+  * `create`: Create a shared link for a file or folder, optionally with password
+    protection and an expiry date on supported accounts (business and professional).
+  * `list`: List shared links, either for a specific file or folder or for all items in
+    your Dropbox.
+  * `revoke`: Revoke a shared link.
+* Added a `--yes, -Y` flag to the `unlink` to command to skip the confirmation prompt.
 
 #### Changed:
 
-* Added a `--yes, -Y` flag to the `unlink` to command to skip the confirmation prompt.
-* Performance has been improved by avoiding scanning of objects matching an 
-  `.mignore` pattern (file watches will still be added however). A resulting behavioral
-  change is that **maestral will remove existing matching files from Dropbox as well**.
-  After this change it will be immaterial if an `.mignore` pattern is added before or
-  after having matching files  in Dropbox.
+* Avoiding scanning of objects matching an  `.mignore` pattern (file watches will still
+  be added however). This results in performance improvements during startup and resume.
+  A resulting behavioral change is that **maestral will remove files matching an ignore
+  pattern from Dropbox**. After this change it will be immaterial if an `.mignore`
+  pattern is added before or after having matching files  in Dropbox.
 * If Maestral is quit or interrupted during indexing, for instance due to connection
-  problems, it will later resume from the same position instead of restarting the
+  problems, it will later resume from the same position instead of restarting from the
   beginning.
 * Indexing will no longer skip excluded folders. This is necessary for the above change.
 

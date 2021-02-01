@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 
 import os
-import shutil
 import os.path as osp
+import shutil
+import requests
 
 import pytest
 
-from maestral.errors import NotFoundError, UnsupportedFileTypeForDiff
+from maestral.errors import NotFoundError, UnsupportedFileTypeForDiff, SharedLinkError
 from maestral.main import FileStatus, IDLE
 from maestral.main import logger as maestral_logger
 from maestral.utils.path import delete
@@ -289,3 +290,63 @@ def test_restore_failed(m):
 
     with pytest.raises(NotFoundError):
         m.restore("/sync_tests/restored-file", "015982ea314dac40000000154e40990")
+
+
+def test_sharedlink_lifecycle(m):
+
+    # create a folder to share
+    dbx_path = "/sync_tests/shared_folder"
+    m.client.make_dir(dbx_path)
+
+    # test creating a shared link
+    link_data = m.create_shared_link(dbx_path)
+
+    resp = requests.get(link_data["url"])
+    assert resp.status_code == 200
+
+    links = m.list_shared_links(dbx_path)
+    assert link_data in links
+
+    # test revoking a shared link
+    m.revoke_shared_link(link_data["url"])
+    links = m.list_shared_links(dbx_path)
+    assert link_data not in links
+
+
+def test_sharedlink_errors(m):
+
+    dbx_path = "/sync_tests/shared_folder"
+    m.client.make_dir(dbx_path)
+
+    # test creating a shared link with password, no password provided
+    with pytest.raises(ValueError):
+        m.create_shared_link(dbx_path, visibility="password")
+
+    # test creating a shared link with password fails on basic account
+    account_info = m.get_account_info()
+
+    if account_info["account_type"][".tag"] == "basic":
+        with pytest.raises(SharedLinkError):
+            m.create_shared_link(dbx_path, visibility="password", password="secret")
+
+    # test creating a shared link with the same settings as an existing link
+    m.create_shared_link(dbx_path)
+
+    with pytest.raises(SharedLinkError):
+        m.create_shared_link(dbx_path)
+
+    # test creating a shared link with an invalid path
+    with pytest.raises(NotFoundError):
+        m.create_shared_link("/this_is_not_a_file.txt")
+
+    # test listing shared links for an invalid path
+    with pytest.raises(NotFoundError):
+        m.list_shared_links("/this_is_not_a_file.txt")
+
+    # test revoking a non existent link
+    with pytest.raises(NotFoundError):
+        m.revoke_shared_link("https://www.dropbox.com/sh/48r2qxq748jfk5x/AAAS-niuW")
+
+    # test revoking a malformed link
+    with pytest.raises(SharedLinkError):
+        m.revoke_shared_link("https://www.testlink.de")
