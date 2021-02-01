@@ -1518,7 +1518,7 @@ class SyncEngine:
             else:
                 raise new_exc
 
-    def free_memory(self) -> None:
+    def _free_memory(self) -> None:
         """
         Frees memory by resetting our database session and the requests session,
         clearing out case-conversion cache and clearing all expired event ignores and.
@@ -1687,7 +1687,7 @@ class SyncEngine:
                 self.local_cursor = cursor
 
             del changes
-            self.free_memory()
+            self._free_memory()
 
     def list_local_changes(self, delay: float = 1) -> Tuple[List[SyncEvent], float]:
         """
@@ -2605,6 +2605,8 @@ class SyncEngine:
                 e = self._create_local_entry(event)
                 success = e.status in (SyncStatus.Done, SyncStatus.Skipped)
 
+            self._free_memory()
+
             return success
 
     def wait_for_remote_changes(self, last_cursor: str, timeout: int = 40) -> bool:
@@ -2660,7 +2662,7 @@ class SyncEngine:
                 del changes
                 del downloaded
 
-            self.free_memory()
+            self._free_memory()
 
     def list_remote_changes_iterator(
         self, last_cursor: str
@@ -3587,9 +3589,6 @@ def download_worker_added_item(
                     sync.pending_downloads.discard(dbx_path)
 
                     logger.info(IDLE)
-
-                    # free some memory
-                    sync.free_memory()
 
 
 def upload_worker(
