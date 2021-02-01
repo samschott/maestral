@@ -765,6 +765,7 @@ def sharedlink():
     help="Expiry time for the link (e.g. '2025-07-24 20:50').",
 )
 @existing_config_option
+@catch_maestral_errors
 def sharedlink_create(
     dropbox_path: str,
     password: str,
@@ -798,6 +799,7 @@ def sharedlink_create(
 @sharedlink.command(name="revoke", help="Revoke a shared link.")
 @click.argument("url")
 @existing_config_option
+@catch_maestral_errors
 def sharedlink_revoke(url: str, config_name: str) -> None:
 
     from .daemon import MaestralProxy
@@ -819,6 +821,7 @@ the Dropbox.
 )
 @click.argument("dropbox_path", required=False, type=DropboxPath())
 @existing_config_option
+@catch_maestral_errors
 def sharedlink_list(dropbox_path: Optional[str], config_name: str) -> None:
 
     from .daemon import MaestralProxy
@@ -829,12 +832,11 @@ def sharedlink_list(dropbox_path: Optional[str], config_name: str) -> None:
     with MaestralProxy(config_name, fallback=True) as m:
         links = m.list_shared_links(dropbox_path)
 
-    link_table = cli.Table(
-        [cli.Column("URL"), cli.Column("Visibility"), cli.Column("Expires")]
-    )
+    link_table = cli.Table(["URL", "Item", "Visibility", "Expires"])
 
     for link in links:
         url = cast(str, link["url"])
+        file_name = cast(str, link["name"])
         visibility = cast(str, link["link_permissions"]["resolved_visibility"][".tag"])
 
         dt_field: cli.Field
@@ -847,7 +849,7 @@ def sharedlink_list(dropbox_path: Optional[str], config_name: str) -> None:
         else:
             dt_field = cli.TextField("-")
 
-        link_table.append([url, visibility, dt_field])
+        link_table.append([url, file_name, visibility, dt_field])
 
     cli.echo("")
     link_table.echo()
