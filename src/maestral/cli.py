@@ -756,15 +756,21 @@ def status(config_name: str) -> None:
     try:
         with MaestralProxy(config_name) as m:
 
+            email = m.get_state("account", "email")
+            account_type = m.get_state("account", "type").capitalize()
+
+            status_info = m.status if m.running else "Stopped"
+            usage = m.get_state("account", "usage")
+
             n_errors = len(m.sync_errors)
             color = "red" if n_errors > 0 else "green"
             n_errors_str = click.style(str(n_errors), fg=color)
+
             cli.echo("")
-            cli.echo("Account:      {}".format(m.get_state("account", "email")))
-            cli.echo("Usage:        {}".format(m.get_state("account", "usage")))
-            cli.echo("Status:       {}".format(m.status))
-            cli.echo("Sync threads: {}".format("Running" if m.running else "Stopped"))
-            cli.echo("Sync errors:  {}".format(n_errors_str))
+            cli.echo(f"Account:      {email} ({account_type})")
+            cli.echo(f"Usage:        {usage}")
+            cli.echo(f"Status:       {status_info}")
+            cli.echo(f"Sync errors:  {n_errors_str}")
             cli.echo("")
 
             check_for_fatal_errors(m)
