@@ -6,8 +6,8 @@ from setuptools import setup, find_packages  # type: ignore
 
 # proceed with actual install
 install_requires = [
-    "alembic>=1.3,<1.6",
-    "click>=7.1.1,<8.0",
+    "alembic>=1.3",
+    "click>=7.1.1",
     "desktop-notifier",
     "dropbox>=10.9.0,<12.0",
     "dbus-next>=0.1.4;sys_platform=='linux'",
@@ -15,17 +15,18 @@ install_requires = [
     "importlib_metadata;python_version<'3.8'",
     "importlib_resources;python_version<'3.9'",
     "keyring>=22",
-    "keyrings.alt>=3.1.0,<5.0",
+    "keyrings.alt>=3.1.0",
     "packaging",
     "pathspec>=0.5.8",
     "Pyro5>=5.10",
     "requests>=2.16.2",
-    "rubicon-objc>=0.3.1;sys_platform=='darwin'",
+    "rubicon-objc>=0.4.0;sys_platform=='darwin'",
     "sdnotify>=0.3.2",
     "setuptools",
-    "sqlalchemy>=1.3,<1.4",
+    "sqlalchemy>=1.3",
     "survey>=3.2.2,<4.0",
-    "watchdog>=0.10.0,<=0.10.3",
+    "watchdog>=0.10.0,<=0.10.3;sys_platform=='darwin'",
+    "watchdog>=0.10.0;sys_platform=='linux'",
 ]
 
 gui_requires = [
