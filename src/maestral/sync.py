@@ -2520,7 +2520,50 @@ class SyncEngine:
 
     # ==== Download sync ===============================================================
 
-    def get_remote_folder(self, dbx_path: str) -> bool:
+    def get_remote_item(self, dbx_path: str) -> bool:
+        """
+        Downloads a remote file or folder and updates its local rev. If the remote item
+        does not exist, any corresponding local items will be deleted. If ``dbx_path``
+        refers to a folder, the download will be handled by :meth:`_get_remote_folder`.
+        If it refers to a single file, the download will be performed by
+        :meth:`_create_local_entry`.
+
+        This method can be used to fetch individual items outside of the regular sync
+        cycle, for instance when including a previously excluded file or folder.
+
+        :param dbx_path: Path relative to Dropbox folder.
+        :returns: Whether download was successful.
+        """
+
+        with self.sync_lock:
+
+            md = self.client.get_metadata(dbx_path, include_deleted=True)
+
+            if md is None:
+                # create a fake deleted event
+                index_entry = self.get_index_entry(dbx_path)
+                cased_path = index_entry.dbx_path_cased if index_entry else dbx_path
+
+                md = DeletedMetadata(
+                    name=osp.basename(dbx_path),
+                    path_lower=dbx_path.lower(),
+                    path_display=cased_path,
+                )
+
+            event = SyncEvent.from_dbx_metadata(md, self)
+
+            if event.is_directory:
+                success = self._get_remote_folder(dbx_path)
+            else:
+                self.syncing.append(event)
+                e = self._create_local_entry(event)
+                success = e.status in (SyncStatus.Done, SyncStatus.Skipped)
+
+            self._free_memory()
+
+            return success
+
+    def _get_remote_folder(self, dbx_path: str) -> bool:
         """
         Gets all files/folders from a Dropbox folder and writes them to the local folder
         :attr:`dropbox_path`.
@@ -2534,6 +2577,7 @@ class SyncEngine:
             logger.info(f"Syncing ↓ {dbx_path}")
 
             try:
+
 
                 idx = 0
 
@@ -2563,49 +2607,6 @@ class SyncEngine:
             except SyncError as e:
                 self._handle_sync_error(e, direction=SyncDirection.Down)
                 return False
-
-            return success
-
-    def get_remote_item(self, dbx_path: str) -> bool:
-        """
-        Downloads a remote file or folder and updates its local rev. If the remote item
-        does not exist, any corresponding local items will be deleted. If ``dbx_path``
-        refers to a folder, the download will be handled by :meth:`get_remote_folder`.
-        If it refers to a single file, the download will be performed by
-        :meth:`_create_local_entry`.
-
-        This method can be used to fetch individual items outside of the regular sync
-        cycle, for instance when including a previously excluded file or folder.
-
-        :param dbx_path: Path relative to Dropbox folder.
-        :returns: Whether download was successful.
-        """
-
-        with self.sync_lock:
-
-            md = self.client.get_metadata(dbx_path, include_deleted=True)
-
-            if md is None:
-                # create a fake deleted event
-                index_entry = self.get_index_entry(dbx_path)
-                cased_path = index_entry.dbx_path_cased if index_entry else dbx_path
-
-                md = DeletedMetadata(
-                    name=osp.basename(dbx_path),
-                    path_lower=dbx_path.lower(),
-                    path_display=cased_path,
-                )
-
-            event = SyncEvent.from_dbx_metadata(md, self)
-
-            if event.is_directory:
-                success = self.get_remote_folder(dbx_path)
-            else:
-                self.syncing.append(event)
-                e = self._create_local_entry(event)
-                success = e.status in (SyncStatus.Done, SyncStatus.Skipped)
-
-            self._free_memory()
 
             return success
 
