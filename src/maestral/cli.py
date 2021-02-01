@@ -746,11 +746,11 @@ def unlink(yes: bool, config_name: str) -> None:
 
 
 @main.group(section="Core Commands", help="Create and manage shared links.")
-def sharedlink():
+def sharelink():
     pass
 
 
-@sharedlink.command(name="create", help="Create a shared link for a file or folder.")
+@sharelink.command(name="create", help="Create a shared link for a file or folder.")
 @click.argument("dropbox_path", type=DropboxPath())
 @click.option(
     "-p",
@@ -766,7 +766,7 @@ def sharedlink():
 )
 @existing_config_option
 @catch_maestral_errors
-def sharedlink_create(
+def sharelink_create(
     dropbox_path: str,
     password: str,
     expiry: Optional[datetime],
@@ -796,11 +796,11 @@ def sharedlink_create(
     cli.echo(link_info["url"])
 
 
-@sharedlink.command(name="revoke", help="Revoke a shared link.")
+@sharelink.command(name="revoke", help="Revoke a shared link.")
 @click.argument("url")
 @existing_config_option
 @catch_maestral_errors
-def sharedlink_revoke(url: str, config_name: str) -> None:
+def sharelink_revoke(url: str, config_name: str) -> None:
 
     from .daemon import MaestralProxy
 
@@ -810,7 +810,7 @@ def sharedlink_revoke(url: str, config_name: str) -> None:
     cli.echo("Revoked shared link.")
 
 
-@sharedlink.command(
+@sharelink.command(
     name="list",
     help="""
 List shared links.
@@ -822,7 +822,7 @@ the Dropbox.
 @click.argument("dropbox_path", required=False, type=DropboxPath())
 @existing_config_option
 @catch_maestral_errors
-def sharedlink_list(dropbox_path: Optional[str], config_name: str) -> None:
+def sharelink_list(dropbox_path: Optional[str], config_name: str) -> None:
 
     from .daemon import MaestralProxy
 
