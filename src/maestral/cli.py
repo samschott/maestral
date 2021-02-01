@@ -11,7 +11,6 @@ import os
 import os.path as osp
 import functools
 import time
-from datetime import datetime
 from typing import Optional, Dict, List, Tuple, Callable, Union, cast, TYPE_CHECKING
 
 # external imports
@@ -22,6 +21,7 @@ from . import __version__
 from .utils import cli
 
 if TYPE_CHECKING:
+    from datetime import datetime
     from .main import Maestral
     from .daemon import MaestralProxy
 
@@ -230,6 +230,19 @@ def catch_maestral_errors(func: Callable) -> Callable:
             raise cli.CliException("Could not connect to Dropbox")
 
     return wrapper
+
+
+def _datetime_from_iso_str(time_str: str) -> "datetime":
+    """
+    Converts an ISO 8601 time string such as '2015-05-15T15:50:38Z' to a timezone aware
+    datetime object in the local time zone.
+    """
+
+    from datetime import datetime
+
+    # replace Z with +0000, required for Python 3.6 compatibility
+    time_str = time_str.replace("Z", "+0000")
+    return datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%S%z").astimezone()
 
 
 # ======================================================================================
@@ -770,7 +783,7 @@ def sharelink():
 def sharelink_create(
     dropbox_path: str,
     password: str,
-    expiry: Optional[datetime],
+    expiry: Optional["datetime"],
     config_name: str,
 ) -> None:
 
@@ -837,10 +850,8 @@ def sharelink_list(dropbox_path: Optional[str], config_name: str) -> None:
         dt_field: cli.Field
 
         if "expires" in link:
-            # replacing Z with +0000 is required for Python 3.6
-            expires = cast(str, link["expires"]).replace("Z", "+0000")
-            dt = datetime.strptime(expires, "%Y-%m-%dT%H:%M:%S%z").astimezone()
-            dt_field = cli.DateField(dt)
+            expires = cast(str, link["expires"])
+            dt_field = cli.DateField(_datetime_from_iso_str(expires))
         else:
             dt_field = cli.TextField("-")
 
@@ -1017,6 +1028,7 @@ def activity(config_name: str) -> None:
 @catch_maestral_errors
 def history(config_name: str) -> None:
 
+    from datetime import datetime
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -1123,10 +1135,8 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
                 dt_field: cli.Field
 
                 if "client_modified" in entry:
-                    # replacing Z with +0000 is required for Python 3.6
-                    cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
-                    dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
-                    dt_field = cli.DateField(dt)
+                    cm = cast(str, entry["client_modified"])
+                    dt_field = cli.DateField(_datetime_from_iso_str(cm))
                 else:
                     dt_field = cli.TextField("-")
 
@@ -1154,6 +1164,7 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 @main.command(section="Information", help="Show linked Dropbox account information.")
 @existing_config_option
 def account_info(config_name: str) -> None:
+
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -1457,8 +1468,7 @@ def revs(dropbox_path: str, limit: int, config_name: str) -> None:
     for entry in entries:
 
         rev = cast(str, entry["rev"])
-        cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
-        dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
+        dt = _datetime_from_iso_str(cast(str, entry["client_modified"]))
 
         table.append([cli.TextField(rev), cli.DateField(dt)])
 
@@ -1565,9 +1575,8 @@ def diff(
             entries = m.list_revisions(dropbox_path, limit=limit)
 
             for entry in entries:
-                cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
-                dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
-                field = cli.DateField(dt)
+                cm = cast(str, entry["client_modified"])
+                field = cli.DateField(_datetime_from_iso_str(cm))
                 entry["desc"] = field.format(40)[0]
 
             dbx_path = cast(str, entries[0]["path_display"])
@@ -1648,9 +1657,8 @@ def restore(dropbox_path: str, rev: str, limit: int, config_name: str) -> None:
             entries = m.list_revisions(dropbox_path, limit=limit)
             dates = []
             for entry in entries:
-                cm = cast(str, entry["client_modified"]).replace("Z", "+0000")
-                dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
-                field = cli.DateField(dt)
+                cm = cast(str, entry["client_modified"])
+                field = cli.DateField(_datetime_from_iso_str(cm))
                 dates.append(field.format(40)[0])
 
             index = cli.select(
