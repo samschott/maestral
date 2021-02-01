@@ -811,13 +811,7 @@ def sharelink_revoke(url: str, config_name: str) -> None:
 
 
 @sharelink.command(
-    name="list",
-    help="""
-List shared links.
-
-Lists all shared links for a file or folder. If not path is given, lists all links for
-the Dropbox.
-""",
+    name="list", help="List shared links for a path or all shared links."
 )
 @click.argument("dropbox_path", required=False, type=DropboxPath())
 @existing_config_option
@@ -832,7 +826,7 @@ def sharelink_list(dropbox_path: Optional[str], config_name: str) -> None:
     with MaestralProxy(config_name, fallback=True) as m:
         links = m.list_shared_links(dropbox_path)
 
-    link_table = cli.Table(["URL", "Item", "Visibility", "Expires"])
+    link_table = cli.Table(["URL", "Item", "Access", "Expires"])
 
     for link in links:
         url = cast(str, link["url"])
