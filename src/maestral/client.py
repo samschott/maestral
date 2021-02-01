@@ -1227,7 +1227,10 @@ def dropbox_to_maestral_error(
     :returns: :class:`MaestralApiError` instance.
     """
 
-    err_cls: Type[MaestralApiError]
+    title = "An unexpected error occurred"
+    text = "Please contact the developer with the traceback information from the logs."
+    err_cls = MaestralApiError
+
     # ---- Dropbox API Errors ----------------------------------------------------------
     if isinstance(exc, exceptions.ApiError):
 
@@ -1332,7 +1335,6 @@ def dropbox_to_maestral_error(
             elif error.is_properties_error():
                 # this is a programming error in maestral
                 text = "Invalid property group provided."
-                err_cls = MaestralApiError
             else:
                 text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
@@ -1342,11 +1344,9 @@ def dropbox_to_maestral_error(
             if error.is_concurrent_session_close_not_allowed():
                 # this is a programming error in maestral
                 text = "Can not start a closed concurrent upload session."
-                err_cls = MaestralApiError
             elif error.is_concurrent_session_data_not_allowed():
                 # this is a programming error in maestral
                 text = "Uploading data not allowed when starting concurrent upload session."
-                err_cls = MaestralApiError
             else:
                 text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
@@ -1362,7 +1362,6 @@ def dropbox_to_maestral_error(
             elif error.is_properties_error():
                 # this is a programming error in maestral
                 text = "Invalid property group provided."
-                err_cls = MaestralApiError
             elif error.is_too_many_write_operations():
                 text = (
                     "There are too many write operations happening in your "
@@ -1394,12 +1393,6 @@ def dropbox_to_maestral_error(
             if error.is_path():
                 lookup_error = error.get_path()
                 text, err_cls = _get_lookup_error_msg(lookup_error)
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, files.ListFolderContinueError):
             title = "Could not list folder contents"
@@ -1412,12 +1405,6 @@ def dropbox_to_maestral_error(
                     "Maestral's index to re-sync your Dropbox."
                 )
                 err_cls = CursorResetError
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, files.ListFolderLongpollError):
             title = "Could not get Dropbox changes"
@@ -1427,12 +1414,6 @@ def dropbox_to_maestral_error(
                     "Maestral's index to re-sync your Dropbox."
                 )
                 err_cls = CursorResetError
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, async_.PollError):
 
@@ -1446,13 +1427,9 @@ def dropbox_to_maestral_error(
                 )
                 err_cls = DropboxServerError
             else:
-                # Other tags include invalid_async_job_id. Neither should occur in our
-                # SDK usage.
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
+                # Other tags include invalid_async_job_id.
+                # Neither should occur in our SDK usage.
+                pass
 
         elif isinstance(error, files.ListRevisionsError):
 
@@ -1461,12 +1438,6 @@ def dropbox_to_maestral_error(
             if error.is_path():
                 lookup_error = error.get_path()
                 text, err_cls = _get_lookup_error_msg(lookup_error)
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, files.RestoreError):
 
@@ -1481,12 +1452,6 @@ def dropbox_to_maestral_error(
             elif error.is_path_write():
                 write_error = error.get_path_write()
                 text, err_cls = _get_write_error_msg(write_error)
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, files.GetMetadataError):
             title = "Could not get metadata"
@@ -1494,12 +1459,6 @@ def dropbox_to_maestral_error(
             if error.is_path():
                 lookup_error = error.get_path()
                 text, err_cls = _get_lookup_error_msg(lookup_error)
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, users.GetAccountError):
             title = "Could not get account info"
@@ -1510,12 +1469,6 @@ def dropbox_to_maestral_error(
                     "exist or has been deleted"
                 )
                 err_cls = InvalidDbidError
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, sharing.CreateSharedLinkWithSettingsError):
             title = "Could not create shared link"
@@ -1592,19 +1545,12 @@ def dropbox_to_maestral_error(
                 # Other tags are invalid_select_admin, invalid_select_user,
                 # missing_scope, route_access_denied. Neither should occur in our SDK
                 # usage.
-                err_cls = MaestralApiError
-                title = "An unexpected error occurred"
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
+                pass
 
         else:
             err_cls = DropboxAuthError
             title = "Authentication error"
-            text = (
-                "Please check if you can log into your account on the Dropbox website."
-            )
+            text = "Please check if you can log in on the Dropbox website."
 
     # ---- OAuth2 flow errors ----------------------------------------------------------
     elif isinstance(exc, requests.HTTPError):
@@ -1637,15 +1583,6 @@ def dropbox_to_maestral_error(
             "Something went wrong with the job on Dropbox’s end. Please "
             "verify on the Dropbox website if the job succeeded and try "
             "again if it failed."
-        )
-
-    # ---- Everything else -------------------------------------------------------------
-    else:
-        err_cls = MaestralApiError
-        title = "An unexpected error occurred"
-        text = (
-            "Please contact the developer with the traceback "
-            "information from the logs."
         )
 
     maestral_exc = err_cls(title, text, dbx_path=dbx_path, local_path=local_path)
