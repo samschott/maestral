@@ -852,11 +852,11 @@ class SyncEngine:
         with convert_api_errors(local_path=local_path):
             hash_str, mtime = content_hash(local_path)
 
-        self.save_local_hash(local_path, hash_str, mtime)
+        self._save_local_hash(local_path, hash_str, mtime)
 
         return hash_str
 
-    def save_local_hash(
+    def _save_local_hash(
         self, local_path: str, hash_str: Optional[str], mtime: Optional[float]
     ) -> None:
         """
@@ -3249,7 +3249,7 @@ class SyncEngine:
                 )
 
         self.update_index_from_sync_event(event)
-        self.save_local_hash(event.local_path, event.content_hash, mtime)
+        self._save_local_hash(event.local_path, event.content_hash, mtime)
 
         logger.debug('Created local file "%s"', event.dbx_path)
 
