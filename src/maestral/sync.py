@@ -1252,7 +1252,10 @@ class SyncEngine:
     def to_local_path(self, dbx_path: str) -> str:
         """
         Converts a Dropbox path to the corresponding local path. Only the basename must
-        be correctly cased. This is slower than :meth:`to_local_path_from_cased`.
+        be correctly cased, as guaranteed by the Dropbox API for the ``display_path``
+        attribute of file or folder metadata.
+
+        This method slower than :meth:`to_local_path_from_cased`.
 
         :param dbx_path: Path relative to Dropbox folder, must be correctly cased in its
             basename.
@@ -1394,9 +1397,9 @@ class SyncEngine:
             while cpu_usage > self._max_cpu_percent:
                 cpu_usage = cpu_usage_percent(0.5 + 2 * random.random())
 
-    def cancel_sync(self):
+    def cancel_sync(self) -> None:
         """
-        Cancels all pending sync jobs and returns when idle.
+        Cancels all pending sync jobs and blocks until the sync cycle is complete.
         """
 
         self._cancel_requested.set()
