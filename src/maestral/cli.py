@@ -808,14 +808,22 @@ def sharedlink_revoke(url: str, config_name: str) -> None:
     cli.echo("Revoked shared link.")
 
 
-@sharedlink.command(name="list", help="List all shared links for a file or folder.")
-@click.argument("dropbox_path", type=DropboxPath())
+@sharedlink.command(
+    name="list",
+    help="""
+List shared links.
+
+Lists all shared links for a file or folder. If not path is given, lists all links for
+the Dropbox.
+""",
+)
+@click.argument("dropbox_path", required=False, type=DropboxPath())
 @existing_config_option
-def sharedlink_list(dropbox_path: str, config_name: str) -> None:
+def sharedlink_list(dropbox_path: Optional[str], config_name: str) -> None:
 
     from .daemon import MaestralProxy
 
-    if not dropbox_path.startswith("/"):
+    if dropbox_path and not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
 
     with MaestralProxy(config_name, fallback=True) as m:

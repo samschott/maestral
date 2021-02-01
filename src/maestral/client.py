@@ -1029,9 +1029,12 @@ class DropboxClient:
         with convert_api_errors():
             self.dbx.sharing_revoke_shared_link(url)
 
-    def list_shared_links(self, dbx_path: str) -> sharing.ListSharedLinksResult:
+    def list_shared_links(
+        self, dbx_path: Optional[str] = None
+    ) -> sharing.ListSharedLinksResult:
         """
-        Lists all shared links for a given Dropbox path (file or folder).
+        Lists all shared links for a given Dropbox path (file or folder). If no path is
+        given, list all shared links for the account, up to a maximum of 1,000 links.
 
         :param dbx_path: Dropbox path to file or folder.
         :returns: Shared links for a path, including any shared links for parents

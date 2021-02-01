@@ -1309,7 +1309,8 @@ class Maestral:
         """
         Creates a shared link for the given ``dbx_path``. Returns a dictionary with
         information regarding the link, including the URL, access permissions, expiry
-        time, etc. The shared link will grant read / download access only.
+        time, etc. The shared link will grant read / download access only. Note that
+        basic accounts do not support password protection or expiry times.
 
         :param dbx_path: Path to item on Dropbox.
         :param visibility: Requested visibility of the shared link. Must be "public",
@@ -1321,12 +1322,20 @@ class Maestral:
         :param expires: An optional expiry time for the link as POSIX timestamp.
         :returns: Shared link information as dict. See
             :class:`dropbox.sharing.SharedLinkMetadata` for keys and values.
+        :raises ValueError: if visibility is 'password' but no password is provided.
         :raises DropboxAuthError: in case of an invalid access token.
         :raises DropboxServerError: for internal Dropbox errors.
         :raises ConnectionError: if the connection to Dropbox fails.
+        :raises NotLinkedError: if no Dropbox account is linked.
         """
 
         self._check_linked()
+
+        if visibility not in ("public", "team_only", "password"):
+            raise ValueError("Visibility must be 'public', 'team_only', or 'password'")
+
+        if visibility == "password" and not password:
+            raise ValueError("Please specify a password")
 
         link_info = self.client.create_shared_link(
             dbx_path=dbx_path,
@@ -1346,14 +1355,16 @@ class Maestral:
         :raises DropboxAuthError: in case of an invalid access token.
         :raises DropboxServerError: for internal Dropbox errors.
         :raises ConnectionError: if the connection to Dropbox fails.
+        :raises NotLinkedError: if no Dropbox account is linked.
         """
 
         self._check_linked()
         self.client.revoke_shared_link(url)
 
-    def list_shared_links(self, dbx_path: str) -> List[StoneType]:
+    def list_shared_links(self, dbx_path: Optional[str] = None) -> List[StoneType]:
         """
-        Returns a list of all shared links for the given Dropbox path.
+        Returns a list of all shared links for the given Dropbox path. If no path is
+        given, return all shared links for the account, up to a maximum of 1,000 links.
 
         :param dbx_path: Path to item on Dropbox.
         :returns: List of shared link information as dictionaries. See
@@ -1361,6 +1372,7 @@ class Maestral:
         :raises DropboxAuthError: in case of an invalid access token.
         :raises DropboxServerError: for internal Dropbox errors.
         :raises ConnectionError: if the connection to Dropbox fails.
+        :raises NotLinkedError: if no Dropbox account is linked.
         """
 
         self._check_linked()
