@@ -16,7 +16,6 @@ from typing import Optional, Dict, List, Tuple, Callable, Union, cast, TYPE_CHEC
 
 # external imports
 import click
-import Pyro5.errors  # type: ignore
 
 # local imports
 from . import __version__
@@ -670,20 +669,21 @@ def gui(config_name: str) -> None:
 @existing_config_option
 def pause(config_name: str) -> None:
 
-    from .daemon import MaestralProxy
+    from .daemon import MaestralProxy, CommunicationError
 
     try:
         with MaestralProxy(config_name) as m:
             m.pause_sync()
         cli.ok("Syncing paused.")
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("Maestral daemon is not running.")
 
 
 @main.command(section="Core Commands", help="Resume syncing.")
 @existing_config_option
 def resume(config_name: str) -> None:
-    from .daemon import MaestralProxy
+
+    from .daemon import MaestralProxy, CommunicationError
 
     try:
         with MaestralProxy(config_name) as m:
@@ -691,7 +691,7 @@ def resume(config_name: str) -> None:
                 m.resume_sync()
                 cli.ok("Syncing resumed.")
 
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("Maestral daemon is not running.")
 
 
@@ -706,6 +706,7 @@ def resume(config_name: str) -> None:
 @config_option
 @catch_maestral_errors
 def link(relink: bool, config_name: str) -> None:
+
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -860,7 +861,7 @@ def sharelink_list(dropbox_path: Optional[str], config_name: str) -> None:
 @catch_maestral_errors
 def status(config_name: str) -> None:
 
-    from .daemon import MaestralProxy
+    from .daemon import MaestralProxy, CommunicationError
 
     check_for_updates()
 
@@ -896,7 +897,7 @@ def status(config_name: str) -> None:
                 table.echo()
                 cli.echo("")
 
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("Maestral daemon is not running.")
 
 
@@ -915,14 +916,14 @@ a file-manager.
 @existing_config_option
 def file_status(local_path: str, config_name: str) -> None:
 
-    from .daemon import MaestralProxy
+    from .daemon import MaestralProxy, CommunicationError
 
     try:
         with MaestralProxy(config_name) as m:
             stat = m.get_file_status(local_path)
             cli.echo(stat)
 
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("unwatched")
 
 
@@ -933,7 +934,7 @@ def activity(config_name: str) -> None:
 
     import curses
     from .utils import natural_size
-    from .daemon import MaestralProxy
+    from .daemon import MaestralProxy, CommunicationError
 
     try:
         with MaestralProxy(config_name) as m:
@@ -1007,7 +1008,7 @@ def activity(config_name: str) -> None:
             # enter curses event loop
             curses.wrapper(curses_loop)
 
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("Maestral daemon is not running.")
 
 
@@ -1250,6 +1251,7 @@ def excluded():
 @excluded.command(name="list", help="List all excluded files and folders.")
 @existing_config_option
 def excluded_list(config_name: str) -> None:
+
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -1272,6 +1274,7 @@ def excluded_list(config_name: str) -> None:
 @existing_config_option
 @catch_maestral_errors
 def excluded_add(dropbox_path: str, config_name: str) -> None:
+
     from .daemon import MaestralProxy
 
     if not dropbox_path.startswith("/"):
@@ -1299,7 +1302,8 @@ folder will be included as well (but no other items inside it).
 @existing_config_option
 @catch_maestral_errors
 def excluded_remove(dropbox_path: str, config_name: str) -> None:
-    from .daemon import MaestralProxy
+
+    from .daemon import MaestralProxy, CommunicationError
 
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
@@ -1312,7 +1316,7 @@ def excluded_remove(dropbox_path: str, config_name: str) -> None:
             m.include_item(dropbox_path)
             cli.ok(f"Included '{dropbox_path}'. Now downloading...")
 
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         raise cli.CliException("Daemon must be running to download folders.")
 
 
@@ -1333,7 +1337,7 @@ def notify():
 @existing_config_option
 def notify_level(level_name: str, config_name: str) -> None:
 
-    from . import notify as _notify  # prevent conflict with notify command group
+    from . import notify as _notify
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -1352,12 +1356,13 @@ def notify_level(level_name: str, config_name: str) -> None:
 @click.argument("minutes", type=click.IntRange(min=0))
 @existing_config_option
 def notify_snooze(minutes: int, config_name: str) -> None:
-    from .daemon import MaestralProxy
+
+    from .daemon import MaestralProxy, CommunicationError
 
     try:
         with MaestralProxy(config_name) as m:
             m.notification_snooze = minutes
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("Maestral daemon is not running.")
     else:
         if minutes > 0:
@@ -1377,6 +1382,7 @@ def notify_snooze(minutes: int, config_name: str) -> None:
 @click.argument("new_path", required=False, type=click.Path(writable=True))
 @existing_config_option
 def move_dir(new_path: str, config_name: str) -> None:
+
     from .daemon import MaestralProxy
 
     new_path = new_path or select_dbx_path_dialog(config_name)
