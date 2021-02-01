@@ -69,6 +69,7 @@ from .errors import (
     InotifyError,
     NotLinkedError,
     InvalidDbidError,
+    SharedLinkError,
 )
 from .config import MaestralState
 from .constants import DROPBOX_APP_KEY, IDLE
@@ -1516,13 +1517,54 @@ def dropbox_to_maestral_error(
                 )
                 err_cls = MaestralApiError
 
-        else:
-            err_cls = MaestralApiError
-            title = "An unexpected error occurred"
-            text = (
-                "Please contact the developer with the traceback "
-                "information from the logs."
-            )
+        elif isinstance(error, sharing.CreateSharedLinkWithSettingsError):
+            title = "Could not create shared link"
+
+            if error.is_access_denied():
+                text = "You do not have access to create shared links for this path."
+                err_cls = InsufficientPermissionsError
+            elif error.is_email_not_verified():
+                text = "Please verify you email address before creating shared links"
+                err_cls = SharedLinkError
+            elif error.is_path():
+                lookup_error = error.get_path()
+                text, err_cls = _get_lookup_error_msg(lookup_error)
+            elif error.is_settings_error():
+                settings_error = error.get_settings_error()
+                err_cls = SharedLinkError
+                if settings_error.is_invalid_settings():
+                    text = "Please check if the settings are valid."
+                elif settings_error.is_not_authorized():
+                    text = "Basic accounts do not support passwords or expiry dates."
+            elif error.is_shared_link_already_exists():
+                text = "The shared link already exists."
+                err_cls = SharedLinkError
+
+        elif isinstance(error, sharing.RevokeSharedLinkError):
+            title = "Could not revoke shared link"
+
+            if error.is_shared_link_not_found():
+                text = "The given link does not exist."
+                err_cls = NotFoundError
+            elif error.is_shared_link_access_denied():
+                text = "You do not have access to revoke the shared link."
+                err_cls = InsufficientPermissionsError
+            elif error.is_shared_link_malformed():
+                text = "The shared link is malformed."
+                err_cls = SharedLinkError
+            elif error.is_unsupported_link_type():
+                text = "The link type is not supported."
+                err_cls = SharedLinkError
+
+        elif isinstance(error, sharing.ListSharedLinksError):
+            title = "Could not list shared links"
+
+            if error.is_path():
+                lookup_error = error.get_path()
+                text, err_cls = _get_lookup_error_msg(lookup_error)
+            elif error.is_reset():
+                text = "Please try again later."
+                err_cls = SharedLinkError
 
     # ---- Authentication errors -------------------------------------------------------
     elif isinstance(exc, exceptions.AuthError):
