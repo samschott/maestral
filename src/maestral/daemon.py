@@ -78,7 +78,7 @@ else:
     EXECUTABLE = [sys.executable, "-OO"]
 
 
-def set_executable(executable: str, *argv) -> None:
+def set_executable(executable: str, *argv: str) -> None:
     """
     Sets the path of the Python executable to use when starting the daemon. By default
     :obj:`sys.executable` is used. Can be used when embedding the daemon.
