@@ -913,7 +913,7 @@ a file-manager.
 )
 @click.argument("local_path", type=click.Path(exists=True, resolve_path=True))
 @existing_config_option
-def file_status(local_path: str, config_name: str) -> None:
+def filestatus(local_path: str, config_name: str) -> None:
 
     from .daemon import MaestralProxy, CommunicationError
 
