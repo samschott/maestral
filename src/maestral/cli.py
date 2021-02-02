@@ -611,24 +611,6 @@ def stop(config_name: str) -> None:
     stop_daemon_with_cli_feedback(config_name)
 
 
-@main.command(section="Core Commands", help="Restart the sync daemon.")
-@click.option(
-    "--foreground",
-    "-f",
-    is_flag=True,
-    default=False,
-    help="Start the sync daemon in the foreground.",
-)
-@click.option(
-    "--verbose", "-v", is_flag=True, default=False, help="Print log messages to stdout."
-)
-@existing_config_option
-@click.pass_context
-def restart(ctx, foreground: bool, verbose: bool, config_name: str) -> None:
-    stop_daemon_with_cli_feedback(config_name)
-    ctx.forward(start)
-
-
 @main.command(section="Core Commands", help="Run the GUI if installed.")
 @config_option
 def gui(config_name: str) -> None:
