@@ -8,12 +8,35 @@ For a user manual and an overview of Maestral's functionality, please
 refer to the `wiki <https://github.com/SamSchott/maestral-dropbox/wiki>`_.
 
 .. toctree::
-   :caption: Contents
+   :hidden:
+   :caption: Background
    :maxdepth: 2
 
-   background/index
-   API Reference <autoapi/maestral/index>
-   contributing
+   background/sync_logic
+   background/logging
+   background/config_files
+   background/state_files
+   background/contributing
+
+.. toctree::
+   :hidden:
+   :caption: Reference
+   :maxdepth: 2
+
+   autoapi/maestral/cli/index
+   autoapi/maestral/client/index
+   autoapi/maestral/config/index
+   autoapi/maestral/constants/index
+   autoapi/maestral/daemon/index
+   autoapi/maestral/database/index
+   autoapi/maestral/errors/index
+   autoapi/maestral/fsevents/index
+   autoapi/maestral/logging/index
+   autoapi/maestral/main/index
+   autoapi/maestral/notify/index
+   autoapi/maestral/oauth/index
+   autoapi/maestral/sync/index
+   autoapi/maestral/utils/index
 
 Getting started
 ***************
