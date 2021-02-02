@@ -3,7 +3,7 @@
 #### Added:
 
 * Added a command `maestral diff` to compare different versions of a text file. The
-  resulting diff is printed to the console. Thanks to @OrangeFran.
+  resulting diff is printed to the console. Credit goes to @OrangeFran.
 * Resurrected the command `maestral revs` to list previous versions of a file.
 * Added a command group `maestral sharelink` to create and manage shared links.
   Subcommands are:
@@ -12,7 +12,6 @@
   * `list`: List shared links, either for a specific file or folder or for all items in
     your Dropbox.
   * `revoke`: Revoke a shared link.
-* Added a `--yes, -Y` flag to the `unlink` to command to skip the confirmation prompt.
 
 #### Changed:
 
@@ -25,8 +24,11 @@
   problems, it will later resume from the same position instead of restarting from the
   beginning.
 * Indexing will no longer skip excluded folders. This is necessary for the above change.
+* Moved linking and unlinking to a new command group `maestral auth` with subcommands
+  `link`, `unlink` and `status`.
+* Added a `--yes, -Y` flag to the `unlink` to command to skip the confirmation prompt.
 
-#### Fixes:
+#### Fixed:
 
 * Fixes an issue with CLI on Python 3.6 where commands that print datetimes to the
   console would raise an exception.
@@ -42,6 +44,8 @@
 * Removed automatic error reporting via bugsnag. Please file issues directly on GitHub
   instead. This allows following up on errors and investigating their cause while
   removing third party access to potentially private information.
+* Removed the `maestral restart` command. Use `stop` and `start` instead.
+* Removed the `maestral account-info` command. Use `maestral auth status` instead.
 
 #### Dependencies:
 
@@ -51,7 +55,7 @@
 
 ## v1.3.1
 
-#### Fixes:
+#### Fixed:
 
 * Fixes an incorrect entry point for the Qt GUI.
 
@@ -93,7 +97,7 @@ series of bug fixes for GUI and daemon.
 * The `Maestral.excluded_items` property is no longer read-only.
 * Some refactoring of the `cli` module to prepare for shell completion support.
 
-#### Fixes:
+#### Fixed:
 
 * Fixes an issue where all newly downloaded files would be created with 755 permissions.
   They are now created with the user's default permissions for new files instead.
@@ -145,7 +149,7 @@ series of bug fixes for GUI and daemon.
 This release focuses on bug fixes and performance improvements. In particular, memory
 usage has been improved when syncing a Dropbox folder with a large number of items.
 
-#### Changes:
+#### Changed:
 
 - `maestral file-status` now accepts relative paths.
 - Runs the daemon in a Python interpreter with -OO flags. This strips docstrings and saves
@@ -163,7 +167,7 @@ usage has been improved when syncing a Dropbox folder with a large number of ite
 - Switch from PyInstaller to [briefcase](https://github.com/beeware/briefcase) for
   packaging on macOS.
 
-#### Fixes:
+#### Fixed:
 
 - Fixes an issue which would prevent the daemon from starting on macOS when running with
   Python 3.6.
@@ -206,7 +210,7 @@ full compatibility from macOS 10.13 High Sierra to macOS 11.0 Big Sur.
 - Improves log messages when the connection to Dropbox is lost.
 - Performance improvements to `maestral activity` in case of very large sync queues.
 
-#### Fixes:
+#### Fixed:
 
 - Fixes a database integrity error due to an unfulfilled unique constraint.
 - Fixes an issue when the daemon is launched with systemd where systemd would unexpectedly
