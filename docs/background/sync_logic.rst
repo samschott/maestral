@@ -22,7 +22,7 @@ Maestral processes remote events as follows:
 1) :meth:`SyncEngine.wait_for_remote_changes` blocks until remote changes are
    available.
 
-2) :meth:`SyncEngine.get_remote_changes` lists all remote changes since the last sync.
+2) :meth:`SyncEngine.list_remote_changes` lists all remote changes since the last sync.
    Those events are processed at follows:
 
    * Events for entries which are excluded by selective sync and hard-coded file names
@@ -49,7 +49,9 @@ Local file events come in eight types: For both files and folders we collect cre
 moved, modified and deleted events. They are processed as follows:
 
 1) :meth:`SyncEngine.wait_for_local_changes`: Blocks until local changes are
-   registered by :class:`FSEventHandler` and returns those changes. Events are
+   registered by :class:`FSEventHandler`.
+
+2) :meth:`SyncEngine.list_local_changes`: Lists all local file events. Those are
    processed as follows:
 
    * Events ignored by a "mignore" pattern as well as hard-coded file names and
@@ -62,8 +64,13 @@ moved, modified and deleted events. They are processed as follows:
      moved or deleted events for its children.
 
 2) :meth:`SyncEngine.apply_local_changes`: Sorts local changes hierarchically and
-   applies events in the order of deleted, folders and files. Deletions and creations
-   will be carried out in parallel with up to 6 threads.
+   applies events in the order of deleted, folders and files. Deleted, created and
+   modified events will be applies to the remote Dropbox in parallel with up to 6
+   threads. Moves will be carried out synchronously.
+
+Before processing, we convert all Dropbox metadata and local file events to a unified
+format of :class:`maestral.database.SyncEvent` instances which are also used to store
+the sync history data in our SQLite database.
 
 Detection of sync conflicts
 ***************************
