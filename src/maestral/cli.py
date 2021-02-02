@@ -149,7 +149,7 @@ def link_dialog(m: Union["MaestralProxy", "Maestral"]) -> None:
         elif res == 1:
             cli.warn("Invalid token, please try again")
         elif res == 2:
-            cli.warn(" Could not connect to Dropbox, please try again")
+            cli.warn("Could not connect to Dropbox, please try again")
 
 
 def check_for_updates() -> None:
@@ -690,7 +690,12 @@ def resume(config_name: str) -> None:
         cli.echo("Maestral daemon is not running.")
 
 
-@main.command(section="Core Commands", help="Link with a Dropbox account.")
+@main.group(section="Core Commands", help="Link, unlink and view the Dropbox account.")
+def auth():
+    pass
+
+
+@auth.command(name="link", help="Link a new Dropbox account.")
 @click.option(
     "-r",
     "relink",
@@ -700,7 +705,7 @@ def resume(config_name: str) -> None:
 )
 @config_option
 @catch_maestral_errors
-def link(relink: bool, config_name: str) -> None:
+def auth_link(relink: bool, config_name: str) -> None:
 
     from .daemon import MaestralProxy
 
@@ -710,13 +715,13 @@ def link(relink: bool, config_name: str) -> None:
             link_dialog(m)
         else:
             cli.echo(
-                "Maestral is already linked. Use the option "
-                "'-r' to relink to the same account."
+                "Maestral is already linked. Use '-r' to relink to the same "
+                "account or specify a new config name with '-c'."
             )
 
 
-@main.command(
-    section="Core Commands",
+@auth.command(
+    name="unlink",
     help="""
 Unlink your Dropbox account.
 
@@ -726,7 +731,7 @@ If Maestral is running, it will be stopped before unlinking.
 @click.option("--yes", "-Y", is_flag=True, default=False)
 @existing_config_option
 @catch_maestral_errors
-def unlink(yes: bool, config_name: str) -> None:
+def auth_unlink(yes: bool, config_name: str) -> None:
 
     if not yes:
         yes = cli.confirm("Are you sure you want unlink your account?", default=False)
@@ -739,6 +744,26 @@ def unlink(yes: bool, config_name: str) -> None:
         m.unlink()
 
         cli.ok("Unlinked Maestral.")
+
+
+@auth.command(name="status", help="View authentication status.")
+@existing_config_option
+def auth_status(config_name: str) -> None:
+
+    from .config import MaestralConfig, MaestralState
+
+    conf = MaestralConfig(config_name)
+    state = MaestralState(config_name)
+
+    email = state.get("account", "email")
+    account_type = state.get("account", "type").capitalize()
+    dbid = conf.get("account", "account_id")
+
+    cli.echo("")
+    cli.echo(f"Email:         {email}")
+    cli.echo(f"Account-type:  {account_type}")
+    cli.echo(f"Dropbox-ID:    {dbid}")
+    cli.echo("")
 
 
 @main.group(section="Core Commands", help="Create and manage shared links.")
@@ -1147,25 +1172,6 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
                 grid.append(cli.TextField(name, fg=color))
 
             grid.echo()
-
-
-@main.command(section="Information", help="Show linked Dropbox account information.")
-@existing_config_option
-def account_info(config_name: str) -> None:
-
-    from .daemon import MaestralProxy
-
-    with MaestralProxy(config_name, fallback=True) as m:
-
-        email = m.get_state("account", "email")
-        account_type = m.get_state("account", "type").capitalize()
-        dbid = m.get_conf("account", "account_id")
-
-    cli.echo("")
-    cli.echo(f"Email:         {email}")
-    cli.echo(f"Account-type:  {account_type}")
-    cli.echo(f"Dropbox-ID:    {dbid}")
-    cli.echo("")
 
 
 @main.command(section="Information", help="List all configured Dropbox accounts.")
