@@ -85,7 +85,7 @@ def test_file_conflict(m):
     shutil.copy(resources + "/file.txt", m.test_folder_local)
     wait_for_idle(m)
 
-    m.pause_sync()
+    m.stop_sync()
     wait_for_idle(m)
 
     # modify file.txt locally
@@ -100,7 +100,7 @@ def test_file_conflict(m):
     )
 
     # resume syncing and check for conflicting copy
-    m.resume_sync()
+    m.start_sync()
 
     wait_for_idle(m)
 
@@ -122,7 +122,7 @@ def test_parallel_deletion_when_paused(m):
     wait_for_idle(m)
     assert_synced(m)
 
-    m.pause_sync()
+    m.stop_sync()
     wait_for_idle(m)
 
     # delete local file
@@ -131,7 +131,7 @@ def test_parallel_deletion_when_paused(m):
     # delete remote file
     m.client.remove("/sync_tests/file.txt")
 
-    m.resume_sync()
+    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -144,7 +144,7 @@ def test_parallel_deletion_when_paused(m):
 def test_local_and_remote_creation_with_equal_content(m):
     """Tests parallel and equal remote and local changes of an item."""
 
-    m.pause_sync()
+    m.stop_sync()
     wait_for_idle(m)
 
     # create local file
@@ -152,7 +152,7 @@ def test_local_and_remote_creation_with_equal_content(m):
     # create remote file with equal content
     m.client.upload(resources + "/file.txt", "/sync_tests/file.txt")
 
-    m.resume_sync()
+    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -166,7 +166,7 @@ def test_local_and_remote_creation_with_equal_content(m):
 def test_local_and_remote_creation_with_different_content(m):
     """Tests parallel and different remote and local changes of an item."""
 
-    m.pause_sync()
+    m.stop_sync()
     wait_for_idle(m)
 
     # create local file
@@ -174,7 +174,7 @@ def test_local_and_remote_creation_with_different_content(m):
     # create remote file with different content
     m.client.upload(resources + "/file1.txt", "/sync_tests/file.txt")
 
-    m.resume_sync()
+    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -310,14 +310,14 @@ def test_remote_file_replaced_by_folder(m):
     shutil.copy(resources + "/file.txt", m.test_folder_local + "/file.txt")
     wait_for_idle(m)
 
-    m.pause_sync()
+    m.stop_sync()
     wait_for_idle(m)
 
     # replace remote file with folder
     m.client.remove("/sync_tests/file.txt")
     m.client.make_dir("/sync_tests/file.txt")
 
-    m.resume_sync()
+    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -337,7 +337,7 @@ def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m):
     shutil.copy(resources + "/file.txt", m.test_folder_local + "/file.txt")
     wait_for_idle(m)
 
-    m.pause_sync()
+    m.stop_sync()
     wait_for_idle(m)
 
     # replace remote file with folder
@@ -348,7 +348,7 @@ def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m):
     with open(m.test_folder_local + "/file.txt", "a") as f:
         f.write(" modified")
 
-    m.resume_sync()
+    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -366,14 +366,14 @@ def test_remote_folder_replaced_by_file(m):
     os.mkdir(m.test_folder_local + "/folder")
     wait_for_idle(m)
 
-    m.pause_sync()
+    m.stop_sync()
     wait_for_idle(m)
 
     # replace remote folder with file
     m.client.remove("/sync_tests/folder")
     m.client.upload(resources + "/file.txt", "/sync_tests/folder")
 
-    m.resume_sync()
+    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -393,7 +393,7 @@ def test_remote_folder_replaced_by_file_and_unsynced_local_changes(m):
     os.mkdir(m.test_folder_local + "/folder")
     wait_for_idle(m)
 
-    m.pause_sync()
+    m.stop_sync()
     wait_for_idle(m)
 
     # replace remote folder with file
@@ -403,7 +403,7 @@ def test_remote_folder_replaced_by_file_and_unsynced_local_changes(m):
     # create local changes
     os.mkdir(m.test_folder_local + "/folder/subfolder")
 
-    m.resume_sync()
+    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -421,13 +421,13 @@ def test_local_folder_replaced_by_file(m):
     os.mkdir(m.test_folder_local + "/folder")
     wait_for_idle(m)
 
-    m.pause_sync()
+    m.stop_sync()
 
     # replace local folder with file
     delete(m.test_folder_local + "/folder")
     shutil.copy(resources + "/file.txt", m.test_folder_local + "/folder")
 
-    m.resume_sync()
+    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -449,7 +449,7 @@ def test_local_folder_replaced_by_file_and_unsynced_remote_changes(m):
     os.mkdir(m.test_folder_local + "/folder")
     wait_for_idle(m)
 
-    m.pause_sync()
+    m.stop_sync()
     wait_for_idle(m)
 
     # replace local folder with file
@@ -459,7 +459,7 @@ def test_local_folder_replaced_by_file_and_unsynced_remote_changes(m):
     # create remote changes
     m.client.upload(resources + "/file1.txt", "/sync_tests/folder/file.txt")
 
-    m.resume_sync()
+    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -476,14 +476,14 @@ def test_local_file_replaced_by_folder(m):
     shutil.copy(resources + "/file.txt", m.test_folder_local + "/file.txt")
     wait_for_idle(m)
 
-    m.pause_sync()
+    m.stop_sync()
     wait_for_idle(m)
 
     # replace local file with folder
     os.unlink(m.test_folder_local + "/file.txt")
     os.mkdir(m.test_folder_local + "/file.txt")
 
-    m.resume_sync()
+    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -506,7 +506,7 @@ def test_local_file_replaced_by_folder_and_unsynced_remote_changes(m):
     shutil.copy(resources + "/file.txt", m.test_folder_local + "/file.txt")
     wait_for_idle(m)
 
-    m.pause_sync()
+    m.stop_sync()
     wait_for_idle(m)
 
     # replace local file with folder
@@ -520,7 +520,7 @@ def test_local_file_replaced_by_folder_and_unsynced_remote_changes(m):
         mode=WriteMode.overwrite,
     )
 
-    m.resume_sync()
+    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -752,8 +752,8 @@ def test_download_sync_issues(m):
 
     # 2) Check that the sync is retried after pause / resume
 
-    m.pause_sync()
-    m.resume_sync()
+    m.stop_sync()
+    m.start_sync()
 
     wait_for_idle(m)
 
@@ -878,8 +878,8 @@ def test_unknown_path_encoding(m, capsys):
     # This requires that our logic to save failed paths in our state file and retry the
     # sync on startup can handle strings with surrogate escapes.
 
-    m.pause_sync()
-    m.resume_sync()
+    m.stop_sync()
+    m.start_sync()
 
     wait_for_idle(m)
 
@@ -911,7 +911,7 @@ def test_indexing_performance(m):
     # generate tree with 5 entries
     shutil.copytree(resources + "/test_folder", m.test_folder_local + "/test_folder")
     wait_for_idle(m)
-    m.pause_sync()
+    m.stop_sync()
 
     res = m.client.list_folder("/sync_tests", recursive=True)
 
@@ -945,8 +945,8 @@ def test_invalid_pending_download(m):
     m.sync.pending_downloads.add(bogus_path)
 
     # trigger a resync
-    m.pause_sync()
-    m.resume_sync()
+    m.stop_sync()
+    m.start_sync()
     wait_for_idle(m)
 
     # assert that there are no sync errors / fatal errors and that the invalid path

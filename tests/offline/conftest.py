@@ -3,7 +3,6 @@
 import os
 import os.path as osp
 import logging
-from threading import Event
 
 import pytest
 
@@ -29,15 +28,14 @@ def m():
 
 @pytest.fixture
 def sync():
-    syncing = Event()
-    startup = Event()
-    syncing.set()
 
     local_dir = osp.join(get_home_dir(), "dummy_dir")
     os.mkdir(local_dir)
 
-    sync = SyncEngine(DropboxClient("test-config"), FSEventHandler(syncing, startup))
+    fs_events_handler = FSEventHandler()
+    fs_events_handler.enable()
 
+    sync = SyncEngine(DropboxClient("test-config"), fs_events_handler)
     sync.dropbox_path = local_dir
 
     observer = Observer()

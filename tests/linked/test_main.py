@@ -30,7 +30,6 @@ def test_status_properties(m):
     assert m.status == IDLE
     assert m.running
     assert m.connected
-    assert m.syncing
     assert not m.paused
     assert not m.sync_errors
     assert not m.fatal_errors
@@ -51,16 +50,16 @@ def test_file_status(m):
 
     # test unwatched non-existent
     file_status = m.get_file_status("/this is not a folder")
-    assert file_status == FileStatus.Unwatched.value, file_status
+    assert file_status == FileStatus.Unwatched.value
 
     # test unwatched when paused
-    m.pause_sync()
+    m.stop_sync()
     wait_for_idle(m)
 
     file_status = m.get_file_status(m.test_folder_local)
     assert file_status == FileStatus.Unwatched.value
 
-    m.resume_sync()
+    m.start_sync()
     wait_for_idle(m)
 
     # test error status
@@ -83,7 +82,7 @@ def test_move_dropbox_folder(m):
     wait_for_idle(m)
 
     # assert that sync was resumed after moving folder
-    assert m.syncing
+    assert m.running
 
 
 def test_move_dropbox_folder_to_itself(m):
@@ -91,7 +90,7 @@ def test_move_dropbox_folder_to_itself(m):
     m.move_dropbox_directory(m.dropbox_path)
 
     # assert that sync is still running
-    assert m.syncing
+    assert m.running
 
 
 def test_move_dropbox_folder_to_existing(m):
@@ -106,7 +105,7 @@ def test_move_dropbox_folder_to_existing(m):
             m.move_dropbox_directory(new_dir)
 
         # assert that sync is still running
-        assert m.syncing
+        assert m.running
 
     finally:
         # cleanup
