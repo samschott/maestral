@@ -49,7 +49,6 @@ from sqlalchemy import create_engine  # type: ignore
 import pathspec  # type: ignore
 import dropbox  # type: ignore
 from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata  # type: ignore
-from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler  # type: ignore
 from watchdog.events import (
     EVENT_TYPE_CREATED,
@@ -115,6 +114,7 @@ from .database import (
     ItemType,
     ChangeType,
 )
+from .fsevents import Observer
 from .utils import removeprefix, sanitize_string
 from .utils.caches import LRUCache
 from .utils.path import (
