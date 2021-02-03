@@ -378,9 +378,41 @@ class FSEventHandler(FileSystemEventHandler):
         if self._is_ignored(event):
             return
 
+        self.queue_event(event)
+
+    def queue_event(self, event: FileSystemEvent) -> None:
+        """
+        Queues an individual file system event. Notifies / wakes up all threads that are
+        waiting with :meth:`wait_for_event`.
+
+        :param event: File system event to queue.
+        """
         with self.has_events:
             self.local_file_event_queue.put(event)
             self.has_events.notify_all()
+
+    def wait_for_event(self, timeout: float = 40) -> bool:
+        """
+        Blocks until an event is available in the queue or a timeout occurs, whichever
+        comes first. You can use with method to wait for file system events in another
+        thread.
+
+        .. note:: If there are multiple threads waiting for events, all of them will be
+            notified. If one of those threads starts getting events from
+            :attr:`local_file_event_queue`, other threads may find that queue empty. You
+            should therefore always be prepared to handle an empty queue, if if this
+            method returns ``True``.
+
+        :param timeout: Maximum time to block in seconds.
+        :returns: ``True`` if an event is available, ``False`` if the call returns due
+            to a timeout.
+        """
+
+        with self.has_events:
+            if self.local_file_event_queue.qsize() > 0:
+                return True
+            self.has_events.wait(timeout)
+            return self.local_file_event_queue.qsize() > 0
 
 
 class PersistentStateMutableSet(abc.MutableSet):
@@ -1613,13 +1645,7 @@ class SyncEngine:
 
         logger.debug("Waiting for local changes since cursor: %s", self.local_cursor)
 
-        if self.fs_events.local_file_event_queue.qsize() > 0:
-            return True
-
-        with self.fs_events.has_events:
-            self.fs_events.has_events.wait(timeout)
-
-        return self.fs_events.local_file_event_queue.qsize() > 0
+        return self.fs_events.wait_for_event(timeout)
 
     def upload_sync_cycle(self):
         """
@@ -3353,7 +3379,7 @@ class SyncEngine:
         logger.debug('Rescanning "%s"', local_path)
 
         if osp.isfile(local_path):
-            self.fs_events.local_file_event_queue.put(FileModifiedEvent(local_path))
+            self.fs_events.queue_event(FileModifiedEvent(local_path))
         elif osp.isdir(local_path):
 
             # add created and deleted events of children as appropriate
@@ -3364,9 +3390,9 @@ class SyncEngine:
 
             for path in snapshot.paths:
                 if snapshot.isdir(path):
-                    self.fs_events.local_file_event_queue.put(DirCreatedEvent(path))
+                    self.fs_events.queue_event(DirCreatedEvent(path))
                 else:
-                    self.fs_events.local_file_event_queue.put(FileModifiedEvent(path))
+                    self.fs_events.queue_event(FileModifiedEvent(path))
 
             # add deleted events
 
@@ -3377,22 +3403,16 @@ class SyncEngine:
                     .all()
                 )
 
+            dbx_root_lower = self.dropbox_path.lower()
+
             for entry in entries:
-                child_path_uncased = (
-                    f"{self.dropbox_path}{entry.dbx_path_lower}".lower()
-                )
+                child_path_uncased = f"{dbx_root_lower}{entry.dbx_path_lower}"
                 if child_path_uncased not in lowercase_snapshot_paths:
-                    local_child_path = self.to_local_path_from_cased(
-                        entry.dbx_path_cased
-                    )
+                    local_child = self.to_local_path_from_cased(entry.dbx_path_cased)
                     if entry.is_directory:
-                        self.fs_events.local_file_event_queue.put(
-                            DirDeletedEvent(local_child_path)
-                        )
+                        self.fs_events.queue_event(DirDeletedEvent(local_child))
                     else:
-                        self.fs_events.local_file_event_queue.put(
-                            FileDeletedEvent(local_child_path)
-                        )
+                        self.fs_events.queue_event(FileDeletedEvent(local_child))
 
         elif not osp.exists(local_path):
             dbx_path = self.to_dbx_path(local_path)
@@ -3401,16 +3421,9 @@ class SyncEngine:
 
             if local_entry:
                 if local_entry.is_directory:
-                    self.fs_events.local_file_event_queue.put(
-                        DirDeletedEvent(local_path)
-                    )
+                    self.fs_events.queue_event(DirDeletedEvent(local_path))
                 else:
-                    self.fs_events.local_file_event_queue.put(
-                        FileDeletedEvent(local_path)
-                    )
-
-        with self.fs_events.has_events:
-            self.fs_events.has_events.notify_all()
+                    self.fs_events.queue_event(FileDeletedEvent(local_path))
 
     def _clean_history(self):
         """Commits new events and removes all events older than ``_keep_history`` from
