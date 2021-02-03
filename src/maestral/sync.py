@@ -83,7 +83,6 @@ from .constants import (
     EXCLUDED_DIR_NAMES,
     MIGNORE_FILE,
     FILE_CACHE,
-    IS_MACOS,
 )
 from .errors import (
     SyncError,
@@ -3211,11 +3210,6 @@ class SyncEngine:
             preserve_permissions = False
 
         ignore_events = [FileMovedEvent(tmp_fname, local_path)]
-
-        if IS_MACOS:
-            # up to two created events are sometimes emitted on macOS
-            ignore_events.append(FileCreatedEvent(local_path))
-            ignore_events.append(FileCreatedEvent(local_path))
 
         if preserve_permissions:
             # ignore FileModifiedEvent when changing permissions
