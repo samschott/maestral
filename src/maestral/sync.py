@@ -16,7 +16,7 @@ import urllib.parse
 import enum
 import pprint
 import gc
-from threading import Thread, Event, RLock, current_thread
+from threading import Thread, Event, Condition, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue, Empty
 from collections import abc
@@ -226,6 +226,8 @@ class FSEventHandler(FileSystemEventHandler):
     ) -> None:
 
         self._enabled = False
+        self.has_events = Condition()
+
         self.file_event_types = file_event_types
         self.dir_event_types = dir_event_types
 
@@ -233,10 +235,17 @@ class FSEventHandler(FileSystemEventHandler):
         self.ignore_timeout = 2.0
         self.local_file_event_queue = Queue()
 
+    @property
+    def enabled(self) -> bool:
+        """Whether queuing of events is enabled."""
+        return self._enabled
+
     def enable(self) -> None:
+        """Turn on queueing of events."""
         self._enabled = True
 
     def disable(self) -> None:
+        """Turn off queueing of new events and remove all events from queue."""
         self._enabled = False
 
         while True:
@@ -360,7 +369,9 @@ class FSEventHandler(FileSystemEventHandler):
         if self._is_ignored(event):
             return
 
-        self.local_file_event_queue.put(event)
+        with self.has_events:
+            self.local_file_event_queue.put(event)
+            self.has_events.notify_all()
 
 
 class PersistentStateMutableSet(abc.MutableSet):
@@ -1584,16 +1595,22 @@ class SyncEngine:
         return changes, snapshot_time
 
     def wait_for_local_changes(self, timeout: float = 40) -> bool:
+        """
+        Blocks until local changes are available.
+
+        :param timeout: Maximum time in seconds to wait.
+        :returns: ``True`` if changes are available, ``False`` otherwise.
+        """
 
         logger.debug("Waiting for local changes since cursor: %s", self.local_cursor)
 
-        try:
-            event = self.fs_events.local_file_event_queue.get(timeout=timeout)
-        except Empty:
-            return False
+        if self.fs_events.local_file_event_queue.qsize() > 0:
+            return True
 
-        self.fs_events.local_file_event_queue.queue.append(event)
-        return True
+        with self.fs_events.has_events:
+            self.fs_events.has_events.wait(timeout)
+
+        return self.fs_events.local_file_event_queue.qsize() > 0
 
     def upload_sync_cycle(self):
         """
@@ -2530,6 +2547,7 @@ class SyncEngine:
         :param last_cursor: Cursor form last sync.
         :param timeout: Timeout in seconds before returning even if there are no
             changes. Dropbox adds random jitter of up to 90 sec to this value.
+        :returns: ``True`` if changes are available, ``False`` otherwise.
         """
         logger.debug("Waiting for remote changes since cursor:\n%s", last_cursor)
         has_changes = self.client.wait_for_remote_changes(last_cursor, timeout=timeout)
@@ -3361,6 +3379,9 @@ class SyncEngine:
                     self.fs_events.local_file_event_queue.put(
                         FileDeletedEvent(local_path)
                     )
+
+        with self.fs_events.has_events:
+            self.fs_events.has_events.notify_all()
 
     def _clean_history(self):
         """Commits new events and removes all events older than ``_keep_history`` from
