@@ -498,20 +498,10 @@ class Maestral:
         return self.sync.local_cursor == 0 or self.sync.remote_cursor == ""
 
     @property
-    def syncing(self) -> bool:
-        """Indicates if Maestral is syncing (read only). It will be ``True`` if syncing
-        is not paused by the user *and* Maestral is connected to the internet."""
-        return (
-            self.monitor.syncing.is_set()
-            or self.monitor.startup.is_set()
-            or self.sync.busy()
-        )
-
-    @property
     def paused(self) -> bool:
         """Indicates if syncing is paused by the user (read only). This is set by
         calling :meth:`pause`."""
-        return self.monitor.paused_by_user.is_set() and not self.sync.busy()
+        return not self.monitor.autostart.is_set() and not self.sync.busy()
 
     @property
     def running(self) -> bool:
@@ -527,7 +517,7 @@ class Maestral:
         if self.pending_link:
             return False
         else:
-            return self.monitor.connected.is_set()
+            return self.monitor.connected
 
     @property
     def status(self) -> str:
@@ -600,7 +590,7 @@ class Maestral:
             'up to date', 'error', or 'unwatched' (for files outside of the Dropbox
             directory). This will always be 'unwatched' if syncing is paused.
         """
-        if not self.syncing:
+        if not self.running:
             return FileStatus.Unwatched.value
 
         local_path = osp.realpath(local_path)
@@ -981,26 +971,6 @@ class Maestral:
         if not self.running:
             self.monitor.start()
 
-    def resume_sync(self) -> None:
-        """
-        Resumes syncing if paused.
-
-        :raises NotLinkedError: if no Dropbox account is linked.
-        :raises NoDropboxDirError: if local Dropbox folder is not set up.
-        """
-
-        self._check_linked()
-        self._check_dropbox_dir()
-
-        self.monitor.resume()
-
-    def pause_sync(self) -> None:
-        """
-        Pauses the syncing if running.
-        """
-        if not self.paused:
-            self.monitor.pause()
-
     def stop_sync(self) -> None:
         """
         Stops all syncing threads if running. Call :meth:`start_sync` to restart
@@ -1281,8 +1251,8 @@ class Maestral:
 
         # pause syncing
         resume = False
-        if self.syncing:
-            self.pause_sync()
+        if self.running:
+            self.stop_sync()
             resume = True
 
         # housekeeping
@@ -1297,7 +1267,7 @@ class Maestral:
 
         # resume syncing
         if resume:
-            self.resume_sync()
+            self.start_sync()
 
     def create_shared_link(
         self,
