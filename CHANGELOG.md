@@ -39,6 +39,8 @@
   some mounted NTFS drives.
 * Fixes an issue with the selective sync dialog in the Qt / Linux GUI where the "Update"
   button could be incorrectly enabled or disabled.
+* Fixes an issue where a lost internet connection while starting the sync could lead to
+  a stuck sync thread or an endless sync cycle.
 
 #### Removed:
 
@@ -47,6 +49,8 @@
   removing third party access to potentially private information.
 * Removed the `maestral restart` command. Use `stop` and `start` instead.
 * Removed the `maestral account-info` command. Use `maestral auth status` instead.
+* Removed main API `Maestral.resume_sync` and `Maestral.pause_sync`. Use
+  `Maestral.start_sync` and `Maestral.stop_sync` instead.
 
 #### Dependencies:
 
