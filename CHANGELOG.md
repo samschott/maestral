@@ -26,6 +26,7 @@
 * Indexing will no longer skip excluded folders. This is necessary for the above change.
 * Moved linking and unlinking to a new command group `maestral auth` with subcommands
   `link`, `unlink` and `status`.
+* Renamed command `file-status` to `filestatus`.  
 * Added a `--yes, -Y` flag to the `unlink` to command to skip the confirmation prompt.
 
 #### Fixed:
