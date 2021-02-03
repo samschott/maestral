@@ -668,7 +668,7 @@ def pause(config_name: str) -> None:
 
     try:
         with MaestralProxy(config_name) as m:
-            m.pause_sync()
+            m.stop_sync()
         cli.ok("Syncing paused.")
     except CommunicationError:
         cli.echo("Maestral daemon is not running.")
@@ -683,7 +683,7 @@ def resume(config_name: str) -> None:
     try:
         with MaestralProxy(config_name) as m:
             if not check_for_fatal_errors(m):
-                m.resume_sync()
+                m.start_sync()
                 cli.ok("Syncing resumed.")
 
     except CommunicationError:
@@ -889,7 +889,7 @@ def status(config_name: str) -> None:
             email = m.get_state("account", "email")
             account_type = m.get_state("account", "type").capitalize()
 
-            status_info = m.status if m.running else "Stopped"
+            status_info = m.status if m.running else "Paused"
             usage = m.get_state("account", "usage")
 
             n_errors = len(m.sync_errors)
