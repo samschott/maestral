@@ -53,14 +53,14 @@ def test_stop(config_name):
     assert result.exit_code == 0
 
 
-def test_file_status(m):
+def test_filestatus(m):
     runner = CliRunner()
-    result = runner.invoke(main, ["file-status", "/usr", "-c", m.config_name])
+    result = runner.invoke(main, ["filestatus", "/usr", "-c", m.config_name])
 
     assert result.exit_code == 0
     assert result.output == "unwatched\n"
 
-    result = runner.invoke(main, ["file-status", "/invalid-dir", "-c", m.config_name])
+    result = runner.invoke(main, ["filestatus", "/invalid-dir", "-c", m.config_name])
 
     # the exception will be already raised by click's argument check
     assert result.exit_code == 2
