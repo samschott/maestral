@@ -60,7 +60,6 @@ EXCLUDED_DIR_NAMES = frozenset([".dropbox.cache", FILE_CACHE])
 # state messages
 IDLE = "Up to date"
 SYNCING = "Syncing..."
-PAUSED = "Syncing paused"
 STOPPED = "Syncing stopped"
 CONNECTED = "Connected"
 DISCONNECTED = "Connection lost"
