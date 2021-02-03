@@ -53,14 +53,14 @@ def test_status(proxy):
     assert "Stopped" in result.output
 
 
-def test_file_status(proxy):
+def test_filestatus(proxy):
     runner = CliRunner()
     proxy.start_sync()
     wait_for_idle(proxy)
 
     local_path = proxy.to_local_path("/sync_tests")
 
-    result = runner.invoke(main, ["file-status", local_path, "-c", proxy.config_name])
+    result = runner.invoke(main, ["filestatus", local_path, "-c", proxy.config_name])
 
     assert result.exit_code == 0
     assert result.output == "up to date\n"
