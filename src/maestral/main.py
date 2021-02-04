@@ -1071,7 +1071,7 @@ class Maestral:
             pass
         else:
             event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
-            with self.monitor.fs_event_handler.ignore(event_cls(local_path)):
+            with self.monitor.sync.fs_events.ignore(event_cls(local_path)):
                 delete(local_path)
 
     def include_item(self, dbx_path: str) -> None:

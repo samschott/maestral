@@ -7,7 +7,7 @@ import logging
 import pytest
 
 from maestral.main import Maestral, logger
-from maestral.sync import SyncEngine, Observer, FSEventHandler
+from maestral.sync import SyncEngine, Observer
 from maestral.client import DropboxClient
 from maestral.config import list_configs, remove_configuration
 from maestral.daemon import stop_maestral_daemon_process, Stop
@@ -32,10 +32,8 @@ def sync():
     local_dir = osp.join(get_home_dir(), "dummy_dir")
     os.mkdir(local_dir)
 
-    fs_events_handler = FSEventHandler()
-    fs_events_handler.enable()
-
-    sync = SyncEngine(DropboxClient("test-config"), fs_events_handler)
+    sync = SyncEngine(DropboxClient("test-config"))
+    sync.fs_events.enable()
     sync.dropbox_path = local_dir
 
     observer = Observer()

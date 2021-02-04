@@ -490,7 +490,6 @@ class SyncEngine:
     conflict resolution and updates to our index.
 
     :param client: Dropbox API client instance.
-    :param fs_events_handler: File system event handler to inform us of local events.
     """
 
     sync_errors: Set[SyncError]
@@ -500,11 +499,11 @@ class SyncEngine:
     _max_history = 1000
     _num_threads = min(32, cpu_count * 3)
 
-    def __init__(self, client: DropboxClient, fs_events_handler: FSEventHandler):
+    def __init__(self, client: DropboxClient):
 
         self.client = client
         self.config_name = self.client.config_name
-        self.fs_events = fs_events_handler
+        self.fs_events = FSEventHandler()
 
         self.sync_lock = RLock()
         self._db_lock = RLock()
@@ -3686,8 +3685,7 @@ class SyncMonitor:
 
         self.added_item_queue = Queue()
 
-        self.fs_event_handler = FSEventHandler()
-        self.sync = SyncEngine(self.client, self.fs_event_handler)
+        self.sync = SyncEngine(self.client)
 
         self._startup_time = -1.0
 
@@ -3760,7 +3758,7 @@ class SyncMonitor:
         self.local_observer_thread = Observer(timeout=40)
         self.local_observer_thread.setName("maestral-fsobserver")
         self._watch = self.local_observer_thread.schedule(
-            self.fs_event_handler, self.sync.dropbox_path, recursive=True
+            self.sync.fs_events, self.sync.dropbox_path, recursive=True
         )
         for i, emitter in enumerate(self.local_observer_thread.emitters):
             emitter.setName(f"maestral-fsemitter-{i}")
@@ -3826,7 +3824,7 @@ class SyncMonitor:
         self.running.set()
         self.autostart.set()
 
-        self.fs_event_handler.enable()
+        self.sync.fs_events.enable()
         self.startup_thread.start()
         self.upload_thread.start()
         self.download_thread.start()
@@ -3843,7 +3841,7 @@ class SyncMonitor:
 
         logger.info("Shutting down threads...")
 
-        self.fs_event_handler.disable()
+        self.sync.fs_events.disable()
         self.running.clear()
         self.startup_completed.clear()
         self.autostart.clear()
