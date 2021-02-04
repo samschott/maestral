@@ -2667,6 +2667,7 @@ class SyncEngine:
             # Pick up where we left off. This may be an interrupted indexing /
             # pagination through changes or a completely new set of changes.
             logger.info("Fetching remote changes...")
+            logger.debug("Fetching remote changes since cursor: %s", last_cursor)
             changes_iter = self.client.list_remote_changes_iterator(last_cursor)
 
         for changes in changes_iter:
