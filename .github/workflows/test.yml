@@ -14,7 +14,7 @@ jobs:
     name: offline
     strategy:
       matrix:
-        platform: [ubuntu-latest, macos-latest]
+        platform: [ubuntu-20.04, macos-11.0]
         python-version: [3.6, 3.7, 3.8, 3.9]
 
     runs-on: ${{ matrix.platform }}
@@ -53,7 +53,7 @@ jobs:
           file: ./coverage.xml
           flags: pytest
           env_vars: OS,PYTHON,TYPE
-          name: pytests
+          name: pytests -v
         env:
           OS: ${{ matrix.platform }}
           PYTHON: ${{ matrix.python-version }}
@@ -66,14 +66,14 @@ jobs:
       max-parallel: 2
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, macos-latest]
+        platform: [ubuntu-20.04, macos-11.0]
         python-version: [3.6, ]
         include:
           # use two different Dropbox accounts to run tests in parallel
-          - platform: ubuntu-latest
+          - platform: ubuntu-20.04
             token: DROPBOX_REFRESH_TOKEN_1
 
-          - platform: macos-latest
+          - platform: macos-11.0
             token: DROPBOX_REFRESH_TOKEN_2
 
     runs-on: ${{ matrix.platform }}
