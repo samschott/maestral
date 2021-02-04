@@ -70,6 +70,7 @@ from .utils.serializer import (
     ErrorType,
 )
 from .utils.appdirs import get_log_path, get_cache_path, get_data_path
+from .utils.integration import get_ac_state, ACState
 from .constants import IDLE, FileStatus, GITHUB_RELEASES_API
 
 
@@ -1571,10 +1572,13 @@ class Maestral:
 
             if self.monitor.running.is_set():
                 elapsed = time.time() - self.sync.last_reindex
+                ac_state = get_ac_state()
+
                 reindexing_due = elapsed > self.monitor.reindex_interval
                 is_idle = self.monitor.idle_time > 20 * 60
+                has_ac_power = ac_state in (ACState.Connected, ACState.Undetermined)
 
-                if reindexing_due and is_idle:
+                if reindexing_due and is_idle and has_ac_power:
                     self.monitor.rebuild_index()
 
             await sleep_rand(60 * 5)
