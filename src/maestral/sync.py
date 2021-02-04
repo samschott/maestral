@@ -1600,8 +1600,8 @@ class SyncEngine:
 
                 elif is_modified:
                     if snapshot.isdir(path) and index_entry.is_directory:  # type: ignore
-                        event = DirModifiedEvent(path)
-                        changes.append(event)
+                        # We don't emit `DirModifiedEvent`s.
+                        pass
                     elif not snapshot.isdir(path) and not index_entry.is_directory:  # type: ignore
                         event = FileModifiedEvent(path)
                         changes.append(event)
