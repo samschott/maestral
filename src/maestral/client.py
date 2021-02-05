@@ -72,7 +72,7 @@ from .errors import (
     SharedLinkError,
 )
 from .config import MaestralState
-from .constants import DROPBOX_APP_KEY, IDLE
+from .constants import DROPBOX_APP_KEY
 from .utils import natural_size, chunks, clamp
 
 if TYPE_CHECKING:
@@ -873,12 +873,7 @@ class DropboxClient:
 
             yield res
 
-            idx = 0
-
             while res.has_more:
-
-                idx += len(res.entries)
-                logger.info(f"Indexing {idx}...")
 
                 attempt = 0
 
@@ -893,9 +888,6 @@ class DropboxClient:
                             time.sleep(5.0)
                         else:
                             raise
-
-            if idx > 0:
-                logger.info(IDLE)
 
     def wait_for_remote_changes(self, last_cursor: str, timeout: int = 40) -> bool:
         """

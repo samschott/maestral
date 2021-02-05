@@ -2476,10 +2476,16 @@ class SyncEngine:
 
             try:
 
+                idx = 0
+
                 # iterate over index and download results
                 list_iter = self.client.list_folder_iterator(dbx_path, recursive=True)
 
                 for res in list_iter:
+
+                    idx += len(res.entries)
+                    logger.info(f"Indexing {idx}...")
+
                     res.entries.sort(key=lambda x: x.path_lower.count("/"))
 
                     # convert metadata to sync_events
@@ -2608,6 +2614,8 @@ class SyncEngine:
         :returns: Iterator yielding tuples with remote changes and corresponding cursor.
         """
 
+        idx = 0
+
         if last_cursor == "":
             # We are starting from the beginning, do a full indexing.
             logger.info("Fetching remote Dropbox")
@@ -2619,6 +2627,9 @@ class SyncEngine:
             changes_iter = self.client.list_remote_changes_iterator(last_cursor)
 
         for changes in changes_iter:
+
+            idx += len(changes.entries)
+            logger.info(f"Indexing {idx}...")
 
             logger.debug("Listed remote changes:\n%s", entries_repr(changes.entries))
 
@@ -2635,6 +2646,9 @@ class SyncEngine:
             logger.debug("Converted remote changes to SyncEvents")
 
             yield sync_events, changes.cursor
+
+        if idx > 0:
+            logger.info(IDLE)
 
     def apply_remote_changes(self, sync_events: List[SyncEvent]) -> List[SyncEvent]:
         """
