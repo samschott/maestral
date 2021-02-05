@@ -521,6 +521,8 @@ def test_local_file_replaced_by_folder_and_unsynced_remote_changes(m):
         mode=WriteMode.overwrite,
     )
 
+    wait_for_idle(m)
+
     m.start_sync()
     wait_for_idle(m)
 
