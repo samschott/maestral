@@ -2619,6 +2619,7 @@ class SyncEngine:
         if last_cursor == "":
             # We are starting from the beginning, do a full indexing.
             logger.info("Fetching remote Dropbox")
+            self._state.set("sync", "last_reindex", time.time())
             changes_iter = self.client.list_folder_iterator("/", recursive=True)
         else:
             # Pick up where we left off. This may be an interrupted indexing /
