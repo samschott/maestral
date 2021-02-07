@@ -26,7 +26,11 @@ __all__ = [
     "MaestralDesktopNotifier",
 ]
 
-_desktop_notifier = DesktopNotifier(APP_NAME)
+_desktop_notifier = DesktopNotifier(
+    app_name=APP_NAME,
+    app_icon=f"file://{APP_ICON_PATH}",
+    notification_limit=10,
+)
 
 
 NONE = 100
@@ -126,7 +130,6 @@ class MaestralDesktopNotifier:
             _desktop_notifier.send(
                 title=title,
                 message=message,
-                icon=APP_ICON_PATH,
                 urgency=urgency,
                 action=on_click,
                 buttons=buttons,
