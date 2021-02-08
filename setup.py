@@ -10,7 +10,6 @@ install_requires = [
     "click>=7.1.1",
     "desktop-notifier",
     "dropbox>=10.9.0,<12.0",
-    "dbus-next>=0.1.4;sys_platform=='linux'",
     "fasteners>=0.15",
     "importlib_metadata;python_version<'3.8'",
     "importlib_resources;python_version<'3.9'",
