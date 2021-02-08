@@ -65,8 +65,6 @@ from .errors import (
     TokenRevokedError,
     CursorResetError,
     DropboxServerError,
-    NoDropboxDirError,
-    InotifyError,
     NotLinkedError,
     InvalidDbidError,
     SharedLinkError,
@@ -84,7 +82,6 @@ __all__ = [
     "DropboxClient",
     "dropbox_to_maestral_error",
     "os_to_maestral_error",
-    "fswatch_to_maestral_error",
     "convert_api_errors",
 ]
 
@@ -1150,58 +1147,6 @@ def os_to_maestral_error(
         return exc
 
     maestral_exc = err_cls(title, text, dbx_path=dbx_path, local_path=local_path)
-    maestral_exc.__cause__ = exc
-
-    return maestral_exc
-
-
-def fswatch_to_maestral_error(exc: OSError) -> LocalError:
-    """
-    Converts a :class:`OSError` when starting a file system watch to a
-    :class:`MaestralApiError` and tries to add a reasonably informative error title and
-    message. Error messages and types differ from :func:`os_to_maestral_error`.
-
-    :param exc: Python Exception.
-    :returns: :class:`MaestralApiError` instance or :class:`OSError` instance.
-    """
-
-    error_number = getattr(exc, "errno", -1)
-    err_cls: Type[MaestralApiError]
-
-    if isinstance(exc, NotADirectoryError):
-        title = "Dropbox folder has been moved or deleted"
-        msg = (
-            "Please move the Dropbox folder back to its original location "
-            "or restart Maestral to set up a new folder."
-        )
-
-        err_cls = NoDropboxDirError
-    elif isinstance(exc, PermissionError):
-        title = "Insufficient permissions for Dropbox folder"
-        msg = (
-            "Please ensure that you have read and write permissions "
-            "for the selected Dropbox folder."
-        )
-        err_cls = InsufficientPermissionsError
-
-    elif error_number in (errno.ENOSPC, errno.EMFILE):
-        title = "Inotify limit reached"
-        if error_number == errno.ENOSPC:
-            new_config = "fs.inotify.max_user_watches=524288"
-        else:
-            new_config = "fs.inotify.max_user_instances=512"
-        msg = (
-            "Changes to your Dropbox folder cannot be monitored because it "
-            "contains too many items. Please increase the inotify limit in "
-            "your system by adding the following line to /etc/sysctl.conf: "
-            + new_config
-        )
-        err_cls = InotifyError
-
-    else:
-        return exc
-
-    maestral_exc = err_cls(title, msg)
     maestral_exc.__cause__ = exc
 
     return maestral_exc

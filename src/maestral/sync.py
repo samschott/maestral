@@ -5,6 +5,7 @@
 import sys
 import os
 import os.path as osp
+import errno
 from stat import S_ISDIR
 import socket
 import resource
@@ -85,6 +86,7 @@ from .constants import (
     FILE_CACHE,
 )
 from .errors import (
+    MaestralApiError,
     SyncError,
     NoDropboxDirError,
     CacheDirError,
@@ -95,12 +97,13 @@ from .errors import (
     FolderConflictError,
     InvalidDbidError,
     DatabaseError,
+    InsufficientPermissionsError,
+    InotifyError,
 )
 from .client import (
     DropboxClient,
     os_to_maestral_error,
     convert_api_errors,
-    fswatch_to_maestral_error,
 )
 from .database import (
     Base,
@@ -748,6 +751,16 @@ class SyncEngine:
         with self._database_access():
             for entry in self._db_session.query(IndexEntry).yield_per(1000):
                 yield entry
+
+    def index_count(self) -> int:
+        """
+        Returns the number if items in our index without loading any items.
+
+        :returns: Number of index entries.
+        """
+
+        with self._database_access():
+            return self._db_session.query(IndexEntry).count()
 
     def get_local_rev(self, dbx_path: str) -> Optional[str]:
         """
@@ -3815,12 +3828,55 @@ class SyncMonitor:
 
         try:
             self.local_observer_thread.start()
-        except OSError as err:
-            new_err = fswatch_to_maestral_error(err)
-            title = getattr(err, "title", "Unexpected error")
-            message = getattr(err, "message", "Please restart to continue syncing")
-            logger.error(f"{title}: {message}", exc_info=exc_info_tuple(new_err))
-            self.sync.notifier.notify(title, message, level=notify.ERROR)
+        except OSError as exc:
+
+            err_cls: Type[MaestralApiError]
+
+            if isinstance(exc, NotADirectoryError):
+                title = "Dropbox folder has been moved or deleted"
+                msg = (
+                    "Please move the Dropbox folder back to its original location "
+                    "or restart Maestral to set up a new folder."
+                )
+
+                err_cls = NoDropboxDirError
+            elif isinstance(exc, PermissionError):
+                title = "Insufficient permissions for Dropbox folder"
+                msg = (
+                    "Please ensure that you have read and write permissions "
+                    "for the selected Dropbox folder."
+                )
+                err_cls = InsufficientPermissionsError
+
+            elif exc.errno in (errno.ENOSPC, errno.EMFILE):
+                title = "Inotify limit reached"
+
+                try:
+                    max_user_watches, max_user_instances, _ = get_intofy_limits()
+                except OSError:
+                    max_user_watches, max_user_instances = 2 ** 18, 2 ** 9
+
+                if exc.errno == errno.ENOSPC:
+                    n_new = max(2 ** 19, 2 * max_user_watches)
+                    new_config = f"fs.inotify.max_user_watches={n_new}"
+                else:
+                    n_new = max(2 ** 10, 2 * max_user_instances)
+                    new_config = f"fs.inotify.max_user_instances={n_new}"
+
+                msg = (
+                    "Changes to your Dropbox folder cannot be monitored because it "
+                    "contains too many items. Please increase the inotify limit in "
+                    "your system by adding the following line to /etc/sysctl.conf and "
+                    "restart your PC: " + new_config
+                )
+                err_cls = InotifyError
+
+            else:
+                title = "Could not start watch of local directory"
+                msg = exc.strerror
+                err_cls = MaestralApiError
+
+            raise err_cls(title, msg)
 
         self.running.set()
         self.autostart.set()
@@ -4103,3 +4159,27 @@ def validate_encoding(local_path: str) -> None:
         error.local_path = local_path
 
         raise error
+
+
+def get_intofy_limits() -> Tuple[int, int, int]:
+    """
+    Returns the current inotify limit settings as tuple.
+
+    :returns: ``(max_user_watches, max_user_instances, max_queued_events)``
+    :raises OSError: if the settings cannot be read from /proc/sys/fs/inotify. This may
+        happen if /proc/sys is left out of the kernel image or simply not mounted.
+    """
+
+    from pathlib import Path
+
+    root = Path("/proc/sys/fs/inotify")
+
+    max_user_watches_path = root / "max_user_watches"
+    max_user_instances_path = root / "max_user_instances"
+    max_queued_events_path = root / "max_queued_events"
+
+    max_user_watches = int(max_user_watches_path.read_bytes().strip())
+    max_user_instances = int(max_user_instances_path.read_bytes().strip())
+    max_queued_events = int(max_queued_events_path.read_bytes().strip())
+
+    return max_user_watches, max_user_instances, max_queued_events
