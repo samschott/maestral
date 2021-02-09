@@ -7,8 +7,6 @@ import os
 import os.path as osp
 import errno
 from stat import S_ISDIR
-import socket
-import resource
 import logging
 import time
 import random
@@ -119,6 +117,12 @@ from .database import (
 from .fsevents import Observer
 from .utils import removeprefix, sanitize_string
 from .utils.caches import LRUCache
+from .utils.integration import (
+    get_inotify_limits,
+    cpu_usage_percent,
+    check_connection,
+    CPU_COUNT,
+)
 from .utils.path import (
     generate_cc_name,
     cased_path_candidates,
@@ -153,7 +157,7 @@ __all__ = [
 
 
 logger = logging.getLogger(__name__)
-cpu_count = os.cpu_count() or 1  # os.cpu_count can return None
+
 umask = os.umask(0o22)
 os.umask(umask)
 
@@ -500,7 +504,7 @@ class SyncEngine:
     _case_conversion_cache: LRUCache
 
     _max_history = 1000
-    _num_threads = min(32, cpu_count * 3)
+    _num_threads = min(32, CPU_COUNT * 3)
 
     def __init__(self, client: DropboxClient):
 
@@ -568,7 +572,7 @@ class SyncEngine:
         self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
         self._mignore_rules = self._load_mignore_rules_form_file()
         self._excluded_items = self._conf.get("main", "excluded_items")
-        self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * cpu_count
+        self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * CPU_COUNT
 
         # caches
         self._case_conversion_cache = LRUCache(capacity=5000)
@@ -664,7 +668,7 @@ class SyncEngine:
     def max_cpu_percent(self, percent: float) -> None:
         """Setter: max_cpu_percent."""
         self._max_cpu_percent = percent
-        self._conf.set("app", "max_cpu_percent", percent // cpu_count)
+        self._conf.set("app", "max_cpu_percent", percent // CPU_COUNT)
 
     # ==== sync state ==================================================================
 
@@ -3852,7 +3856,7 @@ class SyncMonitor:
                 title = "Inotify limit reached"
 
                 try:
-                    max_user_watches, max_user_instances, _ = get_intofy_limits()
+                    max_user_watches, max_user_instances, _ = get_inotify_limits()
                 except OSError:
                     max_user_watches, max_user_instances = 2 ** 18, 2 ** 9
 
@@ -4069,66 +4073,6 @@ def throttled_log(
         _last_emit = time.time()
 
 
-def cpu_usage_percent(interval: float = 0.1) -> float:
-    """
-    Returns a float representing the CPU utilization of the current process as a
-    percentage. This duplicates the similar method from psutil to avoid the psutil
-    dependency.
-
-    Compares process times to system CPU times elapsed before and after the interval
-    (blocking). It is recommended for accuracy that this function be called with an
-    interval of at least 0.1 sec.
-
-    A value > 100.0 can be returned in case of processes running multiple threads on
-    different CPU cores. The returned value is explicitly NOT split evenly between all
-    available logical CPUs. This means that a busy loop process running on a system with
-    2 logical CPUs will be reported as having 100% CPU utilization instead of 50%.
-
-    :param interval: Interval in sec between comparisons of CPU times.
-    :returns: CPU usage during interval in percent.
-    """
-
-    if not interval > 0:
-        raise ValueError(f"interval is not positive (got {interval!r})")
-
-    def timer():
-        return time.monotonic() * cpu_count
-
-    st1 = timer()
-    rt1 = resource.getrusage(resource.RUSAGE_SELF)
-    time.sleep(interval)
-    st2 = timer()
-    rt2 = resource.getrusage(resource.RUSAGE_SELF)
-
-    delta_proc = (rt2.ru_utime - rt1.ru_utime) + (rt2.ru_stime - rt1.ru_stime)
-    delta_time = st2 - st1
-
-    try:
-        overall_cpus_percent = (delta_proc / delta_time) * 100
-    except ZeroDivisionError:
-        return 0.0
-    else:
-        single_cpu_percent = overall_cpus_percent * cpu_count
-        return round(single_cpu_percent, 1)
-
-
-def check_connection(hostname: str) -> bool:
-    """
-    A low latency check for an internet connection.
-
-    :param hostname: Hostname to use for connection check.
-    :returns: Connection availability.
-    """
-    try:
-        host = socket.gethostbyname(hostname)
-        s = socket.create_connection((host, 80), 2)
-        s.close()
-        return True
-    except Exception:
-        logger.debug("Connection error", exc_info=True)
-        return False
-
-
 def validate_encoding(local_path: str) -> None:
     """
     Validate that the path contains only characters in the reported file system
@@ -4159,27 +4103,3 @@ def validate_encoding(local_path: str) -> None:
         error.local_path = local_path
 
         raise error
-
-
-def get_intofy_limits() -> Tuple[int, int, int]:
-    """
-    Returns the current inotify limit settings as tuple.
-
-    :returns: ``(max_user_watches, max_user_instances, max_queued_events)``
-    :raises OSError: if the settings cannot be read from /proc/sys/fs/inotify. This may
-        happen if /proc/sys is left out of the kernel image or simply not mounted.
-    """
-
-    from pathlib import Path
-
-    root = Path("/proc/sys/fs/inotify")
-
-    max_user_watches_path = root / "max_user_watches"
-    max_user_instances_path = root / "max_user_instances"
-    max_queued_events_path = root / "max_queued_events"
-
-    max_user_watches = int(max_user_watches_path.read_bytes().strip())
-    max_user_instances = int(max_user_instances_path.read_bytes().strip())
-    max_queued_events = int(max_queued_events_path.read_bytes().strip())
-
-    return max_user_watches, max_user_instances, max_queued_events
