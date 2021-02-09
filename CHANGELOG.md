@@ -33,6 +33,10 @@
     `link`, `unlink` and `status`.
   * Renamed command `file-status` to `filestatus`.
   * Added a `--yes, -Y` flag to the `unlink` to command to skip the confirmation prompt.
+* Improved error message when the user is running out of inotify watches: Recommend
+  default values of `max_user_watches = 524,288` and `max_user_instances = 1024` or
+  double the current values, whichever is higher. Advise to apply the changes with
+  `sysctl -p`.
 
 #### Fixed:
 
