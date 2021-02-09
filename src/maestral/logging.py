@@ -3,7 +3,7 @@
 
 import logging
 from collections import deque
-from concurrent.futures import Future, wait
+from concurrent.futures import Future
 from typing import Deque, Optional, List
 
 try:
@@ -111,9 +111,13 @@ class CachedHandler(logging.Handler):
         :param timeout: Maximum time to block before returning.
         :returns: ``True`` if there was a status change, ``False`` in case of a timeout.
         """
-        done, not_done = wait([self._emit_future], timeout=timeout)
+        try:
+            self._emit_future.result(timeout=timeout)
+        except TimeoutError:
+            return False
+
         self._emit_future = Future()  # reset future
-        return len(done) == 1
+        return True
 
     def getLastMessage(self) -> str:
         """
