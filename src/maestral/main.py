@@ -70,6 +70,7 @@ from .utils.serializer import (
     ErrorType,
 )
 from .utils.appdirs import get_log_path, get_cache_path, get_data_path
+from .utils.integration import get_ac_state, ACState
 from .constants import IDLE, FileStatus, GITHUB_RELEASES_API
 
 
@@ -1534,11 +1535,13 @@ class Maestral:
     # ==== period async jobs ===========================================================
 
     def _schedule_task(self, coro: Awaitable) -> None:
+        """Schedules a task in our asyncio loop."""
 
         task = self._loop.create_task(coro)
         self._tasks.add(task)
 
     async def _periodic_refresh_info(self) -> None:
+        """Periodically refresh the account information from Dropbox servers."""
 
         await asyncio.sleep(60 * 5)
 
@@ -1554,6 +1557,7 @@ class Maestral:
             await sleep_rand(60 * 45)
 
     async def _period_update_check(self) -> None:
+        """Periodically check for software updates."""
 
         await asyncio.sleep(60 * 3)
 
@@ -1566,15 +1570,22 @@ class Maestral:
             await sleep_rand(60 * 60)
 
     async def _period_reindexing(self) -> None:
+        """
+        Trigger periodic reindexing, determined by the 'reindex_interval' setting. Don't
+        reindex if we are running on battery power.
+        """
 
         while True:
 
             if self.monitor.running.is_set():
                 elapsed = time.time() - self.sync.last_reindex
+                ac_state = get_ac_state()
+
                 reindexing_due = elapsed > self.monitor.reindex_interval
                 is_idle = self.monitor.idle_time > 20 * 60
+                has_ac_power = ac_state in (ACState.Connected, ACState.Undetermined)
 
-                if reindexing_due and is_idle:
+                if reindexing_due and is_idle and has_ac_power:
                     self.monitor.rebuild_index()
 
             await sleep_rand(60 * 5)
