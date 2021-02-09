@@ -3869,9 +3869,9 @@ class SyncMonitor:
 
                 msg = (
                     "Changes to your Dropbox folder cannot be monitored because it "
-                    "contains too many items. Please increase the inotify limit in "
-                    "your system by adding the following line to /etc/sysctl.conf and "
-                    "restart your PC: " + new_config
+                    "contains too many items. Please increase the inotify limit by "
+                    "adding the following line to /etc/sysctl.conf, then apply the "
+                    'settings with "sysctl -p":\n\n' + new_config
                 )
                 err_cls = InotifyError
 
