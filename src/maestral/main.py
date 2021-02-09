@@ -1535,11 +1535,13 @@ class Maestral:
     # ==== period async jobs ===========================================================
 
     def _schedule_task(self, coro: Awaitable) -> None:
+        """Schedules a task in our asyncio loop."""
 
         task = self._loop.create_task(coro)
         self._tasks.add(task)
 
     async def _periodic_refresh_info(self) -> None:
+        """Periodically refresh the account information from Dropbox servers."""
 
         await asyncio.sleep(60 * 5)
 
@@ -1555,6 +1557,7 @@ class Maestral:
             await sleep_rand(60 * 45)
 
     async def _period_update_check(self) -> None:
+        """Periodically check for software updates."""
 
         await asyncio.sleep(60 * 3)
 
@@ -1567,6 +1570,10 @@ class Maestral:
             await sleep_rand(60 * 60)
 
     async def _period_reindexing(self) -> None:
+        """
+        Trigger periodic reindexing, determined by the 'reindex_interval' setting. Don't
+        reindex if we are running on battery power.
+        """
 
         while True:
 
