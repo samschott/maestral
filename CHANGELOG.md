@@ -15,19 +15,24 @@
 
 #### Changed:
 
-* Avoiding scanning of objects matching an  `.mignore` pattern (file watches will still
-  be added however). This results in performance improvements during startup and resume.
-  A resulting behavioral change is that **maestral will remove files matching an ignore
-  pattern from Dropbox**. After this change it will be immaterial if an `.mignore`
-  pattern is added before or after having matching files  in Dropbox.
-* If Maestral is quit or interrupted during indexing, for instance due to connection
-  problems, it will later resume from the same position instead of restarting from the
-  beginning.
-* Indexing will no longer skip excluded folders. This is necessary for the above change.
-* Moved linking and unlinking to a new command group `maestral auth` with subcommands
-  `link`, `unlink` and `status`.
-* Renamed command `file-status` to `filestatus`.  
-* Added a `--yes, -Y` flag to the `unlink` to command to skip the confirmation prompt.
+* Changes to indexing:
+  * Avoiding scanning of objects matching an  `.mignore` pattern (file watches will
+    still be added however). This results in performance improvements during startup and
+    resume. A resulting behavioral change is that **maestral will remove files matching
+    an ignore pattern from Dropbox**. After this change it will be immaterial if an
+    `.mignore` pattern is added before or after having matching files  in Dropbox.
+  * If Maestral is quit or interrupted during indexing, for instance due to connection
+    problems, it will later resume from the same position instead of restarting from the
+    beginning.
+  * Indexing will no longer skip excluded folders. This is necessary for the above
+    change.
+  * Defer periodic reindexing, typically carried out weekly, if we the device is not
+    connected to an AC power supply.
+* Changes to CLI:
+  * Moved linking and unlinking to a new command group `maestral auth` with subcommands
+    `link`, `unlink` and `status`.
+  * Renamed command `file-status` to `filestatus`.
+  * Added a `--yes, -Y` flag to the `unlink` to command to skip the confirmation prompt.
 
 #### Fixed:
 
@@ -47,15 +52,16 @@
 * Removed automatic error reporting via bugsnag. Please file issues directly on GitHub
   instead. This allows following up on errors and investigating their cause while
   removing third party access to potentially private information.
-* Removed the `maestral restart` command. Use `stop` and `start` instead.
-* Removed the `maestral account-info` command. Use `maestral auth status` instead.
+* Removed from CLI:
+  * The `maestral restart` command. Use `stop` and `start` instead.
+  * The `maestral account-info` command. Use `maestral auth status` instead.
 * Removed main API `Maestral.resume_sync` and `Maestral.pause_sync`. Use
   `Maestral.start_sync` and `Maestral.stop_sync` instead.
 
 #### Dependencies:
 
 * Bumped survey to version >=3.2.2,<4.0.
-* Bumped keyring to version >=22.  
+* Bumped keyring to version >=22.
 * Removed bugsnag dependency.
 
 ## v1.3.1
@@ -85,7 +91,7 @@ series of bug fixes for GUI and daemon.
 #### Changed:
 
 * Significant improvements to the command line interface:
-    * Overhauled all CLI dialogs with nicer formatting and more interactive prompts 
+    * Overhauled all CLI dialogs with nicer formatting and more interactive prompts
       using the `survey` package.
     * Improved output of many CLI commands, including `ls`, `activity`, and `restore`.
     * Increased speed of many CLI commands by importing only necessary modules.
@@ -115,10 +121,10 @@ series of bug fixes for GUI and daemon.
 * Fixes possible loss of data when excluding an item from syncing while it is
   downloaded. This is no longer possible and will raise a `BusyError` instead.
 * Fixes an issue where `maestral ls` would fail when run with the `-l, --long` flag.
-* Fixes an occasional `IndexError` during a download sync when trying to query past 
+* Fixes an occasional `IndexError` during a download sync when trying to query past
   versions of a deleted item.
 * Fixes an issue which could cause a segfault of the selective sync dialog on macOS.
-* Fixes an issue where the selective sync dialog on Linux would not load the contents of 
+* Fixes an issue where the selective sync dialog on Linux would not load the contents of
   more than 10 folders.
 * Fixes a regression with the autostart functionality of the Linux GUI. Autostart
   entries created with v1.2.2 will need be reset by toggling the checkbox "start on
