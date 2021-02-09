@@ -3,6 +3,7 @@
 
 import logging
 from collections import deque
+import concurrent.futures
 from concurrent.futures import Future
 from typing import Deque, Optional, List
 
@@ -113,7 +114,7 @@ class CachedHandler(logging.Handler):
         """
         try:
             self._emit_future.result(timeout=timeout)
-        except TimeoutError:
+        except concurrent.futures.TimeoutError:
             return False
 
         self._emit_future = Future()  # reset future
