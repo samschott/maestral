@@ -95,7 +95,6 @@ from .errors import (
     FolderConflictError,
     InvalidDbidError,
     DatabaseError,
-    InsufficientPermissionsError,
     InotifyError,
 )
 from .client import (
@@ -3836,23 +3835,7 @@ class SyncMonitor:
 
             err_cls: Type[MaestralApiError]
 
-            if isinstance(exc, NotADirectoryError):
-                title = "Dropbox folder has been moved or deleted"
-                msg = (
-                    "Please move the Dropbox folder back to its original location "
-                    "or restart Maestral to set up a new folder."
-                )
-
-                err_cls = NoDropboxDirError
-            elif isinstance(exc, PermissionError):
-                title = "Insufficient permissions for Dropbox folder"
-                msg = (
-                    "Please ensure that you have read and write permissions "
-                    "for the selected Dropbox folder."
-                )
-                err_cls = InsufficientPermissionsError
-
-            elif exc.errno in (errno.ENOSPC, errno.EMFILE):
+            if exc.errno in (errno.ENOSPC, errno.EMFILE):
                 title = "Inotify limit reached"
 
                 try:
@@ -3875,12 +3858,19 @@ class SyncMonitor:
                 )
                 err_cls = InotifyError
 
+            elif PermissionError:
+                title = "Insufficient permissions to monitor local changes"
+                msg = "Please check the permissions for your local Dropbox folder"
+                err_cls = InotifyError
+
             else:
                 title = "Could not start watch of local directory"
                 msg = exc.strerror
                 err_cls = MaestralApiError
 
-            raise err_cls(title, msg)
+            new_error = err_cls(title, msg)
+            logger.error(title, exc_info=exc_info_tuple(new_error))
+            self.sync.notifier.notify(title, msg, level=notify.ERROR)
 
         self.running.set()
         self.autostart.set()
