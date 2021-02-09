@@ -131,6 +131,6 @@ class MaestralDesktopNotifier:
                 title=title,
                 message=message,
                 urgency=urgency,
-                action=on_click,
+                on_clicked=on_click,
                 buttons=buttons,
             )
