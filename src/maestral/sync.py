@@ -2484,7 +2484,9 @@ class SyncEngine:
                 for res in list_iter:
 
                     idx += len(res.entries)
-                    logger.info(f"Indexing {idx}...")
+
+                    if idx > 0:
+                        logger.info(f"Indexing {idx}...")
 
                     res.entries.sort(key=lambda x: x.path_lower.count("/"))
 
