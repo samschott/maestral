@@ -8,7 +8,7 @@ from setuptools import setup, find_packages  # type: ignore
 install_requires = [
     "alembic>=1.3",
     "click>=7.1.1",
-    "desktop-notifier>=2.0",
+    "desktop-notifier>=3.1",
     "dropbox>=10.9.0,<12.0",
     "fasteners>=0.15",
     "importlib_metadata;python_version<'3.8'",

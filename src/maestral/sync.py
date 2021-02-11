@@ -1403,7 +1403,7 @@ class SyncEngine:
                 "Sync error",
                 f"Could not sync {file_name}",
                 level=notify.SYNCISSUE,
-                buttons={"Show": callback},
+                actions={"Show": callback},
             )
             self.sync_errors.add(err)
 
@@ -2827,7 +2827,7 @@ class SyncEngine:
         else:
             msg = f"{file_name} {change_type}"
 
-        self.notifier.notify("Items synced", msg, buttons=buttons)
+        self.notifier.notify("Items synced", msg, actions=buttons)
 
     def _filter_excluded_changes_remote(
         self, changes: List[SyncEvent]

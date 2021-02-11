@@ -9,7 +9,7 @@ import time
 from typing import Optional, Dict, Callable
 
 # external imports
-from desktop_notifier import DesktopNotifier, NotificationLevel
+from desktop_notifier import DesktopNotifier, Urgency, Button
 
 # local imports
 from .config import MaestralConfig
@@ -106,7 +106,7 @@ class MaestralDesktopNotifier:
         message: str,
         level: int = FILECHANGE,
         on_click: Optional[Callable] = None,
-        buttons: Optional[Dict[str, Callable]] = None,
+        actions: Optional[Dict[str, Callable]] = None,
     ) -> None:
         """
         Sends a desktop notification.
@@ -116,18 +116,22 @@ class MaestralDesktopNotifier:
         :param level: Notification level of the message.
         :param on_click: A callback to execute when the notification is clicked. The
             provided callable must not take any arguments.
-        :param buttons: A dictionary with button names and callbacks for the
+        :param actions: A dictionary with button names and callbacks for the
             notification.
         """
 
         ignore = self.snoozed and level == FILECHANGE
-        if level == ERROR:
-            urgency = NotificationLevel.Critical
-        else:
-            urgency = NotificationLevel.Normal
 
         if level >= self.notify_level and not ignore:
-            _desktop_notifier.send(
+
+            urgency = Urgency.Critical if level == ERROR else Urgency.Normal
+
+            if actions:
+                buttons = [Button(name, handler) for name, handler in actions.items()]
+            else:
+                buttons = []
+
+            _desktop_notifier.send_sync(
                 title=title,
                 message=message,
                 urgency=urgency,
