@@ -601,7 +601,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
         cli.ok("Setup completed. Starting sync.")
 
     if foreground:
-        del m
+        m.shutdown_daemon()
         start_maestral_daemon(config_name, log_to_stdout=verbose, start_sync=True)
     else:
         m.start_sync()
