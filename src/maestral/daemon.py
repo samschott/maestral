@@ -424,31 +424,9 @@ def start_maestral_daemon(
     # integrate with CFRunLoop in macOS, only works in main thread
     if sys.platform == "darwin":
 
-        logger.debug("Cancelling all tasks from asyncio event loop")
-
         from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
 
-        # clean up any pending tasks before we change the event loop policy
-        # this is necessary if previous code has run an asyncio loop
-
-        loop = asyncio.get_event_loop()
-        try:
-            # Python 3.7 and higher
-            all_tasks = asyncio.all_tasks(loop)
-        except AttributeError:
-            # Python 3.6
-            all_tasks = asyncio.Task.all_tasks(loop)
-        pending_tasks = [t for t in all_tasks if not t.done()]
-
-        for task in pending_tasks:
-            task.cancel()
-
-        loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
-        loop.close()
-
         logger.debug("Integrating with CFEventLoop")
-
-        # set new event loop policy
         asyncio.set_event_loop_policy(EventLoopPolicy())
 
     # get the default event loop
@@ -532,7 +510,10 @@ def start_maestral_daemon(
             for s in signals:
                 loop.add_signal_handler(s, maestral_daemon.shutdown_daemon)
 
-            loop.run_until_complete(maestral_daemon.shutdown_complete)
+            async def main():
+                await maestral_daemon.shutdown_complete
+
+            asyncio.run(main())
 
             for socket in daemon.sockets:
                 loop.remove_reader(socket.fileno())
@@ -543,8 +524,6 @@ def start_maestral_daemon(
     except Exception as exc:
         logger.error(exc.args[0], exc_info=True)
     finally:
-
-        loop.close()
 
         if NOTIFY_SOCKET:
             # notify systemd that we are shutting down
