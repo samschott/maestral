@@ -76,11 +76,6 @@ class MaestralDesktopNotifier:
     """Desktop notification emitter for Maestral
 
     Desktop notifier with snooze functionality and variable notification levels.
-
-    :cvar int NONE: Notification level for no desktop notifications.
-    :cvar int ERROR: Notification level for errors.
-    :cvar int SYNCISSUE: Notification level for sync issues.
-    :cvar int FILECHANGE: Notification level for file changes.
     """
 
     def __init__(self, config_name: str) -> None:
