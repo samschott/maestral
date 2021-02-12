@@ -27,6 +27,8 @@ from maestral.daemon import start_maestral_daemon_process, stop_maestral_daemon_
 
 resources = os.path.dirname(__file__) + "/resources"
 
+fsevents_logger = logging.getLogger("fsevents")
+fsevents_logger.setLevel(logging.DEBUG)
 logger.setLevel(logging.DEBUG)
 
 
