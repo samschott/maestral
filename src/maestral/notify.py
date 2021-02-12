@@ -39,7 +39,7 @@ SYNCISSUE = 30
 FILECHANGE = 15
 
 
-_levelToName = {
+_level_to_name = {
     NONE: "NONE",
     ERROR: "ERROR",
     SYNCISSUE: "SYNCISSUE",
@@ -56,7 +56,11 @@ _name_to_level = {
 
 def level_number_to_name(number: int) -> str:
     """Converts a Maestral notification level number to name."""
-    return _levelToName[number]
+
+    try:
+        return _level_to_name[number]
+    except KeyError:
+        return f"Level {number}"
 
 
 def level_name_to_number(name: str) -> int:
