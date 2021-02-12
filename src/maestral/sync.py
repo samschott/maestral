@@ -2580,7 +2580,6 @@ class SyncEngine:
 
             try:
 
-
                 idx = 0
 
                 # iterate over index and download results
@@ -2697,7 +2696,9 @@ class SyncEngine:
         for changes in changes_iter:
 
             idx += len(changes.entries)
-            logger.info(f"Indexing {idx}...")
+
+            if idx > 0:
+                logger.info(f"Indexing {idx}...")
 
             logger.debug("Listed remote changes:\n%s", entries_repr(changes.entries))
 
