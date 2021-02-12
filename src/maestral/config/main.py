@@ -47,7 +47,7 @@ DEFAULTS_CONFIG: DefaultsType = [
     (
         "sync",
         {
-            "reindex_interval": 60 * 60 * 24 * 7,  # default to weekly
+            "reindex_interval": 60 * 60 * 24 * 14,  # default to every fortnight
             "max_cpu_percent": 20.0,  # max usage target per cpu core, default to 20%
             "keep_history": 60 * 60 * 24 * 7,  # default one week
             "upload": True,  # if download sync is enabled
