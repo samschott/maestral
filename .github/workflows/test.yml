@@ -14,7 +14,7 @@ jobs:
     name: offline
     strategy:
       matrix:
-        platform: [ubuntu-20.04, macos-11.0]
+        platform: [ubuntu-latest, macos-latest]
         python-version: [3.6, 3.7, 3.8, 3.9]
 
     runs-on: ${{ matrix.platform }}
@@ -66,14 +66,14 @@ jobs:
       max-parallel: 2
       fail-fast: false
       matrix:
-        platform: [ubuntu-20.04, macos-11.0]
+        platform: [ubuntu-latest, macos-latest]
         python-version: [3.6, ]
         include:
           # use two different Dropbox accounts to run tests in parallel
-          - platform: ubuntu-20.04
+          - platform: ubuntu-latest
             token: DROPBOX_REFRESH_TOKEN_1
 
-          - platform: macos-11.0
+          - platform: macos-latest
             token: DROPBOX_REFRESH_TOKEN_2
 
     runs-on: ${{ matrix.platform }}
