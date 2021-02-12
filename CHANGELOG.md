@@ -7,11 +7,27 @@
 * Resurrected the command `maestral revs` to list previous versions of a file.
 * Added a command group `maestral sharelink` to create and manage shared links.
   Subcommands are:
+
   * `create`: Create a shared link for a file or folder, optionally with password
     protection and an expiry date on supported accounts (business and professional).
-  * `list`: List shared links, either for a specific file or folder or for all items in
-    your Dropbox.
+  * `list`: List shared links, either for a specific file or folder or for all items
+    in your Dropbox.
   * `revoke`: Revoke a shared link.
+
+* Added a command group `maestral config` to provide direct access to config values.
+  Subcommands are:
+  
+  * `get`: Gets the config value for a key.
+  * `set`: Sets the config value for a key.
+
+  Use these commands with caution: setting some config values may leave the daemon in an
+  inconsistent state (e.g., changing the location of the Dropbox folder). Always prefer
+  the equivalent command from the Settings group (e.g., `maestral move-dir`).  
+* Added the ability to turn off one sync direction, for instance to enable download 
+  syncs only. This can be useful when you want to mirror a remote folder while ignoring
+  local changes. Note that conflict resolution remain unaffected. For instance, when
+  an unsynced local change would be overwritten by a remote change, the local file will
+  be moved to a "conflicting copy" first.
 
 #### Changed:
 
@@ -33,6 +49,7 @@
     `link`, `unlink` and `status`.
   * Renamed command `file-status` to `filestatus`.
   * Added a `--yes, -Y` flag to the `unlink` to command to skip the confirmation prompt.
+  * Renamed the `configs` command to list config files to `config-files`.
 * Improved error message when the user is running out of inotify watches: Recommend
   default values of `max_user_watches = 524,288` and `max_user_instances = 1024` or
   double the current values, whichever is higher. Advise to apply the changes with

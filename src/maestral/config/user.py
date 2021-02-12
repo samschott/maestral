@@ -493,15 +493,8 @@ class UserConfig(DefaultsConfig):
 
         if isinstance(default_value, str):
             value = raw_value
-        elif isinstance(default_value, bool):
-            value = ast.literal_eval(raw_value)
-        elif isinstance(default_value, float):
-            value = float(raw_value)
-        elif isinstance(default_value, int):
-            value = int(raw_value)
         else:
             try:
-                # Lists, tuples, None, ...
                 value = ast.literal_eval(raw_value)
             except (SyntaxError, ValueError):
                 value = raw_value
@@ -541,18 +534,15 @@ class UserConfig(DefaultsConfig):
             default_value = value
             self.set_default(section, option, default_value)
 
-        if isinstance(default_value, bool):
-            value = bool(value)
-        elif isinstance(default_value, float):
+        if isinstance(default_value, float) and isinstance(value, int):
             value = float(value)
-        elif isinstance(default_value, int):
-            value = int(value)
-        # elif isinstance(default_value, list):
-        #     value = list(value)
-        # elif isinstance(default_value, tuple):
-        #     value = tuple(value)
-        elif not isinstance(default_value, str):
-            value = repr(value)
+
+        if type(default_value) is not type(value):
+            raise ValueError(
+                f"Inconsistent config type for [{section}][{option}]. "
+                f"Expected {default_value.__class__.__name__} but "
+                f"got {value.__class__.__name__}."
+            )
 
         self._set(section, option, value)
         if save:

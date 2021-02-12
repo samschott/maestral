@@ -37,19 +37,20 @@ DEFAULTS_CONFIG: DefaultsType = [
     (
         "app",
         {
-            "notification_level": 15,  # desktop notification level, default to FILECHANGE
-            "log_level": 20,  # log level for journal and file, default to INFO
-            "update_notification_interval": 60 * 60 * 24 * 7,  # default to weekly
-            "analytics": False,  # automatic errors reports with bugsnag, default to disabled
+            "notification_level": 15,  # desktop notification level, default: FILECHANGE
+            "log_level": 20,  # log level for journal and file, default: INFO
+            "update_notification_interval": 60 * 60 * 24 * 7,  # default: weekly
             "keyring": "automatic",  # keychain backend to use for credential storage
         },
     ),
     (
         "sync",
         {
-            "reindex_interval": 60 * 60 * 24 * 7,  # default to weekly
-            "max_cpu_percent": 20.0,  # max usage target per cpu core, default to 20%
-            "keep_history": 60 * 60 * 24 * 7,  # default one week
+            "reindex_interval": 60 * 60 * 24 * 14,  # default: every fortnight
+            "max_cpu_percent": 20.0,  # max usage target per cpu core, default: 20%
+            "keep_history": 60 * 60 * 24 * 7,  # default: one week
+            "upload": True,  # if download sync is enabled
+            "download": True,  # if upload sync is enabled
         },
     ),
 ]
@@ -96,7 +97,7 @@ DEFAULTS_STATE: DefaultsType = [
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = "14.0.0"
+CONF_VERSION = "15.0.0"
 
 
 # =============================================================================

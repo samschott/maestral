@@ -308,6 +308,8 @@ class FSEventHandler(FileSystemEventHandler):
             for ignore in new_ignores:
                 ignore.ttl = time.time() + self.ignore_timeout
 
+            self.expire_ignored_events()
+
     def expire_ignored_events(self) -> None:
         """Removes all expired ignore entries."""
 
@@ -329,8 +331,6 @@ class FSEventHandler(FileSystemEventHandler):
         :param event: Local file system event.
         :returns: Whether the event should be ignored.
         """
-
-        self.expire_ignored_events()
 
         for ignore in self._ignored_events.copy():
             ignore_event = ignore.event
@@ -852,11 +852,11 @@ class SyncEngine:
         with convert_api_errors(local_path=local_path):
             hash_str, mtime = content_hash(local_path)
 
-        self.save_local_hash(local_path, hash_str, mtime)
+        self._save_local_hash(local_path, hash_str, mtime)
 
         return hash_str
 
-    def save_local_hash(
+    def _save_local_hash(
         self, local_path: str, hash_str: Optional[str], mtime: Optional[float]
     ) -> None:
         """
@@ -1252,7 +1252,10 @@ class SyncEngine:
     def to_local_path(self, dbx_path: str) -> str:
         """
         Converts a Dropbox path to the corresponding local path. Only the basename must
-        be correctly cased. This is slower than :meth:`to_local_path_from_cased`.
+        be correctly cased, as guaranteed by the Dropbox API for the ``display_path``
+        attribute of file or folder metadata.
+
+        This method slower than :meth:`to_local_path_from_cased`.
 
         :param dbx_path: Path relative to Dropbox folder, must be correctly cased in its
             basename.
@@ -1394,9 +1397,9 @@ class SyncEngine:
             while cpu_usage > self._max_cpu_percent:
                 cpu_usage = cpu_usage_percent(0.5 + 2 * random.random())
 
-    def cancel_sync(self):
+    def cancel_sync(self) -> None:
         """
-        Cancels all pending sync jobs and returns when idle.
+        Cancels all pending sync jobs and blocks until the sync cycle is complete.
         """
 
         self._cancel_requested.set()
@@ -1515,7 +1518,7 @@ class SyncEngine:
             else:
                 raise new_exc
 
-    def free_memory(self) -> None:
+    def _free_memory(self) -> None:
         """
         Frees memory by resetting our database session and the requests session,
         clearing out case-conversion cache and clearing all expired event ignores and.
@@ -1579,7 +1582,9 @@ class SyncEngine:
 
         changes = []
         snapshot_time = time.time()
-        snapshot = self._dir_snapshot_with_mignore(self.dropbox_path)
+        snapshot = DirectorySnapshot(
+            self.dropbox_path, listdir=self._scandir_with_mignore
+        )
         lowercase_snapshot_paths: Set[str] = set()
 
         # don't use iterator here but pre-fetch all entries
@@ -1684,7 +1689,7 @@ class SyncEngine:
                 self.local_cursor = cursor
 
             del changes
-            self.free_memory()
+            self._free_memory()
 
     def list_local_changes(self, delay: float = 1) -> Tuple[List[SyncEvent], float]:
         """
@@ -2517,7 +2522,50 @@ class SyncEngine:
 
     # ==== Download sync ===============================================================
 
-    def get_remote_folder(self, dbx_path: str) -> bool:
+    def get_remote_item(self, dbx_path: str) -> bool:
+        """
+        Downloads a remote file or folder and updates its local rev. If the remote item
+        does not exist, any corresponding local items will be deleted. If ``dbx_path``
+        refers to a folder, the download will be handled by :meth:`_get_remote_folder`.
+        If it refers to a single file, the download will be performed by
+        :meth:`_create_local_entry`.
+
+        This method can be used to fetch individual items outside of the regular sync
+        cycle, for instance when including a previously excluded file or folder.
+
+        :param dbx_path: Path relative to Dropbox folder.
+        :returns: Whether download was successful.
+        """
+
+        with self.sync_lock:
+
+            md = self.client.get_metadata(dbx_path, include_deleted=True)
+
+            if md is None:
+                # create a fake deleted event
+                index_entry = self.get_index_entry(dbx_path)
+                cased_path = index_entry.dbx_path_cased if index_entry else dbx_path
+
+                md = DeletedMetadata(
+                    name=osp.basename(dbx_path),
+                    path_lower=dbx_path.lower(),
+                    path_display=cased_path,
+                )
+
+            event = SyncEvent.from_dbx_metadata(md, self)
+
+            if event.is_directory:
+                success = self._get_remote_folder(dbx_path)
+            else:
+                self.syncing.append(event)
+                e = self._create_local_entry(event)
+                success = e.status in (SyncStatus.Done, SyncStatus.Skipped)
+
+            self._free_memory()
+
+            return success
+
+    def _get_remote_folder(self, dbx_path: str) -> bool:
         """
         Gets all files/folders from a Dropbox folder and writes them to the local folder
         :attr:`dropbox_path`.
@@ -2560,47 +2608,6 @@ class SyncEngine:
             except SyncError as e:
                 self._handle_sync_error(e, direction=SyncDirection.Down)
                 return False
-
-            return success
-
-    def get_remote_item(self, dbx_path: str) -> bool:
-        """
-        Downloads a remote file or folder and updates its local rev. If the remote item
-        does not exist, any corresponding local items will be deleted. If ``dbx_path``
-        refers to a folder, the download will be handled by :meth:`get_remote_folder`.
-        If it refers to a single file, the download will be performed by
-        :meth:`_create_local_entry`.
-
-        This method can be used to fetch individual items outside of the regular sync
-        cycle, for instance when including a previously excluded file or folder.
-
-        :param dbx_path: Path relative to Dropbox folder.
-        :returns: Whether download was successful.
-        """
-
-        with self.sync_lock:
-
-            md = self.client.get_metadata(dbx_path, include_deleted=True)
-
-            if md is None:
-                # create a fake deleted event
-                index_entry = self.get_index_entry(dbx_path)
-                cased_path = index_entry.dbx_path_cased if index_entry else dbx_path
-
-                md = DeletedMetadata(
-                    name=osp.basename(dbx_path),
-                    path_lower=dbx_path.lower(),
-                    path_display=cased_path,
-                )
-
-            event = SyncEvent.from_dbx_metadata(md, self)
-
-            if event.is_directory:
-                success = self.get_remote_folder(dbx_path)
-            else:
-                self.syncing.append(event)
-                e = self._create_local_entry(event)
-                success = e.status in (SyncStatus.Done, SyncStatus.Skipped)
 
             return success
 
@@ -2657,7 +2664,7 @@ class SyncEngine:
                 del changes
                 del downloaded
 
-            self.free_memory()
+            self._free_memory()
 
     def list_remote_changes_iterator(
         self, last_cursor: str
@@ -2689,7 +2696,9 @@ class SyncEngine:
         for changes in changes_iter:
 
             idx += len(changes.entries)
-            logger.info(f"Indexing {idx}...")
+
+            if idx > 0:
+                logger.info(f"Indexing {idx}...")
 
             logger.debug("Listed remote changes:\n%s", entries_repr(changes.entries))
 
@@ -3249,7 +3258,7 @@ class SyncEngine:
                 )
 
         self.update_index_from_sync_event(event)
-        self.save_local_hash(event.local_path, event.content_hash, mtime)
+        self._save_local_hash(event.local_path, event.content_hash, mtime)
 
         logger.debug('Created local file "%s"', event.dbx_path)
 
@@ -3400,7 +3409,7 @@ class SyncEngine:
 
             # add created and deleted events of children as appropriate
 
-            snapshot = self._dir_snapshot_with_mignore(local_path)
+            snapshot = DirectorySnapshot(local_path, listdir=self._scandir_with_mignore)
             lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
             local_path_lower = local_path.lower()
 
@@ -3468,12 +3477,6 @@ class SyncEngine:
             for f in os.scandir(path)
             if not self._is_mignore_path(self.to_dbx_path(f.path), f.is_dir())
         ]
-
-    def _dir_snapshot_with_mignore(self, path: str) -> DirectorySnapshot:
-        return DirectorySnapshot(
-            path,
-            listdir=self._scandir_with_mignore,
-        )
 
 
 # ======================================================================================
@@ -3585,9 +3588,6 @@ def download_worker_added_item(
 
                     logger.info(IDLE)
 
-                    # free some memory
-                    sync.free_memory()
-
 
 def upload_worker(
     sync: SyncEngine,
@@ -3638,6 +3638,8 @@ def startup_worker(
     :param autostart: Set when syncing should automatically resume on connection.
     """
 
+    conf = MaestralConfig(sync.config_name)
+
     with handle_sync_thread_errors(running, autostart, sync.notifier):
 
         # Retry failed downloads.
@@ -3667,7 +3669,8 @@ def startup_worker(
             startup_completed.set()
             return
 
-        sync.upload_local_changes_while_inactive()
+        if conf.get("sync", "upload"):
+            sync.upload_local_changes_while_inactive()
 
         logger.info(IDLE)
 
@@ -3772,14 +3775,6 @@ class SyncMonitor:
         self.running = Event()
         self.startup_completed = Event()
 
-        self.local_observer_thread = Observer(timeout=40)
-        self.local_observer_thread.setName("maestral-fsobserver")
-        self._watch = self.local_observer_thread.schedule(
-            self.sync.fs_events, self.sync.dropbox_path, recursive=True
-        )
-        for i, emitter in enumerate(self.local_observer_thread.emitters):
-            emitter.setName(f"maestral-fsemitter-{i}")
-
         self.startup_thread = Thread(
             target=startup_worker,
             daemon=True,
@@ -3792,94 +3787,110 @@ class SyncMonitor:
             name="maestral-sync-startup",
         )
 
-        self.download_thread = Thread(
-            target=download_worker,
-            daemon=True,
-            args=(
-                self.sync,
-                self.running,
-                self.startup_completed,
-                self.autostart,
-            ),
-            name="maestral-download",
-        )
+        if self._conf.get("sync", "download"):
 
-        self.download_thread_added_folder = Thread(
-            target=download_worker_added_item,
-            daemon=True,
-            args=(
-                self.sync,
-                self.running,
-                self.startup_completed,
-                self.autostart,
-                self.added_item_queue,
-            ),
-            name="maestral-folder-download",
-        )
+            self.download_thread = Thread(
+                target=download_worker,
+                daemon=True,
+                args=(
+                    self.sync,
+                    self.running,
+                    self.startup_completed,
+                    self.autostart,
+                ),
+                name="maestral-download",
+            )
 
-        self.upload_thread = Thread(
-            target=upload_worker,
-            daemon=True,
-            args=(
-                self.sync,
-                self.running,
-                self.startup_completed,
-                self.autostart,
-            ),
-            name="maestral-upload",
-        )
+            self.download_thread_added_folder = Thread(
+                target=download_worker_added_item,
+                daemon=True,
+                args=(
+                    self.sync,
+                    self.running,
+                    self.startup_completed,
+                    self.autostart,
+                    self.added_item_queue,
+                ),
+                name="maestral-folder-download",
+            )
 
-        try:
-            self.local_observer_thread.start()
-        except OSError as exc:
+        if self._conf.get("sync", "upload"):
 
-            err_cls: Type[MaestralApiError]
+            self.upload_thread = Thread(
+                target=upload_worker,
+                daemon=True,
+                args=(
+                    self.sync,
+                    self.running,
+                    self.startup_completed,
+                    self.autostart,
+                ),
+                name="maestral-upload",
+            )
 
-            if exc.errno in (errno.ENOSPC, errno.EMFILE):
-                title = "Inotify limit reached"
+            self.local_observer_thread = Observer(timeout=40)
+            self.local_observer_thread.setName("maestral-fsobserver")
+            self._watch = self.local_observer_thread.schedule(
+                self.sync.fs_events, self.sync.dropbox_path, recursive=True
+            )
+            for i, emitter in enumerate(self.local_observer_thread.emitters):
+                emitter.setName(f"maestral-fsemitter-{i}")
 
-                try:
-                    max_user_watches, max_user_instances, _ = get_inotify_limits()
-                except OSError:
-                    max_user_watches, max_user_instances = 2 ** 18, 2 ** 9
+            try:
+                self.local_observer_thread.start()
+            except OSError as exc:
 
-                if exc.errno == errno.ENOSPC:
-                    n_new = max(2 ** 19, 2 * max_user_watches)
-                    new_config = f"fs.inotify.max_user_watches={n_new}"
+                err_cls: Type[MaestralApiError]
+
+                if exc.errno in (errno.ENOSPC, errno.EMFILE):
+                    title = "Inotify limit reached"
+
+                    try:
+                        max_user_watches, max_user_instances, _ = get_inotify_limits()
+                    except OSError:
+                        max_user_watches, max_user_instances = 2 ** 18, 2 ** 9
+
+                    if exc.errno == errno.ENOSPC:
+                        n_new = max(2 ** 19, 2 * max_user_watches)
+                        new_config = f"fs.inotify.max_user_watches={n_new}"
+                    else:
+                        n_new = max(2 ** 10, 2 * max_user_instances)
+                        new_config = f"fs.inotify.max_user_instances={n_new}"
+
+                    msg = (
+                        "Changes to your Dropbox folder cannot be monitored because it "
+                        "contains too many items. Please increase the inotify limit by "
+                        "adding the following line to /etc/sysctl.conf, then apply the "
+                        'settings with "sysctl -p":\n\n' + new_config
+                    )
+                    err_cls = InotifyError
+
+                elif PermissionError:
+                    title = "Insufficient permissions to monitor local changes"
+                    msg = "Please check the permissions for your local Dropbox folder"
+                    err_cls = InotifyError
+
                 else:
-                    n_new = max(2 ** 10, 2 * max_user_instances)
-                    new_config = f"fs.inotify.max_user_instances={n_new}"
+                    title = "Could not start watch of local directory"
+                    msg = exc.strerror
+                    err_cls = MaestralApiError
 
-                msg = (
-                    "Changes to your Dropbox folder cannot be monitored because it "
-                    "contains too many items. Please increase the inotify limit by "
-                    "adding the following line to /etc/sysctl.conf, then apply the "
-                    'settings with "sysctl -p":\n\n' + new_config
-                )
-                err_cls = InotifyError
-
-            elif PermissionError:
-                title = "Insufficient permissions to monitor local changes"
-                msg = "Please check the permissions for your local Dropbox folder"
-                err_cls = InotifyError
-
-            else:
-                title = "Could not start watch of local directory"
-                msg = exc.strerror
-                err_cls = MaestralApiError
-
-            new_error = err_cls(title, msg)
-            logger.error(title, exc_info=exc_info_tuple(new_error))
-            self.sync.notifier.notify(title, msg, level=notify.ERROR)
+                new_error = err_cls(title, msg)
+                logger.error(title, exc_info=exc_info_tuple(new_error))
+                self.sync.notifier.notify(title, msg, level=notify.ERROR)
 
         self.running.set()
         self.autostart.set()
 
-        self.sync.fs_events.enable()
+        if self._conf.get("sync", "upload"):
+            self.sync.fs_events.enable()
+            self.upload_thread.start()
+
+        if self._conf.get("sync", "download"):
+            self.download_thread.start()
+            self.download_thread_added_folder.start()
+
         self.startup_thread.start()
-        self.upload_thread.start()
-        self.download_thread.start()
-        self.download_thread_added_folder.start()
 
         self._startup_time = time.time()
 
