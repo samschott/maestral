@@ -120,11 +120,11 @@ class MaestralDesktopNotifier:
             notification.
         """
 
-        ignore = self.snoozed and level == FILECHANGE
+        snoozed = self.snoozed and level <= FILECHANGE
 
-        if level >= self.notify_level and not ignore:
+        if level >= self.notify_level and not snoozed:
 
-            urgency = Urgency.Critical if level == ERROR else Urgency.Normal
+            urgency = Urgency.Critical if level >= ERROR else Urgency.Normal
 
             if actions:
                 buttons = [Button(name, handler) for name, handler in actions.items()]
