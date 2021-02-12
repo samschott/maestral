@@ -1758,3 +1758,106 @@ def log_level(level_name: str, config_name: str) -> None:
         else:
             level_name = logging.getLevelName(m.log_level)
             cli.echo(f"Log level: {level_name}")
+
+
+@main.group(
+    section="Maintenance",
+    help="""
+Direct access to config file.
+
+Warning: Changing some config values must be accompanied by maintenance tasks. For
+example, changing the config value for the Dropbox location needs to be accompanied by
+actually moving the folder. This command only changes the value in the config file.
+Changes will also require a restart of the daemon to become effective.
+
+Use the commands from the Settings section instead wherever possible, they will take
+effect immediately and never leave the daemon in an inconsistent state.
+
+Currently available config keys are:
+
+\b
+- path: the location of the local Dropbox folder
+- excluded_items: list of files or folders excluded by selective sync
+- account_id: the ID of the linked Dropbox account
+- notification_level: the level for desktop notifications
+- log_level: the log level.
+- update_notification_interval: interval in secs to check for updates
+- keyring: the keyring backend to use (full path of the class)
+- reindex_interval: the interval in seconds for full reindexing
+- max_cpu_percent: maximum CPU usage target per core
+- keep_history: the sync history to keep in seconds
+- upload: if upload sync is enabled
+- download: if download sync is enabled
+""",
+)
+def config():
+    pass
+
+
+@config.command(name="get", help="Print the value of a given configuration key.")
+@click.argument("key")
+@config_option
+def config_get(key: str, config_name: str) -> None:
+
+    from .config import MaestralConfig
+    from .config.main import DEFAULTS_CONFIG
+    from .daemon import MaestralProxy, CommunicationError
+
+    section = next(
+        iter(s for s, conf_dict in DEFAULTS_CONFIG if key in conf_dict), None
+    )
+
+    if not section:
+        raise cli.CliException(f"'{key}' is not a valid configuration key")
+
+    try:
+        with MaestralProxy(config_name) as m:
+            value = m.get_conf(section, key)
+    except CommunicationError:
+        value = MaestralConfig(config_name).get(section, key)
+
+    cli.echo(value)
+
+
+@config.command(
+    name="set",
+    help="""
+Update configuration with a value for the given key.
+
+Values will be cast to the proper type, raising an error where this is not possibly. For
+instance, setting a boolean config value to 1 will actually set it to True.
+""",
+)
+@click.argument("key")
+@click.argument("value")
+@config_option
+@catch_maestral_errors
+def config_set(key: str, value: str, config_name: str) -> None:
+
+    import ast
+    from .config import MaestralConfig
+    from .config.main import DEFAULTS_CONFIG
+    from .daemon import MaestralProxy, CommunicationError
+
+    section, defaults = next(
+        iter((s, d) for s, d in DEFAULTS_CONFIG if key in d), (None, None)
+    )
+
+    if not section or not defaults:
+        raise cli.CliException(f"'{key}' is not a valid configuration key")
+
+    default_value = defaults[key]
+
+    if isinstance(default_value, str):
+        py_value = value
+    else:
+        try:
+            py_value = ast.literal_eval(value)
+        except (SyntaxError, ValueError):
+            py_value = value
+
+    try:
+        with MaestralProxy(config_name) as m:
+            m.set_conf(section, key, py_value)
+    except CommunicationError:
+        MaestralConfig(config_name).set(section, key, py_value)
