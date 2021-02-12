@@ -46,7 +46,7 @@ _levelToName = {
     FILECHANGE: "FILECHANGE",
 }
 
-_nameToLevel = {
+_name_to_level = {
     "NONE": 100,
     "ERROR": 40,
     "SYNCISSUE": 30,
@@ -61,7 +61,11 @@ def level_number_to_name(number: int) -> str:
 
 def level_name_to_number(name: str) -> int:
     """Converts a Maestral notification level name to number."""
-    return _nameToLevel[name]
+
+    try:
+        return _name_to_level[name]
+    except KeyError:
+        raise ValueError("Invalid level name")
 
 
 class MaestralDesktopNotifier:
