@@ -280,7 +280,8 @@ class SyncEvent(Base):  # type: ignore
     def __repr__(self):
         return (
             f"<{self.__class__.__name__}(direction={self.direction.name}, "
-            f"change_type={self.change_type.name}, dbx_path='{self.dbx_path}')>"
+            f"change_type={self.change_type.name}, item_type={self.item_type}, "
+            f"dbx_path='{self.dbx_path}')>"
         )
 
     @classmethod

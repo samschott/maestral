@@ -72,7 +72,6 @@ from watchdog.utils.dirsnapshot import DirectorySnapshot  # type: ignore
 # local imports
 from . import notify
 from .config import MaestralConfig, MaestralState
-from .fsevents import Observer
 from .constants import (
     IDLE,
     SYNCING,
@@ -114,6 +113,7 @@ from .database import (
     ItemType,
     ChangeType,
 )
+from .fsevents import Observer
 from .utils import removeprefix, sanitize_string
 from .utils.caches import LRUCache
 from .utils.path import (
@@ -186,6 +186,12 @@ class _Ignore:
         self.ttl = ttl
         self.recursive = recursive
 
+    def __repr__(self) -> str:
+        return (
+            f"<{self.__class__.__name__}(event={self.event}, "
+            f"recursive={self.recursive}, ttl={self.ttl})>"
+        )
+
 
 class FSEventHandler(FileSystemEventHandler):
     """A local file event handler
@@ -227,6 +233,9 @@ class FSEventHandler(FileSystemEventHandler):
 
         self._enabled = False
         self.has_events = Condition()
+
+        self.file_event_types = file_event_types
+        self.dir_event_types = dir_event_types
 
         self.file_event_types = file_event_types
         self.dir_event_types = dir_event_types
@@ -369,9 +378,41 @@ class FSEventHandler(FileSystemEventHandler):
         if self._is_ignored(event):
             return
 
+        self.queue_event(event)
+
+    def queue_event(self, event: FileSystemEvent) -> None:
+        """
+        Queues an individual file system event. Notifies / wakes up all threads that are
+        waiting with :meth:`wait_for_event`.
+
+        :param event: File system event to queue.
+        """
         with self.has_events:
             self.local_file_event_queue.put(event)
             self.has_events.notify_all()
+
+    def wait_for_event(self, timeout: float = 40) -> bool:
+        """
+        Blocks until an event is available in the queue or a timeout occurs, whichever
+        comes first. You can use with method to wait for file system events in another
+        thread.
+
+        .. note:: If there are multiple threads waiting for events, all of them will be
+            notified. If one of those threads starts getting events from
+            :attr:`local_file_event_queue`, other threads may find that queue empty. You
+            should therefore always be prepared to handle an empty queue, if if this
+            method returns ``True``.
+
+        :param timeout: Maximum time to block in seconds.
+        :returns: ``True`` if an event is available, ``False`` if the call returns due
+            to a timeout.
+        """
+
+        with self.has_events:
+            if self.local_file_event_queue.qsize() > 0:
+                return True
+            self.has_events.wait(timeout)
+            return self.local_file_event_queue.qsize() > 0
 
 
 class PersistentStateMutableSet(abc.MutableSet):
@@ -449,7 +490,6 @@ class SyncEngine:
     conflict resolution and updates to our index.
 
     :param client: Dropbox API client instance.
-    :param fs_events_handler: File system event handler to inform us of local events.
     """
 
     sync_errors: Set[SyncError]
@@ -459,11 +499,11 @@ class SyncEngine:
     _max_history = 1000
     _num_threads = min(32, cpu_count * 3)
 
-    def __init__(self, client: DropboxClient, fs_events_handler: FSEventHandler):
+    def __init__(self, client: DropboxClient):
 
         self.client = client
         self.config_name = self.client.config_name
-        self.fs_events = fs_events_handler
+        self.fs_events = FSEventHandler()
 
         self.sync_lock = RLock()
         self._db_lock = RLock()
@@ -1560,8 +1600,8 @@ class SyncEngine:
 
                 elif is_modified:
                     if snapshot.isdir(path) and index_entry.is_directory:  # type: ignore
-                        event = DirModifiedEvent(path)
-                        changes.append(event)
+                        # We don't emit `DirModifiedEvent`s.
+                        pass
                     elif not snapshot.isdir(path) and not index_entry.is_directory:  # type: ignore
                         event = FileModifiedEvent(path)
                         changes.append(event)
@@ -1604,13 +1644,7 @@ class SyncEngine:
 
         logger.debug("Waiting for local changes since cursor: %s", self.local_cursor)
 
-        if self.fs_events.local_file_event_queue.qsize() > 0:
-            return True
-
-        with self.fs_events.has_events:
-            self.fs_events.has_events.wait(timeout)
-
-        return self.fs_events.local_file_event_queue.qsize() > 0
+        return self.fs_events.wait_for_event(timeout)
 
     def upload_sync_cycle(self):
         """
@@ -2139,6 +2173,9 @@ class SyncEngine:
         :raises MaestralApiError: For any issues when syncing the item.
         """
 
+        if event.local_path_from == self.dropbox_path:
+            self.ensure_dropbox_folder_present()
+
         # fail fast on badly decoded paths
         validate_encoding(event.local_path)
 
@@ -2395,6 +2432,9 @@ class SyncEngine:
         :raises MaestralApiError: For any issues when syncing the item.
         """
 
+        if event.local_path == self.dropbox_path:
+            self.ensure_dropbox_folder_present()
+
         if self.is_excluded_by_user(event.dbx_path):
             logger.debug(
                 'Not deleting "%s": is excluded by selective sync', event.dbx_path
@@ -2627,6 +2667,7 @@ class SyncEngine:
             # Pick up where we left off. This may be an interrupted indexing /
             # pagination through changes or a completely new set of changes.
             logger.info("Fetching remote changes...")
+            logger.debug("Fetching remote changes since cursor: %s", last_cursor)
             changes_iter = self.client.list_remote_changes_iterator(last_cursor)
 
         for changes in changes_iter:
@@ -3168,10 +3209,7 @@ class SyncEngine:
         else:
             preserve_permissions = False
 
-        ignore_events = [
-            FileMovedEvent(tmp_fname, local_path),
-            FileCreatedEvent(local_path),  # sometimes emitted on macOS
-        ]
+        ignore_events = [FileMovedEvent(tmp_fname, local_path)]
 
         if preserve_permissions:
             # ignore FileModifiedEvent when changing permissions
@@ -3341,7 +3379,7 @@ class SyncEngine:
         logger.debug('Rescanning "%s"', local_path)
 
         if osp.isfile(local_path):
-            self.fs_events.local_file_event_queue.put(FileModifiedEvent(local_path))
+            self.fs_events.queue_event(FileModifiedEvent(local_path))
         elif osp.isdir(local_path):
 
             # add created and deleted events of children as appropriate
@@ -3352,9 +3390,9 @@ class SyncEngine:
 
             for path in snapshot.paths:
                 if snapshot.isdir(path):
-                    self.fs_events.local_file_event_queue.put(DirCreatedEvent(path))
+                    self.fs_events.queue_event(DirCreatedEvent(path))
                 else:
-                    self.fs_events.local_file_event_queue.put(FileModifiedEvent(path))
+                    self.fs_events.queue_event(FileModifiedEvent(path))
 
             # add deleted events
 
@@ -3365,22 +3403,16 @@ class SyncEngine:
                     .all()
                 )
 
+            dbx_root_lower = self.dropbox_path.lower()
+
             for entry in entries:
-                child_path_uncased = (
-                    f"{self.dropbox_path}{entry.dbx_path_lower}".lower()
-                )
+                child_path_uncased = f"{dbx_root_lower}{entry.dbx_path_lower}"
                 if child_path_uncased not in lowercase_snapshot_paths:
-                    local_child_path = self.to_local_path_from_cased(
-                        entry.dbx_path_cased
-                    )
+                    local_child = self.to_local_path_from_cased(entry.dbx_path_cased)
                     if entry.is_directory:
-                        self.fs_events.local_file_event_queue.put(
-                            DirDeletedEvent(local_child_path)
-                        )
+                        self.fs_events.queue_event(DirDeletedEvent(local_child))
                     else:
-                        self.fs_events.local_file_event_queue.put(
-                            FileDeletedEvent(local_child_path)
-                        )
+                        self.fs_events.queue_event(FileDeletedEvent(local_child))
 
         elif not osp.exists(local_path):
             dbx_path = self.to_dbx_path(local_path)
@@ -3389,16 +3421,9 @@ class SyncEngine:
 
             if local_entry:
                 if local_entry.is_directory:
-                    self.fs_events.local_file_event_queue.put(
-                        DirDeletedEvent(local_path)
-                    )
+                    self.fs_events.queue_event(DirDeletedEvent(local_path))
                 else:
-                    self.fs_events.local_file_event_queue.put(
-                        FileDeletedEvent(local_path)
-                    )
-
-        with self.fs_events.has_events:
-            self.fs_events.has_events.notify_all()
+                    self.fs_events.queue_event(FileDeletedEvent(local_path))
 
     def _clean_history(self):
         """Commits new events and removes all events older than ``_keep_history`` from
@@ -3661,8 +3686,7 @@ class SyncMonitor:
 
         self.added_item_queue = Queue()
 
-        self.fs_event_handler = FSEventHandler()
-        self.sync = SyncEngine(self.client, self.fs_event_handler)
+        self.sync = SyncEngine(self.client)
 
         self._startup_time = -1.0
 
@@ -3735,7 +3759,7 @@ class SyncMonitor:
         self.local_observer_thread = Observer(timeout=40)
         self.local_observer_thread.setName("maestral-fsobserver")
         self._watch = self.local_observer_thread.schedule(
-            self.fs_event_handler, self.sync.dropbox_path, recursive=True
+            self.sync.fs_events, self.sync.dropbox_path, recursive=True
         )
         for i, emitter in enumerate(self.local_observer_thread.emitters):
             emitter.setName(f"maestral-fsemitter-{i}")
@@ -3801,7 +3825,7 @@ class SyncMonitor:
         self.running.set()
         self.autostart.set()
 
-        self.fs_event_handler.enable()
+        self.sync.fs_events.enable()
         self.startup_thread.start()
         self.upload_thread.start()
         self.download_thread.start()
@@ -3818,7 +3842,7 @@ class SyncMonitor:
 
         logger.info("Shutting down threads...")
 
-        self.fs_event_handler.disable()
+        self.sync.fs_events.disable()
         self.running.clear()
         self.startup_completed.clear()
         self.autostart.clear()

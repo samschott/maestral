@@ -27,6 +27,8 @@ from maestral.daemon import start_maestral_daemon_process, stop_maestral_daemon_
 
 resources = os.path.dirname(__file__) + "/resources"
 
+fsevents_logger = logging.getLogger("fsevents")
+fsevents_logger.setLevel(logging.DEBUG)
 logger.setLevel(logging.DEBUG)
 
 
@@ -130,7 +132,7 @@ def proxy(m):
 # helper functions
 
 
-def wait_for_idle(m: Maestral, minimum: int = 4):
+def wait_for_idle(m: Maestral, minimum: int = 5):
     """Blocks until Maestral instance is idle for at least `minimum` sec."""
 
     t0 = time.time()

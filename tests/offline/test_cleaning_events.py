@@ -20,7 +20,7 @@ from maestral.config import remove_configuration
 
 @pytest.fixture
 def sync():
-    sync = SyncEngine(DropboxClient("test-config"), None)
+    sync = SyncEngine(DropboxClient("test-config"))
     sync.dropbox_path = "/"
 
     yield sync

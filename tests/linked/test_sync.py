@@ -191,7 +191,7 @@ def test_local_deletion_during_upload(m):
 
     # we mimic a deletion during upload by queueing a fake FileCreatedEvent
     fake_created_event = FileCreatedEvent(m.test_folder_local + "/file.txt")
-    m.monitor.fs_event_handler.local_file_event_queue.put(fake_created_event)
+    m.monitor.sync.fs_events.queue_event(fake_created_event)
 
     wait_for_idle(m)
 
@@ -238,8 +238,9 @@ def test_rapid_remote_changes(m):
             mode=WriteMode.update(md.rev),
         )
 
+    # reset file content
     with open(resources + "/file.txt", "w") as f:
-        f.write("content")  # reset file content
+        f.write("content")
 
     wait_for_idle(m)
 
@@ -295,7 +296,7 @@ def test_folder_tree_created_remote(m):
     # test deleting remote tree
 
     m.client.remove("/sync_tests/nested_folder")
-    wait_for_idle(m, 10)
+    wait_for_idle(m, 15)
 
     assert_synced(m)
     assert_child_count(m, "/sync_tests", 0)
@@ -310,14 +311,12 @@ def test_remote_file_replaced_by_folder(m):
     shutil.copy(resources + "/file.txt", m.test_folder_local + "/file.txt")
     wait_for_idle(m)
 
-    m.stop_sync()
-    wait_for_idle(m)
+    with m.sync.sync_lock:
 
-    # replace remote file with folder
-    m.client.remove("/sync_tests/file.txt")
-    m.client.make_dir("/sync_tests/file.txt")
+        # replace remote file with folder
+        m.client.remove("/sync_tests/file.txt")
+        m.client.make_dir("/sync_tests/file.txt")
 
-    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -337,18 +336,16 @@ def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m):
     shutil.copy(resources + "/file.txt", m.test_folder_local + "/file.txt")
     wait_for_idle(m)
 
-    m.stop_sync()
-    wait_for_idle(m)
+    with m.sync.sync_lock:
 
-    # replace remote file with folder
-    m.client.remove("/sync_tests/file.txt")
-    m.client.make_dir("/sync_tests/file.txt")
+        # replace remote file with folder
+        m.client.remove("/sync_tests/file.txt")
+        m.client.make_dir("/sync_tests/file.txt")
 
-    # create local changes
-    with open(m.test_folder_local + "/file.txt", "a") as f:
-        f.write(" modified")
+        # create local changes
+        with open(m.test_folder_local + "/file.txt", "a") as f:
+            f.write(" modified")
 
-    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -363,17 +360,15 @@ def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m):
 def test_remote_folder_replaced_by_file(m):
     """Tests the download sync when a folder is replaced by a file."""
 
-    os.mkdir(m.test_folder_local + "/folder")
-    wait_for_idle(m)
-
-    m.stop_sync()
+    m.client.make_dir("/sync_tests/folder")
     wait_for_idle(m)
 
     # replace remote folder with file
-    m.client.remove("/sync_tests/folder")
-    m.client.upload(resources + "/file.txt", "/sync_tests/folder")
 
-    m.start_sync()
+    with m.sync.sync_lock:
+        m.client.remove("/sync_tests/folder")
+        m.client.upload(resources + "/file.txt", "/sync_tests/folder")
+
     wait_for_idle(m)
 
     assert_synced(m)
@@ -393,17 +388,15 @@ def test_remote_folder_replaced_by_file_and_unsynced_local_changes(m):
     os.mkdir(m.test_folder_local + "/folder")
     wait_for_idle(m)
 
-    m.stop_sync()
-    wait_for_idle(m)
+    with m.sync.sync_lock:
 
-    # replace remote folder with file
-    m.client.remove("/sync_tests/folder")
-    m.client.upload(resources + "/file.txt", "/sync_tests/folder")
+        # replace remote folder with file
+        m.client.remove("/sync_tests/folder")
+        m.client.upload(resources + "/file.txt", "/sync_tests/folder")
 
-    # create local changes
-    os.mkdir(m.test_folder_local + "/folder/subfolder")
+        # create local changes
+        os.mkdir(m.test_folder_local + "/folder/subfolder")
 
-    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -421,13 +414,12 @@ def test_local_folder_replaced_by_file(m):
     os.mkdir(m.test_folder_local + "/folder")
     wait_for_idle(m)
 
-    m.stop_sync()
+    with m.sync.sync_lock:
 
-    # replace local folder with file
-    delete(m.test_folder_local + "/folder")
-    shutil.copy(resources + "/file.txt", m.test_folder_local + "/folder")
+        # replace local folder with file
+        delete(m.test_folder_local + "/folder")
+        shutil.copy(resources + "/file.txt", m.test_folder_local + "/folder")
 
-    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -449,17 +441,15 @@ def test_local_folder_replaced_by_file_and_unsynced_remote_changes(m):
     os.mkdir(m.test_folder_local + "/folder")
     wait_for_idle(m)
 
-    m.stop_sync()
-    wait_for_idle(m)
+    with m.sync.sync_lock:
 
-    # replace local folder with file
-    delete(m.test_folder_local + "/folder")
-    shutil.copy(resources + "/file.txt", m.test_folder_local + "/folder")
+        # replace local folder with file
+        delete(m.test_folder_local + "/folder")
+        shutil.copy(resources + "/file.txt", m.test_folder_local + "/folder")
 
-    # create remote changes
-    m.client.upload(resources + "/file1.txt", "/sync_tests/folder/file.txt")
+        # create remote changes
+        m.client.upload(resources + "/file1.txt", "/sync_tests/folder/file.txt")
 
-    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -476,14 +466,12 @@ def test_local_file_replaced_by_folder(m):
     shutil.copy(resources + "/file.txt", m.test_folder_local + "/file.txt")
     wait_for_idle(m)
 
-    m.stop_sync()
-    wait_for_idle(m)
+    with m.sync.sync_lock:
 
-    # replace local file with folder
-    os.unlink(m.test_folder_local + "/file.txt")
-    os.mkdir(m.test_folder_local + "/file.txt")
+        # replace local file with folder
+        os.unlink(m.test_folder_local + "/file.txt")
+        os.mkdir(m.test_folder_local + "/file.txt")
 
-    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -506,21 +494,19 @@ def test_local_file_replaced_by_folder_and_unsynced_remote_changes(m):
     shutil.copy(resources + "/file.txt", m.test_folder_local + "/file.txt")
     wait_for_idle(m)
 
-    m.stop_sync()
-    wait_for_idle(m)
+    with m.sync.sync_lock:
 
-    # replace local file with folder
-    os.unlink(m.test_folder_local + "/file.txt")
-    os.mkdir(m.test_folder_local + "/file.txt")
+        # replace local file with folder
+        os.unlink(m.test_folder_local + "/file.txt")
+        os.mkdir(m.test_folder_local + "/file.txt")
 
-    # create remote changes
-    m.client.upload(
-        resources + "/file1.txt",
-        "/sync_tests/file.txt",
-        mode=WriteMode.overwrite,
-    )
+        # create remote changes
+        m.client.upload(
+            resources + "/file1.txt",
+            "/sync_tests/file.txt",
+            mode=WriteMode.overwrite,
+        )
 
-    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
@@ -672,14 +658,14 @@ def test_mignore(m):
     os.mkdir(m.test_folder_local + "/foo")
     wait_for_idle(m)
 
-    assert not (m.client.get_metadata("/sync_tests/foo"))
+    assert not m.client.get_metadata("/sync_tests/foo")
 
     # 3) test that renaming an item excludes it
 
     move(m.test_folder_local + "/bar", m.test_folder_local + "/build")
     wait_for_idle(m)
 
-    assert not (m.client.get_metadata("/sync_tests/build"))
+    assert not m.client.get_metadata("/sync_tests/build")
 
     # 4) test that renaming an item includes it
 
@@ -930,7 +916,7 @@ def test_indexing_performance(m):
 
     duration = timeit.timeit(stmt=generate_sync_events, setup=setup, number=n_loops)
 
-    assert duration < 3  # expected ~ 1.8 sec
+    assert duration < 4  # expected ~ 1.8 sec
 
 
 def test_invalid_pending_download(m):

@@ -62,6 +62,7 @@
 
 * Bumped survey to version >=3.2.2,<4.0.
 * Bumped keyring to version >=22.
+* Bumped watchdog to version >= 2.0.
 * Added desktop-notifier dependency. This is spin-off from Maestral, built on
   the code from the `notify` module.
 * Removed bugsnag dependency.
