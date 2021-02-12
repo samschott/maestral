@@ -3638,6 +3638,8 @@ def startup_worker(
     :param autostart: Set when syncing should automatically resume on connection.
     """
 
+    conf = MaestralConfig(sync.config_name)
+
     with handle_sync_thread_errors(running, autostart, sync.notifier):
 
         # Retry failed downloads.
@@ -3667,7 +3669,8 @@ def startup_worker(
             startup_completed.set()
             return
 
-        sync.upload_local_changes_while_inactive()
+        if conf.get("sync", "upload"):
+            sync.upload_local_changes_while_inactive()
 
         logger.info(IDLE)
 
@@ -3772,14 +3775,6 @@ class SyncMonitor:
         self.running = Event()
         self.startup_completed = Event()
 
-        self.local_observer_thread = Observer(timeout=40)
-        self.local_observer_thread.setName("maestral-fsobserver")
-        self._watch = self.local_observer_thread.schedule(
-            self.sync.fs_events, self.sync.dropbox_path, recursive=True
-        )
-        for i, emitter in enumerate(self.local_observer_thread.emitters):
-            emitter.setName(f"maestral-fsemitter-{i}")
-
         self.startup_thread = Thread(
             target=startup_worker,
             daemon=True,
@@ -3792,94 +3787,110 @@ class SyncMonitor:
             name="maestral-sync-startup",
         )
 
-        self.download_thread = Thread(
-            target=download_worker,
-            daemon=True,
-            args=(
-                self.sync,
-                self.running,
-                self.startup_completed,
-                self.autostart,
-            ),
-            name="maestral-download",
-        )
+        if self._conf.get("sync", "download"):
 
-        self.download_thread_added_folder = Thread(
-            target=download_worker_added_item,
-            daemon=True,
-            args=(
-                self.sync,
-                self.running,
-                self.startup_completed,
-                self.autostart,
-                self.added_item_queue,
-            ),
-            name="maestral-folder-download",
-        )
+            self.download_thread = Thread(
+                target=download_worker,
+                daemon=True,
+                args=(
+                    self.sync,
+                    self.running,
+                    self.startup_completed,
+                    self.autostart,
+                ),
+                name="maestral-download",
+            )
 
-        self.upload_thread = Thread(
-            target=upload_worker,
-            daemon=True,
-            args=(
-                self.sync,
-                self.running,
-                self.startup_completed,
-                self.autostart,
-            ),
-            name="maestral-upload",
-        )
+            self.download_thread_added_folder = Thread(
+                target=download_worker_added_item,
+                daemon=True,
+                args=(
+                    self.sync,
+                    self.running,
+                    self.startup_completed,
+                    self.autostart,
+                    self.added_item_queue,
+                ),
+                name="maestral-folder-download",
+            )
 
-        try:
-            self.local_observer_thread.start()
-        except OSError as exc:
+        if self._conf.get("sync", "upload"):
 
-            err_cls: Type[MaestralApiError]
+            self.upload_thread = Thread(
+                target=upload_worker,
+                daemon=True,
+                args=(
+                    self.sync,
+                    self.running,
+                    self.startup_completed,
+                    self.autostart,
+                ),
+                name="maestral-upload",
+            )
 
-            if exc.errno in (errno.ENOSPC, errno.EMFILE):
-                title = "Inotify limit reached"
+            self.local_observer_thread = Observer(timeout=40)
+            self.local_observer_thread.setName("maestral-fsobserver")
+            self._watch = self.local_observer_thread.schedule(
+                self.sync.fs_events, self.sync.dropbox_path, recursive=True
+            )
+            for i, emitter in enumerate(self.local_observer_thread.emitters):
+                emitter.setName(f"maestral-fsemitter-{i}")
 
-                try:
-                    max_user_watches, max_user_instances, _ = get_inotify_limits()
-                except OSError:
-                    max_user_watches, max_user_instances = 2 ** 18, 2 ** 9
+            try:
+                self.local_observer_thread.start()
+            except OSError as exc:
 
-                if exc.errno == errno.ENOSPC:
-                    n_new = max(2 ** 19, 2 * max_user_watches)
-                    new_config = f"fs.inotify.max_user_watches={n_new}"
+                err_cls: Type[MaestralApiError]
+
+                if exc.errno in (errno.ENOSPC, errno.EMFILE):
+                    title = "Inotify limit reached"
+
+                    try:
+                        max_user_watches, max_user_instances, _ = get_inotify_limits()
+                    except OSError:
+                        max_user_watches, max_user_instances = 2 ** 18, 2 ** 9
+
+                    if exc.errno == errno.ENOSPC:
+                        n_new = max(2 ** 19, 2 * max_user_watches)
+                        new_config = f"fs.inotify.max_user_watches={n_new}"
+                    else:
+                        n_new = max(2 ** 10, 2 * max_user_instances)
+                        new_config = f"fs.inotify.max_user_instances={n_new}"
+
+                    msg = (
+                        "Changes to your Dropbox folder cannot be monitored because it "
+                        "contains too many items. Please increase the inotify limit by "
+                        "adding the following line to /etc/sysctl.conf, then apply the "
+                        'settings with "sysctl -p":\n\n' + new_config
+                    )
+                    err_cls = InotifyError
+
+                elif PermissionError:
+                    title = "Insufficient permissions to monitor local changes"
+                    msg = "Please check the permissions for your local Dropbox folder"
+                    err_cls = InotifyError
+
                 else:
-                    n_new = max(2 ** 10, 2 * max_user_instances)
-                    new_config = f"fs.inotify.max_user_instances={n_new}"
+                    title = "Could not start watch of local directory"
+                    msg = exc.strerror
+                    err_cls = MaestralApiError
 
-                msg = (
-                    "Changes to your Dropbox folder cannot be monitored because it "
-                    "contains too many items. Please increase the inotify limit by "
-                    "adding the following line to /etc/sysctl.conf, then apply the "
-                    'settings with "sysctl -p":\n\n' + new_config
-                )
-                err_cls = InotifyError
-
-            elif PermissionError:
-                title = "Insufficient permissions to monitor local changes"
-                msg = "Please check the permissions for your local Dropbox folder"
-                err_cls = InotifyError
-
-            else:
-                title = "Could not start watch of local directory"
-                msg = exc.strerror
-                err_cls = MaestralApiError
-
-            new_error = err_cls(title, msg)
-            logger.error(title, exc_info=exc_info_tuple(new_error))
-            self.sync.notifier.notify(title, msg, level=notify.ERROR)
+                new_error = err_cls(title, msg)
+                logger.error(title, exc_info=exc_info_tuple(new_error))
+                self.sync.notifier.notify(title, msg, level=notify.ERROR)
 
         self.running.set()
         self.autostart.set()
 
-        self.sync.fs_events.enable()
+        if self._conf.get("sync", "upload"):
+            self.sync.fs_events.enable()
+            self.upload_thread.start()
+
+        if self._conf.get("sync", "download"):
+            self.download_thread.start()
+            self.download_thread_added_folder.start()
+
         self.startup_thread.start()
-        self.upload_thread.start()
-        self.download_thread.start()
-        self.download_thread_added_folder.start()
 
         self._startup_time = time.time()
 
