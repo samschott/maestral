@@ -1175,7 +1175,7 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 
 
 @main.command(section="Information", help="List all configured Dropbox accounts.")
-def configs() -> None:
+def config_files() -> None:
 
     from .daemon import is_running
     from .config import (
@@ -1186,18 +1186,31 @@ def configs() -> None:
     )
 
     # clean up stale configs
-    config_names = list_configs()
 
-    for name in config_names:
+    for name in list_configs():
         dbid = MaestralConfig(name).get("account", "account_id")
         if dbid == "" and not is_running(name):
             remove_configuration(name)
 
     # display remaining configs
     names = list_configs()
-    emails = [MaestralState(c).get("account", "email") for c in names]
+    emails = []
+    paths = []
 
-    table = cli.Table([cli.Column("Config name", names), cli.Column("Account", emails)])
+    for name in names:
+        config = MaestralConfig(name)
+        state = MaestralState(name)
+
+        emails.append(state.get("account", "email"))
+        paths.append(config.get_config_fpath())
+
+    table = cli.Table(
+        [
+            cli.Column("Config name", names),
+            cli.Column("Account", emails),
+            cli.Column("Path", paths, elide=cli.Elide.Leading),
+        ]
+    )
 
     cli.echo("")
     table.echo()
