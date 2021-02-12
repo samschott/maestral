@@ -916,7 +916,7 @@ def test_indexing_performance(m):
 
     duration = timeit.timeit(stmt=generate_sync_events, setup=setup, number=n_loops)
 
-    assert duration < 3  # expected ~ 1.8 sec
+    assert duration < 4  # expected ~ 1.8 sec
 
 
 def test_invalid_pending_download(m):
