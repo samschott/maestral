@@ -212,7 +212,7 @@ def check_for_fatal_errors(m: Union["MaestralProxy", "Maestral"]) -> bool:
         return False
 
 
-def catch_maestral_errors(func: Callable) -> Callable:
+def convert_py_errors(func: Callable) -> Callable:
     """
     Decorator that catches a MaestralApiError and prints it as a useful message to the
     command line instead of printing the full stacktrace.
@@ -228,6 +228,8 @@ def catch_maestral_errors(func: Callable) -> Callable:
             raise cli.RemoteApiError(exc.title, exc.message)
         except ConnectionError:
             raise cli.CliException("Could not connect to Dropbox")
+        except Exception as exc:
+            raise cli.CliException(f"{exc.__class__.__name__}: {exc.args[0]}")
 
     return wrapper
 
@@ -518,7 +520,7 @@ existing_config_option = click.option(
     help="Print log messages to stdout when started with '-f, --foreground' flag.",
 )
 @config_option
-@catch_maestral_errors
+@convert_py_errors
 def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
     # ---- run setup if necessary ------------------------------------------------------
@@ -704,7 +706,7 @@ def auth():
     help="Relink to the current account. Keeps the sync state.",
 )
 @config_option
-@catch_maestral_errors
+@convert_py_errors
 def auth_link(relink: bool, config_name: str) -> None:
 
     from .daemon import MaestralProxy
@@ -730,7 +732,7 @@ If Maestral is running, it will be stopped before unlinking.
 )
 @click.option("--yes", "-Y", is_flag=True, default=False)
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def auth_unlink(yes: bool, config_name: str) -> None:
 
     if not yes:
@@ -786,7 +788,7 @@ def sharelink():
     help="Expiry time for the link (e.g. '2025-07-24 20:50').",
 )
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def sharelink_create(
     dropbox_path: str,
     password: str,
@@ -820,7 +822,7 @@ def sharelink_create(
 @sharelink.command(name="revoke", help="Revoke a shared link.")
 @click.argument("url")
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def sharelink_revoke(url: str, config_name: str) -> None:
 
     from .daemon import MaestralProxy
@@ -836,7 +838,7 @@ def sharelink_revoke(url: str, config_name: str) -> None:
 )
 @click.argument("dropbox_path", required=False, type=DropboxPath())
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def sharelink_list(dropbox_path: Optional[str], config_name: str) -> None:
 
     from .daemon import MaestralProxy
@@ -876,7 +878,7 @@ def sharelink_list(dropbox_path: Optional[str], config_name: str) -> None:
 
 @main.command(section="Information", help="Show the status of the daemon.")
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def status(config_name: str) -> None:
 
     from .daemon import MaestralProxy, CommunicationError
@@ -953,7 +955,7 @@ def filestatus(local_path: str, config_name: str) -> None:
 
 @main.command(section="Information", help="Live view of all items being synced.")
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def activity(config_name: str) -> None:
 
     import curses
@@ -1038,7 +1040,7 @@ def activity(config_name: str) -> None:
 
 @main.command(section="Information", help="Show recently changed or added files.")
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def history(config_name: str) -> None:
 
     from datetime import datetime
@@ -1086,7 +1088,7 @@ def history(config_name: str) -> None:
     help="Include deleted items in listing.",
 )
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -> None:
 
     from .utils import natural_size
@@ -1290,7 +1292,7 @@ def excluded_list(config_name: str) -> None:
 )
 @click.argument("dropbox_path", type=DropboxPath())
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def excluded_add(dropbox_path: str, config_name: str) -> None:
 
     from .daemon import MaestralProxy
@@ -1318,7 +1320,7 @@ folder will be included as well (but no other items inside it).
 )
 @click.argument("dropbox_path", type=DropboxPath())
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def excluded_remove(dropbox_path: str, config_name: str) -> None:
 
     from .daemon import MaestralProxy, CommunicationError
@@ -1420,7 +1422,7 @@ Rebuilding may take several minutes, depending on the size of your Dropbox.
 """,
 )
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def rebuild_index(config_name: str) -> None:
 
     import textwrap
@@ -1462,7 +1464,7 @@ def rebuild_index(config_name: str) -> None:
     default=10,
 )
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def revs(dropbox_path: str, limit: int, config_name: str) -> None:
 
     from .daemon import MaestralProxy
@@ -1516,7 +1518,7 @@ and memory.
     type=click.IntRange(min=1, max=100),
     default=10,
 )
-@catch_maestral_errors
+@convert_py_errors
 @existing_config_option
 def diff(
     dropbox_path: str,
@@ -1649,7 +1651,7 @@ If no revision number is given, old revisions will be listed.
     default=10,
 )
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def restore(dropbox_path: str, rev: str, limit: int, config_name: str) -> None:
 
     from .daemon import MaestralProxy
@@ -1831,7 +1833,7 @@ instance, setting a boolean config value to 1 will actually set it to True.
 @click.argument("key")
 @click.argument("value")
 @config_option
-@catch_maestral_errors
+@convert_py_errors
 def config_set(key: str, value: str, config_name: str) -> None:
 
     import ast
