@@ -24,7 +24,7 @@ install_requires = [
     "setuptools",
     "sqlalchemy>=1.3",
     "survey>=3.2.2,<4.0",
-    "watchdog>=0.10.0,<=0.10.3;sys_platform=='darwin'",
+    "watchdog>=0.10.0,<2.0.1;sys_platform=='darwin'",
     "watchdog>=0.10.0;sys_platform=='linux'",
 ]
 
