@@ -1,19 +1,32 @@
 # -*- coding: utf-8 -*-
 """
-This module provides some basic platform integration. At the moment, it only provides
-code to determine if the device is connected to AC power.
+This module provides functions for platform integration. Most of the functionality here
+could also be achieved with psutils but we want to avoid the large dependency.
 """
 
 import os
 import platform
 import enum
+import resource
+import socket
+import time
+import logging
 from pathlib import Path
-from typing import Union
+from typing import Union, Tuple
+
+__all__ = [
+    "get_ac_state",
+    "ACState",
+    "get_inotify_limits",
+    "CPU_COUNT",
+    "cpu_usage_percent",
+    "check_connection",
+]
 
 
-__all__ = ["get_ac_state", "ACState"]
+logger = logging.getLogger(__name__)
 
-
+CPU_COUNT = os.cpu_count() or 1  # os.cpu_count can return None
 LINUX_POWER_SUPPLY_PATH = "/sys/class/power_supply"
 
 
@@ -111,3 +124,87 @@ def get_ac_state() -> ACState:
                 return ACState.Connected
 
     return ACState.Undetermined
+
+
+def get_inotify_limits() -> Tuple[int, int, int]:
+    """
+    Returns the current inotify limit settings as tuple.
+
+    :returns: ``(max_user_watches, max_user_instances, max_queued_events)``
+    :raises OSError: if the settings cannot be read from /proc/sys/fs/inotify. This may
+        happen if /proc/sys is left out of the kernel image or simply not mounted.
+    """
+
+    from pathlib import Path
+
+    root = Path("/proc/sys/fs/inotify")
+
+    max_user_watches_path = root / "max_user_watches"
+    max_user_instances_path = root / "max_user_instances"
+    max_queued_events_path = root / "max_queued_events"
+
+    max_user_watches = int(max_user_watches_path.read_bytes().strip())
+    max_user_instances = int(max_user_instances_path.read_bytes().strip())
+    max_queued_events = int(max_queued_events_path.read_bytes().strip())
+
+    return max_user_watches, max_user_instances, max_queued_events
+
+
+def cpu_usage_percent(interval: float = 0.1) -> float:
+    """
+    Returns a float representing the CPU utilization of the current process as a
+    percentage. This duplicates the similar method from psutil to avoid the psutil
+    dependency.
+
+    Compares process times to system CPU times elapsed before and after the interval
+    (blocking). It is recommended for accuracy that this function be called with an
+    interval of at least 0.1 sec.
+
+    A value > 100.0 can be returned in case of processes running multiple threads on
+    different CPU cores. The returned value is explicitly NOT split evenly between all
+    available logical CPUs. This means that a busy loop process running on a system with
+    2 logical CPUs will be reported as having 100% CPU utilization instead of 50%.
+
+    :param interval: Interval in sec between comparisons of CPU times.
+    :returns: CPU usage during interval in percent.
+    """
+
+    if not interval > 0:
+        raise ValueError(f"interval is not positive (got {interval!r})")
+
+    def timer():
+        return time.monotonic() * CPU_COUNT
+
+    st1 = timer()
+    rt1 = resource.getrusage(resource.RUSAGE_SELF)
+    time.sleep(interval)
+    st2 = timer()
+    rt2 = resource.getrusage(resource.RUSAGE_SELF)
+
+    delta_proc = (rt2.ru_utime - rt1.ru_utime) + (rt2.ru_stime - rt1.ru_stime)
+    delta_time = st2 - st1
+
+    try:
+        overall_cpus_percent = (delta_proc / delta_time) * 100
+    except ZeroDivisionError:
+        return 0.0
+    else:
+        single_cpu_percent = overall_cpus_percent * CPU_COUNT
+        return round(single_cpu_percent, 1)
+
+
+def check_connection(hostname: str) -> bool:
+    """
+    A low latency check for an internet connection.
+
+    :param hostname: Hostname to use for connection check.
+    :returns: Connection availability.
+    """
+    try:
+        host = socket.gethostbyname(hostname)
+        s = socket.create_connection((host, 80), 2)
+        s.close()
+        return True
+    except Exception:
+        logger.debug("Connection error", exc_info=True)
+        return False

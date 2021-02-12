@@ -403,7 +403,8 @@ def start_maestral_daemon(
 
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stdout: If ``True``, write logs to stdout.
-    :param start_sync: If ``True``, start syncing once the daemon has started.
+    :param start_sync: If ``True``, start syncing once the daemon has started. If the
+        ``start_sync`` call fails, an error will be logged but not raised.
     :raises RuntimeError: if a daemon for the given ``config_name`` is already running.
     """
 

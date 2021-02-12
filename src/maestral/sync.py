@@ -5,9 +5,8 @@
 import sys
 import os
 import os.path as osp
+import errno
 from stat import S_ISDIR
-import socket
-import resource
 import logging
 import time
 import random
@@ -85,6 +84,7 @@ from .constants import (
     FILE_CACHE,
 )
 from .errors import (
+    MaestralApiError,
     SyncError,
     NoDropboxDirError,
     CacheDirError,
@@ -95,12 +95,12 @@ from .errors import (
     FolderConflictError,
     InvalidDbidError,
     DatabaseError,
+    InotifyError,
 )
 from .client import (
     DropboxClient,
     os_to_maestral_error,
     convert_api_errors,
-    fswatch_to_maestral_error,
 )
 from .database import (
     Base,
@@ -116,6 +116,12 @@ from .database import (
 from .fsevents import Observer
 from .utils import removeprefix, sanitize_string
 from .utils.caches import LRUCache
+from .utils.integration import (
+    get_inotify_limits,
+    cpu_usage_percent,
+    check_connection,
+    CPU_COUNT,
+)
 from .utils.path import (
     generate_cc_name,
     cased_path_candidates,
@@ -150,7 +156,7 @@ __all__ = [
 
 
 logger = logging.getLogger(__name__)
-cpu_count = os.cpu_count() or 1  # os.cpu_count can return None
+
 umask = os.umask(0o22)
 os.umask(umask)
 
@@ -497,7 +503,7 @@ class SyncEngine:
     _case_conversion_cache: LRUCache
 
     _max_history = 1000
-    _num_threads = min(32, cpu_count * 3)
+    _num_threads = min(32, CPU_COUNT * 3)
 
     def __init__(self, client: DropboxClient):
 
@@ -565,7 +571,7 @@ class SyncEngine:
         self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
         self._mignore_rules = self._load_mignore_rules_form_file()
         self._excluded_items = self._conf.get("main", "excluded_items")
-        self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * cpu_count
+        self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * CPU_COUNT
 
         # caches
         self._case_conversion_cache = LRUCache(capacity=5000)
@@ -661,7 +667,7 @@ class SyncEngine:
     def max_cpu_percent(self, percent: float) -> None:
         """Setter: max_cpu_percent."""
         self._max_cpu_percent = percent
-        self._conf.set("app", "max_cpu_percent", percent // cpu_count)
+        self._conf.set("app", "max_cpu_percent", percent // CPU_COUNT)
 
     # ==== sync state ==================================================================
 
@@ -748,6 +754,16 @@ class SyncEngine:
         with self._database_access():
             for entry in self._db_session.query(IndexEntry).yield_per(1000):
                 yield entry
+
+    def index_count(self) -> int:
+        """
+        Returns the number if items in our index without loading any items.
+
+        :returns: Number of index entries.
+        """
+
+        with self._database_access():
+            return self._db_session.query(IndexEntry).count()
 
     def get_local_rev(self, dbx_path: str) -> Optional[str]:
         """
@@ -3815,12 +3831,46 @@ class SyncMonitor:
 
         try:
             self.local_observer_thread.start()
-        except OSError as err:
-            new_err = fswatch_to_maestral_error(err)
-            title = getattr(err, "title", "Unexpected error")
-            message = getattr(err, "message", "Please restart to continue syncing")
-            logger.error(f"{title}: {message}", exc_info=exc_info_tuple(new_err))
-            self.sync.notifier.notify(title, message, level=notify.ERROR)
+        except OSError as exc:
+
+            err_cls: Type[MaestralApiError]
+
+            if exc.errno in (errno.ENOSPC, errno.EMFILE):
+                title = "Inotify limit reached"
+
+                try:
+                    max_user_watches, max_user_instances, _ = get_inotify_limits()
+                except OSError:
+                    max_user_watches, max_user_instances = 2 ** 18, 2 ** 9
+
+                if exc.errno == errno.ENOSPC:
+                    n_new = max(2 ** 19, 2 * max_user_watches)
+                    new_config = f"fs.inotify.max_user_watches={n_new}"
+                else:
+                    n_new = max(2 ** 10, 2 * max_user_instances)
+                    new_config = f"fs.inotify.max_user_instances={n_new}"
+
+                msg = (
+                    "Changes to your Dropbox folder cannot be monitored because it "
+                    "contains too many items. Please increase the inotify limit by "
+                    "adding the following line to /etc/sysctl.conf, then apply the "
+                    'settings with "sysctl -p":\n\n' + new_config
+                )
+                err_cls = InotifyError
+
+            elif PermissionError:
+                title = "Insufficient permissions to monitor local changes"
+                msg = "Please check the permissions for your local Dropbox folder"
+                err_cls = InotifyError
+
+            else:
+                title = "Could not start watch of local directory"
+                msg = exc.strerror
+                err_cls = MaestralApiError
+
+            new_error = err_cls(title, msg)
+            logger.error(title, exc_info=exc_info_tuple(new_error))
+            self.sync.notifier.notify(title, msg, level=notify.ERROR)
 
         self.running.set()
         self.autostart.set()
@@ -4011,66 +4061,6 @@ def throttled_log(
     if time.time() - _last_emit > limit:
         log.log(level=level, msg=msg)
         _last_emit = time.time()
-
-
-def cpu_usage_percent(interval: float = 0.1) -> float:
-    """
-    Returns a float representing the CPU utilization of the current process as a
-    percentage. This duplicates the similar method from psutil to avoid the psutil
-    dependency.
-
-    Compares process times to system CPU times elapsed before and after the interval
-    (blocking). It is recommended for accuracy that this function be called with an
-    interval of at least 0.1 sec.
-
-    A value > 100.0 can be returned in case of processes running multiple threads on
-    different CPU cores. The returned value is explicitly NOT split evenly between all
-    available logical CPUs. This means that a busy loop process running on a system with
-    2 logical CPUs will be reported as having 100% CPU utilization instead of 50%.
-
-    :param interval: Interval in sec between comparisons of CPU times.
-    :returns: CPU usage during interval in percent.
-    """
-
-    if not interval > 0:
-        raise ValueError(f"interval is not positive (got {interval!r})")
-
-    def timer():
-        return time.monotonic() * cpu_count
-
-    st1 = timer()
-    rt1 = resource.getrusage(resource.RUSAGE_SELF)
-    time.sleep(interval)
-    st2 = timer()
-    rt2 = resource.getrusage(resource.RUSAGE_SELF)
-
-    delta_proc = (rt2.ru_utime - rt1.ru_utime) + (rt2.ru_stime - rt1.ru_stime)
-    delta_time = st2 - st1
-
-    try:
-        overall_cpus_percent = (delta_proc / delta_time) * 100
-    except ZeroDivisionError:
-        return 0.0
-    else:
-        single_cpu_percent = overall_cpus_percent * cpu_count
-        return round(single_cpu_percent, 1)
-
-
-def check_connection(hostname: str) -> bool:
-    """
-    A low latency check for an internet connection.
-
-    :param hostname: Hostname to use for connection check.
-    :returns: Connection availability.
-    """
-    try:
-        host = socket.gethostbyname(hostname)
-        s = socket.create_connection((host, 80), 2)
-        s.close()
-        return True
-    except Exception:
-        logger.debug("Connection error", exc_info=True)
-        return False
 
 
 def validate_encoding(local_path: str) -> None:

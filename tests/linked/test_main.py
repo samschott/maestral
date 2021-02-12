@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import os
 import os.path as osp
 import shutil
 import requests
+import subprocess
 
 import pytest
 
@@ -11,6 +13,7 @@ from maestral.errors import NotFoundError, UnsupportedFileTypeForDiff, SharedLin
 from maestral.main import FileStatus, IDLE
 from maestral.main import logger as maestral_logger
 from maestral.utils.path import delete
+from maestral.utils.integration import get_inotify_limits
 
 from .conftest import wait_for_idle, resources
 
@@ -349,3 +352,34 @@ def test_sharedlink_errors(m):
     # test revoking a malformed link
     with pytest.raises(SharedLinkError):
         m.revoke_shared_link("https://www.testlink.de")
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="inotify specific test")
+@pytest.mark.skipif(os.getenv("CI", False) is False, reason="Only running on CI")
+def test_inotify_error(m):
+
+    max_user_watches, max_user_instances, _ = get_inotify_limits()
+
+    try:
+        subprocess.check_call(["sudo", "sysctl", "-w", "fs.inotify.max_user_watches=1"])
+    except subprocess.CalledProcessError:
+        return
+
+    try:
+        m.stop_sync()
+        wait_for_idle(m)
+        m.start_sync()
+
+        assert len(m.fatal_errors) > 0
+
+        last_error = m.fatal_errors[-1]
+
+        assert last_error["type"] == "InotifyError"
+        assert not m.monitor.local_observer_thread.is_alive()
+        assert m.monitor.upload_thread.is_alive()
+        assert m.monitor.download_thread.is_alive()
+
+    finally:
+        subprocess.check_call(
+            ["sudo", "sysctl", "-w", f"fs.inotify.max_user_watches={max_user_watches}"]
+        )
