@@ -308,6 +308,8 @@ class FSEventHandler(FileSystemEventHandler):
             for ignore in new_ignores:
                 ignore.ttl = time.time() + self.ignore_timeout
 
+            self.expire_ignored_events()
+
     def expire_ignored_events(self) -> None:
         """Removes all expired ignore entries."""
 
@@ -329,8 +331,6 @@ class FSEventHandler(FileSystemEventHandler):
         :param event: Local file system event.
         :returns: Whether the event should be ignored.
         """
-
-        self.expire_ignored_events()
 
         for ignore in self._ignored_events.copy():
             ignore_event = ignore.event
