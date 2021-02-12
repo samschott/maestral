@@ -1427,7 +1427,8 @@ class Maestral:
 
     def shutdown_daemon(self) -> None:
         """
-        Stop the event loop. This will also shut down the pyro daemon if running.
+        Stop syncing and clean up our asyncio tasks. Set a result for the
+        :attr:`shutdown_complete` future.
         """
 
         self.stop_sync()
