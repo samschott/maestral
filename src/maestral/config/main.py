@@ -37,18 +37,18 @@ DEFAULTS_CONFIG: DefaultsType = [
     (
         "app",
         {
-            "notification_level": 15,  # desktop notification level, default to FILECHANGE
-            "log_level": 20,  # log level for journal and file, default to INFO
-            "update_notification_interval": 60 * 60 * 24 * 7,  # default to weekly
+            "notification_level": 15,  # desktop notification level, default: FILECHANGE
+            "log_level": 20,  # log level for journal and file, default: INFO
+            "update_notification_interval": 60 * 60 * 24 * 7,  # default: weekly
             "keyring": "automatic",  # keychain backend to use for credential storage
         },
     ),
     (
         "sync",
         {
-            "reindex_interval": 60 * 60 * 24 * 14,  # default to every fortnight
-            "max_cpu_percent": 20.0,  # max usage target per cpu core, default to 20%
-            "keep_history": 60 * 60 * 24 * 7,  # default one week
+            "reindex_interval": 60 * 60 * 24 * 14,  # default: every fortnight
+            "max_cpu_percent": 20.0,  # max usage target per cpu core, default: 20%
+            "keep_history": 60 * 60 * 24 * 7,  # default: one week
             "upload": True,  # if download sync is enabled
             "download": True,  # if upload sync is enabled
         },
