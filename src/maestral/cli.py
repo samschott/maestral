@@ -1765,15 +1765,16 @@ def log_level(level_name: str, config_name: str) -> None:
 @main.group(
     section="Maintenance",
     help="""
-Direct access to config file.
+Direct access to config values.
 
 Warning: Changing some config values must be accompanied by maintenance tasks. For
 example, changing the config value for the Dropbox location needs to be accompanied by
-actually moving the folder. This command only changes the value in the config file.
-Changes will also require a restart of the daemon to become effective.
+actually moving the folder. This command only gets / sets the value in the config file.
+Most changes will also require a restart of the daemon to become effective.
 
-Use the commands from the Settings section instead wherever possible, they will take
-effect immediately and never leave the daemon in an inconsistent state.
+Use the commands from the Settings section instead wherever possible. They will take
+effect immediately, perform accompanying tasks for you, and never leave the daemon in an
+inconsistent state.
 
 Currently available config keys are:
 
@@ -1810,7 +1811,7 @@ def config_get(key: str, config_name: str) -> None:
     )
 
     if not section:
-        raise cli.CliException(f"'{key}' is not a valid configuration key")
+        raise cli.CliException(f"'{key}' is not a valid configuration key.")
 
     try:
         with MaestralProxy(config_name) as m:
@@ -1846,7 +1847,7 @@ def config_set(key: str, value: str, config_name: str) -> None:
     )
 
     if not section or not defaults:
-        raise cli.CliException(f"'{key}' is not a valid configuration key")
+        raise cli.CliException(f"'{key}' is not a valid configuration key.")
 
     default_value = defaults[key]
 
