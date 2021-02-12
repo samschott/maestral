@@ -506,6 +506,7 @@ def start_maestral_daemon(
                 loop.add_reader(socket.fileno(), daemon.events, daemon.sockets)
 
             # handle sigterm gracefully
+
             signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
             for s in signals:
                 loop.add_signal_handler(s, maestral_daemon.shutdown_daemon)
