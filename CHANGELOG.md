@@ -25,9 +25,10 @@
   the equivalent command from the Settings group (e.g., `maestral move-dir`).  
 * Added the ability to turn off one sync direction, for instance to enable download 
   syncs only. This can be useful when you want to mirror a remote folder while ignoring
-  local changes. Note that conflict resolution remain unaffected. For instance, when
-  an unsynced local change would be overwritten by a remote change, the local file will
-  be moved to a "conflicting copy" first.
+  local changes. To use this, set the respective config values for `upload` or
+  `download` to False. Note that conflict resolution remain unaffected. For instance, 
+  when an unsynced local change would be overwritten by a remote change, the local file 
+  will be moved to a "conflicting copy" first.
 
 #### Changed:
 
@@ -50,6 +51,8 @@
   * Renamed command `file-status` to `filestatus`.
   * Added a `--yes, -Y` flag to the `unlink` to command to skip the confirmation prompt.
   * Renamed the `configs` command to list config files to `config-files`.
+  * Added an option `--clean` to `config-files` to remove all stale config files without
+    a linked Dropbox account.
 * Improved error message when the user is running out of inotify watches: Recommend
   default values of `max_user_watches = 524,288` and `max_user_instances = 1024` or
   double the current values, whichever is higher. Advise to apply the changes with

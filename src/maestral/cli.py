@@ -1177,7 +1177,13 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 
 
 @main.command(section="Information", help="List all configured Dropbox accounts.")
-def config_files() -> None:
+@click.option(
+    "--clean",
+    is_flag=True,
+    default=False,
+    help="Remove config files without a linked account.",
+)
+def config_files(clean: bool) -> None:
 
     from .daemon import is_running
     from .config import (
@@ -1187,36 +1193,43 @@ def config_files() -> None:
         remove_configuration,
     )
 
-    # clean up stale configs
+    if clean:
 
-    for name in list_configs():
-        dbid = MaestralConfig(name).get("account", "account_id")
-        if dbid == "" and not is_running(name):
-            remove_configuration(name)
+        # Clean up stale config files.
 
-    # display remaining configs
-    names = list_configs()
-    emails = []
-    paths = []
+        for name in list_configs():
+            conf = MaestralConfig(name)
+            path = conf.get_config_fpath()
+            dbid = conf.get("account", "account_id")
 
-    for name in names:
-        config = MaestralConfig(name)
-        state = MaestralState(name)
+            if dbid == "" and not is_running(name):
+                remove_configuration(name)
+                cli.echo(f"Removed: {path}")
 
-        emails.append(state.get("account", "email"))
-        paths.append(config.get_config_fpath())
+    else:
+        # Display config files.
+        names = list_configs()
+        emails = []
+        paths = []
 
-    table = cli.Table(
-        [
-            cli.Column("Config name", names),
-            cli.Column("Account", emails),
-            cli.Column("Path", paths, elide=cli.Elide.Leading),
-        ]
-    )
+        for name in names:
+            config = MaestralConfig(name)
+            state = MaestralState(name)
 
-    cli.echo("")
-    table.echo()
-    cli.echo("")
+            emails.append(state.get("account", "email"))
+            paths.append(config.get_config_fpath())
+
+        table = cli.Table(
+            [
+                cli.Column("Config name", names),
+                cli.Column("Account", emails),
+                cli.Column("Path", paths, elide=cli.Elide.Leading),
+            ]
+        )
+
+        cli.echo("")
+        table.echo()
+        cli.echo("")
 
 
 # ======================================================================================
