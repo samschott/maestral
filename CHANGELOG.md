@@ -16,7 +16,7 @@
 
 * Added a command group `maestral config` to provide direct access to config values.
   Subcommands are:
-  
+
   * `get`: Gets the config value for a key.
   * `set`: Sets the config value for a key.
 
@@ -33,6 +33,7 @@
 #### Changed:
 
 * Changes to indexing:
+
   * Avoiding scanning of objects matching an  `.mignore` pattern (file watches will
     still be added however). This results in performance improvements during startup and
     resume. A resulting behavioral change is that **maestral will remove files matching
@@ -45,7 +46,9 @@
     change.
   * Defer periodic reindexing, typically carried out weekly, if we the device is not
     connected to an AC power supply.
+  
 * Changes to CLI:
+
   * Moved linking and unlinking to a new command group `maestral auth` with subcommands
     `link`, `unlink` and `status`.
   * Renamed command `file-status` to `filestatus`.
@@ -53,6 +56,7 @@
   * Renamed the `configs` command to list config files to `config-files`.
   * Added an option `--clean` to `config-files` to remove all stale config files without
     a linked Dropbox account.
+
 * Improved error message when the user is running out of inotify watches: Recommend
   default values of `max_user_watches = 524,288` and `max_user_instances = 1024` or
   double the current values, whichever is higher. Advise to apply the changes with
