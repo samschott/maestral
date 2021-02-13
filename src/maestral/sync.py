@@ -86,6 +86,7 @@ from .constants import (
 from .errors import (
     MaestralApiError,
     SyncError,
+    CancelledError,
     NoDropboxDirError,
     CacheDirError,
     PathError,
@@ -1399,7 +1400,7 @@ class SyncEngine:
 
     def cancel_sync(self) -> None:
         """
-        Cancels all pending sync jobs and blocks until the sync cycle is complete.
+        Raises a CancelledError in all sync threads and waits for them to shut down.
         """
 
         self._cancel_requested.set()
@@ -1409,6 +1410,8 @@ class SyncEngine:
         self.sync_lock.release()
 
         self._cancel_requested.clear()
+
+        logger.info("Sync aborted")
 
     def busy(self) -> bool:
         """
@@ -1563,8 +1566,7 @@ class SyncEngine:
             else:
                 logger.debug("No local changes while inactive")
 
-            if not self._cancel_requested.is_set():
-                self.local_cursor = local_cursor
+            self.local_cursor = local_cursor
 
     def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
         """
@@ -1683,13 +1685,13 @@ class SyncEngine:
             changes, cursor = self.list_local_changes()
             self.apply_local_changes(changes)
 
-            if not self._cancel_requested.is_set():
-                # Save local cursor if not sync was not aborted by user.
-                # Failed uploads will be tracked and retried individually.
-                self.local_cursor = cursor
+            self.local_cursor = cursor
 
             del changes
             self._free_memory()
+
+            if self._cancel_requested.is_set():
+                raise CancelledError("Sync cancelled")
 
     def list_local_changes(self, delay: float = 1) -> Tuple[List[SyncEvent], float]:
         """
@@ -2120,9 +2122,7 @@ class SyncEngine:
         """
 
         if self._cancel_requested.is_set():
-            event.status = SyncStatus.Aborted
-            self.syncing.remove(event)
-            return event
+            raise CancelledError("Sync cancelled")
 
         self._slow_down()
 
@@ -2537,6 +2537,8 @@ class SyncEngine:
         :returns: Whether download was successful.
         """
 
+        logger.info(f"Syncing ↓ {dbx_path}")
+
         with self.sync_lock:
 
             md = self.client.get_metadata(dbx_path, include_deleted=True)
@@ -2576,8 +2578,6 @@ class SyncEngine:
 
         with self.sync_lock:
 
-            logger.info(f"Syncing ↓ {dbx_path}")
-
             try:
 
                 idx = 0
@@ -2604,6 +2604,9 @@ class SyncEngine:
                         e.status in (SyncStatus.Done, SyncStatus.Skipped)
                         for e in download_res
                     )
+
+                    if self._cancel_requested.is_set():
+                        raise CancelledError("Sync cancelled")
 
             except SyncError as e:
                 self._handle_sync_error(e, direction=SyncDirection.Down)
@@ -2655,11 +2658,11 @@ class SyncEngine:
                     # Don't send desktop notifications during indexing.
                     self.notify_user(downloaded)
 
+                # Save (incremental) remote cursor.
+                self.remote_cursor = cursor
+
                 if self._cancel_requested.is_set():
-                    break
-                else:
-                    # Save (incremental) remote cursor.
-                    self.remote_cursor = cursor
+                    raise CancelledError("Sync cancelled")
 
                 del changes
                 del downloaded
@@ -3133,9 +3136,7 @@ class SyncEngine:
         """
 
         if self._cancel_requested.is_set():
-            event.status = SyncStatus.Aborted
-            self.syncing.remove(event)
-            return event
+            raise CancelledError("Sync cancelled")
 
         self._slow_down()
 
@@ -3495,6 +3496,8 @@ def handle_sync_thread_errors(
         yield
     except DropboxServerError:
         logger.info("Dropbox server error", exc_info=True)
+    except CancelledError:
+        running.clear()
     except ConnectionError:
         logger.info(DISCONNECTED)
         logger.debug("Connection error", exc_info=True)
@@ -3647,7 +3650,6 @@ def startup_worker(
             logger.info("Retrying failed syncs...")
 
         for dbx_path in list(sync.download_errors):
-            logger.info(f"Syncing ↓ {dbx_path}")
             sync.get_remote_item(dbx_path)
 
         # Resume interrupted downloads.
@@ -3655,7 +3657,6 @@ def startup_worker(
             logger.info("Resuming interrupted syncs...")
 
         for dbx_path in list(sync.pending_downloads):
-            logger.info(f"Syncing ↓ {dbx_path}")
             sync.get_remote_item(dbx_path)
             sync.pending_downloads.discard(dbx_path)
 
@@ -3898,10 +3899,8 @@ class SyncMonitor:
     def stop(self) -> None:
         """Stops syncing and destroys worker threads."""
 
-        if not self.running.is_set():
-            return
-
-        logger.info("Shutting down threads...")
+        if self.running.is_set():
+            logger.info("Shutting down threads...")
 
         self.sync.fs_events.disable()
         self.running.clear()
@@ -3928,10 +3927,13 @@ class SyncMonitor:
             if self.connected and not self.running.is_set() and self.autostart.is_set():
                 logger.info(CONNECTED)
                 self.start()
+
             elif not self.connected and self.running.is_set():
-                logger.info(DISCONNECTED)
-                self.stop()
-                self.autostart.set()
+
+                # Don't stop sync threads, let them deal with the connection issues with
+                # their own timeout. This prevents us from aborting any uploads or
+                # downloads which could still be saved on reconnection.
+
                 logger.info(CONNECTING)
 
             time.sleep(self.connection_check_interval)
