@@ -70,6 +70,10 @@
   button could be incorrectly enabled or disabled.
 * Fixes an issue where a lost internet connection while starting the sync could lead to
   a stuck sync thread or an endless sync cycle.
+* Fixes an issue where a lost internet connection during the download of a folder newly
+  included in selective sync could result in the download never being completed.
+* Fixes an issue where pausing the sync during the download of a folder newly included
+  in selective sync could result in the download never being completed.
 
 #### Removed:
 
