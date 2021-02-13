@@ -1411,6 +1411,8 @@ class SyncEngine:
 
         self._cancel_requested.clear()
 
+        logger.info("Sync aborted")
+
     def busy(self) -> bool:
         """
         Checks if we are currently syncing.
@@ -2535,6 +2537,8 @@ class SyncEngine:
         :returns: Whether download was successful.
         """
 
+        logger.info(f"Syncing ↓ {dbx_path}")
+
         with self.sync_lock:
 
             md = self.client.get_metadata(dbx_path, include_deleted=True)
@@ -2573,8 +2577,6 @@ class SyncEngine:
         """
 
         with self.sync_lock:
-
-            logger.info(f"Syncing ↓ {dbx_path}")
 
             try:
 
