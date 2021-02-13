@@ -3927,10 +3927,13 @@ class SyncMonitor:
             if self.connected and not self.running.is_set() and self.autostart.is_set():
                 logger.info(CONNECTED)
                 self.start()
+
             elif not self.connected and self.running.is_set():
-                logger.info(DISCONNECTED)
-                self.stop()
-                self.autostart.set()
+
+                # Don't stop sync threads, let them deal with the connection issues with
+                # their own timeout. This prevents us from aborting any uploads or
+                # downloads which could still be saved on reconnection.
+
                 logger.info(CONNECTING)
 
             time.sleep(self.connection_check_interval)
