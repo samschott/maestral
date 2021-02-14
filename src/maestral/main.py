@@ -1548,11 +1548,15 @@ class Maestral:
         while True:
             # update account info
             if self.client.auth.loaded:
-                # only run if we have loaded the keyring, we don't
-                # want to trigger any keyring access from here
-                if self.client.linked:
+
+                # Only run if we have loaded the keyring, we don't
+                # want to trigger any keyring access from here.
+
+                try:
                     await self._loop.run_in_executor(self._pool, self.get_account_info)
                     await self._loop.run_in_executor(self._pool, self.get_profile_pic)
+                except (ConnectionError, MaestralApiError):
+                    pass
 
             await sleep_rand(60 * 45)
 
