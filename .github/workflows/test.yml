@@ -19,10 +19,16 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - name: Checkout project
+
+      - name: Checkout merge commit
         uses: actions/checkout@v2
+        if: github.event_name == 'pull_request_target'
         with:
           ref: 'refs/pull/${{ github.event.number }}/merge'
+
+      - name: Checkout head commit
+        uses: actions/checkout@v2
+        if: github.event_name != 'pull_request_target'
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
@@ -34,11 +40,12 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --upgrade pytest
           python -m pip install --upgrade pytest-cov
+          python -m pip install --upgrade pytest-rerunfailures
           python -m pip install .
 
       - name: Test with pytest
         run: |
-          pytest --cov=maestral --cov-report=xml tests/offline
+          pytest  --reruns 5 --cov=maestral --cov-report=xml tests/offline
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
@@ -46,7 +53,7 @@ jobs:
           file: ./coverage.xml
           flags: pytest
           env_vars: OS,PYTHON,TYPE
-          name: pytests
+          name: pytests -v
         env:
           OS: ${{ matrix.platform }}
           PYTHON: ${{ matrix.python-version }}
@@ -71,10 +78,15 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - name: Checkout project
+      - name: Checkout merge commit
         uses: actions/checkout@v2
+        if: github.event_name == 'pull_request_target'
         with:
           ref: 'refs/pull/${{ github.event.number }}/merge'
+
+      - name: Checkout head commit
+        uses: actions/checkout@v2
+        if: github.event_name != 'pull_request_target'
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
@@ -86,6 +98,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --upgrade pytest
           python -m pip install --upgrade pytest-cov
+          python -m pip install --upgrade pytest-rerunfailures
           python -m pip install .
 
       - name: Get short-lived Dropbox token
@@ -99,11 +112,11 @@ jobs:
               -d client_id=2jmbq42w7vof78h)
           token=$(echo $auth_result | python -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
           echo "::add-mask::$token"
-          echo "DROPBOX_TOKEN=$token" >> $GITHUB_ENV
+          echo "DROPBOX_ACCESS_TOKEN=$token" >> $GITHUB_ENV
 
       - name: Test with pytest
         run: |
-          pytest --cov=maestral --cov-report=xml tests/linked
+          pytest -v --reruns 5 --cov=maestral --cov-report=xml tests/linked
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
