@@ -3933,19 +3933,21 @@ class SyncMonitor:
 
         while self._connection_helper_running:
 
-            self.connected = check_connection("www.dropbox.com")
+            connected = check_connection("www.dropbox.com")
 
-            if self.connected and not self.running.is_set() and self.autostart.is_set():
-                logger.info(CONNECTED)
-                self.start()
+            if connected != self.connected:
 
-            elif not self.connected and self.running.is_set():
+                # Log the status change.
+                logger.info(CONNECTED if connected else CONNECTING)
 
-                # Don't stop sync threads, let them deal with the connection issues with
-                # their own timeout. This prevents us from aborting any uploads or
-                # downloads which could still be saved on reconnection.
+                if not self.sync.busy():
+                    logger.info(IDLE)
 
-                logger.info(CONNECTING)
+            if connected:
+                if not self.running.is_set() and self.autostart.is_set():
+                    self.start()
+
+            self.connected = connected
 
             time.sleep(self.connection_check_interval)
 
