@@ -39,6 +39,7 @@
     resume. A resulting behavioral change is that **maestral will remove files matching
     an ignore pattern from Dropbox**. After this change it will be immaterial if an
     `.mignore` pattern is added before or after having matching files  in Dropbox.
+    Credit goes to @andrewsali.
   * If Maestral is quit or interrupted during indexing, for instance due to connection
     problems, it will later resume from the same position instead of restarting from the
     beginning.
