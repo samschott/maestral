@@ -103,7 +103,7 @@ reports as issues on GitHub where it is possible to follow up.
 
   * The `maestral restart` command. Use `stop` and `start` instead.
   * The `maestral account-info` command. Use `maestral auth status` instead.
-å
+
 * Removed the public API methods `Maestral.resume_sync` and `Maestral.pause_sync`. Use
   `Maestral.start_sync` and `Maestral.stop_sync` instead.
 
