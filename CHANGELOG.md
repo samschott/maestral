@@ -1,22 +1,22 @@
 ## v1.4.0
 
-This release brings significant improvements to the command line interface: It
-introduces commands to create and manage shared links, to compare older version of a
-file and print the diff output to the terminal and commands for direct access to config
-values (note the warning below). It also adds optional one-way syncing, for instance
-when keeping a mirror of a remote Dropbox folder while ignoring local changes.
+This release brings significant extensions to the command line interface: It introduces
+commands to create and manage shared links, to compare older version of a file and print
+the diff output to the terminal, and commands for direct access to config values (note
+the warning below). It also adds optional one-way syncing, for instance to keep a mirror
+of a remote Dropbox folder while ignoring local changes.
 
-Bug fixes mostly concern resuming the sync activity when the connection has been lost 
-while indexing a remote folder.
+Several bugs have been fixed which could occur when resuming the sync activity after the
+connection had been lost while indexing a remote folder.
 
-Finally, this release removes automatic error reporting via Bugsnag. Please file any
-issues on GitHub where it is possible to follow up.
+Finally, this release removes automatic error reporting via Bugsnag. Please file any bug
+reports as issues on GitHub where it is possible to follow up.
 
 #### Added:
 
 * Added a command `maestral diff` to compare different versions of a text file. The
   resulting diff is printed to the console. Credit goes to @OrangeFran.
-* Resurrected the command `maestral revs` to list previous versions of a file.
+* Resurrected the command `maestral revs` to list previous versions (revisions) of a file.
 * Added a command group `maestral sharelink` to create and manage shared links.
   Subcommands are:
 
@@ -32,60 +32,65 @@ issues on GitHub where it is possible to follow up.
   * `get`: Gets the config value for a key.
   * `set`: Sets the config value for a key.
 
-  Use these commands with caution: setting some config values may leave the daemon in an
-  inconsistent state (e.g., changing the location of the Dropbox folder). Always prefer
-  the equivalent command from the Settings group (e.g., `maestral move-dir`).  
-* Added the ability to turn off one sync direction, for instance to enable download 
+  This provides access to previously inaccessible config values such as
+  `reindex_interval` or `max_cpu_percent`. Please refer to a Wiki for an overview of all
+  config values. Use the `set` command with caution: setting some config values may
+  leave the daemon in an inconsistent state (e.g., changing the location of the Dropbox
+  folder). Always use the equivalent command from the Settings group (e.g., `maestral
+  move-dir`).
+* Added the ability to disable a single sync direction, for instance to enable download
   syncs only. This can be useful when you want to mirror a remote folder while ignoring
-  local changes. To use this, set the respective config values for `upload` or
-  `download` to False. Note that conflict resolution remain unaffected. For instance, 
-  when an unsynced local change would be overwritten by a remote change, the local file 
-  will be moved to a "conflicting copy" first.
+  local changes or when syncing to a file system which does not support inotify. To use
+  this, set the respective config values for `upload` or `download` to False. Note that
+  conflict resolution remains unaffected. For instance, when an unsynced local change
+  would be overwritten by a remote change, the local file will be moved to a
+  "conflicting copy" first. However, the conflicting copy will not be uploaded.
 
 #### Changed:
 
 * Changes to indexing:
 
-  * Avoiding scanning of objects matching an  `.mignore` pattern (file watches will
-    still be added however). This results in performance improvements during startup and
-    resume. A resulting behavioral change is that **maestral will remove files matching
-    an ignore pattern from Dropbox**. After this change it will be immaterial if an
-    `.mignore` pattern is added before or after having matching files  in Dropbox.
+  * Avoid scanning of objects matching an  `.mignore` pattern (file watches will still be
+    added however). This results in performance improvements during startup and resume.
+    A resulting behavioral change is that **maestral will remove files matching an
+    ignore pattern from Dropbox**. After this change it will be immaterial if an
+    `.mignore` pattern is added before or after having matching files in Dropbox.
   * If Maestral is quit or interrupted during indexing, for instance due to connection
     problems, it will later resume from the same position instead of restarting from the
     beginning.
   * Indexing will no longer skip excluded folders. This is necessary for the above
     change.
-  * Defer periodic reindexing, typically carried out weekly, if we the device is not
-    connected to an AC power supply.
-  
+  * Defer periodic reindexing, typically carried out weekly, if the device is not
+    connected to an AC power supply. This prevents draining the battery when hashing
+    file contents.
+
 * Changes to CLI:
 
   * Moved linking and unlinking to a new command group `maestral auth` with subcommands
     `link`, `unlink` and `status`.
-  * Renamed command `file-status` to `filestatus`.
+  * Renamed the command `file-status` to `filestatus`.
   * Added a `--yes, -Y` flag to the `unlink` to command to skip the confirmation prompt.
   * Renamed the `configs` command to list config files to `config-files`.
-  * Added an option `--clean` to `config-files` to remove all stale config files without
-    a linked Dropbox account.
+  * Added an option `--clean` to `config-files` to remove all stale config files (those
+    without a linked Dropbox account).
 
-* Improved error message when the user is running out of inotify watches: Recommend
-  default values of `max_user_watches = 524,288` and `max_user_instances = 1024` or
+* Improved the error message when the user is running out of inotify watches: Recommend
+  default values of `max_user_watches = 524288` and `max_user_instances = 1024` or
   double the current values, whichever is higher. Advise to apply the changes with
   `sysctl -p`.
 
 #### Fixed:
 
-* Fixes an issue with CLI on Python 3.6 where commands that print datetimes to the
-  console would raise an exception.
-* Properly handle a rare OSError ([Errno 41] Protocol wrong type for socket) on macOS,
+* Fixes an issue with the CLI on Python 3.6 where commands that print dates to the console
+  would raise an exception.
+* Properly handle a rare OSError "[Errno 41] Protocol wrong type for socket" on macOS,
   see https://bugs.python.org/issue33450.
 * Allow creating local files even if we cannot set their permissions, for instances on
   some mounted NTFS drives.
 * Fixes an issue with the selective sync dialog in the Qt / Linux GUI where the "Update"
   button could be incorrectly enabled or disabled.
 * Fixes an issue where a lost internet connection while starting the sync could lead to
-  a stuck sync thread or an endless sync cycle.
+  a stuck sync thread or an endless indexing cycle.
 * Fixes an issue where a lost internet connection during the download of a folder newly
   included in selective sync could result in the download never being completed.
 * Fixes an issue where pausing the sync during the download of a folder newly included
@@ -93,13 +98,13 @@ issues on GitHub where it is possible to follow up.
 
 #### Removed:
 
-* Removed automatic error reporting via bugsnag. Please file issues directly on GitHub
-  instead. This allows following up on errors and investigating their cause while
-  removing third party access to potentially private information.
+* Removed automatic error reporting via bugsnag.
 * Removed from CLI:
+
   * The `maestral restart` command. Use `stop` and `start` instead.
   * The `maestral account-info` command. Use `maestral auth status` instead.
-* Removed main API `Maestral.resume_sync` and `Maestral.pause_sync`. Use
+å
+* Removed the public API methods `Maestral.resume_sync` and `Maestral.pause_sync`. Use
   `Maestral.start_sync` and `Maestral.stop_sync` instead.
 
 #### Dependencies:
