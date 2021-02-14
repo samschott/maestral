@@ -91,7 +91,6 @@ from .errors import (
     CacheDirError,
     PathError,
     NotFoundError,
-    DropboxServerError,
     FileConflictError,
     FolderConflictError,
     InvalidDbidError,
@@ -3494,8 +3493,6 @@ def handle_sync_thread_errors(
 
     try:
         yield
-    except DropboxServerError:
-        logger.info("Dropbox server error", exc_info=True)
     except CancelledError:
         running.clear()
     except ConnectionError:
