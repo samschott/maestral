@@ -1518,11 +1518,10 @@ def dropbox_to_maestral_error(
     # ---- Internal Dropbox error ------------------------------------------------------
     elif isinstance(exc, exceptions.InternalServerError):
         err_cls = DropboxServerError
-        title = "Could not sync file or folder"
+        title = "Dropbox server error"
         text = (
-            "Something went wrong with the job on Dropbox’s end. Please "
-            "verify on the Dropbox website if the job succeeded and try "
-            "again if it failed."
+            "Something went wrong on Dropbox’s end. Please check on status.dropbox.com "
+            "if their services are up and running and try again later."
         )
 
     maestral_exc = err_cls(title, text, dbx_path=dbx_path, local_path=local_path)
