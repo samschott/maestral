@@ -15,13 +15,13 @@ from typing import Optional, Dict, List, Tuple, Callable, Union, cast, TYPE_CHEC
 
 # external imports
 import click
-import Pyro5.errors  # type: ignore
 
 # local imports
-from . import __version__, __author__, __url__
+from . import __version__
 from .utils import cli
 
 if TYPE_CHECKING:
+    from datetime import datetime
     from .main import Maestral
     from .daemon import MaestralProxy
 
@@ -44,13 +44,13 @@ def stop_daemon_with_cli_feedback(config_name: str) -> None:
     click.echo("Stopping Maestral...", nl=False)
     res = stop_maestral_daemon_process(config_name)
     if res == Stop.Ok:
-        click.echo(" " * 8 + OK)
+        click.echo("\rStopping Maestral...        " + OK)
     elif res == Stop.NotRunning:
         click.echo("\rMaestral daemon is not running.")
     elif res == Stop.Killed:
-        click.echo(" " * 8 + KILLED)
+        click.echo("\rStopping Maestral...        " + KILLED)
     elif res == Stop.Failed:
-        click.echo(" " * 8 + FAILED)
+        click.echo("\rStopping Maestral...        " + FAILED)
 
 
 def select_dbx_path_dialog(
@@ -75,7 +75,7 @@ def select_dbx_path_dialog(
         res = cli.select_path(
             "Please choose a local Dropbox folder:",
             default=f"~/{default_dir_name}",
-            only_directories=True,
+            files_allowed=False,
         )
         res = res.rstrip(osp.sep)
 
@@ -149,7 +149,7 @@ def link_dialog(m: Union["MaestralProxy", "Maestral"]) -> None:
         elif res == 1:
             cli.warn("Invalid token, please try again")
         elif res == 2:
-            cli.warn(" Could not connect to Dropbox, please try again")
+            cli.warn("Could not connect to Dropbox, please try again")
 
 
 def check_for_updates() -> None:
@@ -212,7 +212,7 @@ def check_for_fatal_errors(m: Union["MaestralProxy", "Maestral"]) -> bool:
         return False
 
 
-def catch_maestral_errors(func: Callable) -> Callable:
+def convert_py_errors(func: Callable) -> Callable:
     """
     Decorator that catches a MaestralApiError and prints it as a useful message to the
     command line instead of printing the full stacktrace.
@@ -228,8 +228,23 @@ def catch_maestral_errors(func: Callable) -> Callable:
             raise cli.RemoteApiError(exc.title, exc.message)
         except ConnectionError:
             raise cli.CliException("Could not connect to Dropbox")
+        except Exception as exc:
+            raise cli.CliException(f"{exc.__class__.__name__}: {exc.args[0]}")
 
     return wrapper
+
+
+def _datetime_from_iso_str(time_str: str) -> "datetime":
+    """
+    Converts an ISO 8601 time string such as '2015-05-15T15:50:38Z' to a timezone aware
+    datetime object in the local time zone.
+    """
+
+    from datetime import datetime
+
+    # replace Z with +0000, required for Python 3.6 compatibility
+    time_str = time_str.replace("Z", "+0000")
+    return datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%S%z").astimezone()
 
 
 # ======================================================================================
@@ -312,7 +327,7 @@ class DropboxPath(click.ParamType):
 
 
 class ConfigName(click.ParamType):
-    """ "A command line parameter representing a Dropbox path
+    """A command line parameter representing a Dropbox path
 
     :param existing: If ``True`` require an existing config, otherwise create a new
         config on demand.
@@ -458,24 +473,10 @@ class OrderedGroup(click.Group):
                         formatter.write_dl(rows)
 
 
-@click.group(
-    cls=OrderedGroup,
-    context_settings={"help_option_names": ["-h", "--help"]},
-    invoke_without_command=True,
-    no_args_is_help=True,
-    help="Dropbox client for Linux and macOS.",
-)
-@click.option(
-    "--version",
-    "-V",
-    is_flag=True,
-    default=False,
-    help="Show version and exit.",
-)
-def main(version: bool):
-
-    if version:
-        click.echo(__version__)
+@click.group(cls=OrderedGroup, help="Dropbox client for Linux and macOS.")
+@click.version_option(version=__version__, message=__version__)
+def main():
+    pass
 
 
 # ======================================================================================
@@ -509,13 +510,17 @@ existing_config_option = click.option(
     "-f",
     is_flag=True,
     default=False,
-    help="Starts Maestral in the foreground.",
+    help="Start Maestral in the foreground.",
 )
 @click.option(
-    "--verbose", "-v", is_flag=True, default=False, help="Print log messages to stdout."
+    "--verbose",
+    "-v",
+    is_flag=True,
+    default=False,
+    help="Print log messages to stdout when started with '-f, --foreground' flag.",
 )
 @config_option
-@catch_maestral_errors
+@convert_py_errors
 def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
     # ---- run setup if necessary ------------------------------------------------------
@@ -524,8 +529,8 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
     # running with the --foreground flag, prevents leaving a zombie process if the setup
     # fails with an exception and does not confuse systemd.
 
-    from .main import Maestral
     from .daemon import (
+        MaestralProxy,
         start_maestral_daemon,
         start_maestral_daemon_process,
         is_running,
@@ -538,7 +543,22 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
         click.echo("Daemon is already running.")
         return
 
-    m = Maestral(config_name, log_to_stdout=verbose)
+    if not foreground:
+        # start daemon process
+        cli.echo("Starting Maestral...", nl=False)
+
+        res = start_maestral_daemon_process(config_name)
+
+        if res == Start.Ok:
+            cli.echo("\rStarting Maestral...        " + OK)
+        elif res == Start.AlreadyRunning:
+            cli.echo("\rStarting Maestral...        " + "Already running.")
+        else:
+            cli.echo("\rStarting Maestral...        " + FAILED)
+            cli.echo("Please check logs for more information.")
+            return
+
+    m = MaestralProxy(config_name, fallback=True)
 
     if m.pending_link:  # this may raise KeyringAccessError
         link_dialog(m)
@@ -578,52 +598,19 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
             m.excluded_items = excluded_paths
 
-    # free resources
-    del m
+        cli.ok("Setup completed. Starting sync.")
 
     if foreground:
-        # start our current process
+        del m
         start_maestral_daemon(config_name, log_to_stdout=verbose, start_sync=True)
     else:
-
-        # start daemon process
-        cli.echo("Starting Maestral...", nl=False)
-
-        res = start_maestral_daemon_process(
-            config_name, log_to_stdout=verbose, start_sync=True
-        )
-
-        if res == Start.Ok:
-            cli.echo(" " * 8 + OK)
-        elif res == Start.AlreadyRunning:
-            cli.echo(" " * 8 + "Already running.")
-        else:
-            cli.echo(" " * 8 + FAILED)
-            cli.echo("Please check logs for more information.")
+        m.start_sync()
 
 
 @main.command(section="Core Commands", help="Stop the sync daemon.")
 @existing_config_option
 def stop(config_name: str) -> None:
     stop_daemon_with_cli_feedback(config_name)
-
-
-@main.command(section="Core Commands", help="Restart the sync daemon.")
-@click.option(
-    "--foreground",
-    "-f",
-    is_flag=True,
-    default=False,
-    help="Start the sync daemon in the foreground.",
-)
-@click.option(
-    "--verbose", "-v", is_flag=True, default=False, help="Print log messages to stdout."
-)
-@existing_config_option
-@click.pass_context
-def restart(ctx, foreground: bool, verbose: bool, config_name: str) -> None:
-    stop_daemon_with_cli_feedback(config_name)
-    ctx.forward(start)
 
 
 @main.command(section="Core Commands", help="Run the GUI if installed.")
@@ -679,32 +666,38 @@ def gui(config_name: str) -> None:
 @existing_config_option
 def pause(config_name: str) -> None:
 
-    from .daemon import MaestralProxy
+    from .daemon import MaestralProxy, CommunicationError
 
     try:
         with MaestralProxy(config_name) as m:
-            m.pause_sync()
+            m.stop_sync()
         cli.ok("Syncing paused.")
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("Maestral daemon is not running.")
 
 
 @main.command(section="Core Commands", help="Resume syncing.")
 @existing_config_option
 def resume(config_name: str) -> None:
-    from .daemon import MaestralProxy
+
+    from .daemon import MaestralProxy, CommunicationError
 
     try:
         with MaestralProxy(config_name) as m:
             if not check_for_fatal_errors(m):
-                m.resume_sync()
+                m.start_sync()
                 cli.ok("Syncing resumed.")
 
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("Maestral daemon is not running.")
 
 
-@main.command(section="Core Commands", help="Link with a Dropbox account.")
+@main.group(section="Core Commands", help="Link, unlink and view the Dropbox account.")
+def auth():
+    pass
+
+
+@auth.command(name="link", help="Link a new Dropbox account.")
 @click.option(
     "-r",
     "relink",
@@ -713,8 +706,9 @@ def resume(config_name: str) -> None:
     help="Relink to the current account. Keeps the sync state.",
 )
 @config_option
-@catch_maestral_errors
-def link(relink: bool, config_name: str) -> None:
+@convert_py_errors
+def auth_link(relink: bool, config_name: str) -> None:
+
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -723,25 +717,28 @@ def link(relink: bool, config_name: str) -> None:
             link_dialog(m)
         else:
             cli.echo(
-                "Maestral is already linked. Use the option "
-                "'-r' to relink to the same account."
+                "Maestral is already linked. Use '-r' to relink to the same "
+                "account or specify a new config name with '-c'."
             )
 
 
-@main.command(
-    section="Core Commands",
+@auth.command(
+    name="unlink",
     help="""
-Unlinks your Dropbox account.
+Unlink your Dropbox account.
 
 If Maestral is running, it will be stopped before unlinking.
 """,
 )
+@click.option("--yes", "-Y", is_flag=True, default=False)
 @existing_config_option
-@catch_maestral_errors
-def unlink(config_name: str) -> None:
+@convert_py_errors
+def auth_unlink(yes: bool, config_name: str) -> None:
 
-    if cli.confirm("Are you sure you want unlink your account?", default=False):
+    if not yes:
+        yes = cli.confirm("Are you sure you want unlink your account?", default=False)
 
+    if yes:
         from .main import Maestral
 
         stop_daemon_with_cli_feedback(config_name)
@@ -751,27 +748,161 @@ def unlink(config_name: str) -> None:
         cli.ok("Unlinked Maestral.")
 
 
-@main.command(section="Information", help="Show the status of the daemon.")
+@auth.command(name="status", help="View authentication status.")
 @existing_config_option
-@catch_maestral_errors
-def status(config_name: str) -> None:
+def auth_status(config_name: str) -> None:
+
+    from .config import MaestralConfig, MaestralState
+
+    conf = MaestralConfig(config_name)
+    state = MaestralState(config_name)
+
+    email = state.get("account", "email")
+    account_type = state.get("account", "type").capitalize()
+    dbid = conf.get("account", "account_id")
+
+    cli.echo("")
+    cli.echo(f"Email:         {email}")
+    cli.echo(f"Account-type:  {account_type}")
+    cli.echo(f"Dropbox-ID:    {dbid}")
+    cli.echo("")
+
+
+@main.group(section="Core Commands", help="Create and manage shared links.")
+def sharelink():
+    pass
+
+
+@sharelink.command(name="create", help="Create a shared link for a file or folder.")
+@click.argument("dropbox_path", type=DropboxPath())
+@click.option(
+    "-p",
+    "--password",
+    help="Optional password for the link.",
+)
+@click.option(
+    "-e",
+    "--expiry",
+    metavar="DATE",
+    type=click.DateTime(formats=["%Y-%m-%d", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M"]),
+    help="Expiry time for the link (e.g. '2025-07-24 20:50').",
+)
+@existing_config_option
+@convert_py_errors
+def sharelink_create(
+    dropbox_path: str,
+    password: str,
+    expiry: Optional["datetime"],
+    config_name: str,
+) -> None:
 
     from .daemon import MaestralProxy
+
+    if not dropbox_path.startswith("/"):
+        dropbox_path = "/" + dropbox_path
+
+    expiry_dt: Optional[float]
+
+    if expiry:
+        expiry_dt = expiry.timestamp()
+    else:
+        expiry_dt = None
+
+    if password:
+        visibility = "password"
+    else:
+        visibility = "public"
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        link_info = m.create_shared_link(dropbox_path, visibility, password, expiry_dt)
+
+    cli.echo(link_info["url"])
+
+
+@sharelink.command(name="revoke", help="Revoke a shared link.")
+@click.argument("url")
+@existing_config_option
+@convert_py_errors
+def sharelink_revoke(url: str, config_name: str) -> None:
+
+    from .daemon import MaestralProxy
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        m.revoke_shared_link(url)
+
+    cli.echo("Revoked shared link.")
+
+
+@sharelink.command(
+    name="list", help="List shared links for a path or all shared links."
+)
+@click.argument("dropbox_path", required=False, type=DropboxPath())
+@existing_config_option
+@convert_py_errors
+def sharelink_list(dropbox_path: Optional[str], config_name: str) -> None:
+
+    from .daemon import MaestralProxy
+
+    if dropbox_path and not dropbox_path.startswith("/"):
+        dropbox_path = "/" + dropbox_path
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        links = m.list_shared_links(dropbox_path)
+
+    link_table = cli.Table(["URL", "Item", "Access", "Expires"])
+
+    for link in links:
+        url = cast(str, link["url"])
+        file_name = cast(str, link["name"])
+        visibility = cast(str, link["link_permissions"]["resolved_visibility"][".tag"])
+
+        dt_field: cli.Field
+
+        if "expires" in link:
+            expires = cast(str, link["expires"])
+            dt_field = cli.DateField(_datetime_from_iso_str(expires))
+        else:
+            dt_field = cli.TextField("-")
+
+        link_table.append([url, file_name, visibility, dt_field])
+
+    cli.echo("")
+    link_table.echo()
+    cli.echo("")
+
+
+# ======================================================================================
+# Information commands
+# ======================================================================================
+
+
+@main.command(section="Information", help="Show the status of the daemon.")
+@existing_config_option
+@convert_py_errors
+def status(config_name: str) -> None:
+
+    from .daemon import MaestralProxy, CommunicationError
 
     check_for_updates()
 
     try:
         with MaestralProxy(config_name) as m:
 
+            email = m.get_state("account", "email")
+            account_type = m.get_state("account", "type").capitalize()
+
+            status_info = m.status if m.running else "Paused"
+            usage = m.get_state("account", "usage")
+
             n_errors = len(m.sync_errors)
             color = "red" if n_errors > 0 else "green"
             n_errors_str = click.style(str(n_errors), fg=color)
+
             cli.echo("")
-            cli.echo("Account:      {}".format(m.get_state("account", "email")))
-            cli.echo("Usage:        {}".format(m.get_state("account", "usage")))
-            cli.echo("Status:       {}".format(m.status))
-            cli.echo("Sync threads: {}".format("Running" if m.running else "Stopped"))
-            cli.echo("Sync errors:  {}".format(n_errors_str))
+            cli.echo(f"Account:      {email} ({account_type})")
+            cli.echo(f"Usage:        {usage}")
+            cli.echo(f"Status:       {status_info}")
+            cli.echo(f"Sync errors:  {n_errors_str}")
             cli.echo("")
 
             check_for_fatal_errors(m)
@@ -792,7 +923,7 @@ def status(config_name: str) -> None:
                 table.echo()
                 cli.echo("")
 
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("Maestral daemon is not running.")
 
 
@@ -809,27 +940,27 @@ a file-manager.
 )
 @click.argument("local_path", type=click.Path(exists=True, resolve_path=True))
 @existing_config_option
-def file_status(local_path: str, config_name: str) -> None:
+def filestatus(local_path: str, config_name: str) -> None:
 
-    from .daemon import MaestralProxy
+    from .daemon import MaestralProxy, CommunicationError
 
     try:
         with MaestralProxy(config_name) as m:
             stat = m.get_file_status(local_path)
             cli.echo(stat)
 
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("unwatched")
 
 
 @main.command(section="Information", help="Live view of all items being synced.")
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def activity(config_name: str) -> None:
 
     import curses
     from .utils import natural_size
-    from .daemon import MaestralProxy
+    from .daemon import MaestralProxy, CommunicationError
 
     try:
         with MaestralProxy(config_name) as m:
@@ -903,19 +1034,20 @@ def activity(config_name: str) -> None:
             # enter curses event loop
             curses.wrapper(curses_loop)
 
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("Maestral daemon is not running.")
 
 
 @main.command(section="Information", help="Show recently changed or added files.")
 @existing_config_option
+@convert_py_errors
 def history(config_name: str) -> None:
 
     from datetime import datetime
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
-        history = m.get_history()
+        events = m.get_history()
 
     table = cli.Table(
         [
@@ -925,7 +1057,7 @@ def history(config_name: str) -> None:
         ]
     )
 
-    for event in history:
+    for event in events:
 
         dbx_path = cast(str, event["dbx_path"])
         change_type = cast(str, event["change_type"])
@@ -940,7 +1072,7 @@ def history(config_name: str) -> None:
 
 
 @main.command(section="Information", help="List contents of a Dropbox directory.")
-@click.argument("dropbox_path", type=click.Path(), default="")
+@click.argument("dropbox_path", type=DropboxPath(), default="")
 @click.option(
     "-l",
     "--long",
@@ -956,10 +1088,9 @@ def history(config_name: str) -> None:
     help="Include deleted items in listing.",
 )
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -> None:
 
-    from datetime import datetime
     from .utils import natural_size
     from .daemon import MaestralProxy
 
@@ -1020,8 +1151,7 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 
                 if "client_modified" in entry:
                     cm = cast(str, entry["client_modified"])
-                    dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
-                    dt_field = cli.DateField(dt)
+                    dt_field = cli.DateField(_datetime_from_iso_str(cm))
                 else:
                     dt_field = cli.TextField("-")
 
@@ -1046,28 +1176,14 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
             grid.echo()
 
 
-@main.command(section="Information", help="Show linked Dropbox account information.")
-@existing_config_option
-def account_info(config_name: str) -> None:
-    from .daemon import MaestralProxy
-
-    with MaestralProxy(config_name, fallback=True) as m:
-
-        email = m.get_state("account", "email")
-        account_type = m.get_state("account", "type").capitalize()
-        usage = m.get_state("account", "usage")
-        dbid = m.get_conf("account", "account_id")
-
-    cli.echo("")
-    cli.echo(f"Email:         {email}")
-    cli.echo(f"Account-type:  {account_type}")
-    cli.echo(f"Usage:         {usage}")
-    cli.echo(f"Dropbox-ID:    {dbid}")
-    cli.echo("")
-
-
 @main.command(section="Information", help="List all configured Dropbox accounts.")
-def configs() -> None:
+@click.option(
+    "--clean",
+    is_flag=True,
+    default=False,
+    help="Remove config files without a linked account.",
+)
+def config_files(clean: bool) -> None:
 
     from .daemon import is_running
     from .config import (
@@ -1077,37 +1193,43 @@ def configs() -> None:
         remove_configuration,
     )
 
-    # clean up stale configs
-    config_names = list_configs()
+    if clean:
 
-    for name in config_names:
-        dbid = MaestralConfig(name).get("account", "account_id")
-        if dbid == "" and not is_running(name):
-            remove_configuration(name)
+        # Clean up stale config files.
 
-    # display remaining configs
-    names = list_configs()
-    emails = [MaestralState(c).get("account", "email") for c in names]
+        for name in list_configs():
+            conf = MaestralConfig(name)
+            path = conf.get_config_fpath()
+            dbid = conf.get("account", "account_id")
 
-    table = cli.Table([cli.Column("Config name", names), cli.Column("Account", emails)])
+            if dbid == "" and not is_running(name):
+                remove_configuration(name)
+                cli.echo(f"Removed: {path}")
 
-    cli.echo("")
-    table.echo()
-    cli.echo("")
+    else:
+        # Display config files.
+        names = list_configs()
+        emails = []
+        paths = []
 
+        for name in names:
+            config = MaestralConfig(name)
+            state = MaestralState(name)
 
-@main.command(
-    section="Information", help="Return the version number and other information."
-)
-def about() -> None:
+            emails.append(state.get("account", "email"))
+            paths.append(config.get_config_fpath())
 
-    year = time.localtime().tm_year
+        table = cli.Table(
+            [
+                cli.Column("Config name", names),
+                cli.Column("Account", emails),
+                cli.Column("Path", paths, elide=cli.Elide.Leading),
+            ]
+        )
 
-    cli.echo("")
-    cli.echo(f"Version:    {__version__}")
-    cli.echo(f"Website:    {__url__}")
-    cli.echo(f"Copyright:  (c) 2018-{year}, {__author__}.")
-    cli.echo("")
+        cli.echo("")
+        table.echo()
+        cli.echo("")
 
 
 # ======================================================================================
@@ -1162,6 +1284,7 @@ def excluded():
 @excluded.command(name="list", help="List all excluded files and folders.")
 @existing_config_option
 def excluded_list(config_name: str) -> None:
+
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
@@ -1180,10 +1303,11 @@ def excluded_list(config_name: str) -> None:
     name="add",
     help="Add a file or folder to the excluded list and re-sync.",
 )
-@click.argument("dropbox_path", type=click.Path())
+@click.argument("dropbox_path", type=DropboxPath())
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def excluded_add(dropbox_path: str, config_name: str) -> None:
+
     from .daemon import MaestralProxy
 
     if not dropbox_path.startswith("/"):
@@ -1207,11 +1331,12 @@ not be downloaded again. If the given path lies inside an excluded folder, the p
 folder will be included as well (but no other items inside it).
 """,
 )
-@click.argument("dropbox_path", type=click.Path())
+@click.argument("dropbox_path", type=DropboxPath())
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def excluded_remove(dropbox_path: str, config_name: str) -> None:
-    from .daemon import MaestralProxy
+
+    from .daemon import MaestralProxy, CommunicationError
 
     if not dropbox_path.startswith("/"):
         dropbox_path = "/" + dropbox_path
@@ -1224,7 +1349,7 @@ def excluded_remove(dropbox_path: str, config_name: str) -> None:
             m.include_item(dropbox_path)
             cli.ok(f"Included '{dropbox_path}'. Now downloading...")
 
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         raise cli.CliException("Daemon must be running to download folders.")
 
 
@@ -1240,20 +1365,20 @@ def notify():
 @click.argument(
     "level_name",
     required=False,
-    type=click.Choice(["ERROR", "SYNCISSUE", "FILECHANGE"]),
+    type=click.Choice(["ERROR", "SYNCISSUE", "FILECHANGE"], case_sensitive=False),
 )
 @existing_config_option
 def notify_level(level_name: str, config_name: str) -> None:
 
-    from .notify import MaestralDesktopNotifier as Notifier
+    from . import notify as _notify
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
         if level_name:
-            m.notification_level = Notifier.level_name_to_number(level_name)
+            m.notification_level = _notify.level_name_to_number(level_name)
             cli.ok(f"Notification level set to {level_name}.")
         else:
-            level_name = Notifier.level_number_to_name(m.notification_level)
+            level_name = _notify.level_number_to_name(m.notification_level)
             cli.echo(f"Notification level: {level_name}.")
 
 
@@ -1264,52 +1389,21 @@ def notify_level(level_name: str, config_name: str) -> None:
 @click.argument("minutes", type=click.IntRange(min=0))
 @existing_config_option
 def notify_snooze(minutes: int, config_name: str) -> None:
-    from .daemon import MaestralProxy
+
+    from .daemon import MaestralProxy, CommunicationError
 
     try:
         with MaestralProxy(config_name) as m:
             m.notification_snooze = minutes
-    except Pyro5.errors.CommunicationError:
+    except CommunicationError:
         cli.echo("Maestral daemon is not running.")
     else:
         if minutes > 0:
             cli.ok(
-                f"Notifications snoozed for {minutes} min. " "Set snooze to 0 to reset."
+                f"Notifications snoozed for {minutes} min. Set snooze to 0 to reset."
             )
         else:
             cli.ok("Notifications enabled.")
-
-
-@main.command(
-    section="Settings",
-    help="""
-Enable or disables sharing of error reports.
-
-Sharing is disabled by default. If enabled, error reports are shared with bugsnag and no
-personal information will typically be collected. Shared tracebacks may however include
-file names, depending on the error.
-""",
-)
-@click.option("--yes", "-Y", is_flag=True, default=False)
-@click.option("--no", "-N", is_flag=True, default=False)
-@existing_config_option
-def analytics(yes: bool, no: bool, config_name: str) -> None:
-    from .daemon import MaestralProxy
-
-    if yes or no:
-        with MaestralProxy(config_name, fallback=True) as m:
-            m.analytics = yes
-
-        status_str = "Enabled" if yes else "Disabled"
-        cli.ok(f"{status_str} automatic error reports.")
-    else:
-        with MaestralProxy(config_name, fallback=True) as m:
-            enabled = m.analytics
-
-        if enabled:
-            cli.echo("Analytics are enabled. Use -N to disable")
-        else:
-            cli.echo("Analytics are disabled. Use -Y to enable")
 
 
 # ======================================================================================
@@ -1321,6 +1415,7 @@ def analytics(yes: bool, no: bool, config_name: str) -> None:
 @click.argument("new_path", required=False, type=click.Path(writable=True))
 @existing_config_option
 def move_dir(new_path: str, config_name: str) -> None:
+
     from .daemon import MaestralProxy
 
     new_path = new_path or select_dbx_path_dialog(config_name)
@@ -1340,7 +1435,7 @@ Rebuilding may take several minutes, depending on the size of your Dropbox.
 """,
 )
 @existing_config_option
-@catch_maestral_errors
+@convert_py_errors
 def rebuild_index(config_name: str) -> None:
 
     import textwrap
@@ -1366,9 +1461,188 @@ def rebuild_index(config_name: str) -> None:
             m.rebuild_index()
 
             if m._is_fallback:
-                cli.ok("Rebuilding now. Run 'maestral status' to view progress.")
-            else:
                 cli.ok("Daemon is not running. Rebuilding scheduled for next startup.")
+            else:
+                cli.ok("Rebuilding now. Run 'maestral status' to view progress.")
+
+
+@main.command(section="Maintenance", help="List old file revisions.")
+@click.argument("dropbox_path", type=DropboxPath())
+@click.option(
+    "-l",
+    "--limit",
+    help="Maximum number of revs to list.",
+    show_default=True,
+    type=click.IntRange(min=1, max=100),
+    default=10,
+)
+@existing_config_option
+@convert_py_errors
+def revs(dropbox_path: str, limit: int, config_name: str) -> None:
+
+    from .daemon import MaestralProxy
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        entries = m.list_revisions(dropbox_path, limit=limit)
+
+    table = cli.Table(["Revision", "Modified Time"])
+
+    for entry in entries:
+
+        rev = cast(str, entry["rev"])
+        dt = _datetime_from_iso_str(cast(str, entry["client_modified"]))
+
+        table.append([cli.TextField(rev), cli.DateField(dt)])
+
+    cli.echo("")
+    table.echo()
+    cli.echo("")
+
+
+@main.command(
+    section="Maintenance",
+    help="""
+Compare two revisions of a file.
+
+If no revs are passed to the command, you can select the revisions interactively. If
+only one rev is passed, it is compared to the local version of the file. The diff is
+shown via a pager if longer 30 lines.
+
+Warning: The specified revisions will be downloaded to temp files and loaded into memory
+to generate the diff. Depending on the file size, this may use significant disk space
+and memory.
+""",
+)
+@click.argument("dropbox_path", type=DropboxPath())
+@click.option(
+    "-v",
+    "--rev",
+    help="Revisions to compare (multiple allowed).",
+    multiple=True,
+    default=[],
+)
+@click.option("--no-color", help="Don't use colors for the diff.", is_flag=True)
+@click.option("--no-pager", help="Don't use a pager for output.", is_flag=True)
+@click.option(
+    "-l",
+    "--limit",
+    help="Maximum number of revs to list.",
+    show_default=True,
+    type=click.IntRange(min=1, max=100),
+    default=10,
+)
+@convert_py_errors
+@existing_config_option
+def diff(
+    dropbox_path: str,
+    rev: List[str],
+    no_color: bool,
+    no_pager: bool,
+    limit: int,
+    config_name: str,
+) -> None:
+
+    from .daemon import MaestralProxy
+
+    # Reason for rel_dbx_path: os.path.join does not like leading /
+    if not dropbox_path.startswith("/"):
+        dropbox_path = "/" + dropbox_path
+
+    def download_and_compare(
+        m: MaestralProxy, old_rev: str, new_rev: Optional[str] = None
+    ) -> None:
+        """
+        Download up to two revisions to a local temporary folder
+        and compare them with a 'diff'. Only text files are supported.
+        If an unknown file type was found, everything that doesn't match
+        'text/*', an error message gets printed.
+        """
+
+        diff = m.get_file_diff(old_rev, new_rev)
+
+        if len(diff) == 0:
+            click.echo("There are no changes between the two revisions.")
+            return
+
+        def color(ind: int, line: str) -> str:
+            """
+            Color diff lines.
+            Inspiration for colors was taken from the
+            well known command 'git diff'.
+            """
+
+            if ind < 2:
+                line = click.style(line, bold=True)
+            elif line.startswith("+"):
+                line = click.style(line, fg="green")
+            elif line.startswith("-"):
+                line = click.style(line, fg="red")
+            # Don't highlight these in the intro
+            elif line.startswith("@@ "):
+                line = click.style(line, fg="cyan")
+            return line
+
+        # Color the lines
+        if not no_color:
+            diff = [color(i, l) for i, l in enumerate(diff)]
+
+        # Enter pager if diff is too long
+        if len(diff) > 30 and not no_pager:
+            click.echo_via_pager("".join(diff))
+        else:
+            click.echo("".join(diff))
+
+    with MaestralProxy(config_name, fallback=True) as m:
+        if len(rev) == 0:
+            entries = m.list_revisions(dropbox_path, limit=limit)
+
+            for entry in entries:
+                cm = cast(str, entry["client_modified"])
+                field = cli.DateField(_datetime_from_iso_str(cm))
+                entry["desc"] = field.format(40)[0]
+
+            dbx_path = cast(str, entries[0]["path_display"])
+            local_path = m.to_local_path(dbx_path)
+
+            if osp.isfile(local_path):
+                # prepend local version as an option
+                entries.insert(0, {"desc": "local version", "rev": None})
+
+            index_base = cli.select(
+                message="New revision:",
+                options=list(e["desc"] for e in entries),
+                hint="(↓ to see more)" if len(entries) > 6 else "",
+            )
+
+            if index_base == len(entries) - 1:
+                cli.warn(
+                    "Oldest revision selected, unable to find anything to compare."
+                )
+                return
+
+            comparable_versions = entries[index_base + 1 :]
+            index_new = cli.select(
+                message="Old revision:",
+                options=list(e["desc"] for e in comparable_versions),
+                hint="(↓ to see more)" if len(comparable_versions) > 6 else "",
+            )
+
+            old_rev = entries[index_new + index_base]["rev"]
+            new_rev = entries[index_base]["rev"]
+        elif len(rev) == 1:
+            old_rev = rev[0]
+            new_rev = None
+        elif len(rev) == 2:
+            old_rev = rev[0]
+            new_rev = rev[1]
+        elif len(rev) > 2:
+            cli.warn("You can only compare two revisions at a time.")
+            return
+
+        # '\r' will put the cursor to the beginning of the line
+        # so the next characters will overwrite it
+        click.echo("Loading ...\r", nl=False)
+        download_and_compare(m, old_rev, new_rev)
 
 
 @main.command(
@@ -1379,12 +1653,20 @@ Restore a previous version of a file.
 If no revision number is given, old revisions will be listed.
 """,
 )
-@click.argument("dropbox_path", type=click.Path())
-@click.option("-v", "--rev", help="Revision to restore", default="")
+@click.argument("dropbox_path", type=DropboxPath())
+@click.option("-v", "--rev", help="Revision to restore.", default="")
+@click.option(
+    "-l",
+    "--limit",
+    help="Maximum number of revs to list.",
+    show_default=True,
+    type=click.IntRange(min=1, max=100),
+    default=10,
+)
 @existing_config_option
-@catch_maestral_errors
-def restore(dropbox_path: str, rev: str, config_name: str) -> None:
-    from datetime import datetime
+@convert_py_errors
+def restore(dropbox_path: str, rev: str, limit: int, config_name: str) -> None:
+
     from .daemon import MaestralProxy
 
     if not dropbox_path.startswith("/"):
@@ -1394,12 +1676,11 @@ def restore(dropbox_path: str, rev: str, config_name: str) -> None:
 
         if not rev:
             cli.echo("Loading...\r", nl=False)
-            entries = m.list_revisions(dropbox_path)
+            entries = m.list_revisions(dropbox_path, limit=limit)
             dates = []
             for entry in entries:
                 cm = cast(str, entry["client_modified"])
-                dt = datetime.strptime(cm, "%Y-%m-%dT%H:%M:%S%z").astimezone()
-                field = cli.DateField(dt)
+                field = cli.DateField(_datetime_from_iso_str(cm))
                 dates.append(field.format(40)[0])
 
             index = cli.select(
@@ -1477,7 +1758,7 @@ def log_clear(config_name: str) -> None:
 @click.argument(
     "level_name",
     required=False,
-    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"], case_sensitive=False),
 )
 @existing_config_option
 def log_level(level_name: str, config_name: str) -> None:
@@ -1492,3 +1773,107 @@ def log_level(level_name: str, config_name: str) -> None:
         else:
             level_name = logging.getLevelName(m.log_level)
             cli.echo(f"Log level: {level_name}")
+
+
+@main.group(
+    section="Maintenance",
+    help="""
+Direct access to config values.
+
+Warning: Changing some config values must be accompanied by maintenance tasks. For
+example, changing the config value for the Dropbox location needs to be accompanied by
+actually moving the folder. This command only gets / sets the value in the config file.
+Most changes will also require a restart of the daemon to become effective.
+
+Use the commands from the Settings section instead wherever possible. They will take
+effect immediately, perform accompanying tasks for you, and never leave the daemon in an
+inconsistent state.
+
+Currently available config keys are:
+
+\b
+- path: the location of the local Dropbox folder
+- excluded_items: list of files or folders excluded by selective sync
+- account_id: the ID of the linked Dropbox account
+- notification_level: the level for desktop notifications
+- log_level: the log level.
+- update_notification_interval: interval in secs to check for updates
+- keyring: the keyring backend to use (full path of the class)
+- reindex_interval: the interval in seconds for full reindexing
+- max_cpu_percent: maximum CPU usage target per core
+- keep_history: the sync history to keep in seconds
+- upload: if upload sync is enabled
+- download: if download sync is enabled
+""",
+)
+def config():
+    pass
+
+
+@config.command(name="get", help="Print the value of a given configuration key.")
+@click.argument("key")
+@config_option
+def config_get(key: str, config_name: str) -> None:
+
+    from .config import MaestralConfig
+    from .config.main import DEFAULTS_CONFIG
+    from .daemon import MaestralProxy, CommunicationError
+
+    section = next(
+        iter(s for s, conf_dict in DEFAULTS_CONFIG if key in conf_dict), None
+    )
+
+    if not section:
+        raise cli.CliException(f"'{key}' is not a valid configuration key.")
+
+    try:
+        with MaestralProxy(config_name) as m:
+            value = m.get_conf(section, key)
+    except CommunicationError:
+        value = MaestralConfig(config_name).get(section, key)
+
+    cli.echo(value)
+
+
+@config.command(
+    name="set",
+    help="""
+Update configuration with a value for the given key.
+
+Values will be cast to the proper type, raising an error where this is not possibly. For
+instance, setting a boolean config value to 1 will actually set it to True.
+""",
+)
+@click.argument("key")
+@click.argument("value")
+@config_option
+@convert_py_errors
+def config_set(key: str, value: str, config_name: str) -> None:
+
+    import ast
+    from .config import MaestralConfig
+    from .config.main import DEFAULTS_CONFIG
+    from .daemon import MaestralProxy, CommunicationError
+
+    section, defaults = next(
+        iter((s, d) for s, d in DEFAULTS_CONFIG if key in d), (None, None)
+    )
+
+    if not section or not defaults:
+        raise cli.CliException(f"'{key}' is not a valid configuration key.")
+
+    default_value = defaults[key]
+
+    if isinstance(default_value, str):
+        py_value = value
+    else:
+        try:
+            py_value = ast.literal_eval(value)
+        except (SyntaxError, ValueError):
+            py_value = value
+
+    try:
+        with MaestralProxy(config_name) as m:
+            m.set_conf(section, key, py_value)
+    except CommunicationError:
+        MaestralConfig(config_name).set(section, key, py_value)

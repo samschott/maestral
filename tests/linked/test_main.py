@@ -1,19 +1,24 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import os
 import os.path as osp
+import shutil
+import requests
+import subprocess
 
 import pytest
 
-from maestral.errors import NotFoundError
+from maestral.errors import NotFoundError, UnsupportedFileTypeForDiff, SharedLinkError
 from maestral.main import FileStatus, IDLE
 from maestral.main import logger as maestral_logger
 from maestral.utils.path import delete
+from maestral.utils.integration import get_inotify_limits
 
-from .conftest import wait_for_idle
+from .conftest import wait_for_idle, resources
 
 
-if not os.environ.get("DROPBOX_TOKEN"):
+if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.environ):
     pytest.skip("Requires auth token", allow_module_level=True)
 
 
@@ -28,7 +33,6 @@ def test_status_properties(m):
     assert m.status == IDLE
     assert m.running
     assert m.connected
-    assert m.syncing
     assert not m.paused
     assert not m.sync_errors
     assert not m.fatal_errors
@@ -49,16 +53,16 @@ def test_file_status(m):
 
     # test unwatched non-existent
     file_status = m.get_file_status("/this is not a folder")
-    assert file_status == FileStatus.Unwatched.value, file_status
+    assert file_status == FileStatus.Unwatched.value
 
     # test unwatched when paused
-    m.pause_sync()
+    m.stop_sync()
     wait_for_idle(m)
 
     file_status = m.get_file_status(m.test_folder_local)
     assert file_status == FileStatus.Unwatched.value
 
-    m.resume_sync()
+    m.start_sync()
     wait_for_idle(m)
 
     # test error status
@@ -81,7 +85,7 @@ def test_move_dropbox_folder(m):
     wait_for_idle(m)
 
     # assert that sync was resumed after moving folder
-    assert m.syncing
+    assert m.running
 
 
 def test_move_dropbox_folder_to_itself(m):
@@ -89,7 +93,7 @@ def test_move_dropbox_folder_to_itself(m):
     m.move_dropbox_directory(m.dropbox_path)
 
     # assert that sync is still running
-    assert m.syncing
+    assert m.running
 
 
 def test_move_dropbox_folder_to_existing(m):
@@ -104,7 +108,7 @@ def test_move_dropbox_folder_to_existing(m):
             m.move_dropbox_directory(new_dir)
 
         # assert that sync is still running
-        assert m.syncing
+        assert m.running
 
     finally:
         # cleanup
@@ -205,3 +209,177 @@ def test_selective_sync_api_nested(m):
 
     # check for fatal errors
     assert not m.fatal_errors
+
+
+def test_create_file_diff(m):
+    """Tests file diffs for supported and unsupported files."""
+
+    def write_and_get_rev(dbx_path, content, o="w"):
+        """
+        Open the dbx_path locally and write the content to the string.
+        If it should append something, you can set 'o = "a"'.
+        """
+
+        local_path = m.to_local_path(dbx_path)
+        with open(local_path, o) as f:
+            f.write(content)
+        wait_for_idle(m)
+        return m.client.get_metadata(dbx_path).rev
+
+    dbx_path_success = "/sync_tests/file.txt"
+    dbx_path_fail_pdf = "/sync_tests/diff.pdf"
+    dbx_path_fail_ext = "/sync_tests/bin.txt"
+
+    with pytest.raises(UnsupportedFileTypeForDiff):
+        # Write some dummy stuff to create two revs
+        old_rev = write_and_get_rev(dbx_path_fail_pdf, "old")
+        new_rev = write_and_get_rev(dbx_path_fail_pdf, "new")
+        m.get_file_diff(old_rev, new_rev)
+
+    with pytest.raises(UnsupportedFileTypeForDiff):
+        # Add a compiled helloworld c file with .txt extension
+        shutil.copy(resources + "/bin.txt", m.test_folder_local)
+        wait_for_idle(m)
+        old_rev = m.client.get_metadata(dbx_path_fail_ext).rev
+        # Just some bytes
+        new_rev = write_and_get_rev(dbx_path_fail_ext, "hi".encode(), o="ab")
+        m.get_file_diff(old_rev, new_rev)
+
+    old_rev = write_and_get_rev(dbx_path_success, "old")
+    new_rev = write_and_get_rev(dbx_path_success, "new")
+    # If this does not raise an error,
+    # the function should have been successful
+    _ = m.get_file_diff(old_rev, new_rev)
+
+
+def test_restore(m):
+    """Tests restoring an old revision"""
+
+    dbx_path = "/sync_tests/file.txt"
+    local_path = m.to_local_path(dbx_path)
+
+    # create a local file and sync it, remember its rev
+    with open(local_path, "w") as f:
+        f.write("old content")
+
+    wait_for_idle(m)
+
+    old_md = m.client.get_metadata(dbx_path)
+
+    # modify the file and sync it
+    with open(local_path, "w") as f:
+        f.write("new content")
+
+    wait_for_idle(m)
+
+    new_md = m.client.get_metadata(dbx_path)
+
+    assert new_md.content_hash == m.sync.get_local_hash(local_path)
+
+    # restore the old rev
+
+    m.restore(dbx_path, old_md.rev)
+    wait_for_idle(m)
+
+    with open(local_path) as f:
+        restored_content = f.read()
+
+    assert restored_content == "old content"
+
+
+def test_restore_failed(m):
+    """Tests restoring a non-existing file"""
+
+    with pytest.raises(NotFoundError):
+        m.restore("/sync_tests/restored-file", "015982ea314dac40000000154e40990")
+
+
+def test_sharedlink_lifecycle(m):
+
+    # create a folder to share
+    dbx_path = "/sync_tests/shared_folder"
+    m.client.make_dir(dbx_path)
+
+    # test creating a shared link
+    link_data = m.create_shared_link(dbx_path)
+
+    resp = requests.get(link_data["url"])
+    assert resp.status_code == 200
+
+    links = m.list_shared_links(dbx_path)
+    assert link_data in links
+
+    # test revoking a shared link
+    m.revoke_shared_link(link_data["url"])
+    links = m.list_shared_links(dbx_path)
+    assert link_data not in links
+
+
+def test_sharedlink_errors(m):
+
+    dbx_path = "/sync_tests/shared_folder"
+    m.client.make_dir(dbx_path)
+
+    # test creating a shared link with password, no password provided
+    with pytest.raises(ValueError):
+        m.create_shared_link(dbx_path, visibility="password")
+
+    # test creating a shared link with password fails on basic account
+    account_info = m.get_account_info()
+
+    if account_info["account_type"][".tag"] == "basic":
+        with pytest.raises(SharedLinkError):
+            m.create_shared_link(dbx_path, visibility="password", password="secret")
+
+    # test creating a shared link with the same settings as an existing link
+    m.create_shared_link(dbx_path)
+
+    with pytest.raises(SharedLinkError):
+        m.create_shared_link(dbx_path)
+
+    # test creating a shared link with an invalid path
+    with pytest.raises(NotFoundError):
+        m.create_shared_link("/this_is_not_a_file.txt")
+
+    # test listing shared links for an invalid path
+    with pytest.raises(NotFoundError):
+        m.list_shared_links("/this_is_not_a_file.txt")
+
+    # test revoking a non existent link
+    with pytest.raises(NotFoundError):
+        m.revoke_shared_link("https://www.dropbox.com/sh/48r2qxq748jfk5x/AAAS-niuW")
+
+    # test revoking a malformed link
+    with pytest.raises(SharedLinkError):
+        m.revoke_shared_link("https://www.testlink.de")
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="inotify specific test")
+@pytest.mark.skipif(os.getenv("CI", False) is False, reason="Only running on CI")
+def test_inotify_error(m):
+
+    max_user_watches, max_user_instances, _ = get_inotify_limits()
+
+    try:
+        subprocess.check_call(["sudo", "sysctl", "-w", "fs.inotify.max_user_watches=1"])
+    except subprocess.CalledProcessError:
+        return
+
+    try:
+        m.stop_sync()
+        wait_for_idle(m)
+        m.start_sync()
+
+        assert len(m.fatal_errors) > 0
+
+        last_error = m.fatal_errors[-1]
+
+        assert last_error["type"] == "InotifyError"
+        assert not m.monitor.local_observer_thread.is_alive()
+        assert m.monitor.upload_thread.is_alive()
+        assert m.monitor.download_thread.is_alive()
+
+    finally:
+        subprocess.check_call(
+            ["sudo", "sysctl", "-w", f"fs.inotify.max_user_watches={max_user_watches}"]
+        )

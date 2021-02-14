@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.abspath("../src"))
 # -- Project information ---------------------------------------------------------------
 
 author = "Sam Schott"
-version = "1.3.1"
+version = "1.4.0.dev0"
 release = version
 project = "Maestral"
 title = "Maestral API Documentation"
@@ -55,7 +55,6 @@ autoapi_dirs = ["../src/maestral"]
 autoapi_options = [
     "members",
     "show-inheritance",
-    "show-module-summary",
     "undoc-members",
 ]
 autoapi_add_toctree_entry = False
@@ -72,5 +71,5 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "requests": ("https://requests.readthedocs.io/en/master/", None),
     "sqlalchemy": ("https://docs.sqlalchemy.org/en/latest/", None),
-    "watchdog": ("https://python-watchdog.readthedocs.io/en/v0.10.3/", None),
+    "watchdog": ("https://python-watchdog.readthedocs.io/en/latest/", None),
 }

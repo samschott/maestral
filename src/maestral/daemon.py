@@ -9,18 +9,17 @@ import sys
 import os
 import time
 import signal
-import traceback
 import enum
 import subprocess
-from shlex import quote
 import threading
 import fcntl
 import struct
 import tempfile
 import logging
 import warnings
+from shlex import quote
 from typing import Optional, Any, Union, Tuple, Dict, Iterable, Type, TYPE_CHECKING
-from types import TracebackType, FrameType
+from types import TracebackType
 
 # external imports
 import Pyro5  # type: ignore
@@ -48,6 +47,7 @@ __all__ = [
     "sockpath_for_config",
     "lockpath_for_config",
     "is_running",
+    "set_executable",
     "start_maestral_daemon",
     "start_maestral_daemon_process",
     "stop_maestral_daemon_process",
@@ -71,6 +71,24 @@ IS_WATCHDOG = WATCHDOG_USEC and (
 
 URI = "PYRO:maestral.{0}@{1}"
 Pyro5.config.THREADPOOL_SIZE_MIN = 2
+
+if FROZEN and IS_MACOS:
+    EXECUTABLE = [sys.executable, "--run-python", "-OO"]
+else:
+    EXECUTABLE = [sys.executable, "-OO"]
+
+
+def set_executable(executable: str, *argv: str) -> None:
+    """
+    Sets the path of the Python executable to use when starting the daemon. By default
+    :obj:`sys.executable` is used. Can be used when embedding the daemon.
+
+    :param executable: Path to custom Python executable.
+    :param argv: Any command line arguments to be injected before the daemon startup
+        command. By default, "-OO" will be used.
+    """
+    global EXECUTABLE
+    EXECUTABLE = [executable, *argv]
 
 
 class Stop(enum.Enum):
@@ -282,10 +300,6 @@ class Lock:
 # ==== helpers for daemon management ===================================================
 
 
-def _sigterm_handler(signal_number: int, frame: FrameType) -> None:
-    sys.exit()
-
-
 def _send_term(pid: int) -> None:
     try:
         os.kill(pid, signal.SIGTERM)
@@ -342,26 +356,32 @@ def is_running(config_name: str) -> bool:
     return maestral_lock(config_name).locked()
 
 
-def _wait_for_startup(config_name: str, timeout: float = 8) -> Start:
+def _wait_for_startup(config_name: str, timeout: float) -> None:
     """
-    Checks if we can communicate with the maestral daemon. Returns :attr:`Start.Ok` if
-    communication succeeds within timeout, :attr:`Start.Failed` otherwise.
+    Waits until we can communicate with the maestral daemon for ``config_name``.
+
+    :param config_name: Configuration to connect to.
+    :param timeout: Timeout it seconds until we raise an error.
+    :raises CommunicationError: if we cannot communicate with the daemon within the
+        given timeout.
     """
 
     sock_name = sockpath_for_config(config_name)
     maestral_daemon = Proxy(URI.format(config_name, "./u:" + sock_name))
 
-    while timeout > 0:
+    t0 = time.time()
+
+    while True:
         try:
             maestral_daemon._pyroBind()
-            return Start.Ok
-        except Exception:
-            time.sleep(0.2)
-            timeout -= 0.2
+            return
+        except Exception as exc:
+            if time.time() - t0 > timeout:
+                raise exc
+            else:
+                time.sleep(0.2)
         finally:
             maestral_daemon._pyroRelease()
-
-    return Start.Failed
 
 
 # ==== main functions to manage daemon =================================================
@@ -383,12 +403,17 @@ def start_maestral_daemon(
 
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stdout: If ``True``, write logs to stdout.
-    :param start_sync: If ``True``, start syncing once the daemon has started.
+    :param start_sync: If ``True``, start syncing once the daemon has started. If the
+        ``start_sync`` call fails, an error will be logged but not raised.
     :raises RuntimeError: if a daemon for the given ``config_name`` is already running.
     """
 
     import asyncio
+    from . import notify
     from .main import Maestral
+
+    if log_to_stdout:
+        logger.setLevel(logging.DEBUG)
 
     if threading.current_thread() is not threading.main_thread():
         raise RuntimeError("Must run daemon in main thread")
@@ -396,15 +421,14 @@ def start_maestral_daemon(
     # acquire PID lock file
     lock = maestral_lock(config_name)
 
-    if not lock.acquire():
+    if lock.acquire():
+        logger.debug("Acquired daemon lock")
+    else:
         raise RuntimeError("Maestral daemon is already running")
 
     # Nice ourselves to give other processes priority. We will likely only
     # have significant CPU usage in case of many concurrent downloads.
     os.nice(10)
-
-    # catch sigterm and shut down gracefully
-    signal.signal(signal.SIGTERM, _sigterm_handler)
 
     # integrate with CFRunLoop in macOS, only works in main thread
     if sys.platform == "darwin":
@@ -466,7 +490,7 @@ def start_maestral_daemon(
 
     # get socket for config name
     sockpath = sockpath_for_config(config_name)
-    logger.debug(f"Socket path for '{config_name}' daemon: '{sockpath}'")
+    logger.debug(f"Socket path: '{sockpath}'")
 
     # clean up old socket
     try:
@@ -483,15 +507,19 @@ def start_maestral_daemon(
 
     ExposedMaestral.start_sync = oneway(ExposedMaestral.start_sync)
     ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
-    ExposedMaestral.pause_sync = oneway(ExposedMaestral.pause_sync)
-    ExposedMaestral.resume_sync = oneway(ExposedMaestral.resume_sync)
     ExposedMaestral.shutdown_daemon = oneway(ExposedMaestral.shutdown_daemon)
 
     maestral_daemon = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
 
     if start_sync:
-        logger.debug("Starting sync")
-        maestral_daemon.start_sync()
+
+        try:
+            maestral_daemon.start_sync()
+        except Exception as exc:
+            title = getattr(exc, "title", "Failed to start sync")
+            message = getattr(exc, "message", "Please inspect the logs")
+            logger.error(title, exc_info=True)
+            maestral_daemon.sync.notify(title, message, level=notify.ERROR)
 
     try:
 
@@ -508,6 +536,11 @@ def start_maestral_daemon(
             for socket in daemon.sockets:
                 loop.add_reader(socket.fileno(), daemon.events, daemon.sockets)
 
+            # handle sigterm gracefully
+            signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
+            for s in signals:
+                loop.add_signal_handler(s, maestral_daemon.shutdown_daemon)
+
             loop.run_until_complete(maestral_daemon.shutdown_complete)
 
             for socket in daemon.sockets:
@@ -516,8 +549,8 @@ def start_maestral_daemon(
             # prevent housekeeping from blocking shutdown
             daemon.transportServer.housekeeper = None
 
-    except Exception:
-        traceback.print_exc()
+    except Exception as exc:
+        logger.error(exc.args[0], exc_info=True)
     finally:
 
         if NOTIFY_SOCKET:
@@ -527,21 +560,18 @@ def start_maestral_daemon(
 
 def start_maestral_daemon_process(
     config_name: str = "maestral",
-    log_to_stdout: bool = False,
     start_sync: bool = False,
-    detach: bool = True,
+    timeout: int = 5,
 ) -> Start:
     """
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
     Startup is race free: there will never be two daemons running for the same config.
-    This function requires that :obj:`sys.executable` points to a Python executable and
-    therefore may not work for "frozen" apps.
+    This function will use :obj:`sys.executable` as a Python executable to start the
+    daemon. Use :func:`set_executable` to use a custom executable instead.
 
     :param config_name: The name of the Maestral configuration to use.
-    :param log_to_stdout: If ``True``, write logs to stdout.
     :param start_sync: If ``True``, start syncing once the daemon has started.
-    :param detach: If ``True``, the daemon process will be detached. If ``False``,
-        the daemon processes will run in the same session as the current process.
+    :param timeout: Time in sec to wait for daemon to start.
     :returns: :attr:`Start.Ok` if successful, :attr:`Start.AlreadyRunning` if the daemon
         was already running or :attr:`Start.Failed` if startup failed. It is possible
         that :attr:`Start.Ok` may be returned instead of :attr:`Start.AlreadyRunning`
@@ -551,38 +581,43 @@ def start_maestral_daemon_process(
     if is_running(config_name):
         return Start.AlreadyRunning
 
-    if detach:
+    # protect against injection
+    cc = quote(config_name).strip("'")
+    start_sync = bool(start_sync)
 
-        # protect against injection
-        cc = quote(config_name).strip("'")
-        std_log = bool(log_to_stdout)
-        start_sync = bool(start_sync)
+    script = (
+        f"import maestral.daemon; "
+        f'maestral.daemon.start_maestral_daemon("{cc}", start_sync={start_sync})'
+    )
 
-        script = (
-            f"import maestral.daemon; "
-            f'maestral.daemon.start_maestral_daemon("{cc}", {std_log}, {start_sync})'
+    cmd = [*EXECUTABLE, "-c", script]
+
+    process = subprocess.Popen(
+        cmd,
+        start_new_session=True,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    try:
+        _wait_for_startup(config_name, timeout=timeout)
+    except Exception as exc:
+        logger.debug(
+            "Could not communicate with daemon",
+            exc_info=(type(exc), exc, exc.__traceback__),
         )
 
-        if FROZEN and IS_MACOS:
-            cmd = [sys.executable, "--run-python", "-OO", "-c", script]
+        # let's check what the daemon has been doing
+        returncode = process.poll()
+        if returncode is None:
+            logger.debug("Daemon is running but not responsive, killing now")
+            process.terminate()  # make sure we don't leave a stray process
         else:
-            cmd = [sys.executable, "-OO", "-c", script]
-
-        subprocess.Popen(cmd, start_new_session=True)
-
+            logger.debug("Daemon stopped with return code %s", returncode)
+        return Start.Failed
     else:
-        import multiprocessing as mp
-
-        ctx = mp.get_context("spawn" if IS_MACOS else "fork")
-
-        ctx.Process(
-            target=start_maestral_daemon,
-            args=(config_name, log_to_stdout, start_sync),
-            name="maestral-daemon",
-            daemon=True,
-        ).start()
-
-    return _wait_for_startup(config_name)
+        return Start.Ok
 
 
 def stop_maestral_daemon_process(

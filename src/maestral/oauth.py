@@ -11,7 +11,7 @@ from datetime import datetime
 
 # external imports
 import keyring.backends  # type: ignore
-import keyring.backends.OS_X  # type: ignore
+import keyring.backends.macOS  # type: ignore
 import keyring.backends.SecretService  # type: ignore
 import keyring.backends.kwallet  # type: ignore
 from keyring.backend import KeyringBackend  # type: ignore
@@ -33,7 +33,7 @@ __all__ = ["OAuth2Session"]
 logger = logging.getLogger(__name__)
 
 supported_keyring_backends = (
-    keyring.backends.OS_X.Keyring,
+    keyring.backends.macOS.Keyring,
     keyring.backends.SecretService.Keyring,
     keyring.backends.kwallet.DBusKeyring,
     keyring.backends.kwallet.DBusKeyringKWallet4,
@@ -114,13 +114,24 @@ class OAuth2Session:
             self._state.get("account", "token_access_type") or None
         )
 
-        self.keyring = self._get_keyring_backend()
-
         # defer keyring access until token requested by user
         self.loaded = False
+        self._keyring: Optional[KeyringBackend] = None
         self._access_token: Optional[str] = None
         self._refresh_token: Optional[str] = None
         self._expires_at: Optional[datetime] = None
+
+    @property
+    def keyring(self) -> KeyringBackend:
+
+        if not self._keyring:
+            self._keyring = self._get_keyring_backend()
+
+        return self._keyring
+
+    @keyring.setter
+    def keyring(self, ring: KeyringBackend) -> None:
+        self._keyring = ring
 
     def _get_keyring_backend(self) -> KeyringBackend:
         """

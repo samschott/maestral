@@ -4,7 +4,6 @@ This module contains the default configuration and state values and functions to
 existing config or state instances for a specified config_name.
 """
 
-import copy
 import logging
 import threading
 from typing import Dict
@@ -21,12 +20,11 @@ CONFIG_DIR_NAME = "maestral"
 #  Defaults
 # =============================================================================
 
-DEFAULTS_CONFIG = [
+DEFAULTS_CONFIG: DefaultsType = [
     (
         "main",
         {
             "path": "",  # dropbox folder location
-            "default_dir_name": "Dropbox (Maestral)",  # default dropbox folder name
             "excluded_items": [],  # files and folders excluded from sync
         },
     ),
@@ -39,24 +37,25 @@ DEFAULTS_CONFIG = [
     (
         "app",
         {
-            "notification_level": 15,  # desktop notification level, default to FILECHANGE
-            "log_level": 20,  # log level for journal and file, default to INFO
-            "update_notification_interval": 60 * 60 * 24 * 7,  # default to weekly
-            "analytics": False,  # automatic errors reports with bugsnag, default to disabled
+            "notification_level": 15,  # desktop notification level, default: FILECHANGE
+            "log_level": 20,  # log level for journal and file, default: INFO
+            "update_notification_interval": 60 * 60 * 24 * 7,  # default: weekly
             "keyring": "automatic",  # keychain backend to use for credential storage
         },
     ),
     (
         "sync",
         {
-            "reindex_interval": 60 * 60 * 24 * 7,  # default to weekly
-            "max_cpu_percent": 20.0,  # max usage target per cpu core, default to 20%
-            "keep_history": 60 * 60 * 24 * 7,  # default one week
+            "reindex_interval": 60 * 60 * 24 * 14,  # default: every fortnight
+            "max_cpu_percent": 20.0,  # max usage target per cpu core, default: 20%
+            "keep_history": 60 * 60 * 24 * 7,  # default: one week
+            "upload": True,  # if download sync is enabled
+            "download": True,  # if upload sync is enabled
         },
     ),
 ]
 
-DEFAULTS_STATE = [
+DEFAULTS_STATE: DefaultsType = [
     (
         "account",  # account state, periodically updated from dropbox servers
         {
@@ -83,6 +82,8 @@ DEFAULTS_STATE = [
             "cursor": "",  # remote cursor: represents last state synced from dropbox
             "lastsync": 0.0,  # local cursor: time-stamp of last upload
             "last_reindex": 0.0,  # time-stamp of full last reindexing
+            "indexing_counter": 0,  # counter for indexing progress between restarts
+            "did_finish_indexing": False,  # indicates completed indexing
             "upload_errors": [],  # failed uploads to retry on next sync
             "download_errors": [],  # failed downloads to retry on next sync
             "pending_uploads": [],  # incomplete uploads to retry on next sync
@@ -98,18 +99,50 @@ DEFAULTS_STATE = [
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = "13.0.0"
+CONF_VERSION = "15.0.0"
 
 
 # =============================================================================
 # Factories
 # =============================================================================
 
-_config_instances: Dict[str, UserConfig] = dict()
-_state_instances: Dict[str, UserConfig] = dict()
 
+def _get_conf(
+    config_name: str,
+    config_path: str,
+    defaults: DefaultsType,
+    registry: Dict[str, UserConfig],
+):
+
+    try:
+        conf = registry[config_name]
+    except KeyError:
+
+        try:
+            conf = UserConfig(
+                config_path,
+                defaults=defaults,
+                version=CONF_VERSION,
+                backup=True,
+                remove_obsolete=True,
+            )
+        except OSError:
+            conf = UserConfig(
+                config_path,
+                defaults=defaults,
+                version=CONF_VERSION,
+                backup=True,
+                remove_obsolete=True,
+                load=False,
+            )
+
+        registry[config_name] = conf
+
+    return conf
+
+
+_config_instances: Dict[str, UserConfig] = dict()
 _config_lock = threading.Lock()
-_state_lock = threading.Lock()
 
 
 def MaestralConfig(config_name: str) -> UserConfig:
@@ -124,46 +157,12 @@ def MaestralConfig(config_name: str) -> UserConfig:
     global _config_instances
 
     with _config_lock:
+        config_path = get_conf_path(CONFIG_DIR_NAME, f"{config_name}.ini")
+        return _get_conf(config_name, config_path, DEFAULTS_CONFIG, _config_instances)
 
-        try:
-            return _config_instances[config_name]
-        except KeyError:
 
-            defaults: DefaultsType = copy.deepcopy(DEFAULTS_CONFIG)  # type: ignore
-
-            # set default dir name according to config
-            for sec, options in defaults:
-                if sec == "main":
-                    options["default_dir_name"] = f"Dropbox ({config_name.title()})"
-
-            config_path = get_conf_path(CONFIG_DIR_NAME)
-
-            try:
-                conf = UserConfig(
-                    config_path,
-                    config_name,
-                    defaults=defaults,
-                    version=CONF_VERSION,
-                    backup=True,
-                    remove_obsolete=True,
-                )
-            except OSError:
-                conf = UserConfig(
-                    config_path,
-                    config_name,
-                    defaults=defaults,
-                    version=CONF_VERSION,
-                    backup=True,
-                    remove_obsolete=True,
-                    load=False,
-                )
-
-            # adapt folder name to config
-            dirname = f"Dropbox ({config_name.title()})"
-            conf.set_default("main", "default_dir_name", dirname)
-
-            _config_instances[config_name] = conf
-            return conf
+_state_instances: Dict[str, UserConfig] = dict()
+_state_lock = threading.Lock()
 
 
 def MaestralState(config_name: str) -> UserConfig:
@@ -178,35 +177,5 @@ def MaestralState(config_name: str) -> UserConfig:
     global _state_instances
 
     with _state_lock:
-
-        try:
-            return _state_instances[config_name]
-        except KeyError:
-            state_path = get_data_path(CONFIG_DIR_NAME)
-
-            defaults: DefaultsType = copy.deepcopy(DEFAULTS_STATE)  # type: ignore
-
-            try:
-                state = UserConfig(
-                    state_path,
-                    config_name,
-                    defaults=defaults,
-                    version=CONF_VERSION,
-                    backup=True,
-                    remove_obsolete=True,
-                    suffix=".state",
-                )
-            except OSError:
-                state = UserConfig(
-                    state_path,
-                    config_name,
-                    defaults=defaults,
-                    version=CONF_VERSION,
-                    backup=True,
-                    remove_obsolete=True,
-                    suffix=".state",
-                    load=False,
-                )
-
-            _state_instances[config_name] = state
-            return state
+        state_path = get_data_path(CONFIG_DIR_NAME, f"{config_name}.state")
+        return _get_conf(config_name, state_path, DEFAULTS_STATE, _state_instances)

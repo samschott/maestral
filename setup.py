@@ -6,31 +6,30 @@ from setuptools import setup, find_packages  # type: ignore
 
 # proceed with actual install
 install_requires = [
-    "alembic>=1.3,<1.5",
-    "bugsnag>=3.4,<5.0",
-    "click>=7.1.1,<8.0",
+    "alembic>=1.3",
+    "click>=7.1.1",
+    "desktop-notifier>=3.1.2",
     "dropbox>=10.9.0,<12.0",
-    "dbus-next>=0.1.4;sys_platform=='linux'",
     "fasteners>=0.15",
     "importlib_metadata;python_version<'3.8'",
     "importlib_resources;python_version<'3.9'",
-    "keyring>=19,<22",
-    "keyrings.alt>=3.1.0,<5.0",
+    "keyring>=22",
+    "keyrings.alt>=3.1.0",
     "packaging",
     "pathspec>=0.5.8",
     "Pyro5>=5.10",
     "requests>=2.16.2",
-    "rubicon-objc>=0.3.1;sys_platform=='darwin'",
+    "rubicon-objc>=0.4.0;sys_platform=='darwin'",
     "sdnotify>=0.3.2",
     "setuptools",
-    "sqlalchemy>=1.3,<1.4",
-    "survey>=2.1.0,<3.0",
-    "watchdog>=0.10.0,<=0.10.3",
+    "sqlalchemy>=1.3",
+    "survey>=3.2.2,<4.0",
+    "watchdog>=2.0",
 ]
 
 gui_requires = [
-    "maestral-qt>=1.3.1;sys_platform=='linux'",
-    "maestral-cocoa>=1.3.0;sys_platform=='darwin'",
+    "maestral-qt>=1.3.2.dev0;sys_platform=='linux'",
+    "maestral-cocoa>=1.3.2.dev0;sys_platform=='darwin'",
 ]
 
 syslog_requires = ["systemd-python"]
@@ -56,7 +55,7 @@ setup(
     name="maestral",
     author="Sam Schott",
     author_email="ss2151@cam.ac.uk",
-    version="1.3.1",
+    version="1.4.0.dev0",
     url="https://github.com/SamSchott/maestral",
     description="Open-source Dropbox client for macOS and Linux.",
     license="MIT",

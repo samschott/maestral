@@ -23,14 +23,11 @@ made to one of the options through the ``maestral.config`` module.
     # The current Dropbox directory
     path = /Users/samschott/Dropbox (Maestral)
 
-    # Default directory name for the config
-    default_dir_name = Dropbox (Maestral)
-
     # List of excluded files and folders
     excluded_items = ['/test_folder', '/sub/folder']
 
     # Config file version (not the Maestral version!)
-    version = 12.0.0
+    version = 15.0.0
 
     [account]
 
@@ -57,12 +54,19 @@ made to one of the options through the ``maestral.config`` module.
     # Interval in sec to check for updates
     update_notification_interval = 604800
 
-    # Enable or disable automatic error reports
-    analytics = False
-
     [sync]
 
     # Interval in sec to perform a full reindexing
     reindex_interval = 604800
+
     # Maximum CPU usage per core
     max_cpu_percent = 20.0
+
+    # Sync history to keep in seconds
+    keep_history = 604800
+
+    # Enable upload syncing
+    upload = True
+
+    # Enable download syncing
+    download = True

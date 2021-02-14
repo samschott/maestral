@@ -1,6 +1,124 @@
+## v1.4.0
+
+This release brings significant extensions to the command line interface: It introduces
+commands to create and manage shared links, to compare older version of a file and print
+the diff output to the terminal, and commands for direct access to config values (note
+the warning below). It also adds optional one-way syncing, for instance to keep a mirror
+of a remote Dropbox folder while ignoring local changes.
+
+Several bugs have been fixed which could occur when resuming the sync activity after the
+connection had been lost while indexing a remote folder.
+
+Finally, this release removes automatic error reporting via Bugsnag. Please file any bug
+reports as issues on GitHub where it is possible to follow up.
+
+#### Added:
+
+* Added a command `maestral diff` to compare different versions of a text file. The
+  resulting diff is printed to the console. Credit goes to @OrangeFran.
+* Resurrected the command `maestral revs` to list previous versions (revisions) of a file.
+* Added a command group `maestral sharelink` to create and manage shared links.
+  Subcommands are:
+
+  * `create`: Create a shared link for a file or folder, optionally with password
+    protection and an expiry date on supported accounts (business and professional).
+  * `list`: List shared links, either for a specific file or folder or for all items
+    in your Dropbox.
+  * `revoke`: Revoke a shared link.
+
+* Added a command group `maestral config` to provide direct access to config values.
+  Subcommands are:
+
+  * `get`: Gets the config value for a key.
+  * `set`: Sets the config value for a key.
+
+  This provides access to previously inaccessible config values such as
+  `reindex_interval` or `max_cpu_percent`. Please refer to a Wiki for an overview of all
+  config values. Use the `set` command with caution: setting some config values may
+  leave the daemon in an inconsistent state (e.g., changing the location of the Dropbox
+  folder). Always use the equivalent command from the Settings group (e.g., `maestral
+  move-dir`).
+* Added the ability to disable a single sync direction, for instance to enable download
+  syncs only. This can be useful when you want to mirror a remote folder while ignoring
+  local changes or when syncing to a file system which does not support inotify. To use
+  this, set the respective config values for `upload` or `download` to False. Note that
+  conflict resolution remains unaffected. For instance, when an unsynced local change
+  would be overwritten by a remote change, the local file will be moved to a
+  "conflicting copy" first. However, the conflicting copy will not be uploaded.
+
+#### Changed:
+
+* Changes to indexing:
+
+  * Avoid scanning of objects matching an  `.mignore` pattern (file watches will still be
+    added however). This results in performance improvements during startup and resume.
+    A resulting behavioral change is that **maestral will remove files matching an
+    ignore pattern from Dropbox**. After this change it will be immaterial if an
+    `.mignore` pattern is added before or after having matching files in Dropbox.
+  * If Maestral is quit or interrupted during indexing, for instance due to connection
+    problems, it will later resume from the same position instead of restarting from the
+    beginning.
+  * Indexing will no longer skip excluded folders. This is necessary for the above
+    change.
+  * Defer periodic reindexing, typically carried out weekly, if the device is not
+    connected to an AC power supply. This prevents draining the battery when hashing
+    file contents.
+
+* Changes to CLI:
+
+  * Moved linking and unlinking to a new command group `maestral auth` with subcommands
+    `link`, `unlink` and `status`.
+  * Renamed the command `file-status` to `filestatus`.
+  * Added a `--yes, -Y` flag to the `unlink` to command to skip the confirmation prompt.
+  * Renamed the `configs` command to list config files to `config-files`.
+  * Added an option `--clean` to `config-files` to remove all stale config files (those
+    without a linked Dropbox account).
+
+* Improved the error message when the user is running out of inotify watches: Recommend
+  default values of `max_user_watches = 524288` and `max_user_instances = 1024` or
+  double the current values, whichever is higher. Advise to apply the changes with
+  `sysctl -p`.
+
+#### Fixed:
+
+* Fixes an issue with the CLI on Python 3.6 where commands that print dates to the console
+  would raise an exception.
+* Properly handle a rare OSError "[Errno 41] Protocol wrong type for socket" on macOS,
+  see https://bugs.python.org/issue33450.
+* Allow creating local files even if we cannot set their permissions, for instances on
+  some mounted NTFS drives.
+* Fixes an issue with the selective sync dialog in the Qt / Linux GUI where the "Update"
+  button could be incorrectly enabled or disabled.
+* Fixes an issue where a lost internet connection while starting the sync could lead to
+  a stuck sync thread or an endless indexing cycle.
+* Fixes an issue where a lost internet connection during the download of a folder newly
+  included in selective sync could result in the download never being completed.
+* Fixes an issue where pausing the sync during the download of a folder newly included
+  in selective sync could result in the download never being completed.
+
+#### Removed:
+
+* Removed automatic error reporting via bugsnag.
+* Removed from CLI:
+
+  * The `maestral restart` command. Use `stop` and `start` instead.
+  * The `maestral account-info` command. Use `maestral auth status` instead.
+å
+* Removed the public API methods `Maestral.resume_sync` and `Maestral.pause_sync`. Use
+  `Maestral.start_sync` and `Maestral.stop_sync` instead.
+
+#### Dependencies:
+
+* Bumped survey to version >=3.2.2,<4.0.
+* Bumped keyring to version >=22.
+* Bumped watchdog to version >= 2.0.
+* Added `desktop-notifier` dependency. This is spin-off project from Maestral, built on
+  the code previously in the `notify` module.
+* Removed the bugsnag dependency.
+
 ## v1.3.1
 
-#### Fixes:
+#### Fixed:
 
 * Fixes an incorrect entry point for the Qt GUI.
 
@@ -25,7 +143,7 @@ series of bug fixes for GUI and daemon.
 #### Changed:
 
 * Significant improvements to the command line interface:
-    * Overhauled all CLI dialogs with nicer formatting and more interactive prompts 
+    * Overhauled all CLI dialogs with nicer formatting and more interactive prompts
       using the `survey` package.
     * Improved output of many CLI commands, including `ls`, `activity`, and `restore`.
     * Increased speed of many CLI commands by importing only necessary modules.
@@ -42,7 +160,7 @@ series of bug fixes for GUI and daemon.
 * The `Maestral.excluded_items` property is no longer read-only.
 * Some refactoring of the `cli` module to prepare for shell completion support.
 
-#### Fixes:
+#### Fixed:
 
 * Fixes an issue where all newly downloaded files would be created with 755 permissions.
   They are now created with the user's default permissions for new files instead.
@@ -55,10 +173,10 @@ series of bug fixes for GUI and daemon.
 * Fixes possible loss of data when excluding an item from syncing while it is
   downloaded. This is no longer possible and will raise a `BusyError` instead.
 * Fixes an issue where `maestral ls` would fail when run with the `-l, --long` flag.
-* Fixes an occasional `IndexError` during a download sync when trying to query past 
+* Fixes an occasional `IndexError` during a download sync when trying to query past
   versions of a deleted item.
 * Fixes an issue which could cause a segfault of the selective sync dialog on macOS.
-* Fixes an issue where the selective sync dialog on Linux would not load the contents of 
+* Fixes an issue where the selective sync dialog on Linux would not load the contents of
   more than 10 folders.
 * Fixes a regression with the autostart functionality of the Linux GUI. Autostart
   entries created with v1.2.2 will need be reset by toggling the checkbox "start on
@@ -94,7 +212,7 @@ series of bug fixes for GUI and daemon.
 This release focuses on bug fixes and performance improvements. In particular, memory
 usage has been improved when syncing a Dropbox folder with a large number of items.
 
-#### Changes:
+#### Changed:
 
 - `maestral file-status` now accepts relative paths.
 - Runs the daemon in a Python interpreter with -OO flags. This strips docstrings and saves
@@ -112,7 +230,7 @@ usage has been improved when syncing a Dropbox folder with a large number of ite
 - Switch from PyInstaller to [briefcase](https://github.com/beeware/briefcase) for
   packaging on macOS.
 
-#### Fixes:
+#### Fixed:
 
 - Fixes an issue which would prevent the daemon from starting on macOS when running with
   Python 3.6.
@@ -155,7 +273,7 @@ full compatibility from macOS 10.13 High Sierra to macOS 11.0 Big Sur.
 - Improves log messages when the connection to Dropbox is lost.
 - Performance improvements to `maestral activity` in case of very large sync queues.
 
-#### Fixes:
+#### Fixed:
 
 - Fixes a database integrity error due to an unfulfilled unique constraint.
 - Fixes an issue when the daemon is launched with systemd where systemd would unexpectedly

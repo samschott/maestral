@@ -6,4 +6,3 @@ Systemd notify status,INFO,If started as systemd notify service
 :attr:`Maestral.status` API,INFO,Alyways
 Desktop notifications,WARNING,Alyways
 :attr:`Maestral.fatal_errors` API,ERROR,Alyways
-Bugsnag,ERROR,Disabled by default

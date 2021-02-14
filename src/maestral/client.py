@@ -10,7 +10,6 @@ import os
 import os.path as osp
 import time
 import logging
-import functools
 import contextlib
 from datetime import datetime, timezone
 from typing import (
@@ -32,6 +31,7 @@ from dropbox import (  # type: ignore
     Dropbox,
     create_session,
     files,
+    sharing,
     users,
     exceptions,
     async_,
@@ -65,13 +65,12 @@ from .errors import (
     TokenRevokedError,
     CursorResetError,
     DropboxServerError,
-    NoDropboxDirError,
-    InotifyError,
     NotLinkedError,
     InvalidDbidError,
+    SharedLinkError,
 )
 from .config import MaestralState
-from .constants import DROPBOX_APP_KEY, IDLE
+from .constants import DROPBOX_APP_KEY
 from .utils import natural_size, chunks, clamp
 
 if TYPE_CHECKING:
@@ -83,7 +82,6 @@ __all__ = [
     "DropboxClient",
     "dropbox_to_maestral_error",
     "os_to_maestral_error",
-    "fswatch_to_maestral_error",
     "convert_api_errors",
 ]
 
@@ -121,9 +119,8 @@ SessionLookupErrorType = Type[
         FileSizeError,
     ]
 ]
-_FT = Callable[..., Any]
-_T = TypeVar("_T")
-
+PaginationResultType = Union[sharing.ListSharedLinksResult, files.ListFolderResult]
+FT = TypeVar("FT", bound=Callable[..., Any])
 
 # create single requests session for all clients
 SESSION = create_session()
@@ -187,34 +184,11 @@ def convert_api_errors(
     except CONNECTION_ERRORS:
         raise ConnectionError("Cannot connect to Dropbox")
     except OSError as exc:
-        raise os_to_maestral_error(exc, dbx_path, local_path)
-
-
-def convert_api_errors_decorator(
-    dbx_path_arg: Optional[int] = None, local_path_arg: Optional[int] = None
-) -> Callable[[_FT], _FT]:
-    """
-    Returns a decorator that catches and re-raises instances of :class:`OSError` and
-    :class:`exceptions.DropboxException` as :class:`errors.MaestralApiError` or
-    :class:`ConnectionError`.
-
-    :param dbx_path_arg: Argument number to take as dbx_path for exception.
-    :param local_path_arg: Argument number to take as local_path_arg for exception.
-    """
-
-    def decorator(func: _FT) -> _FT:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-
-            dbx_path = args[dbx_path_arg] if dbx_path_arg else None
-            local_path = args[local_path_arg] if local_path_arg else None
-
-            with convert_api_errors(dbx_path, local_path):
-                return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
+        if exc.errno == errno.EPROTOTYPE:
+            # Can occur on macOS, see https://bugs.python.org/issue33450
+            raise ConnectionError("Cannot connect to Dropbox")
+        else:
+            raise os_to_maestral_error(exc, dbx_path, local_path)
 
 
 class DropboxClient:
@@ -321,7 +295,6 @@ class DropboxClient:
 
         return res
 
-    @convert_api_errors_decorator()
     def unlink(self) -> None:
         """
         Unlinks the Dropbox account.
@@ -329,8 +302,10 @@ class DropboxClient:
         :raises KeyringAccessError: if keyring access fails.
         :raises DropboxAuthError: if we cannot authenticate with Dropbox.
         """
-        self.dbx.auth_token_revoke()
-        self.auth.delete_creds()
+
+        with convert_api_errors():
+            self.dbx.auth_token_revoke()
+            self.auth.delete_creds()
 
     def _init_sdk_with_token(
         self,
@@ -368,7 +343,6 @@ class DropboxClient:
 
     # ---- SDK wrappers ----------------------------------------------------------------
 
-    @convert_api_errors_decorator()
     def get_account_info(self, dbid: Optional[str] = None) -> users.FullAccount:
         """
         Gets current account information.
@@ -377,10 +351,12 @@ class DropboxClient:
             currently linked account.
         :returns: Account info.
         """
-        if dbid:
-            res = self.dbx.users_get_account(dbid)
-        else:
-            res = self.dbx.users_get_current_account()
+
+        with convert_api_errors():
+            if dbid:
+                res = self.dbx.users_get_account(dbid)
+            else:
+                res = self.dbx.users_get_current_account()
 
         if not dbid:
             # save our own account info to config
@@ -400,12 +376,12 @@ class DropboxClient:
 
         return res
 
-    @convert_api_errors_decorator()
     def get_space_usage(self) -> SpaceUsage:
         """
         :returns: The space usage of the currently linked account.
         """
-        res = self.dbx.users_get_space_usage()
+        with convert_api_errors():
+            res = self.dbx.users_get_space_usage()
 
         # convert from users.SpaceUsage to SpaceUsage
         space_usage = SpaceUsage.from_dbx_space_usage(res)
@@ -416,7 +392,6 @@ class DropboxClient:
 
         return space_usage
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def get_metadata(self, dbx_path: str, **kwargs) -> Optional[files.Metadata]:
         """
         Gets metadata for an item on Dropbox or returns ``False`` if no metadata is
@@ -424,21 +399,16 @@ class DropboxClient:
         call.
 
         :param dbx_path: Path of folder on Dropbox.
-        :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
+        :param kwargs: Keyword arguments for Dropbox SDK files_get_metadata.
         :returns: Metadata of item at the given path or ``None`` if item cannot be found.
         """
 
         try:
-            return self.dbx.files_get_metadata(dbx_path, **kwargs)
-        except exceptions.ApiError as exc:
+            with convert_api_errors(dbx_path=dbx_path):
+                return self.dbx.files_get_metadata(dbx_path, **kwargs)
+        except (NotFoundError, PathError):
+            return None
 
-            if isinstance(exc.error, files.GetMetadataError):
-                # this will be only lookup errors
-                return None
-            else:
-                raise exc
-
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def list_revisions(
         self, dbx_path: str, mode: str = "path", limit: int = 10
     ) -> files.ListRevisionsResult:
@@ -452,10 +422,10 @@ class DropboxClient:
         :returns: File revision history.
         """
 
-        mode = files.ListRevisionsMode(mode)
-        return self.dbx.files_list_revisions(dbx_path, mode=mode, limit=limit)
+        with convert_api_errors(dbx_path=dbx_path):
+            mode = files.ListRevisionsMode(mode)
+            return self.dbx.files_list_revisions(dbx_path, mode=mode, limit=limit)
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def restore(self, dbx_path: str, rev: str) -> files.FileMetadata:
         """
         Restore an old revision of a file.
@@ -466,9 +436,9 @@ class DropboxClient:
         :returns: Metadata of restored file.
         """
 
-        return self.dbx.files_restore(dbx_path, rev)
+        with convert_api_errors(dbx_path=dbx_path):
+            return self.dbx.files_restore(dbx_path, rev)
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def download(
         self,
         dbx_path: str,
@@ -483,43 +453,40 @@ class DropboxClient:
         :param local_path: Path to local download destination.
         :param sync_event: If given, the sync event will be updated with the number of
             downloaded bytes.
-        :param kwargs: Keyword arguments for Dropbox SDK files_download_to_file.
+        :param kwargs: Keyword arguments for Dropbox SDK files_download.
         :returns: Metadata of downloaded item.
         """
-        # create local directory if not present
-        dst_path_directory = osp.dirname(local_path)
-        try:
-            os.makedirs(dst_path_directory)
-        except FileExistsError:
-            pass
 
-        md, http_resp = self.dbx.files_download(dbx_path, **kwargs)
+        with convert_api_errors(dbx_path=dbx_path):
 
-        chunksize = 2 ** 13
+            dst_path_directory = osp.dirname(local_path)
+            try:
+                os.makedirs(dst_path_directory)
+            except FileExistsError:
+                pass
 
-        with open(local_path, "wb") as f:
-            with contextlib.closing(http_resp):
-                for c in http_resp.iter_content(chunksize):
-                    f.write(c)
-                    if sync_event:
-                        sync_event.completed = f.tell()
+            md, http_resp = self.dbx.files_download(dbx_path, **kwargs)
+
+            chunksize = 2 ** 13
+
+            with open(local_path, "wb") as f:
+                with contextlib.closing(http_resp):
+                    for c in http_resp.iter_content(chunksize):
+                        f.write(c)
+                        if sync_event:
+                            sync_event.completed = f.tell()
 
         # dropbox SDK provides naive datetime in UTC
-        client_mod_timestamp = md.client_modified.replace(
-            tzinfo=timezone.utc
-        ).timestamp()
-        server_mod_timestamp = md.server_modified.replace(
-            tzinfo=timezone.utc
-        ).timestamp()
+        client_mod = md.client_modified.replace(tzinfo=timezone.utc)
+        server_mod = md.server_modified.replace(tzinfo=timezone.utc)
 
         # enforce client_modified < server_modified
-        timestamp = min(client_mod_timestamp, server_mod_timestamp, time.time())
+        timestamp = min(client_mod.timestamp(), server_mod.timestamp(), time.time())
         # set mtime of downloaded file
         os.utime(local_path, (time.time(), timestamp))
 
         return md
 
-    @convert_api_errors_decorator(local_path_arg=1, dbx_path_arg=2)
     def upload(
         self,
         local_path: str,
@@ -543,83 +510,86 @@ class DropboxClient:
 
         chunk_size = clamp(chunk_size, 10 ** 5, 150 * 10 ** 6)
 
-        size = osp.getsize(local_path)
+        with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
 
-        # dropbox SDK takes naive datetime in UTC
-        mtime = osp.getmtime(local_path)
-        mtime_dt = datetime.utcfromtimestamp(mtime)
+            size = osp.getsize(local_path)
 
-        if size <= chunk_size:
-            with open(local_path, "rb") as f:
-                md = self.dbx.files_upload(
-                    f.read(), dbx_path, client_modified=mtime_dt, **kwargs
-                )
-                if sync_event:
-                    sync_event.completed = f.tell()
-            return md
-        else:
-            # Note: We currently do not support resuming interrupted uploads. Dropbox
-            # keeps upload sessions open for 48h so this could be done in the future.
-            with open(local_path, "rb") as f:
-                session_start = self.dbx.files_upload_session_start(f.read(chunk_size))
-                uploaded = f.tell()
+            # dropbox SDK takes naive datetime in UTC
+            mtime = osp.getmtime(local_path)
+            mtime_dt = datetime.utcfromtimestamp(mtime)
 
-                cursor = files.UploadSessionCursor(
-                    session_id=session_start.session_id, offset=uploaded
-                )
-                commit = files.CommitInfo(
-                    path=dbx_path, client_modified=mtime_dt, **kwargs
-                )
+            if size <= chunk_size:
+                with open(local_path, "rb") as f:
+                    md = self.dbx.files_upload(
+                        f.read(), dbx_path, client_modified=mtime_dt, **kwargs
+                    )
+                    if sync_event:
+                        sync_event.completed = f.tell()
+                return md
+            else:
+                # Note: We currently do not support resuming interrupted uploads.
+                # Dropbox keeps upload sessions open for 48h so this could be done in
+                # the future.
+                with open(local_path, "rb") as f:
+                    data = f.read(chunk_size)
+                    session_start = self.dbx.files_upload_session_start(data)
+                    uploaded = f.tell()
 
-                if sync_event:
-                    sync_event.completed = uploaded
+                    cursor = files.UploadSessionCursor(
+                        session_id=session_start.session_id, offset=uploaded
+                    )
+                    commit = files.CommitInfo(
+                        path=dbx_path, client_modified=mtime_dt, **kwargs
+                    )
 
-                while True:
-                    try:
-                        if size - f.tell() <= chunk_size:
-                            md = self.dbx.files_upload_session_finish(
-                                f.read(chunk_size), cursor, commit
-                            )
+                    if sync_event:
+                        sync_event.completed = uploaded
 
-                        else:
-                            self.dbx.files_upload_session_append_v2(
-                                f.read(chunk_size), cursor
-                            )
-                            md = None
+                    while True:
+                        try:
 
-                        # housekeeping
-                        uploaded = f.tell()
-                        if sync_event:
-                            sync_event.completed = uploaded
+                            if size - f.tell() <= chunk_size:
+                                # Wrap up upload session and return metadata.
+                                data = f.read(chunk_size)
+                                md = self.dbx.files_upload_session_finish(
+                                    data, cursor, commit
+                                )
+                                if sync_event:
+                                    sync_event.completed = sync_event.size
+                                return md
+                            else:
+                                # Append to upload session.
+                                data = f.read(chunk_size)
+                                self.dbx.files_upload_session_append_v2(data, cursor)
 
-                        if md:
-                            return md
-                        else:
-                            cursor.offset = uploaded
+                                uploaded = f.tell()
+                                cursor.offset = uploaded
 
-                    except exceptions.DropboxException as exc:
-                        error = getattr(exc, "error", None)
-                        if (
-                            isinstance(error, files.UploadSessionFinishError)
-                            and error.is_lookup_failed()
-                        ):
-                            session_lookup_error = error.get_lookup_failed()
-                        elif isinstance(error, files.UploadSessionLookupError):
-                            session_lookup_error = error
-                        else:
-                            raise exc
+                                if sync_event:
+                                    sync_event.completed = uploaded
 
-                        if session_lookup_error.is_incorrect_offset():
-                            o = (
-                                session_lookup_error.get_incorrect_offset().correct_offset
-                            )
-                            # reset position in file
-                            f.seek(o)
-                            cursor.offset = f.tell()
-                        else:
-                            raise exc
+                        except exceptions.DropboxException as exc:
+                            error = getattr(exc, "error", None)
+                            if (
+                                isinstance(error, files.UploadSessionFinishError)
+                                and error.is_lookup_failed()
+                            ):
+                                session_lookup_error = error.get_lookup_failed()
+                            elif isinstance(error, files.UploadSessionLookupError):
+                                session_lookup_error = error
+                            else:
+                                raise exc
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
+                            if session_lookup_error.is_incorrect_offset():
+                                # reset position in file
+                                offset = (
+                                    session_lookup_error.get_incorrect_offset().correct_offset
+                                )
+                                f.seek(offset)
+                                cursor.offset = f.tell()
+                            else:
+                                raise exc
+
     def remove(self, dbx_path: str, **kwargs) -> files.Metadata:
         """
         Removes a file / folder from Dropbox.
@@ -628,13 +598,11 @@ class DropboxClient:
         :param kwargs: Keyword arguments for Dropbox SDK files_delete_v2.
         :returns: Metadata of deleted item.
         """
-        # try to remove file (response will be metadata, probably)
-        res = self.dbx.files_delete_v2(dbx_path, **kwargs)
-        md = res.metadata
 
-        return md
+        with convert_api_errors(dbx_path=dbx_path):
+            res = self.dbx.files_delete_v2(dbx_path, **kwargs)
+            return res.metadata
 
-    @convert_api_errors_decorator()
     def remove_batch(
         self, entries: List[Tuple[str, str]], batch_size: int = 900
     ) -> List[Union[files.Metadata, MaestralApiError]]:
@@ -660,7 +628,9 @@ class DropboxClient:
         for chunk in chunks(entries, n=batch_size):
 
             arg = [files.DeleteArg(e[0], e[1]) for e in chunk]
-            res = self.dbx.files_delete_batch(arg)
+
+            with convert_api_errors():
+                res = self.dbx.files_delete_batch(arg)
 
             if res.is_complete():
                 batch_res = res.get_complete()
@@ -670,13 +640,16 @@ class DropboxClient:
                 async_job_id = res.get_async_job_id()
 
                 time.sleep(1.0)
-                res = self.dbx.files_delete_batch_check(async_job_id)
+
+                with convert_api_errors():
+                    res = self.dbx.files_delete_batch_check(async_job_id)
 
                 check_interval = round(len(chunk) / 100, 1)
 
                 while res.is_in_progress():
                     time.sleep(check_interval)
-                    res = self.dbx.files_delete_batch_check(async_job_id)
+                    with convert_api_errors():
+                        res = self.dbx.files_delete_batch_check(async_job_id)
 
                 if res.is_complete():
                     batch_res = res.get_complete()
@@ -707,7 +680,6 @@ class DropboxClient:
 
         return result_list
 
-    @convert_api_errors_decorator(dbx_path_arg=2)
     def move(self, dbx_path: str, new_path: str, **kwargs) -> files.Metadata:
         """
         Moves / renames files or folders on Dropbox.
@@ -717,18 +689,17 @@ class DropboxClient:
         :param kwargs: Keyword arguments for Dropbox SDK files_move_v2.
         :returns: Metadata of moved item.
         """
-        res = self.dbx.files_move_v2(
-            dbx_path,
-            new_path,
-            allow_shared_folder=True,
-            allow_ownership_transfer=True,
-            **kwargs,
-        )
-        md = res.metadata
 
-        return md
+        with convert_api_errors(dbx_path=new_path):
+            res = self.dbx.files_move_v2(
+                dbx_path,
+                new_path,
+                allow_shared_folder=True,
+                allow_ownership_transfer=True,
+                **kwargs,
+            )
+            return res.metadata
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def make_dir(self, dbx_path: str, **kwargs) -> files.FolderMetadata:
         """
         Creates a folder on Dropbox.
@@ -737,12 +708,11 @@ class DropboxClient:
         :param kwargs: Keyword arguments for Dropbox SDK files_create_folder_v2.
         :returns: Metadata of created folder.
         """
-        res = self.dbx.files_create_folder_v2(dbx_path, **kwargs)
-        md = res.metadata
 
-        return md
+        with convert_api_errors(dbx_path=dbx_path):
+            res = self.dbx.files_create_folder_v2(dbx_path, **kwargs)
+            return res.metadata
 
-    @convert_api_errors_decorator()
     def make_dir_batch(
         self, dbx_paths: List[str], batch_size: int = 900, **kwargs
     ) -> List[Union[files.Metadata, MaestralApiError]]:
@@ -761,36 +731,38 @@ class DropboxClient:
         entries = []
         result_list = []
 
-        # up two ~ 1,000 entries allowed per batch according to
-        # https://www.dropbox.com/developers/reference/data-ingress-guide
-        for chunk in chunks(dbx_paths, n=batch_size):
-            res = self.dbx.files_create_folder_batch(chunk, **kwargs)
-            if res.is_complete():
-                batch_res = res.get_complete()
-                entries.extend(batch_res.entries)
-            elif res.is_async_job_id():
-                async_job_id = res.get_async_job_id()
+        with convert_api_errors():
 
-                time.sleep(1.0)
-                res = self.dbx.files_create_folder_batch_check(async_job_id)
-
-                check_interval = round(len(chunk) / 100, 1)
-
-                while res.is_in_progress():
-                    time.sleep(check_interval)
-                    res = self.dbx.files_create_folder_batch_check(async_job_id)
-
+            # up two ~ 1,000 entries allowed per batch according to
+            # https://www.dropbox.com/developers/reference/data-ingress-guide
+            for chunk in chunks(dbx_paths, n=batch_size):
+                res = self.dbx.files_create_folder_batch(chunk, **kwargs)
                 if res.is_complete():
                     batch_res = res.get_complete()
                     entries.extend(batch_res.entries)
+                elif res.is_async_job_id():
+                    async_job_id = res.get_async_job_id()
 
-                elif res.is_failed():
-                    error = res.get_failed()
-                    if error.is_too_many_files():
-                        res_list = self.make_dir_batch(
-                            chunk, batch_size=round(batch_size / 2), **kwargs
-                        )
-                        result_list.extend(res_list)
+                    time.sleep(1.0)
+                    res = self.dbx.files_create_folder_batch_check(async_job_id)
+
+                    check_interval = round(len(chunk) / 100, 1)
+
+                    while res.is_in_progress():
+                        time.sleep(check_interval)
+                        res = self.dbx.files_create_folder_batch_check(async_job_id)
+
+                    if res.is_complete():
+                        batch_res = res.get_complete()
+                        entries.extend(batch_res.entries)
+
+                    elif res.is_failed():
+                        error = res.get_failed()
+                        if error.is_too_many_files():
+                            res_list = self.make_dir_batch(
+                                chunk, batch_size=round(batch_size / 2), **kwargs
+                            )
+                            result_list.extend(res_list)
 
         for i, entry in enumerate(entries):
             if entry.is_success():
@@ -807,7 +779,6 @@ class DropboxClient:
 
         return result_list
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def get_latest_cursor(
         self, dbx_path: str, include_non_downloadable_files: bool = False, **kwargs
     ) -> str:
@@ -823,16 +794,16 @@ class DropboxClient:
 
         dbx_path = "" if dbx_path == "/" else dbx_path
 
-        res = self.dbx.files_list_folder_get_latest_cursor(
-            dbx_path,
-            include_non_downloadable_files=include_non_downloadable_files,
-            recursive=True,
-            **kwargs,
-        )
+        with convert_api_errors(dbx_path=dbx_path):
+            res = self.dbx.files_list_folder_get_latest_cursor(
+                dbx_path,
+                include_non_downloadable_files=include_non_downloadable_files,
+                recursive=True,
+                **kwargs,
+            )
 
         return res.cursor
 
-    @convert_api_errors_decorator(dbx_path_arg=1)
     def list_folder(
         self,
         dbx_path: str,
@@ -841,7 +812,9 @@ class DropboxClient:
         **kwargs,
     ) -> files.ListFolderResult:
         """
-        Lists the contents of a folder on Dropbox.
+        Lists the contents of a folder on Dropbox. Similar to
+        :meth:`list_folder_iterator` but returns all entries in a single
+        :class:`files.ListFolderResult` instance.
 
         :param dbx_path: Path of folder on Dropbox.
         :param max_retries_on_timeout: Number of times to try again if Dropbox servers
@@ -853,44 +826,14 @@ class DropboxClient:
         :returns: Content of given folder.
         """
 
-        dbx_path = "" if dbx_path == "/" else dbx_path
-
-        results = []
-
-        res = self.dbx.files_list_folder(
+        iterator = self.list_folder_iterator(
             dbx_path,
-            include_non_downloadable_files=include_non_downloadable_files,
+            max_retries_on_timeout,
+            include_non_downloadable_files,
             **kwargs,
         )
-        results.append(res)
 
-        idx = 0
-
-        while results[-1].has_more:
-
-            idx += len(results[-1].entries)
-            logger.info(f"Indexing {idx}...")
-
-            attempt = 0
-
-            while True:
-                try:
-                    more_results = self.dbx.files_list_folder_continue(
-                        results[-1].cursor
-                    )
-                    results.append(more_results)
-                    break
-                except requests.exceptions.ReadTimeout:
-                    attempt += 1
-                    if attempt <= max_retries_on_timeout:
-                        time.sleep(5.0)
-                    else:
-                        raise
-
-        if idx > 0:
-            logger.info(IDLE)
-
-        return self.flatten_results(results)
+        return self.flatten_results(list(iterator), attribute_name="entries")
 
     def list_folder_iterator(
         self,
@@ -900,11 +843,10 @@ class DropboxClient:
         **kwargs,
     ) -> Iterator[files.ListFolderResult]:
         """
-        Lists the contents of a folder on Dropbox. Does the same as :meth:`list_folder`
-        but returns an iterator yielding :class:`files.ListFolderResult` instances. The
-        number of entries returned in each iteration corresponds to the number of
-        entries returned by a single Dropbox API call and will be typically around 500.
-        This is useful to save memory when indexing a large number of items.
+        Lists the contents of a folder on Dropbox. Returns an iterator yielding
+        :class:`files.ListFolderResult` instances. The number of entries returned in
+        each iteration corresponds to the number of entries returned by a single Dropbox
+        API call and will be typically around 500.
 
         :param dbx_path: Path of folder on Dropbox.
         :param max_retries_on_timeout: Number of times to try again if Dropbox servers
@@ -928,12 +870,7 @@ class DropboxClient:
 
             yield res
 
-            idx = 0
-
             while res.has_more:
-
-                idx += len(res.entries)
-                logger.info(f"Indexing {idx}...")
 
                 attempt = 0
 
@@ -949,31 +886,6 @@ class DropboxClient:
                         else:
                             raise
 
-            if idx > 0:
-                logger.info(IDLE)
-
-    @staticmethod
-    def flatten_results(
-        results: List[files.ListFolderResult],
-    ) -> files.ListFolderResult:
-        """
-        Flattens a list of :class:`files.ListFolderResult` instances to a single
-        instance with the cursor of the last entry in the list.
-
-        :param results: List of :class:`files.ListFolderResult` instances.
-        :returns: Flattened list folder result.
-        """
-        entries_all = []
-        for result in results:
-            entries_all += result.entries
-
-        results_flattened = files.ListFolderResult(
-            entries=entries_all, cursor=results[-1].cursor, has_more=False
-        )
-
-        return results_flattened
-
-    @convert_api_errors_decorator()
     def wait_for_remote_changes(self, last_cursor: str, timeout: int = 40) -> bool:
         """
         Waits for remote changes since ``last_cursor``. Call this method after
@@ -991,47 +903,42 @@ class DropboxClient:
         time_to_backoff = max(self._backoff_until - time.time(), 0)
         time.sleep(time_to_backoff)
 
-        result = self.dbx.files_list_folder_longpoll(last_cursor, timeout=timeout)
+        with convert_api_errors():
+            res = self.dbx.files_list_folder_longpoll(last_cursor, timeout=timeout)
 
         # keep track of last longpoll, back off if requested by SDK
-        if result.backoff:
-            self._backoff_until = time.time() + result.backoff + 5.0
+        if res.backoff:
+            logger.debug("Backoff requested for %s sec", res.backoff)
+            self._backoff_until = time.time() + res.backoff + 5.0
         else:
             self._backoff_until = 0
 
-        return result.changes
+        return res.changes
 
-    @convert_api_errors_decorator()
     def list_remote_changes(self, last_cursor: str) -> files.ListFolderResult:
         """
-        Lists changes to remote Dropbox since ``last_cursor``. Call this after
-        :meth:`wait_for_remote_changes` returns ``True``.
+        Lists changes to remote Dropbox since ``last_cursor``. Same as
+        :meth:`list_remote_changes_iterator` but fetches all changes first and returns
+        a single :class:`files.ListFolderResult`. This may be useful if you want to
+        fetch all changes before starting to process them.
 
         :param last_cursor: Last to cursor to compare for changes.
         :returns: Remote changes since given cursor.
         """
 
-        results = [self.dbx.files_list_folder_continue(last_cursor)]
-
-        while results[-1].has_more:
-            more_results = self.dbx.files_list_folder_continue(results[-1].cursor)
-            results.append(more_results)
-
-        # combine all results into one
-        results = self.flatten_results(results)
-
-        return results
+        iterator = self.list_remote_changes_iterator(last_cursor)
+        return self.flatten_results(list(iterator), attribute_name="entries")
 
     def list_remote_changes_iterator(
         self, last_cursor: str
     ) -> Iterator[files.ListFolderResult]:
         """
-        Lists changes to the remote Dropbox since ``last_cursor``. Does the same as
-        :meth:`list_remote_changes` but returns an iterator yielding
-        :class:`files.ListFolderResult` instances. The number of entries returned in
-        each iteration corresponds to the number of entries returned by a single Dropbox
-        API call and will be typically around 500. This is useful to save memory when
-        indexing a large number of items.
+        Lists changes to the remote Dropbox since ``last_cursor``. Returns an iterator
+        yielding :class:`files.ListFolderResult` instances. The number of entries
+        returned in each iteration corresponds to the number of entries returned by a
+        single Dropbox API call and will be typically around 500.
+
+        Call this after :meth:`wait_for_remote_changes` returns ``True``.
 
         :param last_cursor: Last to cursor to compare for changes.
         :returns: Iterator over remote changes since given cursor.
@@ -1046,6 +953,123 @@ class DropboxClient:
             while result.has_more:
                 result = self.dbx.files_list_folder_continue(result.cursor)
                 yield result
+
+    def create_shared_link(
+        self,
+        dbx_path: str,
+        visibility: sharing.RequestedVisibility = sharing.RequestedVisibility.public,
+        password: Optional[str] = None,
+        expires: Optional[datetime] = None,
+        **kwargs,
+    ) -> sharing.SharedLinkMetadata:
+        """
+        Creates a shared link for the given path. Some options are only available for
+        Professional and Business accounts. Note that the requested visibility as access
+        level for the link may not be granted, depending on the Dropbox folder or team
+        settings. Check the returned link metadata to verify the visibility and access
+        level.
+
+        :param dbx_path: Dropbox path to file or folder to share.
+        :param visibility: The visibility of the shared link. Can be public, team-only,
+            or password protected. In case of the latter, the password argument must be
+            given. Only available for Professional and Business accounts.
+        :param password: Password to protect shared link. Is required if visibility
+            is set to password protected and will be ignored otherwise
+        :param expires: Expiry time for shared link. Only available for Professional and
+            Business accounts.
+        :param kwargs: Additional keyword arguments for the
+            :class:`dropbox.sharing.SharedLinkSettings`.
+        :returns: Metadata for shared link.
+        """
+
+        if visibility.is_password() and not password:
+            raise MaestralApiError(
+                "Invalid shared link setting",
+                "Password is required to share a password-protected link",
+            )
+
+        if not visibility.is_password():
+            password = None
+
+        # convert timestamp to utc time if not naive
+        if expires is not None:
+            has_timezone = expires.tzinfo and expires.tzinfo.utcoffset(expires)
+            if has_timezone:
+                expires.astimezone(timezone.utc)
+
+        settings = sharing.SharedLinkSettings(
+            requested_visibility=visibility,
+            link_password=password,
+            expires=expires,
+            **kwargs,
+        )
+
+        with convert_api_errors(dbx_path=dbx_path):
+            res = self.dbx.sharing_create_shared_link_with_settings(dbx_path, settings)
+
+        return res
+
+    def revoke_shared_link(self, url: str) -> None:
+        """
+        Revokes a shared link.
+
+        :param url: URL to revoke.
+        """
+        with convert_api_errors():
+            self.dbx.sharing_revoke_shared_link(url)
+
+    def list_shared_links(
+        self, dbx_path: Optional[str] = None
+    ) -> sharing.ListSharedLinksResult:
+        """
+        Lists all shared links for a given Dropbox path (file or folder). If no path is
+        given, list all shared links for the account, up to a maximum of 1,000 links.
+
+        :param dbx_path: Dropbox path to file or folder.
+        :returns: Shared links for a path, including any shared links for parents
+            through which this path is accessible.
+        """
+
+        results = []
+
+        with convert_api_errors(dbx_path=dbx_path):
+            res = self.dbx.sharing_list_shared_links(dbx_path)
+            results.append(res)
+
+            while results[-1].has_more:
+                res = self.dbx.sharing_list_shared_links(dbx_path, results[-1].cursor)
+                results.append(res)
+
+        return self.flatten_results(results, attribute_name="links")
+
+    @staticmethod
+    def flatten_results(
+        results: List[PaginationResultType], attribute_name: str
+    ) -> PaginationResultType:
+        """
+        Flattens a list of Dropbox API results from a pagination to a single result with
+        the cursor of the last entry in the list.
+
+        :param results: List of :results to flatten.
+        :param attribute_name: Name of attribute to flatten.
+        :returns: Flattened result.
+        """
+
+        all_entries = []
+
+        for result in results:
+            all_entries += getattr(result, attribute_name)
+
+        kwargs = {
+            attribute_name: all_entries,
+            "cursor": results[-1].cursor,
+            "has_more": False,
+        }
+
+        result_cls = type(results[0])
+        results_flattened = result_cls(**kwargs)
+
+        return results_flattened
 
 
 # ==== conversion functions to generate error messages and types =======================
@@ -1128,58 +1152,6 @@ def os_to_maestral_error(
     return maestral_exc
 
 
-def fswatch_to_maestral_error(exc: OSError) -> LocalError:
-    """
-    Converts a :class:`OSError` when starting a file system watch to a
-    :class:`MaestralApiError` and tries to add a reasonably informative error title and
-    message. Error messages and types differ from :func:`os_to_maestral_error`.
-
-    :param exc: Python Exception.
-    :returns: :class:`MaestralApiError` instance or :class:`OSError` instance.
-    """
-
-    error_number = getattr(exc, "errno", -1)
-    err_cls: Type[MaestralApiError]
-
-    if isinstance(exc, NotADirectoryError):
-        title = "Dropbox folder has been moved or deleted"
-        msg = (
-            "Please move the Dropbox folder back to its original location "
-            "or restart Maestral to set up a new folder."
-        )
-
-        err_cls = NoDropboxDirError
-    elif isinstance(exc, PermissionError):
-        title = "Insufficient permissions for Dropbox folder"
-        msg = (
-            "Please ensure that you have read and write permissions "
-            "for the selected Dropbox folder."
-        )
-        err_cls = InsufficientPermissionsError
-
-    elif error_number in (errno.ENOSPC, errno.EMFILE):
-        title = "Inotify limit reached"
-        if error_number == errno.ENOSPC:
-            new_config = "fs.inotify.max_user_watches=524288"
-        else:
-            new_config = "fs.inotify.max_user_instances=512"
-        msg = (
-            "Changes to your Dropbox folder cannot be monitored because it "
-            "contains too many items. Please increase the inotify limit in "
-            "your system by adding the following line to /etc/sysctl.conf: "
-            + new_config
-        )
-        err_cls = InotifyError
-
-    else:
-        return exc
-
-    maestral_exc = err_cls(title, msg)
-    maestral_exc.__cause__ = exc
-
-    return maestral_exc
-
-
 def dropbox_to_maestral_error(
     exc: exceptions.DropboxException,
     dbx_path: Optional[str] = None,
@@ -1195,7 +1167,10 @@ def dropbox_to_maestral_error(
     :returns: :class:`MaestralApiError` instance.
     """
 
-    err_cls: Type[MaestralApiError]
+    title = "An unexpected error occurred"
+    text = "Please contact the developer with the traceback information from the logs."
+    err_cls = MaestralApiError
+
     # ---- Dropbox API Errors ----------------------------------------------------------
     if isinstance(exc, exceptions.ApiError):
 
@@ -1300,7 +1275,6 @@ def dropbox_to_maestral_error(
             elif error.is_properties_error():
                 # this is a programming error in maestral
                 text = "Invalid property group provided."
-                err_cls = MaestralApiError
             else:
                 text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
@@ -1310,11 +1284,9 @@ def dropbox_to_maestral_error(
             if error.is_concurrent_session_close_not_allowed():
                 # this is a programming error in maestral
                 text = "Can not start a closed concurrent upload session."
-                err_cls = MaestralApiError
             elif error.is_concurrent_session_data_not_allowed():
                 # this is a programming error in maestral
                 text = "Uploading data not allowed when starting concurrent upload session."
-                err_cls = MaestralApiError
             else:
                 text = "Please check the logs or traceback for more information"
                 err_cls = SyncError
@@ -1330,7 +1302,6 @@ def dropbox_to_maestral_error(
             elif error.is_properties_error():
                 # this is a programming error in maestral
                 text = "Invalid property group provided."
-                err_cls = MaestralApiError
             elif error.is_too_many_write_operations():
                 text = (
                     "There are too many write operations happening in your "
@@ -1362,12 +1333,6 @@ def dropbox_to_maestral_error(
             if error.is_path():
                 lookup_error = error.get_path()
                 text, err_cls = _get_lookup_error_msg(lookup_error)
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, files.ListFolderContinueError):
             title = "Could not list folder contents"
@@ -1380,12 +1345,6 @@ def dropbox_to_maestral_error(
                     "Maestral's index to re-sync your Dropbox."
                 )
                 err_cls = CursorResetError
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, files.ListFolderLongpollError):
             title = "Could not get Dropbox changes"
@@ -1395,12 +1354,6 @@ def dropbox_to_maestral_error(
                     "Maestral's index to re-sync your Dropbox."
                 )
                 err_cls = CursorResetError
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, async_.PollError):
 
@@ -1414,13 +1367,9 @@ def dropbox_to_maestral_error(
                 )
                 err_cls = DropboxServerError
             else:
-                # Other tags include invalid_async_job_id. Neither should occur in our
-                # SDK usage.
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
+                # Other tags include invalid_async_job_id.
+                # Neither should occur in our SDK usage.
+                pass
 
         elif isinstance(error, files.ListRevisionsError):
 
@@ -1429,12 +1378,6 @@ def dropbox_to_maestral_error(
             if error.is_path():
                 lookup_error = error.get_path()
                 text, err_cls = _get_lookup_error_msg(lookup_error)
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, files.RestoreError):
 
@@ -1442,19 +1385,13 @@ def dropbox_to_maestral_error(
 
             if error.is_invalid_revision():
                 text = "Invalid revision."
-                err_cls = PathError
+                err_cls = NotFoundError
             elif error.is_path_lookup():
                 lookup_error = error.get_path_lookup()
                 text, err_cls = _get_lookup_error_msg(lookup_error)
             elif error.is_path_write():
                 write_error = error.get_path_write()
                 text, err_cls = _get_write_error_msg(write_error)
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, files.GetMetadataError):
             title = "Could not get metadata"
@@ -1462,12 +1399,6 @@ def dropbox_to_maestral_error(
             if error.is_path():
                 lookup_error = error.get_path()
                 text, err_cls = _get_lookup_error_msg(lookup_error)
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
         elif isinstance(error, users.GetAccountError):
             title = "Could not get account info"
@@ -1478,20 +1409,55 @@ def dropbox_to_maestral_error(
                     "exist or has been deleted"
                 )
                 err_cls = InvalidDbidError
-            else:
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
-                err_cls = MaestralApiError
 
-        else:
-            err_cls = MaestralApiError
-            title = "An unexpected error occurred"
-            text = (
-                "Please contact the developer with the traceback "
-                "information from the logs."
-            )
+        elif isinstance(error, sharing.CreateSharedLinkWithSettingsError):
+            title = "Could not create shared link"
+
+            if error.is_access_denied():
+                text = "You do not have access to create shared links for this path."
+                err_cls = InsufficientPermissionsError
+            elif error.is_email_not_verified():
+                text = "Please verify you email address before creating shared links"
+                err_cls = SharedLinkError
+            elif error.is_path():
+                lookup_error = error.get_path()
+                text, err_cls = _get_lookup_error_msg(lookup_error)
+            elif error.is_settings_error():
+                settings_error = error.get_settings_error()
+                err_cls = SharedLinkError
+                if settings_error.is_invalid_settings():
+                    text = "Please check if the settings are valid."
+                elif settings_error.is_not_authorized():
+                    text = "Basic accounts do not support passwords or expiry dates."
+            elif error.is_shared_link_already_exists():
+                text = "The shared link already exists."
+                err_cls = SharedLinkError
+
+        elif isinstance(error, sharing.RevokeSharedLinkError):
+            title = "Could not revoke shared link"
+
+            if error.is_shared_link_not_found():
+                text = "The given link does not exist."
+                err_cls = NotFoundError
+            elif error.is_shared_link_access_denied():
+                text = "You do not have access to revoke the shared link."
+                err_cls = InsufficientPermissionsError
+            elif error.is_shared_link_malformed():
+                text = "The shared link is malformed."
+                err_cls = SharedLinkError
+            elif error.is_unsupported_link_type():
+                text = "The link type is not supported."
+                err_cls = SharedLinkError
+
+        elif isinstance(error, sharing.ListSharedLinksError):
+            title = "Could not list shared links"
+
+            if error.is_path():
+                lookup_error = error.get_path()
+                text, err_cls = _get_lookup_error_msg(lookup_error)
+            elif error.is_reset():
+                text = "Please try again later."
+                err_cls = SharedLinkError
 
     # ---- Authentication errors -------------------------------------------------------
     elif isinstance(exc, exceptions.AuthError):
@@ -1519,19 +1485,12 @@ def dropbox_to_maestral_error(
                 # Other tags are invalid_select_admin, invalid_select_user,
                 # missing_scope, route_access_denied. Neither should occur in our SDK
                 # usage.
-                err_cls = MaestralApiError
-                title = "An unexpected error occurred"
-                text = (
-                    "Please contact the developer with the traceback "
-                    "information from the logs."
-                )
+                pass
 
         else:
             err_cls = DropboxAuthError
             title = "Authentication error"
-            text = (
-                "Please check if you can log into your account on the Dropbox website."
-            )
+            text = "Please check if you can log in on the Dropbox website."
 
     # ---- OAuth2 flow errors ----------------------------------------------------------
     elif isinstance(exc, requests.HTTPError):
@@ -1559,20 +1518,10 @@ def dropbox_to_maestral_error(
     # ---- Internal Dropbox error ------------------------------------------------------
     elif isinstance(exc, exceptions.InternalServerError):
         err_cls = DropboxServerError
-        title = "Could not sync file or folder"
+        title = "Dropbox server error"
         text = (
-            "Something went wrong with the job on Dropbox’s end. Please "
-            "verify on the Dropbox website if the job succeeded and try "
-            "again if it failed."
-        )
-
-    # ---- Everything else -------------------------------------------------------------
-    else:
-        err_cls = MaestralApiError
-        title = "An unexpected error occurred"
-        text = (
-            "Please contact the developer with the traceback "
-            "information from the logs."
+            "Something went wrong on Dropbox’s end. Please check on status.dropbox.com "
+            "if their services are up and running and try again later."
         )
 
     maestral_exc = err_cls(title, text, dbx_path=dbx_path, local_path=local_path)

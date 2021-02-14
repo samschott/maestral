@@ -60,9 +60,10 @@ EXCLUDED_DIR_NAMES = frozenset([".dropbox.cache", FILE_CACHE])
 # state messages
 IDLE = "Up to date"
 SYNCING = "Syncing..."
-PAUSED = "Syncing paused"
 STOPPED = "Syncing stopped"
-DISCONNECTED = "Connecting..."
+CONNECTED = "Connected"
+DISCONNECTED = "Connection lost"
+CONNECTING = "Connecting..."
 SYNC_ERROR = "Sync error"
 ERROR = "Fatal error"
 
@@ -87,7 +88,6 @@ BRIEFCASE = any("Briefcase-Version" in md for md in _md_list)
 FROZEN = BRIEFCASE or getattr(sys, "frozen", False)
 
 # keys
-BUGSNAG_API_KEY = "081c05e2bf9730d5f55bc35dea15c833"
 DROPBOX_APP_KEY = "2jmbq42w7vof78h"
 
 # urls
