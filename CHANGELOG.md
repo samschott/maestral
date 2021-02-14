@@ -1,4 +1,16 @@
-## v1.3.2.dev
+## v1.4.0
+
+This release brings significant improvements to the command line interface: It
+introduces commands to create and manage shared links, to compare older version of a
+file and print the diff output to the terminal and commands for direct access to config
+values (note the warning below). It also adds optional one-way syncing, for instance
+when keeping a mirror of a remote Dropbox folder while ignoring local changes.
+
+Bug fixes mostly concern resuming the sync activity when the connection has been lost 
+while indexing a remote folder.
+
+Finally, this release removes automatic error reporting via Bugsnag. Please file any
+issues on GitHub where it is possible to follow up.
 
 #### Added:
 
@@ -95,9 +107,9 @@
 * Bumped survey to version >=3.2.2,<4.0.
 * Bumped keyring to version >=22.
 * Bumped watchdog to version >= 2.0.
-* Added desktop-notifier dependency. This is spin-off from Maestral, built on
-  the code from the `notify` module.
-* Removed bugsnag dependency.
+* Added `desktop-notifier` dependency. This is spin-off project from Maestral, built on
+  the code previously in the `notify` module.
+* Removed the bugsnag dependency.
 
 ## v1.3.1
 
