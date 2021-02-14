@@ -193,16 +193,17 @@ def cpu_usage_percent(interval: float = 0.1) -> float:
         return round(single_cpu_percent, 1)
 
 
-def check_connection(hostname: str) -> bool:
+def check_connection(hostname: str, timeout: int = 2) -> bool:
     """
     A low latency check for an internet connection.
 
     :param hostname: Hostname to use for connection check.
+    :param timeout: Timeout in seconds for connection check.
     :returns: Connection availability.
     """
     try:
         host = socket.gethostbyname(hostname)
-        s = socket.create_connection((host, 80), 2)
+        s = socket.create_connection(address=(host, 80), timeout=timeout)
         s.close()
         return True
     except Exception:
