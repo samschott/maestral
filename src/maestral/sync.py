@@ -2645,26 +2645,53 @@ class SyncEngine:
 
         with self.sync_lock:
 
-            is_indexing = self.remote_cursor == ""
+            if self.remote_cursor == "":
+
+                self._state.set("sync", "last_reindex", time.time())
+                self._state.set("sync", "did_finish_indexing", False)
+                self._state.set("sync", "indexing_counter", 0)
+
+            idx = self._state.get("sync", "indexing_counter")
+            is_indexing = not self._state.get("sync", "did_finish_indexing")
+
+            if is_indexing and idx == 0:
+                logger.info("Indexing remote Dropbox")
+            elif is_indexing:
+                logger.info("Resuming indexing")
+            else:
+                logger.info("Fetching remote changes")
 
             changes_iter = self.list_remote_changes_iterator(self.remote_cursor)
 
             # Download changes in chunks to reduce memory usage.
             for changes, cursor in changes_iter:
-                downloaded = self.apply_remote_changes(changes)
 
-                if not is_indexing:
-                    # Don't send desktop notifications during indexing.
-                    self.notify_user(downloaded)
+                idx += len(changes)
+
+                if idx > 0:
+                    logger.info(f"Indexing {idx}...")
+
+                downloaded = self.apply_remote_changes(changes)
 
                 # Save (incremental) remote cursor.
                 self.remote_cursor = cursor
+                self._state.set("sync", "indexing_counter", idx)
+
+                # Send desktop notifications when not indexing.
+                if not is_indexing:
+                    self.notify_user(downloaded)
 
                 if self._cancel_requested.is_set():
                     raise CancelledError("Sync cancelled")
 
                 del changes
                 del downloaded
+
+            self._state.set("sync", "did_finish_indexing", True)
+            self._state.set("sync", "indexing_counter", 0)
+
+            if idx > 0:
+                logger.info(IDLE)
 
             self._free_memory()
 
@@ -2681,26 +2708,16 @@ class SyncEngine:
         :returns: Iterator yielding tuples with remote changes and corresponding cursor.
         """
 
-        idx = 0
-
         if last_cursor == "":
             # We are starting from the beginning, do a full indexing.
-            logger.info("Fetching remote Dropbox")
-            self._state.set("sync", "last_reindex", time.time())
             changes_iter = self.client.list_folder_iterator("/", recursive=True)
         else:
             # Pick up where we left off. This may be an interrupted indexing /
             # pagination through changes or a completely new set of changes.
-            logger.info("Fetching remote changes...")
             logger.debug("Fetching remote changes since cursor: %s", last_cursor)
             changes_iter = self.client.list_remote_changes_iterator(last_cursor)
 
         for changes in changes_iter:
-
-            idx += len(changes.entries)
-
-            if idx > 0:
-                logger.info(f"Indexing {idx}...")
 
             logger.debug("Listed remote changes:\n%s", entries_repr(changes.entries))
 
@@ -2717,9 +2734,6 @@ class SyncEngine:
             logger.debug("Converted remote changes to SyncEvents")
 
             yield sync_events, changes.cursor
-
-        if idx > 0:
-            logger.info(IDLE)
 
     def apply_remote_changes(self, sync_events: List[SyncEvent]) -> List[SyncEvent]:
         """

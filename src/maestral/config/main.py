@@ -82,6 +82,8 @@ DEFAULTS_STATE: DefaultsType = [
             "cursor": "",  # remote cursor: represents last state synced from dropbox
             "lastsync": 0.0,  # local cursor: time-stamp of last upload
             "last_reindex": 0.0,  # time-stamp of full last reindexing
+            "indexing_counter": 0,  # counter for indexing progress between restarts
+            "did_finish_indexing": False,  # indicates completed indexing
             "upload_errors": [],  # failed uploads to retry on next sync
             "download_errors": [],  # failed downloads to retry on next sync
             "pending_uploads": [],  # incomplete uploads to retry on next sync
