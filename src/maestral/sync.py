@@ -3940,7 +3940,7 @@ class SyncMonitor:
                 # Log the status change.
                 logger.info(CONNECTED if connected else CONNECTING)
 
-                if not self.sync.busy():
+                if connected and not self.sync.busy():
                     logger.info(IDLE)
 
             if connected:
