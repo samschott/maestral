@@ -1,3 +1,8 @@
+## v1.4.2
+
+Fixes an issue where the daemon might restart syncing even though it should be paused
+when an internet connection is reestablished.
+
 ## v1.4.1
 
 Fixes an issue where the daemon status may incorrectly report "Connecting..." even
