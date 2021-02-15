@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import time
 
 import pytest
 from click.testing import CliRunner
@@ -18,6 +19,7 @@ def wait_for_idle(m: MaestralProxy, minimum: int = 2):
 
     while True:
         current_status = m.status
+        time.sleep(minimum)
         if current_status in (IDLE, PAUSED, ERROR, ""):
             m.status_change_longpoll(timeout=minimum)
             if m.status == current_status:
@@ -55,10 +57,16 @@ def test_status(proxy):
 
 def test_filestatus(proxy):
     runner = CliRunner()
-    proxy.start_sync()
-    wait_for_idle(proxy)
 
     local_path = proxy.to_local_path("/sync_tests")
+
+    result = runner.invoke(main, ["filestatus", local_path, "-c", proxy.config_name])
+
+    assert result.exit_code == 0
+    assert result.output == "unwatched\n"
+
+    proxy.start_sync()
+    wait_for_idle(proxy)
 
     result = runner.invoke(main, ["filestatus", local_path, "-c", proxy.config_name])
 
