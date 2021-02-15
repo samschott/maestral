@@ -890,10 +890,8 @@ def status(config_name: str) -> None:
 
             email = m.get_state("account", "email")
             account_type = m.get_state("account", "type").capitalize()
-
-            status_info = m.status if m.running else "Paused"
             usage = m.get_state("account", "usage")
-
+            status_info = m.status
             n_errors = len(m.sync_errors)
             color = "red" if n_errors > 0 else "green"
             n_errors_str = click.style(str(n_errors), fg=color)
