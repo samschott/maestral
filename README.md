@@ -13,14 +13,14 @@ Maestral is an open-source Dropbox client written in Python. The project's main 
 provide a client for platforms and file systems that are no longer directly supported by
 Dropbox.
 
-Maestral currently does not support Dropbox Paper, the management of Dropbox teams and
+Maestral currently does not support Dropbox Paper, the management of Dropbox teams, and
 the management of shared folder settings. If you need any of this functionality, please
 use the Dropbox website or the official client. Maestral does support syncing
 multiple Dropbox accounts and excluding local files from sync with a ".mignore" file.
 
 The focus on "simple" file syncing does come with advantages: on macOS, the Maestral App
 bundle is significantly smaller than the official Dropbox app (20 MB vs 290 MB) and uses
-much less memory (100 MB vs 800 MB for a medium sized Dropbox on macOS). The memory usage
+much less memory (100 MB vs 800 MB for a medium-sized Dropbox on macOS). The memory usage
 will depend on the size of your synced Dropbox folder and can be further reduced when
 running Maestral without a GUI.
 
@@ -76,7 +76,7 @@ commands. The most important are:
 - `maestral pause|resume`: Pauses or resumes syncing.
 - `maestral autostart -Y|-N`: Sets the daemon to start on log in.
 - `maestral status`: Gets the current status of Maestral.
-- `maestral file-status LOCAL_PATH`: Gets the sync status of an individual file or folder.
+- `maestral filestatus LOCAL_PATH`: Gets the sync status of an individual file or folder.
 - `maestral excluded add|remove|list`: Command group to manage excluded folders.
 - `maestral ls DROPBOX_PATH`: Lists the contents of a directory on Dropbox.
 - `maestral notify snooze N`: Snoozes desktop notifications for N minutes.

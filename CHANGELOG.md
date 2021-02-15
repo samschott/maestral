@@ -1,3 +1,8 @@
+## v1.4.1
+
+Fixes an issue where the daemon status may incorrectly report "Connecting..." even
+though the daemon is connected.
+
 ## v1.4.0
 
 This release brings significant extensions to the command line interface: It introduces
