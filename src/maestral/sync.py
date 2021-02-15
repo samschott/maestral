@@ -74,7 +74,7 @@ from .config import MaestralConfig, MaestralState
 from .constants import (
     IDLE,
     SYNCING,
-    STOPPED,
+    PAUSED,
     CONNECTED,
     DISCONNECTED,
     CONNECTING,
@@ -3731,6 +3731,8 @@ class SyncMonitor:
         )
         self.connection_helper.start()
 
+        self.local_observer_thread: Optional[Observer] = None
+
     def _with_lock(fn: FT) -> FT:  # type: ignore
         @wraps(fn)
         def wrapper(self, *args, **kwargs):
@@ -3781,6 +3783,12 @@ class SyncMonitor:
         """Creates observer threads and starts syncing."""
 
         if self.running.is_set():
+            return
+
+        if not check_connection("www.dropbox.com"):
+            # Schedule autostart when connection becomes available.
+            self.autostart.set()
+            logger.info(CONNECTING)
             return
 
         # create a new set of events to let old threads die down
@@ -3920,9 +3928,10 @@ class SyncMonitor:
 
         self.sync.cancel_sync()
 
-        self.local_observer_thread.stop()
+        if self.local_observer_thread:
+            self.local_observer_thread.stop()
 
-        logger.info(STOPPED)
+        logger.info(PAUSED)
 
     def connection_monitor(self) -> None:
         """
@@ -3936,12 +3945,8 @@ class SyncMonitor:
             connected = check_connection("www.dropbox.com")
 
             if connected != self.connected:
-
                 # Log the status change.
                 logger.info(CONNECTED if connected else CONNECTING)
-
-                if connected and not self.sync.busy():
-                    logger.info(IDLE)
 
             if connected:
                 if not self.running.is_set() and self.autostart.is_set():

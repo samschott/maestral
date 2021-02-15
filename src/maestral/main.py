@@ -71,7 +71,7 @@ from .utils.serializer import (
 )
 from .utils.appdirs import get_log_path, get_cache_path, get_data_path
 from .utils.integration import get_ac_state, ACState
-from .constants import IDLE, FileStatus, GITHUB_RELEASES_API
+from .constants import IDLE, PAUSED, CONNECTING, FileStatus, GITHUB_RELEASES_API
 
 
 __all__ = ["Maestral"]
@@ -524,7 +524,12 @@ class Maestral:
     def status(self) -> str:
         """The last status message (read only). This can be displayed as information to
         the user but should not be relied on otherwise."""
-        return self._log_handler_info_cache.getLastMessage()
+        if self.paused:
+            return PAUSED
+        elif not self.connected:
+            return CONNECTING
+        else:
+            return self._log_handler_info_cache.getLastMessage()
 
     @property
     def sync_errors(self) -> List[ErrorType]:
@@ -969,16 +974,14 @@ class Maestral:
         self._check_linked()
         self._check_dropbox_dir()
 
-        if not self.running:
-            self.monitor.start()
+        self.monitor.start()
 
     def stop_sync(self) -> None:
         """
         Stops all syncing threads if running. Call :meth:`start_sync` to restart
         syncing.
         """
-        if self.running:
-            self.monitor.stop()
+        self.monitor.stop()
 
     def reset_sync_state(self) -> None:
         """

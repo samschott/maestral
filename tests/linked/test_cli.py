@@ -6,7 +6,7 @@ import pytest
 from click.testing import CliRunner
 
 from maestral.cli import main
-from maestral.constants import IDLE, STOPPED, ERROR
+from maestral.constants import IDLE, PAUSED, ERROR
 from maestral.daemon import MaestralProxy
 
 
@@ -18,7 +18,7 @@ def wait_for_idle(m: MaestralProxy, minimum: int = 2):
 
     while True:
         current_status = m.status
-        if current_status in (IDLE, STOPPED, ERROR, ""):
+        if current_status in (IDLE, PAUSED, ERROR, ""):
             m.status_change_longpoll(timeout=minimum)
             if m.status == current_status:
                 # status did not change, we are done
