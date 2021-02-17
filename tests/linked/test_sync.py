@@ -833,12 +833,10 @@ def test_unix_permissions(m):
     "name",
     [
         "tést_file",  # U+00E9
-        "tést_file",  # U+0065 and U+0301 (decomposed representation)
         "täst_file",  # U+00E4
-        "file_🦑",  # U+1F991
     ],
 )
-def test_unicode(m, name):
+def test_unicode_allowed(m, name):
     """Tests syncing files with exotic unicode characters."""
 
     local_path = osp.join(m.test_folder_local, name)
@@ -849,6 +847,25 @@ def test_unicode(m, name):
     assert_synced(m)
     assert_exists(m, "/sync_tests", name)
     assert_child_count(m, "/sync_tests", 1)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "file_🦑",  # U+1F991
+        "tést_file",  # U+0065 and U+0301 (decomposed representation)
+    ],
+)
+def test_unicode_forbidden(m, name):
+    """Tests syncing files with exotic unicode characters."""
+
+    local_path = osp.join(m.test_folder_local, name)
+
+    os.mkdir(local_path)
+    wait_for_idle(m)
+
+    assert len(m.sync_errors) == 1
+    assert m.sync_errors[-1]["local_path"] == local_path
 
 
 @pytest.mark.skipif(
