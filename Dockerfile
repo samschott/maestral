@@ -11,6 +11,7 @@ RUN set -eux ; \
     python3-dev \
     libffi-dev \
     openssl-dev ; \
+  pip install -U pip; \
   pip install maestral==${VERSION} ; \
   pip cache purge ; \
   apk del --no-network .build-deps
