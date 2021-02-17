@@ -10,7 +10,8 @@ RUN set -eux ; \
     musl-dev \
     python3-dev \
     libffi-dev \
-    openssl-dev ; \
+    openssl-dev \
+    cargo ; \
   pip install -U pip; \
   pip install maestral==${VERSION} ; \
   pip cache purge ; \
