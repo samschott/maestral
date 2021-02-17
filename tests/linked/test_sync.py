@@ -829,6 +829,28 @@ def test_unix_permissions(m):
     assert os.stat(local_path).st_mode == new_mode
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "tést_file",  # U+00E9
+        "tést_file",  # U+0065 and U+0301 (decomposed representation)
+        "täst_file",  # U+00E4
+        "file_🦑",  # U+1F991
+    ],
+)
+def test_unicode(m, name):
+    """Tests syncing files with exotic unicode characters."""
+
+    local_path = osp.join(m.test_folder_local, name)
+
+    os.mkdir(local_path)
+
+    wait_for_idle(m)
+    assert_synced(m)
+    assert_exists(m, "/sync_tests", name)
+    assert_child_count(m, "/sync_tests", 1)
+
+
 @pytest.mark.skipif(
     sys.platform != "linux", reason="macOS enforces utf-8 path encoding"
 )
@@ -849,7 +871,7 @@ def test_unknown_path_encoding(m, capsys):
 
     # 1) Check that the sync issue is logged
 
-    # This requires that our "syncing" logic from the emitted watchdog event all the
+    # This requires that our sync logic from the emitted watchdog event all the
     # way to `SyncEngine._on_local_created` can handle strings with surrogate escapes.
 
     assert len(m.fatal_errors) == 0
