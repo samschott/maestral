@@ -853,7 +853,6 @@ def test_unicode_allowed(m, name):
     "name",
     [
         "file_🦑",  # U+1F991
-        "tést_file",  # U+0065 and U+0301 (decomposed representation)
     ],
 )
 def test_unicode_forbidden(m, name):
