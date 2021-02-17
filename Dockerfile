@@ -12,7 +12,6 @@ RUN set -eux ; \
     libffi-dev \
     openssl-dev \
     cargo ; \
-  pip install -U pip; \
   pip install maestral==${VERSION} ; \
   pip cache purge ; \
   apk del --no-network .build-deps
