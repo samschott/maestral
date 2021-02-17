@@ -1,4 +1,4 @@
-FROM python:3.8.6-alpine3.12
+FROM python:3.9.1-alpine3.13
 
 ARG UID=1000
 ARG VERSION
@@ -10,7 +10,9 @@ RUN set -eux ; \
     musl-dev \
     python3-dev \
     libffi-dev \
-    openssl-dev ; \
+    openssl-dev \
+    cargo ; \
+  pip install -U pip; \
   pip install maestral==${VERSION} ; \
   pip cache purge ; \
   apk del --no-network .build-deps
