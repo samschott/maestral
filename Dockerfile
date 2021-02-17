@@ -14,6 +14,8 @@ RUN set -eux ; \
     cargo ; \
   pip install maestral==${VERSION} ; \
   pip cache purge ; \
+  cargo clean ; \
+  rm -rf ~/.cargo; \
   apk del --no-network .build-deps
 
 USER dropbox
