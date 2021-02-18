@@ -13,9 +13,8 @@ RUN set -eux ; \
     openssl-dev \
     cargo ; \
   pip install maestral==${VERSION} ; \
-  pip cache purge ; \
-  cargo clean ; \
-  rm -rf ~/.cargo; \
+  rm -rf /root/.cargo; \
+  rm -rf /root/.cache; \
   apk del --no-network .build-deps
 
 USER dropbox
