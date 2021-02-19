@@ -32,11 +32,11 @@ Maestral processes remote events as follows:
      guaranteed and may change. One exception is sharing a folder: Dropbox does this
      by removing the folder from the user's root and re-mounting it as a shared
      folder. This produces at least one DeletedMetadata and one FolderMetadata event.
-     If querying for changes *during* this process, multiple DeletedMetadata events
-     may be returned.
+     If querying for changes *during* this process, multiple
+     :class:`dropbox.files.DeletedMetadata` events may be returned.
    * If a file / folder event implies a type changes, e.g., replacing a folder with a
-     file, we explicitly generate the necessary DeletedMetadata here to simplify
-     conflict resolution.
+     file, we explicitly generate the necessary :class:`dropbox.files.DeletedMetadata`
+     here to simplify conflict resolution.
 
 3) :meth:`SyncEngine.apply_remote_changes`: Sorts all events hierarchically, with
    top-level events coming first. Deleted and folder events are processed in order,
@@ -72,21 +72,22 @@ Before processing, we convert all Dropbox metadata and local file events to a un
 format of :class:`maestral.database.SyncEvent` instances which are also used to store
 the sync history data in our SQLite database.
 
-Detection of sync conflicts
-***************************
+Detection and resolution of sync conflicts
+******************************************
 
-Sync conflicts during a download are detected by comparing the file "rev" with our
-locally saved rev. We assign folders a rev of ``'folder'`` and deleted / non-existent
-items a rev of ``None``.
+Sync conflicts during a download are detected by comparing the file's "rev" with the
+locally saved revision identifier in Maestral's index. We assign folders a rev of
+``'folder'`` and deleted / non-existent items a rev of ``None``.
 
-#. If revs are equal, the local item is the same or newer as on Dropbox and no download
-   / deletion occurs.
-#. If revs are different, we compare content hashes. If hashes are equal, no download
-   occurs.
+#. If both revs are equal, the local item is either the same as on Dropbox or newer and
+   the local changes haven't been uploaded and committed to our index yet. No download
+   sync occurs (including deletion of the local file).
+#. If revs are different, we compare content hashes. If those hashes are equal, no
+   download occurs.
 #. If content hashes are different, we check if the local item has been modified since
-   the last download sync. In case of a folder, we take the newest change of any of its
-   children. If the local entry has not been modified since the last sync, it will be
-   replaced. Otherwise, we create a conflicting copy.
+   the last download sync. In case of a folder, we take the most recent change of any of
+   its children. If the local entry has not been modified since the last sync, it will
+   be replaced. Otherwise, we create a conflicting copy.
 
 Conflict resolution for uploads is handled as follows:
 

@@ -29,9 +29,4 @@ All custom handlers are defined in the :mod:`maestral.logging` module. Maestral 
 subclasses the default :class:`logging.LogRecord` to guarantee that any surrogate escape
 characters in file paths are replaced before emitting a log and flushing to any streams.
 Otherwise, incorrectly encoded file paths could prevent logging from working properly
-when it would be particularly useful.
-
-In addition to those automated logging facilities, desktop notifications are sent
-manually on file changes and sync issues with appropriate buttons and callbacks for user
-interaction. Those notifications can be separately enabled, disabled or snoozed though
-the GUI or the CLI with ``maestral notify level`` and ``maestral notify snooze``.
+in exactly those cases where it would be particularly useful.

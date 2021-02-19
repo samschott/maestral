@@ -33,12 +33,12 @@ made to one of the options through the ``maestral.config`` module.
 
     # Unique Dropbox account ID. The account's email
     # address may change and is therefore not stored here.
-    account_id = dbid:AABP7CC5bpYd8cGHqIColDFrMoc9SdhACA4
+    account_id = dbid:AABP7CC5bpYd8ghjIColDFrMoc9SdhACA4
 
     [app]
 
     # Level for desktop notifications:
-    # 15 = FILECHAANGE
+    # 15 = FILECHANGE
     # 30 = SYNCISSUE
     # 40 = ERROR
     # 100 = NONE
