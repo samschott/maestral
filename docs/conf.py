@@ -55,14 +55,13 @@ autoapi_dirs = ["../src/maestral"]
 autoapi_options = [
     "members",
     "show-inheritance",
-    "undoc-members",
 ]
 autoapi_add_toctree_entry = False
 
 # sphinx.ext.todo
 todo_include_todos = True
 
-# sphinx.ext.intersphinx
+# sphinx.ext.intersphsinx
 intersphinx_mapping = {
     "click": ("https://click.palletsprojects.com/en/master/", None),
     "dropbox": ("https://dropbox-sdk-python.readthedocs.io/en/latest/", None),
@@ -73,3 +72,15 @@ intersphinx_mapping = {
     "sqlalchemy": ("https://docs.sqlalchemy.org/en/latest/", None),
     "watchdog": ("https://python-watchdog.readthedocs.io/en/latest/", None),
 }
+
+
+def maybe_skip_member(app, what, name, obj, skip, options):
+    if what == "attribute" and not obj.is_private_member:
+        # document all public attributes
+        return False
+    else:
+        return None
+
+
+def setup(app):
+    app.connect("autoapi-skip-member", maybe_skip_member)

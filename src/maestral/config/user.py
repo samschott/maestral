@@ -124,18 +124,18 @@ class UserConfig(DefaultsConfig):
 
     Parameters
     ----------
-    path: str
+    path:
         Configuration file will be saved to this path.
-    defaults: {} or [(str, {}),]
+    defaults:
         Dictionary containing options *or* list of tuples (sec_name, options)
-    load: bool
+    load:
         If a previous configuration file is found, load will take the values
         from this existing file, instead of using default values.
-    version: str
+    version:
         version of the configuration file in 'major.minor.micro' format.
-    backup: bool
+    backup:
         A backup will be created on version changes and on initial setup.
-    remove_obsolete: bool
+    remove_obsolete:
         If `True`, values that were removed from the configuration on version
         change, are removed from the saved configuration file.
 
@@ -464,9 +464,9 @@ class UserConfig(DefaultsConfig):
 
         Parameters
         ----------
-        section: str
+        section:
             Section name. If `None` is provide use the default section name.
-        option: str
+        option:
             Option name for `section`.
         default:
             Default value (if not specified, an exception will be raised if
